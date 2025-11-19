@@ -1,6 +1,5 @@
 import { useState, useRef, KeyboardEvent } from 'react'
 import { Send, Square } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ChatStatus } from '@/types/chat'
 import { cn } from '@/lib/utils'
