@@ -46,11 +46,12 @@ func main() {
 
 	// Initialize handlers
 	healthHandler := handlers.NewHealthHandler()
-	// TODO: Add chat and dispatch handlers
+	// TODO: Add chat and dispatch handlers in B6-B7
 
 	// Register routes
 	v1Router.HandleFunc("/health", healthHandler.HandleHealth).Methods("GET")
-	// TODO: Add /chat and /financial/actions/dispatch routes
+	v1Router.HandleFunc("/tools", healthHandler.HandleTools).Methods("GET")
+	// TODO: Add /chat and /financial/actions/dispatch routes in B6-B7
 
 	// Start server
 	port := os.Getenv("PORT")
