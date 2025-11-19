@@ -675,10 +675,12 @@ F0 → F1 → F2 → F3 → F4 → F5 → F7
 - F4: Recreate Chat Interface Components ✅ DONE (6 pts)
 - F5: Create Action Preview Components ✅ DONE (6 pts)
 
-**⏳ REMAINING (7/29 points - 24%):**
+**⏳ REMAINING (17/39 points - 44%):**
 - F6: Create Action Results & Feedback UI ⚠️ IN PROGRESS (3 pts)
 - F7: Frontend Integration & Testing ❌ TODO (3 pts) - **BLOCKED BY B6 + B7**
 - F8: Production Build & Deployment ❌ TODO (2 pts) - **BLOCKED BY B8**
+- F9: Financial Data Entry Modals ❌ TODO (6 pts)
+- F10: Property Planner Modal ❌ TODO (4 pts)
 
 **🔗 REQUIRED BACKEND TICKETS TO UNBLOCK FRONTEND:**
 
@@ -708,3 +710,93 @@ F0 → F1 → F2 → F3 → F4 → F5 → F7
 - Action proposal generation
 - Action execution and results
 - End-to-end user workflow
+
+---
+
+## Phase 5: Financial Data Management
+
+### Ticket F9: Financial Data Entry Modals
+**Priority:** P1
+**Estimate:** 6 story points
+**Dependencies:** F5
+**Team:** Frontend
+**Status:** ❌ TODO
+
+**Description:**
+Implement modal dialogs for CRUD operations on financial data (Assets, Income, Liabilities, Expenses).
+
+**Acceptance Criteria:**
+- [ ] Create `FinancialFormModal.tsx` base modal component
+- [ ] Implement `AssetModal.tsx` for asset creation/editing
+- [ ] Implement `IncomeModal.tsx` for income entry/editing
+- [ ] Implement `LiabilityModal.tsx` for liability management
+- [ ] Implement `ExpenseModal.tsx` for expense tracking
+- [ ] Add form validation using existing Zod schemas
+- [ ] Connect modal state to financial data buttons
+- [ ] Implement mock data persistence (localStorage)
+
+**Reference Files from Assetra2:**
+- `/Users/jitcorn/assetra2/components/financial-form-modal.tsx` - Base modal structure
+- `/Users/jitcorn/assetra2/components/cpf-balance-form.tsx` - Form patterns
+- `/Users/jitcorn/assetra2/components/ui/sheet.tsx` - Modal implementation
+- `/Users/jitcorn/assetra2/lib/financial/client.ts` - Data operations
+
+**Technical Details:**
+```typescript
+interface FinancialFormModalProps {
+  type: 'asset' | 'income' | 'liability' | 'expense'
+  mode: 'create' | 'edit'
+  data?: Asset | Income | Liability | Expense
+  isOpen: boolean
+  onClose: () => void
+  onSave: (data: any) => void
+}
+```
+
+**Files:**
+- `src/components/modals/FinancialFormModal.tsx`
+- `src/components/modals/AssetModal.tsx`
+- `src/components/modals/IncomeModal.tsx`
+- `src/components/modals/LiabilityModal.tsx`
+- `src/components/modals/ExpenseModal.tsx`
+
+### Ticket F10: Property Planner Modal
+**Priority:** P1
+**Estimate:** 4 story points
+**Dependencies:** F9
+**Team:** Frontend
+**Status:** ❌ TODO
+
+**Description:**
+Implement Property Planner modal interface for HDB (BTO/Resale) planning.
+
+**Acceptance Criteria:**
+- [ ] Create `PropertyPlannerModal.tsx` component
+- [ ] Implement HDB planning forms and calculations
+- [ ] Add property type selection (BTO/Resale)
+- [ ] Include affordability calculator
+- [ ] Connect to Property Planner button in workspace
+- [ ] Match Assetra2 property planner design exactly
+
+**Reference Files from Assetra2:**
+- `/Users/jitcorn/assetra2/components/property-planner/` - Property planner components
+- `/Users/jitcorn/assetra2/features/property-planner/` - Property planning logic
+
+**Files:**
+- `src/components/modals/PropertyPlannerModal.tsx`
+- `src/components/property/PropertyForm.tsx`
+
+---
+
+## Updated Frontend Summary
+
+**Total Frontend Story Points:** 39 points (updated from 29)
+
+**Progress:**
+- **✅ COMPLETED:** 22 points (56%)
+- **⏳ REMAINING:** 17 points (44%)
+
+**New Critical Path:**
+F0 → F1 → F2 → F3 → F4 → F5 → F9 → F10 → F7
+
+The addition of F9 and F10 represents the missing financial data management functionality that was identified as gaps in the current implementation.
