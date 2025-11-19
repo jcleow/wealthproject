@@ -1,0 +1,639 @@
+# Backend Development Tickets - Financial Chat System
+
+**Repository:** `financial-chat-system` (new repo)
+**Technology Stack:** Go + OpenAI/Anthropic SDKs + PostgreSQL
+**Total Backend Points:** 37 points
+
+## Phase 0: Backend Foundation Setup
+
+### Ticket B0a: Create Go Backend Repository Structure
+**Priority:** P0
+**Estimate:** 2 story points
+**Dependencies:** None
+**Team:** Backend
+
+**Description:**
+Set up new Go repository structure for financial chat backend.
+
+**Acceptance Criteria:**
+- [ ] Create new GitHub repository: `financial-chat-system`
+- [ ] Set up Go module structure with proper organization
+- [ ] Configure development environment (Docker, Makefile)
+- [ ] Set up database connection and migrations
+- [ ] Create basic HTTP server with middleware
+- [ ] Set up CI/CD pipeline for Go backend
+
+**Technical Details:**
+```
+financial-chat-system/
+├── cmd/
+│   └── server/
+│       ├── main.go
+│       └── handlers/
+├── internal/
+│   ├── llm/
+│   ├── financial/
+│   ├── auth/
+│   └── database/
+├── migrations/
+├── go.mod
+├── go.sum
+├── Dockerfile
+└── Makefile
+```
+
+**Environment Setup:**
+- Go 1.21+
+- PostgreSQL for session state
+- Docker for development
+- Environment variable configuration
+
+---
+
+## Phase 1: LLM Integration Layer
+
+### Ticket B0b: API Versioning & Middleware Setup
+**Priority:** P0
+**Estimate:** 2 story points
+**Dependencies:** B0a
+**Team:** Backend
+
+**Description:**
+Set up API versioning strategy and middleware for backward compatibility.
+
+**Acceptance Criteria:**
+- [ ] Create `internal/middleware/versioning.go`
+- [ ] Implement version validation middleware
+- [ ] Support `/api/v1/` URL prefix routing
+- [ ] Add `API-Version` header support
+- [ ] Create version deprecation warning system
+- [ ] Set up version-specific response formatting
+
+**Technical Details:**
+```go
+type VersionMiddleware struct {
+    supportedVersions map[string]bool
+    deprecatedVersions map[string]string // version -> deprecation notice
+}
+
+func (v *VersionMiddleware) ValidateVersion(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        version := extractVersion(r) // from URL path or header
+
+        if !v.supportedVersions[version] {
+            writeError(w, 400, "unsupported_api_version", "API version not supported")
+            return
+        }
+
+        // Add version to response headers
+        w.Header().Set("API-Version", version)
+
+        // Add deprecation warning if applicable
+        if warning, deprecated := v.deprecatedVersions[version]; deprecated {
+            w.Header().Set("X-API-Deprecation-Warning", warning)
+        }
+
+        next.ServeHTTP(w, r)
+    })
+}
+
+// Route setup with versioning
+router.PathPrefix("/api/v1/").Handler(v1Router)
+// Future: router.PathPrefix("/api/v2/").Handler(v2Router)
+```
+
+**Files:**
+- `internal/middleware/versioning.go`
+- `cmd/server/routes.go` (version-specific routing)
+
+### Ticket B1: Go LLM Client Interface & Types
+**Priority:** P0
+**Estimate:** 3 story points
+**Dependencies:** B0b
+**Team:** Backend
+
+**Description:**
+Create LLM client abstraction supporting multiple providers.
+
+**Acceptance Criteria:**
+- [ ] Create `internal/llm/types.go` with core structs
+- [ ] Define LLMClient interface for provider abstraction
+- [ ] Support OpenAI and Anthropic tool calling formats
+- [ ] Handle chat context and conversation flow
+- [ ] Include proper error handling and timeouts
+
+**Technical Details:**
+```go
+type LLMClient interface {
+    GenerateToolCalls(ctx context.Context, req ChatRequest) (*ToolCallResponse, error)
+    SupportedModels() []string
+}
+
+type ChatMessage struct {
+    Role      string      `json:"role"`
+    Content   string      `json:"content"`
+    ToolCalls []ToolCall  `json:"tool_calls,omitempty"`
+    ToolCallID string     `json:"tool_call_id,omitempty"`
+}
+
+type ToolCall struct {
+    ID       string        `json:"id"`
+    Type     string        `json:"type"`
+    Function FunctionCall  `json:"function"`
+}
+
+type ChatRequest struct {
+    Messages    []ChatMessage    `json:"messages"`
+    Tools       []ToolDefinition `json:"tools"`
+    Model       string          `json:"model"`
+    Temperature float64         `json:"temperature"`
+}
+```
+
+**Files:**
+- `internal/llm/types.go`
+- `internal/llm/client.go`
+
+### Ticket B2: Implement OpenAI Provider
+**Priority:** P0
+**Estimate:** 5 story points
+**Dependencies:** B1
+**Team:** Backend
+
+**Description:**
+Implement OpenAI provider for LLM tool calling.
+
+**Acceptance Criteria:**
+- [ ] Add OpenAI Go SDK dependency
+- [ ] Create `internal/llm/providers/openai.go`
+- [ ] Implement OpenAIProvider with LLMClient interface
+- [ ] Support GPT-4 and GPT-3.5-turbo models
+- [ ] Handle OpenAI function calling format natively
+- [ ] Include retry logic and rate limiting
+- [ ] Proper error handling for API failures
+
+**Technical Details:**
+```go
+type OpenAIProvider struct {
+    client *openai.Client
+    model  string
+    config OpenAIConfig
+}
+
+type OpenAIConfig struct {
+    APIKey      string
+    Model       string
+    Temperature float64
+    MaxTokens   int
+}
+
+func (p *OpenAIProvider) GenerateToolCalls(ctx context.Context, req ChatRequest) (*ToolCallResponse, error) {
+    // Convert internal format to OpenAI format
+    // Make API call with function calling
+    // Parse response back to internal format
+}
+```
+
+**Files:**
+- `internal/llm/providers/openai.go`
+- `go.mod` (add openai-go dependency)
+
+### Ticket B3: Implement Anthropic Provider (Optional)
+**Priority:** P1
+**Estimate:** 4 story points
+**Dependencies:** B1
+**Team:** Backend
+
+**Description:**
+Implement Anthropic Claude provider for tool calling.
+
+**Acceptance Criteria:**
+- [ ] Add Anthropic API client
+- [ ] Create `internal/llm/providers/anthropic.go`
+- [ ] Convert Anthropic tool format to standard format
+- [ ] Support Claude-3 models
+- [ ] Handle Anthropic-specific API patterns
+
+**Files:**
+- `internal/llm/providers/anthropic.go`
+
+---
+
+## Phase 2: Financial Tools System
+
+### Ticket B4: Define Financial Tools Schema
+**Priority:** P0
+**Estimate:** 4 story points
+**Dependencies:** B2
+**Team:** Backend
+
+**Description:**
+Create financial tool definitions and parameter validation.
+
+**Acceptance Criteria:**
+- [ ] Create `internal/financial/tools.go` with tool schemas
+- [ ] Define 5 financial tools matching existing backend client methods:
+  - `createAsset` - Create new financial asset
+  - `updateAsset` - Update existing asset
+  - `createLiability` - Create new liability
+  - `updateLiability` - Update existing liability
+  - `createPropertyScenario` - Create property planning scenario
+- [ ] Use JSON Schema format for parameter validation
+- [ ] Include tool descriptions optimized for LLM understanding
+- [ ] Create tool registry for lookup and execution
+
+**Technical Details:**
+```go
+type ToolDefinition struct {
+    Type     string          `json:"type"`
+    Function FunctionSchema  `json:"function"`
+}
+
+type FunctionSchema struct {
+    Name        string                 `json:"name"`
+    Description string                 `json:"description"`
+    Parameters  map[string]interface{} `json:"parameters"`
+}
+
+var FinancialTools = []ToolDefinition{
+    {
+        Type: "function",
+        Function: FunctionSchema{
+            Name: "createAsset",
+            Description: "Create a new financial asset (savings, investment, etc.)",
+            Parameters: map[string]interface{}{
+                "type": "object",
+                "properties": map[string]interface{}{
+                    "name":         map[string]string{"type": "string"},
+                    "assetType":    map[string]string{"type": "string", "enum": "savings,investment,real_estate"},
+                    "currentValue": map[string]string{"type": "number"},
+                    "currency":     map[string]string{"type": "string", "default": "SGD"},
+                },
+                "required": []string{"name", "assetType", "currentValue"},
+            },
+        },
+    },
+    // ... other tool definitions
+}
+```
+
+**Files:**
+- `internal/financial/tools.go`
+- `internal/financial/registry.go`
+
+### Ticket B5: Implement Action Preview Service
+**Priority:** P0
+**Estimate:** 5 story points
+**Dependencies:** B4
+**Team:** Backend
+
+**Description:**
+Create service to generate human-readable action previews from tool calls.
+
+**Acceptance Criteria:**
+- [ ] Create `internal/financial/preview.go`
+- [ ] Generate friendly descriptions from tool parameters
+- [ ] Calculate impact estimates (net worth changes, cash flow)
+- [ ] Detect potential warnings (high interest rates, MSR violations)
+- [ ] Identify dependencies between multiple actions
+- [ ] Support batch preview generation
+
+**Technical Details:**
+```go
+type ActionPreviewService struct {
+    calculator *FinancialCalculator
+    validator  *ParameterValidator
+}
+
+type ProposedAction struct {
+    CallID              string                 `json:"call_id"`
+    ToolName            string                 `json:"tool_name"`
+    FriendlyDescription string                 `json:"friendly_description"`
+    Parameters          map[string]interface{} `json:"parameters"`
+    EstimatedImpact     *ImpactEstimate        `json:"estimated_impact"`
+    Warnings            []Warning              `json:"warnings,omitempty"`
+    Dependencies        []string               `json:"dependencies,omitempty"`
+}
+
+type ImpactEstimate struct {
+    NetWorthChange   float64 `json:"net_worth_change"`
+    MonthlyChange    float64 `json:"monthly_change,omitempty"`
+    Description      string  `json:"description"`
+}
+
+type Warning struct {
+    Type        string `json:"type"`
+    Message     string `json:"message"`
+    Severity    string `json:"severity"` // "low", "medium", "high"
+}
+
+func (s *ActionPreviewService) GeneratePreview(toolCalls []ToolCall) ([]ProposedAction, error) {
+    // Parse each tool call
+    // Generate friendly descriptions
+    // Calculate financial impacts
+    // Detect warnings and dependencies
+}
+```
+
+**Files:**
+- `internal/financial/preview.go`
+- `internal/financial/calculator.go`
+- `internal/financial/validator.go`
+
+---
+
+## Phase 3: API Endpoints
+
+### Ticket B6: Implement Chat API Handler
+**Priority:** P0
+**Estimate:** 6 story points
+**Dependencies:** B2, B5
+**Team:** Backend
+
+**Description:**
+Create HTTP handler for chat API that integrates LLM with financial tools.
+
+**Acceptance Criteria:**
+- [ ] Create `cmd/server/handlers/chat.go`
+- [ ] Implement POST `/api/v1/chat` endpoint
+- [ ] Add API versioning middleware with v1 support
+- [ ] Integrate LLM client with financial tool definitions
+- [ ] Generate action previews from LLM responses
+- [ ] Handle chat context and conversation flow
+- [ ] Support authentication and session management
+- [ ] Return structured JSON response
+
+**Technical Details:**
+```go
+type ChatHandler struct {
+    llmClient     llm.LLMClient
+    previewSvc    *financial.ActionPreviewService
+    sessionStore  *session.Store
+}
+
+type ChatRequest struct {
+    Message   string `json:"message" validate:"required"`
+    ChatID    string `json:"chat_id" validate:"required"`
+    SessionID string `json:"session_id" validate:"required"`
+}
+
+type ChatResponse struct {
+    MessageID       string                      `json:"message_id"`
+    Content         string                      `json:"content"`
+    ProposedActions []financial.ProposedAction  `json:"proposed_actions"`
+    RequiresApproval bool                       `json:"requires_approval"`
+    ConversationFlow []ConversationStep         `json:"conversation_flow,omitempty"`
+}
+
+func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
+    // Validate API version
+    // Parse and validate request
+    // Load conversation context
+    // Call LLM with financial tools
+    // Generate action previews if tool calls present
+    // Save conversation state
+    // Return structured response with version headers
+}
+```
+
+**Files:**
+- `cmd/server/handlers/chat.go`
+- `internal/session/store.go`
+- `internal/middleware/auth.go`
+
+### Ticket B7: Implement Action Dispatch API Handler
+**Priority:** P0
+**Estimate:** 5 story points
+**Dependencies:** B6
+**Team:** Backend
+
+**Description:**
+Create HTTP handler for executing approved financial actions.
+
+**Acceptance Criteria:**
+- [ ] Create `cmd/server/handlers/dispatch.go`
+- [ ] Implement POST `/api/v1/financial/actions/dispatch` endpoint
+- [ ] Execute selected actions via existing financial client
+- [ ] Handle action dependencies and ordering
+- [ ] Support partial failures with rollback
+- [ ] Update session state with created entity IDs
+- [ ] Return detailed execution results
+
+**Technical Details:**
+```go
+type DispatchHandler struct {
+    financialClient *financial.Client
+    sessionStore    *session.Store
+    auditLogger     *audit.Logger
+}
+
+type DispatchRequest struct {
+    SelectedActions []SelectedAction `json:"selected_actions" validate:"required"`
+    SessionID       string           `json:"session_id" validate:"required"`
+}
+
+type SelectedAction struct {
+    CallID       string                 `json:"call_id" validate:"required"`
+    Approved     bool                   `json:"approved"`
+    ModifiedArgs map[string]interface{} `json:"modified_args,omitempty"`
+}
+
+type DispatchResponse struct {
+    Results          []ExecutionResult `json:"results"`
+    Summary          ExecutionSummary  `json:"summary"`
+    UpdatedSessionState SessionState   `json:"updated_session_state"`
+}
+
+type ExecutionResult struct {
+    CallID      string  `json:"call_id"`
+    Success     bool    `json:"success"`
+    EntityID    *string `json:"entity_id,omitempty"`
+    Error       *string `json:"error,omitempty"`
+    ExecutionTime int64 `json:"execution_time_ms"`
+}
+
+func (h *DispatchHandler) HandleDispatch(w http.ResponseWriter, r *http.Request) {
+    // Parse and validate request
+    // Load original tool calls from session
+    // Sort actions by dependencies
+    // Execute approved actions via financial client
+    // Handle failures and rollback if needed
+    // Update session state
+    // Return execution results
+}
+```
+
+**Files:**
+- `cmd/server/handlers/dispatch.go`
+- `internal/financial/executor.go`
+- `internal/audit/logger.go`
+
+---
+
+## Phase 4: Database & Session Management
+
+### Ticket B8: Implement Session Management
+**Priority:** P0
+**Estimate:** 3 story points
+**Dependencies:** B6
+**Team:** Backend
+
+**Description:**
+Create session management for chat context and tool call history.
+
+**Acceptance Criteria:**
+- [ ] Create `internal/session/` package
+- [ ] Store conversation context in PostgreSQL
+- [ ] Track tool call history per session
+- [ ] Maintain entity linking state (lastAssetId, etc.)
+- [ ] Support session cleanup and expiration
+- [ ] Handle concurrent session access
+
+**Technical Details:**
+```go
+type SessionStore struct {
+    db *sql.DB
+}
+
+type SessionState struct {
+    SessionID        string                `json:"session_id"`
+    UserID           string                `json:"user_id"`
+    LastAssetID      *string               `json:"last_asset_id,omitempty"`
+    LastLiabilityID  *string               `json:"last_liability_id,omitempty"`
+    ConversationFlow []ConversationStep    `json:"conversation_flow"`
+    PendingActions   []PendingToolCall     `json:"pending_actions"`
+    CreatedAt        time.Time             `json:"created_at"`
+    UpdatedAt        time.Time             `json:"updated_at"`
+}
+
+type PendingToolCall struct {
+    CallID     string                 `json:"call_id"`
+    ToolName   string                 `json:"tool_name"`
+    Parameters map[string]interface{} `json:"parameters"`
+    CreatedAt  time.Time              `json:"created_at"`
+}
+```
+
+**Database Schema:**
+```sql
+CREATE TABLE chat_sessions (
+    session_id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
+    state JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE conversation_history (
+    id UUID PRIMARY KEY,
+    session_id UUID REFERENCES chat_sessions(session_id),
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    tool_calls JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Files:**
+- `internal/session/store.go`
+- `internal/session/types.go`
+- `migrations/001_create_sessions.sql`
+
+---
+
+## Phase 5: Integration & Testing
+
+### Ticket B9: Backend Integration Testing
+**Priority:** P1
+**Estimate:** 4 story points
+**Dependencies:** B7, B8
+**Team:** Backend
+
+**Description:**
+Create comprehensive backend integration tests.
+
+**Acceptance Criteria:**
+- [ ] Unit tests for all LLM providers
+- [ ] Integration tests for API endpoints
+- [ ] Mock financial client for testing
+- [ ] Test session management and state persistence
+- [ ] Test action preview generation
+- [ ] Test dispatch execution with dependencies
+- [ ] Performance testing for concurrent requests
+
+**Technical Details:**
+- Use `testify` for Go testing
+- Docker containers for test database
+- Mock LLM responses for consistent testing
+- Load testing with realistic financial scenarios
+
+**Files:**
+- `internal/llm/providers/openai_test.go`
+- `internal/financial/preview_test.go`
+- `cmd/server/handlers/chat_test.go`
+- `cmd/server/handlers/dispatch_test.go`
+
+### Ticket B10: Production Deployment Setup
+**Priority:** P1
+**Estimate:** 3 story points
+**Dependencies:** B9
+**Team:** Backend
+
+**Description:**
+Set up production deployment for Go backend.
+
+**Acceptance Criteria:**
+- [ ] Create production Docker image
+- [ ] Set up environment configuration
+- [ ] Configure logging and monitoring
+- [ ] Set up database migrations
+- [ ] Health check endpoints
+- [ ] Performance monitoring
+
+**Technical Details:**
+- Multi-stage Docker build
+- Environment variable validation
+- Structured logging with `logrus`
+- Health check at `/health`
+- Metrics endpoint for monitoring
+
+**Files:**
+- `Dockerfile.production`
+- `internal/config/config.go`
+- `internal/health/health.go`
+
+---
+
+## Backend Development Summary
+
+**Total Backend Story Points:** 39 points
+
+**Critical Path:**
+B0a → B0b → B1 → B2 → B4 → B5 → B6 → B7 → B8
+
+**Parallel Development Opportunities:**
+- B3 (Anthropic) can be developed in parallel with B4-B5
+- B9 (Testing) can start as soon as B6-B7 are complete
+- B10 (Deployment) can be prepared while B9 is in progress
+
+**Backend Dependencies for Frontend:**
+- **API Contract:** Created in separate document with v1 versioning
+- **Chat API:** Ready after B6 (28 points)
+- **Dispatch API:** Ready after B7 (33 points)
+- **Full Backend:** Ready after B8 (36 points)
+
+**Technology Stack:**
+- **Language:** Go 1.21+
+- **Database:** PostgreSQL for sessions
+- **LLM SDKs:** OpenAI Go SDK, Anthropic API
+- **Testing:** testify, Docker
+- **Deployment:** Docker, environment config
+
+**Key Backend Features:**
+✅ Multi-provider LLM support (OpenAI + Anthropic)
+✅ Financial tool calling with parameter validation
+✅ Action preview generation with impact estimates
+✅ Session-based conversation management
+✅ Dependency-aware action execution
+✅ Comprehensive error handling and rollback
+✅ Production-ready logging and monitoring

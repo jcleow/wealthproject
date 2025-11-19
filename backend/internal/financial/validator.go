@@ -2,6 +2,7 @@ package financial
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -95,7 +96,7 @@ func (v *ParameterValidator) validateAssetParameters(args map[string]interface{}
 	}
 
 	// Validate growth rate if provided
-	if growthRate, exists := args["annualGrowthRate"]; exists {
+	if _, exists := args["annualGrowthRate"]; exists {
 		rate := getFloatParam(args, "annualGrowthRate", 0)
 		if rate < -0.5 || rate > 1.0 {
 			errors = append(errors, ValidationError{
@@ -240,7 +241,7 @@ func (v *ParameterValidator) validateLiabilityBusinessRules(args map[string]inte
 
 	category := getStringParam(args, "category", "")
 	rate := getFloatParam(args, "interestRate", 0)
-	balance := getFloatParam(args, "currentBalance", 0)
+	_ = getFloatParam(args, "currentBalance", 0)
 
 	// Category-specific interest rate validation
 	switch category {
@@ -369,7 +370,7 @@ func (v *ParameterValidator) validateAssetUpdateParameters(args map[string]inter
 	}
 
 	// Validate other fields if present (similar to create validation)
-	if value, exists := args["currentValue"]; exists {
+	if _, exists := args["currentValue"]; exists {
 		if val := getFloatParam(args, "currentValue", 0); val <= 0 {
 			errors = append(errors, ValidationError{
 				Field:   "currentValue",

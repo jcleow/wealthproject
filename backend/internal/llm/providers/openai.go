@@ -2,7 +2,10 @@ package providers
 
 import (
 	"context"
+<<<<<<< HEAD
 	"encoding/json"
+=======
+>>>>>>> da61af971f3ab52ee610e7c4d2b358440c006849
 	"fmt"
 	"time"
 
@@ -157,7 +160,7 @@ func (p *OpenAIProvider) convertRequest(req llm.ChatRequest) (openai.ChatComplet
 		for i, tool := range req.Tools {
 			tools[i] = openai.Tool{
 				Type: openai.ToolType(tool.Type),
-				Function: &openai.FunctionDefinition{
+				Function: openai.FunctionDefinition{
 					Name:        tool.Function.Name,
 					Description: tool.Function.Description,
 					Parameters:  tool.Function.Parameters,
@@ -276,10 +279,24 @@ func (p *OpenAIProvider) handleError(err error) error {
 			errorType = llm.ErrorTypeModelNotFound
 		}
 
+<<<<<<< HEAD
 		return llm.LLMError{
 			Type:     errorType,
 			Message:  apiError.Message,
 			Code:     apiError.Code,
+=======
+		var code string
+		if codeVal, ok := apiError.Code.(string); ok {
+			code = codeVal
+		} else if apiError.Code != nil {
+			code = fmt.Sprintf("%v", apiError.Code)
+		}
+
+		return llm.LLMError{
+			Type:     errorType,
+			Message:  apiError.Message,
+			Code:     code,
+>>>>>>> da61af971f3ab52ee610e7c4d2b358440c006849
 			Provider: "openai",
 		}
 	}
@@ -305,10 +322,17 @@ func (p *OpenAIProvider) handleError(err error) error {
 func (p *OpenAIProvider) SupportedModels() []string {
 	return []string{
 		openai.GPT4,
+<<<<<<< HEAD
 		openai.GPT4Turbo,
 		openai.GPT4TurboPreview,
 		openai.GPT3Dot5Turbo,
 		openai.GPT3Dot5Turbo16K,
+=======
+		"gpt-4-turbo",
+		openai.GPT4TurboPreview,
+		openai.GPT3Dot5Turbo,
+		"gpt-3.5-turbo-16k",
+>>>>>>> da61af971f3ab52ee610e7c4d2b358440c006849
 	}
 }
 
