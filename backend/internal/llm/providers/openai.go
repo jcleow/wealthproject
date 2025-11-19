@@ -275,12 +275,6 @@ func (p *OpenAIProvider) handleError(err error) error {
 			errorType = llm.ErrorTypeModelNotFound
 		}
 
-<<<<<<< HEAD
-		return llm.LLMError{
-			Type:     errorType,
-			Message:  apiError.Message,
-			Code:     apiError.Code,
-=======
 		var code string
 		if codeVal, ok := apiError.Code.(string); ok {
 			code = codeVal
@@ -292,7 +286,6 @@ func (p *OpenAIProvider) handleError(err error) error {
 			Type:     errorType,
 			Message:  apiError.Message,
 			Code:     code,
->>>>>>> da61af971f3ab52ee610e7c4d2b358440c006849
 			Provider: "openai",
 		}
 	}
@@ -318,17 +311,10 @@ func (p *OpenAIProvider) handleError(err error) error {
 func (p *OpenAIProvider) SupportedModels() []string {
 	return []string{
 		openai.GPT4,
-<<<<<<< HEAD
-		openai.GPT4Turbo,
-		openai.GPT4TurboPreview,
-		openai.GPT3Dot5Turbo,
-		openai.GPT3Dot5Turbo16K,
-=======
 		"gpt-4-turbo",
 		openai.GPT4TurboPreview,
 		openai.GPT3Dot5Turbo,
 		"gpt-3.5-turbo-16k",
->>>>>>> da61af971f3ab52ee610e7c4d2b358440c006849
 	}
 }
 
