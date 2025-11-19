@@ -51,7 +51,7 @@ export function FinancialWorkspace() {
           </button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 p-6">
+      <div className="min-h-[500px] flex-1 p-6">
         <NetWorthProjection />
       </div>
     </div>

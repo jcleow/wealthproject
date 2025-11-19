@@ -65,7 +65,7 @@ export function NetWorthProjection() {
   const data = generateMockData()
 
   return (
-    <div className="flex h-full min-h-[40vh] flex-col">
+    <div className="flex h-full min-h-[500px] flex-col">
       <div className="mb-4 flex flex-shrink-0 items-center justify-between">
         <div>
           <h3 className="mb-1 font-semibold text-lg text-white">
@@ -75,10 +75,12 @@ export function NetWorthProjection() {
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 rounded-lg bg-black p-4">
-        <ResponsiveContainer height="100%" width="100%">
+      <div className="relative min-h-[400px] flex-1 rounded-lg bg-black p-4">
+        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
           <AreaChart
             data={data}
+            width={800}
+            height={400}
             margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
           >
             <defs>
