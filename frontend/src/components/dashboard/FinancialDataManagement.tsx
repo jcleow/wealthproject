@@ -124,7 +124,7 @@ export function FinancialDataManagement() {
 
   return (
     <>
-      <div className="flex h-full flex-col bg-transparent text-white">
+      <div className="flex h-full flex-col bg-black text-white">
         <div className="border-b border-white/10 px-6 py-4">
           <h3 className="text-lg font-semibold text-white">Financial Data</h3>
           <p className="text-sm text-gray-400">

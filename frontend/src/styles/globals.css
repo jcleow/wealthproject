@@ -127,3 +127,19 @@
     @apply bg-foreground/20 animate-pulse;
   }
 }
+
+/* Remove default focus outlines from Recharts surfaces */
+.recharts-wrapper:focus,
+.recharts-surface:focus,
+.recharts-responsive-container:focus {
+  outline: none;
+}
+
+.recharts-focus {
+  display: none !important;
+}
+
+.recharts-cartesian-grid-bg {
+  fill: transparent !important;
+  stroke: none !important;
+}

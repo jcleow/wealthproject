@@ -25,7 +25,7 @@ export function FinancialWorkspace() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-transparent text-white">
+    <div className="flex h-full w-full flex-col bg-black text-white">
       <div className="flex flex-col gap-3 border-b border-white/10 px-6 py-4 text-left sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-semibold uppercase tracking-wide text-gray-300">
