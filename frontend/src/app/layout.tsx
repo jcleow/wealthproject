@@ -1,9 +1,19 @@
 import { ReactNode } from 'react'
-import { Inter } from 'next/font/google'
+import { Geist, Geist_Mono } from 'next/font/google'
 import '../styles/globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 
-const inter = Inter({ subsets: ['latin'] })
+const geistSans = Geist({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-geist',
+})
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-geist-mono',
+})
 
 export default function RootLayout({
   children,
@@ -11,8 +21,8 @@ export default function RootLayout({
   children: ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className="antialiased">
         <QueryProvider>
           {children}
         </QueryProvider>
