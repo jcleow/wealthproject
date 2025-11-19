@@ -69,6 +69,28 @@ func main() {
 		}
 	}
 
+	// Register Anthropic provider if API key is available
+	anthropicConfig := providers.AnthropicConfig{
+		APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
+		Model:       os.Getenv("ANTHROPIC_MODEL"),
+		Temperature: 0.1,
+		MaxTokens:   2000,
+		Version:     "2023-06-01",
+	}
+
+	if anthropicConfig.APIKey != "" {
+		anthropicProvider, err := providers.NewAnthropicProvider(anthropicConfig)
+		if err != nil {
+			log.Printf("Failed to initialize Anthropic provider: %v", err)
+		} else {
+			llmManager.RegisterProvider("anthropic", anthropicProvider)
+			// If no OpenAI provider is available, make Anthropic primary
+			if openAIConfig.APIKey == "" {
+				llmManager.SetPrimary("anthropic")
+			}
+		}
+	}
+
 	// Initialize session store
 	sessionStore := session.NewStore(db)
 
