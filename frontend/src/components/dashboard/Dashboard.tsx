@@ -19,7 +19,7 @@ export function Dashboard() {
       <div className="relative min-h-screen w-full bg-[#04060f] text-white">
         {/* Desktop chat */}
         <div className="hidden lg:block">
-          <div className="fixed left-0 top-0 z-30 h-screen w-[520px] px-6 py-8">
+          <div className="fixed left-0 top-0 z-30 h-screen w-[520px] px-4 py-8">
             <div className="relative h-full">
               <Chat chatId={chatId} className="h-full min-h-0" />
 
@@ -52,13 +52,13 @@ export function Dashboard() {
 
         <div className="relative w-full lg:pl-[540px]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(32,101,255,0.12),_transparent_55%)]" />
-          <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 p-4 lg:flex-row lg:items-stretch">
+          <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 p-4 lg:flex-row lg:items-stretch border-0">
             <div className="flex w-full flex-col gap-6 lg:min-w-0 lg:flex-1">
-              <div className="flex min-h-[360px] min-w-0 flex-col overflow-hidden rounded-3xl border border-white/5 bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
+              <div className="flex min-h-[360px] min-w-0 flex-col overflow-hidden rounded-3xl bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
                 <FinancialWorkspace />
               </div>
 
-              <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-3xl border border-white/5 bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
+              <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-3xl bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
                 <FinancialDataManagement />
               </div>
             </div>

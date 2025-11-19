@@ -27,7 +27,7 @@ const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
     title: 'Income',
     emptyDescription: 'No income added yet',
     icon: '💼',
-    accent: 'bg-emerald-500',
+    accent: 'text-grey-500 bg-white/5 ',
   },
   liability: {
     title: 'Liabilities',
@@ -124,8 +124,8 @@ export function FinancialDataManagement() {
 
   return (
     <>
-      <div className="flex h-full flex-col bg-black text-white">
-        <div className="border-b border-white/10 px-6 py-4">
+      <div className="flex h-full flex-col border-0 bg-black text-white">
+        <div className="px-6 py-4">
           <h3 className="text-lg font-semibold text-white">Financial Data</h3>
           <p className="text-sm text-gray-400">
             Manage your income, expenses, assets, and liabilities
@@ -148,9 +148,9 @@ export function FinancialDataManagement() {
                 return (
                   <div
                     key={key}
-                    className="flex w-full min-w-0 flex-col rounded-2xl border border-white/10 bg-white/5 shadow-lg"
+                    className="flex w-full min-w-0 flex-col rounded-2xl bg-white/5 shadow-lg"
                   >
-                    <div className="border-b border-white/5 p-4">
+                    <div className="p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <div
@@ -170,14 +170,14 @@ export function FinancialDataManagement() {
                         <div className="flex flex-shrink-0 items-center gap-2">
                           <button
                             onClick={() => handleSettings(key)}
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-gray-300 transition hover:bg-white/10"
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-gray-300 transition hover:bg-white/10"
                             type="button"
                           >
                             <SlidersHorizontal className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleAddItem(key)}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white transition hover:bg-emerald-600"
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-grey-500 bg-white/5 transition hover:bg-white/10"
                             type="button"
                           >
                             <Plus className="h-4 w-4" />
@@ -225,7 +225,7 @@ export function FinancialDataManagement() {
                             Click the + button to add your first entry
                           </p>
                           {config.helper && (
-                            <div className="mx-auto inline-flex items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-xs text-blue-200">
+                            <div className="mx-auto inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-1 text-xs text-blue-200">
                               <Sparkles className="h-3 w-3" />
                               {config.helper}
                             </div>
@@ -240,7 +240,7 @@ export function FinancialDataManagement() {
           </div>
 
           <div className="mt-6 grid gap-6 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="rounded-2xl bg-white/5 p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-sm font-semibold text-white">Net Worth</h4>
@@ -254,7 +254,7 @@ export function FinancialDataManagement() {
                 ${getNetWorth().toLocaleString()}
               </p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="rounded-2xl bg-white/5 p-5">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-sm font-semibold text-white">

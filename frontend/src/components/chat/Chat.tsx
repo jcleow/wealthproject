@@ -40,7 +40,7 @@ export function Chat({ chatId, className }: ChatProps) {
   return (
     <div
       className={cn(
-        "overscroll-behavior-contain flex h-full min-h-0 min-w-0 touch-pan-y flex-col rounded-3xl border border-white/10 bg-black text-white shadow-[0_30px_80px_rgba(3,3,4,0.45)] backdrop-blur-xl",
+        "overscroll-behavior-contain flex h-full min-h-0 min-w-0 touch-pan-y flex-col rounded-3xl bg-black text-white shadow-[0_30px_80px_rgba(3,3,4,0.45)] backdrop-blur-xl",
         className
       )}
     >
@@ -74,7 +74,7 @@ export function Chat({ chatId, className }: ChatProps) {
         )}
       </div>
 
-      <div className="border-t border-white/5 px-4 pb-4 pt-4">
+      <div className="px-4 pb-4 pt-4">
         <ChatInput
           onSendMessage={sendMessage}
           isLoading={isLoading}

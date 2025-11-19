@@ -25,8 +25,8 @@ export function FinancialWorkspace() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col bg-black text-white">
-      <div className="flex flex-col gap-3 border-b border-white/10 px-6 py-4 text-left sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex h-full w-full flex-col border-0 bg-black text-white">
+      <div className="flex flex-col gap-3 px-6 py-4 text-left sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-semibold uppercase tracking-wide text-gray-300">
             Financial Workspace
@@ -41,7 +41,7 @@ export function FinancialWorkspace() {
               <button
                 key={label}
                 onClick={() => handleAction(label)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-white/70 transition hover:bg-white/10 hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
                 title={label}
                 type="button"
               >
@@ -51,7 +51,7 @@ export function FinancialWorkspace() {
           </div>
           <button
             onClick={handlePropertyPlanner}
-            className="flex items-center gap-3 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+            className="flex items-center gap-3 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
             type="button"
           >
             <Sparkles className="h-4 w-4 text-blue-200" />
@@ -63,7 +63,7 @@ export function FinancialWorkspace() {
           </button>
           <button
             onClick={handleRefresh}
-            className="rounded-full border border-white/10 p-2 text-gray-400 transition hover:bg-white/10 hover:text-white"
+            className="rounded-full bg-white/10 p-2 text-gray-400 transition hover:bg-white/20 hover:text-white"
             title="Refresh financial data"
           >
             <RefreshCw className="h-4 w-4" />
