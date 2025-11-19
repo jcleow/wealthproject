@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,6 +12,11 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
+)
+
+// Common errors
+var (
+	ErrSessionNotFound = errors.New("session not found")
 )
 
 // Store manages session persistence in PostgreSQL

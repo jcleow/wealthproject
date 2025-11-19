@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # Test PostgreSQL database
+  test-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: financial_chat_test
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    volumes:
+      - test-db-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d financial_chat_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Test runner service
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    depends_on:
+      test-db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://testuser:testpass@test-db:5432/financial_chat_test?sslmode=disable
+      - TEST_ENV=true
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    working_dir: /app
+    command: ["go", "test", "./...", "-v", "-cover"]
+    networks:
+      - test-network
+
+volumes:
+  test-db-data:
+  go-mod-cache:
+  go-build-cache:
+
+networks:
+  test-network:
+    driver: bridge
