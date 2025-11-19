@@ -51,6 +51,12 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Custom colors for financial UI
+        gray: {
+          700: '#374151',
+          800: '#1f2937',
+          900: '#0f172a',
+        }
       },
       borderRadius: {
         lg: "var(--radius)",

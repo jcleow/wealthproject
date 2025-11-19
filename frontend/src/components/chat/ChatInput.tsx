@@ -60,12 +60,12 @@ export default function ChatInput({
           onKeyDown={handleKeyDown}
           placeholder={
             status === 'loading'
-              ? 'Processing your message...'
-              : 'Tell me about your financial goals or ask a question...'
+              ? 'Processing...'
+              : 'Send a message...'
           }
           className={cn(
-            'min-h-[44px] max-h-[200px] resize-none rounded-2xl border-2 py-3 pr-12 transition-all',
-            'focus:border-ring focus:ring-2 focus:ring-ring/20',
+            'min-h-[44px] max-h-[200px] resize-none rounded-xl bg-gray-800 border border-gray-700 py-3 pr-12 transition-all text-white placeholder-gray-500',
+            'focus:border-gray-600 focus:outline-none',
             status === 'loading' && 'opacity-50'
           )}
           disabled={isLoading}
@@ -74,24 +74,20 @@ export default function ChatInput({
 
         <div className="absolute right-2 bottom-2">
           {status === 'loading' ? (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 rounded-full"
+            <button
+              className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white transition-colors"
               onClick={() => {}}
             >
               <Square className="h-4 w-4" />
-            </Button>
+            </button>
           ) : (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 rounded-full hover:bg-primary hover:text-primary-foreground"
+            <button
+              className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white transition-colors disabled:opacity-50"
               onClick={handleSubmit}
               disabled={!input.trim()}
             >
               <Send className="h-4 w-4" />
-            </Button>
+            </button>
           )}
         </div>
       </div>
