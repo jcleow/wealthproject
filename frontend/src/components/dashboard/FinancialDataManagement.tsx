@@ -75,15 +75,15 @@ export function FinancialDataManagement() {
   return (
     <div className="h-full w-full overflow-auto bg-gray-900 p-6 text-white">
       <div className="mb-6">
-        <h2 className="mb-1 font-semibold text-white text-xl">Financial Data</h2>
+        <h2 className="mb-2 font-semibold text-white text-xl">Financial Data</h2>
         <p className="text-gray-400 text-sm">
           Manage your income, expenses, assets, and liabilities
         </p>
       </div>
 
-      <div className="flex flex-col gap-6 lg:min-w-0 lg:flex-row">
+      <div className="flex flex-col gap-6 lg:min-w-0 lg:flex-row lg:gap-8">
         {/* Left Column - Assets & Liabilities */}
-        <div className="flex min-w-0 flex-1 flex-col space-y-6">
+        <div className="flex min-w-0 flex-1 flex-col space-y-5">
           {leftColumnCategories.map(({ key, config }) => (
             <FinancialCard
               key={key}
@@ -96,19 +96,19 @@ export function FinancialDataManagement() {
           ))}
 
           {/* Net Worth Summary */}
-          <div className="mt-auto rounded-lg border border-gray-700 bg-gray-800 p-4">
+          <div className="rounded-lg border border-gray-700 bg-gray-800 p-5">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-white">Net Worth</h3>
                 <p className="text-gray-400 text-sm">Assets minus liabilities</p>
               </div>
-              <div className="font-bold text-lg text-emerald-400">$0</div>
+              <div className="font-bold text-xl text-emerald-400">$0</div>
             </div>
           </div>
         </div>
 
         {/* Right Column - Income & Expenses */}
-        <div className="flex min-w-0 flex-1 flex-col space-y-6">
+        <div className="flex min-w-0 flex-1 flex-col space-y-5">
           {rightColumnCategories.map(({ key, config }) => (
             <FinancialCard
               key={key}
@@ -121,13 +121,13 @@ export function FinancialDataManagement() {
           ))}
 
           {/* Savings Summary */}
-          <div className="mt-auto rounded-lg border border-gray-700 bg-gray-800 p-4">
+          <div className="rounded-lg border border-gray-700 bg-gray-800 p-5">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-white">Savings</h3>
                 <p className="text-gray-400 text-sm">Income minus expenses</p>
               </div>
-              <div className="font-bold text-lg text-emerald-400">$0</div>
+              <div className="font-bold text-xl text-emerald-400">$0</div>
             </div>
           </div>
         </div>
@@ -154,16 +154,16 @@ function FinancialCard({ title, description, icon, iconBg, onAddItem }: Financia
   }
 
   return (
-    <div className="flex w-full min-w-0 flex-col rounded-lg border border-gray-700 bg-gray-800">
+    <div className="flex w-full min-w-0 flex-col rounded-xl border border-gray-700 bg-gray-800">
       {/* Header */}
-      <div className="border-gray-700 border-b p-4">
+      <div className="border-gray-700 border-b p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className={`flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 ${getIconColor()}`}>
+            <div className={`flex h-9 w-9 items-center justify-center rounded-full bg-gray-700 ${getIconColor()}`}>
               {icon}
             </div>
             <div className="min-w-0">
-              <h3 className="truncate font-semibold text-white">{title}</h3>
+              <h3 className="truncate font-semibold text-white text-base">{title}</h3>
               {description && <p className="text-gray-400 text-sm">{description}</p>}
             </div>
           </div>
@@ -180,8 +180,8 @@ function FinancialCard({ title, description, icon, iconBg, onAddItem }: Financia
       </div>
 
       {/* Items */}
-      <div className="flex-1 p-4">
-        <div className="py-8 text-center text-gray-500">
+      <div className="flex-1 p-5">
+        <div className="py-6 text-center text-gray-500">
           <p className="text-sm">No {title.toLowerCase()} added yet</p>
           <p className="mt-1 text-xs">Click the + button to add your first entry</p>
         </div>

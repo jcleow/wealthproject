@@ -1,16 +1,19 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { PlusIcon, TrashIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sidebar } from '@/components/ui/sidebar'
+import { Chat } from '@/components/chat/Chat'
 
 interface AppSidebarProps {
   user?: any
 }
 
 export function AppSidebar({ user }: AppSidebarProps) {
+  const [chatId] = useState(() => `chat-${Date.now()}`)
+
   return (
     <Sidebar variant="inset">
       {/* Sidebar Header */}
@@ -44,20 +47,9 @@ export function AppSidebar({ user }: AppSidebarProps) {
         </div>
       </div>
 
-      {/* Sidebar Content */}
-      <div className="flex-1 overflow-auto p-4">
-        <div className="text-sidebar-foreground/60 text-sm">
-          Your conversations will appear here once you start chatting!
-        </div>
-      </div>
-
-      {/* Sidebar Footer */}
-      <div className="border-t border-sidebar-border p-4">
-        {user && (
-          <div className="text-sidebar-foreground/60 text-sm">
-            Signed in as {user.name || user.email}
-          </div>
-        )}
+      {/* Chat Component */}
+      <div className="flex-1 min-h-0">
+        <Chat chatId={chatId} className="h-full" />
       </div>
     </Sidebar>
   )

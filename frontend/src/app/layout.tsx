@@ -28,11 +28,13 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
     >
-      <body className="antialiased bg-[#0a0a0f]">
+      <body className="antialiased bg-[#0a0a0f] m-0 p-0">
         <QueryProvider>
-          <SidebarProvider defaultOpen={true}>
+          <SidebarProvider defaultOpen={false}>
             <AppSidebar />
-            <SidebarInset>{children}</SidebarInset>
+            <SidebarInset className="!p-0 !bg-[#0a0a0f]">
+              {children}
+            </SidebarInset>
           </SidebarProvider>
         </QueryProvider>
       </body>
