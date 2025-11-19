@@ -1,10 +1,10 @@
 'use client'
 
-import { Message } from '@/types/chat'
-import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
-import { Copy, ThumbsUp, ThumbsDown, Sparkles } from 'lucide-react'
-import { useState } from 'react'
+import { Sparkles } from 'lucide-react'
+
+import { cn } from '@/lib/utils'
+import { Message } from '@/types/chat'
 
 interface MessageBubbleProps {
   message: Message
@@ -12,85 +12,46 @@ interface MessageBubbleProps {
 
 export default function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user'
-  const [showActions, setShowActions] = useState(false)
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(message.content)
-    } catch (err) {
-      console.error('Failed to copy text: ', err)
-    }
-  }
 
   return (
-    <div className="group/message w-full" data-role={message.role}>
-      <div className={cn(
-        "flex w-full items-start gap-2 md:gap-3",
-        {
-          "justify-end": message.role === "user",
-          "justify-start": message.role === "assistant",
-        }
-      )}>
-        {message.role === "assistant" && (
-          <div className="-mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-border">
-            <Sparkles size={14} className="text-blue-500" />
-          </div>
+    <div
+      className={cn(
+        'flex max-w-full gap-3',
+        isUser ? 'justify-end' : 'justify-start'
+      )}
+    >
+      {!isUser && (
+        <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5">
+          <Sparkles className="h-4 w-4 text-blue-200" />
+        </div>
+      )}
+
+      <div
+        className={cn(
+          'group relative max-w-[85%] sm:max-w-2xl',
+          isUser && 'flex flex-col items-end'
         )}
-
-        <div className={cn(
-          "flex flex-col",
-          {
-            "w-full": message.role === "assistant",
-            "max-w-[calc(100%-2.5rem)] sm:max-w-[min(fit-content,80%)]": message.role === "user",
-          }
-        )}>
-          <div className={cn(
-            "w-fit break-words rounded-2xl px-3 py-2",
-            message.role === "user"
-              ? "bg-[#006cff] text-white text-right"
-              : "bg-transparent px-0 py-0 text-left text-white"
-          )}>
-            <div className="whitespace-pre-wrap">
-              {message.content}
-            </div>
+      >
+        <div
+          className={cn(
+            'rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-lg shadow-black/40',
+            isUser
+              ? 'bg-[#006cff] text-white'
+              : 'border border-white/10 bg-white/5 text-gray-100'
+          )}
+        >
+          <div className="whitespace-pre-wrap break-words">
+            {message.content}
           </div>
+        </div>
 
-          {/* Message Actions */}
-          {!isUser && (
-            <div className="flex items-center gap-1 mt-1 opacity-0 group-hover/message:opacity-100 transition-opacity">
-              <button
-                onClick={handleCopy}
-                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
-                title="Copy"
-              >
-                <Copy size={14} />
-              </button>
-              <button
-                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
-                title="Like"
-              >
-                <ThumbsUp size={14} />
-              </button>
-              <button
-                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
-                title="Dislike"
-              >
-                <ThumbsDown size={14} />
-              </button>
-            </div>
+        <div
+          className={cn(
+            'mt-1 text-[11px] text-gray-500 transition-opacity group-hover:opacity-100',
+            isUser ? 'text-right' : 'text-left'
           )}
-
-          {isUser && (
-            <div className="flex items-center justify-end gap-1 mt-1 opacity-0 group-hover/message:opacity-100 transition-opacity">
-              <button
-                onClick={handleCopy}
-                className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
-                title="Copy"
-              >
-                <Copy size={14} />
-              </button>
-            </div>
-          )}
+        >
+          {format(message.timestamp, 'HH:mm')}
         </div>
       </div>
     </div>

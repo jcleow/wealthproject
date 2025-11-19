@@ -40,38 +40,41 @@ export function Chat({ chatId, className }: ChatProps) {
   return (
     <div
       className={cn(
-        "overscroll-behavior-contain flex h-dvh min-h-0 min-w-0 touch-pan-y flex-col bg-transparent",
+        "overscroll-behavior-contain flex h-full min-h-0 min-w-0 touch-pan-y flex-col rounded-3xl border border-white/10 bg-[#05060f]/90 text-white shadow-[0_30px_80px_rgba(3,3,4,0.45)] backdrop-blur-xl",
         className
       )}
     >
-      <ChatHeader chatId={chatId} />
+      <ChatHeader />
 
-      <Messages
-        messages={messages}
-        actionReviews={actionReviews}
-        onConfirmAction={confirmAction}
-        onCancelAction={cancelAction}
-        isDispatching={isDispatching}
-      />
+      <div className="flex min-h-0 flex-1 flex-col px-4 pb-8">
+        <Messages
+          messages={messages}
+          actionReviews={actionReviews}
+          onConfirmAction={confirmAction}
+          onCancelAction={cancelAction}
+          isDispatching={isDispatching}
+        />
 
-      {/* Suggested questions - show only when no messages */}
-      {messages.length === 0 && (
-        <div className="flex-1 flex items-end px-4 pb-4">
-          <div className="w-full grid grid-cols-2 gap-2">
-            {suggestedQuestions.map((question, index) => (
-              <button
-                key={index}
-                onClick={() => handleSuggestedQuestion(question)}
-                className="text-left rounded-2xl border border-gray-800 bg-gray-900/80 px-4 py-3 text-sm text-gray-300 transition-all hover:bg-gray-800 hover:text-white hover:border-gray-700"
-              >
-                {question}
-              </button>
-            ))}
+        {messages.length === 0 && (
+          <div className="mt-auto w-full pt-4">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {suggestedQuestions.map((question, index) => (
+                <button
+                  key={question}
+                  onClick={() => handleSuggestedQuestion(question)}
+                  className="text-left rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-200 transition hover:bg-white/10"
+                  type="button"
+                  style={{ animationDelay: `${index * 60}ms` }}
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div className="sticky bottom-0 z-1 flex w-full gap-2 border-t-0 bg-transparent px-4 pb-4">
+      <div className="border-t border-white/5 px-4 pb-4 pt-4">
         <ChatInput
           onSendMessage={sendMessage}
           isLoading={isLoading}

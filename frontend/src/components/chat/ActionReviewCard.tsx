@@ -52,13 +52,13 @@ export default function ActionReviewCard({
   const status = statusCopy[review.status]
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-muted/10 p-4 text-sm shadow-sm">
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm shadow-lg shadow-black/30">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-muted-foreground text-xs uppercase tracking-wide">
+          <p className="text-xs uppercase tracking-wide text-gray-400">
             Action Preview
           </p>
-          <p className="font-semibold text-foreground">
+          <p className="font-semibold text-white">
             {review.actions.length}{" "}
             {review.actions.length === 1 ? "action" : "actions"} detected
           </p>
@@ -77,21 +77,21 @@ export default function ActionReviewCard({
       <div className="mt-4 space-y-2">
         {review.actions.map((action) => (
           <div
-            className="rounded-xl border border-border/50 bg-background/70 px-3 py-2 text-sm"
+            className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-gray-200"
             key={action.call_id}
           >
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="text-[10px] uppercase" variant="secondary">
                 {action.tool_name}
               </Badge>
-              <span className="text-muted-foreground">
+              <span className="text-gray-400">
                 {action.friendly_description}
               </span>
             </div>
             {action.estimated_impact && (
-              <div className="mt-1 text-muted-foreground text-xs">
+              <div className="mt-1 text-xs text-gray-400">
                 Impact:{" "}
-                <span className="font-medium text-foreground">
+                <span className="font-medium text-white">
                   {formatCurrency(action.estimated_impact.net_worth_change)}
                 </span>{" "}
                 - {action.estimated_impact.description}
@@ -145,7 +145,7 @@ export default function ActionReviewCard({
       )}
 
       <button
-        className="mt-4 flex w-full items-center justify-between rounded-lg border border-border/50 bg-background/40 px-3 py-2 font-medium text-muted-foreground text-xs transition hover:bg-background/70"
+        className="mt-4 flex w-full items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-medium text-xs text-gray-300 transition hover:bg-black/50"
         onClick={() => setShowDiagnostics((value) => !value)}
         type="button"
       >
@@ -158,7 +158,7 @@ export default function ActionReviewCard({
       </button>
 
       {showDiagnostics && (
-        <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-black/40 px-3 py-2 text-muted-foreground text-xs">
+        <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-black/50 px-3 py-2 text-xs text-gray-300">
           {JSON.stringify(
             {
               review_id: review.id,

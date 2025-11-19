@@ -17,7 +17,7 @@ export interface ProposedAction {
   call_id: string
   tool_name: string
   friendly_description: string
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
   estimated_impact: {
     net_worth_change: number
     description: string
@@ -33,7 +33,7 @@ export interface DispatchRequest {
   selected_actions: Array<{
     call_id: string
     approved: boolean
-    modified_args?: Record<string, any>
+    modified_args?: Record<string, unknown>
   }>
   session_id: string
 }

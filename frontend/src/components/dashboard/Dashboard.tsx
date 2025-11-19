@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+
 import { Chat } from '../chat/Chat'
-import { FinancialWorkspace } from './FinancialWorkspace'
-import { FinancialDataManagement } from './FinancialDataManagement'
 import { ChatFloatingLauncher } from './ChatFloatingLauncher'
+import { FinancialDataManagement } from './FinancialDataManagement'
+import { FinancialWorkspace } from './FinancialWorkspace'
 import { AppSidebar } from '../sidebar/AppSidebar'
 
 export function Dashboard() {
@@ -12,39 +13,33 @@ export function Dashboard() {
 
   return (
     <>
-      <div className="flex min-h-screen w-full bg-[#0a0a0f]">
-        {/* Sidebar - Hidden on mobile */}
-        <div className="hidden lg:block w-80 h-screen">
+      <div className="flex min-h-screen w-full bg-[#04060f] text-white">
+        <div className="hidden w-80 border-r border-white/5 lg:block">
           <AppSidebar />
         </div>
 
-        <div className="flex w-full flex-col gap-6 p-4 lg:flex-row lg:items-stretch lg:flex-1">
-          {/* Chat Area - Hidden on mobile, shown in sidebar on desktop */}
-          <div className="hidden w-full shrink-0 lg:flex lg:h-full lg:w-[380px] lg:max-w-[420px]">
-            <div className="flex h-full min-h-[85vh] flex-col">
-              <Chat
-                chatId={chatId}
-                className="h-full"
-              />
-            </div>
-          </div>
-
-          {/* Main Content Area */}
-          <div className="flex w-full flex-col gap-4 lg:min-w-0 lg:flex-1">
-            {/* Financial Workspace - Net Worth Projection */}
-            <div className="flex min-h-[400px] min-w-0 flex-col overflow-hidden rounded-3xl border border-gray-700 bg-gray-900 shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
-              <FinancialWorkspace />
+        <div className="relative flex-1 overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(32,101,255,0.12),_transparent_55%)]" />
+          <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 p-4 lg:flex-row lg:items-stretch">
+            <div className="hidden w-full shrink-0 lg:flex lg:h-full lg:w-[420px] lg:max-w-[520px] lg:overflow-hidden">
+              <div className="flex h-full min-h-[70vh] min-w-0 flex-col">
+                <Chat chatId={chatId} className="h-full min-h-0" />
+              </div>
             </div>
 
-            {/* Financial Data Management - Cards */}
-            <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-3xl border border-gray-700 bg-gray-900 shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
-              <FinancialDataManagement />
+            <div className="flex w-full flex-col gap-6 lg:min-w-0 lg:flex-1">
+              <div className="flex min-h-[360px] min-w-0 flex-col overflow-hidden rounded-3xl border border-white/5 bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
+                <FinancialWorkspace />
+              </div>
+
+              <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-3xl border border-white/5 bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
+                <FinancialDataManagement />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile Chat Launcher */}
       <div className="lg:hidden">
         <ChatFloatingLauncher chatId={chatId} />
       </div>

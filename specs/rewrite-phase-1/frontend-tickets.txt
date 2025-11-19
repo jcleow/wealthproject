@@ -519,7 +519,7 @@ function ActionCard({ action, selected, onSelect }: ActionCardProps) {
 **Estimate:** 3 story points
 **Dependencies:** F5
 **Team:** Frontend
-**Status:** ⚠️ IN PROGRESS (basic implementation done, needs backend for testing)
+**Status:** ⚠️ IN PROGRESS (basic implementation done, build issue fixed in `ChatInput`, still needs backend for validation)
 
 **Description:**
 Create UI for showing action execution results and user feedback.
