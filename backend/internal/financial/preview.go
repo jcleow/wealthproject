@@ -116,7 +116,7 @@ func (s *ActionPreviewService) generateFriendlyDescription(toolName string, args
 
 	case "updateAsset":
 		assetID := getStringParam(args, "assetId", "unknown")
-		if value, exists := args["currentValue"]; exists {
+		if _, exists := args["currentValue"]; exists {
 			return fmt.Sprintf("Update asset %s value to %s",
 				assetID, formatCurrency(getFloatParam(args, "currentValue", 0)))
 		}
@@ -133,7 +133,7 @@ func (s *ActionPreviewService) generateFriendlyDescription(toolName string, args
 
 	case "updateLiability":
 		liabilityID := getStringParam(args, "liabilityId", "unknown")
-		if balance, exists := args["currentBalance"]; exists {
+		if _, exists := args["currentBalance"]; exists {
 			return fmt.Sprintf("Update liability %s balance to %s",
 				liabilityID, formatCurrency(getFloatParam(args, "currentBalance", 0)))
 		}
