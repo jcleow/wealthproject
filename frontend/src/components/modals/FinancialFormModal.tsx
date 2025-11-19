@@ -1,363 +1,749 @@
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from '../ui/sheet'
-import { Button } from '../ui/button'
-import { Input } from '../ui/input'
-import { Textarea } from '../ui/textarea'
-import type { Asset, Income, Liability, Expense } from '../../types/financial'
+"use client";
 
-type FinancialDataType = 'asset' | 'income' | 'liability' | 'expense'
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
+import type React from "react";
+import { useEffect, useState } from "react";
+import { useFinancialPlanningStore } from "@/features/financial-planning";
+import { financialClient } from "@/lib/financial/client";
+import type {
+  Asset,
+  AssetCreatePayload,
+  Expense,
+  ExpenseCreatePayload,
+  Income,
+  IncomeCreatePayload,
+  Liability,
+  LiabilityCreatePayload,
+} from "@/lib/financial/types";
+import { updateCPFContributions } from "@/lib/cpf/auto-contributions";
+import {
+  DEFAULT_SALARY_AGE,
+  decodeCPFSalaryMetadata,
+  encodeCPFSalaryMetadata,
+  isSalaryIncomeRecord,
+  normalizeSalaryAmount,
+  type CPFSalaryInputType,
+} from "@/lib/cpf/salary";
 
 interface FinancialFormModalProps {
-  type: FinancialDataType
-  mode: 'create' | 'edit'
-  data?: Asset | Income | Liability | Expense
-  isOpen: boolean
-  onClose: () => void
-  onSave: (data: any) => void
+  type: string;
+  onClose: () => void;
 }
 
-const commonFields = z.object({
-  name: z.string().min(1, 'Name is required'),
-  category: z.string().min(1, 'Category is required'),
-  notes: z.string().optional(),
-})
+export function FinancialFormModal({ type, onClose }: FinancialFormModalProps) {
+  console.log("FinancialFormModal opened with type:", type);
 
-const assetFormSchema = commonFields.extend({
-  currentValue: z.number().min(0, 'Value must be positive'),
-  annualGrowthRate: z.number().min(-100).max(100),
-})
+  const isEdit = type.includes("-");
+  const category = isEdit ? type.split("-")[0] : type;
+  const itemId = isEdit ? type.split("-").slice(1).join("-") : null;
 
-const incomeFormSchema = z.object({
-  source: z.string().min(1, 'Source is required'),
-  amount: z.number().positive('Amount must be positive'),
-  frequency: z.enum(['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly']),
-  category: z.string().min(1, 'Category is required'),
-  notes: z.string().optional(),
-})
+  console.log("Parsed:", { isEdit, category, itemId });
 
-const liabilityFormSchema = commonFields.extend({
-  currentBalance: z.number().min(0, 'Balance must be positive'),
-  interestRateApr: z.number().min(0).max(100),
-  minimumPayment: z.number().min(0),
-})
+  // Normalize category names (handle both singular and plural)
+  const normalizedCategory =
+    category === "income" || category === "incomes"
+      ? "incomes"
+      : category === "expense" || category === "expenses"
+        ? "expenses"
+        : category === "asset" || category === "assets"
+          ? "assets"
+          : category === "liability" || category === "liabilities"
+            ? "liabilities"
+            : category;
 
-const expenseFormSchema = z.object({
-  payee: z.string().min(1, 'Payee is required'),
-  amount: z.number().positive('Amount must be positive'),
-  frequency: z.enum(['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly']),
-  category: z.string().min(1, 'Category is required'),
-  notes: z.string().optional(),
-})
+  console.log("Normalized category:", normalizedCategory);
 
-const getSchema = (type: FinancialDataType) => {
-  switch (type) {
-    case 'asset': return assetFormSchema
-    case 'income': return incomeFormSchema
-    case 'liability': return liabilityFormSchema
-    case 'expense': return expenseFormSchema
-    default: return commonFields
-  }
-}
+  const queryClient = useQueryClient();
+  const invalidateFinancialData = useFinancialPlanningStore(
+    (state) => state.invalidateFinancialData
+  );
 
-const getDefaultValues = (type: FinancialDataType, data?: any) => {
-  if (data) return data
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    amount: "",
+    frequency: "monthly",
+    category: "",
+    annualGrowthRate: "7.0",
+    interestRateApr: "4.5",
+    minimumPayment: "",
+    notes: "",
+    salaryInputType: "gross" as CPFSalaryInputType,
+  });
 
-  switch (type) {
-    case 'asset':
-      return {
-        name: '',
-        category: '',
-        currentValue: 0,
-        annualGrowthRate: 7.0,
-        notes: '',
-      }
-    case 'income':
-      return {
-        source: '',
-        amount: 0,
-        frequency: 'monthly',
-        category: '',
-        notes: '',
-      }
-    case 'liability':
-      return {
-        name: '',
-        category: '',
-        currentBalance: 0,
-        interestRateApr: 4.5,
-        minimumPayment: 0,
-        notes: '',
-      }
-    case 'expense':
-      return {
-        payee: '',
-        amount: 0,
-        frequency: 'monthly',
-        category: '',
-        notes: '',
-      }
-    default:
-      return {}
-  }
-}
+  const isSalaryIncomeForm =
+    normalizedCategory === "incomes" &&
+    isSalaryIncomeRecord(formData.name, formData.category);
 
-export function FinancialFormModal({
-  type,
-  mode,
-  data,
-  isOpen,
-  onClose,
-  onSave
-}: FinancialFormModalProps) {
-  const schema = getSchema(type)
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    reset,
-  } = useForm<any>({
-    resolver: zodResolver(schema as any),
-    defaultValues: getDefaultValues(type, data),
-  })
+  // Load existing data for edit mode
+  useEffect(() => {
+    if (isEdit && itemId) {
+      const loadItem = async () => {
+        try {
+          let data: Asset | Liability | Income | Expense;
 
-  const onSubmit = async (formData: any) => {
-    const newData = {
-      ...formData,
-      id: data?.id || Date.now().toString(),
-      updatedAt: new Date().toISOString(),
+          switch (normalizedCategory) {
+            case "assets":
+              data = await financialClient.assets.get(itemId);
+              setFormData({
+                name: data.name,
+                amount: data.currentValue.toString(),
+                category: data.category,
+                annualGrowthRate: (data.annualGrowthRate * 100).toString(),
+                frequency: "monthly",
+                interestRateApr: "4.5",
+                minimumPayment: "",
+                notes: data.notes ?? "",
+                salaryInputType: "gross",
+              });
+              break;
+            case "liabilities":
+              data = await financialClient.liabilities.get(itemId);
+              setFormData({
+                name: data.name,
+                amount: data.currentBalance.toString(),
+                category: data.category,
+                interestRateApr: (data.interestRateApr * 100).toString(),
+                minimumPayment: data.minimumPayment.toString(),
+                frequency: "monthly",
+                annualGrowthRate: "7.0",
+                notes: data.notes ?? "",
+                salaryInputType: "gross",
+              });
+              break;
+            case "incomes":
+              data = await financialClient.incomes.get(itemId);
+              const salaryMetadata = decodeCPFSalaryMetadata(data.notes);
+              setFormData({
+                name: data.source,
+                amount: (salaryMetadata && salaryMetadata.inputType === "net"
+                  ? salaryMetadata.netAmount
+                  : data.amount
+                ).toString(),
+                frequency: data.frequency,
+                category: data.category,
+                annualGrowthRate: "7.0",
+                interestRateApr: "4.5",
+                minimumPayment: "",
+                notes: data.notes ?? "",
+                salaryInputType: salaryMetadata?.inputType ?? "gross",
+              });
+              break;
+            case "expenses":
+              data = await financialClient.expenses.get(itemId);
+              setFormData({
+                name: data.payee,
+                amount: data.amount.toString(),
+                frequency: data.frequency,
+                category: data.category,
+                annualGrowthRate: "7.0",
+                interestRateApr: "4.5",
+                minimumPayment: "",
+                notes: data.notes ?? "",
+                salaryInputType: "gross",
+              });
+              break;
+          }
+        } catch (error) {
+          console.error("Failed to load item for editing:", error);
+        }
+      };
+
+      loadItem();
     }
-    onSave(newData)
-    reset()
-    onClose()
-  }
+  }, [isEdit, itemId, category]);
 
-  const getTitle = () => {
-    const action = mode === 'create' ? 'Add' : 'Edit'
-    const entityName = type.charAt(0).toUpperCase() + type.slice(1)
-    return `${action} ${entityName}`
-  }
+  // Mutations for CRUD operations
+  const createAssetMutation = useMutation({
+    mutationFn: (data: AssetCreatePayload) =>
+      financialClient.assets.create(data),
+    onSuccess: () => {
+      console.log("Asset created successfully");
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      invalidateFinancialData();
+      onClose();
+    },
+    onError: (error) => {
+      console.error("Failed to create asset:", error);
+      alert("Failed to create asset. Please try again.");
+    },
+  });
 
-  const getDescription = () => {
-    switch (type) {
-      case 'asset': return 'Add assets like savings accounts, investments, or property'
-      case 'income': return 'Add income sources like salary, freelance, or investments'
-      case 'liability': return 'Add debts and financial obligations you owe'
-      case 'expense': return 'Add regular expenses and spending'
-      default: return 'Add your financial information'
+  const updateAssetMutation = useMutation({
+    mutationFn: (data: { id: string } & AssetCreatePayload) =>
+      financialClient.assets.update(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      invalidateFinancialData();
+      onClose();
+    },
+  });
+
+  const createLiabilityMutation = useMutation({
+    mutationFn: (data: LiabilityCreatePayload) =>
+      financialClient.liabilities.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["liabilities"] });
+      invalidateFinancialData();
+      onClose();
+    },
+  });
+
+  const updateLiabilityMutation = useMutation({
+    mutationFn: (data: { id: string } & LiabilityCreatePayload) =>
+      financialClient.liabilities.update(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["liabilities"] });
+      invalidateFinancialData();
+      onClose();
+    },
+  });
+
+  const createIncomeMutation = useMutation({
+    mutationFn: async (data: IncomeCreatePayload) => {
+      // Create the main income
+      const incomeResult = await financialClient.incomes.create(data);
+
+      // Auto-create CPF contributions if this is salary income
+      const isSalaryIncome = isSalaryIncomeRecord(data.source, data.category);
+
+      if (isSalaryIncome) {
+        try {
+          await updateCPFContributions(data.amount, DEFAULT_SALARY_AGE);
+        } catch (cpfError) {
+          console.warn("Failed to sync CPF contributions, but salary income was created:", cpfError);
+        }
+      }
+
+      return incomeResult;
+    },
+    onSuccess: () => {
+      console.log("Income created successfully");
+      queryClient.invalidateQueries({ queryKey: ["incomes"] });
+      invalidateFinancialData();
+      onClose();
+    },
+    onError: (error) => {
+      console.error("Failed to create income:", error);
+      alert("Failed to create income. Please try again.");
+    },
+  });
+
+  const updateIncomeMutation = useMutation({
+    mutationFn: async (data: { id: string } & IncomeCreatePayload) => {
+      // Update the main income
+      const incomeResult = await financialClient.incomes.update(data);
+
+      // Update CPF contributions if this is salary income
+      const isSalaryIncome = isSalaryIncomeRecord(data.source, data.category);
+
+      if (isSalaryIncome) {
+        try {
+          console.log("Updating CPF contributions for changed salary income");
+          await updateCPFContributions(data.amount, DEFAULT_SALARY_AGE);
+        } catch (cpfError) {
+          console.warn("Failed to update CPF contributions, but salary income was updated:", cpfError);
+          // Don't fail the main operation if CPF update fails
+        }
+      }
+
+      return incomeResult;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["incomes"] });
+      invalidateFinancialData();
+      onClose();
+    },
+  });
+
+  const createExpenseMutation = useMutation({
+    mutationFn: (data: ExpenseCreatePayload) =>
+      financialClient.expenses.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      invalidateFinancialData();
+      onClose();
+    },
+  });
+
+  // Delete mutations
+  const deleteAssetMutation = useMutation({
+    mutationFn: (id: string) => financialClient.assets.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      invalidateFinancialData();
+      onClose();
+    },
+  });
+
+  const deleteLiabilityMutation = useMutation({
+    mutationFn: (id: string) => financialClient.liabilities.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["liabilities"] });
+      invalidateFinancialData();
+      onClose();
+    },
+  });
+
+  const deleteIncomeMutation = useMutation({
+    mutationFn: (id: string) => financialClient.incomes.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["incomes"] });
+      invalidateFinancialData();
+      onClose();
+    },
+  });
+
+  const deleteExpenseMutation = useMutation({
+    mutationFn: (id: string) => financialClient.expenses.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      invalidateFinancialData();
+      onClose();
+    },
+  });
+
+  const updateExpenseMutation = useMutation({
+    mutationFn: (data: { id: string } & ExpenseCreatePayload) =>
+      financialClient.expenses.update(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      invalidateFinancialData();
+      onClose();
+    },
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    console.log("Form submitted with data:", formData);
+
+    if (!formData.name.trim() || !formData.amount.trim()) {
+      alert("Please fill in all required fields");
+      return;
     }
-  }
 
-  const renderFormFields = () => {
-    switch (type) {
-      case 'asset':
-        return (
-          <>
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Asset Name</label>
-              <Input {...register('name')} placeholder="e.g., Savings Account" />
-              {errors.name && <p className="text-sm text-red-500">{errors.name.message as string}</p>}
-            </div>
+    const baseData = {
+      name: formData.name.trim(),
+      amount: Number.parseFloat(formData.amount) || 0,
+      category: formData.category.trim() || "other",
+      notes: formData.notes.trim(),
+    };
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Category</label>
-              <Input {...register('category')} placeholder="e.g., Cash, Investment" />
-              {errors.category && <p className="text-sm text-red-500">{errors.category.message as string}</p>}
-            </div>
+    console.log("Processed base data:", baseData);
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Current Value ($)</label>
-              <Input
-                {...register('currentValue', { valueAsNumber: true })}
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-              />
-              {errors.currentValue && <p className="text-sm text-red-500">{errors.currentValue.message as string}</p>}
-            </div>
+    try {
+      switch (normalizedCategory) {
+        case "assets": {
+          const assetData = {
+            name: baseData.name,
+            category: baseData.category,
+            currentValue: baseData.amount,
+            annualGrowthRate:
+              Number.parseFloat(formData.annualGrowthRate) / 100,
+            ...(baseData.notes ? { notes: baseData.notes } : {}),
+          };
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Annual Growth Rate (%)</label>
-              <Input
-                {...register('annualGrowthRate', { valueAsNumber: true })}
-                type="number"
-                step="0.1"
-                placeholder="7.0"
-              />
-              {errors.annualGrowthRate && <p className="text-sm text-red-500">{errors.annualGrowthRate.message as string}</p>}
-            </div>
-          </>
-        )
+          if (isEdit && itemId) {
+            updateAssetMutation.mutate({ id: itemId, ...assetData });
+          } else {
+            createAssetMutation.mutate(assetData);
+          }
+          break;
+        }
 
-      case 'income':
-        return (
-          <>
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Income Source</label>
-              <Input {...register('source')} placeholder="e.g., Primary Job" />
-              {errors.source && <p className="text-sm text-red-500">{errors.source.message as string}</p>}
-            </div>
+        case "liabilities": {
+          const liabilityData = {
+            name: baseData.name,
+            category: baseData.category,
+            currentBalance: baseData.amount,
+            interestRateApr: Number.parseFloat(formData.interestRateApr) / 100,
+            minimumPayment: Number.parseFloat(formData.minimumPayment) || 0,
+            ...(baseData.notes ? { notes: baseData.notes } : {}),
+          };
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Amount ($)</label>
-              <Input
-                {...register('amount', { valueAsNumber: true })}
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-              />
-              {errors.amount && <p className="text-sm text-red-500">{errors.amount.message as string}</p>}
-            </div>
+          if (isEdit && itemId) {
+            updateLiabilityMutation.mutate({ id: itemId, ...liabilityData });
+          } else {
+            createLiabilityMutation.mutate(liabilityData);
+          }
+          break;
+        }
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Frequency</label>
-              <select {...register('frequency')} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Bi-weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="yearly">Yearly</option>
-              </select>
-              {errors.frequency && <p className="text-sm text-red-500">{errors.frequency.message as string}</p>}
-            </div>
+        case "incomes": {
+          const baseIncomeData = {
+            source: baseData.name,
+            amount: baseData.amount,
+            frequency: formData.frequency as any,
+            startDate: new Date().toISOString(),
+            category: baseData.category,
+          };
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Category</label>
-              <Input {...register('category')} placeholder="e.g., Salary, Freelance" />
-              {errors.category && <p className="text-sm text-red-500">{errors.category.message as string}</p>}
-            </div>
-          </>
-        )
+          let incomeData = { ...baseIncomeData } as IncomeCreatePayload;
+          if (isSalaryIncomeRecord(baseIncomeData.source, baseIncomeData.category)) {
+            const salaryInputType: CPFSalaryInputType = formData.salaryInputType ?? "gross";
+            const { grossSalary, netSalary, cpfContribution } = normalizeSalaryAmount(
+              baseIncomeData.amount,
+              salaryInputType,
+              DEFAULT_SALARY_AGE
+            );
+            incomeData = {
+              ...incomeData,
+              amount: grossSalary,
+              notes: encodeCPFSalaryMetadata({
+                inputType: salaryInputType,
+                grossAmount: grossSalary,
+                netAmount: netSalary,
+                cpfEmployeeAmount: cpfContribution.employeeAmount,
+                cpfEmployerAmount: cpfContribution.employerAmount,
+                updatedAt: new Date().toISOString(),
+              }),
+            };
+          } else if (baseData.notes) {
+            incomeData = {
+              ...incomeData,
+              notes: baseData.notes,
+            };
+          }
 
-      case 'liability':
-        return (
-          <>
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Liability Name</label>
-              <Input {...register('name')} placeholder="e.g., Credit Card" />
-              {errors.name && <p className="text-sm text-red-500">{errors.name.message as string}</p>}
-            </div>
+          console.log("Creating income with data:", incomeData);
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Category</label>
-              <Input {...register('category')} placeholder="e.g., Credit Card, Loan" />
-              {errors.category && <p className="text-sm text-red-500">{errors.category.message as string}</p>}
-            </div>
+          if (isEdit && itemId) {
+            updateIncomeMutation.mutate({ id: itemId, ...incomeData });
+          } else {
+            createIncomeMutation.mutate(incomeData);
+          }
+          break;
+        }
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Current Balance ($)</label>
-              <Input
-                {...register('currentBalance', { valueAsNumber: true })}
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-              />
-              {errors.currentBalance && <p className="text-sm text-red-500">{errors.currentBalance.message as string}</p>}
-            </div>
+        case "expenses": {
+          const expenseData = {
+            payee: baseData.name,
+            amount: baseData.amount,
+            frequency: formData.frequency as any,
+            category: baseData.category,
+            ...(baseData.notes ? { notes: baseData.notes } : {}),
+          };
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Interest Rate APR (%)</label>
-              <Input
-                {...register('interestRateApr', { valueAsNumber: true })}
-                type="number"
-                step="0.1"
-                placeholder="4.5"
-              />
-              {errors.interestRateApr && <p className="text-sm text-red-500">{errors.interestRateApr.message as string}</p>}
-            </div>
-
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Minimum Payment ($)</label>
-              <Input
-                {...register('minimumPayment', { valueAsNumber: true })}
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-              />
-              {errors.minimumPayment && <p className="text-sm text-red-500">{errors.minimumPayment.message as string}</p>}
-            </div>
-          </>
-        )
-
-      case 'expense':
-        return (
-          <>
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Payee</label>
-              <Input {...register('payee')} placeholder="e.g., Grocery Store" />
-              {errors.payee && <p className="text-sm text-red-500">{errors.payee.message as string}</p>}
-            </div>
-
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Amount ($)</label>
-              <Input
-                {...register('amount', { valueAsNumber: true })}
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-              />
-              {errors.amount && <p className="text-sm text-red-500">{errors.amount.message as string}</p>}
-            </div>
-
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Frequency</label>
-              <select {...register('frequency')} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Bi-weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="yearly">Yearly</option>
-              </select>
-              {errors.frequency && <p className="text-sm text-red-500">{errors.frequency.message as string}</p>}
-            </div>
-
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Category</label>
-              <Input {...register('category')} placeholder="e.g., Food, Transportation" />
-              {errors.category && <p className="text-sm text-red-500">{errors.category.message as string}</p>}
-            </div>
-          </>
-        )
-
-      default:
-        return null
+          if (isEdit && itemId) {
+            updateExpenseMutation.mutate({ id: itemId, ...expenseData });
+          } else {
+            createExpenseMutation.mutate(expenseData);
+          }
+          break;
+        }
+      }
+    } catch (error) {
+      console.error("Form submission error:", error);
     }
-  }
+  };
+
+  const handleDelete = async () => {
+    if (!isEdit || !itemId) return;
+
+    if (!confirm("Are you sure you want to delete this item?")) {
+      return;
+    }
+
+    try {
+      switch (normalizedCategory) {
+        case "assets":
+          deleteAssetMutation.mutate(itemId);
+          break;
+        case "liabilities":
+          deleteLiabilityMutation.mutate(itemId);
+          break;
+        case "incomes":
+          deleteIncomeMutation.mutate(itemId);
+          break;
+        case "expenses":
+          deleteExpenseMutation.mutate(itemId);
+          break;
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+    }
+  };
+
+  const getModalTitle = () => {
+    const action = isEdit ? "Edit" : "Add";
+    const categoryTitle =
+      normalizedCategory === "incomes"
+        ? "Income"
+        : normalizedCategory === "expenses"
+          ? "Expense"
+          : normalizedCategory === "assets"
+            ? "Asset"
+            : "Liability";
+    return `${action} ${categoryTitle}`;
+  };
+
+  const getModalIcon = () => {
+    return normalizedCategory === "incomes"
+      ? "💼"
+      : normalizedCategory === "expenses"
+        ? "💰"
+        : normalizedCategory === "assets"
+          ? "📈"
+          : "💳";
+  };
+
+  const isLoading =
+    createAssetMutation.isPending ||
+    updateAssetMutation.isPending ||
+    createLiabilityMutation.isPending ||
+    updateLiabilityMutation.isPending ||
+    createIncomeMutation.isPending ||
+    updateIncomeMutation.isPending ||
+    createExpenseMutation.isPending ||
+    updateExpenseMutation.isPending ||
+    deleteAssetMutation.isPending ||
+    deleteLiabilityMutation.isPending ||
+    deleteIncomeMutation.isPending ||
+    deleteExpenseMutation.isPending;
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-[400px] sm:w-[540px]">
-        <SheetHeader>
-          <SheetTitle>{getTitle()}</SheetTitle>
-          <SheetDescription>{getDescription()}</SheetDescription>
-        </SheetHeader>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="mx-4 w-full max-w-md rounded-lg border border-gray-700 bg-gray-800">
+        {/* Header */}
+        <div className="flex items-center justify-between border-gray-700 border-b p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500">
+              <span className="text-lg text-white">{getModalIcon()}</span>
+            </div>
+            <h2 className="font-semibold text-lg text-white">
+              {getModalTitle()}
+            </h2>
+          </div>
+          <div className="flex items-center gap-3">
+            {isEdit && (
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-red-600/20 hover:text-red-400"
+                disabled={isLoading}
+                onClick={handleDelete}
+                title="Delete item"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-6">
-          {renderFormFields()}
+            <button
+              className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
+              disabled={isLoading}
+              onClick={onClose}
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
 
-          <div className="grid gap-2">
-            <label className="text-sm font-medium">Notes (Optional)</label>
-            <Textarea {...register('notes')} placeholder="Additional notes..." rows={3} />
+        {/* Form */}
+        <form className="space-y-4 p-6" onSubmit={handleSubmit}>
+          <div>
+            <label className="mb-2 block font-medium text-gray-300 text-sm">
+              {normalizedCategory === "incomes"
+                ? "Source"
+                : normalizedCategory === "expenses"
+                  ? "Payee"
+                  : "Name"}
+            </label>
+            <input
+              className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, name: e.target.value }))
+              }
+              placeholder="Enter name"
+              required
+              type="text"
+              value={formData.name}
+            />
           </div>
 
-          <SheetFooter className="gap-2 pt-6">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-2 block font-medium text-gray-300 text-sm">
+                {normalizedCategory === "assets"
+                  ? "Current Value"
+                  : normalizedCategory === "liabilities"
+                    ? "Balance"
+                    : "Amount"}
+              </label>
+              <input
+                className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+                min="0"
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, amount: e.target.value }))
+                }
+                placeholder="0"
+                required
+                step="0.01"
+                type="number"
+                value={formData.amount}
+              />
+            </div>
+            {(normalizedCategory === "incomes" ||
+              normalizedCategory === "expenses") && (
+              <div>
+                <label className="mb-2 block font-medium text-gray-300 text-sm">
+                  Frequency
+                </label>
+                <select
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      frequency: e.target.value,
+                    }))
+                  }
+                  value={formData.frequency}
+                >
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Bi-weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+            )}
+
+            {isSalaryIncomeForm && normalizedCategory === "incomes" && (
+              <div className="col-span-2 space-y-1 rounded-md border border-gray-700 bg-gray-800/80 p-3">
+                <label className="flex items-center gap-2 text-gray-300 text-sm">
+                  <input
+                    checked={formData.salaryInputType === "net"}
+                    className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500"
+                    onChange={(event) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        salaryInputType: event.target.checked ? "net" : "gross",
+                      }))
+                    }
+                    type="checkbox"
+                  />
+                  Treat amount as net salary (after CPF)
+                </label>
+                <p className="text-gray-400 text-xs">
+                  We convert this take-home amount back to gross so CPF auto-calcs stay accurate.
+                </p>
+              </div>
+            )}
+
+            {normalizedCategory === "assets" && (
+              <div>
+                <label className="mb-2 block font-medium text-gray-300 text-sm">
+                  Annual Growth Rate (%)
+                </label>
+                <input
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      annualGrowthRate: e.target.value,
+                    }))
+                  }
+                  placeholder="7.0"
+                  step="0.1"
+                  type="number"
+                  value={formData.annualGrowthRate}
+                />
+              </div>
+            )}
+          </div>
+
+          {normalizedCategory === "liabilities" && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-2 block font-medium text-gray-300 text-sm">
+                  Interest Rate APR (%)
+                </label>
+                <input
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      interestRateApr: e.target.value,
+                    }))
+                  }
+                  placeholder="4.5"
+                  step="0.1"
+                  type="number"
+                  value={formData.interestRateApr}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block font-medium text-gray-300 text-sm">
+                  Min Payment
+                </label>
+                <input
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+                  min="0"
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      minimumPayment: e.target.value,
+                    }))
+                  }
+                  placeholder="100"
+                  step="0.01"
+                  type="number"
+                  value={formData.minimumPayment}
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="mb-2 block font-medium text-gray-300 text-sm">
+              Category
+            </label>
+            <input
+              className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, category: e.target.value }))
+              }
+              placeholder="e.g., salary, retirement, mortgage"
+              type="text"
+              value={formData.category}
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block font-medium text-gray-300 text-sm">
+              Notes (optional)
+            </label>
+            <textarea
+              className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, notes: e.target.value }))
+              }
+              placeholder="Add additional details"
+              rows={3}
+              value={formData.notes}
+            />
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-between border-gray-700 border-t pt-4">
+            <button
+              className="px-4 py-2 text-gray-400 transition-colors hover:text-white"
+              disabled={isLoading}
+              onClick={onClose}
+              type="button"
+            >
               Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : mode === 'create' ? 'Add' : 'Update'}
-            </Button>
-          </SheetFooter>
+            </button>
+            <button
+              className="rounded-lg bg-emerald-500 px-6 py-2 text-white transition-colors hover:bg-emerald-600 disabled:bg-gray-600"
+              disabled={isLoading}
+              type="submit"
+            >
+              {isLoading ? "Saving..." : isEdit ? "Update" : "Add"}
+            </button>
+          </div>
         </form>
-      </SheetContent>
-    </Sheet>
-  )
+      </div>
+    </div>
+  );
 }

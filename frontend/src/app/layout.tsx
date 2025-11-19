@@ -1,5 +1,6 @@
 import { ReactNode } from 'react'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { Toaster } from 'sonner'
 import '../styles/globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 
@@ -24,6 +25,7 @@ export default function RootLayout({
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="antialiased">
         <QueryProvider>
+          <Toaster closeButton richColors position="top-center" />
           {children}
         </QueryProvider>
       </body>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { Asset, Income, Liability, Expense } from '../types/financial'
+import type { Asset, Income, Liability, Expense } from '@/lib/financial/types'
 
 // Storage keys
 const STORAGE_KEYS = {

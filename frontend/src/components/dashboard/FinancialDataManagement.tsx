@@ -1,287 +1,657 @@
-import { useState } from 'react'
-import { Plus, SlidersHorizontal, Sparkles } from 'lucide-react'
+"use client";
 
-import { useFinancialData } from '../../hooks/useFinancialData'
-import type { Asset, Expense, Income, Liability } from '../../types/financial'
-import { FinancialFormModal } from '../modals/FinancialFormModal'
+import { useQuery } from "@tanstack/react-query";
+import { Plus, SlidersHorizontal, Sparkles } from "lucide-react";
+import type React from "react";
+import { useEffect, useState } from "react";
+import type { PropertyPlannerType } from "@/components/property-planner/mock-data";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useFinancialPlanningStore } from "@/features/financial-planning";
+import { usePropertyPlannerModalStore } from "@/features/property-planner/modal-store";
+import {
+  CPF_EMPLOYEE_CONTRIBUTION_SOURCE,
+  CPF_EMPLOYER_CONTRIBUTION_SOURCE,
+  isCPFEmployeeContributionName,
+  isCPFEmployerContributionName,
+} from "@/lib/cpf/constants";
+import {
+  decodeCPFSalaryMetadata,
+  isSalaryIncomeRecord,
+} from "@/lib/cpf/salary";
+import { financialClient } from "@/lib/financial/client";
+import { parsePlannerNote } from "@/lib/property-planner/constants";
+import { CPFBalanceForm } from "@/components/modals/CPFBalanceForm";
+import { FinancialFormModal } from "@/components/modals/FinancialFormModal";
 
-type FinancialCategory = 'asset' | 'income' | 'liability' | 'expense'
+type FinancialItem = {
+  id: string;
+  name: string;
+  subtitle: string;
+  amount: string;
+  icon: string;
+  color: string;
+  plannerMeta?: {
+    scenarioId: string;
+    scenarioType: PropertyPlannerType;
+  } | null;
+};
 
 type CategoryConfig = {
-  title: string
-  emptyDescription: string
-  icon: string
-  accent: string
-  helper?: string
-}
-
-const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
-  asset: {
-    title: 'Assets',
-    emptyDescription: 'No assets added yet',
-    icon: '📈',
-    accent: 'bg-blue-500',
-    helper: 'Add CPF balances to start',
-  },
-  income: {
-    title: 'Income',
-    emptyDescription: 'No income added yet',
-    icon: '💼',
-    accent: 'bg-emerald-500',
-  },
-  liability: {
-    title: 'Liabilities',
-    emptyDescription: 'No liabilities added yet',
-    icon: '💳',
-    accent: 'bg-rose-500',
-  },
-  expense: {
-    title: 'Expenses',
-    emptyDescription: 'No expenses added yet',
-    icon: '💰',
-    accent: 'bg-amber-500',
-  },
-}
-
-interface ModalState {
-  isOpen: boolean
-  type: FinancialCategory
-  mode: 'create' | 'edit'
-  data?: Asset | Income | Liability | Expense
-}
+  title: string;
+  description: string;
+  items: FinancialItem[];
+  isLoading: boolean;
+  modalType: string;
+  onOpenSettings?: () => void;
+};
 
 export function FinancialDataManagement() {
-  const {
-    assets,
-    incomes,
-    liabilities,
-    expenses,
-    addAsset,
-    addIncome,
-    addLiability,
-    addExpense,
-    getNetWorth,
-    getMonthlySavings,
-  } = useFinancialData()
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [showGrowthSettings, setShowGrowthSettings] = useState(false);
+  const [showCPFForm, setShowCPFForm] = useState(false);
 
-  const [modalState, setModalState] = useState<ModalState>({
-    isOpen: false,
-    type: 'asset',
-    mode: 'create',
-  })
+  // Query data from Go service
+  const { data: assets = [], isLoading: assetsLoading } = useQuery({
+    queryKey: ["assets"],
+    queryFn: () => financialClient.assets.list(),
+  });
 
-  const handleAddItem = (category: FinancialCategory) => {
-    setModalState({
-      isOpen: true,
-      type: category,
-      mode: 'create',
-    })
-  }
+  const { data: liabilities = [], isLoading: liabilitiesLoading } = useQuery({
+    queryKey: ["liabilities"],
+    queryFn: () => financialClient.liabilities.list(),
+  });
 
-  const handleSettings = (category: FinancialCategory) => {
-    console.log(`Settings for ${category}`)
-  }
+  const { data: incomes = [], isLoading: incomesLoading } = useQuery({
+    queryKey: ["incomes"],
+    queryFn: () => financialClient.incomes.list(),
+  });
 
-  const handleModalClose = () => {
-    setModalState((prev) => ({ ...prev, isOpen: false }))
-  }
+  const { data: expenses = [], isLoading: expensesLoading } = useQuery({
+    queryKey: ["expenses"],
+    queryFn: () => financialClient.expenses.list(),
+  });
 
-  const handleModalSave = (data: any) => {
-    switch (modalState.type) {
-      case 'asset':
-        addAsset(data)
-        break
-      case 'income':
-        addIncome(data)
-        break
-      case 'liability':
-        addLiability(data)
-        break
-      case 'expense':
-        addExpense(data)
-        break
+  const openPlannerModal = usePropertyPlannerModalStore(
+    (state) => state.openWithType
+  );
+
+  const handlePlannerLink = (meta: {
+    scenarioId: string;
+    scenarioType: PropertyPlannerType;
+  }) => {
+    openPlannerModal(meta.scenarioType);
+  };
+
+  const formatIncomeItems = (): FinancialItem[] => {
+    return incomes.map((income) => {
+      if (isCPFEmployerContributionName(income.source)) {
+        return {
+          id: income.id,
+          name: CPF_EMPLOYER_CONTRIBUTION_SOURCE,
+          subtitle: `${income.frequency} • Auto-saved to CPF`,
+          amount: `$${income.amount.toLocaleString()}`,
+          icon: "🏦",
+          color: "bg-indigo-500",
+        };
+      }
+
+      if (isCPFEmployeeContributionName(income.source)) {
+        return {
+          id: income.id,
+          name: CPF_EMPLOYEE_CONTRIBUTION_SOURCE,
+          subtitle: `${income.frequency} • Mandatory CPF savings`,
+          amount: `$${income.amount.toLocaleString()}`,
+          icon: "🏦",
+          color: "bg-indigo-500",
+        };
+      }
+
+      if (isSalaryIncomeRecord(income.source, income.category)) {
+        const salaryMetadata = decodeCPFSalaryMetadata(income.notes);
+        const netAmount = salaryMetadata?.netAmount ?? income.amount;
+        const grossAmount = salaryMetadata?.grossAmount ?? income.amount;
+        return {
+          id: income.id,
+          name: "Net Salary (after CPF)",
+          subtitle: `${income.frequency} • Gross $${grossAmount.toLocaleString()}`,
+          amount: `$${netAmount.toLocaleString()}`,
+          icon: "💼",
+          color: "bg-emerald-500",
+        };
+      }
+
+      return {
+        id: income.id,
+        name: income.source,
+        subtitle: `${income.frequency} • ${income.category || "Income"}`,
+        amount: `$${income.amount.toLocaleString()}`,
+        icon: "💼",
+        color: "bg-emerald-500",
+      };
+    });
+  };
+
+  const formatExpenseItems = (): FinancialItem[] => {
+    return expenses
+      .filter((expense) => !isCPFEmployeeContributionName(expense.payee))
+      .map((expense) => {
+        const plannerMeta = parsePlannerNote(expense.notes);
+        return {
+          id: expense.id,
+          name: expense.payee,
+          subtitle: `${expense.frequency} • ${expense.category || "Expense"}`,
+          amount: `$${expense.amount.toLocaleString()}`,
+          icon: "💰",
+          color: "bg-orange-500",
+          plannerMeta: plannerMeta
+            ? {
+                scenarioId: plannerMeta.scenarioId,
+                scenarioType: plannerMeta.scenarioType as PropertyPlannerType,
+              }
+            : null,
+        };
+      });
+  };
+
+  const formatAssetItems = (): FinancialItem[] => {
+    return assets.map((asset) => ({
+      id: asset.id,
+      name: asset.name,
+      subtitle: `${asset.category} • ${(asset.annualGrowthRate * 100).toFixed(1)}% growth`,
+      amount: `$${asset.currentValue.toLocaleString()}`,
+      icon: asset.name.includes("CPF") ? "🏦" : "📈",
+      color: asset.name.includes("CPF") ? "bg-indigo-500" : "bg-blue-500",
+    }));
+  };
+
+  const formatLiabilityItems = (): FinancialItem[] => {
+    return liabilities.map((liability) => {
+      const plannerMeta = parsePlannerNote(liability.notes);
+      return {
+        id: liability.id,
+        name: liability.name,
+        subtitle: `${liability.category} • ${liability.interestRateApr}% APR`,
+        amount: `$${liability.currentBalance.toLocaleString()}`,
+        icon: "💳",
+        color: "bg-red-500",
+        plannerMeta: plannerMeta
+          ? {
+              scenarioId: plannerMeta.scenarioId,
+              scenarioType: plannerMeta.scenarioType as PropertyPlannerType,
+            }
+          : null,
+      };
+    });
+  };
+
+  // Calculate totals
+  const totalAssets = assets.reduce(
+    (sum, asset) => sum + asset.currentValue,
+    0
+  );
+  const totalLiabilities = liabilities.reduce(
+    (sum, liability) => sum + liability.currentBalance,
+    0
+  );
+  const netWorth = totalAssets - totalLiabilities;
+
+  const incomeTotals = incomes.reduce(
+    (totals, income) => {
+      totals.total += income.amount;
+      if (isCPFEmployerContributionName(income.source)) {
+        totals.cpfEmployer += income.amount;
+      }
+      if (isCPFEmployeeContributionName(income.source)) {
+        totals.cpfEmployee += income.amount;
+      }
+      return totals;
+    },
+    { total: 0, cpfEmployer: 0, cpfEmployee: 0 }
+  );
+
+  const totalExpenses = expenses.reduce((sum, expense) => {
+    if (isCPFEmployeeContributionName(expense.payee)) {
+      return sum;
     }
-  }
+    return sum + expense.amount;
+  }, 0);
 
-  const getDataForCategory = (category: FinancialCategory) => {
-    switch (category) {
-      case 'asset':
-        return assets
-      case 'income':
-        return incomes
-      case 'liability':
-        return liabilities
-      case 'expense':
-        return expenses
-    }
-  }
+  const cashflowIncome =
+    incomeTotals.total - incomeTotals.cpfEmployer - incomeTotals.cpfEmployee;
+  const savings = cashflowIncome - totalExpenses;
 
-  const summarizeAmount = (item: any) => {
-    if ('currentValue' in item) return item.currentValue
-    if ('currentBalance' in item) return item.currentBalance
-    return item.amount ?? 0
-  }
+  // Check if CPF assets exist
+  const hasCPFAssets = assets.some(
+    (asset) => asset.name.includes("CPF") || asset.category === "retirement"
+  );
+
+  const leftColumnCategories: CategoryConfig[] = [
+    {
+      title: "Assets",
+      description: "",
+      items: formatAssetItems(),
+      isLoading: assetsLoading,
+      modalType: "assets",
+      onOpenSettings: () => setShowGrowthSettings(true),
+    },
+    {
+      title: "Liabilities",
+      description: "All debts and financial obligations you owe",
+      items: formatLiabilityItems(),
+      isLoading: liabilitiesLoading,
+      modalType: "liabilities",
+    },
+  ];
+
+  const rightColumnCategories: CategoryConfig[] = [
+    {
+      title: "Income",
+      description: "",
+      items: formatIncomeItems(),
+      isLoading: incomesLoading,
+      modalType: "incomes",
+    },
+    {
+      title: "Expenses",
+      description: "",
+      items: formatExpenseItems(),
+      isLoading: expensesLoading,
+      modalType: "expenses",
+    },
+  ];
 
   return (
-    <>
-      <div className="flex h-full flex-col bg-transparent text-white">
-        <div className="border-b border-white/10 px-6 py-4">
-          <h3 className="text-lg font-semibold text-white">Financial Data</h3>
-          <p className="text-sm text-gray-400">
-            Manage your income, expenses, assets, and liabilities
-          </p>
+    <div className="h-full w-full overflow-auto bg-gray-900 p-6 text-white">
+      <div className="mb-6">
+        <h2 className="mb-1 font-semibold text-white text-xl">
+          Financial Data
+        </h2>
+        <p className="text-gray-400 text-sm">
+          Manage your income, expenses, assets, and liabilities
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-6 lg:min-w-0 lg:flex-row">
+        {/* Left Column - Assets & Liabilities */}
+        <div className="flex min-w-0 flex-1 flex-col space-y-6">
+          {leftColumnCategories.map((category) => (
+            <FinancialCard
+              description={category.description}
+              isLoading={category.isLoading}
+              items={category.items}
+              key={category.title}
+              onAddCPF={() => setShowCPFForm(true)}
+              onAddItem={() => setActiveModal(category.modalType)}
+              onEditItem={(id) => setActiveModal(`${category.modalType}-${id}`)}
+              onOpenPlanner={handlePlannerLink}
+              onOpenSettings={category.onOpenSettings}
+              showCPFButton={category.title === "Assets" && !hasCPFAssets}
+              title={category.title}
+            />
+          ))}
+
+          {/* Net Worth Summary */}
+          <div className="mt-auto rounded-lg border border-gray-700 bg-gray-800 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-white">Net Worth</h3>
+                <p className="text-gray-400 text-sm">
+                  Assets minus liabilities
+                </p>
+              </div>
+              <div
+                className={`font-bold text-lg ${netWorth >= 0 ? "text-emerald-400" : "text-red-400"}`}
+              >
+                ${netWorth.toLocaleString()}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-auto px-6 py-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            {(Object.keys(categoryConfig) as FinancialCategory[]).map(
-              (key) => {
-                const config = categoryConfig[key]
-                const data = getDataForCategory(key)
-                const hasData = data.length > 0
-                const description = hasData
-                  ? `${data.length} ${config.title.toLowerCase()}${
-                      data.length > 1 ? 's' : ''
-                    }`
-                  : config.emptyDescription
+        {/* Right Column - Income & Expenses */}
+        <div className="flex min-w-0 flex-1 flex-col space-y-6">
+          {rightColumnCategories.map((category) => (
+            <FinancialCard
+              description={category.description}
+              isLoading={category.isLoading}
+              items={category.items}
+              key={category.title}
+              onAddItem={() => setActiveModal(category.modalType)}
+              onEditItem={(id) => setActiveModal(`${category.modalType}-${id}`)}
+              onOpenPlanner={handlePlannerLink}
+              onOpenSettings={category.onOpenSettings}
+              showCPFButton={false}
+              title={category.title}
+            />
+          ))}
 
-                return (
-                  <div
-                    key={key}
-                    className="flex w-full min-w-0 flex-col rounded-2xl border border-white/10 bg-white/5 shadow-lg"
-                  >
-                    <div className="border-b border-white/5 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div
-                            className={`flex h-10 w-10 items-center justify-center rounded-full ${config.accent}`}
-                          >
-                            <span className="text-lg">{config.icon}</span>
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="truncate text-base font-semibold text-white">
-                              {config.title}
-                            </h4>
-                            <p className="text-xs text-gray-400">
-                              {description}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-shrink-0 items-center gap-2">
-                          <button
-                            onClick={() => handleSettings(key)}
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-gray-300 transition hover:bg-white/10"
-                            type="button"
-                          >
-                            <SlidersHorizontal className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleAddItem(key)}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white transition hover:bg-emerald-600"
-                            type="button"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-1 flex-col justify-center gap-3 px-4 py-6 text-center text-gray-300">
-                      {hasData ? (
-                        <div className="space-y-2 text-left text-sm">
-                          {data.slice(0, 3).map((item: any, index) => (
-                            <div
-                              key={item.id || index}
-                              className="flex items-center justify-between text-gray-200"
-                            >
-                              <span className="truncate text-sm">
-                                {'name' in item
-                                  ? item.name
-                                  : 'source' in item
-                                  ? item.source
-                                  : 'payee' in item
-                                  ? item.payee
-                                  : 'Entry'}
-                              </span>
-                              <span className="text-sm text-gray-400">
-                                $
-                                {summarizeAmount(item).toLocaleString(
-                                  undefined,
-                                  { maximumFractionDigits: 0 }
-                                )}
-                              </span>
-                            </div>
-                          ))}
-                          {data.length > 3 && (
-                            <p className="text-xs text-gray-500">
-                              +{data.length - 3} more
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          <p className="text-sm">{config.emptyDescription}</p>
-                          <p className="text-xs text-gray-500">
-                            Click the + button to add your first entry
-                          </p>
-                          {config.helper && (
-                            <div className="mx-auto inline-flex items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-xs text-blue-200">
-                              <Sparkles className="h-3 w-3" />
-                              {config.helper}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )
-              }
-            )}
-          </div>
-
-          <div className="mt-6 grid gap-6 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-semibold text-white">Net Worth</h4>
-                  <p className="text-xs text-gray-400">
-                    Assets minus liabilities
-                  </p>
-                </div>
-                <div className="h-2 w-2 rounded-full bg-blue-400" />
+          {/* Savings Summary */}
+          <div className="mt-auto rounded-lg border border-gray-700 bg-gray-800 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-white">Savings</h3>
+                <p className="text-gray-400 text-sm">
+                  Income minus expenses (CPF contributions counted as savings)
+                </p>
               </div>
-              <p className="mt-4 text-3xl font-bold text-white">
-                ${getNetWorth().toLocaleString()}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-semibold text-white">
-                    Savings
-                  </h4>
-                  <p className="text-xs text-gray-400">
-                    Income minus expenses
-                  </p>
-                </div>
-                <div className="h-2 w-2 rounded-full bg-emerald-400" />
+              <div
+                className={`font-bold text-lg ${savings >= 0 ? "text-emerald-400" : "text-red-400"}`}
+              >
+                ${savings.toLocaleString()}
               </div>
-              <p className="mt-4 text-3xl font-bold text-white">
-                ${getMonthlySavings().toLocaleString()}
-              </p>
             </div>
           </div>
         </div>
       </div>
 
-      <FinancialFormModal
-        type={modalState.type}
-        mode={modalState.mode}
-        data={modalState.data}
-        isOpen={modalState.isOpen}
-        onClose={handleModalClose}
-        onSave={handleModalSave}
+      {/* Modals */}
+      {activeModal && (
+        <FinancialFormModal
+          onClose={() => setActiveModal(null)}
+          type={activeModal}
+        />
+      )}
+
+      {showCPFForm && <CPFBalanceForm onClose={() => setShowCPFForm(false)} />}
+
+      <GrowthSettingsSheet
+        onOpenChange={setShowGrowthSettings}
+        open={showGrowthSettings}
       />
-    </>
-  )
+    </div>
+  );
+}
+
+type FinancialCardProps = {
+  title: string;
+  description: string;
+  items: FinancialItem[];
+  isLoading: boolean;
+  onAddItem: () => void;
+  onEditItem: (id: string) => void;
+  onOpenSettings?: () => void;
+  onAddCPF?: () => void;
+  showCPFButton?: boolean;
+  onOpenPlanner?: (meta: {
+    scenarioId: string;
+    scenarioType: PropertyPlannerType;
+  }) => void;
+};
+
+function FinancialCard({
+  title,
+  description,
+  items,
+  isLoading,
+  onAddItem,
+  onEditItem,
+  onOpenSettings,
+  onAddCPF,
+  showCPFButton,
+  onOpenPlanner,
+}: FinancialCardProps) {
+  const iconColor =
+    title === "Income"
+      ? "text-emerald-500"
+      : title === "Expenses"
+        ? "text-orange-500"
+        : title === "Assets"
+          ? "text-blue-500"
+          : "text-red-500";
+
+  return (
+    <div className="flex w-full min-w-0 flex-col rounded-lg border border-gray-700 bg-gray-800">
+      {/* Header */}
+      <div className="border-gray-700 border-b p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div
+              className={`flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 ${iconColor}`}
+            >
+              {title === "Income"
+                ? "💼"
+                : title === "Expenses"
+                  ? "💰"
+                  : title === "Assets"
+                    ? "📈"
+                    : "💳"}
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate font-semibold text-white">{title}</h3>
+              <p className="text-gray-400 text-sm">{description}</p>
+            </div>
+          </div>
+          <div className="flex flex-shrink-0 items-center gap-2">
+            {onOpenSettings && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-700 text-gray-200 transition-colors hover:bg-gray-700"
+                      onClick={onOpenSettings}
+                      type="button"
+                    >
+                      <SlidersHorizontal className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs">
+                    Adjust global growth rate
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {showCPFButton && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-white transition-colors hover:bg-blue-600"
+                      onClick={onAddCPF}
+                      type="button"
+                    >
+                      🏦
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs">
+                    Add CPF Balances
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <button
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 transition-colors hover:bg-emerald-600"
+              onClick={onAddItem}
+              type="button"
+            >
+              <Plus className="h-4 w-4 text-white" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Items */}
+      <div className="flex-1 p-4">
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div className="animate-pulse" key={i}>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-gray-700" />
+                  <div className="flex-1">
+                    <div className="mb-2 h-4 w-1/3 rounded bg-gray-700" />
+                    <div className="h-3 w-1/2 rounded bg-gray-700" />
+                  </div>
+                  <div className="h-4 w-20 rounded bg-gray-700" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : items.length > 0 ? (
+          <div className="space-y-3">
+            {items.map((item) => {
+              const plannerMeta = item.plannerMeta;
+              return (
+                <div
+                  className="flex w-full flex-wrap items-start gap-3 rounded-lg p-3 transition-colors hover:bg-gray-700 sm:flex-nowrap sm:items-center"
+                  key={item.id}
+                >
+                  <button
+                    className="flex w-full flex-1 flex-wrap items-start gap-3 text-left sm:flex-nowrap sm:items-center"
+                    onClick={() => onEditItem(item.id)}
+                    type="button"
+                  >
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-full ${item.color}`}
+                    >
+                      <span className="text-lg text-white">{item.icon}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium text-white">
+                        {item.name}
+                      </div>
+                      <div className="truncate text-gray-400 text-sm">
+                        {item.subtitle}
+                      </div>
+                    </div>
+                    <div className="mt-3 w-full font-semibold text-white sm:mt-0 sm:w-auto sm:text-right">
+                      {item.amount}
+                    </div>
+                  </button>
+                  {plannerMeta && onOpenPlanner ? (
+                    <button
+                      className="rounded-full border border-emerald-400/30 bg-emerald-400/10 p-2 text-emerald-200 transition hover:bg-emerald-400/20"
+                      onClick={() => onOpenPlanner(plannerMeta)}
+                      title="Open in Property Planner"
+                      type="button"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="py-8 text-center text-gray-500">
+            <p className="text-sm">No {title.toLowerCase()} added yet</p>
+            <p className="mt-1 text-xs">
+              Click the + button to add your first entry
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type GrowthSettingsSheetProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+function GrowthSettingsSheet({ open, onOpenChange }: GrowthSettingsSheetProps) {
+  const averageReturnRate = useFinancialPlanningStore(
+    (state) => state.projectionSettings.averageReturnRate
+  );
+  const updateProjectionSettings = useFinancialPlanningStore(
+    (state) => state.updateProjectionSettings
+  );
+
+  const [value, setValue] = useState(() =>
+    (averageReturnRate * 100).toFixed(1)
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setValue((averageReturnRate * 100).toFixed(1));
+      setError(null);
+    }
+  }, [averageReturnRate, open]);
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!value.trim()) {
+      setError("Please enter a percentage.");
+      return;
+    }
+
+    const percent = Number(value);
+    if (!Number.isFinite(percent)) {
+      setError("Enter a valid number.");
+      return;
+    }
+
+    if (percent < 0 || percent > 25) {
+      setError("Choose a value between 0% and 25%.");
+      return;
+    }
+
+    updateProjectionSettings({ averageReturnRate: percent / 100 });
+    onOpenChange(false);
+  };
+
+  return (
+    <Sheet onOpenChange={onOpenChange} open={open}>
+      <SheetContent
+        className="w-full border-gray-800 border-l bg-gray-900 text-white sm:max-w-sm"
+        side="right"
+      >
+        <SheetHeader>
+          <SheetTitle>Global asset assumptions</SheetTitle>
+          <SheetDescription className="text-gray-400">
+            This percentage is used when projecting assets that do not include
+            their own growth rate.
+          </SheetDescription>
+        </SheetHeader>
+
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <div className="space-y-2">
+            <Label className="text-gray-200" htmlFor="growth-rate">
+              Average annual return (%)
+            </Label>
+            <Input
+              className="border-gray-700 bg-gray-800 text-white"
+              id="growth-rate"
+              max="25"
+              min="0"
+              onChange={(event) => {
+                setValue(event.target.value);
+                setError(null);
+              }}
+              step="0.1"
+              type="number"
+              value={value}
+            />
+            <p className="text-gray-400 text-xs">
+              Currently applied as {(averageReturnRate * 100).toFixed(1)}% in
+              forecasts.
+            </p>
+            {error && <p className="text-red-400 text-xs">{error}</p>}
+          </div>
+
+          <button
+            className="w-full rounded-md bg-emerald-500 px-4 py-2 font-medium text-white transition-colors hover:bg-emerald-600"
+            type="submit"
+          >
+            Save
+          </button>
+        </form>
+      </SheetContent>
+    </Sheet>
+  );
 }
