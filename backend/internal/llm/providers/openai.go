@@ -2,10 +2,6 @@ package providers
 
 import (
 	"context"
-<<<<<<< HEAD
-	"encoding/json"
-=======
->>>>>>> da61af971f3ab52ee610e7c4d2b358440c006849
 	"fmt"
 	"time"
 
