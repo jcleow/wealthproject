@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, KeyboardEvent } from 'react'
-import { Send, Square } from 'lucide-react'
+import { Send, Square as StopIcon } from 'lucide-react'
 
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -75,7 +75,7 @@ export default function ChatInput({
             onClick={() => {}}
             type="button"
           >
-            <Square className="h-4 w-4" />
+            <StopIcon className="h-4 w-4" />
           </button>
         ) : (
           <button

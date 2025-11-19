@@ -20,8 +20,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['"Geist Sans"', ...defaultTheme.fontFamily.sans],
-        mono: ['"Geist Mono"', ...defaultTheme.fontFamily.mono],
+        sans: ['var(--font-geist)', ...defaultTheme.fontFamily.sans],
+        mono: ['var(--font-geist-mono)', ...defaultTheme.fontFamily.mono],
       },
       colors: {
         border: "hsl(var(--border))",
