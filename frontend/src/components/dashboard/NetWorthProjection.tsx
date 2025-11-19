@@ -83,9 +83,9 @@ export function NetWorthProjection() {
         </div>
       </div>
 
-      
+      <div className="relative w-full h-[360px]">
         <div className="pointer-events-none absolute inset-4 rounded-2xl border border-[#1d2b4a]" />
-        <ResponsiveContainer height="100%" width="100%">
+        <ResponsiveContainer width={800} height={360}>
           <AreaChart
             data={data}
             margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
@@ -142,7 +142,8 @@ export function NetWorthProjection() {
             {/* Custom Tooltip */}
             <Tooltip content={<CustomTooltip />} cursor={false} />
           </AreaChart>
-        </ResponsiveContainer>      
+        </ResponsiveContainer>
+      </div>
     </div>
   )
 }

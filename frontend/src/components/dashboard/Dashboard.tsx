@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { Chat } from '../chat/Chat'
 import { ChatFloatingLauncher } from './ChatFloatingLauncher'
@@ -10,7 +10,7 @@ import { AppSidebar } from '../sidebar/AppSidebar'
 import { cn } from '@/lib/utils'
 
 export function Dashboard() {
-  const [chatId] = useState(() => `chat-${Date.now()}`)
+  const chatId = useMemo(() => crypto.randomUUID(), [])
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
 
   return (

@@ -25,7 +25,7 @@ export function FinancialWorkspace() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col border-0 bg-midnight-900 text-white">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col border-0 bg-midnight-900 text-white">
       <div className="flex flex-col border border-white/10 gap-3 px-6 py-4 text-left sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-semibold uppercase tracking-wide text-gray-300">
@@ -70,7 +70,7 @@ export function FinancialWorkspace() {
           </button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 p-6">
+      <div className="flex-1 p-6 min-h-[400px]">
         <NetWorthProjection />
       </div>
 
