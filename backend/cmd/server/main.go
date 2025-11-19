@@ -10,6 +10,10 @@ import (
 	"financial-chat-system/backend/internal/database"
 	"financial-chat-system/backend/internal/middleware"
 	"financial-chat-system/backend/cmd/server/handlers"
+	"financial-chat-system/backend/internal/llm"
+	"financial-chat-system/backend/internal/llm/providers"
+	"financial-chat-system/backend/internal/financial"
+	"financial-chat-system/backend/internal/session"
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
@@ -44,14 +48,71 @@ func main() {
 	v1Router.Use(middleware.RequestID)
 	v1Router.Use(middleware.Logging)
 
+	// Initialize LLM client manager
+	llmManager := llm.NewClientManager()
+
+	// Register OpenAI provider
+	openAIConfig := providers.OpenAIConfig{
+		APIKey:      os.Getenv("OPENAI_API_KEY"),
+		Model:       os.Getenv("OPENAI_MODEL"),
+		Temperature: 0.7,
+		MaxTokens:   2000,
+	}
+
+	if openAIConfig.APIKey != "" {
+		openAIProvider, err := providers.NewOpenAIProvider(openAIConfig)
+		if err != nil {
+			log.Printf("Failed to initialize OpenAI provider: %v", err)
+		} else {
+			llmManager.RegisterProvider("openai", openAIProvider)
+			llmManager.SetPrimary("openai")
+		}
+	}
+
+	// Register Anthropic provider if API key is available
+	anthropicConfig := providers.AnthropicConfig{
+		APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
+		Model:       os.Getenv("ANTHROPIC_MODEL"),
+		Temperature: 0.1,
+		MaxTokens:   2000,
+		Version:     "2023-06-01",
+	}
+
+	if anthropicConfig.APIKey != "" {
+		anthropicProvider, err := providers.NewAnthropicProvider(anthropicConfig)
+		if err != nil {
+			log.Printf("Failed to initialize Anthropic provider: %v", err)
+		} else {
+			llmManager.RegisterProvider("anthropic", anthropicProvider)
+			// If no OpenAI provider is available, make Anthropic primary
+			if openAIConfig.APIKey == "" {
+				llmManager.SetPrimary("anthropic")
+			}
+		}
+	}
+
+	// Initialize session store
+	sessionStore := session.NewStore(db)
+
+	// Initialize financial services
+	financialClient := financial.NewClient()
+	previewService := financial.NewActionPreviewService(financialClient)
+
 	// Initialize handlers
 	healthHandler := handlers.NewHealthHandler()
-	// TODO: Add chat and dispatch handlers in B6-B7
+	chatHandler := handlers.NewChatHandler(llmManager, previewService, sessionStore)
+	dispatchHandler := handlers.NewDispatchHandler(financialClient, sessionStore, previewService)
 
 	// Register routes
 	v1Router.HandleFunc("/health", healthHandler.HandleHealth).Methods("GET")
 	v1Router.HandleFunc("/tools", healthHandler.HandleTools).Methods("GET")
-	// TODO: Add /chat and /financial/actions/dispatch routes in B6-B7
+
+	// Chat endpoints
+	v1Router.HandleFunc("/chat", chatHandler.HandleChat).Methods("POST")
+	v1Router.HandleFunc("/chat/history/{sessionId}", chatHandler.GetChatHistory).Methods("GET")
+
+	// Financial action endpoints
+	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST")
 
 	// Start server
 	port := os.Getenv("PORT")

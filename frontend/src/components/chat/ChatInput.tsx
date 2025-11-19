@@ -3,6 +3,7 @@
 import { useState, useRef, KeyboardEvent } from 'react'
 import { Square, ArrowUp, Paperclip } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Send, Square } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import { ChatStatus } from '@/types/chat'
 import { cn } from '@/lib/utils'
