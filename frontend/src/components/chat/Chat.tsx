@@ -10,6 +10,8 @@ import ChatInput from './ChatInput'
 interface ChatProps {
   chatId: string
   className?: string
+  onToggleHistory?: () => void
+  isHistoryOpen?: boolean
 }
 
 const suggestedQuestions = [
@@ -19,7 +21,7 @@ const suggestedQuestions = [
   "Can I afford to buy a house?"
 ]
 
-export function Chat({ chatId, className }: ChatProps) {
+export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: ChatProps) {
   const [sessionId] = useState(() => generateUUID())
 
   const {
@@ -44,7 +46,11 @@ export function Chat({ chatId, className }: ChatProps) {
         className
       )}
     >
-      <ChatHeader />
+      <ChatHeader
+        chatId={chatId}
+        onToggleHistory={onToggleHistory}
+        isHistoryOpen={isHistoryOpen}
+      />
 
       <div className="flex min-h-0 flex-1 flex-col px-4 pb-8">
         <Messages

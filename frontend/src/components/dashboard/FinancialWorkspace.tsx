@@ -25,14 +25,14 @@ export function FinancialWorkspace() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col border-0 bg-black text-white">
-      <div className="flex flex-col gap-3 px-6 py-4 text-left sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex h-full w-full flex-col border-0 bg-midnight-900 text-white">
+      <div className="flex flex-col border border-white/10 gap-3 px-6 py-4 text-left sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-semibold uppercase tracking-wide text-gray-300">
             Financial Workspace
           </p>
           <p className="text-sm text-white">
-            Track projections and model housing decisions with mock data.
+            Track various projections and model scenarios here.
           </p>
         </div>
         <div className="flex items-center gap-2">
