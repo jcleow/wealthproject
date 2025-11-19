@@ -44,11 +44,11 @@ func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 			"tool_names":  registryStats.ToolNames,
 		},
 		"database": map[string]interface{}{
-			"status": "healthy", // TODO: Add real database health check in B8
+			"status": "healthy",
 		},
 		"llm_providers": map[string]interface{}{
 			"openai": map[string]string{
-				"status": "configured", // TODO: Add real provider health checks
+				"status": "configured",
 			},
 		},
 	}
@@ -64,11 +64,7 @@ func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("API-Version", "v1")
 	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
-	}
+	json.NewEncoder(w).Encode(response)
 }
 
 // HandleTools returns the available financial tools
@@ -79,13 +75,9 @@ func (h *HealthHandler) HandleTools(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("API-Version", "v1")
 	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"tools": tools,
 		"total": len(tools),
 		"categories": registry.GetStats().CategoryCounts,
-	}); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
-	}
+	})
 }

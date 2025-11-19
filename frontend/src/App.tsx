@@ -1,14 +1,7 @@
-import { useState } from 'react'
-import Chat from './components/chat/Chat'
+import { Dashboard } from './components/dashboard/Dashboard'
 
 function App() {
-  const [chatId] = useState(() => `chat-${Date.now()}`)
-
-  return (
-    <div className="h-screen bg-background">
-      <Chat chatId={chatId} />
-    </div>
-  )
+  return <Dashboard />
 }
 
 export default App
