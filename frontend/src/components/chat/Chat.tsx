@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react'
 import { useChat } from '@/hooks/useChat'
 import { generateUUID, cn } from '@/lib/utils'
