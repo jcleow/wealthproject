@@ -21,8 +21,8 @@ export function Dashboard() {
         <div className="relative flex-1 overflow-hidden">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(32,101,255,0.12),_transparent_55%)]" />
           <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 p-4 lg:flex-row lg:items-stretch">
-            <div className="hidden w-full shrink-0 lg:flex lg:h-full lg:w-[420px] lg:max-w-[520px] lg:overflow-hidden">
-              <div className="flex h-full min-h-[70vh] min-w-0 flex-col">
+            <div className="hidden w-full shrink-0 lg:flex lg:w-[420px] lg:max-w-[520px] lg:flex-col">
+              <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:min-h-[600px]">
                 <Chat chatId={chatId} className="h-full min-h-0" />
               </div>
             </div>

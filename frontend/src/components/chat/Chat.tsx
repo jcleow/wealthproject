@@ -21,6 +21,7 @@ const suggestedQuestions = [
 
 export function Chat({ chatId, className }: ChatProps) {
   const [sessionId] = useState(() => generateUUID())
+  const [isHistoryVisible, setIsHistoryVisible] = useState(true)
 
   const {
     messages,
@@ -44,31 +45,46 @@ export function Chat({ chatId, className }: ChatProps) {
         className
       )}
     >
-      <ChatHeader />
+      <ChatHeader
+        chatId={chatId}
+        isHistoryVisible={isHistoryVisible}
+        onToggleHistory={() => setIsHistoryVisible((prev) => !prev)}
+      />
 
       <div className="flex min-h-0 flex-1 flex-col px-4 pb-8">
-        <Messages
-          messages={messages}
-          actionReviews={actionReviews}
-          onConfirmAction={confirmAction}
-          onCancelAction={cancelAction}
-          isDispatching={isDispatching}
-        />
+        {isHistoryVisible ? (
+          <>
+            <Messages
+              messages={messages}
+              actionReviews={actionReviews}
+              onConfirmAction={confirmAction}
+              onCancelAction={cancelAction}
+              isDispatching={isDispatching}
+            />
 
-        {messages.length === 0 && (
-          <div className="mt-auto w-full pt-4">
-            <div className="grid gap-2 sm:grid-cols-2">
-              {suggestedQuestions.map((question, index) => (
-                <button
-                  key={question}
-                  onClick={() => handleSuggestedQuestion(question)}
-                  className="text-left rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-200 transition hover:bg-white/10"
-                  type="button"
-                  style={{ animationDelay: `${index * 60}ms` }}
-                >
-                  {question}
-                </button>
-              ))}
+            {messages.length === 0 && (
+              <div className="mt-auto w-full pt-4">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {suggestedQuestions.map((question, index) => (
+                    <button
+                      key={question}
+                      onClick={() => handleSuggestedQuestion(question)}
+                      className="text-left rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-200 transition hover:bg-white/10"
+                      type="button"
+                      style={{ animationDelay: `${index * 60}ms` }}
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center">
+            <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-6 py-5 text-center text-sm text-gray-300">
+              Conversation history hidden. Toggle it back on to review previous
+              messages.
             </div>
           </div>
         )}
