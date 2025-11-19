@@ -40,20 +40,20 @@ const generateMockData = () => {
   return data
 }
 
-const CustomTooltip = ({ active, payload }: any) => {
+const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { age: number; year: number; netWorth: number; totalAssets: number; totalLiabilities: number } }> }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload
     return (
-      <div className="rounded-lg border border-gray-600 bg-gray-800 p-3 shadow-lg">
-        <p className="text-gray-300 text-sm">{`Age ${data.age} (${data.year})`}</p>
-        <p className="font-semibold text-blue-400">
+      <div className="rounded-xl border border-white/10 bg-[#0f1728]/90 px-4 py-3 shadow-2xl backdrop-blur">
+        <p className="text-xs uppercase tracking-wide text-slate-300">{`Age ${data.age} • ${data.year}`}</p>
+        <p className="mt-1 font-semibold text-blue-300">
           Net Worth: ${data.netWorth.toLocaleString()}
         </p>
-        <p className="text-green-400 text-sm">
-          Assets: ${data.totalAssets.toLocaleString()}
+        <p className="text-emerald-300 text-sm">
+          Assets ${data.totalAssets.toLocaleString()}
         </p>
-        <p className="text-red-400 text-sm">
-          Liabilities: ${data.totalLiabilities.toLocaleString()}
+        <p className="text-rose-300 text-sm">
+          Liabilities ${data.totalLiabilities.toLocaleString()}
         </p>
       </div>
     )
@@ -75,7 +75,8 @@ export function NetWorthProjection() {
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1 rounded-lg bg-black p-4">
+      <div className="relative min-h-0 flex-1 rounded-2xl border border-white/5 bg-gradient-to-b from-[#111832] via-[#0b1125] to-[#050914] p-4 shadow-inner">
+        <div className="pointer-events-none absolute inset-6 rounded-2xl border border-white/5" />
         <ResponsiveContainer height="100%" width="100%">
           <AreaChart
             data={data}
@@ -87,23 +88,19 @@ export function NetWorthProjection() {
                 <stop offset="95%" stopColor="#60A5FA" stopOpacity={0.1} />
               </linearGradient>
             </defs>
-            <CartesianGrid
-              opacity={0.5}
-              stroke="#374151"
-              strokeDasharray="2 2"
-            />
+            <CartesianGrid opacity={0.2} stroke="#24304d" strokeDasharray="3 3" />
             <XAxis
               axisLine={false}
               dataKey="age"
               fontSize={12}
-              stroke="#9CA3AF"
+              stroke="#7c8aa6"
               tickLine={false}
             />
             <YAxis
               axisLine={false}
               domain={[0, 'dataMax']}
               fontSize={12}
-              stroke="#9CA3AF"
+              stroke="#7c8aa6"
               tickFormatter={(value) => {
                 if (value <= 0) return ''
                 if (value >= 1_000_000)
@@ -116,7 +113,7 @@ export function NetWorthProjection() {
 
             {/* Net Worth Area */}
             <Area
-              activeDot={{ r: 6, fill: '#60A5FA' }}
+              activeDot={{ r: 6, fill: '#60A5FA', strokeWidth: 0 }}
               dataKey="netWorth"
               dot={false}
               fill="url(#netWorthGradient)"

@@ -33,7 +33,7 @@ export function ChatFloatingLauncher({ chatId }: ChatFloatingLauncherProps) {
             >
               <X className="h-5 w-5" />
             </button>
-            <Chat chatId={chatId} className="h-full" />
+            <Chat chatId={chatId} className="h-full rounded-none border-0 shadow-none" />
           </div>
         </div>
       )}

@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
+	"financial-chat-system/backend/cmd/server/handlers"
 	"financial-chat-system/backend/internal/config"
 	"financial-chat-system/backend/internal/database"
-	"financial-chat-system/backend/internal/middleware"
-	"financial-chat-system/backend/cmd/server/handlers"
+	"financial-chat-system/backend/internal/financial"
 	"financial-chat-system/backend/internal/llm"
 	"financial-chat-system/backend/internal/llm/providers"
-	"financial-chat-system/backend/internal/financial"
+	"financial-chat-system/backend/internal/middleware"
 	"financial-chat-system/backend/internal/session"
 
 	"github.com/gorilla/mux"
@@ -35,6 +34,19 @@ func main() {
 	}
 	defer db.Close()
 
+	if err := database.RunMigrations(db); err != nil {
+		log.Fatal("Failed to run database migrations:", err)
+	}
+
+	if err := financial.InitializeRegistry(); err != nil {
+		log.Fatal("Failed to initialize financial tools:", err)
+	}
+
+	// Initialize services
+	financialClient := financial.NewClient()
+	previewService := financial.NewActionPreviewService(financialClient)
+	sessionStore := session.NewStore(db)
+
 	// Initialize middleware
 	versionMiddleware := middleware.NewVersionMiddleware()
 
@@ -47,56 +59,56 @@ func main() {
 	v1Router.Use(middleware.CORS)
 	v1Router.Use(middleware.RequestID)
 	v1Router.Use(middleware.Logging)
+	v1Router.Use(middleware.Authenticate)
 
 	// Initialize LLM client manager
 	llmManager := llm.NewClientManager()
+	providerCount := 0
 
-	// Register OpenAI provider
-	openAIConfig := providers.OpenAIConfig{
-		APIKey:      os.Getenv("OPENAI_API_KEY"),
-		Model:       os.Getenv("OPENAI_MODEL"),
-		Temperature: 0.7,
-		MaxTokens:   2000,
-	}
-
-	if openAIConfig.APIKey != "" {
-		openAIProvider, err := providers.NewOpenAIProvider(openAIConfig)
+	// Register OpenAI provider using config
+	if cfg.OpenAIAPIKey != "" {
+		openaiProvider, err := providers.NewOpenAIProvider(providers.OpenAIConfig{
+			APIKey:      cfg.OpenAIAPIKey,
+			Model:       cfg.OpenAIModel,
+			Temperature: 0.15,
+			MaxTokens:   1200,
+			Timeout:     cfg.RequestTimeout,
+		})
 		if err != nil {
-			log.Printf("Failed to initialize OpenAI provider: %v", err)
-		} else {
-			llmManager.RegisterProvider("openai", openAIProvider)
-			llmManager.SetPrimary("openai")
+			log.Fatalf("Failed to initialize OpenAI provider: %v", err)
 		}
+		llmManager.RegisterProvider(openaiProvider.ProviderName(), openaiProvider)
+		if err := llmManager.SetPrimary(openaiProvider.ProviderName()); err != nil {
+			log.Fatalf("Failed to set primary LLM provider: %v", err)
+		}
+		providerCount++
 	}
 
-	// Register Anthropic provider if API key is available
-	anthropicConfig := providers.AnthropicConfig{
-		APIKey:      os.Getenv("ANTHROPIC_API_KEY"),
-		Model:       os.Getenv("ANTHROPIC_MODEL"),
-		Temperature: 0.1,
-		MaxTokens:   2000,
-		Version:     "2023-06-01",
-	}
-
-	if anthropicConfig.APIKey != "" {
-		anthropicProvider, err := providers.NewAnthropicProvider(anthropicConfig)
+	// Register Anthropic provider if configured
+	if cfg.AnthropicAPIKey != "" {
+		anthropicProvider, err := providers.NewAnthropicProvider(providers.AnthropicConfig{
+			APIKey:      cfg.AnthropicAPIKey,
+			Model:       cfg.AnthropicModel,
+			Temperature: 0.1,
+			MaxTokens:   2000,
+			Version:     "2023-06-01",
+		})
 		if err != nil {
 			log.Printf("Failed to initialize Anthropic provider: %v", err)
 		} else {
 			llmManager.RegisterProvider("anthropic", anthropicProvider)
-			// If no OpenAI provider is available, make Anthropic primary
-			if openAIConfig.APIKey == "" {
-				llmManager.SetPrimary("anthropic")
+			if providerCount == 0 {
+				if err := llmManager.SetPrimary("anthropic"); err != nil {
+					log.Fatalf("Failed to set Anthropic as primary provider: %v", err)
+				}
 			}
+			providerCount++
 		}
 	}
 
-	// Initialize session store
-	sessionStore := session.NewStore(db)
-
-	// Initialize financial services
-	financialClient := financial.NewClient()
-	previewService := financial.NewActionPreviewService(financialClient)
+	if providerCount == 0 {
+		log.Fatal("No LLM providers configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.")
+	}
 
 	// Initialize handlers
 	healthHandler := handlers.NewHealthHandler()
@@ -115,7 +127,7 @@ func main() {
 	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST")
 
 	// Start server
-	port := os.Getenv("PORT")
+	port := cfg.Port
 	if port == "" {
 		port = "8080"
 	}

@@ -22,6 +22,7 @@ func Connect(databaseURL string) (*sql.DB, error) {
 
 func RunMigrations(db *sql.DB) error {
 	migrations := []string{
+		enablePGCrypto,
 		createChatSessionsTable,
 		createConversationHistoryTable,
 	}
@@ -34,6 +35,10 @@ func RunMigrations(db *sql.DB) error {
 
 	return nil
 }
+
+const enablePGCrypto = `
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+`
 
 const createChatSessionsTable = `
 CREATE TABLE IF NOT EXISTS chat_sessions (

@@ -81,8 +81,8 @@ func (h *HealthHandler) HandleTools(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"tools": tools,
-		"total": len(tools),
+		"tools":      tools,
+		"total":      len(tools),
 		"categories": registry.GetStats().CategoryCounts,
 	}); err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)

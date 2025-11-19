@@ -349,6 +349,7 @@ func (s *ActionPreviewService) GeneratePreview(toolCalls []ToolCall) ([]Proposed
 **Estimate:** 6 story points
 **Dependencies:** B2, B5
 **Team:** Backend
+**Status:** ✅ DONE (chat endpoint, LLM integration, sessions, and tests implemented)
 
 **Description:**
 Create HTTP handler for chat API that integrates LLM with financial tools.
@@ -477,6 +478,7 @@ func (h *DispatchHandler) HandleDispatch(w http.ResponseWriter, r *http.Request)
 **Estimate:** 3 story points
 **Dependencies:** B6
 **Team:** Backend
+**Status:** ⚠️ IN PROGRESS (session store, schema, and persistence implemented; cleanup/expiration still pending)
 
 **Description:**
 Create session management for chat context and tool call history.

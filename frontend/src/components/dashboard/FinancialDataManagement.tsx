@@ -1,18 +1,46 @@
 import { useState } from 'react'
-import { Plus, Filter } from 'lucide-react'
+import { Plus, SlidersHorizontal, Sparkles } from 'lucide-react'
+
 import { useFinancialData } from '../../hooks/useFinancialData'
+import type { Asset, Expense, Income, Liability } from '../../types/financial'
 import { FinancialFormModal } from '../modals/FinancialFormModal'
-import type { Asset, Income, Liability, Expense } from '../../types/financial'
 
 type FinancialCategory = 'asset' | 'income' | 'liability' | 'expense'
 
-interface CategoryConfig {
+type CategoryConfig = {
   title: string
-  description: string
-  icon: React.ReactNode
-  bgColor: string
-  iconBg: string
-  buttonColor: string
+  emptyDescription: string
+  icon: string
+  accent: string
+  helper?: string
+}
+
+const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
+  asset: {
+    title: 'Assets',
+    emptyDescription: 'No assets added yet',
+    icon: '📈',
+    accent: 'bg-blue-500',
+    helper: 'Add CPF balances to start',
+  },
+  income: {
+    title: 'Income',
+    emptyDescription: 'No income added yet',
+    icon: '💼',
+    accent: 'bg-emerald-500',
+  },
+  liability: {
+    title: 'Liabilities',
+    emptyDescription: 'No liabilities added yet',
+    icon: '💳',
+    accent: 'bg-rose-500',
+  },
+  expense: {
+    title: 'Expenses',
+    emptyDescription: 'No expenses added yet',
+    icon: '💰',
+    accent: 'bg-amber-500',
+  },
 }
 
 interface ModalState {
@@ -33,30 +61,29 @@ export function FinancialDataManagement() {
     addLiability,
     addExpense,
     getNetWorth,
-    getMonthlySavings
+    getMonthlySavings,
   } = useFinancialData()
 
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
     type: 'asset',
-    mode: 'create'
+    mode: 'create',
   })
 
   const handleAddItem = (category: FinancialCategory) => {
     setModalState({
       isOpen: true,
       type: category,
-      mode: 'create'
+      mode: 'create',
     })
   }
 
-  const handleFilter = (category: string) => {
-    console.log(`Filter ${category} clicked`)
-    // TODO: Implement filtering
+  const handleSettings = (category: FinancialCategory) => {
+    console.log(`Settings for ${category}`)
   }
 
   const handleModalClose = () => {
-    setModalState(prev => ({ ...prev, isOpen: false }))
+    setModalState((prev) => ({ ...prev, isOpen: false }))
   }
 
   const handleModalSave = (data: any) => {
@@ -78,158 +105,175 @@ export function FinancialDataManagement() {
 
   const getDataForCategory = (category: FinancialCategory) => {
     switch (category) {
-      case 'asset': return assets
-      case 'income': return incomes
-      case 'liability': return liabilities
-      case 'expense': return expenses
+      case 'asset':
+        return assets
+      case 'income':
+        return incomes
+      case 'liability':
+        return liabilities
+      case 'expense':
+        return expenses
     }
   }
 
-  const categories: Record<FinancialCategory, CategoryConfig> = {
-    asset: {
-      title: 'Assets',
-      description: assets.length === 0 ? 'No assets added yet' : `${assets.length} asset${assets.length > 1 ? 's' : ''}`,
-      icon: <div className="text-xl">📊</div>,
-      bgColor: 'bg-gray-800',
-      iconBg: 'bg-emerald-500',
-      buttonColor: 'bg-emerald-500 hover:bg-emerald-600'
-    },
-    income: {
-      title: 'Income',
-      description: incomes.length === 0 ? 'No income added yet' : `${incomes.length} income source${incomes.length > 1 ? 's' : ''}`,
-      icon: <div className="text-xl">🏦</div>,
-      bgColor: 'bg-gray-800',
-      iconBg: 'bg-blue-500',
-      buttonColor: 'bg-blue-500 hover:bg-blue-600'
-    },
-    liability: {
-      title: 'Liabilities',
-      description: liabilities.length === 0 ? 'No liabilities added yet' : `${liabilities.length} liabilit${liabilities.length > 1 ? 'ies' : 'y'}`,
-      icon: <div className="text-xl">💳</div>,
-      bgColor: 'bg-gray-800',
-      iconBg: 'bg-red-500',
-      buttonColor: 'bg-gray-600 hover:bg-gray-700'
-    },
-    expense: {
-      title: 'Expenses',
-      description: expenses.length === 0 ? 'No expenses added yet' : `${expenses.length} expense${expenses.length > 1 ? 's' : ''}`,
-      icon: <div className="text-xl">💰</div>,
-      bgColor: 'bg-gray-800',
-      iconBg: 'bg-orange-500',
-      buttonColor: 'bg-orange-500 hover:bg-orange-600'
-    }
+  const summarizeAmount = (item: any) => {
+    if ('currentValue' in item) return item.currentValue
+    if ('currentBalance' in item) return item.currentBalance
+    return item.amount ?? 0
   }
 
   return (
     <>
-      <div className="flex h-full flex-col bg-gray-900">
+      <div className="flex h-full flex-col bg-transparent text-white">
         <div className="border-b border-white/10 px-6 py-4">
-          <h3 className="font-semibold text-white text-lg">Financial Data</h3>
+          <h3 className="text-lg font-semibold text-white">Financial Data</h3>
           <p className="text-sm text-gray-400">
             Manage your income, expenses, assets, and liabilities
           </p>
         </div>
 
-        <div className="flex-1 overflow-auto p-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            {Object.entries(categories).map(([key, config]) => {
-              const category = key as FinancialCategory
-              const data = getDataForCategory(category)
-              const hasData = data.length > 0
+        <div className="flex-1 overflow-auto px-6 py-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {(Object.keys(categoryConfig) as FinancialCategory[]).map(
+              (key) => {
+                const config = categoryConfig[key]
+                const data = getDataForCategory(key)
+                const hasData = data.length > 0
+                const description = hasData
+                  ? `${data.length} ${config.title.toLowerCase()}${
+                      data.length > 1 ? 's' : ''
+                    }`
+                  : config.emptyDescription
 
-              return (
-                <div
-                  key={key}
-                  className={`${config.bgColor} rounded-lg border border-gray-700 p-5 transition-all hover:border-gray-600`}
-                >
-                  <div className="mb-4 flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center justify-center w-8 h-8">
-                        {config.icon}
+                return (
+                  <div
+                    key={key}
+                    className="flex w-full min-w-0 flex-col rounded-2xl border border-white/10 bg-white/5 shadow-lg"
+                  >
+                    <div className="border-b border-white/5 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className={`flex h-10 w-10 items-center justify-center rounded-full ${config.accent}`}
+                          >
+                            <span className="text-lg">{config.icon}</span>
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="truncate text-base font-semibold text-white">
+                              {config.title}
+                            </h4>
+                            <p className="text-xs text-gray-400">
+                              {description}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-shrink-0 items-center gap-2">
+                          <button
+                            onClick={() => handleSettings(key)}
+                            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-gray-300 transition hover:bg-white/10"
+                            type="button"
+                          >
+                            <SlidersHorizontal className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleAddItem(key)}
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white transition hover:bg-emerald-600"
+                            type="button"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
-                      <h4 className="font-medium text-white text-base">{config.title}</h4>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleFilter(key)}
-                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-slate-600/50 hover:text-white"
-                      >
-                        <Filter className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleAddItem(category)}
-                        className={`rounded-full p-1.5 text-white ${config.buttonColor} transition-colors`}
-                      >
-                        <Plus className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
 
-                  <div className="flex min-h-[100px] flex-col justify-center">
-                    {hasData ? (
-                      <div className="space-y-2">
-                        <p className="text-sm text-gray-400 mb-2">{config.description}</p>
-                        <div className="space-y-1 max-h-20 overflow-auto">
+                    <div className="flex flex-1 flex-col justify-center gap-3 px-4 py-6 text-center text-gray-300">
+                      {hasData ? (
+                        <div className="space-y-2 text-left text-sm">
                           {data.slice(0, 3).map((item: any, index) => (
-                            <div key={item.id || index} className="flex justify-between text-sm">
-                              <span className="text-gray-300 truncate">
-                                {'name' in item ? item.name :
-                                 'source' in item ? item.source :
-                                 'payee' in item ? item.payee : 'Unknown'}
+                            <div
+                              key={item.id || index}
+                              className="flex items-center justify-between text-gray-200"
+                            >
+                              <span className="truncate text-sm">
+                                {'name' in item
+                                  ? item.name
+                                  : 'source' in item
+                                  ? item.source
+                                  : 'payee' in item
+                                  ? item.payee
+                                  : 'Entry'}
                               </span>
-                              <span className="text-gray-400">
-                                ${('currentValue' in item ? item.currentValue :
-                                   'currentBalance' in item ? item.currentBalance :
-                                   item.amount).toLocaleString()}
+                              <span className="text-sm text-gray-400">
+                                $
+                                {summarizeAmount(item).toLocaleString(
+                                  undefined,
+                                  { maximumFractionDigits: 0 }
+                                )}
                               </span>
                             </div>
                           ))}
                           {data.length > 3 && (
-                            <p className="text-xs text-gray-500">+{data.length - 3} more</p>
+                            <p className="text-xs text-gray-500">
+                              +{data.length - 3} more
+                            </p>
                           )}
                         </div>
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <p className="mb-3 text-sm text-gray-400">{config.description}</p>
-                        <button
-                          onClick={() => handleAddItem(category)}
-                          className="text-sm text-gray-400 hover:text-gray-300"
-                        >
-                          Click the + button to add your first entry
-                        </button>
-                      </div>
-                    )}
+                      ) : (
+                        <>
+                          <p className="text-sm">{config.emptyDescription}</p>
+                          <p className="text-xs text-gray-500">
+                            Click the + button to add your first entry
+                          </p>
+                          {config.helper && (
+                            <div className="mx-auto inline-flex items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-xs text-blue-200">
+                              <Sparkles className="h-3 w-3" />
+                              {config.helper}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              }
+            )}
           </div>
 
-          {/* Summary Cards */}
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="rounded-lg border border-gray-700 bg-gray-800 p-5">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-blue-400"></div>
-                <span className="text-sm font-medium text-gray-300">Net Worth</span>
+          <div className="mt-6 grid gap-6 md:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold text-white">Net Worth</h4>
+                  <p className="text-xs text-gray-400">
+                    Assets minus liabilities
+                  </p>
+                </div>
+                <div className="h-2 w-2 rounded-full bg-blue-400" />
               </div>
-              <p className="text-3xl font-bold text-white">${getNetWorth().toLocaleString()}</p>
-              <p className="text-sm text-gray-400 mt-1">Assets minus liabilities</p>
+              <p className="mt-4 text-3xl font-bold text-white">
+                ${getNetWorth().toLocaleString()}
+              </p>
             </div>
-
-            <div className="rounded-lg border border-gray-700 bg-gray-800 p-5">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-green-400"></div>
-                <span className="text-sm font-medium text-gray-300">Monthly Savings</span>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold text-white">
+                    Savings
+                  </h4>
+                  <p className="text-xs text-gray-400">
+                    Income minus expenses
+                  </p>
+                </div>
+                <div className="h-2 w-2 rounded-full bg-emerald-400" />
               </div>
-              <p className="text-3xl font-bold text-white">${getMonthlySavings().toLocaleString()}</p>
-              <p className="text-sm text-gray-400 mt-1">Income minus expenses</p>
+              <p className="mt-4 text-3xl font-bold text-white">
+                ${getMonthlySavings().toLocaleString()}
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Financial Form Modal */}
       <FinancialFormModal
         type={modalState.type}
         mode={modalState.mode}
