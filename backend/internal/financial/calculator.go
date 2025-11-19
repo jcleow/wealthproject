@@ -1,6 +1,7 @@
 package financial
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -64,7 +65,7 @@ func (c *FinancialCalculator) calculateAssetImpact(args map[string]interface{}, 
 // calculateAssetUpdateImpact calculates impact of updating an asset
 func (c *FinancialCalculator) calculateAssetUpdateImpact(args map[string]interface{}) *ImpactEstimate {
 	// For asset updates, we don't know the previous value, so we can't calculate exact impact
-	if newValue, exists := args["currentValue"]; exists {
+	if _, exists := args["currentValue"]; exists {
 		value := getFloatParam(args, "currentValue", 0)
 		return &ImpactEstimate{
 			NetWorthChange: 0, // Would need previous value to calculate change
@@ -106,7 +107,7 @@ func (c *FinancialCalculator) calculateLiabilityImpact(args map[string]interface
 
 // calculateLiabilityUpdateImpact calculates impact of updating a liability
 func (c *FinancialCalculator) calculateLiabilityUpdateImpact(args map[string]interface{}) *ImpactEstimate {
-	if newBalance, exists := args["currentBalance"]; exists {
+	if _, exists := args["currentBalance"]; exists {
 		balance := getFloatParam(args, "currentBalance", 0)
 		return &ImpactEstimate{
 			NetWorthChange: 0, // Would need previous value to calculate change
@@ -180,7 +181,6 @@ func (c *FinancialCalculator) CalculateEquityBuilding(principal, annualRate floa
 
 	monthlyRate := annualRate / 12
 	numPayments := float64(years * 12)
-	monthlyPayment := c.CalculateMonthlyPayment(principal, annualRate, years)
 
 	// Calculate remaining balance after monthsElapsed
 	remainingBalance := principal * ((math.Pow(1+monthlyRate, numPayments) - math.Pow(1+monthlyRate, float64(monthsElapsed))) /
@@ -223,6 +223,8 @@ func (c *FinancialCalculator) calculateMaxAffordablePrice(monthlyIncome, monthly
 	// Calculate maximum loan amount based on payment
 	if rate == 0 {
 		maxLoanAmount := maxMonthlyPayment * float64(years*12)
+		maxPrice := maxLoanAmount / (1 - downPaymentRatio)
+		return maxPrice
 	} else {
 		monthlyRate := rate / 12
 		numPayments := float64(years * 12)

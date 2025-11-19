@@ -1,0 +1,710 @@
+# Frontend Development Tickets - Financial Chat System
+
+**Repository:** `financial-chat-system` (new repo)
+**Technology Stack:** React 18 + TypeScript + Vite + Tailwind (NO AI SDK)
+**Total Frontend Points:** 29 points
+
+## Phase 0: Frontend Foundation Setup
+
+### Ticket F0: Extract Current Design System
+**Priority:** P0
+**Estimate:** 3 story points
+**Dependencies:** None
+**Team:** Frontend
+**Status:** ✅ DONE
+
+**Description:**
+Extract and document design system from current repository to maintain exact look and feel.
+
+**Acceptance Criteria:**
+- [ ] Document current Tailwind config and design tokens
+- [ ] Extract component styling patterns and classes
+- [ ] Copy current chat interface layout and interactions
+- [ ] Document color scheme, typography, spacing systems
+- [ ] Extract Radix UI component usage patterns
+- [ ] Create style guide with current visual hierarchy
+
+**Reference Files from Current Repo:**
+- `tailwind.config.ts` - Design tokens and configuration
+- `app/globals.css` - Global styles and CSS variables
+- `/components/ui/` - Radix UI component patterns
+- `/components/chat.tsx` - Main chat layout
+- `/components/elements/message.tsx` - Message styling
+- `/components/multimodal-input.tsx` - Input field design
+- Color scheme and responsive breakpoints
+
+**Deliverables:**
+- Design system documentation
+- Component pattern analysis
+- CSS class extraction
+- Layout and interaction patterns
+
+---
+
+## Phase 1: React Frontend Setup
+
+### Ticket F1: Create React Frontend Structure
+**Priority:** P0
+**Estimate:** 2 story points
+**Dependencies:** F0
+**Team:** Frontend
+**Status:** ✅ DONE
+
+**Description:**
+Set up fresh React frontend with Vite, matching current repository structure.
+
+**Acceptance Criteria:**
+- [ ] Create React 18 + TypeScript + Vite project
+- [ ] Install and configure Tailwind CSS with current config
+- [ ] Set up Radix UI components matching current usage
+- [ ] Configure development environment and scripts
+- [ ] Set up ESLint and Prettier with current rules
+- [ ] NO Vercel AI SDK dependencies
+
+**Technical Details:**
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── ui/ (Radix components)
+│   │   ├── chat/
+│   │   └── financial/
+│   ├── hooks/
+│   ├── services/ (Go backend API client)
+│   ├── types/
+│   ├── styles/
+│   └── App.tsx
+├── package.json (NO AI SDK)
+├── tailwind.config.js (copied)
+├── tsconfig.json
+└── vite.config.ts
+```
+
+**Key Dependencies:**
+- React 18, TypeScript, Vite
+- Tailwind CSS (matching current config)
+- Radix UI (same components as current repo)
+- React Query for API state management
+- React Hook Form for forms
+- NO `ai` package or Vercel AI SDK
+
+**Files:**
+- `frontend/package.json`
+- `frontend/tailwind.config.js` (copied from current)
+- `frontend/src/styles/globals.css` (match current)
+
+### Ticket F2: Create API Service Layer
+**Priority:** P0
+**Estimate:** 3 story points
+**Dependencies:** F1
+**Team:** Frontend
+**Status:** ✅ DONE
+
+**Description:**
+Create TypeScript service layer for Go backend API communication.
+
+**Acceptance Criteria:**
+- [ ] Create `src/services/api.ts` with Go backend client
+- [ ] Define TypeScript interfaces matching Go structs
+- [ ] Implement chat API calls (POST `/api/v1/chat`)
+- [ ] Implement dispatch API calls (POST `/api/v1/financial/actions/dispatch`)
+- [ ] Add API versioning support with v1 headers
+- [ ] Add error handling and response validation
+- [ ] Integrate React Query for caching and state management
+
+**Technical Details:**
+```typescript
+interface ChatRequest {
+  message: string;
+  chat_id: string;
+  session_id: string;
+}
+
+interface ChatResponse {
+  message_id: string;
+  content: string;
+  proposed_actions: ProposedAction[];
+  requires_approval: boolean;
+}
+
+interface ProposedAction {
+  call_id: string;
+  tool_name: string;
+  friendly_description: string;
+  parameters: Record<string, any>;
+  estimated_impact: ImpactEstimate;
+  warnings?: Warning[];
+  dependencies?: string[];
+}
+
+interface DispatchRequest {
+  selected_actions: SelectedAction[];
+  session_id: string;
+}
+
+interface SelectedAction {
+  call_id: string;
+  approved: boolean;
+  modified_args?: Record<string, any>;
+}
+
+class ApiService {
+  private baseURL: string;
+  private apiVersion: string = 'v1';
+
+  private getHeaders(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      'API-Version': this.apiVersion,
+      'Authorization': `Bearer ${this.getAuthToken()}`,
+      'X-Session-ID': this.getSessionId(),
+      'X-Request-ID': this.generateRequestId(),
+    };
+  }
+
+  async sendMessage(request: ChatRequest): Promise<ChatResponse> {
+    const response = await fetch(`${this.baseURL}/api/v1/chat`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(request),
+    });
+
+    // Check for version deprecation warnings
+    const deprecationWarning = response.headers.get('X-API-Deprecation-Warning');
+    if (deprecationWarning) {
+      console.warn('API Deprecation Warning:', deprecationWarning);
+    }
+
+    return response.json();
+  }
+
+  async dispatchActions(request: DispatchRequest): Promise<ExecutionResult[]> {
+    const response = await fetch(`${this.baseURL}/api/v1/financial/actions/dispatch`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(request),
+    });
+    return response.json();
+  }
+}
+```
+
+**Files:**
+- `src/services/api.ts`
+- `src/types/api.ts` (TypeScript types matching Go backend)
+- `src/hooks/useApi.ts` (React Query integration)
+
+---
+
+## Phase 2: Custom Chat Implementation
+
+### Ticket F3: Create Custom Chat Hooks
+**Priority:** P0
+**Estimate:** 4 story points
+**Dependencies:** F2
+**Team:** Frontend
+**Status:** ✅ DONE
+
+**Description:**
+Create custom React hooks for chat functionality without AI SDK dependencies.
+
+**Acceptance Criteria:**
+- [ ] Create `src/hooks/useChat.ts` with custom implementation
+- [ ] Manage message state (messages, input, isLoading, error)
+- [ ] Custom handleSubmit function calling Go backend
+- [ ] Action preview state management (pendingActions, selectedActions)
+- [ ] Session management and chat ID generation
+- [ ] Handle streaming responses if needed
+
+**Technical Details:**
+```typescript
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  proposed_actions?: ProposedAction[];
+}
+
+interface ChatState {
+  messages: Message[];
+  input: string;
+  isLoading: boolean;
+  error?: string;
+  pendingActions: ProposedAction[];
+  selectedActionIds: string[];
+}
+
+function useChat(sessionId: string) {
+  const [state, setState] = useState<ChatState>({
+    messages: [],
+    input: '',
+    isLoading: false,
+    pendingActions: [],
+    selectedActionIds: [],
+  });
+
+  const sendMessage = async (content: string) => {
+    // Add user message to state
+    // Call Go backend API
+    // Handle response with potential action previews
+    // Update conversation state
+  };
+
+  const selectAction = (actionId: string, selected: boolean) => {
+    // Update selected actions state
+  };
+
+  const dispatchActions = async () => {
+    // Call dispatch API with selected actions
+    // Update conversation with results
+    // Clear pending actions
+  };
+
+  return {
+    ...state,
+    setInput,
+    sendMessage,
+    selectAction,
+    dispatchActions,
+  };
+}
+```
+
+**Files:**
+- `src/hooks/useChat.ts`
+- `src/hooks/useActionPreview.ts`
+- `src/hooks/useSession.ts`
+
+### Ticket F4: Recreate Chat Interface Components
+**Priority:** P0
+**Estimate:** 6 story points
+**Dependencies:** F3
+**Team:** Frontend
+**Status:** ✅ DONE
+
+**Description:**
+Recreate current chat interface with identical look and feel.
+
+**Acceptance Criteria:**
+- [ ] Recreate `Chat.tsx` matching `/components/chat.tsx` layout exactly
+- [ ] Recreate `MessageList.tsx` with same styling as current message display
+- [ ] Recreate `MessageInput.tsx` matching `/components/multimodal-input.tsx`
+- [ ] Recreate `Message.tsx` with identical styling to `/components/elements/message.tsx`
+- [ ] Match current animations, transitions, and interactions
+- [ ] Maintain responsive design and breakpoints
+
+**Design Requirements:**
+- **Exact visual match:** Copy CSS classes from current components
+- **Same layout:** Match current chat container, message list, input positioning
+- **Typography:** Use identical fonts, sizes, weights, and colors
+- **Spacing:** Match current padding, margins, and gaps
+- **Colors:** Use exact color tokens from current design system
+- **Icons:** Use same icon library and icon choices
+
+**Technical Details:**
+```typescript
+function Chat() {
+  const { messages, input, setInput, sendMessage, isLoading, pendingActions } = useChat();
+
+  return (
+    <div className="flex flex-col h-screen max-w-3xl mx-auto">
+      {/* Copy exact layout from current /components/chat.tsx */}
+      <ChatHeader className="border-b border-border bg-background p-4" />
+
+      <MessageList
+        messages={messages}
+        className="flex-1 overflow-y-auto p-4 space-y-4"
+      />
+
+      {pendingActions.length > 0 && (
+        <ActionPreview
+          actions={pendingActions}
+          className="border-t border-border bg-muted/50 p-4"
+        />
+      )}
+
+      <MessageInput
+        value={input}
+        onChange={setInput}
+        onSubmit={sendMessage}
+        isLoading={isLoading}
+        className="border-t border-border bg-background p-4"
+        placeholder="Type your financial question..." // Match current placeholder
+      />
+    </div>
+  );
+}
+
+function Message({ message, className }: MessageProps) {
+  return (
+    <div className={cn(
+      "flex gap-3 text-sm", // Copy exact classes from current message component
+      message.role === 'user' ? "justify-end" : "justify-start",
+      className
+    )}>
+      {message.role === 'assistant' && (
+        <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+          {/* Same avatar styling as current */}
+          AI
+        </div>
+      )}
+
+      <div className={cn(
+        "max-w-[80%] px-4 py-2 rounded-lg", // Match current bubble styling
+        message.role === 'user'
+          ? "bg-primary text-primary-foreground"
+          : "bg-muted text-muted-foreground"
+      )}>
+        {message.content}
+      </div>
+    </div>
+  );
+}
+```
+
+**Reference Components:**
+- `/components/chat.tsx` - Main layout structure
+- `/components/elements/message.tsx` - Message bubble styling
+- `/components/multimodal-input.tsx` - Input field design
+- `/components/chat-header.tsx` - Header component
+
+**Files:**
+- `src/components/chat/Chat.tsx`
+- `src/components/chat/MessageList.tsx`
+- `src/components/chat/MessageInput.tsx`
+- `src/components/chat/Message.tsx`
+- `src/components/chat/ChatHeader.tsx`
+
+---
+
+## Phase 3: Financial Action UI
+
+### Ticket F5: Create Action Preview Components
+**Priority:** P0
+**Estimate:** 6 story points
+**Dependencies:** F4
+**Team:** Frontend
+**Status:** ✅ DONE
+
+**Description:**
+Build financial action preview and dispatch UI using current design language.
+
+**Acceptance Criteria:**
+- [ ] Create `ActionPreview.tsx` using current card/panel styling
+- [ ] Create `ActionCard.tsx` matching current component card designs
+- [ ] Create `ActionDispatch.tsx` using current button and dialog patterns
+- [ ] Show friendly descriptions, impact estimates, and warnings
+- [ ] Support action selection/deselection with checkboxes
+- [ ] Include parameter editing capabilities
+- [ ] Handle dispatch confirmation flow
+
+**Design Consistency:**
+- **Card styling:** Match current repository's card component patterns
+- **Button designs:** Use current primary, secondary, destructive button styles
+- **Form elements:** Copy current checkbox, input, and form styling
+- **Color scheme:** Use current warning colors (red), success (green), info (blue)
+- **Typography:** Match current heading and body text styles
+- **Layout patterns:** Follow current spacing and grid systems
+
+**Technical Details:**
+```typescript
+function ActionPreview({ actions, onDispatch }: ActionPreviewProps) {
+  const [selectedActionIds, setSelectedActionIds] = useState<string[]>([]);
+  const [editingParams, setEditingParams] = useState<Record<string, any>>({});
+
+  return (
+    <Card className="w-full">
+      {/* Match current card component styling */}
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CheckCircle className="h-5 w-5 text-blue-500" />
+          Review Proposed Actions
+        </CardTitle>
+        <CardDescription>
+          Review and approve the actions AI wants to take with your financial data.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {actions.map(action => (
+          <ActionCard
+            key={action.call_id}
+            action={action}
+            selected={selectedActionIds.includes(action.call_id)}
+            onSelect={handleSelectAction}
+            onEditParams={setEditingParams}
+            editingParams={editingParams[action.call_id]}
+          />
+        ))}
+      </CardContent>
+
+      <CardFooter>
+        <ActionDispatch
+          selectedCount={selectedActionIds.length}
+          totalCount={actions.length}
+          onDispatch={() => onDispatch(selectedActionIds, editingParams)}
+        />
+      </CardFooter>
+    </Card>
+  );
+}
+
+function ActionCard({ action, selected, onSelect }: ActionCardProps) {
+  return (
+    <div className="border border-border rounded-lg p-4 space-y-3">
+      {/* Checkbox and main content */}
+      <div className="flex items-start gap-3">
+        <Checkbox
+          checked={selected}
+          onCheckedChange={onSelect}
+          className="mt-0.5"
+        />
+
+        <div className="flex-1 space-y-2">
+          <h4 className="font-medium text-sm">{action.friendly_description}</h4>
+
+          {action.estimated_impact && (
+            <div className="text-xs text-muted-foreground">
+              Impact: {action.estimated_impact.description}
+            </div>
+          )}
+
+          {action.warnings && action.warnings.length > 0 && (
+            <div className="space-y-1">
+              {action.warnings.map((warning, idx) => (
+                <Alert key={idx} variant="destructive" className="py-2">
+                  <AlertTriangle className="h-3 w-3" />
+                  <AlertDescription className="text-xs">
+                    {warning.message}
+                  </AlertDescription>
+                </Alert>
+              ))}
+            </div>
+          )}
+
+          {/* Parameter details in collapsible section */}
+          <Collapsible>
+            <CollapsibleTrigger className="text-xs text-blue-500 hover:text-blue-700">
+              View details
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 text-xs text-muted-foreground">
+              <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">
+                {JSON.stringify(action.parameters, null, 2)}
+              </pre>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+**Reference Styling:**
+- Current card components for container styling
+- Current alert/warning component patterns
+- Current button and checkbox designs
+- Current collapsible/accordion patterns
+- Current form input styling for parameter editing
+
+**Files:**
+- `src/components/financial/ActionPreview.tsx`
+- `src/components/financial/ActionCard.tsx`
+- `src/components/financial/ActionDispatch.tsx`
+- `src/components/financial/ParameterEditor.tsx`
+
+### Ticket F6: Create Action Results & Feedback UI
+**Priority:** P1
+**Estimate:** 3 story points
+**Dependencies:** F5
+**Team:** Frontend
+**Status:** ⚠️ IN PROGRESS (basic implementation done, needs backend for testing)
+
+**Description:**
+Create UI for showing action execution results and user feedback.
+
+**Acceptance Criteria:**
+- [ ] Create `ExecutionResults.tsx` showing success/failure per action
+- [ ] Create toast notifications matching current toast styling
+- [ ] Show execution progress with loading states
+- [ ] Handle partial failures with clear error messages
+- [ ] Update conversation history with execution results
+- [ ] Match current loading spinner and progress indicator designs
+
+**Technical Details:**
+- Use current toast/notification component patterns
+- Match current loading state designs
+- Follow current error message styling
+- Integrate with existing notification systems
+
+**Files:**
+- `src/components/financial/ExecutionResults.tsx`
+- `src/components/financial/ExecutionProgress.tsx`
+
+---
+
+## Phase 4: Integration & Polish
+
+### Ticket F7: Frontend Integration & Testing
+**Priority:** P1
+**Estimate:** 3 story points
+**Dependencies:** F5, F6
+**Team:** Frontend
+**Status:** ❌ TODO (blocked by backend tickets B6 + B7)
+
+**Description:**
+Integrate all frontend components and test complete user flow.
+
+**Acceptance Criteria:**
+- [ ] Set up development environment with Go backend integration
+- [ ] Test complete chat → preview → dispatch → results flow
+- [ ] Implement error boundaries and fallback UI
+- [ ] Add loading states and skeleton components
+- [ ] Test responsive design on mobile and desktop
+- [ ] Performance optimization (lazy loading, code splitting)
+
+**Technical Details:**
+```typescript
+function App() {
+  return (
+    <Router>
+      <ErrorBoundary fallback={<ErrorFallback />}>
+        <QueryClientProvider client={queryClient}>
+          <ToastProvider>
+            <Routes>
+              <Route path="/" element={<Chat />} />
+            </Routes>
+          </ToastProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </Router>
+  );
+}
+
+function ErrorBoundary({ children, fallback }: ErrorBoundaryProps) {
+  // Match current error boundary styling
+}
+```
+
+**Files:**
+- `src/App.tsx`
+- `src/components/ErrorBoundary.tsx`
+- `src/components/LoadingSpinner.tsx`
+
+### Ticket F8: Production Build & Deployment
+**Priority:** P2
+**Estimate:** 2 story points
+**Dependencies:** F7
+**Team:** Frontend
+**Status:** ❌ TODO (blocked by F7, requires backend B8)
+
+**Description:**
+Set up production build and deployment for React frontend.
+
+**Acceptance Criteria:**
+- [ ] Optimize Vite build for production
+- [ ] Set up environment variable configuration
+- [ ] Create production Docker image
+- [ ] Configure build pipeline and CI/CD
+- [ ] Set up asset optimization and caching
+
+**Technical Details:**
+- Vite production build optimization
+- Environment variable validation
+- Docker multi-stage build
+- Static asset optimization
+
+**Files:**
+- `frontend/Dockerfile.production`
+- `frontend/vite.config.ts` (production config)
+- `frontend/.env.example`
+
+---
+
+## Frontend Development Summary
+
+**Total Frontend Story Points:** 29 points
+
+**Critical Path:**
+F0 → F1 → F2 → F3 → F4 → F5 → F7
+
+**Parallel Development Opportunities:**
+- F6 (Results UI) can be developed in parallel with F5
+- F8 (Deployment) can be prepared while F7 is in progress
+
+**Frontend Dependencies on Backend:**
+- **API Contract:** Required before F2 (API Service)
+- **Chat API:** Required for F3 (Chat Hooks) testing
+- **Dispatch API:** Required for F5 (Action Preview) testing
+- **Integration:** Full backend required for F7
+
+**Technology Stack:**
+- **Framework:** React 18 + TypeScript + Vite
+- **Styling:** Tailwind CSS (current config) + Radix UI
+- **State:** React Query + React hooks (NO AI SDK)
+- **Build:** Vite with production optimization
+- **Testing:** Vitest, React Testing Library
+
+**Design Consistency Requirements:**
+✅ **Exact visual match** to current repository
+✅ **Same component patterns** and styling approaches
+✅ **Identical color scheme** and typography
+✅ **Current responsive breakpoints** and behavior
+✅ **Same icons and interactions** as current system
+✅ **Current loading states** and animations
+
+**Key Frontend Features:**
+✅ Chat interface matching current design exactly
+✅ Custom hooks replacing AI SDK functionality
+✅ Financial action preview and selection UI
+✅ Manual approval workflow with parameter editing
+✅ Real-time execution progress and results
+✅ Full responsive design matching current system
+✅ Zero dependencies on Vercel AI SDK
+
+---
+
+## 🚧 CURRENT STATUS & BACKEND DEPENDENCIES
+
+**✅ COMPLETED (22/29 points - 76%):**
+- F0: Extract Current Design System ✅ DONE (3 pts)
+- F1: Create React Frontend Structure ✅ DONE (2 pts)
+- F2: Create API Service Layer ✅ DONE (3 pts)
+- F3: Create Custom Chat Hooks ✅ DONE (4 pts)
+- F4: Recreate Chat Interface Components ✅ DONE (6 pts)
+- F5: Create Action Preview Components ✅ DONE (6 pts)
+
+**⏳ REMAINING (7/29 points - 24%):**
+- F6: Create Action Results & Feedback UI ⚠️ IN PROGRESS (3 pts)
+- F7: Frontend Integration & Testing ❌ TODO (3 pts) - **BLOCKED BY B6 + B7**
+- F8: Production Build & Deployment ❌ TODO (2 pts) - **BLOCKED BY B8**
+
+**🔗 REQUIRED BACKEND TICKETS TO UNBLOCK FRONTEND:**
+
+**B6: Chat API Implementation** (blocks F7)
+- Endpoint: `POST /api/v1/chat`
+- Must return: `ChatResponse` with `proposed_actions[]`
+- Frontend needs: Mock financial action proposals for testing
+
+**B7: Dispatch API Implementation** (blocks F7)
+- Endpoint: `POST /api/v1/financial/actions/dispatch`
+- Must accept: `DispatchRequest` with selected actions
+- Frontend needs: Success/failure responses for action execution
+
+**B8: Financial Data Models** (blocks F8)
+- Backend needs: Real entity management (assets, liabilities, etc.)
+- Frontend needs: Production-ready data persistence
+
+**✅ FRONTEND CAN TEST NOW (without backend):**
+- Complete visual interface (exact design match)
+- Component interactions and state management
+- Input handling and form validation
+- Responsive design and animations
+- Mock action preview workflow
+
+**❌ FRONTEND CANNOT TEST (needs backend APIs):**
+- Real chat message handling
+- Action proposal generation
+- Action execution and results
+- End-to-end user workflow
