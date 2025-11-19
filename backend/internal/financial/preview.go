@@ -17,9 +17,17 @@ type ActionPreviewService struct {
 }
 
 // NewActionPreviewService creates a new action preview service
-func NewActionPreviewService(registry *FinancialToolRegistry) *ActionPreviewService {
+func NewActionPreviewService(financialClient *Client) *ActionPreviewService {
+	// Initialize the registry if not already done
+	if GlobalRegistry == nil {
+		if err := InitializeRegistry(); err != nil {
+			// Log error but continue with a new registry
+			GlobalRegistry = NewFinancialToolRegistry()
+		}
+	}
+
 	return &ActionPreviewService{
-		registry:   registry,
+		registry:   GlobalRegistry,
 		calculator: NewFinancialCalculator(),
 		validator:  NewParameterValidator(),
 	}

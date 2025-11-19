@@ -1,15 +1,18 @@
+import { useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { NetWorthProjection } from './NetWorthProjection'
+import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 
 export function FinancialWorkspace() {
+  const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
+
   const handleSettings = () => {
     console.log('Settings clicked');
     // TODO: Open settings modal
   };
 
   const handlePropertyPlanner = () => {
-    console.log('Property Planner clicked');
-    // TODO: Open property planner
+    setIsPropertyPlannerOpen(true)
   };
 
   const handleRefresh = () => {
@@ -56,6 +59,11 @@ export function FinancialWorkspace() {
       <div className="min-h-[500px] flex-1 p-6">
         <NetWorthProjection />
       </div>
+
+      <PropertyPlannerModal
+        isOpen={isPropertyPlannerOpen}
+        onClose={() => setIsPropertyPlannerOpen(false)}
+      />
     </div>
   )
 }
