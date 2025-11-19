@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -125,8 +124,8 @@ export function FinancialFormModal({
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
-  } = useForm({
-    resolver: zodResolver(schema),
+  } = useForm<any>({
+    resolver: zodResolver(schema as any),
     defaultValues: getDefaultValues(type, data),
   })
 
