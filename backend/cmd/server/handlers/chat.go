@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"financial-chat-system/backend/internal/financial"
@@ -177,24 +179,36 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	// Generate action previews if tool calls are present
 	var proposedActions []financial.ProposedAction
 	requiresApproval := false
+	var missingFields map[string][]string
 
 	if len(response.ToolCalls) > 0 {
 		requiresApproval = true
 
-		// Store pending actions in session
-		if err := h.sessionStore.AddPendingActions(ctx, req.SessionID, response.ToolCalls); err != nil {
-			log.Printf("ERROR: Failed to save pending actions for session %s: %v", req.SessionID, err)
-			writeError(w, http.StatusInternalServerError, "session_error", "Failed to save pending actions")
-			return
-		}
-
 		// Generate previews
 		previews, err := h.previewSvc.GeneratePreview(response.ToolCalls)
 		if err != nil {
-			// Log error but continue - previews are not critical
-			log.Printf("WARNING: Failed to generate previews for session %s: %v", req.SessionID, err)
+			if mErr, ok := err.(*financial.MissingParamsError); ok && mErr != nil {
+				// Missing required fields: do not create pending actions or previews
+				missingFields = mErr.Missing
+				requiresApproval = false
+				proposedActions = nil
+				responseContent = h.formatMissingFieldsPrompt(missingFields)
+				// Drop unusable tool calls so they aren't persisted on the assistant message
+				response.ToolCalls = nil
+				log.Printf("INFO: Missing required fields for session %s: %v", req.SessionID, missingFields)
+			} else {
+				// Log error but continue - previews are not critical
+				log.Printf("WARNING: Failed to generate previews for session %s: %v", req.SessionID, err)
+			}
 		} else {
 			proposedActions = previews
+			// Store pending actions in session now that validation passed
+			if err := h.sessionStore.AddPendingActions(ctx, req.SessionID, response.ToolCalls); err != nil {
+				log.Printf("ERROR: Failed to save pending actions for session %s: %v", req.SessionID, err)
+				writeError(w, http.StatusInternalServerError, "session_error", "Failed to save pending actions")
+				return
+			}
+
 			// Store friendly descriptions and dependencies with pending actions for later dispatch
 			meta := make(map[string]session.PendingActionMetadata)
 			for _, preview := range previews {
@@ -286,6 +300,31 @@ use the appropriate tools to help them. Always be clear about what actions you'r
 	})
 
 	return messages
+}
+
+// formatMissingFieldsPrompt builds a user-facing prompt listing all missing required fields.
+func (h *ChatHandler) formatMissingFieldsPrompt(missing map[string][]string) string {
+	if len(missing) == 0 {
+		return "I need a bit more information before I can continue. What details can you provide?"
+	}
+
+	unique := map[string]struct{}{}
+	for _, fields := range missing {
+		for _, f := range fields {
+			if f == "" {
+				continue
+			}
+			unique[f] = struct{}{}
+		}
+	}
+
+	fieldList := make([]string, 0, len(unique))
+	for f := range unique {
+		fieldList = append(fieldList, f)
+	}
+	sort.Strings(fieldList)
+
+	return fmt.Sprintf("I need a bit more information before I can proceed. Please provide: %s.", strings.Join(fieldList, ", "))
 }
 
 // HandleChatStream handles streaming chat responses (optional, for future implementation)

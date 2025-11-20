@@ -20,156 +20,116 @@ func NewClient() *Client {
 }
 
 // CreateAsset creates a new financial asset
-func (c *Client) CreateAsset(ctx context.Context, params map[string]interface{}) (*string, error) {
-	// Validate required parameters
-	name, ok := params["name"].(string)
-	if !ok || name == "" {
+func (c *Client) CreateAsset(ctx context.Context, params AssetParams) (*string, error) {
+	if params.Name == "" {
 		return nil, fmt.Errorf("asset name is required")
 	}
-
-	assetType, ok := params["assetType"].(string)
-	if !ok || assetType == "" {
-		return nil, fmt.Errorf("asset type is required")
+	if params.Category == "" {
+		return nil, fmt.Errorf("asset category is required")
 	}
-
-	currentValue, ok := getNumericValue(params["currentValue"])
-	if !ok || currentValue < 0 {
+	if params.CurrentValue <= 0 {
 		return nil, fmt.Errorf("valid current value is required")
 	}
 
-	// Simulate asset creation
 	assetID := uuid.New().String()
 
-	// Log the operation
-	fmt.Printf("Created asset: ID=%s, Name=%s, Type=%s, Value=%.2f\n",
-		assetID, name, assetType, currentValue)
-
-	// In a real implementation, this would:
-	// 1. Validate all parameters
-	// 2. Create the asset in the database
-	// 3. Trigger any necessary calculations
-	// 4. Return the created asset ID
+	fmt.Printf("Created asset: ID=%s, Name=%s, Category=%s, Value=%.2f\n",
+		assetID, params.Name, params.Category, params.CurrentValue)
 
 	return &assetID, nil
 }
 
 // UpdateAsset updates an existing financial asset
-func (c *Client) UpdateAsset(ctx context.Context, params map[string]interface{}) (*string, error) {
-	// Get asset ID from params or use last asset ID
-	assetID := ""
-	if id, ok := params["assetId"].(string); ok {
-		assetID = id
-	} else if id, ok := params["lastAssetId"].(string); ok {
-		assetID = id
-	} else {
+func (c *Client) UpdateAsset(ctx context.Context, params UpdateAssetParams) (*string, error) {
+	assetID := params.AssetID
+	if assetID == "" {
+		assetID = params.LastAssetID
+	}
+	if assetID == "" {
 		return nil, fmt.Errorf("asset ID is required")
 	}
 
-	// Log the operation
 	fmt.Printf("Updated asset: ID=%s\n", assetID)
-
-	// In a real implementation, this would:
-	// 1. Validate the asset exists
-	// 2. Update only the provided fields
-	// 3. Recalculate any affected metrics
-	// 4. Return the updated asset ID
-
 	return &assetID, nil
 }
 
 // CreateLiability creates a new financial liability
-func (c *Client) CreateLiability(ctx context.Context, params map[string]interface{}) (*string, error) {
-	// Validate required parameters
-	name, ok := params["name"].(string)
-	if !ok || name == "" {
+func (c *Client) CreateLiability(ctx context.Context, params LiabilityParams) (*string, error) {
+	if params.Name == "" {
 		return nil, fmt.Errorf("liability name is required")
 	}
-
-	liabilityType, ok := params["liabilityType"].(string)
-	if !ok || liabilityType == "" {
-		return nil, fmt.Errorf("liability type is required")
+	if params.Category == "" {
+		return nil, fmt.Errorf("liability category is required")
+	}
+	if params.CurrentBalance <= 0 {
+		return nil, fmt.Errorf("valid current balance is required")
+	}
+	if params.InterestRate < 0 {
+		return nil, fmt.Errorf("valid interest rate is required")
 	}
 
-	principalAmount, ok := getNumericValue(params["principalAmount"])
-	if !ok || principalAmount < 0 {
-		return nil, fmt.Errorf("valid principal amount is required")
-	}
-
-	// Simulate liability creation
 	liabilityID := uuid.New().String()
 
-	// Log the operation
-	fmt.Printf("Created liability: ID=%s, Name=%s, Type=%s, Principal=%.2f\n",
-		liabilityID, name, liabilityType, principalAmount)
-
-	// In a real implementation, this would:
-	// 1. Validate all parameters including interest rates, terms, etc.
-	// 2. Create the liability in the database
-	// 3. Calculate payment schedules if applicable
-	// 4. Return the created liability ID
+	fmt.Printf("Created liability: ID=%s, Name=%s, Category=%s, Balance=%.2f, Rate=%.4f\n",
+		liabilityID, params.Name, params.Category, params.CurrentBalance, params.InterestRate)
 
 	return &liabilityID, nil
 }
 
 // UpdateLiability updates an existing financial liability
-func (c *Client) UpdateLiability(ctx context.Context, params map[string]interface{}) (*string, error) {
-	// Get liability ID from params or use last liability ID
-	liabilityID := ""
-	if id, ok := params["liabilityId"].(string); ok {
-		liabilityID = id
-	} else if id, ok := params["lastLiabilityId"].(string); ok {
-		liabilityID = id
-	} else {
+func (c *Client) UpdateLiability(ctx context.Context, params UpdateLiabilityParams) (*string, error) {
+	liabilityID := params.LiabilityID
+	if liabilityID == "" {
+		liabilityID = params.LastLiabilityID
+	}
+	if liabilityID == "" {
 		return nil, fmt.Errorf("liability ID is required")
 	}
 
-	// Log the operation
 	fmt.Printf("Updated liability: ID=%s\n", liabilityID)
-
-	// In a real implementation, this would:
-	// 1. Validate the liability exists
-	// 2. Update only the provided fields
-	// 3. Recalculate payment schedules if needed
-	// 4. Return the updated liability ID
-
 	return &liabilityID, nil
 }
 
 // CreatePropertyScenario creates a property investment scenario
-func (c *Client) CreatePropertyScenario(ctx context.Context, params map[string]interface{}) (*string, error) {
-	// Validate required parameters
-	propertyName, ok := params["propertyName"].(string)
-	if !ok || propertyName == "" {
-		return nil, fmt.Errorf("property name is required")
+func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScenarioParams) (*string, error) {
+	if params.PropertyPrice <= 0 {
+		return nil, fmt.Errorf("property price must be greater than 0")
+	}
+	if params.DownPayment < 0 {
+		return nil, fmt.Errorf("down payment must be zero or positive")
+	}
+	if params.LoanAmount <= 0 {
+		return nil, fmt.Errorf("loan amount must be greater than 0")
+	}
+	if params.InterestRate <= 0 {
+		return nil, fmt.Errorf("interest rate must be greater than 0")
+	}
+	if params.LoanTenure <= 0 {
+		return nil, fmt.Errorf("loan tenure must be greater than 0")
+	}
+	if params.PropertyType == "" {
+		return nil, fmt.Errorf("property type is required")
 	}
 
-	purchasePrice, ok := getNumericValue(params["purchasePrice"])
-	if !ok || purchasePrice <= 0 {
-		return nil, fmt.Errorf("valid purchase price is required")
+	// Ensure the loan aligns with the price/down payment
+	expectedLoan := params.PropertyPrice - params.DownPayment
+	if expectedLoan > 0 && abs(expectedLoan-params.LoanAmount) > 1000 {
+		return nil, fmt.Errorf("loan amount does not match property price minus down payment")
 	}
 
-	// Get optional parameters with defaults
-	downPaymentPercent, _ := getNumericValue(params["downPaymentPercent"])
-	if downPaymentPercent == 0 {
-		downPaymentPercent = 20 // Default 20% down payment
-	}
-
-	// Simulate scenario creation
 	scenarioID := uuid.New().String()
 
-	// Calculate derived values
-	downPayment := purchasePrice * (downPaymentPercent / 100)
-	loanAmount := purchasePrice - downPayment
-
-	// Log the operation
-	fmt.Printf("Created property scenario: ID=%s, Property=%s, Price=%.2f, Down=%.2f, Loan=%.2f\n",
-		scenarioID, propertyName, purchasePrice, downPayment, loanAmount)
-
-	// In a real implementation, this would:
-	// 1. Create both the asset (property) and liability (mortgage)
-	// 2. Link them together in a scenario
-	// 3. Calculate all financial implications (MSR, TDSR, etc.)
-	// 4. Return the scenario ID
+	fmt.Printf(
+		"Created property scenario: ID=%s, Name=%s, Price=%.2f, Down=%.2f, Loan=%.2f, Rate=%.3f, Tenure=%dy, Type=%s\n",
+		scenarioID,
+		params.Name,
+		params.PropertyPrice,
+		params.DownPayment,
+		params.LoanAmount,
+		params.InterestRate,
+		params.LoanTenure,
+		params.PropertyType,
+	)
 
 	return &scenarioID, nil
 }
@@ -203,7 +163,7 @@ func (c *Client) GetFinancialSummary(ctx context.Context, userID string) (map[st
 
 // RollbackAction performs a best-effort rollback for a previously executed action.
 // In this simulated client we simply log the rollback attempt.
-func (c *Client) RollbackAction(ctx context.Context, toolName string, entityID *string, params map[string]interface{}) error {
+func (c *Client) RollbackAction(ctx context.Context, toolName string, entityID *string) error {
 	if entityID == nil {
 		return nil
 	}
@@ -213,35 +173,29 @@ func (c *Client) RollbackAction(ctx context.Context, toolName string, entityID *
 }
 
 // ValidateFinancialConstraints validates financial constraints like MSR and TDSR
-func (c *Client) ValidateFinancialConstraints(ctx context.Context, params map[string]interface{}) ([]ValidationResult, error) {
+func (c *Client) ValidateFinancialConstraints(ctx context.Context, params FinancialConstraintParams) ([]ValidationResult, error) {
 	var results []ValidationResult
 
-	// Simulate MSR check (Mortgage Servicing Ratio - 30% of income)
-	if monthlyPayment, ok := getNumericValue(params["monthlyPayment"]); ok {
-		if monthlyIncome, ok := getNumericValue(params["monthlyIncome"]); ok && monthlyIncome > 0 {
-			msr := monthlyPayment / monthlyIncome
-			results = append(results, ValidationResult{
-				Type:    "MSR",
-				Value:   msr,
-				Limit:   0.30,
-				Passed:  msr <= 0.30,
-				Message: fmt.Sprintf("MSR is %.1f%% (limit: 30%%)", msr*100),
-			})
-		}
+	if params.MonthlyIncome > 0 && params.MonthlyPayment > 0 {
+		msr := params.MonthlyPayment / params.MonthlyIncome
+		results = append(results, ValidationResult{
+			Type:    "MSR",
+			Value:   msr,
+			Limit:   0.30,
+			Passed:  msr <= 0.30,
+			Message: fmt.Sprintf("MSR is %.1f%% (limit: 30%%)", msr*100),
+		})
 	}
 
-	// Simulate TDSR check (Total Debt Servicing Ratio - 55% of income)
-	if totalDebtPayments, ok := getNumericValue(params["totalDebtPayments"]); ok {
-		if monthlyIncome, ok := getNumericValue(params["monthlyIncome"]); ok && monthlyIncome > 0 {
-			tdsr := totalDebtPayments / monthlyIncome
-			results = append(results, ValidationResult{
-				Type:    "TDSR",
-				Value:   tdsr,
-				Limit:   0.55,
-				Passed:  tdsr <= 0.55,
-				Message: fmt.Sprintf("TDSR is %.1f%% (limit: 55%%)", tdsr*100),
-			})
-		}
+	if params.MonthlyIncome > 0 && params.TotalDebtPayments > 0 {
+		tdsr := params.TotalDebtPayments / params.MonthlyIncome
+		results = append(results, ValidationResult{
+			Type:    "TDSR",
+			Value:   tdsr,
+			Limit:   0.55,
+			Passed:  tdsr <= 0.55,
+			Message: fmt.Sprintf("TDSR is %.1f%% (limit: 55%%)", tdsr*100),
+		})
 	}
 
 	return results, nil
@@ -256,20 +210,9 @@ type ValidationResult struct {
 	Message string  `json:"message"`
 }
 
-// Helper function to extract numeric values from interface{}
-func getNumericValue(v interface{}) (float64, bool) {
-	switch val := v.(type) {
-	case float64:
-		return val, true
-	case float32:
-		return float64(val), true
-	case int:
-		return float64(val), true
-	case int32:
-		return float64(val), true
-	case int64:
-		return float64(val), true
-	default:
-		return 0, false
+func abs(v float64) float64 {
+	if v < 0 {
+		return -v
 	}
+	return v
 }
