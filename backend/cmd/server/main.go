@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"financial-chat-system/backend/cmd/server/handlers"
 	"financial-chat-system/backend/internal/config"
@@ -64,55 +65,124 @@ func main() {
 	// Initialize LLM client manager
 	llmManager := llm.NewClientManager()
 	providerCount := 0
+	registered := []string{}
+
+	openAIKey := strings.TrimSpace(cfg.OpenAIAPIKey)
+	if isPlaceholderKey(openAIKey) {
+		openAIKey = ""
+	}
+
+	anthropicKey := strings.TrimSpace(cfg.AnthropicAPIKey)
+	if isPlaceholderKey(anthropicKey) {
+		anthropicKey = ""
+	}
+
+	geminiKey := strings.TrimSpace(cfg.GeminiAPIKey)
+	if isPlaceholderKey(geminiKey) {
+		geminiKey = ""
+	}
 
 	// Register OpenAI provider using config
-	if cfg.OpenAIAPIKey != "" {
+	if openAIKey != "" {
 		openaiProvider, err := providers.NewOpenAIProvider(providers.OpenAIConfig{
-			APIKey:      cfg.OpenAIAPIKey,
+			APIKey:      openAIKey,
 			Model:       cfg.OpenAIModel,
 			Temperature: 0.15,
-			MaxTokens:   1200,
+			MaxTokens:   cfg.OpenAIMaxTokens,
 			Timeout:     cfg.RequestTimeout,
 		})
 		if err != nil {
 			log.Fatalf("Failed to initialize OpenAI provider: %v", err)
 		}
 		llmManager.RegisterProvider(openaiProvider.ProviderName(), openaiProvider)
-		if err := llmManager.SetPrimary(openaiProvider.ProviderName()); err != nil {
-			log.Fatalf("Failed to set primary LLM provider: %v", err)
-		}
 		providerCount++
+		registered = append(registered, openaiProvider.ProviderName())
 	}
 
 	// Register Anthropic provider if configured
-	if cfg.AnthropicAPIKey != "" {
+	if anthropicKey != "" {
 		anthropicProvider, err := providers.NewAnthropicProvider(providers.AnthropicConfig{
-			APIKey:      cfg.AnthropicAPIKey,
+			APIKey:      anthropicKey,
 			Model:       cfg.AnthropicModel,
 			Temperature: 0.1,
-			MaxTokens:   2000,
+			MaxTokens:   cfg.AnthropicMaxTokens,
 			Version:     "2023-06-01",
 		})
 		if err != nil {
 			log.Printf("Failed to initialize Anthropic provider: %v", err)
 		} else {
 			llmManager.RegisterProvider("anthropic", anthropicProvider)
-			if providerCount == 0 {
-				if err := llmManager.SetPrimary("anthropic"); err != nil {
-					log.Fatalf("Failed to set Anthropic as primary provider: %v", err)
-				}
-			}
 			providerCount++
+			registered = append(registered, "anthropic")
+		}
+	}
+
+	// Register Gemini provider if configured
+	if geminiKey != "" {
+		geminiProvider, err := providers.NewGeminiProvider(providers.GeminiConfig{
+			APIKey:      geminiKey,
+			Model:       cfg.GeminiModel,
+			Temperature: cfg.GeminiTemperature,
+			MaxTokens:   cfg.GeminiMaxTokens,
+			Timeout:     cfg.RequestTimeout,
+		})
+		if err != nil {
+			log.Printf("Failed to initialize Gemini provider: %v", err)
+		} else {
+			llmManager.RegisterProvider(geminiProvider.ProviderName(), geminiProvider)
+			providerCount++
+			registered = append(registered, geminiProvider.ProviderName())
 		}
 	}
 
 	if providerCount == 0 {
-		log.Fatal("No LLM providers configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.")
+		log.Fatal("No LLM providers configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY.")
 	}
+
+	// Determine primary provider based on env preference and availability
+	preferred := strings.ToLower(cfg.PrimaryLLM)
+	primary := ""
+	if preferred != "" {
+		for _, p := range registered {
+			if strings.ToLower(p) == preferred {
+				primary = p
+				break
+			}
+		}
+	}
+	if primary == "" && len(registered) > 0 {
+		primary = registered[0]
+		log.Printf("PRIMARY_LLM=%s not available, defaulting to %s", cfg.PrimaryLLM, primary)
+	}
+	if err := llmManager.SetPrimary(primary); err != nil {
+		log.Fatalf("Failed to set primary LLM provider: %v", err)
+	}
+	// Set fallbacks to any remaining providers in order
+	fallbacks := []string{}
+	for _, p := range registered {
+		if p != primary {
+			fallbacks = append(fallbacks, p)
+		}
+	}
+	if err := llmManager.SetFallbacks(fallbacks); err != nil {
+		log.Printf("Failed to set fallback LLM providers: %v", err)
+	}
+
+	log.Printf("Registered LLM providers: %v (primary: %s, fallbacks: %v)", registered, primary, fallbacks)
 
 	// Initialize handlers
 	healthHandler := handlers.NewHealthHandler()
-	chatHandler := handlers.NewChatHandler(llmManager, previewService, sessionStore)
+	defaultModel := cfg.OpenAIModel
+	defaultMaxTokens := cfg.OpenAIMaxTokens
+	switch primary {
+	case "anthropic":
+		defaultModel = cfg.AnthropicModel
+		defaultMaxTokens = cfg.AnthropicMaxTokens
+	case "gemini":
+		defaultModel = cfg.GeminiModel
+		defaultMaxTokens = cfg.GeminiMaxTokens
+	}
+	chatHandler := handlers.NewChatHandler(llmManager, previewService, sessionStore, defaultModel, defaultMaxTokens)
 	dispatchHandler := handlers.NewDispatchHandler(financialClient, sessionStore, previewService)
 
 	// Register routes
@@ -120,7 +190,7 @@ func main() {
 	v1Router.HandleFunc("/tools", healthHandler.HandleTools).Methods("GET")
 
 	// Chat endpoints
-	v1Router.HandleFunc("/chat", chatHandler.HandleChat).Methods("POST")
+	v1Router.HandleFunc("/chat", chatHandler.HandleChat).Methods("POST", "OPTIONS")
 	v1Router.HandleFunc("/chat/history/{sessionId}", chatHandler.GetChatHistory).Methods("GET")
 
 	// Financial action endpoints
@@ -134,4 +204,18 @@ func main() {
 
 	fmt.Printf("Starting server on port %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
+}
+
+func isPlaceholderKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	lower := strings.ToLower(key)
+	if strings.Contains(lower, "your-openai-key") || strings.Contains(lower, "sk-your-openai-key-here") {
+		return true
+	}
+	if strings.Contains(lower, "sk-ant-your") || strings.Contains(lower, "your-anthropic-key") {
+		return true
+	}
+	return false
 }

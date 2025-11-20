@@ -47,9 +47,7 @@ func NewOpenAIProvider(config OpenAIConfig) (*OpenAIProvider, error) {
 		config.Temperature = 0.1 // Low temperature for structured output
 	}
 
-	if config.MaxTokens == 0 {
-		config.MaxTokens = 2000
-	}
+	// MaxTokens: <=0 means let the API default; otherwise enforce limit
 
 	if config.Timeout == 0 {
 		config.Timeout = 30
@@ -187,8 +185,11 @@ func (p *OpenAIProvider) convertRequest(req llm.ChatRequest) (openai.ChatComplet
 		Model:       model,
 		Messages:    messages,
 		Temperature: float32(temperature),
-		MaxTokens:   maxTokens,
 		Tools:       tools,
+	}
+
+	if maxTokens > 0 {
+		openaiReq.MaxTokens = maxTokens
 	}
 
 	// If tools are provided, ensure tool choice is auto

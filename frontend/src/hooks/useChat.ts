@@ -36,13 +36,14 @@ export function useChat({ chatId, sessionId, initialMessages = [] }: UseChatProp
       ])
 
       // If there are proposed actions, create action review
-      if (response.proposed_actions.length > 0) {
+      const proposedActions = Array.isArray(response?.proposed_actions) ? response.proposed_actions : []
+      if (proposedActions.length > 0) {
         setActionReviews(prev => [
           ...prev,
           {
             id: generateUUID(),
             message: content,
-            actions: response.proposed_actions,
+            actions: proposedActions,
             status: 'pending',
             createdAt: Date.now(),
           }

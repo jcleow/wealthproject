@@ -49,14 +49,26 @@ func Logging(next http.Handler) http.Handler {
 		// Create a response writer wrapper to capture status code
 		wrapped := &responseWriter{ResponseWriter: w, statusCode: 200}
 
+		// Log request details
+		requestID := r.Context().Value("request_id")
+		log.Printf("REQUEST START: %s %s | RequestID: %v | Content-Length: %d | User-Agent: %s",
+			r.Method, r.URL.Path, requestID, r.ContentLength, r.Header.Get("User-Agent"))
+
 		next.ServeHTTP(wrapped, r)
 
 		duration := time.Since(start)
 		w.Header().Set("X-Response-Time", duration.String())
 
-		requestID := r.Context().Value("request_id")
-		log.Printf("REQUEST: %s %s | Status: %d | Duration: %v | RequestID: %v",
-			r.Method, r.URL.Path, wrapped.statusCode, duration, requestID)
+		// Enhanced logging with status categories
+		statusCategory := "INFO"
+		if wrapped.statusCode >= 400 && wrapped.statusCode < 500 {
+			statusCategory = "WARN"
+		} else if wrapped.statusCode >= 500 {
+			statusCategory = "ERROR"
+		}
+
+		log.Printf("REQUEST %s: %s %s | Status: %d | Duration: %v | RequestID: %v",
+			statusCategory, r.Method, r.URL.Path, wrapped.statusCode, duration, requestID)
 	})
 }
 

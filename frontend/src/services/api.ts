@@ -1,6 +1,8 @@
 import { ChatRequest, ChatResponse, DispatchRequest, DispatchResponse } from '@/types/api'
 
-const API_BASE_URL = '/api/v1'
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_GO_BACKEND_BASE_URL?.trim() || '/api/v1'
+
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {

@@ -43,9 +43,7 @@ func NewGeminiProvider(config GeminiConfig) (*GeminiProvider, error) {
 		config.Temperature = 0.1 // Low temperature for structured output
 	}
 
-	if config.MaxTokens == 0 {
-		config.MaxTokens = 2000
-	}
+	// MaxTokens: <=0 means let the API default; otherwise enforce limit
 
 	if config.Timeout == 0 {
 		config.Timeout = 30
@@ -93,7 +91,9 @@ func (p *GeminiProvider) GenerateToolCalls(ctx context.Context, req llm.ChatRequ
 
 	// Configure model settings
 	model.SetTemperature(float32(p.config.Temperature))
-	model.SetMaxOutputTokens(int32(p.config.MaxTokens))
+	if p.config.MaxTokens > 0 {
+		model.SetMaxOutputTokens(int32(p.config.MaxTokens))
+	}
 
 	// Convert tools to Gemini format if present
 	if len(req.Tools) > 0 {

@@ -42,3 +42,9 @@ build/
 
 # Logs
 *.log
+frontend/.env.*
+
+
+# Misc
+*.cache/
+*__debug*

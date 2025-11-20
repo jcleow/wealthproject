@@ -10,6 +10,8 @@ import ChatInput from './ChatInput'
 interface ChatProps {
   chatId: string
   className?: string
+  onToggleHistory?: () => void
+  isHistoryOpen?: boolean
 }
 
 const suggestedQuestions = [
@@ -19,7 +21,7 @@ const suggestedQuestions = [
   "Can I afford to buy a house?"
 ]
 
-export function Chat({ chatId, className }: ChatProps) {
+export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: ChatProps) {
   const [sessionId] = useState(() => generateUUID())
 
   const {
@@ -40,11 +42,15 @@ export function Chat({ chatId, className }: ChatProps) {
   return (
     <div
       className={cn(
-        "overscroll-behavior-contain flex h-full min-h-0 min-w-0 touch-pan-y flex-col rounded-3xl border border-white/10 bg-[#05060f]/90 text-white shadow-[0_30px_80px_rgba(3,3,4,0.45)] backdrop-blur-xl",
+        "overscroll-behavior-contain flex h-full min-h-0 min-w-0 touch-pan-y flex-col rounded-3xl bg-black text-white shadow-[0_30px_80px_rgba(3,3,4,0.45)] backdrop-blur-xl",
         className
       )}
     >
-      <ChatHeader />
+      <ChatHeader
+        chatId={chatId}
+        onToggleHistory={onToggleHistory}
+        isHistoryOpen={isHistoryOpen}
+      />
 
       <div className="flex min-h-0 flex-1 flex-col px-4 pb-8">
         <Messages
@@ -74,7 +80,7 @@ export function Chat({ chatId, className }: ChatProps) {
         )}
       </div>
 
-      <div className="border-t border-white/5 px-4 pb-4 pt-4">
+      <div className="px-4 pb-4 pt-4">
         <ChatInput
           onSendMessage={sendMessage}
           isLoading={isLoading}

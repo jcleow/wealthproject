@@ -31,9 +31,16 @@ func NewStore(db *sql.DB) *Store {
 	}
 }
 
-// CreateSession creates a new session
-func (s *Store) CreateSession(ctx context.Context, userID string) (*SessionState, error) {
-	sessionID := uuid.New().String()
+// CreateSession creates a new session with an optional provided sessionID.
+// If sessionID is empty, a new UUID is generated.
+func (s *Store) CreateSession(ctx context.Context, userID string, sessionID string) (*SessionState, error) {
+	if sessionID == "" {
+		sessionID = uuid.New().String()
+	} else {
+		if _, err := uuid.Parse(sessionID); err != nil {
+			return nil, fmt.Errorf("invalid session id: %w", err)
+		}
+	}
 	now := time.Now()
 
 	session := &SessionState{

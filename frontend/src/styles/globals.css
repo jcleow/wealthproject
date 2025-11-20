@@ -60,8 +60,12 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
+  *,
+  *::before,
+  *::after {
+    border-width: 0 !important;
+    border-style: solid !important;
+    border-color: transparent !important;
   }
   body {
     @apply bg-background text-foreground;
@@ -126,4 +130,20 @@
   .skeleton-div {
     @apply bg-foreground/20 animate-pulse;
   }
+}
+
+/* Remove default focus outlines from Recharts surfaces */
+.recharts-wrapper:focus,
+.recharts-surface:focus,
+.recharts-responsive-container:focus {
+  outline: none;
+}
+
+.recharts-focus {
+  display: none !important;
+}
+
+.recharts-cartesian-grid-bg {
+  fill: transparent !important;
+  stroke: none !important;
 }

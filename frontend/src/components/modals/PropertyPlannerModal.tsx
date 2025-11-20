@@ -328,7 +328,7 @@ export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalPr
                     <Button
                       type="submit"
                       disabled={!isValid}
-                      className="rounded-full bg-emerald-500 px-8 py-3 font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                      className="rounded-full text-grey-500 bg-white/5  px-8 py-3 font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
                     >
                       Generate Overview
                     </Button>

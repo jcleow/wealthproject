@@ -39,7 +39,7 @@ export default function ActionReviewCard({
     },
     confirmed: {
       label: "Dispatched",
-      tone: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+      tone: "text-grey-500 bg-white/5 /15 text-emerald-300 border-emerald-500/30",
       icon: <CheckCircle2 className="size-4" />,
     },
     cancelled: {
