@@ -56,14 +56,24 @@ func main() {
 
 	// Create main router
 	router := mux.NewRouter()
+	// Apply CORS at the top-level so even 404/validation errors include headers
+	router.Use(middleware.CORS)
+	// Ensure OPTIONS at top-level (covers any non-/api paths)
+	router.Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	// API v1 router with versioning middleware
 	v1Router := router.PathPrefix("/api/v1").Subrouter()
 	v1Router.Use(versionMiddleware.ValidateVersion)
-	v1Router.Use(middleware.CORS)
 	v1Router.Use(middleware.RequestID)
 	v1Router.Use(middleware.Logging)
 	v1Router.Use(middleware.Authenticate)
+
+	// Handle CORS preflight for all API routes
+	v1Router.PathPrefix("/").Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	// Initialize LLM client manager
 	llmManager := llm.NewClientManager()
@@ -200,7 +210,7 @@ func main() {
 	v1Router.HandleFunc("/chat/history/{sessionId}", chatHandler.GetChatHistory).Methods("GET")
 
 	// Financial action endpoints
-	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST")
+	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST", "OPTIONS")
 
 	// Start server
 	port := cfg.Port
