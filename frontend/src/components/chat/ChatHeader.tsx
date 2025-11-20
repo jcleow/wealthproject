@@ -25,10 +25,10 @@ export default function ChatHeader({ chatId, onToggleHistory, isHistoryOpen }: C
           </button>
         )}
 
-        <div className="space-y-2 pt-1 pl-12">
+        {/* <div className="space-y-2 pt-1 pl-12">
           <h2 className="text-3xl font-semibold text-white">Hello there!</h2>
           <p className="text-base text-gray-400">How can I help you today?</p>
-        </div>
+        </div> */}
       </div>
       {/* Chat ID hidden label removed to avoid hydration mismatch */}
     </div>

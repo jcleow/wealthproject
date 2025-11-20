@@ -21,13 +21,21 @@ var (
 
 // Store manages session persistence in PostgreSQL
 type Store struct {
-	db *sql.DB
+	db     *sql.DB
+	maxAge time.Duration
+}
+
+// PendingActionMetadata holds additional details for pending tool calls
+type PendingActionMetadata struct {
+	FriendlyDescription string   `json:"friendly_description,omitempty"`
+	Dependencies        []string `json:"dependencies,omitempty"`
 }
 
 // NewStore creates a new session store
-func NewStore(db *sql.DB) *Store {
+func NewStore(db *sql.DB, maxAge time.Duration) *Store {
 	return &Store{
-		db: db,
+		db:     db,
+		maxAge: maxAge,
 	}
 }
 
@@ -90,6 +98,10 @@ func (s *Store) GetSession(ctx context.Context, sessionID string) (*SessionState
 	var session SessionState
 	if err := json.Unmarshal(stateJSON, &session); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal session state: %w", err)
+	}
+
+	if s.maxAge > 0 && time.Since(session.UpdatedAt) > s.maxAge {
+		return nil, fmt.Errorf("session expired: %s", sessionID)
 	}
 
 	return &session, nil
@@ -182,6 +194,37 @@ func (s *Store) AddPendingActions(ctx context.Context, sessionID string, toolCal
 			CreatedAt:  now,
 		}
 		session.PendingActions = append(session.PendingActions, pending)
+	}
+
+	return s.UpdateSession(ctx, session)
+}
+
+// UpdatePendingActionMetadata enriches pending actions with friendly details and dependencies
+func (s *Store) UpdatePendingActionMetadata(ctx context.Context, sessionID string, metadata map[string]PendingActionMetadata) error {
+	if len(metadata) == 0 {
+		return nil
+	}
+
+	session, err := s.GetSession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+
+	updated := false
+	for i, action := range session.PendingActions {
+		if meta, ok := metadata[action.CallID]; ok {
+			if meta.FriendlyDescription != "" {
+				session.PendingActions[i].FriendlyDescription = meta.FriendlyDescription
+			}
+			if len(meta.Dependencies) > 0 {
+				session.PendingActions[i].Dependencies = meta.Dependencies
+			}
+			updated = true
+		}
+	}
+
+	if !updated {
+		return nil
 	}
 
 	return s.UpdateSession(ctx, session)

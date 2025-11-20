@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { apiService, ApiError } from '@/services/api'
-import { Message, ActionReview, ChatStatus } from '@/types/chat'
+import { Message, ActionReview, ChatStatus, ExecutionResult, ChatNotification } from '@/types/chat'
 import { generateUUID } from '@/lib/utils'
 
 interface UseChatProps {
@@ -14,6 +14,16 @@ export function useChat({ chatId, sessionId, initialMessages = [] }: UseChatProp
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [actionReviews, setActionReviews] = useState<ActionReview[]>([])
   const [status, setStatus] = useState<ChatStatus>('idle')
+  const [executionResults, setExecutionResults] = useState<ExecutionResult[]>([])
+  const [notifications, setNotifications] = useState<ChatNotification[]>([])
+
+  const addNotification = useCallback((notification: Omit<ChatNotification, 'id'>) => {
+    setNotifications(prev => [...prev, { ...notification, id: generateUUID() }])
+  }, [])
+
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(note => note.id !== id))
+  }, [])
 
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
@@ -77,8 +87,40 @@ export function useChat({ chatId, sessionId, initialMessages = [] }: UseChatProp
         session_id: sessionId,
       })
     },
+    onMutate: (reviewId: string) => {
+      setStatus('loading')
+
+      const review = actionReviews.find(r => r.id === reviewId)
+      if (!review) return
+
+      setExecutionResults(prev => {
+        const alreadyExists = prev.some(exec => exec.reviewId === reviewId)
+        if (alreadyExists) {
+          return prev.map(exec =>
+            exec.reviewId === reviewId
+              ? { ...exec, status: 'running', createdAt: Date.now() }
+              : exec
+          )
+        }
+
+        return [
+          ...prev,
+          {
+            id: generateUUID(),
+            reviewId,
+            status: 'running',
+            createdAt: Date.now(),
+            actions: review.actions.map(action => ({ ...action })),
+          }
+        ]
+      })
+    },
     onSuccess: (response, reviewId) => {
-      // Mark review as confirmed
+      setStatus('idle')
+      const summary = response.summary
+      const totalCount = summary.successful + summary.failed
+      const failureCount = summary.failed
+
       setActionReviews(prev =>
         prev.map(review =>
           review.id === reviewId
@@ -87,22 +129,58 @@ export function useChat({ chatId, sessionId, initialMessages = [] }: UseChatProp
         )
       )
 
-      // Add confirmation message
-      const successCount = response.summary.successful
-      const totalCount = response.summary.successful + response.summary.failed
+      setExecutionResults(prev =>
+        prev.map(exec =>
+          exec.reviewId === reviewId
+            ? {
+                ...exec,
+                status: 'completed' as const,
+                summary,
+                actions: exec.actions.map(action => {
+                  const result = response.results.find(r => r.call_id === action.call_id)
+                  return {
+                    ...action,
+                    success: result?.success ?? true,
+                    entity_id: result?.entity_id,
+                    error: result?.error,
+                  }
+                }),
+              }
+            : exec
+        )
+      )
 
       setMessages(prev => [
         ...prev,
         {
           id: generateUUID(),
           role: 'assistant',
-          content: `Successfully applied ${successCount}/${totalCount} changes to your financial plan.`,
+          content: failureCount > 0
+            ? `Dispatched ${summary.successful}/${totalCount} actions. ${failureCount} failed: please review the results.`
+            : `Successfully applied ${summary.successful}/${totalCount} changes to your financial plan.`,
           timestamp: new Date(),
         }
       ])
+
+      addNotification({
+        type: failureCount > 0 ? 'error' : 'success',
+        title: failureCount > 0 ? 'Dispatch completed with issues' : 'Actions dispatched',
+        description: failureCount > 0
+          ? `${summary.successful} succeeded, ${failureCount} failed`
+          : `All ${totalCount} actions succeeded`,
+      })
     },
-    onError: (error: ApiError) => {
-      // Add error message
+    onError: (error: ApiError, reviewId) => {
+      setStatus('error')
+
+      setExecutionResults(prev =>
+        prev.map(exec =>
+          exec.reviewId === reviewId
+            ? { ...exec, status: 'failed' as const, errorMessage: error.message }
+            : exec
+        )
+      )
+
       setMessages(prev => [
         ...prev,
         {
@@ -112,7 +190,15 @@ export function useChat({ chatId, sessionId, initialMessages = [] }: UseChatProp
           timestamp: new Date(),
         }
       ])
+      addNotification({
+        type: 'error',
+        title: 'Action dispatch failed',
+        description: error.message,
+      })
     },
+    onSettled: () => {
+      setStatus('idle')
+    }
   })
 
   const sendMessage = useCallback((content: string) => {
@@ -165,10 +251,13 @@ export function useChat({ chatId, sessionId, initialMessages = [] }: UseChatProp
   return {
     messages,
     actionReviews,
+    executionResults,
+    notifications,
     status,
     sendMessage,
     confirmAction,
     cancelAction,
+    dismissNotification,
     isLoading: sendMessageMutation.isPending || dispatchActionsMutation.isPending,
     isDispatching: dispatchActionsMutation.isPending,
   }

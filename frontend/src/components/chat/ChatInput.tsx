@@ -61,7 +61,7 @@ export default function ChatInput({
           status === 'loading' ? 'Processing...' : 'Ask about your finances...'
         }
         className={cn(
-          '!min-h-[44px] max-h-[160px] flex-1 resize-none rounded-none border-none bg-transparent px-0 py-0 text-base text-white placeholder:text-gray-500 focus-visible:ring-0',
+          '!min-h-[44px] max-h-[160px] flex-1 resize-none rounded-none border-none bg-transparent px-0 py-0 text-base text-white placeholder:text-gray-500 focus-visible:outline-none focus:outline-none focus-visible:ring-0 focus:ring-0 focus-visible:ring-offset-0 focus:ring-offset-0 focus-visible:outline-offset-0',
           status === 'loading' && 'opacity-50'
         )}
         disabled={isLoading}

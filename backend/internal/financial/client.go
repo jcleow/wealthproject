@@ -189,8 +189,8 @@ func (c *Client) CalculateNetWorth(ctx context.Context, userID string) (float64,
 func (c *Client) GetFinancialSummary(ctx context.Context, userID string) (map[string]interface{}, error) {
 	// Simulated summary
 	summary := map[string]interface{}{
-		"net_worth":        500000.00,
-		"total_assets":     750000.00,
+		"net_worth":         500000.00,
+		"total_assets":      750000.00,
 		"total_liabilities": 250000.00,
 		"monthly_income":    8000.00,
 		"monthly_expenses":  5000.00,
@@ -199,6 +199,17 @@ func (c *Client) GetFinancialSummary(ctx context.Context, userID string) (map[st
 	}
 
 	return summary, nil
+}
+
+// RollbackAction performs a best-effort rollback for a previously executed action.
+// In this simulated client we simply log the rollback attempt.
+func (c *Client) RollbackAction(ctx context.Context, toolName string, entityID *string, params map[string]interface{}) error {
+	if entityID == nil {
+		return nil
+	}
+
+	fmt.Printf("Rolling back %s for entity %s\n", toolName, *entityID)
+	return nil
 }
 
 // ValidateFinancialConstraints validates financial constraints like MSR and TDSR

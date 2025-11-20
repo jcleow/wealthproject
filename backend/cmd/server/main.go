@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"financial-chat-system/backend/cmd/server/handlers"
 	"financial-chat-system/backend/internal/config"
@@ -46,7 +48,8 @@ func main() {
 	// Initialize services
 	financialClient := financial.NewClient()
 	previewService := financial.NewActionPreviewService(financialClient)
-	sessionStore := session.NewStore(db)
+	sessionTTL := time.Duration(cfg.SessionTTLHours) * time.Hour
+	sessionStore := session.NewStore(db, sessionTTL)
 
 	// Initialize middleware
 	versionMiddleware := middleware.NewVersionMiddleware()
@@ -185,6 +188,9 @@ func main() {
 	chatHandler := handlers.NewChatHandler(llmManager, previewService, sessionStore, defaultModel, defaultMaxTokens)
 	dispatchHandler := handlers.NewDispatchHandler(financialClient, sessionStore, previewService)
 
+	// Background session cleanup
+	startSessionCleanup(sessionStore, sessionTTL, time.Duration(cfg.SessionCleanupIntervalMinutes)*time.Minute)
+
 	// Register routes
 	v1Router.HandleFunc("/health", healthHandler.HandleHealth).Methods("GET")
 	v1Router.HandleFunc("/tools", healthHandler.HandleTools).Methods("GET")
@@ -218,4 +224,24 @@ func isPlaceholderKey(key string) bool {
 		return true
 	}
 	return false
+}
+
+func startSessionCleanup(store *session.Store, maxAge time.Duration, interval time.Duration) {
+	if maxAge <= 0 || interval <= 0 {
+		return
+	}
+
+	ticker := time.NewTicker(interval)
+	go func() {
+		for range ticker.C {
+			removed, err := store.CleanupExpiredSessions(context.Background(), maxAge)
+			if err != nil {
+				log.Printf("session cleanup failed: %v", err)
+				continue
+			}
+			if removed > 0 {
+				log.Printf("session cleanup removed %d expired sessions", removed)
+			}
+		}
+	}()
 }

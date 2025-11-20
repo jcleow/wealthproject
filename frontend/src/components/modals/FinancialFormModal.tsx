@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -14,15 +15,15 @@ import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
 import type { Asset, Income, Liability, Expense } from '../../types/financial'
 
-type FinancialDataType = 'asset' | 'income' | 'liability' | 'expense'
+export type FinancialDataType = 'asset' | 'income' | 'liability' | 'expense'
 
-interface FinancialFormModalProps {
+export interface FinancialFormModalProps {
   type: FinancialDataType
   mode: 'create' | 'edit'
   data?: Asset | Income | Liability | Expense
   isOpen: boolean
   onClose: () => void
-  onSave: (data: any) => void
+  onSave: (data: any, mode: 'create' | 'edit') => void
 }
 
 const commonFields = z.object({
@@ -41,6 +42,7 @@ const incomeFormSchema = z.object({
   amount: z.number().positive('Amount must be positive'),
   frequency: z.enum(['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly']),
   category: z.string().min(1, 'Category is required'),
+  startDate: z.string().min(1, 'Start date is required'),
   notes: z.string().optional(),
 })
 
@@ -86,6 +88,7 @@ const getDefaultValues = (type: FinancialDataType, data?: any) => {
         amount: 0,
         frequency: 'monthly',
         category: '',
+        startDate: new Date().toISOString().split('T')[0],
         notes: '',
       }
     case 'liability':
@@ -129,14 +132,20 @@ export function FinancialFormModal({
     defaultValues: getDefaultValues(type, data),
   })
 
+  useEffect(() => {
+    if (isOpen) {
+      reset(getDefaultValues(type, data))
+    }
+  }, [type, data, reset, isOpen])
+
   const onSubmit = async (formData: any) => {
     const newData = {
       ...formData,
-      id: data?.id || Date.now().toString(),
+      id: data?.id,
       updatedAt: new Date().toISOString(),
     }
-    onSave(newData)
-    reset()
+    onSave(newData, mode)
+    reset(getDefaultValues(type))
     onClose()
   }
 
@@ -233,6 +242,12 @@ export function FinancialFormModal({
               <label className="text-sm font-medium">Category</label>
               <Input {...register('category')} placeholder="e.g., Salary, Freelance" />
               {errors.category && <p className="text-sm text-red-500">{errors.category.message as string}</p>}
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Start Date</label>
+              <Input {...register('startDate')} type="date" />
+              {errors.startDate && <p className="text-sm text-red-500">{errors.startDate.message as string}</p>}
             </div>
           </>
         )
