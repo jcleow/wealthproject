@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -59,34 +60,45 @@ type ChatResponse struct {
 func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+
 	// Parse request
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("ERROR: Failed to parse request body: %v", err)
 		writeError(w, http.StatusBadRequest, "invalid_request", "Failed to parse request body")
 		return
 	}
 
+	// Log incoming request
+	log.Printf("INFO: Chat request - SessionID: %s, Message length: %d", req.SessionID, len(req.Message))
+
 	// Validate request
 	if req.Message == "" || req.SessionID == "" {
+		log.Printf("ERROR: Missing required fields - Message: %t, SessionID: %t", req.Message == "", req.SessionID == "")
 		writeError(w, http.StatusBadRequest, "missing_required_fields", "Message and session_id are required")
 		return
 	}
 
 	// Load or create session
+	log.Printf("DEBUG: Attempting to get session: %s", req.SessionID)
 	sessionState, err := h.sessionStore.GetSession(ctx, req.SessionID)
 	if err != nil {
+		log.Printf("DEBUG: Session not found, creating new session. Error was: %v", err)
 		// If session doesn't exist, create a new one
 		// In production, you'd get the user ID from authentication
 		userID := r.Header.Get("X-User-ID")
 		if userID == "" {
-			userID = "default-user" // Fallback for development
+			userID = "550e8400-e29b-41d4-a716-446655440000" // Default UUID for development
 		}
+		log.Printf("DEBUG: Creating session for userID: %s", userID)
 
 		sessionState, err = h.sessionStore.CreateSession(ctx, userID)
 		if err != nil {
+			log.Printf("ERROR: Failed to create session: %v", err)
 			writeError(w, http.StatusInternalServerError, "session_error", "Failed to create session")
 			return
 		}
+		log.Printf("DEBUG: Successfully created session: %s", sessionState.SessionID)
 		sessionState.SessionID = req.SessionID // Use provided session ID
 	}
 
@@ -97,6 +109,7 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.sessionStore.AddMessage(ctx, req.SessionID, userMessage); err != nil {
+		log.Printf("ERROR: Failed to save user message for session %s: %v", req.SessionID, err)
 		writeError(w, http.StatusInternalServerError, "session_error", "Failed to save message")
 		return
 	}
@@ -119,6 +132,7 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.llmClient.GenerateToolCalls(llmCtx, llmRequest)
 	if err != nil {
+		log.Printf("ERROR: LLM call failed for session %s: %v", req.SessionID, err)
 		writeError(w, http.StatusServiceUnavailable, "llm_error", "Failed to generate response")
 		return
 	}
@@ -138,6 +152,7 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 
 		// Store pending actions in session
 		if err := h.sessionStore.AddPendingActions(ctx, req.SessionID, response.ToolCalls); err != nil {
+			log.Printf("ERROR: Failed to save pending actions for session %s: %v", req.SessionID, err)
 			writeError(w, http.StatusInternalServerError, "session_error", "Failed to save pending actions")
 			return
 		}
@@ -146,7 +161,7 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		previews, err := h.previewSvc.GeneratePreview(response.ToolCalls)
 		if err != nil {
 			// Log error but continue - previews are not critical
-			fmt.Printf("Failed to generate previews: %v\n", err)
+			log.Printf("WARNING: Failed to generate previews for session %s: %v", req.SessionID, err)
 		} else {
 			proposedActions = previews
 		}
@@ -161,7 +176,7 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.sessionStore.AddMessage(ctx, req.SessionID, assistantMessage); err != nil {
 		// Log error but continue
-		fmt.Printf("Failed to save assistant message: %v\n", err)
+		log.Printf("WARNING: Failed to save assistant message for session %s: %v", req.SessionID, err)
 	}
 
 	// Get updated conversation flow
@@ -192,9 +207,12 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 
 	// Write response
 	if err := json.NewEncoder(w).Encode(chatResponse); err != nil {
+		log.Printf("ERROR: Failed to encode response for session %s: %v", req.SessionID, err)
 		writeError(w, http.StatusInternalServerError, "response_error", "Failed to encode response")
 		return
 	}
+
+	log.Printf("INFO: Chat request completed successfully - SessionID: %s, RequiresApproval: %t", req.SessionID, requiresApproval)
 }
 
 // prepareMessages prepares the message history for the LLM

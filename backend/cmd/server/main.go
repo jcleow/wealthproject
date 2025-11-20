@@ -120,7 +120,7 @@ func main() {
 	v1Router.HandleFunc("/tools", healthHandler.HandleTools).Methods("GET")
 
 	// Chat endpoints
-	v1Router.HandleFunc("/chat", chatHandler.HandleChat).Methods("POST")
+	v1Router.HandleFunc("/chat", chatHandler.HandleChat).Methods("POST", "OPTIONS")
 	v1Router.HandleFunc("/chat/history/{sessionId}", chatHandler.GetChatHistory).Methods("GET")
 
 	// Financial action endpoints

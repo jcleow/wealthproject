@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -70,7 +71,22 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<
 }
 
 export function NetWorthProjection() {
+  const [hasSize, setHasSize] = useState(false)
+  const chartContainerRef = useRef<HTMLDivElement>(null)
   const data = generateMockData()
+
+  useEffect(() => {
+    const element = chartContainerRef.current
+    if (!element) return
+
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      setHasSize(width > 0 && height > 0)
+    })
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <div className="flex h-full min-h-[40vh] flex-col">
@@ -83,66 +99,75 @@ export function NetWorthProjection() {
         </div>
       </div>
 
-      <div className="relative w-full h-[360px]">
+      <div
+        ref={chartContainerRef}
+        className="relative w-full flex-1 min-h-[320px] overflow-hidden"
+      >
         <div className="pointer-events-none absolute inset-4 rounded-2xl border border-[#1d2b4a]" />
-        <ResponsiveContainer width={800} height={360}>
-          <AreaChart
-            data={data}
-            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-            focusable="false"
-            tabIndex={-1}
-            role="presentation"
-          >
-            <defs>
-              <linearGradient id="netWorthGradient" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor={chartColors.gradientStart} stopOpacity={0.8} />
-                <stop offset="90%" stopColor={chartColors.gradientEnd} stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              stroke={chartColors.grid}
-              strokeDasharray="2 12"
-              horizontal={false}
-              fillOpacity={0}
-            />
-            <XAxis
-              axisLine={false}
-              dataKey="age"
-              fontSize={12}
-              stroke={chartColors.axis}
-              tickLine={false}
-            />
-            <YAxis
-              axisLine={false}
-              domain={[0, 'dataMax']}
-              fontSize={12}
-              stroke={chartColors.axis}
-              tickFormatter={(value) => {
-                if (value <= 0) return ''
-                if (value >= 1_000_000)
-                  return `$${(value / 1_000_000).toFixed(1)}M`
-                if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`
-                return `$${value}`
-              }}
-              tickLine={false}
-            />
+        {hasSize ? (
+          <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={280}>
+            <AreaChart
+              data={data}
+              margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+              focusable="false"
+              tabIndex={-1}
+              role="presentation"
+            >
+              <defs>
+                <linearGradient id="netWorthGradient" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor={chartColors.gradientStart} stopOpacity={0.8} />
+                  <stop offset="90%" stopColor={chartColors.gradientEnd} stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                stroke={chartColors.grid}
+                strokeDasharray="2 12"
+                horizontal={false}
+                fillOpacity={0}
+              />
+              <XAxis
+                axisLine={false}
+                dataKey="age"
+                fontSize={12}
+                stroke={chartColors.axis}
+                tickLine={false}
+              />
+              <YAxis
+                axisLine={false}
+                domain={[0, 'dataMax']}
+                fontSize={12}
+                stroke={chartColors.axis}
+                tickFormatter={(value) => {
+                  if (value <= 0) return ''
+                  if (value >= 1_000_000)
+                    return `$${(value / 1_000_000).toFixed(1)}M`
+                  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`
+                  return `$${value}`
+                }}
+                tickLine={false}
+              />
 
-            {/* Net Worth Area */}
-            <Area
-              activeDot={{ r: 5, fill: chartColors.stroke, strokeWidth: 0 }}
-              dataKey="netWorth"
-              dot={false}
-              fill="url(#netWorthGradient)"
-              stroke={chartColors.stroke}
-              strokeWidth={2.5}
-              strokeOpacity={0.85}
-              type="monotone"
-            />
+              {/* Net Worth Area */}
+              <Area
+                activeDot={{ r: 5, fill: chartColors.stroke, strokeWidth: 0 }}
+                dataKey="netWorth"
+                dot={false}
+                fill="url(#netWorthGradient)"
+                stroke={chartColors.stroke}
+                strokeWidth={2.5}
+                strokeOpacity={0.85}
+                type="monotone"
+              />
 
-            {/* Custom Tooltip */}
-            <Tooltip content={<CustomTooltip />} cursor={false} />
-          </AreaChart>
-        </ResponsiveContainer>
+              {/* Custom Tooltip */}
+              <Tooltip content={<CustomTooltip />} cursor={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex h-full min-h-[320px] items-center justify-center text-sm text-slate-400">
+            Loading projection...
+          </div>
+        )}
       </div>
     </div>
   )
