@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from '@/hooks/useChat'
 import { generateUUID, cn } from '@/lib/utils'
 import { ToastViewport } from '@/components/ui/toast'
 import ChatHeader from './ChatHeader'
 import Messages from './Messages'
-import ChatInput from './ChatInput'
+import ChatInput, { ChatInputHandle } from './ChatInput'
 
 interface ChatProps {
   chatId: string
@@ -24,6 +24,7 @@ const suggestedQuestions = [
 
 export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: ChatProps) {
   const [sessionId] = useState(() => generateUUID())
+  const inputRef = useRef<ChatInputHandle>(null)
 
   const {
     messages,
@@ -42,6 +43,21 @@ export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: Chat
   const handleSuggestedQuestion = (question: string) => {
     sendMessage(question)
   }
+
+  const focusInput = () => {
+    inputRef.current?.focus()
+  }
+
+  const focusKey = useMemo(() => {
+    const lastMessageId = messages[messages.length - 1]?.id ?? ''
+    const lastReviewId = actionReviews[actionReviews.length - 1]?.id ?? ''
+    const lastExecutionId = executionResults[executionResults.length - 1]?.id ?? ''
+    return `${messages.length}-${actionReviews.length}-${executionResults.length}-${lastMessageId}-${lastReviewId}-${lastExecutionId}`
+  }, [messages, actionReviews, executionResults])
+
+  useEffect(() => {
+    focusInput()
+  }, [focusKey])
 
   return (
     <div
@@ -87,6 +103,7 @@ export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: Chat
 
       <div className="px-4 pb-4 pt-4">
         <ChatInput
+          ref={inputRef}
           onSendMessage={sendMessage}
           isLoading={isLoading}
           status={status}

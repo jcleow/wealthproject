@@ -3,6 +3,7 @@ import { ExecutionResults } from '@/components/financial/ExecutionResults'
 import { ExecutionProgress } from '@/components/financial/ExecutionProgress'
 import MessageBubble from './MessageBubble'
 import ActionReviewCard from './ActionReviewCard'
+import { useEffect, useRef } from 'react'
 
 interface MessagesProps {
   messages: Message[]
@@ -21,6 +22,7 @@ export default function Messages({
   onCancelAction,
   isDispatching
 }: MessagesProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const combinedItems = [
     ...messages.map((msg) => ({
       type: 'message' as const,
@@ -41,8 +43,20 @@ export default function Messages({
 
   const runningExecution = executionResults.find(result => result.status === 'running')
 
+  const lastTimestamp = combinedItems.length > 0 ? combinedItems[combinedItems.length - 1].timestamp : 0
+  const scrollKey = `${combinedItems.length}-${lastTimestamp}`
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior: 'smooth'
+      })
+    }
+  }, [scrollKey])
+
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto" ref={containerRef}>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">
         {combinedItems.length === 0 && (
           <div className="flex items-center justify-center py-12 text-center">

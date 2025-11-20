@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, KeyboardEvent } from 'react'
+import { forwardRef, useState, useRef, KeyboardEvent, useImperativeHandle } from 'react'
 import { Send, Square as StopIcon } from 'lucide-react'
 
 import { Textarea } from '@/components/ui/textarea'
@@ -13,13 +13,21 @@ interface ChatInputProps {
   status: ChatStatus
 }
 
-export default function ChatInput({
+function ChatInputBase({
   onSendMessage,
   isLoading,
   status,
-}: ChatInputProps) {
+}: ChatInputProps, ref: React.Ref<{ focus: () => void }>) {
   const [input, setInput] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+      }
+    }
+  }))
 
   const handleSubmit = () => {
     if (!input.trim() || isLoading) return
@@ -29,6 +37,7 @@ export default function ChatInput({
 
     if (textareaRef.current) {
       textareaRef.current.style.height = '44px'
+      textareaRef.current.focus()
     }
   }
 
@@ -91,3 +100,10 @@ export default function ChatInput({
     </div>
   )
 }
+
+export type ChatInputHandle = { focus: () => void }
+
+const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(ChatInputBase)
+ChatInput.displayName = 'ChatInput'
+
+export default ChatInput
