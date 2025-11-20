@@ -41,7 +41,7 @@ func (r *FinancialToolRegistry) registerTools() {
 	r.tools["createAsset"] = llm.ToolDefinition{
 		Type: "function",
 		Function: llm.FunctionSchema{
-			Name: "createAsset",
+			Name:        "createAsset",
 			Description: "Create a financial asset using financialClient.assets.create(). Use this when the user mentions owning property, cash, investments, CPF, or any valuable item. This creates a new asset record in the user's financial profile.",
 			Parameters: map[string]interface{}{
 				"type": "object",
@@ -79,7 +79,7 @@ func (r *FinancialToolRegistry) registerTools() {
 						"maxLength":   500,
 					},
 				},
-				"required": []string{"category", "name", "currentValue"},
+				"required":             []string{"category", "name", "currentValue"},
 				"additionalProperties": false,
 			},
 		},
@@ -89,7 +89,7 @@ func (r *FinancialToolRegistry) registerTools() {
 	r.tools["updateAsset"] = llm.ToolDefinition{
 		Type: "function",
 		Function: llm.FunctionSchema{
-			Name: "updateAsset",
+			Name:        "updateAsset",
 			Description: "Update an existing asset using financialClient.assets.update(). Use this when the user mentions changes to existing assets, like value updates or corrections. Requires the asset ID from previous context.",
 			Parameters: map[string]interface{}{
 				"type": "object",
@@ -122,7 +122,7 @@ func (r *FinancialToolRegistry) registerTools() {
 						"maxLength":   500,
 					},
 				},
-				"required": []string{"assetId"},
+				"required":             []string{"assetId"},
 				"additionalProperties": false,
 			},
 		},
@@ -132,7 +132,7 @@ func (r *FinancialToolRegistry) registerTools() {
 	r.tools["createLiability"] = llm.ToolDefinition{
 		Type: "function",
 		Function: llm.FunctionSchema{
-			Name: "createLiability",
+			Name:        "createLiability",
 			Description: "Create a liability (debt/loan) using financialClient.liabilities.create(). Use this when the user mentions owing money, loans, mortgages, credit card debt, or any financial obligations.",
 			Parameters: map[string]interface{}{
 				"type": "object",
@@ -180,7 +180,7 @@ func (r *FinancialToolRegistry) registerTools() {
 						"maxLength":   500,
 					},
 				},
-				"required": []string{"category", "name", "currentBalance", "interestRate"},
+				"required":             []string{"category", "name", "currentBalance", "interestRate"},
 				"additionalProperties": false,
 			},
 		},
@@ -190,7 +190,7 @@ func (r *FinancialToolRegistry) registerTools() {
 	r.tools["updateLiability"] = llm.ToolDefinition{
 		Type: "function",
 		Function: llm.FunctionSchema{
-			Name: "updateLiability",
+			Name:        "updateLiability",
 			Description: "Update an existing liability using financialClient.liabilities.update(). Use this for loan payments, interest rate changes, or balance corrections. Requires liability ID from session context.",
 			Parameters: map[string]interface{}{
 				"type": "object",
@@ -228,7 +228,7 @@ func (r *FinancialToolRegistry) registerTools() {
 						"maxLength":   500,
 					},
 				},
-				"required": []string{"liabilityId"},
+				"required":             []string{"liabilityId"},
 				"additionalProperties": false,
 			},
 		},
@@ -238,7 +238,7 @@ func (r *FinancialToolRegistry) registerTools() {
 	r.tools["createPropertyScenario"] = llm.ToolDefinition{
 		Type: "function",
 		Function: llm.FunctionSchema{
-			Name: "createPropertyScenario",
+			Name:        "createPropertyScenario",
 			Description: "Create a property planning scenario with mortgage calculations using financialClient.propertyPlanner.create(). Use this for property purchase analysis, affordability checks, and loan simulations.",
 			Parameters: map[string]interface{}{
 				"type": "object",
@@ -294,7 +294,7 @@ func (r *FinancialToolRegistry) registerTools() {
 						"maxLength":   500,
 					},
 				},
-				"required": []string{"propertyPrice", "downPayment", "loanAmount", "interestRate", "loanTenure", "propertyType"},
+				"required":             []string{"propertyPrice", "downPayment", "loanAmount", "interestRate", "loanTenure", "propertyType"},
 				"additionalProperties": false,
 			},
 		},
@@ -311,26 +311,32 @@ func (r *FinancialToolRegistry) GetToolNames() []string {
 }
 
 // ValidateToolCall validates if a tool call is valid
-func (r *FinancialToolRegistry) ValidateToolCall(toolName string, arguments map[string]interface{}) error {
+func (r *FinancialToolRegistry) ValidateToolCall(toolName string, arguments map[string]interface{}) ([]string, error) {
 	tool, exists := r.tools[toolName]
 	if !exists {
-		return &ToolError{
+		return nil, &ToolError{
 			Type:    "tool_not_found",
 			Message: "Tool '" + toolName + "' is not registered",
 			Tool:    toolName,
 		}
 	}
 
+	missing := []string{}
+
 	// Basic validation - in a real implementation, you'd validate against the JSON schema
 	if parameters, ok := tool.Function.Parameters["properties"].(map[string]interface{}); ok {
-		if required, ok := tool.Function.Parameters["required"].([]string); ok {
+		switch required := tool.Function.Parameters["required"].(type) {
+		case []string:
 			for _, requiredField := range required {
 				if _, exists := arguments[requiredField]; !exists {
-					return &ToolError{
-						Type:    "missing_required_field",
-						Message: "Required field '" + requiredField + "' is missing",
-						Tool:    toolName,
-						Field:   requiredField,
+					missing = append(missing, requiredField)
+				}
+			}
+		case []interface{}:
+			for _, rf := range required {
+				if field, ok := rf.(string); ok {
+					if _, exists := arguments[field]; !exists {
+						missing = append(missing, field)
 					}
 				}
 			}
@@ -339,7 +345,7 @@ func (r *FinancialToolRegistry) ValidateToolCall(toolName string, arguments map[
 		// Check for unknown fields
 		for argName := range arguments {
 			if _, exists := parameters[argName]; !exists {
-				return &ToolError{
+				return nil, &ToolError{
 					Type:    "unknown_field",
 					Message: "Field '" + argName + "' is not defined for tool '" + toolName + "'",
 					Tool:    toolName,
@@ -349,7 +355,7 @@ func (r *FinancialToolRegistry) ValidateToolCall(toolName string, arguments map[
 		}
 	}
 
-	return nil
+	return missing, nil
 }
 
 // ToolError represents a tool-specific error

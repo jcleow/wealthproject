@@ -100,16 +100,14 @@ echo -e "${GREEN}  ✓ Database ready on port 5432${NC}"
 echo ""
 echo -e "${CYAN}[3/4] Starting Backend Server...${NC}"
 
-# Build backend if needed
-if [ ! -f bin/server ] || [ backend/cmd/server/main.go -nt bin/server ]; then
-    echo -e "${YELLOW}  🔨 Building backend...${NC}"
-    mkdir -p bin
-    cd backend
-    go mod tidy > /dev/null 2>&1
-    go build -o ../bin/server ./cmd/server
-    cd ..
-    echo -e "${GREEN}  ✓ Backend built${NC}"
-fi
+# Build backend fresh on every start to pick up code changes
+echo -e "${YELLOW}  🔨 Building backend...${NC}"
+mkdir -p bin
+cd backend
+go mod tidy > /dev/null 2>&1
+go build -o ../bin/server ./cmd/server
+cd ..
+echo -e "${GREEN}  ✓ Backend built${NC}"
 
 # Load environment variables (exclude comments and empty lines)
 set -a

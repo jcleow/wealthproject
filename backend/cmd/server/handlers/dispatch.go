@@ -15,12 +15,12 @@ import (
 
 // FinancialExecutor abstracts financial operations to allow testing
 type FinancialExecutor interface {
-	CreateAsset(ctx context.Context, params map[string]interface{}) (*string, error)
-	UpdateAsset(ctx context.Context, params map[string]interface{}) (*string, error)
-	CreateLiability(ctx context.Context, params map[string]interface{}) (*string, error)
-	UpdateLiability(ctx context.Context, params map[string]interface{}) (*string, error)
-	CreatePropertyScenario(ctx context.Context, params map[string]interface{}) (*string, error)
-	RollbackAction(ctx context.Context, toolName string, entityID *string, params map[string]interface{}) error
+	CreateAsset(ctx context.Context, params financial.AssetParams) (*string, error)
+	UpdateAsset(ctx context.Context, params financial.UpdateAssetParams) (*string, error)
+	CreateLiability(ctx context.Context, params financial.LiabilityParams) (*string, error)
+	UpdateLiability(ctx context.Context, params financial.UpdateLiabilityParams) (*string, error)
+	CreatePropertyScenario(ctx context.Context, params financial.PropertyScenarioParams) (*string, error)
+	RollbackAction(ctx context.Context, toolName string, entityID *string) error
 }
 
 // DispatchSessionStore defines the session store contract used by dispatch
@@ -387,15 +387,35 @@ func (h *DispatchHandler) executeAction(ctx context.Context, action ExecutionAct
 
 	switch action.ToolName {
 	case "createAsset":
-		return h.financialClient.CreateAsset(ctx, params)
+		typed, err := financial.DecodeParams[financial.AssetParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid createAsset parameters: %w", err)
+		}
+		return h.financialClient.CreateAsset(ctx, typed)
 	case "updateAsset":
-		return h.financialClient.UpdateAsset(ctx, params)
+		typed, err := financial.DecodeParams[financial.UpdateAssetParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid updateAsset parameters: %w", err)
+		}
+		return h.financialClient.UpdateAsset(ctx, typed)
 	case "createLiability":
-		return h.financialClient.CreateLiability(ctx, params)
+		typed, err := financial.DecodeParams[financial.LiabilityParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid createLiability parameters: %w", err)
+		}
+		return h.financialClient.CreateLiability(ctx, typed)
 	case "updateLiability":
-		return h.financialClient.UpdateLiability(ctx, params)
+		typed, err := financial.DecodeParams[financial.UpdateLiabilityParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid updateLiability parameters: %w", err)
+		}
+		return h.financialClient.UpdateLiability(ctx, typed)
 	case "createPropertyScenario":
-		return h.financialClient.CreatePropertyScenario(ctx, params)
+		typed, err := financial.DecodeParams[financial.PropertyScenarioParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid createPropertyScenario parameters: %w", err)
+		}
+		return h.financialClient.CreatePropertyScenario(ctx, typed)
 	default:
 		return nil, fmt.Errorf("unknown tool: %s", action.ToolName)
 	}
@@ -563,7 +583,7 @@ func (h *DispatchHandler) rollbackExecuted(ctx context.Context, executed []execu
 		if action.EntityID == nil {
 			continue
 		}
-		if err := h.financialClient.RollbackAction(ctx, action.Action.ToolName, action.EntityID, action.Action.Parameters); err != nil {
+		if err := h.financialClient.RollbackAction(ctx, action.Action.ToolName, action.EntityID); err != nil {
 			failures[action.Action.CallID] = err.Error()
 		}
 	}

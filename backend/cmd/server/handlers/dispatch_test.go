@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"financial-chat-system/backend/internal/financial"
 	"financial-chat-system/backend/internal/session"
 )
 
@@ -17,7 +18,7 @@ type mockFinancialClient struct {
 	actions    []string
 }
 
-func (m *mockFinancialClient) CreateAsset(ctx context.Context, params map[string]interface{}) (*string, error) {
+func (m *mockFinancialClient) CreateAsset(ctx context.Context, params financial.AssetParams) (*string, error) {
 	m.actions = append(m.actions, "createAsset")
 	if m.failOnTool == "createAsset" {
 		return nil, errMockFailure
@@ -26,7 +27,7 @@ func (m *mockFinancialClient) CreateAsset(ctx context.Context, params map[string
 	return &id, nil
 }
 
-func (m *mockFinancialClient) UpdateAsset(ctx context.Context, params map[string]interface{}) (*string, error) {
+func (m *mockFinancialClient) UpdateAsset(ctx context.Context, params financial.UpdateAssetParams) (*string, error) {
 	m.actions = append(m.actions, "updateAsset")
 	if m.failOnTool == "updateAsset" {
 		return nil, errMockFailure
@@ -35,7 +36,7 @@ func (m *mockFinancialClient) UpdateAsset(ctx context.Context, params map[string
 	return &id, nil
 }
 
-func (m *mockFinancialClient) CreateLiability(ctx context.Context, params map[string]interface{}) (*string, error) {
+func (m *mockFinancialClient) CreateLiability(ctx context.Context, params financial.LiabilityParams) (*string, error) {
 	m.actions = append(m.actions, "createLiability")
 	if m.failOnTool == "createLiability" {
 		return nil, errMockFailure
@@ -44,7 +45,7 @@ func (m *mockFinancialClient) CreateLiability(ctx context.Context, params map[st
 	return &id, nil
 }
 
-func (m *mockFinancialClient) UpdateLiability(ctx context.Context, params map[string]interface{}) (*string, error) {
+func (m *mockFinancialClient) UpdateLiability(ctx context.Context, params financial.UpdateLiabilityParams) (*string, error) {
 	m.actions = append(m.actions, "updateLiability")
 	if m.failOnTool == "updateLiability" {
 		return nil, errMockFailure
@@ -53,7 +54,7 @@ func (m *mockFinancialClient) UpdateLiability(ctx context.Context, params map[st
 	return &id, nil
 }
 
-func (m *mockFinancialClient) CreatePropertyScenario(ctx context.Context, params map[string]interface{}) (*string, error) {
+func (m *mockFinancialClient) CreatePropertyScenario(ctx context.Context, params financial.PropertyScenarioParams) (*string, error) {
 	m.actions = append(m.actions, "createPropertyScenario")
 	if m.failOnTool == "createPropertyScenario" {
 		return nil, errMockFailure
@@ -62,7 +63,7 @@ func (m *mockFinancialClient) CreatePropertyScenario(ctx context.Context, params
 	return &id, nil
 }
 
-func (m *mockFinancialClient) RollbackAction(ctx context.Context, toolName string, entityID *string, params map[string]interface{}) error {
+func (m *mockFinancialClient) RollbackAction(ctx context.Context, toolName string, entityID *string) error {
 	m.actions = append(m.actions, "rollback:"+toolName)
 	return nil
 }
@@ -115,7 +116,7 @@ func TestHandleDispatchExecutesActionsWithDependencies(t *testing.T) {
 		{
 			CallID:     "create-call",
 			ToolName:   "createAsset",
-			Parameters: map[string]interface{}{"name": "Asset", "assetType": "savings", "currentValue": 1000},
+			Parameters: map[string]interface{}{"name": "Asset", "category": "cash_savings", "currentValue": 1000},
 		},
 		{
 			CallID:       "update-call",
@@ -173,7 +174,7 @@ func TestHandleDispatchRollsBackOnFailure(t *testing.T) {
 		{
 			CallID:     "create-call",
 			ToolName:   "createAsset",
-			Parameters: map[string]interface{}{"name": "Asset", "assetType": "savings", "currentValue": 1000},
+			Parameters: map[string]interface{}{"name": "Asset", "category": "cash_savings", "currentValue": 1000},
 		},
 		{
 			CallID:       "update-call",

@@ -16,6 +16,15 @@ type ActionPreviewService struct {
 	validator  *ParameterValidator
 }
 
+// MissingParamsError captures required fields that were not provided for tool calls.
+type MissingParamsError struct {
+	Missing map[string][]string
+}
+
+func (e *MissingParamsError) Error() string {
+	return "missing required parameters for one or more tool calls"
+}
+
 // NewActionPreviewService creates a new action preview service
 func NewActionPreviewService(financialClient *Client) *ActionPreviewService {
 	// Initialize the registry if not already done
@@ -35,13 +44,13 @@ func NewActionPreviewService(financialClient *Client) *ActionPreviewService {
 
 // ProposedAction represents a financial action that needs user approval
 type ProposedAction struct {
-	CallID              string            `json:"call_id"`
-	ToolName            string            `json:"tool_name"`
-	FriendlyDescription string            `json:"friendly_description"`
+	CallID              string                 `json:"call_id"`
+	ToolName            string                 `json:"tool_name"`
+	FriendlyDescription string                 `json:"friendly_description"`
 	Parameters          map[string]interface{} `json:"parameters"`
-	EstimatedImpact     *ImpactEstimate   `json:"estimated_impact"`
-	Warnings            []Warning         `json:"warnings,omitempty"`
-	Dependencies        []string          `json:"dependencies,omitempty"`
+	EstimatedImpact     *ImpactEstimate        `json:"estimated_impact"`
+	Warnings            []Warning              `json:"warnings,omitempty"`
+	Dependencies        []string               `json:"dependencies,omitempty"`
 }
 
 // ImpactEstimate represents the estimated financial impact
@@ -66,13 +75,24 @@ func (s *ActionPreviewService) GeneratePreview(toolCalls []llm.ToolCall) ([]Prop
 
 	actions := make([]ProposedAction, 0, len(toolCalls))
 	dependencies := s.analyzeDependencies(toolCalls)
+	missingFields := make(map[string][]string)
 
 	for _, toolCall := range toolCalls {
 		action, err := s.generateSinglePreview(toolCall, dependencies[toolCall.ID])
 		if err != nil {
+			if mErr, ok := err.(*MissingParamsError); ok && mErr != nil {
+				for callID, fields := range mErr.Missing {
+					missingFields[callID] = append(missingFields[callID], fields...)
+				}
+				continue
+			}
 			return nil, fmt.Errorf("failed to generate preview for %s: %w", toolCall.ID, err)
 		}
 		actions = append(actions, action)
+	}
+
+	if len(missingFields) > 0 {
+		return nil, &MissingParamsError{Missing: missingFields}
 	}
 
 	return actions, nil
@@ -87,8 +107,24 @@ func (s *ActionPreviewService) generateSinglePreview(toolCall llm.ToolCall, deps
 	}
 
 	// Validate tool call
-	if err := s.registry.ValidateToolCall(toolCall.Function.Name, args); err != nil {
+	missing, err := s.registry.ValidateToolCall(toolCall.Function.Name, args)
+	if err != nil {
+		// If the registry surfaced missing fields as an error, normalize to MissingParamsError
+		if toolErr, ok := err.(*ToolError); ok && toolErr.Type == "missing_required_field" && toolErr.Field != "" {
+			return ProposedAction{}, &MissingParamsError{
+				Missing: map[string][]string{
+					toolCall.ID: {toolErr.Field},
+				},
+			}
+		}
 		return ProposedAction{}, fmt.Errorf("tool validation failed: %w", err)
+	}
+	if len(missing) > 0 {
+		return ProposedAction{}, &MissingParamsError{
+			Missing: map[string][]string{
+				toolCall.ID: missing,
+			},
+		}
 	}
 
 	// Generate friendly description

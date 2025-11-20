@@ -94,6 +94,14 @@ func (f *fakePreviewService) GeneratePreview(toolCalls []llm.ToolCall) ([]financ
 	return actions, nil
 }
 
+type missingPreviewService struct {
+	missing map[string][]string
+}
+
+func (f *missingPreviewService) GeneratePreview(toolCalls []llm.ToolCall) ([]financial.ProposedAction, error) {
+	return nil, &financial.MissingParamsError{Missing: f.missing}
+}
+
 func TestChatHandler_HandleChat_Success(t *testing.T) {
 	store := &fakeSessionStore{}
 	llmResp := &llm.ToolCallResponse{
@@ -183,6 +191,57 @@ func TestChatHandler_GetChatHistory_NotFound(t *testing.T) {
 	router.HandleFunc("/api/v1/chat/history/{sessionId}", handler.GetChatHistory).Methods("GET")
 	router.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
+func TestChatHandler_HandleChat_MissingFieldsPrompt(t *testing.T) {
+	store := &fakeSessionStore{}
+	llmResp := &llm.ToolCallResponse{
+		Message: llm.ChatMessage{
+			Role:    "assistant",
+			Content: "ok",
+		},
+		ToolCalls: []llm.ToolCall{
+			{
+				ID:   "call_1",
+				Type: "function",
+				Function: llm.FunctionCall{
+					Name:      "createPropertyScenario",
+					Arguments: `{"propertyPrice":1000000}`,
+				},
+			},
+		},
+	}
+
+	handler := &ChatHandler{
+		llmClient:        &fakeLLMManager{response: llmResp},
+		previewSvc:       &missingPreviewService{missing: map[string][]string{"call_1": {"name", "propertyType"}}},
+		sessionStore:     store,
+		tools:            []llm.ToolDefinition{},
+		defaultModel:     "gpt-4",
+		defaultMaxTokens: 0,
+	}
+
+	body := ChatRequest{
+		Message:   "hi",
+		ChatID:    "chat-1",
+		SessionID: "550e8400-e29b-41d4-a716-446655440000",
+	}
+	buf, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat", bytes.NewReader(buf))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	router := mux.NewRouter()
+	router.HandleFunc("/api/v1/chat", handler.HandleChat).Methods("POST")
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	var resp ChatResponse
+	assert.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+	assert.False(t, resp.RequiresApproval)
+	assert.Len(t, resp.ProposedActions, 0)
+	assert.Contains(t, resp.Content, "name")
+	assert.Contains(t, resp.Content, "propertyType")
 }
 
 // Helper to set pending actions on a SessionState
