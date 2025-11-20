@@ -18,24 +18,28 @@ import (
 
 // ChatHandler handles chat API requests
 type ChatHandler struct {
-	llmClient  *llm.ClientManager
-	previewSvc *financial.ActionPreviewService
-	sessionStore *session.Store
-	tools      []llm.ToolDefinition
+	llmClient        *llm.ClientManager
+	previewSvc       *financial.ActionPreviewService
+	sessionStore     *session.Store
+	tools            []llm.ToolDefinition
+	defaultModel     string
+	defaultMaxTokens int
 }
 
 // NewChatHandler creates a new chat handler
-func NewChatHandler(llmClient *llm.ClientManager, previewSvc *financial.ActionPreviewService, sessionStore *session.Store) *ChatHandler {
+func NewChatHandler(llmClient *llm.ClientManager, previewSvc *financial.ActionPreviewService, sessionStore *session.Store, defaultModel string, defaultMaxTokens int) *ChatHandler {
 	// Initialize the registry if not already done
 	if financial.GlobalRegistry == nil {
 		financial.InitializeRegistry()
 	}
 
 	return &ChatHandler{
-		llmClient:    llmClient,
-		previewSvc:   previewSvc,
-		sessionStore: sessionStore,
-		tools:        financial.GlobalRegistry.GetTools(),
+		llmClient:        llmClient,
+		previewSvc:       previewSvc,
+		sessionStore:     sessionStore,
+		tools:            financial.GlobalRegistry.GetTools(),
+		defaultModel:     defaultModel,
+		defaultMaxTokens: defaultMaxTokens,
 	}
 }
 
@@ -48,18 +52,17 @@ type ChatRequest struct {
 
 // ChatResponse represents the chat response
 type ChatResponse struct {
-	MessageID        string                       `json:"message_id"`
-	Content          string                       `json:"content"`
-	ProposedActions  []financial.ProposedAction   `json:"proposed_actions"`
-	RequiresApproval bool                         `json:"requires_approval"`
-	ConversationFlow []session.ConversationStep   `json:"conversation_flow,omitempty"`
-	APIVersion       string                       `json:"api_version"`
+	MessageID        string                     `json:"message_id"`
+	Content          string                     `json:"content"`
+	ProposedActions  []financial.ProposedAction `json:"proposed_actions"`
+	RequiresApproval bool                       `json:"requires_approval"`
+	ConversationFlow []session.ConversationStep `json:"conversation_flow,omitempty"`
+	APIVersion       string                     `json:"api_version"`
 }
 
 // HandleChat processes chat requests and generates responses with tool calls
 func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
 
 	// Parse request
 	var req ChatRequest
@@ -79,6 +82,13 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Ensure session ID is a valid UUID to match DB schema
+	if _, err := uuid.Parse(req.SessionID); err != nil {
+		log.Printf("ERROR: Invalid session ID format: %s", req.SessionID)
+		writeError(w, http.StatusBadRequest, "invalid_session_id", "session_id must be a valid UUID")
+		return
+	}
+
 	// Load or create session
 	log.Printf("DEBUG: Attempting to get session: %s", req.SessionID)
 	sessionState, err := h.sessionStore.GetSession(ctx, req.SessionID)
@@ -92,14 +102,13 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("DEBUG: Creating session for userID: %s", userID)
 
-		sessionState, err = h.sessionStore.CreateSession(ctx, userID)
+		sessionState, err = h.sessionStore.CreateSession(ctx, userID, req.SessionID)
 		if err != nil {
 			log.Printf("ERROR: Failed to create session: %v", err)
 			writeError(w, http.StatusInternalServerError, "session_error", "Failed to create session")
 			return
 		}
 		log.Printf("DEBUG: Successfully created session: %s", sessionState.SessionID)
-		sessionState.SessionID = req.SessionID // Use provided session ID
 	}
 
 	// Add user message to conversation history
@@ -121,9 +130,12 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	llmRequest := llm.ChatRequest{
 		Messages:    messages,
 		Tools:       h.tools,
-		Model:       "gpt-4", // Default model, could be configurable
-		Temperature: 0.7,
-		MaxTokens:   2000,
+		Model:       h.defaultModel,
+		Temperature: 0.1,
+	}
+
+	if h.defaultMaxTokens > 0 {
+		llmRequest.MaxTokens = h.defaultMaxTokens
 	}
 
 	// Call LLM with timeout
@@ -276,8 +288,8 @@ func (h *ChatHandler) GetChatHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"session_id": sessionID,
-		"messages":   messages,
+		"session_id":  sessionID,
+		"messages":    messages,
 		"api_version": "v1",
 	}
 
