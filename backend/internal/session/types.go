@@ -42,6 +42,7 @@ type PendingToolCall struct {
 	FriendlyDescription string                 `json:"friendly_description,omitempty"`
 	Parameters          map[string]interface{} `json:"parameters"`
 	Preview             string                 `json:"preview,omitempty"`
+	Dependencies        []string               `json:"dependencies,omitempty"`
 	CreatedAt           time.Time              `json:"created_at"`
 }
 

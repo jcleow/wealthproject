@@ -1,9 +1,12 @@
 import { useState } from 'react'
-import { Plus, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Plus, SlidersHorizontal, Sparkles, Pencil, Trash2 } from 'lucide-react'
 
 import { useFinancialData } from '../../hooks/useFinancialData'
 import type { Asset, Expense, Income, Liability } from '../../types/financial'
-import { FinancialFormModal } from '../modals/FinancialFormModal'
+import { AssetModal } from '../modals/AssetModal'
+import { IncomeModal } from '../modals/IncomeModal'
+import { LiabilityModal } from '../modals/LiabilityModal'
+import { ExpenseModal } from '../modals/ExpenseModal'
 
 type FinancialCategory = 'asset' | 'income' | 'liability' | 'expense'
 
@@ -43,6 +46,13 @@ const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
   },
 }
 
+const modalComponents = {
+  asset: AssetModal,
+  income: IncomeModal,
+  liability: LiabilityModal,
+  expense: ExpenseModal,
+} as const
+
 interface ModalState {
   isOpen: boolean
   type: FinancialCategory
@@ -60,6 +70,14 @@ export function FinancialDataManagement() {
     addIncome,
     addLiability,
     addExpense,
+    updateAsset,
+    updateIncome,
+    updateLiability,
+    updateExpense,
+    deleteAsset,
+    deleteIncome,
+    deleteLiability,
+    deleteExpense,
     getNetWorth,
     getMonthlySavings,
   } = useFinancialData()
@@ -70,12 +88,41 @@ export function FinancialDataManagement() {
     mode: 'create',
   })
 
+  const ActiveModal = modalComponents[modalState.type]
+
   const handleAddItem = (category: FinancialCategory) => {
     setModalState({
       isOpen: true,
       type: category,
       mode: 'create',
+      data: undefined,
     })
+  }
+
+  const handleEditItem = (category: FinancialCategory, entry: Asset | Income | Liability | Expense) => {
+    setModalState({
+      isOpen: true,
+      type: category,
+      mode: 'edit',
+      data: entry,
+    })
+  }
+
+  const handleDeleteItem = (category: FinancialCategory, id: string) => {
+    switch (category) {
+      case 'asset':
+        deleteAsset(id)
+        break
+      case 'income':
+        deleteIncome(id)
+        break
+      case 'liability':
+        deleteLiability(id)
+        break
+      case 'expense':
+        deleteExpense(id)
+        break
+    }
   }
 
   const handleSettings = (category: FinancialCategory) => {
@@ -83,22 +130,40 @@ export function FinancialDataManagement() {
   }
 
   const handleModalClose = () => {
-    setModalState((prev) => ({ ...prev, isOpen: false }))
+    setModalState((prev) => ({ ...prev, isOpen: false, data: undefined }))
   }
 
-  const handleModalSave = (data: any) => {
+  const handleModalSave = (data: any, mode: 'create' | 'edit') => {
+    const { updatedAt, ...payload } = data
+
     switch (modalState.type) {
       case 'asset':
-        addAsset(data)
+        if (mode === 'edit' && modalState.data) {
+          updateAsset(modalState.data.id, { ...payload, updatedAt })
+        } else {
+          addAsset(payload as Omit<Asset, 'id' | 'updatedAt'>)
+        }
         break
       case 'income':
-        addIncome(data)
+        if (mode === 'edit' && modalState.data) {
+          updateIncome(modalState.data.id, { ...payload, updatedAt })
+        } else {
+          addIncome(payload as Omit<Income, 'id' | 'updatedAt'>)
+        }
         break
       case 'liability':
-        addLiability(data)
+        if (mode === 'edit' && modalState.data) {
+          updateLiability(modalState.data.id, { ...payload, updatedAt })
+        } else {
+          addLiability(payload as Omit<Liability, 'id' | 'updatedAt'>)
+        }
         break
       case 'expense':
-        addExpense(data)
+        if (mode === 'edit' && modalState.data) {
+          updateExpense(modalState.data.id, { ...payload, updatedAt })
+        } else {
+          addExpense(payload as Omit<Expense, 'id' | 'updatedAt'>)
+        }
         break
     }
   }
@@ -192,17 +257,33 @@ export function FinancialDataManagement() {
                           {data.slice(0, 3).map((item: any, index) => (
                             <div
                               key={item.id || index}
-                              className="flex items-center justify-between text-gray-200"
+                              className="flex items-center justify-between gap-3 text-gray-200"
                             >
-                              <span className="truncate text-sm">
-                                {'name' in item
-                                  ? item.name
-                                  : 'source' in item
-                                  ? item.source
-                                  : 'payee' in item
-                                  ? item.payee
-                                  : 'Entry'}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="truncate text-sm">
+                                  {'name' in item
+                                    ? item.name
+                                    : 'source' in item
+                                    ? item.source
+                                    : 'payee' in item
+                                    ? item.payee
+                                    : 'Entry'}
+                                </span>
+                                <button
+                                  onClick={() => handleEditItem(key, item)}
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-gray-300 transition hover:bg-white/10"
+                                  type="button"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => item.id && handleDeleteItem(key, item.id)}
+                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-gray-300 transition hover:bg-rose-500/20 hover:text-rose-100"
+                                  type="button"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                               <span className="text-sm text-gray-400">
                                 $
                                 {summarizeAmount(item).toLocaleString(
@@ -274,8 +355,7 @@ export function FinancialDataManagement() {
         </div>
       </div>
 
-      <FinancialFormModal
-        type={modalState.type}
+      <ActiveModal
         mode={modalState.mode}
         data={modalState.data}
         isOpen={modalState.isOpen}

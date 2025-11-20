@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"financial-chat-system/backend/cmd/server/handlers"
 	"financial-chat-system/backend/internal/config"
@@ -46,21 +48,32 @@ func main() {
 	// Initialize services
 	financialClient := financial.NewClient()
 	previewService := financial.NewActionPreviewService(financialClient)
-	sessionStore := session.NewStore(db)
+	sessionTTL := time.Duration(cfg.SessionTTLHours) * time.Hour
+	sessionStore := session.NewStore(db, sessionTTL)
 
 	// Initialize middleware
 	versionMiddleware := middleware.NewVersionMiddleware()
 
 	// Create main router
 	router := mux.NewRouter()
+	// Apply CORS at the top-level so even 404/validation errors include headers
+	router.Use(middleware.CORS)
+	// Ensure OPTIONS at top-level (covers any non-/api paths)
+	router.Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	// API v1 router with versioning middleware
 	v1Router := router.PathPrefix("/api/v1").Subrouter()
 	v1Router.Use(versionMiddleware.ValidateVersion)
-	v1Router.Use(middleware.CORS)
 	v1Router.Use(middleware.RequestID)
 	v1Router.Use(middleware.Logging)
 	v1Router.Use(middleware.Authenticate)
+
+	// Handle CORS preflight for all API routes
+	v1Router.PathPrefix("/").Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	// Initialize LLM client manager
 	llmManager := llm.NewClientManager()
@@ -185,6 +198,9 @@ func main() {
 	chatHandler := handlers.NewChatHandler(llmManager, previewService, sessionStore, defaultModel, defaultMaxTokens)
 	dispatchHandler := handlers.NewDispatchHandler(financialClient, sessionStore, previewService)
 
+	// Background session cleanup
+	startSessionCleanup(sessionStore, sessionTTL, time.Duration(cfg.SessionCleanupIntervalMinutes)*time.Minute)
+
 	// Register routes
 	v1Router.HandleFunc("/health", healthHandler.HandleHealth).Methods("GET")
 	v1Router.HandleFunc("/tools", healthHandler.HandleTools).Methods("GET")
@@ -194,7 +210,7 @@ func main() {
 	v1Router.HandleFunc("/chat/history/{sessionId}", chatHandler.GetChatHistory).Methods("GET")
 
 	// Financial action endpoints
-	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST")
+	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST", "OPTIONS")
 
 	// Start server
 	port := cfg.Port
@@ -218,4 +234,24 @@ func isPlaceholderKey(key string) bool {
 		return true
 	}
 	return false
+}
+
+func startSessionCleanup(store *session.Store, maxAge time.Duration, interval time.Duration) {
+	if maxAge <= 0 || interval <= 0 {
+		return
+	}
+
+	ticker := time.NewTicker(interval)
+	go func() {
+		for range ticker.C {
+			removed, err := store.CleanupExpiredSessions(context.Background(), maxAge)
+			if err != nil {
+				log.Printf("session cleanup failed: %v", err)
+				continue
+			}
+			if removed > 0 {
+				log.Printf("session cleanup removed %d expired sessions", removed)
+			}
+		}
+	}()
 }

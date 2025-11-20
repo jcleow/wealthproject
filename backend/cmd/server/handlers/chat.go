@@ -18,12 +18,31 @@ import (
 
 // ChatHandler handles chat API requests
 type ChatHandler struct {
-	llmClient        *llm.ClientManager
-	previewSvc       *financial.ActionPreviewService
-	sessionStore     *session.Store
+	llmClient        llmToolCaller
+	previewSvc       previewGenerator
+	sessionStore     chatSessionStore
 	tools            []llm.ToolDefinition
 	defaultModel     string
 	defaultMaxTokens int
+}
+
+// Interfaces declared for testability
+type chatSessionStore interface {
+	GetSession(ctx context.Context, sessionID string) (*session.SessionState, error)
+	CreateSession(ctx context.Context, userID string, sessionID string) (*session.SessionState, error)
+	UpdateSession(ctx context.Context, session *session.SessionState) error
+	AddMessage(ctx context.Context, sessionID string, message llm.ChatMessage) error
+	AddPendingActions(ctx context.Context, sessionID string, toolCalls []llm.ToolCall) error
+	UpdatePendingActionMetadata(ctx context.Context, sessionID string, metadata map[string]session.PendingActionMetadata) error
+	GetConversationHistory(ctx context.Context, sessionID string, limit int) ([]llm.ChatMessage, error)
+}
+
+type previewGenerator interface {
+	GeneratePreview(toolCalls []llm.ToolCall) ([]financial.ProposedAction, error)
+}
+
+type llmToolCaller interface {
+	GenerateToolCalls(ctx context.Context, req llm.ChatRequest) (*llm.ToolCallResponse, error)
 }
 
 // NewChatHandler creates a new chat handler
@@ -176,6 +195,17 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			log.Printf("WARNING: Failed to generate previews for session %s: %v", req.SessionID, err)
 		} else {
 			proposedActions = previews
+			// Store friendly descriptions and dependencies with pending actions for later dispatch
+			meta := make(map[string]session.PendingActionMetadata)
+			for _, preview := range previews {
+				meta[preview.CallID] = session.PendingActionMetadata{
+					FriendlyDescription: preview.FriendlyDescription,
+					Dependencies:        preview.Dependencies,
+				}
+			}
+			if err := h.sessionStore.UpdatePendingActionMetadata(ctx, req.SessionID, meta); err != nil {
+				log.Printf("WARNING: Failed to update pending action metadata for session %s: %v", req.SessionID, err)
+			}
 		}
 	}
 

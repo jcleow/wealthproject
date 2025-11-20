@@ -27,6 +27,10 @@ type Config struct {
 	APIVersion     string
 	RequestTimeout int
 	MaxRequestSize int64
+
+	// Session management
+	SessionTTLHours               int
+	SessionCleanupIntervalMinutes int
 }
 
 func New() *Config {
@@ -52,6 +56,10 @@ func New() *Config {
 		APIVersion:     getEnv("API_VERSION", "v1"),
 		RequestTimeout: getEnvAsInt("REQUEST_TIMEOUT", 30),
 		MaxRequestSize: getEnvAsInt64("MAX_REQUEST_SIZE", 10*1024*1024), // 10MB
+
+		// Session management
+		SessionTTLHours:               getEnvAsInt("SESSION_TTL_HOURS", 24),
+		SessionCleanupIntervalMinutes: getEnvAsInt("SESSION_CLEANUP_INTERVAL_MINUTES", 60),
 	}
 }
 

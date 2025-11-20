@@ -133,7 +133,7 @@ export default function ActionReviewCard({
             )}
           </Button>
           <Button
-            className="min-w-[120px] flex-1"
+            className="min-w-[120px] flex-1 text-black bg-gray-100"
             disabled={isProcessing}
             onClick={() => onCancel?.(review.id)}
             size="sm"

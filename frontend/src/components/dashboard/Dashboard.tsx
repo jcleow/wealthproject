@@ -7,10 +7,10 @@ import { ChatFloatingLauncher } from './ChatFloatingLauncher'
 import { FinancialDataManagement } from './FinancialDataManagement'
 import { FinancialWorkspace } from './FinancialWorkspace'
 import { AppSidebar } from '../sidebar/AppSidebar'
-import { cn } from '@/lib/utils'
+import { cn, generateUUID } from '@/lib/utils'
 
 export function Dashboard() {
-  const chatId = useMemo(() => crypto.randomUUID(), [])
+  const chatId = useMemo(() => generateUUID(), [])
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
 
   return (

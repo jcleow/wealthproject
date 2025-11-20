@@ -114,3 +114,45 @@ go run cmd/server/main.go    # Needs B6+B7 implementation
 ```bash
 ./scripts/setup.sh    # Will work after backend implementation
 ```
+
+## Golang best practice
+When generating or modifying Go code, follow these principles:
+- Enforce strict type safety — avoid interface{} unless absolutely necessary; prefer structs or generics.
+- Write fully idiomatic Go that follows Go’s conventions.
+- Use clear architecture: handlers → services → repositories → models.=
+- Never ignore errors; never leave unsafe panics.
+- Avoid unsafe type assertions; rewrite designs to eliminate them.
+- Use proper concurrency patterns with context.Context.
+- Maintain clean naming, meaningful types, and small readable functions.
+
+## React and Typescript best practices to follow
+TypeScript & React Coding Agent Rules
+
+- Type safety first
+  - Never use `any`; prefer `unknown` with proper narrowing.
+  - Use generics, discriminated unions, and Zod schemas.
+  - Validate API responses before use; avoid `// @ts-ignore` unless justified.
+- Predictable, clean architecture
+  - Separate code under `types/`, `lib/`, `components/`, `hooks/`, `app/`.
+  - Keep components free of heavy business logic; prefer pure functions.
+- React/Next.js component practices
+  - Default to Server Components; add `"use client"` only for hooks, event handlers, localStorage, or browser APIs.
+  - Keep components small (<150 lines); extract reusable pieces; avoid deeply nested JSX.
+- State management
+  - Use Zustand/Jotai for app state; React Query for server state.
+  - Avoid global context for everything; avoid unnecessary `useEffect`.
+- Rendering performance
+  - Do not store derived data in state; avoid heavy inline functions.
+  - Use memoization sparingly; `React.memo` only when it helps.
+- API integration
+  - Wrap responses with Zod; prefer `z.infer` for types.
+  - Do not assume JSON shapes; use `fetch` in server components and React Query in client components.
+- Styling
+  - Use Tailwind CSS and shadcn/ui; use `clsx`/`cn` for class merging.
+  - Avoid inline styles unless required; stay consistent with the design system.
+- Error handling
+  - Always cover loading, error, and empty states; use error boundaries where appropriate.
+- No over-engineering
+  - Avoid unnecessary generics/abstractions; keep solutions simple and maintainable.
+- Automatic refactoring
+  - If generated TS/React code violates these rules, rewrite it to be idiomatic, type-safe, and minimal.

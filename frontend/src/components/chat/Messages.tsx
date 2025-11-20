@@ -1,10 +1,13 @@
-import { Message, ActionReview } from '@/types/chat'
+import { Message, ActionReview, ExecutionResult } from '@/types/chat'
+import { ExecutionResults } from '@/components/financial/ExecutionResults'
+import { ExecutionProgress } from '@/components/financial/ExecutionProgress'
 import MessageBubble from './MessageBubble'
 import ActionReviewCard from './ActionReviewCard'
 
 interface MessagesProps {
   messages: Message[]
   actionReviews: ActionReview[]
+  executionResults: ExecutionResult[]
   onConfirmAction: (reviewId: string) => void
   onCancelAction: (reviewId: string) => void
   isDispatching: boolean
@@ -13,6 +16,7 @@ interface MessagesProps {
 export default function Messages({
   messages,
   actionReviews,
+  executionResults,
   onConfirmAction,
   onCancelAction,
   isDispatching
@@ -28,7 +32,14 @@ export default function Messages({
       data: review,
       timestamp: review.createdAt,
     })),
+    ...executionResults.map((execution) => ({
+      type: 'execution' as const,
+      data: execution,
+      timestamp: execution.createdAt,
+    })),
   ].sort((a, b) => a.timestamp - b.timestamp)
+
+  const runningExecution = executionResults.find(result => result.status === 'running')
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -45,17 +56,25 @@ export default function Messages({
           </div>
         )}
 
+        {runningExecution && (
+          <ExecutionProgress
+            actionCount={runningExecution.actions.length}
+          />
+        )}
+
         {combinedItems.map((item, index) => (
           <div key={`${item.type}-${index}`}>
             {item.type === 'message' ? (
               <MessageBubble message={item.data} />
-            ) : (
+            ) : item.type === 'review' ? (
               <ActionReviewCard
                 review={item.data}
                 onConfirm={onConfirmAction}
                 onCancel={onCancelAction}
                 isProcessing={isDispatching}
               />
+            ) : (
+              <ExecutionResults execution={item.data} />
             )}
           </div>
         ))}

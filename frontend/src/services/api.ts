@@ -1,7 +1,13 @@
 import { ChatRequest, ChatResponse, DispatchRequest, DispatchResponse } from '@/types/api'
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_GO_BACKEND_BASE_URL?.trim() || '/api/v1'
+function getApiBaseUrl() {
+  const envURL = process.env.NEXT_PUBLIC_GO_BACKEND_BASE_URL?.trim()
+  if (envURL) return envURL
+  // Default to same-origin; Next rewrite will forward /api/v1 to backend
+  return '/api/v1'
+}
+
+const API_BASE_URL = getApiBaseUrl()
 
 
 class ApiError extends Error {

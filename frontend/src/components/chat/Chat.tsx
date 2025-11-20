@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useChat } from '@/hooks/useChat'
 import { generateUUID, cn } from '@/lib/utils'
+import { ToastViewport } from '@/components/ui/toast'
 import ChatHeader from './ChatHeader'
 import Messages from './Messages'
 import ChatInput from './ChatInput'
@@ -27,12 +28,15 @@ export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: Chat
   const {
     messages,
     actionReviews,
+    executionResults,
+    notifications,
     status,
     sendMessage,
     confirmAction,
     cancelAction,
     isLoading,
     isDispatching,
+    dismissNotification,
   } = useChat({ chatId, sessionId })
 
   const handleSuggestedQuestion = (question: string) => {
@@ -56,6 +60,7 @@ export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: Chat
         <Messages
           messages={messages}
           actionReviews={actionReviews}
+          executionResults={executionResults}
           onConfirmAction={confirmAction}
           onCancelAction={cancelAction}
           isDispatching={isDispatching}
@@ -87,6 +92,11 @@ export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: Chat
           status={status}
         />
       </div>
+
+      <ToastViewport
+        toasts={notifications}
+        onDismiss={dismissNotification}
+      />
     </div>
   )
 }
