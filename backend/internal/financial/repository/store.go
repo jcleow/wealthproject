@@ -68,7 +68,7 @@ type Income struct {
 	Source    string
 	Amount    float64
 	Frequency string
-	StartDate time.Time
+	StartDate *time.Time
 	Category  string
 	Notes     string
 	UpdatedAt time.Time
@@ -428,7 +428,7 @@ func (s *Store) GetIncome(ctx context.Context, id string) (Income, error) {
 func (s *Store) CreateIncome(ctx context.Context, it Income) (Income, error) {
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_incomes (source, amount, frequency, start_date, category, notes)
-		VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
+		VALUES ($1, $2, $3, COALESCE($4, NOW()), $5, NULLIF($6, ''))
 		RETURNING id, source, amount, frequency, start_date, category, COALESCE(notes, ''), updated_at`,
 		it.Source, it.Amount, it.Frequency, it.StartDate, it.Category, it.Notes)
 	var created Income
@@ -444,7 +444,7 @@ func (s *Store) UpdateIncome(ctx context.Context, it Income) (Income, error) {
 		SET source=$2,
 		    amount=$3,
 		    frequency=$4,
-		    start_date=$5,
+		    start_date=COALESCE($5, start_date, NOW()),
 		    category=$6,
 		    notes=NULLIF($7, ''),
 		    updated_at=NOW()

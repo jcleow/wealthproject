@@ -1,422 +1,717 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { X } from 'lucide-react'
-import { Button } from '../ui/button'
-import { Input } from '../ui/input'
-import { PROPERTY_TYPES, mortgageInputsSchema, type MortgageInputs, type PropertyPlannerType } from '../../types/property'
-import { calculateMortgage, formatCurrency, formatPercentage, getMSRStatus } from '../../utils/mortgage-calculations'
+"use client"
+
+import { useEffect, useMemo, useState } from 'react'
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  BarChart,
+  Bar,
+} from 'recharts'
+import { Calendar, Loader2, Percent, PiggyBank, TrendingDown, X } from 'lucide-react'
+import type { MortgageInputs, PropertyPlannerType } from '@/types/property'
+import { PROPERTY_TYPES } from '@/types/property'
+import { calculateMortgage, formatCurrency, formatPercentage } from '@/utils/mortgage-calculations'
 
 interface PropertyPlannerModalProps {
   isOpen: boolean
   onClose: () => void
 }
 
+const DEFAULT_INPUTS: MortgageInputs = {
+  propertyType: 'hdb',
+  loanAmount: 500000,
+  loanTermYears: 25,
+  borrowerType: 'single',
+  loanStartMonth: '2024-06',
+  fixedYears: 5,
+  fixedRate: 2.5,
+  floatingRate: 4.0,
+  householdIncome: 10000,
+  otherDebt: 500,
+}
+
+const STORAGE_KEY = 'property_planner_draft'
+const LOCATION_TAGS: Record<PropertyPlannerType, string> = {
+  hdb: '4-Room BTO in Tampines North',
+  condo: 'City-fringe condo, One-North',
+  landed: 'Landed home in Serangoon',
+}
+const LOCATION_PLACEHOLDER = 'e.g. 4-Room BTO in Tampines North'
+
+const areInputsValid = (inputs: MortgageInputs) =>
+  inputs.loanAmount > 0 &&
+  inputs.loanTermYears > 0 &&
+  inputs.loanStartMonth.trim() !== '' &&
+  inputs.fixedYears > 0 &&
+  inputs.fixedRate > 0 &&
+  inputs.floatingRate > 0 &&
+  inputs.householdIncome > 0
+
+const formatCompactCurrency = (value: number) =>
+  new Intl.NumberFormat('en-SG', {
+    style: 'currency',
+    currency: 'SGD',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 0,
+  }).format(value)
+
 export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalProps) {
-  const [selectedPropertyType, setSelectedPropertyType] = useState<PropertyPlannerType>('hdb')
-  const [showResults, setShowResults] = useState(false)
-  const [calculations, setCalculations] = useState<ReturnType<typeof calculateMortgage> | null>(null)
+  const [selectedType, setSelectedType] = useState<PropertyPlannerType>('hdb')
+  const [inputs, setInputs] = useState<MortgageInputs>({ ...DEFAULT_INPUTS })
+  const [isComplete, setIsComplete] = useState(false)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null)
+  const [locationDraft, setLocationDraft] = useState(LOCATION_TAGS.hdb)
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors, isValid },
-    reset,
-  } = useForm<MortgageInputs>({
-    resolver: zodResolver(mortgageInputsSchema),
-    defaultValues: {
-      propertyType: 'hdb',
-      loanAmount: 400000,
-      loanTermYears: 25,
-      borrowerType: 'couple',
-      loanStartMonth: '2024-06',
-      fixedYears: 3,
-      fixedRate: 2.6,
-      floatingRate: 3.8,
-      householdIncome: 8000,
-      otherDebt: 0,
-    },
-    mode: 'onChange'
-  })
+  useEffect(() => {
+    if (!isOpen) return
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        const parsed: MortgageInputs = JSON.parse(stored)
+        setInputs(parsed)
+        setSelectedType(parsed.propertyType)
+        setSavedSnapshot(stored)
+      } else {
+        setInputs({ ...DEFAULT_INPUTS })
+        setSavedSnapshot(JSON.stringify(DEFAULT_INPUTS))
+        setLocationDraft(LOCATION_TAGS[DEFAULT_INPUTS.propertyType])
+      }
+    } catch {
+      setInputs({ ...DEFAULT_INPUTS })
+    }
+  }, [isOpen])
 
-  const watchedValues = watch()
-  const currentMSR = watchedValues.householdIncome > 0
-    ? calculateMortgage({ ...watchedValues, propertyType: selectedPropertyType }).msrRatio
-    : 0
-  const msrStatus = getMSRStatus(currentMSR)
+  useEffect(() => {
+    setInputs((prev) => ({ ...prev, propertyType: selectedType }))
+  }, [selectedType])
 
-  const onSubmit = (data: MortgageInputs) => {
-    const result = calculateMortgage({ ...data, propertyType: selectedPropertyType })
-    setCalculations(result)
-    setShowResults(true)
+  const calculation = useMemo(() => calculateMortgage(inputs), [inputs])
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!savedSnapshot) return true
+    return savedSnapshot !== JSON.stringify(inputs)
+  }, [inputs, savedSnapshot])
+
+  const handleInputChange = (field: keyof MortgageInputs, value: string | number) => {
+    setInputs((prev) => ({ ...prev, [field]: value }))
+    if (field === 'propertyType') {
+      setSelectedType(value as PropertyPlannerType)
+      setLocationDraft(LOCATION_TAGS[value as PropertyPlannerType])
+    }
   }
 
-  const handlePropertyTypeSelect = (type: PropertyPlannerType) => {
-    setSelectedPropertyType(type)
-    setShowResults(false)
+  const handleGenerate = () => {
+    if (!areInputsValid(inputs)) return
+    setIsComplete(true)
   }
 
-  const handleModalClose = () => {
-    setShowResults(false)
-    setCalculations(null)
-    reset()
+  const handleEdit = () => setIsComplete(false)
+
+  const handleSaveDraft = () => {
+    try {
+      setIsSavingDraft(true)
+      const snapshot = JSON.stringify(inputs)
+      localStorage.setItem(STORAGE_KEY, snapshot)
+      setSavedSnapshot(snapshot)
+      setLastSavedAt(new Date().toISOString())
+    } finally {
+      setIsSavingDraft(false)
+    }
+  }
+
+  const handleClose = () => {
+    setIsComplete(false)
     onClose()
   }
 
-  const generateMonthOptions = () => {
-    const options = []
-    const currentYear = new Date().getFullYear()
+  const msrPercent = formatPercentage(calculation.msrRatio)
+  const msrWithinLimit = calculation.msrRatio <= 0.3
 
-    for (let year = currentYear; year <= currentYear + 11; year++) {
-      for (let month = 1; month <= 12; month++) {
-        const value = `${year}-${month.toString().padStart(2, '0')}`
-        const label = new Date(year, month - 1).toLocaleDateString('en-SG', {
-          year: 'numeric',
-          month: 'long'
-        })
-        options.push({ value, label })
-      }
-    }
-    return options
-  }
+  const formattedLoanEnd = useMemo(() => {
+    if (!calculation.loanEndDate) return ''
+    const [year, month] = calculation.loanEndDate.split('-').map(Number)
+    if (!year || !month) return calculation.loanEndDate
+    return new Date(year, month - 1).toLocaleDateString('en-SG', {
+      year: 'numeric',
+      month: 'short',
+    })
+  }, [calculation.loanEndDate])
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="relative mx-4 h-[96vh] w-full max-w-7xl overflow-hidden rounded-3xl border border-white/10 bg-gray-950 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 px-8 py-6">
-          <div>
-            <h2 className="text-2xl font-bold text-white">Property Planner</h2>
-            <p className="text-gray-400">Plan your property purchase with mortgage calculations</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur">
+      <div className="relative mx-4 h-[96vh] w-full max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-gray-950 shadow-[0_25px_80px_rgba(0,0,0,0.6)]">
+        <div className="flex items-center justify-between border-b border-white/10 bg-gradient-to-br from-gray-900 via-gray-950 to-black px-8 py-6">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.18em] text-gray-400">Mortgage Planner</p>
+            <h2 className="text-2xl font-semibold text-white">Mortgage Planners</h2>
+            <p className="text-sm text-gray-300">
+              Model how your housing loan impacts cash, CPF, and MSR in three guided steps.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px]">
+              <span className="uppercase tracking-[0.14em] text-gray-400">Currently modeling:</span>
+              <input
+                aria-label="Currently modeling"
+                value={locationDraft}
+                onChange={(event) => setLocationDraft(event.target.value)}
+                className="h-8 min-w-[240px] rounded-full border border-white/20 bg-transparent px-3 text-[11px] font-semibold text-white outline-none ring-0 placeholder:text-gray-500 focus:border-blue-400 focus-visible:ring-0"
+                placeholder={LOCATION_PLACEHOLDER}
+                spellCheck={false}
+              />
+            </div>
           </div>
           <button
-            onClick={handleModalClose}
-            className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+            onClick={handleClose}
+            className="rounded-full p-2 text-gray-400 transition hover:bg-white/10 hover:text-white"
+            type="button"
+            aria-label="Close mortgage planner"
           >
             <X className="h-6 w-6" />
           </button>
         </div>
 
         <div className="flex h-full overflow-hidden">
-          {/* Main Content */}
-          <div className="flex-1 overflow-auto p-8">
-            {!showResults ? (
-              <div className="space-y-8">
-                {/* Property Type Selection */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white">Select Property Type</h3>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    {PROPERTY_TYPES.map((type) => (
+          <div className="flex-1 overflow-auto px-6 py-6 sm:px-8 bg-gradient-to-b from-[#0f1a2f] via-[#0c1528] to-[#0a1122]">
+            {!isComplete ? (
+              <div className="space-y-6">
+                <section className="rounded-3xl border border-white/10 bg-[#030712] p-6 shadow-xl">
+                  <StepForm inputs={inputs} onChange={handleInputChange} calculation={calculation} />
+
+                  <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+                    <div className="text-xs text-gray-400">
+                      {lastSavedAt
+                        ? `Last saved ${new Date(lastSavedAt).toLocaleTimeString()}`
+                        : 'Draft not saved yet'}
+                    </div>
+                    <div className="flex items-center gap-2">
                       <button
-                        key={type.id}
-                        onClick={() => handlePropertyTypeSelect(type.id)}
-                        className={`rounded-2xl border p-6 text-left transition-all hover:border-blue-400 ${
-                          selectedPropertyType === type.id
-                            ? 'border-blue-400 bg-blue-500/10'
-                            : 'border-white/15 bg-gray-900/50'
-                        }`}
+                        className="rounded-full border border-white/15 bg-[#030712] px-4 py-2 text-sm text-gray-200 transition hover:border-white/30 disabled:opacity-50"
+                        type="button"
+                        onClick={handleSaveDraft}
+                        disabled={isSavingDraft || !hasUnsavedChanges}
                       >
-                        <div className="mb-2 text-3xl">{type.icon}</div>
-                        <h4 className="mb-2 font-semibold text-white">{type.label}</h4>
-                        <p className="text-sm text-gray-400">{type.description}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Mortgage Calculator Form */}
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-                  {/* Loan Basics */}
-                  <div className="rounded-2xl border border-white/10 bg-gray-900 p-6">
-                    <h4 className="mb-6 text-lg font-semibold text-white">Loan Basics</h4>
-                    <div className="grid gap-6 md:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-300">
-                          Loan Amount (SGD)
-                        </label>
-                        <Input
-                          {...register('loanAmount', { valueAsNumber: true })}
-                          type="number"
-                          step="1000"
-                          min="50000"
-                          max="1500000"
-                          className="w-full rounded-2xl border border-white/15 bg-gray-950 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
-                        />
-                        {errors.loanAmount && (
-                          <p className="mt-1 text-sm text-red-400">{errors.loanAmount.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-300">
-                          Loan Term (Years)
-                        </label>
-                        <Input
-                          {...register('loanTermYears', { valueAsNumber: true })}
-                          type="number"
-                          min="5"
-                          max="35"
-                          className="w-full rounded-2xl border border-white/15 bg-gray-950 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
-                        />
-                        {errors.loanTermYears && (
-                          <p className="mt-1 text-sm text-red-400">{errors.loanTermYears.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-300">
-                          Loan Start Month
-                        </label>
-                        <select
-                          {...register('loanStartMonth')}
-                          className="w-full rounded-2xl border border-white/15 bg-gray-950 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
-                        >
-                          {generateMonthOptions().map(option => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        {errors.loanStartMonth && (
-                          <p className="mt-1 text-sm text-red-400">{errors.loanStartMonth.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-300">
-                          Borrower Type
-                        </label>
-                        <div className="flex gap-4">
-                          <label className="flex items-center">
-                            <input
-                              {...register('borrowerType')}
-                              type="radio"
-                              value="single"
-                              className="mr-2 text-blue-400 focus:ring-blue-400"
-                            />
-                            <span className="text-white">Single</span>
-                          </label>
-                          <label className="flex items-center">
-                            <input
-                              {...register('borrowerType')}
-                              type="radio"
-                              value="couple"
-                              className="mr-2 text-blue-400 focus:ring-blue-400"
-                            />
-                            <span className="text-white">Couple</span>
-                          </label>
-                        </div>
-                        {errors.borrowerType && (
-                          <p className="mt-1 text-sm text-red-400">{errors.borrowerType.message}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Interest Rates */}
-                  <div className="rounded-2xl border border-white/10 bg-gray-900 p-6">
-                    <h4 className="mb-6 text-lg font-semibold text-white">Interest Rates</h4>
-                    <div className="grid gap-6 md:grid-cols-3">
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-300">
-                          Fixed Period (Years)
-                        </label>
-                        <Input
-                          {...register('fixedYears', { valueAsNumber: true })}
-                          type="number"
-                          min="1"
-                          max="10"
-                          className="w-full rounded-2xl border border-white/15 bg-gray-950 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
-                        />
-                        {errors.fixedYears && (
-                          <p className="mt-1 text-sm text-red-400">{errors.fixedYears.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-300">
-                          Fixed Rate (% p.a.)
-                        </label>
-                        <Input
-                          {...register('fixedRate', { valueAsNumber: true })}
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="10"
-                          className="w-full rounded-2xl border border-white/15 bg-gray-950 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
-                        />
-                        {errors.fixedRate && (
-                          <p className="mt-1 text-sm text-red-400">{errors.fixedRate.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-300">
-                          Floating Rate (% p.a.)
-                        </label>
-                        <Input
-                          {...register('floatingRate', { valueAsNumber: true })}
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="10"
-                          className="w-full rounded-2xl border border-white/15 bg-gray-950 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
-                        />
-                        {errors.floatingRate && (
-                          <p className="mt-1 text-sm text-red-400">{errors.floatingRate.message}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Income & MSR */}
-                  <div className="rounded-2xl border border-white/10 bg-gray-900 p-6">
-                    <h4 className="mb-6 text-lg font-semibold text-white">Income & MSR</h4>
-                    <div className="grid gap-6 md:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-300">
-                          Monthly Household Income (SGD)
-                        </label>
-                        <Input
-                          {...register('householdIncome', { valueAsNumber: true })}
-                          type="number"
-                          step="100"
-                          min="1000"
-                          className="w-full rounded-2xl border border-white/15 bg-gray-950 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
-                        />
-                        {errors.householdIncome && (
-                          <p className="mt-1 text-sm text-red-400">{errors.householdIncome.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-300">
-                          Other Monthly Debt (SGD)
-                        </label>
-                        <Input
-                          {...register('otherDebt', { valueAsNumber: true })}
-                          type="number"
-                          step="100"
-                          min="0"
-                          className="w-full rounded-2xl border border-white/15 bg-gray-950 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
-                        />
-                        {errors.otherDebt && (
-                          <p className="mt-1 text-sm text-red-400">{errors.otherDebt.message}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Real-time MSR Display */}
-                    {watchedValues.householdIncome > 0 && (
-                      <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-300">Current MSR Ratio</span>
-                          <span className={`font-semibold ${msrStatus.color}`}>
-                            {formatPercentage(currentMSR)}
+                        {isSavingDraft ? (
+                          <span className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" /> Saving...
                           </span>
-                        </div>
-                        <p className={`mt-1 text-sm ${msrStatus.color}`}>{msrStatus.message}</p>
-                      </div>
-                    )}
+                        ) : (
+                          'Save Draft'
+                        )}
+                      </button>
+                      <button
+          className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.35)] transition hover:bg-emerald-400 disabled:opacity-50"
+                        type="button"
+                        onClick={handleGenerate}
+                        disabled={!areInputsValid(inputs)}
+                      >
+                        Generate Overview
+                      </button>
+                    </div>
                   </div>
-
-                  {/* Generate Button */}
-                  <div className="flex justify-center">
-                    <Button
-                      type="submit"
-                      disabled={!isValid}
-                      className="rounded-full text-grey-500 bg-white/5  px-8 py-3 font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
-                    >
-                      Generate Overview
-                    </Button>
-                  </div>
-                </form>
+                </section>
               </div>
             ) : (
-              /* Results View */
-              <div className="space-y-8">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-white">Mortgage Overview</h3>
-                  <Button
-                    onClick={() => setShowResults(false)}
-                    variant="outline"
-                    className="border-white/20 text-gray-300"
-                  >
-                    Edit Parameters
-                  </Button>
-                </div>
-
-                {calculations && (
-                  <div className="grid gap-6 md:grid-cols-2">
-                    {/* Key Metrics */}
-                    <div className="rounded-2xl border border-white/10 bg-gray-900 p-6">
-                      <h4 className="mb-4 font-semibold text-white">Key Metrics</h4>
-                      <div className="space-y-4">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Monthly Payment</span>
-                          <span className="font-semibold text-white">
-                            {formatCurrency(calculations.monthlyPayment)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Total Interest</span>
-                          <span className="font-semibold text-white">
-                            {formatCurrency(calculations.totalInterest)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">MSR Ratio</span>
-                          <span className={`font-semibold ${getMSRStatus(calculations.msrRatio).color}`}>
-                            {formatPercentage(calculations.msrRatio)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Loan End Date</span>
-                          <span className="font-semibold text-white">{calculations.loanEndDate}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Additional Summary */}
-                    <div className="rounded-2xl border border-white/10 bg-gray-900 p-6">
-                      <h4 className="mb-4 font-semibold text-white">Summary</h4>
-                      <div className="space-y-4">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Property Type</span>
-                          <span className="font-semibold text-white">
-                            {PROPERTY_TYPES.find(p => p.id === selectedPropertyType)?.label}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Loan Amount</span>
-                          <span className="font-semibold text-white">
-                            {formatCurrency(watchedValues.loanAmount)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Loan Term</span>
-                          <span className="font-semibold text-white">
-                            {watchedValues.loanTermYears} years
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Fixed Period</span>
-                          <span className="font-semibold text-white">
-                            {watchedValues.fixedYears} years @ {watchedValues.fixedRate}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <MortgageOverview
+                calculation={calculation}
+                onEdit={handleEdit}
+                loanAmount={inputs.loanAmount}
+                formattedLoanEnd={formattedLoanEnd}
+                msrWithinLimit={msrWithinLimit}
+              />
             )}
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+interface StepFormProps {
+  inputs: MortgageInputs
+  onChange: (field: keyof MortgageInputs, value: string | number) => void
+  calculation: ReturnType<typeof calculateMortgage>
+}
+
+function StepForm({ inputs, onChange, calculation }: StepFormProps) {
+  return (
+    <div className="space-y-6">
+      <StepOne inputs={inputs} onChange={onChange} />
+      <div className="border-t border-white/10" />
+      <InterestSection inputs={inputs} onChange={onChange} />
+      <div className="border-t border-white/10" />
+      <IncomeSection inputs={inputs} calculation={calculation} onChange={onChange} />
+    </div>
+  )
+}
+
+interface StepOneProps {
+  inputs: MortgageInputs
+  onChange: (field: keyof MortgageInputs, value: string | number) => void
+}
+
+function StepOne({ inputs, onChange }: StepOneProps) {
+  const monthOptions = useMemo(() => {
+    const options: Array<{ value: string; label: string }> = []
+    const currentYear = new Date().getFullYear()
+    for (let year = currentYear; year <= currentYear + 11; year++) {
+      for (let month = 1; month <= 12; month++) {
+        const value = `${year}-${month.toString().padStart(2, '0')}`
+        const label = new Date(year, month - 1).toLocaleDateString('en-SG', {
+          year: 'numeric',
+          month: 'long',
+        })
+        options.push({ value, label })
+      }
+    }
+    return options
+  }, [])
+
+  return (
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <h4 className="text-lg font-semibold text-white">Loan Basics</h4>
+        <p className="text-sm text-gray-400">Tell us about your mortgage requirements.</p>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="text-sm font-medium text-gray-300">
+          Property Type
+          <select
+            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
+            onChange={(event) => onChange('propertyType', event.target.value as PropertyPlannerType)}
+            value={inputs.propertyType}
+          >
+            <option value="hdb">HDB (BTO / Resale)</option>
+            <option value="condo">Condo</option>
+            <option value="landed">Landed</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="space-y-2">
+        <label className="flex items-center justify-between text-sm font-medium text-gray-300">
+          <span>Loan Amount</span>
+        </label>
+        <input
+          type="number"
+          value={inputs.loanAmount === 0 ? '' : inputs.loanAmount}
+          onChange={(event) => onChange('loanAmount', Number(event.target.value) || 0)}
+          className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+          min={50000}
+          max={1500000}
+          step={10000}
+          placeholder="500,000"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="text-sm font-medium text-gray-300">
+          Loan Start Date
+          <input
+            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+            max="2035-12"
+            min="2024-01"
+            onChange={(event) => onChange('loanStartMonth', event.target.value)}
+            type="month"
+            value={inputs.loanStartMonth}
+            placeholder="----"
+          />
+        </label>
+
+        <label className="text-sm font-medium text-gray-300">
+          Loan Term (years)
+          <input
+            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+            min={5}
+            max={35}
+            onChange={(event) => onChange('loanTermYears', Number(event.target.value) || inputs.loanTermYears)}
+            type="number"
+            value={inputs.loanTermYears === 0 ? '' : inputs.loanTermYears}
+            placeholder="25"
+          />
+        </label>
+      </div>
+
+      <div>
+        <p className="text-sm font-medium text-gray-300">Borrowers</p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          {[
+            {
+              id: 'single',
+              label: 'Single Borrower',
+              helper: 'I am servicing the mortgage alone',
+            },
+            {
+              id: 'couple',
+              label: 'Couple',
+              helper: 'I am servicing the loan with a partner or spouse',
+            },
+          ].map((option) => (
+            <button
+              className={`rounded-2xl border px-4 py-3 text-left transition ${
+                inputs.borrowerType === option.id
+                  ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_0_1px_rgba(59,130,246,0.35)]'
+                  : 'border-white/15 bg-white/5 hover:border-white/30'
+              }`}
+              key={option.id}
+              onClick={() => onChange('borrowerType', option.id)}
+              type="button"
+            >
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-white">{option.label}</p>
+              <span
+                className={`h-4 w-4 rounded-full border ${
+                  inputs.borrowerType === option.id ? 'border-blue-400 bg-blue-400' : 'border-white/20'
+                }`}
+              />
+              </div>
+              <p className="mt-1 text-sm text-gray-400">{option.helper}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface InterestSectionProps {
+  inputs: MortgageInputs
+  onChange: (field: keyof MortgageInputs, value: string | number) => void
+}
+
+function InterestSection({ inputs, onChange }: InterestSectionProps) {
+  const cards = [
+    {
+      label: 'Fixed Window',
+      helper: 'Bank committed period',
+      field: 'fixedYears' as const,
+      value: inputs.fixedYears,
+      min: 1,
+      max: 10,
+      step: 1,
+      suffix: 'years',
+      placeholder: '5',
+    },
+    {
+      label: 'Current Rate',
+      helper: 'Applied to amortisation',
+      field: 'fixedRate' as const,
+      value: inputs.fixedRate,
+      min: 0,
+      max: 6,
+      step: 0.1,
+      suffix: '%',
+      placeholder: '2.5',
+    },
+    {
+      label: 'Next Expected Rate',
+      helper: 'Post lock-in assumption',
+      field: 'floatingRate' as const,
+      value: inputs.floatingRate,
+      min: 0,
+      max: 7,
+      step: 0.1,
+      suffix: '%',
+      placeholder: '4.0',
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      <header>
+        <h4 className="text-lg font-semibold text-white">Interest Rates</h4>
+        <p className="text-sm text-gray-400">Outline your lock-in period and expected floating rate.</p>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        {cards.map((card) => (
+          <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4" key={card.label}>
+            <p className="text-xs uppercase text-gray-400">{card.label}</p>
+            <div className="flex items-baseline gap-2">
+              <input
+                className="w-full bg-transparent text-2xl font-semibold text-white focus:outline-none"
+                type="number"
+                value={card.value === 0 ? '' : card.value}
+                min={card.min}
+                max={card.max}
+                step={card.step}
+                onChange={(event) => onChange(card.field, Number(event.target.value) || 0)}
+                placeholder={card.placeholder}
+              />
+              <span className="text-sm text-gray-400">{card.suffix}</span>
+            </div>
+            <p className="text-xs text-gray-400">{card.helper}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+interface IncomeSectionProps {
+  inputs: MortgageInputs
+  calculation: ReturnType<typeof calculateMortgage>
+  onChange: (field: keyof MortgageInputs, value: string | number) => void
+}
+
+function IncomeSection({ inputs, calculation, onChange }: IncomeSectionProps) {
+  const withinLimit = calculation.msrRatio <= 0.3
+  const msrPercent = formatPercentage(calculation.msrRatio)
+
+  return (
+    <div className="space-y-4">
+      <header>
+        <h4 className="text-lg font-semibold text-white">Income & MSR</h4>
+        <p className="text-sm text-gray-400">Stress-test your loan against the 30% MSR guideline.</p>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="text-sm font-medium text-gray-300">
+          Monthly Household Income
+          <input
+            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+            min={2000}
+            onChange={(event) => onChange('householdIncome', Number(event.target.value) || 0)}
+            step={500}
+            type="number"
+            value={inputs.householdIncome === 0 ? '' : inputs.householdIncome}
+            placeholder="10,000"
+          />
+          <p className="mt-1 text-xs text-gray-500">Include both borrowers for couples.</p>
+        </label>
+        <label className="text-sm font-medium text-gray-300">
+          Other Monthly Debt Obligations
+          <input
+            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+            min={0}
+            onChange={(event) => onChange('otherDebt', Number(event.target.value) || 0)}
+            step={100}
+            type="number"
+            value={inputs.otherDebt === 0 ? '' : inputs.otherDebt}
+            placeholder="500"
+          />
+        </label>
+      </div>
+
+      <div
+        className={`rounded-2xl border px-4 py-4 ${
+          withinLimit ? 'border-emerald-400/40 bg-[#0b2419]' : 'border-amber-400/40 bg-[#26160b]'
+        }`}
+      >
+        <div className="flex items-center gap-3 pl-1">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-white/70">Estimated MSR</p>
+            <p className="text-2xl font-semibold text-white">{msrPercent}</p>
+            <p className="text-xs text-white/70">
+              {withinLimit ? 'Below 30% threshold' : 'Above 30% MSR — consider tweaking loan'}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-[#24324d] bg-black/30 p-3 text-sm">
+            <p className="text-gray-400">Estimated Monthly Payment</p>
+            <p className="text-white">{formatCurrency(calculation.monthlyPayment)}</p>
+          </div>
+          <div className="rounded-xl border border-[#24324d] bg-black/30 p-3 text-sm">
+            <p className="text-gray-400">Household Income</p>
+            <p className="text-white">{formatCurrency(inputs.householdIncome)}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface MortgageOverviewProps {
+  calculation: ReturnType<typeof calculateMortgage>
+  onEdit: () => void
+  loanAmount: number
+  formattedLoanEnd: string
+  msrWithinLimit: boolean
+}
+
+function MortgageOverview({ calculation, onEdit, loanAmount, formattedLoanEnd, msrWithinLimit }: MortgageOverviewProps) {
+  const { monthlyPayment, totalInterest, msrRatio, amortization } = calculation
+  const balanceYearTicks = amortization.balancePoints.map((point) => point.yearIndex)
+  const compositionYearTicks = amortization.composition.map((point) => point.yearIndex)
+  const balanceDomain: [number, number] = [
+    Math.max(0, (balanceYearTicks[0] ?? 0) - 0.5),
+    (balanceYearTicks[balanceYearTicks.length - 1] ?? 1) + 0.5,
+  ]
+  const compositionDomain: [number, number] = [
+    Math.max(0, (compositionYearTicks[0] ?? 0) - 0.5),
+    (compositionYearTicks[compositionYearTicks.length - 1] ?? 1) + 0.5,
+  ]
+
+  return (
+    <section className="space-y-6 rounded-3xl border border-white/10 bg-[#030712] p-6 text-white shadow-[0_15px_40px_rgba(0,0,0,0.45)]">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Mortgage Overview</p>
+          <h3 className="text-2xl font-semibold text-white">Mortgage Overview</h3>
+          <p className="text-sm text-gray-400">Your complete mortgage summary and projections.</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        {[
+          { label: 'Monthly Payment', value: formatCurrency(monthlyPayment), icon: PiggyBank },
+          { label: 'Total Interest', value: formatCurrency(totalInterest), icon: TrendingDown },
+          {
+            label: 'MSR %',
+            value: formatPercentage(msrRatio),
+            helper: msrWithinLimit ? 'Below 30% threshold' : 'Exceeds 30% threshold',
+            icon: Percent,
+          },
+          { label: 'Loan End Date', value: formattedLoanEnd, icon: Calendar },
+        ].map((card) => (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4" key={card.label}>
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <card.icon className="h-4 w-4" />
+              {card.label}
+            </div>
+            <p className="mt-2 text-2xl font-semibold text-white">{card.value}</p>
+            {card.helper ? (
+              <p className={`text-xs ${msrWithinLimit ? 'text-emerald-300' : 'text-amber-300'}`}>{card.helper}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-4">
+        {[
+          {
+            title: 'Loan Balance Over Time',
+            helper: `Loan balance chart: ${formatCurrency(loanAmount)} → $0`,
+            hasData: amortization.balancePoints.length > 0,
+            render: (height: number) => (
+              <ResponsiveContainer width="100%" height={height}>
+                <AreaChart data={amortization.balancePoints} margin={{ bottom: 32, left: 16, right: 0 }}>
+                  <defs>
+                    <linearGradient id="loanBalanceGradient" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.6} />
+                      <stop offset="95%" stopColor="#60A5FA" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="yearIndex"
+                    type="number"
+                    domain={balanceDomain}
+                    ticks={balanceYearTicks}
+                    allowDecimals={false}
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    tickMargin={10}
+                    tickFormatter={(value) => `${value}`}
+                    label={{ value: 'Year', position: 'bottom', offset: 0, fill: '#9CA3AF' }}
+                  />
+                  <YAxis
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    tickFormatter={(value) => formatCompactCurrency(value as number)}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.1)' }}
+                    labelFormatter={(value) => `Year ${value}`}
+                    formatter={(value: number) => formatCurrency(value)}
+                  />
+                  <Area
+                    dataKey="balance"
+                    type="monotone"
+                    stroke="#3B82F6"
+                    strokeWidth={3}
+                    fill="url(#loanBalanceGradient)"
+                    name="Remaining Balance"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ),
+          },
+          {
+            title: 'Interest vs Principal Payments',
+            helper: 'See how your payment composition changes each year.',
+            hasData: amortization.composition.length > 0,
+            render: (height: number) => (
+              <ResponsiveContainer width="100%" height={height}>
+                <BarChart data={amortization.composition} barCategoryGap="20%" barGap={4} margin={{ bottom: 36, left: 16, right: 0 }}>
+                  <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="yearIndex"
+                    type="number"
+                    domain={compositionDomain}
+                    ticks={compositionYearTicks}
+                    allowDecimals={false}
+                    stroke="#9CA3AF"
+                    fontSize={11}
+                    tickMargin={14}
+                    tickFormatter={(value) => `${value}`}
+                    label={{ value: 'Year', position: 'bottom', offset: 0, fill: '#9CA3AF' }}
+                  />
+                  <YAxis
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    tickFormatter={(value) => formatCompactCurrency(value as number)}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.1)' }}
+                    labelFormatter={(value) => `Year ${value}`}
+                    formatter={(value: number, name) => [
+                      formatCurrency(value),
+                      name === 'interest' ? 'Interest' : 'Principal',
+                    ]}
+                  />
+                  <Legend wrapperStyle={{ paddingTop: 12 }} />
+                  <Bar dataKey="interest" stackId="payments" fill="rgba(248, 113, 113, 0.8)" stroke="#F87171" />
+                  <Bar dataKey="principal" stackId="payments" fill="rgba(59, 130, 246, 0.7)" stroke="#3B82F6" />
+                </BarChart>
+              </ResponsiveContainer>
+            ),
+          },
+        ].map((section) => (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4" key={section.title}>
+            <p className="text-sm font-semibold text-white">{section.title}</p>
+            <p className="text-xs text-gray-400">{section.helper}</p>
+            <div className="mt-3 rounded-xl border border-white/10 bg-gray-950 p-3" style={{ minHeight: 320 }}>
+              {section.hasData ? (
+                section.render(300)
+              ) : (
+                <div className="flex items-center justify-center text-xs text-gray-500" style={{ minHeight: 300 }}>
+                  Not enough payment history yet.
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 flex justify-end gap-3">
+        <button
+          className="rounded-full border border-white/15 bg-[#030712] px-4 py-2 text-sm text-gray-200 transition hover:border-white/30"
+          onClick={onEdit}
+          type="button"
+        >
+          Adjust inputs
+        </button>
+        <button
+          className="rounded-full bg-[#2d76f8] px-5 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(45,118,248,0.35)] transition hover:bg-[#3d84ff] disabled:opacity-50"
+          type="button"
+          disabled
+          title="Apply to Plan will be enabled once backend wiring is ready"
+        >
+          Apply to Plan
+        </button>
+      </div>
+    </section>
   )
 }

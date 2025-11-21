@@ -3,12 +3,10 @@ import { Plus, SlidersHorizontal, Sparkles, Pencil, Trash2 } from 'lucide-react'
 
 import { useFinancialData } from '../../hooks/useFinancialData'
 import type { Asset, Expense, Income, Liability } from '../../types/financial'
-import { AssetModal } from '../modals/AssetModal'
-import { IncomeModal } from '../modals/IncomeModal'
-import { LiabilityModal } from '../modals/LiabilityModal'
-import { ExpenseModal } from '../modals/ExpenseModal'
+import type { FinancialDataType, FinancialFormValues } from '../modals/FinancialFormModal'
+import { FinancialFormModal } from '../modals/FinancialFormModal'
 
-type FinancialCategory = 'asset' | 'income' | 'liability' | 'expense'
+type FinancialCategory = FinancialDataType
 
 type CategoryConfig = {
   title: string
@@ -46,13 +44,6 @@ const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
   },
 }
 
-const modalComponents = {
-  asset: AssetModal,
-  income: IncomeModal,
-  liability: LiabilityModal,
-  expense: ExpenseModal,
-} as const
-
 interface ModalState {
   isOpen: boolean
   type: FinancialCategory
@@ -88,8 +79,6 @@ export function FinancialDataManagement() {
     mode: 'create',
   })
 
-  const ActiveModal = modalComponents[modalState.type]
-
   const handleAddItem = (category: FinancialCategory) => {
     setModalState({
       isOpen: true,
@@ -108,19 +97,19 @@ export function FinancialDataManagement() {
     })
   }
 
-  const handleDeleteItem = (category: FinancialCategory, id: string) => {
+  const handleDeleteItem = async (category: FinancialCategory, id: string) => {
     switch (category) {
       case 'asset':
-        deleteAsset(id)
+        await deleteAsset(id)
         break
       case 'income':
-        deleteIncome(id)
+        await deleteIncome(id)
         break
       case 'liability':
-        deleteLiability(id)
+        await deleteLiability(id)
         break
       case 'expense':
-        deleteExpense(id)
+        await deleteExpense(id)
         break
     }
   }
@@ -133,39 +122,54 @@ export function FinancialDataManagement() {
     setModalState((prev) => ({ ...prev, isOpen: false, data: undefined }))
   }
 
-  const handleModalSave = (data: any, mode: 'create' | 'edit') => {
-    const { updatedAt, ...payload } = data
+  const handleModalSave = async (payload: FinancialFormValues, mode: 'create' | 'edit') => {
+    const timestamp = payload.updatedAt ?? new Date().toISOString()
 
-    switch (modalState.type) {
-      case 'asset':
+    switch (payload.type) {
+      case 'asset': {
+        const { type: _type, id: _id, updatedAt: _updatedAt, ...values } = payload
         if (mode === 'edit' && modalState.data) {
-          updateAsset(modalState.data.id, { ...payload, updatedAt })
+          await updateAsset(modalState.data.id, { ...values, updatedAt: timestamp })
         } else {
-          addAsset(payload as Omit<Asset, 'id' | 'updatedAt'>)
+          await addAsset(values)
         }
         break
-      case 'income':
+      }
+      case 'income': {
+        const { type: _type, id: _id, updatedAt: _updatedAt, ...values } = payload
         if (mode === 'edit' && modalState.data) {
-          updateIncome(modalState.data.id, { ...payload, updatedAt })
+          await updateIncome(modalState.data.id, { ...values, updatedAt: timestamp })
         } else {
-          addIncome(payload as Omit<Income, 'id' | 'updatedAt'>)
+          await addIncome(values)
         }
         break
-      case 'liability':
+      }
+      case 'liability': {
+        const { type: _type, id: _id, updatedAt: _updatedAt, ...values } = payload
         if (mode === 'edit' && modalState.data) {
-          updateLiability(modalState.data.id, { ...payload, updatedAt })
+          await updateLiability(modalState.data.id, { ...values, updatedAt: timestamp })
         } else {
-          addLiability(payload as Omit<Liability, 'id' | 'updatedAt'>)
+          await addLiability(values)
         }
         break
-      case 'expense':
+      }
+      case 'expense': {
+        const { type: _type, id: _id, updatedAt: _updatedAt, ...values } = payload
         if (mode === 'edit' && modalState.data) {
-          updateExpense(modalState.data.id, { ...payload, updatedAt })
+          await updateExpense(modalState.data.id, { ...values, updatedAt: timestamp })
         } else {
-          addExpense(payload as Omit<Expense, 'id' | 'updatedAt'>)
+          await addExpense(values)
         }
         break
+      }
     }
+
+    handleModalClose()
+  }
+
+  const handleModalDelete = async (id: string) => {
+    await handleDeleteItem(modalState.type, id)
+    handleModalClose()
   }
 
   const getDataForCategory = (category: FinancialCategory) => {
@@ -301,10 +305,7 @@ export function FinancialDataManagement() {
                         </div>
                       ) : (
                         <>
-                          <p className="text-sm">{config.emptyDescription}</p>
-                          <p className="text-xs text-gray-500">
-                            Click the + button to add your first entry
-                          </p>
+                          <p className="text-sm">{config.emptyDescription}</p>       
                           {config.helper && (
                             <div className="mx-auto inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-1 text-xs text-blue-200">
                               <Sparkles className="h-3 w-3" />
@@ -355,12 +356,16 @@ export function FinancialDataManagement() {
         </div>
       </div>
 
-      <ActiveModal
+      <FinancialFormModal
         mode={modalState.mode}
         data={modalState.data}
         isOpen={modalState.isOpen}
         onClose={handleModalClose}
         onSave={handleModalSave}
+        type={modalState.type}
+        onDelete={
+          modalState.mode === 'edit' && modalState.data?.id ? handleModalDelete : undefined
+        }
       />
     </>
   )
