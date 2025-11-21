@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useFinancialData } from '@/hooks/useFinancialData'
 
 const chartColors = {
   axis: '#aeb6c9',
@@ -17,37 +18,8 @@ const chartColors = {
   stroke: '#7db0ff',
 }
 
-// Generate mock data for the next 20 years
-const generateMockData = () => {
-  const currentYear = new Date().getFullYear()
-  const currentAge = 33 // Mock starting age
-  const data = []
-
-  for (let i = 0; i <= 20; i++) {
-    const age = currentAge + i
-    const year = currentYear + i
-
-    // Mock financial growth calculations
-    const baseAssets = 50000
-    const baseLiabilities = 20000
-    const growthRate = 1.08 // 8% annual growth
-    const liabilityDecreaseRate = 0.95 // 5% annual decrease
-
-    const totalAssets = Math.round(baseAssets * Math.pow(growthRate, i))
-    const totalLiabilities = Math.round(baseLiabilities * Math.pow(liabilityDecreaseRate, i))
-    const netWorth = totalAssets - totalLiabilities
-
-    data.push({
-      age,
-      year,
-      netWorth,
-      totalAssets,
-      totalLiabilities,
-    })
-  }
-
-  return data
-}
+const YEARS = 20
+const DEFAULT_AGE = 33
 
 const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { age: number; year: number; netWorth: number; totalAssets: number; totalLiabilities: number } }> }) => {
   if (active && payload && payload.length) {
@@ -71,9 +43,59 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<
 }
 
 export function NetWorthProjection() {
+  const {
+    assets,
+    liabilities,
+    expenses,
+    incomes,
+    getMonthlySavings,
+  } = useFinancialData()
+
   const [hasSize, setHasSize] = useState(false)
   const chartContainerRef = useRef<HTMLDivElement>(null)
-  const data = generateMockData()
+
+  const projection = useMemo(() => {
+    const totalAssets = assets.reduce((sum, a) => sum + a.currentValue, 0)
+    const totalLiabilities = liabilities.reduce((sum, l) => sum + l.currentBalance, 0)
+    const monthlySavings = getMonthlySavings()
+
+    // If no data, return empty array so we render placeholder
+    if (
+      assets.length === 0 &&
+      liabilities.length === 0 &&
+      expenses.length === 0 &&
+      incomes.length === 0
+    ) {
+      return []
+    }
+
+    const currentYear = new Date().getFullYear()
+    const data = []
+    const annualSavings = Math.max(monthlySavings, 0) * 12
+    const assetGrowthRate = 0.05 // conservative 5% annual
+    const liabilityDecayRate = 0.94 // 6% annual paydown
+
+    for (let i = 0; i <= YEARS; i++) {
+      const year = currentYear + i
+      const age = DEFAULT_AGE + i
+      const projectedAssets = Math.round((totalAssets + annualSavings * i) * Math.pow(1 + assetGrowthRate, i))
+      const projectedLiabilities = Math.max(
+        0,
+        Math.round(totalLiabilities * Math.pow(liabilityDecayRate, i))
+      )
+      const netWorth = projectedAssets - projectedLiabilities
+
+      data.push({
+        age,
+        year,
+        netWorth,
+        totalAssets: projectedAssets,
+        totalLiabilities: projectedLiabilities,
+      })
+    }
+
+    return data
+  }, [assets, liabilities, expenses, incomes, getMonthlySavings])
 
   useEffect(() => {
     const element = chartContainerRef.current
@@ -89,7 +111,7 @@ export function NetWorthProjection() {
   }, [])
 
   return (
-    <div className="flex h-full min-h-[40vh] flex-col">
+    <div className="flex h-full min-h-[320px] min-w-0 flex-col">
       <div className="mb-4 flex flex-shrink-0 items-center justify-between">
         <div>
           <h3 className="mb-1 font-semibold text-lg text-white">
@@ -101,14 +123,14 @@ export function NetWorthProjection() {
 
       <div
         ref={chartContainerRef}
-        className="relative w-full flex-1 min-h-[320px] overflow-hidden"
+        className="relative w-full flex-none min-h-[220px] min-w-0 overflow-hidden aspect-[16/9]"
       >
-        <div className="pointer-events-none absolute inset-4 rounded-2xl border border-[#1d2b4a]" />
-        {hasSize ? (
-          <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={280}>
+        <div className="pointer-events-none absolute inset-[0.5rem] rounded-2xl border border-[#1d2b4a]" />
+        {hasSize && projection.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>
             <AreaChart
-              data={data}
-              margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+              data={projection}
+              margin={{ top: 6, right: 8, left: 8, bottom: 6 }}
               focusable="false"
               tabIndex={-1}
               role="presentation"
@@ -164,8 +186,8 @@ export function NetWorthProjection() {
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-full min-h-[320px] items-center justify-center text-sm text-slate-400">
-            Loading projection...
+          <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-slate-400">
+            Add assets or liabilities to view your net worth projection.
           </div>
         )}
       </div>

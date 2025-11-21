@@ -169,6 +169,10 @@ export function useChat({ chatId, sessionId, initialMessages = [] }: UseChatProp
           ? `${summary.successful} succeeded, ${failureCount} failed`
           : `All ${totalCount} actions succeeded`,
       })
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('financial-data-refresh'))
+      }
     },
     onError: (error: ApiError, reviewId) => {
       setStatus('error')

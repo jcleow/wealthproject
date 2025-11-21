@@ -202,7 +202,8 @@ export function FinancialDataManagement() {
         </div>
 
         <div className="flex-1 overflow-auto px-6 py-6">
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="flex h-full flex-col gap-6">
+            <div className="grid flex-1 content-stretch gap-6 auto-rows-[1fr] lg:grid-cols-2">
             {(Object.keys(categoryConfig) as FinancialCategory[]).map(
               (key) => {
                 const config = categoryConfig[key]
@@ -217,7 +218,7 @@ export function FinancialDataManagement() {
                 return (
                   <div
                     key={key}
-                    className="flex w-full min-w-0 flex-col rounded-2xl bg-white/5 shadow-lg"
+                    className="flex h-full w-full min-w-0 flex-col rounded-2xl bg-white/5 shadow-lg"
                   >
                     <div className="p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -255,16 +256,32 @@ export function FinancialDataManagement() {
                       </div>
                     </div>
 
-                    <div className="flex flex-1 flex-col justify-center gap-3 px-4 py-6 text-center text-gray-300">
+                    <div className="flex flex-1 flex-col justify-start gap-3 px-4 py-6 text-gray-300">
                       {hasData ? (
                         <div className="space-y-2 text-left text-sm">
                           {data.slice(0, 3).map((item: any, index) => (
                             <div
                               key={item.id || index}
-                              className="flex items-center justify-between gap-3 text-gray-200"
+                              className="group/item flex items-center justify-between gap-3 text-gray-200"
                             >
-                              <div className="flex items-center gap-2">
-                                <span className="truncate text-sm">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <div className="flex h-7 w-0 shrink-0 items-center gap-1 overflow-hidden opacity-0 transition-[width,opacity] duration-200 group-hover/item:w-16 group-hover/item:opacity-100">
+                                  <button
+                                    onClick={() => handleEditItem(key, item)}
+                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-gray-300 transition hover:bg-white/10"
+                                    type="button"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => item.id && handleDeleteItem(key, item.id)}
+                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-gray-300 transition hover:bg-rose-500/20 hover:text-rose-100"
+                                    type="button"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                                <span className="truncate text-sm transition-all duration-200 group-hover/item:translate-x-1">
                                   {'name' in item
                                     ? item.name
                                     : 'source' in item
@@ -273,20 +290,6 @@ export function FinancialDataManagement() {
                                     ? item.payee
                                     : 'Entry'}
                                 </span>
-                                <button
-                                  onClick={() => handleEditItem(key, item)}
-                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-gray-300 transition hover:bg-white/10"
-                                  type="button"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => item.id && handleDeleteItem(key, item.id)}
-                                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-gray-300 transition hover:bg-rose-500/20 hover:text-rose-100"
-                                  type="button"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
                               </div>
                               <span className="text-sm text-gray-400">
                                 $
@@ -319,38 +322,39 @@ export function FinancialDataManagement() {
                 )
               }
             )}
-          </div>
-
-          <div className="mt-6 grid gap-6 md:grid-cols-2">
-            <div className="rounded-2xl bg-white/5 p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-semibold text-white">Net Worth</h4>
-                  <p className="text-xs text-gray-400">
-                    Assets minus liabilities
-                  </p>
-                </div>
-                <div className="h-2 w-2 rounded-full bg-blue-400" />
-              </div>
-              <p className="mt-4 text-3xl font-bold text-white">
-                ${getNetWorth().toLocaleString()}
-              </p>
             </div>
-            <div className="rounded-2xl bg-white/5 p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-semibold text-white">
-                    Savings
-                  </h4>
-                  <p className="text-xs text-gray-400">
-                    Income minus expenses
-                  </p>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="rounded-2xl bg-white/5 p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-white">Net Worth</h4>
+                    <p className="text-xs text-gray-400">
+                      Assets minus liabilities
+                    </p>
+                  </div>
+                  <div className="h-2 w-2 rounded-full bg-blue-400" />
                 </div>
-                <div className="h-2 w-2 rounded-full bg-emerald-400" />
+                <p className="mt-4 text-3xl font-bold text-white">
+                  ${getNetWorth().toLocaleString()}
+                </p>
               </div>
-              <p className="mt-4 text-3xl font-bold text-white">
-                ${getMonthlySavings().toLocaleString()}
-              </p>
+              <div className="rounded-2xl bg-white/5 p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-white">
+                      Savings
+                    </h4>
+                    <p className="text-xs text-gray-400">
+                      Income minus expenses
+                    </p>
+                  </div>
+                  <div className="h-2 w-2 rounded-full bg-emerald-400" />
+                </div>
+                <p className="mt-4 text-3xl font-bold text-white">
+                  ${getMonthlySavings().toLocaleString()}
+                </p>
+              </div>
             </div>
           </div>
         </div>

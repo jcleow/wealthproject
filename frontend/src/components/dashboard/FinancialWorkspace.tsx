@@ -26,13 +26,11 @@ export function FinancialWorkspace() {
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col border-0 bg-midnight-900 text-white">
-      <div className="flex flex-col border border-white/10 gap-3 px-6 py-4 text-left sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <p className="text-sm font-semibold uppercase tracking-wide text-gray-300">
-            Financial Workspace
-          </p>
-          <p className="text-sm text-white">
-            Track various projections and model scenarios here.
+          <h3 className="text-2xl font-semibold text-white">Financial Workspace</h3>
+          <p className="text-sm text-gray-400">
+            Track projections, run scenarios, and launch planning tools.
           </p>
         </div>
         <div className="flex items-center gap-2">

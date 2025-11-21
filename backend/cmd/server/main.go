@@ -217,11 +217,11 @@ func main() {
 	incomeHandler := handlers.NewIncomeHandler(finStore)
 	expenseHandler := handlers.NewExpenseHandler(finStore)
 	propertyHandler := handlers.NewPropertyScenarioHandler(finStore)
-	v1Router.PathPrefix("/assets").Handler(handlerToHTTPMux(assetHandler.RegisterRoutes))
-	v1Router.PathPrefix("/liabilities").Handler(handlerToHTTPMux(liabilityHandler.RegisterRoutes))
-	v1Router.PathPrefix("/cashflow/incomes").Handler(handlerToHTTPMux(incomeHandler.RegisterRoutes))
-	v1Router.PathPrefix("/cashflow/expenses").Handler(handlerToHTTPMux(expenseHandler.RegisterRoutes))
-	v1Router.PathPrefix("/property-planner/scenarios").Handler(handlerToHTTPMux(propertyHandler.RegisterRoutes))
+	v1Router.PathPrefix("/assets").Handler(handlerToHTTPMux("/api/v1", assetHandler.RegisterRoutes))
+	v1Router.PathPrefix("/liabilities").Handler(handlerToHTTPMux("/api/v1", liabilityHandler.RegisterRoutes))
+	v1Router.PathPrefix("/cashflow/incomes").Handler(handlerToHTTPMux("/api/v1", incomeHandler.RegisterRoutes))
+	v1Router.PathPrefix("/cashflow/expenses").Handler(handlerToHTTPMux("/api/v1", expenseHandler.RegisterRoutes))
+	v1Router.PathPrefix("/property-planner/scenarios").Handler(handlerToHTTPMux("/api/v1", propertyHandler.RegisterRoutes))
 
 	// Financial action endpoints
 	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST", "OPTIONS")
@@ -270,9 +270,9 @@ func startSessionCleanup(store *session.Store, maxAge time.Duration, interval ti
 	}()
 }
 
-// handlerToHTTPMux wraps a register func (net/http mux) to satisfy gorilla.Router Handler.
-func handlerToHTTPMux(register func(mux *http.ServeMux)) http.Handler {
+// handlerToHTTPMux wraps a register func (net/http mux) to satisfy gorilla.Router Handler and strips the API prefix.
+func handlerToHTTPMux(prefix string, register func(mux *http.ServeMux)) http.Handler {
 	m := http.NewServeMux()
 	register(m)
-	return m
+	return http.StripPrefix(prefix, m)
 }

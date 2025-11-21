@@ -1,6 +1,17 @@
 import type { Asset, Liability, Income, Expense } from '@/types/financial'
 
-const API_BASE = '/api/v1'
+function getApiBaseUrl() {
+  const envURL = process.env.NEXT_PUBLIC_GO_BACKEND_BASE_URL?.trim()
+  if (envURL) return envURL.endsWith('/api/v1') ? envURL : `${envURL.replace(/\/$/, '')}/api/v1`
+
+  // Fallback: assume local Go server on 8080 if no Next.js rewrite is configured
+  if (typeof window !== 'undefined') {
+    return 'http://localhost:8080/api/v1'
+  }
+  return 'http://localhost:8080/api/v1'
+}
+
+const API_BASE = getApiBaseUrl()
 
 async function jsonRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(url, {
@@ -21,45 +32,45 @@ async function jsonRequest<T>(url: string, options: RequestInit = {}): Promise<T
 }
 
 const toAsset = (item: any): Asset => ({
-  id: item.id,
-  name: item.name,
-  category: item.category,
-  currentValue: item.current_value,
-  annualGrowthRate: item.annual_growth_rate,
-  notes: item.notes ?? '',
-  updatedAt: item.updated_at,
+  id: item.id ?? item.ID,
+  name: item.name ?? item.Name,
+  category: item.category ?? item.Category,
+  currentValue: item.current_value ?? item.currentValue ?? item.CurrentValue,
+  annualGrowthRate: item.annual_growth_rate ?? item.annualGrowthRate ?? item.AnnualGrowthRate,
+  notes: item.notes ?? item.Notes ?? '',
+  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
 })
 
 const toLiability = (item: any): Liability => ({
-  id: item.id,
-  name: item.name,
-  category: item.category,
-  currentBalance: item.current_balance,
-  interestRateApr: item.interest_rate_apr,
-  minimumPayment: item.minimum_payment,
-  notes: item.notes ?? '',
-  updatedAt: item.updated_at,
+  id: item.id ?? item.ID,
+  name: item.name ?? item.Name,
+  category: item.category ?? item.Category,
+  currentBalance: item.current_balance ?? item.currentBalance ?? item.CurrentBalance,
+  interestRateApr: item.interest_rate_apr ?? item.interestRateApr ?? item.InterestRateAPR ?? item.InterestRateApr,
+  minimumPayment: item.minimum_payment ?? item.minimumPayment ?? item.MinimumPayment,
+  notes: item.notes ?? item.Notes ?? '',
+  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
 })
 
 const toIncome = (item: any): Income => ({
-  id: item.id,
-  source: item.source,
-  amount: item.amount,
-  frequency: item.frequency,
-  startDate: item.start_date ?? new Date().toISOString(),
-  category: item.category,
-  notes: item.notes ?? '',
-  updatedAt: item.updated_at,
+  id: item.id ?? item.ID,
+  source: item.source ?? item.Source,
+  amount: item.amount ?? item.Amount,
+  frequency: item.frequency ?? item.Frequency,
+  startDate: item.start_date ?? item.startDate ?? item.StartDate ?? new Date().toISOString(),
+  category: item.category ?? item.Category,
+  notes: item.notes ?? item.Notes ?? '',
+  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
 })
 
 const toExpense = (item: any): Expense => ({
-  id: item.id,
-  payee: item.payee,
-  amount: item.amount,
-  frequency: item.frequency,
-  category: item.category,
-  notes: item.notes ?? '',
-  updatedAt: item.updated_at,
+  id: item.id ?? item.ID,
+  payee: item.payee ?? item.Payee,
+  amount: item.amount ?? item.Amount,
+  frequency: item.frequency ?? item.Frequency,
+  category: item.category ?? item.Category,
+  notes: item.notes ?? item.Notes ?? '',
+  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
 })
 
 export const financialApi = {
