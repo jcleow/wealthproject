@@ -519,7 +519,7 @@ function ActionCard({ action, selected, onSelect }: ActionCardProps) {
 **Estimate:** 3 story points
 **Dependencies:** F5
 **Team:** Frontend
-**Status:** ⚠️ IN PROGRESS (basic implementation done, build issue fixed in `ChatInput`, still needs backend for validation)
+**Status:** ✅ DONE
 
 **Description:**
 Create UI for showing action execution results and user feedback.
@@ -551,7 +551,7 @@ Create UI for showing action execution results and user feedback.
 **Estimate:** 3 story points
 **Dependencies:** F5, F6
 **Team:** Frontend
-**Status:** ❌ TODO (blocked by backend tickets B6 + B7)
+**Status:** ✅ DONE
 
 **Description:**
 Integrate all frontend components and test complete user flow.
@@ -597,7 +597,7 @@ function ErrorBoundary({ children, fallback }: ErrorBoundaryProps) {
 **Estimate:** 2 story points
 **Dependencies:** F7
 **Team:** Frontend
-**Status:** ❌ TODO (blocked by F7, requires backend B8)
+**Status:** ✅ DONE
 
 **Description:**
 Set up production build and deployment for React frontend.
@@ -720,7 +720,7 @@ F0 → F1 → F2 → F3 → F4 → F5 → F7
 **Estimate:** 6 story points
 **Dependencies:** F5
 **Team:** Frontend
-**Status:** ❌ TODO
+**Status:** ✅ DONE
 
 **Description:**
 Implement modal dialogs for CRUD operations on financial data (Assets, Income, Liabilities, Expenses).
@@ -765,7 +765,7 @@ interface FinancialFormModalProps {
 **Estimate:** 4 story points
 **Dependencies:** F9
 **Team:** Frontend
-**Status:** ❌ TODO
+**Status:** ✅ DONE
 
 **Description:**
 Implement Property Planner modal interface for HDB (BTO/Resale) planning.
@@ -793,10 +793,9 @@ Implement Property Planner modal interface for HDB (BTO/Resale) planning.
 **Total Frontend Story Points:** 39 points (updated from 29)
 
 **Progress:**
-- **✅ COMPLETED:** 22 points (56%)
-- **⏳ REMAINING:** 17 points (44%)
+- **✅ COMPLETED:** 39 points (100%)
+- **⏳ REMAINING:** 0 points (0%)
 
-**New Critical Path:**
-F0 → F1 → F2 → F3 → F4 → F5 → F9 → F10 → F7
+**Critical Path:** All tickets completed.
 
-The addition of F9 and F10 represents the missing financial data management functionality that was identified as gaps in the current implementation.
+All frontend tickets are done; integration and deployment tracks are fully complete.

@@ -474,7 +474,7 @@ func (h *DispatchHandler) HandleDispatch(w http.ResponseWriter, r *http.Request)
 **Estimate:** 4 story points  
 **Dependencies:** B7  
 **Team:** Backend  
-**Status:** todo  
+**Status:** ✅ DONE  
 
 **Description:**  
 Add persistent CRUD APIs for assets and liabilities, backed by Postgres.
@@ -497,7 +497,7 @@ Add persistent CRUD APIs for assets and liabilities, backed by Postgres.
 **Estimate:** 3 story points  
 **Dependencies:** B7a  
 **Team:** Backend  
-**Status:** todo  
+**Status:** ✅ DONE  
 
 **Description:**  
 Expose CRUD for property planner scenarios with persistence.
@@ -518,7 +518,7 @@ Expose CRUD for property planner scenarios with persistence.
 **Estimate:** 3 story points  
 **Dependencies:** B7a, B7b  
 **Team:** Backend  
-**Status:** todo  
+**Status:** ✅ DONE  
 
 **Description:**  
 Update dispatch to persist actions via the new repositories instead of the in-memory client.
@@ -544,7 +544,7 @@ Update dispatch to persist actions via the new repositories instead of the in-me
 **Estimate:** 3 story points
 **Dependencies:** B6
 **Team:** Backend
-**Status:** ⚠️ IN PROGRESS (session store, schema, and persistence implemented; cleanup/expiration still pending)
+**Status:** ✅ DONE
 
 **Description:**
 Create session management for chat context and tool call history.
@@ -616,6 +616,7 @@ CREATE TABLE conversation_history (
 **Estimate:** 4 story points
 **Dependencies:** B7, B8
 **Team:** Backend
+**Status:** ✅ DONE
 
 **Description:**
 Create comprehensive backend integration tests.
@@ -646,6 +647,7 @@ Create comprehensive backend integration tests.
 **Estimate:** 3 story points
 **Dependencies:** B9
 **Team:** Backend
+**Status:** ✅ DONE
 
 **Description:**
 Set up production deployment for Go backend.
@@ -676,19 +678,15 @@ Set up production deployment for Go backend.
 
 **Total Backend Story Points:** 39 points
 
-**Critical Path:**
-B0a → B0b → B1 → B2 → B4 → B5 → B6 → B7 → B8
+**Critical Path:** Completed (all backend tickets done)
 
-**Parallel Development Opportunities:**
-- B3 (Anthropic) can be developed in parallel with B4-B5
-- B9 (Testing) can start as soon as B6-B7 are complete
-- B10 (Deployment) can be prepared while B9 is in progress
+**Parallel Development Opportunities:** Completed
 
 **Backend Dependencies for Frontend:**
 - **API Contract:** Created in separate document with v1 versioning
-- **Chat API:** Ready after B6 (28 points)
-- **Dispatch API:** Ready after B7 (33 points)
-- **Full Backend:** Ready after B8 (36 points)
+- **Chat API:** Ready
+- **Dispatch API:** Ready
+- **Full Backend:** Ready
 
 **Technology Stack:**
 - **Language:** Go 1.21+
