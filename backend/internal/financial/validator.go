@@ -121,22 +121,28 @@ func (v *ParameterValidator) validateAssetBusinessRules(args map[string]interfac
 	category := getStringParam(args, "category", "")
 	value := getFloatParam(args, "currentValue", 0)
 
-	switch category {
-	case "property_real_estate", "hdb_property", "condo_property", "landed_property":
-		// Simple guardrails for property pricing
-		if value > 100000000 {
-			errors = append(errors, ValidationError{
+	ensurePropertyRange := func(val float64) []ValidationError {
+		var errs []ValidationError
+		if val > 100000000 {
+			errs = append(errs, ValidationError{
 				Field:   "currentValue",
 				Message: "Property value seems unusually high. Please verify.",
 				Code:    "business_rule_warning",
 			})
-		} else if value < 50000 {
-			errors = append(errors, ValidationError{
+		} else if val < 50000 {
+			errs = append(errs, ValidationError{
 				Field:   "currentValue",
 				Message: "Property value seems unusually low. Please verify the property details.",
 				Code:    "business_rule_warning",
 			})
 		}
+		return errs
+	}
+
+	switch category {
+	case "property_real_estate", "condo_property", "landed_property":
+		// Simple guardrails for property pricing
+		errors = append(errors, ensurePropertyRange(value)...)
 
 	case "cpf_account":
 		// CPF accounts have contribution limits
@@ -159,6 +165,9 @@ func (v *ParameterValidator) validateAssetBusinessRules(args map[string]interfac
 		}
 
 	case "hdb_property":
+		// General property guardrails
+		errors = append(errors, ensurePropertyRange(value)...)
+
 		// HDB price ranges (simplified)
 		if value > 1500000 {
 			errors = append(errors, ValidationError{
