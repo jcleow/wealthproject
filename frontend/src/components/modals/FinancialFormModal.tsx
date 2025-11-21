@@ -3,6 +3,50 @@ import { Trash2 } from 'lucide-react'
 
 import type { Asset, Expense, Frequency, Income, Liability } from '../../types/financial'
 
+const PROPERTY_CATEGORY = 'property_real_estate'
+const MORTGAGE_CATEGORY = 'mortgage_home'
+const MORTGAGE_EXPENSE_CATEGORY = 'housing_mortgage'
+
+const assetCategoryOptions = [
+  { value: PROPERTY_CATEGORY, label: 'Property (real estate)' },
+  { value: 'cash_savings', label: 'Cash / savings' },
+  { value: 'bank_account', label: 'Bank account' },
+  { value: 'cpf_account', label: 'CPF account' },
+  { value: 'stocks_portfolio', label: 'Stocks / ETFs' },
+  { value: 'bonds_investment', label: 'Bonds / fixed income' },
+  { value: 'cryptocurrency', label: 'Crypto' },
+  { value: 'other_asset', label: 'Other asset' },
+]
+
+const liabilityCategoryOptions = [
+  { value: MORTGAGE_CATEGORY, label: 'Mortgage (home)' },
+  { value: 'personal_loan', label: 'Personal loan' },
+  { value: 'car_loan', label: 'Car loan' },
+  { value: 'education_loan', label: 'Education loan' },
+  { value: 'credit_card', label: 'Credit card' },
+  { value: 'business_loan', label: 'Business loan' },
+  { value: 'overdraft', label: 'Overdraft' },
+  { value: 'other_debt', label: 'Other debt' },
+]
+
+const expenseCategoryOptions = [
+  { value: MORTGAGE_EXPENSE_CATEGORY, label: 'Housing: Mortgage' },
+  { value: 'housing_rent', label: 'Housing: Rent' },
+  { value: 'utilities', label: 'Utilities' },
+  { value: 'food_groceries', label: 'Food & groceries' },
+  { value: 'transport_car', label: 'Transport: Car/public' },
+  { value: 'insurance', label: 'Insurance' },
+  { value: 'other_expense', label: 'Other expense' },
+]
+
+const incomeCategoryOptions = [
+  { value: 'employment_income', label: 'Employment income' },
+  { value: 'rental_income', label: 'Rental income' },
+  { value: 'business_income', label: 'Business income' },
+  { value: 'investment_income', label: 'Investment income' },
+  { value: 'other_income', label: 'Other income' },
+]
+
 export type FinancialDataType = 'asset' | 'income' | 'liability' | 'expense'
 
 type FormState = {
@@ -92,15 +136,24 @@ export interface FinancialFormModalProps {
   onDelete?: (id: string) => Promise<void>
 }
 
-const defaultFormState: FormState = {
-  name: '',
-  amount: '',
-  frequency: 'monthly',
-  category: '',
-  annualGrowthRate: '7.0',
-  interestRateApr: '4.5',
-  minimumPayment: '',
-  notes: '',
+const buildDefaultFormState = (type: FinancialDataType): FormState => {
+  const defaults: Record<FinancialDataType, string> = {
+    asset: PROPERTY_CATEGORY,
+    liability: MORTGAGE_CATEGORY,
+    expense: MORTGAGE_EXPENSE_CATEGORY,
+    income: incomeCategoryOptions[0]?.value ?? '',
+  }
+
+  return {
+    name: '',
+    amount: '',
+    frequency: 'monthly',
+    category: defaults[type] ?? '',
+    annualGrowthRate: '7.0',
+    interestRateApr: '4.5',
+    minimumPayment: '',
+    notes: '',
+  }
 }
 
 export function FinancialFormModal({
@@ -112,7 +165,7 @@ export function FinancialFormModal({
   onSave,
   onDelete,
 }: FinancialFormModalProps) {
-  const [formData, setFormData] = useState<FormState>(defaultFormState)
+  const [formData, setFormData] = useState<FormState>(buildDefaultFormState(type))
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCpfMode, setIsCpfMode] = useState(false)
@@ -149,7 +202,7 @@ export function FinancialFormModal({
     setCpfErrors({})
 
     if (!data) {
-      setFormData(defaultFormState)
+      setFormData(buildDefaultFormState(type))
       return
     }
 
@@ -212,6 +265,25 @@ export function FinancialFormModal({
       }
     }
   }, [data, isOpen, type])
+
+  const categoryOptions = useMemo(() => {
+    switch (type) {
+      case 'asset':
+        return assetCategoryOptions
+      case 'liability':
+        return liabilityCategoryOptions
+      case 'expense':
+        return expenseCategoryOptions
+      case 'income':
+        return incomeCategoryOptions
+      default:
+        return []
+    }
+  }, [type])
+
+  const isCustomCategory =
+    categoryOptions.length > 0 &&
+    categoryOptions.every((option) => option.value !== formData.category)
 
   if (!isOpen) return null
 
@@ -560,15 +632,65 @@ export function FinancialFormModal({
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-300">Category</label>
-                <input
-                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
-                  onChange={(event) =>
-                    setFormData((prev) => ({ ...prev, category: event.target.value }))
-                  }
-                  placeholder="e.g., salary, retirement, mortgage"
-                  type="text"
-                  value={formData.category}
-                />
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <select
+                      className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none sm:flex-1"
+                      onChange={(event) => {
+                        const next = event.target.value
+                        if (next === 'custom') {
+                          setFormData((prev) => ({ ...prev, category: '' }))
+                        } else {
+                          setFormData((prev) => ({ ...prev, category: next }))
+                        }
+                      }}
+                      value={isCustomCategory ? 'custom' : formData.category}
+                    >
+                      {categoryOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                      <option value="custom">Custom...</option>
+                    </select>
+
+                    {type === 'asset' && formData.category !== PROPERTY_CATEGORY && (
+                      <button
+                        className="w-full rounded-lg border border-emerald-400/70 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 transition hover:bg-emerald-500/20 sm:w-auto"
+                        onClick={() =>
+                          setFormData((prev) => ({ ...prev, category: PROPERTY_CATEGORY }))
+                        }
+                        type="button"
+                      >
+                        Set category to property
+                      </button>
+                    )}
+
+                    {type === 'liability' && formData.category === '' && (
+                      <button
+                        className="w-full rounded-lg border border-blue-400/70 bg-blue-500/10 px-3 py-2 text-sm text-blue-100 transition hover:bg-blue-500/20 sm:w-auto"
+                        onClick={() =>
+                          setFormData((prev) => ({ ...prev, category: MORTGAGE_CATEGORY }))
+                        }
+                        type="button"
+                      >
+                        Default to mortgage
+                      </button>
+                    )}
+                  </div>
+
+                  {(isCustomCategory || categoryOptions.length === 0) && (
+                    <input
+                      className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+                      onChange={(event) =>
+                        setFormData((prev) => ({ ...prev, category: event.target.value }))
+                      }
+                      placeholder="Enter category"
+                      type="text"
+                      value={formData.category}
+                    />
+                  )}
+                </div>
               </div>
 
               <div>

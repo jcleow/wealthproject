@@ -321,16 +321,17 @@ func defaultAssetArgs(args map[string]interface{}) map[string]interface{} {
 	}
 
 	allowedCategories := map[string]struct{}{
-		"hdb_property":     {},
-		"condo_property":   {},
-		"landed_property":  {},
-		"cash_savings":     {},
-		"cpf_account":      {},
-		"stocks_portfolio": {},
-		"bonds_investment": {},
-		"bank_account":     {},
-		"cryptocurrency":   {},
-		"other_asset":      {},
+		"property_real_estate": {},
+		"hdb_property":         {},
+		"condo_property":       {},
+		"landed_property":      {},
+		"cash_savings":         {},
+		"cpf_account":          {},
+		"stocks_portfolio":     {},
+		"bonds_investment":     {},
+		"bank_account":         {},
+		"cryptocurrency":       {},
+		"other_asset":          {},
 	}
 
 	// Normalize category
@@ -450,6 +451,8 @@ func formatCurrency(amount float64) string {
 
 func formatAssetCategory(category string) string {
 	switch category {
+	case "property_real_estate":
+		return "property"
 	case "hdb_property":
 		return "HDB property"
 	case "condo_property":
@@ -475,6 +478,8 @@ func formatAssetCategory(category string) string {
 
 func formatLiabilityCategory(category string) string {
 	switch category {
+	case "mortgage_home":
+		return "home mortgage"
 	case "mortgage":
 		return "mortgage"
 	case "personal_loan":

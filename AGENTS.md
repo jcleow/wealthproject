@@ -156,3 +156,18 @@ TypeScript & React Coding Agent Rules
   - Avoid unnecessary generics/abstractions; keep solutions simple and maintainable.
 - Automatic refactoring
   - If generated TS/React code violates these rules, rewrite it to be idiomatic, type-safe, and minimal.
+
+
+### Features
+- For every CRUD action via the UI, the chat<->dispatch flow must support it as well.
+
+
+### Ticket Creation
+- When creating tickets 
+  - outline the background and problem trying to solve
+  - be as detailed as possible on steps required, schema changes, detailing API contract schema, architectural implementation/ changes or design considerations
+  - break it out into frontend and backend tasks
+  - assign complexity points
+  - outline tests required and acceptance criteria
+  - if a single ticket is too complex (ie. > 5 points), do break it out into smaller tickets
+  - always ask questions if in doubt
