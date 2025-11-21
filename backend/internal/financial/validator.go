@@ -51,6 +51,7 @@ func (v *ParameterValidator) validateAssetParameters(args map[string]interface{}
 	// Validate category
 	category := getStringParam(args, "category", "")
 	validCategories := []string{
+		"property_real_estate",
 		"hdb_property", "condo_property", "landed_property",
 		"cash_savings", "cpf_account", "stocks_portfolio",
 		"bonds_investment", "bank_account", "cryptocurrency", "other_asset",
@@ -121,6 +122,22 @@ func (v *ParameterValidator) validateAssetBusinessRules(args map[string]interfac
 	value := getFloatParam(args, "currentValue", 0)
 
 	switch category {
+	case "property_real_estate", "hdb_property", "condo_property", "landed_property":
+		// Simple guardrails for property pricing
+		if value > 100000000 {
+			errors = append(errors, ValidationError{
+				Field:   "currentValue",
+				Message: "Property value seems unusually high. Please verify.",
+				Code:    "business_rule_warning",
+			})
+		} else if value < 50000 {
+			errors = append(errors, ValidationError{
+				Field:   "currentValue",
+				Message: "Property value seems unusually low. Please verify the property details.",
+				Code:    "business_rule_warning",
+			})
+		}
+
 	case "cpf_account":
 		// CPF accounts have contribution limits
 		if value > 300000 { // Simplified limit check
@@ -168,7 +185,7 @@ func (v *ParameterValidator) validateLiabilityParameters(args map[string]interfa
 	// Validate category
 	category := getStringParam(args, "category", "")
 	validCategories := []string{
-		"mortgage", "personal_loan", "car_loan", "education_loan",
+		"mortgage", "mortgage_home", "personal_loan", "car_loan", "education_loan",
 		"credit_card", "business_loan", "overdraft", "other_debt",
 	}
 	if !v.isValidEnum(category, validCategories) {
@@ -245,7 +262,7 @@ func (v *ParameterValidator) validateLiabilityBusinessRules(args map[string]inte
 
 	// Category-specific interest rate validation
 	switch category {
-	case "mortgage":
+	case "mortgage", "mortgage_home":
 		if rate > 0.08 { // 8%
 			errors = append(errors, ValidationError{
 				Field:   "interestRate",

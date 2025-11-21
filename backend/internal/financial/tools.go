@@ -50,6 +50,7 @@ func (r *FinancialToolRegistry) registerTools() {
 						"type":        "string",
 						"description": "Specific type of asset being added",
 						"enum": []string{
+							"property_real_estate",
 							"hdb_property", "condo_property", "landed_property",
 							"cash_savings", "cpf_account", "stocks_portfolio",
 							"bonds_investment", "bank_account", "cryptocurrency", "other_asset",
@@ -173,7 +174,7 @@ func (r *FinancialToolRegistry) registerTools() {
 						"type":        "string",
 						"description": "Type of liability/debt",
 						"enum": []string{
-							"mortgage", "personal_loan", "car_loan", "education_loan",
+							"mortgage_home", "mortgage", "personal_loan", "car_loan", "education_loan",
 							"credit_card", "business_loan", "overdraft", "other_debt",
 						},
 					},
@@ -449,7 +450,11 @@ func (r *FinancialToolRegistry) registerTools() {
 					},
 					"category": map[string]interface{}{
 						"type":        "string",
-						"description": "Expense category (e.g., rent, groceries, utilities).",
+						"description": "Expense category (e.g., housing_mortgage, rent, groceries).",
+						"enum": []string{
+							"housing_mortgage", "housing_rent", "utilities", "food_groceries",
+							"transport_car", "insurance", "other_expense",
+						},
 					},
 					"notes": map[string]interface{}{
 						"type":        "string",
