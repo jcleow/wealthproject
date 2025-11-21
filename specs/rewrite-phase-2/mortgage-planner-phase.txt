@@ -12,7 +12,7 @@
 
 ## Data Model
 - `assets`: use `category` for property classification (e.g., `property_real_estate`); no `asset_type`.
-- `liabilities`: mortgages identified by `liability_type`/`category` (mortgage).
+- `liabilities`: mortgages identified by `liability_type`/`category` (e.g., `mortgage_home`).
 - `property_scenarios`: planner inputs/outputs (price, loan amount, tenure, rates, property type, results).
 - `property_links` (many-to-many, enforcing one active loan per property):
   - Columns: `id` (UUID PK), `property_scenario_id` FK → `property_scenarios`, `asset_id` FK → `assets`, `liability_id` FK → `liabilities`, timestamps.
@@ -27,6 +27,11 @@
   - Create/update property scenario once asset + loan chosen.
   - Upsert `property_links` with the one-active-loan rule (overwrite existing link for that asset).
 - Expenses: `create_expense` with `category = housing_mortgage`, storing `liability_id` (and optionally `property_scenario_id`) for reporting.
+
+## Category Conventions (recommended)
+- Property asset: `category = "property_real_estate"` (use this when converting a non-property asset).
+- Mortgage liability: `category = "mortgage_home"` (or aligned liability_type if present).
+- Mortgage expense: `category = "housing_mortgage"`; include `liability_id` (and optional `property_scenario_id`).
 
 ## Frontend Requirements
 - Asset dropdown: list all assets; if non-property, show “Convert to property?” prompt and convert on confirm.
