@@ -262,26 +262,10 @@ export function FinancialDataManagement() {
                           {data.slice(0, 3).map((item: any, index) => (
                             <div
                               key={item.id || index}
-                              className="group/item flex items-center justify-between gap-3 text-gray-200"
+                              className="group/item relative flex items-center justify-between gap-3 overflow-hidden rounded-md px-2 py-1 text-gray-200"
                             >
-                              <div className="flex min-w-0 items-center gap-2">
-                                <div className="flex h-7 w-0 shrink-0 items-center gap-1 overflow-hidden opacity-0 transition-[width,opacity] duration-200 group-hover/item:w-16 group-hover/item:opacity-100">
-                                  <button
-                                    onClick={() => handleEditItem(key, item)}
-                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-gray-300 transition hover:bg-white/10"
-                                    type="button"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => item.id && handleDeleteItem(key, item.id)}
-                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-xs text-gray-300 transition hover:bg-rose-500/20 hover:text-rose-100"
-                                    type="button"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                                <span className="truncate text-sm transition-all duration-200 group-hover/item:translate-x-1">
+                              <div className="flex min-w-0 items-center gap-2 transition-opacity duration-200 group-hover/item:opacity-20">
+                                <span className="truncate text-sm">
                                   {'name' in item
                                     ? item.name
                                     : 'source' in item
@@ -291,13 +275,41 @@ export function FinancialDataManagement() {
                                     : 'Entry'}
                                 </span>
                               </div>
-                              <span className="text-sm text-gray-400">
+                              <span className="text-sm text-gray-400 transition-opacity duration-200 group-hover/item:opacity-20">
                                 $
                                 {summarizeAmount(item).toLocaleString(
                                   undefined,
                                   { maximumFractionDigits: 0 }
                                 )}
                               </span>
+
+                              <div className="pointer-events-none absolute inset-0 flex items-center justify-between gap-2 bg-white/5 px-2 opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover/item:pointer-events-auto group-hover/item:opacity-100">
+                                <span className="truncate text-sm text-white">
+                                  {'name' in item
+                                    ? item.name
+                                    : 'source' in item
+                                    ? item.source
+                                    : 'payee' in item
+                                    ? item.payee
+                                    : 'Entry'}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleEditItem(key, item)}
+                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-white/20"
+                                    type="button"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => item.id && handleDeleteItem(key, item.id)}
+                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-rose-500/30 hover:text-rose-50"
+                                    type="button"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           ))}
                           {data.length > 3 && (
@@ -307,15 +319,18 @@ export function FinancialDataManagement() {
                           )}
                         </div>
                       ) : (
-                        <>
-                          <p className="text-sm">{config.emptyDescription}</p>       
+                        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+                          <p className="text-sm">{config.emptyDescription}</p>
+                          <p className="text-xs text-gray-500">
+                            Click the + button to add your first entry
+                          </p>
                           {config.helper && (
-                            <div className="mx-auto inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-1 text-xs text-blue-200">
+                            <div className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-1 text-xs text-blue-200">
                               <Sparkles className="h-3 w-3" />
                               {config.helper}
                             </div>
                           )}
-                        </>
+                        </div>
                       )}
                     </div>
                   </div>

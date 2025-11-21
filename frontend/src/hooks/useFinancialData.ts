@@ -9,6 +9,11 @@ export function useFinancialData() {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const dispatchRefreshEvent = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('financial-data-refresh'))
+    }
+  }, [])
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -49,72 +54,84 @@ export function useFinancialData() {
   const addAsset = async (asset: Omit<Asset, 'id' | 'updatedAt'>) => {
     const created = await financialApi.createAsset(asset)
     setAssets(prev => [...prev, created])
+    dispatchRefreshEvent()
     return created
   }
 
   const updateAsset = async (id: string, updates: Partial<Asset>) => {
     const updated = await financialApi.updateAsset(id, updates)
     setAssets(prev => prev.map(asset => (asset.id === id ? updated : asset)))
+    dispatchRefreshEvent()
     return updated
   }
 
   const deleteAsset = async (id: string) => {
     await financialApi.deleteAsset(id)
     setAssets(prev => prev.filter(asset => asset.id !== id))
+    dispatchRefreshEvent()
   }
 
   // Income operations
   const addIncome = async (income: Omit<Income, 'id' | 'updatedAt'>) => {
     const created = await financialApi.createIncome(income)
     setIncomes(prev => [...prev, created])
+    dispatchRefreshEvent()
     return created
   }
 
   const updateIncome = async (id: string, updates: Partial<Income>) => {
     const updated = await financialApi.updateIncome(id, updates)
     setIncomes(prev => prev.map(income => (income.id === id ? updated : income)))
+    dispatchRefreshEvent()
     return updated
   }
 
   const deleteIncome = async (id: string) => {
     await financialApi.deleteIncome(id)
     setIncomes(prev => prev.filter(income => income.id !== id))
+    dispatchRefreshEvent()
   }
 
   // Liability operations
   const addLiability = async (liability: Omit<Liability, 'id' | 'updatedAt'>) => {
     const created = await financialApi.createLiability(liability)
     setLiabilities(prev => [...prev, created])
+    dispatchRefreshEvent()
     return created
   }
 
   const updateLiability = async (id: string, updates: Partial<Liability>) => {
     const updated = await financialApi.updateLiability(id, updates)
     setLiabilities(prev => prev.map(liability => (liability.id === id ? updated : liability)))
+    dispatchRefreshEvent()
     return updated
   }
 
   const deleteLiability = async (id: string) => {
     await financialApi.deleteLiability(id)
     setLiabilities(prev => prev.filter(liability => liability.id !== id))
+    dispatchRefreshEvent()
   }
 
   // Expense operations
   const addExpense = async (expense: Omit<Expense, 'id' | 'updatedAt'>) => {
     const created = await financialApi.createExpense(expense)
     setExpenses(prev => [...prev, created])
+    dispatchRefreshEvent()
     return created
   }
 
   const updateExpense = async (id: string, updates: Partial<Expense>) => {
     const updated = await financialApi.updateExpense(id, updates)
     setExpenses(prev => prev.map(expense => (expense.id === id ? updated : expense)))
+    dispatchRefreshEvent()
     return updated
   }
 
   const deleteExpense = async (id: string) => {
     await financialApi.deleteExpense(id)
     setExpenses(prev => prev.filter(expense => expense.id !== id))
+    dispatchRefreshEvent()
   }
 
   // Calculation helpers

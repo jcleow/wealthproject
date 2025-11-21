@@ -34,16 +34,7 @@ export function useChat({ chatId, sessionId, initialMessages = [] }: UseChatProp
       })
     },
     onSuccess: (response, content) => {
-      // Add assistant response to messages
-      setMessages(prev => [
-        ...prev,
-        {
-          id: response.message_id,
-          role: 'assistant',
-          content: response.content,
-          timestamp: new Date(),
-        }
-      ])
+      const now = Date.now()
 
       // If there are proposed actions, create action review
       const proposedActions = Array.isArray(response?.proposed_actions) ? response.proposed_actions : []
@@ -55,10 +46,21 @@ export function useChat({ chatId, sessionId, initialMessages = [] }: UseChatProp
             message: content,
             actions: proposedActions,
             status: 'pending',
-            createdAt: Date.now(),
+            createdAt: now,
           }
         ])
       }
+
+      // Add assistant response to messages after preview so it appears below
+      setMessages(prev => [
+        ...prev,
+        {
+          id: response.message_id,
+          role: 'assistant',
+          content: response.content,
+          timestamp: new Date(proposedActions.length > 0 ? now + 1 : now),
+        }
+      ])
     },
     onError: (error: ApiError) => {
       // Add error message to chat

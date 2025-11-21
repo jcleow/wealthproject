@@ -106,6 +106,11 @@ func (s *ActionPreviewService) generateSinglePreview(toolCall llm.ToolCall, deps
 		return ProposedAction{}, fmt.Errorf("failed to parse arguments: %w", err)
 	}
 
+	// Apply safe defaults for assets to avoid unnecessary user prompts
+	if toolCall.Function.Name == "createAsset" {
+		args = defaultAssetArgs(args)
+	}
+
 	// Validate tool call
 	missing, err := s.registry.ValidateToolCall(toolCall.Function.Name, args)
 	if err != nil {
@@ -279,6 +284,62 @@ func (s *ActionPreviewService) detectWarnings(toolName string, args map[string]i
 	}
 
 	return warnings
+}
+
+// defaultAssetArgs fills in safe defaults for asset creation so we can generate previews without extra questions.
+func defaultAssetArgs(args map[string]interface{}) map[string]interface{} {
+	if args == nil {
+		args = make(map[string]interface{})
+	}
+
+	allowedCategories := map[string]struct{}{
+		"hdb_property":     {},
+		"condo_property":   {},
+		"landed_property":  {},
+		"cash_savings":     {},
+		"cpf_account":      {},
+		"stocks_portfolio": {},
+		"bonds_investment": {},
+		"bank_account":     {},
+		"cryptocurrency":   {},
+		"other_asset":      {},
+	}
+
+	// Normalize category
+	if raw, ok := args["category"].(string); ok {
+		if _, allowed := allowedCategories[raw]; !allowed || strings.TrimSpace(raw) == "" {
+			args["category"] = "other_asset"
+		}
+	} else {
+		args["category"] = "other_asset"
+	}
+
+	// Provide a fallback name if missing
+	if raw, ok := args["name"].(string); !ok || strings.TrimSpace(raw) == "" {
+		if cat, okCat := args["category"].(string); okCat && cat != "" {
+			args["name"] = formatCategoryName(cat)
+		} else {
+			args["name"] = "Asset"
+		}
+	}
+
+	return args
+}
+
+func formatCategoryName(cat string) string {
+	clean := strings.TrimSpace(strings.ReplaceAll(cat, "_", " "))
+	if clean == "" {
+		return "Asset"
+	}
+
+	parts := strings.Fields(strings.ToLower(clean))
+	for i, p := range parts {
+		if len(p) == 0 {
+			continue
+		}
+		parts[i] = strings.ToUpper(p[:1]) + p[1:]
+	}
+	return strings.Join(parts, " ")
 }
 
 // analyzeDependencies identifies dependencies between tool calls

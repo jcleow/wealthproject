@@ -60,20 +60,29 @@ export function NetWorthProjection() {
     const monthlySavings = getMonthlySavings()
 
     // If no data, return empty array so we render placeholder
-    if (
-      assets.length === 0 &&
-      liabilities.length === 0 &&
-      expenses.length === 0 &&
-      incomes.length === 0
-    ) {
-      return []
-    }
+    const hasAnyData =
+      assets.length > 0 || liabilities.length > 0 || expenses.length > 0 || incomes.length > 0
 
     const currentYear = new Date().getFullYear()
     const data = []
     const annualSavings = Math.max(monthlySavings, 0) * 12
     const assetGrowthRate = 0.05 // conservative 5% annual
     const liabilityDecayRate = 0.94 // 6% annual paydown
+
+    if (!hasAnyData) {
+      for (let i = 0; i <= YEARS; i++) {
+        const year = currentYear + i
+        const age = DEFAULT_AGE + i
+        data.push({
+          age,
+          year,
+          netWorth: 0,
+          totalAssets: 0,
+          totalLiabilities: 0,
+        })
+      }
+      return data
+    }
 
     for (let i = 0; i <= YEARS; i++) {
       const year = currentYear + i
@@ -156,7 +165,7 @@ export function NetWorthProjection() {
               />
               <YAxis
                 axisLine={false}
-                domain={[0, 'dataMax']}
+                domain={[ (projection.at(-1)?.netWorth || 0) > 0 ? 0 : -500000, (projection.at(-1)?.netWorth || 0) > 0 ? 'dataMax' : 500000 ]}
                 fontSize={12}
                 stroke={chartColors.axis}
                 tickFormatter={(value) => {

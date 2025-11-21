@@ -202,6 +202,10 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			proposedActions = previews
+			// Ensure the user sees a concise confirmation if the LLM response is empty
+			if responseContent == "" {
+				responseContent = h.formatPreviewSummary(previews)
+			}
 			// Store pending actions in session now that validation passed
 			if err := h.sessionStore.AddPendingActions(ctx, req.SessionID, response.ToolCalls); err != nil {
 				log.Printf("ERROR: Failed to save pending actions for session %s: %v", req.SessionID, err)
@@ -279,7 +283,12 @@ func (h *ChatHandler) prepareMessages(sessionState *session.SessionState, userMe
 			Role: "system",
 			Content: `You are a helpful financial planning assistant. You help users manage their assets, liabilities, and financial scenarios.
 You have access to tools for creating and updating financial entities. When users ask about financial planning,
-use the appropriate tools to help them. Always be clear about what actions you're proposing and ask for confirmation.`,
+select the best-fitting tool and generate tool calls immediately when the user's message supplies the required fields.
+Assume amounts are in SGD and pick the closest category; if none fits, use "other_asset" or "other_debt" instead of pausing.
+Do not restate what the user said or ask for confirmation when you already have enough to create a preview.
+If someone mentions a vehicle (car, bike, etc.), default the category to "other_asset" and keep going—do not ask what type of car.
+If the name is missing, derive a simple name from the item mentioned (e.g., "Car") and proceed.
+Only ask concise follow-up questions for specific missing required fields that truly block a tool call, and list exactly what you still need.`,
 		},
 	}
 
@@ -325,6 +334,23 @@ func (h *ChatHandler) formatMissingFieldsPrompt(missing map[string][]string) str
 	sort.Strings(fieldList)
 
 	return fmt.Sprintf("I need a bit more information before I can proceed. Please provide: %s.", strings.Join(fieldList, ", "))
+}
+
+// formatPreviewSummary builds a short, natural confirmation based on generated previews.
+func (h *ChatHandler) formatPreviewSummary(previews []financial.ProposedAction) string {
+	if len(previews) == 0 {
+		return ""
+	}
+
+	if len(previews) == 1 {
+		desc := strings.TrimSpace(previews[0].FriendlyDescription)
+		if desc == "" {
+			desc = fmt.Sprintf("run %s", previews[0].ToolName)
+		}
+		return fmt.Sprintf("I'll prepare this now: %s. Please check if everything looks correct, then confirm or cancel.", desc)
+	}
+
+	return fmt.Sprintf("I found %d actions. Review the previews below, confirm or cancel, and tell me if anything looks off.", len(previews))
 }
 
 // HandleChatStream handles streaming chat responses (optional, for future implementation)
