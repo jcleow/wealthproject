@@ -517,7 +517,7 @@ func (s *Store) GetExpense(ctx context.Context, id string) (Expense, error) {
 func (s *Store) CreateExpense(ctx context.Context, it Expense) (Expense, error) {
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_expenses (payee, amount, frequency, category, notes)
-		VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''))
+		VALUES ($1, $2, $3, $4, NULLIF($5, ''))
 		RETURNING id, payee, amount, frequency, category, COALESCE(notes, ''), updated_at`,
 		it.Payee, it.Amount, it.Frequency, it.Category, it.Notes)
 	var created Expense

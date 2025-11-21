@@ -20,10 +20,26 @@ func (c *FinancialCalculator) CalculateImpact(toolName string, args map[string]i
 		return c.calculateAssetImpact(args, false)
 	case "updateAsset":
 		return c.calculateAssetUpdateImpact(args)
+	case "deleteAsset":
+		return c.calculateAssetDeleteImpact(args)
 	case "createLiability":
 		return c.calculateLiabilityImpact(args, false)
 	case "updateLiability":
 		return c.calculateLiabilityUpdateImpact(args)
+	case "deleteLiability":
+		return c.calculateLiabilityDeleteImpact(args)
+	case "createIncome":
+		return c.calculateIncomeImpact(args, false)
+	case "updateIncome":
+		return c.calculateIncomeImpact(args, true)
+	case "deleteIncome":
+		return c.calculateIncomeDeleteImpact(args)
+	case "createExpense":
+		return c.calculateExpenseImpact(args, false)
+	case "updateExpense":
+		return c.calculateExpenseImpact(args, true)
+	case "deleteExpense":
+		return c.calculateExpenseDeleteImpact(args)
 	case "createPropertyScenario":
 		return c.calculatePropertyScenarioImpact(args)
 	default:
@@ -79,6 +95,15 @@ func (c *FinancialCalculator) calculateAssetUpdateImpact(args map[string]interfa
 	}
 }
 
+// calculateAssetDeleteImpact estimates impact of deleting an asset.
+func (c *FinancialCalculator) calculateAssetDeleteImpact(args map[string]interface{}) *ImpactEstimate {
+	name := getStringParam(args, "name", "asset")
+	return &ImpactEstimate{
+		NetWorthChange: 0,
+		Description:    fmt.Sprintf("Remove %s from your records (impact depends on its last recorded value)", name),
+	}
+}
+
 // calculateLiabilityImpact calculates impact of creating/updating a liability
 func (c *FinancialCalculator) calculateLiabilityImpact(args map[string]interface{}, isUpdate bool) *ImpactEstimate {
 	balance := getFloatParam(args, "currentBalance", 0)
@@ -119,6 +144,82 @@ func (c *FinancialCalculator) calculateLiabilityUpdateImpact(args map[string]int
 		NetWorthChange: 0,
 		Description:    "Updates liability details (no balance change)",
 	}
+}
+
+// calculateLiabilityDeleteImpact estimates impact of deleting a liability.
+func (c *FinancialCalculator) calculateLiabilityDeleteImpact(args map[string]interface{}) *ImpactEstimate {
+	name := getStringParam(args, "name", "liability")
+	return &ImpactEstimate{
+		NetWorthChange: 0,
+		Description:    fmt.Sprintf("Remove %s from your records (impact depends on its last recorded balance)", name),
+	}
+}
+
+// calculateIncomeImpact estimates impact of creating/updating income.
+func (c *FinancialCalculator) calculateIncomeImpact(args map[string]interface{}, isUpdate bool) *ImpactEstimate {
+	amount := getFloatParam(args, "amount", 0)
+	freq := getStringParam(args, "frequency", "monthly")
+	monthly := normalizeToMonthly(amount, freq)
+	desc := fmt.Sprintf("%s income of %s (%s)", ternary(isUpdate, "Update", "Add"), formatCurrency(amount), freq)
+	return &ImpactEstimate{
+		NetWorthChange: 0,
+		MonthlyChange:  monthly,
+		Description:    desc,
+	}
+}
+
+// calculateIncomeDeleteImpact estimates impact of deleting an income.
+func (c *FinancialCalculator) calculateIncomeDeleteImpact(args map[string]interface{}) *ImpactEstimate {
+	name := getStringParam(args, "name", "income")
+	return &ImpactEstimate{
+		NetWorthChange: 0,
+		Description:    fmt.Sprintf("Remove income source %s (impact depends on its recurring amount)", name),
+	}
+}
+
+// calculateExpenseImpact estimates impact of creating/updating an expense.
+func (c *FinancialCalculator) calculateExpenseImpact(args map[string]interface{}, isUpdate bool) *ImpactEstimate {
+	amount := getFloatParam(args, "amount", 0)
+	freq := getStringParam(args, "frequency", "monthly")
+	monthly := normalizeToMonthly(amount, freq)
+	desc := fmt.Sprintf("%s expense of %s (%s)", ternary(isUpdate, "Update", "Add"), formatCurrency(amount), freq)
+	return &ImpactEstimate{
+		NetWorthChange: 0,
+		MonthlyChange:  -monthly,
+		Description:    desc,
+	}
+}
+
+// calculateExpenseDeleteImpact estimates impact of deleting an expense.
+func (c *FinancialCalculator) calculateExpenseDeleteImpact(args map[string]interface{}) *ImpactEstimate {
+	name := getStringParam(args, "name", "expense")
+	return &ImpactEstimate{
+		NetWorthChange: 0,
+		Description:    fmt.Sprintf("Remove expense %s (impact depends on its recurring amount)", name),
+	}
+}
+
+// normalizeToMonthly converts an arbitrary frequency amount to a monthly estimate.
+func normalizeToMonthly(amount float64, frequency string) float64 {
+	switch frequency {
+	case "weekly":
+		return amount * 52 / 12
+	case "biweekly":
+		return amount * 26 / 12
+	case "quarterly":
+		return amount / 3
+	case "yearly", "annual", "annually":
+		return amount / 12
+	default: // monthly or unknown
+		return amount
+	}
+}
+
+func ternary[T any](cond bool, a, b T) T {
+	if cond {
+		return a
+	}
+	return b
 }
 
 // calculatePropertyScenarioImpact calculates impact of a property scenario

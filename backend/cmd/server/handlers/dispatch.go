@@ -17,8 +17,16 @@ import (
 type FinancialExecutor interface {
 	CreateAsset(ctx context.Context, params financial.AssetParams) (*string, error)
 	UpdateAsset(ctx context.Context, params financial.UpdateAssetParams) (*string, error)
+	DeleteAsset(ctx context.Context, params financial.DeleteAssetParams) (*string, error)
 	CreateLiability(ctx context.Context, params financial.LiabilityParams) (*string, error)
 	UpdateLiability(ctx context.Context, params financial.UpdateLiabilityParams) (*string, error)
+	DeleteLiability(ctx context.Context, params financial.DeleteLiabilityParams) (*string, error)
+	CreateIncome(ctx context.Context, params financial.IncomeParams) (*string, error)
+	UpdateIncome(ctx context.Context, params financial.UpdateIncomeParams) (*string, error)
+	DeleteIncome(ctx context.Context, params financial.DeleteIncomeParams) (*string, error)
+	CreateExpense(ctx context.Context, params financial.ExpenseParams) (*string, error)
+	UpdateExpense(ctx context.Context, params financial.UpdateExpenseParams) (*string, error)
+	DeleteExpense(ctx context.Context, params financial.DeleteExpenseParams) (*string, error)
 	CreatePropertyScenario(ctx context.Context, params financial.PropertyScenarioParams) (*string, error)
 	RollbackAction(ctx context.Context, toolName string, entityID *string) error
 }
@@ -398,6 +406,12 @@ func (h *DispatchHandler) executeAction(ctx context.Context, action ExecutionAct
 			return nil, fmt.Errorf("invalid updateAsset parameters: %w", err)
 		}
 		return h.financialClient.UpdateAsset(ctx, typed)
+	case "deleteAsset":
+		typed, err := financial.DecodeParams[financial.DeleteAssetParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid deleteAsset parameters: %w", err)
+		}
+		return h.financialClient.DeleteAsset(ctx, typed)
 	case "createLiability":
 		typed, err := financial.DecodeParams[financial.LiabilityParams](params)
 		if err != nil {
@@ -410,6 +424,48 @@ func (h *DispatchHandler) executeAction(ctx context.Context, action ExecutionAct
 			return nil, fmt.Errorf("invalid updateLiability parameters: %w", err)
 		}
 		return h.financialClient.UpdateLiability(ctx, typed)
+	case "deleteLiability":
+		typed, err := financial.DecodeParams[financial.DeleteLiabilityParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid deleteLiability parameters: %w", err)
+		}
+		return h.financialClient.DeleteLiability(ctx, typed)
+	case "createIncome":
+		typed, err := financial.DecodeParams[financial.IncomeParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid createIncome parameters: %w", err)
+		}
+		return h.financialClient.CreateIncome(ctx, typed)
+	case "updateIncome":
+		typed, err := financial.DecodeParams[financial.UpdateIncomeParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid updateIncome parameters: %w", err)
+		}
+		return h.financialClient.UpdateIncome(ctx, typed)
+	case "deleteIncome":
+		typed, err := financial.DecodeParams[financial.DeleteIncomeParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid deleteIncome parameters: %w", err)
+		}
+		return h.financialClient.DeleteIncome(ctx, typed)
+	case "createExpense":
+		typed, err := financial.DecodeParams[financial.ExpenseParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid createExpense parameters: %w", err)
+		}
+		return h.financialClient.CreateExpense(ctx, typed)
+	case "updateExpense":
+		typed, err := financial.DecodeParams[financial.UpdateExpenseParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid updateExpense parameters: %w", err)
+		}
+		return h.financialClient.UpdateExpense(ctx, typed)
+	case "deleteExpense":
+		typed, err := financial.DecodeParams[financial.DeleteExpenseParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid deleteExpense parameters: %w", err)
+		}
+		return h.financialClient.DeleteExpense(ctx, typed)
 	case "createPropertyScenario":
 		typed, err := financial.DecodeParams[financial.PropertyScenarioParams](params)
 		if err != nil {

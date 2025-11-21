@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, SlidersHorizontal, Sparkles, Pencil, Trash2 } from 'lucide-react'
+import { Plus, SlidersHorizontal, Pencil, Trash2 } from 'lucide-react'
 
 import { useFinancialData } from '../../hooks/useFinancialData'
 import type { Asset, Expense, Income, Liability } from '../../types/financial'
@@ -21,8 +21,7 @@ const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
     title: 'Assets',
     emptyDescription: 'No assets added yet',
     icon: '📈',
-    accent: 'bg-blue-500',
-    helper: 'Add CPF balances to start',
+  accent: 'bg-blue-500',
   },
   income: {
     title: 'Income',
@@ -69,6 +68,7 @@ export function FinancialDataManagement() {
     deleteIncome,
     deleteLiability,
     deleteExpense,
+    refresh,
     getNetWorth,
     getMonthlySavings,
   } = useFinancialData()
@@ -126,6 +126,22 @@ export function FinancialDataManagement() {
     const timestamp = payload.updatedAt ?? new Date().toISOString()
 
     switch (payload.type) {
+      case 'cpf': {
+        // Create OA, SA, and MA assets in parallel
+        await Promise.all(
+          payload.accounts.map(account =>
+            addAsset({
+              name: account.name,
+              category: account.category,
+              currentValue: account.currentValue,
+              annualGrowthRate: account.annualGrowthRate,
+              notes: account.notes ?? undefined,
+            })
+          )
+        )
+        await refresh()
+        break
+      }
       case 'asset': {
         const { type: _type, id: _id, updatedAt: _updatedAt, ...values } = payload
         if (mode === 'edit' && modalState.data) {
@@ -324,12 +340,6 @@ export function FinancialDataManagement() {
                           <p className="text-xs text-gray-500">
                             Click the + button to add your first entry
                           </p>
-                          {config.helper && (
-                            <div className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-1 text-xs text-blue-200">
-                              <Sparkles className="h-3 w-3" />
-                              {config.helper}
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>

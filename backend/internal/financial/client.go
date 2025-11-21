@@ -3,6 +3,7 @@ package financial
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
@@ -45,12 +46,9 @@ func (c *Client) CreateAsset(ctx context.Context, params AssetParams) (*string, 
 
 // UpdateAsset updates an existing financial asset
 func (c *Client) UpdateAsset(ctx context.Context, params UpdateAssetParams) (*string, error) {
-	assetID := params.AssetID
-	if assetID == "" {
-		assetID = params.LastAssetID
-	}
-	if assetID == "" {
-		return nil, fmt.Errorf("asset ID is required")
+	assetID, err := c.resolveAssetID(ctx, params.AssetID, params.LastAssetID, params.AssetName, params.Name)
+	if err != nil {
+		return nil, err
 	}
 
 	current, err := c.store.GetAsset(ctx, assetID)
@@ -76,6 +74,19 @@ func (c *Client) UpdateAsset(ctx context.Context, params UpdateAssetParams) (*st
 		return nil, err
 	}
 	return &updated.ID, nil
+}
+
+// DeleteAsset deletes an existing financial asset
+func (c *Client) DeleteAsset(ctx context.Context, params DeleteAssetParams) (*string, error) {
+	assetID, err := c.resolveAssetID(ctx, params.AssetID, params.LastAssetID, params.AssetName, "")
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.store.DeleteAsset(ctx, assetID); err != nil {
+		return nil, err
+	}
+	return &assetID, nil
 }
 
 // CreateLiability creates a new financial liability
@@ -109,12 +120,9 @@ func (c *Client) CreateLiability(ctx context.Context, params LiabilityParams) (*
 
 // UpdateLiability updates an existing financial liability
 func (c *Client) UpdateLiability(ctx context.Context, params UpdateLiabilityParams) (*string, error) {
-	liabilityID := params.LiabilityID
-	if liabilityID == "" {
-		liabilityID = params.LastLiabilityID
-	}
-	if liabilityID == "" {
-		return nil, fmt.Errorf("liability ID is required")
+	liabilityID, err := c.resolveLiabilityID(ctx, params.LiabilityID, params.LastLiabilityID, params.LiabilityName, params.Name)
+	if err != nil {
+		return nil, err
 	}
 
 	current, err := c.store.GetLiability(ctx, liabilityID)
@@ -143,6 +151,346 @@ func (c *Client) UpdateLiability(ctx context.Context, params UpdateLiabilityPara
 		return nil, err
 	}
 	return &updated.ID, nil
+}
+
+// DeleteLiability deletes an existing financial liability
+func (c *Client) DeleteLiability(ctx context.Context, params DeleteLiabilityParams) (*string, error) {
+	liabilityID, err := c.resolveLiabilityID(ctx, params.LiabilityID, params.LastLiabilityID, params.LiabilityName, "")
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.store.DeleteLiability(ctx, liabilityID); err != nil {
+		return nil, err
+	}
+	return &liabilityID, nil
+}
+
+// CreateIncome creates a new income entry
+func (c *Client) CreateIncome(ctx context.Context, params IncomeParams) (*string, error) {
+	if params.Source == "" {
+		return nil, fmt.Errorf("income source is required")
+	}
+	if params.Amount <= 0 {
+		return nil, fmt.Errorf("valid income amount is required")
+	}
+	if params.Frequency == "" {
+		return nil, fmt.Errorf("income frequency is required")
+	}
+
+	var startDate *time.Time
+	if params.StartDate != "" {
+		parsed, err := time.Parse("2006-01-02", params.StartDate)
+		if err == nil {
+			startDate = &parsed
+		}
+	}
+
+	created, err := c.store.CreateIncome(ctx, repository.Income{
+		Source:    params.Source,
+		Amount:    params.Amount,
+		Frequency: params.Frequency,
+		StartDate: startDate,
+		Category:  params.Category,
+		Notes:     params.Notes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &created.ID, nil
+}
+
+// UpdateIncome updates an existing income entry
+func (c *Client) UpdateIncome(ctx context.Context, params UpdateIncomeParams) (*string, error) {
+	incomeID, err := c.resolveIncomeID(ctx, params.IncomeID, params.LastIncomeID, params.IncomeName, params.Source)
+	if err != nil {
+		return nil, err
+	}
+
+	current, err := c.store.GetIncome(ctx, incomeID)
+	if err != nil {
+		return nil, err
+	}
+
+	if params.Source != "" {
+		current.Source = params.Source
+	}
+	if params.Amount != nil {
+		current.Amount = *params.Amount
+	}
+	if params.Frequency != "" {
+		current.Frequency = params.Frequency
+	}
+	if params.StartDate != "" {
+		if parsed, err := time.Parse("2006-01-02", params.StartDate); err == nil {
+			current.StartDate = &parsed
+		}
+	}
+	if params.Category != "" {
+		current.Category = params.Category
+	}
+	if params.Notes != "" {
+		current.Notes = params.Notes
+	}
+
+	updated, err := c.store.UpdateIncome(ctx, current)
+	if err != nil {
+		return nil, err
+	}
+	return &updated.ID, nil
+}
+
+// DeleteIncome deletes an existing income
+func (c *Client) DeleteIncome(ctx context.Context, params DeleteIncomeParams) (*string, error) {
+	incomeID, err := c.resolveIncomeID(ctx, params.IncomeID, params.LastIncomeID, params.IncomeName, "")
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.store.DeleteIncome(ctx, incomeID); err != nil {
+		return nil, err
+	}
+	return &incomeID, nil
+}
+
+// CreateExpense creates a new expense entry
+func (c *Client) CreateExpense(ctx context.Context, params ExpenseParams) (*string, error) {
+	if params.Payee == "" {
+		return nil, fmt.Errorf("expense payee is required")
+	}
+	if params.Amount <= 0 {
+		return nil, fmt.Errorf("valid expense amount is required")
+	}
+	if params.Frequency == "" {
+		return nil, fmt.Errorf("expense frequency is required")
+	}
+
+	created, err := c.store.CreateExpense(ctx, repository.Expense{
+		Payee:     params.Payee,
+		Amount:    params.Amount,
+		Frequency: params.Frequency,
+		Category:  params.Category,
+		Notes:     params.Notes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &created.ID, nil
+}
+
+// UpdateExpense updates an existing expense entry
+func (c *Client) UpdateExpense(ctx context.Context, params UpdateExpenseParams) (*string, error) {
+	expenseID, err := c.resolveExpenseID(ctx, params.ExpenseID, params.LastExpenseID, params.ExpenseName, params.Payee)
+	if err != nil {
+		return nil, err
+	}
+
+	current, err := c.store.GetExpense(ctx, expenseID)
+	if err != nil {
+		return nil, err
+	}
+
+	if params.Payee != "" {
+		current.Payee = params.Payee
+	}
+	if params.Amount != nil {
+		current.Amount = *params.Amount
+	}
+	if params.Frequency != "" {
+		current.Frequency = params.Frequency
+	}
+	if params.Category != "" {
+		current.Category = params.Category
+	}
+	if params.Notes != "" {
+		current.Notes = params.Notes
+	}
+
+	updated, err := c.store.UpdateExpense(ctx, current)
+	if err != nil {
+		return nil, err
+	}
+	return &updated.ID, nil
+}
+
+// DeleteExpense deletes an existing expense
+func (c *Client) DeleteExpense(ctx context.Context, params DeleteExpenseParams) (*string, error) {
+	expenseID, err := c.resolveExpenseID(ctx, params.ExpenseID, params.LastExpenseID, params.ExpenseName, "")
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.store.DeleteExpense(ctx, expenseID); err != nil {
+		return nil, err
+	}
+	return &expenseID, nil
+}
+
+func (c *Client) resolveAssetID(ctx context.Context, explicit, last, byName, fallbackName string) (string, error) {
+	if explicit != "" {
+		return explicit, nil
+	}
+	if last != "" {
+		return last, nil
+	}
+	name := strings.TrimSpace(byName)
+	if name == "" {
+		name = strings.TrimSpace(fallbackName)
+	}
+	if name == "" {
+		return "", fmt.Errorf("asset ID is required")
+	}
+
+	assets, err := c.store.ListAssets(ctx)
+	if err != nil {
+		return "", err
+	}
+	if id, suggestions := matchName(assets, name, func(a repository.Asset) (string, string) {
+		return a.ID, a.Name
+	}); id != "" {
+		return id, nil
+	} else if len(suggestions) > 0 {
+		return "", fmt.Errorf("asset '%s' not found. Did you mean: %s?", name, strings.Join(suggestions, ", "))
+	}
+	return "", fmt.Errorf("asset '%s' not found. Please specify the exact asset name.", name)
+}
+
+func (c *Client) resolveLiabilityID(ctx context.Context, explicit, last, byName, fallbackName string) (string, error) {
+	if explicit != "" {
+		return explicit, nil
+	}
+	if last != "" {
+		return last, nil
+	}
+	name := strings.TrimSpace(byName)
+	if name == "" {
+		name = strings.TrimSpace(fallbackName)
+	}
+	if name == "" {
+		return "", fmt.Errorf("liability ID is required")
+	}
+
+	liabilities, err := c.store.ListLiabilities(ctx)
+	if err != nil {
+		return "", err
+	}
+	if id, suggestions := matchName(liabilities, name, func(l repository.Liability) (string, string) {
+		return l.ID, l.Name
+	}); id != "" {
+		return id, nil
+	} else if len(suggestions) > 0 {
+		return "", fmt.Errorf("liability '%s' not found. Did you mean: %s?", name, strings.Join(suggestions, ", "))
+	}
+	return "", fmt.Errorf("liability '%s' not found. Please specify the exact liability name.", name)
+}
+
+func (c *Client) resolveIncomeID(ctx context.Context, explicit, last, byName, fallbackName string) (string, error) {
+	if explicit != "" {
+		return explicit, nil
+	}
+	if last != "" {
+		return last, nil
+	}
+	name := strings.TrimSpace(byName)
+	if name == "" {
+		name = strings.TrimSpace(fallbackName)
+	}
+	if name == "" {
+		return "", fmt.Errorf("income ID is required")
+	}
+
+	incomes, err := c.store.ListIncomes(ctx)
+	if err != nil {
+		return "", err
+	}
+	if id, suggestions := matchName(incomes, name, func(inc repository.Income) (string, string) {
+		return inc.ID, inc.Source
+	}); id != "" {
+		return id, nil
+	} else if len(suggestions) > 0 {
+		return "", fmt.Errorf("income '%s' not found. Did you mean: %s?", name, strings.Join(suggestions, ", "))
+	}
+	return "", fmt.Errorf("income '%s' not found. Please specify the exact income name.", name)
+}
+
+func (c *Client) resolveExpenseID(ctx context.Context, explicit, last, byName, fallbackName string) (string, error) {
+	if explicit != "" {
+		return explicit, nil
+	}
+	if last != "" {
+		return last, nil
+	}
+	name := strings.TrimSpace(byName)
+	if name == "" {
+		name = strings.TrimSpace(fallbackName)
+	}
+	if name == "" {
+		return "", fmt.Errorf("expense ID is required")
+	}
+
+	expenses, err := c.store.ListExpenses(ctx)
+	if err != nil {
+		return "", err
+	}
+	if id, suggestions := matchName(expenses, name, func(ex repository.Expense) (string, string) {
+		return ex.ID, ex.Payee
+	}); id != "" {
+		return id, nil
+	} else if len(suggestions) > 0 {
+		return "", fmt.Errorf("expense '%s' not found. Did you mean: %s?", name, strings.Join(suggestions, ", "))
+	}
+	return "", fmt.Errorf("expense '%s' not found. Please specify the exact expense name.", name)
+}
+
+// matchName attempts fuzzy matching by exact, contains, and prefix to tolerate slight name differences.
+func matchName[T any](items []T, target string, get func(T) (string, string)) (string, []string) {
+	normTarget := strings.ToLower(strings.TrimSpace(target))
+	if normTarget == "" {
+		return "", nil
+	}
+
+	type candidate struct {
+		id    string
+		score int
+	}
+	best := candidate{}
+
+	for _, item := range items {
+		id, name := get(item)
+		normName := strings.ToLower(strings.TrimSpace(name))
+		if normName == "" {
+			continue
+		}
+
+		score := 0
+		switch {
+		case normName == normTarget:
+			score = 3
+		case strings.Contains(normName, normTarget) || strings.Contains(normTarget, normName):
+			score = 2
+		default:
+			// prefix/close match heuristic
+			if strings.HasPrefix(normName, normTarget) || strings.HasPrefix(normTarget, normName) {
+				score = 1
+			}
+		}
+
+		if score > best.score {
+			best = candidate{id: id, score: score}
+		}
+	}
+
+	suggestions := make([]string, 0, len(items))
+	for _, item := range items {
+		_, name := get(item)
+		if name = strings.TrimSpace(name); name != "" {
+			suggestions = append(suggestions, name)
+		}
+	}
+	if best.score > 0 {
+		return best.id, suggestions
+	}
+	return "", suggestions
 }
 
 // CreatePropertyScenario creates a property investment scenario

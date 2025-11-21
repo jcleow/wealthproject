@@ -1,0 +1,40 @@
+# Mortgage Planner Linking — Phase 2
+
+**Status:** todo  
+**Goal:** Bind properties (assets), mortgages (liabilities), and planner scenarios with a single active loan per property, plus dropdown-driven UX that can create/convert assets and loans inline.
+
+## Scope
+- One active loan per property; replacing a loan overwrites the previous link (no history).
+- Show all assets in dropdown (no filtering). If asset `category` is non-property, prompt to convert; on confirm, update category to property and continue.
+- When asset + loan are set, auto create/update the property planner scenario and link all three.
+- Allow creating a new loan inline if none exists; persist it to financial data and link immediately.
+- Prompt to add a mortgage expense after linking; expense stores `liability_id` (and optionally `property_scenario_id`).
+
+## Data Model
+- `assets`: use `category` for property classification (e.g., `property_real_estate`); no `asset_type`.
+- `liabilities`: mortgages identified by `liability_type`/`category` (mortgage).
+- `property_scenarios`: planner inputs/outputs (price, loan amount, tenure, rates, property type, results).
+- `property_links` (many-to-many, enforcing one active loan per property):
+  - Columns: `id` (UUID PK), `property_scenario_id` FK → `property_scenarios`, `asset_id` FK → `assets`, `liability_id` FK → `liabilities`, timestamps.
+  - Constraints: `UNIQUE (asset_id)`, `UNIQUE (liability_id)`, `UNIQUE (asset_id, liability_id, property_scenario_id)`.
+  - Replacement rule: if a link exists for `asset_id`, delete/overwrite before inserting the new one.
+
+## Backend Requirements
+- LLM behavior: When chat mentions property + loan, propose `create_asset`, `create_liability`, `create_property_scenario`; backend executor captures IDs and writes `property_links` after creating the scenario.
+- UI-driven flow: Expose endpoints to
+  - Convert asset category to property.
+  - Create/select liability (mortgage) and persist.
+  - Create/update property scenario once asset + loan chosen.
+  - Upsert `property_links` with the one-active-loan rule (overwrite existing link for that asset).
+- Expenses: `create_expense` with `category = housing_mortgage`, storing `liability_id` (and optionally `property_scenario_id`) for reporting.
+
+## Frontend Requirements
+- Asset dropdown: list all assets; if non-property, show “Convert to property?” prompt and convert on confirm.
+- On property select: show asset info and currently linked loan (if any). If none, show loan dropdown + “add loan” form (mortgage type).
+- On loan select/create: if another loan is linked, warn and replace. After selection, auto create/update property scenario and write link.
+- Expense prompt: after linking, prompt to add recurring mortgage expense (monthly/yearly) tied to the loan.
+- State feedback: success/error toasts for convert, create loan, scenario create/update, and linking operations.
+
+## Assumptions / Out of Scope
+- No inactive/history handling; replacing a loan removes the prior link.
+- Multiple loans per property not needed now; can relax uniques later if required.

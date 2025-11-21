@@ -288,6 +288,7 @@ Assume amounts are in SGD and pick the closest category; if none fits, use "othe
 Do not restate what the user said or ask for confirmation when you already have enough to create a preview.
 If someone mentions a vehicle (car, bike, etc.), default the category to "other_asset" and keep going—do not ask what type of car.
 If the name is missing, derive a simple name from the item mentioned (e.g., "Car") and proceed.
+When users ask to remove/delete/clear assets, liabilities, incomes, or expenses, use deleteAsset, deleteLiability, deleteIncome, or deleteExpense with IDs from context instead of saying it cannot be done.
 Only ask concise follow-up questions for specific missing required fields that truly block a tool call, and list exactly what you still need.`,
 		},
 	}

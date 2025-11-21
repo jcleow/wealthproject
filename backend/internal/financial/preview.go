@@ -170,6 +170,9 @@ func (s *ActionPreviewService) generateFriendlyDescription(toolName string, args
 				assetID, formatCurrency(getFloatParam(args, "currentValue", 0)))
 		}
 		return fmt.Sprintf("Update asset %s details", assetID)
+	case "deleteAsset":
+		assetID := getStringParam(args, "assetId", "asset")
+		return fmt.Sprintf("Delete asset %s", assetID)
 
 	case "createLiability":
 		name := getStringParam(args, "name", "New Liability")
@@ -187,6 +190,31 @@ func (s *ActionPreviewService) generateFriendlyDescription(toolName string, args
 				liabilityID, formatCurrency(getFloatParam(args, "currentBalance", 0)))
 		}
 		return fmt.Sprintf("Update liability %s details", liabilityID)
+	case "deleteLiability":
+		liabilityID := getStringParam(args, "liabilityId", "liability")
+		return fmt.Sprintf("Delete liability %s", liabilityID)
+	case "deleteIncome":
+		incomeID := getStringParam(args, "incomeId", "income")
+		return fmt.Sprintf("Delete income %s", incomeID)
+	case "deleteExpense":
+		expenseID := getStringParam(args, "expenseId", "expense")
+		return fmt.Sprintf("Delete expense %s", expenseID)
+	case "createIncome":
+		source := getStringParam(args, "source", "Income")
+		amount := getFloatParam(args, "amount", 0)
+		freq := getStringParam(args, "frequency", "monthly")
+		return fmt.Sprintf("Add income '%s' of %s (%s)", source, formatCurrency(amount), freq)
+	case "updateIncome":
+		incomeID := getStringParam(args, "incomeId", "income")
+		return fmt.Sprintf("Update income %s details", incomeID)
+	case "createExpense":
+		payee := getStringParam(args, "payee", "Expense")
+		amount := getFloatParam(args, "amount", 0)
+		freq := getStringParam(args, "frequency", "monthly")
+		return fmt.Sprintf("Add expense '%s' of %s (%s)", payee, formatCurrency(amount), freq)
+	case "updateExpense":
+		expenseID := getStringParam(args, "expenseId", "expense")
+		return fmt.Sprintf("Update expense %s details", expenseID)
 
 	case "createPropertyScenario":
 		price := getFloatParam(args, "propertyPrice", 0)
