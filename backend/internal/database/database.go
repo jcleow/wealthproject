@@ -2,8 +2,15 @@ package database
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 )
 
@@ -20,50 +27,64 @@ func Connect(databaseURL string) (*sql.DB, error) {
 	return db, nil
 }
 
+// RunMigrations applies migrations from the migrations directory using golang-migrate.
+// MIGRATIONS_DIR env var can override the default directory (backend/migrations or ./migrations).
 func RunMigrations(db *sql.DB) error {
-	migrations := []string{
-		enablePGCrypto,
-		createChatSessionsTable,
-		createConversationHistoryTable,
+	dir := resolveMigrationsDir()
+	if dir == "" {
+		return errors.New("no migrations directory found")
 	}
 
-	for _, migration := range migrations {
-		if _, err := db.Exec(migration); err != nil {
-			return fmt.Errorf("failed to run migration: %w", err)
+	// Ensure there are migration files
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to read migrations dir %s: %w", dir, err)
+	}
+	hasSQL := false
+	for _, f := range files {
+		if !f.IsDir() && strings.HasSuffix(f.Name(), ".sql") {
+			hasSQL = true
+			break
 		}
+	}
+	if !hasSQL {
+		return errors.New("no migration files found")
+	}
+
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to init migration driver: %w", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		fmt.Sprintf("file://%s", filepath.ToSlash(dir)),
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to init migrate: %w", err)
+	}
+
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("migration failed: %w", err)
 	}
 
 	return nil
 }
 
-const enablePGCrypto = `
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-`
-
-const createChatSessionsTable = `
-CREATE TABLE IF NOT EXISTS chat_sessions (
-    session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    state JSONB NOT NULL DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_id ON chat_sessions(user_id);
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated_at ON chat_sessions(updated_at);
-`
-
-const createConversationHistoryTable = `
-CREATE TABLE IF NOT EXISTS conversation_history (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id UUID REFERENCES chat_sessions(session_id) ON DELETE CASCADE,
-    role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'tool')),
-    content TEXT NOT NULL,
-    tool_calls JSONB,
-    tool_call_id TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_conversation_history_session_id ON conversation_history(session_id);
-CREATE INDEX IF NOT EXISTS idx_conversation_history_created_at ON conversation_history(created_at);
-`
+func resolveMigrationsDir() string {
+	if dir := strings.TrimSpace(os.Getenv("MIGRATIONS_DIR")); dir != "" {
+		return dir
+	}
+	candidates := []string{
+		filepath.Join("backend", "migrations"),
+		"migrations",
+	}
+	for _, c := range candidates {
+		if stat, err := os.Stat(c); err == nil && stat.IsDir() {
+			// ensure deterministic ordering if multiple options exist
+			return c
+		}
+	}
+	return ""
+}

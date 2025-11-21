@@ -44,11 +44,11 @@ func MustGetRegistry() *FinancialToolRegistry {
 
 // RegistryStats returns statistics about the tool registry
 type RegistryStats struct {
-	TotalTools       int      `json:"total_tools"`
-	ToolNames        []string `json:"tool_names"`
-	CategoryCounts   map[string]int `json:"category_counts"`
-	RequiredFields   map[string][]string `json:"required_fields"`
-	OptionalFields   map[string][]string `json:"optional_fields"`
+	TotalTools     int                 `json:"total_tools"`
+	ToolNames      []string            `json:"tool_names"`
+	CategoryCounts map[string]int      `json:"category_counts"`
+	RequiredFields map[string][]string `json:"required_fields"`
+	OptionalFields map[string][]string `json:"optional_fields"`
 }
 
 // GetStats returns registry statistics

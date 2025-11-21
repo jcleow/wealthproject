@@ -12,6 +12,7 @@ import (
 	"financial-chat-system/backend/internal/config"
 	"financial-chat-system/backend/internal/database"
 	"financial-chat-system/backend/internal/financial"
+	finRepo "financial-chat-system/backend/internal/financial/repository"
 	"financial-chat-system/backend/internal/llm"
 	"financial-chat-system/backend/internal/llm/providers"
 	"financial-chat-system/backend/internal/middleware"
@@ -41,12 +42,13 @@ func main() {
 		log.Fatal("Failed to run database migrations:", err)
 	}
 
+	finStore := finRepo.NewStore(db)
 	if err := financial.InitializeRegistry(); err != nil {
 		log.Fatal("Failed to initialize financial tools:", err)
 	}
 
 	// Initialize services
-	financialClient := financial.NewClient()
+	financialClient := financial.NewClient(finStore)
 	previewService := financial.NewActionPreviewService(financialClient)
 	sessionTTL := time.Duration(cfg.SessionTTLHours) * time.Hour
 	sessionStore := session.NewStore(db, sessionTTL)
@@ -209,6 +211,18 @@ func main() {
 	v1Router.HandleFunc("/chat", chatHandler.HandleChat).Methods("POST", "OPTIONS")
 	v1Router.HandleFunc("/chat/history/{sessionId}", chatHandler.GetChatHistory).Methods("GET")
 
+	// Financial CRUD endpoints
+	assetHandler := handlers.NewAssetHandler(finStore)
+	liabilityHandler := handlers.NewLiabilityHandler(finStore)
+	incomeHandler := handlers.NewIncomeHandler(finStore)
+	expenseHandler := handlers.NewExpenseHandler(finStore)
+	propertyHandler := handlers.NewPropertyScenarioHandler(finStore)
+	v1Router.PathPrefix("/assets").Handler(handlerToHTTPMux(assetHandler.RegisterRoutes))
+	v1Router.PathPrefix("/liabilities").Handler(handlerToHTTPMux(liabilityHandler.RegisterRoutes))
+	v1Router.PathPrefix("/cashflow/incomes").Handler(handlerToHTTPMux(incomeHandler.RegisterRoutes))
+	v1Router.PathPrefix("/cashflow/expenses").Handler(handlerToHTTPMux(expenseHandler.RegisterRoutes))
+	v1Router.PathPrefix("/property-planner/scenarios").Handler(handlerToHTTPMux(propertyHandler.RegisterRoutes))
+
 	// Financial action endpoints
 	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST", "OPTIONS")
 
@@ -254,4 +268,11 @@ func startSessionCleanup(store *session.Store, maxAge time.Duration, interval ti
 			}
 		}
 	}()
+}
+
+// handlerToHTTPMux wraps a register func (net/http mux) to satisfy gorilla.Router Handler.
+func handlerToHTTPMux(register func(mux *http.ServeMux)) http.Handler {
+	m := http.NewServeMux()
+	register(m)
+	return m
 }

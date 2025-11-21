@@ -10,7 +10,7 @@ import (
 )
 
 func TestActionPreviewService_GeneratePreview_BasicAsset(t *testing.T) {
-	svc := NewActionPreviewService(NewClient())
+	svc := NewActionPreviewService(NewClient(nil))
 
 	toolCall := llm.ToolCall{
 		ID:   "call_1",
@@ -33,7 +33,7 @@ func TestActionPreviewService_GeneratePreview_BasicAsset(t *testing.T) {
 }
 
 func TestActionPreviewService_GeneratePreview_InvalidJSON(t *testing.T) {
-	svc := NewActionPreviewService(NewClient())
+	svc := NewActionPreviewService(NewClient(nil))
 
 	toolCall := llm.ToolCall{
 		ID:   "call_bad",
@@ -49,7 +49,7 @@ func TestActionPreviewService_GeneratePreview_InvalidJSON(t *testing.T) {
 }
 
 func TestActionPreviewService_AnalyzeDependencies(t *testing.T) {
-	svc := NewActionPreviewService(NewClient())
+	svc := NewActionPreviewService(NewClient(nil))
 
 	create := llm.ToolCall{
 		ID:   "call_create",

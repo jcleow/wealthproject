@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investment Scenario Planner - Assetra</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: radial-gradient(ellipse at top, #0f172a 0%, #020617 50%, #000 100%);
+            color: #e2e8f0;
+            line-height: 1.6;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 40% 60%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 60px 24px;
+            display: grid;
+            gap: 32px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .page-header {
+            margin-bottom: 48px;
+            text-align: center;
+        }
+
+        .page-title {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+            letter-spacing: -0.03em;
+        }
+
+        .page-subtitle {
+            font-size: 20px;
+            color: #94a3b8;
+            font-weight: 400;
+            max-width: 700px;
+            margin: 0 auto;
+            opacity: 0.9;
+        }
+
+        .scenario-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 32px;
+            justify-content: center;
+        }
+
+        .scenario-tab {
+            padding: 12px 24px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 12px;
+            color: #94a3b8;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .scenario-tab.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+            color: white;
+            border-color: #3b82f6;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .scenario-tab:hover:not(.active) {
+            border-color: rgba(59, 130, 246, 0.4);
+            color: #60a5fa;
+        }
+
+        /* Section 1: Scenario Controls */
+        .scenario-controls {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow:
+                0 20px 60px rgba(0, 0, 0, 0.4),
+                0 8px 32px rgba(59, 130, 246, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 48px;
+            align-items: start;
+            position: relative;
+        }
+
+        .scenario-controls::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, transparent 50%, rgba(16, 185, 129, 0.03) 100%);
+            border-radius: 24px;
+            pointer-events: none;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .control-label {
+            font-size: 16px;
+            font-weight: 700;
+            color: #f1f5f9;
+            margin-bottom: 8px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .control-sublabel {
+            font-size: 14px;
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        .risk-slider {
+            position: relative;
+            height: 8px;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 12px;
+            margin: 24px 0;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .risk-slider::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 60%;
+            background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 50%, #10b981 100%);
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .risk-handle {
+            position: absolute;
+            top: -8px;
+            left: calc(60% - 12px);
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+            border: 2px solid #3b82f6;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow:
+                0 8px 25px rgba(59, 130, 246, 0.4),
+                0 3px 10px rgba(0, 0, 0, 0.3),
+                0 0 0 0 rgba(59, 130, 246, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .risk-handle:hover {
+            transform: scale(1.15);
+            box-shadow:
+                0 12px 35px rgba(59, 130, 246, 0.6),
+                0 5px 15px rgba(0, 0, 0, 0.4),
+                0 0 0 8px rgba(59, 130, 246, 0.2);
+        }
+
+        .time-horizon {
+            display: flex;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 8px;
+            border-radius: 16px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .time-btn {
+            padding: 12px 20px;
+            border: none;
+            background: transparent;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #94a3b8;
+            position: relative;
+        }
+
+        .time-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            transform: translateY(-1px);
+        }
+
+        .time-btn.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+            color: white;
+            box-shadow:
+                0 4px 15px rgba(59, 130, 246, 0.4),
+                0 2px 8px rgba(0, 0, 0, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .contribution-input {
+            position: relative;
+        }
+
+        .currency-input {
+            width: 100%;
+            padding: 16px 22px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            background: rgba(15, 23, 42, 0.6);
+            transition: all 0.3s ease;
+            color: #f1f5f9;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .currency-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow:
+                0 0 0 3px rgba(59, 130, 246, 0.3),
+                inset 0 2px 4px rgba(0, 0, 0, 0.3),
+                0 0 20px rgba(59, 130, 246, 0.2);
+            background: rgba(15, 23, 42, 0.8);
+        }
+
+        .stepper {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .stepper-btn {
+            width: 24px;
+            height: 16px;
+            border: none;
+            background: #f9fafb;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.15s ease;
+        }
+
+        .stepper-btn:hover {
+            background: #e5e7eb;
+            color: #1a1a1a;
+        }
+
+        /* Section 2: Main Content Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 32px;
+            margin-bottom: 32px;
+        }
+
+        /* Section 2: Projection Graph */
+        .projection-section {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 24px;
+            padding: 48px;
+            box-shadow:
+                0 25px 80px rgba(0, 0, 0, 0.5),
+                0 10px 40px rgba(59, 130, 246, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        .projection-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, transparent 50%, rgba(16, 185, 129, 0.03) 100%);
+            border-radius: 24px;
+            pointer-events: none;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .section-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: #f1f5f9;
+            margin-bottom: 8px;
+            letter-spacing: -0.03em;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .section-subtitle {
+            font-size: 16px;
+            color: #94a3b8;
+            font-weight: 400;
+        }
+
+        .success-badge {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow:
+                0 8px 25px rgba(16, 185, 129, 0.4),
+                0 3px 10px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .success-badge::before {
+            content: '✓';
+            font-size: 18px;
+        }
+
+        .success-badge::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            padding: 2px;
+            background: linear-gradient(45deg, #10b981, #06b6d4);
+            border-radius: 16px;
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+        }
+
+        .chart-container {
+            height: 500px;
+            background:
+                radial-gradient(ellipse at center, rgba(15, 23, 42, 0.3) 0%, rgba(0, 0, 0, 0.6) 100%),
+                linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(16, 185, 129, 0.03) 100%);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 20px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .chart-area {
+            position: absolute;
+            bottom: 60px;
+            left: 60px;
+            right: 60px;
+            top: 40px;
+        }
+
+        .projection-cone {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .cone-p90 {
+            position: absolute;
+            width: 100%;
+            height: 60%;
+            background: linear-gradient(45deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.15));
+            clip-path: polygon(0 80%, 100% 0%, 100% 20%, 0 100%);
+        }
+
+        .cone-p50 {
+            position: absolute;
+            width: 100%;
+            height: 40%;
+            background: linear-gradient(45deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.25));
+            clip-path: polygon(0 90%, 100% 30%, 100% 70%, 0 100%);
+            top: 20%;
+        }
+
+        .cone-p10 {
+            position: absolute;
+            width: 100%;
+            height: 20%;
+            background: linear-gradient(45deg, rgba(59, 130, 246, 0.25), rgba(59, 130, 246, 0.4));
+            clip-path: polygon(0 95%, 100% 60%, 100% 100%, 0 100%);
+            top: 60%;
+        }
+
+        .goal-line {
+            position: absolute;
+            top: 25%;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #dc2626;
+            border-top: 2px dashed #dc2626;
+        }
+
+        .goal-label {
+            position: absolute;
+            right: 0;
+            top: -20px;
+            background: #dc2626;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .chart-labels {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 60px;
+            font-size: 11px;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        .chart-y-labels {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 60px;
+            width: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-right: 8px;
+            font-size: 11px;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        /* Section 3: Risk Summary Sidebar */
+        .risk-summary {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow:
+                0 25px 80px rgba(0, 0, 0, 0.5),
+                0 10px 40px rgba(59, 130, 246, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            position: relative;
+        }
+
+        .risk-summary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, transparent 50%, rgba(16, 185, 129, 0.03) 100%);
+            border-radius: 24px;
+            pointer-events: none;
+        }
+
+        .risk-summary-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #f1f5f9;
+            margin-bottom: 8px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 1;
+        }
+
+        .risk-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            padding: 20px;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 12px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .risk-item:hover {
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(59, 130, 246, 0.4);
+            transform: translateX(4px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.2);
+        }
+
+        .risk-item-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .risk-label {
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .risk-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #f1f5f9;
+            margin-top: 2px;
+        }
+
+        .risk-rating {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .risk-badge {
+            background: #10b981;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        /* Section 4: Asset Allocation */
+        .allocation-section {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(0, 0, 0, 0.05);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .pie-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .pie-chart {
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            background: conic-gradient(
+                #3b82f6 0deg 216deg,
+                #10b981 216deg 288deg,
+                #f59e0b 288deg 324deg,
+                #ef4444 324deg 360deg
+            );
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+            position: relative;
+        }
+
+        .pie-chart::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px;
+            height: 120px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: inset 0 2px 8px rgba(15, 23, 42, 0.1);
+        }
+
+        .allocation-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            background: rgba(248, 250, 252, 0.6);
+            border-radius: 12px;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(226, 232, 240, 0.4);
+        }
+
+        .legend-item:hover {
+            background: rgba(59, 130, 246, 0.05);
+            transform: translateX(4px);
+        }
+
+        .legend-color {
+            width: 18px;
+            height: 18px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .legend-label {
+            flex: 1;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .legend-percentage {
+            font-size: 18px;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+
+        .diversification-score {
+            grid-column: 1 / -1;
+            margin-top: 24px;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .score-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        /* Section 5: Insights Banner */
+        .insights-banner {
+            background: #fffbeb;
+            border: 1px solid #f3d078;
+            border-radius: 8px;
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .insights-icon {
+            width: 32px;
+            height: 32px;
+            background: #f59e0b;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .insights-text {
+            flex: 1;
+            font-size: 14px;
+            color: #1a1a1a;
+            font-weight: 400;
+            line-height: 1.5;
+        }
+
+        .insights-text strong {
+            color: #92400e;
+            font-weight: 600;
+        }
+
+        /* Footer */
+        .page-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 32px;
+            padding: 24px 0;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .back-link {
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+
+        .back-link:hover {
+            color: #1f2937;
+        }
+
+        .cta-button {
+            background: #1f2937;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: all 0.15s ease;
+        }
+
+        .cta-button:hover {
+            background: #111827;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="page-title">Wealth Strategy Builder</h1>
+            <p class="page-subtitle">Design your portfolio based on your wealth goals and income needs</p>
+
+            <div class="scenario-tabs">
+                <div class="scenario-tab active">Growth Phase</div>
+                <div class="scenario-tab">Income Phase</div>
+                <div class="scenario-tab">Recession Test</div>
+                <div class="scenario-tab">Age Transition</div>
+                <div class="scenario-tab">Custom CAGR</div>
+            </div>
+        </div>
+
+        <!-- Section 1: Scenario Controls -->
+        <div class="scenario-controls">
+            <div class="control-group">
+                <label class="control-label">Current Age / Target Age</label>
+                <div class="contribution-input">
+                    <input type="text" class="currency-input" value="28 / 50" />
+                    <div class="stepper">
+                        <button class="stepper-btn">+</button>
+                        <button class="stepper-btn">−</button>
+                    </div>
+                </div>
+                <span class="control-sublabel">When do you need income?</span>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Wealth Strategy</label>
+                <div class="time-horizon">
+                    <button class="time-btn active">Max Growth</button>
+                    <button class="time-btn">Balanced</button>
+                    <button class="time-btn">Income Focus</button>
+                </div>
+                <span class="control-sublabel">Growth vs dividend income priority</span>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Monthly Investment</label>
+                <div class="contribution-input">
+                    <input type="text" class="currency-input" value="$8,000" />
+                    <div class="stepper">
+                        <button class="stepper-btn">+</button>
+                        <button class="stepper-btn">−</button>
+                    </div>
+                </div>
+                <span class="control-sublabel">How much you invest monthly</span>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="main-grid">
+            <!-- Section 2: Projection Graph -->
+            <div class="projection-section">
+                <div class="section-header">
+                    <div>
+                        <h2 class="section-title">Wealth & Income Projection</h2>
+                        <p class="section-subtitle">Total wealth growth + passive income timeline</p>
+                    </div>
+                    <div class="success-badge">$4.2M + $12K/mo income</div>
+                </div>
+
+                <div class="chart-container">
+                    <div class="chart-y-labels">
+                        <span>$3.5M</span>
+                        <span>$3.0M</span>
+                        <span>$2.5M</span>
+                        <span>$2.0M</span>
+                        <span>$1.5M</span>
+                        <span>$1.0M</span>
+                        <span>$500K</span>
+                        <span>$0</span>
+                    </div>
+
+                    <div class="chart-area">
+                        <div class="projection-cone">
+                            <div class="cone-p90"></div>
+                            <div class="cone-p50"></div>
+                            <div class="cone-p10"></div>
+                        </div>
+
+                        <div class="goal-line">
+                            <span class="goal-label">Target: $2.5M by 2044</span>
+                        </div>
+                    </div>
+
+                    <div class="chart-labels">
+                        <span>2024</span>
+                        <span>2029</span>
+                        <span>2034</span>
+                        <span>2039</span>
+                        <span>2044</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Strategy Impact Sidebar -->
+            <div class="risk-summary">
+                <h3 class="risk-summary-title">Strategy Analysis</h3>
+
+                <div class="risk-item">
+                    <div class="risk-item-left">
+                        <span class="risk-label">Age 30: Growth Focus</span>
+                        <div class="risk-value">90% Growth / $150/mo income</div>
+                    </div>
+                </div>
+
+                <div class="risk-item">
+                    <div class="risk-item-left">
+                        <span class="risk-label">Age 40: Transition</span>
+                        <div class="risk-value">70% Growth / $4.5K/mo income</div>
+                    </div>
+                </div>
+
+                <div class="risk-item">
+                    <div class="risk-item-left">
+                        <span class="risk-label">Age 50: Income Focus</span>
+                        <div class="risk-value">40% Growth / $12K/mo income</div>
+                    </div>
+                </div>
+
+                <div class="risk-item">
+                    <div class="risk-item-left">
+                        <span class="risk-label">Recession Impact</span>
+                        <div class="risk-value">-$800K (-19%)</div>
+                    </div>
+                </div>
+
+                <div class="risk-item">
+                    <div class="risk-item-left">
+                        <span class="risk-label">Income During Crisis</span>
+                        <div class="risk-value">$8.5K/mo (70% maintained)</div>
+                    </div>
+                </div>
+
+                <div class="risk-item">
+                    <div class="risk-item-left">
+                        <span class="risk-label">FIRE Number</span>
+                        <div class="risk-value">$3.6M (25x annual expenses)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Asset Allocation -->
+        <div class="allocation-section">
+            <div class="pie-container">
+                <div class="pie-chart"></div>
+            </div>
+
+            <div class="allocation-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #3b82f6;"></div>
+                    <span class="legend-label">Growth Stocks (QQQ, TQQQ)</span>
+                    <span class="legend-percentage">50%</span>
+                </div>
+
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #10b981;"></div>
+                    <span class="legend-label">Dividend Stocks (SCHD, VYM)</span>
+                    <span class="legend-percentage">25%</span>
+                </div>
+
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f59e0b;"></div>
+                    <span class="legend-label">International (VXUS)</span>
+                    <span class="legend-percentage">15%</span>
+                </div>
+
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ef4444;"></div>
+                    <span class="legend-label">REITs & Income (VNQ, BND)</span>
+                    <span class="legend-percentage">10%</span>
+                </div>
+            </div>
+
+            <div class="diversification-score">
+                <div class="score-label">Diversification Score</div>
+                <div class="score-value">8.2/10</div>
+            </div>
+        </div>
+
+        <!-- Section 5: Insights Banner -->
+        <div class="insights-banner">
+            <div class="insights-icon">💡</div>
+            <div class="insights-text">
+                <strong>Recommendation:</strong> Increase your monthly investment by $150 to raise success probability from 68% → 84%.
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="page-footer">
+            <a href="#" class="back-link">← Back to Overview</a>
+            <a href="#" class="cta-button">View Detailed Report</a>
+        </div>
+    </div>
+
+    <script>
+        // Add some basic interactivity
+        document.querySelectorAll('.time-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
+        // Stepper functionality
+        document.querySelectorAll('.stepper-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const input = btn.closest('.contribution-input').querySelector('.currency-input');
+                const currentValue = parseInt(input.value.replace(/[^0-9]/g, ''));
+                const increment = btn.textContent === '+' ? 100 : -100;
+                const newValue = Math.max(0, currentValue + increment);
+                input.value = '$' + newValue.toLocaleString();
+            });
+        });
+    </script>
+</body>
+</html>

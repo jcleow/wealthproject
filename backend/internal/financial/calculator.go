@@ -99,7 +99,7 @@ func (c *FinancialCalculator) calculateLiabilityImpact(args map[string]interface
 	}
 
 	return &ImpactEstimate{
-		NetWorthChange: -balance, // Liability decreases net worth
+		NetWorthChange: -balance,        // Liability decreases net worth
 		MonthlyChange:  -monthlyPayment, // Monthly payment reduces cash flow
 		Description:    description,
 	}
@@ -202,15 +202,15 @@ func (c *FinancialCalculator) CalculateAffordability(monthlyIncome, monthlyDebts
 	msr := monthlyPayment / monthlyIncome
 
 	// Singapore typical limits
-	dsrLimit := 0.55  // 55% DSR limit
-	msrLimit := 0.30  // 30% MSR limit
+	dsrLimit := 0.55 // 55% DSR limit
+	msrLimit := 0.30 // 30% MSR limit
 
 	return AffordabilityResult{
-		MonthlyPayment:    monthlyPayment,
-		DSR:               dsr,
-		MSR:               msr,
-		DSRWithinLimit:    dsr <= dsrLimit,
-		MSRWithinLimit:    msr <= msrLimit,
+		MonthlyPayment:     monthlyPayment,
+		DSR:                dsr,
+		MSR:                msr,
+		DSRWithinLimit:     dsr <= dsrLimit,
+		MSRWithinLimit:     msr <= msrLimit,
 		MaxAffordablePrice: c.calculateMaxAffordablePrice(monthlyIncome, monthlyDebts, rate, years, downPayment),
 	}
 }

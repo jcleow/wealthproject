@@ -5,18 +5,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
+	"financial-chat-system/backend/internal/financial/repository"
 )
 
-// Client handles financial operations
+// Client handles financial operations backed by repository storage.
 type Client struct {
-	// In a real implementation, this would connect to a financial data service
-	// For now, we'll simulate operations
+	store *repository.Store
 }
 
 // NewClient creates a new financial client
-func NewClient() *Client {
-	return &Client{}
+func NewClient(store *repository.Store) *Client {
+	return &Client{store: store}
 }
 
 // CreateAsset creates a new financial asset
@@ -31,12 +30,17 @@ func (c *Client) CreateAsset(ctx context.Context, params AssetParams) (*string, 
 		return nil, fmt.Errorf("valid current value is required")
 	}
 
-	assetID := uuid.New().String()
-
-	fmt.Printf("Created asset: ID=%s, Name=%s, Category=%s, Value=%.2f\n",
-		assetID, params.Name, params.Category, params.CurrentValue)
-
-	return &assetID, nil
+	created, err := c.store.CreateAsset(ctx, repository.Asset{
+		Name:             params.Name,
+		Category:         params.Category,
+		CurrentValue:     params.CurrentValue,
+		AnnualGrowthRate: derefFloat(params.AnnualGrowthRate),
+		Notes:            params.Notes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &created.ID, nil
 }
 
 // UpdateAsset updates an existing financial asset
@@ -49,8 +53,29 @@ func (c *Client) UpdateAsset(ctx context.Context, params UpdateAssetParams) (*st
 		return nil, fmt.Errorf("asset ID is required")
 	}
 
-	fmt.Printf("Updated asset: ID=%s\n", assetID)
-	return &assetID, nil
+	current, err := c.store.GetAsset(ctx, assetID)
+	if err != nil {
+		return nil, err
+	}
+
+	if params.Name != "" {
+		current.Name = params.Name
+	}
+	if params.CurrentValue != nil {
+		current.CurrentValue = *params.CurrentValue
+	}
+	if params.AnnualGrowthRate != nil {
+		current.AnnualGrowthRate = *params.AnnualGrowthRate
+	}
+	if params.Notes != "" {
+		current.Notes = params.Notes
+	}
+
+	updated, err := c.store.UpdateAsset(ctx, current)
+	if err != nil {
+		return nil, err
+	}
+	return &updated.ID, nil
 }
 
 // CreateLiability creates a new financial liability
@@ -68,12 +93,18 @@ func (c *Client) CreateLiability(ctx context.Context, params LiabilityParams) (*
 		return nil, fmt.Errorf("valid interest rate is required")
 	}
 
-	liabilityID := uuid.New().String()
-
-	fmt.Printf("Created liability: ID=%s, Name=%s, Category=%s, Balance=%.2f, Rate=%.4f\n",
-		liabilityID, params.Name, params.Category, params.CurrentBalance, params.InterestRate)
-
-	return &liabilityID, nil
+	created, err := c.store.CreateLiability(ctx, repository.Liability{
+		Name:            params.Name,
+		Category:        params.Category,
+		CurrentBalance:  params.CurrentBalance,
+		InterestRateAPR: params.InterestRate,
+		MinimumPayment:  derefFloat(params.MonthlyPayment),
+		Notes:           params.Notes,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &created.ID, nil
 }
 
 // UpdateLiability updates an existing financial liability
@@ -86,8 +117,32 @@ func (c *Client) UpdateLiability(ctx context.Context, params UpdateLiabilityPara
 		return nil, fmt.Errorf("liability ID is required")
 	}
 
-	fmt.Printf("Updated liability: ID=%s\n", liabilityID)
-	return &liabilityID, nil
+	current, err := c.store.GetLiability(ctx, liabilityID)
+	if err != nil {
+		return nil, err
+	}
+
+	if params.Name != "" {
+		current.Name = params.Name
+	}
+	if params.CurrentBalance != nil {
+		current.CurrentBalance = *params.CurrentBalance
+	}
+	if params.InterestRate != nil {
+		current.InterestRateAPR = *params.InterestRate
+	}
+	if params.MonthlyPayment != nil {
+		current.MinimumPayment = *params.MonthlyPayment
+	}
+	if params.Notes != "" {
+		current.Notes = params.Notes
+	}
+
+	updated, err := c.store.UpdateLiability(ctx, current)
+	if err != nil {
+		return nil, err
+	}
+	return &updated.ID, nil
 }
 
 // CreatePropertyScenario creates a property investment scenario
@@ -117,21 +172,33 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 		return nil, fmt.Errorf("loan amount does not match property price minus down payment")
 	}
 
-	scenarioID := uuid.New().String()
+	headline := params.Name
+	if headline == "" {
+		headline = "Property Scenario"
+	}
+	subheadline := fmt.Sprintf("%s | %.0f price, %.0f down, %.0f loan @ %.2f%%", params.PropertyType, params.PropertyPrice, params.DownPayment, params.LoanAmount, params.InterestRate*100)
+	created, err := c.store.CreatePropertyScenario(ctx, repository.PropertyScenario{
+		PropertyType:  params.PropertyType,
+		Headline:      headline,
+		Subheadline:   subheadline,
+		LastRefreshed: time.Now().Format(time.RFC3339),
+		PropertyPrice: params.PropertyPrice,
+		DownPayment:   params.DownPayment,
+		LoanAmount:    params.LoanAmount,
+		InterestRate:  params.InterestRate,
+		LoanTenure:    params.LoanTenure,
+		Notes:         params.Notes,
+		Amortization:  map[string]interface{}{},
+		Snapshot:      map[string]interface{}{},
+		Timeline:      map[string]interface{}{},
+		Milestones:    map[string]interface{}{},
+		Insights:      map[string]interface{}{},
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	fmt.Printf(
-		"Created property scenario: ID=%s, Name=%s, Price=%.2f, Down=%.2f, Loan=%.2f, Rate=%.3f, Tenure=%dy, Type=%s\n",
-		scenarioID,
-		params.Name,
-		params.PropertyPrice,
-		params.DownPayment,
-		params.LoanAmount,
-		params.InterestRate,
-		params.LoanTenure,
-		params.PropertyType,
-	)
-
-	return &scenarioID, nil
+	return &created.ID, nil
 }
 
 // CalculateNetWorth calculates the current net worth
@@ -164,12 +231,20 @@ func (c *Client) GetFinancialSummary(ctx context.Context, userID string) (map[st
 // RollbackAction performs a best-effort rollback for a previously executed action.
 // In this simulated client we simply log the rollback attempt.
 func (c *Client) RollbackAction(ctx context.Context, toolName string, entityID *string) error {
-	if entityID == nil {
+	if entityID == nil || c.store == nil {
 		return nil
 	}
 
-	fmt.Printf("Rolling back %s for entity %s\n", toolName, *entityID)
-	return nil
+	switch toolName {
+	case "createAsset":
+		return c.store.DeleteAsset(ctx, *entityID)
+	case "createLiability":
+		return c.store.DeleteLiability(ctx, *entityID)
+	case "createPropertyScenario":
+		return c.store.DeletePropertyScenario(ctx, *entityID)
+	default:
+		return nil
+	}
 }
 
 // ValidateFinancialConstraints validates financial constraints like MSR and TDSR
@@ -215,4 +290,11 @@ func abs(v float64) float64 {
 		return -v
 	}
 	return v
+}
+
+func derefFloat(v *float64) float64 {
+	if v == nil {
+		return 0
+	}
+	return *v
 }

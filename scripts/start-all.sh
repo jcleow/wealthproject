@@ -115,7 +115,7 @@ source <(grep -v '^#' .env | grep -v '^$' | sed 's/#.*//')
 set +a
 
 # Start backend
-./bin/server > /tmp/backend.log 2>&1 &
+MIGRATIONS_DIR=${MIGRATIONS_DIR:-"backend/migrations"} ./bin/server > /tmp/backend.log 2>&1 &
 BACKEND_PID=$!
 echo $BACKEND_PID >> $PIDS_FILE
 

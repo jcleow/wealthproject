@@ -469,6 +469,72 @@ func (h *DispatchHandler) HandleDispatch(w http.ResponseWriter, r *http.Request)
 - `internal/financial/executor.go`
 - `internal/audit/logger.go`
 
+### Ticket B7a: Financial CRUD API (Assets & Liabilities)
+**Priority:** P0  
+**Estimate:** 4 story points  
+**Dependencies:** B7  
+**Team:** Backend  
+**Status:** todo  
+
+**Description:**  
+Add persistent CRUD APIs for assets and liabilities, backed by Postgres.
+
+**Acceptance Criteria:**  
+- [ ] Migrations create `finance_assets` and `finance_liabilities` tables (id, name, category, current_value/current_balance, rates, notes, updated_at).  
+- [ ] REST endpoints:
+  - Assets: `GET/POST /assets`, `GET/PUT/DELETE /assets/{id}`  
+  - Liabilities: `GET/POST /liabilities`, `GET/PUT/DELETE /liabilities/{id}`  
+- [ ] Handlers validate payloads; map not found/invalid to 404/400.  
+- [ ] Repository layer wraps DB operations for create/get/list/update/delete.  
+
+**Files:**  
+- `backend/migrations/00x_finance_assets_liabilities.sql`  
+- `internal/financial/repository/*.go` or equivalent store  
+- `cmd/server/handlers/assets.go`, `cmd/server/handlers/liabilities.go`  
+
+### Ticket B7b: Property Planner CRUD API
+**Priority:** P0  
+**Estimate:** 3 story points  
+**Dependencies:** B7a  
+**Team:** Backend  
+**Status:** todo  
+
+**Description:**  
+Expose CRUD for property planner scenarios with persistence.
+
+**Acceptance Criteria:**  
+- [ ] Migration creates `property_scenarios` table (id, name/headline, property_type, price/downPayment/loanAmount/interestRate/loanTenure, notes, metadata jsonb, updated_at).  
+- [ ] REST endpoints: `GET/POST /property-planner/scenarios`, `GET/PUT/DELETE /property-planner/scenarios/{id}`.  
+- [ ] Validation for required fields and enum for property_type.  
+- [ ] Repository layer for create/get/list/update/delete.  
+
+**Files:**  
+- `backend/migrations/00x_property_scenarios.sql`  
+- `internal/financial/repository/property.go`  
+- `cmd/server/handlers/property_scenarios.go`  
+
+### Ticket B7c: Dispatch Persistence Integration
+**Priority:** P0  
+**Estimate:** 3 story points  
+**Dependencies:** B7a, B7b  
+**Team:** Backend  
+**Status:** todo  
+
+**Description:**  
+Update dispatch to persist actions via the new repositories instead of the in-memory client.
+
+**Acceptance Criteria:**  
+- [ ] `createAsset/updateAsset` tool calls create/update rows in `finance_assets`.  
+- [ ] `createLiability/updateLiability` tool calls create/update rows in `finance_liabilities`.  
+- [ ] `createPropertyScenario` persists to `property_scenarios`.  
+- [ ] Dispatch still handles dependencies/rollback and returns entity IDs from DB.  
+- [ ] Execution audit recorded in `tool_execution_log` per action.  
+
+**Files:**  
+- `cmd/server/handlers/dispatch.go`  
+- `internal/financial/services/*.go`  
+- `internal/financial/repository/*`  
+
 ---
 
 ## Phase 4: Database & Session Management

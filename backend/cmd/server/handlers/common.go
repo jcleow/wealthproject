@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 )
 
 // ErrorResponse represents an API error response
@@ -34,4 +35,32 @@ func writeSuccess(w http.ResponseWriter, data interface{}) {
 	w.WriteHeader(http.StatusOK)
 
 	json.NewEncoder(w).Encode(data)
+}
+
+func methodNotAllowed(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusMethodNotAllowed)
+}
+
+func notFound(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNotFound)
+}
+
+func badRequest(w http.ResponseWriter, err error) {
+	writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+}
+
+func internalError(w http.ResponseWriter) {
+	writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+}
+
+func errMissingFields(fields string) error {
+	return &fieldError{fields: fields}
+}
+
+type fieldError struct {
+	fields string
+}
+
+func (e *fieldError) Error() string {
+	return "missing required fields: " + strings.TrimSpace(e.fields)
 }
