@@ -3,7 +3,7 @@
 **Repository:** `financial-chat-system`
 **Scope:** Multiyear planning (timeline 0–20y, overrides, growth config, frontend integration)
 **Total Points:** 21 points
-**Status:** todo (all tickets)
+**Status:** mixed (backend done; frontend in progress)
 
 ---
 
@@ -13,7 +13,7 @@
 **Priority:** P0  
 **Estimate:** 5 points  
 **Dependencies:** Existing finance data models; growth config (B11)  
-**Status:** todo  
+**Status:** done  
 **Blocks:** B10; frontend F9/F10/F11
 
 **Description:**  
@@ -43,7 +43,7 @@ Build deterministic annual projection engine (years 0–20) that annualizes inpu
 **Priority:** P0  
 **Estimate:** 4 points  
 **Dependencies:** B9, B11  
-**Status:** todo  
+**Status:** done  
 **Blocks:** Frontend F9/F10/F11
 
 **Description:**  
@@ -71,7 +71,7 @@ Expose versioned endpoints for timeline fetch and year upsert edits (including n
 **Priority:** P0  
 **Estimate:** 2 points  
 **Dependencies:** None  
-**Status:** todo  
+**Status:** done  
 **Blocks:** B9 (needs config), frontend growth editing (future)
 
 **Description:**  
@@ -99,7 +99,7 @@ Expose bounded growth assumptions per category with seed defaults.
 **Priority:** P0  
 **Estimate:** 3 points  
 **Dependencies:** B10  
-**Status:** todo  
+**Status:** in-progress  
 **Blocks Testing On:** B10 availability
 
 **Description:**  
@@ -124,7 +124,7 @@ Add 0–20 selector and load timeline; bind Financial Data cards and graph serie
 **Priority:** P0  
 **Estimate:** 4 points  
 **Dependencies:** B10  
-**Status:** todo  
+**Status:** in-progress  
 **Blocks Testing On:** B10 availability
 
 **Description:**  
@@ -150,7 +150,7 @@ Add edit/create UI for a year; call PUT timeline/{year}; show annualized sublabe
 **Priority:** P0  
 **Estimate:** 3 points  
 **Dependencies:** B9, B10  
-**Status:** todo  
+**Status:** in-progress  
 **Blocks Testing On:** B9/B10 data
 
 **Description:**  
@@ -172,5 +172,5 @@ Render override markers and enable click-to-jump to the selected year; show annu
 ---
 
 ## Blocked Testing Summary
-- Frontend F9/F10/F11 testing is blocked until B9/B10 (timeline projection + API) are delivered.
-- Future growth editing UI would depend on B11.
+- Backend B9/B10/B11 delivered; frontend F9/F10/F11 can now integrate and validate against live timeline APIs.
+- Future growth editing UI would depend on B11 (now available).

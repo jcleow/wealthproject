@@ -11,6 +11,7 @@ import {
 
 import { useFinancialData } from '@/hooks/useFinancialData'
 import type { TimelineYear } from '@/types/timeline'
+import { formatCurrency } from '@/lib/format'
 
 const chartColors = {
   axis: '#aeb6c9',
@@ -46,11 +47,11 @@ function CustomTooltip({
     <div className="rounded-xl border border-white/10 bg-[#0f1728]/90 px-4 py-3 shadow-2xl backdrop-blur">
       <p className="text-xs uppercase tracking-wide text-slate-300">{data.yearLabel}</p>
       <p className="mt-1 font-semibold text-blue-300">
-        Net Worth: ${data.netWorth.toLocaleString()}
+        Net Worth: {formatCurrency(data.netWorth)}
       </p>
-      <p className="text-emerald-300 text-sm">Assets ${data.totalAssets.toLocaleString()}</p>
+      <p className="text-emerald-300 text-sm">Assets {formatCurrency(data.totalAssets)}</p>
       <p className="text-rose-300 text-sm">
-        Liabilities ${data.totalLiabilities.toLocaleString()}
+        Liabilities {formatCurrency(data.totalLiabilities)}
       </p>
       {data.hasNonAnnualSource && (
         <p className="mt-1 text-[11px] uppercase tracking-wide text-sky-200">
@@ -117,12 +118,14 @@ function YearTick({
 
 export interface NetWorthProjectionProps {
   timelineYears?: TimelineYear[]
+  overrideYears?: Set<number>
   selectedYear?: number
   onSelectYear?: (year: number) => void
 }
 
 export function NetWorthProjection({
   timelineYears,
+  overrideYears,
   selectedYear,
   onSelectYear,
 }: NetWorthProjectionProps) {
@@ -277,6 +280,7 @@ export function NetWorthProjection({
                 tick={
                   <YearTick
                     overrideYears={
+                      overrideYears ??
                       new Set(
                         projection.filter((point) => point.hasOverride).map((point) => point.yearIndex)
                       )

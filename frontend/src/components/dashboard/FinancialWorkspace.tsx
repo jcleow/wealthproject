@@ -210,6 +210,7 @@ export function FinancialWorkspace({
       <div className="flex-1 p-6 min-h-[400px]">
         <NetWorthProjection
           timelineYears={timelineYears}
+          overrideYears={overrideYears}
           selectedYear={selectedYear}
           onSelectYear={(year) => {
             onSelectYear(year)
