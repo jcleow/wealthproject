@@ -159,6 +159,14 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		llmRequest.MaxTokens = h.defaultMaxTokens
 	}
 
+	// If no LLM providers are configured, return a clear error before calling.
+	if lister, ok := h.llmClient.(interface{ GetAvailableProviders() []string }); ok {
+		if len(lister.GetAvailableProviders()) == 0 {
+			writeError(w, http.StatusServiceUnavailable, "llm_not_configured", "No LLM providers configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY.")
+			return
+		}
+	}
+
 	// Call LLM with timeout
 	llmCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

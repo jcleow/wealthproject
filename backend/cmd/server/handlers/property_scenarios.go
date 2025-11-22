@@ -86,8 +86,8 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 		badRequest(w, err)
 		return
 	}
-	if payload.PropertyType == "" || payload.Headline == "" || payload.PropertyPrice == 0 || payload.DownPayment == 0 || payload.LoanAmount == 0 || payload.InterestRate == 0 || payload.LoanTenure == 0 {
-		badRequest(w, errMissingFields("property_type, headline, property_price, down_payment, loan_amount, interest_rate, loan_tenure"))
+	if payload.PropertyType == "" || payload.Headline == "" || payload.PropertyPrice == 0 || payload.LoanAmount == 0 || payload.InterestRate == 0 || payload.LoanTenure == 0 {
+		badRequest(w, errMissingFields("property_type, headline, property_price, loan_amount, interest_rate, loan_tenure"))
 		return
 	}
 	created, err := h.store.CreatePropertyScenario(r.Context(), payload.PropertyScenario)

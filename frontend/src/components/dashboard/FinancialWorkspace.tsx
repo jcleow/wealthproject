@@ -1,19 +1,112 @@
 import { useState } from 'react'
-import { Building2, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
+import { Building2, Loader2, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 
+import { useFinancialData } from '@/hooks/useFinancialData'
+import { financialApi } from '@/services/financialApi'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { NetWorthProjection } from './NetWorthProjection'
 
-const quickActions = [
-  { icon: Sparkles, label: 'Load defaults' },
-  { icon: Trash2, label: 'Clear data' },
-]
-
 export function FinancialWorkspace() {
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
+  const [isSeeding, setIsSeeding] = useState(false)
+  const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialData()
 
   const handleAction = (label: string) => {
     console.log(`${label} clicked`)
+  }
+
+  const clearPropertyData = async () => {
+    if (typeof window === 'undefined') return
+    const scenarioId = localStorage.getItem('property_planner_scenario_id')
+    localStorage.removeItem('property_planner_draft')
+    localStorage.removeItem('property_planner_scenario_id')
+
+    if (scenarioId) {
+      try {
+        await financialApi.deletePropertyScenario(scenarioId)
+      } catch (error) {
+        console.warn('Unable to delete property scenario', error)
+      }
+    }
+  }
+
+  const handleClearAllData = async () => {
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm('Delete all financial data and property scenarios for this user?')
+      if (!confirmed) return
+    }
+    setIsClearing(true)
+    try {
+      await deleteAllFinancialData()
+      await clearPropertyData()
+      await refresh()
+    } catch (error) {
+      console.error('Failed to clear data', error)
+      if (typeof window !== 'undefined') {
+        window.alert('Unable to clear all data right now. Please try again.')
+      }
+    } finally {
+      setIsClearing(false)
+    }
+  }
+
+  const seedPropertyScenario = async () => {
+    try {
+      const existingAssets = await financialApi.listAssets()
+      const existingLiabilities = await financialApi.listLiabilities()
+      const propertyAsset = existingAssets.find((a) => a.name === 'Sample Condo') ?? existingAssets.find((a) => a.category === 'property')
+      const propertyLiability = existingLiabilities.find((l) => l.name === 'Sample Condo Mortgage') ?? existingLiabilities.find((l) => l.category === 'property')
+      if (!propertyAsset || !propertyLiability) return null
+
+      const scenario = await financialApi.createPropertyScenario({
+        propertyType: 'condo',
+        headline: propertyAsset.name || 'Property scenario',
+        propertyPrice: Math.max(1, propertyAsset.currentValue || 750000),
+        downPayment: 200000,
+        loanAmount: Math.max(1, propertyLiability.currentBalance || 550000),
+        interestRate: Math.max(0.01, propertyLiability.interestRateApr || 3.2),
+        loanTenure: 25,
+        notes: 'Sample scenario for testing',
+        assetId: propertyAsset.id,
+        liabilityId: propertyLiability.id,
+      })
+      if (scenario?.id && typeof window !== 'undefined') {
+        localStorage.setItem('property_planner_scenario_id', scenario.id)
+        localStorage.setItem('property_planner_draft', JSON.stringify({
+          propertyType: 'condo',
+          loanAmount: scenario.loanAmount,
+          loanTermYears: scenario.loanTenure,
+          borrowerType: 'single',
+          loanStartMonth: '2024-06',
+          fixedYears: 5,
+          fixedRate: scenario.interestRate,
+          floatingRate: scenario.interestRate,
+          householdIncome: 8200,
+          otherDebt: 1200,
+        }))
+      }
+      return scenario
+    } catch (error) {
+      console.warn('Unable to seed property scenario', error)
+      return null
+    }
+  }
+
+  const handleLoadDefaults = async () => {
+    setIsSeeding(true)
+    try {
+      await loadSampleData()
+      await seedPropertyScenario()
+      await refresh()
+    } catch (error) {
+      console.error('Failed to load sample data', error)
+      if (typeof window !== 'undefined') {
+        window.alert('Unable to load sample data right now. Please try again.')
+      }
+    } finally {
+      setIsSeeding(false)
+    }
   }
 
   const handlePropertyPlanner = () => {
@@ -35,17 +128,24 @@ export function FinancialWorkspace() {
         </div>
         <div className="flex items-center gap-2">
           <div className="hidden items-center gap-2 md:flex">
-            {quickActions.map(({ icon: Icon, label }) => (
-              <button
-                key={label}
-                onClick={() => handleAction(label)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
-                title={label}
-                type="button"
-              >
-                <Icon className="h-4 w-4" />
-              </button>
-            ))}
+            <button
+              onClick={handleLoadDefaults}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
+              title="Load defaults"
+              type="button"
+              disabled={isSeeding}
+            >
+              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={handleClearAllData}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-600/10 text-rose-100 transition hover:bg-rose-600/20 hover:text-white disabled:opacity-60"
+              title="Delete all data"
+              type="button"
+              disabled={isClearing}
+            >
+              {isClearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            </button>
           </div>
           <button
             onClick={handlePropertyPlanner}

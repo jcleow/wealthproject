@@ -109,6 +109,7 @@ func (c *FinancialCalculator) calculateLiabilityImpact(args map[string]interface
 	balance := getFloatParam(args, "currentBalance", 0)
 	rate := getFloatParam(args, "interestRate", 0)
 	monthlyPayment := getFloatParam(args, "monthlyPayment", 0)
+	tenure := getIntParam(args, "loanTenure", 25)
 
 	var description string
 	if isUpdate {
@@ -119,8 +120,10 @@ func (c *FinancialCalculator) calculateLiabilityImpact(args map[string]interface
 
 	// If monthly payment is not provided, estimate it
 	if monthlyPayment == 0 && balance > 0 && rate > 0 {
-		// Assume 25-year term for estimation
-		monthlyPayment = c.CalculateMonthlyPayment(balance, rate, 25)
+		if tenure <= 0 {
+			tenure = 25
+		}
+		monthlyPayment = c.CalculateMonthlyPayment(balance, rate, tenure)
 	}
 
 	return &ImpactEstimate{

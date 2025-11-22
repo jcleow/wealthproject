@@ -95,6 +95,40 @@ type PropertyLink struct {
 	UpdatedAt          time.Time
 }
 
+// GetAssetByNameAndCategory returns an asset by name/category if it exists.
+func (s *Store) GetAssetByNameAndCategory(ctx context.Context, name, category string) (Asset, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, name, category, current_value, annual_growth_rate, COALESCE(notes, ''), updated_at
+		FROM finance_assets
+		WHERE LOWER(name)=LOWER($1) AND category=$2
+		LIMIT 1`, name, category)
+	var a Asset
+	if err := row.Scan(&a.ID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Notes, &a.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Asset{}, ErrNotFound
+		}
+		return Asset{}, err
+	}
+	return a, nil
+}
+
+// GetLiabilityByNameAndCategory returns a liability by name/category if it exists.
+func (s *Store) GetLiabilityByNameAndCategory(ctx context.Context, name, category string) (Liability, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(notes, ''), updated_at
+		FROM finance_liabilities
+		WHERE LOWER(name)=LOWER($1) AND category=$2
+		LIMIT 1`, name, category)
+	var li Liability
+	if err := row.Scan(&li.ID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Notes, &li.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Liability{}, ErrNotFound
+		}
+		return Liability{}, err
+	}
+	return li, nil
+}
+
 // ----- Asset operations -----
 
 func (s *Store) ListAssets(ctx context.Context) ([]Asset, error) {

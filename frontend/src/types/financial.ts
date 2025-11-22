@@ -44,6 +44,15 @@ export const liabilitySchema = z.object({
 
 export type Liability = z.infer<typeof liabilitySchema>
 
+export type PropertyLink = {
+  id: string
+  propertyScenarioId: string
+  assetId: string
+  liabilityId: string
+  createdAt: string
+  updatedAt: string
+}
+
 export const incomeSchema = z.object({
   id: z.string().min(1),
   source: z.string().min(1),
