@@ -217,11 +217,13 @@ func main() {
 	incomeHandler := handlers.NewIncomeHandler(finStore)
 	expenseHandler := handlers.NewExpenseHandler(finStore)
 	propertyHandler := handlers.NewPropertyScenarioHandler(finStore)
+	propertyLinkHandler := handlers.NewPropertyLinkHandler(finStore)
 	v1Router.PathPrefix("/assets").Handler(handlerToHTTPMux("/api/v1", assetHandler.RegisterRoutes))
 	v1Router.PathPrefix("/liabilities").Handler(handlerToHTTPMux("/api/v1", liabilityHandler.RegisterRoutes))
 	v1Router.PathPrefix("/cashflow/incomes").Handler(handlerToHTTPMux("/api/v1", incomeHandler.RegisterRoutes))
 	v1Router.PathPrefix("/cashflow/expenses").Handler(handlerToHTTPMux("/api/v1", expenseHandler.RegisterRoutes))
 	v1Router.PathPrefix("/property-planner/scenarios").Handler(handlerToHTTPMux("/api/v1", propertyHandler.RegisterRoutes))
+	v1Router.PathPrefix("/property-links").Handler(handlerToHTTPMux("/api/v1", propertyLinkHandler.RegisterRoutes))
 
 	// Financial action endpoints
 	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST", "OPTIONS")

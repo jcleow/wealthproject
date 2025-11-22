@@ -74,3 +74,26 @@ export interface PropertyPlannerScenario {
   createdAt: string
   updatedAt: string
 }
+
+// Backend-aligned models for property linking flows
+export interface PropertyScenarioRecord {
+  id: string
+  propertyType: string
+  headline: string
+  propertyPrice: number
+  downPayment: number
+  loanAmount: number
+  interestRate: number
+  loanTenure: number
+  notes: string
+  updatedAt: string
+}
+
+export interface PropertyLinkRecord {
+  id: string
+  propertyScenarioId: string
+  assetId: string
+  liabilityId: string
+  createdAt: string
+  updatedAt: string
+}

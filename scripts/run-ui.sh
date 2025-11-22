@@ -1,17 +1,35 @@
 #!/usr/bin/env bash
 
-# Run a single worktree's frontend (and optional backend) with simple fe=/be= flags.
-# Usage: bash scripts/run-ui.sh [fe=PORT] [be=PORT] [env=/path/to/.env] [env_mode=copy|symlink] [no-backend] [no-install]
-# Defaults: frontend 3000, backend 8080, backend auto-start unless no-backend is provided. Auto-installs frontend deps if needed.
+# Run a single worktree's frontend (and optional backend) with isolated Postgres.
+# Usage: bash scripts/run-ui.sh [fe=PORT] [be=PORT] [db=PORT] [env=/path/to/.env] [env_mode=copy|symlink] [no-backend] [no-install]
+# Defaults: frontend 3000, backend 8080, backend + Postgres auto-start unless no-backend is provided. Auto-installs frontend deps if needed.
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+FRONTEND_DIR="${REPO_ROOT}/frontend"
+BACKEND_DIR="${REPO_ROOT}/backend"
+ENV_TARGET="${REPO_ROOT}/.env"
+
 FRONTEND_PORT="3000"
 BACKEND_PORT="8080"
+REQUESTED_DB_PORT=""
 START_BACKEND=true
 ENV_SOURCE=""
 ENV_MODE="copy" # copy | symlink
 AUTO_INSTALL=true
+POSTGRES_IMAGE="postgres:15-alpine"
+
+slugify() {
+  echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
+}
+
+WORKTREE_NAME="$(basename "$REPO_ROOT")"
+WORKTREE_HASH="$(printf "%s" "$REPO_ROOT" | shasum -a 256 | cut -c1-6)"
+WORKTREE_SLUG="$(slugify "${WORKTREE_NAME:-worktree}")-${WORKTREE_HASH}"
+POSTGRES_CONTAINER="fcs-${WORKTREE_SLUG}-postgres"
+POSTGRES_VOLUME="fcs-${WORKTREE_SLUG}-pgdata"
 
 for arg in "$@"; do
 case "$arg" in
@@ -20,6 +38,9 @@ case "$arg" in
       ;;
     be=*|backend=*)
       BACKEND_PORT="${arg#*=}"
+      ;;
+    db=*|db_port=*)
+      REQUESTED_DB_PORT="${arg#*=}"
       ;;
     env=*)
       ENV_SOURCE="${arg#*=}"
@@ -35,45 +56,87 @@ case "$arg" in
       ;;
     *)
       echo "Unknown arg: $arg"
-      echo "Usage: $0 [fe=PORT] [be=PORT] [env=/path/to/.env] [env_mode=copy|symlink] [no-backend] [no-install]"
+      echo "Usage: $0 [fe=PORT] [be=PORT] [db=PORT] [env=/path/to/.env] [env_mode=copy|symlink] [no-backend] [no-install]"
       exit 1
       ;;
   esac
 done
 
+if [[ ! -d "$FRONTEND_DIR" || ! -d "$BACKEND_DIR" ]]; then
+  echo "Run this script from a repository worktree (expected ${FRONTEND_DIR} and ${BACKEND_DIR})."
+  exit 1
+fi
+
 pids=()
+DB_STARTED_BY_SCRIPT=false
+
 cleanup() {
   for pid in "${pids[@]}"; do
     if kill -0 "$pid" >/dev/null 2>&1; then
       kill "$pid" >/dev/null 2>&1 || true
     fi
   done
+  if [[ "$DB_STARTED_BY_SCRIPT" == "true" ]]; then
+    echo "Stopping Postgres container ${POSTGRES_CONTAINER}"
+    docker stop "$POSTGRES_CONTAINER" >/dev/null 2>&1 || true
+  fi
 }
 trap cleanup EXIT
+
+default_db_port() {
+  local seed_hex
+  seed_hex="$(printf "%s" "$REPO_ROOT" | shasum -a 256 | cut -c1-4)"
+  # shellcheck disable=SC2059
+  local seed_dec=$((16#$seed_hex))
+  echo $((5400 + (seed_dec % 1000)))
+}
+
+find_env_source() {
+  if [[ -n "$ENV_SOURCE" ]]; then
+    echo "$ENV_SOURCE"
+    return
+  fi
+
+  # Prefer main worktree .env if available
+  local main_tree
+  main_tree="$(git -C "$REPO_ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+  if [[ -n "$main_tree" && -f "$main_tree/.env" && "$main_tree/.env" != "$ENV_TARGET" ]]; then
+    echo "$main_tree/.env"
+    return
+  fi
+
+  if [[ -f "$REPO_ROOT/.env.example" ]]; then
+    echo "$REPO_ROOT/.env.example"
+    return
+  fi
+
+  echo ""
+}
 
 maybe_seed_env() {
   local target_env="$1"
   if [[ -f "$target_env" ]]; then
     return
   fi
-  # Default to a sibling/main .env if present and no explicit source provided
-  if [[ -z "$ENV_SOURCE" && -f "../.env" ]]; then
-    ENV_SOURCE="../.env"
-  fi
-  if [[ -z "$ENV_SOURCE" ]]; then
-    echo "Warning: $target_env missing and no env= source provided; backend may fail to start."
+
+  local source
+  source="$(find_env_source)"
+  if [[ -z "$source" ]]; then
+    echo "Warning: $target_env missing and no env source found; backend may fail to start."
     return
   fi
-  if [[ ! -f "$ENV_SOURCE" ]]; then
-    echo "Warning: env source '$ENV_SOURCE' not found; skipping env copy."
+
+  if [[ ! -f "$source" ]]; then
+    echo "Warning: env source '$source' not found; skipping env copy."
     return
   fi
+
   if [[ "$ENV_MODE" == "symlink" ]]; then
-    ln -s "$ENV_SOURCE" "$target_env"
-    echo "Symlinked env from $ENV_SOURCE to $target_env"
+    ln -s "$source" "$target_env"
+    echo "Symlinked env from $source to $target_env"
   else
-    cp "$ENV_SOURCE" "$target_env"
-    echo "Copied env from $ENV_SOURCE to $target_env"
+    cp "$source" "$target_env"
+    echo "Copied env from $source to $target_env"
   fi
 }
 
@@ -92,25 +155,205 @@ ensure_frontend_install() {
   )
 }
 
+extract_database_url() {
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    echo "$DATABASE_URL"
+    return
+  fi
+  if [[ -f "$ENV_TARGET" ]]; then
+    local line
+    line="$(grep -E '^DATABASE_URL=' "$ENV_TARGET" | tail -n1 || true)"
+    if [[ -n "$line" ]]; then
+      echo "${line#DATABASE_URL=}"
+      return
+    fi
+  fi
+  echo ""
+}
+
+configure_database_env() {
+  local base_url="$1"
+  local port="$2"
+  local raw="$base_url"
+
+  if [[ -z "$raw" ]]; then
+    raw="postgres://postgres:postgres@localhost:5432/financial_chat?sslmode=disable"
+  fi
+
+  local scheme rest cred_host path_query userpass hostport query path
+
+  # scheme
+  if [[ "$raw" == *"://"* ]]; then
+    scheme="${raw%%://*}"
+    rest="${raw#*://}"
+  else
+    scheme="postgres"
+    rest="$raw"
+  fi
+  [[ -z "$scheme" ]] && scheme="postgres"
+
+  cred_host="${rest%%/*}"
+  path_query="${rest#*/}"
+  [[ "$path_query" == "$rest" ]] && path_query=""
+
+  if [[ "$path_query" == *"?"* ]]; then
+    path="/${path_query%%\?*}"
+    query="${path_query#*\?}"
+  else
+    path="/$path_query"
+    query=""
+  fi
+  [[ -z "$path" || "$path" == "/" ]] && path="/financial_chat"
+  [[ -z "$query" ]] && query="sslmode=disable"
+
+  if [[ "$cred_host" == *"@"* ]]; then
+    userpass="${cred_host%%@*}"
+    hostport="${cred_host#*@}"
+  else
+    userpass=""
+    hostport="$cred_host"
+  fi
+
+  if [[ -z "$userpass" ]]; then
+    DB_USER="postgres"
+    DB_PASSWORD="postgres"
+  else
+    DB_USER="${userpass%%:*}"
+    DB_PASSWORD="${userpass#*:}"
+    [[ "$DB_PASSWORD" == "$DB_USER" ]] && DB_PASSWORD="postgres"
+    [[ -z "$DB_USER" ]] && DB_USER="postgres"
+    [[ -z "$DB_PASSWORD" ]] && DB_PASSWORD="postgres"
+  fi
+
+  local host only_host
+  if [[ "$hostport" == *":"* ]]; then
+    host="${hostport%%:*}"
+    only_host="${hostport#*:}"
+    [[ -z "$only_host" ]] && only_host="5432"
+  else
+    host="$hostport"
+    only_host="5432"
+  fi
+  [[ -z "$host" ]] && host="localhost"
+  DB_NAME="${path#/}"
+  [[ -z "$DB_NAME" ]] && DB_NAME="financial_chat"
+
+  DATABASE_URL_OVERRIDE="${scheme}://${DB_USER}:${DB_PASSWORD}@localhost:${port}/${DB_NAME}?${query}"
+}
+
+get_mapped_port() {
+  docker inspect -f '{{ (index (index .HostConfig.PortBindings "5432/tcp") 0).HostPort }}' "$1" 2>/dev/null || true
+}
+
+wait_for_postgres() {
+  local name="$1"
+  local user="$2"
+  local db="$3"
+  echo "Waiting for Postgres (${name}) to become ready..."
+  for _ in {1..30}; do
+    local state
+    state="$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null || true)"
+    if [[ "$state" == "exited" || "$state" == "dead" ]]; then
+      echo "Postgres container ${name} stopped unexpectedly. Recent logs:"
+      docker logs --tail=50 "$name" || true
+      exit 1
+    fi
+    if docker exec "$name" pg_isready -U "$user" -d "$db" >/dev/null 2>&1; then
+      echo "Postgres is ready."
+      return
+    fi
+    sleep 1
+  done
+  echo "Postgres did not become ready in time."
+  exit 1
+}
+
+ensure_postgres() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Docker is required to run isolated Postgres. Install Docker and try again."
+    exit 1
+  fi
+
+  local desired_port="$1"
+  local init_sql="$2"
+  local existing_state
+  existing_state="$(docker ps -a --filter "name=^${POSTGRES_CONTAINER}$" --format '{{.State}}' || true)"
+
+  if [[ -n "$existing_state" ]]; then
+    local mapped_port
+    mapped_port="$(get_mapped_port "$POSTGRES_CONTAINER")"
+    [[ -z "$mapped_port" ]] && mapped_port="$desired_port"
+
+    if [[ "$existing_state" != "running" ]]; then
+      echo "Starting existing Postgres container ${POSTGRES_CONTAINER} (port ${mapped_port})"
+      docker start "$POSTGRES_CONTAINER" >/dev/null
+      DB_STARTED_BY_SCRIPT=true
+    else
+      echo "Reusing running Postgres container ${POSTGRES_CONTAINER} (port ${mapped_port})"
+    fi
+    POSTGRES_PORT="$mapped_port"
+    return
+  fi
+
+  echo "Launching Postgres container ${POSTGRES_CONTAINER} on port ${desired_port} (volume ${POSTGRES_VOLUME})"
+  local args=(
+    -d
+    --name "$POSTGRES_CONTAINER"
+    -p "${desired_port}:5432"
+    -e "POSTGRES_USER=${DB_USER}"
+    -e "POSTGRES_PASSWORD=${DB_PASSWORD}"
+    -e "POSTGRES_DB=${DB_NAME}"
+    -v "${POSTGRES_VOLUME}:/var/lib/postgresql/data"
+  )
+  if [[ -f "$init_sql" ]]; then
+    args+=(-v "${init_sql}:/docker-entrypoint-initdb.d/init.sql:ro")
+  fi
+  args+=("$POSTGRES_IMAGE")
+  docker run "${args[@]}" >/dev/null
+  DB_STARTED_BY_SCRIPT=true
+  POSTGRES_PORT="$desired_port"
+}
+
+maybe_seed_env "$ENV_TARGET"
+POSTGRES_PORT="${REQUESTED_DB_PORT:-$(default_db_port)}"
+
+if [[ "${START_BACKEND}" == "true" ]]; then
+  DATABASE_URL_BASE="$(extract_database_url)"
+  configure_database_env "$DATABASE_URL_BASE" "$POSTGRES_PORT"
+  ORIGINAL_DB_PORT="$POSTGRES_PORT"
+  ensure_postgres "$POSTGRES_PORT" "${REPO_ROOT}/docker/init.sql"
+  if [[ "$POSTGRES_PORT" != "$ORIGINAL_DB_PORT" ]]; then
+    configure_database_env "$DATABASE_URL_BASE" "$POSTGRES_PORT"
+  fi
+  wait_for_postgres "$POSTGRES_CONTAINER" "$DB_USER" "$DB_NAME"
+fi
+
 echo "Starting frontend on ${FRONTEND_PORT} (API http://localhost:${BACKEND_PORT}/api/v1)"
 (
-  ensure_frontend_install "frontend"
-  cd frontend
-  PORT="${FRONTEND_PORT}" HOSTNAME="0.0.0.0" NEXT_PUBLIC_GO_BACKEND_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" npm run dev
+  ensure_frontend_install "$FRONTEND_DIR"
+  cd "$FRONTEND_DIR"
+  PORT="${FRONTEND_PORT}" HOSTNAME="0.0.0.0" NEXT_CACHE_DIR="${FRONTEND_DIR}/.next/cache" NEXT_PUBLIC_GO_BACKEND_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" npm run dev
 ) &
 pids+=($!)
 
 if [[ "${START_BACKEND}" == "true" ]]; then
-  maybe_seed_env ".env"
-  echo "Starting backend on ${BACKEND_PORT}"
+  echo "Starting backend on ${BACKEND_PORT} (DB ${DATABASE_URL_OVERRIDE})"
   (
-    cd backend
-    PORT="${BACKEND_PORT}" go run ./cmd/server
+    cd "$BACKEND_DIR"
+    PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" go run ./cmd/server
   ) &
   pids+=($!)
 else
   echo "Skipping backend (no-backend flag). Ensure your API is reachable at http://localhost:${BACKEND_PORT}/api/v1"
 fi
 
-echo "Services are running. Press Ctrl+C to stop."
+echo "Services are running for worktree ${WORKTREE_NAME}."
+echo "Frontend: http://localhost:${FRONTEND_PORT}"
+if [[ "${START_BACKEND}" == "true" ]]; then
+  echo "Backend:  http://localhost:${BACKEND_PORT}/api/v1"
+  echo "Postgres: container ${POSTGRES_CONTAINER} (host port ${POSTGRES_PORT}, db ${DB_NAME})"
+else
+  echo "Backend:  skipped (no-backend flag)"
+fi
+echo "Press Ctrl+C to stop."
 wait

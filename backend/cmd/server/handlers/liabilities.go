@@ -34,9 +34,21 @@ func (h *LiabilityHandler) handleCollection(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *LiabilityHandler) handleItem(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/liabilities/")
-	if id == "" {
+	path := strings.TrimPrefix(r.URL.Path, "/liabilities/")
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) == 0 || parts[0] == "" {
 		notFound(w)
+		return
+	}
+	id := parts[0]
+
+	// Special case: convert-to-property endpoint
+	if len(parts) == 2 && parts[1] == "convert-to-property" {
+		if r.Method != http.MethodPut {
+			methodNotAllowed(w)
+			return
+		}
+		h.convertToProperty(w, r, id)
 		return
 	}
 
@@ -50,6 +62,19 @@ func (h *LiabilityHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	default:
 		methodNotAllowed(w)
 	}
+}
+
+func (h *LiabilityHandler) convertToProperty(w http.ResponseWriter, r *http.Request, id string) {
+	updated, err := h.store.ConvertLiabilityToProperty(r.Context(), id)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w)
+		return
+	}
+	writeJSON(w, updated)
 }
 
 func (h *LiabilityHandler) list(w http.ResponseWriter, r *http.Request) {

@@ -3,6 +3,7 @@ module financial-chat-system
 go 1.24.0
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/golang-migrate/migrate/v4 v4.17.0
 	github.com/google/generative-ai-go v0.20.1
 	github.com/google/uuid v1.6.0
