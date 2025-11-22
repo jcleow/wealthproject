@@ -498,9 +498,6 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 	if params.PropertyPrice <= 0 {
 		return nil, fmt.Errorf("property price must be greater than 0")
 	}
-	if params.DownPayment < 0 {
-		return nil, fmt.Errorf("down payment must be zero or positive")
-	}
 	if params.LoanAmount <= 0 {
 		return nil, fmt.Errorf("loan amount must be greater than 0")
 	}
@@ -514,11 +511,7 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 		return nil, fmt.Errorf("property type is required")
 	}
 
-	// Ensure the loan aligns with the price/down payment
-	expectedLoan := params.PropertyPrice - params.DownPayment
-	if expectedLoan > 0 && abs(expectedLoan-params.LoanAmount) > 1000 {
-		return nil, fmt.Errorf("loan amount does not match property price minus down payment")
-	}
+	// If down payment missing, leave as-is (0) and allow optional; caller may fill.
 
 	assetName := params.Name
 	if strings.TrimSpace(assetName) == "" {
@@ -570,6 +563,21 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 		AssetID:            assetID,
 		LiabilityID:        liabilityID,
 	})
+
+	// Create linked mortgage expense (monthly) tied to liability in notes; ignore errors to keep main flow.
+	if params.LoanAmount > 0 && params.InterestRate > 0 && params.LoanTenure > 0 {
+		calculator := NewFinancialCalculator()
+		monthly := calculator.CalculateMonthlyPayment(params.LoanAmount, params.InterestRate, params.LoanTenure)
+		if monthly > 0 {
+			_, _ = c.store.CreateExpense(ctx, repository.Expense{
+				Payee:     "Mortgage Payment",
+				Amount:    monthly,
+				Frequency: "monthly",
+				Category:  "housing_mortgage",
+				Notes:     fmt.Sprintf("liability:%s", liabilityID),
+			})
+		}
+	}
 
 	return &created.ID, nil
 }

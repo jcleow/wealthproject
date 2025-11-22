@@ -122,6 +122,18 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
     }
   }, [isOpen])
 
+  // Auto-show overview when required inputs are valid
+  const hasValidInputs = areInputsValid(inputs)
+
+  // If valid on modal open, go to overview once; don't toggle back on edits
+  useEffect(() => {
+    if (!isOpen) return
+    if (hasValidInputs && !isComplete) {
+      setIsComplete(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, hasValidInputs])
+
   useEffect(() => {
     const hydratePrefill = async () => {
       if (!prefill?.scenarioId || !isOpen) return
@@ -383,6 +395,14 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
   const handleEdit = () => setIsComplete(false)
 
   const handleSavePlan = async () => {
+    if (!selectedAssetId || !selectedLiabilityId) {
+      setHelperMessage('Select both asset and loan before saving.')
+      return
+    }
+    if (!areInputsValid(inputs)) {
+      setHelperMessage('Fill in property price, loan, tenure, and rates before saving.')
+      return
+    }
     try {
       setIsSavingDraft(true)
       await handleSaveLink()
