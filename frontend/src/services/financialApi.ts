@@ -106,8 +106,8 @@ export const financialApi = {
     const body = {
       name: payload.name,
       category: payload.category,
-      current_value: payload.currentValue,
-      annual_growth_rate: payload.annualGrowthRate,
+      currentValue: payload.currentValue,
+      annualGrowthRate: payload.annualGrowthRate,
       notes: payload.notes,
     }
     const data = await jsonRequest<any>(`${API_BASE}/assets`, { method: 'POST', body: JSON.stringify(body) })
@@ -117,8 +117,8 @@ export const financialApi = {
     const body: Record<string, any> = {
       name: payload.name,
       category: payload.category,
-      current_value: payload.currentValue,
-      annual_growth_rate: payload.annualGrowthRate,
+      currentValue: payload.currentValue,
+      annualGrowthRate: payload.annualGrowthRate,
       notes: payload.notes,
     }
     const data = await jsonRequest<any>(`${API_BASE}/assets/${id}`, { method: 'PUT', body: JSON.stringify(body) })
@@ -141,9 +141,9 @@ export const financialApi = {
     const body = {
       name: payload.name,
       category: payload.category,
-      current_balance: payload.currentBalance,
-      interest_rate_apr: payload.interestRateApr,
-      minimum_payment: payload.minimumPayment,
+      currentBalance: payload.currentBalance,
+      interestRateApr: payload.interestRateApr,
+      minimumPayment: payload.minimumPayment,
       notes: payload.notes,
     }
     const data = await jsonRequest<any>(`${API_BASE}/liabilities`, { method: 'POST', body: JSON.stringify(body) })
@@ -153,9 +153,9 @@ export const financialApi = {
     const body: Record<string, any> = {
       name: payload.name,
       category: payload.category,
-      current_balance: payload.currentBalance,
-      interest_rate_apr: payload.interestRateApr,
-      minimum_payment: payload.minimumPayment,
+      currentBalance: payload.currentBalance,
+      interestRateApr: payload.interestRateApr,
+      minimumPayment: payload.minimumPayment,
       notes: payload.notes,
     }
     const data = await jsonRequest<any>(`${API_BASE}/liabilities/${id}`, { method: 'PUT', body: JSON.stringify(body) })
@@ -179,7 +179,7 @@ export const financialApi = {
       source: payload.source,
       amount: payload.amount,
       frequency: payload.frequency,
-      start_date: payload.startDate,
+      startDate: payload.startDate,
       category: payload.category,
       notes: payload.notes,
     }
@@ -191,7 +191,7 @@ export const financialApi = {
       source: payload.source,
       amount: payload.amount,
       frequency: payload.frequency,
-      start_date: payload.startDate,
+      startDate: payload.startDate,
       category: payload.category,
       notes: payload.notes,
     }
@@ -248,14 +248,14 @@ export const financialApi = {
     liabilityId?: string
   }): Promise<PropertyScenarioRecord> {
     const body = {
-      property_type: payload.propertyType,
+      propertyType: payload.propertyType,
       headline: payload.headline,
       subheadline: payload.subheadline ?? '',
-      property_price: payload.propertyPrice,
-      down_payment: payload.downPayment || 0,
-      loan_amount: payload.loanAmount || 0,
-      interest_rate: payload.interestRate || 0,
-      loan_tenure: payload.loanTenure || 0,
+      propertyPrice: payload.propertyPrice,
+      downPayment: payload.downPayment || 0,
+      loanAmount: payload.loanAmount || 0,
+      interestRate: payload.interestRate || 0,
+      loanTenure: payload.loanTenure || 0,
       notes: payload.notes ?? '',
       asset_id: payload.assetId,
       liability_id: payload.liabilityId,
