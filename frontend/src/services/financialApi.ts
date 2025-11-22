@@ -1,4 +1,4 @@
-import type { Asset, Liability, Income, Expense } from '@/types/financial'
+import type { Asset, Liability, Income, Expense, PropertyLink } from '@/types/financial'
 import type { PropertyLinkRecord, PropertyScenarioRecord } from '@/types/property'
 
 function getApiBaseUrl() {
@@ -297,5 +297,25 @@ export const financialApi = {
   async listPropertyLinks(scenarioId: string): Promise<PropertyLinkRecord[]> {
     const data = await jsonRequest<any[]>(`${API_BASE}/property-links?property_scenario_id=${encodeURIComponent(scenarioId)}`)
     return data.map(toPropertyLink)
+  },
+
+  async listPropertyLinksByAsset(assetId: string): Promise<PropertyLink[]> {
+    const data = await jsonRequest<any[]>(`${API_BASE}/property-links?asset_id=${encodeURIComponent(assetId)}`)
+    return data.map(toPropertyLink)
+  },
+
+  async listPropertyLinksByLiability(liabilityId: string): Promise<PropertyLink[]> {
+    const data = await jsonRequest<any[]>(`${API_BASE}/property-links?liability_id=${encodeURIComponent(liabilityId)}`)
+    return data.map(toPropertyLink)
+  },
+
+  async deletePropertyScenario(id: string): Promise<void> {
+    if (!id) return
+    await jsonRequest<void>(`${API_BASE}/property-planner/scenarios/${id}`, { method: 'DELETE' })
+  },
+
+  async getPropertyScenario(id: string): Promise<PropertyScenarioRecord> {
+    const data = await jsonRequest<any>(`${API_BASE}/property-planner/scenarios/${id}`)
+    return toPropertyScenario(data)
   },
 }

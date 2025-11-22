@@ -177,6 +177,39 @@ export function useFinancialData() {
     return getMonthlyIncome() - getMonthlyExpenses()
   }
 
+  const deleteAllFinancialData = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [assetList, incomeList, liabilityList, expenseList] = await Promise.all([
+        financialApi.listAssets(),
+        financialApi.listIncomes(),
+        financialApi.listLiabilities(),
+        financialApi.listExpenses(),
+      ])
+
+      await Promise.all([
+        Promise.all(assetList.map((item) => financialApi.deleteAsset(item.id))),
+        Promise.all(incomeList.map((item) => financialApi.deleteIncome(item.id))),
+        Promise.all(liabilityList.map((item) => financialApi.deleteLiability(item.id))),
+        Promise.all(expenseList.map((item) => financialApi.deleteExpense(item.id))),
+      ])
+
+      setAssets([])
+      setIncomes([])
+      setLiabilities([])
+      setExpenses([])
+      dispatchRefreshEvent()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to clear financial data'
+      setError(message)
+      console.error(message, err)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return {
     // Data
     assets,
@@ -214,5 +247,6 @@ export function useFinancialData() {
     loading,
     error,
     refresh,
+    deleteAllFinancialData,
   }
 }

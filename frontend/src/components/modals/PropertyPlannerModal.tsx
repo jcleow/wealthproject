@@ -24,6 +24,7 @@ import { calculateMortgage, formatCurrency, formatPercentage } from '@/utils/mor
 interface PropertyPlannerModalProps {
   isOpen: boolean
   onClose: () => void
+  prefill?: { scenarioId?: string; assetId?: string; liabilityId?: string }
 }
 
 const DEFAULT_INPUTS: MortgageInputs = {
@@ -40,6 +41,7 @@ const DEFAULT_INPUTS: MortgageInputs = {
 }
 
 const STORAGE_KEY = 'property_planner_draft'
+const SCENARIO_STORAGE_KEY = 'property_planner_scenario_id'
 const LOCATION_TAGS: Record<PropertyPlannerType, string> = {
   hdb: '4-Room BTO in Tampines North',
   condo: 'City-fringe condo, One-North',
@@ -65,7 +67,7 @@ const formatCompactCurrency = (value: number) =>
     minimumFractionDigits: 0,
   }).format(value)
 
-export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalProps) {
+export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlannerModalProps) {
   const [selectedType, setSelectedType] = useState<PropertyPlannerType>('hdb')
   const [inputs, setInputs] = useState<MortgageInputs>({ ...DEFAULT_INPUTS })
   const [isComplete, setIsComplete] = useState(false)
@@ -84,11 +86,16 @@ export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalPr
   const [isLinking, setIsLinking] = useState(false)
   const [scenarioId, setScenarioId] = useState<string | null>(null)
   const [helperMessage, setHelperMessage] = useState<string | null>(null)
+  const [isPrefilling, setIsPrefilling] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
+      const savedScenarioId = localStorage.getItem(SCENARIO_STORAGE_KEY)
+      if (savedScenarioId) {
+        setScenarioId(savedScenarioId)
+      }
       if (stored) {
         const parsed: MortgageInputs = JSON.parse(stored)
         setInputs(parsed)
@@ -103,6 +110,47 @@ export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalPr
       setInputs({ ...DEFAULT_INPUTS })
     }
   }, [isOpen])
+
+  useEffect(() => {
+    const hydratePrefill = async () => {
+      if (!prefill?.scenarioId || !isOpen) return
+      setIsPrefilling(true)
+      try {
+        const scenario = await financialApi.getPropertyScenario(prefill.scenarioId)
+        setScenarioId(scenario.id)
+        setInputs((prev) => ({
+          ...prev,
+          loanAmount: scenario.loanAmount || prev.loanAmount,
+          loanTermYears: scenario.loanTenure || prev.loanTermYears,
+          floatingRate: scenario.interestRate || prev.floatingRate,
+          propertyType: (scenario.propertyType as PropertyPlannerType) || prev.propertyType,
+        }))
+        if (scenario.headline) {
+          setLocationDraft(scenario.headline)
+        }
+        if (prefill.assetId) {
+          setSelectedAssetId(prefill.assetId)
+          const asset = assets.find((a) => a.id === prefill.assetId)
+          if (asset) {
+            setAssetInput(asset.name)
+          }
+        }
+        if (prefill.liabilityId) {
+          setSelectedLiabilityId(prefill.liabilityId)
+          const li = liabilities.find((l) => l.id === prefill.liabilityId)
+          if (li) {
+            setLiabilityInput(li.name)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to prefill property scenario', error)
+        setHelperMessage('Unable to load property scenario.')
+      } finally {
+        setIsPrefilling(false)
+      }
+    }
+    void hydratePrefill()
+  }, [prefill, isOpen, assets, liabilities])
 
   useEffect(() => {
     if (!isOpen) return
@@ -274,6 +322,11 @@ export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalPr
         liabilityId,
       })
       setScenarioId(scenario.id)
+      try {
+        localStorage.setItem(SCENARIO_STORAGE_KEY, scenario.id)
+      } catch (storageError) {
+        console.warn('Unable to persist property scenario id', storageError)
+      }
       setHelperMessage('Linked asset and loan to property scenario.')
     } catch (error) {
       console.error('Failed to link property items', error)

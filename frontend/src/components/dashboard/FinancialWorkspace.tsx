@@ -1,19 +1,53 @@
 import { useState } from 'react'
-import { Building2, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
+import { Building2, Loader2, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 
+import { useFinancialData } from '@/hooks/useFinancialData'
+import { financialApi } from '@/services/financialApi'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { NetWorthProjection } from './NetWorthProjection'
 
-const quickActions = [
-  { icon: Sparkles, label: 'Load defaults' },
-  { icon: Trash2, label: 'Clear data' },
-]
-
 export function FinancialWorkspace() {
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
+  const { deleteAllFinancialData, refresh } = useFinancialData()
 
   const handleAction = (label: string) => {
     console.log(`${label} clicked`)
+  }
+
+  const clearPropertyData = async () => {
+    if (typeof window === 'undefined') return
+    const scenarioId = localStorage.getItem('property_planner_scenario_id')
+    localStorage.removeItem('property_planner_draft')
+    localStorage.removeItem('property_planner_scenario_id')
+
+    if (scenarioId) {
+      try {
+        await financialApi.deletePropertyScenario(scenarioId)
+      } catch (error) {
+        console.warn('Unable to delete property scenario', error)
+      }
+    }
+  }
+
+  const handleClearAllData = async () => {
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm('Delete all financial data and property scenarios for this user?')
+      if (!confirmed) return
+    }
+    setIsClearing(true)
+    try {
+      await deleteAllFinancialData()
+      await clearPropertyData()
+      await refresh()
+    } catch (error) {
+      console.error('Failed to clear data', error)
+      if (typeof window !== 'undefined') {
+        window.alert('Unable to clear all data right now. Please try again.')
+      }
+    } finally {
+      setIsClearing(false)
+    }
   }
 
   const handlePropertyPlanner = () => {
@@ -35,17 +69,23 @@ export function FinancialWorkspace() {
         </div>
         <div className="flex items-center gap-2">
           <div className="hidden items-center gap-2 md:flex">
-            {quickActions.map(({ icon: Icon, label }) => (
-              <button
-                key={label}
-                onClick={() => handleAction(label)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
-                title={label}
-                type="button"
-              >
-                <Icon className="h-4 w-4" />
-              </button>
-            ))}
+            <button
+              onClick={() => handleAction('Load defaults')}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
+              title="Load defaults"
+              type="button"
+            >
+              <Sparkles className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleClearAllData}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-600/10 text-rose-100 transition hover:bg-rose-600/20 hover:text-white disabled:opacity-60"
+              title="Delete all data"
+              type="button"
+              disabled={isClearing}
+            >
+              {isClearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            </button>
           </div>
           <button
             onClick={handlePropertyPlanner}

@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { Plus, SlidersHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, SlidersHorizontal, Pencil, Trash2, Home } from 'lucide-react'
 
 import { useFinancialData } from '../../hooks/useFinancialData'
-import type { Asset, Expense, Income, Liability } from '../../types/financial'
+import type { Asset, Expense, Income, Liability, PropertyLink } from '../../types/financial'
 import type { FinancialDataType, FinancialFormValues } from '../modals/FinancialFormModal'
 import { FinancialFormModal } from '../modals/FinancialFormModal'
+import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
+import { financialApi } from '@/services/financialApi'
 
 type FinancialCategory = FinancialDataType
 
@@ -78,6 +80,41 @@ export function FinancialDataManagement() {
     type: 'asset',
     mode: 'create',
   })
+  const [assetLinks, setAssetLinks] = useState<Record<string, PropertyLink[]>>({})
+  const [liabilityLinks, setLiabilityLinks] = useState<Record<string, PropertyLink[]>>({})
+  const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
+  const [prefill, setPrefill] = useState<{ scenarioId?: string; assetId?: string; liabilityId?: string } | null>(null)
+
+  useEffect(() => {
+    const fetchLinks = async () => {
+      try {
+        const assetResults: Record<string, PropertyLink[]> = {}
+        await Promise.all(
+          assets.map(async (asset) => {
+            const links = await financialApi.listPropertyLinksByAsset(asset.id)
+            assetResults[asset.id] = links
+          })
+        )
+        setAssetLinks(assetResults)
+        const liabilityResults: Record<string, PropertyLink[]> = {}
+        await Promise.all(
+          liabilities.map(async (liability) => {
+            const links = await financialApi.listPropertyLinksByLiability(liability.id)
+            liabilityResults[liability.id] = links
+          })
+        )
+        setLiabilityLinks(liabilityResults)
+      } catch (error) {
+        console.error('Failed to fetch property links', error)
+      }
+    }
+    if (assets.length || liabilities.length) {
+      void fetchLinks()
+    } else {
+      setAssetLinks({})
+      setLiabilityLinks({})
+    }
+  }, [assets, liabilities])
 
   const handleAddItem = (category: FinancialCategory) => {
     setModalState({
@@ -207,6 +244,15 @@ export function FinancialDataManagement() {
     return item.amount ?? 0
   }
 
+  const openPlannerFromLink = (link: PropertyLink) => {
+    setPrefill({
+      scenarioId: link.propertyScenarioId,
+      assetId: link.assetId,
+      liabilityId: link.liabilityId,
+    })
+    setIsPropertyPlannerOpen(true)
+  }
+
   return (
     <>
       <div className="flex h-full flex-col border-0 bg-midnight-900 text-white">
@@ -280,7 +326,7 @@ export function FinancialDataManagement() {
                               key={item.id || index}
                               className="group/item relative flex items-center justify-between gap-3 overflow-hidden rounded-md px-2 py-1 text-gray-200"
                             >
-                              <div className="flex min-w-0 items-center gap-2 transition-opacity duration-200 group-hover/item:opacity-20">
+                              <div className="flex min-w-0 items-center gap-2">
                                 <span className="truncate text-sm">
                                   {'name' in item
                                     ? item.name
@@ -290,26 +336,32 @@ export function FinancialDataManagement() {
                                     ? item.payee
                                     : 'Entry'}
                                 </span>
+                                {key !== 'income' && key !== 'expense' && (() => {
+                                  const link =
+                                    key === 'asset'
+                                      ? (assetLinks[item.id as string]?.[0] ?? null)
+                                      : (liabilityLinks[item.id as string]?.[0] ?? null)
+                                  if (!link) return null
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => openPlannerFromLink(link)}
+                                      className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-blue-100 transition hover:bg-white/20"
+                                      title="Open property scenario"
+                                    >
+                                      <Home className="h-4 w-4" />
+                                    </button>
+                                  )
+                                })()}
                               </div>
-                              <span className="text-sm text-gray-400 transition-opacity duration-200 group-hover/item:opacity-20">
-                                $
-                                {summarizeAmount(item).toLocaleString(
-                                  undefined,
-                                  { maximumFractionDigits: 0 }
-                                )}
-                              </span>
-
-                              <div className="pointer-events-none absolute inset-0 flex items-center justify-between gap-2 bg-white/5 px-2 opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover/item:pointer-events-auto group-hover/item:opacity-100">
-                                <span className="truncate text-sm text-white">
-                                  {'name' in item
-                                    ? item.name
-                                    : 'source' in item
-                                    ? item.source
-                                    : 'payee' in item
-                                    ? item.payee
-                                    : 'Entry'}
+                              <div className="relative flex items-center gap-2">
+                                <span className="text-sm text-gray-400 transition-opacity duration-200 group-hover/item:opacity-0">
+                                  $
+                                  {summarizeAmount(item).toLocaleString(undefined, {
+                                    maximumFractionDigits: 0,
+                                  })}
                                 </span>
-                                <div className="flex items-center gap-2">
+                                <div className="absolute inset-y-0 right-0 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover/item:opacity-100">
                                   <button
                                     onClick={() => handleEditItem(key, item)}
                                     className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-white/20"
@@ -395,6 +447,14 @@ export function FinancialDataManagement() {
         onDelete={
           modalState.mode === 'edit' && modalState.data?.id ? handleModalDelete : undefined
         }
+      />
+      <PropertyPlannerModal
+        isOpen={isPropertyPlannerOpen}
+        onClose={() => {
+          setIsPropertyPlannerOpen(false)
+          setPrefill(null)
+        }}
+        prefill={prefill ?? undefined}
       />
     </>
   )
