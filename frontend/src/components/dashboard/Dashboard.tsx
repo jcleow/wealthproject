@@ -69,6 +69,7 @@ export function Dashboard() {
                   onSelectYear={timeline.setSelectedYear}
                   timelineYear={timeline.selectedYearData}
                   isTimelineLoading={timeline.timelineQuery.isLoading}
+                  onSaveTimelineEdits={timeline.saveEdits}
                 />
               </div>
             </div>

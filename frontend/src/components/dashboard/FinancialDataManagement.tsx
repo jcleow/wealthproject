@@ -10,7 +10,6 @@ import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { financialApi } from '@/services/financialApi'
 import type { TimelineYear } from '@/types/timeline'
 import type { TimelineEditRequest, TimelineEdit } from '@/types/timeline'
-import { timelineApi } from '@/services/timelineApi'
 import { formatCurrency } from '@/lib/format'
 
 type FinancialCategory = FinancialDataType
@@ -62,6 +61,7 @@ export interface FinancialDataManagementProps {
   onSelectYear?: (year: number) => void
   timelineYear?: TimelineYear
   isTimelineLoading?: boolean
+  onSaveTimelineEdits?: (payload: TimelineEditRequest) => Promise<void>
 }
 
 export function FinancialDataManagement({
@@ -69,8 +69,9 @@ export function FinancialDataManagement({
   onSelectYear,
   timelineYear,
   isTimelineLoading = false,
+  onSaveTimelineEdits,
 }: FinancialDataManagementProps) {
-  const usingTimeline = false
+  const usingTimeline = true
   const yearAssets = useMemo(() => timelineYear?.assets ?? [], [timelineYear?.assets])
   const yearLiabilities = useMemo(() => timelineYear?.liabilities ?? [], [timelineYear?.liabilities])
   const yearIncomes = useMemo(() => timelineYear?.income ?? [], [timelineYear?.income])
@@ -143,7 +144,6 @@ export function FinancialDataManagement({
   }, [yearAssets, yearLiabilities])
 
   const handleAddItem = (category: FinancialCategory) => {
-    if (usingTimeline) return
     setModalState({
       isOpen: true,
       type: category,
@@ -153,7 +153,6 @@ export function FinancialDataManagement({
   }
 
   const handleEditItem = (category: FinancialCategory, entry: Asset | Income | Liability | Expense) => {
-    if (usingTimeline) return
     const normalizedEntry = (() => {
       const id = getItemId(entry)
       if (!id) return entry
@@ -168,22 +167,8 @@ export function FinancialDataManagement({
     })
   }
 
-  const handleDeleteItem = async (category: FinancialCategory, id: string) => {
-    if (usingTimeline) return
-    switch (category) {
-      case 'asset':
-        await deleteAsset(id)
-        break
-      case 'income':
-        await deleteIncome(id)
-        break
-      case 'liability':
-        await deleteLiability(id)
-        break
-      case 'expense':
-        await deleteExpense(id)
-        break
-    }
+  const handleDeleteItem = async (_category: FinancialCategory, _id: string) => {
+    // Placeholder: timeline delete not supported yet
   }
 
   const handleSettings = (category: FinancialCategory) => {
@@ -198,23 +183,43 @@ export function FinancialDataManagement({
   const handleModalSave = async (payload: FinancialFormValues, mode: 'create' | 'edit') => {
     const timestamp = payload.updatedAt ?? new Date().toISOString()
 
-    if (usingTimeline) {
+    if (usingTimeline && onSaveTimelineEdits) {
+      const mapFrequency = (freq: any): TimelineEdit['frequency'] => {
+        if (freq === 'yearly') return 'annual'
+        return freq ?? 'annual'
+      }
+
+      const itemId =
+        getItemId(payload as any) || getItemId(modalState.data as any)
+
+      const amount =
+        'currentValue' in payload
+          ? Math.round(payload.currentValue)
+          : 'currentBalance' in payload
+            ? Math.round(payload.currentBalance)
+            : 'amount' in payload
+              ? Math.round((payload as any).amount)
+              : 0
+
       const edit: TimelineEdit = {
-        itemId: payload.id,
-        name: payload.type === 'income' ? (payload as any).source ?? payload.name : payload.name,
+        itemId: itemId || undefined,
+        name:
+          payload.type === 'income'
+            ? (payload as any).source ?? payload.name
+            : payload.type === 'expense'
+              ? (payload as any).payee ?? payload.name
+              : payload.name,
         itemType: payload.type === 'cpf' ? 'asset' : (payload.type as any),
         category: (payload as any).category ?? '',
-        amount: 'currentValue' in payload ? payload.currentValue : 'amount' in payload ? payload.amount : 0,
-        frequency:
-          (payload as any).frequency ??
-          ('currentBalance' in payload ? 'annual' : 'annual') as any,
+        amount,
+        frequency: mapFrequency((payload as any).frequency),
       }
+
       const request: TimelineEditRequest = {
         year: selectedYear,
         edits: [edit],
       }
-      await timelineApi.putTimeline(selectedYear, request)
-      await refresh()
+      await onSaveTimelineEdits(request)
       handleModalClose()
       return
     }
@@ -339,13 +344,9 @@ export function FinancialDataManagement({
   }
 
   const handleYearInput = (value: string) => {
-    if (value === '') {
-      onSelectYear?.(0)
-      return
-    }
     const parsed = Number.parseInt(value, 10)
     if (Number.isNaN(parsed)) return
-    const clamped = Math.max(0, Math.min(30, parsed))
+    const clamped = Math.max(0, Math.min(20, parsed))
     onSelectYear?.(clamped)
   }
 
@@ -365,26 +366,19 @@ export function FinancialDataManagement({
                 Year
               </label>
               <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
-                <input
+                <select
                   id="year-selector"
-                  list="year-options"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  className="w-20 rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-center text-sm text-white placeholder-gray-500 focus:border-blue-400 focus:outline-none"
+                  className="w-24 rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
                   value={selectedYear}
                   disabled={isTimelineLoading}
                   onChange={(event) => handleYearInput(event.target.value)}
-                />
-                <datalist id="year-options">
-                  {Array.from({ length: 31 }, (_, idx) => idx).map((year) => {
-                const label = year === 0 ? 'BASE' : year
-                    return (
-                      <option key={year} value={year}>
-                        {label}
-                      </option>
-                    )
-                  })}
-                </datalist>
+                >
+                  {Array.from({ length: 21 }, (_, idx) => (
+                    <option key={idx} value={idx}>
+                      {idx}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
@@ -427,19 +421,18 @@ export function FinancialDataManagement({
                           </div>
                         </div>
                         <div className="flex flex-shrink-0 items-center gap-2">
-                          <button
+                          {/* <button
                             onClick={() => handleSettings(key)}
                             className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-gray-300 transition hover:bg-white/10 disabled:opacity-50"
                             type="button"
                             disabled={usingTimeline}
                           >
                             <SlidersHorizontal className="h-4 w-4" />
-                          </button>
+                          </button> */}
                           <button
                             onClick={() => handleAddItem(key)}
                             className="flex h-8 w-8 items-center justify-center rounded-full text-grey-500 bg-white/5 transition hover:bg-white/10 disabled:opacity-50"
                             type="button"
-                            disabled={usingTimeline}
                           >
                             <Plus className="h-4 w-4" />
                           </button>
@@ -523,9 +516,8 @@ export function FinancialDataManagement({
                                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover/item:pointer-events-auto group-hover/item:opacity-100">
                                   <button
                                     onClick={() => handleEditItem(key, item)}
-                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-white/20 disabled:opacity-40"
+                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-white/20"
                                     type="button"
-                                    disabled={usingTimeline}
                                   >
                                     <Pencil className="h-3.5 w-3.5" />
                                   </button>
@@ -534,9 +526,8 @@ export function FinancialDataManagement({
                                       const id = getItemId(item)
                                       if (id) void handleDeleteItem(key, id)
                                     }}
-                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-rose-500/30 hover:text-rose-50 disabled:opacity-40"
+                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-rose-500/30 hover:text-rose-50"
                                     type="button"
-                                    disabled={usingTimeline}
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </button>

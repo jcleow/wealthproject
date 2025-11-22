@@ -74,6 +74,7 @@ function YearTick({
   overrideYears,
   onSelectYear,
   selectedYear,
+  mode,
 }: {
   x?: number
   y?: number
@@ -81,10 +82,12 @@ function YearTick({
   overrideYears: Set<number>
   onSelectYear?: (year: number) => void
   selectedYear?: number
+  mode: AxisMode
 }) {
   if (!payload) return null
   const isOverride = overrideYears.has(payload.value)
   const isSelected = selectedYear === payload.value
+  const labelValue = mode === 'age' ? DEFAULT_AGE + payload.value : payload.value
   const handleClick = () => {
     if (onSelectYear) onSelectYear(payload.value)
   }
@@ -103,7 +106,7 @@ function YearTick({
         fontWeight={isSelected ? 700 : 400}
         textAnchor="middle"
       >
-        {payload.value}
+        {labelValue}
       </text>
       {isOverride && (
         <path
@@ -137,6 +140,7 @@ export function NetWorthProjection({
     getMonthlySavings,
   } = useFinancialData()
 
+  const [xAxisMode, setXAxisMode] = useState<AxisMode>('age')
   const [hasSize, setHasSize] = useState(false)
   const chartContainerRef = useRef<HTMLDivElement>(null)
 
@@ -247,9 +251,8 @@ export function NetWorthProjection({
 
       <div
         ref={chartContainerRef}
-        className="relative w-full flex-none min-h-[220px] min-w-0 overflow-hidden aspect-[16/9]"
+        className="relative w-full flex-none min-h-[220px] min-w-0 overflow-hidden aspect-[16/9] [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
       >
-        <div className="pointer-events-none absolute inset-[0.5rem] rounded-2xl border border-[#1d2b4a]" />
         {hasSize && projection.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>
             <AreaChart
@@ -287,6 +290,7 @@ export function NetWorthProjection({
                     }
                     onSelectYear={onSelectYear}
                     selectedYear={selectedYear}
+                    mode={xAxisMode}
                   />
                 }
               />
@@ -327,6 +331,15 @@ export function NetWorthProjection({
             Add assets or liabilities to view your net worth projection.
           </div>
         )}
+      </div>
+      <div className="mt-2 text-center text-xs text-slate-300">
+        <button
+          type="button"
+          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200 transition hover:bg-white/10"
+          onClick={() => setXAxisMode((prev) => (prev === 'age' ? 'year' : 'age'))}
+        >
+          {xAxisMode === 'age' ? 'Age' : 'Year'}
+        </button>
       </div>
     </div>
   )

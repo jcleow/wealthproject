@@ -27,8 +27,12 @@ Build deterministic annual projection engine (years 0–20) that annualizes inpu
 - [ ] Deterministic results for same inputs; idempotent projection runs.
 
 **Technical Details:**
-- Use schema additions noted in `specs/multiyear-planning.txt`: `growth_configs`, `financial_overrides`, optional `items_catalog` with created_year.
-- Engine pipeline: load year-0 snapshot + growth config + overrides; normalize; loop years; apply growth then overrides; compute aggregates; mark hasOverrides; pass updated state to next year.
+- Use per-item per-year rows instead of a separate overrides table:
+  - Add `year` column to financial assets/liabilities/income/expenses values (or a shared `financial_item_values` table) with default 0; enforce uniqueness on `(user_id, item_id, year)`.
+  - Keep a stable `items_catalog` (or logical item table) with `item_id`, `item_type`, `category`, `name`, `created_year`. New items created at year N get `created_year = N`.
+  - Baseline = rows with `year=0`; overrides = rows with `year>0` for the same `item_id`.
+  - Delete semantics: either `amount=0` at year N or a delete flag to drop the item from N forward (pick one rule and apply consistently).
+- Engine pipeline: load baseline (`year=0`), load per-year rows (`year>0`), load growth config; normalize; loop years 0..20; apply growth, overlay per-year rows if present (latest-wins by unique constraint), add new items whose `created_year <= Y`; compute aggregates; mark `has_overrides`; carry state forward.
 - Enforce bounds before applying rates; reject invalid frequency/category.
 
 **Tests (write first):**
@@ -36,6 +40,8 @@ Build deterministic annual projection engine (years 0–20) that annualizes inpu
 - Growth bounds clamp and rate application per category.
 - Override latest-wins behavior and new-item creation at year N appearing in N..20.
 - Deterministic timeline snapshot test (golden) for a small fixture.
+- Migration test: year-0 seed rows only; no projection rows persisted.
+- Delete rule test (e.g., amount=0 at year N removes item from N forward).
 
 ---
 
@@ -51,19 +57,21 @@ Expose versioned endpoints for timeline fetch and year upsert edits (including n
 
 **Acceptance Criteria:**
 - [ ] GET `/api/v1/financial/timeline` returns 0–20 timeline from projection engine with hasOverrides, annualized amounts, source frequency metadata.
-- [ ] PUT `/api/v1/financial/timeline/{year}` upserts edits: validates payload, stores overrides (latest-wins), allows new items (assign ID, created_year=Y), re-runs projection, returns refreshed timeline.
+- [ ] PUT `/api/v1/financial/timeline/{year}` upserts edits: validates payload, stores per-year rows (latest-wins via `(item_id, year)`), allows new items (assign ID, `created_year=Y`), re-runs projection, returns refreshed timeline.
 - [ ] Validation errors for invalid frequency/category/bounds; version headers included.
 - [ ] New items appear downstream after save; hasOverrides reflects mutations.
 
 **Technical Details:**
 - Request body (PUT): `{ year: int, edits: [{ itemId?, name?, itemType: asset|liability|income|expense, category: string, amount: number, frequency: enum }], note?: string }`.
-- Writes to `financial_overrides`; inserts into `items_catalog` (if new item). Reuse schema from multiyear-planning spec.
+- Writes to per-year value rows (same tables with `year>0` or a shared values table). New items insert into `items_catalog` with `created_year = year`. Enforce `(user_id, item_id, year)` uniqueness.
+- Delete rule (choose one): `amount=0` means remove from year N forward, or include an explicit `delete` flag; project accordingly.
 - Wire handlers under `/api/v1/financial/`.
 
 **Tests (write first):**
 - Contract tests for GET/PUT success paths.
 - Validation failures (bad frequency, missing itemType, out-of-bounds amount/rate).
 - New item creation surfaces in response timeline downstream; override update path; hasOverrides true when expected.
+- Delete rule honored (e.g., amount=0 removes item from N+).
 
 ---
 

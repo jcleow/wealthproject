@@ -580,10 +580,7 @@ export function FinancialFormModal({
                     placeholder={`e.g., ${formatCurrency(100000)}`}
                     required
                     value={formData.amount}
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    {formatCurrency(toNumeric(formData.amount) || 0)}
-                  </p>
+                  />                
                 </div>
                 {(normalizedCategory === 'incomes' || normalizedCategory === 'expenses') && (
                   <div>
