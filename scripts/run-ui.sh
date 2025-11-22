@@ -8,6 +8,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# If this is run from a worktree nested under a parent repo, prefer that root for Next.js/Turbopack.
+if [[ -f "$REPO_ROOT/package.json" && -d "$REPO_ROOT/frontend" ]]; then
+  ROOT_FOR_NEXT="$REPO_ROOT/frontend"
+else
+  ROOT_FOR_NEXT="$REPO_ROOT"
+fi
+
 FRONTEND_DIR="${REPO_ROOT}/frontend"
 BACKEND_DIR="${REPO_ROOT}/backend"
 ENV_TARGET="${REPO_ROOT}/.env"
@@ -84,11 +92,7 @@ cleanup() {
 trap cleanup EXIT
 
 default_db_port() {
-  local seed_hex
-  seed_hex="$(printf "%s" "$REPO_ROOT" | shasum -a 256 | cut -c1-4)"
-  # shellcheck disable=SC2059
-  local seed_dec=$((16#$seed_hex))
-  echo $((5400 + (seed_dec % 1000)))
+  echo 5432
 }
 
 find_env_source() {
@@ -97,16 +101,21 @@ find_env_source() {
     return
   fi
 
-  # Prefer main worktree .env if available
-  local main_tree
-  main_tree="$(git -C "$REPO_ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
-  if [[ -n "$main_tree" && -f "$main_tree/.env" && "$main_tree/.env" != "$ENV_TARGET" ]]; then
-    echo "$main_tree/.env"
+  # Prefer this worktree's .env
+  if [[ -f "$REPO_ROOT/.env" ]]; then
+    echo "$REPO_ROOT/.env"
     return
   fi
 
+  # Prefer this worktree's .env.example
   if [[ -f "$REPO_ROOT/.env.example" ]]; then
     echo "$REPO_ROOT/.env.example"
+    return
+  fi
+
+  # Prefer parent .env if this worktree is nested
+  if [[ -f "$REPO_ROOT/../.env" ]]; then
+    echo "$REPO_ROOT/../.env"
     return
   fi
 
@@ -175,6 +184,11 @@ configure_database_env() {
   local base_url="$1"
   local port="$2"
   local raw="$base_url"
+
+  # If the URL has template placeholders, ignore it and fall back to defaults.
+  if [[ "$raw" == *"\${"* ]]; then
+    raw=""
+  fi
 
   if [[ -z "$raw" ]]; then
     raw="postgres://postgres:postgres@localhost:5432/financial_chat?sslmode=disable"
@@ -268,6 +282,21 @@ wait_for_postgres() {
   exit 1
 }
 
+wait_for_backend() {
+  local port="$1"
+  local attempts=30
+  echo "Waiting for backend health at http://localhost:${port}/api/v1/health"
+  for _ in $(seq 1 "$attempts"); do
+    if curl -sf "http://localhost:${port}/api/v1/health" >/dev/null 2>&1; then
+      echo "Backend is healthy."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Backend failed health check after ${attempts}s."
+  return 1
+}
+
 ensure_postgres() {
   if ! command -v docker >/dev/null 2>&1; then
     echo "Docker is required to run isolated Postgres. Install Docker and try again."
@@ -315,7 +344,41 @@ ensure_postgres() {
 }
 
 maybe_seed_env "$ENV_TARGET"
+# Also create .env in backend directory for Go application
+BACKEND_ENV_TARGET="${BACKEND_DIR}/.env"
+if [[ -f "$ENV_TARGET" && ! -f "$BACKEND_ENV_TARGET" ]]; then
+  cp "$ENV_TARGET" "$BACKEND_ENV_TARGET"
+  echo "Copied .env to backend directory"
+fi
+
 POSTGRES_PORT="${REQUESTED_DB_PORT:-$(default_db_port)}"
+
+# Ensure DATABASE_URL in .env is concrete (no placeholders); replace templated values if present.
+sanitize_env_database_url() {
+  local target_env="$1"
+  local port="$2"
+  local default_url="postgres://postgres:postgres@localhost:${port}/financial_chat?sslmode=disable"
+  if [[ ! -f "$target_env" ]]; then
+    echo "DATABASE_URL=${default_url}" >"$target_env"
+    return
+  fi
+  local line
+  line="$(grep -E '^DATABASE_URL=' "$target_env" || true)"
+  if [[ -z "$line" ]]; then
+    echo "DATABASE_URL=${default_url}" >>"$target_env"
+    return
+  fi
+  if echo "$line" | grep -q '\${'; then
+    # Replace templated entry with default
+    perl -pi -e "s/^DATABASE_URL=.*/DATABASE_URL=${default_url//\//\\/}/" "$target_env"
+  fi
+}
+
+sanitize_env_database_url "$ENV_TARGET" "$POSTGRES_PORT"
+# Also update the backend .env file if it exists
+if [[ -f "$BACKEND_ENV_TARGET" ]]; then
+  sanitize_env_database_url "$BACKEND_ENV_TARGET" "$POSTGRES_PORT"
+fi
 
 if [[ "${START_BACKEND}" == "true" ]]; then
   DATABASE_URL_BASE="$(extract_database_url)"
@@ -332,7 +395,7 @@ echo "Starting frontend on ${FRONTEND_PORT} (API http://localhost:${BACKEND_PORT
 (
   ensure_frontend_install "$FRONTEND_DIR"
   cd "$FRONTEND_DIR"
-  PORT="${FRONTEND_PORT}" HOSTNAME="0.0.0.0" NEXT_CACHE_DIR="${FRONTEND_DIR}/.next/cache" NEXT_PUBLIC_GO_BACKEND_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" npm run dev
+  PORT="${FRONTEND_PORT}" HOSTNAME="0.0.0.0" NEXT_CACHE_DIR="${FRONTEND_DIR}/.next/cache" NEXT_PUBLIC_GO_BACKEND_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" npm run dev -- --turbo
 ) &
 pids+=($!)
 
@@ -343,6 +406,11 @@ if [[ "${START_BACKEND}" == "true" ]]; then
     PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" go run ./cmd/server
   ) &
   pids+=($!)
+  if ! wait_for_backend "$BACKEND_PORT"; then
+    echo "Backend did not become healthy; stopping services."
+    exit 1
+  fi
+  echo "Backend health check passed."
 else
   echo "Skipping backend (no-backend flag). Ensure your API is reachable at http://localhost:${BACKEND_PORT}/api/v1"
 fi

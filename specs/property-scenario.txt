@@ -55,6 +55,21 @@
 
 ## Tickets (frontend/backend, status: todo, phase P3)
 
+- P3-B5: Dispatch upsert + link for property scenarios — complexity: 3 pts — depends on: P3-B1/P3-B2  
+  - Implementation logic: When chat/dispatch calls `createPropertyScenario`, also upsert a property asset and liability, then link all three.  
+    - Upsert rules: search by name + category `property`; if not found, create new asset/liability with defaults (category `property`, value/balance from request or fallback defaults).  
+    - Scenario creation: use provided price/downPayment/loanAmount/interestRate/loanTenure; if missing, fill safe defaults (e.g., price/loan/downPayment >=1, rate>=0.01, tenure>=1) and mark defaults as system-filled.  
+    - Linking: after scenario create/update, call property_links upsert (overwrite per asset per scenario).  
+  - API support: extend property-links GET filters for `asset_id` and `liability_id` (in addition to `property_scenario_id`) to look up scenario by linked asset/loan.  
+  - Acceptance Criteria: Dispatch path creates/updates asset+liability+scenario+link in one flow; existing asset/loan reused by name; link overwrite returns 200; property-links GET supports filtering by asset_id/liability_id.  
+  - Tests: dispatch tool path happy flow; reuse vs create-new branches; property-links GET filters; overwrite semantics remain intact.
+
+- P3-F3: Property link icon + scenario preload — complexity: 2 pts — blocked by: P3-B2, P3-B5  
+  - Implementation: in asset/liability rows, render a house icon when a property link exists (fetched via `GET /property-links?asset_id=` or `?liability_id=`). Clicking opens the Property Planner modal preloaded with that scenario (fetch scenario by linked ID and hydrate fields).  
+  - Defaults highlighting: when scenario fields are system-filled defaults (blank in DB / fallback), show them in orange to indicate defaulted values.  
+  - Acceptance Criteria: Icon appears only when link exists; click opens modal with scenario data populated; defaulted fields highlighted; navigation works for both assets and liabilities.  
+  - Tests: UI fetch/render of icon, modal preload with linked scenario, default-highlighting behavior.
+
 - **P3-B1: Property link migration + repository** — complexity: 3 pts — blocks: P3-F1  
   - Implementation: add migration creating `property_links` with PK, FKs, indexes, uniques (`property_scenario_id, asset_id` and triple uniq). Add repo functions: `CreateLink(ctx, link)`, `UpdateLink(ctx, id, assetID, liabilityID)`, `ListLinksByScenario(ctx, scenarioID)`, `ListLinksByAsset(ctx, assetID)`, `ListLinksByLiability(ctx, liabilityID)`. Enforce one-loan-per-asset-per-scenario by delete/overwrite or returning conflict (config flag).  
   - Acceptance Criteria: migrations apply cleanly; repo enforces uniqueness; list calls return correct rows scoped; update respects rule; FK violations rejected.  

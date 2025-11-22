@@ -565,7 +565,6 @@ function StepOne({
           <span>Loan Amount</span>
         </label>
         <div className="relative">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
           <input
             type="text"
             inputMode="numeric"
@@ -574,7 +573,7 @@ function StepOne({
               const raw = event.target.value.replace(/[^0-9.]/g, '')
               onChange('loanAmount', Number(raw) || 0)
             }}
-            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 pl-6 pr-4 py-2 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-lg font-semibold text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
             min={50000}
             max={1500000}
             placeholder="500,000"
@@ -750,12 +749,14 @@ function IncomeSection({ inputs, calculation, onChange }: IncomeSectionProps) {
         <label className="text-sm font-medium text-gray-300">
           Monthly Household Income
           <input
-            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
-            min={2000}
-            onChange={(event) => onChange('householdIncome', Number(event.target.value) || 0)}
-            step={500}
-            type="number"
-            value={inputs.householdIncome === 0 ? '' : inputs.householdIncome}
+            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-lg font-semibold text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+            inputMode="numeric"
+            onChange={(event) => {
+              const raw = event.target.value.replace(/[^0-9]/g, '')
+              onChange('householdIncome', Number(raw) || 0)
+            }}
+            type="text"
+            value={inputs.householdIncome ? inputs.householdIncome.toLocaleString() : ''}
             placeholder="10,000"
           />
           <p className="mt-1 text-xs text-gray-500">Include both borrowers for couples.</p>
@@ -763,12 +764,14 @@ function IncomeSection({ inputs, calculation, onChange }: IncomeSectionProps) {
         <label className="text-sm font-medium text-gray-300">
           Other Monthly Debt Obligations
           <input
-            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
-            min={0}
-            onChange={(event) => onChange('otherDebt', Number(event.target.value) || 0)}
-            step={100}
-            type="number"
-            value={inputs.otherDebt === 0 ? '' : inputs.otherDebt}
+            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-lg font-semibold text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+            inputMode="numeric"
+            onChange={(event) => {
+              const raw = event.target.value.replace(/[^0-9]/g, '')
+              onChange('otherDebt', Number(raw) || 0)
+            }}
+            type="text"
+            value={inputs.otherDebt ? inputs.otherDebt.toLocaleString() : ''}
             placeholder="500"
           />
         </label>
@@ -791,11 +794,11 @@ function IncomeSection({ inputs, calculation, onChange }: IncomeSectionProps) {
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-[#24324d] bg-black/30 p-3 text-sm">
             <p className="text-gray-400">Estimated Monthly Payment</p>
-            <p className="text-white">{formatCurrency(calculation.monthlyPayment)}</p>
+            <p className="text-lg font-semibold text-white">{formatCurrency(calculation.monthlyPayment)}</p>
           </div>
           <div className="rounded-xl border border-[#24324d] bg-black/30 p-3 text-sm">
             <p className="text-gray-400">Household Income</p>
-            <p className="text-white">{formatCurrency(inputs.householdIncome)}</p>
+            <p className="text-lg font-semibold text-white">{formatCurrency(inputs.householdIncome)}</p>
           </div>
         </div>
       </div>

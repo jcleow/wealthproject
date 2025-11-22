@@ -93,6 +93,9 @@ func main() {
 	}
 
 	geminiKey := strings.TrimSpace(cfg.GeminiAPIKey)
+	log.Printf("DEBUG: Raw Gemini API key from config: '%s'", cfg.GeminiAPIKey)
+	log.Printf("DEBUG: Trimmed Gemini API key: '%s'", geminiKey)
+	log.Printf("DEBUG: Is placeholder key: %v", isPlaceholderKey(geminiKey))
 	if isPlaceholderKey(geminiKey) {
 		geminiKey = ""
 	}
@@ -133,7 +136,9 @@ func main() {
 	}
 
 	// Register Gemini provider if configured
+	log.Printf("DEBUG: About to check Gemini key registration - key empty: %v", geminiKey == "")
 	if geminiKey != "" {
+		log.Printf("DEBUG: Registering Gemini provider with key: %s", geminiKey[:10]+"...")
 		geminiProvider, err := providers.NewGeminiProvider(providers.GeminiConfig{
 			APIKey:      geminiKey,
 			Model:       cfg.GeminiModel,
@@ -147,11 +152,14 @@ func main() {
 			llmManager.RegisterProvider(geminiProvider.ProviderName(), geminiProvider)
 			providerCount++
 			registered = append(registered, geminiProvider.ProviderName())
+			log.Printf("DEBUG: Successfully registered Gemini provider")
 		}
+	} else {
+		log.Printf("DEBUG: Gemini key is empty, skipping registration")
 	}
 
 	if providerCount == 0 {
-		log.Fatal("No LLM providers configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY.")
+		log.Printf("No LLM providers configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY to enable chat; proceeding without LLM.")
 	}
 
 	// Determine primary provider based on env preference and availability
@@ -169,21 +177,24 @@ func main() {
 		primary = registered[0]
 		log.Printf("PRIMARY_LLM=%s not available, defaulting to %s", cfg.PrimaryLLM, primary)
 	}
-	if err := llmManager.SetPrimary(primary); err != nil {
-		log.Fatalf("Failed to set primary LLM provider: %v", err)
-	}
-	// Set fallbacks to any remaining providers in order
-	fallbacks := []string{}
-	for _, p := range registered {
-		if p != primary {
-			fallbacks = append(fallbacks, p)
+	if primary != "" {
+		if err := llmManager.SetPrimary(primary); err != nil {
+			log.Printf("Failed to set primary LLM provider: %v", err)
 		}
+		// Set fallbacks to any remaining providers in order
+		fallbacks := []string{}
+		for _, p := range registered {
+			if p != primary {
+				fallbacks = append(fallbacks, p)
+			}
+		}
+		if err := llmManager.SetFallbacks(fallbacks); err != nil {
+			log.Printf("Failed to set fallback LLM providers: %v", err)
+		}
+		log.Printf("Registered LLM providers: %v (primary: %s, fallbacks: %v)", registered, primary, fallbacks)
+	} else {
+		log.Printf("LLM disabled (no providers). Chat endpoints will return an error until a provider key is set.")
 	}
-	if err := llmManager.SetFallbacks(fallbacks); err != nil {
-		log.Printf("Failed to set fallback LLM providers: %v", err)
-	}
-
-	log.Printf("Registered LLM providers: %v (primary: %s, fallbacks: %v)", registered, primary, fallbacks)
 
 	// Initialize handlers
 	healthHandler := handlers.NewHealthHandler()
@@ -247,6 +258,9 @@ func isPlaceholderKey(key string) bool {
 		return true
 	}
 	if strings.Contains(lower, "sk-ant-your") || strings.Contains(lower, "your-anthropic-key") {
+		return true
+	}
+	if strings.Contains(lower, "your-gemini-key") || strings.Contains(lower, "your-google-key") {
 		return true
 	}
 	return false

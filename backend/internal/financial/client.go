@@ -520,6 +520,25 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 		return nil, fmt.Errorf("loan amount does not match property price minus down payment")
 	}
 
+	assetName := params.Name
+	if strings.TrimSpace(assetName) == "" {
+		assetName = "Property Asset"
+	}
+	liabilityName := params.Name
+	if strings.TrimSpace(liabilityName) == "" {
+		liabilityName = "Property Loan"
+	} else {
+		liabilityName = liabilityName + " Loan"
+	}
+	assetID, err := c.upsertPropertyAsset(ctx, assetName, params.PropertyPrice)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upsert property asset: %w", err)
+	}
+	liabilityID, err := c.upsertPropertyLiability(ctx, liabilityName, params.LoanAmount, params.InterestRate, params.LoanTenure)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upsert property liability: %w", err)
+	}
+
 	headline := params.Name
 	if headline == "" {
 		headline = "Property Scenario"
@@ -546,7 +565,57 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 		return nil, err
 	}
 
+	_, _ = c.store.CreateOrReplacePropertyLink(ctx, repository.PropertyLink{
+		PropertyScenarioID: created.ID,
+		AssetID:            assetID,
+		LiabilityID:        liabilityID,
+	})
+
 	return &created.ID, nil
+}
+
+func (c *Client) upsertPropertyAsset(ctx context.Context, name string, value float64) (string, error) {
+	const category = "property"
+	if a, err := c.store.GetAssetByNameAndCategory(ctx, name, category); err == nil {
+		return a.ID, nil
+	}
+	created, err := c.store.CreateAsset(ctx, repository.Asset{
+		Name:             name,
+		Category:         category,
+		CurrentValue:     value,
+		AnnualGrowthRate: 0,
+		Notes:            "",
+	})
+	if err != nil {
+		return "", err
+	}
+	return created.ID, nil
+}
+
+func (c *Client) upsertPropertyLiability(ctx context.Context, name string, balance float64, rate float64, tenureYears int) (string, error) {
+	const category = "property"
+	if li, err := c.store.GetLiabilityByNameAndCategory(ctx, name, category); err == nil {
+		return li.ID, nil
+	}
+	monthly := 0.0
+	if tenureYears > 0 {
+		months := float64(tenureYears * 12)
+		if months > 0 {
+			monthly = balance / months
+		}
+	}
+	created, err := c.store.CreateLiability(ctx, repository.Liability{
+		Name:            name,
+		Category:        category,
+		CurrentBalance:  balance,
+		InterestRateAPR: rate,
+		MinimumPayment:  monthly,
+		Notes:           "",
+	})
+	if err != nil {
+		return "", err
+	}
+	return created.ID, nil
 }
 
 // CalculateNetWorth calculates the current net worth

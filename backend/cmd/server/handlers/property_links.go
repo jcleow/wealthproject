@@ -19,6 +19,8 @@ type propertyLinkStore interface {
 	CreateOrReplacePropertyLink(ctx context.Context, link repository.PropertyLink) (repository.PropertyLink, error)
 	UpdatePropertyLink(ctx context.Context, link repository.PropertyLink) (repository.PropertyLink, error)
 	ListPropertyLinksByScenario(ctx context.Context, scenarioID string) ([]repository.PropertyLink, error)
+	ListPropertyLinksByAsset(ctx context.Context, assetID string) ([]repository.PropertyLink, error)
+	ListPropertyLinksByLiability(ctx context.Context, liabilityID string) ([]repository.PropertyLink, error)
 }
 
 // PropertyLinkHandler serves property link endpoints.
@@ -239,14 +241,34 @@ func (h *PropertyLinkHandler) update(w http.ResponseWriter, r *http.Request, id 
 
 func (h *PropertyLinkHandler) list(w http.ResponseWriter, r *http.Request) {
 	scenarioID := r.URL.Query().Get("property_scenario_id")
-	if scenarioID == "" {
-		badRequest(w, errMissingFields("property_scenario_id"))
+	assetID := r.URL.Query().Get("asset_id")
+	liabilityID := r.URL.Query().Get("liability_id")
+	if scenarioID == "" && assetID == "" && liabilityID == "" {
+		badRequest(w, errMissingFields("property_scenario_id or asset_id or liability_id"))
 		return
 	}
-	links, err := h.store.ListPropertyLinksByScenario(r.Context(), scenarioID)
-	if err != nil {
-		internalError(w)
-		return
+
+	switch {
+	case scenarioID != "":
+		links, err := h.store.ListPropertyLinksByScenario(r.Context(), scenarioID)
+		if err != nil {
+			internalError(w)
+			return
+		}
+		writeJSON(w, links)
+	case assetID != "":
+		links, err := h.store.ListPropertyLinksByAsset(r.Context(), assetID)
+		if err != nil {
+			internalError(w)
+			return
+		}
+		writeJSON(w, links)
+	case liabilityID != "":
+		links, err := h.store.ListPropertyLinksByLiability(r.Context(), liabilityID)
+		if err != nil {
+			internalError(w)
+			return
+		}
+		writeJSON(w, links)
 	}
-	writeJSON(w, links)
 }

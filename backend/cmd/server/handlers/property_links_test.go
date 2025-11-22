@@ -116,6 +116,26 @@ func (f *fakePropertyLinkStore) ListPropertyLinksByScenario(_ context.Context, s
 	return out, nil
 }
 
+func (f *fakePropertyLinkStore) ListPropertyLinksByAsset(_ context.Context, assetID string) ([]repository.PropertyLink, error) {
+	var out []repository.PropertyLink
+	for _, l := range f.links {
+		if l.AssetID == assetID {
+			out = append(out, l)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakePropertyLinkStore) ListPropertyLinksByLiability(_ context.Context, liabilityID string) ([]repository.PropertyLink, error) {
+	var out []repository.PropertyLink
+	for _, l := range f.links {
+		if l.LiabilityID == liabilityID {
+			out = append(out, l)
+		}
+	}
+	return out, nil
+}
+
 func TestPropertyLinkCreateCreatesScenarioAndConverts(t *testing.T) {
 	store := newFakePropertyLinkStore()
 	store.assets["a1"] = repository.Asset{ID: "a1", Category: "other"}
