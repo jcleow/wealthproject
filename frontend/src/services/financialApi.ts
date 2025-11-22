@@ -1,4 +1,5 @@
 import type { Asset, Liability, Income, Expense } from '@/types/financial'
+import type { PropertyLinkRecord, PropertyScenarioRecord } from '@/types/property'
 
 function getApiBaseUrl() {
   const envURL = process.env.NEXT_PUBLIC_GO_BACKEND_BASE_URL?.trim()
@@ -73,6 +74,28 @@ const toExpense = (item: any): Expense => ({
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
 })
 
+const toPropertyLink = (item: any): PropertyLinkRecord => ({
+  id: item.id ?? item.ID,
+  propertyScenarioId: item.property_scenario_id ?? item.propertyScenarioId ?? item.PropertyScenarioId,
+  assetId: item.asset_id ?? item.assetId ?? item.AssetID ?? item.AssetId,
+  liabilityId: item.liability_id ?? item.liabilityId ?? item.LiabilityID ?? item.LiabilityId,
+  createdAt: item.created_at ?? item.createdAt ?? item.CreatedAt ?? '',
+  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt ?? '',
+})
+
+const toPropertyScenario = (item: any): PropertyScenarioRecord => ({
+  id: item.id ?? item.ID ?? '',
+  propertyType: item.property_type ?? item.propertyType ?? '',
+  headline: item.headline ?? '',
+  propertyPrice: Number(item.property_price ?? item.propertyPrice ?? 0),
+  downPayment: Number(item.down_payment ?? item.downPayment ?? 0),
+  loanAmount: Number(item.loan_amount ?? item.loanAmount ?? 0),
+  interestRate: Number(item.interest_rate ?? item.interestRate ?? 0),
+  loanTenure: Number(item.loan_tenure ?? item.loanTenure ?? 0),
+  notes: item.notes ?? '',
+  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt ?? '',
+})
+
 export const financialApi = {
   // Assets
   async listAssets(): Promise<Asset[]> {
@@ -103,6 +126,10 @@ export const financialApi = {
   },
   async deleteAsset(id: string): Promise<void> {
     await jsonRequest<void>(`${API_BASE}/assets/${id}`, { method: 'DELETE' })
+  },
+  async convertAssetToProperty(id: string): Promise<Asset> {
+    const data = await jsonRequest<any>(`${API_BASE}/assets/${id}/convert-to-property`, { method: 'PUT' })
+    return toAsset(data)
   },
 
   // Liabilities
@@ -136,6 +163,10 @@ export const financialApi = {
   },
   async deleteLiability(id: string): Promise<void> {
     await jsonRequest<void>(`${API_BASE}/liabilities/${id}`, { method: 'DELETE' })
+  },
+  async convertLiabilityToProperty(id: string): Promise<Liability> {
+    const data = await jsonRequest<any>(`${API_BASE}/liabilities/${id}/convert-to-property`, { method: 'PUT' })
+    return toLiability(data)
   },
 
   // Incomes
@@ -200,5 +231,71 @@ export const financialApi = {
   },
   async deleteExpense(id: string): Promise<void> {
     await jsonRequest<void>(`${API_BASE}/cashflow/expenses/${id}`, { method: 'DELETE' })
+  },
+
+  // Property scenarios (planner) with optional linking
+  async createPropertyScenario(payload: {
+    propertyType: string
+    headline: string
+    subheadline?: string
+    propertyPrice: number
+    downPayment: number
+    loanAmount: number
+    interestRate: number
+    loanTenure: number
+    notes?: string
+    assetId?: string
+    liabilityId?: string
+  }): Promise<PropertyScenarioRecord> {
+    const body = {
+      property_type: payload.propertyType,
+      headline: payload.headline,
+      subheadline: payload.subheadline ?? '',
+      property_price: payload.propertyPrice,
+      down_payment: payload.downPayment || 0,
+      loan_amount: payload.loanAmount || 0,
+      interest_rate: payload.interestRate || 0,
+      loan_tenure: payload.loanTenure || 0,
+      notes: payload.notes ?? '',
+      asset_id: payload.assetId,
+      liability_id: payload.liabilityId,
+    }
+    const data = await jsonRequest<any>(`${API_BASE}/property-planner/scenarios`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    return toPropertyScenario(data)
+  },
+
+  // Property links
+  async createPropertyLink(payload: { propertyScenarioId?: string; assetId: string; liabilityId: string }): Promise<{
+    link: PropertyLinkRecord
+    scenario: PropertyScenarioRecord
+  }> {
+    const body = {
+      property_scenario_id: payload.propertyScenarioId,
+      asset_id: payload.assetId,
+      liability_id: payload.liabilityId,
+    }
+    const data = await jsonRequest<any>(`${API_BASE}/property-links`, { method: 'POST', body: JSON.stringify(body) })
+    return {
+      link: toPropertyLink(data.property_link ?? data.link ?? data),
+      scenario: toPropertyScenario(data.property_scenario ?? data.scenario ?? data),
+    }
+  },
+
+  async updatePropertyLink(id: string, payload: { propertyScenarioId: string; assetId: string; liabilityId: string }): Promise<PropertyLinkRecord> {
+    const body = {
+      property_scenario_id: payload.propertyScenarioId,
+      asset_id: payload.assetId,
+      liability_id: payload.liabilityId,
+    }
+    const data = await jsonRequest<any>(`${API_BASE}/property-links/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+    return toPropertyLink(data)
+  },
+
+  async listPropertyLinks(scenarioId: string): Promise<PropertyLinkRecord[]> {
+    const data = await jsonRequest<any[]>(`${API_BASE}/property-links?property_scenario_id=${encodeURIComponent(scenarioId)}`)
+    return data.map(toPropertyLink)
   },
 }

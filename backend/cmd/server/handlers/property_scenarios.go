@@ -22,6 +22,12 @@ func (h *PropertyScenarioHandler) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("/property-planner/scenarios/", h.handleItem)
 }
 
+type propertyScenarioRequest struct {
+	repository.PropertyScenario
+	AssetID     string `json:"asset_id"`
+	LiabilityID string `json:"liability_id"`
+}
+
 func (h *PropertyScenarioHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -75,7 +81,7 @@ func (h *PropertyScenarioHandler) get(w http.ResponseWriter, r *http.Request, id
 }
 
 func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request) {
-	var payload repository.PropertyScenario
+	var payload propertyScenarioRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
 		return
@@ -84,11 +90,43 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 		badRequest(w, errMissingFields("property_type, headline, property_price, down_payment, loan_amount, interest_rate, loan_tenure"))
 		return
 	}
-	created, err := h.store.CreatePropertyScenario(r.Context(), payload)
+	created, err := h.store.CreatePropertyScenario(r.Context(), payload.PropertyScenario)
 	if err != nil {
 		internalError(w)
 		return
 	}
+
+	// If asset_id and liability_id provided, enforce property category and create link.
+	if payload.AssetID != "" && payload.LiabilityID != "" {
+		if _, err := h.store.ConvertAssetToProperty(r.Context(), payload.AssetID); err != nil {
+			if err == repository.ErrNotFound {
+				notFound(w)
+				return
+			}
+			internalError(w)
+			return
+		}
+		if _, err := h.store.ConvertLiabilityToProperty(r.Context(), payload.LiabilityID); err != nil {
+			if err == repository.ErrNotFound {
+				notFound(w)
+				return
+			}
+			internalError(w)
+			return
+		}
+		if _, err := h.store.CreateOrReplacePropertyLink(r.Context(), repository.PropertyLink{
+			PropertyScenarioID: created.ID,
+			AssetID:            payload.AssetID,
+			LiabilityID:        payload.LiabilityID,
+		}); err != nil {
+			internalError(w)
+			return
+		}
+	} else if payload.AssetID != "" || payload.LiabilityID != "" {
+		badRequest(w, errMissingFields("asset_id and liability_id must both be provided to link"))
+		return
+	}
+
 	writeJSON(w, created)
 }
 

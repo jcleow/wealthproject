@@ -16,6 +16,9 @@ import {
 import { Calendar, Loader2, Percent, PiggyBank, TrendingDown, X } from 'lucide-react'
 import type { MortgageInputs, PropertyPlannerType } from '@/types/property'
 import { PROPERTY_TYPES } from '@/types/property'
+import type { Asset, Liability } from '@/types/financial'
+import { financialApi } from '@/services/financialApi'
+import { Input } from '@/components/ui/input'
 import { calculateMortgage, formatCurrency, formatPercentage } from '@/utils/mortgage-calculations'
 
 interface PropertyPlannerModalProps {
@@ -70,6 +73,17 @@ export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalPr
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null)
   const [locationDraft, setLocationDraft] = useState(LOCATION_TAGS.hdb)
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [liabilities, setLiabilities] = useState<Liability[]>([])
+  const [selectedAssetId, setSelectedAssetId] = useState<string>('')
+  const [assetInput, setAssetInput] = useState<string>('')
+  const [assetInputCache, setAssetInputCache] = useState<string>('')
+  const [selectedLiabilityId, setSelectedLiabilityId] = useState<string>('')
+  const [liabilityInput, setLiabilityInput] = useState<string>('')
+  const [liabilityInputCache, setLiabilityInputCache] = useState<string>('')
+  const [isLinking, setIsLinking] = useState(false)
+  const [scenarioId, setScenarioId] = useState<string | null>(null)
+  const [helperMessage, setHelperMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -91,10 +105,42 @@ export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalPr
   }, [isOpen])
 
   useEffect(() => {
+    if (!isOpen) return
+    const loadFinancial = async () => {
+      try {
+        const [assetList, liabilityList] = await Promise.all([financialApi.listAssets(), financialApi.listLiabilities()])
+        setAssets(assetList)
+        setLiabilities(liabilityList)
+        // preselect property asset if exists
+        const propertyAsset = assetList.find((a) => a.category === 'property')
+        if (propertyAsset) {
+          setSelectedAssetId(propertyAsset.id)
+          setAssetInput(propertyAsset.name)
+          setLocationDraft(propertyAsset.name)
+        }
+        const propertyLiability = liabilityList.find((l) => l.category === 'property')
+        if (propertyLiability) {
+          setSelectedLiabilityId(propertyLiability.id)
+          setLiabilityInput(propertyLiability.name)
+        }
+      } catch (error) {
+        console.error('Failed to load financial items', error)
+        setHelperMessage('Unable to load assets or liabilities right now.')
+      }
+    }
+    void loadFinancial()
+  }, [isOpen])
+
+  useEffect(() => {
     setInputs((prev) => ({ ...prev, propertyType: selectedType }))
   }, [selectedType])
 
   const calculation = useMemo(() => calculateMortgage(inputs), [inputs])
+  const selectedAsset = useMemo(() => assets.find((a) => a.id === selectedAssetId), [assets, selectedAssetId])
+  const selectedLiability = useMemo(
+    () => liabilities.find((l) => l.id === selectedLiabilityId),
+    [liabilities, selectedLiabilityId],
+  )
 
   const hasUnsavedChanges = useMemo(() => {
     if (!savedSnapshot) return true
@@ -109,9 +155,139 @@ export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalPr
     }
   }
 
+  const handleAssetInput = (value: string) => {
+    setAssetInput(value)
+    const match = assets.find((a) => a.name === value)
+    if (match) {
+      setSelectedAssetId(match.id)
+      setLocationDraft(match.name)
+    } else {
+      setSelectedAssetId('')
+      setLocationDraft(value || LOCATION_TAGS[selectedType])
+    }
+  }
+  const handleAssetFocus = () => {
+    setAssetInputCache(assetInput)
+    setAssetInput('')
+  }
+  const handleAssetBlur = () => {
+    if (!assetInput && assetInputCache) {
+      setAssetInput(assetInputCache)
+    }
+  }
+
+  const handleLiabilityInput = (value: string) => {
+    setLiabilityInput(value)
+    const match = liabilities.find((l) => l.name === value)
+    if (match) {
+      setSelectedLiabilityId(match.id)
+    } else {
+      setSelectedLiabilityId('')
+    }
+  }
+  const handleLiabilityFocus = () => {
+    setLiabilityInputCache(liabilityInput)
+    setLiabilityInput('')
+  }
+  const handleLiabilityBlur = () => {
+    if (!liabilityInput && liabilityInputCache) {
+      setLiabilityInput(liabilityInputCache)
+    }
+  }
+
+  const handleSaveLink = async () => {
+    if (!assetInput) {
+      setHelperMessage('Enter or pick a property asset.')
+      return
+    }
+    if (!liabilityInput) {
+      setHelperMessage('Enter or pick a property loan.')
+      return
+    }
+    if (inputs.loanAmount <= 0 || inputs.floatingRate <= 0 || inputs.loanTermYears <= 0) {
+      setHelperMessage('Enter loan amount, rate, and tenure before generating.')
+      return
+    }
+    setIsLinking(true)
+    setHelperMessage(null)
+    try {
+      let assetId = selectedAssetId
+      let liabilityId = selectedLiabilityId
+
+      if (!assetId) {
+        const created = await financialApi.createAsset({
+          name: assetInput.trim(),
+          category: 'property',
+          currentValue: inputs.loanAmount || 0,
+          annualGrowthRate: 0,
+          notes: '',
+        })
+        setAssets((prev) => [...prev, created])
+        assetId = created.id
+        setSelectedAssetId(assetId)
+      }
+      if (!liabilityId) {
+        const createdLoan = await financialApi.createLiability({
+          name: liabilityInput.trim(),
+          category: 'property',
+          currentBalance: inputs.loanAmount || 0,
+          interestRateApr: inputs.floatingRate,
+          minimumPayment: calculation.monthlyPayment || 0,
+          notes: '',
+        })
+        setLiabilities((prev) => [...prev, createdLoan])
+        liabilityId = createdLoan.id
+        setSelectedLiabilityId(liabilityId)
+      }
+
+      const assetRecord = assets.find((a) => a.id === assetId)
+      const liabilityRecord = liabilities.find((l) => l.id === liabilityId)
+      const needsConvert =
+        (assetRecord && assetRecord.category !== 'property') || (liabilityRecord && liabilityRecord.category !== 'property')
+      if (needsConvert) {
+        const confirmConvert = window.confirm('We will change the selected asset and loan category to property. Continue?')
+        if (!confirmConvert) {
+          setHelperMessage('Conversion cancelled by user.')
+          return
+        }
+      }
+      if (assetRecord && assetRecord.category !== 'property') {
+        const updated = await financialApi.convertAssetToProperty(assetId)
+        setAssets((prev) => prev.map((a) => (a.id === assetId ? updated : a)))
+      }
+      if (liabilityRecord && liabilityRecord.category !== 'property') {
+        const updatedLi = await financialApi.convertLiabilityToProperty(liabilityId)
+        setLiabilities((prev) => prev.map((l) => (l.id === liabilityId ? updatedLi : l)))
+      }
+      const headline = locationDraft || assetInput || 'Property scenario'
+      const scenario = await financialApi.createPropertyScenario({
+        propertyType: selectedType,
+        headline,
+        subheadline: '',
+        propertyPrice: Math.max(1, inputs.loanAmount),
+        downPayment: Math.max(1, inputs.loanAmount * 0.2),
+        loanAmount: Math.max(1, inputs.loanAmount),
+        interestRate: Math.max(0.01, inputs.floatingRate),
+        loanTenure: Math.max(1, inputs.loanTermYears),
+        notes: '',
+        assetId,
+        liabilityId,
+      })
+      setScenarioId(scenario.id)
+      setHelperMessage('Linked asset and loan to property scenario.')
+    } catch (error) {
+      console.error('Failed to link property items', error)
+      setHelperMessage('Unable to link property items right now.')
+    } finally {
+      setIsLinking(false)
+    }
+  }
+
   const handleGenerate = () => {
     if (!areInputsValid(inputs)) return
-    setIsComplete(true)
+    void handleSaveLink().then(() => {
+      setIsComplete(true)
+    })
   }
 
   const handleEdit = () => setIsComplete(false)
@@ -159,15 +335,25 @@ export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalPr
               Model how your housing loan impacts cash, CPF, and MSR in three guided steps.
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px]">
-              <span className="uppercase tracking-[0.14em] text-gray-400">Currently modeling:</span>
-              <input
-                aria-label="Currently modeling"
-                value={locationDraft}
-                onChange={(event) => setLocationDraft(event.target.value)}
-                className="h-8 min-w-[240px] rounded-full border border-white/20 bg-transparent px-3 text-[11px] font-semibold text-white outline-none ring-0 placeholder:text-gray-500 focus:border-blue-400 focus-visible:ring-0"
-                placeholder={LOCATION_PLACEHOLDER}
-                spellCheck={false}
-              />
+              <span className="text-sm font-medium uppercase tracking-[0.14em] text-gray-300">
+                Currently modeling:
+              </span>
+              <div className="flex items-center gap-2">
+                <Input
+                  list="property-assets"
+                  value={assetInput}
+                  onChange={(event) => handleAssetInput(event.target.value)}
+                  onFocus={handleAssetFocus}
+                  onBlur={handleAssetBlur}
+                  placeholder="Select or type a property asset"
+                  className="h-10 min-w-[260px] rounded-full border border-white/20 bg-white/5 px-4 text-sm font-semibold text-white focus:border-white/10 focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:shadow-none"
+                />
+                <datalist id="property-assets">
+                  {assets.map((asset) => (
+                    <option key={asset.id} value={asset.name} />
+                  ))}
+                </datalist>
+              </div>
             </div>
           </div>
           <button
@@ -180,12 +366,31 @@ export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalPr
           </button>
         </div>
 
-        <div className="flex h-full overflow-hidden">
-          <div className="flex-1 overflow-auto px-6 py-6 sm:px-8 bg-gradient-to-b from-[#0f1a2f] via-[#0c1528] to-[#0a1122]">
+       <div className="flex h-full overflow-hidden">
+          <div
+            className="flex-1 overflow-auto px-6 py-6 sm:px-8 bg-gradient-to-b from-[#0f1a2f] via-[#0c1528] to-[#0a1122]"
+            style={{ paddingBottom: '10rem' }}
+          >
             {!isComplete ? (
               <div className="space-y-6">
                 <section className="rounded-3xl border border-white/10 bg-[#030712] p-6 shadow-xl">
-                  <StepForm inputs={inputs} onChange={handleInputChange} calculation={calculation} />
+                  <StepForm
+                    inputs={inputs}
+                    onChange={handleInputChange}
+                    calculation={calculation}
+                    selectedLiabilityId={selectedLiabilityId}
+                    liabilities={liabilities}
+                    liabilityInput={liabilityInput}
+                    onChangeLiabilityInput={handleLiabilityInput}
+                    onLiabilityFocus={handleLiabilityFocus}
+                    onLiabilityBlur={handleLiabilityBlur}
+                  />
+                  <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-300">
+                    {assetInput && <span className="rounded-full bg-white/5 px-3 py-1">Asset: {assetInput}</span>}
+                    {liabilityInput && <span className="rounded-full bg-white/5 px-3 py-1">Loan: {liabilityInput}</span>}
+                    {scenarioId && <span className="rounded-full bg-white/5 px-3 py-1">Scenario ID: {scenarioId}</span>}
+                    {helperMessage && <span className="text-blue-200">{helperMessage}</span>}
+                  </div>
 
                   <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
                     <div className="text-xs text-gray-400">
@@ -240,12 +445,37 @@ interface StepFormProps {
   inputs: MortgageInputs
   onChange: (field: keyof MortgageInputs, value: string | number) => void
   calculation: ReturnType<typeof calculateMortgage>
+  selectedLiabilityId: string
+  liabilities: Liability[]
+  liabilityInput: string
+  onChangeLiabilityInput: (value: string) => void
+  onLiabilityFocus: () => void
+  onLiabilityBlur: () => void
 }
 
-function StepForm({ inputs, onChange, calculation }: StepFormProps) {
+function StepForm({
+  inputs,
+  onChange,
+  calculation,
+  selectedLiabilityId,
+  liabilities,
+  liabilityInput,
+  onChangeLiabilityInput,
+  onLiabilityFocus,
+  onLiabilityBlur,
+}: StepFormProps) {
   return (
     <div className="space-y-6">
-      <StepOne inputs={inputs} onChange={onChange} />
+      <StepOne
+        inputs={inputs}
+        onChange={onChange}
+        selectedLiabilityId={selectedLiabilityId}
+        liabilities={liabilities}
+        liabilityInput={liabilityInput}
+        onChangeLiabilityInput={onChangeLiabilityInput}
+        onLiabilityFocus={onLiabilityFocus}
+        onLiabilityBlur={onLiabilityBlur}
+      />
       <div className="border-t border-white/10" />
       <InterestSection inputs={inputs} onChange={onChange} />
       <div className="border-t border-white/10" />
@@ -257,9 +487,24 @@ function StepForm({ inputs, onChange, calculation }: StepFormProps) {
 interface StepOneProps {
   inputs: MortgageInputs
   onChange: (field: keyof MortgageInputs, value: string | number) => void
+  selectedLiabilityId: string
+  liabilities: Liability[]
+  liabilityInput: string
+  onChangeLiabilityInput: (value: string) => void
+  onLiabilityFocus: () => void
+  onLiabilityBlur: () => void
 }
 
-function StepOne({ inputs, onChange }: StepOneProps) {
+function StepOne({
+  inputs,
+  onChange,
+  selectedLiabilityId,
+  liabilities,
+  liabilityInput,
+  onChangeLiabilityInput,
+  onLiabilityFocus,
+  onLiabilityBlur,
+}: StepOneProps) {
   const monthOptions = useMemo(() => {
     const options: Array<{ value: string; label: string }> = []
     const currentYear = new Date().getFullYear()
@@ -296,36 +541,62 @@ function StepOne({ inputs, onChange }: StepOneProps) {
             <option value="landed">Landed</option>
           </select>
         </label>
+        <label className="text-sm font-medium text-gray-300">
+          Property Loan (select or add)
+          <Input
+            list="property-loans"
+            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white focus:border-white/10 focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:shadow-none"
+            value={liabilityInput}
+            onChange={(event) => onChangeLiabilityInput(event.target.value)}
+            onFocus={onLiabilityFocus}
+            onBlur={onLiabilityBlur}
+            placeholder="Select or type a property loan"
+          />
+          <datalist id="property-loans">
+            {liabilities.map((liability) => (
+              <option key={liability.id} value={liability.name} />
+            ))}
+          </datalist>
+        </label>
       </div>
 
       <div className="space-y-2">
         <label className="flex items-center justify-between text-sm font-medium text-gray-300">
           <span>Loan Amount</span>
         </label>
-        <input
-          type="number"
-          value={inputs.loanAmount === 0 ? '' : inputs.loanAmount}
-          onChange={(event) => onChange('loanAmount', Number(event.target.value) || 0)}
-          className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
-          min={50000}
-          max={1500000}
-          step={10000}
-          placeholder="500,000"
-        />
+        <div className="relative">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={inputs.loanAmount ? inputs.loanAmount.toLocaleString() : ''}
+            onChange={(event) => {
+              const raw = event.target.value.replace(/[^0-9.]/g, '')
+              onChange('loanAmount', Number(raw) || 0)
+            }}
+            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 pl-6 pr-4 py-2 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+            min={50000}
+            max={1500000}
+            placeholder="500,000"
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="text-sm font-medium text-gray-300">
           Loan Start Date
-          <input
-            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
-            max="2035-12"
-            min="2024-01"
-            onChange={(event) => onChange('loanStartMonth', event.target.value)}
-            type="month"
-            value={inputs.loanStartMonth}
-            placeholder="----"
-          />
+          <div className="relative">
+            <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white" />
+            <input
+              className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 pl-9 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+              max="2035-12"
+              min="2024-01"
+              onChange={(event) => onChange('loanStartMonth', event.target.value)}
+              type="month"
+              value={inputs.loanStartMonth}
+              placeholder="----"
+            />
+          </div>
         </label>
 
         <label className="text-sm font-medium text-gray-300">

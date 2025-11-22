@@ -18,6 +18,15 @@ type mockFinancialClient struct {
 	actions    []string
 }
 
+func (m *mockFinancialClient) DeleteAsset(ctx context.Context, params financial.DeleteAssetParams) (*string, error) {
+	m.actions = append(m.actions, "deleteAsset")
+	if m.failOnTool == "deleteAsset" {
+		return nil, errMockFailure
+	}
+	id := "asset-123"
+	return &id, nil
+}
+
 func (m *mockFinancialClient) CreateAsset(ctx context.Context, params financial.AssetParams) (*string, error) {
 	m.actions = append(m.actions, "createAsset")
 	if m.failOnTool == "createAsset" {
@@ -51,6 +60,69 @@ func (m *mockFinancialClient) UpdateLiability(ctx context.Context, params financ
 		return nil, errMockFailure
 	}
 	id := "liability-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) DeleteLiability(ctx context.Context, params financial.DeleteLiabilityParams) (*string, error) {
+	m.actions = append(m.actions, "deleteLiability")
+	if m.failOnTool == "deleteLiability" {
+		return nil, errMockFailure
+	}
+	id := "liability-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) CreateIncome(ctx context.Context, params financial.IncomeParams) (*string, error) {
+	m.actions = append(m.actions, "createIncome")
+	if m.failOnTool == "createIncome" {
+		return nil, errMockFailure
+	}
+	id := "income-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) UpdateIncome(ctx context.Context, params financial.UpdateIncomeParams) (*string, error) {
+	m.actions = append(m.actions, "updateIncome")
+	if m.failOnTool == "updateIncome" {
+		return nil, errMockFailure
+	}
+	id := "income-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) DeleteIncome(ctx context.Context, params financial.DeleteIncomeParams) (*string, error) {
+	m.actions = append(m.actions, "deleteIncome")
+	if m.failOnTool == "deleteIncome" {
+		return nil, errMockFailure
+	}
+	id := "income-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) CreateExpense(ctx context.Context, params financial.ExpenseParams) (*string, error) {
+	m.actions = append(m.actions, "createExpense")
+	if m.failOnTool == "createExpense" {
+		return nil, errMockFailure
+	}
+	id := "expense-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) UpdateExpense(ctx context.Context, params financial.UpdateExpenseParams) (*string, error) {
+	m.actions = append(m.actions, "updateExpense")
+	if m.failOnTool == "updateExpense" {
+		return nil, errMockFailure
+	}
+	id := "expense-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) DeleteExpense(ctx context.Context, params financial.DeleteExpenseParams) (*string, error) {
+	m.actions = append(m.actions, "deleteExpense")
+	if m.failOnTool == "deleteExpense" {
+		return nil, errMockFailure
+	}
+	id := "expense-123"
 	return &id, nil
 }
 

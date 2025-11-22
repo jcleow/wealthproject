@@ -85,6 +85,16 @@ type Expense struct {
 	UpdatedAt time.Time
 }
 
+// PropertyLink ties assets and liabilities to property scenarios.
+type PropertyLink struct {
+	ID                 string
+	PropertyScenarioID string
+	AssetID            string
+	LiabilityID        string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
 // ----- Asset operations -----
 
 func (s *Store) ListAssets(ctx context.Context) ([]Asset, error) {
@@ -171,6 +181,24 @@ func (s *Store) DeleteAsset(ctx context.Context, id string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// ConvertAssetToProperty updates an asset category to property (idempotent).
+func (s *Store) ConvertAssetToProperty(ctx context.Context, id string) (Asset, error) {
+	row := s.db.QueryRowContext(ctx, `
+		UPDATE finance_assets
+		SET category='property',
+		    updated_at=NOW()
+		WHERE id=$1
+		RETURNING id, name, category, current_value, annual_growth_rate, COALESCE(notes, ''), updated_at`, id)
+	var updated Asset
+	if err := row.Scan(&updated.ID, &updated.Name, &updated.Category, &updated.CurrentValue, &updated.AnnualGrowthRate, &updated.Notes, &updated.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Asset{}, ErrNotFound
+		}
+		return Asset{}, err
+	}
+	return updated, nil
 }
 
 // ----- Liability operations -----
@@ -260,6 +288,24 @@ func (s *Store) DeleteLiability(ctx context.Context, id string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// ConvertLiabilityToProperty updates a liability category to property (idempotent).
+func (s *Store) ConvertLiabilityToProperty(ctx context.Context, id string) (Liability, error) {
+	row := s.db.QueryRowContext(ctx, `
+		UPDATE finance_liabilities
+		SET category='property',
+		    updated_at=NOW()
+		WHERE id=$1
+		RETURNING id, name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(notes, ''), updated_at`, id)
+	var updated Liability
+	if err := row.Scan(&updated.ID, &updated.Name, &updated.Category, &updated.CurrentBalance, &updated.InterestRateAPR, &updated.MinimumPayment, &updated.Notes, &updated.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Liability{}, ErrNotFound
+		}
+		return Liability{}, err
+	}
+	return updated, nil
 }
 
 // ----- Property Scenario operations -----
@@ -587,4 +633,122 @@ func encodeJSON(m map[string]interface{}) []byte {
 		return []byte("{}")
 	}
 	return out
+}
+
+// ----- PropertyLink operations -----
+
+// CreateOrReplacePropertyLink creates a link, enforcing one loan per asset per scenario (overwrite).
+func (s *Store) CreateOrReplacePropertyLink(ctx context.Context, link PropertyLink) (PropertyLink, error) {
+	row := s.db.QueryRowContext(ctx, `
+		INSERT INTO property_links (property_scenario_id, asset_id, liability_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (property_scenario_id, asset_id) DO UPDATE
+		SET liability_id = EXCLUDED.liability_id,
+		    updated_at = NOW()
+		RETURNING id, property_scenario_id, asset_id, liability_id, created_at, updated_at`,
+		link.PropertyScenarioID, link.AssetID, link.LiabilityID)
+	var created PropertyLink
+	if err := row.Scan(&created.ID, &created.PropertyScenarioID, &created.AssetID, &created.LiabilityID, &created.CreatedAt, &created.UpdatedAt); err != nil {
+		return PropertyLink{}, err
+	}
+	return created, nil
+}
+
+// UpdatePropertyLink updates asset/liability for a link by ID.
+func (s *Store) UpdatePropertyLink(ctx context.Context, link PropertyLink) (PropertyLink, error) {
+	row := s.db.QueryRowContext(ctx, `
+		UPDATE property_links
+		SET property_scenario_id = $2,
+		    asset_id = $3,
+		    liability_id = $4,
+		    updated_at = NOW()
+		WHERE id = $1
+		RETURNING id, property_scenario_id, asset_id, liability_id, created_at, updated_at`,
+		link.ID, link.PropertyScenarioID, link.AssetID, link.LiabilityID)
+	var updated PropertyLink
+	if err := row.Scan(&updated.ID, &updated.PropertyScenarioID, &updated.AssetID, &updated.LiabilityID, &updated.CreatedAt, &updated.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return PropertyLink{}, ErrNotFound
+		}
+		return PropertyLink{}, err
+	}
+	return updated, nil
+}
+
+// ListPropertyLinksByScenario lists links for a scenario.
+func (s *Store) ListPropertyLinksByScenario(ctx context.Context, scenarioID string) ([]PropertyLink, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, property_scenario_id, asset_id, liability_id, created_at, updated_at
+		FROM property_links
+		WHERE property_scenario_id = $1
+		ORDER BY updated_at DESC`, scenarioID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var links []PropertyLink
+	for rows.Next() {
+		var l PropertyLink
+		if err := rows.Scan(&l.ID, &l.PropertyScenarioID, &l.AssetID, &l.LiabilityID, &l.CreatedAt, &l.UpdatedAt); err != nil {
+			return nil, err
+		}
+		links = append(links, l)
+	}
+	if links == nil {
+		links = []PropertyLink{}
+	}
+	return links, rows.Err()
+}
+
+// ListPropertyLinksByAsset lists links for an asset.
+func (s *Store) ListPropertyLinksByAsset(ctx context.Context, assetID string) ([]PropertyLink, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, property_scenario_id, asset_id, liability_id, created_at, updated_at
+		FROM property_links
+		WHERE asset_id = $1
+		ORDER BY updated_at DESC`, assetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var links []PropertyLink
+	for rows.Next() {
+		var l PropertyLink
+		if err := rows.Scan(&l.ID, &l.PropertyScenarioID, &l.AssetID, &l.LiabilityID, &l.CreatedAt, &l.UpdatedAt); err != nil {
+			return nil, err
+		}
+		links = append(links, l)
+	}
+	if links == nil {
+		links = []PropertyLink{}
+	}
+	return links, rows.Err()
+}
+
+// ListPropertyLinksByLiability lists links for a liability.
+func (s *Store) ListPropertyLinksByLiability(ctx context.Context, liabilityID string) ([]PropertyLink, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, property_scenario_id, asset_id, liability_id, created_at, updated_at
+		FROM property_links
+		WHERE liability_id = $1
+		ORDER BY updated_at DESC`, liabilityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var links []PropertyLink
+	for rows.Next() {
+		var l PropertyLink
+		if err := rows.Scan(&l.ID, &l.PropertyScenarioID, &l.AssetID, &l.LiabilityID, &l.CreatedAt, &l.UpdatedAt); err != nil {
+			return nil, err
+		}
+		links = append(links, l)
+	}
+	if links == nil {
+		links = []PropertyLink{}
+	}
+	return links, rows.Err()
 }
