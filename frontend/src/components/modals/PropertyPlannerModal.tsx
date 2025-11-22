@@ -20,6 +20,7 @@ import type { Asset, Liability } from '@/types/financial'
 import { financialApi } from '@/services/financialApi'
 import { Input } from '@/components/ui/input'
 import { calculateMortgage, formatCurrency, formatPercentage } from '@/utils/mortgage-calculations'
+import type { PropertyScenarioRecord } from '@/types/property'
 
 interface PropertyPlannerModalProps {
   isOpen: boolean
@@ -29,7 +30,8 @@ interface PropertyPlannerModalProps {
 
 const DEFAULT_INPUTS: MortgageInputs = {
   propertyType: 'hdb',
-  loanAmount: 500000,
+  propertyPrice: 0,
+  loanAmount: 0,
   loanTermYears: 25,
   borrowerType: 'single',
   loanStartMonth: '2024-06',
@@ -87,6 +89,14 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
   const [scenarioId, setScenarioId] = useState<string | null>(null)
   const [helperMessage, setHelperMessage] = useState<string | null>(null)
   const [isPrefilling, setIsPrefilling] = useState(false)
+  const [prefillScenario, setPrefillScenario] = useState<PropertyScenarioRecord | null>(null)
+  const [overrideFlags, setOverrideFlags] = useState<{
+    price?: boolean
+    down?: boolean
+    loan?: boolean
+    rate?: boolean
+    tenure?: boolean
+  }>({})
 
   useEffect(() => {
     if (!isOpen) return
@@ -95,6 +105,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
       const savedScenarioId = localStorage.getItem(SCENARIO_STORAGE_KEY)
       if (savedScenarioId) {
         setScenarioId(savedScenarioId)
+        setIsComplete(true)
       }
       if (stored) {
         const parsed: MortgageInputs = JSON.parse(stored)
@@ -118,13 +129,22 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
       try {
         const scenario = await financialApi.getPropertyScenario(prefill.scenarioId)
         setScenarioId(scenario.id)
+        setPrefillScenario(scenario)
         setInputs((prev) => ({
           ...prev,
+          propertyPrice: scenario.propertyPrice || prev.propertyPrice,
           loanAmount: scenario.loanAmount || prev.loanAmount,
           loanTermYears: scenario.loanTenure || prev.loanTermYears,
           floatingRate: scenario.interestRate || prev.floatingRate,
           propertyType: (scenario.propertyType as PropertyPlannerType) || prev.propertyType,
         }))
+        setOverrideFlags({
+          price: !scenario.propertyPrice,
+          down: !scenario.downPayment,
+          loan: !scenario.loanAmount,
+          rate: !scenario.interestRate,
+          tenure: !scenario.loanTenure,
+        })
         if (scenario.headline) {
           setLocationDraft(scenario.headline)
         }
@@ -165,11 +185,19 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
           setSelectedAssetId(propertyAsset.id)
           setAssetInput(propertyAsset.name)
           setLocationDraft(propertyAsset.name)
+          setInputs((prev) => ({ ...prev, propertyPrice: propertyAsset.currentValue }))
+          setOverrideFlags((prev) => ({ ...prev, price: false }))
         }
         const propertyLiability = liabilityList.find((l) => l.category === 'property')
         if (propertyLiability) {
           setSelectedLiabilityId(propertyLiability.id)
           setLiabilityInput(propertyLiability.name)
+          setInputs((prev) => ({
+            ...prev,
+            loanAmount: propertyLiability.currentBalance,
+            floatingRate: propertyLiability.interestRateApr || prev.floatingRate,
+          }))
+          setOverrideFlags((prev) => ({ ...prev, loan: false }))
         }
       } catch (error) {
         console.error('Failed to load financial items', error)
@@ -209,6 +237,13 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
     if (match) {
       setSelectedAssetId(match.id)
       setLocationDraft(match.name)
+      setInputs((prev) => {
+        if (!prefillScenario?.propertyPrice || prev.propertyPrice <= 0) {
+          return { ...prev, propertyPrice: match.currentValue }
+        }
+        return prev
+      })
+      setOverrideFlags((prev) => ({ ...prev, price: false }))
     } else {
       setSelectedAssetId('')
       setLocationDraft(value || LOCATION_TAGS[selectedType])
@@ -308,12 +343,16 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
         setLiabilities((prev) => prev.map((l) => (l.id === liabilityId ? updatedLi : l)))
       }
       const headline = locationDraft || assetInput || 'Property scenario'
+      const downPayment =
+        inputs.propertyPrice > inputs.loanAmount && inputs.loanAmount > 0
+          ? inputs.propertyPrice - inputs.loanAmount
+          : Math.max(0, inputs.propertyPrice * 0.2)
       const scenario = await financialApi.createPropertyScenario({
         propertyType: selectedType,
         headline,
         subheadline: '',
-        propertyPrice: Math.max(1, inputs.loanAmount),
-        downPayment: Math.max(1, inputs.loanAmount * 0.2),
+        propertyPrice: Math.max(1, inputs.propertyPrice),
+        downPayment: Math.max(1, downPayment),
         loanAmount: Math.max(1, inputs.loanAmount),
         interestRate: Math.max(0.01, inputs.floatingRate),
         loanTenure: Math.max(1, inputs.loanTermYears),
@@ -338,22 +377,92 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
 
   const handleGenerate = () => {
     if (!areInputsValid(inputs)) return
-    void handleSaveLink().then(() => {
-      setIsComplete(true)
-    })
+    setIsComplete(true)
   }
 
   const handleEdit = () => setIsComplete(false)
 
-  const handleSaveDraft = () => {
+  const handleSavePlan = async () => {
     try {
       setIsSavingDraft(true)
+      await handleSaveLink()
       const snapshot = JSON.stringify(inputs)
       localStorage.setItem(STORAGE_KEY, snapshot)
       setSavedSnapshot(snapshot)
       setLastSavedAt(new Date().toISOString())
     } finally {
       setIsSavingDraft(false)
+    }
+  }
+
+  const handleApplyPlan = async () => {
+    if (!selectedAssetId || !selectedLiabilityId) {
+      setHelperMessage('Select both asset and loan before applying to plan.')
+      return
+    }
+    // Prevent negative or zero values
+    if (inputs.propertyPrice <= 0 || inputs.loanAmount <= 0) {
+      setHelperMessage('Enter property price and loan amount before applying.')
+      return
+    }
+    try {
+      setIsLinking(true)
+      // Update asset and liability with current inputs
+      await financialApi.convertAssetToProperty(selectedAssetId)
+      await financialApi.convertLiabilityToProperty(selectedLiabilityId)
+      const assetRef = assets.find((a) => a.id === selectedAssetId)
+      const liabilityRef = liabilities.find((l) => l.id === selectedLiabilityId)
+      if (assetRef) {
+        await financialApi.updateAsset(selectedAssetId, {
+          name: assetRef.name,
+          category: 'property',
+          currentValue: inputs.propertyPrice,
+          annualGrowthRate: assetRef.annualGrowthRate,
+          notes: assetRef.notes,
+        } as any)
+      }
+      if (liabilityRef) {
+        await financialApi.updateLiability(selectedLiabilityId, {
+          name: liabilityRef.name,
+          category: 'property',
+          currentBalance: inputs.loanAmount,
+          interestRateApr: inputs.floatingRate,
+          minimumPayment: calculation.monthlyPayment,
+          notes: liabilityRef.notes,
+        } as any)
+      }
+
+      // Upsert mortgage expense tied to liability (by category + liability id in notes)
+      try {
+        const expenses = await financialApi.listExpenses()
+        const existing = expenses.find(
+          (ex) => ex.category === 'housing_mortgage' && ex.notes?.includes(selectedLiabilityId)
+        )
+        const payload = {
+          payee: 'Mortgage Payment',
+          amount: calculation.monthlyPayment,
+          frequency: 'monthly',
+          category: 'housing_mortgage',
+          notes: `liability:${selectedLiabilityId}`,
+        }
+        if (existing?.id) {
+          await financialApi.updateExpense(existing.id, payload)
+        } else {
+          await financialApi.createExpense(payload as any)
+        }
+      } catch (expenseError) {
+        console.warn('Unable to upsert mortgage expense', expenseError)
+      }
+      setHelperMessage('Plan applied to financial data.')
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('financial-data-refresh'))
+      }
+      onClose()
+    } catch (error) {
+      console.error('Failed to apply plan', error)
+      setHelperMessage('Unable to apply plan right now.')
+    } finally {
+      setIsLinking(false)
     }
   }
 
@@ -381,9 +490,8 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur">
       <div className="relative mx-4 h-[96vh] w-full max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-gray-950 shadow-[0_25px_80px_rgba(0,0,0,0.6)]">
         <div className="flex items-center justify-between border-b border-white/10 bg-gradient-to-br from-gray-900 via-gray-950 to-black px-8 py-6">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.18em] text-gray-400">Mortgage Planner</p>
-            <h2 className="text-2xl font-semibold text-white">Mortgage Planners</h2>
+          <div className="space-y-2">            
+            <h2 className="text-2xl font-semibold text-white">Property Planner</h2>
             <p className="text-sm text-gray-300">
               Model how your housing loan impacts cash, CPF, and MSR in three guided steps.
             </p>
@@ -406,6 +514,11 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
                     <option key={asset.id} value={asset.name} />
                   ))}
                 </datalist>
+                {selectedAssetId && (
+                  <span className="text-sm text-gray-300">
+                    {formatCurrency(assets.find((a) => a.id === selectedAssetId)?.currentValue ?? 0)}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -431,12 +544,15 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
                     inputs={inputs}
                     onChange={handleInputChange}
                     calculation={calculation}
+                    selectedAssetId={selectedAssetId}
+                    assets={assets}
                     selectedLiabilityId={selectedLiabilityId}
                     liabilities={liabilities}
                     liabilityInput={liabilityInput}
                     onChangeLiabilityInput={handleLiabilityInput}
                     onLiabilityFocus={handleLiabilityFocus}
                     onLiabilityBlur={handleLiabilityBlur}
+                    overrideFlags={overrideFlags}
                   />
                   <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-300">
                     {assetInput && <span className="rounded-full bg-white/5 px-3 py-1">Asset: {assetInput}</span>}
@@ -455,15 +571,15 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
                       <button
                         className="rounded-full border border-white/15 bg-[#030712] px-4 py-2 text-sm text-gray-200 transition hover:border-white/30 disabled:opacity-50"
                         type="button"
-                        onClick={handleSaveDraft}
-                        disabled={isSavingDraft || !hasUnsavedChanges}
+                        onClick={handleSavePlan}
+                        disabled={isSavingDraft}
                       >
                         {isSavingDraft ? (
                           <span className="flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" /> Saving...
                           </span>
                         ) : (
-                          'Save Draft'
+                          'Save Plan'
                         )}
                       </button>
                       <button
@@ -485,6 +601,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
                 loanAmount={inputs.loanAmount}
                 formattedLoanEnd={formattedLoanEnd}
                 msrWithinLimit={msrWithinLimit}
+                handleApplyPlan={handleApplyPlan}
               />
             )}
           </div>
@@ -498,36 +615,51 @@ interface StepFormProps {
   inputs: MortgageInputs
   onChange: (field: keyof MortgageInputs, value: string | number) => void
   calculation: ReturnType<typeof calculateMortgage>
+  selectedAssetId: string
+  assets: Asset[]
   selectedLiabilityId: string
   liabilities: Liability[]
   liabilityInput: string
   onChangeLiabilityInput: (value: string) => void
   onLiabilityFocus: () => void
   onLiabilityBlur: () => void
+  overrideFlags?: {
+    price?: boolean
+    down?: boolean
+    loan?: boolean
+    rate?: boolean
+    tenure?: boolean
+  }
 }
 
 function StepForm({
   inputs,
   onChange,
   calculation,
+  selectedAssetId,
+  assets,
   selectedLiabilityId,
   liabilities,
   liabilityInput,
   onChangeLiabilityInput,
   onLiabilityFocus,
   onLiabilityBlur,
+  overrideFlags,
 }: StepFormProps) {
   return (
     <div className="space-y-6">
       <StepOne
         inputs={inputs}
         onChange={onChange}
+        selectedAssetId={selectedAssetId}
+        assets={assets}
         selectedLiabilityId={selectedLiabilityId}
         liabilities={liabilities}
         liabilityInput={liabilityInput}
         onChangeLiabilityInput={onChangeLiabilityInput}
         onLiabilityFocus={onLiabilityFocus}
         onLiabilityBlur={onLiabilityBlur}
+        overrideFlags={overrideFlags}
       />
       <div className="border-t border-white/10" />
       <InterestSection inputs={inputs} onChange={onChange} />
@@ -540,23 +672,35 @@ function StepForm({
 interface StepOneProps {
   inputs: MortgageInputs
   onChange: (field: keyof MortgageInputs, value: string | number) => void
+  selectedAssetId: string
+  assets: Asset[]
   selectedLiabilityId: string
   liabilities: Liability[]
   liabilityInput: string
   onChangeLiabilityInput: (value: string) => void
   onLiabilityFocus: () => void
   onLiabilityBlur: () => void
+  overrideFlags?: {
+    price?: boolean
+    down?: boolean
+    loan?: boolean
+    rate?: boolean
+    tenure?: boolean
+  }
 }
 
 function StepOne({
   inputs,
   onChange,
+  selectedAssetId,
+  assets,
   selectedLiabilityId,
   liabilities,
   liabilityInput,
   onChangeLiabilityInput,
   onLiabilityFocus,
   onLiabilityBlur,
+  overrideFlags,
 }: StepOneProps) {
   const monthOptions = useMemo(() => {
     const options: Array<{ value: string; label: string }> = []
@@ -615,6 +759,42 @@ function StepOne({
 
       <div className="space-y-2">
         <label className="flex items-center justify-between text-sm font-medium text-gray-300">
+          <span>Property Price</span>
+        </label>
+        <div className="relative">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={inputs.propertyPrice ? inputs.propertyPrice.toLocaleString() : ''}
+            onChange={(event) => {
+              const raw = event.target.value.replace(/[^0-9.]/g, '')
+              onChange('propertyPrice', Number(raw) || 0)
+            }}
+            className={`mt-1 w-full rounded-2xl border ${
+              overrideFlags?.price ? 'border-amber-400 text-amber-200' : 'border-white/10 text-white'
+            } bg-white/5 px-4 py-2 text-lg font-semibold placeholder:text-gray-500 focus:border-blue-400 focus:outline-none`}
+            min={10000}
+            max={5000000}
+            placeholder="600,000"
+          />
+          {selectedAssetId && (() => {
+            const asset = assets.find((a) => a.id === selectedAssetId)
+            if (!asset) return null
+            const assetVal = asset.currentValue ?? 0
+            if (inputs.propertyPrice > 0 && Math.abs(assetVal - inputs.propertyPrice) >= 1) {
+              return (
+                <p className="mt-1 text-xs text-gray-200">
+                  Value differs from asset of ${assetVal.toLocaleString()}
+                </p>
+              )
+            }
+            return null
+          })()}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="flex items-center justify-between text-sm font-medium text-gray-300">
           <span>Loan Amount</span>
         </label>
         <div className="relative">
@@ -626,7 +806,9 @@ function StepOne({
               const raw = event.target.value.replace(/[^0-9.]/g, '')
               onChange('loanAmount', Number(raw) || 0)
             }}
-            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-lg font-semibold text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+            className={`mt-1 w-full rounded-2xl border ${
+              overrideFlags?.loan ? 'border-amber-400 text-amber-200' : 'border-white/10 text-white'
+            } bg-white/5 px-4 py-2 text-lg font-semibold placeholder:text-gray-500 focus:border-blue-400 focus:outline-none`}
             min={50000}
             max={1500000}
             placeholder="500,000"
@@ -638,7 +820,7 @@ function StepOne({
         <label className="text-sm font-medium text-gray-300">
           Loan Start Date
           <div className="relative">
-            <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white" />
+            <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white" color="white" />
             <input
               className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 pl-9 text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
               max="2035-12"
@@ -865,9 +1047,10 @@ interface MortgageOverviewProps {
   loanAmount: number
   formattedLoanEnd: string
   msrWithinLimit: boolean
+  handleApplyPlan: () => void
 }
 
-function MortgageOverview({ calculation, onEdit, loanAmount, formattedLoanEnd, msrWithinLimit }: MortgageOverviewProps) {
+function MortgageOverview({ calculation, onEdit, loanAmount, formattedLoanEnd, msrWithinLimit, handleApplyPlan }: MortgageOverviewProps) {
   const { monthlyPayment, totalInterest, msrRatio, amortization } = calculation
   const balanceYearTicks = amortization.balancePoints.map((point) => point.yearIndex)
   const compositionYearTicks = amortization.composition.map((point) => point.yearIndex)
@@ -1033,8 +1216,7 @@ function MortgageOverview({ calculation, onEdit, loanAmount, formattedLoanEnd, m
         <button
           className="rounded-full bg-[#2d76f8] px-5 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(45,118,248,0.35)] transition hover:bg-[#3d84ff] disabled:opacity-50"
           type="button"
-          disabled
-          title="Apply to Plan will be enabled once backend wiring is ready"
+          onClick={handleApplyPlan}
         >
           Apply to Plan
         </button>

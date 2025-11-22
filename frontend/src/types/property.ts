@@ -30,6 +30,7 @@ export const PROPERTY_TYPES: Array<{
 
 export const mortgageInputsSchema = z.object({
   propertyType: z.enum(['hdb', 'condo', 'landed']),
+  propertyPrice: z.number().positive('Property price must be positive'),
   loanAmount: z.number().positive('Loan amount must be positive'),
   loanTermYears: z.number().min(5, 'Minimum 5 years').max(35, 'Maximum 35 years'),
   borrowerType: z.enum(['single', 'couple']),

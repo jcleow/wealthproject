@@ -9,7 +9,8 @@ import { NetWorthProjection } from './NetWorthProjection'
 export function FinancialWorkspace() {
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
-  const { deleteAllFinancialData, refresh } = useFinancialData()
+  const [isSeeding, setIsSeeding] = useState(false)
+  const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialData()
 
   const handleAction = (label: string) => {
     console.log(`${label} clicked`)
@@ -50,6 +51,64 @@ export function FinancialWorkspace() {
     }
   }
 
+  const seedPropertyScenario = async () => {
+    try {
+      const existingAssets = await financialApi.listAssets()
+      const existingLiabilities = await financialApi.listLiabilities()
+      const propertyAsset = existingAssets.find((a) => a.name === 'Sample Condo') ?? existingAssets.find((a) => a.category === 'property')
+      const propertyLiability = existingLiabilities.find((l) => l.name === 'Sample Condo Mortgage') ?? existingLiabilities.find((l) => l.category === 'property')
+      if (!propertyAsset || !propertyLiability) return null
+
+      const scenario = await financialApi.createPropertyScenario({
+        propertyType: 'condo',
+        headline: propertyAsset.name || 'Property scenario',
+        propertyPrice: Math.max(1, propertyAsset.currentValue || 750000),
+        downPayment: 200000,
+        loanAmount: Math.max(1, propertyLiability.currentBalance || 550000),
+        interestRate: Math.max(0.01, propertyLiability.interestRateApr || 3.2),
+        loanTenure: 25,
+        notes: 'Sample scenario for testing',
+        assetId: propertyAsset.id,
+        liabilityId: propertyLiability.id,
+      })
+      if (scenario?.id && typeof window !== 'undefined') {
+        localStorage.setItem('property_planner_scenario_id', scenario.id)
+        localStorage.setItem('property_planner_draft', JSON.stringify({
+          propertyType: 'condo',
+          loanAmount: scenario.loanAmount,
+          loanTermYears: scenario.loanTenure,
+          borrowerType: 'single',
+          loanStartMonth: '2024-06',
+          fixedYears: 5,
+          fixedRate: scenario.interestRate,
+          floatingRate: scenario.interestRate,
+          householdIncome: 8200,
+          otherDebt: 1200,
+        }))
+      }
+      return scenario
+    } catch (error) {
+      console.warn('Unable to seed property scenario', error)
+      return null
+    }
+  }
+
+  const handleLoadDefaults = async () => {
+    setIsSeeding(true)
+    try {
+      await loadSampleData()
+      await seedPropertyScenario()
+      await refresh()
+    } catch (error) {
+      console.error('Failed to load sample data', error)
+      if (typeof window !== 'undefined') {
+        window.alert('Unable to load sample data right now. Please try again.')
+      }
+    } finally {
+      setIsSeeding(false)
+    }
+  }
+
   const handlePropertyPlanner = () => {
     setIsPropertyPlannerOpen(true)
   }
@@ -70,12 +129,13 @@ export function FinancialWorkspace() {
         <div className="flex items-center gap-2">
           <div className="hidden items-center gap-2 md:flex">
             <button
-              onClick={() => handleAction('Load defaults')}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white"
+              onClick={handleLoadDefaults}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
               title="Load defaults"
               type="button"
+              disabled={isSeeding}
             >
-              <Sparkles className="h-4 w-4" />
+              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             </button>
             <button
               onClick={handleClearAllData}

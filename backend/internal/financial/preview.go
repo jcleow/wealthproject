@@ -223,10 +223,21 @@ func (s *ActionPreviewService) generateFriendlyDescription(toolName string, args
 		rate := getFloatParam(args, "interestRate", 0)
 		tenure := getIntParam(args, "loanTenure", 0)
 		propertyType := getStringParam(args, "propertyType", "property")
+		monthly := 0.0
+		if tenure > 0 && loanAmount > 0 && rate > 0 {
+			monthly = s.calculator.CalculateMonthlyPayment(loanAmount, rate, tenure)
+		}
 
-		return fmt.Sprintf("Analyze %s purchase: %s price, %s down payment, %s loan over %d years at %.2f%%",
+		desc := fmt.Sprintf(
+			"Analyze %s purchase: %s price, %s down payment, %s loan over %d years at %.2f%%",
 			formatPropertyType(propertyType), formatCurrency(price), formatCurrency(downPayment),
-			formatCurrency(loanAmount), tenure, rate*100)
+			formatCurrency(loanAmount), tenure, rate*100,
+		)
+		if monthly > 0 {
+			desc = fmt.Sprintf("%s — estimated mortgage payment %s/mo (will be added to plan)", desc, formatCurrency(monthly))
+		}
+
+		return desc
 
 	default:
 		return fmt.Sprintf("Execute %s with provided parameters", toolName)
