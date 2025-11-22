@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Asset, Expense, Income, Liability } from '../types/financial'
 import { financialApi } from '../services/financialApi'
 
 export function useFinancialData() {
+  const queryClient = useQueryClient()
   const [assets, setAssets] = useState<Asset[]>([])
   const [incomes, setIncomes] = useState<Income[]>([])
   const [liabilities, setLiabilities] = useState<Liability[]>([])
@@ -10,10 +12,13 @@ export function useFinancialData() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const dispatchRefreshEvent = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['timeline'] }).catch(() => {
+      // ignore cache errors
+    })
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('financial-data-refresh'))
     }
-  }, [])
+  }, [queryClient])
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -228,8 +233,8 @@ export function useFinancialData() {
       ]
 
       const sampleIncomes: Array<Omit<Income, 'id' | 'updatedAt'>> = [
-        { source: 'Salary', amount: 8200, frequency: 'monthly', startDate: new Date().toISOString().slice(0, 10), category: 'employment', notes: 'Base salary' },
-        { source: 'Freelance', amount: 1200, frequency: 'monthly', startDate: new Date().toISOString().slice(0, 10), category: 'side-income', notes: 'Consulting' },
+        { source: 'Salary', amount: 8200, frequency: 'monthly', startDate: new Date(), category: 'employment', notes: 'Base salary' },
+        { source: 'Freelance', amount: 1200, frequency: 'monthly', startDate: new Date(), category: 'side-income', notes: 'Consulting' },
       ]
 
       const sampleExpenses: Array<Omit<Expense, 'id' | 'updatedAt'>> = [

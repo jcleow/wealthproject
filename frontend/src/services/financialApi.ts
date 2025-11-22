@@ -175,11 +175,17 @@ export const financialApi = {
     return data.map(toIncome)
   },
   async createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): Promise<Income> {
+    const startDate =
+      typeof payload.startDate === 'string'
+        ? payload.startDate
+        : payload.startDate instanceof Date
+          ? payload.startDate.toISOString()
+          : new Date().toISOString()
     const body = {
       source: payload.source,
       amount: payload.amount,
       frequency: payload.frequency,
-      startDate: payload.startDate,
+      startDate,
       category: payload.category,
       notes: payload.notes,
     }

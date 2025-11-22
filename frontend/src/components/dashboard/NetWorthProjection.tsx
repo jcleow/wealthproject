@@ -140,23 +140,31 @@ export function NetWorthProjection({
   const projection = useMemo(() => {
     if (timelineYears && timelineYears.length > 0) {
       return timelineYears.map<ProjectionPoint>((year) => {
-        const totalAssets = year.assets.reduce((sum, item) => sum + item.amount_annual, 0)
-        const totalLiabilities = year.liabilities.reduce((sum, item) => sum + item.amount_annual, 0)
+        const assets = year.assets ?? []
+        const liabilities = year.liabilities ?? []
+        const incomes = year.income ?? []
+        const expenses = year.expenses ?? []
+
+        const totalAssets = assets.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
+        const totalLiabilities = liabilities.reduce(
+          (sum, item) => sum + (item.amount_annual ?? 0),
+          0
+        )
         const hasNonAnnualSource = [
-          ...year.assets,
-          ...year.liabilities,
-          ...year.income,
-          ...year.expenses,
-        ].some((item) => item.source_frequency && item.source_frequency !== 'annual')
+          ...assets,
+          ...liabilities,
+          ...incomes,
+          ...expenses,
+        ].some((item) => item?.source_frequency && item.source_frequency !== 'annual')
 
         return {
-          yearIndex: year.year,
-          yearLabel: `Year ${year.year}`,
-          netWorth: year.net_worth,
+          yearIndex: year.year ?? 0,
+          yearLabel: `Year ${year.year ?? 0}`,
+          netWorth: year.net_worth ?? 0,
           totalAssets,
           totalLiabilities,
           hasNonAnnualSource,
-          hasOverride: year.has_overrides,
+          hasOverride: !!year.has_overrides,
         }
       })
     }

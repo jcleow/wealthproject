@@ -138,8 +138,6 @@ export function FinancialWorkspace({
     setIsPropertyPlannerOpen(true)
   }
 
-  const yearOptions = timelineYears?.map((entry) => entry.year) ?? Array.from({ length: 21 }, (_, idx) => idx)
-
   const handleSaveTimelineEdits = async (payload: TimelineEditRequest) => {
     try {
       await onSaveTimelineEdits(payload)
@@ -162,22 +160,6 @@ export function FinancialWorkspace({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-full bg-white/5 px-3 py-2">
-            <span className="text-xs text-gray-300">Year</span>
-            <select
-              className="rounded-md bg-black/40 px-2 py-1 text-sm text-white focus:outline-none"
-              value={selectedYear}
-              disabled={isTimelineLoading}
-              onChange={(event) => onSelectYear(Number(event.target.value))}
-            >
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="hidden items-center gap-2 md:flex">
             <button
               onClick={handleLoadDefaults}

@@ -32,18 +32,23 @@ export function TimelineSnapshot({ year, timelineYear, loading }: TimelineSnapsh
 
   if (!timelineYear) return null
 
-  const totalAssets = timelineYear.assets.reduce((sum, item) => sum + item.amount_annual, 0)
-  const totalLiabilities = timelineYear.liabilities.reduce(
-    (sum, item) => sum + item.amount_annual,
+  const assets = timelineYear.assets ?? []
+  const liabilities = timelineYear.liabilities ?? []
+  const incomes = timelineYear.income ?? []
+  const expenses = timelineYear.expenses ?? []
+
+  const totalAssets = assets.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
+  const totalLiabilities = liabilities.reduce(
+    (sum, item) => sum + (item.amount_annual ?? 0),
     0
   )
-  const totalIncome = timelineYear.income.reduce((sum, item) => sum + item.amount_annual, 0)
-  const totalExpenses = timelineYear.expenses.reduce((sum, item) => sum + item.amount_annual, 0)
+  const totalIncome = incomes.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
+  const totalExpenses = expenses.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
   const nonAnnualSource =
-    findNonAnnualSource(timelineYear.assets) ||
-    findNonAnnualSource(timelineYear.liabilities) ||
-    findNonAnnualSource(timelineYear.income) ||
-    findNonAnnualSource(timelineYear.expenses)
+    findNonAnnualSource(assets) ||
+    findNonAnnualSource(liabilities) ||
+    findNonAnnualSource(incomes) ||
+    findNonAnnualSource(expenses)
 
   return (
     <div className="mb-4 space-y-3 rounded-2xl bg-white/5 p-4">

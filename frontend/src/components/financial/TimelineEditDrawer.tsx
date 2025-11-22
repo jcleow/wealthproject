@@ -63,10 +63,10 @@ export function TimelineEditDrawer({
   const existingItems = useMemo(() => {
     if (!timelineYear) return []
     const allItems: TimelineItem[] = [
-      ...timelineYear.assets,
-      ...timelineYear.liabilities,
-      ...timelineYear.income,
-      ...timelineYear.expenses,
+      ...(timelineYear.assets ?? []),
+      ...(timelineYear.liabilities ?? []),
+      ...(timelineYear.income ?? []),
+      ...(timelineYear.expenses ?? []),
     ]
     return allItems
   }, [timelineYear])

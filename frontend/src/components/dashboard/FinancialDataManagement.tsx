@@ -6,7 +6,6 @@ import type { Asset, Expense, Income, Liability, PropertyLink } from '../../type
 import type { FinancialDataType, FinancialFormValues } from '../modals/FinancialFormModal'
 import { FinancialFormModal } from '../modals/FinancialFormModal'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
-import { TimelineSnapshot } from '../financial/TimelineSnapshot'
 import { financialApi } from '@/services/financialApi'
 import type { TimelineYear } from '@/types/timeline'
 
@@ -63,7 +62,7 @@ export interface FinancialDataManagementProps {
 
 export function FinancialDataManagement({
   selectedYear = 0,
-  onSelectYear: _onSelectYear,
+  onSelectYear,
   timelineYear,
   isTimelineLoading = false,
 }: FinancialDataManagementProps) {
@@ -267,6 +266,13 @@ export function FinancialDataManagement({
     setIsPropertyPlannerOpen(true)
   }
 
+  const handleYearInput = (value: string) => {
+    const parsed = Number.parseInt(value, 10)
+    if (Number.isNaN(parsed)) return
+    const clamped = Math.max(0, Math.min(20, parsed))
+    onSelectYear?.(clamped)
+  }
+
   return (
     <>
       <div id="financial-data-section" className="flex h-full flex-col border-0 bg-midnight-900 text-white">
@@ -279,19 +285,30 @@ export function FinancialDataManagement({
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-300">
-              <span className="rounded-full bg-white/5 px-3 py-1">
-                Year {selectedYear}
-              </span>
+              <label className="hidden sm:block text-gray-400" htmlFor="year-selector">
+                Year
+              </label>
+              <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
+                <input
+                  id="year-selector"
+                  list="year-options"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="w-20 rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white placeholder-gray-500 focus:border-blue-400 focus:outline-none"
+                  value={selectedYear}
+                  disabled={isTimelineLoading}
+                  onChange={(event) => handleYearInput(event.target.value)}
+                />
+                <datalist id="year-options">
+                  {Array.from({ length: 21 }, (_, idx) => idx).map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </datalist>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="px-6">
-          <TimelineSnapshot
-            year={selectedYear}
-            timelineYear={timelineYear}
-            loading={isTimelineLoading}
-          />
         </div>
 
         <div className="flex-1 overflow-auto px-6 py-6">

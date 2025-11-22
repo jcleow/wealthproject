@@ -66,6 +66,7 @@ export function Dashboard() {
               <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-3xl border border-white/5 bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
                 <FinancialDataManagement
                   selectedYear={timeline.selectedYear}
+                  onSelectYear={timeline.setSelectedYear}
                   timelineYear={timeline.selectedYearData}
                   isTimelineLoading={timeline.timelineQuery.isLoading}
                 />
