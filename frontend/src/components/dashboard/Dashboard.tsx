@@ -7,11 +7,17 @@ import { ChatFloatingLauncher } from './ChatFloatingLauncher'
 import { FinancialDataManagement } from './FinancialDataManagement'
 import { FinancialWorkspace } from './FinancialWorkspace'
 import { AppSidebar } from '../sidebar/AppSidebar'
+import { useTimeline } from '@/hooks/useTimeline'
 import { cn, generateUUID } from '@/lib/utils'
 
 export function Dashboard() {
   const chatId = useMemo(() => generateUUID(), [])
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const timeline = useTimeline()
+  const timelineError =
+    timeline.timelineQuery.error instanceof Error
+      ? timeline.timelineQuery.error.message
+      : null
 
   return (
     <>
@@ -44,11 +50,25 @@ export function Dashboard() {
           <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 p-4 lg:flex-row lg:items-stretch">
             <div className="flex w-full flex-col gap-6 lg:min-w-0 lg:flex-1">
               <div className="flex min-h-[320px] min-w-0 flex-col overflow-hidden rounded-3xl border border-white/5 bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
-                <FinancialWorkspace />
+                <FinancialWorkspace
+                  selectedYear={timeline.selectedYear}
+                  onSelectYear={timeline.setSelectedYear}
+                  timelineYears={timeline.timelineQuery.data?.years}
+                  timelineYear={timeline.selectedYearData}
+                  overrideYears={timeline.overrideYears}
+                  onSaveTimelineEdits={timeline.saveEdits}
+                  isTimelineLoading={timeline.timelineQuery.isLoading}
+                  isSavingTimeline={timeline.saving}
+                  timelineError={timelineError}
+                />
               </div>
 
               <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-3xl border border-white/5 bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
-                <FinancialDataManagement />
+                <FinancialDataManagement
+                  selectedYear={timeline.selectedYear}
+                  timelineYear={timeline.selectedYearData}
+                  isTimelineLoading={timeline.timelineQuery.isLoading}
+                />
               </div>
             </div>
           </div>

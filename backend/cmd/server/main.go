@@ -13,6 +13,7 @@ import (
 	"financial-chat-system/backend/internal/database"
 	"financial-chat-system/backend/internal/financial"
 	finRepo "financial-chat-system/backend/internal/financial/repository"
+	"financial-chat-system/backend/internal/financial/timeline"
 	"financial-chat-system/backend/internal/llm"
 	"financial-chat-system/backend/internal/llm/providers"
 	"financial-chat-system/backend/internal/middleware"
@@ -52,6 +53,7 @@ func main() {
 	previewService := financial.NewActionPreviewService(financialClient)
 	sessionTTL := time.Duration(cfg.SessionTTLHours) * time.Hour
 	sessionStore := session.NewStore(db, sessionTTL)
+	timelineService := timeline.NewService(finStore)
 
 	// Initialize middleware
 	versionMiddleware := middleware.NewVersionMiddleware()
@@ -210,6 +212,8 @@ func main() {
 	}
 	chatHandler := handlers.NewChatHandler(llmManager, previewService, sessionStore, defaultModel, defaultMaxTokens)
 	dispatchHandler := handlers.NewDispatchHandler(financialClient, sessionStore, previewService)
+	timelineHandler := handlers.NewTimelineHandler(timelineService)
+	growthHandler := handlers.NewGrowthHandler(timelineService)
 
 	// Background session cleanup
 	startSessionCleanup(sessionStore, sessionTTL, time.Duration(cfg.SessionCleanupIntervalMinutes)*time.Minute)
@@ -235,6 +239,10 @@ func main() {
 	v1Router.PathPrefix("/cashflow/expenses").Handler(handlerToHTTPMux("/api/v1", expenseHandler.RegisterRoutes))
 	v1Router.PathPrefix("/property-planner/scenarios").Handler(handlerToHTTPMux("/api/v1", propertyHandler.RegisterRoutes))
 	v1Router.PathPrefix("/property-links").Handler(handlerToHTTPMux("/api/v1", propertyLinkHandler.RegisterRoutes))
+	v1Router.HandleFunc("/financial/timeline", timelineHandler.HandleGetTimeline).Methods("GET")
+	v1Router.HandleFunc("/financial/timeline/{year}", timelineHandler.HandleUpsertYear).Methods("PUT", "OPTIONS")
+	v1Router.HandleFunc("/financial/growth", growthHandler.HandleGetGrowth).Methods("GET")
+	v1Router.HandleFunc("/financial/growth", growthHandler.HandlePutGrowth).Methods("PUT")
 
 	// Financial action endpoints
 	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST", "OPTIONS")

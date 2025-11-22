@@ -1,15 +1,40 @@
 import { useState } from 'react'
-import { Building2, Loader2, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
+import { Building2, Loader2, Sparkles, Trash2 } from 'lucide-react'
 
 import { useFinancialData } from '@/hooks/useFinancialData'
 import { financialApi } from '@/services/financialApi'
+import { TimelineEditDrawer } from '../financial/TimelineEditDrawer'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { NetWorthProjection } from './NetWorthProjection'
+import type { TimelineEditRequest, TimelineYear } from '@/types/timeline'
 
-export function FinancialWorkspace() {
+interface FinancialWorkspaceProps {
+  selectedYear: number
+  onSelectYear: (year: number) => void
+  timelineYears?: TimelineYear[]
+  timelineYear?: TimelineYear
+  overrideYears?: Set<number>
+  onSaveTimelineEdits: (payload: TimelineEditRequest) => Promise<void>
+  isTimelineLoading?: boolean
+  isSavingTimeline?: boolean
+  timelineError?: string | null
+}
+
+export function FinancialWorkspace({
+  selectedYear,
+  onSelectYear,
+  timelineYears,
+  timelineYear,
+  overrideYears = new Set<number>(),
+  onSaveTimelineEdits,
+  isTimelineLoading = false,
+  isSavingTimeline = false,
+  timelineError = null,
+}: FinancialWorkspaceProps) {
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
+  const [isTimelineDrawerOpen, setIsTimelineDrawerOpen] = useState(false)
   const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialData()
 
   const handleAction = (label: string) => {
@@ -113,8 +138,18 @@ export function FinancialWorkspace() {
     setIsPropertyPlannerOpen(true)
   }
 
-  const handleRefresh = () => {
-    console.log('Refresh clicked')
+  const yearOptions = timelineYears?.map((entry) => entry.year) ?? Array.from({ length: 21 }, (_, idx) => idx)
+
+  const handleSaveTimelineEdits = async (payload: TimelineEditRequest) => {
+    try {
+      await onSaveTimelineEdits(payload)
+      setIsTimelineDrawerOpen(false)
+    } catch (error) {
+      console.error('Failed to save timeline edits', error)
+      if (typeof window !== 'undefined') {
+        window.alert('Unable to save timeline edits right now.')
+      }
+    }
   }
 
   return (
@@ -127,6 +162,22 @@ export function FinancialWorkspace() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-full bg-white/5 px-3 py-2">
+            <span className="text-xs text-gray-300">Year</span>
+            <select
+              className="rounded-md bg-black/40 px-2 py-1 text-sm text-white focus:outline-none"
+              value={selectedYear}
+              disabled={isTimelineLoading}
+              onChange={(event) => onSelectYear(Number(event.target.value))}
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="hidden items-center gap-2 md:flex">
             <button
               onClick={handleLoadDefaults}
@@ -160,21 +211,43 @@ export function FinancialWorkspace() {
             </span>
           </button>
           <button
-            onClick={handleRefresh}
-            className="rounded-full bg-white/10 p-2 text-gray-400 transition hover:bg-white/20 hover:text-white"
-            title="Refresh financial data"
+            onClick={() => setIsTimelineDrawerOpen(true)}
+            className="rounded-full bg-blue-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:opacity-60"
+            title="Edit selected year"
+            disabled={isTimelineLoading}
           >
-            <RefreshCw className="h-4 w-4" />
+            {isSavingTimeline ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Edit year'}
           </button>
         </div>
       </div>
+      {timelineError && (
+        <div className="mx-6 mb-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-sm text-rose-100">
+          Timeline unavailable: {timelineError}
+        </div>
+      )}
       <div className="flex-1 p-6 min-h-[400px]">
-        <NetWorthProjection />
+        <NetWorthProjection
+          timelineYears={timelineYears}
+          selectedYear={selectedYear}
+          onSelectYear={(year) => {
+            onSelectYear(year)
+            const target = document.getElementById('financial-data-section')
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }}
+        />
       </div>
 
       <PropertyPlannerModal
         isOpen={isPropertyPlannerOpen}
         onClose={() => setIsPropertyPlannerOpen(false)}
+      />
+      <TimelineEditDrawer
+        isOpen={isTimelineDrawerOpen}
+        onClose={() => setIsTimelineDrawerOpen(false)}
+        year={selectedYear}
+        timelineYear={timelineYear}
+        onSave={handleSaveTimelineEdits}
+        saving={isSavingTimeline}
       />
     </div>
   )

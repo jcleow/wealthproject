@@ -6,7 +6,9 @@ import type { Asset, Expense, Income, Liability, PropertyLink } from '../../type
 import type { FinancialDataType, FinancialFormValues } from '../modals/FinancialFormModal'
 import { FinancialFormModal } from '../modals/FinancialFormModal'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
+import { TimelineSnapshot } from '../financial/TimelineSnapshot'
 import { financialApi } from '@/services/financialApi'
+import type { TimelineYear } from '@/types/timeline'
 
 type FinancialCategory = FinancialDataType
 
@@ -52,7 +54,19 @@ interface ModalState {
   data?: Asset | Income | Liability | Expense
 }
 
-export function FinancialDataManagement() {
+export interface FinancialDataManagementProps {
+  selectedYear?: number
+  onSelectYear?: (year: number) => void
+  timelineYear?: TimelineYear
+  isTimelineLoading?: boolean
+}
+
+export function FinancialDataManagement({
+  selectedYear = 0,
+  onSelectYear: _onSelectYear,
+  timelineYear,
+  isTimelineLoading = false,
+}: FinancialDataManagementProps) {
   const {
     assets,
     incomes,
@@ -255,12 +269,29 @@ export function FinancialDataManagement() {
 
   return (
     <>
-      <div className="flex h-full flex-col border-0 bg-midnight-900 text-white">
+      <div id="financial-data-section" className="flex h-full flex-col border-0 bg-midnight-900 text-white">
         <div className="px-6 py-4">
-          <h3 className="text-lg font-semibold text-white">Financial Data</h3>
-          <p className="text-sm text-gray-400">
-            Manage your income, expenses, assets, and liabilities
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Financial Data</h3>
+              <p className="text-sm text-gray-400">
+                Manage your income, expenses, assets, and liabilities
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-300">
+              <span className="rounded-full bg-white/5 px-3 py-1">
+                Year {selectedYear}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6">
+          <TimelineSnapshot
+            year={selectedYear}
+            timelineYear={timelineYear}
+            loading={isTimelineLoading}
+          />
         </div>
 
         <div className="flex-1 overflow-auto px-6 py-6">
