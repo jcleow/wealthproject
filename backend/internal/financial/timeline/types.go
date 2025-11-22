@@ -84,17 +84,10 @@ type Store interface {
 	ListIncomes(context.Context) ([]repository.Income, error)
 	ListExpenses(context.Context) ([]repository.Expense, error)
 
-	GetAsset(context.Context, string) (repository.Asset, error)
-	GetLiability(context.Context, string) (repository.Liability, error)
-	GetIncome(context.Context, string) (repository.Income, error)
-	GetExpense(context.Context, string) (repository.Expense, error)
-
-	ListCustomItems(context.Context) ([]repository.CustomItem, error)
-	GetCustomItem(context.Context, string) (repository.CustomItem, error)
-	CreateCustomItem(context.Context, repository.CustomItem) (repository.CustomItem, error)
-
-	ListOverrides(context.Context) ([]repository.FinancialOverride, error)
-	UpsertOverride(context.Context, repository.FinancialOverride) (repository.FinancialOverride, error)
+	CreateAsset(context.Context, repository.Asset) (repository.Asset, error)
+	CreateLiability(context.Context, repository.Liability) (repository.Liability, error)
+	CreateIncome(context.Context, repository.Income) (repository.Income, error)
+	CreateExpense(context.Context, repository.Expense) (repository.Expense, error)
 
 	GetGrowthConfigs(context.Context) ([]repository.GrowthConfig, error)
 	UpsertGrowthConfigs(context.Context, []repository.GrowthConfig) error

@@ -180,6 +180,7 @@ export function FinancialFormModal({
     const formattedInt = new Intl.NumberFormat('en-US').format(Number(integer || 0))
     return decimal !== undefined ? `${formattedInt}.${decimal}` : formattedInt
   }
+  const toSafeText = (value: string | null | undefined) => value ?? ''
 
   const [formData, setFormData] = useState<FormState>(buildDefaultFormState(type))
   const [isSaving, setIsSaving] = useState(false)
@@ -228,7 +229,7 @@ export function FinancialFormModal({
         const amt = (asset as any).amount_annual ?? asset.currentValue ?? 0
         const freq = (asset as any).source_frequency ?? 'annual'
         setFormData({
-          name: asset.name,
+          name: toSafeText(asset.name),
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: freq,
           category: asset.category,
@@ -244,7 +245,7 @@ export function FinancialFormModal({
         const amt = (liability as any).amount_annual ?? liability.currentBalance ?? 0
         const freq = (liability as any).source_frequency ?? 'annual'
         setFormData({
-          name: liability.name,
+          name: toSafeText(liability.name),
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: freq,
           category: liability.category,
@@ -260,7 +261,7 @@ export function FinancialFormModal({
         const amt = (income as any).amount_annual ?? income.amount ?? 0
         const freq = (income as any).source_frequency ?? income.frequency ?? 'annual'
         setFormData({
-          name: income.source,
+          name: toSafeText(income.source),
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: freq,
           category: income.category,
@@ -276,7 +277,7 @@ export function FinancialFormModal({
         const amt = (expense as any).amount_annual ?? expense.amount ?? 0
         const freq = (expense as any).source_frequency ?? expense.frequency ?? 'annual'
         setFormData({
-          name: expense.payee,
+          name: toSafeText(expense.payee),
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: freq,
           category: expense.category,

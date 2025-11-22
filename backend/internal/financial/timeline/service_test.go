@@ -2,6 +2,7 @@ package timeline
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,7 +58,7 @@ func TestProjection_NewItemPersistsForward(t *testing.T) {
 
 	resp, err := svc.GetTimeline(ctx)
 	require.NoError(t, err)
-	require.Len(t, resp.Years, 21)
+	require.Len(t, resp.Years, 31)
 
 	year2 := resp.Years[2]
 	require.Equal(t, 1, countItems(year2.Income))
@@ -133,8 +134,6 @@ type stubStore struct {
 	liabilities []repository.Liability
 	incomes     []repository.Income
 	expenses    []repository.Expense
-	custom      []repository.CustomItem
-	overrides   []repository.FinancialOverride
 	growth      []repository.GrowthConfig
 }
 
@@ -144,8 +143,6 @@ func newStubStore() *stubStore {
 		liabilities: []repository.Liability{},
 		incomes:     []repository.Income{},
 		expenses:    []repository.Expense{},
-		custom:      []repository.CustomItem{},
-		overrides:   []repository.FinancialOverride{},
 		growth:      []repository.GrowthConfig{},
 	}
 }
@@ -166,85 +163,6 @@ func (s *stubStore) ListExpenses(ctx context.Context) ([]repository.Expense, err
 	return append([]repository.Expense(nil), s.expenses...), nil
 }
 
-func (s *stubStore) GetAsset(ctx context.Context, id string) (repository.Asset, error) {
-	for _, a := range s.assets {
-		if a.ID == id {
-			return a, nil
-		}
-	}
-	return repository.Asset{}, repository.ErrNotFound
-}
-
-func (s *stubStore) GetLiability(ctx context.Context, id string) (repository.Liability, error) {
-	for _, li := range s.liabilities {
-		if li.ID == id {
-			return li, nil
-		}
-	}
-	return repository.Liability{}, repository.ErrNotFound
-}
-
-func (s *stubStore) GetIncome(ctx context.Context, id string) (repository.Income, error) {
-	for _, it := range s.incomes {
-		if it.ID == id {
-			return it, nil
-		}
-	}
-	return repository.Income{}, repository.ErrNotFound
-}
-
-func (s *stubStore) GetExpense(ctx context.Context, id string) (repository.Expense, error) {
-	for _, it := range s.expenses {
-		if it.ID == id {
-			return it, nil
-		}
-	}
-	return repository.Expense{}, repository.ErrNotFound
-}
-
-func (s *stubStore) ListCustomItems(ctx context.Context) ([]repository.CustomItem, error) {
-	return append([]repository.CustomItem(nil), s.custom...), nil
-}
-
-func (s *stubStore) GetCustomItem(ctx context.Context, id string) (repository.CustomItem, error) {
-	for _, c := range s.custom {
-		if c.ID == id {
-			return c, nil
-		}
-	}
-	return repository.CustomItem{}, repository.ErrNotFound
-}
-
-func (s *stubStore) CreateCustomItem(ctx context.Context, item repository.CustomItem) (repository.CustomItem, error) {
-	if item.ID == "" {
-		item.ID = uuid.NewString()
-	}
-	item.UpdatedAt = time.Now()
-	s.custom = append(s.custom, item)
-	return item, nil
-}
-
-func (s *stubStore) ListOverrides(ctx context.Context) ([]repository.FinancialOverride, error) {
-	return append([]repository.FinancialOverride(nil), s.overrides...), nil
-}
-
-func (s *stubStore) UpsertOverride(ctx context.Context, ov repository.FinancialOverride) (repository.FinancialOverride, error) {
-	for i, existing := range s.overrides {
-		if existing.Year == ov.Year && existing.ItemID == ov.ItemID {
-			ov.ID = existing.ID
-			ov.AppliedAt = time.Now()
-			s.overrides[i] = ov
-			return ov, nil
-		}
-	}
-	if ov.ID == "" {
-		ov.ID = uuid.NewString()
-	}
-	ov.AppliedAt = time.Now()
-	s.overrides = append(s.overrides, ov)
-	return ov, nil
-}
-
 func (s *stubStore) GetGrowthConfigs(ctx context.Context) ([]repository.GrowthConfig, error) {
 	return append([]repository.GrowthConfig(nil), s.growth...), nil
 }
@@ -252,6 +170,58 @@ func (s *stubStore) GetGrowthConfigs(ctx context.Context) ([]repository.GrowthCo
 func (s *stubStore) UpsertGrowthConfigs(ctx context.Context, cfgs []repository.GrowthConfig) error {
 	s.growth = append([]repository.GrowthConfig(nil), cfgs...)
 	return nil
+}
+
+func (s *stubStore) CreateAsset(ctx context.Context, a repository.Asset) (repository.Asset, error) {
+	if a.ID == "" {
+		a.ID = uuid.NewString()
+	}
+	if strings.TrimSpace(a.ParentID) == "" {
+		a.ParentID = a.ID
+	}
+	a.UpdatedAt = time.Now()
+	s.assets = append(s.assets, a)
+	return a, nil
+}
+
+func (s *stubStore) CreateLiability(ctx context.Context, li repository.Liability) (repository.Liability, error) {
+	if li.ID == "" {
+		li.ID = uuid.NewString()
+	}
+	if strings.TrimSpace(li.ParentID) == "" {
+		li.ParentID = li.ID
+	}
+	li.UpdatedAt = time.Now()
+	s.liabilities = append(s.liabilities, li)
+	return li, nil
+}
+
+func (s *stubStore) CreateIncome(ctx context.Context, inc repository.Income) (repository.Income, error) {
+	if inc.ID == "" {
+		inc.ID = uuid.NewString()
+	}
+	if strings.TrimSpace(inc.ParentID) == "" {
+		inc.ParentID = inc.ID
+	}
+	if inc.StartDate == nil {
+		now := time.Now()
+		inc.StartDate = &now
+	}
+	inc.UpdatedAt = time.Now()
+	s.incomes = append(s.incomes, inc)
+	return inc, nil
+}
+
+func (s *stubStore) CreateExpense(ctx context.Context, exp repository.Expense) (repository.Expense, error) {
+	if exp.ID == "" {
+		exp.ID = uuid.NewString()
+	}
+	if strings.TrimSpace(exp.ParentID) == "" {
+		exp.ParentID = exp.ID
+	}
+	exp.UpdatedAt = time.Now()
+	s.expenses = append(s.expenses, exp)
+	return exp, nil
 }
 
 func ptr[T any](v T) *T { return &v }

@@ -110,7 +110,7 @@ function YearTick({
       </text>
       {isOverride && (
         <path
-          d="M0,4 L6,16 L-6,16 Z"
+          d="M0,14 L7,28 L-7,28 Z"
           fill="#38bdf8"
           data-testid={`override-marker-${payload.value}`}
         />

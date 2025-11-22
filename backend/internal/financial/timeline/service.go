@@ -2,15 +2,17 @@ package timeline
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"sort"
 	"strings"
+	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
 )
 
 const (
-	totalYears        = 21 // years 0..20 inclusive
+	totalYears        = 31 // years 0..30 inclusive
 	defaultVersion    = "v1"
 	defaultLowerBound = -50.0
 	defaultUpperBound = 50.0
@@ -35,15 +37,15 @@ func NewService(store Store) *Service {
 	return &Service{store: store}
 }
 
-// GetTimeline returns the full 0..20 timeline.
+// GetTimeline returns the full 0..30 timeline.
 func (s *Service) GetTimeline(ctx context.Context) (TimelineResponse, error) {
 	return s.buildTimeline(ctx)
 }
 
-// UpsertYear stores overrides/new items for a year and returns the refreshed timeline.
+// UpsertYear stores edits/new items for a year and returns the refreshed timeline.
 func (s *Service) UpsertYear(ctx context.Context, year int, edits []EditRequest) (TimelineResponse, error) {
 	if year < 0 || year >= totalYears {
-		return TimelineResponse{}, errors.New("year must be between 0 and 20")
+		return TimelineResponse{}, errors.New("year must be between 0 and 30")
 	}
 	for _, edit := range edits {
 		if err := validateEdit(edit); err != nil {
@@ -63,8 +65,8 @@ func validateEdit(edit EditRequest) error {
 	if _, ok := freqFactors[edit.Frequency]; !ok {
 		return errUnsupportedFrequency
 	}
-	if edit.Amount == 0 {
-		return errors.New("amount must be non-zero")
+	if edit.Amount < 0 {
+		return errors.New("amount must be non-negative")
 	}
 	if edit.ItemID == nil && (edit.Name == nil || strings.TrimSpace(*edit.Name) == "") {
 		return errors.New("name is required when creating a new item")
@@ -73,52 +75,83 @@ func validateEdit(edit EditRequest) error {
 }
 
 func (s *Service) applyEdit(ctx context.Context, year int, edit EditRequest) error {
-	itemID := ""
+	parentID := ""
+	if edit.ItemID != nil {
+		parentID = *edit.ItemID
+	}
 	name := ""
-	category := edit.Category
+	if edit.Name != nil {
+		name = strings.TrimSpace(*edit.Name)
+	}
+	category := strings.TrimSpace(edit.Category)
+	if category == "" {
+		category = "other"
+	}
 
-	if edit.ItemID != nil && *edit.ItemID != "" {
-		itemID = *edit.ItemID
-		found, err := s.lookupExistingItem(ctx, itemID, edit.ItemType)
-		if err != nil {
-			return err
-		}
-		name = found.Name
-		if category == "" {
-			category = found.Category
-		}
-	} else {
-		created, err := s.store.CreateCustomItem(ctx, repository.CustomItem{
-			Name:        strings.TrimSpace(*edit.Name),
-			ItemType:    string(edit.ItemType),
-			Category:    category,
-			Amount:      edit.Amount,
-			Frequency:   string(edit.Frequency),
-			CreatedYear: year,
+	switch edit.ItemType {
+	case ItemTypeAsset:
+		_, err := s.store.CreateAsset(ctx, repository.Asset{
+			ParentID:         parentID,
+			Name:             name,
+			Category:         category,
+			CurrentValue:     edit.Amount,
+			AnnualGrowthRate: 0,
+			Frequency:        string(edit.Frequency),
+			StartYear:        year,
 		})
-		if err != nil {
-			return err
-		}
-		itemID = created.ID
-		name = created.Name
+		return err
+	case ItemTypeLiability:
+		_, err := s.store.CreateLiability(ctx, repository.Liability{
+			ParentID:        parentID,
+			Name:            name,
+			Category:        category,
+			CurrentBalance:  edit.Amount,
+			InterestRateAPR: 0,
+			MinimumPayment:  0,
+			Frequency:       string(edit.Frequency),
+			StartYear:       year,
+		})
+		return err
+	case ItemTypeIncome:
+		now := time.Now()
+		_, err := s.store.CreateIncome(ctx, repository.Income{
+			ParentID:  parentID,
+			Source:    name,
+			Amount:    edit.Amount,
+			Frequency: string(edit.Frequency),
+			StartDate: &now,
+			StartYear: year,
+		})
+		return err
+	case ItemTypeExpense:
+		_, err := s.store.CreateExpense(ctx, repository.Expense{
+			ParentID:  parentID,
+			Payee:     name,
+			Amount:    edit.Amount,
+			Frequency: string(edit.Frequency),
+			StartYear: year,
+		})
+		return err
+	default:
+		return errors.New("unsupported item type")
 	}
-
-	override := repository.FinancialOverride{
-		Year:      year,
-		ItemID:    itemID,
-		ItemType:  string(edit.ItemType),
-		Category:  category,
-		Name:      name,
-		Amount:    edit.Amount,
-		Frequency: string(edit.Frequency),
-	}
-	_, err := s.store.UpsertOverride(ctx, override)
-	return err
 }
 
 type itemState struct {
-	item   TimelineItem
-	amount float64
+	item    TimelineItem
+	amount  float64
+	endYear *int
+}
+
+type effectiveRow struct {
+	ParentID  string
+	Name      string
+	Category  string
+	Amount    float64
+	Frequency Frequency
+	StartYear int
+	EndYear   sql.NullInt32
+	ItemType  ItemType
 }
 
 func (s *Service) buildTimeline(ctx context.Context) (TimelineResponse, error) {
@@ -127,66 +160,68 @@ func (s *Service) buildTimeline(ctx context.Context) (TimelineResponse, error) {
 		return TimelineResponse{}, err
 	}
 
-	baseItems, err := s.loadBaseItems(ctx)
+	rows, err := s.loadEffectiveRows(ctx)
 	if err != nil {
 		return TimelineResponse{}, err
 	}
-
-	overrides, err := s.store.ListOverrides(ctx)
-	if err != nil {
-		return TimelineResponse{}, err
-	}
-	overridesByYear := map[int][]repository.FinancialOverride{}
-	for _, ov := range overrides {
-		overridesByYear[ov.Year] = append(overridesByYear[ov.Year], ov)
+	rowsByYear := map[int][]effectiveRow{}
+	for _, r := range rows {
+		rowsByYear[r.StartYear] = append(rowsByYear[r.StartYear], r)
 	}
 
 	state := map[string]itemState{}
-	for _, it := range baseItems {
-		state[it.ItemID] = itemState{item: it, amount: it.AmountAnnual}
-	}
 
 	years := make([]TimelineYear, totalYears)
 	for year := 0; year < totalYears; year++ {
+		// expire by end_year
+		for id, st := range state {
+			if st.endYear != nil && year > *st.endYear {
+				delete(state, id)
+			}
+		}
+
 		if year > 0 {
 			for id, st := range state {
 				rate := lookupGrowthRate(growthCfg, st.item.Category, st.item.ItemType)
 				st.amount = applyGrowth(st.amount, rate)
+				st.item.AmountAnnual = st.amount
 				state[id] = st
 			}
 		}
 
-		hasOverride := false
-		for _, ov := range overridesByYear[year] {
-			annual, err := Annualize(ov.Amount, Frequency(ov.Frequency))
+		hasOverride := len(rowsByYear[year]) > 0 && year > 0
+		for _, r := range rowsByYear[year] {
+			annual, err := Annualize(r.Amount, r.Frequency)
 			if err != nil {
 				return TimelineResponse{}, err
 			}
-			if existing, ok := state[ov.ItemID]; ok {
-				existing.amount = annual
-				existing.item.AmountAnnual = annual
-				existing.item.SourceAmount = &ov.Amount
-				existing.item.SourceFrequency = ov.Frequency
-				if existing.item.CreatedYear > year {
-					existing.item.CreatedYear = year
-				}
-				state[ov.ItemID] = existing
-			} else {
-				state[ov.ItemID] = itemState{
-					item: TimelineItem{
-						ItemID:          ov.ItemID,
-						Name:            ov.Name,
-						Category:        ov.Category,
-						AmountAnnual:    annual,
-						SourceAmount:    &ov.Amount,
-						SourceFrequency: ov.Frequency,
-						ItemType:        ItemType(ov.ItemType),
-						CreatedYear:     year,
-					},
-					amount: annual,
-				}
+
+			if r.Amount == 0 {
+				delete(state, r.ParentID)
+				hasOverride = true
+				continue
 			}
-			hasOverride = true
+
+			var endYearPtr *int
+			if r.EndYear.Valid {
+				val := int(r.EndYear.Int32)
+				endYearPtr = &val
+			}
+
+			state[r.ParentID] = itemState{
+				item: TimelineItem{
+					ItemID:          r.ParentID,
+					Name:            r.Name,
+					Category:        r.Category,
+					AmountAnnual:    annual,
+					SourceAmount:    &r.Amount,
+					SourceFrequency: string(r.Frequency),
+					ItemType:        r.ItemType,
+					CreatedYear:     r.StartYear,
+				},
+				amount:  annual,
+				endYear: endYearPtr,
+			}
 		}
 
 		yearItems := segregateItems(state, year)
@@ -202,7 +237,7 @@ func (s *Service) buildTimeline(ctx context.Context) (TimelineResponse, error) {
 			NetCash:       netCash,
 			NetWorth:      netWorth,
 			HasOverrides:  hasOverride,
-			GrowthApplied: projectGrowthApplied(growthCfg),
+			GrowthApplied: toGrowthApplied(growthCfg),
 		}
 	}
 
@@ -212,21 +247,23 @@ func (s *Service) buildTimeline(ctx context.Context) (TimelineResponse, error) {
 	}, nil
 }
 
-func (s *Service) loadBaseItems(ctx context.Context) ([]TimelineItem, error) {
-	items := []TimelineItem{}
+func (s *Service) loadEffectiveRows(ctx context.Context) ([]effectiveRow, error) {
+	rows := []effectiveRow{}
 
 	assets, err := s.store.ListAssets(ctx)
 	if err != nil {
 		return nil, err
 	}
 	for _, a := range assets {
-		items = append(items, TimelineItem{
-			ItemID:       a.ID,
-			Name:         a.Name,
-			Category:     a.Category,
-			AmountAnnual: a.CurrentValue,
-			ItemType:     ItemTypeAsset,
-			CreatedYear:  0,
+		rows = append(rows, effectiveRow{
+			ParentID:  coalesceString(a.ParentID, a.ID),
+			Name:      a.Name,
+			Category:  a.Category,
+			Amount:    a.CurrentValue,
+			Frequency: normalizeFreq(a.Frequency),
+			StartYear: a.StartYear,
+			EndYear:   a.EndYear,
+			ItemType:  ItemTypeAsset,
 		})
 	}
 
@@ -235,13 +272,15 @@ func (s *Service) loadBaseItems(ctx context.Context) ([]TimelineItem, error) {
 		return nil, err
 	}
 	for _, li := range liabilities {
-		items = append(items, TimelineItem{
-			ItemID:       li.ID,
-			Name:         li.Name,
-			Category:     li.Category,
-			AmountAnnual: li.CurrentBalance,
-			ItemType:     ItemTypeLiability,
-			CreatedYear:  0,
+		rows = append(rows, effectiveRow{
+			ParentID:  coalesceString(li.ParentID, li.ID),
+			Name:      li.Name,
+			Category:  li.Category,
+			Amount:    li.CurrentBalance,
+			Frequency: normalizeFreq(li.Frequency),
+			StartYear: li.StartYear,
+			EndYear:   li.EndYear,
+			ItemType:  ItemTypeLiability,
 		})
 	}
 
@@ -250,19 +289,15 @@ func (s *Service) loadBaseItems(ctx context.Context) ([]TimelineItem, error) {
 		return nil, err
 	}
 	for _, it := range incomes {
-		annual, err := Annualize(it.Amount, Frequency(strings.ToLower(it.Frequency)))
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, TimelineItem{
-			ItemID:          it.ID,
-			Name:            it.Source,
-			Category:        it.Category,
-			AmountAnnual:    annual,
-			SourceAmount:    &it.Amount,
-			SourceFrequency: strings.ToLower(it.Frequency),
-			ItemType:        ItemTypeIncome,
-			CreatedYear:     0,
+		rows = append(rows, effectiveRow{
+			ParentID:  coalesceString(it.ParentID, it.ID),
+			Name:      it.Source,
+			Category:  it.Category,
+			Amount:    it.Amount,
+			Frequency: normalizeFreq(it.Frequency),
+			StartYear: it.StartYear,
+			EndYear:   it.EndYear,
+			ItemType:  ItemTypeIncome,
 		})
 	}
 
@@ -271,99 +306,71 @@ func (s *Service) loadBaseItems(ctx context.Context) ([]TimelineItem, error) {
 		return nil, err
 	}
 	for _, it := range expenses {
-		annual, err := Annualize(it.Amount, Frequency(strings.ToLower(it.Frequency)))
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, TimelineItem{
-			ItemID:          it.ID,
-			Name:            it.Payee,
-			Category:        it.Category,
-			AmountAnnual:    annual,
-			SourceAmount:    &it.Amount,
-			SourceFrequency: strings.ToLower(it.Frequency),
-			ItemType:        ItemTypeExpense,
-			CreatedYear:     0,
+		rows = append(rows, effectiveRow{
+			ParentID:  coalesceString(it.ParentID, it.ID),
+			Name:      it.Payee,
+			Category:  it.Category,
+			Amount:    it.Amount,
+			Frequency: normalizeFreq(it.Frequency),
+			StartYear: it.StartYear,
+			EndYear:   it.EndYear,
+			ItemType:  ItemTypeExpense,
 		})
 	}
 
-	custom, err := s.store.ListCustomItems(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, it := range custom {
-		annual, err := Annualize(it.Amount, Frequency(strings.ToLower(it.Frequency)))
-		if err != nil {
-			return nil, err
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].ParentID == rows[j].ParentID {
+			return rows[i].StartYear < rows[j].StartYear
 		}
-		items = append(items, TimelineItem{
-			ItemID:          it.ID,
-			Name:            it.Name,
-			Category:        it.Category,
-			AmountAnnual:    annual,
-			SourceAmount:    &it.Amount,
-			SourceFrequency: strings.ToLower(it.Frequency),
-			ItemType:        ItemType(it.ItemType),
-			CreatedYear:     it.CreatedYear,
-		})
-	}
+		return rows[i].ParentID < rows[j].ParentID
+	})
 
-	return items, nil
+	return rows, nil
 }
 
+// ensureGrowth returns configured growth or seeds defaults.
 func (s *Service) ensureGrowth(ctx context.Context) ([]repository.GrowthConfig, error) {
-	current, err := s.store.GetGrowthConfigs(ctx)
+	cfgs, err := s.store.GetGrowthConfigs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if len(current) == 0 {
+	if len(cfgs) == 0 {
 		if err := s.store.UpsertGrowthConfigs(ctx, defaultGrowth); err != nil {
 			return nil, err
 		}
 		return defaultGrowth, nil
 	}
-	return current, nil
+	return cfgs, nil
 }
 
-// GetGrowthConfig returns the current growth configuration (ensuring defaults if empty).
+// GetGrowthConfig returns the current growth configuration, seeding defaults if missing.
 func (s *Service) GetGrowthConfig(ctx context.Context) ([]repository.GrowthConfig, error) {
 	return s.ensureGrowth(ctx)
 }
 
-// UpdateGrowthConfig updates growth settings and returns the refreshed config.
+// UpdateGrowthConfig validates and persists growth configuration, returning the saved set.
 func (s *Service) UpdateGrowthConfig(ctx context.Context, cfgs []repository.GrowthConfig) ([]repository.GrowthConfig, error) {
-	for i, cfg := range cfgs {
-		cfgs[i].AnnualRatePct = clamp(cfg.AnnualRatePct, defaultLowerBound, defaultUpperBound)
-		if cfgs[i].LowerBoundPct == 0 && cfgs[i].UpperBoundPct == 0 {
-			cfgs[i].LowerBoundPct = defaultLowerBound
-			cfgs[i].UpperBoundPct = defaultUpperBound
-		}
+	if len(cfgs) == 0 {
+		return nil, errors.New("growth configs required")
 	}
-	if err := s.store.UpsertGrowthConfigs(ctx, cfgs); err != nil {
+	normalized := make([]repository.GrowthConfig, 0, len(cfgs))
+	for _, c := range cfgs {
+		c.Category = strings.ToLower(strings.TrimSpace(c.Category))
+		if c.Category == "" {
+			return nil, errors.New("category is required")
+		}
+		normalized = append(normalized, c)
+	}
+	if err := s.store.UpsertGrowthConfigs(ctx, normalized); err != nil {
 		return nil, err
 	}
-	return s.ensureGrowth(ctx)
+	return normalized, nil
 }
 
 func lookupGrowthRate(cfgs []repository.GrowthConfig, category string, itemType ItemType) float64 {
+	key := normalizeCategoryForGrowth(itemType, category)
 	for _, cfg := range cfgs {
-		if cfg.Category == category {
-			return clamp(cfg.AnnualRatePct, cfg.LowerBoundPct, cfg.UpperBoundPct)
-		}
-	}
-	fallbackCategory := ""
-	switch itemType {
-	case ItemTypeIncome:
-		fallbackCategory = "income"
-	case ItemTypeExpense:
-		fallbackCategory = "expense"
-	case ItemTypeLiability:
-		fallbackCategory = "liability_debt"
-	case ItemTypeAsset:
-		fallbackCategory = "asset_cash"
-	}
-	for _, cfg := range cfgs {
-		if cfg.Category == fallbackCategory {
+		if cfg.Category == key {
 			return clamp(cfg.AnnualRatePct, cfg.LowerBoundPct, cfg.UpperBoundPct)
 		}
 	}
@@ -371,113 +378,118 @@ func lookupGrowthRate(cfgs []repository.GrowthConfig, category string, itemType 
 }
 
 func applyGrowth(amount float64, ratePct float64) float64 {
-	return amount * (1 + ratePct/100)
+	return amount * (1 + ratePct/100.0)
 }
 
-type segregated struct {
+func clamp(val, lo, hi float64) float64 {
+	if val < lo {
+		return lo
+	}
+	if val > hi {
+		return hi
+	}
+	return val
+}
+
+// segregate items by type for the current year view.
+func segregateItems(state map[string]itemState, year int) struct {
 	Assets      []TimelineItem
 	Liabilities []TimelineItem
 	Income      []TimelineItem
 	Expenses    []TimelineItem
-}
+} {
+	out := struct {
+		Assets      []TimelineItem
+		Liabilities []TimelineItem
+		Income      []TimelineItem
+		Expenses    []TimelineItem
+	}{}
 
-func segregateItems(state map[string]itemState, currentYear int) segregated {
-	var assets, liabilities, income, expenses []TimelineItem
 	for _, st := range state {
-		if st.item.CreatedYear > currentYear {
+		item := st.item
+		if item.CreatedYear > year {
 			continue
 		}
-		itemCopy := st.item
-		itemCopy.AmountAnnual = st.amount
-		switch st.item.ItemType {
+		switch item.ItemType {
 		case ItemTypeAsset:
-			assets = append(assets, itemCopy)
+			out.Assets = append(out.Assets, item)
 		case ItemTypeLiability:
-			liabilities = append(liabilities, itemCopy)
+			out.Liabilities = append(out.Liabilities, item)
 		case ItemTypeIncome:
-			income = append(income, itemCopy)
+			out.Income = append(out.Income, item)
 		case ItemTypeExpense:
-			expenses = append(expenses, itemCopy)
+			out.Expenses = append(out.Expenses, item)
 		}
 	}
-	sort.Slice(assets, func(i, j int) bool { return assets[i].ItemID < assets[j].ItemID })
-	sort.Slice(liabilities, func(i, j int) bool { return liabilities[i].ItemID < liabilities[j].ItemID })
-	sort.Slice(income, func(i, j int) bool { return income[i].ItemID < income[j].ItemID })
-	sort.Slice(expenses, func(i, j int) bool { return expenses[i].ItemID < expenses[j].ItemID })
-	return segregated{
-		Assets:      assets,
-		Liabilities: liabilities,
-		Income:      income,
-		Expenses:    expenses,
-	}
-}
 
-func sumAnnual(items []TimelineItem) float64 {
-	sum := 0.0
-	for _, it := range items {
-		sum += it.AmountAnnual
-	}
-	return sum
-}
-
-func projectGrowthApplied(cfgs []repository.GrowthConfig) []GrowthApplied {
-	out := make([]GrowthApplied, 0, len(cfgs))
-	for _, cfg := range cfgs {
-		out = append(out, GrowthApplied{
-			Category:      cfg.Category,
-			AnnualRatePct: clamp(cfg.AnnualRatePct, cfg.LowerBoundPct, cfg.UpperBoundPct),
-		})
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Category < out[j].Category })
 	return out
 }
 
-func clamp(value, lower, upper float64) float64 {
-	if value < lower {
-		return lower
+func sumAnnual(items []TimelineItem) float64 {
+	total := 0.0
+	for _, it := range items {
+		total += it.AmountAnnual
 	}
-	if value > upper {
-		return upper
-	}
-	return value
+	return total
 }
 
-type lookupResult struct {
-	Name     string
-	Category string
+func toGrowthApplied(cfg []repository.GrowthConfig) []GrowthApplied {
+	out := make([]GrowthApplied, 0, len(cfg))
+	for _, c := range cfg {
+		out = append(out, GrowthApplied{Category: c.Category, AnnualRatePct: c.AnnualRatePct})
+	}
+	return out
 }
 
-func (s *Service) lookupExistingItem(ctx context.Context, id string, itemType ItemType) (lookupResult, error) {
+func coalesceString(a, b string) string {
+	if strings.TrimSpace(a) != "" {
+		return a
+	}
+	return b
+}
+
+func normalizeFreq(freq string) Frequency {
+	f := Frequency(strings.ToLower(strings.TrimSpace(freq)))
+	if _, ok := freqFactors[f]; ok {
+		return f
+	}
+	return FrequencyAnnual
+}
+
+func normalizeCategoryForGrowth(itemType ItemType, category string) string {
+	cat := strings.ToLower(strings.TrimSpace(category))
 	switch itemType {
 	case ItemTypeAsset:
-		item, err := s.store.GetAsset(ctx, id)
-		if err != nil {
-			return lookupResult{}, err
+		switch cat {
+		case "cash":
+			return "asset_cash"
+		case "investment", "equity", "stock", "stocks", "brokerage":
+			return "asset_equity"
+		case "property", "real_estate", "real-estate", "real estate":
+			return "asset_property"
 		}
-		return lookupResult{Name: item.Name, Category: item.Category}, nil
+		return "asset_cash"
 	case ItemTypeLiability:
-		item, err := s.store.GetLiability(ctx, id)
-		if err != nil {
-			return lookupResult{}, err
+		switch cat {
+		case "short-term", "short term", "credit", "credit-card", "credit card", "card", "debt", "loan":
+			return "liability_debt"
+		case "property", "mortgage", "home_loan", "home-loan", "home loan":
+			return "liability_debt"
 		}
-		return lookupResult{Name: item.Name, Category: item.Category}, nil
+		return "liability_debt"
 	case ItemTypeIncome:
-		item, err := s.store.GetIncome(ctx, id)
-		if err != nil {
-			return lookupResult{}, err
+		switch cat {
+		case "employment", "job", "salary", "side-income", "side income":
+			return "income"
 		}
-		return lookupResult{Name: item.Source, Category: item.Category}, nil
+		return "income"
 	case ItemTypeExpense:
-		item, err := s.store.GetExpense(ctx, id)
-		if err != nil {
-			return lookupResult{}, err
+		switch cat {
+		case "housing", "living", "transport", "travel", "food":
+			return "expense"
 		}
-		return lookupResult{Name: item.Payee, Category: item.Category}, nil
+		return "expense"
 	default:
-		item, err := s.store.GetCustomItem(ctx, id)
-		if err != nil {
-			return lookupResult{}, err
-		}
-		return lookupResult{Name: item.Name, Category: item.Category}, nil
+		return cat
 	}
 }

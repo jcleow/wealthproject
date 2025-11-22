@@ -27,12 +27,13 @@ Build deterministic annual projection engine (years 0–20) that annualizes inpu
 - [ ] Deterministic results for same inputs; idempotent projection runs.
 
 **Technical Details:**
-- Use per-item per-year rows instead of a separate overrides table:
-  - Add `year` column to financial assets/liabilities/income/expenses values (or a shared `financial_item_values` table) with default 0; enforce uniqueness on `(user_id, item_id, year)`.
-  - Keep a stable `items_catalog` (or logical item table) with `item_id`, `item_type`, `category`, `name`, `created_year`. New items created at year N get `created_year = N`.
-  - Baseline = rows with `year=0`; overrides = rows with `year>0` for the same `item_id`.
-  - Delete semantics: either `amount=0` at year N or a delete flag to drop the item from N forward (pick one rule and apply consistently).
-- Engine pipeline: load baseline (`year=0`), load per-year rows (`year>0`), load growth config; normalize; loop years 0..20; apply growth, overlay per-year rows if present (latest-wins by unique constraint), add new items whose `created_year <= Y`; compute aggregates; mark `has_overrides`; carry state forward.
+- Use effective-dated rows instead of a separate overrides table:
+  - Add `start_year` (default 0) and optional `end_year` to financial assets/liabilities/income/expenses (or a shared values table). Enforce uniqueness on `(user_id, item_id, start_year)`.
+  - Baseline rows: `start_year = 0`, `end_year = null`.
+  - Overrides: insert a new row with the same `item_id`, `start_year = N` (and optional `end_year` if bounded). Projection picks the row with the latest `start_year <= Y` for year Y.
+  - New items: insert a new `item_id` row with `start_year = N` (end_year null). Optionally keep `created_year = start_year` on the same row.
+  - Delete semantics: an override row with `amount = 0` and `start_year = N` means remove the item from year N forward (projection skips it for Y >= N). End-dating (`end_year = N-1`) is another option if preferred.
+- Engine pipeline: load baseline (start_year=0), load override rows (start_year>0), load growth config; normalize; loop years 0..20; apply growth, overlay the latest row with `start_year <= Y` per item, skip items with delete marker (amount=0); compute aggregates; mark `has_overrides`; carry state forward.
 - Enforce bounds before applying rates; reject invalid frequency/category.
 
 **Tests (write first):**
@@ -41,7 +42,7 @@ Build deterministic annual projection engine (years 0–20) that annualizes inpu
 - Override latest-wins behavior and new-item creation at year N appearing in N..20.
 - Deterministic timeline snapshot test (golden) for a small fixture.
 - Migration test: year-0 seed rows only; no projection rows persisted.
-- Delete rule test (e.g., amount=0 at year N removes item from N forward).
+- Delete rule test: amount=0 at start_year=N removes item from N forward; bounded override with end_year honored if used.
 
 ---
 
@@ -57,21 +58,21 @@ Expose versioned endpoints for timeline fetch and year upsert edits (including n
 
 **Acceptance Criteria:**
 - [ ] GET `/api/v1/financial/timeline` returns 0–20 timeline from projection engine with hasOverrides, annualized amounts, source frequency metadata.
-- [ ] PUT `/api/v1/financial/timeline/{year}` upserts edits: validates payload, stores per-year rows (latest-wins via `(item_id, year)`), allows new items (assign ID, `created_year=Y`), re-runs projection, returns refreshed timeline.
+- [ ] PUT `/api/v1/financial/timeline/{year}` upserts edits: validates payload, stores effective-dated rows (unique `(user_id, item_id, start_year)`), allows new items (assign ID, `start_year=year`), re-runs projection, returns refreshed timeline.
 - [ ] Validation errors for invalid frequency/category/bounds; version headers included.
 - [ ] New items appear downstream after save; hasOverrides reflects mutations.
 
 **Technical Details:**
 - Request body (PUT): `{ year: int, edits: [{ itemId?, name?, itemType: asset|liability|income|expense, category: string, amount: number, frequency: enum }], note?: string }`.
-- Writes to per-year value rows (same tables with `year>0` or a shared values table). New items insert into `items_catalog` with `created_year = year`. Enforce `(user_id, item_id, year)` uniqueness.
-- Delete rule (choose one): `amount=0` means remove from year N forward, or include an explicit `delete` flag; project accordingly.
+- Writes to effective-dated rows in the entity tables (or a shared values table) with `start_year = {year}` and optional `end_year`. New items insert a new `item_id` row with `start_year = year`.
+- Delete rule: `amount = 0` with `start_year = year` means remove from year `>= year` in projection (or use `end_year = year - 1` if you prefer bounded end-dating).
 - Wire handlers under `/api/v1/financial/`.
 
 **Tests (write first):**
 - Contract tests for GET/PUT success paths.
 - Validation failures (bad frequency, missing itemType, out-of-bounds amount/rate).
 - New item creation surfaces in response timeline downstream; override update path; hasOverrides true when expected.
-- Delete rule honored (e.g., amount=0 removes item from N+).
+- Delete rule honored (amount=0 at start_year=N removes item from N forward).
 
 ---
 
