@@ -50,6 +50,18 @@ export function useTimeline() {
     },
   })
 
+  useEffect(() => {
+    const handler = () => {
+      queryClient.invalidateQueries({ queryKey: TIMELINE_QUERY_KEY }).catch(() => {
+        // ignore cache errors
+      })
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('financial-data-refresh', handler)
+      return () => window.removeEventListener('financial-data-refresh', handler)
+    }
+  }, [queryClient])
+
   const saveEdits = useCallback(
     async (payload: TimelineEditRequest) => {
       return upsertMutation.mutateAsync(payload)

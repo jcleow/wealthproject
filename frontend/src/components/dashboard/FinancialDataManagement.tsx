@@ -19,6 +19,8 @@ type CategoryConfig = {
   emptyDescription: string
   icon: string
   accent: string
+  singular: string
+  plural: string
   helper?: string
 }
 
@@ -28,24 +30,32 @@ const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
     emptyDescription: 'No assets added yet',
     icon: '📈',
   accent: 'bg-blue-500',
+    singular: 'asset',
+    plural: 'assets',
   },
   income: {
     title: 'Income',
     emptyDescription: 'No income added yet',
     icon: '💼',
     accent: 'text-grey-500 bg-white/5 ',
+    singular: 'income',
+    plural: 'income',
   },
   liability: {
     title: 'Liabilities',
     emptyDescription: 'No liabilities added yet',
     icon: '💳',
     accent: 'bg-rose-500',
+    singular: 'liability',
+    plural: 'liabilities',
   },
   expense: {
     title: 'Expenses',
     emptyDescription: 'No expenses added yet',
     icon: '💰',
     accent: 'bg-amber-500',
+    singular: 'expense',
+    plural: 'expenses',
   },
 }
 
@@ -307,6 +317,11 @@ export function FinancialDataManagement({
     }
   }
 
+  const formatCountLabel = (count: number, config: CategoryConfig) => {
+    const noun = count === 1 ? config.singular : config.plural
+    return `${count} ${noun}`
+  }
+
   const summarizeAmount = (item: any) => {
     if ('amount_annual' in item) return item.amount_annual ?? 0
     if ('amountAnnual' in item) return item.amountAnnual ?? 0
@@ -346,7 +361,7 @@ export function FinancialDataManagement({
   const handleYearInput = (value: string) => {
     const parsed = Number.parseInt(value, 10)
     if (Number.isNaN(parsed)) return
-    const clamped = Math.max(0, Math.min(20, parsed))
+    const clamped = Math.max(0, Math.min(30, parsed))
     onSelectYear?.(clamped)
   }
 
@@ -373,7 +388,7 @@ export function FinancialDataManagement({
                   disabled={isTimelineLoading}
                   onChange={(event) => handleYearInput(event.target.value)}
                 >
-                  {Array.from({ length: 21 }, (_, idx) => (
+                  {Array.from({ length: 31 }, (_, idx) => (
                     <option key={idx} value={idx}>
                       {idx}
                     </option>
@@ -393,9 +408,7 @@ export function FinancialDataManagement({
                 const data = getDataForCategory(key)
                 const hasData = data.length > 0
                 const description = hasData
-                  ? `${data.length} ${config.title.toLowerCase()}${
-                      data.length > 1 ? 's' : ''
-                    }`
+                  ? formatCountLabel(data.length, config)
                   : config.emptyDescription
 
                 return (
@@ -567,7 +580,7 @@ export function FinancialDataManagement({
                   </div>
                   <div className="h-2 w-2 rounded-full bg-blue-400" />
                 </div>
-                <p className="mt-4 text-3xl font-bold text-white">
+                <p className="mt-4 text-xl font-bold text-white">
                   {formatCurrency(getNetWorthForYear())}
                 </p>
               </div>
@@ -583,7 +596,7 @@ export function FinancialDataManagement({
                   </div>
                   <div className="h-2 w-2 rounded-full bg-emerald-400" />
                 </div>
-                <p className="mt-4 text-3xl font-bold text-white">
+                <p className="mt-4 text-2xl font-bold text-white">
                   {formatCurrency(getMonthlySavingsForYear())}
                 </p>
               </div>
