@@ -47,7 +47,7 @@ export function Dashboard() {
         </div>
 
         <div className="relative w-full lg:pl-[460px]">
-          <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 p-4 lg:flex-row lg:items-stretch">
+          <div className="relative flex min-h-screen w-full flex-col gap-6 p-4 pl-0 lg:flex-row lg:items-stretch">
             <div className="flex w-full flex-col gap-6 lg:min-w-0 lg:flex-1">
               <div className="flex min-h-[320px] min-w-0 flex-col overflow-hidden rounded-3xl border border-white/5 bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
                 <FinancialWorkspace
