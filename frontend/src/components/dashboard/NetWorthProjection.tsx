@@ -142,6 +142,7 @@ export function NetWorthProjection({
 
   const [xAxisMode, setXAxisMode] = useState<AxisMode>('age')
   const [hasSize, setHasSize] = useState(false)
+  const [containerWidth, setContainerWidth] = useState(0)
   const chartContainerRef = useRef<HTMLDivElement>(null)
 
   const projection = useMemo(() => {
@@ -232,11 +233,30 @@ export function NetWorthProjection({
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect
       setHasSize(width > 0 && height > 0)
+      setContainerWidth(width)
     })
 
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
+
+  const ticks = useMemo(() => {
+    const totalPoints = projection.length
+    if (totalPoints === 0) return [] as number[]
+    const minSpacingPx = 60
+    const width = Math.max(containerWidth, 1)
+    const maxTicks = Math.max(6, Math.floor(width / minSpacingPx))
+    const step = Math.max(1, Math.floor(totalPoints / maxTicks))
+    const values: number[] = []
+    for (let i = 0; i < totalPoints; i += step) {
+      values.push(projection[i].yearIndex)
+    }
+    const last = projection[totalPoints - 1]?.yearIndex ?? 0
+    if (values[values.length - 1] !== last) values.push(last)
+    const first = projection[0]?.yearIndex ?? 0
+    if (values[0] !== first) values.unshift(first)
+    return values
+  }, [containerWidth, projection])
 
   return (
     <div className="flex h-full min-h-[320px] min-w-0 flex-col">
@@ -278,6 +298,8 @@ export function NetWorthProjection({
                 axisLine={false}
                 dataKey="yearIndex"
                 fontSize={12}
+                interval={0}
+                ticks={ticks}
                 stroke={chartColors.axis}
                 tickLine={false}
                 tick={
