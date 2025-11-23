@@ -259,7 +259,7 @@ export function NetWorthProjection({
   }, [containerWidth, projection])
 
   return (
-    <div className="flex h-full min-h-[320px] min-w-0 flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
       <div className="mb-4 flex flex-shrink-0 items-center justify-between">
         <div>
           <h3 className="mb-1 font-semibold text-lg text-white">
@@ -271,7 +271,7 @@ export function NetWorthProjection({
 
       <div
         ref={chartContainerRef}
-        className="relative w-full flex-none min-h-[220px] min-w-0 overflow-hidden aspect-[16/9] [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
+        className="relative w-full flex-none h-58 min-w-0 overflow-hidden [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
       >
         {hasSize && projection.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>

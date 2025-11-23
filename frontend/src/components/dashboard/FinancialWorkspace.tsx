@@ -207,7 +207,7 @@ export function FinancialWorkspace({
           Timeline unavailable: {timelineError}
         </div>
       )}
-      <div className="flex-1 p-6 min-h-[400px]">
+      <div className="p-6 h-[320px] flex-none">
         <NetWorthProjection
           timelineYears={timelineYears}
           overrideYears={overrideYears}
