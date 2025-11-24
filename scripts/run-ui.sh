@@ -38,9 +38,15 @@ WORKTREE_HASH="$(printf "%s" "$REPO_ROOT" | shasum -a 256 | cut -c1-6)"
 WORKTREE_SLUG="$(slugify "${WORKTREE_NAME:-worktree}")-${WORKTREE_HASH}"
 POSTGRES_CONTAINER="fcs-${WORKTREE_SLUG}-postgres"
 POSTGRES_VOLUME="fcs-${WORKTREE_SLUG}-pgdata"
+POSTGRES_PORT=""
+# Default DB credentials (used for container creation and fallback URL)
+POSTGRES_USER_DEFAULT="financial_user"
+POSTGRES_PASSWORD_DEFAULT="financial_pass_dev_2024"
+POSTGRES_DB_DEFAULT="financial_chat"
+DB_RESET=false
 
 for arg in "$@"; do
-case "$arg" in
+  case "$arg" in
     fe=*|frontend=*)
       FRONTEND_PORT="${arg#*=}"
       ;;
@@ -49,6 +55,15 @@ case "$arg" in
       ;;
     db=*|db_port=*)
       REQUESTED_DB_PORT="${arg#*=}"
+      ;;
+    db_user=*)
+      DB_USER="${arg#*=}"
+      ;;
+    db_pass=*)
+      DB_PASSWORD="${arg#*=}"
+      ;;
+    db-reset)
+      DB_RESET=true
       ;;
     env=*)
       ENV_SOURCE="${arg#*=}"
@@ -67,7 +82,7 @@ case "$arg" in
       echo "Usage: $0 [fe=PORT] [be=PORT] [db=PORT] [env=/path/to/.env] [env_mode=copy|symlink] [no-backend] [no-install]"
       exit 1
       ;;
-  esac
+esac
 done
 
 if [[ ! -d "$FRONTEND_DIR" || ! -d "$BACKEND_DIR" ]]; then
@@ -81,7 +96,13 @@ DB_STARTED_BY_SCRIPT=false
 cleanup() {
   for pid in "${pids[@]}"; do
     if kill -0 "$pid" >/dev/null 2>&1; then
-      kill "$pid" >/dev/null 2>&1 || true
+      # Kill the entire process group to ensure child processes (e.g., npm dev server) exit.
+      pgid="$(ps -o pgid= "$pid" 2>/dev/null | tr -d ' ' || true)"
+      if [[ -n "$pgid" ]]; then
+        kill -TERM "-$pgid" >/dev/null 2>&1 || true
+      else
+        kill "$pid" >/dev/null 2>&1 || true
+      fi
     fi
   done
   if [[ "$DB_STARTED_BY_SCRIPT" == "true" ]]; then
@@ -191,7 +212,7 @@ configure_database_env() {
   fi
 
   if [[ -z "$raw" ]]; then
-    raw="postgres://postgres:postgres@localhost:5432/financial_chat?sslmode=disable"
+    raw="postgres://${POSTGRES_USER_DEFAULT}:${POSTGRES_PASSWORD_DEFAULT}@localhost:5432/${POSTGRES_DB_DEFAULT}?sslmode=disable"
   fi
 
   local scheme rest cred_host path_query userpass hostport query path
@@ -217,7 +238,7 @@ configure_database_env() {
     path="/$path_query"
     query=""
   fi
-  [[ -z "$path" || "$path" == "/" ]] && path="/financial_chat"
+  [[ -z "$path" || "$path" == "/" ]] && path="/${POSTGRES_DB_DEFAULT}"
   [[ -z "$query" ]] && query="sslmode=disable"
 
   if [[ "$cred_host" == *"@"* ]]; then
@@ -229,14 +250,14 @@ configure_database_env() {
   fi
 
   if [[ -z "$userpass" ]]; then
-    DB_USER="postgres"
-    DB_PASSWORD="postgres"
+    DB_USER="${POSTGRES_USER_DEFAULT}"
+    DB_PASSWORD="${POSTGRES_PASSWORD_DEFAULT}"
   else
     DB_USER="${userpass%%:*}"
     DB_PASSWORD="${userpass#*:}"
-    [[ "$DB_PASSWORD" == "$DB_USER" ]] && DB_PASSWORD="postgres"
-    [[ -z "$DB_USER" ]] && DB_USER="postgres"
-    [[ -z "$DB_PASSWORD" ]] && DB_PASSWORD="postgres"
+    [[ "$DB_PASSWORD" == "$DB_USER" ]] && DB_PASSWORD="${POSTGRES_PASSWORD_DEFAULT}"
+    [[ -z "$DB_USER" ]] && DB_USER="${POSTGRES_USER_DEFAULT}"
+    [[ -z "$DB_PASSWORD" ]] && DB_PASSWORD="${POSTGRES_PASSWORD_DEFAULT}"
   fi
 
   local host only_host
@@ -250,7 +271,7 @@ configure_database_env() {
   fi
   [[ -z "$host" ]] && host="localhost"
   DB_NAME="${path#/}"
-  [[ -z "$DB_NAME" ]] && DB_NAME="financial_chat"
+  [[ -z "$DB_NAME" ]] && DB_NAME="${POSTGRES_DB_DEFAULT}"
 
   DATABASE_URL_OVERRIDE="${scheme}://${DB_USER}:${DB_PASSWORD}@localhost:${port}/${DB_NAME}?${query}"
 }
@@ -308,6 +329,13 @@ ensure_postgres() {
   local existing_state
   existing_state="$(docker ps -a --filter "name=^${POSTGRES_CONTAINER}$" --format '{{.State}}' || true)"
 
+  if [[ -n "$existing_state" && "$DB_RESET" == "true" ]]; then
+    echo "Removing existing Postgres container and volume (${POSTGRES_CONTAINER}, ${POSTGRES_VOLUME}) for a fresh start..."
+    docker rm -f "$POSTGRES_CONTAINER" >/dev/null 2>&1 || true
+    docker volume rm "$POSTGRES_VOLUME" >/dev/null 2>&1 || true
+    existing_state=""
+  fi
+
   if [[ -n "$existing_state" ]]; then
     local mapped_port
     mapped_port="$(get_mapped_port "$POSTGRES_CONTAINER")"
@@ -351,13 +379,38 @@ if [[ -f "$ENV_TARGET" && ! -f "$BACKEND_ENV_TARGET" ]]; then
   echo "Copied .env to backend directory"
 fi
 
-POSTGRES_PORT="${REQUESTED_DB_PORT:-$(default_db_port)}"
+if [[ -n "$REQUESTED_DB_PORT" ]]; then
+  POSTGRES_PORT="$REQUESTED_DB_PORT"
+fi
+
+pick_available_port() {
+  local first_choice="$1"
+  local fallback_start="$2"
+  if ! lsof -Pi :"${first_choice}" -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo "$first_choice"
+    return
+  fi
+  local p="$fallback_start"
+  while lsof -Pi :"${p}" -sTCP:LISTEN -t >/dev/null 2>&1; do
+    p=$((p+1))
+    if [[ $p -gt 65535 ]]; then
+      echo "No available port found" >&2
+      exit 1
+    fi
+  done
+  echo "$p"
+}
+
+if [[ -z "$POSTGRES_PORT" ]]; then
+  POSTGRES_PORT="$(pick_available_port 5432 5640)"
+fi
 
 # Ensure DATABASE_URL in .env is concrete (no placeholders); replace templated values if present.
 sanitize_env_database_url() {
   local target_env="$1"
   local port="$2"
-  local default_url="postgres://postgres:postgres@localhost:${port}/financial_chat?sslmode=disable"
+  # Prefer named dev credentials to avoid surprises (must match container creation).
+  local default_url="postgres://${POSTGRES_USER_DEFAULT}:${POSTGRES_PASSWORD_DEFAULT}@localhost:${port}/${POSTGRES_DB_DEFAULT}?sslmode=disable"
   if [[ ! -f "$target_env" ]]; then
     echo "DATABASE_URL=${default_url}" >"$target_env"
     return

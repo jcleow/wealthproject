@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 
 import type { Asset, Expense, Frequency, Income, Liability } from '../../types/financial'
+import { formatCurrency } from '@/lib/format'
 
 const PROPERTY_CATEGORY = 'property_real_estate'
 const MORTGAGE_CATEGORY = 'mortgage_home'
@@ -134,6 +135,8 @@ export interface FinancialFormModalProps {
   onClose: () => void
   onSave: (payload: FinancialFormValues, mode: 'create' | 'edit') => Promise<void>
   onDelete?: (id: string) => Promise<void>
+  selectedYear?: number
+  selectedYearLabel?: string
 }
 
 const buildDefaultFormState = (type: FinancialDataType): FormState => {
@@ -164,7 +167,21 @@ export function FinancialFormModal({
   onClose,
   onSave,
   onDelete,
+  selectedYear,
+  selectedYearLabel,
 }: FinancialFormModalProps) {
+  const roundToDollar = (value: number | string) => Math.round(Number(value) || 0)
+  const toNumeric = (value: string) => Number.parseFloat(value.replace(/,/g, '')) || 0
+  const formatNumberInput = (value: string | number) => {
+    const raw = typeof value === 'number' ? value.toString() : value
+    const cleaned = raw.replace(/[^0-9.]/g, '')
+    if (!cleaned) return ''
+    const [integer, decimal] = cleaned.split('.')
+    const formattedInt = new Intl.NumberFormat('en-US').format(Number(integer || 0))
+    return decimal !== undefined ? `${formattedInt}.${decimal}` : formattedInt
+  }
+  const toSafeText = (value: string | null | undefined) => value ?? ''
+
   const [formData, setFormData] = useState<FormState>(buildDefaultFormState(type))
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -209,12 +226,14 @@ export function FinancialFormModal({
     switch (type) {
       case 'asset': {
         const asset = data as Asset
+        const amt = (asset as any).amount_annual ?? asset.currentValue ?? 0
+        const freq = (asset as any).source_frequency ?? 'annual'
         setFormData({
-          name: asset.name,
-          amount: asset.currentValue.toString(),
-          frequency: 'monthly',
+          name: toSafeText(asset.name),
+          amount: formatNumberInput(roundToDollar(amt)),
+          frequency: freq,
           category: asset.category,
-          annualGrowthRate: asset.annualGrowthRate.toString(),
+          annualGrowthRate: (asset.annualGrowthRate ?? 0).toString(),
           interestRateApr: '4.5',
           minimumPayment: '',
           notes: asset.notes ?? '',
@@ -223,24 +242,28 @@ export function FinancialFormModal({
       }
       case 'liability': {
         const liability = data as Liability
+        const amt = (liability as any).amount_annual ?? liability.currentBalance ?? 0
+        const freq = (liability as any).source_frequency ?? 'annual'
         setFormData({
-          name: liability.name,
-          amount: liability.currentBalance.toString(),
-          frequency: 'monthly',
+          name: toSafeText(liability.name),
+          amount: formatNumberInput(roundToDollar(amt)),
+          frequency: freq,
           category: liability.category,
           annualGrowthRate: '7.0',
-          interestRateApr: liability.interestRateApr.toString(),
-          minimumPayment: liability.minimumPayment.toString(),
+          interestRateApr: (liability.interestRateApr ?? 0).toString(),
+          minimumPayment: roundToDollar(liability.minimumPayment ?? 0).toString(),
           notes: liability.notes ?? '',
         })
         break
       }
       case 'income': {
         const income = data as Income
+        const amt = (income as any).amount_annual ?? income.amount ?? 0
+        const freq = (income as any).source_frequency ?? income.frequency ?? 'annual'
         setFormData({
-          name: income.source,
-          amount: income.amount.toString(),
-          frequency: income.frequency,
+          name: toSafeText(income.source),
+          amount: formatNumberInput(roundToDollar(amt)),
+          frequency: freq,
           category: income.category,
           annualGrowthRate: '7.0',
           interestRateApr: '4.5',
@@ -251,10 +274,12 @@ export function FinancialFormModal({
       }
       case 'expense': {
         const expense = data as Expense
+        const amt = (expense as any).amount_annual ?? expense.amount ?? 0
+        const freq = (expense as any).source_frequency ?? expense.frequency ?? 'annual'
         setFormData({
-          name: expense.payee,
-          amount: expense.amount.toString(),
-          frequency: expense.frequency,
+          name: toSafeText(expense.payee),
+          amount: formatNumberInput(roundToDollar(amt)),
+          frequency: freq,
           category: expense.category,
           annualGrowthRate: '7.0',
           interestRateApr: '4.5',
@@ -381,7 +406,7 @@ export function FinancialFormModal({
           id: asset?.id,
           name: formData.name.trim(),
           category: formData.category.trim() || 'other',
-          currentValue: Number.parseFloat(formData.amount) || 0,
+          currentValue: toNumeric(formData.amount),
           annualGrowthRate: Number.parseFloat(formData.annualGrowthRate) || 0,
           ...shared,
         }
@@ -393,9 +418,9 @@ export function FinancialFormModal({
           id: liability?.id,
           name: formData.name.trim(),
           category: formData.category.trim() || 'other',
-          currentBalance: Number.parseFloat(formData.amount) || 0,
+          currentBalance: toNumeric(formData.amount),
           interestRateApr: Number.parseFloat(formData.interestRateApr) || 0,
-          minimumPayment: Number.parseFloat(formData.minimumPayment) || 0,
+          minimumPayment: roundToDollar(formData.minimumPayment),
           ...shared,
         }
       }
@@ -405,7 +430,7 @@ export function FinancialFormModal({
           type,
           id: income?.id,
           source: formData.name.trim(),
-          amount: Number.parseFloat(formData.amount) || 0,
+          amount: toNumeric(formData.amount),
           frequency: formData.frequency,
           category: formData.category.trim() || 'other',
           startDate: income?.startDate ?? new Date().toISOString(),
@@ -418,7 +443,7 @@ export function FinancialFormModal({
           type,
           id: expense?.id,
           payee: formData.name.trim(),
-          amount: Number.parseFloat(formData.amount) || 0,
+          amount: toNumeric(formData.amount),
           frequency: formData.frequency,
           category: formData.category.trim() || 'other',
           ...shared,
@@ -466,6 +491,9 @@ export function FinancialFormModal({
               <span className="text-lg text-white">{getModalIcon()}</span>
             </div>
             <h2 className="text-lg font-semibold text-white">{getModalTitle()}</h2>
+            <span className="rounded-full bg-gray-700 px-2 py-1 text-xs font-medium text-gray-200">
+              {selectedYearLabel ?? (selectedYear === 0 ? 'BASE' : `Year ${selectedYear ?? 0}`)}
+            </span>
           </div>
           <div className="flex items-center gap-3">
             {mode === 'edit' && data && 'id' in data && data.id && onDelete && (
@@ -537,16 +565,23 @@ export function FinancialFormModal({
                   </label>
                   <input
                     className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
-                    min="0"
+                    inputMode="decimal"
                     onChange={(event) =>
-                      setFormData((prev) => ({ ...prev, amount: event.target.value }))
+                      setFormData((prev) => ({
+                        ...prev,
+                        amount: formatNumberInput(event.target.value),
+                      }))
                     }
-                    placeholder="0"
+                    onBlur={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        amount: formatNumberInput(prev.amount),
+                      }))
+                    }
+                    placeholder={`e.g., ${formatCurrency(100000)}`}
                     required
-                    step="0.01"
-                    type="number"
                     value={formData.amount}
-                  />
+                  />                
                 </div>
                 {(normalizedCategory === 'incomes' || normalizedCategory === 'expenses') && (
                   <div>
