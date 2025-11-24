@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -26,6 +28,7 @@ type ChatHandler struct {
 	tools            []llm.ToolDefinition
 	defaultModel     string
 	defaultMaxTokens int
+	systemPrompt     string
 }
 
 // Interfaces declared for testability
@@ -54,6 +57,11 @@ func NewChatHandler(llmClient *llm.ClientManager, previewSvc *financial.ActionPr
 		financial.InitializeRegistry()
 	}
 
+	systemPrompt, err := loadSystemPrompt()
+	if err != nil {
+		log.Printf("WARN: Failed to load system prompt from file: %v", err)
+	}
+
 	return &ChatHandler{
 		llmClient:        llmClient,
 		previewSvc:       previewSvc,
@@ -61,6 +69,7 @@ func NewChatHandler(llmClient *llm.ClientManager, previewSvc *financial.ActionPr
 		tools:            financial.GlobalRegistry.GetTools(),
 		defaultModel:     defaultModel,
 		defaultMaxTokens: defaultMaxTokens,
+		systemPrompt:     systemPrompt,
 	}
 }
 
@@ -79,6 +88,42 @@ type ChatResponse struct {
 	RequiresApproval bool                       `json:"requires_approval"`
 	ConversationFlow []session.ConversationStep `json:"conversation_flow,omitempty"`
 	APIVersion       string                     `json:"api_version"`
+}
+
+func loadSystemPrompt() (string, error) {
+	candidates := []string{}
+
+	if envPath := strings.TrimSpace(os.Getenv("SYSTEM_PROMPT_PATH")); envPath != "" {
+		candidates = append(candidates, envPath)
+	}
+
+	candidates = append(candidates,
+		filepath.Join("backend", "internal", "llm", "prompts", "system_prompt.txt"),
+		filepath.Join("internal", "llm", "prompts", "system_prompt.txt"),
+	)
+
+	var lastErr error
+	for _, path := range candidates {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		prompt := strings.TrimSpace(string(content))
+		if prompt == "" {
+			lastErr = fmt.Errorf("system prompt file %s is empty", path)
+			continue
+		}
+
+		return prompt, nil
+	}
+
+	if lastErr != nil {
+		return "", lastErr
+	}
+
+	return "", fmt.Errorf("no system prompt file found; set SYSTEM_PROMPT_PATH or place the prompt in internal/llm/prompts/system_prompt.txt")
 }
 
 // HandleChat processes chat requests and generates responses with tool calls
@@ -285,20 +330,12 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 
 // prepareMessages prepares the message history for the LLM
 func (h *ChatHandler) prepareMessages(sessionState *session.SessionState, userMessage string) []llm.ChatMessage {
-	// Start with system message
-	messages := []llm.ChatMessage{
-		{
-			Role: "system",
-			Content: `You are a helpful financial planning assistant. You help users manage their assets, liabilities, and financial scenarios.
-You have access to tools for creating and updating financial entities. When users ask about financial planning,
-select the best-fitting tool and generate tool calls immediately when the user's message supplies the required fields.
-Assume amounts are in SGD and pick the closest category; if none fits, use "other_asset" or "other_debt" instead of pausing.
-Do not restate what the user said or ask for confirmation when you already have enough to create a preview.
-If someone mentions a vehicle (car, bike, etc.), default the category to "other_asset" and keep going—do not ask what type of car.
-If the name is missing, derive a simple name from the item mentioned (e.g., "Car") and proceed.
-When users ask to remove/delete/clear assets, liabilities, incomes, or expenses, use deleteAsset, deleteLiability, deleteIncome, or deleteExpense with IDs from context instead of saying it cannot be done.
-Only ask concise follow-up questions for specific missing required fields that truly block a tool call, and list exactly what you still need.`,
-		},
+	messages := []llm.ChatMessage{}
+	if h.systemPrompt != "" {
+		messages = append(messages, llm.ChatMessage{
+			Role:    "system",
+			Content: h.systemPrompt,
+		})
 	}
 
 	// Add conversation history (last 10 messages)

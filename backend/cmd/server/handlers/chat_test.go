@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const testSystemPrompt = "test system prompt"
+
 // Minimal fake LLM manager that returns a static tool call
 type fakeLLMManager struct {
 	response *llm.ToolCallResponse
@@ -127,6 +129,7 @@ func TestChatHandler_HandleChat_Success(t *testing.T) {
 		tools:            []llm.ToolDefinition{},
 		defaultModel:     "gpt-4",
 		defaultMaxTokens: 0,
+		systemPrompt:     testSystemPrompt,
 	}
 
 	body := ChatRequest{
@@ -159,6 +162,7 @@ func TestChatHandler_HandleChat_Validation(t *testing.T) {
 		tools:            []llm.ToolDefinition{},
 		defaultModel:     "gpt-4",
 		defaultMaxTokens: 0,
+		systemPrompt:     testSystemPrompt,
 	}
 
 	tt := []ChatRequest{
@@ -184,6 +188,7 @@ func TestChatHandler_GetChatHistory_NotFound(t *testing.T) {
 		tools:            []llm.ToolDefinition{},
 		defaultModel:     "gpt-4",
 		defaultMaxTokens: 0,
+		systemPrompt:     testSystemPrompt,
 	}
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/chat/history/unknown", nil)
 	rr := httptest.NewRecorder()
@@ -219,6 +224,7 @@ func TestChatHandler_HandleChat_MissingFieldsPrompt(t *testing.T) {
 		tools:            []llm.ToolDefinition{},
 		defaultModel:     "gpt-4",
 		defaultMaxTokens: 0,
+		systemPrompt:     testSystemPrompt,
 	}
 
 	body := ChatRequest{
