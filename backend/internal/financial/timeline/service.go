@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
+	"financial-chat-system/backend/internal/financial/scenario"
 )
 
 const (
@@ -29,7 +30,12 @@ var defaultGrowth = []repository.GrowthConfig{
 
 // Service encapsulates timeline logic.
 type Service struct {
-	store Store
+	store     Store
+	scenarios scenarioApplier
+}
+
+type scenarioApplier interface {
+	Apply(ctx context.Context, req scenario.ApplyRequest) ([]scenario.Row, error)
 }
 
 // NewService builds a new Service.
@@ -37,9 +43,58 @@ func NewService(store Store) *Service {
 	return &Service{store: store}
 }
 
+// WithScenarioApplier injects scenario applier for financial data merges.
+func NewServiceWithScenario(store Store, sa scenarioApplier) *Service {
+	return &Service{store: store, scenarios: sa}
+}
+
 // GetTimeline returns the full 0..30 timeline.
 func (s *Service) GetTimeline(ctx context.Context) (TimelineResponse, error) {
 	return s.buildTimeline(ctx)
+}
+
+// GetTimelineWithScenarios optionally merges scenarios for a given user/year selection.
+func (s *Service) GetTimelineWithScenarios(ctx context.Context, userID string, include bool, selectedIDs []string) (TimelineResponse, error) {
+	resp, err := s.buildTimeline(ctx)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+	if !include || s.scenarios == nil || strings.TrimSpace(userID) == "" {
+		return resp, nil
+	}
+
+	applied := map[string]struct{}{}
+	for i, year := range resp.Years {
+		yearRows := make([]scenario.Row, 0, len(year.Assets)+len(year.Liabilities)+len(year.Income)+len(year.Expenses))
+		apply := func(items []TimelineItem) []TimelineItem {
+			rows := mapItems(items)
+			out, err := s.scenarios.Apply(ctx, scenario.ApplyRequest{
+				UserID:      userID,
+				Year:        year.Year,
+				Rows:        rows,
+				SelectedIDs: selectedIDs,
+			})
+			if err != nil {
+				return items
+			}
+			yearRows = append(yearRows, out...)
+			return annotateItems(items, out)
+		}
+		resp.Years[i].Assets = apply(year.Assets)
+		resp.Years[i].Liabilities = apply(year.Liabilities)
+		resp.Years[i].Income = apply(year.Income)
+		resp.Years[i].Expenses = apply(year.Expenses)
+		for _, r := range yearRows {
+			for _, imp := range r.EventImpacts {
+				applied[imp.EventID] = struct{}{}
+			}
+		}
+	}
+	for id := range applied {
+		resp.ScenariosApplied = append(resp.ScenariosApplied, id)
+	}
+	sort.Strings(resp.ScenariosApplied)
+	return resp, nil
 }
 
 // UpsertYear stores edits/new items for a year and returns the refreshed timeline.
@@ -241,10 +296,11 @@ func (s *Service) buildTimeline(ctx context.Context) (TimelineResponse, error) {
 		}
 	}
 
-	return TimelineResponse{
+	resp := TimelineResponse{
 		Years:   years,
 		Version: defaultVersion,
-	}, nil
+	}
+	return resp, nil
 }
 
 func (s *Service) loadEffectiveRows(ctx context.Context) ([]effectiveRow, error) {
@@ -491,5 +547,59 @@ func normalizeCategoryForGrowth(itemType ItemType, category string) string {
 		return "expense"
 	default:
 		return cat
+	}
+}
+
+func mapItems(items []TimelineItem) []scenario.Row {
+	out := make([]scenario.Row, 0, len(items))
+	for _, it := range items {
+		out = append(out, scenario.Row{
+			ID:           it.ItemID,
+			Type:         string(it.ItemType),
+			AmountAnnual: it.AmountAnnual,
+		})
+	}
+	return out
+}
+
+func annotateItems(items []TimelineItem, rows []scenario.Row) []TimelineItem {
+	byID := make(map[string]scenario.Row, len(rows))
+	for _, r := range rows {
+		byID[r.ID] = r
+	}
+	out := make([]TimelineItem, 0, len(items))
+	for _, it := range items {
+		if r, ok := byID[it.ItemID]; ok {
+			it.AmountAnnual = r.AmountAnnual
+			it.EventImpacts = toImpactSummaries(r.EventImpacts)
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
+func toImpactSummaries(imps []repository.ScenarioImpact) []EventImpactSummary {
+	if len(imps) == 0 {
+		return nil
+	}
+	out := make([]EventImpactSummary, 0, len(imps))
+	for _, imp := range imps {
+		out = append(out, EventImpactSummary{
+			EventID:      imp.EventID,
+			ImpactKind:   imp.ImpactKind,
+			AmountAnnual: annualizeImpact(imp),
+			Cadence:      imp.Cadence,
+			Notes:        imp.Notes,
+		})
+	}
+	return out
+}
+
+func annualizeImpact(imp repository.ScenarioImpact) float64 {
+	switch strings.ToLower(imp.Cadence) {
+	case "monthly":
+		return float64(imp.Amount) * 12
+	default:
+		return float64(imp.Amount)
 	}
 }

@@ -36,7 +36,9 @@ func NewGeminiProvider(config GeminiConfig) (*GeminiProvider, error) {
 	}
 
 	if config.Model == "" {
-		config.Model = "gemini-pro"
+		config.Model = "gemini-2.5-flash"
+	} else {
+		config.Model = normalizeGeminiModel(config.Model)
 	}
 
 	if config.Temperature == 0 {
@@ -402,8 +404,12 @@ func (p *GeminiProvider) handleError(err error) error {
 // SupportedModels returns list of supported Gemini models
 func (p *GeminiProvider) SupportedModels() []string {
 	return []string{
+		"gemini-2.5-flash",
+		"gemini-2.5-pro",
+		"gemini-1.5-flash-latest",
 		"gemini-pro",
 		"gemini-pro-vision",
+		"gemini-1.5-pro-latest",
 		"gemini-1.5-pro",
 		"gemini-1.5-flash",
 		"gemini-2.0-flash-exp",
@@ -430,4 +436,17 @@ func ValidateGeminiConfig(config GeminiConfig) error {
 	}
 
 	return nil
+}
+
+// normalizeGeminiModel maps legacy or shorthand model names to the currently supported variants.
+func normalizeGeminiModel(model string) string {
+	name := strings.TrimPrefix(strings.TrimSpace(model), "models/")
+	switch strings.ToLower(name) {
+	case "gemini-1.5-flash":
+		return "gemini-1.5-flash-latest"
+	case "gemini-1.5-pro":
+		return "gemini-1.5-pro-latest"
+	default:
+		return name
+	}
 }

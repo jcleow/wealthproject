@@ -1,5 +1,7 @@
 import type { Asset, Liability, Income, Expense } from '@/types/financial'
 import type { PropertyLinkRecord, PropertyScenarioRecord } from '@/types/property'
+import type { ScenarioEvent } from '@/types/scenario'
+import type { ScenarioEventsDTO } from '@/types/api-dtos'
 
 function getApiBaseUrl() {
   const envURL = process.env.NEXT_PUBLIC_GO_BACKEND_BASE_URL?.trim()
@@ -325,5 +327,65 @@ export const financialApi = {
   async getPropertyScenario(id: string): Promise<PropertyScenarioRecord> {
     const data = await jsonRequest<any>(`${API_BASE}/property-planner/scenarios/${id}`)
     return toPropertyScenario(data)
+  },
+
+  // Scenario events (universal schema)
+  async createScenarioEvent(payload: ScenarioEvent): Promise<ScenarioEvent> {
+    const body = {
+      name: payload.name,
+      description: payload.description ?? '',
+      occurs_on: payload.occurs_on,
+      display_icon: payload.display_icon ?? 'sparkles',
+      display_color: payload.display_color,
+      tags: payload.tags ?? [],
+      scenario_id: payload.scenario_id,
+      is_included: payload.is_included ?? true,
+      impacts: payload.impacts,
+    }
+    const data = await jsonRequest<any>(`${API_BASE}/scenario-events`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    return {
+      id: data.id ?? data.ID,
+      name: data.name ?? data.Name ?? payload.name,
+      description: data.description ?? data.Description ?? payload.description,
+      occurs_on: data.occurs_on ?? data.OccursOn ?? data.occursOn ?? payload.occurs_on,
+      display_icon: data.display_icon ?? data.DisplayIcon ?? payload.display_icon,
+      display_color: data.display_color ?? data.DisplayColor ?? payload.display_color,
+      tags: data.tags ?? data.Tags ?? payload.tags ?? [],
+      scenario_id:
+        data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? data.scenarioId ?? payload.scenario_id,
+      is_included: data.is_included ?? data.IsIncluded ?? data.isIncluded ?? payload.is_included ?? true,
+      impacts: data.impacts ?? data.Impacts ?? payload.impacts,
+    }
+  },
+
+  async listScenarioEvents(): Promise<ScenarioEvent[]> {
+    const normalize = (item: ScenarioEvent): ScenarioEvent => ({
+      id: (item as any).id ?? (item as any).ID ?? '',
+      name: (item as any).name ?? (item as any).Name ?? '',
+      description: (item as any).description ?? (item as any).Description ?? '',
+      occurs_on:
+        (item as any).occurs_on ?? (item as any).occursOn ?? (item as any).OccursOn ?? '',
+      display_icon: (item as any).display_icon ?? (item as any).DisplayIcon ?? '',
+      display_color: (item as any).display_color ?? (item as any).DisplayColor,
+      tags: (item as any).tags ?? (item as any).Tags ?? [],
+      scenario_id:
+        (item as any).scenario_id ??
+        (item as any).scenarioId ??
+        (item as any).ScenarioID ??
+        (item as any).ScenarioId,
+      is_included:
+        (item as any).is_included ??
+        (item as any).isIncluded ??
+        (item as any).IsIncluded ??
+        true,
+      impacts: (item as any).impacts ?? (item as any).Impacts ?? [],
+    })
+
+    const data = await jsonRequest<ScenarioEventsDTO>(`${API_BASE}/scenario-events`)
+    const list = Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : []
+    return list.map(normalize)
   },
 }

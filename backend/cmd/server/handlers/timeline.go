@@ -9,6 +9,7 @@ import (
 
 	"financial-chat-system/backend/internal/financial/repository"
 	"financial-chat-system/backend/internal/financial/timeline"
+	"financial-chat-system/backend/internal/middleware"
 
 	"github.com/gorilla/mux"
 )
@@ -35,7 +36,25 @@ func NewGrowthHandler(svc *timeline.Service) *GrowthHandler {
 
 // HandleGetTimeline returns the full 0..20 timeline.
 func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Request) {
-	resp, err := h.svc.GetTimeline(r.Context())
+	includeScenarios := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("include_scenarios"))) == "true"
+	var selected []string
+	if raw := strings.TrimSpace(r.URL.Query().Get("scenario_ids")); raw != "" {
+		for _, id := range strings.Split(raw, ",") {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				selected = append(selected, id)
+			}
+		}
+	}
+	userCtx := middleware.GetUserContext(r.Context())
+
+	var resp timeline.TimelineResponse
+	var err error
+	if includeScenarios && userCtx.UserID != "" {
+		resp, err = h.svc.GetTimelineWithScenarios(r.Context(), userCtx.UserID, true, selected)
+	} else {
+		resp, err = h.svc.GetTimeline(r.Context())
+	}
 	if err != nil {
 		internalError(w)
 		return

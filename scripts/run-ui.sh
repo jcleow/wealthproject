@@ -39,10 +39,6 @@ WORKTREE_SLUG="$(slugify "${WORKTREE_NAME:-worktree}")-${WORKTREE_HASH}"
 POSTGRES_CONTAINER="fcs-${WORKTREE_SLUG}-postgres"
 POSTGRES_VOLUME="fcs-${WORKTREE_SLUG}-pgdata"
 POSTGRES_PORT=""
-# Default DB credentials (used for container creation and fallback URL)
-POSTGRES_USER_DEFAULT="financial_user"
-POSTGRES_PASSWORD_DEFAULT="financial_pass_dev_2024"
-POSTGRES_DB_DEFAULT="financial_chat"
 DB_RESET=false
 
 for arg in "$@"; do
@@ -206,18 +202,16 @@ configure_database_env() {
   local port="$2"
   local raw="$base_url"
 
-  # If the URL has template placeholders, ignore it and fall back to defaults.
-  if [[ "$raw" == *"\${"* ]]; then
-    raw=""
-  fi
-
-  if [[ -z "$raw" ]]; then
-    raw="postgres://${POSTGRES_USER_DEFAULT}:${POSTGRES_PASSWORD_DEFAULT}@localhost:5432/${POSTGRES_DB_DEFAULT}?sslmode=disable"
+  # If templated or missing, build from provided env vars (DB_USER/DB_PASSWORD/DB_NAME) with safe defaults.
+  if [[ -z "$raw" || "$raw" == *"\${"* ]]; then
+    local user="${DB_USER:-${POSTGRES_USER_DEFAULT:-postgres}}"
+    local pass="${DB_PASSWORD:-${POSTGRES_PASSWORD_DEFAULT:-postgres}}"
+    local name="${DB_NAME:-${POSTGRES_DB_DEFAULT:-financial_chat}}"
+    raw="postgres://${user}:${pass}@localhost:${port}/${name}?sslmode=disable"
   fi
 
   local scheme rest cred_host path_query userpass hostport query path
 
-  # scheme
   if [[ "$raw" == *"://"* ]]; then
     scheme="${raw%%://*}"
     rest="${raw#*://}"
@@ -238,7 +232,7 @@ configure_database_env() {
     path="/$path_query"
     query=""
   fi
-  [[ -z "$path" || "$path" == "/" ]] && path="/${POSTGRES_DB_DEFAULT}"
+  [[ -z "$path" || "$path" == "/" ]] && path="/${POSTGRES_DB_DEFAULT:-financial_chat}"
   [[ -z "$query" ]] && query="sslmode=disable"
 
   if [[ "$cred_host" == *"@"* ]]; then
@@ -250,14 +244,13 @@ configure_database_env() {
   fi
 
   if [[ -z "$userpass" ]]; then
-    DB_USER="${POSTGRES_USER_DEFAULT}"
-    DB_PASSWORD="${POSTGRES_PASSWORD_DEFAULT}"
+    DB_USER="${DB_USER:-${POSTGRES_USER_DEFAULT:-postgres}}"
+    DB_PASSWORD="${DB_PASSWORD:-${POSTGRES_PASSWORD_DEFAULT:-postgres}}"
   else
     DB_USER="${userpass%%:*}"
     DB_PASSWORD="${userpass#*:}"
-    [[ "$DB_PASSWORD" == "$DB_USER" ]] && DB_PASSWORD="${POSTGRES_PASSWORD_DEFAULT}"
-    [[ -z "$DB_USER" ]] && DB_USER="${POSTGRES_USER_DEFAULT}"
-    [[ -z "$DB_PASSWORD" ]] && DB_PASSWORD="${POSTGRES_PASSWORD_DEFAULT}"
+    [[ -z "$DB_USER" ]] && DB_USER="${POSTGRES_USER_DEFAULT:-postgres}"
+    [[ -z "$DB_PASSWORD" ]] && DB_PASSWORD="${POSTGRES_PASSWORD_DEFAULT:-postgres}"
   fi
 
   local host only_host
@@ -270,8 +263,8 @@ configure_database_env() {
     only_host="5432"
   fi
   [[ -z "$host" ]] && host="localhost"
-  DB_NAME="${path#/}"
-  [[ -z "$DB_NAME" ]] && DB_NAME="${POSTGRES_DB_DEFAULT}"
+  DB_NAME="${DB_NAME:-${path#/}}"
+  [[ -z "$DB_NAME" ]] && DB_NAME="${POSTGRES_DB_DEFAULT:-financial_chat}"
 
   DATABASE_URL_OVERRIDE="${scheme}://${DB_USER}:${DB_PASSWORD}@localhost:${port}/${DB_NAME}?${query}"
 }
@@ -379,6 +372,50 @@ if [[ -f "$ENV_TARGET" && ! -f "$BACKEND_ENV_TARGET" ]]; then
   echo "Copied .env to backend directory"
 fi
 
+# Load environment values from .env files (exported for subsequent commands)
+load_env_file() {
+  local file="$1"
+  if [[ -f "$file" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "$file"
+    set +a
+  fi
+}
+
+load_env_file "$BACKEND_ENV_TARGET"
+load_env_file "$ENV_TARGET"
+
+# Parse DATABASE_URL (if present) to seed DB_USER/DB_PASSWORD/DB_NAME before defaults.
+parse_database_url_vars() {
+  local url="$1"
+  if [[ -z "$url" ]]; then return; fi
+  # strip scheme
+  local rest="${url#*://}"
+  local cred_host="${rest%%/*}"
+  local path="${rest#*/}"
+  [[ "$path" == "$rest" ]] && path=""
+  if [[ "$cred_host" == *"@"* ]]; then
+    local userpass="${cred_host%%@*}"
+    DB_USER="${DB_USER:-${userpass%%:*}}"
+    DB_PASSWORD="${DB_PASSWORD:-${userpass#*:}}"
+  fi
+  DB_NAME="${DB_NAME:-${path%%\?*}}"
+}
+
+parse_database_url_vars "${DATABASE_URL:-}"
+parse_database_url_vars "$(grep -E '^DATABASE_URL=' "$ENV_TARGET" 2>/dev/null | tail -n1 | cut -d= -f2-)"
+parse_database_url_vars "$(grep -E '^DATABASE_URL=' "$BACKEND_ENV_TARGET" 2>/dev/null | tail -n1 | cut -d= -f2-)"
+
+# Derive DB credentials from env (.env/.env.example) first; fallback to safe defaults.
+DB_USER="${DB_USER:-${POSTGRES_USER:-}}"
+DB_PASSWORD="${DB_PASSWORD:-${POSTGRES_PASSWORD:-}}"
+DB_NAME="${DB_NAME:-${POSTGRES_DB:-financial_chat}}"
+# Final defaults if nothing provided
+POSTGRES_USER_DEFAULT="${DB_USER:-postgres}"
+POSTGRES_PASSWORD_DEFAULT="${DB_PASSWORD:-postgres}"
+POSTGRES_DB_DEFAULT="${DB_NAME:-financial_chat}"
+
 if [[ -n "$REQUESTED_DB_PORT" ]]; then
   POSTGRES_PORT="$REQUESTED_DB_PORT"
 fi
@@ -406,32 +443,6 @@ if [[ -z "$POSTGRES_PORT" ]]; then
 fi
 
 # Ensure DATABASE_URL in .env is concrete (no placeholders); replace templated values if present.
-sanitize_env_database_url() {
-  local target_env="$1"
-  local port="$2"
-  # Prefer named dev credentials to avoid surprises (must match container creation).
-  local default_url="postgres://${POSTGRES_USER_DEFAULT}:${POSTGRES_PASSWORD_DEFAULT}@localhost:${port}/${POSTGRES_DB_DEFAULT}?sslmode=disable"
-  if [[ ! -f "$target_env" ]]; then
-    echo "DATABASE_URL=${default_url}" >"$target_env"
-    return
-  fi
-  local line
-  line="$(grep -E '^DATABASE_URL=' "$target_env" || true)"
-  if [[ -z "$line" ]]; then
-    echo "DATABASE_URL=${default_url}" >>"$target_env"
-    return
-  fi
-  if echo "$line" | grep -q '\${'; then
-    # Replace templated entry with default
-    perl -pi -e "s/^DATABASE_URL=.*/DATABASE_URL=${default_url//\//\\/}/" "$target_env"
-  fi
-}
-
-sanitize_env_database_url "$ENV_TARGET" "$POSTGRES_PORT"
-# Also update the backend .env file if it exists
-if [[ -f "$BACKEND_ENV_TARGET" ]]; then
-  sanitize_env_database_url "$BACKEND_ENV_TARGET" "$POSTGRES_PORT"
-fi
 
 if [[ "${START_BACKEND}" == "true" ]]; then
   DATABASE_URL_BASE="$(extract_database_url)"
@@ -453,10 +464,14 @@ echo "Starting frontend on ${FRONTEND_PORT} (API http://localhost:${BACKEND_PORT
 pids+=($!)
 
 if [[ "${START_BACKEND}" == "true" ]]; then
-  echo "Starting backend on ${BACKEND_PORT} (DB ${DATABASE_URL_OVERRIDE})"
+  # Default anon user toggle to true for local dev unless explicitly set.
+  ALLOW_ANON_USER="${ALLOW_ANON_USER:-true}"
+  echo "Starting backend on ${BACKEND_PORT} (ALLOW_ANON_USER=${ALLOW_ANON_USER})"
+  echo "Postgres container: ${POSTGRES_CONTAINER} (volume ${POSTGRES_VOLUME}) db=${DB_NAME} port=${POSTGRES_PORT}"
+  echo "Using DB credentials: user=${DB_USER} name=${DB_NAME} password=${DB_PASSWORD}"
   (
     cd "$BACKEND_DIR"
-    PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" go run ./cmd/server
+    PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" ALLOW_ANON_USER="${ALLOW_ANON_USER}" go run ./cmd/server
   ) &
   pids+=($!)
   if ! wait_for_backend "$BACKEND_PORT"; then

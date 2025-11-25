@@ -31,14 +31,15 @@ const (
 
 // TimelineItem represents an item at a given year with metadata for UI rendering.
 type TimelineItem struct {
-	ItemID          string   `json:"item_id"`
-	Name            string   `json:"name"`
-	Category        string   `json:"category"`
-	AmountAnnual    float64  `json:"amount_annual"`
-	SourceAmount    *float64 `json:"source_amount,omitempty"`
-	SourceFrequency string   `json:"source_frequency,omitempty"`
-	ItemType        ItemType `json:"item_type"`
-	CreatedYear     int      `json:"created_year"`
+	ItemID          string               `json:"item_id"`
+	Name            string               `json:"name"`
+	Category        string               `json:"category"`
+	AmountAnnual    float64              `json:"amount_annual"`
+	EventImpacts    []EventImpactSummary `json:"event_impacts,omitempty"`
+	SourceAmount    *float64             `json:"source_amount,omitempty"`
+	SourceFrequency string               `json:"source_frequency,omitempty"`
+	ItemType        ItemType             `json:"item_type"`
+	CreatedYear     int                  `json:"created_year"`
 }
 
 // GrowthApplied captures which growth rates were used in a given year.
@@ -64,6 +65,17 @@ type TimelineYear struct {
 type TimelineResponse struct {
 	Years   []TimelineYear `json:"years"`
 	Version string         `json:"version"`
+	// ScenariosApplied lists scenario IDs merged into this response (optional).
+	ScenariosApplied []string `json:"scenarios_applied,omitempty"`
+}
+
+// EventImpactSummary annotates a row with scenario impact info.
+type EventImpactSummary struct {
+	EventID      string  `json:"event_id"`
+	ImpactKind   string  `json:"impact_kind"`   // override|delta|start|stop
+	AmountAnnual float64 `json:"amount_annual"` // annualized
+	Cadence      string  `json:"cadence"`
+	Notes        string  `json:"notes,omitempty"`
 }
 
 // EditRequest represents a user edit or new item creation for a given year.

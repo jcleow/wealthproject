@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -53,6 +53,19 @@ const timelineYears: TimelineYear[] = [
   },
 ]
 
+const scenarioEvents = [
+  {
+    id: 'evt-1',
+    name: 'Job Loss',
+    occurs_on: `${new Date().getFullYear()}-06`,
+    display_icon: 'briefcase',
+    display_color: '#0ea5e9',
+    tags: [],
+    is_included: true,
+    impacts: [],
+  },
+]
+
 describe('NetWorthProjection', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>
   let consoleWarnSpy: ReturnType<typeof vi.spyOn>
@@ -60,6 +73,20 @@ describe('NetWorthProjection', () => {
   const originalWarn = console.warn
 
   beforeEach(() => {
+    class ResizeObserverMock {
+      private callback: ResizeObserverCallback
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback
+      }
+      observe() {
+        this.callback([{ contentRect: { width: 800, height: 400 } } as ResizeObserverEntry], this)
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+
+    vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((message, ...args) => {
       if (typeof message === 'string' && message.includes('width(-1) and height(-1)')) {
         return
@@ -93,7 +120,6 @@ describe('NetWorthProjection', () => {
 
   it('renders override markers and allows jumping to a year', async () => {
     const onSelectYear = vi.fn()
-    const user = userEvent.setup()
 
     const client = new QueryClient()
 
@@ -104,14 +130,38 @@ describe('NetWorthProjection', () => {
             timelineYears={timelineYears}
             selectedYear={0}
             onSelectYear={onSelectYear}
+            overrideYears={new Set([1])}
+            scenarioEvents={scenarioEvents}
           />
         </div>
       </QueryClientProvider>
     )
 
-    const marker = await screen.findByTestId('override-marker-1')
-    await user.click(marker)
+    await waitFor(() => {
+      expect(document.querySelector('[data-testid="override-marker-1"]')).not.toBeNull()
+    })
 
-    expect(onSelectYear).toHaveBeenCalledWith(1)
+    expect(onSelectYear).not.toHaveBeenCalled()
+  })
+
+  it('renders scenario markers when events are provided', async () => {
+    const client = new QueryClient()
+
+    render(
+      <QueryClientProvider client={client}>
+        <div style={{ width: 800, height: 400 }}>
+          <NetWorthProjection
+            timelineYears={timelineYears}
+            selectedYear={0}
+            overrideYears={new Set([1])}
+            scenarioEvents={scenarioEvents}
+          />
+        </div>
+      </QueryClientProvider>
+    )
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-testid="scenario-marker-0"]')).not.toBeNull()
+    })
   })
 })

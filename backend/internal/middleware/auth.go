@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -26,6 +27,10 @@ func Authenticate(next http.Handler) http.Handler {
 		userID := r.Header.Get("X-User-ID")
 		if userID == "" {
 			userID = r.Header.Get("X-Session-ID")
+		}
+		// Dev convenience: allow anonymous fallback when explicitly enabled.
+		if userID == "" && strings.ToLower(strings.TrimSpace(os.Getenv("ALLOW_ANON_USER"))) == "true" {
+			userID = "00000000-0000-0000-0000-000000000000"
 		}
 
 		ctx := context.WithValue(r.Context(), userContextKey{}, UserContext{

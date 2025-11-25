@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Building2, Loader2, Sparkles, Trash2 } from 'lucide-react'
+import { Building2, Loader2, PlusCircle, Sparkles, Trash2 } from 'lucide-react'
 
 import { useFinancialData } from '@/hooks/useFinancialData'
+import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import { financialApi } from '@/services/financialApi'
 import { TimelineEditDrawer } from '../financial/TimelineEditDrawer'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
+import { ScenarioEventModal } from '../modals/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import type { TimelineEditRequest, TimelineYear } from '@/types/timeline'
 
@@ -32,14 +34,12 @@ export function FinancialWorkspace({
   timelineError = null,
 }: FinancialWorkspaceProps) {
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
   const [isTimelineDrawerOpen, setIsTimelineDrawerOpen] = useState(false)
+  const { events: scenarioEvents } = useScenarioEvents()
   const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialData()
-
-  const handleAction = (label: string) => {
-    console.log(`${label} clicked`)
-  }
 
   const clearPropertyData = async () => {
     if (typeof window === 'undefined') return
@@ -138,6 +138,10 @@ export function FinancialWorkspace({
     setIsPropertyPlannerOpen(true)
   }
 
+  const handleCreateScenario = () => {
+    setIsScenarioModalOpen(true)
+  }
+
   const handleSaveTimelineEdits = async (payload: TimelineEditRequest) => {
     try {
       await onSaveTimelineEdits(payload)
@@ -160,6 +164,14 @@ export function FinancialWorkspace({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleCreateScenario}
+            className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+            type="button"
+          >
+            <PlusCircle className="h-4 w-4 text-emerald-200" />
+            Create Scenario
+          </button>
           <div className="hidden items-center gap-2 md:flex">
             <button
               onClick={handleLoadDefaults}
@@ -207,11 +219,12 @@ export function FinancialWorkspace({
           Timeline unavailable: {timelineError}
         </div>
       )}
-      <div className="p-6 h-[320px] flex-none">
+      <div className="p-6 h-[50vh] min-h-[400px] flex-none">
         <NetWorthProjection
           timelineYears={timelineYears}
           overrideYears={overrideYears}
           selectedYear={selectedYear}
+          scenarioEvents={scenarioEvents}
           onSelectYear={(year) => {
             onSelectYear(year)
             const target = document.getElementById('financial-data-section')
@@ -224,6 +237,20 @@ export function FinancialWorkspace({
         isOpen={isPropertyPlannerOpen}
         onClose={() => setIsPropertyPlannerOpen(false)}
       />
+      {isScenarioModalOpen && (
+        <ScenarioEventModal
+          isOpen={isScenarioModalOpen}
+          onClose={() => setIsScenarioModalOpen(false)}
+          onCreated={() => {
+            if (typeof window !== 'undefined') {
+              // Add a small delay to ensure the API response has been processed
+              setTimeout(() => {
+                window.dispatchEvent(new Event('financial-data-refresh'))
+              }, 100)
+            }
+          }}
+        />
+      )}
       <TimelineEditDrawer
         isOpen={isTimelineDrawerOpen}
         onClose={() => setIsTimelineDrawerOpen(false)}
