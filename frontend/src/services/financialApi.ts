@@ -1,4 +1,4 @@
-import type { Asset, Liability, Income, Expense, PropertyLink } from '@/types/financial'
+import type { Asset, Liability, Income, Expense } from '@/types/financial'
 import type { PropertyLinkRecord, PropertyScenarioRecord } from '@/types/property'
 
 function getApiBaseUrl() {
@@ -40,6 +40,7 @@ const toAsset = (item: any): Asset => ({
   annualGrowthRate: item.annual_growth_rate ?? item.annualGrowthRate ?? item.AnnualGrowthRate,
   notes: item.notes ?? item.Notes ?? '',
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+  parentId: item.parent_id ?? item.parentId ?? item.ParentID,
 })
 
 const toLiability = (item: any): Liability => ({
@@ -51,6 +52,7 @@ const toLiability = (item: any): Liability => ({
   minimumPayment: item.minimum_payment ?? item.minimumPayment ?? item.MinimumPayment,
   notes: item.notes ?? item.Notes ?? '',
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+  parentId: item.parent_id ?? item.parentId ?? item.ParentID,
 })
 
 const toIncome = (item: any): Income => ({
@@ -305,12 +307,12 @@ export const financialApi = {
     return data.map(toPropertyLink)
   },
 
-  async listPropertyLinksByAsset(assetId: string): Promise<PropertyLink[]> {
+  async listPropertyLinksByAsset(assetId: string): Promise<PropertyLinkRecord[]> {
     const data = await jsonRequest<any[]>(`${API_BASE}/property-links?asset_id=${encodeURIComponent(assetId)}`)
     return data.map(toPropertyLink)
   },
 
-  async listPropertyLinksByLiability(liabilityId: string): Promise<PropertyLink[]> {
+  async listPropertyLinksByLiability(liabilityId: string): Promise<PropertyLinkRecord[]> {
     const data = await jsonRequest<any[]>(`${API_BASE}/property-links?liability_id=${encodeURIComponent(liabilityId)}`)
     return data.map(toPropertyLink)
   },

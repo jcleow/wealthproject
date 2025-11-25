@@ -27,6 +27,7 @@ export const assetSchema = z.object({
   annualGrowthRate: z.number(),
   notes: optionalNotes,
   updatedAt: isoDateTime,
+  parentId: z.string().optional(),
 })
 
 export type Asset = z.infer<typeof assetSchema>
@@ -40,6 +41,7 @@ export const liabilitySchema = z.object({
   minimumPayment: z.number(),
   notes: optionalNotes,
   updatedAt: isoDateTime,
+  parentId: z.string().optional(),
 })
 
 export type Liability = z.infer<typeof liabilitySchema>

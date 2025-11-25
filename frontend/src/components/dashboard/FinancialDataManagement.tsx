@@ -3,7 +3,8 @@ import { Plus, SlidersHorizontal, Pencil, Trash2, Home, Info } from 'lucide-reac
 import * as Tooltip from '@radix-ui/react-tooltip'
 
 import { useFinancialData } from '../../hooks/useFinancialData'
-import type { Asset, Expense, Income, Liability, PropertyLink } from '../../types/financial'
+import type { Asset, Expense, Income, Liability } from '../../types/financial'
+import type { PropertyLinkRecord } from '../../types/property'
 import type { FinancialDataType, FinancialFormValues } from '../modals/FinancialFormModal'
 import { FinancialFormModal } from '../modals/FinancialFormModal'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
@@ -109,34 +110,97 @@ export function FinancialDataManagement({
     mode: 'create',
   })
   const [activeAnnualizationId, setActiveAnnualizationId] = useState<string | null>(null)
-  const [assetLinks, setAssetLinks] = useState<Record<string, PropertyLink[]>>({})
-  const [liabilityLinks, setLiabilityLinks] = useState<Record<string, PropertyLink[]>>({})
+  const [assetLinks, setAssetLinks] = useState<Record<string, PropertyLinkRecord[]>>({})
+  const [liabilityLinks, setLiabilityLinks] = useState<Record<string, PropertyLinkRecord[]>>({})
+  const mergedLinks = useMemo(() => {
+    const map: Record<string, PropertyLinkRecord> = {}
+    const add = (id: string | undefined, link: PropertyLinkRecord) => {
+      if (!id) return
+      if (!map[id]) map[id] = link
+    }
+    Object.entries(assetLinks).forEach(([itemId, links]) => {
+      links.forEach(link => {
+        add(itemId, link)
+        add(link.assetId, link)
+        add(link.liabilityId, link)
+      })
+    })
+    Object.entries(liabilityLinks).forEach(([itemId, links]) => {
+      links.forEach(link => {
+        add(itemId, link)
+        add(link.assetId, link)
+        add(link.liabilityId, link)
+      })
+    })
+    return map
+  }, [assetLinks, liabilityLinks])
+  const firstLink = useMemo(() => Object.values(mergedLinks)[0] ?? null, [mergedLinks])
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
   const [prefill, setPrefill] = useState<{ scenarioId?: string; assetId?: string; liabilityId?: string } | null>(null)
   const formatYearLabel = (year: number) => (year === 0 ? 'BASE' : `Year ${year}`)
 
-  const getItemId = (entry?: { id?: string; item_id?: string; itemId?: string } | null) =>
-    entry?.id ?? (entry as any)?.item_id ?? (entry as any)?.itemId ?? ''
+  const getItemId = (
+    entry?: { id?: string; item_id?: string; itemId?: string; parent_id?: string; parentId?: string } | null
+  ) =>
+    entry?.id ??
+    (entry as any)?.item_id ??
+    (entry as any)?.itemId ??
+    (entry as any)?.parent_id ??
+    (entry as any)?.parentId ??
+    ''
 
   useEffect(() => {
     const fetchLinks = async () => {
       try {
-        const assetResults: Record<string, PropertyLink[]> = {}
+        const assetResults: Record<string, PropertyLinkRecord[]> = {}
         await Promise.all(
           yearAssets.map(async (asset) => {
-            const assetId = (asset as any).id ?? (asset as any).item_id
+            const assetId = getItemId(asset)
             if (!assetId) return
-            const links = await financialApi.listPropertyLinksByAsset(assetId)
+
+            // First try with the timeline item_id
+            let links = await financialApi.listPropertyLinksByAsset(assetId)
+
+            // If no links found, try to find the actual asset using this as parent_id
+            if (links.length === 0) {
+              try {
+                const allAssets = await financialApi.listAssets()
+                const actualAsset = allAssets.find(a => a.parentId === assetId)
+                if (actualAsset) {
+                  links = await financialApi.listPropertyLinksByAsset(actualAsset.id)
+                }
+              } catch (error) {
+                console.error('Failed to fetch all assets:', error)
+              }
+            }
+
             assetResults[assetId] = links
           })
         )
         setAssetLinks(assetResults)
-        const liabilityResults: Record<string, PropertyLink[]> = {}
+
+        const liabilityResults: Record<string, PropertyLinkRecord[]> = {}
         await Promise.all(
           yearLiabilities.map(async (liability) => {
-            const liabilityId = (liability as any).id ?? (liability as any).item_id
+            const liabilityId = getItemId(liability)
             if (!liabilityId) return
-            const links = await financialApi.listPropertyLinksByLiability(liabilityId)
+
+            // First try with the timeline item_id
+            let links = await financialApi.listPropertyLinksByLiability(liabilityId)
+
+            // If no links found, try to find the actual liability using this as parent_id
+            if (links.length === 0) {
+              try {
+                const allLiabilities = await financialApi.listLiabilities()
+                const actualLiability = allLiabilities.find(l => l.parentId === liabilityId)
+                if (actualLiability) {
+                  links = await financialApi.listPropertyLinksByLiability(actualLiability.id)
+                }
+              } catch (error) {
+                console.error('Failed to fetch all liabilities:', error)
+              }
+            }
+
             liabilityResults[liabilityId] = links
           })
         )
@@ -349,7 +413,7 @@ export function FinancialDataManagement({
     return Math.round(Math.max((totalIncome - totalExpenses) / 12, 0))
   }
 
-  const openPlannerFromLink = (link: PropertyLink) => {
+  const openPlannerFromLink = (link: PropertyLinkRecord) => {
     setPrefill({
       scenarioId: link.propertyScenarioId,
       assetId: link.assetId,
@@ -505,17 +569,26 @@ export function FinancialDataManagement({
                                   </Tooltip.Provider>
                                 )}
                                 {key !== 'income' && key !== 'expense' && (() => {
-                                  const link =
-                                    key === 'asset'
-                                      ? (assetLinks[item.id as string]?.[0] ?? null)
-                                      : (liabilityLinks[item.id as string]?.[0] ?? null)
+                                  const itemId = getItemId(item)
+                                  if (!itemId) return null
+                                  let link =
+                                    mergedLinks[itemId] ??
+                                    (key === 'asset'
+                                      ? (assetLinks[itemId]?.[0] ?? null)
+                                      : (liabilityLinks[itemId]?.[0] ?? null))
+                                  if (!link && firstLink) {
+                                    const onlyOneItemInCategory = data.length === 1
+                                    if (onlyOneItemInCategory) {
+                                      link = firstLink
+                                    }
+                                  }
                                   if (!link) return null
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() => openPlannerFromLink(link)}
-                                  className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-blue-100 transition hover:bg-white/20"
-                                  title="Open property scenario"
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => openPlannerFromLink(link)}
+                                      className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-blue-100 transition hover:bg-white/20"
+                                      title="Open property scenario"
                                     >
                                       <Home className="h-4 w-4" />
                                     </button>
