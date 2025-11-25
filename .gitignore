@@ -21,11 +21,6 @@ go.work
 .env.local
 .env.production
 
-# Secrets
-secrets/*.txt
-secrets/*.key
-secrets/*.pem
-
 # IDE files
 .vscode/
 .idea/

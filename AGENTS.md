@@ -16,6 +16,116 @@ Ask first:
 - deleting files, chmod
 - running full build or end to end suites
 
+
+### Ticket Creation
+- When creating tickets
+  - outline the background and problem trying to solve
+  - be as detailed as possible on steps required, schema changes, detailing API contract schema, architectural implementation/ changes or design considerations
+  - break it out into frontend and backend tasks
+  - assign complexity points
+  - outline tests required and acceptance criteria
+  - if a single ticket is too complex (ie. > 5 points), do break it out into smaller tickets
+  - always ask questions if in doubt
+
+### PRD and Epic Creation Prompt
+
+When asked to create epics, user stories, and implementation tickets for a feature, use this comprehensive approach:
+
+```
+Create a Product Requirements Document for [FEATURE_NAME] that includes:
+
+## 1. Product Definition
+- Executive summary with clear value proposition
+- Problem statement identifying user pain points
+- Product vision and success criteria
+
+## 2. User Stories & Epics
+Structure user stories using this format:
+
+### Epic [X]: [Epic Name]
+**As a [user type], I want [high-level capability] so that [business value].**
+
+#### User Stories:
+- **US[X].[Y]**: As a [user type], I want to [specific action] so that [specific benefit]
+- Follow INVEST principles (Independent, Negotiable, Valuable, Estimable, Small, Testable)
+- Focus on user value, not implementation details
+- Include acceptance criteria in story format
+
+## 3. User Experience Flows
+Detail complete user journeys:
+- **Flow 1: [Primary Flow]**: Step-by-step user actions from entry to completion
+- **Flow 2: [Secondary Flow]**: Alternative paths and edge cases
+- Include decision points, error scenarios, and system responses
+
+## 4. Implementation Tickets
+Break epics into implementable tickets using this structure:
+
+### [TICKET_ID]: [Ticket Name]
+**Priority**: P0/P1/P2 | **Complexity**: [1-8] points | **Sprint**: [Sprint Number]
+**Objective**: [One sentence describing the technical goal]
+
+**Requirements**:
+- Specific technical requirements
+- API contracts with example payloads
+- Database schema changes
+- Integration points with existing systems
+
+**Acceptance Criteria**:
+- [ ] Testable, specific criteria
+- [ ] Include error handling requirements
+- [ ] Performance and security considerations
+- [ ] Test coverage expectations
+
+## 5. Technical Architecture
+- System integration points
+- Data flow diagrams
+- API design patterns
+- Database design considerations
+
+## 6. Success Metrics
+- User engagement metrics
+- Technical performance metrics
+- Business impact measurements
+
+## Guidelines:
+- Start with user value, then work backwards to implementation
+- Ensure tickets are independent and can be developed in parallel where possible
+- Include explicit dependencies between tickets
+- Consider mobile, accessibility, and performance from the start
+- Plan for incremental delivery and feature flags
+- Include testing strategy (unit, integration, e2e)
+- Consider rollback and error scenarios
+- Estimate complexity points: 1 (trivial), 2 (simple), 3 (moderate), 5 (complex), 8 (very complex)
+- Break tickets >5 points into smaller chunks
+- Include technical debt and refactoring considerations
+```
+
+### Example Epic Structure:
+```
+Epic 1: User Authentication
+As a user, I want to securely access my account so that my financial data is protected.
+
+User Stories:
+- US1.1: As a user, I want to log in with email/password so that I can access my account
+- US1.2: As a user, I want to reset my password so that I can regain access if I forget it
+- US1.3: As a user, I want 2FA protection so that my account is more secure
+
+Implementation Tickets:
+- B1: Authentication API endpoints (3 points)
+- B2: Password reset flow (2 points)
+- B3: 2FA integration (5 points)
+- F1: Login form component (2 points)
+- F2: Password reset UI (2 points)
+- F3: 2FA setup interface (3 points)
+```
+
+This approach ensures:
+- Clear user value proposition for each feature
+- Comprehensive coverage from user need to technical implementation
+- Proper prioritization and dependency management
+- Testable and deliverable increments
+- Technical excellence and maintainability
+
 ### When working on tasks
 
 - refer to `specs/rewrite-phase-1/frontend-tickets.txt` and `specs/rewrite-phase-1/backend-tickets.txt` for respective tickets
@@ -160,14 +270,3 @@ TypeScript & React Coding Agent Rules
 
 ### Features
 - For every CRUD action via the UI, the chat<->dispatch flow must support it as well.
-
-
-### Ticket Creation
-- When creating tickets 
-  - outline the background and problem trying to solve
-  - be as detailed as possible on steps required, schema changes, detailing API contract schema, architectural implementation/ changes or design considerations
-  - break it out into frontend and backend tasks
-  - assign complexity points
-  - outline tests required and acceptance criteria
-  - if a single ticket is too complex (ie. > 5 points), do break it out into smaller tickets
-  - always ask questions if in doubt
