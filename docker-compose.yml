@@ -5,15 +5,15 @@ services:
   database:
     image: postgres:15
     environment:
-      POSTGRES_DB: financial_chat
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-financial_chat}
+      POSTGRES_USER: ${POSTGRES_USER:-financial_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U financial_user"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,11 +26,14 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - PORT=8080
-      - DATABASE_URL=postgres://postgres:postgres@database:5432/financial_chat?sslmode=disable
-      - JWT_SECRET=your-jwt-secret-here
+      - PORT=${PORT:-8080}
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - PRIMARY_LLM=${PRIMARY_LLM:-openai}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-3-sonnet-20240229}
     depends_on:
       database:
         condition: service_healthy
@@ -47,7 +50,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - REACT_APP_BACKEND_URL=http://localhost:8080
+      - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL:-http://localhost:8080}
     depends_on:
       - backend
     restart: unless-stopped
