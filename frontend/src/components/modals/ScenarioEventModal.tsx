@@ -214,7 +214,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
               type="month"
               value={occursOn}
               onChange={(e) => setOccursOn(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert"
             />
           </label>
           <label className="space-y-1 text-sm">
@@ -410,7 +410,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
                       type="month"
                       value={impact.start_month}
                       onChange={(e) => handleImpactChange(index, { start_month: e.target.value })}
-                      className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+                      className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert"
                     />
                   </label>
                   <label className="space-y-1 text-xs">
@@ -419,7 +419,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
                       type="month"
                       value={impact.end_month ?? ''}
                       onChange={(e) => handleImpactChange(index, { end_month: e.target.value || undefined })}
-                      className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+                      className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert"
                     />
                   </label>
                   <label className="md:col-span-2 space-y-1 text-xs">

@@ -270,3 +270,10 @@ TypeScript & React Coding Agent Rules
 
 ### Features
 - For every CRUD action via the UI, the chat<->dispatch flow must support it as well.
+
+
+### Database Schema
+- If there are worktrees available, you must place the migration in the relevant worktree. If unsure, please ask the user.
+- All IDs must use UUID()
+- All database dates must use timestamptz
+- Migration filenames must be timestamp-based (e.g., 20250101001_description.up/down.sql), placed under backend/migrations, and numbered after the latest timestamp.

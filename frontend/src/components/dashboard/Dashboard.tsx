@@ -9,6 +9,7 @@ import { FinancialWorkspace } from './FinancialWorkspace'
 import { AppSidebar } from '../sidebar/AppSidebar'
 import { useTimeline } from '@/hooks/useTimeline'
 import { cn, generateUUID } from '@/lib/utils'
+import { FinancialDataProvider } from '@/contexts/FinancialDataContext'
 
 export function Dashboard() {
   const chatIdRef = useRef<string>(generateUUID())
@@ -21,7 +22,7 @@ export function Dashboard() {
       : null
 
   return (
-    <>
+    <FinancialDataProvider>
       <div className="relative min-h-screen w-full bg-black text-white">
         <div className="hidden lg:block">
           <div className="fixed left-0 top-0 z-30 h-screen w-[440px] px-4 py-8">
@@ -81,6 +82,6 @@ export function Dashboard() {
       <div className="lg:hidden">
         <ChatFloatingLauncher chatId={chatId} />
       </div>
-    </>
+    </FinancialDataProvider>
   )
 }

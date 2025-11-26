@@ -468,7 +468,7 @@ if [[ "${START_BACKEND}" == "true" ]]; then
   ALLOW_ANON_USER="${ALLOW_ANON_USER:-true}"
   echo "Starting backend on ${BACKEND_PORT} (ALLOW_ANON_USER=${ALLOW_ANON_USER})"
   echo "Postgres container: ${POSTGRES_CONTAINER} (volume ${POSTGRES_VOLUME}) db=${DB_NAME} port=${POSTGRES_PORT}"
-  echo "Using DB credentials: user=${DB_USER} name=${DB_NAME} password=${DB_PASSWORD}"
+  echo "Using DB credentials: user=${DB_USER} name=${DB_NAME}"
   (
     cd "$BACKEND_DIR"
     PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" ALLOW_ANON_USER="${ALLOW_ANON_USER}" go run ./cmd/server

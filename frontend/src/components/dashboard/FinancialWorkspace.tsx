@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Building2, Loader2, PlusCircle, Sparkles, Trash2 } from 'lucide-react'
 
-import { useFinancialData } from '@/hooks/useFinancialData'
+import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import { financialApi } from '@/services/financialApi'
 import { TimelineEditDrawer } from '../financial/TimelineEditDrawer'
@@ -41,7 +41,7 @@ export function FinancialWorkspace({
   const [isSeeding, setIsSeeding] = useState(false)
   const [isTimelineDrawerOpen, setIsTimelineDrawerOpen] = useState(false)
   const { events: scenarioEvents } = useScenarioEvents()
-  const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialData()
+  const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialDataContext()
 
   const clearPropertyData = async () => {
     if (typeof window === 'undefined') return

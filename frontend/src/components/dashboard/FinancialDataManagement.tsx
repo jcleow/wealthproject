@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Plus, SlidersHorizontal, Pencil, Trash2, Home, Info } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 
-import { useFinancialData } from '../../hooks/useFinancialData'
+import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import type { Asset, Expense, Income, Liability } from '../../types/financial'
 import type { PropertyLinkRecord } from '../../types/property'
 import type { FinancialDataType, FinancialFormValues } from '../modals/FinancialFormModal'
@@ -83,10 +83,10 @@ export function FinancialDataManagement({
   onSaveTimelineEdits,
 }: FinancialDataManagementProps) {
   const usingTimeline = true
-  const yearAssets = timelineYear?.assets ?? []
-  const yearLiabilities = timelineYear?.liabilities ?? []
-  const yearIncomes = timelineYear?.income ?? []
-  const yearExpenses = timelineYear?.expenses ?? []
+  const yearAssets = useMemo(() => timelineYear?.assets ?? [], [timelineYear?.assets])
+  const yearLiabilities = useMemo(() => timelineYear?.liabilities ?? [], [timelineYear?.liabilities])
+  const yearIncomes = useMemo(() => timelineYear?.income ?? [], [timelineYear?.income])
+  const yearExpenses = useMemo(() => timelineYear?.expenses ?? [], [timelineYear?.expenses])
 
   const {
     addAsset,
@@ -102,7 +102,7 @@ export function FinancialDataManagement({
     deleteLiability,
     deleteExpense,
     refresh,
-  } = useFinancialData()
+  } = useFinancialDataContext()
 
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
@@ -152,6 +152,17 @@ export function FinancialDataManagement({
   useEffect(() => {
     const fetchLinks = async () => {
       try {
+        // Fetch all assets and liabilities once at the beginning
+        const [allAssets, allLiabilities] = await Promise.all([
+          financialApi.listAssets(),
+          financialApi.listLiabilities()
+        ])
+
+        // Create maps for quick lookup
+        const assetsByParentId = new Map(allAssets.map(a => [a.parentId, a]))
+        const liabilitiesByParentId = new Map(allLiabilities.map(l => [l.parentId, l]))
+
+        // Fetch asset links
         const assetResults: Record<string, PropertyLinkRecord[]> = {}
         await Promise.all(
           yearAssets.map(async (asset) => {
@@ -163,14 +174,9 @@ export function FinancialDataManagement({
 
             // If no links found, try to find the actual asset using this as parent_id
             if (links.length === 0) {
-              try {
-                const allAssets = await financialApi.listAssets()
-                const actualAsset = allAssets.find(a => a.parentId === assetId)
-                if (actualAsset) {
-                  links = await financialApi.listPropertyLinksByAsset(actualAsset.id)
-                }
-              } catch (error) {
-                console.error('Failed to fetch all assets:', error)
+              const actualAsset = assetsByParentId.get(assetId)
+              if (actualAsset) {
+                links = await financialApi.listPropertyLinksByAsset(actualAsset.id)
               }
             }
 
@@ -179,6 +185,7 @@ export function FinancialDataManagement({
         )
         setAssetLinks(assetResults)
 
+        // Fetch liability links
         const liabilityResults: Record<string, PropertyLinkRecord[]> = {}
         await Promise.all(
           yearLiabilities.map(async (liability) => {
@@ -190,14 +197,9 @@ export function FinancialDataManagement({
 
             // If no links found, try to find the actual liability using this as parent_id
             if (links.length === 0) {
-              try {
-                const allLiabilities = await financialApi.listLiabilities()
-                const actualLiability = allLiabilities.find(l => l.parentId === liabilityId)
-                if (actualLiability) {
-                  links = await financialApi.listPropertyLinksByLiability(actualLiability.id)
-                }
-              } catch (error) {
-                console.error('Failed to fetch all liabilities:', error)
+              const actualLiability = liabilitiesByParentId.get(liabilityId)
+              if (actualLiability) {
+                links = await financialApi.listPropertyLinksByLiability(actualLiability.id)
               }
             }
 

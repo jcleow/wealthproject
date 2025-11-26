@@ -41,9 +41,11 @@ func main() {
 	}
 	defer db.Close()
 
+	log.Printf("Starting migrations...")
 	if err := database.RunMigrations(db); err != nil {
 		log.Fatal("Failed to run database migrations:", err)
 	}
+	log.Printf("Migrations completed...")
 
 	finStore := finRepo.NewStore(db)
 	if err := financial.InitializeRegistry(); err != nil {

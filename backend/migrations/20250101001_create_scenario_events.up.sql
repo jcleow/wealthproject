@@ -1,4 +1,4 @@
--- Scenario events and impacts
+-- Create scenario_events and scenario_event_impacts tables
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
@@ -7,8 +7,9 @@ CREATE TABLE IF NOT EXISTS scenario_events (
     user_id UUID NOT NULL,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    occurs_on DATE NOT NULL,
+    occurs_on TIMESTAMPTZ NOT NULL,
     display_icon VARCHAR(50) NOT NULL,
+    display_color TEXT,
     tags JSONB NOT NULL DEFAULT '[]'::jsonb,
     scenario_id UUID,
     is_included BOOLEAN NOT NULL DEFAULT TRUE,
@@ -40,13 +41,11 @@ CREATE TABLE IF NOT EXISTS scenario_event_impacts (
     CONSTRAINT scenario_event_impacts_month_end CHECK (end_month IS NULL OR date_trunc('month', end_month) = end_month)
 );
 
--- Indexes
 CREATE INDEX IF NOT EXISTS idx_scenario_events_user ON scenario_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_scenario_events_occurs ON scenario_events(occurs_on);
 CREATE INDEX IF NOT EXISTS idx_scenario_events_included ON scenario_events(user_id, is_included);
 CREATE INDEX IF NOT EXISTS idx_scenario_events_tags_gin ON scenario_events USING GIN (tags);
 CREATE INDEX IF NOT EXISTS idx_scenario_events_search ON scenario_events USING GIN (to_tsvector('simple', coalesce(name, '') || ' ' || coalesce(description, '')));
-
 CREATE INDEX IF NOT EXISTS idx_scenario_event_impacts_event ON scenario_event_impacts(event_id);
 CREATE INDEX IF NOT EXISTS idx_scenario_event_impacts_target ON scenario_event_impacts(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_scenario_event_impacts_months ON scenario_event_impacts(start_month, end_month);

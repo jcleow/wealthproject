@@ -10,8 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 
-import { useFinancialData } from '@/hooks/useFinancialData'
-import * as LucideIcons from 'lucide-react'
+import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { TimelineYear } from '@/types/timeline'
 import { formatCurrency } from '@/lib/format'
@@ -149,7 +148,7 @@ export function NetWorthProjection({
     expenses,
     incomes,
     getMonthlySavings,
-  } = useFinancialData()
+  } = useFinancialDataContext()
 
   const [xAxisMode, setXAxisMode] = useState<AxisMode>('age')
   const [hasSize, setHasSize] = useState(false)
