@@ -1,17 +1,19 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ComponentType } from 'react'
 import type { ScenarioEvent, ScenarioImpact } from '@/types/scenario'
-import { financialApi } from '@/services/financialApi'
+import { useCreateScenarioEventMutation, useUpdateScenarioEventMutation } from '@/hooks/queries/useScenarioEventsQuery'
+import { Modal } from '@/components/ui/Modal'
 
 interface ScenarioEventModalProps {
   isOpen: boolean
   onClose: () => void
   onSaved?: (event: ScenarioEvent) => void
   event?: ScenarioEvent
+  isLoadingEvent?: boolean
 }
 
 const defaultImpact: ScenarioImpact = {
@@ -38,163 +40,221 @@ const ICON_OPTIONS = Object.entries(LucideIcons)
     return { name: kebab, label: kebab, Icon: component as ComponentType<{ className?: string }> }
   })
 
-export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: ScenarioEventModalProps) {
-  const [name, setName] = useState('')
-  const [occursOn, setOccursOn] = useState('')
-  const [description, setDescription] = useState('')
-  const [displayIcon, setDisplayIcon] = useState('sparkles')
-  const [iconColor, setIconColor] = useState('#0ea5e9')
-  const [tags, setTags] = useState<string>('')
-  const [isIncluded, setIsIncluded] = useState(true)
-  const [impacts, setImpacts] = useState<ScenarioImpact[]>([{ ...defaultImpact }])
+export function ScenarioEventModal({
+  isOpen,
+  onClose,
+  onSaved,
+  event,
+  isLoadingEvent = false,
+}: ScenarioEventModalProps) {
+  const [form, setForm] = useState<{
+    name: string
+    occursOn: string
+    description: string
+    displayIcon: string
+    iconColor: string
+    isIncluded: boolean
+    impacts: ScenarioImpact[]
+    iconSearch: string
+  }>({
+    name: '',
+    occursOn: '',
+    description: '',
+    displayIcon: 'sparkles',
+    iconColor: '#0ea5e9',
+    isIncluded: true,
+    impacts: [{ ...defaultImpact }],
+    iconSearch: '',
+  })
   const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [iconSearch, setIconSearch] = useState('')
+  const prevOccursOn = useRef<string>('')
+
+  const createMutation = useCreateScenarioEventMutation()
+  const updateMutation = useUpdateScenarioEventMutation()
+  const saving = createMutation.isLoading || updateMutation.isLoading
   const PlusIcon = LucideIcons.Plus as LucideIcon | undefined
   const TrashIcon = LucideIcons.Trash2 as LucideIcon | undefined
   const CloseIcon = LucideIcons.X as LucideIcon | undefined
   const SparklesIcon = LucideIcons.Sparkles as LucideIcon | undefined
 
   const iconOptions = ICON_OPTIONS
-  const SelectedIcon = iconOptions.find((opt) => opt.name === displayIcon)?.Icon
+  const SelectedIcon = iconOptions.find((opt) => opt.name === form.displayIcon)?.Icon
+  const searchTerm = form.iconSearch.trim().toLowerCase()
+  const hasSearch = searchTerm.length > 0
+  const filteredIcons = hasSearch
+    ? iconOptions.filter(
+        (opt) => opt.name.toLowerCase().includes(searchTerm) || opt.label.toLowerCase().includes(searchTerm)
+      )
+    : []
 
-  const handleExample = () => {
-    const exampleOccurs = new Date()
-    exampleOccurs.setMonth(exampleOccurs.getMonth() + 2)
-    const monthStr = exampleOccurs.toISOString().slice(0, 7)
-    setName('Job loss (example)')
-    setDescription('Income pauses for 6 months; rebuild savings and adjust spending.')
-    setOccursOn(monthStr)
-    setDisplayIcon('briefcase')
-    setIconColor('#0ea5e9')
-    setTags('career,risk,cashflow')
-    setIsIncluded(true)
-    setImpacts([
-      {
-        target_type: 'income',
-        impact_kind: 'delta',
-        amount: -500000, // -$5,000 in cents
-        currency: 'SGD',
-        cadence: 'monthly',
-        start_month: monthStr,
-        end_month: undefined,
-        notes: 'Income down by ~$5k/month',
-      },
-      {
-        target_type: 'expense',
-        impact_kind: 'delta',
-        amount: 150000, // $1,500 in cents
-        currency: 'SGD',
-        cadence: 'one_time',
-        start_month: monthStr,
-        notes: 'Use savings buffer for 1 month',
-      },
-    ])
-    setIconSearch('briefcase')
-  }
-
+  // Hydrate form when event changes
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || isLoadingEvent) return
     if (event) {
-      setName(event.name ?? '')
-      setOccursOn(event.occurs_on ?? '')
-      setDescription(event.description ?? '')
-      setDisplayIcon(event.display_icon ?? 'sparkles')
-      setIconColor(event.display_color ?? '#0ea5e9')
-      setTags((event.tags ?? []).join(','))
-      setIsIncluded(event.is_included ?? true)
-      setImpacts(event.impacts && event.impacts.length > 0 ? event.impacts : [{ ...defaultImpact }])
-      setIconSearch(event.display_icon ?? '')
+      setForm({
+        name: event.name ?? '',
+        occursOn: event.occurs_on ?? '',
+        description: event.description ?? '',
+        displayIcon: event.display_icon ?? 'sparkles',
+        iconColor: event.display_color ?? '#0ea5e9',
+        isIncluded: event.is_included ?? true,
+        impacts: event.impacts && event.impacts.length > 0 ? event.impacts : [{ ...defaultImpact }],
+        iconSearch: event.display_icon ?? '',
+      })
+      prevOccursOn.current = event.occurs_on ?? ''
     } else {
-      setName('')
-      setOccursOn('')
-      setDescription('')
-      setDisplayIcon('sparkles')
-      setIconColor('#0ea5e9')
-      setTags('')
-      setIsIncluded(true)
-      setImpacts([{ ...defaultImpact }])
-      setIconSearch('')
+      setForm({
+        name: '',
+        occursOn: '',
+        description: '',
+        displayIcon: 'sparkles',
+        iconColor: '#0ea5e9',
+        isIncluded: true,
+        impacts: [{ ...defaultImpact }],
+        iconSearch: '',
+      })
+      prevOccursOn.current = ''
     }
-  }, [event, isOpen])
+  }, [event, isOpen, isLoadingEvent])
 
-  if (!isOpen) return null
+  // Keep impacts aligned to occurs_on unless user overrides
+  useEffect(() => {
+    if (!form.occursOn) return
+    const month = form.occursOn.slice(0, 7)
+    setForm((prev) => ({
+      ...prev,
+      impacts: prev.impacts.map((impact) => {
+        if (!impact.start_month || impact.start_month === prevOccursOn.current.slice(0, 7)) {
+          return { ...impact, start_month: month }
+        }
+        return impact
+      }),
+    }))
+    prevOccursOn.current = form.occursOn
+  }, [form.occursOn])
 
   const handleImpactChange = (index: number, update: Partial<ScenarioImpact>) => {
-    setImpacts((prev) => prev.map((impact, idx) => (idx === index ? { ...impact, ...update } : impact)))
+    setForm((prev) => ({
+      ...prev,
+      impacts: prev.impacts.map((impact, idx) => (idx === index ? { ...impact, ...update } : impact)),
+    }))
   }
 
-  const addImpact = () => setImpacts((prev) => [...prev, { ...defaultImpact, start_month: occursOn.slice(0, 7) }])
+  const addImpact = () =>
+    setForm((prev) => ({
+      ...prev,
+      impacts: [
+        ...prev.impacts,
+        { ...defaultImpact, start_month: prev.occursOn ? prev.occursOn.slice(0, 7) : defaultImpact.start_month },
+      ],
+    }))
 
-  const removeImpact = (index: number) => setImpacts((prev) => prev.filter((_, idx) => idx !== index))
+  const removeImpact = (index: number) =>
+    setForm((prev) => ({ ...prev, impacts: prev.impacts.filter((_, idx) => idx !== index) }))
 
   const handleSave = async () => {
     setError(null)
-    if (!name.trim()) {
+    if (!form.name.trim()) {
       setError('Name is required.')
       return
     }
-    if (!occursOn) {
+    if (!form.occursOn) {
       setError('Occurs on date is required.')
       return
     }
     const payload: ScenarioEvent = {
-      name: name.trim(),
-      description: description.trim(),
-      occurs_on: occursOn,
-      display_icon: displayIcon.trim() || 'sparkles',
-      display_color: iconColor,
-      tags: tags.split(',').map((tag) => tag.trim()).filter(Boolean),
-      is_included: isIncluded,
-      impacts: impacts.map((impact) => ({
+      name: form.name.trim(),
+      description: form.description.trim(),
+      occurs_on: form.occursOn,
+      display_icon: form.displayIcon.trim() || 'sparkles',
+      display_color: form.iconColor,
+      tags: [],
+      is_included: form.isIncluded,
+      impacts: form.impacts.map((impact) => ({
         ...impact,
         amount: Number(impact.amount) || 0,
         currency: 'SGD',
-        start_month: impact.start_month || occursOn.slice(0, 7),
+        start_month: impact.start_month || form.occursOn.slice(0, 7),
       })),
     }
-    setSaving(true)
     try {
       const saved = event?.id
         ? await financialApi.updateScenarioEvent(event.id, { ...event, ...payload })
         : await financialApi.createScenarioEvent(payload)
-      onClose()
       onSaved?.(saved)
+      onClose()
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : 'Unable to create scenario.'
       setError(message)
-    } finally {
-      setSaving(false)
     }
   }
 
+  const loadingState = saving || isLoadingEvent
+
+  const renderIconOption = (IconComp?: ComponentType<{ className?: string }>) => (IconComp ? <IconComp className="h-4 w-4" /> : null)
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur">
+    <Modal isOpen={isOpen} onClose={onClose}>
       <div className="relative max-h-[90vh] w-full max-w-4xl overflow-auto rounded-3xl border border-white/10 bg-[#0b1222] p-6 text-white shadow-2xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Scenario</p>
-              <h2 className="text-2xl font-semibold">{event ? 'Edit Scenario Event' : 'Create Scenario Event'}</h2>
-              <p className="text-sm text-gray-400">Define event details and financial impacts.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-100 transition hover:bg-white/10"
-                onClick={handleExample}
-                title="Autofill an example scenario"
-              >
-                {SparklesIcon ? <SparklesIcon className="h-4 w-4 text-blue-200" /> : '★'}
-                Example
-              </button>
-              <button
-                type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-gray-300 transition hover:bg-white/10"
-                onClick={onClose}
-                aria-label="Close scenario modal"
-              >
-                {CloseIcon ? <CloseIcon className="h-4 w-4" /> : '×'}
-              </button>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Scenario</p>
+            <h2 className="text-2xl font-semibold">{event ? 'Edit Scenario Event' : 'Create a new scenario'}</h2>
+            <p className="text-sm text-gray-400">Define event details and financial impacts.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-100 transition hover:bg-white/10 disabled:opacity-60"
+              onClick={() => {
+                const exampleOccurs = new Date()
+                exampleOccurs.setMonth(exampleOccurs.getMonth() + 2)
+                const monthStr = exampleOccurs.toISOString().slice(0, 7)
+                setForm((prev) => ({
+                  ...prev,
+                  name: 'Job loss (example)',
+                  description: 'Income pauses for 6 months; rebuild savings and adjust spending.',
+                  occursOn: monthStr,
+                  displayIcon: 'briefcase',
+                  iconColor: '#0ea5e9',
+                  isIncluded: true,
+                  impacts: [
+                    {
+                      target_type: 'income',
+                      impact_kind: 'delta',
+                      amount: -500000,
+                      currency: 'SGD',
+                      cadence: 'monthly',
+                      start_month: monthStr,
+                      end_month: undefined,
+                      notes: 'Income down by ~$5k/month',
+                    },
+                    {
+                      target_type: 'expense',
+                      impact_kind: 'delta',
+                      amount: 150000,
+                      currency: 'SGD',
+                      cadence: 'one_time',
+                      start_month: monthStr,
+                      notes: 'Use savings buffer for 1 month',
+                    },
+                  ],
+                  iconSearch: 'briefcase',
+                }))
+              }}
+              disabled={loadingState}
+            >
+              {SparklesIcon ? <SparklesIcon className="h-4 w-4 text-blue-200" /> : '★'}
+              Example
+            </button>
+            <button
+              type="button"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-gray-300 transition hover:bg-white/10"
+              onClick={onClose}
+              aria-label="Close scenario modal"
+            >
+              {CloseIcon ? <CloseIcon className="h-4 w-4" /> : '×'}
+            </button>
           </div>
         </div>
 
@@ -202,19 +262,21 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
           <label className="space-y-1 text-sm">
             <span className="text-gray-300">Name</span>
             <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={form.name}
+              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
               placeholder="e.g., Job Loss"
+              disabled={loadingState}
             />
           </label>
           <label className="space-y-1 text-sm">
             <span className="text-gray-300">Occurs on (month)</span>
             <input
               type="month"
-              value={occursOn}
-              onChange={(e) => setOccursOn(e.target.value)}
+              value={form.occursOn}
+              onChange={(e) => setForm((prev) => ({ ...prev, occursOn: e.target.value }))}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert"
+              disabled={loadingState}
             />
           </label>
           <label className="space-y-1 text-sm">
@@ -222,93 +284,82 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
             <div className="flex items-center gap-2">
               <span
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10"
-                style={{ backgroundColor: iconColor || '#111827' }}
+                style={{ backgroundColor: form.iconColor || '#111827' }}
                 aria-label="Icon color preview"
               >
                 {SelectedIcon ? <SelectedIcon className="h-5 w-5 text-white" /> : null}
               </span>
               <input
-                value={iconSearch}
+                value={form.iconSearch}
                 onChange={(e) => {
-                  setIconSearch(e.target.value)
-                  setDisplayIcon(e.target.value || displayIcon)
+                  const next = e.target.value
+                  setForm((prev) => ({
+                    ...prev,
+                    iconSearch: next,
+                    displayIcon: next || prev.displayIcon,
+                  }))
                 }}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
                 placeholder="Search icon e.g., briefcase, heart, home"
+                disabled={loadingState}
               />
               <input
                 type="color"
-                value={iconColor}
-                onChange={(e) => setIconColor(e.target.value)}
+                value={form.iconColor}
+                onChange={(e) => setForm((prev) => ({ ...prev, iconColor: e.target.value }))}
                 className="h-10 w-16 cursor-pointer rounded-lg border border-white/10 bg-white/5"
                 title="Icon background color"
+                disabled={loadingState}
               />
             </div>
             <div className="relative">
               <div className="mt-2 grid max-h-60 grid-cols-3 gap-2 overflow-auto rounded-xl border border-white/10 bg-[#0f172a]/90 p-3 shadow-xl">
-                {iconOptions
-                  .filter(
-                    (opt) =>
-                      opt.name.toLowerCase().includes(iconSearch.trim().toLowerCase()) ||
-                      opt.label.toLowerCase().includes(iconSearch.trim().toLowerCase())
-                  )
-                  .slice(0, 24)
-                  .map((opt, idx) => (
+                {!hasSearch && (
+                  <div className="col-span-3 text-center text-xs text-gray-400">Type to search for an icon.</div>
+                )}
+                {hasSearch &&
+                  filteredIcons.slice(0, 24).map((opt, idx) => (
                     <button
                       key={`${opt.name}-${idx}`}
                       type="button"
                       onClick={() => {
-                        setDisplayIcon(opt.name)
-                        setIconSearch(opt.name)
+                        setForm((prev) => ({ ...prev, displayIcon: opt.name, iconSearch: opt.name }))
                       }}
-                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-left text-xs text-gray-100 transition hover:bg-white/10"
-                  >
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/20">
-                      {(() => {
-                        const IconComp = opt.Icon
-                        return IconComp ? <IconComp className="h-4 w-4" /> : null
-                      })()}
-                    </span>
+                      className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-left text-xs text-gray-100 transition hover:bg-white/10"
+                      disabled={loadingState}
+                    >
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/20">
+                        {renderIconOption(opt.Icon)}
+                      </span>
                       <span className="truncate">
                         {opt.label} <span className="text-gray-400">({opt.name})</span>
                       </span>
                     </button>
-                ))}
-                {iconOptions.filter(
-                  (opt) =>
-                    opt.name.toLowerCase().includes(iconSearch.trim().toLowerCase()) ||
-                    opt.label.toLowerCase().includes(iconSearch.trim().toLowerCase())
-                ).length === 0 && (
+                  ))}
+                {hasSearch && filteredIcons.length === 0 && (
                   <div className="col-span-3 text-center text-xs text-gray-400">No icons match that search.</div>
                 )}
               </div>
             </div>
           </label>
-          <label className="space-y-1 text-sm">
-            <span className="text-gray-300">Tags (comma-separated)</span>
-            <input
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
-              placeholder="career, income, risk"
-            />
-          </label>
           <div className="md:col-span-2 space-y-1 text-sm">
             <span className="text-gray-300">Description</span>
             <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={form.description}
+              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
               rows={2}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
               placeholder="What is this scenario about?"
+              disabled={loadingState}
             />
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-200">
             <input
               type="checkbox"
-              checked={isIncluded}
-              onChange={(e) => setIsIncluded(e.target.checked)}
+              checked={form.isIncluded}
+              onChange={(e) => setForm((prev) => ({ ...prev, isIncluded: e.target.checked }))}
               className="h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500 focus:ring-0"
+              disabled={loadingState}
             />
             Include in projections
           </label>
@@ -318,28 +369,32 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-white">Impacts</p>
-              <p className="text-xs text-gray-400">Start/stop gates first, then overrides, then deltas.</p>
+              <p className="text-xs text-gray-400">
+                Start/stop to gate timing; override replaces amounts; delta adds or subtracts.
+              </p>
             </div>
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-100 transition hover:bg-white/10"
-            onClick={addImpact}
-          >
-            {PlusIcon ? <PlusIcon className="h-4 w-4" /> : '+'}
-            Add impact
-          </button>
-        </div>
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-100 transition hover:bg-white/10 disabled:opacity-60"
+              onClick={addImpact}
+              disabled={loadingState}
+            >
+              {PlusIcon ? <PlusIcon className="h-4 w-4" /> : '+'}
+              Add impact
+            </button>
+          </div>
 
           <div className="space-y-3">
-            {impacts.map((impact, index) => (
+            {form.impacts.map((impact, index) => (
               <div key={index} className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-white">Impact {index + 1}</p>
-                  {impacts.length > 1 && (
+                  {form.impacts.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeImpact(index)}
-                      className="text-rose-200 transition hover:text-rose-100"
+                      className="text-rose-200 transition hover:text-rose-100 disabled:opacity-60"
+                      disabled={loadingState}
                     >
                       {TrashIcon ? <TrashIcon className="h-4 w-4" /> : '✕'}
                     </button>
@@ -352,6 +407,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
                       value={impact.target_type}
                       onChange={(e) => handleImpactChange(index, { target_type: e.target.value as ScenarioImpact['target_type'] })}
                       className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+                      disabled={loadingState}
                     >
                       <option value="asset">Asset</option>
                       <option value="liability">Liability</option>
@@ -365,6 +421,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
                       value={impact.impact_kind}
                       onChange={(e) => handleImpactChange(index, { impact_kind: e.target.value as ScenarioImpact['impact_kind'] })}
                       className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+                      disabled={loadingState}
                     >
                       <option value="start">Start</option>
                       <option value="stop">Stop</option>
@@ -373,15 +430,11 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
                     </select>
                   </label>
                   <label className="space-y-1 text-xs">
-                    <span className="text-gray-300">Amount (in cents)</span>
+                    <span className="text-gray-300">Amount</span>
                     <input
                       type="text"
                       inputMode="numeric"
-                      value={
-                        Number.isFinite(impact.amount)
-                          ? new Intl.NumberFormat('en-US').format(impact.amount)
-                          : ''
-                      }
+                      value={Number.isFinite(impact.amount) ? new Intl.NumberFormat('en-US').format(impact.amount) : ''}
                       onChange={(e) => {
                         const numeric = Number(e.target.value.replace(/[^0-9-]/g, ''))
                         handleImpactChange(index, {
@@ -390,6 +443,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
                       }}
                       className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
                       placeholder="e.g., 50,000 for $500"
+                      disabled={loadingState}
                     />
                   </label>
                   <label className="space-y-1 text-xs">
@@ -398,6 +452,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
                       value={impact.cadence}
                       onChange={(e) => handleImpactChange(index, { cadence: e.target.value as ScenarioImpact['cadence'] })}
                       className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+                      disabled={loadingState}
                     >
                       <option value="one_time">One-time</option>
                       <option value="monthly">Monthly</option>
@@ -408,9 +463,10 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
                     <span className="text-gray-300">Start month (YYYY-MM)</span>
                     <input
                       type="month"
-                      value={impact.start_month}
+                      value={impact.start_month ?? ''}
                       onChange={(e) => handleImpactChange(index, { start_month: e.target.value })}
                       className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert"
+                      disabled={loadingState}
                     />
                   </label>
                   <label className="space-y-1 text-xs">
@@ -420,6 +476,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
                       value={impact.end_month ?? ''}
                       onChange={(e) => handleImpactChange(index, { end_month: e.target.value || undefined })}
                       className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert"
+                      disabled={loadingState}
                     />
                   </label>
                   <label className="md:col-span-2 space-y-1 text-xs">
@@ -430,6 +487,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
                       rows={2}
                       className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
                       placeholder="Context for this impact"
+                      disabled={loadingState}
                     />
                   </label>
                 </div>
@@ -439,15 +497,15 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
         </div>
 
         {error && (
-          <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="mt-4 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
             {error}
           </div>
         )}
 
-        <div className="mt-6 flex items-center justify-end gap-3 border-t border-white/10 pt-4">
+        <div className="mt-6 flex items-center justify-end gap-3">
           <button
             type="button"
-            className="rounded-lg px-4 py-2 text-gray-300 transition hover:bg-white/5"
+            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-100 transition hover:bg-white/10"
             onClick={onClose}
             disabled={saving}
           >
@@ -455,14 +513,14 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: Scenario
           </button>
           <button
             type="button"
-            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-60"
             onClick={handleSave}
-            disabled={saving}
+            disabled={loadingState}
           >
-            {saving ? 'Saving...' : 'Save scenario'}
+            {saving ? 'Saving…' : event ? 'Update' : 'Create'}
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

@@ -689,18 +689,6 @@ export function FinancialFormModal({
                       <option value="custom">Custom...</option>
                     </select>
 
-                    {type === 'asset' && formData.category !== PROPERTY_CATEGORY && (
-                      <button
-                        className="w-full rounded-lg border border-emerald-400/70 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 transition hover:bg-emerald-500/20 sm:w-auto"
-                        onClick={() =>
-                          setFormData((prev) => ({ ...prev, category: PROPERTY_CATEGORY }))
-                        }
-                        type="button"
-                      >
-                        Set category to property
-                      </button>
-                    )}
-
                     {type === 'liability' && formData.category === '' && (
                       <button
                         className="w-full rounded-lg border border-blue-400/70 bg-blue-500/10 px-3 py-2 text-sm text-blue-100 transition hover:bg-blue-500/20 sm:w-auto"

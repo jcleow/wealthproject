@@ -136,6 +136,25 @@ export const financialApi = {
     return toAsset(data)
   },
 
+  async getScenarioEvent(id: string): Promise<ScenarioEvent> {
+    if (!id) throw new Error('Scenario event id is required')
+    const data = await jsonRequest<any>(`${API_BASE}/scenario-events/${encodeURIComponent(id)}`)
+    return {
+      id: data.id ?? data.ID ?? id,
+      name: data.name ?? data.Name ?? '',
+      description: data.description ?? data.Description ?? '',
+      occurs_on: data.occurs_on ?? data.OccursOn ?? data.occursOn ?? '',
+      display_icon: data.display_icon ?? data.DisplayIcon ?? '',
+      display_color: data.display_color ?? data.DisplayColor,
+      tags: data.tags ?? data.Tags ?? [],
+      scenario_id:
+        data.scenario_id ?? data.scenarioId ?? data.ScenarioID ?? data.ScenarioId,
+      is_included:
+        data.is_included ?? data.isIncluded ?? data.IsIncluded ?? true,
+      impacts: data.impacts ?? data.Impacts ?? [],
+    }
+  },
+
   // Liabilities
   async listLiabilities(): Promise<Liability[]> {
     const data = await jsonRequest<any[]>(`${API_BASE}/liabilities`)
@@ -412,5 +431,26 @@ export const financialApi = {
     const data = await jsonRequest<ScenarioEventsDTO>(`${API_BASE}/scenario-events`)
     const list = Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : []
     return list.map(normalize)
+  },
+
+  // Bulk delete operations for sample data and reset
+  async deleteAllAssets(): Promise<void> {
+    const assets = await financialApi.listAssets()
+    await Promise.all(assets.map(asset => financialApi.deleteAsset(asset.id)))
+  },
+
+  async deleteAllLiabilities(): Promise<void> {
+    const liabilities = await financialApi.listLiabilities()
+    await Promise.all(liabilities.map(liability => financialApi.deleteLiability(liability.id)))
+  },
+
+  async deleteAllIncomes(): Promise<void> {
+    const incomes = await financialApi.listIncomes()
+    await Promise.all(incomes.map(income => financialApi.deleteIncome(income.id)))
+  },
+
+  async deleteAllExpenses(): Promise<void> {
+    const expenses = await financialApi.listExpenses()
+    await Promise.all(expenses.map(expense => financialApi.deleteExpense(expense.id)))
   },
 }

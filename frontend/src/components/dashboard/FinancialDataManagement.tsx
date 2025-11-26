@@ -9,8 +9,7 @@ import type { FinancialDataType, FinancialFormValues } from '../modals/Financial
 import { FinancialFormModal } from '../modals/FinancialFormModal'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { financialApi } from '@/services/financialApi'
-import type { TimelineYear } from '@/types/timeline'
-import type { TimelineEditRequest, TimelineEdit } from '@/types/timeline'
+import type { TimelineYear, TimelineEditRequest, TimelineEdit, TimelineItemType, TimelineFrequency } from '@/types/timeline'
 import { formatCurrency } from '@/lib/format'
 
 type FinancialCategory = FinancialDataType
@@ -243,8 +242,69 @@ export function FinancialDataManagement({
     })
   }
 
-  const handleDeleteItem = async (_category: FinancialCategory, _id: string) => {
-    // Placeholder: timeline delete not supported yet
+  const handleDeleteItem = async (category: FinancialCategory, id: string) => {
+    try {
+      // For timeline mode, we need to handle deletion differently
+      // Timeline items cannot be deleted directly via API
+      if (usingTimeline && timelineYear) {
+        // Get current items for the category
+        const currentItems = (() => {
+          switch (category) {
+            case 'asset':
+              return yearAssets
+            case 'liability':
+              return yearLiabilities
+            case 'income':
+              return yearIncomes
+            case 'expense':
+              return yearExpenses
+            default:
+              return []
+          }
+        })()
+
+        // Filter out the item to delete
+        const remainingItems = currentItems.filter(item => getItemId(item) !== id)
+
+        // Create timeline edits for remaining items
+        const edits = remainingItems.map(item => ({
+          itemId: getItemId(item),
+          name: item.name,
+          itemType: category as TimelineItemType,
+          category: item.category,
+          amount: item.source_amount ?? item.amount_annual,
+          frequency: (item.source_frequency ?? 'annual') as TimelineFrequency,
+        }))
+
+        // Save the updated timeline
+        if (onSaveTimelineEdits) {
+          await onSaveTimelineEdits({
+            year: selectedYear,
+            edits,
+            note: `Removed ${category}`,
+          })
+        }
+      } else {
+        // Original non-timeline deletion logic
+        switch (category) {
+          case 'asset':
+            await deleteAsset(id)
+            break
+          case 'liability':
+            await deleteLiability(id)
+            break
+          case 'income':
+            await deleteIncome(id)
+            break
+          case 'expense':
+            await deleteExpense(id)
+            break
+        }
+        await refresh()
+      }
+    } catch (error) {
+      console.error(`Failed to delete ${category}:`, error)
+    }
   }
 
   const handleSettings = (category: FinancialCategory) => {

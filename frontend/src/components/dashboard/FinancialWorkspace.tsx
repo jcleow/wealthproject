@@ -3,8 +3,8 @@ import { Building2, Loader2, PlusCircle, Sparkles, Trash2 } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
+import { useScenarioEvent } from '@/hooks/useScenarioEvent'
 import { financialApi } from '@/services/financialApi'
-import { TimelineEditDrawer } from '../financial/TimelineEditDrawer'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
@@ -39,8 +39,12 @@ export function FinancialWorkspace({
   const [scenarioEventToEdit, setScenarioEventToEdit] = useState<ScenarioEvent | null>(null)
   const [isClearing, setIsClearing] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
-  const [isTimelineDrawerOpen, setIsTimelineDrawerOpen] = useState(false)
   const { events: scenarioEvents } = useScenarioEvents()
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(undefined)
+  const { data: loadedScenarioEvent, isFetching: isLoadingScenario } = useScenarioEvent(
+    selectedScenarioId,
+    isScenarioModalOpen
+  )
   const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialDataContext()
 
   const clearPropertyData = async () => {
@@ -145,17 +149,6 @@ export function FinancialWorkspace({
     setIsScenarioModalOpen(true)
   }
 
-  const handleSaveTimelineEdits = async (payload: TimelineEditRequest) => {
-    try {
-      await onSaveTimelineEdits(payload)
-      setIsTimelineDrawerOpen(false)
-    } catch (error) {
-      console.error('Failed to save timeline edits', error)
-      if (typeof window !== 'undefined') {
-        window.alert('Unable to save timeline edits right now.')
-      }
-    }
-  }
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col border-0 bg-midnight-900 text-white">
@@ -207,14 +200,6 @@ export function FinancialWorkspace({
               HDB (BTO / Resale)
             </span>
           </button>
-          <button
-            onClick={() => setIsTimelineDrawerOpen(true)}
-            className="rounded-full bg-blue-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:opacity-60"
-            title="Edit selected year"
-            disabled={isTimelineLoading}
-          >
-            {isSavingTimeline ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Edit year'}
-          </button>
         </div>
       </div>
       {timelineError && (
@@ -228,7 +213,9 @@ export function FinancialWorkspace({
           overrideYears={overrideYears}
           selectedYear={selectedYear}
           scenarioEvents={scenarioEvents}
-          onScenarioSelect={(event) => {
+          onScenarioSelect={async (event) => {
+            if (!event?.id) return
+            setSelectedScenarioId(event.id)
             setScenarioEventToEdit(event)
             setIsScenarioModalOpen(true)
           }}
@@ -247,28 +234,23 @@ export function FinancialWorkspace({
       {isScenarioModalOpen && (
         <ScenarioEventModal
           isOpen={isScenarioModalOpen}
-          event={scenarioEventToEdit ?? undefined}
+          event={(loadedScenarioEvent ?? scenarioEventToEdit) ?? undefined}
+          isLoadingEvent={isLoadingScenario}
           onClose={() => {
             setIsScenarioModalOpen(false)
             setScenarioEventToEdit(null)
+            setSelectedScenarioId(undefined)
           }}
           onSaved={() => {
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new Event('financial-data-refresh'))
             }
             setScenarioEventToEdit(null)
+            setSelectedScenarioId(undefined)
             setIsScenarioModalOpen(false)
           }}
         />
       )}
-      <TimelineEditDrawer
-        isOpen={isTimelineDrawerOpen}
-        onClose={() => setIsTimelineDrawerOpen(false)}
-        year={selectedYear}
-        timelineYear={timelineYear}
-        onSave={handleSaveTimelineEdits}
-        saving={isSavingTimeline}
-      />
     </div>
   )
 }
