@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import type { TimelineEditRequest, TimelineFrequency, TimelineItem, TimelineItemType, TimelineYear } from '@/types/timeline'
 
@@ -60,16 +60,12 @@ export function TimelineEditDrawer({
   const [form, setForm] = useState<FormState>(defaultState)
   const [error, setError] = useState<string | null>(null)
 
-  const existingItems = useMemo(() => {
-    if (!timelineYear) return []
-    const allItems: TimelineItem[] = [
-      ...(timelineYear.assets ?? []),
-      ...(timelineYear.liabilities ?? []),
-      ...(timelineYear.income ?? []),
-      ...(timelineYear.expenses ?? []),
-    ]
-    return allItems
-  }, [timelineYear])
+  const existingItems: TimelineItem[] = [
+    ...(timelineYear?.assets ?? []),
+    ...(timelineYear?.liabilities ?? []),
+    ...(timelineYear?.income ?? []),
+    ...(timelineYear?.expenses ?? []),
+  ]
 
   useEffect(() => {
     if (!isOpen) {

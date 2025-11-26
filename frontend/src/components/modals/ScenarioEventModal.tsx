@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ComponentType } from 'react'
@@ -10,7 +10,8 @@ import { financialApi } from '@/services/financialApi'
 interface ScenarioEventModalProps {
   isOpen: boolean
   onClose: () => void
-  onCreated?: (event: ScenarioEvent) => void
+  onSaved?: (event: ScenarioEvent) => void
+  event?: ScenarioEvent
 }
 
 const defaultImpact: ScenarioImpact = {
@@ -23,7 +24,21 @@ const defaultImpact: ScenarioImpact = {
   notes: '',
 }
 
-export function ScenarioEventModal({ isOpen, onClose, onCreated }: ScenarioEventModalProps) {
+const ICON_OPTIONS = Object.entries(LucideIcons)
+  .filter(([key, component]) => {
+    if (key === 'default' || key === 'createLucideIcon') return false
+    const type = typeof component
+    return type === 'function' || type === 'object'
+  })
+  .map(([key, component]) => {
+    const kebab = key
+      .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+      .replace(/_/g, '-')
+      .toLowerCase()
+    return { name: kebab, label: kebab, Icon: component as ComponentType<{ className?: string }> }
+  })
+
+export function ScenarioEventModal({ isOpen, onClose, onSaved, event }: ScenarioEventModalProps) {
   const [name, setName] = useState('')
   const [occursOn, setOccursOn] = useState('')
   const [description, setDescription] = useState('')
@@ -40,26 +55,8 @@ export function ScenarioEventModal({ isOpen, onClose, onCreated }: ScenarioEvent
   const CloseIcon = LucideIcons.X as LucideIcon | undefined
   const SparklesIcon = LucideIcons.Sparkles as LucideIcon | undefined
 
-  const iconOptions = useMemo(() => {
-    return Object.entries(LucideIcons)
-      .filter(([key, component]) => {
-        if (key === 'default' || key === 'createLucideIcon') return false
-        const type = typeof component
-        return type === 'function' || type === 'object'
-      })
-      .map(([key, component]) => {
-        const kebab = key
-          .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-          .replace(/_/g, '-')
-          .toLowerCase()
-        return { name: kebab, label: kebab, Icon: component as ComponentType<{ className?: string }> }
-      })
-  }, [])
-
-  const SelectedIcon = useMemo(() => {
-    const match = iconOptions.find((opt) => opt.name === displayIcon)
-    return match?.Icon
-  }, [displayIcon, iconOptions])
+  const iconOptions = ICON_OPTIONS
+  const SelectedIcon = iconOptions.find((opt) => opt.name === displayIcon)?.Icon
 
   const handleExample = () => {
     const exampleOccurs = new Date()
@@ -95,6 +92,31 @@ export function ScenarioEventModal({ isOpen, onClose, onCreated }: ScenarioEvent
     ])
     setIconSearch('briefcase')
   }
+
+  useEffect(() => {
+    if (!isOpen) return
+    if (event) {
+      setName(event.name ?? '')
+      setOccursOn(event.occurs_on ?? '')
+      setDescription(event.description ?? '')
+      setDisplayIcon(event.display_icon ?? 'sparkles')
+      setIconColor(event.display_color ?? '#0ea5e9')
+      setTags((event.tags ?? []).join(','))
+      setIsIncluded(event.is_included ?? true)
+      setImpacts(event.impacts && event.impacts.length > 0 ? event.impacts : [{ ...defaultImpact }])
+      setIconSearch(event.display_icon ?? '')
+    } else {
+      setName('')
+      setOccursOn('')
+      setDescription('')
+      setDisplayIcon('sparkles')
+      setIconColor('#0ea5e9')
+      setTags('')
+      setIsIncluded(true)
+      setImpacts([{ ...defaultImpact }])
+      setIconSearch('')
+    }
+  }, [event, isOpen])
 
   if (!isOpen) return null
 
@@ -133,10 +155,11 @@ export function ScenarioEventModal({ isOpen, onClose, onCreated }: ScenarioEvent
     }
     setSaving(true)
     try {
-      const created = await financialApi.createScenarioEvent(payload)
+      const saved = event?.id
+        ? await financialApi.updateScenarioEvent(event.id, { ...event, ...payload })
+        : await financialApi.createScenarioEvent(payload)
       onClose()
-      // Call onCreated after closing the modal to ensure clean state
-      onCreated?.(created)
+      onSaved?.(saved)
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : 'Unable to create scenario.'
       setError(message)
@@ -151,7 +174,7 @@ export function ScenarioEventModal({ isOpen, onClose, onCreated }: ScenarioEvent
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Scenario</p>
-              <h2 className="text-2xl font-semibold">Create Scenario Event</h2>
+              <h2 className="text-2xl font-semibold">{event ? 'Edit Scenario Event' : 'Create Scenario Event'}</h2>
               <p className="text-sm text-gray-400">Define event details and financial impacts.</p>
             </div>
             <div className="flex items-center gap-2">
@@ -230,9 +253,9 @@ export function ScenarioEventModal({ isOpen, onClose, onCreated }: ScenarioEvent
                       opt.label.toLowerCase().includes(iconSearch.trim().toLowerCase())
                   )
                   .slice(0, 24)
-                  .map((opt) => (
+                  .map((opt, idx) => (
                     <button
-                      key={opt.name}
+                      key={`${opt.name}-${idx}`}
                       type="button"
                       onClick={() => {
                         setDisplayIcon(opt.name)

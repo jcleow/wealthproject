@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 
 import type { Asset, Expense, Frequency, Income, Liability } from '../../types/financial'
@@ -193,7 +193,7 @@ export function FinancialFormModal({
   })
   const [cpfErrors, setCpfErrors] = useState<Partial<typeof cpfFields>>({})
 
-  const normalizedCategory = useMemo(() => {
+  const normalizedCategory = (() => {
     switch (type) {
       case 'income':
         return 'incomes'
@@ -206,7 +206,7 @@ export function FinancialFormModal({
       default:
         return type
     }
-  }, [type])
+  })()
 
   useEffect(() => {
     if (!isOpen) return
@@ -291,7 +291,7 @@ export function FinancialFormModal({
     }
   }, [data, isOpen, type])
 
-  const categoryOptions = useMemo(() => {
+  const categoryOptions = (() => {
     switch (type) {
       case 'asset':
         return assetCategoryOptions
@@ -304,7 +304,7 @@ export function FinancialFormModal({
       default:
         return []
     }
-  }, [type])
+  })()
 
   const isCustomCategory =
     categoryOptions.length > 0 &&

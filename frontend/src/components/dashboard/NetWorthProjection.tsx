@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Area,
   ComposedChart,
@@ -8,14 +8,14 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  ReferenceArea,
 } from 'recharts'
 
 import { useFinancialData } from '@/hooks/useFinancialData'
-import { ScenarioMarker } from './ScenarioMarker'
+import * as LucideIcons from 'lucide-react'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { TimelineYear } from '@/types/timeline'
 import { formatCurrency } from '@/lib/format'
+import ScenarioMarker from './ScenarioMarker'
 
 const chartColors = {
   axis: '#aeb6c9',
@@ -132,6 +132,7 @@ export interface NetWorthProjectionProps {
   selectedYear?: number
   onSelectYear?: (year: number) => void
   scenarioEvents?: ScenarioEvent[]
+  onScenarioSelect?: (event: ScenarioEvent) => void
 }
 
 export function NetWorthProjection({
@@ -140,6 +141,7 @@ export function NetWorthProjection({
   selectedYear,
   onSelectYear,
   scenarioEvents,
+  onScenarioSelect,
 }: NetWorthProjectionProps) {
   const {
     assets,
@@ -152,17 +154,12 @@ export function NetWorthProjection({
   const [xAxisMode, setXAxisMode] = useState<AxisMode>('age')
   const [hasSize, setHasSize] = useState(false)
   const [containerWidth, setContainerWidth] = useState(0)
-  const [startIndex, setStartIndex] = useState<number | null>(null)
-  const [endIndex, setEndIndex] = useState<number | null>(null)
-  const [refAreaLeft, setRefAreaLeft] = useState<string>('')
-  const [refAreaRight, setRefAreaRight] = useState<string>('')
-  const [isSelecting, setIsSelecting] = useState(false)
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartWrapperRef = useRef<HTMLDivElement>(null)
 
-  const projection = useMemo(() => {
+  const projection = (() => {
     if (timelineYears && timelineYears.length > 0) {
-      const baseCalendarYear = new Date().getFullYear()
+      const baseCalendarYear = 2025
       const timelineProjection = timelineYears.map<ProjectionPoint>((year) => {
         const assets = year.assets ?? []
         const liabilities = year.liabilities ?? []
@@ -218,7 +215,7 @@ export function NetWorthProjection({
     const hasAnyData =
       assets.length > 0 || liabilities.length > 0 || expenses.length > 0 || incomes.length > 0
 
-    const currentYear = new Date().getFullYear()
+    const currentYear = 2025
     const data: ProjectionPoint[] = []
     const annualSavings = Math.max(monthlySavings, 0) * 12
     const assetGrowthRate = 0.05 // conservative 5% annual
@@ -259,7 +256,7 @@ export function NetWorthProjection({
     }
 
     return data
-  }, [assets, expenses, getMonthlySavings, incomes, liabilities, timelineYears])
+  })()
 
   useEffect(() => {
     const element = chartContainerRef.current
@@ -276,20 +273,9 @@ export function NetWorthProjection({
   }, [])
 
   // Filter data based on zoom
-  const displayData = useMemo(() => {
-    if (startIndex === null || endIndex === null) {
-      return projection
-    }
+  const displayData = projection
 
-    const filtered = projection.filter(
-      (point) => point.yearIndex >= (startIndex ?? 0) && point.yearIndex <= (endIndex ?? Number.POSITIVE_INFINITY)
-    )
-
-    // Ensure we have at least 2 points for the chart
-    return filtered.length > 1 ? filtered : projection.slice(0, 2)
-  }, [startIndex, endIndex, projection])
-
-  const ticks = useMemo(() => {
+  const ticks = (() => {
     const totalPoints = displayData.length
     if (totalPoints === 0) return [] as number[]
     const minSpacingPx = 60
@@ -305,19 +291,23 @@ export function NetWorthProjection({
     const first = displayData[0]?.yearIndex ?? 0
     if (values[0] !== first) values.unshift(first)
     return values
-  }, [containerWidth, displayData])
+  })()
 
-  const overrideYearsSet = useMemo(
-    () =>
-      overrideYears ??
-      new Set(
-        projection.filter((point) => point.hasOverride).map((point) => point.yearIndex)
-      ),
-    [overrideYears, projection]
-  )
+  const overrideYearsSet =
+    overrideYears ??
+    new Set(
+      projection.filter((point) => point.hasOverride).map((point) => point.yearIndex)
+    )
 
-  const scenarioMarkers = useMemo(() => {
+  const scenarioMarkers = (() => {
     if (!scenarioEvents || scenarioEvents.length === 0 || displayData.length === 0) return []
+
+    const currentYear = new Date().getFullYear()
+    const basePoint = displayData[0]
+    const baseYear = basePoint?.calendarYear ?? currentYear
+    const baseIndex = basePoint?.yearIndex ?? 0
+    const minIndex = projection[0]?.yearIndex ?? 0
+    const maxIndex = projection[projection.length - 1]?.yearIndex ?? minIndex
 
     const markersByYear = new Map<number, { events: ScenarioEvent[]; netWorth: number }>()
 
@@ -326,34 +316,27 @@ export function NetWorthProjection({
       return Number.isFinite(year) ? year : null
     }
 
-    const resolveYearIndex = (eventYear: number) => {
-      let closestIndex: number | null = null
-      let smallestDiff = Number.POSITIVE_INFINITY
-
-      displayData.forEach((point) => {
-        const diff = Math.abs((point.calendarYear ?? point.yearIndex) - eventYear)
-        if (diff < smallestDiff) {
-          smallestDiff = diff
-          closestIndex = point.yearIndex
-        }
-      })
-
-      return closestIndex
-    }
-
     scenarioEvents.forEach((event) => {
       if (event.is_included === false) return
       const eventYear = parseEventYear(event.occurs_on)
       if (eventYear === null) return
 
-      const yearIndex = resolveYearIndex(eventYear)
-      if (yearIndex === null) return
+      // Calculate the year index relative to the base display point
+      const yearIndex = baseIndex + (eventYear - baseYear)
+      const clampedIndex = Math.max(minIndex, Math.min(maxIndex, yearIndex))
 
-      const point = displayData.find((entry) => entry.yearIndex === yearIndex)
-      if (!point) return
+      // Match by calendarYear if present; otherwise by yearIndex
+      const displayPoint =
+        displayData.find((entry) => entry.calendarYear === eventYear) ??
+        displayData.find((entry) => entry.yearIndex === clampedIndex) ??
+        displayData.find((entry) => entry.yearIndex === yearIndex)
 
-      const existing = markersByYear.get(yearIndex) ?? { events: [], netWorth: point.netWorth }
-      markersByYear.set(yearIndex, { events: [...existing.events, event], netWorth: point.netWorth })
+      if (!displayPoint) return
+
+      const netWorth = displayPoint.netWorth
+
+      const existing = markersByYear.get(displayPoint.yearIndex) ?? { events: [], netWorth }
+      markersByYear.set(displayPoint.yearIndex, { events: [...existing.events, event], netWorth })
     })
 
     return Array.from(markersByYear.entries()).map(([yearIndex, data]) => ({
@@ -361,117 +344,7 @@ export function NetWorthProjection({
       netWorth: Math.max(data.netWorth, 0),
       events: data.events,
     }))
-  }, [displayData, scenarioEvents])
-
-  const toPascalCase = (value: string) =>
-    value
-      .split(/[-_]/)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join('')
-
-  const getIcon = (iconName?: string) => {
-    if (!iconName) return null
-    const pascal = toPascalCase(iconName)
-    const IconComp = (LucideIcons as unknown as Record<string, React.ComponentType<any>>)[pascal]
-    return IconComp ?? null
-  }
-
-  const handleMouseDown = (e: any) => {
-    if (e?.activeLabel !== undefined) {
-      setRefAreaLeft(e.activeLabel)
-      setRefAreaRight('')
-      setIsSelecting(true)
-    }
-  }
-
-  const handleMouseMove = (e: any) => {
-    if (isSelecting && refAreaLeft && e?.activeLabel !== undefined) {
-      setRefAreaRight(e.activeLabel)
-    }
-  }
-
-  const handleMouseUp = () => {
-    if (refAreaLeft && refAreaRight) {
-      const left = Math.min(Number(refAreaLeft), Number(refAreaRight))
-      const right = Math.max(Number(refAreaLeft), Number(refAreaRight))
-
-      if (right - left > 1) {
-        setZoomDomain([left, right])
-      }
-    }
-    setRefAreaLeft('')
-    setRefAreaRight('')
-    setIsSelecting(false)
-  }
-
-  const handleZoomIn = () => {
-    const currentStart = zoomDomain?.[0] ?? 0
-    const currentEnd = zoomDomain?.[1] ?? projection.length - 1
-    const range = currentEnd - currentStart
-    const newRange = Math.max(3, Math.floor(range * 0.7))
-    const center = Math.floor((currentStart + currentEnd) / 2)
-    const newStart = Math.max(0, center - Math.floor(newRange / 2))
-    const newEnd = Math.min(projection.length - 1, newStart + newRange)
-    setZoomDomain([newStart, newEnd])
-  }
-
-  const handleZoomOut = () => {
-    const currentStart = zoomDomain?.[0] ?? 0
-    const currentEnd = zoomDomain?.[1] ?? projection.length - 1
-    const range = currentEnd - currentStart
-    const newRange = Math.min(projection.length - 1, Math.floor(range * 1.4))
-    const center = Math.floor((currentStart + currentEnd) / 2)
-    const newStart = Math.max(0, center - Math.floor(newRange / 2))
-    const newEnd = Math.min(projection.length - 1, newStart + newRange)
-    if (newEnd - newStart >= projection.length - 2) {
-      setZoomDomain(null)
-    } else {
-      setZoomDomain([newStart, newEnd])
-    }
-  }
-
-  const handleResetZoom = () => {
-    setZoomDomain(null)
-    setRefAreaLeft('')
-    setRefAreaRight('')
-  }
-
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    if (!chartWrapperRef.current || projection.length === 0) return
-
-    const zoomFactor = 0.1
-    const direction = e.deltaY < 0 ? -1 : 1 // Negative for zoom in, positive for zoom out
-
-    const currentStart = zoomDomain?.[0] ?? 0
-    const currentEnd = zoomDomain?.[1] ?? projection.length - 1
-    const currentRange = currentEnd - currentStart
-
-    // Calculate mouse position relative to chart
-    const chartRect = chartWrapperRef.current.getBoundingClientRect()
-    const mouseX = e.clientX - chartRect.left
-    const chartWidth = chartRect.width
-    const mousePercentage = mouseX / chartWidth
-
-    // Calculate zoom amount
-    const zoomAmount = currentRange * zoomFactor * direction
-
-    // Calculate new domain based on mouse position
-    const newStart = Math.max(0, currentStart + zoomAmount * mousePercentage)
-    const newEnd = Math.min(projection.length - 1, currentEnd - zoomAmount * (1 - mousePercentage))
-
-    // Ensure minimum zoom range
-    if (newEnd - newStart < 3) return
-
-    // Reset zoom if we're back to full range
-    if (newStart <= 0 && newEnd >= projection.length - 1) {
-      setZoomDomain(null)
-    } else {
-      setZoomDomain([Math.floor(newStart), Math.ceil(newEnd)])
-    }
-  }
+  })()
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -488,51 +361,16 @@ export function NetWorthProjection({
         ref={chartContainerRef}
         className="relative w-full flex-1 min-h-[300px] min-w-0 overflow-hidden [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
       >
-        {/* Zoom Controls */}
-        <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
-          <button
-            onClick={handleZoomIn}
-            className="flex h-8 w-8 items-center justify-center rounded bg-white/10 text-white backdrop-blur transition hover:bg-white/20"
-            title="Zoom In"
-          >
-            <span className="text-lg font-bold">+</span>
-          </button>
-          {(startIndex !== null || endIndex !== null) && (
-            <button
-              onClick={handleResetZoom}
-              className="flex h-auto px-2 py-1 items-center justify-center rounded bg-white/10 text-white text-xs backdrop-blur transition hover:bg-white/20"
-              title="Reset Zoom"
-            >
-              Reset Zoom
-            </button>
-          )}
-          <button
-            onClick={handleZoomOut}
-            className="flex h-8 w-8 items-center justify-center rounded bg-white/10 text-white backdrop-blur transition hover:bg-white/20"
-            title="Zoom Out"
-          >
-            <span className="text-lg font-bold">−</span>
-          </button>
-        </div>
-
         {hasSize && displayData.length > 0 ? (
           <div
             ref={chartWrapperRef}
             className="h-full w-full"
-            onWheel={handleWheel}
             style={{ touchAction: 'none' }}
           >
             <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>
               <ComposedChart
                 data={displayData}
                 margin={{ top: 20, right: 8, left: 8, bottom: 12 }}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={() => {
-                  setRefAreaLeft('')
-                  setRefAreaRight('')
-                }}
               >
               <defs>
                 <linearGradient id="netWorthGradient" x1="0" x2="0" y1="0" y2="1">
@@ -547,11 +385,14 @@ export function NetWorthProjection({
                 fillOpacity={0}
               />
               <XAxis
+                type="number"
                 axisLine={false}
                 dataKey="yearIndex"
                 fontSize={12}
                 interval={0}
                 ticks={ticks}
+                allowDecimals={false}
+                allowDataOverflow
                 stroke={chartColors.axis}
                 tickLine={false}
                 tick={
@@ -599,6 +440,8 @@ export function NetWorthProjection({
                 <Scatter
                   data={scenarioMarkers}
                   dataKey="netWorth"
+                  xAxisId={0}
+                  yAxisId={0}
                   shape={({ cx = 0, cy = 0, payload }: any) => (
                     <ScenarioMarker
                       cx={cx}
@@ -606,19 +449,10 @@ export function NetWorthProjection({
                       events={payload?.events ?? []}
                       yearIndex={payload?.yearIndex ?? 0}
                       onSelectYear={onSelectYear}
+                      onScenarioSelect={onScenarioSelect}
                     />
                   )}
                   isAnimationActive={false}
-                />
-              )}
-
-              {refAreaLeft && refAreaRight && (
-                <ReferenceArea
-                  x1={refAreaLeft}
-                  x2={refAreaRight}
-                  strokeOpacity={0.3}
-                  fill="rgba(79, 129, 255, 0.15)"
-                  stroke="rgba(79, 129, 255, 0.5)"
                 />
               )}
             </ComposedChart>

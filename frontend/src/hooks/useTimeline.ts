@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { timelineApi } from '@/services/timelineApi'
@@ -24,21 +24,15 @@ export function useTimeline() {
     setSelectedYear(firstYear)
   }, [selectedYear, timelineQuery.data])
 
-  const years = useMemo(
-    () => timelineQuery.data?.years?.map((entry) => entry.year) ?? [],
-    [timelineQuery.data?.years]
-  )
+  const years = timelineQuery.data?.years?.map((entry) => entry.year) ?? []
 
   const selectedYearValue = selectedYear ?? years[0] ?? 0
 
-  const selectedYearData: TimelineYear | undefined = useMemo(
-    () => timelineQuery.data?.years?.find((year) => year.year === selectedYearValue),
-    [selectedYearValue, timelineQuery.data?.years]
-  )
+  const selectedYearData: TimelineYear | undefined =
+    timelineQuery.data?.years?.find((year) => year.year === selectedYearValue)
 
-  const overrideYears = useMemo(
-    () => new Set(timelineQuery.data?.years?.filter((year) => year.has_overrides).map((year) => year.year) ?? []),
-    [timelineQuery.data?.years]
+  const overrideYears = new Set(
+    timelineQuery.data?.years?.filter((year) => year.has_overrides).map((year) => year.year) ?? []
   )
 
   const upsertMutation = useMutation({

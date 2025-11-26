@@ -9,6 +9,7 @@ import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import type { TimelineEditRequest, TimelineYear } from '@/types/timeline'
+import type { ScenarioEvent } from '@/types/scenario'
 
 interface FinancialWorkspaceProps {
   selectedYear: number
@@ -35,6 +36,7 @@ export function FinancialWorkspace({
 }: FinancialWorkspaceProps) {
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
+  const [scenarioEventToEdit, setScenarioEventToEdit] = useState<ScenarioEvent | null>(null)
   const [isClearing, setIsClearing] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
   const [isTimelineDrawerOpen, setIsTimelineDrawerOpen] = useState(false)
@@ -139,6 +141,7 @@ export function FinancialWorkspace({
   }
 
   const handleCreateScenario = () => {
+    setScenarioEventToEdit(null)
     setIsScenarioModalOpen(true)
   }
 
@@ -225,6 +228,10 @@ export function FinancialWorkspace({
           overrideYears={overrideYears}
           selectedYear={selectedYear}
           scenarioEvents={scenarioEvents}
+          onScenarioSelect={(event) => {
+            setScenarioEventToEdit(event)
+            setIsScenarioModalOpen(true)
+          }}
           onSelectYear={(year) => {
             onSelectYear(year)
             const target = document.getElementById('financial-data-section')
@@ -240,14 +247,17 @@ export function FinancialWorkspace({
       {isScenarioModalOpen && (
         <ScenarioEventModal
           isOpen={isScenarioModalOpen}
-          onClose={() => setIsScenarioModalOpen(false)}
-          onCreated={() => {
+          event={scenarioEventToEdit ?? undefined}
+          onClose={() => {
+            setIsScenarioModalOpen(false)
+            setScenarioEventToEdit(null)
+          }}
+          onSaved={() => {
             if (typeof window !== 'undefined') {
-              // Add a small delay to ensure the API response has been processed
-              setTimeout(() => {
-                window.dispatchEvent(new Event('financial-data-refresh'))
-              }, 100)
+              window.dispatchEvent(new Event('financial-data-refresh'))
             }
+            setScenarioEventToEdit(null)
+            setIsScenarioModalOpen(false)
           }}
         />
       )}

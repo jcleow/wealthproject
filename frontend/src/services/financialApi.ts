@@ -1,7 +1,7 @@
 import type { Asset, Liability, Income, Expense } from '@/types/financial'
 import type { PropertyLinkRecord, PropertyScenarioRecord } from '@/types/property'
 import type { ScenarioEvent } from '@/types/scenario'
-import type { ScenarioEventsDTO } from '@/types/api-dtos'
+import type { ScenarioEventDTO, ScenarioEventsDTO } from '@/types/api-dtos'
 
 function getApiBaseUrl() {
   const envURL = process.env.NEXT_PUBLIC_GO_BACKEND_BASE_URL?.trim()
@@ -361,27 +361,52 @@ export const financialApi = {
     }
   },
 
-  async listScenarioEvents(): Promise<ScenarioEvent[]> {
-    const normalize = (item: ScenarioEvent): ScenarioEvent => ({
-      id: (item as any).id ?? (item as any).ID ?? '',
-      name: (item as any).name ?? (item as any).Name ?? '',
-      description: (item as any).description ?? (item as any).Description ?? '',
-      occurs_on:
-        (item as any).occurs_on ?? (item as any).occursOn ?? (item as any).OccursOn ?? '',
-      display_icon: (item as any).display_icon ?? (item as any).DisplayIcon ?? '',
-      display_color: (item as any).display_color ?? (item as any).DisplayColor,
-      tags: (item as any).tags ?? (item as any).Tags ?? [],
+  async updateScenarioEvent(id: string, payload: ScenarioEvent): Promise<ScenarioEvent> {
+    if (!id) throw new Error('Scenario event id is required')
+    const body = {
+      name: payload.name,
+      description: payload.description ?? '',
+      occurs_on: payload.occurs_on,
+      display_icon: payload.display_icon ?? 'sparkles',
+      display_color: payload.display_color,
+      tags: payload.tags ?? [],
+      scenario_id: payload.scenario_id,
+      is_included: payload.is_included ?? true,
+      impacts: payload.impacts,
+    }
+    const data = await jsonRequest<any>(`${API_BASE}/scenario-events/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    })
+    return {
+      id: data.id ?? data.ID ?? id,
+      name: data.name ?? data.Name ?? payload.name,
+      description: data.description ?? data.Description ?? payload.description,
+      occurs_on: data.occurs_on ?? data.OccursOn ?? data.occursOn ?? payload.occurs_on,
+      display_icon: data.display_icon ?? data.DisplayIcon ?? payload.display_icon,
+      display_color: data.display_color ?? data.DisplayColor ?? payload.display_color,
+      tags: data.tags ?? data.Tags ?? payload.tags ?? [],
       scenario_id:
-        (item as any).scenario_id ??
-        (item as any).scenarioId ??
-        (item as any).ScenarioID ??
-        (item as any).ScenarioId,
+        data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? data.scenarioId ?? payload.scenario_id,
+      is_included: data.is_included ?? data.IsIncluded ?? data.isIncluded ?? payload.is_included ?? true,
+      impacts: data.impacts ?? data.Impacts ?? payload.impacts,
+    }
+  },
+
+  async listScenarioEvents(): Promise<ScenarioEvent[]> {
+    const normalize = (item: ScenarioEventDTO): ScenarioEvent => ({
+      id: item.id ?? item.ID ?? '',
+      name: item.name ?? item.Name ?? '',
+      description: item.description ?? item.Description ?? '',
+      occurs_on: item.occurs_on ?? item.occursOn ?? item.OccursOn ?? '',
+      display_icon: item.display_icon ?? item.displayIcon ?? item.DisplayIcon ?? '',
+      display_color: item.display_color ?? item.displayColor ?? item.DisplayColor,
+      tags: item.tags ?? item.Tags ?? [],
+      scenario_id:
+        item.scenario_id ?? item.scenarioId ?? item.ScenarioID ?? item.ScenarioId,
       is_included:
-        (item as any).is_included ??
-        (item as any).isIncluded ??
-        (item as any).IsIncluded ??
-        true,
-      impacts: (item as any).impacts ?? (item as any).Impacts ?? [],
+        item.is_included ?? item.isIncluded ?? item.IsIncluded ?? true,
+      impacts: item.impacts ?? item.Impacts ?? [],
     })
 
     const data = await jsonRequest<ScenarioEventsDTO>(`${API_BASE}/scenario-events`)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { Chat } from '../chat/Chat'
 import { ChatFloatingLauncher } from './ChatFloatingLauncher'
@@ -11,7 +11,8 @@ import { useTimeline } from '@/hooks/useTimeline'
 import { cn, generateUUID } from '@/lib/utils'
 
 export function Dashboard() {
-  const chatId = useMemo(() => generateUUID(), [])
+  const chatIdRef = useRef<string>(generateUUID())
+  const chatId = chatIdRef.current
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const timeline = useTimeline()
   const timelineError =

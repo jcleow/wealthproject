@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, SlidersHorizontal, Pencil, Trash2, Home, Info } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 
@@ -83,10 +83,10 @@ export function FinancialDataManagement({
   onSaveTimelineEdits,
 }: FinancialDataManagementProps) {
   const usingTimeline = true
-  const yearAssets = useMemo(() => timelineYear?.assets ?? [], [timelineYear?.assets])
-  const yearLiabilities = useMemo(() => timelineYear?.liabilities ?? [], [timelineYear?.liabilities])
-  const yearIncomes = useMemo(() => timelineYear?.income ?? [], [timelineYear?.income])
-  const yearExpenses = useMemo(() => timelineYear?.expenses ?? [], [timelineYear?.expenses])
+  const yearAssets = timelineYear?.assets ?? []
+  const yearLiabilities = timelineYear?.liabilities ?? []
+  const yearIncomes = timelineYear?.income ?? []
+  const yearExpenses = timelineYear?.expenses ?? []
 
   const {
     addAsset,
@@ -112,7 +112,7 @@ export function FinancialDataManagement({
   const [activeAnnualizationId, setActiveAnnualizationId] = useState<string | null>(null)
   const [assetLinks, setAssetLinks] = useState<Record<string, PropertyLinkRecord[]>>({})
   const [liabilityLinks, setLiabilityLinks] = useState<Record<string, PropertyLinkRecord[]>>({})
-  const mergedLinks = useMemo(() => {
+  const mergedLinks = (() => {
     const map: Record<string, PropertyLinkRecord> = {}
     const add = (id: string | undefined, link: PropertyLinkRecord) => {
       if (!id) return
@@ -133,8 +133,8 @@ export function FinancialDataManagement({
       })
     })
     return map
-  }, [assetLinks, liabilityLinks])
-  const firstLink = useMemo(() => Object.values(mergedLinks)[0] ?? null, [mergedLinks])
+  })()
+  const firstLink = Object.values(mergedLinks)[0] ?? null
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
   const [prefill, setPrefill] = useState<{ scenarioId?: string; assetId?: string; liabilityId?: string } | null>(null)
   const formatYearLabel = (year: number) => (year === 0 ? 'BASE' : `Year ${year}`)

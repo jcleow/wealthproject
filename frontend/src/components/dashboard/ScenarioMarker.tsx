@@ -1,87 +1,98 @@
-import * as LucideIcons from 'lucide-react'
+"use client"
 
 import type { ScenarioEvent } from '@/types/scenario'
+import * as LucideIcons from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 type ScenarioMarkerProps = {
   cx?: number
   cy?: number
   events: ScenarioEvent[]
-  onSelectYear?: (yearIndex: number) => void
   yearIndex: number
+  onSelectYear?: (year: number) => void
+  onScenarioSelect?: (event: ScenarioEvent) => void
 }
 
-const toPascalCase = (value: string) =>
-  value
-    .split(/[-_]/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('')
+export default function ScenarioMarker({
+  cx = 0,
+  cy = 0,
+  events,
+  yearIndex,
+  onSelectYear,
+  onScenarioSelect,
+}: ScenarioMarkerProps) {
+  const markerRadius = 14
+  const baseLift = markerRadius + 8
+  const stackSpacing = markerRadius * 2 + 8
+  const iconSize = markerRadius * 1.2
 
-export function ScenarioMarker({ cx = 0, cy = 0, events, onSelectYear, yearIndex }: ScenarioMarkerProps) {
-  if (!events || events.length === 0) return null
-
-  const primary = events[0]
-  const getIcon = (iconName?: string) => {
-    if (!iconName) return null
-    const pascal = toPascalCase(iconName)
-    const IconComp = (LucideIcons as Record<string, React.ComponentType<{ className?: string; width?: number; height?: number }>>)[pascal]
-    return IconComp ?? null
+  const handleClick = (primary?: ScenarioEvent) => {
+    if (onSelectYear) onSelectYear(yearIndex)
+    if (primary && onScenarioSelect) onScenarioSelect(primary)
   }
 
-  const IconComp = getIcon(primary.display_icon ?? 'sparkles')
-  const color = primary.display_color || '#0ea5e9'
-  const extraCount = events.length - 1
-
-  // Size math tied together for consistent centering/scaling.
-  const markerRadius = 14
-  const lift = markerRadius + 2
-  const iconSize = markerRadius * 0.75
-  const iconOffset = iconSize / 2
-
   return (
-    <g
-      data-testid={`scenario-marker-${yearIndex}`}
-      transform={`translate(${cx}, ${cy - lift})`}
-      className="cursor-pointer"
-      onClick={() => onSelectYear?.(yearIndex)}
-      aria-label={`Scenario marker year ${yearIndex}`}
-    >
-      <circle r={markerRadius} fill={color} fillOpacity={0.9} stroke={color} strokeWidth={markerRadius / 8} />
-      <g transform={`translate(${-iconOffset}, ${-iconOffset})`}>
-        {IconComp ? (
-          <IconComp
-            className="text-white"
-            stroke="white"
-            fill="none"
-            width={iconSize}
-            height={iconSize}
-            preserveAspectRatio="xMidYMid meet"
-            vectorEffect="non-scaling-stroke"
-          />
-        ) : (
-          <text x={0} y={0} textAnchor="middle" dominantBaseline="middle" fontSize={11} fill="#ffffff">
-            {(primary.display_icon ?? '✦').slice(0, 1).toUpperCase()}
-          </text>
-        )}
-      </g>
-      {extraCount > 0 && (
-        <rect
-          x={markerRadius - 8}
-          y={-markerRadius - 2}
-          width={16}
-          height={16}
-          rx={4}
-          fill="#0f172a"
-          stroke={color}
-          strokeWidth={1}
-        />
-      )}
-      {extraCount > 0 && (
-        <text x={markerRadius} y={-markerRadius / 2} textAnchor="middle" fontSize={10} fill="#e2e8f0" fontWeight={600}>
-          +{extraCount}
-        </text>
-      )}
-      <title>{primary.name}</title>
+    <g transform={`translate(${cx}, ${cy})`} role="button" tabIndex={0} style={{ cursor: 'pointer' }}>
+      {events.map((evt, idx) => {
+        const color = evt.display_color || '#0ea5e9'
+        const iconName = evt.display_icon ?? ''
+        const Icon = getIconByName(iconName)
+        const offsetY = -(baseLift + idx * stackSpacing)
+        return (
+          <g
+            key={`${evt.id ?? idx}-${idx}`}
+            transform={`translate(0, ${offsetY})`}
+            onClick={() => handleClick(evt)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                handleClick(evt)
+              }
+            }}
+          >
+            <circle r={markerRadius} fill={color} stroke="rgba(255,255,255,0.3)" strokeWidth={1} />
+            {Icon ? (
+              <Icon
+                aria-hidden
+                className="text-white"
+                width={iconSize}
+                height={iconSize}
+                style={{ transform: `translate(-${iconSize / 2}px, -${iconSize / 2}px)` }}
+                stroke="rgba(255,255,255,0.9)"
+                strokeWidth={1.5}
+                fill="none"
+              />
+            ) : (
+              <text
+                x={0}
+                y={3}
+                textAnchor="middle"
+                fill="#ffffff"
+                fontSize={11}
+                fontWeight={700}
+              >
+                {(evt.display_icon ?? '✦').slice(0, 1).toUpperCase()}
+              </text>
+            )}
+          </g>
+        )
+      })}
     </g>
   )
 }
 
+const iconLookup = Object.entries(LucideIcons).reduce<Record<string, LucideIcon>>((acc, [key, component]) => {
+  if (key === 'default' || key === 'createLucideIcon') return acc
+  const kebab = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/_/g, '-')
+    .toLowerCase()
+  acc[kebab] = component as LucideIcon
+  return acc
+}, {})
+
+function getIconByName(name: string): LucideIcon | undefined {
+  if (!name) return undefined
+  const normalized = name.toLowerCase()
+  return iconLookup[normalized]
+}

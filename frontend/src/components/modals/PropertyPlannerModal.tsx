@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ResponsiveContainer,
   AreaChart,
@@ -223,17 +223,11 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
     setInputs((prev) => ({ ...prev, propertyType: selectedType }))
   }, [selectedType])
 
-  const calculation = useMemo(() => calculateMortgage(inputs), [inputs])
-  const selectedAsset = useMemo(() => assets.find((a) => a.id === selectedAssetId), [assets, selectedAssetId])
-  const selectedLiability = useMemo(
-    () => liabilities.find((l) => l.id === selectedLiabilityId),
-    [liabilities, selectedLiabilityId],
-  )
+  const calculation = calculateMortgage(inputs)
+  const selectedAsset = assets.find((a) => a.id === selectedAssetId)
+  const selectedLiability = liabilities.find((l) => l.id === selectedLiabilityId)
 
-  const hasUnsavedChanges = useMemo(() => {
-    if (!savedSnapshot) return true
-    return savedSnapshot !== JSON.stringify(inputs)
-  }, [inputs, savedSnapshot])
+  const hasUnsavedChanges = !savedSnapshot || savedSnapshot !== JSON.stringify(inputs)
 
   const handleInputChange = (field: keyof MortgageInputs, value: string | number) => {
     setInputs((prev) => ({ ...prev, [field]: value }))
@@ -494,7 +488,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
   const msrPercent = formatPercentage(calculation.msrRatio)
   const msrWithinLimit = calculation.msrRatio <= 0.3
 
-  const formattedLoanEnd = useMemo(() => {
+  const formattedLoanEnd = (() => {
     if (!calculation.loanEndDate) return ''
     const [year, month] = calculation.loanEndDate.split('-').map(Number)
     if (!year || !month) return calculation.loanEndDate
@@ -502,7 +496,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
       year: 'numeric',
       month: 'short',
     })
-  }, [calculation.loanEndDate])
+  })()
 
   if (!isOpen) return null
 
@@ -709,6 +703,22 @@ interface StepOneProps {
   }
 }
 
+const buildMonthOptions = () => {
+  const options: Array<{ value: string; label: string }> = []
+  const currentYear = new Date().getFullYear()
+  for (let year = currentYear; year <= currentYear + 11; year++) {
+    for (let month = 1; month <= 12; month++) {
+      const value = `${year}-${month.toString().padStart(2, '0')}`
+      const label = new Date(year, month - 1).toLocaleDateString('en-SG', {
+        year: 'numeric',
+        month: 'long',
+      })
+      options.push({ value, label })
+    }
+  }
+  return options
+}
+
 function StepOne({
   inputs,
   onChange,
@@ -722,21 +732,7 @@ function StepOne({
   onLiabilityBlur,
   overrideFlags,
 }: StepOneProps) {
-  const monthOptions = useMemo(() => {
-    const options: Array<{ value: string; label: string }> = []
-    const currentYear = new Date().getFullYear()
-    for (let year = currentYear; year <= currentYear + 11; year++) {
-      for (let month = 1; month <= 12; month++) {
-        const value = `${year}-${month.toString().padStart(2, '0')}`
-        const label = new Date(year, month - 1).toLocaleDateString('en-SG', {
-          year: 'numeric',
-          month: 'long',
-        })
-        options.push({ value, label })
-      }
-    }
-    return options
-  }, [])
+  const monthOptions = buildMonthOptions()
 
   return (
     <div className="space-y-6">
