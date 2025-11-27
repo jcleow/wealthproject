@@ -6,6 +6,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { ComponentType } from 'react'
 import type { ScenarioEvent, ScenarioImpact } from '@/types/scenario'
 import { useCreateScenarioEventMutation, useUpdateScenarioEventMutation } from '@/hooks/queries/useScenarioEventsQuery'
+import { useScenarioEvent } from '@/hooks/useScenarioEvent'
 import { Modal } from '@/components/ui/Modal'
 
 interface ScenarioEventModalProps {
@@ -13,16 +14,15 @@ interface ScenarioEventModalProps {
   onClose: () => void
   onSaved?: (event: ScenarioEvent) => void
   event?: ScenarioEvent
-  isLoadingEvent?: boolean
 }
 
 const defaultImpact: ScenarioImpact = {
-  target_type: 'asset',
-  impact_kind: 'delta',
+  targetType: 'asset',
+  impactKind: 'delta',
   amount: 0,
   currency: 'SGD',
   cadence: 'monthly',
-  start_month: '',
+  startMonth: '',
   notes: '',
 }
 
@@ -45,8 +45,10 @@ export function ScenarioEventModal({
   onClose,
   onSaved,
   event,
-  isLoadingEvent = false,
 }: ScenarioEventModalProps) {
+  const { data: fetchedEvent, isFetching } = useScenarioEvent(event?.id, isOpen && Boolean(event?.id), event)
+  const hydratedEvent = fetchedEvent ?? event
+  const normalizeMonth = (value?: string | null) => (value ? value.slice(0, 7) : '')
   const [form, setForm] = useState<{
     name: string
     occursOn: string
@@ -89,19 +91,33 @@ export function ScenarioEventModal({
 
   // Hydrate form when event changes
   useEffect(() => {
-    if (!isOpen || isLoadingEvent) return
-    if (event) {
+    if (!isOpen) return
+    if (hydratedEvent) {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[ScenarioEventModal] hydrating form', {
+          id: hydratedEvent.id,
+          impacts: hydratedEvent.impacts?.length ?? 0,
+          occursOn: hydratedEvent.occursOn,
+        })
+      }
       setForm({
-        name: event.name ?? '',
-        occursOn: event.occurs_on ?? '',
-        description: event.description ?? '',
-        displayIcon: event.display_icon ?? 'sparkles',
-        iconColor: event.display_color ?? '#0ea5e9',
-        isIncluded: event.is_included ?? true,
-        impacts: event.impacts && event.impacts.length > 0 ? event.impacts : [{ ...defaultImpact }],
-        iconSearch: event.display_icon ?? '',
+        name: hydratedEvent.name ?? '',
+        occursOn: normalizeMonth(hydratedEvent.occursOn),
+        description: hydratedEvent.description ?? '',
+        displayIcon: hydratedEvent.displayIcon ?? 'sparkles',
+        iconColor: hydratedEvent.displayColor ?? '#0ea5e9',
+        isIncluded: hydratedEvent.isIncluded ?? true,
+        impacts:
+          hydratedEvent.impacts && hydratedEvent.impacts.length > 0
+            ? hydratedEvent.impacts.map((impact) => ({
+                ...impact,
+                startMonth: normalizeMonth(impact.startMonth) || normalizeMonth(hydratedEvent.occursOn),
+                endMonth: normalizeMonth(impact.endMonth) || undefined,
+              }))
+            : [{ ...defaultImpact, startMonth: normalizeMonth(hydratedEvent.occursOn) }],
+        iconSearch: hydratedEvent.displayIcon ?? '',
       })
-      prevOccursOn.current = event.occurs_on ?? ''
+      prevOccursOn.current = hydratedEvent.occursOn ?? ''
     } else {
       setForm({
         name: '',
@@ -115,7 +131,7 @@ export function ScenarioEventModal({
       })
       prevOccursOn.current = ''
     }
-  }, [event, isOpen, isLoadingEvent])
+  }, [hydratedEvent, isOpen])
 
   // Keep impacts aligned to occurs_on unless user overrides
   useEffect(() => {
@@ -124,8 +140,8 @@ export function ScenarioEventModal({
     setForm((prev) => ({
       ...prev,
       impacts: prev.impacts.map((impact) => {
-        if (!impact.start_month || impact.start_month === prevOccursOn.current.slice(0, 7)) {
-          return { ...impact, start_month: month }
+        if (!impact.startMonth || impact.startMonth === prevOccursOn.current.slice(0, 7)) {
+          return { ...impact, startMonth: month }
         }
         return impact
       }),
@@ -145,7 +161,7 @@ export function ScenarioEventModal({
       ...prev,
       impacts: [
         ...prev.impacts,
-        { ...defaultImpact, start_month: prev.occursOn ? prev.occursOn.slice(0, 7) : defaultImpact.start_month },
+        { ...defaultImpact, startMonth: prev.occursOn ? prev.occursOn.slice(0, 7) : defaultImpact.startMonth },
       ],
     }))
 
@@ -165,22 +181,24 @@ export function ScenarioEventModal({
     const payload: ScenarioEvent = {
       name: form.name.trim(),
       description: form.description.trim(),
-      occurs_on: form.occursOn,
-      display_icon: form.displayIcon.trim() || 'sparkles',
-      display_color: form.iconColor,
+      occursOn: form.occursOn,
+      displayIcon: form.displayIcon.trim() || 'sparkles',
+      displayColor: form.iconColor,
       tags: [],
-      is_included: form.isIncluded,
+      isIncluded: form.isIncluded,
       impacts: form.impacts.map((impact) => ({
         ...impact,
         amount: Number(impact.amount) || 0,
         currency: 'SGD',
-        start_month: impact.start_month || form.occursOn.slice(0, 7),
+        startMonth: impact.startMonth || form.occursOn.slice(0, 7),
       })),
     }
     try {
-      const saved = event?.id
-        ? await financialApi.updateScenarioEvent(event.id, { ...event, ...payload })
-        : await financialApi.createScenarioEvent(payload)
+      const existingEvent = hydratedEvent ?? event
+      const eventId = existingEvent?.id
+      const saved = eventId
+        ? await updateMutation.mutateAsync({ id: eventId, event: { ...existingEvent, ...payload } as ScenarioEvent })
+        : await createMutation.mutateAsync(payload)
       onSaved?.(saved)
       onClose()
     } catch (saveError) {
@@ -189,13 +207,18 @@ export function ScenarioEventModal({
     }
   }
 
-  const loadingState = saving || isLoadingEvent
+  const loadingState = saving || isFetching
 
   const renderIconOption = (IconComp?: ComponentType<{ className?: string }>) => (IconComp ? <IconComp className="h-4 w-4" /> : null)
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
       <div className="relative max-h-[90vh] w-full max-w-4xl overflow-auto rounded-3xl border border-white/10 bg-[#0b1222] p-6 text-white shadow-2xl">
+        {isFetching && (
+          <div className="mb-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200 animate-pulse">
+            Loading scenario...
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Scenario</p>
@@ -220,22 +243,22 @@ export function ScenarioEventModal({
                   isIncluded: true,
                   impacts: [
                     {
-                      target_type: 'income',
-                      impact_kind: 'delta',
+                      targetType: 'income',
+                      impactKind: 'delta',
                       amount: -500000,
                       currency: 'SGD',
                       cadence: 'monthly',
-                      start_month: monthStr,
-                      end_month: undefined,
+                      startMonth: monthStr,
+                      endMonth: undefined,
                       notes: 'Income down by ~$5k/month',
                     },
                     {
-                      target_type: 'expense',
-                      impact_kind: 'delta',
+                      targetType: 'expense',
+                      impactKind: 'delta',
                       amount: 150000,
                       currency: 'SGD',
                       cadence: 'one_time',
-                      start_month: monthStr,
+                      startMonth: monthStr,
                       notes: 'Use savings buffer for 1 month',
                     },
                   ],
@@ -404,8 +427,8 @@ export function ScenarioEventModal({
                   <label className="space-y-1 text-xs">
                     <span className="text-gray-300">Target type</span>
                     <select
-                      value={impact.target_type}
-                      onChange={(e) => handleImpactChange(index, { target_type: e.target.value as ScenarioImpact['target_type'] })}
+                      value={impact.targetType}
+                      onChange={(e) => handleImpactChange(index, { targetType: e.target.value as ScenarioImpact['targetType'] })}
                       className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
                       disabled={loadingState}
                     >
@@ -418,8 +441,8 @@ export function ScenarioEventModal({
                   <label className="space-y-1 text-xs">
                     <span className="text-gray-300">Impact kind</span>
                     <select
-                      value={impact.impact_kind}
-                      onChange={(e) => handleImpactChange(index, { impact_kind: e.target.value as ScenarioImpact['impact_kind'] })}
+                      value={impact.impactKind}
+                      onChange={(e) => handleImpactChange(index, { impactKind: e.target.value as ScenarioImpact['impactKind'] })}
                       className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
                       disabled={loadingState}
                     >
@@ -463,8 +486,8 @@ export function ScenarioEventModal({
                     <span className="text-gray-300">Start month (YYYY-MM)</span>
                     <input
                       type="month"
-                      value={impact.start_month ?? ''}
-                      onChange={(e) => handleImpactChange(index, { start_month: e.target.value })}
+                      value={impact.startMonth ?? ''}
+                      onChange={(e) => handleImpactChange(index, { startMonth: e.target.value })}
                       className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert"
                       disabled={loadingState}
                     />
@@ -473,8 +496,8 @@ export function ScenarioEventModal({
                     <span className="text-gray-300">End month (optional)</span>
                     <input
                       type="month"
-                      value={impact.end_month ?? ''}
-                      onChange={(e) => handleImpactChange(index, { end_month: e.target.value || undefined })}
+                      value={impact.endMonth ?? ''}
+                      onChange={(e) => handleImpactChange(index, { endMonth: e.target.value || undefined })}
                       className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert"
                       disabled={loadingState}
                     />

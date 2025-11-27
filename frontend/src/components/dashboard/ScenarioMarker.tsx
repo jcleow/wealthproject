@@ -34,8 +34,8 @@ export default function ScenarioMarker({
   return (
     <g transform={`translate(${cx}, ${cy})`} role="button" tabIndex={0} style={{ cursor: 'pointer' }}>
       {events.map((evt, idx) => {
-        const color = evt.display_color || '#0ea5e9'
-        const iconName = evt.display_icon ?? ''
+        const color = evt.displayColor || '#0ea5e9'
+        const iconName = evt.displayIcon ?? ''
         const Icon = getIconByName(iconName)
         const offsetY = -(baseLift + idx * stackSpacing)
         return (
@@ -71,7 +71,7 @@ export default function ScenarioMarker({
                 fontSize={11}
                 fontWeight={700}
               >
-                {(evt.display_icon ?? '✦').slice(0, 1).toUpperCase()}
+                {(evt.displayIcon ?? '✦').slice(0, 1).toUpperCase()}
               </text>
             )}
           </g>

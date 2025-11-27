@@ -57,11 +57,11 @@ const scenarioEvents = [
   {
     id: 'evt-1',
     name: 'Job Loss',
-    occurs_on: `${new Date().getFullYear()}-06`,
-    display_icon: 'briefcase',
-    display_color: '#0ea5e9',
+    occursOn: `${new Date().getFullYear()}-06`,
+    displayIcon: 'briefcase',
+    displayColor: '#0ea5e9',
     tags: [],
-    is_included: true,
+    isIncluded: true,
     impacts: [],
   },
 ]

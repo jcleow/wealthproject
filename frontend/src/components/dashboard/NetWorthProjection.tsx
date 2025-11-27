@@ -316,8 +316,8 @@ export function NetWorthProjection({
     }
 
     scenarioEvents.forEach((event) => {
-      if (event.is_included === false) return
-      const eventYear = parseEventYear(event.occurs_on)
+      if (event.isIncluded === false) return
+      const eventYear = parseEventYear(event.occursOn)
       if (eventYear === null) return
 
       // Calculate the year index relative to the base display point

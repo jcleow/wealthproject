@@ -306,9 +306,10 @@ export function FinancialFormModal({
     }
   })()
 
-  const isCustomCategory =
-    categoryOptions.length > 0 &&
-    categoryOptions.every((option) => option.value !== formData.category)
+  const categorySelectOptions =
+    categoryOptions.some((option) => option.value === formData.category) || !formData.category
+      ? categoryOptions
+      : [...categoryOptions, { value: formData.category, label: formData.category }]
 
   if (!isOpen) return null
 
@@ -667,53 +668,32 @@ export function FinancialFormModal({
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-300">Category</label>
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <select
-                      className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none sm:flex-1"
-                      onChange={(event) => {
-                        const next = event.target.value
-                        if (next === 'custom') {
-                          setFormData((prev) => ({ ...prev, category: '' }))
-                        } else {
-                          setFormData((prev) => ({ ...prev, category: next }))
-                        }
-                      }}
-                      value={isCustomCategory ? 'custom' : formData.category}
-                    >
-                      {categoryOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                      <option value="custom">Custom...</option>
-                    </select>
+                <select
+                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                  onChange={(event) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      category: event.target.value,
+                    }))
+                  }
+                  value={formData.category}
+                >
+                  {categorySelectOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
 
-                    {type === 'liability' && formData.category === '' && (
-                      <button
-                        className="w-full rounded-lg border border-blue-400/70 bg-blue-500/10 px-3 py-2 text-sm text-blue-100 transition hover:bg-blue-500/20 sm:w-auto"
-                        onClick={() =>
-                          setFormData((prev) => ({ ...prev, category: MORTGAGE_CATEGORY }))
-                        }
-                        type="button"
-                      >
-                        Default to mortgage
-                      </button>
-                    )}
-                  </div>
-
-                  {(isCustomCategory || categoryOptions.length === 0) && (
-                    <input
-                      className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
-                      onChange={(event) =>
-                        setFormData((prev) => ({ ...prev, category: event.target.value }))
-                      }
-                      placeholder="Enter category"
-                      type="text"
-                      value={formData.category}
-                    />
-                  )}
-                </div>
+                {type === 'liability' && formData.category === '' && (
+                  <button
+                    className="mt-2 w-full rounded-lg border border-blue-400/70 bg-blue-500/10 px-3 py-2 text-sm text-blue-100 transition hover:bg-blue-500/20 sm:w-auto"
+                    onClick={() => setFormData((prev) => ({ ...prev, category: MORTGAGE_CATEGORY }))}
+                    type="button"
+                  >
+                    Default to mortgage
+                  </button>
+                )}
               </div>
 
               <div>

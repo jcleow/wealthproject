@@ -1,13 +1,13 @@
-import { useState } from 'react'
-import { Building2, Loader2, PlusCircle, Sparkles, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Building2, ChevronDown, Loader2, PlusCircle, Sparkles, Trash2 } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
-import { useScenarioEvent } from '@/hooks/useScenarioEvent'
 import { financialApi } from '@/services/financialApi'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
+import { ScenarioSelectorMock } from './ScenarioSelectorMock'
 import type { TimelineEditRequest, TimelineYear } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 
@@ -39,13 +39,10 @@ export function FinancialWorkspace({
   const [scenarioEventToEdit, setScenarioEventToEdit] = useState<ScenarioEvent | null>(null)
   const [isClearing, setIsClearing] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
+  const [isModuleMenuOpen, setIsModuleMenuOpen] = useState(false)
   const { events: scenarioEvents } = useScenarioEvents()
-  const [selectedScenarioId, setSelectedScenarioId] = useState<string | undefined>(undefined)
-  const { data: loadedScenarioEvent, isFetching: isLoadingScenario } = useScenarioEvent(
-    selectedScenarioId,
-    isScenarioModalOpen
-  )
   const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialDataContext()
+  const moduleMenuRef = useRef<HTMLDivElement | null>(null)
 
   const clearPropertyData = async () => {
     if (typeof window === 'undefined') return
@@ -144,6 +141,17 @@ export function FinancialWorkspace({
     setIsPropertyPlannerOpen(true)
   }
 
+  useEffect(() => {
+    if (!isModuleMenuOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moduleMenuRef.current && !moduleMenuRef.current.contains(event.target as Node)) {
+        setIsModuleMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isModuleMenuOpen])
+
   const handleCreateScenario = () => {
     setScenarioEventToEdit(null)
     setIsScenarioModalOpen(true)
@@ -160,14 +168,19 @@ export function FinancialWorkspace({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <div className="hidden md:block">
+            <div className="w-64 lg:w-80">
+              <ScenarioSelectorMock onCreateScenario={handleCreateScenario} />
+            </div>
+          </div>
+          {/* <button
             onClick={handleCreateScenario}
             className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
             type="button"
           >
             <PlusCircle className="h-4 w-4 text-emerald-200" />
             Create Scenario
-          </button>
+          </button> */}
           <div className="hidden items-center gap-2 md:flex">
             <button
               onClick={handleLoadDefaults}
@@ -188,18 +201,37 @@ export function FinancialWorkspace({
               {isClearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             </button>
           </div>
-          <button
-            onClick={handlePropertyPlanner}
-            className="flex items-center gap-3 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
-            type="button"
-          >
-            <Sparkles className="h-4 w-4 text-blue-200" />
-            <span className="hidden md:inline">Property Planner</span>
-            <span className="flex items-center gap-1 rounded-full bg-black/30 px-2 py-1 text-xs text-blue-100">
-              <Building2 className="h-3 w-3" />
-              HDB (BTO / Resale)
-            </span>
-          </button>
+          <div className="relative" ref={moduleMenuRef}>
+            <button
+              onClick={() => setIsModuleMenuOpen((prev) => !prev)}
+              className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+              type="button"
+            >
+              <Sparkles className="h-4 w-4 text-blue-200" />
+              <span className="hidden md:inline">Modules</span>
+              <ChevronDown className={`h-4 w-4 transition ${isModuleMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isModuleMenuOpen && (
+              <div className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-white/10 bg-midnight-800/95 shadow-2xl backdrop-blur">
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    handlePropertyPlanner()
+                  }}
+                  className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-white transition hover:bg-white/10"
+                  type="button"
+                >
+                  <span className="mt-0.5 rounded-full bg-blue-500/10 p-2 text-blue-200">
+                    <Building2 className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-1">
+                    <div className="font-semibold">Property Planner</div>
+                    <p className="text-xs text-blue-100">Model affordability, mortgages, and cash flow.</p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {timelineError && (
@@ -215,7 +247,6 @@ export function FinancialWorkspace({
           scenarioEvents={scenarioEvents}
           onScenarioSelect={async (event) => {
             if (!event?.id) return
-            setSelectedScenarioId(event.id)
             setScenarioEventToEdit(event)
             setIsScenarioModalOpen(true)
           }}
@@ -234,19 +265,16 @@ export function FinancialWorkspace({
       {isScenarioModalOpen && (
         <ScenarioEventModal
           isOpen={isScenarioModalOpen}
-          event={(loadedScenarioEvent ?? scenarioEventToEdit) ?? undefined}
-          isLoadingEvent={isLoadingScenario}
+          event={scenarioEventToEdit ?? undefined}
           onClose={() => {
             setIsScenarioModalOpen(false)
             setScenarioEventToEdit(null)
-            setSelectedScenarioId(undefined)
           }}
           onSaved={() => {
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new Event('financial-data-refresh'))
             }
             setScenarioEventToEdit(null)
-            setSelectedScenarioId(undefined)
             setIsScenarioModalOpen(false)
           }}
         />

@@ -1,6 +1,13 @@
 import type { Asset, Liability, Income, Expense } from '@/types/financial'
 import type { PropertyLinkRecord, PropertyScenarioRecord } from '@/types/property'
-import type { ScenarioEvent } from '@/types/scenario'
+import {
+  type ScenarioEvent,
+  type ScenarioImpactDto,
+  scenarioEventFromDto,
+  scenarioEventToDto,
+  scenarioImpactFromDto,
+  scenarioImpactToDto,
+} from '@/types/scenario'
 import type { ScenarioEventDTO, ScenarioEventsDTO } from '@/types/api-dtos'
 
 function getApiBaseUrl() {
@@ -15,6 +22,24 @@ function getApiBaseUrl() {
 }
 
 const API_BASE = getApiBaseUrl()
+
+const normalizeImpact = (impact: any): ScenarioImpactDto => ({
+  target_type: impact.target_type ?? impact.TargetType ?? impact.targetType ?? 'asset',
+  target_id: impact.target_id ?? impact.TargetID ?? impact.targetId ?? undefined,
+  impact_kind: impact.impact_kind ?? impact.ImpactKind ?? impact.impactKind ?? 'delta',
+  amount: Number(impact.amount ?? impact.Amount ?? 0),
+  currency: impact.currency ?? impact.Currency ?? 'SGD',
+  cadence: impact.cadence ?? impact.Cadence ?? 'monthly',
+  start_month: (impact.start_month ?? impact.StartMonth ?? impact.startMonth ?? '').slice(0, 7),
+  end_month: impact.end_month
+    ? impact.end_month.slice(0, 7)
+    : impact.EndMonth
+      ? impact.EndMonth.slice(0, 7)
+      : impact.endMonth
+        ? impact.endMonth.slice(0, 7)
+        : undefined,
+  notes: impact.notes ?? impact.Notes ?? '',
+})
 
 async function jsonRequest<T>(url: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(url, {
@@ -139,20 +164,30 @@ export const financialApi = {
   async getScenarioEvent(id: string): Promise<ScenarioEvent> {
     if (!id) throw new Error('Scenario event id is required')
     const data = await jsonRequest<any>(`${API_BASE}/scenario-events/${encodeURIComponent(id)}`)
-    return {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[financialApi.getScenarioEvent] response', {
+        id: data.id ?? data.ID ?? id,
+        impacts: Array.isArray(data.impacts) ? data.impacts.length : Array.isArray(data.Impacts) ? data.Impacts.length : null,
+        keys: Object.keys(data || {}),
+      })
+    }
+    const dto = {
       id: data.id ?? data.ID ?? id,
       name: data.name ?? data.Name ?? '',
       description: data.description ?? data.Description ?? '',
       occurs_on: data.occurs_on ?? data.OccursOn ?? data.occursOn ?? '',
       display_icon: data.display_icon ?? data.DisplayIcon ?? '',
-      display_color: data.display_color ?? data.DisplayColor,
+      display_color: data.display_color ?? data.DisplayColor ?? '',
       tags: data.tags ?? data.Tags ?? [],
-      scenario_id:
-        data.scenario_id ?? data.scenarioId ?? data.ScenarioID ?? data.ScenarioId,
-      is_included:
-        data.is_included ?? data.isIncluded ?? data.IsIncluded ?? true,
-      impacts: data.impacts ?? data.Impacts ?? [],
+      scenario_id: data.scenario_id ?? data.scenarioId ?? data.ScenarioID ?? data.ScenarioId,
+      is_included: data.is_included ?? data.isIncluded ?? data.IsIncluded ?? true,
+      impacts: Array.isArray(data.impacts)
+        ? data.impacts.map(normalizeImpact)
+        : Array.isArray(data.Impacts)
+          ? data.Impacts.map(normalizeImpact)
+          : [],
     }
+    return scenarioEventFromDto(dto)
   },
 
   // Liabilities
@@ -350,83 +385,90 @@ export const financialApi = {
 
   // Scenario events (universal schema)
   async createScenarioEvent(payload: ScenarioEvent): Promise<ScenarioEvent> {
-    const body = {
-      name: payload.name,
-      description: payload.description ?? '',
-      occurs_on: payload.occurs_on,
-      display_icon: payload.display_icon ?? 'sparkles',
-      display_color: payload.display_color,
+    const body = scenarioEventToDto({
+      ...payload,
+      displayIcon: payload.displayIcon ?? 'sparkles',
       tags: payload.tags ?? [],
-      scenario_id: payload.scenario_id,
-      is_included: payload.is_included ?? true,
-      impacts: payload.impacts,
-    }
+      isIncluded: payload.isIncluded ?? true,
+    })
     const data = await jsonRequest<any>(`${API_BASE}/scenario-events`, {
       method: 'POST',
       body: JSON.stringify(body),
     })
-    return {
+    const dto = {
       id: data.id ?? data.ID,
       name: data.name ?? data.Name ?? payload.name,
       description: data.description ?? data.Description ?? payload.description,
-      occurs_on: data.occurs_on ?? data.OccursOn ?? data.occursOn ?? payload.occurs_on,
-      display_icon: data.display_icon ?? data.DisplayIcon ?? payload.display_icon,
-      display_color: data.display_color ?? data.DisplayColor ?? payload.display_color,
+      occurs_on: data.occurs_on ?? data.OccursOn ?? data.occursOn ?? payload.occursOn,
+      display_icon: data.display_icon ?? data.DisplayIcon ?? payload.displayIcon,
+      display_color: data.display_color ?? data.DisplayColor ?? payload.displayColor ?? '',
       tags: data.tags ?? data.Tags ?? payload.tags ?? [],
       scenario_id:
-        data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? data.scenarioId ?? payload.scenario_id,
-      is_included: data.is_included ?? data.IsIncluded ?? data.isIncluded ?? payload.is_included ?? true,
-      impacts: data.impacts ?? data.Impacts ?? payload.impacts,
+        data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? data.scenarioId ?? payload.scenarioId,
+      is_included: data.is_included ?? data.IsIncluded ?? data.isIncluded ?? payload.isIncluded ?? true,
+      impacts: Array.isArray(data.impacts)
+        ? data.impacts.map(normalizeImpact)
+        : Array.isArray(data.Impacts)
+          ? data.Impacts.map(normalizeImpact)
+          : Array.isArray(payload.impacts)
+            ? payload.impacts.map(scenarioImpactToDto)
+            : [],
     }
+    return scenarioEventFromDto(dto)
   },
 
   async updateScenarioEvent(id: string, payload: ScenarioEvent): Promise<ScenarioEvent> {
     if (!id) throw new Error('Scenario event id is required')
-    const body = {
-      name: payload.name,
-      description: payload.description ?? '',
-      occurs_on: payload.occurs_on,
-      display_icon: payload.display_icon ?? 'sparkles',
-      display_color: payload.display_color,
+    const body = scenarioEventToDto({
+      ...payload,
+      displayIcon: payload.displayIcon ?? 'sparkles',
       tags: payload.tags ?? [],
-      scenario_id: payload.scenario_id,
-      is_included: payload.is_included ?? true,
-      impacts: payload.impacts,
-    }
+      isIncluded: payload.isIncluded ?? true,
+    })
     const data = await jsonRequest<any>(`${API_BASE}/scenario-events/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     })
-    return {
+    const dto = {
       id: data.id ?? data.ID ?? id,
       name: data.name ?? data.Name ?? payload.name,
       description: data.description ?? data.Description ?? payload.description,
-      occurs_on: data.occurs_on ?? data.OccursOn ?? data.occursOn ?? payload.occurs_on,
-      display_icon: data.display_icon ?? data.DisplayIcon ?? payload.display_icon,
-      display_color: data.display_color ?? data.DisplayColor ?? payload.display_color,
+      occurs_on: data.occurs_on ?? data.OccursOn ?? data.occursOn ?? payload.occursOn,
+      display_icon: data.display_icon ?? data.DisplayIcon ?? payload.displayIcon,
+      display_color: data.display_color ?? data.DisplayColor ?? payload.displayColor ?? '',
       tags: data.tags ?? data.Tags ?? payload.tags ?? [],
       scenario_id:
-        data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? data.scenarioId ?? payload.scenario_id,
-      is_included: data.is_included ?? data.IsIncluded ?? data.isIncluded ?? payload.is_included ?? true,
-      impacts: data.impacts ?? data.Impacts ?? payload.impacts,
+        data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? data.scenarioId ?? payload.scenarioId,
+      is_included: data.is_included ?? data.IsIncluded ?? data.isIncluded ?? payload.isIncluded ?? true,
+      impacts: Array.isArray(data.impacts)
+        ? data.impacts.map(normalizeImpact)
+        : Array.isArray(data.Impacts)
+          ? data.Impacts.map(normalizeImpact)
+          : Array.isArray(payload.impacts)
+            ? payload.impacts.map(scenarioImpactToDto)
+            : [],
     }
+    return scenarioEventFromDto(dto)
   },
 
   async listScenarioEvents(): Promise<ScenarioEvent[]> {
-    const normalize = (item: ScenarioEventDTO): ScenarioEvent => ({
-      id: item.id ?? item.ID ?? '',
-      name: item.name ?? item.Name ?? '',
-      description: item.description ?? item.Description ?? '',
-      occurs_on: item.occurs_on ?? item.occursOn ?? item.OccursOn ?? '',
-      display_icon: item.display_icon ?? item.displayIcon ?? item.DisplayIcon ?? '',
-      display_color: item.display_color ?? item.displayColor ?? item.DisplayColor,
-      tags: item.tags ?? item.Tags ?? [],
-      scenario_id:
-        item.scenario_id ?? item.scenarioId ?? item.ScenarioID ?? item.ScenarioId,
-      is_included:
-        item.is_included ?? item.isIncluded ?? item.IsIncluded ?? true,
-      impacts: item.impacts ?? item.Impacts ?? [],
-    })
+    const normalize = (item: ScenarioEventDTO): ScenarioEvent =>
+      scenarioEventFromDto({
+        id: item.id ?? item.ID ?? '',
+        name: item.name ?? item.Name ?? '',
+        description: item.description ?? item.Description ?? '',
+        occurs_on: item.occurs_on ?? item.occursOn ?? item.OccursOn ?? '',
+        display_icon: item.display_icon ?? item.displayIcon ?? item.DisplayIcon ?? '',
+        display_color: item.display_color ?? item.displayColor ?? item.DisplayColor ?? '',
+        tags: item.tags ?? item.Tags ?? [],
+        scenario_id: item.scenario_id ?? item.scenarioId ?? item.ScenarioID ?? item.ScenarioId ?? undefined,
+        is_included: item.is_included ?? item.isIncluded ?? item.IsIncluded ?? true,
+        impacts: Array.isArray(item.impacts)
+          ? item.impacts.map(scenarioImpactFromDto)
+          : Array.isArray((item as any).Impacts)
+            ? (item as any).Impacts.map(scenarioImpactFromDto)
+            : [],
+      })
 
     const data = await jsonRequest<ScenarioEventsDTO>(`${API_BASE}/scenario-events`)
     const list = Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : []

@@ -39,28 +39,122 @@ func (h *ScenarioEventHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/scenario-events/", h.handleItem)
 }
 
-type scenarioImpactRequest struct {
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	ImpactKind string `json:"impact_kind"`
-	Amount     int64  `json:"amount"`
-	Currency   string `json:"currency"`
-	Cadence    string `json:"cadence"`
-	StartMonth string `json:"start_month"`
-	EndMonth   string `json:"end_month"`
-	Notes      string `json:"notes"`
+// Input structs that tolerate both camelCase (preferred) and legacy snake_case.
+type scenarioImpactInput struct {
+	TargetType      string  `json:"targetType"`
+	TargetTypeSnake string  `json:"target_type"`
+	TargetID        *string `json:"targetId"`
+	TargetIDSnake   *string `json:"target_id"`
+	ImpactKind      string  `json:"impactKind"`
+	ImpactKindSnake string  `json:"impact_kind"`
+	Amount          int64   `json:"amount"`
+	Currency        string  `json:"currency"`
+	Cadence         string  `json:"cadence"`
+	StartMonth      string  `json:"startMonth"`
+	StartMonthSnake string  `json:"start_month"`
+	EndMonth        *string `json:"endMonth"`
+	EndMonthSnake   *string `json:"end_month"`
+	Notes           *string `json:"notes"`
 }
 
-type scenarioEventRequest struct {
-	Name         string                  `json:"name"`
-	Description  string                  `json:"description"`
-	OccursOn     string                  `json:"occurs_on"`
-	DisplayIcon  string                  `json:"display_icon"`
-	DisplayColor string                  `json:"display_color"`
-	Tags         []string                `json:"tags"`
-	ScenarioID   string                  `json:"scenario_id"`
-	IsIncluded   *bool                   `json:"is_included"`
-	Impacts      []scenarioImpactRequest `json:"impacts"`
+type scenarioEventInput struct {
+	ID              string             `json:"id"`
+	Name            string             `json:"name"`
+	Description     *string            `json:"description"`
+	OccursOn        string             `json:"occursOn"`
+	OccursOnSnake   string             `json:"occurs_on"`
+	DisplayIcon     string             `json:"displayIcon"`
+	DisplayIconSnake string            `json:"display_icon"`
+	DisplayColor    string             `json:"displayColor"`
+	DisplayColorSnake string           `json:"display_color"`
+	Tags            []string           `json:"tags"`
+	ScenarioID      *string            `json:"scenarioId"`
+	ScenarioIDSnake *string            `json:"scenario_id"`
+	IsIncluded      *bool              `json:"isIncluded"`
+	IsIncludedSnake *bool              `json:"is_included"`
+	Impacts         []scenarioImpactInput `json:"impacts"`
+}
+
+func normalizeImpactInput(in scenarioImpactInput) scenarioImpactDTO {
+	targetType := in.TargetType
+	if targetType == "" {
+		targetType = in.TargetTypeSnake
+	}
+	impactKind := in.ImpactKind
+	if impactKind == "" {
+		impactKind = in.ImpactKindSnake
+	}
+	start := in.StartMonth
+	if start == "" {
+		start = in.StartMonthSnake
+	}
+	end := in.EndMonth
+	if end == nil && in.EndMonthSnake != nil {
+		end = in.EndMonthSnake
+	}
+	targetID := in.TargetID
+	if targetID == nil && in.TargetIDSnake != nil {
+		targetID = in.TargetIDSnake
+	}
+	return scenarioImpactDTO{
+		TargetType: targetType,
+		TargetID:   targetID,
+		ImpactKind: impactKind,
+		Amount:     in.Amount,
+		Currency:   in.Currency,
+		Cadence:    in.Cadence,
+		StartMonth: start,
+		EndMonth:   end,
+		Notes:      in.Notes,
+	}
+}
+
+func normalizeEventInput(in scenarioEventInput) scenarioEventDTO {
+	occursOn := in.OccursOn
+	if occursOn == "" {
+		occursOn = in.OccursOnSnake
+	}
+	displayIcon := in.DisplayIcon
+	if displayIcon == "" {
+		displayIcon = in.DisplayIconSnake
+	}
+	displayColor := in.DisplayColor
+	if displayColor == "" {
+		displayColor = in.DisplayColorSnake
+	}
+	scenarioID := in.ScenarioID
+	if scenarioID == nil && in.ScenarioIDSnake != nil {
+		scenarioID = in.ScenarioIDSnake
+	}
+	isIncluded := false
+	if in.IsIncluded != nil {
+		isIncluded = *in.IsIncluded
+	} else if in.IsIncludedSnake != nil {
+		isIncluded = *in.IsIncludedSnake
+	} else {
+		isIncluded = true
+	}
+
+	var impacts []scenarioImpactDTO
+	if len(in.Impacts) > 0 {
+		impacts = make([]scenarioImpactDTO, 0, len(in.Impacts))
+		for _, imp := range in.Impacts {
+			impacts = append(impacts, normalizeImpactInput(imp))
+		}
+	}
+
+	return scenarioEventDTO{
+		ID:           in.ID,
+		Name:         in.Name,
+		Description:  in.Description,
+		OccursOn:     occursOn,
+		DisplayIcon:  displayIcon,
+		DisplayColor: displayColor,
+		Tags:         in.Tags,
+		ScenarioID:   scenarioID,
+		IsIncluded:   isIncluded,
+		Impacts:      impacts,
+	}
 }
 
 func (h *ScenarioEventHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
@@ -111,13 +205,14 @@ func (h *ScenarioEventHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var payload scenarioEventRequest
+	var payload scenarioEventInput
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
 		return
 	}
 
-	ev, err := buildScenarioEvent(userCtx.UserID, payload)
+	dto := normalizeEventInput(payload)
+	ev, err := buildScenarioEvent(userCtx.UserID, dto)
 	if err != nil {
 		badRequest(w, err)
 		return
@@ -129,7 +224,7 @@ func (h *ScenarioEventHandler) create(w http.ResponseWriter, r *http.Request) {
 		internalError(w)
 		return
 	}
-	writeSuccess(w, created)
+	writeSuccess(w, toScenarioEventDTO(created))
 }
 
 func (h *ScenarioEventHandler) list(w http.ResponseWriter, r *http.Request) {
@@ -188,8 +283,13 @@ func (h *ScenarioEventHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	items := make([]scenarioEventDTO, 0, len(events))
+	for _, ev := range events {
+		items = append(items, toScenarioEventDTO(ev))
+	}
+
 	resp := map[string]interface{}{
-		"items":     events,
+		"items":     items,
 		"total":     total,
 		"page":      page,
 		"page_size": limit,
@@ -212,7 +312,7 @@ func (h *ScenarioEventHandler) get(w http.ResponseWriter, r *http.Request, id st
 		internalError(w)
 		return
 	}
-	writeSuccess(w, ev)
+	writeSuccess(w, toScenarioEventDTO(ev))
 }
 
 func (h *ScenarioEventHandler) update(w http.ResponseWriter, r *http.Request, id string) {
@@ -221,12 +321,13 @@ func (h *ScenarioEventHandler) update(w http.ResponseWriter, r *http.Request, id
 		badRequest(w, errors.New("missing user context"))
 		return
 	}
-	var payload scenarioEventRequest
+	var payload scenarioEventInput
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
 		return
 	}
-	ev, err := buildScenarioEvent(userCtx.UserID, payload)
+	dto := normalizeEventInput(payload)
+	ev, err := buildScenarioEvent(userCtx.UserID, dto)
 	if err != nil {
 		badRequest(w, err)
 		return
@@ -243,7 +344,7 @@ func (h *ScenarioEventHandler) update(w http.ResponseWriter, r *http.Request, id
 		internalError(w)
 		return
 	}
-	writeSuccess(w, updated)
+	writeSuccess(w, toScenarioEventDTO(updated))
 }
 
 func (h *ScenarioEventHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
@@ -271,13 +372,20 @@ func (h *ScenarioEventHandler) toggle(w http.ResponseWriter, r *http.Request, id
 		return
 	}
 	var payload struct {
-		IsIncluded bool `json:"is_included"`
+		IsIncluded      *bool `json:"isIncluded"`
+		IsIncludedSnake *bool `json:"is_included"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
 		return
 	}
-	if err := h.store.ToggleScenarioIncluded(r.Context(), userCtx.UserID, id, payload.IsIncluded); err != nil {
+	val := true
+	if payload.IsIncluded != nil {
+		val = *payload.IsIncluded
+	} else if payload.IsIncludedSnake != nil {
+		val = *payload.IsIncludedSnake
+	}
+	if err := h.store.ToggleScenarioIncluded(r.Context(), userCtx.UserID, id, val); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			notFound(w)
 			return
@@ -286,130 +394,9 @@ func (h *ScenarioEventHandler) toggle(w http.ResponseWriter, r *http.Request, id
 		internalError(w)
 		return
 	}
-	writeSuccess(w, map[string]bool{"is_included": payload.IsIncluded})
+	writeSuccess(w, map[string]bool{"isIncluded": val})
 }
 
-func buildScenarioEvent(userID string, req scenarioEventRequest) (repository.ScenarioEvent, error) {
-	if strings.TrimSpace(req.Name) == "" || strings.TrimSpace(req.DisplayIcon) == "" || strings.TrimSpace(req.OccursOn) == "" {
-		return repository.ScenarioEvent{}, errMissingFields("name, occurs_on, display_icon")
-	}
-	occursOn, err := parseDateOrMonth(req.OccursOn)
-	if err != nil {
-		return repository.ScenarioEvent{}, errors.New("invalid occurs_on; expected YYYY-MM-DD or YYYY-MM")
-	}
-	isIncluded := true
-	if req.IsIncluded != nil {
-		isIncluded = *req.IsIncluded
-	}
-	impacts, err := buildImpacts(req.Impacts)
-	if err != nil {
-		return repository.ScenarioEvent{}, err
-	}
-	color := strings.TrimSpace(req.DisplayColor)
-	if color == "" {
-		color = "#0ea5e9" // default to ensure persistence and non-nil color
-	}
-	ev := repository.ScenarioEvent{
-		UserID:      userID,
-		Name:        strings.TrimSpace(req.Name),
-		Description: strings.TrimSpace(req.Description),
-		OccursOn:    occursOn,
-		DisplayIcon: strings.TrimSpace(req.DisplayIcon),
-		DisplayColor: func() *string {
-			c := color
-			return &c
-		}(),
-		Tags:        req.Tags,
-		IsIncluded:  isIncluded,
-		Impacts:     impacts,
-	}
-	if strings.TrimSpace(req.ScenarioID) != "" {
-		val := strings.TrimSpace(req.ScenarioID)
-		ev.ScenarioID = &val
-	}
-	return ev, nil
-}
-
-func buildImpacts(reqs []scenarioImpactRequest) ([]repository.ScenarioImpact, error) {
-	if len(reqs) == 0 {
-		return []repository.ScenarioImpact{}, nil
-	}
-	var impacts []repository.ScenarioImpact
-	startStopWindows := map[string][]window{}
-	overrideWindows := map[string][]window{}
-
-	for _, in := range reqs {
-		tt := strings.ToLower(strings.TrimSpace(in.TargetType))
-		if !inSet(tt, []string{"asset", "liability", "income", "expense"}) {
-			return nil, errors.New("invalid target_type")
-		}
-		ik := strings.ToLower(strings.TrimSpace(in.ImpactKind))
-		if !inSet(ik, []string{"delta", "override", "start", "stop"}) {
-			return nil, errors.New("invalid impact_kind")
-		}
-		cad := strings.ToLower(strings.TrimSpace(in.Cadence))
-		if !inSet(cad, []string{"one_time", "monthly", "annual"}) {
-			return nil, errors.New("invalid cadence")
-		}
-		start, err := parseMonthStart(in.StartMonth)
-		if err != nil {
-			return nil, errors.New("invalid start_month; expected YYYY-MM or month-start timestamp")
-		}
-		var end *time.Time
-		if strings.TrimSpace(in.EndMonth) != "" {
-			val, err := parseMonthStart(in.EndMonth)
-			if err != nil {
-				return nil, errors.New("invalid end_month; expected YYYY-MM or month-start timestamp")
-			}
-			if val.Before(start) {
-				return nil, errors.New("end_month must be >= start_month")
-			}
-			end = &val
-		}
-
-		if ik == "stop" && in.Amount != 0 {
-			return nil, errors.New("stop impacts must have amount 0")
-		}
-		if ik != "stop" && in.Amount == 0 {
-			return nil, errors.New("non-stop impacts must have non-zero amount")
-		}
-
-		targetID := strings.TrimSpace(in.TargetID)
-		key := tt + "|" + targetID
-
-		// Overlap checks
-		w := window{start: start, end: end}
-		if ik == "start" || ik == "stop" {
-			if overlapsExisting(startStopWindows[key], w) {
-				return nil, errors.New("overlapping start/stop windows for same target")
-			}
-			startStopWindows[key] = append(startStopWindows[key], w)
-		}
-		if ik == "override" {
-			if overlapsExisting(overrideWindows[key], w) {
-				return nil, errors.New("overlapping overrides for same target")
-			}
-			overrideWindows[key] = append(overrideWindows[key], w)
-		}
-
-		var tidPtr *string
-		if targetID != "" {
-			tidPtr = &targetID
-		}
-		impacts = append(impacts, repository.ScenarioImpact{
-			TargetType: tt,
-			TargetID:   tidPtr,
-			ImpactKind: ik,
-			Amount:     in.Amount,
-			Currency:   strings.ToUpper(strings.TrimSpace(in.Currency)),
-			Cadence:    cad,
-			StartMonth: start,
-			EndMonth:   end,
-			Notes:      strings.TrimSpace(in.Notes),
-		})
-	}
-	return impacts, nil
-}
 
 type window struct {
 	start time.Time

@@ -209,7 +209,16 @@ func (s *Store) CreateAsset(ctx context.Context, a Asset) (Asset, error) {
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_assets (parent_id, name, category, current_value, annual_growth_rate, frequency, start_year, end_year, notes)
 		VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, COALESCE($6,'annual'), COALESCE($7,0), $8, NULLIF($9, ''))
-		RETURNING id, parent_id, name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
+		ON CONFLICT (parent_id, start_year) DO UPDATE
+		SET name=EXCLUDED.name,
+		    category=EXCLUDED.category,
+		    current_value=EXCLUDED.current_value,
+		    annual_growth_rate=EXCLUDED.annual_growth_rate,
+		    frequency=EXCLUDED.frequency,
+		    end_year=EXCLUDED.end_year,
+		    notes=EXCLUDED.notes,
+		    updated_at=NOW()
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
 		nullIfEmpty(a.ParentID), a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, a.Frequency, a.StartYear, nullableFromNullInt32(a.EndYear), a.Notes)
 	var created Asset
 	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentValue, &created.AnnualGrowthRate, &created.Frequency, &created.StartYear, &created.EndYear, &created.Notes, &created.UpdatedAt); err != nil {
@@ -359,7 +368,17 @@ func (s *Store) CreateLiability(ctx context.Context, li Liability) (Liability, e
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_liabilities (parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, frequency, start_year, end_year, notes)
 		VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, COALESCE($7,'annual'), COALESCE($8,0), $9, NULLIF($10, ''))
-		RETURNING id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
+		ON CONFLICT (parent_id, start_year) DO UPDATE
+		SET name=EXCLUDED.name,
+		    category=EXCLUDED.category,
+		    current_balance=EXCLUDED.current_balance,
+		    interest_rate_apr=EXCLUDED.interest_rate_apr,
+		    minimum_payment=EXCLUDED.minimum_payment,
+		    frequency=EXCLUDED.frequency,
+		    end_year=EXCLUDED.end_year,
+		    notes=EXCLUDED.notes,
+		    updated_at=NOW()
+		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
 		nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, li.Frequency, li.StartYear, nullableFromNullInt32(li.EndYear), li.Notes)
 	var created Liability
 	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.Frequency, &created.StartYear, &created.EndYear, &created.Notes, &created.UpdatedAt); err != nil {
@@ -611,7 +630,16 @@ func (s *Store) CreateIncome(ctx context.Context, it Income) (Income, error) {
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_incomes (parent_id, source, amount, frequency, start_year, end_year, start_date, category, notes)
 		VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, COALESCE($5,0), $6, COALESCE($7, NOW()), $8, NULLIF($9, ''))
-		RETURNING id, parent_id, source, amount, frequency, start_year, end_year, start_date, category, COALESCE(notes, ''), updated_at`,
+		ON CONFLICT (parent_id, start_year) DO UPDATE
+		SET source=EXCLUDED.source,
+		    amount=EXCLUDED.amount,
+		    frequency=EXCLUDED.frequency,
+		    end_year=EXCLUDED.end_year,
+		    start_date=EXCLUDED.start_date,
+		    category=EXCLUDED.category,
+		    notes=EXCLUDED.notes,
+		    updated_at=NOW()
+		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_year, end_year, start_date, category, COALESCE(notes, ''), updated_at`,
 		nullIfEmpty(it.ParentID), it.Source, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.StartDate, it.Category, it.Notes)
 	var created Income
 	if err := row.Scan(&created.ID, &created.ParentID, &created.Source, &created.Amount, &created.Frequency, &created.StartYear, &created.EndYear, &created.StartDate, &created.Category, &created.Notes, &created.UpdatedAt); err != nil {
@@ -720,7 +748,15 @@ func (s *Store) CreateExpense(ctx context.Context, it Expense) (Expense, error) 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_expenses (parent_id, payee, amount, frequency, start_year, end_year, category, notes)
 		VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, COALESCE($5,0), $6, $7, NULLIF($8, ''))
-		RETURNING id, parent_id, payee, amount, frequency, start_year, end_year, category, COALESCE(notes, ''), updated_at`,
+		ON CONFLICT (parent_id, start_year) DO UPDATE
+		SET payee=EXCLUDED.payee,
+		    amount=EXCLUDED.amount,
+		    frequency=EXCLUDED.frequency,
+		    end_year=EXCLUDED.end_year,
+		    category=EXCLUDED.category,
+		    notes=EXCLUDED.notes,
+		    updated_at=NOW()
+		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_year, end_year, category, COALESCE(notes, ''), updated_at`,
 		nullIfEmpty(it.ParentID), it.Payee, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.Category, it.Notes)
 	var created Expense
 	if err := row.Scan(&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency, &created.StartYear, &created.EndYear, &created.Category, &created.Notes, &created.UpdatedAt); err != nil {
