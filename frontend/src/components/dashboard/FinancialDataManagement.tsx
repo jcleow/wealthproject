@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, SlidersHorizontal, Pencil, Trash2, Home, Info } from 'lucide-react'
+import { Plus, SlidersHorizontal, Pencil, Trash2, Home, Info, ArrowDownWideNarrow } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
@@ -111,6 +111,12 @@ export function FinancialDataManagement({
   const [activeAnnualizationId, setActiveAnnualizationId] = useState<string | null>(null)
   const [assetLinks, setAssetLinks] = useState<Record<string, PropertyLinkRecord[]>>({})
   const [liabilityLinks, setLiabilityLinks] = useState<Record<string, PropertyLinkRecord[]>>({})
+  const [sortDirections, setSortDirections] = useState<Record<FinancialCategory, 'asc' | 'desc'>>({
+    asset: 'desc',
+    income: 'desc',
+    liability: 'desc',
+    expense: 'desc',
+  })
   const mergedLinks = (() => {
     const map: Record<string, PropertyLinkRecord> = {}
     const add = (id: string | undefined, link: PropertyLinkRecord) => {
@@ -448,6 +454,11 @@ export function FinancialDataManagement({
     return `${count} ${noun}`
   }
 
+  const sortItems = (items: any[], direction: 'asc' | 'desc') =>
+    [...items].sort((a, b) =>
+      direction === 'desc' ? summarizeAmount(b) - summarizeAmount(a) : summarizeAmount(a) - summarizeAmount(b)
+    )
+
   const summarizeAmount = (item: any) => {
     if ('amount_annual' in item) return item.amount_annual ?? 0
     if ('amountAnnual' in item) return item.amountAnnual ?? 0
@@ -531,7 +542,8 @@ export function FinancialDataManagement({
             {(Object.keys(categoryConfig) as FinancialCategory[]).map(
               (key) => {
                 const config = categoryConfig[key]
-                const data = getDataForCategory(key)
+                const direction = sortDirections[key]
+                const data = sortItems(getDataForCategory(key), direction)
                 const hasData = data.length > 0
                 const description = hasData
                   ? formatCountLabel(data.length, config)
@@ -560,6 +572,21 @@ export function FinancialDataManagement({
                           </div>
                         </div>
                         <div className="flex flex-shrink-0 items-center gap-2">
+                          <button
+                            type="button"
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-gray-300 transition hover:bg-white/10"
+                            aria-label={`Sort ${direction === 'desc' ? 'high to low' : 'low to high'}`}
+                            onClick={() =>
+                              setSortDirections((prev) => ({
+                                ...prev,
+                                [key]: prev[key] === 'desc' ? 'asc' : 'desc',
+                              }))
+                            }
+                          >
+                            <ArrowDownWideNarrow
+                              className={`h-4 w-4 ${direction === 'desc' ? 'text-blue-200' : 'rotate-180 text-blue-200'}`}
+                            />
+                          </button>
                           {/* <button
                             onClick={() => handleSettings(key)}
                             className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-gray-300 transition hover:bg-white/10 disabled:opacity-50"
@@ -581,7 +608,7 @@ export function FinancialDataManagement({
 
                     <div className="flex flex-1 flex-col justify-start gap-3 px-4 py-6 text-gray-300">
                       {hasData ? (
-                        <div className="space-y-2 text-left text-sm max-h-64 overflow-auto pr-1">
+                        <div className="space-y-2 text-left text-sm max-h-64 overflow-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                           {data.map((item: any, index) => (
                             <div
                               key={getItemId(item) || index}

@@ -1,4 +1,4 @@
-import { type ComponentType, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { type ComponentType, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   BarChart3,
@@ -10,6 +10,7 @@ import {
   Plus,
   Shield,
 } from 'lucide-react'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 
 type MockScenario = {
   id: string
@@ -88,6 +89,9 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
   const [dropdownStyle, setDropdownStyle] = useState<{ top: number; left: number; width: number } | null>(null)
   const [mounted, setMounted] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const scrollYRef = useRef(0)
+  const [includeEnabled, setIncludeEnabled] = useState(true)
 
   useEffect(() => {
     setMounted(true)
@@ -115,16 +119,26 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
     })
   }, [open])
 
+  // Use the reusable scroll lock hook for better handling
+  useBodyScrollLock(open && includeEnabled)
+
   useEffect(() => {
-    // Lock body scroll while dropdown is open.
-    if (open) {
-      const original = document.body.style.overflow
-      document.body.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = original
+    if (!open) return
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false)
       }
     }
-    return
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus()
+    }
   }, [open])
 
   const visibleScenarios = useMemo(() => {
@@ -132,6 +146,18 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
     if (!term) return MOCK_SCENARIOS
     return MOCK_SCENARIOS.filter((s) => s.name.toLowerCase().includes(term))
   }, [search])
+
+  const toggleScenario = (id: string) => {
+    setActiveIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
 
   const topStack = MOCK_SCENARIOS.slice(0, 3)
 
@@ -141,13 +167,20 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
         open ? 'z-50 relative' : ''
       }`}
       ref={containerRef}
+      onMouseDown={(e) => {
+        if ((e.target as HTMLElement).closest('button')) return
+        e.preventDefault()
+        inputRef.current?.focus()
+        setOpen(true)
+      }}
     >
       <div className="relative flex items-center gap-3 overflow-visible rounded-full bg-gradient-to-r from-slate-800/90 via-slate-800/85 to-slate-900/85 px-4 py-2 pr-16">
         <AvatarStack scenarios={topStack} />
         <input
+          ref={inputRef}
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
-          className="w-full bg-transparent text-sm text-white placeholder:text-slate-100/80 focus:outline-none"
+          className="w-full bg-transparent text-sm text-white caret-white placeholder:text-slate-100/80 focus:outline-none"
           placeholder="Search scenarios..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -174,6 +207,8 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
             <div
               className="fixed inset-0 z-30 bg-black/60 backdrop-blur-md"
               onClick={() => setOpen(false)}
+              onWheel={(e) => e.preventDefault()}
+              onTouchMove={(e) => e.preventDefault()}
               aria-hidden
             />
             <div
@@ -183,26 +218,29 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
                 left: dropdownStyle.left,
                 width: Math.min(dropdownStyle.width, 520),
               }}
+              onClick={(e) => e.stopPropagation()}
               onWheel={(e) => e.stopPropagation()}
             >
-              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+              <div className="mb-2 flex items-center justify-between text-xs text-slate-200">
+                <span className="font-semibold">{`${MOCK_SCENARIOS.length} scenarios`}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allIds = new Set(MOCK_SCENARIOS.map((s) => s.id))
+                    const allSelected = activeIds.size === allIds.size
+                    setActiveIds(allSelected ? new Set() : allIds)
+                  }}
+                  className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white transition hover:border-white/30 hover:bg-white/10"
+                >
+                  {activeIds.size === MOCK_SCENARIOS.length ? 'Deselect all' : 'Select all'}
+                </button>
+              </div>
+              <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
                 {visibleScenarios.map((scenario) => {
                   const isActive = activeIds.has(scenario.id)
                   return (
-                    <button
+                    <div
                       key={scenario.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveIds((prev) => {
-                          const next = new Set(prev)
-                          if (next.has(scenario.id)) {
-                            next.delete(scenario.id)
-                          } else {
-                            next.add(scenario.id)
-                          }
-                          return next
-                        })
-                      }}
                       className="flex w-full items-center gap-3 rounded-lg border border-white/5 bg-white/5 px-3 py-2 transition hover:border-white/15 hover:bg-white/10"
                     >
                       <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10 bg-slate-900 shadow-md shadow-black/20">
@@ -221,17 +259,20 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
                           {isActive ? 'Included in projection' : 'Visible only (muted)'}
                         </span>
                       </div>
-                      <span
+                      <button
+                        type="button"
+                        onClick={() => toggleScenario(scenario.id)}
                         className={`flex h-5 w-5 items-center justify-center rounded border ${
                           isActive
                             ? 'border-emerald-400/70 bg-emerald-400/10 text-emerald-200'
                             : 'border-slate-600 bg-slate-800/80 text-slate-400'
                         }`}
-                        aria-label={isActive ? 'Active' : 'Inactive'}
+                        aria-pressed={isActive}
+                        aria-label={isActive ? 'Deselect scenario' : 'Select scenario'}
                       >
                         {isActive ? <Check className="h-3 w-3" /> : <MinusCircle className="h-3 w-3" />}
-                      </span>
-                    </button>
+                      </button>
+                    </div>
                   )
                 })}
                 {visibleScenarios.length === 0 && (
@@ -241,18 +282,14 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
                   </div>
                 )}
               </div>
-              <div className="mt-3 flex items-center justify-between rounded-lg bg-white/10 px-3 py-2 text-xs text-slate-300">
-                <span>Inactive scenarios stay on the chart but appear muted.</span>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 rounded-full bg-emerald-500/20 px-3 py-1 text-emerald-100">
-                    <span className="h-2 w-5 rounded-full bg-emerald-300" />
-                    Active
-                  </div>
-                  <div className="flex items-center gap-2 rounded-full bg-slate-700/40 px-3 py-1 text-slate-200">
-                    <span className="h-2 w-5 rounded-full bg-slate-500" />
-                    Muted
-                  </div>
-                </div>
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:border-white/35 hover:bg-white/20"
+                >
+                  Apply
+                </button>
               </div>
             </div>
           </>,

@@ -278,14 +278,37 @@ export function ScenarioEventModal({
             >
               {CloseIcon ? <CloseIcon className="h-4 w-4" /> : '×'}
             </button>
-          </div>
-        </div>
+      </div>
+    </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <label className="space-y-1 text-sm">
-            <span className="text-gray-300">Name</span>
-            <input
-              value={form.name}
+    <div className="mt-4 flex items-center justify-between">
+      <div className="text-sm text-gray-300">Include in projections</div>
+      <button
+        type="button"
+        onClick={() => setForm((prev) => ({ ...prev, isIncluded: !prev.isIncluded }))}
+        className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+          form.isIncluded
+            ? 'border-emerald-400/50 bg-emerald-500/15 text-emerald-100 hover:border-emerald-300/60'
+            : 'border-slate-600 bg-slate-800/60 text-slate-300 hover:border-slate-500'
+        }`}
+        aria-pressed={form.isIncluded}
+      >
+        <span
+          className={`flex h-4 w-8 items-center rounded-full p-[2px] transition ${
+            form.isIncluded ? 'bg-emerald-400/70 justify-end' : 'bg-slate-600 justify-start'
+          }`}
+        >
+          <span className="h-3 w-3 rounded-full bg-white" />
+        </span>
+        {form.isIncluded ? 'Enabled' : 'Disabled'}
+      </button>
+    </div>
+
+    <div className="mt-6 grid gap-4 md:grid-cols-2">
+      <label className="space-y-1 text-sm">
+        <span className="text-gray-300">Name</span>
+        <input
+          value={form.name}
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
               placeholder="e.g., Job Loss"
@@ -373,20 +396,10 @@ export function ScenarioEventModal({
               rows={2}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
               placeholder="What is this scenario about?"
-              disabled={loadingState}
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm text-gray-200">
-            <input
-              type="checkbox"
-              checked={form.isIncluded}
-              onChange={(e) => setForm((prev) => ({ ...prev, isIncluded: e.target.checked }))}
-              className="h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500 focus:ring-0"
-              disabled={loadingState}
-            />
-            Include in projections
-          </label>
-        </div>
+          disabled={loadingState}
+        />
+      </div>
+    </div>
 
         <div className="mt-6 space-y-4">
           <div className="flex items-center justify-between">

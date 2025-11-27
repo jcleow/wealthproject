@@ -478,6 +478,12 @@ func segregateItems(state map[string]itemState, year int) struct {
 		}
 	}
 
+	// Sort descending by annual amount so API consumers receive deterministic, high-to-low ordering.
+	sort.Slice(out.Assets, func(i, j int) bool { return out.Assets[i].AmountAnnual > out.Assets[j].AmountAnnual })
+	sort.Slice(out.Liabilities, func(i, j int) bool { return out.Liabilities[i].AmountAnnual > out.Liabilities[j].AmountAnnual })
+	sort.Slice(out.Income, func(i, j int) bool { return out.Income[i].AmountAnnual > out.Income[j].AmountAnnual })
+	sort.Slice(out.Expenses, func(i, j int) bool { return out.Expenses[i].AmountAnnual > out.Expenses[j].AmountAnnual })
+
 	return out
 }
 

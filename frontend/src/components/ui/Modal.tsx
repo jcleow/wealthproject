@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 
 interface ModalProps {
   isOpen: boolean
@@ -15,18 +16,14 @@ export function Modal({ isOpen, onClose, children, className = '', overlayClassN
   const overlayRef = useRef<HTMLDivElement>(null)
   const previousActiveElement = useRef<HTMLElement | null>(null)
 
+  // Use the reusable scroll lock hook
+  useBodyScrollLock(isOpen)
+
   useEffect(() => {
     if (!isOpen) return
 
     // Store the currently focused element
     previousActiveElement.current = document.activeElement as HTMLElement
-
-    // Lock body scroll
-    const scrollY = window.scrollY
-    document.body.style.position = 'fixed'
-    document.body.style.top = `-${scrollY}px`
-    document.body.style.width = '100%'
-    document.body.style.overflow = 'hidden'
 
     // Focus trap
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -38,14 +35,6 @@ export function Modal({ isOpen, onClose, children, className = '', overlayClassN
     document.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      // Restore body scroll
-      const scrollY = document.body.style.top
-      document.body.style.position = ''
-      document.body.style.top = ''
-      document.body.style.width = ''
-      document.body.style.overflow = ''
-      window.scrollTo(0, parseInt(scrollY || '0') * -1)
-
       // Restore focus to previous element
       if (previousActiveElement.current && previousActiveElement.current.focus) {
         previousActiveElement.current.focus()
