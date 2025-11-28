@@ -48,7 +48,7 @@ func New() *Config {
 		AnthropicModel:     getEnv("ANTHROPIC_MODEL", "claude-3-sonnet-20240229"),
 		AnthropicMaxTokens: getEnvAsInt("ANTHROPIC_MAX_TOKENS", 0),
 		GeminiAPIKey:       getEnv("GEMINI_API_KEY", ""),
-		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-1.5-flash-latest"),
+		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-1.5-flash"),
 		GeminiTemperature:  getEnvAsFloat64("GEMINI_TEMPERATURE", 0.1),
 		GeminiMaxTokens:    getEnvAsInt("GEMINI_MAX_TOKENS", 0),
 

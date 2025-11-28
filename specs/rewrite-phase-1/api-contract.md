@@ -327,8 +327,7 @@ interface TimelineItem {
   item_id: string;
   name: string;
   category: string;
-  amount_annual: number;       // baseline annualized value used in projection
-  adj_annual_amt: number;      // annualized value after scenario impacts (equals amount_annual when no scenarios)
+  amount_annual: number;       // annualized value used in projection
   source_amount?: number;      // original amount if not annual
   source_frequency?: Frequency; // "annual" | "monthly" | "weekly" | "biweekly" | "quarterly" | "semiannual"
   item_type: "asset" | "liability" | "income" | "expense";
@@ -340,7 +339,6 @@ interface GrowthApplied {
   annual_rate_pct: number;
 }
 ```
-- When `include_scenarios=true`, `adj_annual_amt` reflects the post-scenario value and net_cash/net_worth use adjusted amounts. If no scenarios apply, `adj_annual_amt === amount_annual`.
 
 **Example Response (truncated)**
 ```json

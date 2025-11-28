@@ -9,22 +9,19 @@ export type TimelineFrequency =
 export type TimelineItemType = 'asset' | 'liability' | 'income' | 'expense'
 
 export interface TimelineItem {
-  itemId: string
-  rowId?: string
-  parentId?: string
+  item_id: string
   name: string
   category: string
-  amountAnnual: number
-  adjAnnualAmt?: number
-  sourceAmount?: number
-  sourceFrequency?: TimelineFrequency
-  itemType: TimelineItemType
-  createdYear: number
+  amount_annual: number
+  source_amount?: number
+  source_frequency?: TimelineFrequency
+  item_type: TimelineItemType
+  created_year: number
 }
 
 export interface GrowthApplied {
   category: string
-  annualRatePct: number
+  annual_rate_pct: number
 }
 
 export interface TimelineYear {
@@ -33,10 +30,10 @@ export interface TimelineYear {
   liabilities: TimelineItem[]
   income: TimelineItem[]
   expenses: TimelineItem[]
-  netCash: number
-  netWorth: number
-  hasOverrides: boolean
-  growthApplied: GrowthApplied[]
+  net_cash: number
+  net_worth: number
+  has_overrides: boolean
+  growth_applied: GrowthApplied[]
 }
 
 export interface TimelineResponse {

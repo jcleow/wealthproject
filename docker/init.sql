@@ -13,3 +13,7 @@ CREATE TABLE IF NOT EXISTS health_check (
 
 INSERT INTO health_check (status) VALUES ('Database initialized successfully');
 
+-- Grant necessary permissions (idempotent when rerun)
+GRANT ALL PRIVILEGES ON DATABASE financial_chat TO financial_user;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO financial_user;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO financial_user;

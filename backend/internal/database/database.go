@@ -1,18 +1,17 @@
 package database
 
 import (
-    "database/sql"
-    "errors"
-    "fmt"
-    "log"
-    "os"
-    "path/filepath"
-    "strings"
+	"database/sql"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
-    "github.com/golang-migrate/migrate/v4"
-    "github.com/golang-migrate/migrate/v4/database/postgres"
-    _ "github.com/golang-migrate/migrate/v4/source/file"
-    _ "github.com/lib/pq"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/lib/pq"
 )
 
 func Connect(databaseURL string) (*sql.DB, error) {
@@ -62,29 +61,15 @@ func RunMigrations(db *sql.DB) error {
 		"postgres",
 		driver,
 	)
-    if err != nil {
-        return fmt.Errorf("failed to init migrate: %w", err)
-    }
-
-	log.Printf("migrations: starting (dir=%s)", dir)
-
-	if err := m.Up(); err != nil {
-		if errors.Is(err, migrate.ErrNoChange) {
-			log.Printf("migrations: no change (already at latest)")
-		} else {
-			return fmt.Errorf("migration failed: %w", err)
-		}
+	if err != nil {
+		return fmt.Errorf("failed to init migrate: %w", err)
 	}
 
-	if v, dirty, err := m.Version(); err == nil {
-		log.Printf("migrations: completed version=%d dirty=%v", v, dirty)
-	} else if errors.Is(err, migrate.ErrNilVersion) {
-		log.Printf("migrations: no version applied yet (nil version)")
-	} else {
-		log.Printf("migrations: version check failed: %v", err)
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("migration failed: %w", err)
 	}
 
-    return nil
+	return nil
 }
 
 func resolveMigrationsDir() string {

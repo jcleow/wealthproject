@@ -1,21 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
-import { Building2, ChevronDown, Loader2, Sparkles, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { Building2, Loader2, Sparkles, Trash2 } from 'lucide-react'
 
-import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
-import { useScenarioEvents } from '@/hooks/useScenarioEvents'
+import { useFinancialData } from '@/hooks/useFinancialData'
 import { financialApi } from '@/services/financialApi'
+import { TimelineEditDrawer } from '../financial/TimelineEditDrawer'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
-import { ScenarioEventModal } from '../modals/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
-import { ScenarioSelectorMock } from './ScenarioSelectorMock'
-import type { TimelineYear } from '@/types/timeline'
-import type { ScenarioEvent } from '@/types/scenario'
+import type { TimelineEditRequest, TimelineYear } from '@/types/timeline'
 
 interface FinancialWorkspaceProps {
   selectedYear: number
   onSelectYear: (year: number) => void
   timelineYears?: TimelineYear[]
+  timelineYear?: TimelineYear
   overrideYears?: Set<number>
+  onSaveTimelineEdits: (payload: TimelineEditRequest) => Promise<void>
+  isTimelineLoading?: boolean
+  isSavingTimeline?: boolean
   timelineError?: string | null
 }
 
@@ -23,18 +24,22 @@ export function FinancialWorkspace({
   selectedYear,
   onSelectYear,
   timelineYears,
+  timelineYear,
   overrideYears = new Set<number>(),
+  onSaveTimelineEdits,
+  isTimelineLoading = false,
+  isSavingTimeline = false,
   timelineError = null,
 }: FinancialWorkspaceProps) {
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
-  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
-  const [scenarioEventToEdit, setScenarioEventToEdit] = useState<ScenarioEvent | null>(null)
   const [isClearing, setIsClearing] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
-  const [isModuleMenuOpen, setIsModuleMenuOpen] = useState(false)
-  const { events: scenarioEvents } = useScenarioEvents()
-  const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialDataContext()
-  const moduleMenuRef = useRef<HTMLDivElement | null>(null)
+  const [isTimelineDrawerOpen, setIsTimelineDrawerOpen] = useState(false)
+  const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialData()
+
+  const handleAction = (label: string) => {
+    console.log(`${label} clicked`)
+  }
 
   const clearPropertyData = async () => {
     if (typeof window === 'undefined') return
@@ -133,22 +138,17 @@ export function FinancialWorkspace({
     setIsPropertyPlannerOpen(true)
   }
 
-  useEffect(() => {
-    if (!isModuleMenuOpen) return
-    const handleClickOutside = (event: MouseEvent) => {
-      if (moduleMenuRef.current && !moduleMenuRef.current.contains(event.target as Node)) {
-        setIsModuleMenuOpen(false)
+  const handleSaveTimelineEdits = async (payload: TimelineEditRequest) => {
+    try {
+      await onSaveTimelineEdits(payload)
+      setIsTimelineDrawerOpen(false)
+    } catch (error) {
+      console.error('Failed to save timeline edits', error)
+      if (typeof window !== 'undefined') {
+        window.alert('Unable to save timeline edits right now.')
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isModuleMenuOpen])
-
-  const handleCreateScenario = () => {
-    setScenarioEventToEdit(null)
-    setIsScenarioModalOpen(true)
   }
-
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col border-0 bg-midnight-900 text-white">
@@ -160,19 +160,6 @@ export function FinancialWorkspace({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="hidden md:block">
-            <div className="w-64 lg:w-80">
-              <ScenarioSelectorMock onCreateScenario={handleCreateScenario} />
-            </div>
-          </div>
-          {/* <button
-            onClick={handleCreateScenario}
-            className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
-            type="button"
-          >
-            <PlusCircle className="h-4 w-4 text-emerald-200" />
-            Create Scenario
-          </button> */}
           <div className="hidden items-center gap-2 md:flex">
             <button
               onClick={handleLoadDefaults}
@@ -193,37 +180,26 @@ export function FinancialWorkspace({
               {isClearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             </button>
           </div>
-          <div className="relative" ref={moduleMenuRef}>
-            <button
-              onClick={() => setIsModuleMenuOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
-              type="button"
-            >
-              <Sparkles className="h-4 w-4 text-blue-200" />
-              <span className="hidden md:inline">Modules</span>
-              <ChevronDown className={`h-4 w-4 transition ${isModuleMenuOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {isModuleMenuOpen && (
-              <div className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-white/10 bg-midnight-800/95 shadow-2xl backdrop-blur">
-                <button
-                  onClick={() => {
-                    setIsModuleMenuOpen(false)
-                    handlePropertyPlanner()
-                  }}
-                  className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-white transition hover:bg-white/10"
-                  type="button"
-                >
-                  <span className="mt-0.5 rounded-full bg-blue-500/10 p-2 text-blue-200">
-                    <Building2 className="h-4 w-4" />
-                  </span>
-                  <div className="space-y-1">
-                    <div className="font-semibold">Property Planner</div>
-                    <p className="text-xs text-blue-100">Model affordability, mortgages, and cash flow.</p>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={handlePropertyPlanner}
+            className="flex items-center gap-3 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+            type="button"
+          >
+            <Sparkles className="h-4 w-4 text-blue-200" />
+            <span className="hidden md:inline">Property Planner</span>
+            <span className="flex items-center gap-1 rounded-full bg-black/30 px-2 py-1 text-xs text-blue-100">
+              <Building2 className="h-3 w-3" />
+              HDB (BTO / Resale)
+            </span>
+          </button>
+          <button
+            onClick={() => setIsTimelineDrawerOpen(true)}
+            className="rounded-full bg-blue-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:opacity-60"
+            title="Edit selected year"
+            disabled={isTimelineLoading}
+          >
+            {isSavingTimeline ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Edit year'}
+          </button>
         </div>
       </div>
       {timelineError && (
@@ -231,17 +207,11 @@ export function FinancialWorkspace({
           Timeline unavailable: {timelineError}
         </div>
       )}
-      <div className="p-6 h-[50vh] min-h-[400px] flex-none">
+      <div className="p-6 h-[320px] flex-none">
         <NetWorthProjection
           timelineYears={timelineYears}
           overrideYears={overrideYears}
           selectedYear={selectedYear}
-          scenarioEvents={scenarioEvents}
-          onScenarioSelect={async (event) => {
-            if (!event?.id) return
-            setScenarioEventToEdit(event)
-            setIsScenarioModalOpen(true)
-          }}
           onSelectYear={(year) => {
             onSelectYear(year)
             const target = document.getElementById('financial-data-section')
@@ -254,23 +224,14 @@ export function FinancialWorkspace({
         isOpen={isPropertyPlannerOpen}
         onClose={() => setIsPropertyPlannerOpen(false)}
       />
-      {isScenarioModalOpen && (
-        <ScenarioEventModal
-          isOpen={isScenarioModalOpen}
-          event={scenarioEventToEdit ?? undefined}
-          onClose={() => {
-            setIsScenarioModalOpen(false)
-            setScenarioEventToEdit(null)
-          }}
-          onSaved={() => {
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new Event('financial-data-refresh'))
-            }
-            setScenarioEventToEdit(null)
-            setIsScenarioModalOpen(false)
-          }}
-        />
-      )}
+      <TimelineEditDrawer
+        isOpen={isTimelineDrawerOpen}
+        onClose={() => setIsTimelineDrawerOpen(false)}
+        year={selectedYear}
+        timelineYear={timelineYear}
+        onSave={handleSaveTimelineEdits}
+        saving={isSavingTimeline}
+      />
     </div>
   )
 }

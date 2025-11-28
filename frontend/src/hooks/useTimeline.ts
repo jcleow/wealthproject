@@ -12,7 +12,7 @@ export function useTimeline() {
 
   const timelineQuery = useQuery<TimelineResponse>({
     queryKey: TIMELINE_QUERY_KEY,
-    queryFn: () => timelineApi.getTimeline({ includeScenarios: true }),
+    queryFn: () => timelineApi.getTimeline(),
     staleTime: 1000 * 60 * 5,
     retry: 1,
   })
@@ -24,20 +24,20 @@ export function useTimeline() {
     setSelectedYear(firstYear)
   }, [selectedYear, timelineQuery.data])
 
-  const years = timelineQuery.data?.years?.map((entry) => entry.year) ?? []
+  const years = useMemo(
+    () => timelineQuery.data?.years?.map((entry) => entry.year) ?? [],
+    [timelineQuery.data?.years]
+  )
 
   const selectedYearValue = selectedYear ?? years[0] ?? 0
 
-  const selectedYearData: TimelineYear | undefined =
-    timelineQuery.data?.years?.find((year) => year.year === selectedYearValue)
+  const selectedYearData: TimelineYear | undefined = useMemo(
+    () => timelineQuery.data?.years?.find((year) => year.year === selectedYearValue),
+    [selectedYearValue, timelineQuery.data?.years]
+  )
 
   const overrideYears = useMemo(
-    () =>
-      new Set(
-        timelineQuery.data?.years
-          ?.filter((year) => (year as any).hasOverrides ?? year.has_overrides)
-          .map((year) => year.year) ?? []
-      ),
+    () => new Set(timelineQuery.data?.years?.filter((year) => year.has_overrides).map((year) => year.year) ?? []),
     [timelineQuery.data?.years]
   )
 
@@ -63,8 +63,8 @@ export function useTimeline() {
   }, [queryClient])
 
   const saveEdits = useCallback(
-    async (payload: TimelineEditRequest): Promise<void> => {
-      await upsertMutation.mutateAsync(payload)
+    async (payload: TimelineEditRequest) => {
+      return upsertMutation.mutateAsync(payload)
     },
     [upsertMutation]
   )

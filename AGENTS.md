@@ -131,7 +131,6 @@ This approach ensures:
 - refer to `specs/rewrite-phase-1/frontend-tickets.txt` and `specs/rewrite-phase-1/backend-tickets.txt` for respective tickets
 - always indicate the status of a ticket with `status: todo, in-progress, done`
 - always indicate which are the corresponding frontend/backend tickets that are blocked for user to test
-- Use TanStack Query for client-side data fetching/caching in modals and forms whenever feasible (adhere to existing guidelines for TanStack Query usage).
 
 ### Current Project Status
 
@@ -175,18 +174,11 @@ This approach ensures:
 - Backend: Standard Go patterns with clean REST APIs
 - No AI SDK dependencies - custom hooks replace @ai-sdk/react
 - Component library: Radix UI components with exact styling from current system
-- Create/Edit modals: hide visible scrollbars; ensure content fits the viewport and manage overflow inside sections instead of showing a modal scrollbar
-
-### ID Conventions (timeline & scenarios)
-- Financial items may have both a concrete row `id` and a stable `parent_id` (used when a row is an override/child of another).
-- The timeline uses the stable ID (parent_id if present, else id) for scenario matching. Impacts must target this stable ID.
-- API responses expose the stable `item_id`; include `parent_id`/`row_id` if you need to disambiguate. Use `parentId ?? id` in the UI when saving `targetId`.
 
 ## Api contract
 
 - API versioning should always be included
 - API contract can be found in specs/rewrite-phase-1/api-contract.md
-- Backend responses must emit camelCase field names for APIs (perform any snake_case → camelCase conversion server-side before returning JSON).
 
 ## Files and documentation
 
@@ -269,53 +261,12 @@ TypeScript & React Coding Agent Rules
   - Use Tailwind CSS and shadcn/ui; use `clsx`/`cn` for class merging.
   - Avoid inline styles unless required; stay consistent with the design system.
 - Error handling
-- Always cover loading, error, and empty states; use error boundaries where appropriate.
+  - Always cover loading, error, and empty states; use error boundaries where appropriate.
 - No over-engineering
-- Avoid unnecessary generics/abstractions; keep solutions simple and maintainable.
+  - Avoid unnecessary generics/abstractions; keep solutions simple and maintainable.
 - Automatic refactoring
-- If generated TS/React code violates these rules, rewrite it to be idiomatic, type-safe, and minimal.
-- Use TanStack Query for client-side data fetching and caching (including modals/forms) where feasible.
-
-## TanStack Query Usage for Forms and Modals
-
-- **All forms and modals** MUST use TanStack Query for data operations
-  - Use `useQuery` for fetching initial data
-  - Use `useMutation` for create/update/delete operations
-  - Use `useQueryClient` for cache invalidation after mutations
-- Form/Modal patterns:
-  - Fetch data with `useQuery` when modal opens (using `enabled: isOpen && !!id`)
-  - Use `useMutation` with `onSuccess` to close modal and invalidate relevant queries
-  - Show loading states using `isLoading`/`isPending` from queries
-  - Handle errors with `isError` and `error` from queries
-  - Example pattern:
-    ```typescript
-    const { data, isLoading } = useQuery({
-      queryKey: ['item', id],
-      queryFn: () => api.getItem(id),
-      enabled: isOpen && !!id
-    })
-
-    const mutation = useMutation({
-      mutationFn: api.updateItem,
-      onSuccess: () => {
-        queryClient.invalidateQueries(['items'])
-        onClose()
-      }
-    })
-    ```
-- Benefits:
-  - Automatic caching and background refetching
-  - Consistent loading and error states
-  - Optimistic updates capability
-  - Reduced boilerplate code
-  - Better user experience with instant feedback
+  - If generated TS/React code violates these rules, rewrite it to be idiomatic, type-safe, and minimal.
 
 
 ### Features
 - For every CRUD action via the UI, the chat<->dispatch flow must support it as well.
-
-### Database Schema
-- If there are worktrees available, you must place the migration in the relevant worktree. If unsure, please ask the user.
-- All IDs must use UUID()
-- All database dates must use timestamptz
-- Migration filenames must be timestamp-based (e.g., 20250101001_description.up/down.sql), placed under backend/migrations, and numbered after the latest timestamp.

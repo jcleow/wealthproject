@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import type { TimelineEditRequest, TimelineFrequency, TimelineItem, TimelineItemType, TimelineYear } from '@/types/timeline'
 
@@ -60,12 +60,16 @@ export function TimelineEditDrawer({
   const [form, setForm] = useState<FormState>(defaultState)
   const [error, setError] = useState<string | null>(null)
 
-  const existingItems: TimelineItem[] = [
-    ...(timelineYear?.assets ?? []),
-    ...(timelineYear?.liabilities ?? []),
-    ...(timelineYear?.income ?? []),
-    ...(timelineYear?.expenses ?? []),
-  ]
+  const existingItems = useMemo(() => {
+    if (!timelineYear) return []
+    const allItems: TimelineItem[] = [
+      ...(timelineYear.assets ?? []),
+      ...(timelineYear.liabilities ?? []),
+      ...(timelineYear.income ?? []),
+      ...(timelineYear.expenses ?? []),
+    ]
+    return allItems
+  }, [timelineYear])
 
   useEffect(() => {
     if (!isOpen) {
@@ -79,15 +83,15 @@ export function TimelineEditDrawer({
   const handleExistingChange = (itemId: string) => {
     setForm((prev) => ({ ...prev, itemId }))
     if (!itemId) return
-    const match = existingItems.find((item) => (item as any).itemId === itemId || (item as any).item_id === itemId)
+    const match = existingItems.find((item) => item.item_id === itemId)
     if (match) {
       setForm({
-        itemId: (match as any).itemId ?? (match as any).item_id,
+        itemId: match.item_id,
         name: match.name,
-        itemType: (match as any).itemType ?? (match as any).item_type,
+        itemType: match.item_type,
         category: match.category,
-        amount: ((match as any).sourceAmount ?? (match as any).source_amount ?? (match as any).amountAnnual ?? (match as any).amount_annual ?? 0).toString(),
-        frequency: (match as any).sourceFrequency ?? (match as any).source_frequency ?? 'annual',
+        amount: match.source_amount?.toString() ?? match.amount_annual.toString(),
+        frequency: match.source_frequency ?? 'annual',
         note: '',
       })
     }

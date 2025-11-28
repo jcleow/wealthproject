@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 
 import type { Asset, Expense, Frequency, Income, Liability } from '../../types/financial'
@@ -193,7 +193,7 @@ export function FinancialFormModal({
   })
   const [cpfErrors, setCpfErrors] = useState<Partial<typeof cpfFields>>({})
 
-  const normalizedCategory = (() => {
+  const normalizedCategory = useMemo(() => {
     switch (type) {
       case 'income':
         return 'incomes'
@@ -206,7 +206,7 @@ export function FinancialFormModal({
       default:
         return type
     }
-  })()
+  }, [type])
 
   useEffect(() => {
     if (!isOpen) return
@@ -226,8 +226,8 @@ export function FinancialFormModal({
     switch (type) {
       case 'asset': {
         const asset = data as Asset
-        const amt = (asset as any).amountAnnual ?? (asset as any).amount_annual ?? asset.currentValue ?? 0
-        const freq = (asset as any).sourceFrequency ?? (asset as any).source_frequency ?? 'annual'
+        const amt = (asset as any).amount_annual ?? asset.currentValue ?? 0
+        const freq = (asset as any).source_frequency ?? 'annual'
         setFormData({
           name: toSafeText(asset.name),
           amount: formatNumberInput(roundToDollar(amt)),
@@ -242,8 +242,8 @@ export function FinancialFormModal({
       }
       case 'liability': {
         const liability = data as Liability
-        const amt = (liability as any).amountAnnual ?? (liability as any).amount_annual ?? liability.currentBalance ?? 0
-        const freq = (liability as any).sourceFrequency ?? (liability as any).source_frequency ?? 'annual'
+        const amt = (liability as any).amount_annual ?? liability.currentBalance ?? 0
+        const freq = (liability as any).source_frequency ?? 'annual'
         setFormData({
           name: toSafeText(liability.name),
           amount: formatNumberInput(roundToDollar(amt)),
@@ -258,8 +258,8 @@ export function FinancialFormModal({
       }
       case 'income': {
         const income = data as Income
-        const amt = (income as any).amountAnnual ?? (income as any).amount_annual ?? income.amount ?? 0
-        const freq = (income as any).sourceFrequency ?? (income as any).source_frequency ?? income.frequency ?? 'annual'
+        const amt = (income as any).amount_annual ?? income.amount ?? 0
+        const freq = (income as any).source_frequency ?? income.frequency ?? 'annual'
         setFormData({
           name: toSafeText(income.source),
           amount: formatNumberInput(roundToDollar(amt)),
@@ -274,8 +274,8 @@ export function FinancialFormModal({
       }
       case 'expense': {
         const expense = data as Expense
-        const amt = (expense as any).amountAnnual ?? (expense as any).amount_annual ?? expense.amount ?? 0
-        const freq = (expense as any).sourceFrequency ?? (expense as any).source_frequency ?? expense.frequency ?? 'annual'
+        const amt = (expense as any).amount_annual ?? expense.amount ?? 0
+        const freq = (expense as any).source_frequency ?? expense.frequency ?? 'annual'
         setFormData({
           name: toSafeText(expense.payee),
           amount: formatNumberInput(roundToDollar(amt)),
@@ -291,7 +291,7 @@ export function FinancialFormModal({
     }
   }, [data, isOpen, type])
 
-  const categoryOptions = (() => {
+  const categoryOptions = useMemo(() => {
     switch (type) {
       case 'asset':
         return assetCategoryOptions
@@ -304,12 +304,11 @@ export function FinancialFormModal({
       default:
         return []
     }
-  })()
+  }, [type])
 
-  const categorySelectOptions =
-    categoryOptions.some((option) => option.value === formData.category) || !formData.category
-      ? categoryOptions
-      : [...categoryOptions, { value: formData.category, label: formData.category }]
+  const isCustomCategory =
+    categoryOptions.length > 0 &&
+    categoryOptions.every((option) => option.value !== formData.category)
 
   if (!isOpen) return null
 
@@ -668,32 +667,65 @@ export function FinancialFormModal({
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-300">Category</label>
-                <select
-                  className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                  onChange={(event) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      category: event.target.value,
-                    }))
-                  }
-                  value={formData.category}
-                >
-                  {categorySelectOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <select
+                      className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none sm:flex-1"
+                      onChange={(event) => {
+                        const next = event.target.value
+                        if (next === 'custom') {
+                          setFormData((prev) => ({ ...prev, category: '' }))
+                        } else {
+                          setFormData((prev) => ({ ...prev, category: next }))
+                        }
+                      }}
+                      value={isCustomCategory ? 'custom' : formData.category}
+                    >
+                      {categoryOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                      <option value="custom">Custom...</option>
+                    </select>
 
-                {type === 'liability' && formData.category === '' && (
-                  <button
-                    className="mt-2 w-full rounded-lg border border-blue-400/70 bg-blue-500/10 px-3 py-2 text-sm text-blue-100 transition hover:bg-blue-500/20 sm:w-auto"
-                    onClick={() => setFormData((prev) => ({ ...prev, category: MORTGAGE_CATEGORY }))}
-                    type="button"
-                  >
-                    Default to mortgage
-                  </button>
-                )}
+                    {type === 'asset' && formData.category !== PROPERTY_CATEGORY && (
+                      <button
+                        className="w-full rounded-lg border border-emerald-400/70 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 transition hover:bg-emerald-500/20 sm:w-auto"
+                        onClick={() =>
+                          setFormData((prev) => ({ ...prev, category: PROPERTY_CATEGORY }))
+                        }
+                        type="button"
+                      >
+                        Set category to property
+                      </button>
+                    )}
+
+                    {type === 'liability' && formData.category === '' && (
+                      <button
+                        className="w-full rounded-lg border border-blue-400/70 bg-blue-500/10 px-3 py-2 text-sm text-blue-100 transition hover:bg-blue-500/20 sm:w-auto"
+                        onClick={() =>
+                          setFormData((prev) => ({ ...prev, category: MORTGAGE_CATEGORY }))
+                        }
+                        type="button"
+                      >
+                        Default to mortgage
+                      </button>
+                    )}
+                  </div>
+
+                  {(isCustomCategory || categoryOptions.length === 0) && (
+                    <input
+                      className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+                      onChange={(event) =>
+                        setFormData((prev) => ({ ...prev, category: event.target.value }))
+                      }
+                      placeholder="Enter category"
+                      type="text"
+                      value={formData.category}
+                    />
+                  )}
+                </div>
               </div>
 
               <div>

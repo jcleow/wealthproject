@@ -19,7 +19,7 @@ const formatCurrency = (value: number) =>
   `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 const findNonAnnualSource = (items: TimelineItem[]) =>
-  items.find((item) => (item as any).source_frequency ? (item as any).source_frequency !== 'annual' : item.sourceFrequency && item.sourceFrequency !== 'annual')
+  items.find((item) => item.source_frequency && item.source_frequency !== 'annual')
 
 export function TimelineSnapshot({ year, timelineYear, loading }: TimelineSnapshotProps) {
   if (loading) {
@@ -37,13 +37,13 @@ export function TimelineSnapshot({ year, timelineYear, loading }: TimelineSnapsh
   const incomes = timelineYear.income ?? []
   const expenses = timelineYear.expenses ?? []
 
-  const totalAssets = assets.reduce((sum, item) => sum + (item.adjAnnualAmt ?? item.amountAnnual ?? 0), 0)
+  const totalAssets = assets.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
   const totalLiabilities = liabilities.reduce(
-    (sum, item) => sum + (item.adjAnnualAmt ?? item.amountAnnual ?? 0),
+    (sum, item) => sum + (item.amount_annual ?? 0),
     0
   )
-  const totalIncome = incomes.reduce((sum, item) => sum + (item.adjAnnualAmt ?? item.amountAnnual ?? 0), 0)
-  const totalExpenses = expenses.reduce((sum, item) => sum + (item.adjAnnualAmt ?? item.amountAnnual ?? 0), 0)
+  const totalIncome = incomes.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
+  const totalExpenses = expenses.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
   const nonAnnualSource =
     findNonAnnualSource(assets) ||
     findNonAnnualSource(liabilities) ||
@@ -59,7 +59,7 @@ export function TimelineSnapshot({ year, timelineYear, loading }: TimelineSnapsh
             Annualized amounts returned from the projection engine.
           </p>
         </div>
-        {timelineYear.hasOverrides && (
+        {timelineYear.has_overrides && (
           <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-medium text-blue-100">
             Overrides applied
           </span>
@@ -68,14 +68,14 @@ export function TimelineSnapshot({ year, timelineYear, loading }: TimelineSnapsh
 
       {nonAnnualSource && (
         <p className="text-xs text-blue-100">
-          Annualized from {formatCurrency(nonAnnualSource.sourceAmount ?? 0)}{' '}
-          {frequencyLabel[nonAnnualSource.sourceFrequency ?? 'annual'] ?? 'source'}
+          Annualized from {formatCurrency(nonAnnualSource.source_amount ?? 0)}{' '}
+          {frequencyLabel[nonAnnualSource.source_frequency ?? 'annual'] ?? 'source'}
         </p>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <SnapshotCard label="Net Worth" value={timelineYear.netWorth} accent="text-blue-200" />
-        <SnapshotCard label="Net Cash" value={timelineYear.netCash} accent="text-emerald-200" />
+        <SnapshotCard label="Net Worth" value={timelineYear.net_worth} accent="text-blue-200" />
+        <SnapshotCard label="Net Cash" value={timelineYear.net_cash} accent="text-emerald-200" />
         <SnapshotCard label="Assets" value={totalAssets} accent="text-blue-200" />
         <SnapshotCard label="Liabilities" value={totalLiabilities} accent="text-rose-200" />
         <SnapshotCard label="Income" value={totalIncome} accent="text-emerald-200" />

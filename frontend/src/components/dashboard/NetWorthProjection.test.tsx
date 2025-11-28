@@ -1,6 +1,6 @@
 import React from 'react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { NetWorthProjection } from './NetWorthProjection'
@@ -11,58 +11,45 @@ const timelineYears: TimelineYear[] = [
     year: 0,
     assets: [
       {
-        itemId: 'asset-1',
+        item_id: 'asset-1',
         name: 'Cash',
         category: 'asset_cash',
-        amountAnnual: 12000,
-        sourceAmount: 1000,
-        sourceFrequency: 'monthly',
-        itemType: 'asset',
-        createdYear: 0,
+        amount_annual: 12000,
+        source_amount: 1000,
+        source_frequency: 'monthly',
+        item_type: 'asset',
+        created_year: 0,
       },
     ],
     liabilities: [],
     income: [],
     expenses: [],
-    netCash: 12000,
-    netWorth: 12000,
-    hasOverrides: false,
-    growthApplied: [],
+    net_cash: 12000,
+    net_worth: 12000,
+    has_overrides: false,
+    growth_applied: [],
   },
   {
     year: 1,
     assets: [
       {
-        itemId: 'asset-1',
+        item_id: 'asset-1',
         name: 'Cash',
         category: 'asset_cash',
-        amountAnnual: 13000,
-        sourceAmount: 1000,
-        sourceFrequency: 'monthly',
-        itemType: 'asset',
-        createdYear: 0,
+        amount_annual: 13000,
+        source_amount: 1000,
+        source_frequency: 'monthly',
+        item_type: 'asset',
+        created_year: 0,
       },
     ],
     liabilities: [],
     income: [],
     expenses: [],
-    netCash: 13000,
-    netWorth: 13000,
-    hasOverrides: true,
-    growthApplied: [],
-  },
-]
-
-const scenarioEvents = [
-  {
-    id: 'evt-1',
-    name: 'Job Loss',
-    occursOn: `${new Date().getFullYear()}-06`,
-    displayIcon: 'briefcase',
-    displayColor: '#0ea5e9',
-    tags: [],
-    isIncluded: true,
-    impacts: [],
+    net_cash: 13000,
+    net_worth: 13000,
+    has_overrides: true,
+    growth_applied: [],
   },
 ]
 
@@ -73,20 +60,6 @@ describe('NetWorthProjection', () => {
   const originalWarn = console.warn
 
   beforeEach(() => {
-    class ResizeObserverMock {
-      private callback: ResizeObserverCallback
-      constructor(callback: ResizeObserverCallback) {
-        this.callback = callback
-      }
-      observe() {
-        this.callback([{ contentRect: { width: 800, height: 400 } } as ResizeObserverEntry], this)
-      }
-      unobserve() {}
-      disconnect() {}
-    }
-
-    vi.stubGlobal('ResizeObserver', ResizeObserverMock)
-
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((message, ...args) => {
       if (typeof message === 'string' && message.includes('width(-1) and height(-1)')) {
         return
@@ -120,6 +93,7 @@ describe('NetWorthProjection', () => {
 
   it('renders override markers and allows jumping to a year', async () => {
     const onSelectYear = vi.fn()
+    const user = userEvent.setup()
 
     const client = new QueryClient()
 
@@ -130,38 +104,14 @@ describe('NetWorthProjection', () => {
             timelineYears={timelineYears}
             selectedYear={0}
             onSelectYear={onSelectYear}
-            overrideYears={new Set([1])}
-            scenarioEvents={scenarioEvents}
           />
         </div>
       </QueryClientProvider>
     )
 
-    await waitFor(() => {
-      expect(document.querySelector('[data-testid="override-marker-1"]')).not.toBeNull()
-    })
+    const marker = await screen.findByTestId('override-marker-1')
+    await user.click(marker)
 
-    expect(onSelectYear).not.toHaveBeenCalled()
-  })
-
-  it('renders scenario markers when events are provided', async () => {
-    const client = new QueryClient()
-
-    render(
-      <QueryClientProvider client={client}>
-        <div style={{ width: 800, height: 400 }}>
-          <NetWorthProjection
-            timelineYears={timelineYears}
-            selectedYear={0}
-            overrideYears={new Set([1])}
-            scenarioEvents={scenarioEvents}
-          />
-        </div>
-      </QueryClientProvider>
-    )
-
-    await waitFor(() => {
-      expect(document.querySelector('[data-testid="scenario-marker-0"]')).not.toBeNull()
-    })
+    expect(onSelectYear).toHaveBeenCalledWith(1)
   })
 })

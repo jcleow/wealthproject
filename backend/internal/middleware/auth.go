@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -27,10 +26,6 @@ func Authenticate(next http.Handler) http.Handler {
 		userID := r.Header.Get("X-User-ID")
 		if userID == "" {
 			userID = r.Header.Get("X-Session-ID")
-		}
-		// Dev convenience: allow anonymous fallback when explicitly enabled.
-		if userID == "" && strings.ToLower(strings.TrimSpace(os.Getenv("ALLOW_ANON_USER"))) == "true" {
-			userID = defaultUserID()
 		}
 
 		ctx := context.WithValue(r.Context(), userContextKey{}, UserContext{
@@ -60,13 +55,4 @@ func parseBearerToken(header string) string {
 		return strings.TrimSpace(header[7:])
 	}
 	return strings.TrimSpace(header)
-}
-
-// defaultUserID returns the configured fallback user ID, or a stable dev default.
-func defaultUserID() string {
-	if val := strings.TrimSpace(os.Getenv("DEFAULT_USER_ID")); val != "" {
-		return val
-	}
-	// Legacy default used by chat/session seeds and local runs.
-	return "550e8400-e29b-41d4-a716-446655440000"
 }

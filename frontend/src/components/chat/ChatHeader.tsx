@@ -4,7 +4,7 @@ interface ChatHeaderProps {
   isHistoryOpen?: boolean
 }
 
-export default function ChatHeader({}: ChatHeaderProps) {
+export default function ChatHeader({ chatId, onToggleHistory, isHistoryOpen }: ChatHeaderProps) {
   return (
     <div className="border-b border-white/5 px-6 py-6">
       <div className="relative">
