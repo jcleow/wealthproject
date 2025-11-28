@@ -5,10 +5,10 @@ import {
   type ScenarioImpactDto,
   scenarioEventFromDto,
   scenarioEventToDto,
-  scenarioImpactFromDto,
   scenarioImpactToDto,
 } from '@/types/scenario'
 import type { ScenarioEventDTO, ScenarioEventsDTO } from '@/types/api-dtos'
+import type { TimelineResponse, TimelineEditRequest } from '@/types/timeline'
 
 function getApiBaseUrl() {
   const envURL = process.env.NEXT_PUBLIC_GO_BACKEND_BASE_URL?.trim()
@@ -84,6 +84,7 @@ const toLiability = (item: any): Liability => ({
 
 const toIncome = (item: any): Income => ({
   id: item.id ?? item.ID,
+  parentId: item.parent_id ?? item.parentId ?? item.ParentID,
   source: item.source ?? item.Source,
   amount: item.amount ?? item.Amount,
   frequency: item.frequency ?? item.Frequency,
@@ -95,6 +96,7 @@ const toIncome = (item: any): Income => ({
 
 const toExpense = (item: any): Expense => ({
   id: item.id ?? item.ID,
+  parentId: item.parent_id ?? item.parentId ?? item.ParentID,
   payee: item.payee ?? item.Payee,
   amount: item.amount ?? item.Amount,
   frequency: item.frequency ?? item.Frequency,
@@ -233,12 +235,7 @@ export const financialApi = {
     return data.map(toIncome)
   },
   async createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): Promise<Income> {
-    const startDate =
-      typeof payload.startDate === 'string'
-        ? payload.startDate
-        : payload.startDate instanceof Date
-          ? payload.startDate.toISOString()
-          : new Date().toISOString()
+    const startDate = payload.startDate ?? new Date().toISOString()
     const body = {
       source: payload.source,
       amount: payload.amount,
@@ -385,9 +382,13 @@ export const financialApi = {
 
   // Scenario events (universal schema)
   async createScenarioEvent(payload: ScenarioEvent): Promise<ScenarioEvent> {
+    const normalizedIcon = payload.displayIcon?.trim()
+    if (!normalizedIcon) {
+      throw new Error('displayIcon is required when creating a scenario event')
+    }
     const body = scenarioEventToDto({
       ...payload,
-      displayIcon: payload.displayIcon ?? 'sparkles',
+      displayIcon: normalizedIcon,
       tags: payload.tags ?? [],
       isIncluded: payload.isIncluded ?? true,
     })
@@ -419,9 +420,13 @@ export const financialApi = {
 
   async updateScenarioEvent(id: string, payload: ScenarioEvent): Promise<ScenarioEvent> {
     if (!id) throw new Error('Scenario event id is required')
+    const normalizedIcon = payload.displayIcon?.trim()
+    if (!normalizedIcon) {
+      throw new Error('displayIcon is required when updating a scenario event')
+    }
     const body = scenarioEventToDto({
       ...payload,
-      displayIcon: payload.displayIcon ?? 'sparkles',
+      displayIcon: normalizedIcon,
       tags: payload.tags ?? [],
       isIncluded: payload.isIncluded ?? true,
     })
@@ -464,15 +469,40 @@ export const financialApi = {
         scenario_id: item.scenario_id ?? item.scenarioId ?? item.ScenarioID ?? item.ScenarioId ?? undefined,
         is_included: item.is_included ?? item.isIncluded ?? item.IsIncluded ?? true,
         impacts: Array.isArray(item.impacts)
-          ? item.impacts.map(scenarioImpactFromDto)
+          ? item.impacts.map(normalizeImpact)
           : Array.isArray((item as any).Impacts)
-            ? (item as any).Impacts.map(scenarioImpactFromDto)
+            ? (item as any).Impacts.map(normalizeImpact)
             : [],
       })
 
     const data = await jsonRequest<ScenarioEventsDTO>(`${API_BASE}/scenario-events`)
     const list = Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : []
     return list.map(normalize)
+  },
+
+  async deleteScenarioEvent(id: string): Promise<void> {
+    if (!id) throw new Error('Scenario event id is required')
+    await jsonRequest<void>(`${API_BASE}/scenario-events/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  },
+
+  // Property scenarios list
+  async listPropertyScenarios(): Promise<PropertyScenarioRecord[]> {
+    const data = await jsonRequest<any[]>(`${API_BASE}/property-planner/scenarios`)
+    return data.map(toPropertyScenario)
+  },
+
+  // Timeline
+  async getTimeline(): Promise<TimelineResponse> {
+    const data = await jsonRequest<TimelineResponse>(`${API_BASE}/timeline`)
+    return data
+  },
+
+  async updateTimelineYear(request: TimelineEditRequest): Promise<TimelineResponse> {
+    const data = await jsonRequest<TimelineResponse>(`${API_BASE}/timeline/year/${request.year}`, {
+      method: 'PUT',
+      body: JSON.stringify({ edits: request.edits, note: request.note }),
+    })
+    return data
   },
 
   // Bulk delete operations for sample data and reset

@@ -58,21 +58,21 @@ type scenarioImpactInput struct {
 }
 
 type scenarioEventInput struct {
-	ID              string             `json:"id"`
-	Name            string             `json:"name"`
-	Description     *string            `json:"description"`
-	OccursOn        string             `json:"occursOn"`
-	OccursOnSnake   string             `json:"occurs_on"`
-	DisplayIcon     string             `json:"displayIcon"`
-	DisplayIconSnake string            `json:"display_icon"`
-	DisplayColor    string             `json:"displayColor"`
-	DisplayColorSnake string           `json:"display_color"`
-	Tags            []string           `json:"tags"`
-	ScenarioID      *string            `json:"scenarioId"`
-	ScenarioIDSnake *string            `json:"scenario_id"`
-	IsIncluded      *bool              `json:"isIncluded"`
-	IsIncludedSnake *bool              `json:"is_included"`
-	Impacts         []scenarioImpactInput `json:"impacts"`
+	ID                string                `json:"id"`
+	Name              string                `json:"name"`
+	Description       *string               `json:"description"`
+	OccursOn          string                `json:"occursOn"`
+	OccursOnSnake     string                `json:"occurs_on"`
+	DisplayIcon       string                `json:"displayIcon"`
+	DisplayIconSnake  string                `json:"display_icon"`
+	DisplayColor      string                `json:"displayColor"`
+	DisplayColorSnake string                `json:"display_color"`
+	Tags              []string              `json:"tags"`
+	ScenarioID        *string               `json:"scenarioId"`
+	ScenarioIDSnake   *string               `json:"scenario_id"`
+	IsIncluded        *bool                 `json:"isIncluded"`
+	IsIncludedSnake   *bool                 `json:"is_included"`
+	Impacts           []scenarioImpactInput `json:"impacts"`
 }
 
 func normalizeImpactInput(in scenarioImpactInput) scenarioImpactDTO {
@@ -397,7 +397,6 @@ func (h *ScenarioEventHandler) toggle(w http.ResponseWriter, r *http.Request, id
 	writeSuccess(w, map[string]bool{"isIncluded": val})
 }
 
-
 type window struct {
 	start time.Time
 	end   *time.Time
@@ -467,17 +466,14 @@ func parseMonthStart(val string) (time.Time, error) {
 	if val == "" {
 		return time.Time{}, errors.New("empty month")
 	}
-	// RFC3339 timestamp
-	if t, err := time.Parse(time.RFC3339, val); err == nil {
-		return t, nil
-	}
-	// YYYY-MM-DD
-	if t, err := time.Parse("2006-01-02", val); err == nil {
-		return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC), nil
-	}
-	// YYYY-MM
-	if t, err := time.Parse("2006-01", val); err == nil {
-		return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC), nil
+	// Accept RFC3339, YYYY-MM-DD, or YYYY-MM, but normalize to the first of month at UTC midnight
+	// so it always passes the month-start DB constraint regardless of client timezone.
+	candidates := []string{time.RFC3339, "2006-01-02", "2006-01"}
+	for _, layout := range candidates {
+		if t, err := time.Parse(layout, val); err == nil {
+			tUTC := t.In(time.UTC)
+			return time.Date(tUTC.Year(), tUTC.Month(), 1, 0, 0, 0, 0, time.UTC), nil
+		}
 	}
 	return time.Time{}, errors.New("unsupported month format")
 }

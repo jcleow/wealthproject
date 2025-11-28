@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAssetsQuery, useCreateAssetMutation, useUpdateAssetMutation, useDeleteAssetMutation } from './queries/useAssetsQuery'
 import { useLiabilitiesQuery, useCreateLiabilityMutation, useUpdateLiabilityMutation, useDeleteLiabilityMutation } from './queries/useLiabilitiesQuery'
@@ -71,7 +70,7 @@ export function useFinancialData() {
     return incomes.reduce((sum, income) => {
       const monthlyAmount = income.frequency === 'monthly'
         ? income.amount
-        : income.frequency === 'annually'
+        : income.frequency === 'yearly'
         ? income.amount / 12
         : income.frequency === 'weekly'
         ? income.amount * 52 / 12
@@ -86,7 +85,7 @@ export function useFinancialData() {
     return expenses.reduce((sum, expense) => {
       const monthlyAmount = expense.frequency === 'monthly'
         ? expense.amount
-        : expense.frequency === 'annually'
+        : expense.frequency === 'yearly'
         ? expense.amount / 12
         : expense.frequency === 'weekly'
         ? expense.amount * 52 / 12
@@ -141,7 +140,7 @@ export function useFinancialData() {
 
     // Bulk operations
     deleteAllFinancialData: deleteAllMutation.mutateAsync,
-    loadSampleData: loadSampleDataMutation.mutateAsync,
+    loadSampleData: async () => { await loadSampleDataMutation.mutateAsync() },
 
     // Computed values
     getTotalAssets,

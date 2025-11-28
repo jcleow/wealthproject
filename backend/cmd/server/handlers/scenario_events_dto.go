@@ -144,7 +144,7 @@ func buildImpactsFromDTO(reqs []scenarioImpactDTO) ([]repository.ScenarioImpact,
 			return nil, errors.New("invalid impactKind")
 		}
 		cad := strings.ToLower(strings.TrimSpace(in.Cadence))
-		if !inSet(cad, []string{"one_time", "monthly", "annual"}) {
+		if !inSet(cad, []string{"one_time", "weekly", "bi_weekly", "monthly", "quarterly", "semi_annual", "annual"}) {
 			return nil, errors.New("invalid cadence")
 		}
 		start, err := parseMonthStart(in.StartMonth)

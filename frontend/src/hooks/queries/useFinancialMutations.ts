@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
+import type { Income, Expense } from '@/types/financial'
 import { ASSETS_QUERY_KEY } from './useAssetsQuery'
 import { LIABILITIES_QUERY_KEY } from './useLiabilitiesQuery'
 import { INCOMES_QUERY_KEY } from './useIncomesQuery'
@@ -51,25 +52,25 @@ export function useLoadSampleDataMutation() {
           name: 'Savings Account',
           category: 'Bank Account',
           currentValue: 12000,
-          interestRate: 1.2,
+          annualGrowthRate: 1.2,
         },
         {
           name: 'CPF Ordinary Account',
           category: 'Retirement',
           currentValue: 30000,
-          interestRate: 2.5,
+          annualGrowthRate: 2.5,
         },
         {
           name: 'ETF Portfolio',
           category: 'Investment',
           currentValue: 15000,
-          interestRate: 5.5,
+          annualGrowthRate: 5.5,
         },
         {
           name: 'Emergency Fund',
           category: 'Bank Account',
           currentValue: 8000,
-          interestRate: 1.8,
+          annualGrowthRate: 1.8,
         },
       ]
 
@@ -78,14 +79,14 @@ export function useLoadSampleDataMutation() {
           name: 'Education Loan',
           category: 'Loan',
           currentBalance: 10000,
-          interestRate: 3,
+          interestRateApr: 3,
           minimumPayment: 220,
         },
         {
           name: 'Credit Card',
           category: 'Credit Card',
           currentBalance: 1200,
-          interestRate: 24,
+          interestRateApr: 24,
           minimumPayment: 80,
         },
       ]

@@ -9,6 +9,7 @@ import {
   MinusCircle,
   Plus,
   Shield,
+  Trash2,
 } from 'lucide-react'
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 
@@ -58,20 +59,25 @@ const MOCK_SCENARIOS: MockScenario[] = [
   },
 ]
 
-function AvatarStack({ scenarios }: { scenarios: MockScenario[] }) {
+function AvatarStack({ scenarios, activeIds }: { scenarios: MockScenario[]; activeIds: Set<string> }) {
   return (
     <div className="flex items-center -space-x-3">
       {scenarios.map((scenario) => {
         const Icon = scenario.icon
+        const isActive = activeIds.has(scenario.id)
         return (
           <div
             key={scenario.id}
             className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10 bg-slate-900 shadow-lg shadow-black/30"
             aria-label={scenario.name}
           >
-            <div className={`absolute inset-0 bg-gradient-to-br ${scenario.accent} opacity-90`} />
+            <div
+              className={`absolute inset-0 bg-gradient-to-br ${
+                isActive ? scenario.accent : scenario.mutedAccent
+              } ${isActive ? 'opacity-90' : 'opacity-60'}`}
+            />
             <span className="relative flex h-full w-full items-center justify-center drop-shadow-sm">
-              <Icon className="h-4 w-4 text-white" />
+              <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-white/60'}`} />
             </span>
           </div>
         )
@@ -83,6 +89,7 @@ function AvatarStack({ scenarios }: { scenarios: MockScenario[] }) {
 export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: () => void }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [scenarios, setScenarios] = useState<MockScenario[]>(() => [...MOCK_SCENARIOS])
   const [activeIds, setActiveIds] = useState<Set<string>>(
     () => new Set(MOCK_SCENARIOS.slice(0, 3).map((s) => s.id))
   )
@@ -90,8 +97,7 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
   const [mounted, setMounted] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const scrollYRef = useRef(0)
-  const [includeEnabled, setIncludeEnabled] = useState(true)
+  const [includeEnabled] = useState(true)
 
   useEffect(() => {
     setMounted(true)
@@ -143,9 +149,9 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
 
   const visibleScenarios = useMemo(() => {
     const term = search.trim().toLowerCase()
-    if (!term) return MOCK_SCENARIOS
-    return MOCK_SCENARIOS.filter((s) => s.name.toLowerCase().includes(term))
-  }, [search])
+    if (!term) return scenarios
+    return scenarios.filter((s) => s.name.toLowerCase().includes(term))
+  }, [search, scenarios])
 
   const toggleScenario = (id: string) => {
     setActiveIds((prev) => {
@@ -159,7 +165,16 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
     })
   }
 
-  const topStack = MOCK_SCENARIOS.slice(0, 3)
+  const deleteScenario = (id: string) => {
+    setScenarios((prev) => prev.filter((s) => s.id !== id))
+    setActiveIds((prev) => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+  }
+
+  const topStack = scenarios.slice(0, 3)
 
   return (
     <div
@@ -175,7 +190,7 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
       }}
     >
       <div className="relative flex items-center gap-3 overflow-visible rounded-full bg-gradient-to-r from-slate-800/90 via-slate-800/85 to-slate-900/85 px-4 py-2 pr-16">
-        <AvatarStack scenarios={topStack} />
+        <AvatarStack scenarios={topStack} activeIds={activeIds} />
         <input
           ref={inputRef}
           onFocus={() => setOpen(true)}
@@ -222,22 +237,23 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
               onWheel={(e) => e.stopPropagation()}
             >
               <div className="mb-2 flex items-center justify-between text-xs text-slate-200">
-                <span className="font-semibold">{`${MOCK_SCENARIOS.length} scenarios`}</span>
+                <span className="font-semibold">{`${scenarios.length} scenarios`}</span>
                 <button
                   type="button"
                   onClick={() => {
-                    const allIds = new Set(MOCK_SCENARIOS.map((s) => s.id))
+                    const allIds = new Set(scenarios.map((s) => s.id))
                     const allSelected = activeIds.size === allIds.size
                     setActiveIds(allSelected ? new Set() : allIds)
                   }}
                   className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white transition hover:border-white/30 hover:bg-white/10"
                 >
-                  {activeIds.size === MOCK_SCENARIOS.length ? 'Deselect all' : 'Select all'}
+                  {activeIds.size === scenarios.length ? 'Deselect all' : 'Select all'}
                 </button>
               </div>
               <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
                 {visibleScenarios.map((scenario) => {
                   const isActive = activeIds.has(scenario.id)
+                  const Icon = scenario.icon
                   return (
                     <div
                       key={scenario.id}
@@ -250,7 +266,7 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
                           }`}
                         />
                         <span className="relative flex h-full w-full items-center justify-center drop-shadow-sm">
-                          <scenario.icon className="h-4 w-4 text-white" />
+                          <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-white/60'}`} />
                         </span>
                       </div>
                       <div className="flex flex-1 flex-col items-start text-left">
@@ -272,6 +288,14 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
                       >
                         {isActive ? <Check className="h-3 w-3" /> : <MinusCircle className="h-3 w-3" />}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteScenario(scenario.id)}
+                        className="flex h-5 w-5 items-center justify-center rounded border border-red-500/30 bg-red-500/10 text-red-400 transition hover:border-red-500/50 hover:bg-red-500/20 hover:text-red-300"
+                        aria-label={`Delete ${scenario.name}`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </div>
                   )
                 })}
@@ -282,7 +306,8 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
                   </div>
                 )}
               </div>
-              <div className="flex justify-end pt-2">
+              <div className="flex items-center justify-between pt-2">
+                <div />
                 <button
                   type="button"
                   onClick={() => setOpen(false)}

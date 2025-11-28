@@ -1,13 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
-import type { TimelineResponse } from '@/types/timeline'
+import type { TimelineResponse, TimelineYear, TimelineEditRequest } from '@/types/timeline'
 
 export const TIMELINE_QUERY_KEY = ['timeline'] as const
 
 export function useTimelineQuery() {
   return useQuery({
     queryKey: TIMELINE_QUERY_KEY,
-    queryFn: financialApi.getTimeline,
+    queryFn: async (): Promise<TimelineResponse> => financialApi.getTimeline(),
     staleTime: 30_000, // Consider fresh for 30 seconds
     cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
     refetchOnWindowFocus: true, // Refetch when user comes back to tab
@@ -18,9 +18,9 @@ export function useTimelineYearMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ year, edits }: Parameters<typeof financialApi.updateTimelineYear>[0]) =>
-      financialApi.updateTimelineYear({ year, edits }),
-    onSuccess: (updatedTimeline) => {
+    mutationFn: (request: TimelineEditRequest) =>
+      financialApi.updateTimelineYear(request),
+    onSuccess: (updatedTimeline: TimelineResponse) => {
       // Update the timeline cache with the response
       queryClient.setQueryData<TimelineResponse>(TIMELINE_QUERY_KEY, updatedTimeline)
 
@@ -36,7 +36,7 @@ export function useTimelineYear(year: number) {
   const { data: timeline } = useTimelineQuery()
 
   return {
-    yearData: timeline?.years?.find(y => y.year === year),
+    yearData: timeline?.years?.find((y: TimelineYear) => y.year === year),
     loading: !timeline,
   }
 }

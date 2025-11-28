@@ -35,5 +35,4 @@ class ResizeObserverMock {
 }
 
 // Provide a predictable ResizeObserver for jsdom
-// @ts-expect-error jsdom global override for tests
 global.ResizeObserver = ResizeObserverMock

@@ -1,6 +1,39 @@
 export type ScenarioImpactKind = 'delta' | 'override' | 'start' | 'stop'
 export type ScenarioTargetType = 'asset' | 'liability' | 'income' | 'expense'
-export type ScenarioCadence = 'one_time' | 'monthly' | 'annual'
+export type ScenarioCadence = 'one_time' | 'weekly' | 'bi_weekly' | 'monthly' | 'quarterly' | 'semi_annual' | 'annual'
+
+// UI verb type for sentence-builder pattern
+export type ImpactVerb = 'increases_by' | 'decreases_by' | 'becomes' | 'starts_at' | 'ends'
+
+// Convert UI verb to internal impactKind and normalize amount sign
+export function verbToImpact(verb: ImpactVerb, amount: number): { impactKind: ScenarioImpactKind; amount: number } {
+  switch (verb) {
+    case 'increases_by':
+      return { impactKind: 'delta', amount: Math.abs(amount) }
+    case 'decreases_by':
+      return { impactKind: 'delta', amount: -Math.abs(amount) }
+    case 'becomes':
+      return { impactKind: 'override', amount }
+    case 'starts_at':
+      return { impactKind: 'start', amount }
+    case 'ends':
+      return { impactKind: 'stop', amount: 0 }
+  }
+}
+
+// Convert internal impactKind back to UI verb
+export function impactToVerb(impactKind: ScenarioImpactKind, amount: number): ImpactVerb {
+  switch (impactKind) {
+    case 'delta':
+      return amount >= 0 ? 'increases_by' : 'decreases_by'
+    case 'override':
+      return 'becomes'
+    case 'start':
+      return 'starts_at'
+    case 'stop':
+      return 'ends'
+  }
+}
 
 // Wire DTO shapes (snake_case) returned by the Go API
 export interface ScenarioImpactDto {

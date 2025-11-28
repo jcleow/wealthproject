@@ -35,7 +35,8 @@ type Row struct {
 // ApplyRequest inputs for merging scenarios.
 type ApplyRequest struct {
 	UserID      string
-	Year        int
+	Year        int      // relative timeline year (0 = current year)
+	BaseYear    int      // calendar year that corresponds to Year=0
 	Rows        []Row
 	SelectedIDs []string // optional: limit to these scenario IDs; if empty, use all included
 }
@@ -46,8 +47,9 @@ func (s *Service) Apply(ctx context.Context, req ApplyRequest) ([]Row, error) {
 	if req.UserID == "" {
 		return nil, errors.New("user_id required")
 	}
-	if req.Year == 0 {
-		return nil, errors.New("year required")
+	// Year 0 is valid (current/base year) - only reject negative years
+	if req.Year < 0 {
+		return nil, errors.New("year must be >= 0")
 	}
 
 	events, _, err := s.store.ListScenarioEvents(ctx, req.UserID, repository.ScenarioFilters{
@@ -71,6 +73,9 @@ func (s *Service) Apply(ctx context.Context, req ApplyRequest) ([]Row, error) {
 		events = filtered
 	}
 
+	// Convert relative year to calendar year for date comparison.
+	calendarYear := req.BaseYear + req.Year
+
 	// Build per-entity impacts for this year.
 	type key struct {
 		t  string
@@ -86,7 +91,7 @@ func (s *Service) Apply(ctx context.Context, req ApplyRequest) ([]Row, error) {
 			if imp.TargetID == nil {
 				continue
 			}
-			if !appliesToYear(imp, req.Year) {
+			if !appliesToYear(imp, calendarYear) {
 				continue
 			}
 			k := key{t: imp.TargetType, id: *imp.TargetID}
@@ -135,15 +140,15 @@ type overrideChoice struct {
 	updatedAt time.Time
 }
 
-func appliesToYear(imp repository.ScenarioImpact, year int) bool {
+func appliesToYear(imp repository.ScenarioImpact, calendarYear int) bool {
 	startYear := imp.StartMonth.Year()
-	if year < startYear {
+	if calendarYear < startYear {
 		return false
 	}
-	if imp.EndMonth != nil && year > imp.EndMonth.Year() {
+	if imp.EndMonth != nil && calendarYear > imp.EndMonth.Year() {
 		return false
 	}
-	if imp.Cadence == "one_time" && startYear != year {
+	if imp.Cadence == "one_time" && startYear != calendarYear {
 		return false
 	}
 	return true

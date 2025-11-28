@@ -40,8 +40,16 @@ async function jsonRequest<T>(path: string, options: RequestInit): Promise<T> {
 }
 
 export const timelineApi = {
-  async getTimeline(): Promise<TimelineResponse> {
-    return jsonRequest<TimelineResponse>('/financial/timeline', { method: 'GET' })
+  async getTimeline(options?: { includeScenarios?: boolean; scenarioIds?: string[] }): Promise<TimelineResponse> {
+    const params = new URLSearchParams()
+    if (options?.includeScenarios) {
+      params.set('include_scenarios', 'true')
+    }
+    if (options?.scenarioIds?.length) {
+      params.set('scenario_ids', options.scenarioIds.join(','))
+    }
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return jsonRequest<TimelineResponse>(`/financial/timeline${query}`, { method: 'GET' })
   },
 
   async putTimeline(year: number, payload: TimelineEditRequest): Promise<TimelineResponse> {

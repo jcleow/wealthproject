@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { timelineApi } from '@/services/timelineApi'
@@ -12,7 +12,7 @@ export function useTimeline() {
 
   const timelineQuery = useQuery<TimelineResponse>({
     queryKey: TIMELINE_QUERY_KEY,
-    queryFn: () => timelineApi.getTimeline(),
+    queryFn: () => timelineApi.getTimeline({ includeScenarios: true }),
     staleTime: 1000 * 60 * 5,
     retry: 1,
   })
@@ -31,8 +31,12 @@ export function useTimeline() {
   const selectedYearData: TimelineYear | undefined =
     timelineQuery.data?.years?.find((year) => year.year === selectedYearValue)
 
-  const overrideYears = new Set(
-    timelineQuery.data?.years?.filter((year) => year.has_overrides).map((year) => year.year) ?? []
+  const overrideYears = useMemo(
+    () =>
+      new Set(
+        timelineQuery.data?.years?.filter((year) => year.has_overrides).map((year) => year.year) ?? []
+      ),
+    [timelineQuery.data?.years]
   )
 
   const upsertMutation = useMutation({
@@ -57,8 +61,8 @@ export function useTimeline() {
   }, [queryClient])
 
   const saveEdits = useCallback(
-    async (payload: TimelineEditRequest) => {
-      return upsertMutation.mutateAsync(payload)
+    async (payload: TimelineEditRequest): Promise<void> => {
+      await upsertMutation.mutateAsync(payload)
     },
     [upsertMutation]
   )

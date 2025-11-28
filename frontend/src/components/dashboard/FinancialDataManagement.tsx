@@ -1,9 +1,13 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, SlidersHorizontal, Pencil, Trash2, Home, Info, ArrowDownWideNarrow } from 'lucide-react'
+import { Plus, Pencil, Trash2, Home, Info, ArrowDownWideNarrow, ChevronRight } from 'lucide-react'
+import * as LucideIcons from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
+import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import type { Asset, Expense, Income, Liability } from '../../types/financial'
+import type { ScenarioEvent, ScenarioImpact, ScenarioTargetType } from '@/types/scenario'
 import type { PropertyLinkRecord } from '../../types/property'
 import type { FinancialDataType, FinancialFormValues } from '../modals/FinancialFormModal'
 import { FinancialFormModal } from '../modals/FinancialFormModal'
@@ -59,6 +63,40 @@ const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
   },
 }
 
+// Icon lookup for scenario icons
+const iconLookup = Object.entries(LucideIcons).reduce<Record<string, LucideIcon>>((acc, [key, component]) => {
+  if (key === 'default' || key === 'createLucideIcon') return acc
+  const kebab = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/_/g, '-')
+    .toLowerCase()
+  acc[kebab] = component as LucideIcon
+  return acc
+}, {})
+
+function getIconByName(name: string): LucideIcon | undefined {
+  if (!name) return undefined
+  const normalized = name.toLowerCase()
+  return iconLookup[normalized]
+}
+
+// Helper to find scenario impacts for a financial item
+function getImpactsForItem(
+  itemId: string,
+  itemType: ScenarioTargetType,
+  scenarioEvents: ScenarioEvent[]
+): Array<{ event: ScenarioEvent; impact: ScenarioImpact }> {
+  const results: Array<{ event: ScenarioEvent; impact: ScenarioImpact }> = []
+  for (const event of scenarioEvents) {
+    for (const impact of event.impacts) {
+      if (impact.targetType === itemType && impact.targetId === itemId) {
+        results.push({ event, impact })
+      }
+    }
+  }
+  return results
+}
+
 interface ModalState {
   isOpen: boolean
   type: FinancialCategory
@@ -103,6 +141,8 @@ export function FinancialDataManagement({
     refresh,
   } = useFinancialDataContext()
 
+  const { events: scenarioEvents } = useScenarioEvents()
+
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
     type: 'asset',
@@ -117,6 +157,16 @@ export function FinancialDataManagement({
     liability: 'desc',
     expense: 'desc',
   })
+  const [expandedScenarioItems, setExpandedScenarioItems] = useState<Set<string>>(new Set())
+
+  const toggleScenarioExpanded = (itemId: string) => {
+    setExpandedScenarioItems((prev) => {
+      const next = new Set(prev)
+      if (next.has(itemId)) next.delete(itemId)
+      else next.add(itemId)
+      return next
+    })
+  }
   const mergedLinks = (() => {
     const map: Record<string, PropertyLinkRecord> = {}
     const add = (id: string | undefined, link: PropertyLinkRecord) => {
@@ -313,17 +363,13 @@ export function FinancialDataManagement({
     }
   }
 
-  const handleSettings = (category: FinancialCategory) => {
-    if (usingTimeline) return
-    console.log(`Settings for ${category}`)
-  }
 
   const handleModalClose = () => {
     setModalState((prev) => ({ ...prev, isOpen: false, data: undefined }))
   }
 
   const handleModalSave = async (payload: FinancialFormValues, mode: 'create' | 'edit') => {
-    const timestamp = payload.updatedAt ?? new Date().toISOString()
+    const timestamp = ('updatedAt' in payload ? payload.updatedAt : null) ?? new Date().toISOString()
 
     if (usingTimeline && onSaveTimelineEdits) {
       const mapFrequency = (freq: any): TimelineEdit['frequency'] => {
@@ -347,10 +393,10 @@ export function FinancialDataManagement({
         itemId: itemId || undefined,
         name:
           payload.type === 'income'
-            ? (payload as any).source ?? payload.name
+            ? (payload as any).source ?? ('name' in payload ? payload.name : '')
             : payload.type === 'expense'
-              ? (payload as any).payee ?? payload.name
-              : payload.name,
+              ? (payload as any).payee ?? ('name' in payload ? payload.name : '')
+              : 'name' in payload ? payload.name : '',
         itemType: payload.type === 'cpf' ? 'asset' : (payload.type as any),
         category: (payload as any).category ?? '',
         amount,
@@ -460,12 +506,22 @@ export function FinancialDataManagement({
     )
 
   const summarizeAmount = (item: any) => {
+    if ('adj_annual_amt' in item) return item.adj_annual_amt ?? item.amount_annual ?? 0
+    if ('adjAnnualAmt' in item) return item.adjAnnualAmt ?? item.amountAnnual ?? 0
     if ('amount_annual' in item) return item.amount_annual ?? 0
     if ('amountAnnual' in item) return item.amountAnnual ?? 0
     if ('currentValue' in item) return item.currentValue
     if ('currentBalance' in item) return item.currentBalance
     return item.amount ?? 0
   }
+
+  const getDisplayAmount = (item: any) =>
+    item?.adj_annual_amt ??
+    item?.adjAnnualAmt ??
+    item?.amount_annual ??
+    item?.amountAnnual ??
+    summarizeAmount(item) ??
+    0
 
   const getAnnualizationLabel = (item: any) => {
     const sourceAmount = item?.source_amount ?? item?.sourceAmount
@@ -481,8 +537,8 @@ export function FinancialDataManagement({
 
   const getMonthlySavingsForYear = () => {
     // Fall back to zero if timeline lacks P&L breakdown; use income/expenses annualized.
-    const totalIncome = yearIncomes.reduce((sum, it) => sum + (it.amount_annual ?? 0), 0)
-    const totalExpenses = yearExpenses.reduce((sum, it) => sum + (it.amount_annual ?? 0), 0)
+    const totalIncome = yearIncomes.reduce((sum, it) => sum + (summarizeAmount(it) ?? 0), 0)
+    const totalExpenses = yearExpenses.reduce((sum, it) => sum + (summarizeAmount(it) ?? 0), 0)
     return Math.round(Math.max((totalIncome - totalExpenses) / 12, 0))
   }
 
@@ -609,107 +665,182 @@ export function FinancialDataManagement({
                     <div className="flex flex-1 flex-col justify-start gap-3 px-4 py-6 text-gray-300">
                       {hasData ? (
                         <div className="space-y-2 text-left text-sm max-h-64 overflow-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                          {data.map((item: any, index) => (
-                            <div
-                              key={getItemId(item) || index}
-                              className="group/item relative flex items-center justify-between gap-3 overflow-hidden rounded-md px-2 py-1 text-gray-200"
-                            >
-                              <div className="flex min-w-0 items-center gap-2">
-                                <span className="truncate text-sm">
-                                  {'name' in item
-                                    ? item.name
-                                    : 'source' in item
-                                    ? item.source
-                                    : 'payee' in item
-                                    ? item.payee
-                                    : 'Entry'}
-                                </span>
-                                {getAnnualizationLabel(item) && (
-                                  <Tooltip.Provider delayDuration={0}>
-                                    <Tooltip.Root
-                                      open={activeAnnualizationId === (item.id ?? `${key}-${index}`)}
-                                      onOpenChange={(open) => {
-                                        const id = item.id ?? `${key}-${index}`
-                                        setActiveAnnualizationId(open ? id : null)
-                                      }}
-                                      disableHoverableContent
-                                    >
-                                      <Tooltip.Trigger asChild>
+                          {data.map((item: any, index) => {
+                            const itemId = getItemId(item) || `${key}-${index}`
+                            const scenarioImpacts = getImpactsForItem(itemId, key as ScenarioTargetType, scenarioEvents)
+                            const hasScenarios = scenarioImpacts.length > 0
+                            const isExpanded = expandedScenarioItems.has(itemId)
+
+                            return (
+                              <div key={itemId}>
+                                {/* Main line item row */}
+                                <div className="group/item relative flex items-center justify-between gap-3 overflow-hidden rounded-md px-2 py-1 text-gray-200">
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <span className="truncate text-sm">
+                                      {'name' in item
+                                        ? item.name
+                                        : 'source' in item
+                                        ? item.source
+                                        : 'payee' in item
+                                        ? item.payee
+                                        : 'Entry'}
+                                    </span>
+                                    {/* Indicators aligned immediately after label */}
+                                    {hasScenarios && <span className="h-2 w-2 flex-shrink-0 rounded-full bg-amber-400" />}
+                                    {getAnnualizationLabel(item) && (
+                                      <Tooltip.Provider delayDuration={0}>
+                                        <Tooltip.Root
+                                          open={activeAnnualizationId === (item.id ?? `${key}-${index}`)}
+                                          onOpenChange={(open) => {
+                                            const id = item.id ?? `${key}-${index}`
+                                            setActiveAnnualizationId(open ? id : null)
+                                          }}
+                                          disableHoverableContent
+                                        >
+                                          <Tooltip.Trigger asChild>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const id = item.id ?? `${key}-${index}`
+                                                setActiveAnnualizationId((prev) => (prev === id ? null : id))
+                                              }}
+                                              className="flex h-4 w-4 items-center justify-center rounded-full text-gray-400 transition hover:text-white"
+                                                aria-label="Show annualized source"
+                                              >
+                                                <Info className="h-3.5 w-3.5" />
+                                              </button>
+                                          </Tooltip.Trigger>
+                                          <Tooltip.Content
+                                            side="top"
+                                            sideOffset={6}
+                                            className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+                                          >
+                                            {getAnnualizationLabel(item)}
+                                          </Tooltip.Content>
+                                        </Tooltip.Root>
+                                      </Tooltip.Provider>
+                                    )}
+                                    {/* Caret after indicators */}
+                                    {hasScenarios && (
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleScenarioExpanded(itemId)}
+                                        className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-gray-400 transition hover:bg-white/10 hover:text-white"
+                                        aria-label={isExpanded ? 'Collapse scenarios' : 'Expand scenarios'}
+                                      >
+                                        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                      </button>
+                                    )}
+                                    {key !== 'income' && key !== 'expense' && (() => {
+                                      const id = getItemId(item)
+                                      if (!id) return null
+                                      let link =
+                                        mergedLinks[id] ??
+                                        (key === 'asset'
+                                          ? (assetLinks[id]?.[0] ?? null)
+                                          : (liabilityLinks[id]?.[0] ?? null))
+                                      if (!link && firstLink) {
+                                        const onlyOneItemInCategory = data.length === 1
+                                        if (onlyOneItemInCategory) {
+                                          link = firstLink
+                                        }
+                                      }
+                                      if (!link) return null
+                                      return (
                                         <button
                                           type="button"
-                                          onClick={() => {
-                                            const id = item.id ?? `${key}-${index}`
-                                            setActiveAnnualizationId((prev) => (prev === id ? null : id))
-                                          }}
-                                          className="flex h-4 w-4 items-center justify-center rounded-full text-gray-400 transition hover:text-white"
-                                          aria-label="Show annualized source"
+                                          onClick={() => openPlannerFromLink(link)}
+                                          className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-blue-100 transition hover:bg-white/20"
+                                          title="Open property scenario"
                                         >
-                                          <Info className="h-3.5 w-3.5" />
+                                          <Home className="h-4 w-4" />
                                         </button>
-                                      </Tooltip.Trigger>
-                                      <Tooltip.Content
-                                        side="top"
-                                        sideOffset={6}
-                                        className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+                                      )
+                                    })()}
+                                  </div>
+                                  <div className="relative flex items-center gap-2">
+                                    <span className="text-sm text-gray-400 transition-opacity duration-200 group-hover/item:opacity-0">
+                                      {formatCurrency(item.adj_annual_amt ?? item.adjAnnualAmt ?? getDisplayAmount(item))}
+                                    </span>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover/item:pointer-events-auto group-hover/item:opacity-100">
+                                      <button
+                                        onClick={() => handleEditItem(key, item)}
+                                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-white/20"
+                                        type="button"
                                       >
-                                        {getAnnualizationLabel(item)}
-                                      </Tooltip.Content>
-                                    </Tooltip.Root>
-                                  </Tooltip.Provider>
-                                )}
-                                {key !== 'income' && key !== 'expense' && (() => {
-                                  const itemId = getItemId(item)
-                                  if (!itemId) return null
-                                  let link =
-                                    mergedLinks[itemId] ??
-                                    (key === 'asset'
-                                      ? (assetLinks[itemId]?.[0] ?? null)
-                                      : (liabilityLinks[itemId]?.[0] ?? null))
-                                  if (!link && firstLink) {
-                                    const onlyOneItemInCategory = data.length === 1
-                                    if (onlyOneItemInCategory) {
-                                      link = firstLink
-                                    }
-                                  }
-                                  if (!link) return null
-                                  return (
-                                    <button
-                                      type="button"
-                                      onClick={() => openPlannerFromLink(link)}
-                                      className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-blue-100 transition hover:bg-white/20"
-                                      title="Open property scenario"
-                                    >
-                                      <Home className="h-4 w-4" />
-                                    </button>
-                                  )
-                                })()}
-                              </div>
-                              <div className="relative flex items-center gap-2">
-                                <span className="text-sm text-gray-400 transition-opacity duration-200 group-hover/item:opacity-0">
-                                  {formatCurrency(summarizeAmount(item))}
-                                </span>
-                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover/item:pointer-events-auto group-hover/item:opacity-100">
-                                  <button
-                                    onClick={() => handleEditItem(key, item)}
-                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-white/20"
-                                    type="button"
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      const id = getItemId(item)
-                                      if (id) void handleDeleteItem(key, id)
-                                    }}
-                                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-rose-500/30 hover:text-rose-50"
-                                    type="button"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          const id = getItemId(item)
+                                          if (id) void handleDeleteItem(key, id)
+                                        }}
+                                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-rose-500/30 hover:text-rose-50"
+                                        type="button"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
+
+                                {/* Expanded scenario impacts */}
+                                    {isExpanded && (
+                                      <div className="space-y-1">
+                                    <div className="flex w-full items-center justify-between rounded pl-4 pr-2 py-1.5 text-sm text-gray-300">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs italic">Original</span>
+                                          </div>
+                                          <span className="text-xs italic">
+                                            {formatCurrency(item.adj_annual_amt ?? item.adjAnnualAmt ?? item.amount_annual ?? item.amountAnnual ?? 0)}
+                                          </span>
+                                        </div>
+                                        {scenarioImpacts.map(({ event, impact }) => {
+                                          const Icon = getIconByName(event.displayIcon ?? '')
+                                          const isDisabled = !event.isIncluded
+                                          return (
+                                            <button
+                                              key={`${event.id}-${impact.targetId}`}
+                                              type="button"
+                                              onClick={() => {
+                                            // TODO: Open scenario modal for editing
+                                            console.log('Edit scenario:', event)
+                                          }}
+                                              className={`flex w-full items-center justify-between rounded pl-4 pr-2 py-1.5 text-sm transition hover:bg-white/5 ${
+                                                isDisabled ? 'opacity-50' : ''
+                                              }`}
+                                            >
+                                              <div className="flex items-center gap-2">
+                                                <span className={`text-xs italic ${isDisabled ? 'line-through' : ''}`}>
+                                                  {event.name}
+                                                </span>
+                                                {Icon ? (
+                                                  <Icon
+                                                    className="h-3.5 w-3.5 flex-shrink-0"
+                                                    style={{ color: event.displayColor ?? '#888' }}
+                                                  />
+                                                ) : (
+                                                  <span
+                                                    className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                                                    style={{ backgroundColor: event.displayColor ?? '#888' }}
+                                                  >
+                                                    {(event.displayIcon ?? '?').slice(0, 1).toUpperCase()}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <span className={`text-xs italic ${impact.amount < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                  {formatCurrency(impact.amount / 100)}
+                                                </span>
+                                              </div>
+                                            </button>
+                                          )
+                                        })}
+                                      </div>
+                                    )}
                               </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                           {data.length > 3 && (
                             <p className="text-xs text-gray-500">
                               +{data.length - 3} more

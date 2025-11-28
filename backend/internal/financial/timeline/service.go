@@ -63,6 +63,9 @@ func (s *Service) GetTimelineWithScenarios(ctx context.Context, userID string, i
 		return resp, nil
 	}
 
+	// Use current calendar year as the base (year 0 in timeline).
+	baseYear := time.Now().Year()
+
 	applied := map[string]struct{}{}
 	for i, year := range resp.Years {
 		yearRows := make([]scenario.Row, 0, len(year.Assets)+len(year.Liabilities)+len(year.Income)+len(year.Expenses))
@@ -71,6 +74,7 @@ func (s *Service) GetTimelineWithScenarios(ctx context.Context, userID string, i
 			out, err := s.scenarios.Apply(ctx, scenario.ApplyRequest{
 				UserID:      userID,
 				Year:        year.Year,
+				BaseYear:    baseYear,
 				Rows:        rows,
 				SelectedIDs: selectedIDs,
 			})
@@ -84,6 +88,8 @@ func (s *Service) GetTimelineWithScenarios(ctx context.Context, userID string, i
 		resp.Years[i].Liabilities = apply(year.Liabilities)
 		resp.Years[i].Income = apply(year.Income)
 		resp.Years[i].Expenses = apply(year.Expenses)
+		resp.Years[i].NetCash = sumAdjusted(resp.Years[i].Income) - sumAdjusted(resp.Years[i].Expenses)
+		resp.Years[i].NetWorth = sumAdjusted(resp.Years[i].Assets) - sumAdjusted(resp.Years[i].Liabilities)
 		for _, r := range yearRows {
 			for _, imp := range r.EventImpacts {
 				applied[imp.EventID] = struct{}{}
@@ -199,6 +205,7 @@ type itemState struct {
 }
 
 type effectiveRow struct {
+	ID        string
 	ParentID  string
 	Name      string
 	Category  string
@@ -240,6 +247,7 @@ func (s *Service) buildTimeline(ctx context.Context) (TimelineResponse, error) {
 				rate := lookupGrowthRate(growthCfg, st.item.Category, st.item.ItemType)
 				st.amount = applyGrowth(st.amount, rate)
 				st.item.AmountAnnual = st.amount
+				st.item.AdjustedAnnual = st.amount
 				state[id] = st
 			}
 		}
@@ -266,9 +274,11 @@ func (s *Service) buildTimeline(ctx context.Context) (TimelineResponse, error) {
 			state[r.ParentID] = itemState{
 				item: TimelineItem{
 					ItemID:          r.ParentID,
+					RowID:           r.ID,
 					Name:            r.Name,
 					Category:        r.Category,
 					AmountAnnual:    annual,
+					AdjustedAnnual:  annual,
 					SourceAmount:    &r.Amount,
 					SourceFrequency: string(r.Frequency),
 					ItemType:        r.ItemType,
@@ -312,6 +322,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context) ([]effectiveRow, error)
 	}
 	for _, a := range assets {
 		rows = append(rows, effectiveRow{
+			ID:        a.ID,
 			ParentID:  coalesceString(a.ParentID, a.ID),
 			Name:      a.Name,
 			Category:  a.Category,
@@ -329,6 +340,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context) ([]effectiveRow, error)
 	}
 	for _, li := range liabilities {
 		rows = append(rows, effectiveRow{
+			ID:        li.ID,
 			ParentID:  coalesceString(li.ParentID, li.ID),
 			Name:      li.Name,
 			Category:  li.Category,
@@ -346,6 +358,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context) ([]effectiveRow, error)
 	}
 	for _, it := range incomes {
 		rows = append(rows, effectiveRow{
+			ID:        it.ID,
 			ParentID:  coalesceString(it.ParentID, it.ID),
 			Name:      it.Source,
 			Category:  it.Category,
@@ -363,6 +376,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context) ([]effectiveRow, error)
 	}
 	for _, it := range expenses {
 		rows = append(rows, effectiveRow{
+			ID:        it.ID,
 			ParentID:  coalesceString(it.ParentID, it.ID),
 			Name:      it.Payee,
 			Category:  it.Category,
@@ -495,6 +509,14 @@ func sumAnnual(items []TimelineItem) float64 {
 	return total
 }
 
+func sumAdjusted(items []TimelineItem) float64 {
+	total := 0.0
+	for _, it := range items {
+		total += it.AdjustedAnnual
+	}
+	return total
+}
+
 func toGrowthApplied(cfg []repository.GrowthConfig) []GrowthApplied {
 	out := make([]GrowthApplied, 0, len(cfg))
 	for _, c := range cfg {
@@ -575,8 +597,9 @@ func annotateItems(items []TimelineItem, rows []scenario.Row) []TimelineItem {
 	}
 	out := make([]TimelineItem, 0, len(items))
 	for _, it := range items {
+		it.AdjustedAnnual = it.AmountAnnual
 		if r, ok := byID[it.ItemID]; ok {
-			it.AmountAnnual = r.AmountAnnual
+			it.AdjustedAnnual = r.AmountAnnual
 			it.EventImpacts = toImpactSummaries(r.EventImpacts)
 		}
 		out = append(out, it)

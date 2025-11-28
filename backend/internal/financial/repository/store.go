@@ -21,33 +21,33 @@ func NewStore(db *sql.DB) *Store {
 
 // Asset represents a persisted asset record.
 type Asset struct {
-	ID               string
-	ParentID         string
-	Name             string
-	Category         string
-	CurrentValue     float64
-	AnnualGrowthRate float64
-	Frequency        string
-	StartYear        int
-	EndYear          sql.NullInt32
-	Notes            string
-	UpdatedAt        time.Time
+	ID               string        `json:"id"`
+	ParentID         string        `json:"parentId"`
+	Name             string        `json:"name"`
+	Category         string        `json:"category"`
+	CurrentValue     float64       `json:"currentValue"`
+	AnnualGrowthRate float64       `json:"annualGrowthRate"`
+	Frequency        string        `json:"frequency"`
+	StartYear        int           `json:"startYear"`
+	EndYear          sql.NullInt32 `json:"endYear"`
+	Notes            string        `json:"notes"`
+	UpdatedAt        time.Time     `json:"updatedAt"`
 }
 
 // Liability represents a persisted liability record.
 type Liability struct {
-	ID              string
-	ParentID        string
-	Name            string
-	Category        string
-	CurrentBalance  float64
-	InterestRateAPR float64
-	MinimumPayment  float64
-	Frequency       string
-	StartYear       int
-	EndYear         sql.NullInt32
-	Notes           string
-	UpdatedAt       time.Time
+	ID              string        `json:"id"`
+	ParentID        string        `json:"parentId"`
+	Name            string        `json:"name"`
+	Category        string        `json:"category"`
+	CurrentBalance  float64       `json:"currentBalance"`
+	InterestRateAPR float64       `json:"interestRateApr"`
+	MinimumPayment  float64       `json:"minimumPayment"`
+	Frequency       string        `json:"frequency"`
+	StartYear       int           `json:"startYear"`
+	EndYear         sql.NullInt32 `json:"endYear"`
+	Notes           string        `json:"notes"`
+	UpdatedAt       time.Time     `json:"updatedAt"`
 }
 
 // PropertyScenario represents a persisted property scenario record.
@@ -73,31 +73,31 @@ type PropertyScenario struct {
 
 // Income represents a persisted income record.
 type Income struct {
-	ID        string
-	ParentID  string
-	Source    string
-	Amount    float64
-	Frequency string
-	StartDate *time.Time
-	StartYear int
-	EndYear   sql.NullInt32
-	Category  string
-	Notes     string
-	UpdatedAt time.Time
+	ID        string        `json:"id"`
+	ParentID  string        `json:"parentId"`
+	Source    string        `json:"source"`
+	Amount    float64       `json:"amount"`
+	Frequency string        `json:"frequency"`
+	StartDate *time.Time    `json:"startDate"`
+	StartYear int           `json:"startYear"`
+	EndYear   sql.NullInt32 `json:"endYear"`
+	Category  string        `json:"category"`
+	Notes     string        `json:"notes"`
+	UpdatedAt time.Time     `json:"updatedAt"`
 }
 
 // Expense represents a persisted expense record.
 type Expense struct {
-	ID        string
-	ParentID  string
-	Payee     string
-	Amount    float64
-	Frequency string
-	StartYear int
-	EndYear   sql.NullInt32
-	Category  string
-	Notes     string
-	UpdatedAt time.Time
+	ID        string        `json:"id"`
+	ParentID  string        `json:"parentId"`
+	Payee     string        `json:"payee"`
+	Amount    float64       `json:"amount"`
+	Frequency string        `json:"frequency"`
+	StartYear int           `json:"startYear"`
+	EndYear   sql.NullInt32 `json:"endYear"`
+	Category  string        `json:"category"`
+	Notes     string        `json:"notes"`
+	UpdatedAt time.Time     `json:"updatedAt"`
 }
 
 // PropertyLink ties assets and liabilities to property scenarios.

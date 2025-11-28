@@ -34,7 +34,7 @@ export function QueryDebugPanel() {
         name: `Test Asset ${Date.now()}`,
         category: 'Investment',
         currentValue: Math.floor(Math.random() * 100000),
-        interestRate: 5,
+        annualGrowthRate: 5,
       })
       console.log('✅ Asset created successfully')
     } catch (error) {

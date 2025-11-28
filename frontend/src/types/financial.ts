@@ -57,6 +57,7 @@ export type PropertyLink = {
 
 export const incomeSchema = z.object({
   id: z.string().min(1),
+  parentId: z.string().optional(),
   source: z.string().min(1),
   amount: z.number().positive(),
   frequency: frequencyEnum,
@@ -70,6 +71,7 @@ export type Income = z.infer<typeof incomeSchema>
 
 export const expenseSchema = z.object({
   id: z.string().min(1),
+  parentId: z.string().optional(),
   payee: z.string().min(1),
   amount: z.number().positive(),
   frequency: frequencyEnum,

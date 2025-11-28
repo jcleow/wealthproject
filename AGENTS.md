@@ -175,11 +175,18 @@ This approach ensures:
 - Backend: Standard Go patterns with clean REST APIs
 - No AI SDK dependencies - custom hooks replace @ai-sdk/react
 - Component library: Radix UI components with exact styling from current system
+- Create/Edit modals: hide visible scrollbars; ensure content fits the viewport and manage overflow inside sections instead of showing a modal scrollbar
+
+### ID Conventions (timeline & scenarios)
+- Financial items may have both a concrete row `id` and a stable `parent_id` (used when a row is an override/child of another).
+- The timeline uses the stable ID (parent_id if present, else id) for scenario matching. Impacts must target this stable ID.
+- API responses expose the stable `item_id`; include `parent_id`/`row_id` if you need to disambiguate. Use `parentId ?? id` in the UI when saving `targetId`.
 
 ## Api contract
 
 - API versioning should always be included
 - API contract can be found in specs/rewrite-phase-1/api-contract.md
+- Backend responses must emit camelCase field names for APIs (perform any snake_case → camelCase conversion server-side before returning JSON).
 
 ## Files and documentation
 
@@ -306,7 +313,6 @@ TypeScript & React Coding Agent Rules
 
 ### Features
 - For every CRUD action via the UI, the chat<->dispatch flow must support it as well.
-
 
 ### Database Schema
 - If there are worktrees available, you must place the migration in the relevant worktree. If unsure, please ask the user.

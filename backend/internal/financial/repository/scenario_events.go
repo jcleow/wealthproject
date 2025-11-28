@@ -10,6 +10,22 @@ import (
 	"time"
 )
 
+// listScenarioEventsWithImpactsQuery returns paginated events and their impacts in one round-trip.
+// Ordering: events by occurs_on ASC, created_at DESC; impacts by start_month ASC NULLS LAST, created_at ASC.
+const listScenarioEventsWithImpactsQuery = `
+WITH filtered_events AS (
+	SELECT id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at
+	FROM scenario_events
+	WHERE %s
+	ORDER BY occurs_on ASC, created_at DESC
+	LIMIT $%d OFFSET $%d
+)
+SELECT fe.id, fe.user_id, fe.name, fe.description, fe.occurs_on, fe.display_icon, fe.display_color, fe.tags, fe.scenario_id, fe.is_included, fe.created_at, fe.updated_at,
+       imp.id, imp.event_id, imp.target_type, imp.target_id, imp.impact_kind, imp.amount, imp.currency, imp.cadence, imp.start_month, imp.end_month, imp.notes, imp.created_at
+FROM filtered_events fe
+LEFT JOIN scenario_event_impacts imp ON imp.event_id = fe.id
+ORDER BY fe.occurs_on ASC, fe.created_at DESC, imp.start_month ASC NULLS LAST, imp.created_at ASC`
+
 // ScenarioEvent represents a scenario event with impacts.
 type ScenarioEvent struct {
 	ID           string
@@ -150,33 +166,71 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 		return nil, 0, err
 	}
 
-	query := fmt.Sprintf(`
-		SELECT id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at
-		FROM scenario_events
-		WHERE %s
-		ORDER BY occurs_on ASC, created_at DESC
-		LIMIT %d OFFSET %d`, whereClause, limit, offset)
+	cte := fmt.Sprintf(listScenarioEventsWithImpactsQuery, whereClause, len(args)+1, len(args)+2)
 
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.db.QueryContext(ctx, cte, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var events []ScenarioEvent
+	eventMap := map[string]*ScenarioEvent{}
+
 	for rows.Next() {
 		var ev ScenarioEvent
 		var tagsJSON []byte
-		if err := rows.Scan(&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &ev.ScenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt); err != nil {
+		var scenarioID sql.NullString
+
+		var impID sql.NullString
+		var impEventID sql.NullString
+		var impTargetID sql.NullString
+		var impEndMonth sql.NullTime
+		var imp ScenarioImpact
+
+		if err := rows.Scan(
+			&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &scenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt,
+			&impID, &impEventID, &imp.TargetType, &impTargetID, &imp.ImpactKind, &imp.Amount, &imp.Currency, &imp.Cadence, &imp.StartMonth, &impEndMonth, &imp.Notes, &imp.CreatedAt,
+		); err != nil {
 			return nil, 0, err
 		}
+
 		ev.Tags = decodeStringArray(tagsJSON)
-		events = append(events, ev)
+		if scenarioID.Valid {
+			ev.ScenarioID = &scenarioID.String
+		}
+
+		current, exists := eventMap[ev.ID]
+		if !exists {
+			events = append(events, ev)
+			current = &events[len(events)-1]
+			eventMap[ev.ID] = current
+		}
+
+		if impID.Valid {
+			imp.ID = impID.String
+			if impTargetID.Valid {
+				imp.TargetID = &impTargetID.String
+			}
+			if impEventID.Valid {
+				imp.EventID = impEventID.String
+			} else {
+				imp.EventID = ev.ID
+			}
+			if impEndMonth.Valid {
+				imp.EndMonth = &impEndMonth.Time
+			}
+			current.Impacts = append(current.Impacts, imp)
+		}
 	}
 	if events == nil {
 		events = []ScenarioEvent{}
 	}
-	return events, total, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return events, total, nil
 }
 
 // UpdateScenarioEvent replaces metadata and impacts.

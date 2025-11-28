@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
-import type { PropertyScenarioRecord, PropertyLinkRecord } from '@/types/property'
+import type { PropertyScenarioRecord } from '@/types/property'
 
 export const PROPERTY_SCENARIOS_QUERY_KEY = ['property-scenarios'] as const
 export const PROPERTY_LINKS_QUERY_KEY = ['property-links'] as const

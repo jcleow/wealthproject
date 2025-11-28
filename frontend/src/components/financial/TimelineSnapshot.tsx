@@ -37,13 +37,13 @@ export function TimelineSnapshot({ year, timelineYear, loading }: TimelineSnapsh
   const incomes = timelineYear.income ?? []
   const expenses = timelineYear.expenses ?? []
 
-  const totalAssets = assets.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
+  const totalAssets = assets.reduce((sum, item) => sum + (item.adj_annual_amt ?? item.amount_annual ?? 0), 0)
   const totalLiabilities = liabilities.reduce(
-    (sum, item) => sum + (item.amount_annual ?? 0),
+    (sum, item) => sum + (item.adj_annual_amt ?? item.amount_annual ?? 0),
     0
   )
-  const totalIncome = incomes.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
-  const totalExpenses = expenses.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
+  const totalIncome = incomes.reduce((sum, item) => sum + (item.adj_annual_amt ?? item.amount_annual ?? 0), 0)
+  const totalExpenses = expenses.reduce((sum, item) => sum + (item.adj_annual_amt ?? item.amount_annual ?? 0), 0)
   const nonAnnualSource =
     findNonAnnualSource(assets) ||
     findNonAnnualSource(liabilities) ||

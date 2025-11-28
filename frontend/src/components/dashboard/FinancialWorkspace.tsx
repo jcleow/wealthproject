@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Building2, ChevronDown, Loader2, PlusCircle, Sparkles, Trash2 } from 'lucide-react'
+import { Building2, ChevronDown, Loader2, Sparkles, Trash2 } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -8,18 +8,14 @@ import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { ScenarioSelectorMock } from './ScenarioSelectorMock'
-import type { TimelineEditRequest, TimelineYear } from '@/types/timeline'
+import type { TimelineYear } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 
 interface FinancialWorkspaceProps {
   selectedYear: number
   onSelectYear: (year: number) => void
   timelineYears?: TimelineYear[]
-  timelineYear?: TimelineYear
   overrideYears?: Set<number>
-  onSaveTimelineEdits: (payload: TimelineEditRequest) => Promise<void>
-  isTimelineLoading?: boolean
-  isSavingTimeline?: boolean
   timelineError?: string | null
 }
 
@@ -27,11 +23,7 @@ export function FinancialWorkspace({
   selectedYear,
   onSelectYear,
   timelineYears,
-  timelineYear,
   overrideYears = new Set<number>(),
-  onSaveTimelineEdits,
-  isTimelineLoading = false,
-  isSavingTimeline = false,
   timelineError = null,
 }: FinancialWorkspaceProps) {
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)

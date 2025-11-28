@@ -38,6 +38,7 @@ export default function ScenarioMarker({
         const iconName = evt.displayIcon ?? ''
         const Icon = getIconByName(iconName)
         const offsetY = -(baseLift + idx * stackSpacing)
+        const isDisabled = evt.isIncluded === false
         return (
           <g
             key={`${evt.id ?? idx}-${idx}`}
@@ -49,8 +50,14 @@ export default function ScenarioMarker({
                 handleClick(evt)
               }
             }}
+            opacity={isDisabled ? 0.45 : 1}
           >
-            <circle r={markerRadius} fill={color} stroke="rgba(255,255,255,0.3)" strokeWidth={1} />
+            <circle
+              r={markerRadius}
+              fill={color}
+              stroke="rgba(255,255,255,0.3)"
+              strokeWidth={1}
+            />
             {Icon ? (
               <Icon
                 aria-hidden

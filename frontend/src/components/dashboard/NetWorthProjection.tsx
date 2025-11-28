@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Area,
   ComposedChart,
@@ -43,14 +43,38 @@ type ProjectionPoint = {
 function CustomTooltip({
   active,
   payload,
+  coordinate,
+  viewBox,
+  containerWidth,
 }: {
   active?: boolean
   payload?: Array<{ payload: ProjectionPoint }>
+  coordinate?: { x: number; y: number }
+  viewBox?: { x: number; y: number; width: number; height: number }
+  containerWidth?: number
 }) {
   if (!active || !payload || !payload.length) return null
   const data = payload[0].payload
+
+  // Determine if we're in left or right half of the chart using viewBox first, then container width.
+  const chartWidth = viewBox?.width ?? containerWidth ?? 0
+  const chartLeft = viewBox?.x ?? 0
+  const chartMidX = chartLeft + chartWidth / 2
+  const isLeftHalf = coordinate ? coordinate.x < chartMidX : true
+
   return (
-    <div className="rounded-xl border border-white/10 bg-[#0f1728]/90 px-4 py-3 shadow-2xl backdrop-blur">
+    <div
+      className="pointer-events-none rounded-xl border border-white/10 bg-[#0f1728]/90 px-4 py-3 shadow-2xl backdrop-blur"
+      style={{
+        // Anchor at the active point to avoid parent re-renders and keep the tooltip below the line.
+        position: 'absolute',
+        left: coordinate?.x ?? 0,
+        top: coordinate?.y ?? 0,
+        transform: `translate(${isLeftHalf ? '20px' : '-100%'}, 24px)`,
+        marginLeft: isLeftHalf ? 0 : -16,
+        minWidth: 240,
+      }}
+    >
       <p className="text-xs uppercase tracking-wide text-slate-300">{data.yearLabel}</p>
       <p className="mt-1 font-semibold text-blue-300">
         Net Worth: {formatCurrency(data.netWorth)}
@@ -292,13 +316,16 @@ export function NetWorthProjection({
     return values
   })()
 
-  const overrideYearsSet =
-    overrideYears ??
-    new Set(
-      projection.filter((point) => point.hasOverride).map((point) => point.yearIndex)
-    )
+  const overrideYearsSet = useMemo(
+    () =>
+      overrideYears ??
+      new Set(
+        projection.filter((point) => point.hasOverride).map((point) => point.yearIndex)
+      ),
+    [overrideYears, projection]
+  )
 
-  const scenarioMarkers = (() => {
+  const scenarioMarkers = useMemo(() => {
     if (!scenarioEvents || scenarioEvents.length === 0 || displayData.length === 0) return []
 
     const currentYear = new Date().getFullYear()
@@ -343,7 +370,7 @@ export function NetWorthProjection({
       netWorth: Math.max(data.netWorth, 0),
       events: data.events,
     }))
-  })()
+  }, [scenarioEvents, displayData, projection])
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -371,91 +398,95 @@ export function NetWorthProjection({
                 data={displayData}
                 margin={{ top: 20, right: 8, left: 8, bottom: 12 }}
               >
-              <defs>
-                <linearGradient id="netWorthGradient" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor={chartColors.gradientStart} stopOpacity={0.8} />
-                  <stop offset="90%" stopColor={chartColors.gradientEnd} stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                stroke={chartColors.grid}
-                strokeDasharray="2 12"
-                horizontal={false}
-                fillOpacity={0}
-              />
-              <XAxis
-                type="number"
-                axisLine={false}
-                dataKey="yearIndex"
-                fontSize={12}
-                interval={0}
-                ticks={ticks}
-                allowDecimals={false}
-                allowDataOverflow
-                stroke={chartColors.axis}
-                tickLine={false}
-                tick={
-                  <YearTick
-                    overrideYears={overrideYearsSet}
-                    onSelectYear={onSelectYear}
-                    selectedYear={selectedYear}
-                    mode={xAxisMode}
-                  />
-                }
-              />
-              <YAxis
-                axisLine={false}
-                domain={[
-                  (dataMin: number) => Math.min(0, Math.floor(dataMin * 1.05)),
-                  (dataMax: number) => (dataMax > 0 ? Math.ceil(dataMax * 1.1) : 500000),
-                ]}
-                fontSize={12}
-                stroke={chartColors.axis}
-                tickFormatter={(value) => {
-                  if (value <= 0) return ''
-                  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
-                  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`
-                  return `$${value}`
-                }}
-                tickLine={false}
-              />
-
-              <Area
-                data={displayData}
-                activeDot={{ r: 5, fill: chartColors.stroke, strokeWidth: 0 }}
-                dataKey="netWorth"
-                dot={false}
-                fill="url(#netWorthGradient)"
-                stroke={chartColors.stroke}
-                strokeWidth={2.5}
-                strokeOpacity={0.85}
-                type="monotone"
-                name="Net Worth"
-              />
-
-              <Tooltip content={<CustomTooltip />} cursor={false} />
-
-              {scenarioMarkers.length > 0 && (
-                <Scatter
-                  data={scenarioMarkers}
-                  dataKey="netWorth"
-                  xAxisId={0}
-                  yAxisId={0}
-                  shape={({ cx = 0, cy = 0, payload }: any) => (
-                    <ScenarioMarker
-                      cx={cx}
-                      cy={cy}
-                      events={payload?.events ?? []}
-                      yearIndex={payload?.yearIndex ?? 0}
-                      onSelectYear={onSelectYear}
-                      onScenarioSelect={onScenarioSelect}
-                    />
-                  )}
-                  isAnimationActive={false}
+                <defs>
+                  <linearGradient id="netWorthGradient" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor={chartColors.gradientStart} stopOpacity={0.8} />
+                    <stop offset="90%" stopColor={chartColors.gradientEnd} stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  stroke={chartColors.grid}
+                  strokeDasharray="2 12"
+                  horizontal={false}
+                  fillOpacity={0}
                 />
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
+                <XAxis
+                  type="number"
+                  axisLine={false}
+                  dataKey="yearIndex"
+                  fontSize={12}
+                  interval={0}
+                  ticks={ticks}
+                  allowDecimals={false}
+                  allowDataOverflow
+                  stroke={chartColors.axis}
+                  tickLine={false}
+                  tick={
+                    <YearTick
+                      overrideYears={overrideYearsSet}
+                      onSelectYear={onSelectYear}
+                      selectedYear={selectedYear}
+                      mode={xAxisMode}
+                    />
+                  }
+                />
+                <YAxis
+                  axisLine={false}
+                  domain={[
+                    (dataMin: number) => Math.min(0, Math.floor(dataMin * 1.05)),
+                    (dataMax: number) => (dataMax > 0 ? Math.ceil(dataMax * 1.1) : 500000),
+                  ]}
+                  fontSize={12}
+                  stroke={chartColors.axis}
+                  tickFormatter={(value) => {
+                    if (value <= 0) return ''
+                    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
+                    if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`
+                    return `$${value}`
+                  }}
+                  tickLine={false}
+                />
+
+                <Area
+                  data={displayData}
+                  activeDot={{ r: 5, fill: chartColors.stroke, strokeWidth: 0 }}
+                  dataKey="netWorth"
+                  dot={false}
+                  fill="url(#netWorthGradient)"
+                  stroke={chartColors.stroke}
+                  strokeWidth={2.5}
+                  strokeOpacity={0.85}
+                  type="monotone"
+                  name="Net Worth"
+                />
+
+                <Tooltip
+                  content={(props) => <CustomTooltip {...props} containerWidth={containerWidth} />}
+                  cursor={false}
+                  wrapperStyle={{ transform: 'none', pointerEvents: 'none' }}
+                />
+
+                {scenarioMarkers.length > 0 && (
+                  <Scatter
+                    data={scenarioMarkers}
+                    dataKey="netWorth"
+                    xAxisId={0}
+                    yAxisId={0}
+                    shape={({ cx = 0, cy = 0, payload }: any) => (
+                      <ScenarioMarker
+                        cx={cx}
+                        cy={cy}
+                        events={payload?.events ?? []}
+                        yearIndex={payload?.yearIndex ?? 0}
+                        onSelectYear={onSelectYear}
+                        onScenarioSelect={onScenarioSelect}
+                      />
+                    )}
+                    isAnimationActive={false}
+                  />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
         ) : (
           <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-slate-400">
