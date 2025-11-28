@@ -34,7 +34,9 @@ export function useTimeline() {
   const overrideYears = useMemo(
     () =>
       new Set(
-        timelineQuery.data?.years?.filter((year) => year.has_overrides).map((year) => year.year) ?? []
+        timelineQuery.data?.years
+          ?.filter((year) => (year as any).hasOverrides ?? year.has_overrides)
+          .map((year) => year.year) ?? []
       ),
     [timelineQuery.data?.years]
   )

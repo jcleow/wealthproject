@@ -81,20 +81,25 @@ function getIconByName(name: string): LucideIcon | undefined {
 }
 
 // Helper to find scenario impacts for a financial item
-function getImpactsForItem(
-  itemId: string,
+function getAppliedImpacts(
+  item: any,
   itemType: ScenarioTargetType,
   scenarioEvents: ScenarioEvent[]
-): Array<{ event: ScenarioEvent; impact: ScenarioImpact }> {
-  const results: Array<{ event: ScenarioEvent; impact: ScenarioImpact }> = []
-  for (const event of scenarioEvents) {
-    for (const impact of event.impacts) {
-      if (impact.targetType === itemType && impact.targetId === itemId) {
-        results.push({ event, impact })
-      }
+): Array<{ event: ScenarioEvent | null; impact: { eventId?: string; amountAnnual?: number; notes?: string; impactKind?: string } }> {
+  const applied = Array.isArray(item.eventImpacts) ? item.eventImpacts : item.event_impacts
+  if (!applied || applied.length === 0) return []
+  return applied.map((imp: any) => {
+    const event = scenarioEvents.find((ev) => ev.id === (imp.eventId ?? imp.event_id)) ?? null
+    return {
+      event,
+      impact: {
+        eventId: imp.eventId ?? imp.event_id,
+        amountAnnual: imp.amountAnnual ?? imp.amount_annual,
+        notes: imp.notes,
+        impactKind: imp.impactKind ?? imp.impact_kind,
+      },
     }
-  }
-  return results
+  })
 }
 
 interface ModalState {
@@ -303,7 +308,9 @@ export function FinancialDataManagement({
       // For timeline mode, we need to handle deletion differently
       // Timeline items cannot be deleted directly via API
       if (usingTimeline && timelineYear) {
-        // Get current items for the category
+        const resolveFrequency = (item: any): TimelineFrequency =>
+          (item.sourceFrequency ?? item.source_frequency ?? item.frequency ?? 'annual') as TimelineFrequency
+
         const currentItems = (() => {
           switch (category) {
             case 'asset':
@@ -319,24 +326,25 @@ export function FinancialDataManagement({
           }
         })()
 
-        // Filter out the item to delete
-        const remainingItems = currentItems.filter(item => getItemId(item) !== id)
-
-        // Create timeline edits for remaining items
-        const edits = remainingItems.map(item => ({
-          itemId: getItemId(item),
-          name: item.name,
-          itemType: category as TimelineItemType,
-          category: item.category,
-          amount: item.source_amount ?? item.amount_annual,
-          frequency: (item.source_frequency ?? 'annual') as TimelineFrequency,
-        }))
+        const target = currentItems.find(item => getItemId(item) === id)
+        if (!target) {
+          console.warn('Timeline item not found for delete', { category, id })
+          return
+        }
 
         // Save the updated timeline
         if (onSaveTimelineEdits) {
           await onSaveTimelineEdits({
             year: selectedYear,
-            edits,
+            edits: [
+              {
+                itemId: getItemId(target),
+                itemType: category as TimelineItemType,
+                category: target.category ?? 'other',
+                amount: 0,
+                frequency: resolveFrequency(target),
+              },
+            ],
             note: `Removed ${category}`,
           })
         }
@@ -506,31 +514,32 @@ export function FinancialDataManagement({
     )
 
   const summarizeAmount = (item: any) => {
-    if ('adj_annual_amt' in item) return item.adj_annual_amt ?? item.amount_annual ?? 0
     if ('adjAnnualAmt' in item) return item.adjAnnualAmt ?? item.amountAnnual ?? 0
-    if ('amount_annual' in item) return item.amount_annual ?? 0
+    if ('adj_annual_amt' in item) return item.adj_annual_amt ?? item.amount_annual ?? 0
     if ('amountAnnual' in item) return item.amountAnnual ?? 0
+    if ('amount_annual' in item) return item.amount_annual ?? 0
     if ('currentValue' in item) return item.currentValue
     if ('currentBalance' in item) return item.currentBalance
     return item.amount ?? 0
   }
 
   const getDisplayAmount = (item: any) =>
-    item?.adj_annual_amt ??
     item?.adjAnnualAmt ??
-    item?.amount_annual ??
+    item?.adj_annual_amt ??
     item?.amountAnnual ??
+    item?.amount_annual ??
     summarizeAmount(item) ??
     0
 
   const getAnnualizationLabel = (item: any) => {
-    const sourceAmount = item?.source_amount ?? item?.sourceAmount
-    const sourceFrequency = item?.source_frequency ?? item?.sourceFrequency
+    const sourceAmount = item?.sourceAmount ?? item?.source_amount
+    const sourceFrequency = item?.sourceFrequency ?? item?.source_frequency
     if (!sourceAmount || !sourceFrequency || sourceFrequency === 'annual') return null
     return `Annualized from ${formatCurrency(Number(sourceAmount), 'en-US', '$')} ${sourceFrequency}`
   }
 
   const getNetWorthForYear = () => {
+    if ((timelineYear as any)?.netWorth !== undefined) return Math.round((timelineYear as any).netWorth)
     if (timelineYear?.net_worth !== undefined) return Math.round(timelineYear.net_worth)
     return 0
   }
@@ -667,7 +676,7 @@ export function FinancialDataManagement({
                         <div className="space-y-2 text-left text-sm max-h-64 overflow-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                           {data.map((item: any, index) => {
                             const itemId = getItemId(item) || `${key}-${index}`
-                            const scenarioImpacts = getImpactsForItem(itemId, key as ScenarioTargetType, scenarioEvents)
+                            const scenarioImpacts = getAppliedImpacts(item, key as ScenarioTargetType, scenarioEvents)
                             const hasScenarios = scenarioImpacts.length > 0
                             const isExpanded = expandedScenarioItems.has(itemId)
 
@@ -760,7 +769,7 @@ export function FinancialDataManagement({
                                   </div>
                                   <div className="relative flex items-center gap-2">
                                     <span className="text-sm text-gray-400 transition-opacity duration-200 group-hover/item:opacity-0">
-                                      {formatCurrency(item.adj_annual_amt ?? item.adjAnnualAmt ?? getDisplayAmount(item))}
+                                      {formatCurrency(item.adjAnnualAmt ?? item.adj_annual_amt ?? getDisplayAmount(item))}
                                     </span>
                                     <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover/item:pointer-events-auto group-hover/item:opacity-100">
                                       <button
@@ -792,7 +801,7 @@ export function FinancialDataManagement({
                                             <span className="text-xs italic">Original</span>
                                           </div>
                                           <span className="text-xs italic">
-                                            {formatCurrency(item.adj_annual_amt ?? item.adjAnnualAmt ?? item.amount_annual ?? item.amountAnnual ?? 0)}
+                                            {formatCurrency(item.amountAnnual ?? (item as any).amount_annual ?? 0)}
                                           </span>
                                         </div>
                                         {scenarioImpacts.map(({ event, impact }) => {
@@ -812,26 +821,35 @@ export function FinancialDataManagement({
                                             >
                                               <div className="flex items-center gap-2">
                                                 <span className={`text-xs italic ${isDisabled ? 'line-through' : ''}`}>
-                                                  {event.name}
+                                                  {event?.name ?? 'Scenario'}
                                                 </span>
                                                 {Icon ? (
                                                   <Icon
                                                     className="h-3.5 w-3.5 flex-shrink-0"
-                                                    style={{ color: event.displayColor ?? '#888' }}
+                                                    style={{ color: event?.displayColor ?? '#888' }}
                                                   />
                                                 ) : (
                                                   <span
                                                     className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                                                    style={{ backgroundColor: event.displayColor ?? '#888' }}
+                                                    style={{ backgroundColor: event?.displayColor ?? '#888' }}
                                                   >
-                                                    {(event.displayIcon ?? '?').slice(0, 1).toUpperCase()}
+                                                    {(event?.displayIcon ?? '?').slice(0, 1).toUpperCase()}
                                                   </span>
                                                 )}
                                               </div>
                                               <div className="flex items-center gap-2">
-                                                <span className={`text-xs italic ${impact.amount < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                  {formatCurrency(impact.amount / 100)}
-                                                </span>
+                                                {(() => {
+                                                  const impactAmt =
+                                                    (impact as any).amountAnnual ??
+                                                    (impact as any).amount_annual ??
+                                                    (typeof impact.amount === 'number' ? impact.amount : 0)
+                                                  const impactClass = impactAmt < 0 ? 'text-rose-400' : 'text-emerald-400'
+                                                  return (
+                                                    <span className={`text-xs italic ${impactClass}`}>
+                                                      {formatCurrency(impactAmt)}
+                                                    </span>
+                                                  )
+                                                })()}
                                               </div>
                                             </button>
                                           )

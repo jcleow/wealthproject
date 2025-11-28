@@ -493,12 +493,12 @@ export const financialApi = {
 
   // Timeline
   async getTimeline(): Promise<TimelineResponse> {
-    const data = await jsonRequest<TimelineResponse>(`${API_BASE}/timeline`)
+    const data = await jsonRequest<TimelineResponse>(`${API_BASE}/financial/timeline`)
     return data
   },
 
   async updateTimelineYear(request: TimelineEditRequest): Promise<TimelineResponse> {
-    const data = await jsonRequest<TimelineResponse>(`${API_BASE}/timeline/year/${request.year}`, {
+    const data = await jsonRequest<TimelineResponse>(`${API_BASE}/financial/timeline/${request.year}`, {
       method: 'PUT',
       body: JSON.stringify({ edits: request.edits, note: request.note }),
     })

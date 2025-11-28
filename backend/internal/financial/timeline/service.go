@@ -275,6 +275,7 @@ func (s *Service) buildTimeline(ctx context.Context) (TimelineResponse, error) {
 				item: TimelineItem{
 					ItemID:          r.ParentID,
 					RowID:           r.ID,
+					ParentID:        r.ParentID,
 					Name:            r.Name,
 					Category:        r.Category,
 					AmountAnnual:    annual,

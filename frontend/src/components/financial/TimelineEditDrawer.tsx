@@ -79,15 +79,15 @@ export function TimelineEditDrawer({
   const handleExistingChange = (itemId: string) => {
     setForm((prev) => ({ ...prev, itemId }))
     if (!itemId) return
-    const match = existingItems.find((item) => item.item_id === itemId)
+    const match = existingItems.find((item) => (item as any).itemId === itemId || (item as any).item_id === itemId)
     if (match) {
       setForm({
-        itemId: match.item_id,
+        itemId: (match as any).itemId ?? (match as any).item_id,
         name: match.name,
-        itemType: match.item_type,
+        itemType: (match as any).itemType ?? (match as any).item_type,
         category: match.category,
-        amount: match.source_amount?.toString() ?? match.amount_annual.toString(),
-        frequency: match.source_frequency ?? 'annual',
+        amount: ((match as any).sourceAmount ?? (match as any).source_amount ?? (match as any).amountAnnual ?? (match as any).amount_annual ?? 0).toString(),
+        frequency: (match as any).sourceFrequency ?? (match as any).source_frequency ?? 'annual',
         note: '',
       })
     }

@@ -226,8 +226,8 @@ export function FinancialFormModal({
     switch (type) {
       case 'asset': {
         const asset = data as Asset
-        const amt = (asset as any).amount_annual ?? asset.currentValue ?? 0
-        const freq = (asset as any).source_frequency ?? 'annual'
+        const amt = (asset as any).amountAnnual ?? (asset as any).amount_annual ?? asset.currentValue ?? 0
+        const freq = (asset as any).sourceFrequency ?? (asset as any).source_frequency ?? 'annual'
         setFormData({
           name: toSafeText(asset.name),
           amount: formatNumberInput(roundToDollar(amt)),
@@ -242,8 +242,8 @@ export function FinancialFormModal({
       }
       case 'liability': {
         const liability = data as Liability
-        const amt = (liability as any).amount_annual ?? liability.currentBalance ?? 0
-        const freq = (liability as any).source_frequency ?? 'annual'
+        const amt = (liability as any).amountAnnual ?? (liability as any).amount_annual ?? liability.currentBalance ?? 0
+        const freq = (liability as any).sourceFrequency ?? (liability as any).source_frequency ?? 'annual'
         setFormData({
           name: toSafeText(liability.name),
           amount: formatNumberInput(roundToDollar(amt)),
@@ -258,8 +258,8 @@ export function FinancialFormModal({
       }
       case 'income': {
         const income = data as Income
-        const amt = (income as any).amount_annual ?? income.amount ?? 0
-        const freq = (income as any).source_frequency ?? income.frequency ?? 'annual'
+        const amt = (income as any).amountAnnual ?? (income as any).amount_annual ?? income.amount ?? 0
+        const freq = (income as any).sourceFrequency ?? (income as any).source_frequency ?? income.frequency ?? 'annual'
         setFormData({
           name: toSafeText(income.source),
           amount: formatNumberInput(roundToDollar(amt)),
@@ -274,8 +274,8 @@ export function FinancialFormModal({
       }
       case 'expense': {
         const expense = data as Expense
-        const amt = (expense as any).amount_annual ?? expense.amount ?? 0
-        const freq = (expense as any).source_frequency ?? expense.frequency ?? 'annual'
+        const amt = (expense as any).amountAnnual ?? (expense as any).amount_annual ?? expense.amount ?? 0
+        const freq = (expense as any).sourceFrequency ?? (expense as any).source_frequency ?? expense.frequency ?? 'annual'
         setFormData({
           name: toSafeText(expense.payee),
           amount: formatNumberInput(roundToDollar(amt)),
