@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ResponsiveContainer,
   AreaChart,
@@ -15,7 +15,6 @@ import {
 } from 'recharts'
 import { Calendar, Loader2, Percent, PiggyBank, TrendingDown, X } from 'lucide-react'
 import type { MortgageInputs, PropertyPlannerType } from '@/types/property'
-import { PROPERTY_TYPES } from '@/types/property'
 import type { Asset, Liability } from '@/types/financial'
 import { financialApi } from '@/services/financialApi'
 import { Input } from '@/components/ui/input'
@@ -49,8 +48,6 @@ const LOCATION_TAGS: Record<PropertyPlannerType, string> = {
   condo: 'City-fringe condo, One-North',
   landed: 'Landed home in Serangoon',
 }
-const LOCATION_PLACEHOLDER = 'e.g. 4-Room BTO in Tampines North'
-
 const areInputsValid = (inputs: MortgageInputs) =>
   inputs.loanAmount > 0 &&
   inputs.loanTermYears > 0 &&
@@ -75,7 +72,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
   const [isComplete, setIsComplete] = useState(false)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
-  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null)
+  const [_savedSnapshot, setSavedSnapshot] = useState<string | null>(null)
   const [locationDraft, setLocationDraft] = useState(LOCATION_TAGS.hdb)
   const [assets, setAssets] = useState<Asset[]>([])
   const [liabilities, setLiabilities] = useState<Liability[]>([])
@@ -85,10 +82,10 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
   const [selectedLiabilityId, setSelectedLiabilityId] = useState<string>('')
   const [liabilityInput, setLiabilityInput] = useState<string>('')
   const [liabilityInputCache, setLiabilityInputCache] = useState<string>('')
-  const [isLinking, setIsLinking] = useState(false)
+  const [_isLinking, setIsLinking] = useState(false)
   const [scenarioId, setScenarioId] = useState<string | null>(null)
   const [helperMessage, setHelperMessage] = useState<string | null>(null)
-  const [isPrefilling, setIsPrefilling] = useState(false)
+  const [_isPrefilling, setIsPrefilling] = useState(false)
   const [prefillScenario, setPrefillScenario] = useState<PropertyScenarioRecord | null>(null)
   const [overrideFlags, setOverrideFlags] = useState<{
     price?: boolean
@@ -223,17 +220,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
     setInputs((prev) => ({ ...prev, propertyType: selectedType }))
   }, [selectedType])
 
-  const calculation = useMemo(() => calculateMortgage(inputs), [inputs])
-  const selectedAsset = useMemo(() => assets.find((a) => a.id === selectedAssetId), [assets, selectedAssetId])
-  const selectedLiability = useMemo(
-    () => liabilities.find((l) => l.id === selectedLiabilityId),
-    [liabilities, selectedLiabilityId],
-  )
-
-  const hasUnsavedChanges = useMemo(() => {
-    if (!savedSnapshot) return true
-    return savedSnapshot !== JSON.stringify(inputs)
-  }, [inputs, savedSnapshot])
+  const calculation = calculateMortgage(inputs)
 
   const handleInputChange = (field: keyof MortgageInputs, value: string | number) => {
     setInputs((prev) => ({ ...prev, [field]: value }))
@@ -461,14 +448,14 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
         const payload = {
           payee: 'Mortgage Payment',
           amount: calculation.monthlyPayment,
-          frequency: 'monthly',
+          frequency: 'monthly' as const,
           category: 'housing_mortgage',
           notes: `liability:${selectedLiabilityId}`,
         }
         if (existing?.id) {
           await financialApi.updateExpense(existing.id, payload)
         } else {
-          await financialApi.createExpense(payload as any)
+          await financialApi.createExpense(payload)
         }
       } catch (expenseError) {
         console.warn('Unable to upsert mortgage expense', expenseError)
@@ -491,10 +478,9 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
     onClose()
   }
 
-  const msrPercent = formatPercentage(calculation.msrRatio)
   const msrWithinLimit = calculation.msrRatio <= 0.3
 
-  const formattedLoanEnd = useMemo(() => {
+  const formattedLoanEnd = (() => {
     if (!calculation.loanEndDate) return ''
     const [year, month] = calculation.loanEndDate.split('-').map(Number)
     if (!year || !month) return calculation.loanEndDate
@@ -502,7 +488,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
       year: 'numeric',
       month: 'short',
     })
-  }, [calculation.loanEndDate])
+  })()
 
   if (!isOpen) return null
 
@@ -714,7 +700,7 @@ function StepOne({
   onChange,
   selectedAssetId,
   assets,
-  selectedLiabilityId,
+  selectedLiabilityId: _selectedLiabilityId,
   liabilities,
   liabilityInput,
   onChangeLiabilityInput,
@@ -722,22 +708,6 @@ function StepOne({
   onLiabilityBlur,
   overrideFlags,
 }: StepOneProps) {
-  const monthOptions = useMemo(() => {
-    const options: Array<{ value: string; label: string }> = []
-    const currentYear = new Date().getFullYear()
-    for (let year = currentYear; year <= currentYear + 11; year++) {
-      for (let month = 1; month <= 12; month++) {
-        const value = `${year}-${month.toString().padStart(2, '0')}`
-        const label = new Date(year, month - 1).toLocaleDateString('en-SG', {
-          year: 'numeric',
-          month: 'long',
-        })
-        options.push({ value, label })
-      }
-    }
-    return options
-  }, [])
-
   return (
     <div className="space-y-6">
       <header className="space-y-1">

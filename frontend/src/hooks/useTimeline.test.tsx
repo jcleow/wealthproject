@@ -1,4 +1,5 @@
 import React from 'react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -13,10 +14,10 @@ const baseTimeline: TimelineResponse = {
       liabilities: [],
       income: [],
       expenses: [],
-      net_cash: 12000,
-      net_worth: 50000,
-      has_overrides: false,
-      growth_applied: [],
+      netCash: 12000,
+      netWorth: 50000,
+      hasOverrides: false,
+      growthApplied: [],
     },
   ],
   version: 'v1',
@@ -59,7 +60,7 @@ describe('useTimeline', () => {
     await waitFor(() => expect(result.current.timelineQuery.isSuccess).toBe(true))
 
     expect(result.current.selectedYear).toBe(0)
-    expect(result.current.selectedYearData?.net_worth).toBe(50000)
+    expect((result.current.selectedYearData as any)?.netWorth ?? (result.current.selectedYearData as any)?.net_worth).toBe(50000)
   })
 
   it('saves edits via PUT and updates cached timeline', async () => {
@@ -67,9 +68,9 @@ describe('useTimeline', () => {
       years: [
         {
           ...baseTimeline.years[0],
-          net_worth: 90000,
-          net_cash: 24000,
-          has_overrides: true,
+          netWorth: 90000,
+          netCash: 24000,
+          hasOverrides: true,
         },
       ],
       version: 'v1',
@@ -114,7 +115,7 @@ describe('useTimeline', () => {
     )
 
     await waitFor(() =>
-      expect(result.current.timelineQuery.data?.years[0].net_worth).toBe(90000)
+      expect(((result.current.timelineQuery.data?.years[0] as any)?.netWorth ?? (result.current.timelineQuery.data?.years[0] as any)?.net_worth)).toBe(90000)
     )
     expect(result.current.selectedYear).toBe(1)
     expect(result.current.timelineQuery.data?.years[0].has_overrides).toBe(true)

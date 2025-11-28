@@ -13,6 +13,7 @@ import (
 	"financial-chat-system/backend/internal/database"
 	"financial-chat-system/backend/internal/financial"
 	finRepo "financial-chat-system/backend/internal/financial/repository"
+	"financial-chat-system/backend/internal/financial/scenario"
 	"financial-chat-system/backend/internal/financial/timeline"
 	"financial-chat-system/backend/internal/llm"
 	"financial-chat-system/backend/internal/llm/providers"
@@ -24,13 +25,14 @@ import (
 )
 
 func main() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
+	// Load environment variables (try repo root and backend dir so it works regardless of cwd)
+	if err := godotenv.Load(".env", "../.env"); err != nil {
+		log.Println("No .env file found in current or parent directory")
 	}
 
 	// Initialize configuration
 	cfg := config.New()
+	log.Printf("CONFIG: PRIMARY_LLM=%s GEMINI_MODEL=%s OPENAI_MODEL=%s ANTHROPIC_MODEL=%s", cfg.PrimaryLLM, cfg.GeminiModel, cfg.OpenAIModel, cfg.AnthropicModel)
 
 	// Initialize database connection
 	db, err := database.Connect(cfg.DatabaseURL)
@@ -39,9 +41,11 @@ func main() {
 	}
 	defer db.Close()
 
+	log.Printf("Starting migrations...")
 	if err := database.RunMigrations(db); err != nil {
 		log.Fatal("Failed to run database migrations:", err)
 	}
+	log.Printf("Migrations completed...")
 
 	finStore := finRepo.NewStore(db)
 	if err := financial.InitializeRegistry(); err != nil {
@@ -53,7 +57,8 @@ func main() {
 	previewService := financial.NewActionPreviewService(financialClient)
 	sessionTTL := time.Duration(cfg.SessionTTLHours) * time.Hour
 	sessionStore := session.NewStore(db, sessionTTL)
-	timelineService := timeline.NewService(finStore)
+	scenarioService := scenario.NewService(finStore)
+	timelineService := timeline.NewServiceWithScenario(finStore, scenarioService)
 
 	// Initialize middleware
 	versionMiddleware := middleware.NewVersionMiddleware()
@@ -214,6 +219,7 @@ func main() {
 	dispatchHandler := handlers.NewDispatchHandler(financialClient, sessionStore, previewService)
 	timelineHandler := handlers.NewTimelineHandler(timelineService)
 	growthHandler := handlers.NewGrowthHandler(timelineService)
+	scenarioAnalysisHandler := handlers.NewScenarioAnalysisHandler(timelineService)
 
 	// Background session cleanup
 	startSessionCleanup(sessionStore, sessionTTL, time.Duration(cfg.SessionCleanupIntervalMinutes)*time.Minute)
@@ -233,16 +239,19 @@ func main() {
 	expenseHandler := handlers.NewExpenseHandler(finStore)
 	propertyHandler := handlers.NewPropertyScenarioHandler(finStore)
 	propertyLinkHandler := handlers.NewPropertyLinkHandler(finStore)
+	scenarioHandler := handlers.NewScenarioEventHandler(finStore)
 	v1Router.PathPrefix("/assets").Handler(handlerToHTTPMux("/api/v1", assetHandler.RegisterRoutes))
 	v1Router.PathPrefix("/liabilities").Handler(handlerToHTTPMux("/api/v1", liabilityHandler.RegisterRoutes))
 	v1Router.PathPrefix("/cashflow/incomes").Handler(handlerToHTTPMux("/api/v1", incomeHandler.RegisterRoutes))
 	v1Router.PathPrefix("/cashflow/expenses").Handler(handlerToHTTPMux("/api/v1", expenseHandler.RegisterRoutes))
 	v1Router.PathPrefix("/property-planner/scenarios").Handler(handlerToHTTPMux("/api/v1", propertyHandler.RegisterRoutes))
 	v1Router.PathPrefix("/property-links").Handler(handlerToHTTPMux("/api/v1", propertyLinkHandler.RegisterRoutes))
+	v1Router.PathPrefix("/scenario-events").Handler(handlerToHTTPMux("/api/v1", scenarioHandler.RegisterRoutes))
 	v1Router.HandleFunc("/financial/timeline", timelineHandler.HandleGetTimeline).Methods("GET")
 	v1Router.HandleFunc("/financial/timeline/{year}", timelineHandler.HandleUpsertYear).Methods("PUT", "OPTIONS")
 	v1Router.HandleFunc("/financial/growth", growthHandler.HandleGetGrowth).Methods("GET")
 	v1Router.HandleFunc("/financial/growth", growthHandler.HandlePutGrowth).Methods("PUT")
+	v1Router.HandleFunc("/scenario-analysis", scenarioAnalysisHandler.Handle).Methods("POST")
 
 	// Financial action endpoints
 	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST", "OPTIONS")

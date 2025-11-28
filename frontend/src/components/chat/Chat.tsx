@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useChat } from '@/hooks/useChat'
 import { generateUUID, cn } from '@/lib/utils'
 import { ToastViewport } from '@/components/ui/toast'
@@ -48,12 +48,10 @@ export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: Chat
     inputRef.current?.focus()
   }
 
-  const focusKey = useMemo(() => {
-    const lastMessageId = messages[messages.length - 1]?.id ?? ''
-    const lastReviewId = actionReviews[actionReviews.length - 1]?.id ?? ''
-    const lastExecutionId = executionResults[executionResults.length - 1]?.id ?? ''
-    return `${messages.length}-${actionReviews.length}-${executionResults.length}-${lastMessageId}-${lastReviewId}-${lastExecutionId}`
-  }, [messages, actionReviews, executionResults])
+  const lastMessageId = messages[messages.length - 1]?.id ?? ''
+  const lastReviewId = actionReviews[actionReviews.length - 1]?.id ?? ''
+  const lastExecutionId = executionResults[executionResults.length - 1]?.id ?? ''
+  const focusKey = `${messages.length}-${actionReviews.length}-${executionResults.length}-${lastMessageId}-${lastReviewId}-${lastExecutionId}`
 
   useEffect(() => {
     focusInput()

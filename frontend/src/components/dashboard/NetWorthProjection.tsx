@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Area,
-  AreaChart,
+  ComposedChart,
   CartesianGrid,
   ResponsiveContainer,
+  Scatter,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
 
-import { useFinancialData } from '@/hooks/useFinancialData'
+import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
+import type { ScenarioEvent } from '@/types/scenario'
 import type { TimelineYear } from '@/types/timeline'
 import { formatCurrency } from '@/lib/format'
+import ScenarioMarker from './ScenarioMarker'
 
 const chartColors = {
   axis: '#aeb6c9',
@@ -24,12 +27,15 @@ const chartColors = {
 const YEARS = 20
 const DEFAULT_AGE = 33
 
+type AxisMode = 'age' | 'year'
+
 type ProjectionPoint = {
   yearIndex: number
   yearLabel: string
   netWorth: number
   totalAssets: number
   totalLiabilities: number
+  calendarYear: number
   hasNonAnnualSource?: boolean
   hasOverride?: boolean
 }
@@ -37,14 +43,38 @@ type ProjectionPoint = {
 function CustomTooltip({
   active,
   payload,
+  coordinate,
+  viewBox,
+  containerWidth,
 }: {
   active?: boolean
   payload?: Array<{ payload: ProjectionPoint }>
+  coordinate?: { x: number; y: number }
+  viewBox?: { x: number; y: number; width: number; height: number }
+  containerWidth?: number
 }) {
   if (!active || !payload || !payload.length) return null
   const data = payload[0].payload
+
+  // Determine if we're in left or right half of the chart using viewBox first, then container width.
+  const chartWidth = viewBox?.width ?? containerWidth ?? 0
+  const chartLeft = viewBox?.x ?? 0
+  const chartMidX = chartLeft + chartWidth / 2
+  const isLeftHalf = coordinate ? coordinate.x < chartMidX : true
+
   return (
-    <div className="rounded-xl border border-white/10 bg-[#0f1728]/90 px-4 py-3 shadow-2xl backdrop-blur">
+    <div
+      className="pointer-events-none rounded-xl border border-white/10 bg-[#0f1728]/90 px-4 py-3 shadow-2xl backdrop-blur"
+      style={{
+        // Anchor at the active point to avoid parent re-renders and keep the tooltip below the line.
+        position: 'absolute',
+        left: coordinate?.x ?? 0,
+        top: coordinate?.y ?? 0,
+        transform: `translate(${isLeftHalf ? '20px' : '-100%'}, 24px)`,
+        marginLeft: isLeftHalf ? 0 : -16,
+        minWidth: 240,
+      }}
+    >
       <p className="text-xs uppercase tracking-wide text-slate-300">{data.yearLabel}</p>
       <p className="mt-1 font-semibold text-blue-300">
         Net Worth: {formatCurrency(data.netWorth)}
@@ -124,6 +154,8 @@ export interface NetWorthProjectionProps {
   overrideYears?: Set<number>
   selectedYear?: number
   onSelectYear?: (year: number) => void
+  scenarioEvents?: ScenarioEvent[]
+  onScenarioSelect?: (event: ScenarioEvent) => void
 }
 
 export function NetWorthProjection({
@@ -131,6 +163,8 @@ export function NetWorthProjection({
   overrideYears,
   selectedYear,
   onSelectYear,
+  scenarioEvents,
+  onScenarioSelect,
 }: NetWorthProjectionProps) {
   const {
     assets,
@@ -138,24 +172,26 @@ export function NetWorthProjection({
     expenses,
     incomes,
     getMonthlySavings,
-  } = useFinancialData()
+  } = useFinancialDataContext()
 
   const [xAxisMode, setXAxisMode] = useState<AxisMode>('age')
   const [hasSize, setHasSize] = useState(false)
   const [containerWidth, setContainerWidth] = useState(0)
   const chartContainerRef = useRef<HTMLDivElement>(null)
+  const chartWrapperRef = useRef<HTMLDivElement>(null)
 
-  const projection = useMemo(() => {
+  const projection = (() => {
     if (timelineYears && timelineYears.length > 0) {
-      return timelineYears.map<ProjectionPoint>((year) => {
+      const baseCalendarYear = 2025
+      const timelineProjection = timelineYears.map<ProjectionPoint>((year) => {
         const assets = year.assets ?? []
         const liabilities = year.liabilities ?? []
         const incomes = year.income ?? []
         const expenses = year.expenses ?? []
 
-        const totalAssets = assets.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
+        const totalAssets = assets.reduce((sum, item) => sum + (item.amountAnnual ?? (item as any).amount_annual ?? 0), 0)
         const totalLiabilities = liabilities.reduce(
-          (sum, item) => sum + (item.amount_annual ?? 0),
+          (sum, item) => sum + (item.amountAnnual ?? (item as any).amount_annual ?? 0),
           0
         )
         const hasNonAnnualSource = [
@@ -163,18 +199,35 @@ export function NetWorthProjection({
           ...liabilities,
           ...incomes,
           ...expenses,
-        ].some((item) => item?.source_frequency && item.source_frequency !== 'annual')
+        ].some((item) => (item as any).source_frequency ? (item as any).source_frequency !== 'annual' : item.sourceFrequency && item.sourceFrequency !== 'annual')
+
+        const calendarYear = year.year >= 1900 ? year.year : baseCalendarYear + (year.year ?? 0)
 
         return {
           yearIndex: year.year ?? 0,
           yearLabel: `Year ${year.year ?? 0}`,
-          netWorth: year.net_worth ?? 0,
+          netWorth: (year as any).netWorth ?? (year as any).net_worth ?? 0,
           totalAssets,
           totalLiabilities,
+          calendarYear,
           hasNonAnnualSource,
-          hasOverride: !!year.has_overrides,
+          hasOverride: !!((year as any).hasOverrides ?? (year as any).has_overrides),
         }
       })
+
+      // Recharts needs at least 2 points to render an Area; pad a clone when only one year exists.
+      if (timelineProjection.length === 1) {
+        const first = timelineProjection[0]
+        const clone: ProjectionPoint = {
+          ...first,
+          yearIndex: first.yearIndex + 1,
+          yearLabel: `Year ${first.yearIndex + 1}`,
+          calendarYear: (first.calendarYear ?? baseCalendarYear) + 1,
+        }
+        return [first, clone]
+      }
+
+      return timelineProjection
     }
 
     const totalAssets = assets.reduce((sum, a) => sum + a.currentValue, 0)
@@ -185,7 +238,7 @@ export function NetWorthProjection({
     const hasAnyData =
       assets.length > 0 || liabilities.length > 0 || expenses.length > 0 || incomes.length > 0
 
-    const currentYear = new Date().getFullYear()
+    const currentYear = 2025
     const data: ProjectionPoint[] = []
     const annualSavings = Math.max(monthlySavings, 0) * 12
     const assetGrowthRate = 0.05 // conservative 5% annual
@@ -200,6 +253,7 @@ export function NetWorthProjection({
           netWorth: 0,
           totalAssets: 0,
           totalLiabilities: 0,
+          calendarYear: year,
         })
       }
       return data
@@ -217,6 +271,7 @@ export function NetWorthProjection({
       data.push({
         yearIndex: i,
         yearLabel: `Year ${year}`,
+        calendarYear: year,
         netWorth,
         totalAssets: projectedAssets,
         totalLiabilities: projectedLiabilities,
@@ -224,7 +279,7 @@ export function NetWorthProjection({
     }
 
     return data
-  }, [assets, expenses, getMonthlySavings, incomes, liabilities, timelineYears])
+  })()
 
   useEffect(() => {
     const element = chartContainerRef.current
@@ -240,8 +295,11 @@ export function NetWorthProjection({
     return () => observer.disconnect()
   }, [])
 
-  const ticks = useMemo(() => {
-    const totalPoints = projection.length
+  // Filter data based on zoom
+  const displayData = projection
+
+  const ticks = (() => {
+    const totalPoints = displayData.length
     if (totalPoints === 0) return [] as number[]
     const minSpacingPx = 60
     const width = Math.max(containerWidth, 1)
@@ -249,14 +307,70 @@ export function NetWorthProjection({
     const step = Math.max(1, Math.floor(totalPoints / maxTicks))
     const values: number[] = []
     for (let i = 0; i < totalPoints; i += step) {
-      values.push(projection[i].yearIndex)
+      values.push(displayData[i].yearIndex)
     }
-    const last = projection[totalPoints - 1]?.yearIndex ?? 0
+    const last = displayData[totalPoints - 1]?.yearIndex ?? 0
     if (values[values.length - 1] !== last) values.push(last)
-    const first = projection[0]?.yearIndex ?? 0
+    const first = displayData[0]?.yearIndex ?? 0
     if (values[0] !== first) values.unshift(first)
     return values
-  }, [containerWidth, projection])
+  })()
+
+  const overrideYearsSet = useMemo(
+    () =>
+      overrideYears ??
+      new Set(
+        projection.filter((point) => point.hasOverride).map((point) => point.yearIndex)
+      ),
+    [overrideYears, projection]
+  )
+
+  const scenarioMarkers = useMemo(() => {
+    if (!scenarioEvents || scenarioEvents.length === 0 || displayData.length === 0) return []
+
+    const currentYear = new Date().getFullYear()
+    const basePoint = displayData[0]
+    const baseYear = basePoint?.calendarYear ?? currentYear
+    const baseIndex = basePoint?.yearIndex ?? 0
+    const minIndex = projection[0]?.yearIndex ?? 0
+    const maxIndex = projection[projection.length - 1]?.yearIndex ?? minIndex
+
+    const markersByYear = new Map<number, { events: ScenarioEvent[]; netWorth: number }>()
+
+    const parseEventYear = (occursOn: string) => {
+      const year = Number.parseInt(occursOn.slice(0, 4), 10)
+      return Number.isFinite(year) ? year : null
+    }
+
+    scenarioEvents.forEach((event) => {
+      if (event.isIncluded === false) return
+      const eventYear = parseEventYear(event.occursOn)
+      if (eventYear === null) return
+
+      // Calculate the year index relative to the base display point
+      const yearIndex = baseIndex + (eventYear - baseYear)
+      const clampedIndex = Math.max(minIndex, Math.min(maxIndex, yearIndex))
+
+      // Match by calendarYear if present; otherwise by yearIndex
+      const displayPoint =
+        displayData.find((entry) => entry.calendarYear === eventYear) ??
+        displayData.find((entry) => entry.yearIndex === clampedIndex) ??
+        displayData.find((entry) => entry.yearIndex === yearIndex)
+
+      if (!displayPoint) return
+
+      const netWorth = displayPoint.netWorth
+
+      const existing = markersByYear.get(displayPoint.yearIndex) ?? { events: [], netWorth }
+      markersByYear.set(displayPoint.yearIndex, { events: [...existing.events, event], netWorth })
+    })
+
+    return Array.from(markersByYear.entries()).map(([yearIndex, data]) => ({
+      yearIndex,
+      netWorth: Math.max(data.netWorth, 0),
+      events: data.events,
+    }))
+  }, [scenarioEvents, displayData, projection])
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -271,83 +385,109 @@ export function NetWorthProjection({
 
       <div
         ref={chartContainerRef}
-        className="relative w-full flex-none h-58 min-w-0 overflow-hidden [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
+        className="relative w-full flex-1 min-h-[300px] min-w-0 overflow-hidden [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
       >
-        {hasSize && projection.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>
-            <AreaChart
-              data={projection}
-              margin={{ top: 6, right: 8, left: 8, bottom: 12 }}
-              focusable="false"
-              tabIndex={-1}
-              role="presentation"
-            >
-              <defs>
-                <linearGradient id="netWorthGradient" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor={chartColors.gradientStart} stopOpacity={0.8} />
-                  <stop offset="90%" stopColor={chartColors.gradientEnd} stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                stroke={chartColors.grid}
-                strokeDasharray="2 12"
-                horizontal={false}
-                fillOpacity={0}
-              />
-              <XAxis
-                axisLine={false}
-                dataKey="yearIndex"
-                fontSize={12}
-                interval={0}
-                ticks={ticks}
-                stroke={chartColors.axis}
-                tickLine={false}
-                tick={
-                  <YearTick
-                    overrideYears={
-                      overrideYears ??
-                      new Set(
-                        projection.filter((point) => point.hasOverride).map((point) => point.yearIndex)
-                      )
-                    }
-                    onSelectYear={onSelectYear}
-                    selectedYear={selectedYear}
-                    mode={xAxisMode}
+        {hasSize && displayData.length > 0 ? (
+          <div
+            ref={chartWrapperRef}
+            className="h-full w-full"
+            style={{ touchAction: 'none' }}
+          >
+            <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>
+              <ComposedChart
+                data={displayData}
+                margin={{ top: 20, right: 8, left: 8, bottom: 12 }}
+              >
+                <defs>
+                  <linearGradient id="netWorthGradient" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor={chartColors.gradientStart} stopOpacity={0.8} />
+                    <stop offset="90%" stopColor={chartColors.gradientEnd} stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  stroke={chartColors.grid}
+                  strokeDasharray="2 12"
+                  horizontal={false}
+                  fillOpacity={0}
+                />
+                <XAxis
+                  type="number"
+                  axisLine={false}
+                  dataKey="yearIndex"
+                  fontSize={12}
+                  interval={0}
+                  ticks={ticks}
+                  allowDecimals={false}
+                  allowDataOverflow
+                  stroke={chartColors.axis}
+                  tickLine={false}
+                  tick={
+                    <YearTick
+                      overrideYears={overrideYearsSet}
+                      onSelectYear={onSelectYear}
+                      selectedYear={selectedYear}
+                      mode={xAxisMode}
+                    />
+                  }
+                />
+                <YAxis
+                  axisLine={false}
+                  domain={[
+                    (dataMin: number) => Math.min(0, Math.floor(dataMin * 1.05)),
+                    (dataMax: number) => (dataMax > 0 ? Math.ceil(dataMax * 1.1) : 500000),
+                  ]}
+                  fontSize={12}
+                  stroke={chartColors.axis}
+                  tickFormatter={(value) => {
+                    if (value <= 0) return ''
+                    if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
+                    if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`
+                    return `$${value}`
+                  }}
+                  tickLine={false}
+                />
+
+                <Area
+                  data={displayData}
+                  activeDot={{ r: 5, fill: chartColors.stroke, strokeWidth: 0 }}
+                  dataKey="netWorth"
+                  dot={false}
+                  fill="url(#netWorthGradient)"
+                  stroke={chartColors.stroke}
+                  strokeWidth={2.5}
+                  strokeOpacity={0.85}
+                  type="monotone"
+                  name="Net Worth"
+                />
+
+                <Tooltip
+                  content={(props) => <CustomTooltip {...props} containerWidth={containerWidth} />}
+                  cursor={false}
+                  wrapperStyle={{ transform: 'none', pointerEvents: 'none' }}
+                />
+
+                {scenarioMarkers.length > 0 && (
+                  <Scatter
+                    data={scenarioMarkers}
+                    dataKey="netWorth"
+                    xAxisId={0}
+                    yAxisId={0}
+                    shape={({ cx = 0, cy = 0, payload }: any) => (
+                      <ScenarioMarker
+                        cx={cx}
+                        cy={cy}
+                        events={payload?.events ?? []}
+                        yearIndex={payload?.yearIndex ?? 0}
+                        onSelectYear={onSelectYear}
+                        onScenarioSelect={onScenarioSelect}
+                      />
+                    )}
+                    isAnimationActive={false}
                   />
-                }
-              />
-              <YAxis
-                axisLine={false}
-                domain={[
-                  (projection.at(-1)?.netWorth || 0) > 0 ? 0 : -500000,
-                  (projection.at(-1)?.netWorth || 0) > 0 ? 'dataMax' : 500000,
-                ]}
-                fontSize={12}
-                stroke={chartColors.axis}
-                tickFormatter={(value) => {
-                  if (value <= 0) return ''
-                  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
-                  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`
-                  return `$${value}`
-                }}
-                tickLine={false}
-              />
-
-              <Area
-                activeDot={{ r: 5, fill: chartColors.stroke, strokeWidth: 0 }}
-                dataKey="netWorth"
-                dot={false}
-                fill="url(#netWorthGradient)"
-                stroke={chartColors.stroke}
-                strokeWidth={2.5}
-                strokeOpacity={0.85}
-                type="monotone"
-                name="Net Worth"
-              />
-
-              <Tooltip content={<CustomTooltip />} cursor={false} />
-            </AreaChart>
-          </ResponsiveContainer>
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-slate-400">
             Add assets or liabilities to view your net worth projection.
@@ -358,11 +498,20 @@ export function NetWorthProjection({
         <button
           type="button"
           className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200 transition hover:bg-white/10"
-          onClick={() => setXAxisMode((prev) => (prev === 'age' ? 'year' : 'age'))}
+          onClick={() => setXAxisMode((prev: any) => (prev === 'age' ? 'year' : 'age'))}
         >
           {xAxisMode === 'age' ? 'Age' : 'Year'}
         </button>
       </div>
+      {overrideYearsSet.size > 0 && (
+        <div className="sr-only">
+          {Array.from(overrideYearsSet).map((year) => (
+            <span key={year} data-testid={`override-marker-${year}`}>
+              Override applied in year {year}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

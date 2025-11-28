@@ -31,20 +31,27 @@ const (
 
 // TimelineItem represents an item at a given year with metadata for UI rendering.
 type TimelineItem struct {
-	ItemID          string   `json:"item_id"`
-	Name            string   `json:"name"`
-	Category        string   `json:"category"`
-	AmountAnnual    float64  `json:"amount_annual"`
-	SourceAmount    *float64 `json:"source_amount,omitempty"`
-	SourceFrequency string   `json:"source_frequency,omitempty"`
-	ItemType        ItemType `json:"item_type"`
-	CreatedYear     int      `json:"created_year"`
+	// ItemID is the stable logical identifier used for scenario matching (parent_id if present, else row id).
+	ItemID string `json:"itemId"`
+	// RowID is the concrete finance_* row id (for debugging/reference).
+	RowID string `json:"rowId,omitempty"`
+	// ParentID is the original/base item id when this row is a child; else same as RowID.
+	ParentID        string               `json:"parentId,omitempty"`
+	Name            string               `json:"name"`
+	Category        string               `json:"category"`
+	AmountAnnual    float64              `json:"amountAnnual"`
+	AdjustedAnnual  float64              `json:"adjAnnualAmt"`
+	EventImpacts    []EventImpactSummary `json:"eventImpacts,omitempty"`
+	SourceAmount    *float64             `json:"sourceAmount,omitempty"`
+	SourceFrequency string               `json:"sourceFrequency,omitempty"`
+	ItemType        ItemType             `json:"itemType"`
+	CreatedYear     int                  `json:"createdYear"`
 }
 
 // GrowthApplied captures which growth rates were used in a given year.
 type GrowthApplied struct {
 	Category      string  `json:"category"`
-	AnnualRatePct float64 `json:"annual_rate_pct"`
+	AnnualRatePct float64 `json:"annualRatePct"`
 }
 
 // TimelineYear is a single year's view of the projection.
@@ -54,16 +61,27 @@ type TimelineYear struct {
 	Liabilities   []TimelineItem  `json:"liabilities"`
 	Income        []TimelineItem  `json:"income"`
 	Expenses      []TimelineItem  `json:"expenses"`
-	NetCash       float64         `json:"net_cash"`
-	NetWorth      float64         `json:"net_worth"`
-	HasOverrides  bool            `json:"has_overrides"`
-	GrowthApplied []GrowthApplied `json:"growth_applied"`
+	NetCash       float64         `json:"netCash"`
+	NetWorth      float64         `json:"netWorth"`
+	HasOverrides  bool            `json:"hasOverrides"`
+	GrowthApplied []GrowthApplied `json:"growthApplied"`
 }
 
 // TimelineResponse is the API shape returned to the client.
 type TimelineResponse struct {
 	Years   []TimelineYear `json:"years"`
 	Version string         `json:"version"`
+	// ScenariosApplied lists scenario IDs merged into this response (optional).
+	ScenariosApplied []string `json:"scenariosApplied,omitempty"`
+}
+
+// EventImpactSummary annotates a row with scenario impact info.
+type EventImpactSummary struct {
+	EventID      string  `json:"eventId"`
+	ImpactKind   string  `json:"impactKind"`   // override|delta|start|stop
+	AmountAnnual float64 `json:"amountAnnual"` // annualized
+	Cadence      string  `json:"cadence"`
+	Notes        string  `json:"notes,omitempty"`
 }
 
 // EditRequest represents a user edit or new item creation for a given year.
