@@ -12,8 +12,8 @@ if [[ $# -lt 2 ]]; then
   echo "  FRONTEND_PORT_B (default 3001)"
   echo "  BACKEND_PORT_A  (default 8080)"
   echo "  BACKEND_PORT_B  (default 8081)"
-  echo "  API_BASE_A      (default http://localhost:8080/api/v1)"
-  echo "  API_BASE_B      (default http://localhost:8081/api/v1)"
+  echo "  BACKEND_URL_A   (default http://localhost:8080)"
+  echo "  BACKEND_URL_B   (default http://localhost:8081)"
   echo "  START_BACKEND   (set to true to also run go server in each worktree)"
   echo "  ENV_SOURCE      (path to .env to copy/symlink into each worktree if missing)"
   echo "  ENV_MODE        (copy|symlink, default copy)"
@@ -27,8 +27,8 @@ FRONTEND_PORT_A="${FRONTEND_PORT_A:-3000}"
 FRONTEND_PORT_B="${FRONTEND_PORT_B:-3001}"
 BACKEND_PORT_A="${BACKEND_PORT_A:-8080}"
 BACKEND_PORT_B="${BACKEND_PORT_B:-8081}"
-API_BASE_A="${API_BASE_A:-http://localhost:8080/api/v1}"
-API_BASE_B="${API_BASE_B:-http://localhost:8081/api/v1}"
+BACKEND_URL_A="${BACKEND_URL_A:-http://localhost:8080}"
+BACKEND_URL_B="${BACKEND_URL_B:-http://localhost:8081}"
 START_BACKEND="${START_BACKEND:-false}"
 ENV_SOURCE="${ENV_SOURCE:-}"
 ENV_MODE="${ENV_MODE:-copy}" # copy | symlink
@@ -78,13 +78,13 @@ start_frontend() {
   local name="$1"
   local dir="$2"
   local port="$3"
-  local api_base="$4"
+  local backend_url="$4"
 
   require_dir "$dir/frontend"
-  echo "Starting ${name} frontend on port ${port} (API ${api_base}) from ${dir}"
+  echo "Starting ${name} frontend on port ${port} (Backend ${backend_url}) from ${dir}"
   (
     cd "$dir/frontend"
-    PORT="$port" HOSTNAME="0.0.0.0" NEXT_PUBLIC_GO_BACKEND_BASE_URL="$api_base" npm run dev
+    PORT="$port" HOSTNAME="0.0.0.0" GO_BACKEND_URL="$backend_url" pnpm run dev
   ) &
   pids+=($!)
 }
@@ -104,8 +104,8 @@ start_backend() {
   pids+=($!)
 }
 
-start_frontend "A" "$WT_A" "$FRONTEND_PORT_A" "$API_BASE_A"
-start_frontend "B" "$WT_B" "$FRONTEND_PORT_B" "$API_BASE_B"
+start_frontend "A" "$WT_A" "$FRONTEND_PORT_A" "$BACKEND_URL_A"
+start_frontend "B" "$WT_B" "$FRONTEND_PORT_B" "$BACKEND_URL_B"
 
 if [[ "$START_BACKEND" == "true" ]]; then
   start_backend "A" "$WT_A" "$BACKEND_PORT_A"
