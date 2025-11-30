@@ -268,6 +268,9 @@ TypeScript & React Coding Agent Rules
 - Styling
   - Use Tailwind CSS and shadcn/ui; use `clsx`/`cn` for class merging.
   - Avoid inline styles unless required; stay consistent with the design system.
+- Forms
+  - Use react-hook-form with zodResolver for all form handling.
+  - Define form schemas with Zod and use `z.infer` for TypeScript types.
 - Error handling
 - Always cover loading, error, and empty states; use error boundaries where appropriate.
 - No over-engineering

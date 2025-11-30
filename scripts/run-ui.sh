@@ -90,6 +90,8 @@ pids=()
 DB_STARTED_BY_SCRIPT=false
 
 cleanup() {
+  echo ""
+  echo "Shutting down services..."
   for pid in "${pids[@]}"; do
     if kill -0 "$pid" >/dev/null 2>&1; then
       # Kill the entire process group to ensure child processes (e.g., npm dev server) exit.
@@ -102,8 +104,12 @@ cleanup() {
     fi
   done
   if [[ "$DB_STARTED_BY_SCRIPT" == "true" ]]; then
-    echo "Stopping Postgres container ${POSTGRES_CONTAINER}"
+    echo "Stopping and removing Postgres container ${POSTGRES_CONTAINER}..."
     docker stop "$POSTGRES_CONTAINER" >/dev/null 2>&1 || true
+    docker rm "$POSTGRES_CONTAINER" >/dev/null 2>&1 || true
+    echo "Removing Postgres volume ${POSTGRES_VOLUME}..."
+    docker volume rm "$POSTGRES_VOLUME" >/dev/null 2>&1 || true
+    echo "Postgres cleanup complete."
   fi
 }
 trap cleanup EXIT
@@ -174,10 +180,10 @@ ensure_frontend_install() {
   if [[ -x "$dir/node_modules/.bin/next" ]]; then
     return
   fi
-  echo "Installing frontend dependencies (npm install)..."
+  echo "Installing frontend dependencies (pnpm install)..."
   (
     cd "$dir"
-    npm install
+    pnpm install
   )
 }
 
@@ -412,8 +418,8 @@ DB_USER="${DB_USER:-${POSTGRES_USER:-}}"
 DB_PASSWORD="${DB_PASSWORD:-${POSTGRES_PASSWORD:-}}"
 DB_NAME="${DB_NAME:-${POSTGRES_DB:-financial_chat}}"
 # Final defaults if nothing provided
-POSTGRES_USER_DEFAULT="${DB_USER:-postgres}"
-POSTGRES_PASSWORD_DEFAULT="${DB_PASSWORD:-postgres}"
+POSTGRES_USER_DEFAULT="${DB_USER:-financial_user}"
+POSTGRES_PASSWORD_DEFAULT="${DB_PASSWORD:-financial_pass_dev_2024}"
 POSTGRES_DB_DEFAULT="${DB_NAME:-financial_chat}"
 
 if [[ -n "$REQUESTED_DB_PORT" ]]; then
@@ -459,19 +465,17 @@ echo "Starting frontend on ${FRONTEND_PORT} (API http://localhost:${BACKEND_PORT
 (
   ensure_frontend_install "$FRONTEND_DIR"
   cd "$FRONTEND_DIR"
-  PORT="${FRONTEND_PORT}" HOSTNAME="0.0.0.0" NEXT_CACHE_DIR="${FRONTEND_DIR}/.next/cache" NEXT_PUBLIC_GO_BACKEND_BASE_URL="http://localhost:${BACKEND_PORT}/api/v1" npm run dev -- --turbo
+  PORT="${FRONTEND_PORT}" HOSTNAME="0.0.0.0" NEXT_CACHE_DIR="${FRONTEND_DIR}/.next/cache" GO_BACKEND_URL="http://localhost:${BACKEND_PORT}" pnpm run dev
 ) &
 pids+=($!)
 
 if [[ "${START_BACKEND}" == "true" ]]; then
-  # Default anon user toggle to true for local dev unless explicitly set.
-  ALLOW_ANON_USER="${ALLOW_ANON_USER:-true}"
-  echo "Starting backend on ${BACKEND_PORT} (ALLOW_ANON_USER=${ALLOW_ANON_USER})"
+  echo "Starting backend on ${BACKEND_PORT}"
   echo "Postgres container: ${POSTGRES_CONTAINER} (volume ${POSTGRES_VOLUME}) db=${DB_NAME} port=${POSTGRES_PORT}"
   echo "Using DB credentials: user=${DB_USER} name=${DB_NAME}"
   (
     cd "$BACKEND_DIR"
-    PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" ALLOW_ANON_USER="${ALLOW_ANON_USER}" go run ./cmd/server
+    PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" go run ./cmd/server
   ) &
   pids+=($!)
   if ! wait_for_backend "$BACKEND_PORT"; then
