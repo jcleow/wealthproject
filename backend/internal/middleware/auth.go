@@ -23,15 +23,15 @@ type UserContext struct {
 // Authenticate verifies HMAC-signed requests from the BFF and extracts user context
 func Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID := r.Header.Get("X-User-ID")
 		authToken := r.Header.Get("X-Auth-Token")
 
+		var userID string
 		var isVerified bool
-		var verifyErr error
 
-		// If we have both user ID and auth token, verify the HMAC signature
-		if userID != "" && authToken != "" {
-			isVerified, verifyErr = verifyBFFToken(authToken, userID)
+		// Extract user ID from JWT if auth token is present
+		if authToken != "" {
+			var verifyErr error
+			userID, isVerified, verifyErr = verifyBFFToken(authToken)
 			if verifyErr != nil {
 				if !isDevMode() {
 					// In production, reject invalid tokens
@@ -45,14 +45,8 @@ func Authenticate(next http.Handler) http.Handler {
 		}
 
 		// Fallback for legacy session-based auth (dev only)
-		if userID == "" {
+		if userID == "" && isDevMode() {
 			userID = r.Header.Get("X-Session-ID")
-		}
-
-		// In production, require verified authentication for requests with user context
-		if !isDevMode() && userID != "" && !isVerified {
-			http.Error(w, "Request signature required", http.StatusUnauthorized)
-			return
 		}
 
 		ctx := context.WithValue(r.Context(), userContextKey{}, UserContext{
@@ -64,11 +58,11 @@ func Authenticate(next http.Handler) http.Handler {
 	})
 }
 
-// verifyBFFToken verifies the HMAC-signed JWT from the Next.js BFF
-func verifyBFFToken(tokenString, expectedUserID string) (bool, error) {
+// verifyBFFToken verifies the HMAC-signed JWT from the Next.js BFF and extracts the user ID
+func verifyBFFToken(tokenString string) (userID string, verified bool, err error) {
 	secret := os.Getenv("BACKEND_SHARED_SECRET")
 	if secret == "" {
-		return false, fmt.Errorf("BACKEND_SHARED_SECRET not configured")
+		return "", false, fmt.Errorf("BACKEND_SHARED_SECRET not configured")
 	}
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -80,25 +74,25 @@ func verifyBFFToken(tokenString, expectedUserID string) (bool, error) {
 	})
 
 	if err != nil {
-		return false, fmt.Errorf("token parse error: %w", err)
+		return "", false, fmt.Errorf("token parse error: %w", err)
 	}
 
 	if !token.Valid {
-		return false, fmt.Errorf("invalid token")
+		return "", false, fmt.Errorf("invalid token")
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return false, fmt.Errorf("invalid claims format")
+		return "", false, fmt.Errorf("invalid claims format")
 	}
 
-	// Verify the subject (user ID) matches the header
+	// Extract user ID from the subject claim
 	sub, ok := claims["sub"].(string)
-	if !ok || sub != expectedUserID {
-		return false, fmt.Errorf("user ID mismatch: token=%s, header=%s", sub, expectedUserID)
+	if !ok || sub == "" {
+		return "", false, fmt.Errorf("missing or empty sub claim")
 	}
 
-	return true, nil
+	return sub, true, nil
 }
 
 // GetUserContext retrieves user metadata from context

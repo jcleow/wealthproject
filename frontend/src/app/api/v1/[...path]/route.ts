@@ -54,7 +54,6 @@ async function proxyToBackend(
   // Forward the request with auth headers
   const backendHeaders: Record<string, string> = {
     'Content-Type': request.headers.get('Content-Type') || 'application/json',
-    'X-User-ID': session.user.id,
     'X-Auth-Token': token,
   }
 

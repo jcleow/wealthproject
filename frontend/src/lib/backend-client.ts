@@ -45,7 +45,6 @@ export async function backendFetch(
   // If userId provided, sign the request
   if (userId) {
     const token = await createBackendToken(userId)
-    headers['X-User-ID'] = userId
     headers['X-Auth-Token'] = token
   }
 
