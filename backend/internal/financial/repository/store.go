@@ -110,13 +110,13 @@ type PropertyLink struct {
 	UpdatedAt          time.Time
 }
 
-// GetAssetByNameAndCategory returns an asset by name/category if it exists.
-func (s *Store) GetAssetByNameAndCategory(ctx context.Context, name, category string) (Asset, error) {
+// GetAssetByNameAndCategory returns an asset by name/category if it exists for a user.
+func (s *Store) GetAssetByNameAndCategory(ctx context.Context, userID, name, category string) (Asset, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, name, category, current_value, annual_growth_rate, COALESCE(notes, ''), updated_at
 		FROM finance_assets
-		WHERE LOWER(name)=LOWER($1) AND category=$2
-		LIMIT 1`, name, category)
+		WHERE user_id=$1 AND LOWER(name)=LOWER($2) AND category=$3
+		LIMIT 1`, userID, name, category)
 	var a Asset
 	if err := row.Scan(&a.ID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Notes, &a.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -127,13 +127,13 @@ func (s *Store) GetAssetByNameAndCategory(ctx context.Context, name, category st
 	return a, nil
 }
 
-// GetLiabilityByNameAndCategory returns a liability by name/category if it exists.
-func (s *Store) GetLiabilityByNameAndCategory(ctx context.Context, name, category string) (Liability, error) {
+// GetLiabilityByNameAndCategory returns a liability by name/category if it exists for a user.
+func (s *Store) GetLiabilityByNameAndCategory(ctx context.Context, userID, name, category string) (Liability, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(notes, ''), updated_at
 		FROM finance_liabilities
-		WHERE LOWER(name)=LOWER($1) AND category=$2
-		LIMIT 1`, name, category)
+		WHERE user_id=$1 AND LOWER(name)=LOWER($2) AND category=$3
+		LIMIT 1`, userID, name, category)
 	var li Liability
 	if err := row.Scan(&li.ID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Notes, &li.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -146,7 +146,7 @@ func (s *Store) GetLiabilityByNameAndCategory(ctx context.Context, name, categor
 
 // ----- Asset operations -----
 
-func (s *Store) ListAssets(ctx context.Context) ([]Asset, error) {
+func (s *Store) ListAssets(ctx context.Context, userID string) ([]Asset, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -160,7 +160,8 @@ func (s *Store) ListAssets(ctx context.Context) ([]Asset, error) {
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_assets
-		ORDER BY parent_id, start_year`)
+		WHERE user_id = $1
+		ORDER BY parent_id, start_year`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +181,7 @@ func (s *Store) ListAssets(ctx context.Context) ([]Asset, error) {
 	return assets, rows.Err()
 }
 
-func (s *Store) GetAsset(ctx context.Context, id string) (Asset, error) {
+func (s *Store) GetAsset(ctx context.Context, userID, id string) (Asset, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -194,7 +195,7 @@ func (s *Store) GetAsset(ctx context.Context, id string) (Asset, error) {
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_assets
-		WHERE id = $1`, id)
+		WHERE user_id = $1 AND id = $2`, userID, id)
 	var a Asset
 	if err := row.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartYear, &a.EndYear, &a.Notes, &a.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -205,10 +206,10 @@ func (s *Store) GetAsset(ctx context.Context, id string) (Asset, error) {
 	return a, nil
 }
 
-func (s *Store) CreateAsset(ctx context.Context, a Asset) (Asset, error) {
+func (s *Store) CreateAsset(ctx context.Context, userID string, a Asset) (Asset, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_assets (parent_id, name, category, current_value, annual_growth_rate, frequency, start_year, end_year, notes)
-		VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, COALESCE($6,'annual'), COALESCE($7,0), $8, NULLIF($9, ''))
+		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, frequency, start_year, end_year, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, COALESCE($7,'annual'), COALESCE($8,0), $9, NULLIF($10, ''))
 		ON CONFLICT (parent_id, start_year) DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
@@ -219,7 +220,7 @@ func (s *Store) CreateAsset(ctx context.Context, a Asset) (Asset, error) {
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
 		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
-		nullIfEmpty(a.ParentID), a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, a.Frequency, a.StartYear, nullableFromNullInt32(a.EndYear), a.Notes)
+		userID, nullIfEmpty(a.ParentID), a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, a.Frequency, a.StartYear, nullableFromNullInt32(a.EndYear), a.Notes)
 	var created Asset
 	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentValue, &created.AnnualGrowthRate, &created.Frequency, &created.StartYear, &created.EndYear, &created.Notes, &created.UpdatedAt); err != nil {
 		return Asset{}, err
@@ -227,21 +228,21 @@ func (s *Store) CreateAsset(ctx context.Context, a Asset) (Asset, error) {
 	return created, nil
 }
 
-func (s *Store) UpdateAsset(ctx context.Context, a Asset) (Asset, error) {
+func (s *Store) UpdateAsset(ctx context.Context, userID string, a Asset) (Asset, error) {
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_assets
-		SET name=$2,
-		    category=$3,
-		    current_value=$4,
-		    annual_growth_rate=$5,
-		    frequency=COALESCE($6, frequency),
-		    start_year=COALESCE($7, start_year),
-		    end_year=$8,
-		    notes=NULLIF($9, ''),
+		SET name=$3,
+		    category=$4,
+		    current_value=$5,
+		    annual_growth_rate=$6,
+		    frequency=COALESCE($7, frequency),
+		    start_year=COALESCE($8, start_year),
+		    end_year=$9,
+		    notes=NULLIF($10, ''),
 		    updated_at=NOW()
-		WHERE id=$1
+		WHERE user_id=$1 AND id=$2
 		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
-		a.ID, a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, nullIfEmpty(a.Frequency), nullableInt32(a.StartYear), nullableFromNullInt32(a.EndYear), a.Notes)
+		userID, a.ID, a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, nullIfEmpty(a.Frequency), nullableInt32(a.StartYear), nullableFromNullInt32(a.EndYear), a.Notes)
 	var updated Asset
 	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentValue, &updated.AnnualGrowthRate, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -252,8 +253,8 @@ func (s *Store) UpdateAsset(ctx context.Context, a Asset) (Asset, error) {
 	return updated, nil
 }
 
-func (s *Store) DeleteAsset(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_assets WHERE id=$1`, id)
+func (s *Store) DeleteAsset(ctx context.Context, userID, id string) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_assets WHERE user_id=$1 AND id=$2`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -284,13 +285,13 @@ func nullIfEmpty(val string) *string {
 }
 
 // ConvertAssetToProperty updates an asset category to property (idempotent).
-func (s *Store) ConvertAssetToProperty(ctx context.Context, id string) (Asset, error) {
+func (s *Store) ConvertAssetToProperty(ctx context.Context, userID, id string) (Asset, error) {
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_assets
 		SET category='property',
 		    updated_at=NOW()
-		WHERE id=$1
-		RETURNING id, name, category, current_value, annual_growth_rate, COALESCE(notes, ''), updated_at`, id)
+		WHERE user_id=$1 AND id=$2
+		RETURNING id, name, category, current_value, annual_growth_rate, COALESCE(notes, ''), updated_at`, userID, id)
 	var updated Asset
 	if err := row.Scan(&updated.ID, &updated.Name, &updated.Category, &updated.CurrentValue, &updated.AnnualGrowthRate, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -303,7 +304,7 @@ func (s *Store) ConvertAssetToProperty(ctx context.Context, id string) (Asset, e
 
 // ----- Liability operations -----
 
-func (s *Store) ListLiabilities(ctx context.Context) ([]Liability, error) {
+func (s *Store) ListLiabilities(ctx context.Context, userID string) ([]Liability, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -318,7 +319,8 @@ func (s *Store) ListLiabilities(ctx context.Context) ([]Liability, error) {
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_liabilities
-		ORDER BY parent_id, start_year`)
+		WHERE user_id = $1
+		ORDER BY parent_id, start_year`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +340,7 @@ func (s *Store) ListLiabilities(ctx context.Context) ([]Liability, error) {
 	return items, rows.Err()
 }
 
-func (s *Store) GetLiability(ctx context.Context, id string) (Liability, error) {
+func (s *Store) GetLiability(ctx context.Context, userID, id string) (Liability, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -353,7 +355,7 @@ func (s *Store) GetLiability(ctx context.Context, id string) (Liability, error) 
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_liabilities
-		WHERE id = $1`, id)
+		WHERE user_id = $1 AND id = $2`, userID, id)
 	var li Liability
 	if err := row.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartYear, &li.EndYear, &li.Notes, &li.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -364,10 +366,10 @@ func (s *Store) GetLiability(ctx context.Context, id string) (Liability, error) 
 	return li, nil
 }
 
-func (s *Store) CreateLiability(ctx context.Context, li Liability) (Liability, error) {
+func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability) (Liability, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_liabilities (parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, frequency, start_year, end_year, notes)
-		VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, COALESCE($7,'annual'), COALESCE($8,0), $9, NULLIF($10, ''))
+		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, frequency, start_year, end_year, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, COALESCE($8,'annual'), COALESCE($9,0), $10, NULLIF($11, ''))
 		ON CONFLICT (parent_id, start_year) DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
@@ -379,7 +381,7 @@ func (s *Store) CreateLiability(ctx context.Context, li Liability) (Liability, e
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
 		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
-		nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, li.Frequency, li.StartYear, nullableFromNullInt32(li.EndYear), li.Notes)
+		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, li.Frequency, li.StartYear, nullableFromNullInt32(li.EndYear), li.Notes)
 	var created Liability
 	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.Frequency, &created.StartYear, &created.EndYear, &created.Notes, &created.UpdatedAt); err != nil {
 		return Liability{}, err
@@ -387,22 +389,22 @@ func (s *Store) CreateLiability(ctx context.Context, li Liability) (Liability, e
 	return created, nil
 }
 
-func (s *Store) UpdateLiability(ctx context.Context, li Liability) (Liability, error) {
+func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability) (Liability, error) {
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_liabilities
-		SET name=$2,
-		    category=$3,
-		    current_balance=$4,
-		    interest_rate_apr=$5,
-		    minimum_payment=$6,
-		    frequency=COALESCE($7, frequency),
-		    start_year=COALESCE($8, start_year),
-		    end_year=$9,
-		    notes=NULLIF($10, ''),
+		SET name=$3,
+		    category=$4,
+		    current_balance=$5,
+		    interest_rate_apr=$6,
+		    minimum_payment=$7,
+		    frequency=COALESCE($8, frequency),
+		    start_year=COALESCE($9, start_year),
+		    end_year=$10,
+		    notes=NULLIF($11, ''),
 		    updated_at=NOW()
-		WHERE id=$1
+		WHERE user_id=$1 AND id=$2
 		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
-		li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, nullIfEmpty(li.Frequency), nullableInt32(li.StartYear), nullableFromNullInt32(li.EndYear), li.Notes)
+		userID, li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, nullIfEmpty(li.Frequency), nullableInt32(li.StartYear), nullableFromNullInt32(li.EndYear), li.Notes)
 	var updated Liability
 	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentBalance, &updated.InterestRateAPR, &updated.MinimumPayment, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -413,8 +415,8 @@ func (s *Store) UpdateLiability(ctx context.Context, li Liability) (Liability, e
 	return updated, nil
 }
 
-func (s *Store) DeleteLiability(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_liabilities WHERE id=$1`, id)
+func (s *Store) DeleteLiability(ctx context.Context, userID, id string) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_liabilities WHERE user_id=$1 AND id=$2`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -426,13 +428,13 @@ func (s *Store) DeleteLiability(ctx context.Context, id string) error {
 }
 
 // ConvertLiabilityToProperty updates a liability category to property (idempotent).
-func (s *Store) ConvertLiabilityToProperty(ctx context.Context, id string) (Liability, error) {
+func (s *Store) ConvertLiabilityToProperty(ctx context.Context, userID, id string) (Liability, error) {
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_liabilities
 		SET category='property',
 		    updated_at=NOW()
-		WHERE id=$1
-		RETURNING id, name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(notes, ''), updated_at`, id)
+		WHERE user_id=$1 AND id=$2
+		RETURNING id, name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(notes, ''), updated_at`, userID, id)
 	var updated Liability
 	if err := row.Scan(&updated.ID, &updated.Name, &updated.Category, &updated.CurrentBalance, &updated.InterestRateAPR, &updated.MinimumPayment, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -445,11 +447,12 @@ func (s *Store) ConvertLiabilityToProperty(ctx context.Context, id string) (Liab
 
 // ----- Property Scenario operations -----
 
-func (s *Store) ListPropertyScenarios(ctx context.Context) ([]PropertyScenario, error) {
+func (s *Store) ListPropertyScenarios(ctx context.Context, userID string) ([]PropertyScenario, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, property_type, headline, subheadline, last_refreshed, property_price, down_payment, loan_amount, interest_rate, loan_tenure, COALESCE(notes, ''), amortization, snapshot, timeline, milestones, insights, updated_at
 		FROM property_scenarios
-		ORDER BY updated_at DESC`)
+		WHERE user_id = $1
+		ORDER BY updated_at DESC`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -475,11 +478,11 @@ func (s *Store) ListPropertyScenarios(ctx context.Context) ([]PropertyScenario, 
 	return items, rows.Err()
 }
 
-func (s *Store) GetPropertyScenario(ctx context.Context, id string) (PropertyScenario, error) {
+func (s *Store) GetPropertyScenario(ctx context.Context, userID, id string) (PropertyScenario, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, property_type, headline, subheadline, last_refreshed, property_price, down_payment, loan_amount, interest_rate, loan_tenure, COALESCE(notes, ''), amortization, snapshot, timeline, milestones, insights, updated_at
 		FROM property_scenarios
-		WHERE id = $1`, id)
+		WHERE user_id = $1 AND id = $2`, userID, id)
 	var ps PropertyScenario
 	var amortBytes, snapBytes, timelineBytes, milestoneBytes, insightsBytes []byte
 	if err := row.Scan(&ps.ID, &ps.PropertyType, &ps.Headline, &ps.Subheadline, &ps.LastRefreshed, &ps.PropertyPrice, &ps.DownPayment, &ps.LoanAmount, &ps.InterestRate, &ps.LoanTenure, &ps.Notes, &amortBytes, &snapBytes, &timelineBytes, &milestoneBytes, &insightsBytes, &ps.UpdatedAt); err != nil {
@@ -496,12 +499,12 @@ func (s *Store) GetPropertyScenario(ctx context.Context, id string) (PropertySce
 	return ps, nil
 }
 
-func (s *Store) CreatePropertyScenario(ctx context.Context, ps PropertyScenario) (PropertyScenario, error) {
+func (s *Store) CreatePropertyScenario(ctx context.Context, userID string, ps PropertyScenario) (PropertyScenario, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO property_scenarios (property_type, headline, subheadline, last_refreshed, property_price, down_payment, loan_amount, interest_rate, loan_tenure, notes, amortization, snapshot, timeline, milestones, insights)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), COALESCE($11::jsonb, '{}'::jsonb), COALESCE($12::jsonb, '{}'::jsonb), COALESCE($13::jsonb, '{}'::jsonb), COALESCE($14::jsonb, '{}'::jsonb), COALESCE($15::jsonb, '{}'::jsonb))
+		INSERT INTO property_scenarios (user_id, property_type, headline, subheadline, last_refreshed, property_price, down_payment, loan_amount, interest_rate, loan_tenure, notes, amortization, snapshot, timeline, milestones, insights)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, ''), COALESCE($12::jsonb, '{}'::jsonb), COALESCE($13::jsonb, '{}'::jsonb), COALESCE($14::jsonb, '{}'::jsonb), COALESCE($15::jsonb, '{}'::jsonb), COALESCE($16::jsonb, '{}'::jsonb))
 		RETURNING id, property_type, headline, subheadline, last_refreshed, property_price, down_payment, loan_amount, interest_rate, loan_tenure, COALESCE(notes, ''), amortization, snapshot, timeline, milestones, insights, updated_at`,
-		ps.PropertyType, ps.Headline, ps.Subheadline, ps.LastRefreshed, ps.PropertyPrice, ps.DownPayment, ps.LoanAmount, ps.InterestRate, ps.LoanTenure, ps.Notes, encodeJSON(ps.Amortization), encodeJSON(ps.Snapshot), encodeJSON(ps.Timeline), encodeJSON(ps.Milestones), encodeJSON(ps.Insights))
+		userID, ps.PropertyType, ps.Headline, ps.Subheadline, ps.LastRefreshed, ps.PropertyPrice, ps.DownPayment, ps.LoanAmount, ps.InterestRate, ps.LoanTenure, ps.Notes, encodeJSON(ps.Amortization), encodeJSON(ps.Snapshot), encodeJSON(ps.Timeline), encodeJSON(ps.Milestones), encodeJSON(ps.Insights))
 	var created PropertyScenario
 	var amortBytes, snapBytes, timelineBytes, milestoneBytes, insightsBytes []byte
 	if err := row.Scan(&created.ID, &created.PropertyType, &created.Headline, &created.Subheadline, &created.LastRefreshed, &created.PropertyPrice, &created.DownPayment, &created.LoanAmount, &created.InterestRate, &created.LoanTenure, &created.Notes, &amortBytes, &snapBytes, &timelineBytes, &milestoneBytes, &insightsBytes, &created.UpdatedAt); err != nil {
@@ -515,28 +518,28 @@ func (s *Store) CreatePropertyScenario(ctx context.Context, ps PropertyScenario)
 	return created, nil
 }
 
-func (s *Store) UpdatePropertyScenario(ctx context.Context, ps PropertyScenario) (PropertyScenario, error) {
+func (s *Store) UpdatePropertyScenario(ctx context.Context, userID string, ps PropertyScenario) (PropertyScenario, error) {
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE property_scenarios
-		SET property_type=$2,
-		    headline=$3,
-		    subheadline=$4,
-		    last_refreshed=$5,
-		    property_price=$6,
-		    down_payment=$7,
-		    loan_amount=$8,
-		    interest_rate=$9,
-		    loan_tenure=$10,
-		    notes=NULLIF($11, ''),
-		    amortization=COALESCE($12::jsonb, '{}'::jsonb),
-		    snapshot=COALESCE($13::jsonb, '{}'::jsonb),
-		    timeline=COALESCE($14::jsonb, '{}'::jsonb),
-		    milestones=COALESCE($15::jsonb, '{}'::jsonb),
-		    insights=COALESCE($16::jsonb, '{}'::jsonb),
+		SET property_type=$3,
+		    headline=$4,
+		    subheadline=$5,
+		    last_refreshed=$6,
+		    property_price=$7,
+		    down_payment=$8,
+		    loan_amount=$9,
+		    interest_rate=$10,
+		    loan_tenure=$11,
+		    notes=NULLIF($12, ''),
+		    amortization=COALESCE($13::jsonb, '{}'::jsonb),
+		    snapshot=COALESCE($14::jsonb, '{}'::jsonb),
+		    timeline=COALESCE($15::jsonb, '{}'::jsonb),
+		    milestones=COALESCE($16::jsonb, '{}'::jsonb),
+		    insights=COALESCE($17::jsonb, '{}'::jsonb),
 		    updated_at=NOW()
-		WHERE id=$1
+		WHERE user_id=$1 AND id=$2
 		RETURNING id, property_type, headline, subheadline, last_refreshed, property_price, down_payment, loan_amount, interest_rate, loan_tenure, COALESCE(notes, ''), amortization, snapshot, timeline, milestones, insights, updated_at`,
-		ps.ID, ps.PropertyType, ps.Headline, ps.Subheadline, ps.LastRefreshed, ps.PropertyPrice, ps.DownPayment, ps.LoanAmount, ps.InterestRate, ps.LoanTenure, ps.Notes, encodeJSON(ps.Amortization), encodeJSON(ps.Snapshot), encodeJSON(ps.Timeline), encodeJSON(ps.Milestones), encodeJSON(ps.Insights))
+		userID, ps.ID, ps.PropertyType, ps.Headline, ps.Subheadline, ps.LastRefreshed, ps.PropertyPrice, ps.DownPayment, ps.LoanAmount, ps.InterestRate, ps.LoanTenure, ps.Notes, encodeJSON(ps.Amortization), encodeJSON(ps.Snapshot), encodeJSON(ps.Timeline), encodeJSON(ps.Milestones), encodeJSON(ps.Insights))
 	var updated PropertyScenario
 	var amortBytes, snapBytes, timelineBytes, milestoneBytes, insightsBytes []byte
 	if err := row.Scan(&updated.ID, &updated.PropertyType, &updated.Headline, &updated.Subheadline, &updated.LastRefreshed, &updated.PropertyPrice, &updated.DownPayment, &updated.LoanAmount, &updated.InterestRate, &updated.LoanTenure, &updated.Notes, &amortBytes, &snapBytes, &timelineBytes, &milestoneBytes, &insightsBytes, &updated.UpdatedAt); err != nil {
@@ -553,8 +556,8 @@ func (s *Store) UpdatePropertyScenario(ctx context.Context, ps PropertyScenario)
 	return updated, nil
 }
 
-func (s *Store) DeletePropertyScenario(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM property_scenarios WHERE id=$1`, id)
+func (s *Store) DeletePropertyScenario(ctx context.Context, userID, id string) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM property_scenarios WHERE user_id=$1 AND id=$2`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -567,7 +570,7 @@ func (s *Store) DeletePropertyScenario(ctx context.Context, id string) error {
 
 // ----- Income operations -----
 
-func (s *Store) ListIncomes(ctx context.Context) ([]Income, error) {
+func (s *Store) ListIncomes(ctx context.Context, userID string) ([]Income, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -581,7 +584,8 @@ func (s *Store) ListIncomes(ctx context.Context) ([]Income, error) {
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_incomes
-		ORDER BY parent_id, start_year`)
+		WHERE user_id = $1
+		ORDER BY parent_id, start_year`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -601,7 +605,7 @@ func (s *Store) ListIncomes(ctx context.Context) ([]Income, error) {
 	return items, rows.Err()
 }
 
-func (s *Store) GetIncome(ctx context.Context, id string) (Income, error) {
+func (s *Store) GetIncome(ctx context.Context, userID, id string) (Income, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -615,7 +619,7 @@ func (s *Store) GetIncome(ctx context.Context, id string) (Income, error) {
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_incomes
-		WHERE id = $1`, id)
+		WHERE user_id = $1 AND id = $2`, userID, id)
 	var it Income
 	if err := row.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.StartDate, &it.Category, &it.Notes, &it.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -626,10 +630,10 @@ func (s *Store) GetIncome(ctx context.Context, id string) (Income, error) {
 	return it, nil
 }
 
-func (s *Store) CreateIncome(ctx context.Context, it Income) (Income, error) {
+func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Income, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_incomes (parent_id, source, amount, frequency, start_year, end_year, start_date, category, notes)
-		VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, COALESCE($5,0), $6, COALESCE($7, NOW()), $8, NULLIF($9, ''))
+		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_year, end_year, start_date, category, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, COALESCE($6,0), $7, COALESCE($8, NOW()), $9, NULLIF($10, ''))
 		ON CONFLICT (parent_id, start_year) DO UPDATE
 		SET source=EXCLUDED.source,
 		    amount=EXCLUDED.amount,
@@ -640,7 +644,7 @@ func (s *Store) CreateIncome(ctx context.Context, it Income) (Income, error) {
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
 		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_year, end_year, start_date, category, COALESCE(notes, ''), updated_at`,
-		nullIfEmpty(it.ParentID), it.Source, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.StartDate, it.Category, it.Notes)
+		userID, nullIfEmpty(it.ParentID), it.Source, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.StartDate, it.Category, it.Notes)
 	var created Income
 	if err := row.Scan(&created.ID, &created.ParentID, &created.Source, &created.Amount, &created.Frequency, &created.StartYear, &created.EndYear, &created.StartDate, &created.Category, &created.Notes, &created.UpdatedAt); err != nil {
 		return Income{}, err
@@ -648,21 +652,21 @@ func (s *Store) CreateIncome(ctx context.Context, it Income) (Income, error) {
 	return created, nil
 }
 
-func (s *Store) UpdateIncome(ctx context.Context, it Income) (Income, error) {
+func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Income, error) {
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_incomes
-		SET source=$2,
-		    amount=$3,
-		    frequency=$4,
-		    start_year=COALESCE($5, start_year),
-		    end_year=$6,
-		    start_date=COALESCE($7, start_date, NOW()),
-		    category=$8,
-		    notes=NULLIF($9, ''),
+		SET source=$3,
+		    amount=$4,
+		    frequency=$5,
+		    start_year=COALESCE($6, start_year),
+		    end_year=$7,
+		    start_date=COALESCE($8, start_date, NOW()),
+		    category=$9,
+		    notes=NULLIF($10, ''),
 		    updated_at=NOW()
-		WHERE id=$1
+		WHERE user_id=$1 AND id=$2
 		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, COALESCE(start_year,0), end_year, start_date, category, COALESCE(notes, ''), updated_at`,
-		it.ID, it.Source, it.Amount, it.Frequency, nullableInt32(it.StartYear), nullableFromNullInt32(it.EndYear), it.StartDate, it.Category, it.Notes)
+		userID, it.ID, it.Source, it.Amount, it.Frequency, nullableInt32(it.StartYear), nullableFromNullInt32(it.EndYear), it.StartDate, it.Category, it.Notes)
 	var updated Income
 	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Source, &updated.Amount, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.StartDate, &updated.Category, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -673,8 +677,8 @@ func (s *Store) UpdateIncome(ctx context.Context, it Income) (Income, error) {
 	return updated, nil
 }
 
-func (s *Store) DeleteIncome(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_incomes WHERE id=$1`, id)
+func (s *Store) DeleteIncome(ctx context.Context, userID, id string) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_incomes WHERE user_id=$1 AND id=$2`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -687,7 +691,7 @@ func (s *Store) DeleteIncome(ctx context.Context, id string) error {
 
 // ----- Expense operations -----
 
-func (s *Store) ListExpenses(ctx context.Context) ([]Expense, error) {
+func (s *Store) ListExpenses(ctx context.Context, userID string) ([]Expense, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -700,7 +704,8 @@ func (s *Store) ListExpenses(ctx context.Context) ([]Expense, error) {
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_expenses
-		ORDER BY parent_id, start_year`)
+		WHERE user_id = $1
+		ORDER BY parent_id, start_year`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -720,7 +725,7 @@ func (s *Store) ListExpenses(ctx context.Context) ([]Expense, error) {
 	return items, rows.Err()
 }
 
-func (s *Store) GetExpense(ctx context.Context, id string) (Expense, error) {
+func (s *Store) GetExpense(ctx context.Context, userID, id string) (Expense, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -733,7 +738,7 @@ func (s *Store) GetExpense(ctx context.Context, id string) (Expense, error) {
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_expenses
-		WHERE id = $1`, id)
+		WHERE user_id = $1 AND id = $2`, userID, id)
 	var it Expense
 	if err := row.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.Category, &it.Notes, &it.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -744,10 +749,10 @@ func (s *Store) GetExpense(ctx context.Context, id string) (Expense, error) {
 	return it, nil
 }
 
-func (s *Store) CreateExpense(ctx context.Context, it Expense) (Expense, error) {
+func (s *Store) CreateExpense(ctx context.Context, userID string, it Expense) (Expense, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_expenses (parent_id, payee, amount, frequency, start_year, end_year, category, notes)
-		VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, COALESCE($5,0), $6, $7, NULLIF($8, ''))
+		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_year, end_year, category, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, COALESCE($6,0), $7, $8, NULLIF($9, ''))
 		ON CONFLICT (parent_id, start_year) DO UPDATE
 		SET payee=EXCLUDED.payee,
 		    amount=EXCLUDED.amount,
@@ -757,7 +762,7 @@ func (s *Store) CreateExpense(ctx context.Context, it Expense) (Expense, error) 
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
 		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_year, end_year, category, COALESCE(notes, ''), updated_at`,
-		nullIfEmpty(it.ParentID), it.Payee, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.Category, it.Notes)
+		userID, nullIfEmpty(it.ParentID), it.Payee, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.Category, it.Notes)
 	var created Expense
 	if err := row.Scan(&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency, &created.StartYear, &created.EndYear, &created.Category, &created.Notes, &created.UpdatedAt); err != nil {
 		return Expense{}, err
@@ -765,20 +770,20 @@ func (s *Store) CreateExpense(ctx context.Context, it Expense) (Expense, error) 
 	return created, nil
 }
 
-func (s *Store) UpdateExpense(ctx context.Context, it Expense) (Expense, error) {
+func (s *Store) UpdateExpense(ctx context.Context, userID string, it Expense) (Expense, error) {
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_expenses
-		SET payee=$2,
-		    amount=$3,
-		    frequency=$4,
-		    start_year=COALESCE($5, start_year),
-		    end_year=$6,
-		    category=$7,
-		    notes=NULLIF($8, ''),
+		SET payee=$3,
+		    amount=$4,
+		    frequency=$5,
+		    start_year=COALESCE($6, start_year),
+		    end_year=$7,
+		    category=$8,
+		    notes=NULLIF($9, ''),
 		    updated_at=NOW()
-		WHERE id=$1
+		WHERE user_id=$1 AND id=$2
 		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, COALESCE(start_year,0), end_year, category, COALESCE(notes, ''), updated_at`,
-		it.ID, it.Payee, it.Amount, it.Frequency, nullableInt32(it.StartYear), nullableFromNullInt32(it.EndYear), it.Category, it.Notes)
+		userID, it.ID, it.Payee, it.Amount, it.Frequency, nullableInt32(it.StartYear), nullableFromNullInt32(it.EndYear), it.Category, it.Notes)
 	var updated Expense
 	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Payee, &updated.Amount, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.Category, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -789,8 +794,8 @@ func (s *Store) UpdateExpense(ctx context.Context, it Expense) (Expense, error) 
 	return updated, nil
 }
 
-func (s *Store) DeleteExpense(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_expenses WHERE id=$1`, id)
+func (s *Store) DeleteExpense(ctx context.Context, userID, id string) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_expenses WHERE user_id=$1 AND id=$2`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -832,15 +837,19 @@ func encodeJSON(m map[string]interface{}) []byte {
 // ----- PropertyLink operations -----
 
 // CreateOrReplacePropertyLink creates a link, enforcing one loan per asset per scenario (overwrite).
-func (s *Store) CreateOrReplacePropertyLink(ctx context.Context, link PropertyLink) (PropertyLink, error) {
+// Verifies that the scenario, asset, and liability all belong to the user.
+func (s *Store) CreateOrReplacePropertyLink(ctx context.Context, userID string, link PropertyLink) (PropertyLink, error) {
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO property_links (property_scenario_id, asset_id, liability_id)
-		VALUES ($1, $2, $3)
+		SELECT $2, $3, $4
+		WHERE EXISTS (SELECT 1 FROM property_scenarios WHERE id = $2 AND user_id = $1)
+		  AND EXISTS (SELECT 1 FROM finance_assets WHERE id = $3 AND user_id = $1)
+		  AND EXISTS (SELECT 1 FROM finance_liabilities WHERE id = $4 AND user_id = $1)
 		ON CONFLICT (property_scenario_id, asset_id) DO UPDATE
 		SET liability_id = EXCLUDED.liability_id,
 		    updated_at = NOW()
 		RETURNING id, property_scenario_id, asset_id, liability_id, created_at, updated_at`,
-		link.PropertyScenarioID, link.AssetID, link.LiabilityID)
+		userID, link.PropertyScenarioID, link.AssetID, link.LiabilityID)
 	var created PropertyLink
 	if err := row.Scan(&created.ID, &created.PropertyScenarioID, &created.AssetID, &created.LiabilityID, &created.CreatedAt, &created.UpdatedAt); err != nil {
 		return PropertyLink{}, err
@@ -849,16 +858,20 @@ func (s *Store) CreateOrReplacePropertyLink(ctx context.Context, link PropertyLi
 }
 
 // UpdatePropertyLink updates asset/liability for a link by ID.
-func (s *Store) UpdatePropertyLink(ctx context.Context, link PropertyLink) (PropertyLink, error) {
+// Verifies that the linked entities belong to the user.
+func (s *Store) UpdatePropertyLink(ctx context.Context, userID string, link PropertyLink) (PropertyLink, error) {
 	row := s.db.QueryRowContext(ctx, `
-		UPDATE property_links
-		SET property_scenario_id = $2,
-		    asset_id = $3,
-		    liability_id = $4,
+		UPDATE property_links pl
+		SET property_scenario_id = $3,
+		    asset_id = $4,
+		    liability_id = $5,
 		    updated_at = NOW()
-		WHERE id = $1
-		RETURNING id, property_scenario_id, asset_id, liability_id, created_at, updated_at`,
-		link.ID, link.PropertyScenarioID, link.AssetID, link.LiabilityID)
+		WHERE pl.id = $2
+		  AND EXISTS (SELECT 1 FROM property_scenarios WHERE id = $3 AND user_id = $1)
+		  AND EXISTS (SELECT 1 FROM finance_assets WHERE id = $4 AND user_id = $1)
+		  AND EXISTS (SELECT 1 FROM finance_liabilities WHERE id = $5 AND user_id = $1)
+		RETURNING pl.id, pl.property_scenario_id, pl.asset_id, pl.liability_id, pl.created_at, pl.updated_at`,
+		userID, link.ID, link.PropertyScenarioID, link.AssetID, link.LiabilityID)
 	var updated PropertyLink
 	if err := row.Scan(&updated.ID, &updated.PropertyScenarioID, &updated.AssetID, &updated.LiabilityID, &updated.CreatedAt, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -869,13 +882,14 @@ func (s *Store) UpdatePropertyLink(ctx context.Context, link PropertyLink) (Prop
 	return updated, nil
 }
 
-// ListPropertyLinksByScenario lists links for a scenario.
-func (s *Store) ListPropertyLinksByScenario(ctx context.Context, scenarioID string) ([]PropertyLink, error) {
+// ListPropertyLinksByScenario lists links for a scenario (verifies user owns the scenario).
+func (s *Store) ListPropertyLinksByScenario(ctx context.Context, userID, scenarioID string) ([]PropertyLink, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, property_scenario_id, asset_id, liability_id, created_at, updated_at
-		FROM property_links
-		WHERE property_scenario_id = $1
-		ORDER BY updated_at DESC`, scenarioID)
+		SELECT pl.id, pl.property_scenario_id, pl.asset_id, pl.liability_id, pl.created_at, pl.updated_at
+		FROM property_links pl
+		INNER JOIN property_scenarios ps ON ps.id = pl.property_scenario_id AND ps.user_id = $1
+		WHERE pl.property_scenario_id = $2
+		ORDER BY pl.updated_at DESC`, userID, scenarioID)
 	if err != nil {
 		return nil, err
 	}
@@ -895,13 +909,14 @@ func (s *Store) ListPropertyLinksByScenario(ctx context.Context, scenarioID stri
 	return links, rows.Err()
 }
 
-// ListPropertyLinksByAsset lists links for an asset.
-func (s *Store) ListPropertyLinksByAsset(ctx context.Context, assetID string) ([]PropertyLink, error) {
+// ListPropertyLinksByAsset lists links for an asset (verifies user owns the asset).
+func (s *Store) ListPropertyLinksByAsset(ctx context.Context, userID, assetID string) ([]PropertyLink, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, property_scenario_id, asset_id, liability_id, created_at, updated_at
-		FROM property_links
-		WHERE asset_id = $1
-		ORDER BY updated_at DESC`, assetID)
+		SELECT pl.id, pl.property_scenario_id, pl.asset_id, pl.liability_id, pl.created_at, pl.updated_at
+		FROM property_links pl
+		INNER JOIN finance_assets fa ON fa.id = pl.asset_id AND fa.user_id = $1
+		WHERE pl.asset_id = $2
+		ORDER BY pl.updated_at DESC`, userID, assetID)
 	if err != nil {
 		return nil, err
 	}
@@ -921,13 +936,14 @@ func (s *Store) ListPropertyLinksByAsset(ctx context.Context, assetID string) ([
 	return links, rows.Err()
 }
 
-// ListPropertyLinksByLiability lists links for a liability.
-func (s *Store) ListPropertyLinksByLiability(ctx context.Context, liabilityID string) ([]PropertyLink, error) {
+// ListPropertyLinksByLiability lists links for a liability (verifies user owns the liability).
+func (s *Store) ListPropertyLinksByLiability(ctx context.Context, userID, liabilityID string) ([]PropertyLink, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, property_scenario_id, asset_id, liability_id, created_at, updated_at
-		FROM property_links
-		WHERE liability_id = $1
-		ORDER BY updated_at DESC`, liabilityID)
+		SELECT pl.id, pl.property_scenario_id, pl.asset_id, pl.liability_id, pl.created_at, pl.updated_at
+		FROM property_links pl
+		INNER JOIN finance_liabilities fl ON fl.id = pl.liability_id AND fl.user_id = $1
+		WHERE pl.liability_id = $2
+		ORDER BY pl.updated_at DESC`, userID, liabilityID)
 	if err != nil {
 		return nil, err
 	}

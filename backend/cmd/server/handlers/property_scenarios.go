@@ -59,7 +59,11 @@ func (h *PropertyScenarioHandler) handleItem(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *PropertyScenarioHandler) list(w http.ResponseWriter, r *http.Request) {
-	items, err := h.store.ListPropertyScenarios(r.Context())
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.store.ListPropertyScenarios(r.Context(), userID)
 	if err != nil {
 		internalError(w)
 		return
@@ -68,7 +72,11 @@ func (h *PropertyScenarioHandler) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PropertyScenarioHandler) get(w http.ResponseWriter, r *http.Request, id string) {
-	item, err := h.store.GetPropertyScenario(r.Context(), id)
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	item, err := h.store.GetPropertyScenario(r.Context(), userID, id)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
@@ -81,6 +89,10 @@ func (h *PropertyScenarioHandler) get(w http.ResponseWriter, r *http.Request, id
 }
 
 func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload propertyScenarioRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
@@ -90,7 +102,7 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 		badRequest(w, errMissingFields("property_type, headline, property_price, loan_amount, interest_rate, loan_tenure"))
 		return
 	}
-	created, err := h.store.CreatePropertyScenario(r.Context(), payload.PropertyScenario)
+	created, err := h.store.CreatePropertyScenario(r.Context(), userID, payload.PropertyScenario)
 	if err != nil {
 		internalError(w)
 		return
@@ -98,7 +110,7 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 
 	// If asset_id and liability_id provided, enforce property category and create link.
 	if payload.AssetID != "" && payload.LiabilityID != "" {
-		if _, err := h.store.ConvertAssetToProperty(r.Context(), payload.AssetID); err != nil {
+		if _, err := h.store.ConvertAssetToProperty(r.Context(), userID, payload.AssetID); err != nil {
 			if err == repository.ErrNotFound {
 				notFound(w)
 				return
@@ -106,7 +118,7 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 			internalError(w)
 			return
 		}
-		if _, err := h.store.ConvertLiabilityToProperty(r.Context(), payload.LiabilityID); err != nil {
+		if _, err := h.store.ConvertLiabilityToProperty(r.Context(), userID, payload.LiabilityID); err != nil {
 			if err == repository.ErrNotFound {
 				notFound(w)
 				return
@@ -114,7 +126,7 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 			internalError(w)
 			return
 		}
-		if _, err := h.store.CreateOrReplacePropertyLink(r.Context(), repository.PropertyLink{
+		if _, err := h.store.CreateOrReplacePropertyLink(r.Context(), userID, repository.PropertyLink{
 			PropertyScenarioID: created.ID,
 			AssetID:            payload.AssetID,
 			LiabilityID:        payload.LiabilityID,
@@ -131,13 +143,17 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *PropertyScenarioHandler) update(w http.ResponseWriter, r *http.Request, id string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload repository.PropertyScenario
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
 		return
 	}
 	payload.ID = id
-	updated, err := h.store.UpdatePropertyScenario(r.Context(), payload)
+	updated, err := h.store.UpdatePropertyScenario(r.Context(), userID, payload)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
@@ -150,7 +166,11 @@ func (h *PropertyScenarioHandler) update(w http.ResponseWriter, r *http.Request,
 }
 
 func (h *PropertyScenarioHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
-	if err := h.store.DeletePropertyScenario(r.Context(), id); err != nil {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.store.DeletePropertyScenario(r.Context(), userID, id); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return

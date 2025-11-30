@@ -10,6 +10,7 @@ import (
 
 	"financial-chat-system/backend/internal/financial/repository"
 	"financial-chat-system/backend/internal/financial/scenario"
+	"financial-chat-system/backend/internal/middleware"
 )
 
 const (
@@ -38,6 +39,11 @@ type scenarioApplier interface {
 	Apply(ctx context.Context, req scenario.ApplyRequest) ([]scenario.Row, error)
 }
 
+// getUserIDFromContext extracts user ID from context via middleware.
+func getUserIDFromContext(ctx context.Context) string {
+	return middleware.GetUserContext(ctx).UserID
+}
+
 // NewService builds a new Service.
 func NewService(store Store) *Service {
 	return &Service{store: store}
@@ -50,16 +56,26 @@ func NewServiceWithScenario(store Store, sa scenarioApplier) *Service {
 
 // GetTimeline returns the full 0..30 timeline.
 func (s *Service) GetTimeline(ctx context.Context) (TimelineResponse, error) {
-	return s.buildTimeline(ctx)
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return TimelineResponse{}, errors.New("user context required")
+	}
+	return s.buildTimeline(ctx, userID)
 }
 
 // GetTimelineWithScenarios optionally merges scenarios for a given user/year selection.
 func (s *Service) GetTimelineWithScenarios(ctx context.Context, userID string, include bool, selectedIDs []string) (TimelineResponse, error) {
-	resp, err := s.buildTimeline(ctx)
+	if userID == "" {
+		userID = getUserIDFromContext(ctx)
+	}
+	if userID == "" {
+		return TimelineResponse{}, errors.New("user context required")
+	}
+	resp, err := s.buildTimeline(ctx, userID)
 	if err != nil {
 		return TimelineResponse{}, err
 	}
-	if !include || s.scenarios == nil || strings.TrimSpace(userID) == "" {
+	if !include || s.scenarios == nil {
 		return resp, nil
 	}
 
@@ -105,6 +121,10 @@ func (s *Service) GetTimelineWithScenarios(ctx context.Context, userID string, i
 
 // UpsertYear stores edits/new items for a year and returns the refreshed timeline.
 func (s *Service) UpsertYear(ctx context.Context, year int, edits []EditRequest) (TimelineResponse, error) {
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return TimelineResponse{}, errors.New("user context required")
+	}
 	if year < 0 || year >= totalYears {
 		return TimelineResponse{}, errors.New("year must be between 0 and 30")
 	}
@@ -112,11 +132,11 @@ func (s *Service) UpsertYear(ctx context.Context, year int, edits []EditRequest)
 		if err := validateEdit(edit); err != nil {
 			return TimelineResponse{}, err
 		}
-		if err := s.applyEdit(ctx, year, edit); err != nil {
+		if err := s.applyEdit(ctx, userID, year, edit); err != nil {
 			return TimelineResponse{}, err
 		}
 	}
-	return s.buildTimeline(ctx)
+	return s.buildTimeline(ctx, userID)
 }
 
 func validateEdit(edit EditRequest) error {
@@ -135,7 +155,7 @@ func validateEdit(edit EditRequest) error {
 	return nil
 }
 
-func (s *Service) applyEdit(ctx context.Context, year int, edit EditRequest) error {
+func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit EditRequest) error {
 	parentID := ""
 	if edit.ItemID != nil {
 		parentID = *edit.ItemID
@@ -151,7 +171,7 @@ func (s *Service) applyEdit(ctx context.Context, year int, edit EditRequest) err
 
 	switch edit.ItemType {
 	case ItemTypeAsset:
-		_, err := s.store.CreateAsset(ctx, repository.Asset{
+		_, err := s.store.CreateAsset(ctx, userID, repository.Asset{
 			ParentID:         parentID,
 			Name:             name,
 			Category:         category,
@@ -162,7 +182,7 @@ func (s *Service) applyEdit(ctx context.Context, year int, edit EditRequest) err
 		})
 		return err
 	case ItemTypeLiability:
-		_, err := s.store.CreateLiability(ctx, repository.Liability{
+		_, err := s.store.CreateLiability(ctx, userID, repository.Liability{
 			ParentID:        parentID,
 			Name:            name,
 			Category:        category,
@@ -175,7 +195,7 @@ func (s *Service) applyEdit(ctx context.Context, year int, edit EditRequest) err
 		return err
 	case ItemTypeIncome:
 		now := time.Now()
-		_, err := s.store.CreateIncome(ctx, repository.Income{
+		_, err := s.store.CreateIncome(ctx, userID, repository.Income{
 			ParentID:  parentID,
 			Source:    name,
 			Amount:    edit.Amount,
@@ -185,7 +205,7 @@ func (s *Service) applyEdit(ctx context.Context, year int, edit EditRequest) err
 		})
 		return err
 	case ItemTypeExpense:
-		_, err := s.store.CreateExpense(ctx, repository.Expense{
+		_, err := s.store.CreateExpense(ctx, userID, repository.Expense{
 			ParentID:  parentID,
 			Payee:     name,
 			Amount:    edit.Amount,
@@ -216,13 +236,13 @@ type effectiveRow struct {
 	ItemType  ItemType
 }
 
-func (s *Service) buildTimeline(ctx context.Context) (TimelineResponse, error) {
-	growthCfg, err := s.ensureGrowth(ctx)
+func (s *Service) buildTimeline(ctx context.Context, userID string) (TimelineResponse, error) {
+	growthCfg, err := s.ensureGrowth(ctx, userID)
 	if err != nil {
 		return TimelineResponse{}, err
 	}
 
-	rows, err := s.loadEffectiveRows(ctx)
+	rows, err := s.loadEffectiveRows(ctx, userID)
 	if err != nil {
 		return TimelineResponse{}, err
 	}
@@ -314,10 +334,10 @@ func (s *Service) buildTimeline(ctx context.Context) (TimelineResponse, error) {
 	return resp, nil
 }
 
-func (s *Service) loadEffectiveRows(ctx context.Context) ([]effectiveRow, error) {
+func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]effectiveRow, error) {
 	rows := []effectiveRow{}
 
-	assets, err := s.store.ListAssets(ctx)
+	assets, err := s.store.ListAssets(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +355,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context) ([]effectiveRow, error)
 		})
 	}
 
-	liabilities, err := s.store.ListLiabilities(ctx)
+	liabilities, err := s.store.ListLiabilities(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +373,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context) ([]effectiveRow, error)
 		})
 	}
 
-	incomes, err := s.store.ListIncomes(ctx)
+	incomes, err := s.store.ListIncomes(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +391,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context) ([]effectiveRow, error)
 		})
 	}
 
-	expenses, err := s.store.ListExpenses(ctx)
+	expenses, err := s.store.ListExpenses(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -400,13 +420,13 @@ func (s *Service) loadEffectiveRows(ctx context.Context) ([]effectiveRow, error)
 }
 
 // ensureGrowth returns configured growth or seeds defaults.
-func (s *Service) ensureGrowth(ctx context.Context) ([]repository.GrowthConfig, error) {
-	cfgs, err := s.store.GetGrowthConfigs(ctx)
+func (s *Service) ensureGrowth(ctx context.Context, userID string) ([]repository.GrowthConfig, error) {
+	cfgs, err := s.store.GetGrowthConfigs(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	if len(cfgs) == 0 {
-		if err := s.store.UpsertGrowthConfigs(ctx, defaultGrowth); err != nil {
+		if err := s.store.UpsertGrowthConfigs(ctx, userID, defaultGrowth); err != nil {
 			return nil, err
 		}
 		return defaultGrowth, nil
@@ -416,11 +436,19 @@ func (s *Service) ensureGrowth(ctx context.Context) ([]repository.GrowthConfig, 
 
 // GetGrowthConfig returns the current growth configuration, seeding defaults if missing.
 func (s *Service) GetGrowthConfig(ctx context.Context) ([]repository.GrowthConfig, error) {
-	return s.ensureGrowth(ctx)
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, errors.New("user context required")
+	}
+	return s.ensureGrowth(ctx, userID)
 }
 
 // UpdateGrowthConfig validates and persists growth configuration, returning the saved set.
 func (s *Service) UpdateGrowthConfig(ctx context.Context, cfgs []repository.GrowthConfig) ([]repository.GrowthConfig, error) {
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, errors.New("user context required")
+	}
 	if len(cfgs) == 0 {
 		return nil, errors.New("growth configs required")
 	}
@@ -432,7 +460,7 @@ func (s *Service) UpdateGrowthConfig(ctx context.Context, cfgs []repository.Grow
 		}
 		normalized = append(normalized, c)
 	}
-	if err := s.store.UpsertGrowthConfigs(ctx, normalized); err != nil {
+	if err := s.store.UpsertGrowthConfigs(ctx, userID, normalized); err != nil {
 		return nil, err
 	}
 	return normalized, nil

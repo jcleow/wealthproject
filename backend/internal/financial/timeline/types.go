@@ -97,18 +97,18 @@ type EditRequest struct {
 
 // Store defines the dependencies needed for timeline operations.
 type Store interface {
-	ListAssets(context.Context) ([]repository.Asset, error)
-	ListLiabilities(context.Context) ([]repository.Liability, error)
-	ListIncomes(context.Context) ([]repository.Income, error)
-	ListExpenses(context.Context) ([]repository.Expense, error)
+	ListAssets(context.Context, string) ([]repository.Asset, error)
+	ListLiabilities(context.Context, string) ([]repository.Liability, error)
+	ListIncomes(context.Context, string) ([]repository.Income, error)
+	ListExpenses(context.Context, string) ([]repository.Expense, error)
 
-	CreateAsset(context.Context, repository.Asset) (repository.Asset, error)
-	CreateLiability(context.Context, repository.Liability) (repository.Liability, error)
-	CreateIncome(context.Context, repository.Income) (repository.Income, error)
-	CreateExpense(context.Context, repository.Expense) (repository.Expense, error)
+	CreateAsset(context.Context, string, repository.Asset) (repository.Asset, error)
+	CreateLiability(context.Context, string, repository.Liability) (repository.Liability, error)
+	CreateIncome(context.Context, string, repository.Income) (repository.Income, error)
+	CreateExpense(context.Context, string, repository.Expense) (repository.Expense, error)
 
-	GetGrowthConfigs(context.Context) ([]repository.GrowthConfig, error)
-	UpsertGrowthConfigs(context.Context, []repository.GrowthConfig) error
+	GetGrowthConfigs(context.Context, string) ([]repository.GrowthConfig, error)
+	UpsertGrowthConfigs(context.Context, string, []repository.GrowthConfig) error
 }
 
 // annualization factors

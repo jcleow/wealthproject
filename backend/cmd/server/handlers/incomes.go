@@ -53,7 +53,11 @@ func (h *IncomeHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *IncomeHandler) list(w http.ResponseWriter, r *http.Request) {
-	items, err := h.store.ListIncomes(r.Context())
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.store.ListIncomes(r.Context(), userID)
 	if err != nil {
 		internalError(w)
 		return
@@ -62,7 +66,11 @@ func (h *IncomeHandler) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *IncomeHandler) get(w http.ResponseWriter, r *http.Request, id string) {
-	item, err := h.store.GetIncome(r.Context(), id)
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	item, err := h.store.GetIncome(r.Context(), userID, id)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
@@ -75,6 +83,10 @@ func (h *IncomeHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 }
 
 func (h *IncomeHandler) create(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload repository.Income
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
@@ -84,7 +96,7 @@ func (h *IncomeHandler) create(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, errMissingFields("source, amount, frequency, category"))
 		return
 	}
-	created, err := h.store.CreateIncome(r.Context(), payload)
+	created, err := h.store.CreateIncome(r.Context(), userID, payload)
 	if err != nil {
 		internalError(w)
 		return
@@ -93,13 +105,17 @@ func (h *IncomeHandler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *IncomeHandler) update(w http.ResponseWriter, r *http.Request, id string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload repository.Income
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
 		return
 	}
 	payload.ID = id
-	updated, err := h.store.UpdateIncome(r.Context(), payload)
+	updated, err := h.store.UpdateIncome(r.Context(), userID, payload)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
@@ -112,7 +128,11 @@ func (h *IncomeHandler) update(w http.ResponseWriter, r *http.Request, id string
 }
 
 func (h *IncomeHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
-	if err := h.store.DeleteIncome(r.Context(), id); err != nil {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.store.DeleteIncome(r.Context(), userID, id); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return

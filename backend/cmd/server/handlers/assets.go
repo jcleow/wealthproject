@@ -65,7 +65,11 @@ func (h *AssetHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AssetHandler) convertToProperty(w http.ResponseWriter, r *http.Request, id string) {
-	updated, err := h.store.ConvertAssetToProperty(r.Context(), id)
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	updated, err := h.store.ConvertAssetToProperty(r.Context(), userID, id)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
@@ -78,7 +82,11 @@ func (h *AssetHandler) convertToProperty(w http.ResponseWriter, r *http.Request,
 }
 
 func (h *AssetHandler) list(w http.ResponseWriter, r *http.Request) {
-	items, err := h.store.ListAssets(r.Context())
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.store.ListAssets(r.Context(), userID)
 	if err != nil {
 		internalError(w)
 		return
@@ -87,7 +95,11 @@ func (h *AssetHandler) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AssetHandler) get(w http.ResponseWriter, r *http.Request, id string) {
-	item, err := h.store.GetAsset(r.Context(), id)
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	item, err := h.store.GetAsset(r.Context(), userID, id)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
@@ -100,6 +112,10 @@ func (h *AssetHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 }
 
 func (h *AssetHandler) create(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload repository.Asset
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
@@ -109,7 +125,7 @@ func (h *AssetHandler) create(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, errMissingFields("name, category, current_value"))
 		return
 	}
-	created, err := h.store.CreateAsset(r.Context(), payload)
+	created, err := h.store.CreateAsset(r.Context(), userID, payload)
 	if err != nil {
 		internalError(w)
 		return
@@ -118,13 +134,17 @@ func (h *AssetHandler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AssetHandler) update(w http.ResponseWriter, r *http.Request, id string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload repository.Asset
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
 		return
 	}
 	payload.ID = id
-	updated, err := h.store.UpdateAsset(r.Context(), payload)
+	updated, err := h.store.UpdateAsset(r.Context(), userID, payload)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
@@ -137,7 +157,11 @@ func (h *AssetHandler) update(w http.ResponseWriter, r *http.Request, id string)
 }
 
 func (h *AssetHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
-	if err := h.store.DeleteAsset(r.Context(), id); err != nil {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.store.DeleteAsset(r.Context(), userID, id); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return

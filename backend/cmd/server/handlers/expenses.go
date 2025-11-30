@@ -53,7 +53,11 @@ func (h *ExpenseHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ExpenseHandler) list(w http.ResponseWriter, r *http.Request) {
-	items, err := h.store.ListExpenses(r.Context())
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.store.ListExpenses(r.Context(), userID)
 	if err != nil {
 		internalError(w)
 		return
@@ -62,7 +66,11 @@ func (h *ExpenseHandler) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ExpenseHandler) get(w http.ResponseWriter, r *http.Request, id string) {
-	item, err := h.store.GetExpense(r.Context(), id)
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	item, err := h.store.GetExpense(r.Context(), userID, id)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
@@ -75,6 +83,10 @@ func (h *ExpenseHandler) get(w http.ResponseWriter, r *http.Request, id string) 
 }
 
 func (h *ExpenseHandler) create(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload repository.Expense
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
@@ -84,7 +96,7 @@ func (h *ExpenseHandler) create(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, errMissingFields("payee, amount, frequency, category"))
 		return
 	}
-	created, err := h.store.CreateExpense(r.Context(), payload)
+	created, err := h.store.CreateExpense(r.Context(), userID, payload)
 	if err != nil {
 		internalError(w)
 		return
@@ -93,13 +105,17 @@ func (h *ExpenseHandler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ExpenseHandler) update(w http.ResponseWriter, r *http.Request, id string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload repository.Expense
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
 		return
 	}
 	payload.ID = id
-	updated, err := h.store.UpdateExpense(r.Context(), payload)
+	updated, err := h.store.UpdateExpense(r.Context(), userID, payload)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
@@ -112,7 +128,11 @@ func (h *ExpenseHandler) update(w http.ResponseWriter, r *http.Request, id strin
 }
 
 func (h *ExpenseHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
-	if err := h.store.DeleteExpense(r.Context(), id); err != nil {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.store.DeleteExpense(r.Context(), userID, id); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
