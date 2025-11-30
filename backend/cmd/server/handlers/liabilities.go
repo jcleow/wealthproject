@@ -86,12 +86,13 @@ func (h *LiabilityHandler) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := h.store.ListLiabilities(r.Context(), userID)
+	pagination := parsePagination(r)
+	result, err := h.store.ListLiabilities(r.Context(), userID, pagination)
 	if err != nil {
 		internalError(w)
 		return
 	}
-	writeJSON(w, items)
+	writeJSON(w, result)
 }
 
 func (h *LiabilityHandler) get(w http.ResponseWriter, r *http.Request, id string) {

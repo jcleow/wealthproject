@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,6 +25,11 @@ type GrowthHandler struct {
 	svc *timeline.Service
 }
 
+// SettingsHandler serves user settings endpoints.
+type SettingsHandler struct {
+	svc *timeline.Service
+}
+
 // NewTimelineHandler constructs a timeline handler.
 func NewTimelineHandler(svc *timeline.Service) *TimelineHandler {
 	return &TimelineHandler{svc: svc}
@@ -32,6 +38,11 @@ func NewTimelineHandler(svc *timeline.Service) *TimelineHandler {
 // NewGrowthHandler constructs a growth handler.
 func NewGrowthHandler(svc *timeline.Service) *GrowthHandler {
 	return &GrowthHandler{svc: svc}
+}
+
+// NewSettingsHandler constructs a settings handler.
+func NewSettingsHandler(svc *timeline.Service) *SettingsHandler {
+	return &SettingsHandler{svc: svc}
 }
 
 // HandleGetTimeline returns the full 0..20 timeline.
@@ -56,6 +67,7 @@ func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Reque
 		resp, err = h.svc.GetTimeline(r.Context())
 	}
 	if err != nil {
+		log.Printf("[Timeline] GetTimeline error: %v", err)
 		internalError(w)
 		return
 	}
@@ -153,4 +165,30 @@ func (h *GrowthHandler) HandlePutGrowth(w http.ResponseWriter, r *http.Request) 
 
 func errorsIsNotFound(err error) bool {
 	return errors.Is(err, repository.ErrNotFound)
+}
+
+// HandleGetSettings returns user settings.
+func (h *SettingsHandler) HandleGetSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := h.svc.GetUserSettings(r.Context())
+	if err != nil {
+		internalError(w)
+		return
+	}
+	writeJSON(w, settings)
+}
+
+// HandlePutSettings updates user settings.
+func (h *SettingsHandler) HandlePutSettings(w http.ResponseWriter, r *http.Request) {
+	var payload repository.UserSettings
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	settings, err := h.svc.UpdateUserSettings(r.Context(), payload)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+	writeJSON(w, settings)
 }

@@ -11,6 +11,10 @@ CREATE TABLE IF NOT EXISTS scenario_events (
     display_icon VARCHAR(50) NOT NULL,
     display_color TEXT,
     tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+    -- TODO: scenario_id is intended to group multiple events into a named scenario
+    -- (e.g., "Retire at 55" scenario containing events like "stop salary", "start CPF withdrawal").
+    -- A parent `scenarios` table needs to be created with (id, user_id, name, description, created_at, updated_at)
+    -- and this column should have a FK constraint: REFERENCES scenarios(id) ON DELETE SET NULL
     scenario_id UUID,
     is_included BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

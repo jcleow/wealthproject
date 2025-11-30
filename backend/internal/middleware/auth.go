@@ -106,6 +106,12 @@ func GetUserContext(ctx context.Context) UserContext {
 	return UserContext{}
 }
 
+// WithUserContext returns a new context with the given UserContext set.
+// This is primarily useful for testing.
+func WithUserContext(ctx context.Context, uc UserContext) context.Context {
+	return context.WithValue(ctx, userContextKey{}, uc)
+}
+
 // RequireAuth middleware rejects requests without a verified user
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

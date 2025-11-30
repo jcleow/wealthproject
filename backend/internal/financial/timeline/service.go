@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -14,20 +15,9 @@ import (
 )
 
 const (
-	totalYears        = 31 // years 0..30 inclusive
+	defaultTotalYears = 31 // years 0..30 inclusive (fallback)
 	defaultVersion    = "v1"
-	defaultLowerBound = -50.0
-	defaultUpperBound = 50.0
 )
-
-var defaultGrowth = []repository.GrowthConfig{
-	{Category: "asset_cash", AnnualRatePct: 1.5, LowerBoundPct: defaultLowerBound, UpperBoundPct: defaultUpperBound},
-	{Category: "asset_equity", AnnualRatePct: 6.0, LowerBoundPct: defaultLowerBound, UpperBoundPct: defaultUpperBound},
-	{Category: "asset_property", AnnualRatePct: 3.0, LowerBoundPct: defaultLowerBound, UpperBoundPct: defaultUpperBound},
-	{Category: "liability_debt", AnnualRatePct: -3.0, LowerBoundPct: defaultLowerBound, UpperBoundPct: defaultUpperBound},
-	{Category: "income", AnnualRatePct: 3.0, LowerBoundPct: defaultLowerBound, UpperBoundPct: defaultUpperBound},
-	{Category: "expense", AnnualRatePct: 2.0, LowerBoundPct: defaultLowerBound, UpperBoundPct: defaultUpperBound},
-}
 
 // Service encapsulates timeline logic.
 type Service struct {
@@ -125,8 +115,19 @@ func (s *Service) UpsertYear(ctx context.Context, year int, edits []EditRequest)
 	if userID == "" {
 		return TimelineResponse{}, errors.New("user context required")
 	}
-	if year < 0 || year >= totalYears {
-		return TimelineResponse{}, errors.New("year must be between 0 and 30")
+
+	// Fetch user settings for planning horizon validation
+	userSettings, err := s.store.GetUserSettings(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+	maxYears := defaultTotalYears
+	if userSettings.TerminalAge > userSettings.StartingAge {
+		maxYears = userSettings.TerminalAge - userSettings.StartingAge + 1
+	}
+
+	if year < 0 || year >= maxYears {
+		return TimelineResponse{}, errors.New("year out of planning horizon range")
 	}
 	for _, edit := range edits {
 		if err := validateEdit(edit); err != nil {
@@ -219,25 +220,51 @@ func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit E
 }
 
 type itemState struct {
-	item    TimelineItem
-	amount  float64
-	endYear *int
+	item       TimelineItem
+	amount     float64
+	endYear    *int
+	growthRate float64 // Per-item growth rate (percentage)
 }
 
 type effectiveRow struct {
-	ID        string
-	ParentID  string
-	Name      string
-	Category  string
-	Amount    float64
-	Frequency Frequency
-	StartYear int
-	EndYear   sql.NullInt32
-	ItemType  ItemType
+	ID         string
+	ParentID   string
+	Name       string
+	Category   string
+	Amount     float64
+	Frequency  Frequency
+	StartYear  int
+	EndYear    sql.NullInt32
+	ItemType   ItemType
+	GrowthRate float64 // Per-item growth rate (percentage)
 }
 
 func (s *Service) buildTimeline(ctx context.Context, userID string) (TimelineResponse, error) {
+	// Fetch user settings for planning horizon
+	userSettings, err := s.store.GetUserSettings(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	// Calculate total years from user settings
+	totalYears := defaultTotalYears
+	if userSettings.TerminalAge > userSettings.StartingAge {
+		totalYears = userSettings.TerminalAge - userSettings.StartingAge + 1
+	}
+
 	growthCfg, err := s.ensureGrowth(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	// Ensure accumulator cash account exists
+	accumulator, err := s.ensureAccumulatorAccount(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	// Load all cash accounts
+	cashAccounts, err := s.store.ListCashAccounts(ctx, userID)
 	if err != nil {
 		return TimelineResponse{}, err
 	}
@@ -253,8 +280,14 @@ func (s *Service) buildTimeline(ctx context.Context, userID string) (TimelineRes
 
 	state := map[string]itemState{}
 
+	// Track accumulated cash (starts from accumulator's initial balance)
+	accumulatedCash := accumulator.Balance
+	cashGrowthRate := accumulator.InterestRate
+
 	years := make([]TimelineYear, totalYears)
 	for year := 0; year < totalYears; year++ {
+		cashAtStart := accumulatedCash
+
 		// expire by end_year
 		for id, st := range state {
 			if st.endYear != nil && year > *st.endYear {
@@ -264,7 +297,13 @@ func (s *Service) buildTimeline(ctx context.Context, userID string) (TimelineRes
 
 		if year > 0 {
 			for id, st := range state {
-				rate := lookupGrowthRate(growthCfg, st.item.Category, st.item.ItemType)
+				// Use per-item growth rate if explicitly set, otherwise fallback to category defaults
+				// This ensures assets/liabilities without explicit rates still grow appropriately
+				rate := st.growthRate
+				if rate == 0 && st.item.ItemType != ItemTypeIncome && st.item.ItemType != ItemTypeExpense {
+					// For assets/liabilities without explicit rate, use category default
+					rate = lookupGrowthRate(growthCfg, st.item.Category, st.item.ItemType)
+				}
 				st.amount = applyGrowth(st.amount, rate)
 				st.item.AmountAnnual = st.amount
 				st.item.AdjustedAnnual = st.amount
@@ -304,26 +343,56 @@ func (s *Service) buildTimeline(ctx context.Context, userID string) (TimelineRes
 					SourceFrequency: string(r.Frequency),
 					ItemType:        r.ItemType,
 					CreatedYear:     r.StartYear,
+					GrowthRate:      r.GrowthRate,
 				},
-				amount:  annual,
-				endYear: endYearPtr,
+				amount:     annual,
+				endYear:    endYearPtr,
+				growthRate: r.GrowthRate,
 			}
 		}
 
 		yearItems := segregateItems(state, year)
-		netCash := sumAnnual(yearItems.Income) - sumAnnual(yearItems.Expenses)
-		netWorth := sumAnnual(yearItems.Assets) - sumAnnual(yearItems.Liabilities)
+
+		// Calculate annual net savings (income - expenses)
+		annualNetSavings := sumAnnual(yearItems.Income) - sumAnnual(yearItems.Expenses)
+
+		// Only accumulate starting from year 1 - year 0 is the baseline
+		interestEarned := 0.0
+		if year > 0 {
+			// Accumulate surplus into cash
+			accumulatedCash += annualNetSavings
+
+			// Apply interest to accumulated cash
+			interestEarned = accumulatedCash * (cashGrowthRate / 100.0)
+			accumulatedCash += interestEarned
+		}
+
+		// Build cash account items for this year
+		cashItems := buildCashItems(cashAccounts, accumulator.ID, accumulatedCash, year)
+
+		// Calculate totals
+		totalCash := sumCashAccountBalances(cashItems)
+		totalAssets := sumAnnual(yearItems.Assets)
+		netWorth := totalAssets + totalCash - sumAnnual(yearItems.Liabilities)
 
 		years[year] = TimelineYear{
 			Year:          year,
 			Assets:        yearItems.Assets,
+			CashAccounts:  cashItems,
 			Liabilities:   yearItems.Liabilities,
 			Income:        yearItems.Income,
 			Expenses:      yearItems.Expenses,
-			NetCash:       netCash,
+			NetCash:       annualNetSavings,
 			NetWorth:      netWorth,
 			HasOverrides:  hasOverride,
 			GrowthApplied: toGrowthApplied(growthCfg),
+
+			// Cash accumulation fields
+			AnnualNetSavings:     annualNetSavings,
+			AccumulatedCashStart: cashAtStart,
+			AccumulatedCashEnd:   accumulatedCash,
+			InterestEarned:       interestEarned,
+			AccumulatorAccountID: accumulator.ID,
 		}
 	}
 
@@ -334,78 +403,134 @@ func (s *Service) buildTimeline(ctx context.Context, userID string) (TimelineRes
 	return resp, nil
 }
 
+// buildCashItems converts cash accounts to timeline items for a given year.
+// The accumulator account uses the accumulated balance; others compound with their own rate.
+func buildCashItems(accounts []repository.CashAccount, accumulatorID string, accumulatedBalance float64, year int) []TimelineItem {
+	items := make([]TimelineItem, 0, len(accounts))
+	for _, acc := range accounts {
+		// Check if account is active for this year
+		if acc.StartYear > year {
+			continue
+		}
+		if acc.EndYear.Valid && int(acc.EndYear.Int32) < year {
+			continue
+		}
+
+		balance := acc.Balance
+		isAccumulator := acc.ID == accumulatorID
+
+		if isAccumulator {
+			// Accumulator uses the running accumulated balance
+			balance = accumulatedBalance
+		} else if year > 0 {
+			// Non-accumulator accounts compound with their own interest rate
+			balance = acc.Balance * math.Pow(1+acc.InterestRate/100, float64(year))
+		}
+
+		items = append(items, TimelineItem{
+			ItemID:         acc.ID,
+			Name:           acc.Name,
+			Category:       "cash",
+			AmountAnnual:   balance,
+			AdjustedAnnual: balance,
+			ItemType:       ItemTypeCashAccount,
+			IsAccumulator:  isAccumulator,
+		})
+	}
+
+	// Sort by balance descending
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].AmountAnnual > items[j].AmountAnnual
+	})
+
+	return items
+}
+
+// sumCashAccountBalances sums up all cash account balances.
+func sumCashAccountBalances(items []TimelineItem) float64 {
+	total := 0.0
+	for _, it := range items {
+		total += it.AmountAnnual
+	}
+	return total
+}
+
 func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]effectiveRow, error) {
 	rows := []effectiveRow{}
 
-	assets, err := s.store.ListAssets(ctx, userID)
+	assets, err := s.store.ListAllAssets(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	for _, a := range assets {
 		rows = append(rows, effectiveRow{
-			ID:        a.ID,
-			ParentID:  coalesceString(a.ParentID, a.ID),
-			Name:      a.Name,
-			Category:  a.Category,
-			Amount:    a.CurrentValue,
-			Frequency: normalizeFreq(a.Frequency),
-			StartYear: a.StartYear,
-			EndYear:   a.EndYear,
-			ItemType:  ItemTypeAsset,
+			ID:         a.ID,
+			ParentID:   coalesceString(a.ParentID, a.ID),
+			Name:       a.Name,
+			Category:   a.Category,
+			Amount:     a.CurrentValue,
+			Frequency:  normalizeFreq(a.Frequency),
+			StartYear:  a.StartYear,
+			EndYear:    a.EndYear,
+			ItemType:   ItemTypeAsset,
+			GrowthRate: a.AnnualGrowthRate,
 		})
 	}
 
-	liabilities, err := s.store.ListLiabilities(ctx, userID)
+	liabilities, err := s.store.ListAllLiabilities(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	for _, li := range liabilities {
 		rows = append(rows, effectiveRow{
-			ID:        li.ID,
-			ParentID:  coalesceString(li.ParentID, li.ID),
-			Name:      li.Name,
-			Category:  li.Category,
-			Amount:    li.CurrentBalance,
-			Frequency: normalizeFreq(li.Frequency),
-			StartYear: li.StartYear,
-			EndYear:   li.EndYear,
-			ItemType:  ItemTypeLiability,
+			ID:         li.ID,
+			ParentID:   coalesceString(li.ParentID, li.ID),
+			Name:       li.Name,
+			Category:   li.Category,
+			Amount:     li.CurrentBalance,
+			Frequency:  normalizeFreq(li.Frequency),
+			StartYear:  li.StartYear,
+			EndYear:    li.EndYear,
+			ItemType:   ItemTypeLiability,
+			GrowthRate: 0, // Use category default (-3%) - liabilities decrease as you pay them down
 		})
 	}
 
-	incomes, err := s.store.ListIncomes(ctx, userID)
+	incomes, err := s.store.ListAllIncomes(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	for _, it := range incomes {
 		rows = append(rows, effectiveRow{
-			ID:        it.ID,
-			ParentID:  coalesceString(it.ParentID, it.ID),
-			Name:      it.Source,
-			Category:  it.Category,
-			Amount:    it.Amount,
-			Frequency: normalizeFreq(it.Frequency),
-			StartYear: it.StartYear,
-			EndYear:   it.EndYear,
-			ItemType:  ItemTypeIncome,
+			ID:         it.ID,
+			ParentID:   coalesceString(it.ParentID, it.ID),
+			Name:       it.Source,
+			Category:   it.Category,
+			Amount:     it.Amount,
+			Frequency:  normalizeFreq(it.Frequency),
+			StartYear:  it.StartYear,
+			EndYear:    it.EndYear,
+			ItemType:   ItemTypeIncome,
+			GrowthRate: it.GrowthRate,
 		})
 	}
 
-	expenses, err := s.store.ListExpenses(ctx, userID)
+	expenses, err := s.store.ListAllExpenses(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	for _, it := range expenses {
 		rows = append(rows, effectiveRow{
-			ID:        it.ID,
-			ParentID:  coalesceString(it.ParentID, it.ID),
-			Name:      it.Payee,
-			Category:  it.Category,
-			Amount:    it.Amount,
-			Frequency: normalizeFreq(it.Frequency),
-			StartYear: it.StartYear,
-			EndYear:   it.EndYear,
-			ItemType:  ItemTypeExpense,
+			ID:         it.ID,
+			ParentID:   coalesceString(it.ParentID, it.ID),
+			Name:       it.Payee,
+			Category:   it.Category,
+			Amount:     it.Amount,
+			Frequency:  normalizeFreq(it.Frequency),
+			StartYear:  it.StartYear,
+			EndYear:    it.EndYear,
+			ItemType:   ItemTypeExpense,
+			GrowthRate: it.GrowthRate,
 		})
 	}
 
@@ -426,12 +551,55 @@ func (s *Service) ensureGrowth(ctx context.Context, userID string) ([]repository
 		return nil, err
 	}
 	if len(cfgs) == 0 {
-		if err := s.store.UpsertGrowthConfigs(ctx, userID, defaultGrowth); err != nil {
+		if err := s.store.UpsertGrowthConfigs(ctx, userID, repository.DefaultGrowthConfigs); err != nil {
 			return nil, err
 		}
-		return defaultGrowth, nil
+		return repository.DefaultGrowthConfigs, nil
 	}
 	return cfgs, nil
+}
+
+// ensureAccumulatorAccount ensures user has an accumulator cash account.
+// Creates a default "Cash Savings" account if none exists.
+func (s *Service) ensureAccumulatorAccount(ctx context.Context, userID string) (repository.CashAccount, error) {
+	// 1. Try to get existing accumulator
+	acc, err := s.store.GetAccumulatorAccount(ctx, userID)
+	if err == nil {
+		return acc, nil
+	}
+	if !errors.Is(err, repository.ErrNotFound) {
+		return repository.CashAccount{}, err
+	}
+
+	// 2. No accumulator - check if any cash account exists
+	accounts, err := s.store.ListCashAccounts(ctx, userID)
+	if err != nil {
+		return repository.CashAccount{}, err
+	}
+
+	if len(accounts) > 0 {
+		// Mark first cash account as accumulator
+		if err := s.store.SetAccumulatorAccount(ctx, userID, accounts[0].ID); err != nil {
+			return repository.CashAccount{}, err
+		}
+		accounts[0].IsAccumulator = true
+		return accounts[0], nil
+	}
+
+	// 3. No cash accounts exist - create default "Cash"
+	defaultAccount, err := s.store.CreateCashAccount(ctx, repository.CashAccount{
+		UserID:        userID,
+		Name:          "Cash",
+		Balance:       0,
+		InterestRate:  1.5, // Default interest rate
+		IsAccumulator: true,
+		StartYear:     0,
+	})
+	if err != nil {
+		return repository.CashAccount{}, err
+	}
+
+	return defaultAccount, nil
 }
 
 // GetGrowthConfig returns the current growth configuration, seeding defaults if missing.
@@ -464,6 +632,27 @@ func (s *Service) UpdateGrowthConfig(ctx context.Context, cfgs []repository.Grow
 		return nil, err
 	}
 	return normalized, nil
+}
+
+// GetUserSettings returns the current user settings.
+func (s *Service) GetUserSettings(ctx context.Context) (repository.UserSettings, error) {
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return repository.UserSettings{}, errors.New("user context required")
+	}
+	return s.store.GetUserSettings(ctx, userID)
+}
+
+// UpdateUserSettings validates and persists user settings.
+func (s *Service) UpdateUserSettings(ctx context.Context, settings repository.UserSettings) (repository.UserSettings, error) {
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return repository.UserSettings{}, errors.New("user context required")
+	}
+	if settings.StartingAge < 0 || settings.StartingAge > 120 {
+		return repository.UserSettings{}, errors.New("starting age must be between 0 and 120")
+	}
+	return s.store.UpsertUserSettings(ctx, userID, settings)
 }
 
 func lookupGrowthRate(cfgs []repository.GrowthConfig, category string, itemType ItemType) float64 {

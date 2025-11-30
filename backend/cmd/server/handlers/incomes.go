@@ -57,12 +57,13 @@ func (h *IncomeHandler) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := h.store.ListIncomes(r.Context(), userID)
+	pagination := parsePagination(r)
+	result, err := h.store.ListIncomes(r.Context(), userID, pagination)
 	if err != nil {
 		internalError(w)
 		return
 	}
-	writeJSON(w, items)
+	writeJSON(w, result)
 }
 
 func (h *IncomeHandler) get(w http.ResponseWriter, r *http.Request, id string) {

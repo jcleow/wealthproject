@@ -395,7 +395,7 @@ func (c *Client) resolveAssetID(ctx context.Context, userID, explicit, last, byN
 		return "", fmt.Errorf("asset ID is required")
 	}
 
-	assets, err := c.store.ListAssets(ctx, userID)
+	assets, err := c.store.ListAllAssets(ctx, userID)
 	if err != nil {
 		return "", err
 	}
@@ -424,7 +424,7 @@ func (c *Client) resolveLiabilityID(ctx context.Context, userID, explicit, last,
 		return "", fmt.Errorf("liability ID is required")
 	}
 
-	liabilities, err := c.store.ListLiabilities(ctx, userID)
+	liabilities, err := c.store.ListAllLiabilities(ctx, userID)
 	if err != nil {
 		return "", err
 	}
@@ -453,7 +453,7 @@ func (c *Client) resolveIncomeID(ctx context.Context, userID, explicit, last, by
 		return "", fmt.Errorf("income ID is required")
 	}
 
-	incomes, err := c.store.ListIncomes(ctx, userID)
+	incomes, err := c.store.ListAllIncomes(ctx, userID)
 	if err != nil {
 		return "", err
 	}
@@ -482,7 +482,7 @@ func (c *Client) resolveExpenseID(ctx context.Context, userID, explicit, last, b
 		return "", fmt.Errorf("expense ID is required")
 	}
 
-	expenses, err := c.store.ListExpenses(ctx, userID)
+	expenses, err := c.store.ListAllExpenses(ctx, userID)
 	if err != nil {
 		return "", err
 	}
