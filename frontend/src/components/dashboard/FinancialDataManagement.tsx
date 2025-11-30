@@ -7,13 +7,13 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import type { Asset, Expense, Income, Liability } from '../../types/financial'
-import type { ScenarioEvent, ScenarioImpact, ScenarioTargetType } from '@/types/scenario'
+import type { ScenarioEvent, ScenarioTargetType } from '@/types/scenario'
 import type { PropertyLinkRecord } from '../../types/property'
 import type { FinancialDataType, FinancialFormValues } from '../modals/FinancialFormModal'
 import { FinancialFormModal } from '../modals/FinancialFormModal'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { financialApi } from '@/services/financialApi'
-import type { TimelineYear, TimelineEditRequest, TimelineEdit, TimelineItemType, TimelineFrequency } from '@/types/timeline'
+import type { TimelineYear, TimelineEditRequest, TimelineEdit, TimelineItemType, TimelineFrequency, TimelineItem, TimelineEventImpact } from '@/types/timeline'
 import { formatCurrency } from '@/lib/format'
 
 type FinancialCategory = FinancialDataType
@@ -80,33 +80,34 @@ function getIconByName(name: string): LucideIcon | undefined {
   return iconLookup[normalized]
 }
 
-// Helper to find scenario impacts for a financial item
+/** Result of looking up scenario impacts on a timeline item */
+interface AppliedImpact {
+  event: ScenarioEvent | null
+  impact: TimelineEventImpact
+}
+
+/** Helper to find scenario impacts for a financial item */
 function getAppliedImpacts(
-  item: any,
-  itemType: ScenarioTargetType,
+  item: TimelineItem,
+  _itemType: ScenarioTargetType,
   scenarioEvents: ScenarioEvent[]
-): Array<{ event: ScenarioEvent | null; impact: { eventId?: string; amountAnnual?: number; notes?: string; impactKind?: string } }> {
-  const applied = Array.isArray(item.eventImpacts) ? item.eventImpacts : item.event_impacts
+): AppliedImpact[] {
+  const applied = item.eventImpacts
   if (!applied || applied.length === 0) return []
-  return applied.map((imp: any) => {
-    const event = scenarioEvents.find((ev) => ev.id === (imp.eventId ?? imp.event_id)) ?? null
-    return {
-      event,
-      impact: {
-        eventId: imp.eventId ?? imp.event_id,
-        amountAnnual: imp.amountAnnual ?? imp.amount_annual,
-        notes: imp.notes,
-        impactKind: imp.impactKind ?? imp.impact_kind,
-      },
-    }
+  return applied.map((imp) => {
+    const event = scenarioEvents.find((ev) => ev.id === imp.eventId) ?? null
+    return { event, impact: imp }
   })
 }
+
+/** Union type for any editable financial item (from timeline or raw API) */
+type EditableFinancialItem = Asset | Income | Liability | Expense | TimelineItem
 
 interface ModalState {
   isOpen: boolean
   type: FinancialCategory
   mode: 'create' | 'edit'
-  data?: Asset | Income | Liability | Expense
+  data?: EditableFinancialItem
 }
 
 export interface FinancialDataManagementProps {
@@ -199,15 +200,15 @@ export function FinancialDataManagement({
   const [prefill, setPrefill] = useState<{ scenarioId?: string; assetId?: string; liabilityId?: string } | null>(null)
   const formatYearLabel = (year: number) => (year === 0 ? 'BASE' : `Year ${year}`)
 
-  const getItemId = (
-    entry?: { id?: string; item_id?: string; itemId?: string; parent_id?: string; parentId?: string } | null
-  ) =>
-    entry?.id ??
-    (entry as any)?.item_id ??
-    (entry as any)?.itemId ??
-    (entry as any)?.parent_id ??
-    (entry as any)?.parentId ??
-    ''
+  type ItemWithId = { id?: string; itemId?: string; parentId?: string } | TimelineItem | Asset | Income | Liability | Expense | null | undefined
+
+  const getItemId = (entry: ItemWithId): string => {
+    if (!entry) return ''
+    if ('id' in entry && entry.id) return entry.id
+    if ('itemId' in entry && entry.itemId) return entry.itemId
+    if ('parentId' in entry && entry.parentId) return entry.parentId
+    return ''
+  }
 
   useEffect(() => {
     const fetchLinks = async () => {
@@ -288,12 +289,13 @@ export function FinancialDataManagement({
     })
   }
 
-  const handleEditItem = (category: FinancialCategory, entry: Asset | Income | Liability | Expense) => {
+  const handleEditItem = (category: FinancialCategory, entry: EditableFinancialItem) => {
     const normalizedEntry = (() => {
       const id = getItemId(entry)
       if (!id) return entry
       if ('id' in entry && entry.id === id) return entry
-      return { ...(entry as any), id } as Asset | Income | Liability | Expense
+      // For TimelineItem, add id from itemId for modal compatibility
+      return { ...entry, id } as EditableFinancialItem
     })()
     setModalState({
       isOpen: true,
@@ -308,8 +310,8 @@ export function FinancialDataManagement({
       // For timeline mode, we need to handle deletion differently
       // Timeline items cannot be deleted directly via API
       if (usingTimeline && timelineYear) {
-        const resolveFrequency = (item: any): TimelineFrequency =>
-          (item.sourceFrequency ?? item.source_frequency ?? item.frequency ?? 'annual') as TimelineFrequency
+        const resolveFrequency = (item: TimelineItem): TimelineFrequency =>
+          item.sourceFrequency ?? 'annual'
 
         const currentItems = (() => {
           switch (category) {
@@ -380,35 +382,62 @@ export function FinancialDataManagement({
     const timestamp = ('updatedAt' in payload ? payload.updatedAt : null) ?? new Date().toISOString()
 
     if (usingTimeline && onSaveTimelineEdits) {
-      const mapFrequency = (freq: any): TimelineEdit['frequency'] => {
+      const mapFrequency = (freq: string | undefined): TimelineFrequency => {
         if (freq === 'yearly') return 'annual'
-        return freq ?? 'annual'
+        if (freq === 'monthly' || freq === 'weekly' || freq === 'biweekly' || freq === 'quarterly' || freq === 'semiannual' || freq === 'annual') {
+          return freq
+        }
+        return 'annual'
       }
 
-      const itemId =
-        getItemId(payload as any) || getItemId(modalState.data as any)
+      // Extract itemId from payload or modal data
+      const payloadId = 'id' in payload ? payload.id : undefined
+      const modalDataId = modalState.data ? getItemId(modalState.data) : undefined
+      const itemId = payloadId || modalDataId
 
-      const amount =
-        'currentValue' in payload
-          ? Math.round(payload.currentValue)
-          : 'currentBalance' in payload
-            ? Math.round(payload.currentBalance)
-            : 'amount' in payload
-              ? Math.round((payload as any).amount)
-              : 0
+      // Extract amount based on payload type
+      const amount = (() => {
+        switch (payload.type) {
+          case 'asset':
+            return Math.round(payload.currentValue)
+          case 'liability':
+            return Math.round(payload.currentBalance)
+          case 'income':
+          case 'expense':
+            return Math.round(payload.amount)
+          case 'cpf':
+            return 0 // CPF is handled separately
+        }
+      })()
+
+      // Extract name based on payload type
+      const name = (() => {
+        switch (payload.type) {
+          case 'asset':
+          case 'liability':
+            return payload.name
+          case 'income':
+            return payload.source
+          case 'expense':
+            return payload.payee
+          case 'cpf':
+            return ''
+        }
+      })()
+
+      // Extract category and frequency based on payload type
+      const category = payload.type !== 'cpf' ? payload.category : ''
+      const frequency = payload.type === 'income' || payload.type === 'expense'
+        ? mapFrequency(payload.frequency)
+        : 'annual'
 
       const edit: TimelineEdit = {
         itemId: itemId || undefined,
-        name:
-          payload.type === 'income'
-            ? (payload as any).source ?? ('name' in payload ? payload.name : '')
-            : payload.type === 'expense'
-              ? (payload as any).payee ?? ('name' in payload ? payload.name : '')
-              : 'name' in payload ? payload.name : '',
-        itemType: payload.type === 'cpf' ? 'asset' : (payload.type as any),
-        category: (payload as any).category ?? '',
+        name,
+        itemType: payload.type === 'cpf' ? 'asset' : payload.type,
+        category,
         amount,
-        frequency: mapFrequency((payload as any).frequency),
+        frequency,
       }
 
       const request: TimelineEditRequest = {
@@ -508,39 +537,27 @@ export function FinancialDataManagement({
     return `${count} ${noun}`
   }
 
-  const sortItems = (items: any[], direction: 'asc' | 'desc') =>
+  const sortItems = (items: TimelineItem[], direction: 'asc' | 'desc'): TimelineItem[] =>
     [...items].sort((a, b) =>
       direction === 'desc' ? summarizeAmount(b) - summarizeAmount(a) : summarizeAmount(a) - summarizeAmount(b)
     )
 
-  const summarizeAmount = (item: any) => {
-    if ('adjAnnualAmt' in item) return item.adjAnnualAmt ?? item.amountAnnual ?? 0
-    if ('adj_annual_amt' in item) return item.adj_annual_amt ?? item.amount_annual ?? 0
-    if ('amountAnnual' in item) return item.amountAnnual ?? 0
-    if ('amount_annual' in item) return item.amount_annual ?? 0
-    if ('currentValue' in item) return item.currentValue
-    if ('currentBalance' in item) return item.currentBalance
-    return item.amount ?? 0
+  const summarizeAmount = (item: TimelineItem): number => {
+    return item.adjAnnualAmt ?? item.amountAnnual ?? 0
   }
 
-  const getDisplayAmount = (item: any) =>
-    item?.adjAnnualAmt ??
-    item?.adj_annual_amt ??
-    item?.amountAnnual ??
-    item?.amount_annual ??
-    summarizeAmount(item) ??
-    0
+  const getDisplayAmount = (item: TimelineItem): number =>
+    item.adjAnnualAmt ?? item.amountAnnual ?? 0
 
-  const getAnnualizationLabel = (item: any) => {
-    const sourceAmount = item?.sourceAmount ?? item?.source_amount
-    const sourceFrequency = item?.sourceFrequency ?? item?.source_frequency
+  const getAnnualizationLabel = (item: TimelineItem): string | null => {
+    const sourceAmount = item.sourceAmount
+    const sourceFrequency = item.sourceFrequency
     if (!sourceAmount || !sourceFrequency || sourceFrequency === 'annual') return null
     return `Annualized from ${formatCurrency(Number(sourceAmount), 'en-US', '$')} ${sourceFrequency}`
   }
 
   const getNetWorthForYear = () => {
-    if ((timelineYear as any)?.netWorth !== undefined) return Math.round((timelineYear as any).netWorth)
-    if (timelineYear?.net_worth !== undefined) return Math.round(timelineYear.net_worth)
+    if (timelineYear?.netWorth !== undefined) return Math.round(timelineYear.netWorth)
     return 0
   }
 
@@ -801,15 +818,16 @@ export function FinancialDataManagement({
                                             <span className="text-xs italic">Original</span>
                                           </div>
                                           <span className="text-xs italic">
-                                            {formatCurrency(item.amountAnnual ?? (item as any).amount_annual ?? 0)}
+                                            {formatCurrency(item.amountAnnual ?? 0)}
                                           </span>
                                         </div>
                                         {scenarioImpacts.map(({ event, impact }) => {
+                                          if (!event) return null
                                           const Icon = getIconByName(event.displayIcon ?? '')
                                           const isDisabled = !event.isIncluded
                                           return (
                                             <button
-                                              key={`${event.id}-${impact.targetId}`}
+                                              key={`${event.id}-${impact.eventId}`}
                                               type="button"
                                               onClick={() => {
                                             // TODO: Open scenario modal for editing
@@ -839,10 +857,7 @@ export function FinancialDataManagement({
                                               </div>
                                               <div className="flex items-center gap-2">
                                                 {(() => {
-                                                  const impactAmt =
-                                                    (impact as any).amountAnnual ??
-                                                    (impact as any).amount_annual ??
-                                                    (typeof impact.amount === 'number' ? impact.amount : 0)
+                                                  const impactAmt = impact.amountAnnual ?? 0
                                                   const impactClass = impactAmt < 0 ? 'text-rose-400' : 'text-emerald-400'
                                                   return (
                                                     <span className={`text-xs italic ${impactClass}`}>

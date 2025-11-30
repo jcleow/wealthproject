@@ -127,10 +127,22 @@ export type FinancialFormValues =
   | ExpenseFormValues
   | CpfFormValues
 
+/** Timeline item shape for when editing from timeline view */
+interface TimelineItemData {
+  itemId?: string
+  id?: string
+  name?: string
+  category?: string
+  amountAnnual?: number
+  adjAnnualAmt?: number
+  sourceAmount?: number
+  sourceFrequency?: string
+}
+
 export interface FinancialFormModalProps {
   type: FinancialDataType
   mode: 'create' | 'edit'
-  data?: Asset | Income | Liability | Expense
+  data?: Asset | Income | Liability | Expense | TimelineItemData
   isOpen: boolean
   onClose: () => void
   onSave: (payload: FinancialFormValues, mode: 'create' | 'edit') => Promise<void>

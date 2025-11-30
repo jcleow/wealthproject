@@ -162,8 +162,8 @@ export function TimelineEditDrawer({
             >
               <option value="">Select item</option>
               {existingItems.map((item) => (
-                <option key={item.item_id} value={item.item_id}>
-                  {item.name} ({item.item_type})
+                <option key={item.itemId} value={item.itemId}>
+                  {item.name} ({item.itemType})
                 </option>
               ))}
             </select>

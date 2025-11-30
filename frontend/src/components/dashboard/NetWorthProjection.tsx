@@ -40,19 +40,21 @@ type ProjectionPoint = {
   hasOverride?: boolean
 }
 
+interface CustomTooltipProps {
+  active?: boolean
+  payload?: ReadonlyArray<{ payload: ProjectionPoint }>
+  coordinate?: { x: number; y: number }
+  viewBox?: { x?: number; y?: number; width?: number; height?: number }
+  containerWidth?: number
+}
+
 function CustomTooltip({
   active,
   payload,
   coordinate,
   viewBox,
   containerWidth,
-}: {
-  active?: boolean
-  payload?: Array<{ payload: ProjectionPoint }>
-  coordinate?: { x: number; y: number }
-  viewBox?: { x: number; y: number; width: number; height: number }
-  containerWidth?: number
-}) {
+}: CustomTooltipProps) {
   if (!active || !payload || !payload.length) return null
   const data = payload[0].payload
 
@@ -189,9 +191,9 @@ export function NetWorthProjection({
         const incomes = year.income ?? []
         const expenses = year.expenses ?? []
 
-        const totalAssets = assets.reduce((sum, item) => sum + (item.amountAnnual ?? (item as any).amount_annual ?? 0), 0)
+        const totalAssets = assets.reduce((sum, item) => sum + (item.amountAnnual ?? 0), 0)
         const totalLiabilities = liabilities.reduce(
-          (sum, item) => sum + (item.amountAnnual ?? (item as any).amount_annual ?? 0),
+          (sum, item) => sum + (item.amountAnnual ?? 0),
           0
         )
         const hasNonAnnualSource = [
@@ -199,19 +201,19 @@ export function NetWorthProjection({
           ...liabilities,
           ...incomes,
           ...expenses,
-        ].some((item) => (item as any).source_frequency ? (item as any).source_frequency !== 'annual' : item.sourceFrequency && item.sourceFrequency !== 'annual')
+        ].some((item) => item.sourceFrequency && item.sourceFrequency !== 'annual')
 
         const calendarYear = year.year >= 1900 ? year.year : baseCalendarYear + (year.year ?? 0)
 
         return {
           yearIndex: year.year ?? 0,
           yearLabel: `Year ${year.year ?? 0}`,
-          netWorth: (year as any).netWorth ?? (year as any).net_worth ?? 0,
+          netWorth: year.netWorth ?? 0,
           totalAssets,
           totalLiabilities,
           calendarYear,
           hasNonAnnualSource,
-          hasOverride: !!((year as any).hasOverrides ?? (year as any).has_overrides),
+          hasOverride: !!year.hasOverrides,
         }
       })
 

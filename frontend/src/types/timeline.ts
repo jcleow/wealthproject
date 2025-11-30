@@ -8,6 +8,14 @@ export type TimelineFrequency =
 
 export type TimelineItemType = 'asset' | 'liability' | 'income' | 'expense'
 
+/** Event impact attached to a timeline item */
+export interface TimelineEventImpact {
+  eventId: string
+  amountAnnual?: number
+  impactKind?: 'delta' | 'override' | 'start' | 'stop'
+  notes?: string
+}
+
 export interface TimelineItem {
   itemId: string
   rowId?: string
@@ -20,6 +28,8 @@ export interface TimelineItem {
   sourceFrequency?: TimelineFrequency
   itemType: TimelineItemType
   createdYear: number
+  /** Scenario event impacts applied to this item */
+  eventImpacts?: TimelineEventImpact[]
 }
 
 export interface GrowthApplied {

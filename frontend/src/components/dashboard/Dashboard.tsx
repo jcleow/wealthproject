@@ -26,15 +26,18 @@ export function Dashboard() {
   return (
     <FinancialDataProvider>
       <div className="relative min-h-screen w-full bg-black text-white">
-        <button
-          type="button"
-          onClick={() => setIsChatCollapsed((prev) => !prev)}
-          aria-pressed={!isChatCollapsed}
-          aria-label={isChatCollapsed ? 'Open chat sidebar' : 'Collapse chat sidebar'}
-          className="fixed left-4 top-4 z-50 hidden items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/10 lg:flex"
-        >
-          {isChatCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
-        </button>
+        {/* Top bar with chat toggle */}
+        <div className="fixed left-4 top-4 z-50">
+          <button
+            type="button"
+            onClick={() => setIsChatCollapsed((prev) => !prev)}
+            aria-pressed={!isChatCollapsed}
+            aria-label={isChatCollapsed ? 'Open chat sidebar' : 'Collapse chat sidebar'}
+            className="hidden items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/10 lg:flex"
+          >
+            {isChatCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
+          </button>
+        </div>
 
         <div className="hidden lg:block">
           <div

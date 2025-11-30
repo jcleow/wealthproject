@@ -115,9 +115,9 @@ describe('useTimeline', () => {
     )
 
     await waitFor(() =>
-      expect(((result.current.timelineQuery.data?.years[0] as any)?.netWorth ?? (result.current.timelineQuery.data?.years[0] as any)?.net_worth)).toBe(90000)
+      expect(result.current.timelineQuery.data?.years[0]?.netWorth).toBe(90000)
     )
     expect(result.current.selectedYear).toBe(1)
-    expect(result.current.timelineQuery.data?.years[0].has_overrides).toBe(true)
+    expect(result.current.timelineQuery.data?.years[0]?.hasOverrides).toBe(true)
   })
 })

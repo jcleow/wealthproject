@@ -8,6 +8,7 @@ import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { ScenarioSelectorMock } from './ScenarioSelectorMock'
+import { UserMenu } from '../auth/UserMenu'
 import type { TimelineYear } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 
@@ -224,6 +225,7 @@ export function FinancialWorkspace({
               </div>
             )}
           </div>
+          <UserMenu />
         </div>
       </div>
       {timelineError && (

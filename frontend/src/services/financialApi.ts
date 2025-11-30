@@ -11,14 +11,9 @@ import type { ScenarioEventDTO, ScenarioEventsDTO } from '@/types/api-dtos'
 import type { TimelineResponse, TimelineEditRequest } from '@/types/timeline'
 
 function getApiBaseUrl() {
-  const envURL = process.env.NEXT_PUBLIC_GO_BACKEND_BASE_URL?.trim()
-  if (envURL) return envURL.endsWith('/api/v1') ? envURL : `${envURL.replace(/\/$/, '')}/api/v1`
-
-  // Fallback: assume local Go server on 8080 if no Next.js rewrite is configured
-  if (typeof window !== 'undefined') {
-    return 'http://localhost:8080/api/v1'
-  }
-  return 'http://localhost:8080/api/v1'
+  // Use relative path - requests go through Next.js BFF at /api/v1/*
+  // which handles auth and proxies to the Go backend
+  return '/api/v1'
 }
 
 const API_BASE = getApiBaseUrl()

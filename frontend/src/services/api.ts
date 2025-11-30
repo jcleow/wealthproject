@@ -1,9 +1,8 @@
 import { ChatRequest, ChatResponse, DispatchRequest, DispatchResponse } from '@/types/api'
 
 function getApiBaseUrl() {
-  const envURL = process.env.NEXT_PUBLIC_GO_BACKEND_BASE_URL?.trim()
-  if (envURL) return envURL
-  // Default to same-origin; Next rewrite will forward /api/v1 to backend
+  // Use relative path - requests go through Next.js BFF at /api/v1/*
+  // which handles auth and proxies to the Go backend
   return '/api/v1'
 }
 
