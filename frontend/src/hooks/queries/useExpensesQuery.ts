@@ -7,7 +7,10 @@ export const EXPENSES_QUERY_KEY = ['expenses'] as const
 export function useExpensesQuery() {
   return useQuery({
     queryKey: EXPENSES_QUERY_KEY,
-    queryFn: financialApi.listExpenses,
+    queryFn: async () => {
+      const result = await financialApi.listExpenses({ limit: -1 })
+      return result.data
+    },
     staleTime: 30_000,
     cacheTime: 5 * 60 * 1000,
   })

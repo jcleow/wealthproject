@@ -1,5 +1,19 @@
 import { z } from 'zod'
 
+// Pagination types
+export type PaginatedResponse<T> = {
+  data: T[]
+  total: number
+  limit: number
+  offset: number
+  hasMore: boolean
+}
+
+export type PaginationParams = {
+  limit?: number
+  offset?: number
+}
+
 export const frequencyEnum = z.enum([
   "weekly",
   "biweekly",
@@ -63,6 +77,7 @@ export const incomeSchema = z.object({
   frequency: frequencyEnum,
   startDate: isoDateTime,
   category: z.string().min(1),
+  growthRate: z.number().optional(),
   notes: optionalNotes,
   updatedAt: isoDateTime,
 })
@@ -76,6 +91,7 @@ export const expenseSchema = z.object({
   amount: z.number().positive(),
   frequency: frequencyEnum,
   category: z.string().min(1),
+  growthRate: z.number().optional(),
   notes: optionalNotes,
   updatedAt: isoDateTime,
 })
@@ -101,3 +117,57 @@ export type ExpenseCreatePayload = Omit<Expense, "id" | "updatedAt"> & {
   id?: string
 }
 export type ExpenseUpdatePayload = Omit<Expense, "updatedAt">
+
+// Cash Account - separate from assets, receives accumulated surplus
+export const cashAccountSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  balance: z.number(),
+  interestRate: z.number(),
+  bankName: z.string().optional().nullable(),
+  accountType: z.string().optional().nullable(), // checking, savings, money_market
+  isAccumulator: z.boolean(),
+  startYear: z.number().optional(),
+  endYear: z.number().optional().nullable(),
+  notes: optionalNotes,
+  createdAt: isoDateTime.optional(),
+  updatedAt: isoDateTime.optional(),
+})
+
+export type CashAccount = z.infer<typeof cashAccountSchema>
+
+export type CashAccountCreatePayload = Omit<CashAccount, "id" | "createdAt" | "updatedAt"> & {
+  id?: string
+}
+export type CashAccountUpdatePayload = Omit<CashAccount, "createdAt" | "updatedAt">
+
+// Growth Config - user defaults for growth rates by category
+export type GrowthConfig = {
+  id?: string
+  category: string
+  annualRatePct: number
+  lowerBoundPct: number
+  upperBoundPct: number
+  updatedAt?: string
+}
+
+// Human-readable labels for growth config categories
+export const GrowthConfigCategoryLabels: Record<string, string> = {
+  asset_cash: 'Cash & Savings',
+  asset_equity: 'Stocks & ETFs',
+  asset_property: 'Property',
+  liability_debt: 'Debt Reduction',
+  income: 'Income Growth',
+  expense: 'Expense Inflation',
+}
+
+// User Settings
+export type YearDisplayFormat = 'year_number' | 'actual_year'
+
+export type UserSettings = {
+  id?: string
+  startingAge: number
+  terminalAge: number
+  yearDisplayFormat: YearDisplayFormat
+  updatedAt?: string
+}

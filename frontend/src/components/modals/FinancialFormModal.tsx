@@ -1,12 +1,27 @@
 import { useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
-import type { Asset, Expense, Frequency, Income, Liability } from '../../types/financial'
+import type { Asset, Expense, Frequency, Income, Liability, GrowthConfig } from '../../types/financial'
 import { formatCurrency } from '@/lib/format'
+import { financialApi } from '@/services/financialApi'
 
 const PROPERTY_CATEGORY = 'property_real_estate'
 const MORTGAGE_CATEGORY = 'mortgage_home'
 const MORTGAGE_EXPENSE_CATEGORY = 'housing_mortgage'
+
+// Map form categories to growth config categories
+const categoryToGrowthConfigCategory = (type: FinancialDataType, category: string): string => {
+  if (type === 'income') return 'income'
+  if (type === 'expense') return 'expense'
+  if (type === 'liability') return 'liability_debt'
+
+  // Asset categories
+  if (category.includes('property') || category.includes('real_estate')) return 'asset_property'
+  if (category.includes('cash') || category.includes('savings') || category.includes('bank') || category.includes('cpf')) return 'asset_cash'
+  // Default to equity for stocks, crypto, bonds, etc.
+  return 'asset_equity'
+}
 
 const assetCategoryOptions = [
   { value: PROPERTY_CATEGORY, label: 'Property (real estate)' },
@@ -58,6 +73,7 @@ type FormState = {
   annualGrowthRate: string
   interestRateApr: string
   minimumPayment: string
+  growthRate: string
   notes: string
 }
 
@@ -92,6 +108,7 @@ type IncomeFormValues = {
   frequency: Frequency
   category: string
   startDate: string
+  growthRate?: number
   notes?: string | null
   updatedAt?: string
 }
@@ -103,6 +120,7 @@ type ExpenseFormValues = {
   amount: number
   frequency: Frequency
   category: string
+  growthRate?: number
   notes?: string | null
   updatedAt?: string
 }
@@ -151,7 +169,18 @@ export interface FinancialFormModalProps {
   selectedYearLabel?: string
 }
 
-const buildDefaultFormState = (type: FinancialDataType): FormState => {
+// Helper to get growth rate from user configs
+const getGrowthRateFromConfigs = (
+  configs: GrowthConfig[] | undefined,
+  category: string,
+  fallback: number
+): number => {
+  if (!configs) return fallback
+  const cfg = configs.find(c => c.category === category)
+  return cfg?.annualRatePct ?? fallback
+}
+
+const buildDefaultFormState = (type: FinancialDataType, growthConfigs?: GrowthConfig[]): FormState => {
   const defaults: Record<FinancialDataType, string> = {
     asset: PROPERTY_CATEGORY,
     liability: MORTGAGE_CATEGORY,
@@ -159,16 +188,54 @@ const buildDefaultFormState = (type: FinancialDataType): FormState => {
     income: incomeCategoryOptions[0]?.value ?? '',
   }
 
+  const defaultCategory = defaults[type] ?? ''
+
+  // Get the appropriate growth config category for the default form category
+  const growthConfigCategory = categoryToGrowthConfigCategory(type, defaultCategory)
+
+  // Get rate from user's growth configs with fallbacks
+  const fallbackRates: Record<string, number> = {
+    asset_property: 3.0,
+    asset_cash: 1.5,
+    asset_equity: 6.0,
+    liability_debt: -3.0,
+    income: 3.0,
+    expense: 2.0,
+  }
+  const rate = getGrowthRateFromConfigs(growthConfigs, growthConfigCategory, fallbackRates[growthConfigCategory] ?? 3.0)
+
+  // For liabilities, use absolute value for APR display
+  const liabilityRate = getGrowthRateFromConfigs(growthConfigs, 'liability_debt', -3.0)
+
   return {
     name: '',
     amount: '',
     frequency: 'monthly',
-    category: defaults[type] ?? '',
-    annualGrowthRate: '7.0',
-    interestRateApr: '4.5',
+    category: defaultCategory,
+    annualGrowthRate: rate.toString(),
+    interestRateApr: Math.abs(liabilityRate).toString(),
     minimumPayment: '',
+    growthRate: rate.toString(),
     notes: '',
   }
+}
+
+// Helper to get rate for a specific category
+const getRateForCategory = (
+  type: FinancialDataType,
+  category: string,
+  growthConfigs?: GrowthConfig[]
+): number => {
+  const growthConfigCategory = categoryToGrowthConfigCategory(type, category)
+  const fallbackRates: Record<string, number> = {
+    asset_property: 3.0,
+    asset_cash: 1.5,
+    asset_equity: 6.0,
+    liability_debt: -3.0,
+    income: 3.0,
+    expense: 2.0,
+  }
+  return getGrowthRateFromConfigs(growthConfigs, growthConfigCategory, fallbackRates[growthConfigCategory] ?? 3.0)
 }
 
 export function FinancialFormModal({
@@ -194,7 +261,14 @@ export function FinancialFormModal({
   }
   const toSafeText = (value: string | null | undefined) => value ?? ''
 
-  const [formData, setFormData] = useState<FormState>(buildDefaultFormState(type))
+  // Fetch user's growth configs for default rates
+  const { data: growthConfigs } = useQuery({
+    queryKey: ['growth-configs'],
+    queryFn: () => financialApi.getGrowthConfigs(),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  })
+
+  const [formData, setFormData] = useState<FormState>(buildDefaultFormState(type, growthConfigs))
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCpfMode, setIsCpfMode] = useState(false)
@@ -220,6 +294,20 @@ export function FinancialFormModal({
     }
   })()
 
+  // Handle escape key to close modal
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isSaving && !isDeleting) {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, isSaving, isDeleting, onClose])
+
   useEffect(() => {
     if (!isOpen) return
     setIsCpfMode(false)
@@ -231,7 +319,7 @@ export function FinancialFormModal({
     setCpfErrors({})
 
     if (!data) {
-      setFormData(buildDefaultFormState(type))
+      setFormData(buildDefaultFormState(type, growthConfigs))
       return
     }
 
@@ -240,14 +328,20 @@ export function FinancialFormModal({
         const asset = data as Asset
         const amt = (asset as any).amountAnnual ?? (asset as any).amount_annual ?? asset.currentValue ?? 0
         const freq = (asset as any).sourceFrequency ?? (asset as any).source_frequency ?? 'annual'
+        // Use item's growth rate if set, otherwise fall back to user's growth config for this category
+        const itemRate = asset.annualGrowthRate
+        const effectiveRate = itemRate && itemRate !== 0
+          ? itemRate
+          : getRateForCategory(type, asset.category, growthConfigs)
         setFormData({
           name: toSafeText(asset.name),
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: freq,
           category: asset.category,
-          annualGrowthRate: (asset.annualGrowthRate ?? 0).toString(),
+          annualGrowthRate: effectiveRate.toString(),
           interestRateApr: '4.5',
           minimumPayment: '',
+          growthRate: '3.0',
           notes: asset.notes ?? '',
         })
         break
@@ -256,14 +350,20 @@ export function FinancialFormModal({
         const liability = data as Liability
         const amt = (liability as any).amountAnnual ?? (liability as any).amount_annual ?? liability.currentBalance ?? 0
         const freq = (liability as any).sourceFrequency ?? (liability as any).source_frequency ?? 'annual'
+        // Liabilities use interestRateApr, fall back to absolute value of liability_debt config
+        const itemRate = liability.interestRateApr
+        const effectiveRate = itemRate && itemRate !== 0
+          ? itemRate
+          : Math.abs(getRateForCategory(type, liability.category, growthConfigs))
         setFormData({
           name: toSafeText(liability.name),
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: freq,
           category: liability.category,
           annualGrowthRate: '7.0',
-          interestRateApr: (liability.interestRateApr ?? 0).toString(),
+          interestRateApr: effectiveRate.toString(),
           minimumPayment: roundToDollar(liability.minimumPayment ?? 0).toString(),
+          growthRate: '2.0',
           notes: liability.notes ?? '',
         })
         break
@@ -272,14 +372,22 @@ export function FinancialFormModal({
         const income = data as Income
         const amt = (income as any).amountAnnual ?? (income as any).amount_annual ?? income.amount ?? 0
         const freq = (income as any).sourceFrequency ?? (income as any).source_frequency ?? income.frequency ?? 'annual'
+        // Handle both Income (source) and TimelineItem (name) data shapes
+        const itemName = income.source ?? (income as any).name ?? ''
+        // Use item's growth rate if set, otherwise fall back to user's growth config
+        const itemRate = (income as any).growthRate
+        const effectiveRate = itemRate && itemRate !== 0
+          ? itemRate
+          : getRateForCategory(type, income.category, growthConfigs)
         setFormData({
-          name: toSafeText(income.source),
+          name: toSafeText(itemName),
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: freq,
           category: income.category,
           annualGrowthRate: '7.0',
           interestRateApr: '4.5',
           minimumPayment: '',
+          growthRate: effectiveRate.toString(),
           notes: income.notes ?? '',
         })
         break
@@ -288,20 +396,28 @@ export function FinancialFormModal({
         const expense = data as Expense
         const amt = (expense as any).amountAnnual ?? (expense as any).amount_annual ?? expense.amount ?? 0
         const freq = (expense as any).sourceFrequency ?? (expense as any).source_frequency ?? expense.frequency ?? 'annual'
+        // Handle both Expense (payee) and TimelineItem (name) data shapes
+        const itemName = expense.payee ?? (expense as any).name ?? ''
+        // Use item's growth rate if set, otherwise fall back to user's growth config
+        const itemRate = (expense as any).growthRate
+        const effectiveRate = itemRate && itemRate !== 0
+          ? itemRate
+          : getRateForCategory(type, expense.category, growthConfigs)
         setFormData({
-          name: toSafeText(expense.payee),
+          name: toSafeText(itemName),
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: freq,
           category: expense.category,
           annualGrowthRate: '7.0',
           interestRateApr: '4.5',
           minimumPayment: '',
+          growthRate: effectiveRate.toString(),
           notes: expense.notes ?? '',
         })
         break
       }
     }
-  }, [data, isOpen, type])
+  }, [data, isOpen, type, growthConfigs])
 
   const categoryOptions = (() => {
     switch (type) {
@@ -447,6 +563,7 @@ export function FinancialFormModal({
           frequency: formData.frequency,
           category: formData.category.trim() || 'other',
           startDate: income?.startDate ?? new Date().toISOString(),
+          growthRate: Number.parseFloat(formData.growthRate) || 3.0,
           ...shared,
         }
       }
@@ -459,6 +576,7 @@ export function FinancialFormModal({
           amount: toNumeric(formData.amount),
           frequency: formData.frequency,
           category: formData.category.trim() || 'other',
+          growthRate: Number.parseFloat(formData.growthRate) || 2.0,
           ...shared,
         }
       }
@@ -678,16 +796,48 @@ export function FinancialFormModal({
                 </div>
               )}
 
+              {(normalizedCategory === 'incomes' || normalizedCategory === 'expenses') && (
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-300">
+                    Annual Growth Rate (%)
+                  </label>
+                  <input
+                    className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+                    onChange={(event) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        growthRate: event.target.value,
+                      }))
+                    }
+                    placeholder={normalizedCategory === 'incomes' ? '3.0' : '2.0'}
+                    step="0.1"
+                    type="number"
+                    value={formData.growthRate}
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    {normalizedCategory === 'incomes'
+                      ? 'Expected annual increase in income (e.g., salary raises)'
+                      : 'Expected annual increase in expenses (e.g., inflation)'}
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-300">Category</label>
                 <select
                   className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const newCategory = event.target.value
+                    const newRate = getRateForCategory(type, newCategory, growthConfigs)
                     setFormData((prev) => ({
                       ...prev,
-                      category: event.target.value,
+                      category: newCategory,
+                      // Update rate fields based on type
+                      ...(type === 'asset' && { annualGrowthRate: newRate.toString() }),
+                      ...(type === 'liability' && { interestRateApr: Math.abs(newRate).toString() }),
+                      ...((type === 'income' || type === 'expense') && { growthRate: newRate.toString() }),
                     }))
-                  }
+                  }}
                   value={formData.category}
                 >
                   {categorySelectOptions.map((option) => (
@@ -700,7 +850,14 @@ export function FinancialFormModal({
                 {type === 'liability' && formData.category === '' && (
                   <button
                     className="mt-2 w-full rounded-lg border border-blue-400/70 bg-blue-500/10 px-3 py-2 text-sm text-blue-100 transition hover:bg-blue-500/20 sm:w-auto"
-                    onClick={() => setFormData((prev) => ({ ...prev, category: MORTGAGE_CATEGORY }))}
+                    onClick={() => {
+                      const newRate = getRateForCategory(type, MORTGAGE_CATEGORY, growthConfigs)
+                      setFormData((prev) => ({
+                        ...prev,
+                        category: MORTGAGE_CATEGORY,
+                        interestRateApr: Math.abs(newRate).toString(),
+                      }))
+                    }}
                     type="button"
                   >
                     Default to mortgage

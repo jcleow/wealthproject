@@ -9,11 +9,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useQuery } from '@tanstack/react-query'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { TimelineYear } from '@/types/timeline'
 import { formatCurrency } from '@/lib/format'
+import { financialApi } from '@/services/financialApi'
 import ScenarioMarker from './ScenarioMarker'
 
 const chartColors = {
@@ -24,10 +26,11 @@ const chartColors = {
   stroke: '#7db0ff',
 }
 
-const YEARS = 20
-const DEFAULT_AGE = 33
+const DEFAULT_STARTING_AGE = 30
+const DEFAULT_TERMINAL_AGE = 65
+const BASE_CALENDAR_YEAR = new Date().getFullYear()
 
-type AxisMode = 'age' | 'year'
+type AxisMode = 'age' | 'year_number' | 'actual_year'
 
 type ProjectionPoint = {
   yearIndex: number
@@ -107,6 +110,7 @@ function YearTick({
   onSelectYear,
   selectedYear,
   mode,
+  startingAge,
 }: {
   x?: number
   y?: number
@@ -115,11 +119,17 @@ function YearTick({
   onSelectYear?: (year: number) => void
   selectedYear?: number
   mode: AxisMode
+  startingAge?: number
 }) {
   if (!payload) return null
   const isOverride = overrideYears.has(payload.value)
   const isSelected = selectedYear === payload.value
-  const labelValue = mode === 'age' ? DEFAULT_AGE + payload.value : payload.value
+  const age = startingAge ?? DEFAULT_STARTING_AGE
+  const labelValue = mode === 'age'
+    ? age + payload.value
+    : mode === 'actual_year'
+      ? `'${String(BASE_CALENDAR_YEAR + payload.value).slice(-2)}`
+      : payload.value
   const handleClick = () => {
     if (onSelectYear) onSelectYear(payload.value)
   }
@@ -176,11 +186,25 @@ export function NetWorthProjection({
     getMonthlySavings,
   } = useFinancialDataContext()
 
-  const [xAxisMode, setXAxisMode] = useState<AxisMode>('age')
+  // Fetch user settings for year display format
+  const { data: userSettings } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: () => financialApi.getUserSettings(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const [xAxisMode, setXAxisMode] = useState<AxisMode>('year_number')
   const [hasSize, setHasSize] = useState(false)
   const [containerWidth, setContainerWidth] = useState(0)
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartWrapperRef = useRef<HTMLDivElement>(null)
+
+  // Sync xAxisMode with user settings when loaded
+  useEffect(() => {
+    if (userSettings?.yearDisplayFormat) {
+      setXAxisMode(userSettings.yearDisplayFormat)
+    }
+  }, [userSettings?.yearDisplayFormat])
 
   const projection = (() => {
     if (timelineYears && timelineYears.length > 0) {
@@ -236,18 +260,23 @@ export function NetWorthProjection({
     const totalLiabilities = liabilities.reduce((sum, l) => sum + l.currentBalance, 0)
     const monthlySavings = getMonthlySavings()
 
+    // Calculate planning years from user settings
+    const startingAge = userSettings?.startingAge ?? DEFAULT_STARTING_AGE
+    const terminalAge = userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE
+    const planningYears = Math.max(1, terminalAge - startingAge)
+
     // If no data, return empty array so we render placeholder
     const hasAnyData =
       assets.length > 0 || liabilities.length > 0 || expenses.length > 0 || incomes.length > 0
 
-    const currentYear = 2025
+    const currentYear = BASE_CALENDAR_YEAR
     const data: ProjectionPoint[] = []
     const annualSavings = Math.max(monthlySavings, 0) * 12
     const assetGrowthRate = 0.05 // conservative 5% annual
     const liabilityDecayRate = 0.94 // 6% annual paydown
 
     if (!hasAnyData) {
-      for (let i = 0; i <= YEARS; i++) {
+      for (let i = 0; i <= planningYears; i++) {
         const year = currentYear + i
         data.push({
           yearIndex: i,
@@ -261,7 +290,7 @@ export function NetWorthProjection({
       return data
     }
 
-    for (let i = 0; i <= YEARS; i++) {
+    for (let i = 0; i <= planningYears; i++) {
       const year = currentYear + i
       const projectedAssets = Math.round((totalAssets + annualSavings * i) * Math.pow(1 + assetGrowthRate, i))
       const projectedLiabilities = Math.max(
@@ -374,6 +403,8 @@ export function NetWorthProjection({
     }))
   }, [scenarioEvents, displayData, projection])
 
+  const planningYears = Math.max(1, (userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE) - (userSettings?.startingAge ?? DEFAULT_STARTING_AGE))
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
       <div className="mb-4 flex flex-shrink-0 items-center justify-between">
@@ -381,7 +412,9 @@ export function NetWorthProjection({
           <h3 className="mb-1 font-semibold text-lg text-white">
             Net Worth Projection
           </h3>
-          <p className="text-gray-400 text-sm">Next 20 Years</p>
+          <p className="text-gray-400 text-sm">
+            Age {userSettings?.startingAge ?? DEFAULT_STARTING_AGE} to {userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE} ({planningYears} years)
+          </p>
         </div>
       </div>
 
@@ -429,6 +462,7 @@ export function NetWorthProjection({
                       onSelectYear={onSelectYear}
                       selectedYear={selectedYear}
                       mode={xAxisMode}
+                      startingAge={userSettings?.startingAge}
                     />
                   }
                 />
@@ -500,9 +534,12 @@ export function NetWorthProjection({
         <button
           type="button"
           className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200 transition hover:bg-white/10"
-          onClick={() => setXAxisMode((prev: any) => (prev === 'age' ? 'year' : 'age'))}
+          onClick={() => setXAxisMode((prev) => {
+            if (prev === 'age') return userSettings?.yearDisplayFormat ?? 'year_number'
+            return 'age'
+          })}
         >
-          {xAxisMode === 'age' ? 'Age' : 'Year'}
+          {xAxisMode === 'age' ? 'Age' : xAxisMode === 'actual_year' ? 'Year' : 'Year #'}
         </button>
       </div>
       {overrideYearsSet.size > 0 && (

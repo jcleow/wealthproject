@@ -3,15 +3,17 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LogOut, User, ChevronDown } from 'lucide-react'
+import { LogOut, User, ChevronDown, Settings } from 'lucide-react'
 import { useSession, signOut } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
+import { SettingsModal } from '@/components/modals/SettingsModal'
 
 export function UserMenu() {
   const { data: session, isPending } = useSession()
   const [isOpen, setIsOpen] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const router = useRouter()
 
   // Prevent hydration mismatch by only rendering after mount
@@ -101,6 +103,16 @@ export function UserMenu() {
 
             <div className="py-1">
               <button
+                onClick={() => {
+                  setIsOpen(false)
+                  setIsSettingsOpen(true)
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </button>
+              <button
                 onClick={handleSignOut}
                 disabled={isSigningOut}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors disabled:opacity-50"
@@ -112,6 +124,11 @@ export function UserMenu() {
           </div>
         </>
       )}
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   )
 }

@@ -4,11 +4,16 @@ import { Pool } from 'pg'
 // Create a PostgreSQL pool for BetterAuth
 // Append search_path to use auth schema for BetterAuth tables
 const connectionString = process.env.DATABASE_URL || ''
+console.log('[Auth] DATABASE_URL:', connectionString ? connectionString.replace(/:[^:@]+@/, ':***@') : 'NOT SET')
 const separator = connectionString.includes('?') ? '&' : '?'
 const poolConnectionString = `${connectionString}${separator}options=-c%20search_path%3Dauth`
 
 const pool = new Pool({
   connectionString: poolConnectionString,
+})
+
+pool.on('error', (err) => {
+  console.error('[Auth] Pool error:', err.message)
 })
 
 export const auth = betterAuth({

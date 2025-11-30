@@ -102,11 +102,15 @@ export function useFinancialData() {
 
   // Refresh function
   const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['assets'] })
-    await queryClient.invalidateQueries({ queryKey: ['liabilities'] })
-    await queryClient.invalidateQueries({ queryKey: ['incomes'] })
-    await queryClient.invalidateQueries({ queryKey: ['expenses'] })
-    await queryClient.invalidateQueries({ queryKey: ['timeline'] })
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['assets'] }),
+      queryClient.invalidateQueries({ queryKey: ['liabilities'] }),
+      queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+      queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+      queryClient.invalidateQueries({ queryKey: ['cash-accounts'] }),
+      queryClient.invalidateQueries({ queryKey: ['scenario-events'] }),
+      queryClient.invalidateQueries({ queryKey: ['timeline'] }),
+    ])
   }
 
   return {

@@ -7,7 +7,10 @@ export const LIABILITIES_QUERY_KEY = ['liabilities'] as const
 export function useLiabilitiesQuery() {
   return useQuery({
     queryKey: LIABILITIES_QUERY_KEY,
-    queryFn: financialApi.listLiabilities,
+    queryFn: async () => {
+      const result = await financialApi.listLiabilities({ limit: -1 })
+      return result.data
+    },
     staleTime: 30_000,
     cacheTime: 5 * 60 * 1000,
   })

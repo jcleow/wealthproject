@@ -16,7 +16,7 @@ export function Dashboard() {
   const chatIdRef = useRef<string>(generateUUID())
   const chatId = chatIdRef.current
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
-  const [isChatCollapsed, setIsChatCollapsed] = useState(false)
+  const [isChatCollapsed, setIsChatCollapsed] = useState(true)
   const timeline = useTimeline()
   const timelineError =
     timeline.timelineQuery.error instanceof Error

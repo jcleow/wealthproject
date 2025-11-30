@@ -11,6 +11,7 @@ const baseTimeline: TimelineResponse = {
     {
       year: 0,
       assets: [],
+      cashAccounts: [],
       liabilities: [],
       income: [],
       expenses: [],

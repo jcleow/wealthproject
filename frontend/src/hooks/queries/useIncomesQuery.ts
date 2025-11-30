@@ -7,7 +7,10 @@ export const INCOMES_QUERY_KEY = ['incomes'] as const
 export function useIncomesQuery() {
   return useQuery({
     queryKey: INCOMES_QUERY_KEY,
-    queryFn: financialApi.listIncomes,
+    queryFn: async () => {
+      const result = await financialApi.listIncomes({ limit: -1 })
+      return result.data
+    },
     staleTime: 30_000,
     cacheTime: 5 * 60 * 1000,
   })

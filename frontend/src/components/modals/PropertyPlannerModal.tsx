@@ -185,7 +185,12 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
     if (!isOpen) return
     const loadFinancial = async () => {
       try {
-        const [assetList, liabilityList] = await Promise.all([financialApi.listAssets(), financialApi.listLiabilities()])
+        const [assetsResult, liabilitiesResult] = await Promise.all([
+          financialApi.listAssets({ limit: -1 }),
+          financialApi.listLiabilities({ limit: -1 })
+        ])
+        const assetList = assetsResult.data
+        const liabilityList = liabilitiesResult.data
         setAssets(assetList)
         setLiabilities(liabilityList)
         // preselect property asset if exists
@@ -441,8 +446,8 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
 
       // Upsert mortgage expense tied to liability (by category + liability id in notes)
       try {
-        const expenses = await financialApi.listExpenses()
-        const existing = expenses.find(
+        const expensesResult = await financialApi.listExpenses({ limit: -1 })
+        const existing = expensesResult.data.find(
           (ex) => ex.category === 'housing_mortgage' && ex.notes?.includes(selectedLiabilityId)
         )
         const payload = {
