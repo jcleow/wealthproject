@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
+	"financial-chat-system/backend/internal/middleware"
 )
 
 // Client handles financial operations backed by repository storage.
@@ -19,8 +20,17 @@ func NewClient(store *repository.Store) *Client {
 	return &Client{store: store}
 }
 
+// getUserIDFromContext extracts userID from context
+func getUserIDFromContext(ctx context.Context) string {
+	return middleware.GetUserContext(ctx).UserID
+}
+
 // CreateAsset creates a new financial asset
 func (c *Client) CreateAsset(ctx context.Context, params AssetParams) (*string, error) {
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
 	if params.Name == "" {
 		return nil, fmt.Errorf("asset name is required")
 	}
@@ -31,7 +41,7 @@ func (c *Client) CreateAsset(ctx context.Context, params AssetParams) (*string, 
 		return nil, fmt.Errorf("valid current value is required")
 	}
 
-	created, err := c.store.CreateAsset(ctx, repository.Asset{
+	created, err := c.store.CreateAsset(ctx, userID, repository.Asset{
 		Name:             params.Name,
 		Category:         params.Category,
 		CurrentValue:     params.CurrentValue,
@@ -46,12 +56,16 @@ func (c *Client) CreateAsset(ctx context.Context, params AssetParams) (*string, 
 
 // UpdateAsset updates an existing financial asset
 func (c *Client) UpdateAsset(ctx context.Context, params UpdateAssetParams) (*string, error) {
-	assetID, err := c.resolveAssetID(ctx, params.AssetID, params.LastAssetID, params.AssetName, params.Name)
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
+	assetID, err := c.resolveAssetID(ctx, userID, params.AssetID, params.LastAssetID, params.AssetName, params.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	current, err := c.store.GetAsset(ctx, assetID)
+	current, err := c.store.GetAsset(ctx, userID, assetID)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +83,7 @@ func (c *Client) UpdateAsset(ctx context.Context, params UpdateAssetParams) (*st
 		current.Notes = params.Notes
 	}
 
-	updated, err := c.store.UpdateAsset(ctx, current)
+	updated, err := c.store.UpdateAsset(ctx, userID, current)
 	if err != nil {
 		return nil, err
 	}
@@ -78,12 +92,16 @@ func (c *Client) UpdateAsset(ctx context.Context, params UpdateAssetParams) (*st
 
 // DeleteAsset deletes an existing financial asset
 func (c *Client) DeleteAsset(ctx context.Context, params DeleteAssetParams) (*string, error) {
-	assetID, err := c.resolveAssetID(ctx, params.AssetID, params.LastAssetID, params.AssetName, "")
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
+	assetID, err := c.resolveAssetID(ctx, userID, params.AssetID, params.LastAssetID, params.AssetName, "")
 	if err != nil {
 		return nil, err
 	}
 
-	if err := c.store.DeleteAsset(ctx, assetID); err != nil {
+	if err := c.store.DeleteAsset(ctx, userID, assetID); err != nil {
 		return nil, err
 	}
 	return &assetID, nil
@@ -91,6 +109,10 @@ func (c *Client) DeleteAsset(ctx context.Context, params DeleteAssetParams) (*st
 
 // CreateLiability creates a new financial liability
 func (c *Client) CreateLiability(ctx context.Context, params LiabilityParams) (*string, error) {
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
 	if params.Name == "" {
 		return nil, fmt.Errorf("liability name is required")
 	}
@@ -104,7 +126,7 @@ func (c *Client) CreateLiability(ctx context.Context, params LiabilityParams) (*
 		return nil, fmt.Errorf("valid interest rate is required")
 	}
 
-	created, err := c.store.CreateLiability(ctx, repository.Liability{
+	created, err := c.store.CreateLiability(ctx, userID, repository.Liability{
 		Name:            params.Name,
 		Category:        params.Category,
 		CurrentBalance:  params.CurrentBalance,
@@ -120,12 +142,16 @@ func (c *Client) CreateLiability(ctx context.Context, params LiabilityParams) (*
 
 // UpdateLiability updates an existing financial liability
 func (c *Client) UpdateLiability(ctx context.Context, params UpdateLiabilityParams) (*string, error) {
-	liabilityID, err := c.resolveLiabilityID(ctx, params.LiabilityID, params.LastLiabilityID, params.LiabilityName, params.Name)
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
+	liabilityID, err := c.resolveLiabilityID(ctx, userID, params.LiabilityID, params.LastLiabilityID, params.LiabilityName, params.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	current, err := c.store.GetLiability(ctx, liabilityID)
+	current, err := c.store.GetLiability(ctx, userID, liabilityID)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +172,7 @@ func (c *Client) UpdateLiability(ctx context.Context, params UpdateLiabilityPara
 		current.Notes = params.Notes
 	}
 
-	updated, err := c.store.UpdateLiability(ctx, current)
+	updated, err := c.store.UpdateLiability(ctx, userID, current)
 	if err != nil {
 		return nil, err
 	}
@@ -155,12 +181,16 @@ func (c *Client) UpdateLiability(ctx context.Context, params UpdateLiabilityPara
 
 // DeleteLiability deletes an existing financial liability
 func (c *Client) DeleteLiability(ctx context.Context, params DeleteLiabilityParams) (*string, error) {
-	liabilityID, err := c.resolveLiabilityID(ctx, params.LiabilityID, params.LastLiabilityID, params.LiabilityName, "")
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
+	liabilityID, err := c.resolveLiabilityID(ctx, userID, params.LiabilityID, params.LastLiabilityID, params.LiabilityName, "")
 	if err != nil {
 		return nil, err
 	}
 
-	if err := c.store.DeleteLiability(ctx, liabilityID); err != nil {
+	if err := c.store.DeleteLiability(ctx, userID, liabilityID); err != nil {
 		return nil, err
 	}
 	return &liabilityID, nil
@@ -168,6 +198,10 @@ func (c *Client) DeleteLiability(ctx context.Context, params DeleteLiabilityPara
 
 // CreateIncome creates a new income entry
 func (c *Client) CreateIncome(ctx context.Context, params IncomeParams) (*string, error) {
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
 	if params.Source == "" {
 		return nil, fmt.Errorf("income source is required")
 	}
@@ -186,7 +220,7 @@ func (c *Client) CreateIncome(ctx context.Context, params IncomeParams) (*string
 		}
 	}
 
-	created, err := c.store.CreateIncome(ctx, repository.Income{
+	created, err := c.store.CreateIncome(ctx, userID, repository.Income{
 		Source:    params.Source,
 		Amount:    params.Amount,
 		Frequency: params.Frequency,
@@ -202,12 +236,16 @@ func (c *Client) CreateIncome(ctx context.Context, params IncomeParams) (*string
 
 // UpdateIncome updates an existing income entry
 func (c *Client) UpdateIncome(ctx context.Context, params UpdateIncomeParams) (*string, error) {
-	incomeID, err := c.resolveIncomeID(ctx, params.IncomeID, params.LastIncomeID, params.IncomeName, params.Source)
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
+	incomeID, err := c.resolveIncomeID(ctx, userID, params.IncomeID, params.LastIncomeID, params.IncomeName, params.Source)
 	if err != nil {
 		return nil, err
 	}
 
-	current, err := c.store.GetIncome(ctx, incomeID)
+	current, err := c.store.GetIncome(ctx, userID, incomeID)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +271,7 @@ func (c *Client) UpdateIncome(ctx context.Context, params UpdateIncomeParams) (*
 		current.Notes = params.Notes
 	}
 
-	updated, err := c.store.UpdateIncome(ctx, current)
+	updated, err := c.store.UpdateIncome(ctx, userID, current)
 	if err != nil {
 		return nil, err
 	}
@@ -242,12 +280,16 @@ func (c *Client) UpdateIncome(ctx context.Context, params UpdateIncomeParams) (*
 
 // DeleteIncome deletes an existing income
 func (c *Client) DeleteIncome(ctx context.Context, params DeleteIncomeParams) (*string, error) {
-	incomeID, err := c.resolveIncomeID(ctx, params.IncomeID, params.LastIncomeID, params.IncomeName, "")
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
+	incomeID, err := c.resolveIncomeID(ctx, userID, params.IncomeID, params.LastIncomeID, params.IncomeName, "")
 	if err != nil {
 		return nil, err
 	}
 
-	if err := c.store.DeleteIncome(ctx, incomeID); err != nil {
+	if err := c.store.DeleteIncome(ctx, userID, incomeID); err != nil {
 		return nil, err
 	}
 	return &incomeID, nil
@@ -255,6 +297,10 @@ func (c *Client) DeleteIncome(ctx context.Context, params DeleteIncomeParams) (*
 
 // CreateExpense creates a new expense entry
 func (c *Client) CreateExpense(ctx context.Context, params ExpenseParams) (*string, error) {
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
 	if params.Payee == "" {
 		return nil, fmt.Errorf("expense payee is required")
 	}
@@ -265,7 +311,7 @@ func (c *Client) CreateExpense(ctx context.Context, params ExpenseParams) (*stri
 		return nil, fmt.Errorf("expense frequency is required")
 	}
 
-	created, err := c.store.CreateExpense(ctx, repository.Expense{
+	created, err := c.store.CreateExpense(ctx, userID, repository.Expense{
 		Payee:     params.Payee,
 		Amount:    params.Amount,
 		Frequency: params.Frequency,
@@ -280,12 +326,16 @@ func (c *Client) CreateExpense(ctx context.Context, params ExpenseParams) (*stri
 
 // UpdateExpense updates an existing expense entry
 func (c *Client) UpdateExpense(ctx context.Context, params UpdateExpenseParams) (*string, error) {
-	expenseID, err := c.resolveExpenseID(ctx, params.ExpenseID, params.LastExpenseID, params.ExpenseName, params.Payee)
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
+	expenseID, err := c.resolveExpenseID(ctx, userID, params.ExpenseID, params.LastExpenseID, params.ExpenseName, params.Payee)
 	if err != nil {
 		return nil, err
 	}
 
-	current, err := c.store.GetExpense(ctx, expenseID)
+	current, err := c.store.GetExpense(ctx, userID, expenseID)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +356,7 @@ func (c *Client) UpdateExpense(ctx context.Context, params UpdateExpenseParams) 
 		current.Notes = params.Notes
 	}
 
-	updated, err := c.store.UpdateExpense(ctx, current)
+	updated, err := c.store.UpdateExpense(ctx, userID, current)
 	if err != nil {
 		return nil, err
 	}
@@ -315,18 +365,22 @@ func (c *Client) UpdateExpense(ctx context.Context, params UpdateExpenseParams) 
 
 // DeleteExpense deletes an existing expense
 func (c *Client) DeleteExpense(ctx context.Context, params DeleteExpenseParams) (*string, error) {
-	expenseID, err := c.resolveExpenseID(ctx, params.ExpenseID, params.LastExpenseID, params.ExpenseName, "")
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
+	expenseID, err := c.resolveExpenseID(ctx, userID, params.ExpenseID, params.LastExpenseID, params.ExpenseName, "")
 	if err != nil {
 		return nil, err
 	}
 
-	if err := c.store.DeleteExpense(ctx, expenseID); err != nil {
+	if err := c.store.DeleteExpense(ctx, userID, expenseID); err != nil {
 		return nil, err
 	}
 	return &expenseID, nil
 }
 
-func (c *Client) resolveAssetID(ctx context.Context, explicit, last, byName, fallbackName string) (string, error) {
+func (c *Client) resolveAssetID(ctx context.Context, userID, explicit, last, byName, fallbackName string) (string, error) {
 	if explicit != "" {
 		return explicit, nil
 	}
@@ -341,7 +395,7 @@ func (c *Client) resolveAssetID(ctx context.Context, explicit, last, byName, fal
 		return "", fmt.Errorf("asset ID is required")
 	}
 
-	assets, err := c.store.ListAssets(ctx)
+	assets, err := c.store.ListAssets(ctx, userID)
 	if err != nil {
 		return "", err
 	}
@@ -355,7 +409,7 @@ func (c *Client) resolveAssetID(ctx context.Context, explicit, last, byName, fal
 	return "", fmt.Errorf("asset '%s' not found. Please specify the exact asset name.", name)
 }
 
-func (c *Client) resolveLiabilityID(ctx context.Context, explicit, last, byName, fallbackName string) (string, error) {
+func (c *Client) resolveLiabilityID(ctx context.Context, userID, explicit, last, byName, fallbackName string) (string, error) {
 	if explicit != "" {
 		return explicit, nil
 	}
@@ -370,7 +424,7 @@ func (c *Client) resolveLiabilityID(ctx context.Context, explicit, last, byName,
 		return "", fmt.Errorf("liability ID is required")
 	}
 
-	liabilities, err := c.store.ListLiabilities(ctx)
+	liabilities, err := c.store.ListLiabilities(ctx, userID)
 	if err != nil {
 		return "", err
 	}
@@ -384,7 +438,7 @@ func (c *Client) resolveLiabilityID(ctx context.Context, explicit, last, byName,
 	return "", fmt.Errorf("liability '%s' not found. Please specify the exact liability name.", name)
 }
 
-func (c *Client) resolveIncomeID(ctx context.Context, explicit, last, byName, fallbackName string) (string, error) {
+func (c *Client) resolveIncomeID(ctx context.Context, userID, explicit, last, byName, fallbackName string) (string, error) {
 	if explicit != "" {
 		return explicit, nil
 	}
@@ -399,7 +453,7 @@ func (c *Client) resolveIncomeID(ctx context.Context, explicit, last, byName, fa
 		return "", fmt.Errorf("income ID is required")
 	}
 
-	incomes, err := c.store.ListIncomes(ctx)
+	incomes, err := c.store.ListIncomes(ctx, userID)
 	if err != nil {
 		return "", err
 	}
@@ -413,7 +467,7 @@ func (c *Client) resolveIncomeID(ctx context.Context, explicit, last, byName, fa
 	return "", fmt.Errorf("income '%s' not found. Please specify the exact income name.", name)
 }
 
-func (c *Client) resolveExpenseID(ctx context.Context, explicit, last, byName, fallbackName string) (string, error) {
+func (c *Client) resolveExpenseID(ctx context.Context, userID, explicit, last, byName, fallbackName string) (string, error) {
 	if explicit != "" {
 		return explicit, nil
 	}
@@ -428,7 +482,7 @@ func (c *Client) resolveExpenseID(ctx context.Context, explicit, last, byName, f
 		return "", fmt.Errorf("expense ID is required")
 	}
 
-	expenses, err := c.store.ListExpenses(ctx)
+	expenses, err := c.store.ListExpenses(ctx, userID)
 	if err != nil {
 		return "", err
 	}
@@ -495,6 +549,10 @@ func matchName[T any](items []T, target string, get func(T) (string, string)) (s
 
 // CreatePropertyScenario creates a property investment scenario
 func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScenarioParams) (*string, error) {
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, fmt.Errorf("user context required")
+	}
 	if params.PropertyPrice <= 0 {
 		return nil, fmt.Errorf("property price must be greater than 0")
 	}
@@ -523,11 +581,11 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 	} else {
 		liabilityName = liabilityName + " Loan"
 	}
-	assetID, err := c.upsertPropertyAsset(ctx, assetName, params.PropertyPrice)
+	assetID, err := c.upsertPropertyAsset(ctx, userID, assetName, params.PropertyPrice)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upsert property asset: %w", err)
 	}
-	liabilityID, err := c.upsertPropertyLiability(ctx, liabilityName, params.LoanAmount, params.InterestRate, params.LoanTenure)
+	liabilityID, err := c.upsertPropertyLiability(ctx, userID, liabilityName, params.LoanAmount, params.InterestRate, params.LoanTenure)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upsert property liability: %w", err)
 	}
@@ -537,7 +595,7 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 		headline = "Property Scenario"
 	}
 	subheadline := fmt.Sprintf("%s | %.0f price, %.0f down, %.0f loan @ %.2f%%", params.PropertyType, params.PropertyPrice, params.DownPayment, params.LoanAmount, params.InterestRate*100)
-	created, err := c.store.CreatePropertyScenario(ctx, repository.PropertyScenario{
+	created, err := c.store.CreatePropertyScenario(ctx, userID, repository.PropertyScenario{
 		PropertyType:  params.PropertyType,
 		Headline:      headline,
 		Subheadline:   subheadline,
@@ -558,7 +616,7 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 		return nil, err
 	}
 
-	_, _ = c.store.CreateOrReplacePropertyLink(ctx, repository.PropertyLink{
+	_, _ = c.store.CreateOrReplacePropertyLink(ctx, userID, repository.PropertyLink{
 		PropertyScenarioID: created.ID,
 		AssetID:            assetID,
 		LiabilityID:        liabilityID,
@@ -569,7 +627,7 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 		calculator := NewFinancialCalculator()
 		monthly := calculator.CalculateMonthlyPayment(params.LoanAmount, params.InterestRate, params.LoanTenure)
 		if monthly > 0 {
-			_, _ = c.store.CreateExpense(ctx, repository.Expense{
+			_, _ = c.store.CreateExpense(ctx, userID, repository.Expense{
 				Payee:     "Mortgage Payment",
 				Amount:    monthly,
 				Frequency: "monthly",
@@ -582,12 +640,12 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 	return &created.ID, nil
 }
 
-func (c *Client) upsertPropertyAsset(ctx context.Context, name string, value float64) (string, error) {
+func (c *Client) upsertPropertyAsset(ctx context.Context, userID, name string, value float64) (string, error) {
 	const category = "property"
-	if a, err := c.store.GetAssetByNameAndCategory(ctx, name, category); err == nil {
+	if a, err := c.store.GetAssetByNameAndCategory(ctx, userID, name, category); err == nil {
 		return a.ID, nil
 	}
-	created, err := c.store.CreateAsset(ctx, repository.Asset{
+	created, err := c.store.CreateAsset(ctx, userID, repository.Asset{
 		Name:             name,
 		Category:         category,
 		CurrentValue:     value,
@@ -600,9 +658,9 @@ func (c *Client) upsertPropertyAsset(ctx context.Context, name string, value flo
 	return created.ID, nil
 }
 
-func (c *Client) upsertPropertyLiability(ctx context.Context, name string, balance float64, rate float64, tenureYears int) (string, error) {
+func (c *Client) upsertPropertyLiability(ctx context.Context, userID, name string, balance float64, rate float64, tenureYears int) (string, error) {
 	const category = "property"
-	if li, err := c.store.GetLiabilityByNameAndCategory(ctx, name, category); err == nil {
+	if li, err := c.store.GetLiabilityByNameAndCategory(ctx, userID, name, category); err == nil {
 		return li.ID, nil
 	}
 	monthly := 0.0
@@ -612,7 +670,7 @@ func (c *Client) upsertPropertyLiability(ctx context.Context, name string, balan
 			monthly = balance / months
 		}
 	}
-	created, err := c.store.CreateLiability(ctx, repository.Liability{
+	created, err := c.store.CreateLiability(ctx, userID, repository.Liability{
 		Name:            name,
 		Category:        category,
 		CurrentBalance:  balance,
@@ -659,14 +717,18 @@ func (c *Client) RollbackAction(ctx context.Context, toolName string, entityID *
 	if entityID == nil || c.store == nil {
 		return nil
 	}
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return fmt.Errorf("user context required for rollback")
+	}
 
 	switch toolName {
 	case "createAsset":
-		return c.store.DeleteAsset(ctx, *entityID)
+		return c.store.DeleteAsset(ctx, userID, *entityID)
 	case "createLiability":
-		return c.store.DeleteLiability(ctx, *entityID)
+		return c.store.DeleteLiability(ctx, userID, *entityID)
 	case "createPropertyScenario":
-		return c.store.DeletePropertyScenario(ctx, *entityID)
+		return c.store.DeletePropertyScenario(ctx, userID, *entityID)
 	default:
 		return nil
 	}

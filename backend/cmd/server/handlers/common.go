@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+
+	"financial-chat-system/backend/internal/middleware"
 )
 
 // ErrorResponse represents an API error response
@@ -63,4 +65,21 @@ type fieldError struct {
 
 func (e *fieldError) Error() string {
 	return "missing required fields: " + strings.TrimSpace(e.fields)
+}
+
+// getUserID extracts the userID from the request context.
+// Returns empty string if not authenticated.
+func getUserID(r *http.Request) string {
+	return middleware.GetUserContext(r.Context()).UserID
+}
+
+// requireUserID extracts userID and writes 401 if missing.
+// Returns the userID and true if present, or empty string and false if missing.
+func requireUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	userID := getUserID(r)
+	if userID == "" {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "authentication required")
+		return "", false
+	}
+	return userID, true
 }

@@ -44,7 +44,8 @@ type CustomItem struct {
 }
 
 // GetGrowthConfigs returns all growth configs.
-func (s *Store) GetGrowthConfigs(ctx context.Context) ([]GrowthConfig, error) {
+// userID is included for interface compatibility; growth configs are currently global.
+func (s *Store) GetGrowthConfigs(ctx context.Context, userID string) ([]GrowthConfig, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT category, annual_rate_pct, lower_bound_pct, upper_bound_pct, updated_at
 		FROM growth_configs
@@ -69,7 +70,8 @@ func (s *Store) GetGrowthConfigs(ctx context.Context) ([]GrowthConfig, error) {
 }
 
 // UpsertGrowthConfigs inserts or updates growth configs by category.
-func (s *Store) UpsertGrowthConfigs(ctx context.Context, cfgs []GrowthConfig) error {
+// userID is included for interface compatibility; growth configs are currently global.
+func (s *Store) UpsertGrowthConfigs(ctx context.Context, userID string, cfgs []GrowthConfig) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
