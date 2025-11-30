@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Routes that don't require authentication
-const publicRoutes = ['/auth/login', '/auth/signup', '/api/auth']
+const publicRoutes = ['/login', '/signup', '/api/auth']
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -16,7 +16,7 @@ export async function proxy(request: NextRequest) {
 
   // If no session, redirect to login
   if (!sessionCookie?.value) {
-    const loginUrl = new URL('/auth/login', request.url)
+    const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
   }

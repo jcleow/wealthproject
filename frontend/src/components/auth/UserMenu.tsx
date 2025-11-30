@@ -23,7 +23,7 @@ export function UserMenu() {
     setIsSigningOut(true)
     try {
       await signOut()
-      router.push('/auth/login')
+      router.push('/login')
       router.refresh()
     } catch (error) {
       console.error('Sign out failed:', error)
@@ -43,12 +43,12 @@ export function UserMenu() {
   if (!session?.user) {
     return (
       <div className="flex items-center gap-2">
-        <Link href="/auth/login">
+        <Link href="/login">
           <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white">
             Sign In
           </Button>
         </Link>
-        <Link href="/auth/signup">
+        <Link href="/signup">
           <Button size="sm">
             Sign Up
           </Button>
