@@ -1,13 +1,9 @@
 import type { TimelineEditRequest, TimelineResponse } from '@/types/timeline'
 
 function getApiBaseUrl() {
-  const envURL = process.env.NEXT_PUBLIC_GO_BACKEND_BASE_URL?.trim()
-  if (envURL) {
-    return envURL.endsWith('/api/v1') ? envURL : `${envURL.replace(/\/$/, '')}/api/v1`
-  }
-
-  // Default to local Go server
-  return 'http://localhost:8080/api/v1'
+  // Use relative path - requests go through Next.js BFF at /api/v1/*
+  // which handles auth and proxies to the Go backend
+  return '/api/v1'
 }
 
 const API_BASE = getApiBaseUrl()

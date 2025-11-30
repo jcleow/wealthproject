@@ -7,7 +7,7 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import type { Asset, Expense, Income, Liability } from '../../types/financial'
-import type { ScenarioEvent, ScenarioImpact, ScenarioTargetType } from '@/types/scenario'
+import type { ScenarioEvent, ScenarioTargetType } from '@/types/scenario'
 import type { PropertyLinkRecord } from '../../types/property'
 import type { FinancialDataType, FinancialFormValues } from '../modals/FinancialFormModal'
 import { FinancialFormModal } from '../modals/FinancialFormModal'
@@ -83,7 +83,7 @@ function getIconByName(name: string): LucideIcon | undefined {
 // Helper to find scenario impacts for a financial item
 function getAppliedImpacts(
   item: any,
-  itemType: ScenarioTargetType,
+  _itemType: ScenarioTargetType,
   scenarioEvents: ScenarioEvent[]
 ): Array<{ event: ScenarioEvent | null; impact: { eventId?: string; amountAnnual?: number; notes?: string; impactKind?: string } }> {
   const applied = Array.isArray(item.eventImpacts) ? item.eventImpacts : item.event_impacts
@@ -540,7 +540,7 @@ export function FinancialDataManagement({
 
   const getNetWorthForYear = () => {
     if ((timelineYear as any)?.netWorth !== undefined) return Math.round((timelineYear as any).netWorth)
-    if (timelineYear?.net_worth !== undefined) return Math.round(timelineYear.net_worth)
+    if ((timelineYear as any)?.net_worth !== undefined) return Math.round((timelineYear as any).net_worth)
     return 0
   }
 
@@ -805,11 +805,12 @@ export function FinancialDataManagement({
                                           </span>
                                         </div>
                                         {scenarioImpacts.map(({ event, impact }) => {
+                                          if (!event) return null
                                           const Icon = getIconByName(event.displayIcon ?? '')
                                           const isDisabled = !event.isIncluded
                                           return (
                                             <button
-                                              key={`${event.id}-${impact.targetId}`}
+                                              key={`${event.id}-${(impact as any).targetId ?? impact.eventId}`}
                                               type="button"
                                               onClick={() => {
                                             // TODO: Open scenario modal for editing
@@ -842,7 +843,7 @@ export function FinancialDataManagement({
                                                   const impactAmt =
                                                     (impact as any).amountAnnual ??
                                                     (impact as any).amount_annual ??
-                                                    (typeof impact.amount === 'number' ? impact.amount : 0)
+                                                    (typeof (impact as any).amount === 'number' ? (impact as any).amount : 0)
                                                   const impactClass = impactAmt < 0 ? 'text-rose-400' : 'text-emerald-400'
                                                   return (
                                                     <span className={`text-xs italic ${impactClass}`}>

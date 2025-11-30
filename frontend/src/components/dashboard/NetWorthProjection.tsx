@@ -461,7 +461,7 @@ export function NetWorthProjection({
                 />
 
                 <Tooltip
-                  content={(props) => <CustomTooltip {...props} containerWidth={containerWidth} />}
+                  content={(props) => <CustomTooltip {...props as any} containerWidth={containerWidth} />}
                   cursor={false}
                   wrapperStyle={{ transform: 'none', pointerEvents: 'none' }}
                 />
