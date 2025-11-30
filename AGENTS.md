@@ -182,11 +182,51 @@ This approach ensures:
 - The timeline uses the stable ID (parent_id if present, else id) for scenario matching. Impacts must target this stable ID.
 - API responses expose the stable `item_id`; include `parent_id`/`row_id` if you need to disambiguate. Use `parentId ?? id` in the UI when saving `targetId`.
 
-## Api contract
+## API Contract
 
 - API versioning should always be included
 - API contract can be found in specs/rewrite-phase-1/api-contract.md
 - Backend responses must emit camelCase field names for APIs (perform any snake_case → camelCase conversion server-side before returning JSON).
+
+## API Design Best Practices
+
+### Pagination
+- **All list endpoints MUST support pagination** with consistent query parameters:
+  - `limit` - Maximum items to return (default: 20, max: 100)
+  - `offset` - Number of items to skip (default: 0)
+  - `limit=-1` - Special value meaning "no limit" (return all results)
+- **All paginated responses MUST include metadata**:
+  ```json
+  {
+    "data": [...],
+    "total": 100,
+    "limit": 20,
+    "offset": 0,
+    "hasMore": true
+  }
+  ```
+- Frontend should handle paginated responses defensively (check for `data` array existence)
+
+### Avoiding N+1 API Calls
+- **Prefer bulk/batch endpoints over per-item calls**:
+  - BAD: Calling `/api/items/{id}` N times in a loop
+  - GOOD: Single `/api/items?limit=-1` call, then client-side mapping
+- When displaying related data, fetch all related items once and join client-side:
+  ```typescript
+  // BAD: N API calls
+  for (const item of items) {
+    const related = await api.getRelatedById(item.id)
+  }
+
+  // GOOD: 1 API call + client-side mapping
+  const allRelated = await api.listAllRelated({ limit: -1 })
+  const relatedMap = new Map(allRelated.data.map(r => [r.itemId, r]))
+  ```
+
+### Response Consistency
+- All endpoints should return consistent response shapes
+- Error responses should follow a standard format with `error` and `message` fields
+- Empty lists should return `[]`, not `null`
 
 ## Files and documentation
 
@@ -236,12 +276,13 @@ go run cmd/server/main.go    # Needs B6+B7 implementation
 ## Golang best practice
 When generating or modifying Go code, follow these principles:
 - Enforce strict type safety — avoid interface{} unless absolutely necessary; prefer structs or generics.
-- Write fully idiomatic Go that follows Go’s conventions.
-- Use clear architecture: handlers → services → repositories → models.=
+- Write fully idiomatic Go that follows Go's conventions.
+- Use clear architecture: handlers → services → repositories → models.
 - Never ignore errors; never leave unsafe panics.
 - Avoid unsafe type assertions; rewrite designs to eliminate them.
 - Use proper concurrency patterns with context.Context.
 - Maintain clean naming, meaningful types, and small readable functions.
+- Avoid trivial flags/columns that can be computed on the fly — prefer computed values over storing redundant state (e.g., don't store `HasCashDeficit` when it can be derived from `AccumulatedCashEnd < 0`).
 
 ## React and Typescript best practices to follow
 TypeScript & React Coding Agent Rules

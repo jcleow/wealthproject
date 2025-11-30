@@ -61,12 +61,12 @@ if ! docker info > /dev/null 2>&1; then
 fi
 echo -e "${GREEN}  ✓ Docker is running${NC}"
 
-# Check Node/npm
-if ! command -v npm > /dev/null 2>&1; then
-    echo -e "${RED}❌ npm is not installed. Please install Node.js first.${NC}"
+# Check Node/pnpm
+if ! command -v pnpm > /dev/null 2>&1; then
+    echo -e "${RED}❌ pnpm is not installed. Please install pnpm first (npm install -g pnpm).${NC}"
     exit 1
 fi
-echo -e "${GREEN}  ✓ npm is installed${NC}"
+echo -e "${GREEN}  ✓ pnpm is installed${NC}"
 
 # Check Go
 if ! command -v go > /dev/null 2>&1; then
@@ -144,12 +144,12 @@ cd frontend
 # Install dependencies if needed
 if [ ! -d "node_modules" ] || [ package.json -nt node_modules ]; then
     echo -e "${YELLOW}  📦 Installing frontend dependencies...${NC}"
-    npm install > /dev/null 2>&1
+    pnpm install > /dev/null 2>&1
     echo -e "${GREEN}  ✓ Dependencies installed${NC}"
 fi
 
 # Start frontend
-npm run dev > /tmp/frontend.log 2>&1 &
+pnpm run dev > /tmp/frontend.log 2>&1 &
 FRONTEND_PID=$!
 echo $FRONTEND_PID >> $PIDS_FILE
 cd ..
