@@ -1,16 +1,24 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Home, Info, ArrowDownWideNarrow, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, Home, Info, ArrowDownWideNarrow, ChevronRight, Star } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
-import type { Asset, Expense, Income, Liability } from '../../types/financial'
+import {
+  useCashAccountsQuery,
+  useCreateCashAccountMutation,
+  useUpdateCashAccountMutation,
+  useDeleteCashAccountMutation,
+  useSetAccumulatorMutation,
+} from '@/hooks/queries'
+import type { Asset, Expense, Income, Liability, CashAccount } from '../../types/financial'
 import type { ScenarioEvent, ScenarioTargetType } from '@/types/scenario'
 import type { PropertyLinkRecord } from '../../types/property'
 import type { FinancialDataType, FinancialFormValues } from '../modals/FinancialFormModal'
 import { FinancialFormModal } from '../modals/FinancialFormModal'
+import { CashAccountFormModal } from '../modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { financialApi } from '@/services/financialApi'
 import type { TimelineYear, TimelineEditRequest, TimelineEdit, TimelineItemType, TimelineFrequency, TimelineItem, TimelineEventImpact } from '@/types/timeline'
@@ -126,7 +134,10 @@ export function FinancialDataManagement({
   onSaveTimelineEdits,
 }: FinancialDataManagementProps) {
   const usingTimeline = true
-  const yearAssets = useMemo(() => timelineYear?.assets ?? [], [timelineYear?.assets])
+  const timelineAssets = useMemo(() => timelineYear?.assets ?? [], [timelineYear?.assets])
+  const timelineCashAccounts = useMemo(() => timelineYear?.cashAccounts ?? [], [timelineYear?.cashAccounts])
+  // Merge assets and cash accounts for display - cash accounts appear as assets
+  const yearAssets = useMemo(() => [...timelineAssets, ...timelineCashAccounts], [timelineAssets, timelineCashAccounts])
   const yearLiabilities = useMemo(() => timelineYear?.liabilities ?? [], [timelineYear?.liabilities])
   const yearIncomes = useMemo(() => timelineYear?.income ?? [], [timelineYear?.income])
   const yearExpenses = useMemo(() => timelineYear?.expenses ?? [], [timelineYear?.expenses])
@@ -149,6 +160,20 @@ export function FinancialDataManagement({
 
   const { events: scenarioEvents } = useScenarioEvents()
 
+  // Cash accounts
+  const { data: cashAccounts = [] } = useCashAccountsQuery()
+  const createCashAccountMutation = useCreateCashAccountMutation()
+  const updateCashAccountMutation = useUpdateCashAccountMutation()
+  const deleteCashAccountMutation = useDeleteCashAccountMutation()
+  const setAccumulatorMutation = useSetAccumulatorMutation()
+
+  // Cash account modal state
+  const [cashAccountModalState, setCashAccountModalState] = useState<{
+    isOpen: boolean
+    mode: 'create' | 'edit'
+    data?: CashAccount
+  }>({ isOpen: false, mode: 'create' })
+
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
     type: 'asset',
@@ -164,6 +189,7 @@ export function FinancialDataManagement({
     expense: 'desc',
   })
   const [expandedScenarioItems, setExpandedScenarioItems] = useState<Set<string>>(new Set())
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
 
   const toggleScenarioExpanded = (itemId: string) => {
     setExpandedScenarioItems((prev) => {
@@ -213,60 +239,57 @@ export function FinancialDataManagement({
   useEffect(() => {
     const fetchLinks = async () => {
       try {
-        // Fetch all assets and liabilities once at the beginning
-        const [allAssets, allLiabilities] = await Promise.all([
-          financialApi.listAssets(),
-          financialApi.listLiabilities()
+        // Fetch all property links in a single API call (limit: -1 means no limit)
+        const allLinksResult = await financialApi.listAllPropertyLinks({ limit: -1 })
+        const allLinks = allLinksResult.data
+
+        // Also fetch assets/liabilities for parent_id mapping (limit: -1 means no limit)
+        const [assetsResult, liabilitiesResult] = await Promise.all([
+          financialApi.listAssets({ limit: -1 }),
+          financialApi.listLiabilities({ limit: -1 })
         ])
 
-        // Create maps for quick lookup
-        const assetsByParentId = new Map(allAssets.map(a => [a.parentId, a]))
-        const liabilitiesByParentId = new Map(allLiabilities.map(l => [l.parentId, l]))
+        // Create maps for quick lookup: id -> parentId
+        const assetIdToParentId = new Map(assetsResult.data.map(a => [a.id, a.parentId]))
+        const liabilityIdToParentId = new Map(liabilitiesResult.data.map(l => [l.id, l.parentId]))
 
-        // Fetch asset links
+        // Build asset links map: group links by assetId (and also by parentId for timeline items)
         const assetResults: Record<string, PropertyLinkRecord[]> = {}
-        await Promise.all(
-          yearAssets.map(async (asset) => {
-            const assetId = getItemId(asset)
-            if (!assetId) return
-
-            // First try with the timeline item_id
-            let links = await financialApi.listPropertyLinksByAsset(assetId)
-
-            // If no links found, try to find the actual asset using this as parent_id
-            if (links.length === 0) {
-              const actualAsset = assetsByParentId.get(assetId)
-              if (actualAsset) {
-                links = await financialApi.listPropertyLinksByAsset(actualAsset.id)
-              }
-            }
-
-            assetResults[assetId] = links
-          })
-        )
-        setAssetLinks(assetResults)
-
-        // Fetch liability links
         const liabilityResults: Record<string, PropertyLinkRecord[]> = {}
-        await Promise.all(
-          yearLiabilities.map(async (liability) => {
-            const liabilityId = getItemId(liability)
-            if (!liabilityId) return
 
-            // First try with the timeline item_id
-            let links = await financialApi.listPropertyLinksByLiability(liabilityId)
+        for (const link of allLinks) {
+          // Map by asset ID
+          if (!assetResults[link.assetId]) {
+            assetResults[link.assetId] = []
+          }
+          assetResults[link.assetId].push(link)
 
-            // If no links found, try to find the actual liability using this as parent_id
-            if (links.length === 0) {
-              const actualLiability = liabilitiesByParentId.get(liabilityId)
-              if (actualLiability) {
-                links = await financialApi.listPropertyLinksByLiability(actualLiability.id)
-              }
+          // Also map by parent ID if different (for timeline items that use parentId)
+          const assetParentId = assetIdToParentId.get(link.assetId)
+          if (assetParentId && assetParentId !== link.assetId) {
+            if (!assetResults[assetParentId]) {
+              assetResults[assetParentId] = []
             }
+            assetResults[assetParentId].push(link)
+          }
 
-            liabilityResults[liabilityId] = links
-          })
-        )
+          // Map by liability ID
+          if (!liabilityResults[link.liabilityId]) {
+            liabilityResults[link.liabilityId] = []
+          }
+          liabilityResults[link.liabilityId].push(link)
+
+          // Also map by parent ID if different
+          const liabilityParentId = liabilityIdToParentId.get(link.liabilityId)
+          if (liabilityParentId && liabilityParentId !== link.liabilityId) {
+            if (!liabilityResults[liabilityParentId]) {
+              liabilityResults[liabilityParentId] = []
+            }
+            liabilityResults[liabilityParentId].push(link)
+          }
+        }
+
+        setAssetLinks(assetResults)
         setLiabilityLinks(liabilityResults)
       } catch (error) {
         console.error('Failed to fetch property links', error)
@@ -561,11 +584,11 @@ export function FinancialDataManagement({
     return 0
   }
 
-  const getMonthlySavingsForYear = () => {
-    // Fall back to zero if timeline lacks P&L breakdown; use income/expenses annualized.
+  const getAnnualSavingsForYear = () => {
+    // Use annualized income/expenses from timeline
     const totalIncome = yearIncomes.reduce((sum, it) => sum + (summarizeAmount(it) ?? 0), 0)
     const totalExpenses = yearExpenses.reduce((sum, it) => sum + (summarizeAmount(it) ?? 0), 0)
-    return Math.round(Math.max((totalIncome - totalExpenses) / 12, 0))
+    return Math.round(totalIncome - totalExpenses)
   }
 
   const openPlannerFromLink = (link: PropertyLinkRecord) => {
@@ -586,7 +609,16 @@ export function FinancialDataManagement({
 
   return (
     <>
-      <div id="financial-data-section" className="flex h-full flex-col border-0 bg-midnight-900 text-white">
+      <div
+        id="financial-data-section"
+        className="flex h-full flex-col border-0 bg-midnight-900 text-white"
+        onClick={(e) => {
+          // Deselect when clicking outside of line items
+          if (selectedItemId && (e.target as HTMLElement).closest('[data-line-item]') === null) {
+            setSelectedItemId(null)
+          }
+        }}
+      >
         <div className="px-6 py-4">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -697,10 +729,27 @@ export function FinancialDataManagement({
                             const hasScenarios = scenarioImpacts.length > 0
                             const isExpanded = expandedScenarioItems.has(itemId)
 
+                            const isSelected = selectedItemId === itemId
+
                             return (
                               <div key={itemId}>
                                 {/* Main line item row */}
-                                <div className="group/item relative flex items-center justify-between gap-3 overflow-hidden rounded-md px-2 py-1 text-gray-200">
+                                <div
+                                  data-line-item
+                                  onClick={() => setSelectedItemId(isSelected ? null : itemId)}
+                                  onDoubleClick={() => {
+                                    const id = getItemId(item)
+                                    if (item.itemType === 'cash_account') {
+                                      const cashAccount = cashAccounts.find(ca => ca.id === id)
+                                      if (cashAccount) {
+                                        setCashAccountModalState({ isOpen: true, mode: 'edit', data: cashAccount })
+                                      }
+                                    } else {
+                                      handleEditItem(key, item)
+                                    }
+                                  }}
+                                  className={`group/item relative flex cursor-pointer items-center justify-between gap-3 overflow-hidden rounded-md px-2 py-1 text-gray-200 transition-colors ${isSelected ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                                >
                                   <div className="flex min-w-0 items-center gap-2">
                                     <span className="truncate text-sm">
                                       {'name' in item
@@ -711,6 +760,23 @@ export function FinancialDataManagement({
                                         ? item.payee
                                         : 'Entry'}
                                     </span>
+                                    {/* Accumulator star for cash accounts */}
+                                    {item.isAccumulator && (
+                                      <Tooltip.Provider delayDuration={0}>
+                                        <Tooltip.Root>
+                                          <Tooltip.Trigger asChild>
+                                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400 flex-shrink-0" />
+                                          </Tooltip.Trigger>
+                                          <Tooltip.Content
+                                            side="top"
+                                            sideOffset={6}
+                                            className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+                                          >
+                                            Accumulator - receives surplus cash
+                                          </Tooltip.Content>
+                                        </Tooltip.Root>
+                                      </Tooltip.Provider>
+                                    )}
                                     {/* Indicators aligned immediately after label */}
                                     {hasScenarios && <span className="h-2 w-2 flex-shrink-0 rounded-full bg-amber-400" />}
                                     {getAnnualizationLabel(item) && (
@@ -784,29 +850,68 @@ export function FinancialDataManagement({
                                       )
                                     })()}
                                   </div>
-                                  <div className="relative flex items-center gap-2">
-                                    <span className="text-sm text-gray-400 transition-opacity duration-200 group-hover/item:opacity-0">
-                                      {formatCurrency(item.adjAnnualAmt ?? item.adj_annual_amt ?? getDisplayAmount(item))}
-                                    </span>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover/item:pointer-events-auto group-hover/item:opacity-100">
-                                      <button
-                                        onClick={() => handleEditItem(key, item)}
-                                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-white/20"
-                                        type="button"
-                                      >
-                                        <Pencil className="h-3.5 w-3.5" />
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          const id = getItemId(item)
-                                          if (id) void handleDeleteItem(key, id)
-                                        }}
-                                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-rose-500/30 hover:text-rose-50"
-                                        type="button"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
-                                    </div>
+                                  <div className="flex items-center gap-2">
+                                    {!isSelected && (
+                                      <span className="text-sm text-gray-400">
+                                        {formatCurrency(item.adjAnnualAmt ?? item.adj_annual_amt ?? getDisplayAmount(item))}
+                                      </span>
+                                    )}
+                                    {isSelected && (
+                                      <div className="flex items-center gap-1">
+                                        {/* Set as accumulator button for cash accounts */}
+                                        {item.itemType === 'cash_account' && !item.isAccumulator && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              const id = getItemId(item)
+                                              if (id) setAccumulatorMutation.mutate(id)
+                                            }}
+                                            className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-amber-500/30 hover:text-amber-50"
+                                            type="button"
+                                            title="Set as accumulator"
+                                          >
+                                            <Star className="h-3.5 w-3.5" />
+                                          </button>
+                                        )}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            const id = getItemId(item)
+                                            if (item.itemType === 'cash_account') {
+                                              // Find the cash account from our list
+                                              const cashAccount = cashAccounts.find(ca => ca.id === id)
+                                              if (cashAccount) {
+                                                setCashAccountModalState({ isOpen: true, mode: 'edit', data: cashAccount })
+                                              }
+                                            } else {
+                                              handleEditItem(key, item)
+                                            }
+                                          }}
+                                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-white/20"
+                                          type="button"
+                                        >
+                                          <Pencil className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            const id = getItemId(item)
+                                            if (!id) return
+                                            if (item.itemType === 'cash_account') {
+                                              if (confirm('Are you sure you want to delete this cash account?')) {
+                                                deleteCashAccountMutation.mutate(id)
+                                              }
+                                            } else {
+                                              void handleDeleteItem(key, id)
+                                            }
+                                          }}
+                                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-rose-500/30 hover:text-rose-50"
+                                          type="button"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
 
@@ -874,11 +979,6 @@ export function FinancialDataManagement({
                               </div>
                             )
                           })}
-                          {data.length > 3 && (
-                            <p className="text-xs text-gray-500">
-                              +{data.length - 3} more
-                            </p>
-                          )}
                         </div>
                       ) : (
                         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
@@ -923,7 +1023,7 @@ export function FinancialDataManagement({
                   <div className="h-2 w-2 rounded-full bg-emerald-400" />
                 </div>
                 <p className="mt-4 text-2xl font-bold text-white">
-                  {formatCurrency(getMonthlySavingsForYear())}
+                  {formatCurrency(getAnnualSavingsForYear())}
                 </p>
               </div>
             </div>
@@ -951,6 +1051,25 @@ export function FinancialDataManagement({
           setPrefill(null)
         }}
         prefill={prefill ?? undefined}
+      />
+      <CashAccountFormModal
+        mode={cashAccountModalState.mode}
+        data={cashAccountModalState.data}
+        isOpen={cashAccountModalState.isOpen}
+        onClose={() => setCashAccountModalState({ isOpen: false, mode: 'create' })}
+        onSave={async (payload, mode) => {
+          if (mode === 'edit' && cashAccountModalState.data?.id) {
+            await updateCashAccountMutation.mutateAsync({
+              id: cashAccountModalState.data.id,
+              updates: payload,
+            })
+          } else {
+            await createCashAccountMutation.mutateAsync(payload)
+          }
+        }}
+        onDelete={async (id) => {
+          await deleteCashAccountMutation.mutateAsync(id)
+        }}
       />
     </>
   )

@@ -57,12 +57,13 @@ func (h *ExpenseHandler) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := h.store.ListExpenses(r.Context(), userID)
+	pagination := parsePagination(r)
+	result, err := h.store.ListExpenses(r.Context(), userID, pagination)
 	if err != nil {
 		internalError(w)
 		return
 	}
-	writeJSON(w, items)
+	writeJSON(w, result)
 }
 
 func (h *ExpenseHandler) get(w http.ResponseWriter, r *http.Request, id string) {

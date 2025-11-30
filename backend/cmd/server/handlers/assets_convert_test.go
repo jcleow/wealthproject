@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
+	"financial-chat-system/backend/internal/middleware"
 
 	"github.com/DATA-DOG/go-sqlmock"
 )
@@ -27,10 +28,12 @@ func TestAssetConvertToProperty(t *testing.T) {
 		AddRow("a1", "Asset", "property", 1000.0, 0.05, "", time.Now())
 
 	mock.ExpectQuery(`UPDATE finance_assets SET category='property'`).
-		WithArgs("a1").
+		WithArgs(sqlmock.AnyArg(), "a1").
 		WillReturnRows(rows)
 
 	req := httptest.NewRequest(http.MethodPut, "/assets/a1/convert-to-property", nil)
+	ctx := middleware.WithUserContext(req.Context(), middleware.UserContext{UserID: "test-user"})
+	req = req.WithContext(ctx)
 	rr := httptest.NewRecorder()
 	mux.ServeHTTP(rr, req)
 

@@ -73,31 +73,74 @@ type PropertyScenario struct {
 
 // Income represents a persisted income record.
 type Income struct {
-	ID        string        `json:"id"`
-	ParentID  string        `json:"parentId"`
-	Source    string        `json:"source"`
-	Amount    float64       `json:"amount"`
-	Frequency string        `json:"frequency"`
-	StartDate *time.Time    `json:"startDate"`
-	StartYear int           `json:"startYear"`
-	EndYear   sql.NullInt32 `json:"endYear"`
-	Category  string        `json:"category"`
-	Notes     string        `json:"notes"`
-	UpdatedAt time.Time     `json:"updatedAt"`
+	ID         string        `json:"id"`
+	ParentID   string        `json:"parentId"`
+	Source     string        `json:"source"`
+	Amount     float64       `json:"amount"`
+	Frequency  string        `json:"frequency"`
+	StartDate  *time.Time    `json:"startDate"`
+	StartYear  int           `json:"startYear"`
+	EndYear    sql.NullInt32 `json:"endYear"`
+	Category   string        `json:"category"`
+	GrowthRate float64       `json:"growthRate"`
+	Notes      string        `json:"notes"`
+	UpdatedAt  time.Time     `json:"updatedAt"`
 }
 
 // Expense represents a persisted expense record.
 type Expense struct {
-	ID        string        `json:"id"`
-	ParentID  string        `json:"parentId"`
-	Payee     string        `json:"payee"`
-	Amount    float64       `json:"amount"`
-	Frequency string        `json:"frequency"`
-	StartYear int           `json:"startYear"`
-	EndYear   sql.NullInt32 `json:"endYear"`
-	Category  string        `json:"category"`
-	Notes     string        `json:"notes"`
-	UpdatedAt time.Time     `json:"updatedAt"`
+	ID         string        `json:"id"`
+	ParentID   string        `json:"parentId"`
+	Payee      string        `json:"payee"`
+	Amount     float64       `json:"amount"`
+	Frequency  string        `json:"frequency"`
+	StartYear  int           `json:"startYear"`
+	EndYear    sql.NullInt32 `json:"endYear"`
+	Category   string        `json:"category"`
+	GrowthRate float64       `json:"growthRate"`
+	Notes      string        `json:"notes"`
+	UpdatedAt  time.Time     `json:"updatedAt"`
+}
+
+// PaginationParams holds pagination parameters for list queries.
+type PaginationParams struct {
+	Limit  int
+	Offset int
+}
+
+// PaginatedResult holds paginated list results with metadata.
+type PaginatedResult[T any] struct {
+	Data       []T `json:"data"`
+	Total      int `json:"total"`
+	Limit      int `json:"limit"`
+	Offset     int `json:"offset"`
+	HasMore    bool `json:"hasMore"`
+}
+
+// DefaultPagination returns default pagination params (20 items, no offset).
+func DefaultPagination() PaginationParams {
+	return PaginationParams{Limit: 20, Offset: 0}
+}
+
+// NormalizePagination ensures pagination params are within valid bounds.
+// A Limit of -1 means "no limit" (return all results).
+// A Limit of 0 defaults to 20.
+func NormalizePagination(p PaginationParams) PaginationParams {
+	if p.Limit == 0 {
+		p.Limit = 20
+	} else if p.Limit > 0 && p.Limit > 100 {
+		p.Limit = 100
+	}
+	// -1 means no limit, leave it as-is
+	if p.Offset < 0 {
+		p.Offset = 0
+	}
+	return p
+}
+
+// IsUnlimited returns true if pagination should return all results.
+func (p PaginationParams) IsUnlimited() bool {
+	return p.Limit < 0
 }
 
 // PropertyLink ties assets and liabilities to property scenarios.
@@ -146,7 +189,84 @@ func (s *Store) GetLiabilityByNameAndCategory(ctx context.Context, userID, name,
 
 // ----- Asset operations -----
 
-func (s *Store) ListAssets(ctx context.Context, userID string) ([]Asset, error) {
+func (s *Store) ListAssets(ctx context.Context, userID string, pagination PaginationParams) (PaginatedResult[Asset], error) {
+	p := NormalizePagination(pagination)
+
+	// Get total count
+	var total int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM finance_assets WHERE user_id = $1`, userID).Scan(&total)
+	if err != nil {
+		return PaginatedResult[Asset]{}, err
+	}
+
+	// Build query - omit LIMIT when limit is -1 (unlimited)
+	var rows *sql.Rows
+	if p.IsUnlimited() {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id,
+			       COALESCE(parent_id, id) as parent_id,
+			       name,
+			       category,
+			       current_value,
+			       annual_growth_rate,
+			       COALESCE(frequency, 'annual') as frequency,
+			       COALESCE(start_year, 0) as start_year,
+			       end_year,
+			       COALESCE(notes, '') as notes,
+			       updated_at
+			FROM finance_assets
+			WHERE user_id = $1
+			ORDER BY parent_id, start_year
+			OFFSET $2`, userID, p.Offset)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id,
+			       COALESCE(parent_id, id) as parent_id,
+			       name,
+			       category,
+			       current_value,
+			       annual_growth_rate,
+			       COALESCE(frequency, 'annual') as frequency,
+			       COALESCE(start_year, 0) as start_year,
+			       end_year,
+			       COALESCE(notes, '') as notes,
+			       updated_at
+			FROM finance_assets
+			WHERE user_id = $1
+			ORDER BY parent_id, start_year
+			LIMIT $2 OFFSET $3`, userID, p.Limit, p.Offset)
+	}
+	if err != nil {
+		return PaginatedResult[Asset]{}, err
+	}
+	defer rows.Close()
+
+	var assets []Asset
+	for rows.Next() {
+		var a Asset
+		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartYear, &a.EndYear, &a.Notes, &a.UpdatedAt); err != nil {
+			return PaginatedResult[Asset]{}, err
+		}
+		assets = append(assets, a)
+	}
+	if assets == nil {
+		assets = []Asset{}
+	}
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[Asset]{}, err
+	}
+
+	return PaginatedResult[Asset]{
+		Data:    assets,
+		Total:   total,
+		Limit:   p.Limit,
+		Offset:  p.Offset,
+		HasMore: !p.IsUnlimited() && p.Offset+len(assets) < total,
+	}, nil
+}
+
+// ListAllAssets returns all assets for a user (no pagination, for internal use like timeline).
+func (s *Store) ListAllAssets(ctx context.Context, userID string) ([]Asset, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -304,7 +424,86 @@ func (s *Store) ConvertAssetToProperty(ctx context.Context, userID, id string) (
 
 // ----- Liability operations -----
 
-func (s *Store) ListLiabilities(ctx context.Context, userID string) ([]Liability, error) {
+func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination PaginationParams) (PaginatedResult[Liability], error) {
+	p := NormalizePagination(pagination)
+
+	// Get total count
+	var total int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM finance_liabilities WHERE user_id = $1`, userID).Scan(&total)
+	if err != nil {
+		return PaginatedResult[Liability]{}, err
+	}
+
+	// Build query - omit LIMIT when limit is -1 (unlimited)
+	var rows *sql.Rows
+	if p.IsUnlimited() {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id,
+			       COALESCE(parent_id, id) as parent_id,
+			       name,
+			       category,
+			       current_balance,
+			       interest_rate_apr,
+			       minimum_payment,
+			       COALESCE(frequency, 'annual') as frequency,
+			       COALESCE(start_year, 0) as start_year,
+			       end_year,
+			       COALESCE(notes, '') as notes,
+			       updated_at
+			FROM finance_liabilities
+			WHERE user_id = $1
+			ORDER BY parent_id, start_year
+			OFFSET $2`, userID, p.Offset)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id,
+			       COALESCE(parent_id, id) as parent_id,
+			       name,
+			       category,
+			       current_balance,
+			       interest_rate_apr,
+			       minimum_payment,
+			       COALESCE(frequency, 'annual') as frequency,
+			       COALESCE(start_year, 0) as start_year,
+			       end_year,
+			       COALESCE(notes, '') as notes,
+			       updated_at
+			FROM finance_liabilities
+			WHERE user_id = $1
+			ORDER BY parent_id, start_year
+			LIMIT $2 OFFSET $3`, userID, p.Limit, p.Offset)
+	}
+	if err != nil {
+		return PaginatedResult[Liability]{}, err
+	}
+	defer rows.Close()
+
+	var items []Liability
+	for rows.Next() {
+		var li Liability
+		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartYear, &li.EndYear, &li.Notes, &li.UpdatedAt); err != nil {
+			return PaginatedResult[Liability]{}, err
+		}
+		items = append(items, li)
+	}
+	if items == nil {
+		items = []Liability{}
+	}
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[Liability]{}, err
+	}
+
+	return PaginatedResult[Liability]{
+		Data:    items,
+		Total:   total,
+		Limit:   p.Limit,
+		Offset:  p.Offset,
+		HasMore: !p.IsUnlimited() && p.Offset+len(items) < total,
+	}, nil
+}
+
+// ListAllLiabilities returns all liabilities for a user (no pagination, for internal use like timeline).
+func (s *Store) ListAllLiabilities(ctx context.Context, userID string) ([]Liability, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -570,7 +769,86 @@ func (s *Store) DeletePropertyScenario(ctx context.Context, userID, id string) e
 
 // ----- Income operations -----
 
-func (s *Store) ListIncomes(ctx context.Context, userID string) ([]Income, error) {
+func (s *Store) ListIncomes(ctx context.Context, userID string, pagination PaginationParams) (PaginatedResult[Income], error) {
+	p := NormalizePagination(pagination)
+
+	// Get total count
+	var total int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM finance_incomes WHERE user_id = $1`, userID).Scan(&total)
+	if err != nil {
+		return PaginatedResult[Income]{}, err
+	}
+
+	// Build query - omit LIMIT when limit is -1 (unlimited)
+	var rows *sql.Rows
+	if p.IsUnlimited() {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id,
+			       COALESCE(parent_id, id) as parent_id,
+			       source,
+			       amount,
+			       frequency,
+			       start_year,
+			       end_year,
+			       start_date,
+			       category,
+			       COALESCE(growth_rate, 3.0) as growth_rate,
+			       COALESCE(notes, '') as notes,
+			       updated_at
+			FROM finance_incomes
+			WHERE user_id = $1
+			ORDER BY parent_id, start_year
+			OFFSET $2`, userID, p.Offset)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id,
+			       COALESCE(parent_id, id) as parent_id,
+			       source,
+			       amount,
+			       frequency,
+			       start_year,
+			       end_year,
+			       start_date,
+			       category,
+			       COALESCE(growth_rate, 3.0) as growth_rate,
+			       COALESCE(notes, '') as notes,
+			       updated_at
+			FROM finance_incomes
+			WHERE user_id = $1
+			ORDER BY parent_id, start_year
+			LIMIT $2 OFFSET $3`, userID, p.Limit, p.Offset)
+	}
+	if err != nil {
+		return PaginatedResult[Income]{}, err
+	}
+	defer rows.Close()
+
+	var items []Income
+	for rows.Next() {
+		var it Income
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.StartDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
+			return PaginatedResult[Income]{}, err
+		}
+		items = append(items, it)
+	}
+	if items == nil {
+		items = []Income{}
+	}
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[Income]{}, err
+	}
+
+	return PaginatedResult[Income]{
+		Data:    items,
+		Total:   total,
+		Limit:   p.Limit,
+		Offset:  p.Offset,
+		HasMore: !p.IsUnlimited() && p.Offset+len(items) < total,
+	}, nil
+}
+
+// ListAllIncomes returns all incomes for a user (no pagination, for internal use like timeline).
+func (s *Store) ListAllIncomes(ctx context.Context, userID string) ([]Income, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -581,6 +859,7 @@ func (s *Store) ListIncomes(ctx context.Context, userID string) ([]Income, error
 		       end_year,
 		       start_date,
 		       category,
+		       COALESCE(growth_rate, 3.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_incomes
@@ -594,7 +873,7 @@ func (s *Store) ListIncomes(ctx context.Context, userID string) ([]Income, error
 	var items []Income
 	for rows.Next() {
 		var it Income
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.StartDate, &it.Category, &it.Notes, &it.UpdatedAt); err != nil {
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.StartDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, it)
@@ -616,12 +895,13 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (Income, error
 		       end_year,
 		       start_date,
 		       category,
+		       COALESCE(growth_rate, 3.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_incomes
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var it Income
-	if err := row.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.StartDate, &it.Category, &it.Notes, &it.UpdatedAt); err != nil {
+	if err := row.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.StartDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Income{}, ErrNotFound
 		}
@@ -632,8 +912,8 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (Income, error
 
 func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Income, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_year, end_year, start_date, category, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, COALESCE($6,0), $7, COALESCE($8, NOW()), $9, NULLIF($10, ''))
+		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_year, end_year, start_date, category, growth_rate, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, COALESCE($6,0), $7, COALESCE($8, NOW()), $9, COALESCE($10, 3.0), NULLIF($11, ''))
 		ON CONFLICT (parent_id, start_year) DO UPDATE
 		SET source=EXCLUDED.source,
 		    amount=EXCLUDED.amount,
@@ -641,12 +921,13 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 		    end_year=EXCLUDED.end_year,
 		    start_date=EXCLUDED.start_date,
 		    category=EXCLUDED.category,
+		    growth_rate=EXCLUDED.growth_rate,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_year, end_year, start_date, category, COALESCE(notes, ''), updated_at`,
-		userID, nullIfEmpty(it.ParentID), it.Source, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.StartDate, it.Category, it.Notes)
+		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_year, end_year, start_date, category, COALESCE(growth_rate, 3.0), COALESCE(notes, ''), updated_at`,
+		userID, nullIfEmpty(it.ParentID), it.Source, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.StartDate, it.Category, it.GrowthRate, it.Notes)
 	var created Income
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Source, &created.Amount, &created.Frequency, &created.StartYear, &created.EndYear, &created.StartDate, &created.Category, &created.Notes, &created.UpdatedAt); err != nil {
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Source, &created.Amount, &created.Frequency, &created.StartYear, &created.EndYear, &created.StartDate, &created.Category, &created.GrowthRate, &created.Notes, &created.UpdatedAt); err != nil {
 		return Income{}, err
 	}
 	return created, nil
@@ -662,13 +943,14 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Inc
 		    end_year=$7,
 		    start_date=COALESCE($8, start_date, NOW()),
 		    category=$9,
-		    notes=NULLIF($10, ''),
+		    growth_rate=COALESCE($10, growth_rate, 3.0),
+		    notes=NULLIF($11, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, COALESCE(start_year,0), end_year, start_date, category, COALESCE(notes, ''), updated_at`,
-		userID, it.ID, it.Source, it.Amount, it.Frequency, nullableInt32(it.StartYear), nullableFromNullInt32(it.EndYear), it.StartDate, it.Category, it.Notes)
+		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, COALESCE(start_year,0), end_year, start_date, category, COALESCE(growth_rate, 3.0), COALESCE(notes, ''), updated_at`,
+		userID, it.ID, it.Source, it.Amount, it.Frequency, nullableInt32(it.StartYear), nullableFromNullInt32(it.EndYear), it.StartDate, it.Category, it.GrowthRate, it.Notes)
 	var updated Income
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Source, &updated.Amount, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.StartDate, &updated.Category, &updated.Notes, &updated.UpdatedAt); err != nil {
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Source, &updated.Amount, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.StartDate, &updated.Category, &updated.GrowthRate, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Income{}, ErrNotFound
 		}
@@ -691,7 +973,84 @@ func (s *Store) DeleteIncome(ctx context.Context, userID, id string) error {
 
 // ----- Expense operations -----
 
-func (s *Store) ListExpenses(ctx context.Context, userID string) ([]Expense, error) {
+func (s *Store) ListExpenses(ctx context.Context, userID string, pagination PaginationParams) (PaginatedResult[Expense], error) {
+	p := NormalizePagination(pagination)
+
+	// Get total count
+	var total int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM finance_expenses WHERE user_id = $1`, userID).Scan(&total)
+	if err != nil {
+		return PaginatedResult[Expense]{}, err
+	}
+
+	// Build query - omit LIMIT when limit is -1 (unlimited)
+	var rows *sql.Rows
+	if p.IsUnlimited() {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id,
+			       COALESCE(parent_id, id) as parent_id,
+			       payee,
+			       amount,
+			       frequency,
+			       COALESCE(start_year, 0) as start_year,
+			       end_year,
+			       category,
+			       COALESCE(growth_rate, 2.0) as growth_rate,
+			       COALESCE(notes, '') as notes,
+			       updated_at
+			FROM finance_expenses
+			WHERE user_id = $1
+			ORDER BY parent_id, start_year
+			OFFSET $2`, userID, p.Offset)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id,
+			       COALESCE(parent_id, id) as parent_id,
+			       payee,
+			       amount,
+			       frequency,
+			       COALESCE(start_year, 0) as start_year,
+			       end_year,
+			       category,
+			       COALESCE(growth_rate, 2.0) as growth_rate,
+			       COALESCE(notes, '') as notes,
+			       updated_at
+			FROM finance_expenses
+			WHERE user_id = $1
+			ORDER BY parent_id, start_year
+			LIMIT $2 OFFSET $3`, userID, p.Limit, p.Offset)
+	}
+	if err != nil {
+		return PaginatedResult[Expense]{}, err
+	}
+	defer rows.Close()
+
+	var items []Expense
+	for rows.Next() {
+		var it Expense
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
+			return PaginatedResult[Expense]{}, err
+		}
+		items = append(items, it)
+	}
+	if items == nil {
+		items = []Expense{}
+	}
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[Expense]{}, err
+	}
+
+	return PaginatedResult[Expense]{
+		Data:    items,
+		Total:   total,
+		Limit:   p.Limit,
+		Offset:  p.Offset,
+		HasMore: !p.IsUnlimited() && p.Offset+len(items) < total,
+	}, nil
+}
+
+// ListAllExpenses returns all expenses for a user (no pagination, for internal use like timeline).
+func (s *Store) ListAllExpenses(ctx context.Context, userID string) ([]Expense, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
@@ -701,6 +1060,7 @@ func (s *Store) ListExpenses(ctx context.Context, userID string) ([]Expense, err
 		       COALESCE(start_year, 0) as start_year,
 		       end_year,
 		       category,
+		       COALESCE(growth_rate, 2.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_expenses
@@ -714,7 +1074,7 @@ func (s *Store) ListExpenses(ctx context.Context, userID string) ([]Expense, err
 	var items []Expense
 	for rows.Next() {
 		var it Expense
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.Category, &it.Notes, &it.UpdatedAt); err != nil {
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, it)
@@ -735,12 +1095,13 @@ func (s *Store) GetExpense(ctx context.Context, userID, id string) (Expense, err
 		       COALESCE(start_year, 0) as start_year,
 		       end_year,
 		       category,
+		       COALESCE(growth_rate, 2.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_expenses
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var it Expense
-	if err := row.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.Category, &it.Notes, &it.UpdatedAt); err != nil {
+	if err := row.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Expense{}, ErrNotFound
 		}
@@ -751,20 +1112,21 @@ func (s *Store) GetExpense(ctx context.Context, userID, id string) (Expense, err
 
 func (s *Store) CreateExpense(ctx context.Context, userID string, it Expense) (Expense, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_year, end_year, category, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, COALESCE($6,0), $7, $8, NULLIF($9, ''))
+		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_year, end_year, category, growth_rate, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, COALESCE($6,0), $7, $8, COALESCE($9, 2.0), NULLIF($10, ''))
 		ON CONFLICT (parent_id, start_year) DO UPDATE
 		SET payee=EXCLUDED.payee,
 		    amount=EXCLUDED.amount,
 		    frequency=EXCLUDED.frequency,
 		    end_year=EXCLUDED.end_year,
 		    category=EXCLUDED.category,
+		    growth_rate=EXCLUDED.growth_rate,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_year, end_year, category, COALESCE(notes, ''), updated_at`,
-		userID, nullIfEmpty(it.ParentID), it.Payee, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.Category, it.Notes)
+		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_year, end_year, category, COALESCE(growth_rate, 2.0), COALESCE(notes, ''), updated_at`,
+		userID, nullIfEmpty(it.ParentID), it.Payee, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.Category, it.GrowthRate, it.Notes)
 	var created Expense
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency, &created.StartYear, &created.EndYear, &created.Category, &created.Notes, &created.UpdatedAt); err != nil {
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency, &created.StartYear, &created.EndYear, &created.Category, &created.GrowthRate, &created.Notes, &created.UpdatedAt); err != nil {
 		return Expense{}, err
 	}
 	return created, nil
@@ -779,13 +1141,14 @@ func (s *Store) UpdateExpense(ctx context.Context, userID string, it Expense) (E
 		    start_year=COALESCE($6, start_year),
 		    end_year=$7,
 		    category=$8,
-		    notes=NULLIF($9, ''),
+		    growth_rate=COALESCE($9, growth_rate, 2.0),
+		    notes=NULLIF($10, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, COALESCE(start_year,0), end_year, category, COALESCE(notes, ''), updated_at`,
-		userID, it.ID, it.Payee, it.Amount, it.Frequency, nullableInt32(it.StartYear), nullableFromNullInt32(it.EndYear), it.Category, it.Notes)
+		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, COALESCE(start_year,0), end_year, category, COALESCE(growth_rate, 2.0), COALESCE(notes, ''), updated_at`,
+		userID, it.ID, it.Payee, it.Amount, it.Frequency, nullableInt32(it.StartYear), nullableFromNullInt32(it.EndYear), it.Category, it.GrowthRate, it.Notes)
 	var updated Expense
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Payee, &updated.Amount, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.Category, &updated.Notes, &updated.UpdatedAt); err != nil {
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Payee, &updated.Amount, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.Category, &updated.GrowthRate, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Expense{}, ErrNotFound
 		}
@@ -961,4 +1324,64 @@ func (s *Store) ListPropertyLinksByLiability(ctx context.Context, userID, liabil
 		links = []PropertyLink{}
 	}
 	return links, rows.Err()
+}
+
+// ListAllPropertyLinks lists all property links for a user with pagination.
+// Use Limit=-1 to return all results without pagination.
+func (s *Store) ListAllPropertyLinks(ctx context.Context, userID string, pagination PaginationParams) (PaginatedResult[PropertyLink], error) {
+	p := NormalizePagination(pagination)
+
+	// Get total count
+	var total int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM property_links pl
+		INNER JOIN property_scenarios ps ON ps.id = pl.property_scenario_id AND ps.user_id = $1`, userID).Scan(&total)
+	if err != nil {
+		return PaginatedResult[PropertyLink]{}, err
+	}
+
+	var rows *sql.Rows
+	if p.IsUnlimited() {
+		// No limit - return all results
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT pl.id, pl.property_scenario_id, pl.asset_id, pl.liability_id, pl.created_at, pl.updated_at
+			FROM property_links pl
+			INNER JOIN property_scenarios ps ON ps.id = pl.property_scenario_id AND ps.user_id = $1
+			ORDER BY pl.updated_at DESC`, userID)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT pl.id, pl.property_scenario_id, pl.asset_id, pl.liability_id, pl.created_at, pl.updated_at
+			FROM property_links pl
+			INNER JOIN property_scenarios ps ON ps.id = pl.property_scenario_id AND ps.user_id = $1
+			ORDER BY pl.updated_at DESC
+			LIMIT $2 OFFSET $3`, userID, p.Limit, p.Offset)
+	}
+	if err != nil {
+		return PaginatedResult[PropertyLink]{}, err
+	}
+	defer rows.Close()
+
+	var links []PropertyLink
+	for rows.Next() {
+		var l PropertyLink
+		if err := rows.Scan(&l.ID, &l.PropertyScenarioID, &l.AssetID, &l.LiabilityID, &l.CreatedAt, &l.UpdatedAt); err != nil {
+			return PaginatedResult[PropertyLink]{}, err
+		}
+		links = append(links, l)
+	}
+	if links == nil {
+		links = []PropertyLink{}
+	}
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[PropertyLink]{}, err
+	}
+
+	return PaginatedResult[PropertyLink]{
+		Data:    links,
+		Total:   total,
+		Limit:   p.Limit,
+		Offset:  p.Offset,
+		HasMore: !p.IsUnlimited() && p.Offset+len(links) < total,
+	}, nil
 }

@@ -3,8 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
+	"financial-chat-system/backend/internal/financial/repository"
 	"financial-chat-system/backend/internal/middleware"
 )
 
@@ -82,4 +84,24 @@ func requireUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
 		return "", false
 	}
 	return userID, true
+}
+
+// parsePagination extracts limit and offset from query parameters.
+// Use limit=-1 to return all results (no limit).
+func parsePagination(r *http.Request) repository.PaginationParams {
+	p := repository.DefaultPagination()
+
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil {
+			p.Limit = limit
+		}
+	}
+
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil {
+			p.Offset = offset
+		}
+	}
+
+	return repository.NormalizePagination(p)
 }

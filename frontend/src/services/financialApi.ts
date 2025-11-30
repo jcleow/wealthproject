@@ -1,4 +1,4 @@
-import type { Asset, Liability, Income, Expense } from '@/types/financial'
+import type { Asset, Liability, Income, Expense, CashAccount, GrowthConfig, UserSettings, PaginatedResponse, PaginationParams } from '@/types/financial'
 import type { PropertyLinkRecord, PropertyScenarioRecord } from '@/types/property'
 import {
   type ScenarioEvent,
@@ -85,6 +85,7 @@ const toIncome = (item: any): Income => ({
   frequency: item.frequency ?? item.Frequency,
   startDate: item.start_date ?? item.startDate ?? item.StartDate ?? new Date().toISOString(),
   category: item.category ?? item.Category,
+  growthRate: item.growth_rate ?? item.growthRate ?? item.GrowthRate ?? 3.0,
   notes: item.notes ?? item.Notes ?? '',
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
 })
@@ -96,7 +97,23 @@ const toExpense = (item: any): Expense => ({
   amount: item.amount ?? item.Amount,
   frequency: item.frequency ?? item.Frequency,
   category: item.category ?? item.Category,
+  growthRate: item.growth_rate ?? item.growthRate ?? item.GrowthRate ?? 2.0,
   notes: item.notes ?? item.Notes ?? '',
+  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+})
+
+const toCashAccount = (item: any): CashAccount => ({
+  id: item.id ?? item.ID,
+  name: item.name ?? item.Name,
+  balance: item.balance ?? item.Balance ?? 0,
+  interestRate: item.interest_rate ?? item.interestRate ?? item.InterestRate ?? 1.5,
+  bankName: item.bank_name ?? item.bankName ?? item.BankName ?? null,
+  accountType: item.account_type ?? item.accountType ?? item.AccountType ?? null,
+  isAccumulator: item.is_accumulator ?? item.isAccumulator ?? item.IsAccumulator ?? false,
+  startYear: item.start_year ?? item.startYear ?? item.StartYear ?? 0,
+  endYear: item.end_year ?? item.endYear ?? item.EndYear ?? null,
+  notes: item.notes ?? item.Notes ?? '',
+  createdAt: item.created_at ?? item.createdAt ?? item.CreatedAt,
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
 })
 
@@ -122,11 +139,37 @@ const toPropertyScenario = (item: any): PropertyScenarioRecord => ({
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt ?? '',
 })
 
+const toGrowthConfig = (item: any): GrowthConfig => ({
+  id: item.id ?? item.ID,
+  category: item.category ?? item.Category,
+  annualRatePct: item.annual_rate_pct ?? item.annualRatePct ?? item.AnnualRatePct ?? 0,
+  lowerBoundPct: item.lower_bound_pct ?? item.lowerBoundPct ?? item.LowerBoundPct ?? -50,
+  upperBoundPct: item.upper_bound_pct ?? item.upperBoundPct ?? item.UpperBoundPct ?? 50,
+  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+})
+
+// Helper to build URL with pagination params
+function buildPaginatedUrl(base: string, params?: PaginationParams): string {
+  const url = new URL(base, window.location.origin)
+  if (params?.limit !== undefined) url.searchParams.set('limit', params.limit.toString())
+  if (params?.offset !== undefined) url.searchParams.set('offset', params.offset.toString())
+  return url.pathname + url.search
+}
+
 export const financialApi = {
   // Assets
-  async listAssets(): Promise<Asset[]> {
-    const data = await jsonRequest<any[]>(`${API_BASE}/assets`)
-    return data.map(toAsset)
+  async listAssets(params?: PaginationParams): Promise<PaginatedResponse<Asset>> {
+    const url = buildPaginatedUrl(`${API_BASE}/assets`, params)
+    const data = await jsonRequest<any>(url)
+    // Handle both paginated response and empty/error cases
+    const items = Array.isArray(data?.data) ? data.data : []
+    return {
+      data: items.map(toAsset),
+      total: data?.total ?? items.length,
+      limit: data?.limit ?? params?.limit ?? 20,
+      offset: data?.offset ?? params?.offset ?? 0,
+      hasMore: data?.hasMore ?? false,
+    }
   },
   async createAsset(payload: Omit<Asset, 'id' | 'updatedAt'>): Promise<Asset> {
     const body = {
@@ -188,9 +231,18 @@ export const financialApi = {
   },
 
   // Liabilities
-  async listLiabilities(): Promise<Liability[]> {
-    const data = await jsonRequest<any[]>(`${API_BASE}/liabilities`)
-    return data.map(toLiability)
+  async listLiabilities(params?: PaginationParams): Promise<PaginatedResponse<Liability>> {
+    const url = buildPaginatedUrl(`${API_BASE}/liabilities`, params)
+    const data = await jsonRequest<any>(url)
+    // Handle both paginated response and empty/error cases
+    const items = Array.isArray(data?.data) ? data.data : []
+    return {
+      data: items.map(toLiability),
+      total: data?.total ?? items.length,
+      limit: data?.limit ?? params?.limit ?? 20,
+      offset: data?.offset ?? params?.offset ?? 0,
+      hasMore: data?.hasMore ?? false,
+    }
   },
   async createLiability(payload: Omit<Liability, 'id' | 'updatedAt'>): Promise<Liability> {
     const body = {
@@ -225,9 +277,18 @@ export const financialApi = {
   },
 
   // Incomes
-  async listIncomes(): Promise<Income[]> {
-    const data = await jsonRequest<any[]>(`${API_BASE}/cashflow/incomes`)
-    return data.map(toIncome)
+  async listIncomes(params?: PaginationParams): Promise<PaginatedResponse<Income>> {
+    const url = buildPaginatedUrl(`${API_BASE}/cashflow/incomes`, params)
+    const data = await jsonRequest<any>(url)
+    // Handle both paginated response and empty/error cases
+    const items = (data && Array.isArray(data.data)) ? data.data : []
+    return {
+      data: items.map(toIncome),
+      total: data?.total ?? items.length,
+      limit: data?.limit ?? params?.limit ?? 20,
+      offset: data?.offset ?? params?.offset ?? 0,
+      hasMore: data?.hasMore ?? false,
+    }
   },
   async createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): Promise<Income> {
     const startDate = payload.startDate ?? new Date().toISOString()
@@ -237,6 +298,7 @@ export const financialApi = {
       frequency: payload.frequency,
       startDate,
       category: payload.category,
+      growthRate: payload.growthRate ?? 3.0,
       notes: payload.notes,
     }
     const data = await jsonRequest<any>(`${API_BASE}/cashflow/incomes`, { method: 'POST', body: JSON.stringify(body) })
@@ -249,6 +311,7 @@ export const financialApi = {
       frequency: payload.frequency,
       startDate: payload.startDate,
       category: payload.category,
+      growthRate: payload.growthRate,
       notes: payload.notes,
     }
     const data = await jsonRequest<any>(`${API_BASE}/cashflow/incomes/${id}`, { method: 'PUT', body: JSON.stringify(body) })
@@ -259,9 +322,18 @@ export const financialApi = {
   },
 
   // Expenses
-  async listExpenses(): Promise<Expense[]> {
-    const data = await jsonRequest<any[]>(`${API_BASE}/cashflow/expenses`)
-    return data.map(toExpense)
+  async listExpenses(params?: PaginationParams): Promise<PaginatedResponse<Expense>> {
+    const url = buildPaginatedUrl(`${API_BASE}/cashflow/expenses`, params)
+    const data = await jsonRequest<any>(url)
+    // Handle both paginated response and empty/error cases
+    const items = Array.isArray(data?.data) ? data.data : []
+    return {
+      data: items.map(toExpense),
+      total: data?.total ?? items.length,
+      limit: data?.limit ?? params?.limit ?? 20,
+      offset: data?.offset ?? params?.offset ?? 0,
+      hasMore: data?.hasMore ?? false,
+    }
   },
   async createExpense(payload: Omit<Expense, 'id' | 'updatedAt'>): Promise<Expense> {
     const body = {
@@ -269,6 +341,7 @@ export const financialApi = {
       amount: payload.amount,
       frequency: payload.frequency,
       category: payload.category,
+      growthRate: payload.growthRate ?? 2.0,
       notes: payload.notes,
     }
     const data = await jsonRequest<any>(`${API_BASE}/cashflow/expenses`, { method: 'POST', body: JSON.stringify(body) })
@@ -280,6 +353,7 @@ export const financialApi = {
       amount: payload.amount,
       frequency: payload.frequency,
       category: payload.category,
+      growthRate: payload.growthRate,
       notes: payload.notes,
     }
     const data = await jsonRequest<any>(`${API_BASE}/cashflow/expenses/${id}`, { method: 'PUT', body: JSON.stringify(body) })
@@ -352,17 +426,31 @@ export const financialApi = {
 
   async listPropertyLinks(scenarioId: string): Promise<PropertyLinkRecord[]> {
     const data = await jsonRequest<any[]>(`${API_BASE}/property-links?property_scenario_id=${encodeURIComponent(scenarioId)}`)
-    return data.map(toPropertyLink)
+    return (data ?? []).map(toPropertyLink)
   },
 
   async listPropertyLinksByAsset(assetId: string): Promise<PropertyLinkRecord[]> {
     const data = await jsonRequest<any[]>(`${API_BASE}/property-links?asset_id=${encodeURIComponent(assetId)}`)
-    return data.map(toPropertyLink)
+    return (data ?? []).map(toPropertyLink)
   },
 
   async listPropertyLinksByLiability(liabilityId: string): Promise<PropertyLinkRecord[]> {
     const data = await jsonRequest<any[]>(`${API_BASE}/property-links?liability_id=${encodeURIComponent(liabilityId)}`)
-    return data.map(toPropertyLink)
+    return (data ?? []).map(toPropertyLink)
+  },
+
+  async listAllPropertyLinks(params?: PaginationParams): Promise<PaginatedResponse<PropertyLinkRecord>> {
+    const url = buildPaginatedUrl(`${API_BASE}/property-links`, params)
+    const data = await jsonRequest<any>(url)
+    // Handle both paginated response and empty/error cases
+    const items = (data && Array.isArray(data.data)) ? data.data : []
+    return {
+      data: items.map(toPropertyLink),
+      total: data?.total ?? items.length,
+      limit: data?.limit ?? params?.limit ?? 20,
+      offset: data?.offset ?? params?.offset ?? 0,
+      hasMore: data?.hasMore ?? false,
+    }
   },
 
   async deletePropertyScenario(id: string): Promise<void> {
@@ -480,6 +568,11 @@ export const financialApi = {
     await jsonRequest<void>(`${API_BASE}/scenario-events/${encodeURIComponent(id)}`, { method: 'DELETE' })
   },
 
+  async deleteAllScenarioEvents(): Promise<void> {
+    const events = await financialApi.listScenarioEvents()
+    await Promise.all(events.filter(e => e.id).map(event => financialApi.deleteScenarioEvent(event.id!)))
+  },
+
   // Property scenarios list
   async listPropertyScenarios(): Promise<PropertyScenarioRecord[]> {
     const data = await jsonRequest<any[]>(`${API_BASE}/property-planner/scenarios`)
@@ -502,22 +595,130 @@ export const financialApi = {
 
   // Bulk delete operations for sample data and reset
   async deleteAllAssets(): Promise<void> {
-    const assets = await financialApi.listAssets()
-    await Promise.all(assets.map(asset => financialApi.deleteAsset(asset.id)))
+    const result = await financialApi.listAssets({ limit: -1 })
+    await Promise.all(result.data.map(asset => financialApi.deleteAsset(asset.id)))
   },
 
   async deleteAllLiabilities(): Promise<void> {
-    const liabilities = await financialApi.listLiabilities()
-    await Promise.all(liabilities.map(liability => financialApi.deleteLiability(liability.id)))
+    const result = await financialApi.listLiabilities({ limit: -1 })
+    await Promise.all(result.data.map(liability => financialApi.deleteLiability(liability.id)))
   },
 
   async deleteAllIncomes(): Promise<void> {
-    const incomes = await financialApi.listIncomes()
-    await Promise.all(incomes.map(income => financialApi.deleteIncome(income.id)))
+    const result = await financialApi.listIncomes({ limit: -1 })
+    await Promise.all(result.data.map(income => financialApi.deleteIncome(income.id)))
   },
 
   async deleteAllExpenses(): Promise<void> {
-    const expenses = await financialApi.listExpenses()
-    await Promise.all(expenses.map(expense => financialApi.deleteExpense(expense.id)))
+    const result = await financialApi.listExpenses({ limit: -1 })
+    await Promise.all(result.data.map(expense => financialApi.deleteExpense(expense.id)))
+  },
+
+  // Cash Accounts
+  async listCashAccounts(): Promise<CashAccount[]> {
+    const data = await jsonRequest<any[]>(`${API_BASE}/cash-accounts`)
+    return data.map(toCashAccount)
+  },
+
+  async getCashAccount(id: string): Promise<CashAccount> {
+    const data = await jsonRequest<any>(`${API_BASE}/cash-accounts/${id}`)
+    return toCashAccount(data)
+  },
+
+  async createCashAccount(payload: Omit<CashAccount, 'id' | 'createdAt' | 'updatedAt'>): Promise<CashAccount> {
+    const body = {
+      name: payload.name,
+      balance: payload.balance,
+      interest_rate: payload.interestRate,
+      bank_name: payload.bankName,
+      account_type: payload.accountType,
+      is_accumulator: payload.isAccumulator,
+      start_year: payload.startYear,
+      end_year: payload.endYear,
+      notes: payload.notes,
+    }
+    const data = await jsonRequest<any>(`${API_BASE}/cash-accounts`, { method: 'POST', body: JSON.stringify(body) })
+    return toCashAccount(data)
+  },
+
+  async updateCashAccount(id: string, payload: Partial<CashAccount>): Promise<CashAccount> {
+    const body: Record<string, any> = {
+      name: payload.name,
+      balance: payload.balance,
+      interest_rate: payload.interestRate,
+      bank_name: payload.bankName,
+      account_type: payload.accountType,
+      is_accumulator: payload.isAccumulator,
+      start_year: payload.startYear,
+      end_year: payload.endYear,
+      notes: payload.notes,
+    }
+    const data = await jsonRequest<any>(`${API_BASE}/cash-accounts/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+    return toCashAccount(data)
+  },
+
+  async deleteCashAccount(id: string): Promise<void> {
+    await jsonRequest<void>(`${API_BASE}/cash-accounts/${id}`, { method: 'DELETE' })
+  },
+
+  async setAccumulatorAccount(id: string): Promise<void> {
+    await jsonRequest<void>(`${API_BASE}/cash-accounts/${id}/set-accumulator`, { method: 'PUT' })
+  },
+
+  async deleteAllCashAccounts(): Promise<void> {
+    const accounts = await financialApi.listCashAccounts()
+    await Promise.all(accounts.map(account => financialApi.deleteCashAccount(account.id)))
+  },
+
+  // Growth Configs (user defaults)
+  async getGrowthConfigs(): Promise<GrowthConfig[]> {
+    const data = await jsonRequest<{ growth: any[]; version: string }>(`${API_BASE}/financial/growth`)
+    return data.growth.map(toGrowthConfig)
+  },
+
+  async updateGrowthConfigs(configs: GrowthConfig[]): Promise<GrowthConfig[]> {
+    const body = {
+      growth: configs.map(cfg => ({
+        category: cfg.category,
+        annualRatePct: cfg.annualRatePct,
+        lowerBoundPct: cfg.lowerBoundPct,
+        upperBoundPct: cfg.upperBoundPct,
+      })),
+    }
+    const data = await jsonRequest<{ growth: any[]; version: string }>(`${API_BASE}/financial/growth`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    })
+    return data.growth.map(toGrowthConfig)
+  },
+
+  // User Settings
+  async getUserSettings(): Promise<UserSettings> {
+    const data = await jsonRequest<any>(`${API_BASE}/settings`)
+    return {
+      id: data.id,
+      startingAge: data.startingAge ?? 30,
+      terminalAge: data.terminalAge ?? 65,
+      yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
+      updatedAt: data.updatedAt,
+    }
+  },
+
+  async updateUserSettings(settings: UserSettings): Promise<UserSettings> {
+    const data = await jsonRequest<any>(`${API_BASE}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        startingAge: settings.startingAge,
+        terminalAge: settings.terminalAge,
+        yearDisplayFormat: settings.yearDisplayFormat,
+      }),
+    })
+    return {
+      id: data.id,
+      startingAge: data.startingAge ?? 30,
+      terminalAge: data.terminalAge ?? 65,
+      yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
+      updatedAt: data.updatedAt,
+    }
   },
 }

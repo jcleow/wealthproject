@@ -6,7 +6,7 @@ export type TimelineFrequency =
   | 'quarterly'
   | 'semiannual'
 
-export type TimelineItemType = 'asset' | 'liability' | 'income' | 'expense'
+export type TimelineItemType = 'asset' | 'liability' | 'income' | 'expense' | 'cash_account'
 
 /** Event impact attached to a timeline item */
 export interface TimelineEventImpact {
@@ -28,8 +28,12 @@ export interface TimelineItem {
   sourceFrequency?: TimelineFrequency
   itemType: TimelineItemType
   createdYear: number
+  /** Per-item annual growth rate (percentage) */
+  growthRate?: number
   /** Scenario event impacts applied to this item */
   eventImpacts?: TimelineEventImpact[]
+  /** Indicates this is the designated cash account receiving net savings (cash accounts only) */
+  isAccumulator?: boolean
 }
 
 export interface GrowthApplied {
@@ -40,6 +44,7 @@ export interface GrowthApplied {
 export interface TimelineYear {
   year: number
   assets: TimelineItem[]
+  cashAccounts: TimelineItem[]
   liabilities: TimelineItem[]
   income: TimelineItem[]
   expenses: TimelineItem[]
@@ -47,6 +52,12 @@ export interface TimelineYear {
   netWorth: number
   hasOverrides: boolean
   growthApplied: GrowthApplied[]
+  // Cash accumulation tracking
+  annualNetSavings?: number
+  accumulatedCashStart?: number
+  accumulatedCashEnd?: number
+  interestEarned?: number
+  accumulatorAccountId?: string
 }
 
 export interface TimelineResponse {

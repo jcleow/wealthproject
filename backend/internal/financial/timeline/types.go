@@ -11,10 +11,11 @@ import (
 type ItemType string
 
 const (
-	ItemTypeAsset     ItemType = "asset"
-	ItemTypeLiability ItemType = "liability"
-	ItemTypeIncome    ItemType = "income"
-	ItemTypeExpense   ItemType = "expense"
+	ItemTypeAsset       ItemType = "asset"
+	ItemTypeLiability   ItemType = "liability"
+	ItemTypeIncome      ItemType = "income"
+	ItemTypeExpense     ItemType = "expense"
+	ItemTypeCashAccount ItemType = "cash_account"
 )
 
 // Frequency represents supported input cadence for annualization.
@@ -46,6 +47,10 @@ type TimelineItem struct {
 	SourceFrequency string               `json:"sourceFrequency,omitempty"`
 	ItemType        ItemType             `json:"itemType"`
 	CreatedYear     int                  `json:"createdYear"`
+	// GrowthRate is the per-item annual growth rate (percentage)
+	GrowthRate float64 `json:"growthRate,omitempty"`
+	// IsAccumulator indicates this is the designated cash account receiving net savings (cash accounts only)
+	IsAccumulator bool `json:"isAccumulator,omitempty"`
 }
 
 // GrowthApplied captures which growth rates were used in a given year.
@@ -58,13 +63,21 @@ type GrowthApplied struct {
 type TimelineYear struct {
 	Year          int             `json:"year"`
 	Assets        []TimelineItem  `json:"assets"`
+	CashAccounts  []TimelineItem  `json:"cashAccounts"`  // Cash accounts from cash_accounts table
 	Liabilities   []TimelineItem  `json:"liabilities"`
 	Income        []TimelineItem  `json:"income"`
 	Expenses      []TimelineItem  `json:"expenses"`
-	NetCash       float64         `json:"netCash"`
-	NetWorth      float64         `json:"netWorth"`
+	NetCash       float64         `json:"netCash"`       // Income - Expenses (annual net savings)
+	NetWorth      float64         `json:"netWorth"`      // Assets + CashAccounts - Liabilities
 	HasOverrides  bool            `json:"hasOverrides"`
 	GrowthApplied []GrowthApplied `json:"growthApplied"`
+
+	// Cash accumulation tracking
+	AnnualNetSavings     float64 `json:"annualNetSavings"`               // Income - Expenses for this year
+	AccumulatedCashStart float64 `json:"accumulatedCashStart"`           // Cash balance at start of year
+	AccumulatedCashEnd   float64 `json:"accumulatedCashEnd"`             // Cash balance at end of year (after interest)
+	InterestEarned       float64 `json:"interestEarned"`                 // Interest earned this year on accumulator
+	AccumulatorAccountID string  `json:"accumulatorAccountId,omitempty"` // ID of the accumulator cash account
 }
 
 // TimelineResponse is the API shape returned to the client.
@@ -97,10 +110,10 @@ type EditRequest struct {
 
 // Store defines the dependencies needed for timeline operations.
 type Store interface {
-	ListAssets(context.Context, string) ([]repository.Asset, error)
-	ListLiabilities(context.Context, string) ([]repository.Liability, error)
-	ListIncomes(context.Context, string) ([]repository.Income, error)
-	ListExpenses(context.Context, string) ([]repository.Expense, error)
+	ListAllAssets(context.Context, string) ([]repository.Asset, error)
+	ListAllLiabilities(context.Context, string) ([]repository.Liability, error)
+	ListAllIncomes(context.Context, string) ([]repository.Income, error)
+	ListAllExpenses(context.Context, string) ([]repository.Expense, error)
 
 	CreateAsset(context.Context, string, repository.Asset) (repository.Asset, error)
 	CreateLiability(context.Context, string, repository.Liability) (repository.Liability, error)
@@ -109,6 +122,16 @@ type Store interface {
 
 	GetGrowthConfigs(context.Context, string) ([]repository.GrowthConfig, error)
 	UpsertGrowthConfigs(context.Context, string, []repository.GrowthConfig) error
+
+	// User settings operations
+	GetUserSettings(context.Context, string) (repository.UserSettings, error)
+	UpsertUserSettings(context.Context, string, repository.UserSettings) (repository.UserSettings, error)
+
+	// Cash account operations
+	ListCashAccounts(context.Context, string) ([]repository.CashAccount, error)
+	GetAccumulatorAccount(context.Context, string) (repository.CashAccount, error)
+	CreateCashAccount(context.Context, repository.CashAccount) (repository.CashAccount, error)
+	SetAccumulatorAccount(context.Context, string, string) error
 }
 
 // annualization factors

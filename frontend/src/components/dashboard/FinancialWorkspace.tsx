@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Building2, ChevronDown, Loader2, Sparkles, Trash2 } from 'lucide-react'
+import { Building2, Calculator, Car, ChevronDown, Loader2, Receipt, Sparkles, Trash2 } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -74,10 +74,10 @@ export function FinancialWorkspace({
 
   const seedPropertyScenario = async () => {
     try {
-      const existingAssets = await financialApi.listAssets()
-      const existingLiabilities = await financialApi.listLiabilities()
-      const propertyAsset = existingAssets.find((a) => a.name === 'Sample Condo') ?? existingAssets.find((a) => a.category === 'property')
-      const propertyLiability = existingLiabilities.find((l) => l.name === 'Sample Condo Mortgage') ?? existingLiabilities.find((l) => l.category === 'property')
+      const assetsResult = await financialApi.listAssets({ limit: -1 })
+      const liabilitiesResult = await financialApi.listLiabilities({ limit: -1 })
+      const propertyAsset = assetsResult.data.find((a) => a.name === 'Sample Condo') ?? assetsResult.data.find((a) => a.category === 'property')
+      const propertyLiability = liabilitiesResult.data.find((l) => l.name === 'Sample Condo Mortgage') ?? liabilitiesResult.data.find((l) => l.category === 'property')
       if (!propertyAsset || !propertyLiability) return null
 
       const scenario = await financialApi.createPropertyScenario({
@@ -222,6 +222,41 @@ export function FinancialWorkspace({
                     <p className="text-xs text-blue-100">Model affordability, mortgages, and cash flow.</p>
                   </div>
                 </button>
+                <div className="border-t border-white/5" />
+                {/* Coming Soon Modules */}
+                <div className="cursor-not-allowed opacity-40">
+                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-white">
+                    <span className="mt-0.5 rounded-full bg-white/5 p-2 text-gray-400">
+                      <Calculator className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-1">
+                      <div className="font-semibold text-gray-400">CPF Calculator</div>
+                      <p className="text-xs text-gray-500">Coming soon</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="cursor-not-allowed opacity-40">
+                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-white">
+                    <span className="mt-0.5 rounded-full bg-white/5 p-2 text-gray-400">
+                      <Car className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-1">
+                      <div className="font-semibold text-gray-400">Vehicle Purchase</div>
+                      <p className="text-xs text-gray-500">Coming soon</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="cursor-not-allowed opacity-40">
+                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-white">
+                    <span className="mt-0.5 rounded-full bg-white/5 p-2 text-gray-400">
+                      <Receipt className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-1">
+                      <div className="font-semibold text-gray-400">Tax Module</div>
+                      <p className="text-xs text-gray-500">Coming soon</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

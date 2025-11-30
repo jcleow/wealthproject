@@ -86,12 +86,13 @@ func (h *AssetHandler) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := h.store.ListAssets(r.Context(), userID)
+	pagination := parsePagination(r)
+	result, err := h.store.ListAssets(r.Context(), userID, pagination)
 	if err != nil {
 		internalError(w)
 		return
 	}
-	writeJSON(w, items)
+	writeJSON(w, result)
 }
 
 func (h *AssetHandler) get(w http.ResponseWriter, r *http.Request, id string) {

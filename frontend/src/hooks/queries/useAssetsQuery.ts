@@ -7,7 +7,10 @@ export const ASSETS_QUERY_KEY = ['assets'] as const
 export function useAssetsQuery() {
   return useQuery({
     queryKey: ASSETS_QUERY_KEY,
-    queryFn: financialApi.listAssets,
+    queryFn: async () => {
+      const result = await financialApi.listAssets({ limit: -1 })
+      return result.data
+    },
     staleTime: 30_000, // Consider fresh for 30 seconds
     cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   })

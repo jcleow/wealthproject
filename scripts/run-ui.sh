@@ -426,22 +426,38 @@ if [[ -n "$REQUESTED_DB_PORT" ]]; then
   POSTGRES_PORT="$REQUESTED_DB_PORT"
 fi
 
-pick_available_port() {
-  local first_choice="$1"
-  local fallback_start="$2"
-  if ! lsof -Pi :"${first_choice}" -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo "$first_choice"
+free_port() {
+  local port="$1"
+  # First, try to stop any Docker container using this port
+  local container
+  container="$(docker ps --format '{{.ID}} {{.Ports}}' 2>/dev/null | grep ":${port}->" | awk '{print $1}')"
+  if [[ -n "$container" ]]; then
+    echo "Stopping Docker container using port ${port}: $container"
+    docker stop "$container" >/dev/null 2>&1 || true
+    sleep 1
     return
   fi
-  local p="$fallback_start"
-  while lsof -Pi :"${p}" -sTCP:LISTEN -t >/dev/null 2>&1; do
-    p=$((p+1))
-    if [[ $p -gt 65535 ]]; then
-      echo "No available port found" >&2
-      exit 1
-    fi
-  done
-  echo "$p"
+  # If not a Docker container, kill the process directly (but not com.docker)
+  local pids
+  pids="$(lsof -Pi :"${port}" -sTCP:LISTEN -t 2>/dev/null)"
+  if [[ -n "$pids" ]]; then
+    for pid in $pids; do
+      local proc_name
+      proc_name="$(ps -p "$pid" -o comm= 2>/dev/null || true)"
+      if [[ "$proc_name" != *"docker"* && "$proc_name" != "com.docker"* ]]; then
+        echo "Killing process on port ${port}: $pid ($proc_name)"
+        kill -9 "$pid" 2>/dev/null || true
+      fi
+    done
+    sleep 1
+  fi
+}
+
+pick_available_port() {
+  local first_choice="$1"
+  # Free the port (stop container or kill process, but not Docker daemon)
+  free_port "$first_choice"
+  echo "$first_choice"
 }
 
 if [[ -z "$POSTGRES_PORT" ]]; then

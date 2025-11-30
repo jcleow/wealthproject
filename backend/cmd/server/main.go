@@ -219,6 +219,7 @@ func main() {
 	dispatchHandler := handlers.NewDispatchHandler(financialClient, sessionStore, previewService)
 	timelineHandler := handlers.NewTimelineHandler(timelineService)
 	growthHandler := handlers.NewGrowthHandler(timelineService)
+	settingsHandler := handlers.NewSettingsHandler(timelineService)
 	scenarioAnalysisHandler := handlers.NewScenarioAnalysisHandler(timelineService)
 
 	// Background session cleanup
@@ -240,6 +241,7 @@ func main() {
 	propertyHandler := handlers.NewPropertyScenarioHandler(finStore)
 	propertyLinkHandler := handlers.NewPropertyLinkHandler(finStore)
 	scenarioHandler := handlers.NewScenarioEventHandler(finStore)
+	cashAccountHandler := handlers.NewCashAccountHandler(finStore)
 	v1Router.PathPrefix("/assets").Handler(handlerToHTTPMux("/api/v1", assetHandler.RegisterRoutes))
 	v1Router.PathPrefix("/liabilities").Handler(handlerToHTTPMux("/api/v1", liabilityHandler.RegisterRoutes))
 	v1Router.PathPrefix("/cashflow/incomes").Handler(handlerToHTTPMux("/api/v1", incomeHandler.RegisterRoutes))
@@ -247,10 +249,13 @@ func main() {
 	v1Router.PathPrefix("/property-planner/scenarios").Handler(handlerToHTTPMux("/api/v1", propertyHandler.RegisterRoutes))
 	v1Router.PathPrefix("/property-links").Handler(handlerToHTTPMux("/api/v1", propertyLinkHandler.RegisterRoutes))
 	v1Router.PathPrefix("/scenario-events").Handler(handlerToHTTPMux("/api/v1", scenarioHandler.RegisterRoutes))
+	v1Router.PathPrefix("/cash-accounts").Handler(handlerToHTTPMux("/api/v1", cashAccountHandler.RegisterRoutes))
 	v1Router.HandleFunc("/financial/timeline", timelineHandler.HandleGetTimeline).Methods("GET")
 	v1Router.HandleFunc("/financial/timeline/{year}", timelineHandler.HandleUpsertYear).Methods("PUT", "OPTIONS")
 	v1Router.HandleFunc("/financial/growth", growthHandler.HandleGetGrowth).Methods("GET")
 	v1Router.HandleFunc("/financial/growth", growthHandler.HandlePutGrowth).Methods("PUT")
+	v1Router.HandleFunc("/settings", settingsHandler.HandleGetSettings).Methods("GET")
+	v1Router.HandleFunc("/settings", settingsHandler.HandlePutSettings).Methods("PUT")
 	v1Router.HandleFunc("/scenario-analysis", scenarioAnalysisHandler.Handle).Methods("POST")
 
 	// Financial action endpoints

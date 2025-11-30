@@ -34,6 +34,16 @@ export {
   EXPENSES_QUERY_KEY,
 } from './useExpensesQuery'
 
+// Cash account queries and mutations
+export {
+  useCashAccountsQuery,
+  useCreateCashAccountMutation,
+  useUpdateCashAccountMutation,
+  useDeleteCashAccountMutation,
+  useSetAccumulatorMutation,
+  CASH_ACCOUNTS_QUERY_KEY,
+} from './useCashAccountsQuery'
+
 // Bulk operations
 export {
   useDeleteAllFinancialDataMutation,

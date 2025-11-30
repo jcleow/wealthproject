@@ -7,13 +7,41 @@ import (
 	"time"
 )
 
+// UserSettings stores user preferences like starting age.
+type UserSettings struct {
+	ID                string    `json:"id,omitempty"`
+	UserID            string    `json:"userId,omitempty"`
+	StartingAge       int       `json:"startingAge"`
+	TerminalAge       int       `json:"terminalAge"`
+	YearDisplayFormat string    `json:"yearDisplayFormat"`
+	UpdatedAt         time.Time `json:"updatedAt,omitempty"`
+}
+
+// DefaultUserSettings are the system defaults.
+var DefaultUserSettings = UserSettings{
+	StartingAge:       30,
+	TerminalAge:       65,
+	YearDisplayFormat: "year_number",
+}
+
 // GrowthConfig stores bounded annual growth assumptions.
 type GrowthConfig struct {
-	Category      string
-	AnnualRatePct float64
-	LowerBoundPct float64
-	UpperBoundPct float64
-	UpdatedAt     time.Time
+	ID            string    `json:"id,omitempty"`
+	Category      string    `json:"category"`
+	AnnualRatePct float64   `json:"annualRatePct"`
+	LowerBoundPct float64   `json:"lowerBoundPct"`
+	UpperBoundPct float64   `json:"upperBoundPct"`
+	UpdatedAt     time.Time `json:"updatedAt,omitempty"`
+}
+
+// DefaultGrowthConfigs are the system defaults used when user hasn't customized.
+var DefaultGrowthConfigs = []GrowthConfig{
+	{Category: "asset_cash", AnnualRatePct: 1.5, LowerBoundPct: -50, UpperBoundPct: 50},
+	{Category: "asset_equity", AnnualRatePct: 6.0, LowerBoundPct: -50, UpperBoundPct: 50},
+	{Category: "asset_property", AnnualRatePct: 3.0, LowerBoundPct: -50, UpperBoundPct: 50},
+	{Category: "liability_debt", AnnualRatePct: -3.0, LowerBoundPct: -50, UpperBoundPct: 50},
+	{Category: "income", AnnualRatePct: 3.0, LowerBoundPct: -50, UpperBoundPct: 50},
+	{Category: "expense", AnnualRatePct: 2.0, LowerBoundPct: -50, UpperBoundPct: 50},
 }
 
 // FinancialOverride stores per-year overrides for an item.
@@ -43,63 +71,60 @@ type CustomItem struct {
 	UpdatedAt   time.Time
 }
 
-// GetGrowthConfigs returns all growth configs.
-// userID is included for interface compatibility; growth configs are currently global.
+// GetGrowthConfigs returns user's growth configs, merged with system defaults.
+// If user has customized a category, their value is used; otherwise the default is used.
 func (s *Store) GetGrowthConfigs(ctx context.Context, userID string) ([]GrowthConfig, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT category, annual_rate_pct, lower_bound_pct, upper_bound_pct, updated_at
+		SELECT id, category, annual_rate_pct, lower_bound_pct, upper_bound_pct, updated_at
 		FROM growth_configs
-		ORDER BY category ASC`)
+		WHERE user_id = $1
+		ORDER BY category`, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var cfgs []GrowthConfig
+	userConfigs := make(map[string]GrowthConfig)
 	for rows.Next() {
 		var cfg GrowthConfig
-		if err := rows.Scan(&cfg.Category, &cfg.AnnualRatePct, &cfg.LowerBoundPct, &cfg.UpperBoundPct, &cfg.UpdatedAt); err != nil {
+		if err := rows.Scan(&cfg.ID, &cfg.Category, &cfg.AnnualRatePct, &cfg.LowerBoundPct, &cfg.UpperBoundPct, &cfg.UpdatedAt); err != nil {
 			return nil, err
 		}
-		cfgs = append(cfgs, cfg)
+		userConfigs[cfg.Category] = cfg
 	}
-	if cfgs == nil {
-		cfgs = []GrowthConfig{}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
-	return cfgs, rows.Err()
+
+	// Merge with defaults - user configs override defaults
+	result := make([]GrowthConfig, 0, len(DefaultGrowthConfigs))
+	for _, def := range DefaultGrowthConfigs {
+		if userCfg, ok := userConfigs[def.Category]; ok {
+			result = append(result, userCfg)
+		} else {
+			result = append(result, def)
+		}
+	}
+	return result, nil
 }
 
-// UpsertGrowthConfigs inserts or updates growth configs by category.
-// userID is included for interface compatibility; growth configs are currently global.
+// UpsertGrowthConfigs inserts or updates growth configs for a user.
 func (s *Store) UpsertGrowthConfigs(ctx context.Context, userID string, cfgs []GrowthConfig) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = tx.Rollback()
-	}()
-
-	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO growth_configs (category, annual_rate_pct, lower_bound_pct, upper_bound_pct, updated_at)
-		VALUES ($1, $2, $3, $4, NOW())
-		ON CONFLICT (category) DO UPDATE
-		SET annual_rate_pct=EXCLUDED.annual_rate_pct,
-		    lower_bound_pct=EXCLUDED.lower_bound_pct,
-		    upper_bound_pct=EXCLUDED.upper_bound_pct,
-		    updated_at=NOW()`)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
 	for _, cfg := range cfgs {
-		if _, err := stmt.ExecContext(ctx, cfg.Category, cfg.AnnualRatePct, cfg.LowerBoundPct, cfg.UpperBoundPct); err != nil {
+		_, err := s.db.ExecContext(ctx, `
+			INSERT INTO growth_configs (user_id, category, annual_rate_pct, lower_bound_pct, upper_bound_pct)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (user_id, category) DO UPDATE
+			SET annual_rate_pct = EXCLUDED.annual_rate_pct,
+			    lower_bound_pct = EXCLUDED.lower_bound_pct,
+			    upper_bound_pct = EXCLUDED.upper_bound_pct,
+			    updated_at = NOW()`,
+			userID, cfg.Category, cfg.AnnualRatePct, cfg.LowerBoundPct, cfg.UpperBoundPct)
+		if err != nil {
 			return err
 		}
 	}
-
-	return tx.Commit()
+	return nil
 }
 
 // ListOverrides returns all overrides.
@@ -201,4 +226,39 @@ func (s *Store) CreateCustomItem(ctx context.Context, item CustomItem) (CustomIt
 		return CustomItem{}, err
 	}
 	return created, nil
+}
+
+// GetUserSettings returns user settings, or defaults if not set.
+func (s *Store) GetUserSettings(ctx context.Context, userID string) (UserSettings, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, user_id, starting_age, terminal_age, year_display_format, updated_at
+		FROM user_settings
+		WHERE user_id = $1`, userID)
+	var settings UserSettings
+	if err := row.Scan(&settings.ID, &settings.UserID, &settings.StartingAge, &settings.TerminalAge, &settings.YearDisplayFormat, &settings.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return DefaultUserSettings, nil
+		}
+		return UserSettings{}, err
+	}
+	return settings, nil
+}
+
+// UpsertUserSettings inserts or updates user settings.
+func (s *Store) UpsertUserSettings(ctx context.Context, userID string, settings UserSettings) (UserSettings, error) {
+	row := s.db.QueryRowContext(ctx, `
+		INSERT INTO user_settings (user_id, starting_age, terminal_age, year_display_format)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (user_id) DO UPDATE
+		SET starting_age = EXCLUDED.starting_age,
+		    terminal_age = EXCLUDED.terminal_age,
+		    year_display_format = EXCLUDED.year_display_format,
+		    updated_at = NOW()
+		RETURNING id, user_id, starting_age, terminal_age, year_display_format, updated_at`,
+		userID, settings.StartingAge, settings.TerminalAge, settings.YearDisplayFormat)
+	var updated UserSettings
+	if err := row.Scan(&updated.ID, &updated.UserID, &updated.StartingAge, &updated.TerminalAge, &updated.YearDisplayFormat, &updated.UpdatedAt); err != nil {
+		return UserSettings{}, err
+	}
+	return updated, nil
 }
