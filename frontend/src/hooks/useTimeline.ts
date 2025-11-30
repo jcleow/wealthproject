@@ -35,7 +35,7 @@ export function useTimeline() {
     () =>
       new Set(
         timelineQuery.data?.years
-          ?.filter((year) => (year as any).hasOverrides ?? (year as any).has_overrides)
+          ?.filter((year) => year.hasOverrides)
           .map((year) => year.year) ?? []
       ),
     [timelineQuery.data?.years]
