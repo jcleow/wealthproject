@@ -51,3 +51,4 @@ frontend/.env.*
 # Misc
 *.cache/
 *__debug*
+*.tsbuildinfo
