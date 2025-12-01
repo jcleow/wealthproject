@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Home, Info, ArrowDownWideNarrow, ChevronRight, Star, Filter, ArrowUpRight, ArrowDownRight, Wallet, TrendingUp, CreditCard, Activity } from 'lucide-react'
+import { Plus, Pencil, Trash2, Home, Info, ArrowDownWideNarrow, ChevronRight, Star, ArrowUpRight, ArrowDownRight, Wallet, TrendingUp, CreditCard, Activity } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'

@@ -47,58 +47,44 @@ type ProjectionPoint = {
 interface CustomTooltipProps {
   active?: boolean
   payload?: ReadonlyArray<{ payload: ProjectionPoint }>
-  coordinate?: { x: number; y: number }
-  viewBox?: { x?: number; y?: number; width?: number; height?: number }
-  containerWidth?: number
+  startingAge?: number
 }
 
 function CustomTooltip({
   active,
   payload,
-  coordinate,
-  viewBox,
-  containerWidth,
+  startingAge = DEFAULT_STARTING_AGE,
 }: CustomTooltipProps) {
   if (!active || !payload || !payload.length) return null
   const data = payload[0].payload
 
-  // Determine if we're in left or right half of the chart using viewBox first, then container width.
-  const chartWidth = viewBox?.width ?? containerWidth ?? 0
-  const chartLeft = viewBox?.x ?? 0
-  const chartMidX = chartLeft + chartWidth / 2
-  const isLeftHalf = coordinate ? coordinate.x < chartMidX : true
+  // Calculate age for this year
+  const age = startingAge + data.yearIndex
 
   return (
-    <div
-      className="pointer-events-none rounded-xl border border-white/10 bg-[#0f1728]/90 px-4 py-3 shadow-2xl backdrop-blur"
-      style={{
-        // Anchor at the active point to avoid parent re-renders and keep the tooltip below the line.
-        position: 'absolute',
-        left: coordinate?.x ?? 0,
-        top: coordinate?.y ?? 0,
-        transform: `translate(${isLeftHalf ? '20px' : '-100%'}, 24px)`,
-        marginLeft: isLeftHalf ? 0 : -16,
-        minWidth: 240,
-      }}
-    >
-      <p className="text-xs uppercase tracking-wide text-slate-300">{data.yearLabel}</p>
-      <p className="mt-1 font-semibold text-blue-300">
-        Net Worth: {formatCurrency(data.netWorth)}
+    <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur-xl min-w-[180px]">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+        Year {data.calendarYear} (Age {age})
       </p>
-      <p className="text-emerald-300 text-sm">Assets {formatCurrency(data.totalAssets)}</p>
-      <p className="text-rose-300 text-sm">
-        Liabilities {formatCurrency(data.totalLiabilities)}
+      <p className="mt-0.5 text-xl font-light text-white">
+        {formatCurrency(data.netWorth)}
       </p>
-      {data.hasNonAnnualSource && (
-        <p className="mt-1 text-[11px] uppercase tracking-wide text-sky-200">
-          Annualized from source frequency
-        </p>
-      )}
-      {data.hasOverride && (
-        <p className="text-[11px] uppercase tracking-wide text-blue-300">
-          Override applied
-        </p>
-      )}
+      <div className="mt-2 space-y-1">
+        <div className="flex items-center justify-between text-xs">
+          <span className="flex items-center gap-1.5 text-sky-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+            Assets
+          </span>
+          <span className="font-mono text-slate-200">{formatCurrency(data.totalAssets)}</span>
+        </div>
+        <div className="flex items-center justify-between text-xs">
+          <span className="flex items-center gap-1.5 text-rose-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+            Liabilities
+          </span>
+          <span className="font-mono text-slate-200">{formatCurrency(data.totalLiabilities)}</span>
+        </div>
+      </div>
     </div>
   )
 }
@@ -518,9 +504,8 @@ export function NetWorthProjection({
                 />
 
                 <Tooltip
-                  content={(props) => <CustomTooltip {...props} containerWidth={containerWidth} />}
-                  cursor={false}
-                  wrapperStyle={{ transform: 'none', pointerEvents: 'none' }}
+                  content={<CustomTooltip startingAge={userSettings?.startingAge} />}
+                  cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }}
                 />
 
                 {scenarioMarkers.length > 0 && (

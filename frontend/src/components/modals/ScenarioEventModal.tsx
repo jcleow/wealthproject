@@ -77,10 +77,39 @@ export function ScenarioEventModal({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const prevOccursOn = useRef<string>('')
 
-  // State for item selection per impact (index -> selected item IDs)
-  const [selectedItemIds, setSelectedItemIds] = useState<Record<number, string[]>>({})
+  // State for single item selection per impact (index -> selected item ID)
+  const [selectedItemId, setSelectedItemId] = useState<Record<number, string | undefined>>({})
+  // State for search query per impact (for searchable dropdown)
+  const [itemSearchQuery, setItemSearchQuery] = useState<Record<number, string>>({})
+  // State for dropdown open state per impact
+  const [dropdownOpen, setDropdownOpen] = useState<Record<number, boolean>>({})
   // State for new item names per impact (for 'starts_at' verb)
   const [newItemNames, setNewItemNames] = useState<Record<number, string>>({})
+  // Ref for dropdown containers to detect outside clicks
+  const dropdownRefs = useRef<Record<number, HTMLDivElement | null>>({})
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      // Check if any dropdown is open
+      const openIndices = Object.entries(dropdownOpen)
+        .filter(([, isOpen]) => isOpen)
+        .map(([idx]) => Number(idx))
+
+      if (openIndices.length === 0) return
+
+      // Check if click was outside all open dropdowns
+      for (const idx of openIndices) {
+        const ref = dropdownRefs.current[idx]
+        if (ref && !ref.contains(e.target as Node)) {
+          setDropdownOpen(prev => ({ ...prev, [idx]: false }))
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [dropdownOpen])
 
   // Financial data for item selector
   const { assets, liabilities, incomes, expenses, loading: financialDataLoading } = useFinancialData()
@@ -107,30 +136,48 @@ export function ScenarioEventModal({
     }
   }, [assets, liabilities, incomes, expenses])
 
-  // Resolve a stable target id (parentId if available, else id) for a given type/id.
+  // Resolve a stable target id for a given type/id.
+  // The targetId from the backend might be the actual item ID, but getItemsForType
+  // uses parentId ?? id. We need to find the item that matches either way.
   const resolveStableTargetId = useCallback(
     (targetType: string, targetId?: string) => {
       if (!targetId) return undefined
-      const items = getItemsForType(targetType) || []
-      const match = items.find(it => it.id === targetId) ?? items.find(it => it.id === targetId)
-      // items already use parentId ?? id, so if we find a match return that id; otherwise return the original
-      return match?.id ?? targetId
+
+      // Get raw items to check both id and parentId
+      let rawItems: Array<{ id: string; parentId?: string; name: string }> = []
+      switch (targetType) {
+        case 'income':
+          rawItems = incomes.map(inc => ({ id: inc.id, parentId: inc.parentId, name: inc.source }))
+          break
+        case 'expense':
+          rawItems = expenses.map(exp => ({ id: exp.id, parentId: exp.parentId, name: exp.payee }))
+          break
+        case 'asset':
+          rawItems = assets.map(a => ({ id: a.id, parentId: a.parentId, name: a.name }))
+          break
+        case 'liability':
+          rawItems = liabilities.map(l => ({ id: l.id, parentId: l.parentId, name: l.name }))
+          break
+      }
+
+      // Find item where targetId matches either id or parentId
+      const match = rawItems.find(it => it.id === targetId || it.parentId === targetId)
+      if (match) {
+        // Return the stable id (parentId ?? id) that getItemsForType uses
+        return match.parentId ?? match.id
+      }
+
+      return targetId
     },
-    [getItemsForType]
+    [assets, liabilities, incomes, expenses]
   )
 
-  // Helper: Toggle item selection for an impact
-  const toggleItemSelection = (impactIndex: number, itemId: string) => {
-    setSelectedItemIds(prev => {
-      const current = prev[impactIndex] || []
-      const isSelected = current.includes(itemId)
-      return {
-        ...prev,
-        [impactIndex]: isSelected
-          ? current.filter(id => id !== itemId)
-          : [...current, itemId]
-      }
-    })
+  // Helper: Select single item for an impact
+  const selectItem = (impactIndex: number, itemId: string | undefined) => {
+    setSelectedItemId(prev => ({ ...prev, [impactIndex]: itemId }))
+    // Close dropdown and clear search after selection
+    setDropdownOpen(prev => ({ ...prev, [impactIndex]: false }))
+    setItemSearchQuery(prev => ({ ...prev, [impactIndex]: '' }))
   }
 
   // Helper: Set new item name for 'starts_at' verb
@@ -155,6 +202,9 @@ export function ScenarioEventModal({
   const TrashIcon = LucideIcons.Trash2 as LucideIcon | undefined
   const CloseIcon = LucideIcons.X as LucideIcon | undefined
   const SparklesIcon = LucideIcons.Sparkles as LucideIcon | undefined
+  const ChevronDownIcon = LucideIcons.ChevronDown as LucideIcon | undefined
+  const SearchIcon = LucideIcons.Search as LucideIcon | undefined
+  const CheckIcon = LucideIcons.Check as LucideIcon | undefined
 
   const iconOptions = ICON_OPTIONS
   const SelectedIcon = iconOptions.find((opt) => opt.name === form.displayIcon)?.Icon
@@ -170,13 +220,6 @@ export function ScenarioEventModal({
   useEffect(() => {
     if (!isOpen) return
     if (hydratedEvent) {
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[ScenarioEventModal] hydrating form', {
-          id: hydratedEvent.id,
-          impacts: hydratedEvent.impacts?.length ?? 0,
-          occursOn: hydratedEvent.occursOn,
-        })
-      }
       const normalizedImpacts = hydratedEvent.impacts && hydratedEvent.impacts.length > 0
         ? hydratedEvent.impacts.map((impact) => ({
             ...impact,
@@ -197,15 +240,6 @@ export function ScenarioEventModal({
       })
       prevOccursOn.current = hydratedEvent.occursOn ?? ''
 
-      // Hydrate selectedItemIds from existing impacts with targetId
-      const initialSelectedIds: Record<number, string[]> = {}
-      normalizedImpacts.forEach((impact, index) => {
-        const stable = resolveStableTargetId(impact.targetType, impact.targetId)
-        if (stable) {
-          initialSelectedIds[index] = [stable]
-        }
-      })
-      setSelectedItemIds(initialSelectedIds)
       setNewItemNames({})
       setConfirmDelete(false)
     } else {
@@ -220,11 +254,62 @@ export function ScenarioEventModal({
         iconSearch: '',
       })
       prevOccursOn.current = ''
-      setSelectedItemIds({})
+      setSelectedItemId({})
+      setItemSearchQuery({})
+      setDropdownOpen({})
       setNewItemNames({})
       setConfirmDelete(false)
     }
   }, [hydratedEvent, isOpen])
+
+  // Separate effect to hydrate selectedItemId and newItemNames when financial data is loaded
+  // This needs to run when: modal is open, we have impacts, and financial data is ready
+  useEffect(() => {
+    if (!isOpen || !hydratedEvent?.impacts || financialDataLoading) {
+      return
+    }
+
+    const initialSelectedId: Record<number, string | undefined> = {}
+    const initialNewItemNames: Record<number, string> = {}
+
+    hydratedEvent.impacts.forEach((impact, index) => {
+      // Only try to resolve if targetId exists
+      if (impact.targetId) {
+        const items = getItemsForType(impact.targetType)
+        const stable = resolveStableTargetId(impact.targetType, impact.targetId)
+
+        if (process.env.NODE_ENV === 'development') {
+          console.debug(`[ScenarioEventModal] Impact ${index}:`, {
+            targetType: impact.targetType,
+            targetId: impact.targetId,
+            impactKind: impact.impactKind,
+            resolvedStable: stable,
+            availableItems: items.map(it => ({ id: it.id, name: it.name })),
+            matchFound: stable && items.some(it => it.id === stable),
+          })
+        }
+
+        if (stable) {
+          initialSelectedId[index] = stable
+
+          // For 'start' impacts, populate newItemNames with the actual item's name
+          if (impact.impactKind === 'start') {
+            const matchedItem = items.find(it => it.id === stable)
+            if (matchedItem) {
+              initialNewItemNames[index] = matchedItem.name
+            }
+          }
+        }
+      }
+    })
+
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[ScenarioEventModal] Setting selectedItemId:', initialSelectedId)
+      console.debug('[ScenarioEventModal] Setting newItemNames:', initialNewItemNames)
+    }
+    setSelectedItemId(initialSelectedId)
+    setNewItemNames(prev => ({ ...prev, ...initialNewItemNames }))
+  }, [isOpen, hydratedEvent?.impacts, financialDataLoading, assets, liabilities, incomes, expenses, getItemsForType, resolveStableTargetId])
 
   // Keep impacts aligned to occurs_on unless user overrides
   useEffect(() => {
@@ -248,15 +333,16 @@ export function ScenarioEventModal({
       impacts: prev.impacts.map((impact, idx) => (idx === index ? { ...impact, ...update } : impact)),
     }))
 
-    // Clear selected items when startMonth or targetType changes (items may no longer be valid)
+    // Clear selected item when startMonth or targetType changes (item may no longer be valid)
     if ('startMonth' in update || 'targetType' in update) {
-      setSelectedItemIds((prev) => ({ ...prev, [index]: [] }))
+      setSelectedItemId((prev) => ({ ...prev, [index]: undefined }))
+      setItemSearchQuery((prev) => ({ ...prev, [index]: '' }))
     }
 
-    // If the user selects a target item directly, mirror it into selectedItemIds
+    // If the user selects a target item directly, mirror it into selectedItemId
     if ('targetId' in update && update.targetId) {
       const stable = resolveStableTargetId(update.targetType || '', update.targetId) ?? update.targetId
-      setSelectedItemIds((prev) => ({ ...prev, [index]: stable ? [stable] : [] }))
+      setSelectedItemId((prev) => ({ ...prev, [index]: stable }))
     }
   }
 
@@ -302,16 +388,16 @@ export function ScenarioEventModal({
           return
         }
       } else {
-        // Require at least one item selected (only if items exist)
-        const selected = selectedItemIds[i] || []
-        if (items.length > 0 && selected.length === 0) {
-          setError(`Impact ${i + 1}: Please select at least one ${impact.targetType} to affect.`)
+        // Require an item to be selected (only if items exist)
+        const selected = selectedItemId[i]
+        if (items.length > 0 && !selected) {
+          setError(`Impact ${i + 1}: Please select a ${impact.targetType} to affect.`)
           return
         }
       }
     }
 
-    // Auto-expand: create separate impacts for each selected item
+    // Build impacts array (one per impact since we now use single selection)
     const expandedImpacts: ScenarioImpact[] = []
     form.impacts.forEach((impact, index) => {
       const verb = impactToVerb(impact.impactKind, impact.amount)
@@ -330,16 +416,13 @@ export function ScenarioEventModal({
           notes: itemName ? `New: ${itemName}${baseImpact.notes ? ` - ${baseImpact.notes}` : ''}` : baseImpact.notes,
         })
       } else {
-        const selectedIds = selectedItemIds[index] || []
-        if (selectedIds.length === 0) {
+        const targetId = selectedItemId[index]
+        if (!targetId) {
           // No selection - try to use existing targetId normalized to stable id
           const stable = resolveStableTargetId(impact.targetType, impact.targetId)
           expandedImpacts.push({ ...baseImpact, targetId: stable })
         } else {
-          // Create one impact per selected item
-          selectedIds.forEach(targetId => {
-            expandedImpacts.push({ ...baseImpact, targetId })
-          })
+          expandedImpacts.push({ ...baseImpact, targetId })
         }
       }
     })
@@ -697,10 +780,17 @@ export function ScenarioEventModal({
                   {!impact.endMonth && <span className="text-gray-500 text-xs">(ongoing)</span>}
                 </div>
 
-                {/* Item selector - for modifying existing items (only show when date is set) */}
+                {/* Item selector - searchable dropdown for selecting a single item */}
                 {currentVerb !== 'starts_at' && impact.startMonth && (() => {
                   const items = getItemsForType(impact.targetType, impact.startMonth)
-                  const selected = selectedItemIds[index] || []
+                  const selected = selectedItemId[index]
+                  const selectedItem = items.find(it => it.id === selected)
+                  const isOpen = dropdownOpen[index] ?? false
+                  const searchQuery = itemSearchQuery[index] ?? ''
+                  const filteredItems = searchQuery
+                    ? items.filter(it => it.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                    : items
+
                   if (items.length === 0 && !financialDataLoading) {
                     return (
                       <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
@@ -709,36 +799,86 @@ export function ScenarioEventModal({
                     )
                   }
                   return (
-                    <div className="mt-3">
+                    <div className="mt-3 relative">
                       <p className="text-xs text-gray-400 mb-2">
                         Which {impact.targetType}?{' '}
                         <span className="text-rose-400">*</span>
                       </p>
-                      <div className="space-y-1 max-h-32 overflow-y-auto rounded-lg border border-white/10 bg-white/5 p-2">
-                        {financialDataLoading ? (
-                          <div className="text-xs text-gray-400 animate-pulse">Loading items...</div>
-                        ) : (
-                          items.map(item => (
-                            <label key={item.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-white/5 rounded px-1 py-0.5">
-                              <input
-                                type="checkbox"
-                                checked={selected.includes(item.id)}
-                                onChange={() => toggleItemSelection(index, item.id)}
-                                className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
-                                disabled={loadingState}
-                              />
-                              <span className="flex-1 text-gray-100 truncate">{item.name}</span>
-                              <span className="text-gray-500 shrink-0">
-                                {formatAmount(item.amount, item.frequency)}
+                      {financialDataLoading ? (
+                        <div className="text-xs text-gray-400 animate-pulse rounded-lg border border-white/10 bg-white/5 px-3 py-2">Loading items...</div>
+                      ) : (
+                        <div className="relative" ref={el => { dropdownRefs.current[index] = el }}>
+                          {/* Dropdown trigger button */}
+                          <button
+                            type="button"
+                            onClick={() => setDropdownOpen(prev => ({ ...prev, [index]: !isOpen }))}
+                            className="w-full flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-left transition hover:bg-white/10 focus:border-blue-400 focus:outline-none disabled:opacity-60"
+                            disabled={loadingState}
+                          >
+                            {selectedItem ? (
+                              <span className="flex items-center justify-between flex-1 min-w-0">
+                                <span className="truncate text-gray-100">{selectedItem.name}</span>
+                                <span className="text-gray-500 text-xs ml-2 shrink-0">
+                                  {formatAmount(selectedItem.amount, selectedItem.frequency)}
+                                </span>
                               </span>
-                            </label>
-                          ))
-                        )}
-                      </div>
-                      {selected.length > 1 && (
-                        <p className="mt-1 text-xs text-blue-300">
-                          {selected.length} items selected – will create separate impacts for each
-                        </p>
+                            ) : (
+                              <span className="text-gray-500">Select {impact.targetType}...</span>
+                            )}
+                            {ChevronDownIcon && (
+                              <ChevronDownIcon className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                            )}
+                          </button>
+
+                          {/* Dropdown menu */}
+                          {isOpen && (
+                            <div className="absolute z-50 mt-1 w-full rounded-lg border border-white/10 bg-[#0f172a] shadow-xl">
+                              {/* Search input */}
+                              <div className="p-2 border-b border-white/10">
+                                <div className="relative">
+                                  {SearchIcon && (
+                                    <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
+                                  )}
+                                  <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setItemSearchQuery(prev => ({ ...prev, [index]: e.target.value }))}
+                                    placeholder={`Search ${impact.targetType}...`}
+                                    className="w-full rounded-md border border-white/10 bg-white/5 pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:border-blue-400 focus:outline-none"
+                                    autoFocus
+                                  />
+                                </div>
+                              </div>
+                              {/* Options list */}
+                              <div className="max-h-48 overflow-y-auto p-1">
+                                {filteredItems.length === 0 ? (
+                                  <div className="px-3 py-2 text-xs text-gray-500">No items match your search</div>
+                                ) : (
+                                  filteredItems.map(item => (
+                                    <button
+                                      key={item.id}
+                                      type="button"
+                                      onClick={() => selectItem(index, item.id)}
+                                      className={`w-full flex items-center gap-2 rounded-md px-3 py-2 text-xs text-left transition hover:bg-white/10 ${
+                                        selected === item.id ? 'bg-blue-500/20 text-blue-100' : 'text-gray-100'
+                                      }`}
+                                    >
+                                      <span className="w-4 shrink-0">
+                                        {selected === item.id && CheckIcon && (
+                                          <CheckIcon className="h-3.5 w-3.5 text-blue-400" />
+                                        )}
+                                      </span>
+                                      <span className="flex-1 truncate">{item.name}</span>
+                                      <span className="text-gray-500 shrink-0">
+                                        {formatAmount(item.amount, item.frequency)}
+                                      </span>
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   )

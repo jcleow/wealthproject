@@ -41,7 +41,11 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
           )}
         >
           <div className="whitespace-pre-wrap break-words">
-            {message.content}
+            {message.content || (!isUser && (
+              <span className="italic text-gray-400">
+                Sorry, something went wrong. Please try again.
+              </span>
+            ))}
           </div>
         </div>
 

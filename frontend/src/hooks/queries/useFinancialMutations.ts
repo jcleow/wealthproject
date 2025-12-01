@@ -417,12 +417,12 @@ export function useLoadSampleDataMutation() {
             },
             {
               targetType: 'expense',
-              impactKind: 'delta',
+              impactKind: 'start',
               amount: 1600,
               currency: 'SGD',
               cadence: 'monthly',
               startMonth: getMonthString(7),
-              notes: 'Net car costs: $1,350 loan + $400 running - $150 saved transport = +$1,600/month',
+              notes: 'Car Running Costs',
             },
           ],
         },
@@ -464,15 +464,6 @@ export function useLoadSampleDataMutation() {
               startMonth: getMonthString(28),
               notes: 'Income becomes CPF Life payout only (~$2k/month estimated)',
             },
-            {
-              targetType: 'expense',
-              impactKind: 'delta',
-              amount: -500,
-              currency: 'SGD',
-              cadence: 'monthly',
-              startMonth: getMonthString(28),
-              notes: 'Reduced work-related expenses',
-            },
           ],
         },
       ]
@@ -484,10 +475,105 @@ export function useLoadSampleDataMutation() {
         Promise.all(sampleExpenses.map(expense => financialApi.createExpense(expense))),
       ])
 
-      // Create scenario events after other data is set up
-      const scenarioEvents = await Promise.all(
-        sampleScenarioEvents.map(event => financialApi.createScenarioEvent(event as ScenarioEvent))
-      )
+      // Build lookup maps for linking delta/override impacts to existing items
+      const incomeBySource = new Map(incomes.map(inc => [inc.source, inc.id]))
+
+      // Create scenario events with properly linked impacts
+      // For 'start' impacts: create new financial items and link them
+      // For 'delta'/'override' impacts: link to existing items by name match
+      const scenarioEvents: ScenarioEvent[] = []
+
+      for (const event of sampleScenarioEvents) {
+        const linkedImpacts = []
+
+        for (const impact of event.impacts ?? []) {
+          let targetId: string | undefined = undefined
+
+          if (impact.impactKind === 'start') {
+            // Create a new financial item for this start impact
+            const startMonth = impact.startMonth ?? event.occursOn
+            // Use the impact amount (must be positive for income/expense schemas)
+            const impactAmount = Math.abs(impact.amount ?? 1)
+
+            if (impact.targetType === 'asset') {
+              const newAsset = await financialApi.createAsset({
+                name: impact.notes || `${event.name} - Asset`,
+                category: 'Investment',
+                currentValue: impactAmount,
+                annualGrowthRate: 3.0,
+                notes: `Created by scenario: ${event.name}`,
+              })
+              targetId = newAsset.id
+            } else if (impact.targetType === 'liability') {
+              const newLiability = await financialApi.createLiability({
+                name: impact.notes || `${event.name} - Liability`,
+                category: 'Loan',
+                currentBalance: impactAmount,
+                interestRateApr: 3.0,
+                minimumPayment: 0,
+                notes: `Created by scenario: ${event.name}`,
+              })
+              targetId = newLiability.id
+            } else if (impact.targetType === 'income') {
+              const newIncome = await financialApi.createIncome({
+                source: impact.notes || `${event.name} - Income`,
+                category: 'Other',
+                amount: impactAmount,
+                frequency: impact.cadence === 'one_time' ? 'yearly' : 'monthly',
+                startDate: startMonth ? new Date(startMonth).toISOString() : new Date().toISOString(),
+                growthRate: 0,
+                notes: `Created by scenario: ${event.name}`,
+              })
+              targetId = newIncome.id
+            } else if (impact.targetType === 'expense') {
+              const newExpense = await financialApi.createExpense({
+                payee: impact.notes || `${event.name} - Expense`,
+                category: 'Other',
+                amount: impactAmount,
+                frequency: impact.cadence === 'one_time' ? 'yearly' : 'monthly',
+                growthRate: 0,
+                notes: `Created by scenario: ${event.name}`,
+              })
+              targetId = newExpense.id
+            }
+          } else if (impact.impactKind === 'delta' || impact.impactKind === 'override') {
+            // Link to existing items based on targetType
+            // For delta/override, we try to find a matching existing item
+            if (impact.targetType === 'income') {
+              // Look for the main salary income for income-related impacts
+              targetId = incomeBySource.get('Software Engineer Salary')
+            } else if (impact.targetType === 'expense') {
+              // For expense deltas, use the first expense as a generic target
+              // (In real usage, the user would select the specific item)
+              const firstExpenseId = expenses[0]?.id
+              targetId = firstExpenseId
+            }
+          }
+
+          if (process.env.NODE_ENV === 'development') {
+            console.debug(`[loadSampleData] Impact for ${event.name}:`, {
+              targetType: impact.targetType,
+              impactKind: impact.impactKind,
+              targetId,
+            })
+          }
+
+          linkedImpacts.push({
+            ...impact,
+            targetId,
+          })
+        }
+
+        if (process.env.NODE_ENV === 'development') {
+          console.debug(`[loadSampleData] Creating scenario event "${event.name}" with impacts:`, linkedImpacts.map(i => ({ targetType: i.targetType, targetId: i.targetId })))
+        }
+
+        const createdEvent = await financialApi.createScenarioEvent({
+          ...event,
+          impacts: linkedImpacts,
+        } as ScenarioEvent)
+        scenarioEvents.push(createdEvent)
+      }
 
       return { assets, liabilities, incomes, expenses, scenarioEvents }
     },

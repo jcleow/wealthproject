@@ -1,3 +1,4 @@
+import { useEffect, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAssetsQuery, useCreateAssetMutation, useUpdateAssetMutation, useDeleteAssetMutation } from './queries/useAssetsQuery'
 import { useLiabilitiesQuery, useCreateLiabilityMutation, useUpdateLiabilityMutation, useDeleteLiabilityMutation } from './queries/useLiabilitiesQuery'
@@ -7,6 +8,27 @@ import { useDeleteAllFinancialDataMutation, useLoadSampleDataMutation } from './
 
 export function useFinancialData() {
   const queryClient = useQueryClient()
+
+  // Listen for financial-data-refresh events (dispatched by chat when actions are executed)
+  const invalidateAllQueries = useCallback(() => {
+    console.log('[useFinancialData] Invalidating all queries')
+    queryClient.invalidateQueries({ queryKey: ['assets'] })
+    queryClient.invalidateQueries({ queryKey: ['liabilities'] })
+    queryClient.invalidateQueries({ queryKey: ['incomes'] })
+    queryClient.invalidateQueries({ queryKey: ['expenses'] })
+    queryClient.invalidateQueries({ queryKey: ['cash-accounts'] })
+    queryClient.invalidateQueries({ queryKey: ['scenario-events'] })
+    queryClient.invalidateQueries({ queryKey: ['timeline'] })
+    queryClient.invalidateQueries({ queryKey: ['property-scenarios'] })
+  }, [queryClient])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    console.log('[useFinancialData] Setting up financial-data-refresh listener')
+    window.addEventListener('financial-data-refresh', invalidateAllQueries)
+    return () => window.removeEventListener('financial-data-refresh', invalidateAllQueries)
+  }, [invalidateAllQueries])
 
   // Queries
   const assetsQuery = useAssetsQuery()

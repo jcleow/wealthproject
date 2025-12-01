@@ -169,5 +169,6 @@ export type UserSettings = {
   startingAge: number
   terminalAge: number
   yearDisplayFormat: YearDisplayFormat
+  autoExecuteTools: boolean
   updatedAt?: string
 }
