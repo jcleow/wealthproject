@@ -543,14 +543,17 @@ export function useLoadSampleDataMutation() {
       return { assets, liabilities, incomes, expenses, scenarioEvents }
     },
     onSuccess: (data) => {
-      // Update all caches with the new data
+      // Update all caches with the new data - this immediately updates the UI
       queryClient.setQueryData(QUERY_KEYS.financial.assets, data.assets)
       queryClient.setQueryData(QUERY_KEYS.financial.liabilities, data.liabilities)
       queryClient.setQueryData(QUERY_KEYS.financial.incomes, data.incomes)
       queryClient.setQueryData(QUERY_KEYS.financial.expenses, data.expenses)
+      queryClient.setQueryData(QUERY_KEYS.financial.scenarioEvents, data.scenarioEvents)
 
-      // Invalidate all financial queries with single call
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.all })
+      // Invalidate derived queries that need to be recalculated (timeline, netWorth, etc)
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
     },
   })
 }
