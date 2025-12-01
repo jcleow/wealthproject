@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useQuery } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import type { ScenarioEvent } from '@/types/scenario'
@@ -168,6 +169,9 @@ export interface NetWorthProjectionProps {
   onSelectYear?: (year: number) => void
   scenarioEvents?: ScenarioEvent[]
   onScenarioSelect?: (event: ScenarioEvent) => void
+  onAddScenario?: () => void
+  chartTitle?: string
+  chartSubtitle?: string
 }
 
 export function NetWorthProjection({
@@ -177,6 +181,9 @@ export function NetWorthProjection({
   onSelectYear,
   scenarioEvents,
   onScenarioSelect,
+  onAddScenario,
+  chartTitle,
+  chartSubtitle,
 }: NetWorthProjectionProps) {
   const {
     assets,
@@ -405,22 +412,35 @@ export function NetWorthProjection({
 
   const planningYears = Math.max(1, (userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE) - (userSettings?.startingAge ?? DEFAULT_STARTING_AGE))
 
+  const defaultTitle = 'Net Worth Projection'
+  const defaultSubtitle = `Age ${userSettings?.startingAge ?? DEFAULT_STARTING_AGE} to ${userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE} (${planningYears} years)`
+
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <div className="mb-4 flex flex-shrink-0 items-center justify-between">
+    <div className="flex h-full min-h-0 min-w-0 flex-col p-5">
+      <div className="mb-4 flex flex-shrink-0 items-center justify-between border-b border-white/[0.04] pb-4">
         <div>
-          <h3 className="mb-1 font-semibold text-lg text-white">
-            Net Worth Projection
+          <h3 className="text-lg font-medium text-slate-200">
+            {chartTitle ?? defaultTitle}
           </h3>
-          <p className="text-gray-400 text-sm">
-            Age {userSettings?.startingAge ?? DEFAULT_STARTING_AGE} to {userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE} ({planningYears} years)
+          <p className="text-sm text-slate-500">
+            {chartSubtitle ?? defaultSubtitle}
           </p>
         </div>
+        {onAddScenario && (
+          <button
+            onClick={onAddScenario}
+            className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:border-white/[0.12] hover:bg-white/[0.04] hover:text-slate-200"
+            type="button"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Scenario
+          </button>
+        )}
       </div>
 
       <div
         ref={chartContainerRef}
-        className="relative w-full flex-1 min-h-[300px] min-w-0 overflow-hidden [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
+        className="relative w-full flex-1 min-h-[250px] min-w-0 overflow-hidden [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
       >
         {hasSize && displayData.length > 0 ? (
           <div

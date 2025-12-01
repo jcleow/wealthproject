@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Building2, Calculator, Car, ChevronDown, Loader2, Receipt, Sparkles, Trash2 } from 'lucide-react'
+import { Building2, Calculator, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -7,7 +7,6 @@ import { financialApi } from '@/services/financialApi'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
-import { ScenarioSelectorMock } from './ScenarioSelectorMock'
 import { UserMenu } from '../auth/UserMenu'
 import type { TimelineYear } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
@@ -150,141 +149,163 @@ export function FinancialWorkspace({
     setIsScenarioModalOpen(true)
   }
 
-
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col border-0 bg-midnight-900 text-white">
-      <div className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h3 className="text-2xl font-semibold text-white">Financial Workspace</h3>
-          <p className="text-sm text-gray-400">
-            Track projections, run scenarios, and launch planning tools.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="hidden md:block">
-            <div className="w-64 lg:w-80">
-              <ScenarioSelectorMock onCreateScenario={handleCreateScenario} />
-            </div>
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-transparent text-slate-200">
+      {/* Compact Header */}
+      <header className="flex h-14 shrink-0 items-center justify-between px-6">
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col">
+            {/* <h2 className="text-lg font-medium tracking-tight text-slate-100">Workspace</h2> */}
           </div>
-          {/* <button
-            onClick={handleCreateScenario}
-            className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
-            type="button"
-          >
-            <PlusCircle className="h-4 w-4 text-emerald-200" />
-            Create Scenario
-          </button> */}
-          <div className="hidden items-center gap-2 md:flex">
+        </div>
+
+        {/* Glass pill control group */}
+        <div className="flex items-center gap-3 rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 backdrop-blur-sm">
+          {/* Search */}
+          <div className="flex items-center gap-2 border-r border-white/[0.06] pr-3">
+            <Search className="h-3.5 w-3.5 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search..."
+              className="w-24 bg-transparent text-[11px] text-slate-300 placeholder-slate-600 focus:outline-none"
+            />
+          </div>
+
+          <div className="hidden items-center gap-1 md:flex">
             <button
               onClick={handleLoadDefaults}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition hover:bg-white/5 hover:text-slate-300 disabled:opacity-60"
               title="Load defaults"
               type="button"
               disabled={isSeeding}
             >
-              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {isSeeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
             </button>
             <button
               onClick={handleClearAllData}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-600/10 text-rose-100 transition hover:bg-rose-600/20 hover:text-white disabled:opacity-60"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-rose-400/70 transition hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-60"
               title="Delete all data"
               type="button"
               disabled={isClearing}
             >
-              {isClearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {isClearing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             </button>
           </div>
+
+          <div className="h-4 w-px bg-white/[0.06]" />
+
           <div className="relative" ref={moduleMenuRef}>
             <button
               onClick={() => setIsModuleMenuOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-white/5 hover:text-slate-200"
               type="button"
             >
-              <Sparkles className="h-4 w-4 text-blue-200" />
+              <Sparkles className="h-3 w-3 text-blue-400/70" />
               <span className="hidden md:inline">Modules</span>
-              <ChevronDown className={`h-4 w-4 transition ${isModuleMenuOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-2.5 w-2.5 transition ${isModuleMenuOpen ? 'rotate-180' : ''}`} />
             </button>
             {isModuleMenuOpen && (
-              <div className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-white/10 bg-midnight-800/95 shadow-2xl backdrop-blur">
+              <div className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0a]/95 shadow-2xl backdrop-blur-xl">
                 <button
                   onClick={() => {
                     setIsModuleMenuOpen(false)
                     handlePropertyPlanner()
                   }}
-                  className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-white transition hover:bg-white/10"
+                  className="flex w-full items-start gap-3 border-b border-white/[0.04] px-4 py-3 text-left text-sm text-slate-200 transition hover:bg-white/5"
                   type="button"
                 >
-                  <span className="mt-0.5 rounded-full bg-blue-500/10 p-2 text-blue-200">
+                  <span className="mt-0.5 rounded-lg border border-blue-500/20 bg-blue-500/10 p-2 text-blue-400">
                     <Building2 className="h-4 w-4" />
                   </span>
-                  <div className="space-y-1">
-                    <div className="font-semibold">Property Planner</div>
-                    <p className="text-xs text-blue-100">Model affordability, mortgages, and cash flow.</p>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">Property Planner</div>
+                    <p className="text-[10px] text-slate-500">Model affordability, mortgages, and cash flow.</p>
                   </div>
                 </button>
-                <div className="border-t border-white/5" />
                 {/* Coming Soon Modules */}
                 <div className="cursor-not-allowed opacity-40">
-                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-white">
-                    <span className="mt-0.5 rounded-full bg-white/5 p-2 text-gray-400">
+                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
+                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-600">
                       <Calculator className="h-4 w-4" />
                     </span>
-                    <div className="space-y-1">
-                      <div className="font-semibold text-gray-400">CPF Calculator</div>
-                      <p className="text-xs text-gray-500">Coming soon</p>
+                    <div className="space-y-0.5">
+                      <div className="font-medium text-slate-500">CPF Calculator</div>
+                      <p className="text-[10px] text-slate-600">Coming soon</p>
                     </div>
                   </div>
                 </div>
                 <div className="cursor-not-allowed opacity-40">
-                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-white">
-                    <span className="mt-0.5 rounded-full bg-white/5 p-2 text-gray-400">
+                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
+                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-600">
                       <Car className="h-4 w-4" />
                     </span>
-                    <div className="space-y-1">
-                      <div className="font-semibold text-gray-400">Vehicle Purchase</div>
-                      <p className="text-xs text-gray-500">Coming soon</p>
+                    <div className="space-y-0.5">
+                      <div className="font-medium text-slate-500">Vehicle Purchase</div>
+                      <p className="text-[10px] text-slate-600">Coming soon</p>
                     </div>
                   </div>
                 </div>
                 <div className="cursor-not-allowed opacity-40">
-                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm text-white">
-                    <span className="mt-0.5 rounded-full bg-white/5 p-2 text-gray-400">
+                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
+                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-600">
                       <Receipt className="h-4 w-4" />
                     </span>
-                    <div className="space-y-1">
-                      <div className="font-semibold text-gray-400">Tax Module</div>
-                      <p className="text-xs text-gray-500">Coming soon</p>
+                    <div className="space-y-0.5">
+                      <div className="font-medium text-slate-500">Tax Module</div>
+                      <p className="text-[10px] text-slate-600">Coming soon</p>
                     </div>
                   </div>
                 </div>
               </div>
             )}
           </div>
+
+          <div className="h-4 w-px bg-white/[0.06]" />
+
+          {/* Notification bell */}
+          <button
+            type="button"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+          >
+            <Bell className="h-3.5 w-3.5" />
+          </button>
+
           <UserMenu />
         </div>
-      </div>
+      </header>
+
       {timelineError && (
-        <div className="mx-6 mb-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-sm text-rose-100">
+        <div className="mx-6 mt-4 rounded-lg border border-rose-500/20 bg-rose-500/5 px-4 py-2 text-xs text-rose-300">
           Timeline unavailable: {timelineError}
         </div>
       )}
-      <div className="p-6 h-[50vh] min-h-[400px] flex-none">
-        <NetWorthProjection
-          timelineYears={timelineYears}
-          overrideYears={overrideYears}
-          selectedYear={selectedYear}
-          scenarioEvents={scenarioEvents}
-          onScenarioSelect={async (event) => {
-            if (!event?.id) return
-            setScenarioEventToEdit(event)
-            setIsScenarioModalOpen(true)
-          }}
-          onSelectYear={(year) => {
-            onSelectYear(year)
-            const target = document.getElementById('financial-data-section')
-            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          }}
-        />
+
+      {/* Chart Section */}
+      <div className="flex-1 p-6">
+        <section className="relative h-full overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/60 transition-all hover:border-white/[0.15]">
+          {/* Chart Container - NetWorthProjection has its own header */}
+          <div className="h-full">
+            <NetWorthProjection
+              chartTitle="Net Worth Projection"
+              chartSubtitle={`Age ${31 + (timelineYears?.[0]?.year ?? 0)} to ${31 + (timelineYears?.[timelineYears.length - 1]?.year ?? 30)} (${timelineYears?.length ?? 31} years)`}
+              timelineYears={timelineYears}
+              overrideYears={overrideYears}
+              selectedYear={selectedYear}
+              scenarioEvents={scenarioEvents}
+              onAddScenario={handleCreateScenario}
+              onScenarioSelect={async (event) => {
+                if (!event?.id) return
+                setScenarioEventToEdit(event)
+                setIsScenarioModalOpen(true)
+              }}
+              onSelectYear={(year) => {
+                onSelectYear(year)
+                const target = document.getElementById('financial-data-section')
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+            />
+          </div>
+        </section>
       </div>
 
       <PropertyPlannerModal

@@ -1,22 +1,21 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Menu, X } from 'lucide-react'
+import { PanelLeftOpen } from 'lucide-react'
 
 import { Chat } from '../chat/Chat'
 import { ChatFloatingLauncher } from './ChatFloatingLauncher'
 import { FinancialDataManagement } from './FinancialDataManagement'
 import { FinancialWorkspace } from './FinancialWorkspace'
-import { AppSidebar } from '../sidebar/AppSidebar'
 import { useTimeline } from '@/hooks/useTimeline'
-import { cn, generateUUID } from '@/lib/utils'
+import { generateUUID } from '@/lib/utils'
 import { FinancialDataProvider } from '@/contexts/FinancialDataContext'
 
 export function Dashboard() {
   const chatIdRef = useRef<string>(generateUUID())
   const chatId = chatIdRef.current
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
-  const [isChatCollapsed, setIsChatCollapsed] = useState(true)
+  const [isChatCollapsed, setIsChatCollapsed] = useState(false)
   const timeline = useTimeline()
   const timelineError =
     timeline.timelineQuery.error instanceof Error
@@ -25,82 +24,84 @@ export function Dashboard() {
 
   return (
     <FinancialDataProvider>
-      <div className="relative min-h-screen w-full bg-black text-white">
-        {/* Top bar with chat toggle */}
-        <div className="fixed left-4 top-4 z-50">
-          <button
-            type="button"
-            onClick={() => setIsChatCollapsed((prev) => !prev)}
-            aria-pressed={!isChatCollapsed}
-            aria-label={isChatCollapsed ? 'Open chat sidebar' : 'Collapse chat sidebar'}
-            className="hidden items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/10 lg:flex"
-          >
-            {isChatCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
-          </button>
-        </div>
+      <div className="relative h-screen w-full overflow-hidden bg-[#050505] font-sans text-slate-200">
+        {/* Ambient background orbs */}
+        <div className="pointer-events-none fixed left-[-10%] top-[-20%] h-[800px] w-[800px] rounded-full bg-zinc-800/20 opacity-40 blur-[120px]" />
+        <div className="pointer-events-none fixed bottom-[-20%] right-[-10%] h-[600px] w-[600px] rounded-full bg-slate-800/10 opacity-30 blur-[100px]" />
+        <div className="pointer-events-none fixed right-[20%] top-[20%] h-[400px] w-[400px] rounded-full bg-white/5 opacity-20 blur-[80px]" />
 
-        <div className="hidden lg:block">
+        {/* Main content - side by side layout */}
+        <div className="relative z-10 flex h-screen w-full overflow-hidden">
+          {/* Left sidebar area */}
           <div
-            className={cn(
-              'fixed left-0 top-0 z-30 h-screen py-8 transition-all duration-300 ease-out',
-              isChatCollapsed ? 'w-[56px] px-1' : 'w-[440px] px-4'
-            )}
+            className="hidden h-screen shrink-0 lg:block"
+            style={{
+              width: isChatCollapsed ? '64px' : '520px',
+              transition: 'width 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
           >
+            {/* Chat panel */}
             <div
-              className={cn(
-                'relative h-full transition-opacity duration-300 ease-out',
-                isChatCollapsed ? 'pointer-events-none opacity-0' : 'opacity-100'
-              )}
-              aria-hidden={isChatCollapsed}
+              className="absolute left-0 top-0 h-screen w-[520px] p-6 pr-3"
+              style={{
+                opacity: isChatCollapsed ? 0 : 1,
+                pointerEvents: isChatCollapsed ? 'none' : 'auto',
+                transition: 'opacity 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
             >
-              <Chat
-                chatId={chatId}
-                className="h-full min-h-0"
-                onToggleHistory={() => setIsHistoryOpen((prev) => !prev)}
-                isHistoryOpen={isHistoryOpen}
-              />
-
-              <div
-                className={cn(
-                  'pointer-events-auto absolute inset-y-0 left-[-320px] w-[280px] rounded-2xl border border-white/10 bg-[#02040a] shadow-[0_25px_70px_rgba(3,3,4,0.65)] transition-all duration-300 ease-out',
-                  isHistoryOpen
-                    ? 'translate-x-[320px] opacity-100'
-                    : 'pointer-events-none opacity-0'
-                )}
-              >
-                <AppSidebar />
+              <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0a0a]/80">
+                <Chat
+                  chatId={chatId}
+                  className="h-full min-h-0"
+                  onToggleHistory={() => setIsHistoryOpen((prev) => !prev)}
+                  isHistoryOpen={isHistoryOpen}
+                  onCollapse={() => setIsChatCollapsed(true)}
+                />
               </div>
             </div>
+
+            {/* Collapsed sidebar */}
+            <div
+              className="absolute left-0 top-0 flex h-screen w-16 flex-col items-center border-r border-white/[0.06] bg-[#0a0a0a]/40 pt-7"
+              style={{
+                opacity: isChatCollapsed ? 1 : 0,
+                pointerEvents: isChatCollapsed ? 'auto' : 'none',
+                transition: 'opacity 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setIsChatCollapsed(false)}
+                className="p-1 text-slate-500 transition-colors hover:text-white"
+                title="Show chat"
+              >
+                <PanelLeftOpen className="h-5 w-5" />
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div
-          className={cn(
-            'relative w-full',
-            isChatCollapsed ? 'lg:pl-[72px]' : 'lg:pl-[460px]'
-          )}
-        >
-          <div className="relative flex min-h-screen w-full flex-col gap-6 p-4 pl-0 lg:flex-row lg:items-stretch">
-            <div className="flex w-full flex-col gap-6 lg:min-w-0 lg:flex-1">
-              <div className="flex min-h-[320px] min-w-0 flex-col overflow-hidden rounded-3xl border border-white/5 bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
-                <FinancialWorkspace
-                  selectedYear={timeline.selectedYear}
-                  onSelectYear={timeline.setSelectedYear}
-                  timelineYears={timeline.timelineQuery.data?.years}
-                  overrideYears={timeline.overrideYears}
-                  timelineError={timelineError}
-                />
-              </div>
+          {/* Right side - Dashboard */}
+          <div className="flex h-screen flex-1 flex-col gap-6 overflow-y-auto p-6">
+            {/* Top workspace with chart */}
+            <div className="flex min-h-[60vh] min-w-0 shrink-0 flex-col overflow-hidden rounded-2xl bg-transparent">
+              <FinancialWorkspace
+                selectedYear={timeline.selectedYear}
+                onSelectYear={timeline.setSelectedYear}
+                timelineYears={timeline.timelineQuery.data?.years}
+                overrideYears={timeline.overrideYears}
+                timelineError={timelineError}
+              />
+            </div>
 
-              <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-3xl border border-white/5 bg-[#0b1222] shadow-[0_30px_80px_rgba(3,3,4,0.45)]">
-                <FinancialDataManagement
-                  selectedYear={timeline.selectedYear}
-                  onSelectYear={timeline.setSelectedYear}
-                  timelineYear={timeline.selectedYearData}
-                  isTimelineLoading={timeline.timelineQuery.isLoading}
-                  onSaveTimelineEdits={timeline.saveEdits}
-                />
-              </div>
+            {/* Financial data cards */}
+            <div className="min-h-0 min-w-0 shrink-0">
+              <FinancialDataManagement
+                selectedYear={timeline.selectedYear}
+                onSelectYear={timeline.setSelectedYear}
+                timelineYear={timeline.selectedYearData}
+                isTimelineLoading={timeline.timelineQuery.isLoading}
+                onSaveTimelineEdits={timeline.saveEdits}
+              />
             </div>
           </div>
         </div>
