@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
 import type { Income } from '@/types/financial'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
-export const INCOMES_QUERY_KEY = ['incomes'] as const
+export const INCOMES_QUERY_KEY = QUERY_KEYS.financial.incomes
 
 export function useIncomesQuery() {
   return useQuery({
@@ -26,8 +27,8 @@ export function useCreateIncomeMutation() {
       queryClient.setQueryData<Income[]>(INCOMES_QUERY_KEY, (old) =>
         old ? [...old, newIncome] : [newIncome]
       )
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['cashflow'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
     },
   })
 }
@@ -42,8 +43,8 @@ export function useUpdateIncomeMutation() {
       queryClient.setQueryData<Income[]>(INCOMES_QUERY_KEY, (old) =>
         old?.map((income) => income.id === updatedIncome.id ? updatedIncome : income) ?? []
       )
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['cashflow'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
     },
   })
 }
@@ -57,8 +58,8 @@ export function useDeleteIncomeMutation() {
       queryClient.setQueryData<Income[]>(INCOMES_QUERY_KEY, (old) =>
         old?.filter((income) => income.id !== deletedId) ?? []
       )
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['cashflow'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
     },
   })
 }

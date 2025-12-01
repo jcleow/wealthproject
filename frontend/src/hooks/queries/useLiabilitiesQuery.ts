@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
 import type { Liability } from '@/types/financial'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
-export const LIABILITIES_QUERY_KEY = ['liabilities'] as const
+export const LIABILITIES_QUERY_KEY = QUERY_KEYS.financial.liabilities
 
 export function useLiabilitiesQuery() {
   return useQuery({
@@ -26,8 +27,8 @@ export function useCreateLiabilityMutation() {
       queryClient.setQueryData<Liability[]>(LIABILITIES_QUERY_KEY, (old) =>
         old ? [...old, newLiability] : [newLiability]
       )
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['net-worth'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
     },
   })
 }
@@ -42,8 +43,8 @@ export function useUpdateLiabilityMutation() {
       queryClient.setQueryData<Liability[]>(LIABILITIES_QUERY_KEY, (old) =>
         old?.map((liability) => liability.id === updatedLiability.id ? updatedLiability : liability) ?? []
       )
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['net-worth'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
     },
   })
 }
@@ -57,8 +58,8 @@ export function useDeleteLiabilityMutation() {
       queryClient.setQueryData<Liability[]>(LIABILITIES_QUERY_KEY, (old) =>
         old?.filter((liability) => liability.id !== deletedId) ?? []
       )
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['net-worth'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
     },
   })
 }

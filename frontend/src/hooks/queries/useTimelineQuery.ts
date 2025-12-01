@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
 import type { TimelineResponse, TimelineYear, TimelineEditRequest } from '@/types/timeline'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
-export const TIMELINE_QUERY_KEY = ['timeline'] as const
+export const TIMELINE_QUERY_KEY = QUERY_KEYS.financial.timeline
 
 export function useTimelineQuery() {
   return useQuery({
@@ -25,8 +26,8 @@ export function useTimelineYearMutation() {
       queryClient.setQueryData<TimelineResponse>(TIMELINE_QUERY_KEY, updatedTimeline)
 
       // Also invalidate related queries that depend on timeline data
-      queryClient.invalidateQueries({ queryKey: ['net-worth'] })
-      queryClient.invalidateQueries({ queryKey: ['cashflow'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
     },
   })
 }

@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
 import type { CashAccount } from '@/types/financial'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
-export const CASH_ACCOUNTS_QUERY_KEY = ['cash-accounts'] as const
+export const CASH_ACCOUNTS_QUERY_KEY = QUERY_KEYS.financial.cashAccounts
 
 export function useCashAccountsQuery() {
   return useQuery({
@@ -23,7 +24,7 @@ export function useCreateCashAccountMutation() {
       queryClient.setQueryData<CashAccount[]>(CASH_ACCOUNTS_QUERY_KEY, (old) =>
         old ? [...old, newAccount] : [newAccount]
       )
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
     },
   })
 }
@@ -38,7 +39,7 @@ export function useUpdateCashAccountMutation() {
       queryClient.setQueryData<CashAccount[]>(CASH_ACCOUNTS_QUERY_KEY, (old) =>
         old?.map((account) => account.id === updatedAccount.id ? updatedAccount : account) ?? []
       )
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
     },
   })
 }
@@ -52,7 +53,7 @@ export function useDeleteCashAccountMutation() {
       queryClient.setQueryData<CashAccount[]>(CASH_ACCOUNTS_QUERY_KEY, (old) =>
         old?.filter((account) => account.id !== deletedId) ?? []
       )
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
     },
   })
 }
@@ -70,7 +71,7 @@ export function useSetAccumulatorMutation() {
           isAccumulator: account.id === accumulatorId,
         })) ?? []
       )
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
     },
   })
 }
