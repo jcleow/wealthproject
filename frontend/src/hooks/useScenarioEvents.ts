@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
 import type { ScenarioEvent } from '@/types/scenario'
 
-const QUERY_KEY = ['scenarioEvents']
+const QUERY_KEY = ['scenario-events']
 
 export function useScenarioEvents() {
   const queryClient = useQueryClient()

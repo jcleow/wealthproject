@@ -591,6 +591,13 @@ export function FinancialDataManagement({
     return Math.round(totalIncome - totalExpenses)
   }
 
+  const getCategoryTotal = (_category: FinancialCategory, data: TimelineItem[]): number => {
+    return data.reduce((sum, item) => {
+      const amount = item.adjAnnualAmt ?? item.amountAnnual ?? 0
+      return sum + amount
+    }, 0)
+  }
+
   const openPlannerFromLink = (link: PropertyLinkRecord) => {
     setPrefill({
       scenarioId: link.propertyScenarioId,
@@ -989,6 +996,20 @@ export function FinancialDataManagement({
                         </div>
                       )}
                     </div>
+                    {/* Grand Total */}
+                    {hasData && (
+                      <div className="border-t border-white/10 px-4 py-3">
+                        <div className="flex items-center justify-between px-2">
+                          <span className="text-sm font-medium text-gray-400">Total</span>
+                          <span className="text-sm font-semibold text-white">
+                            {formatCurrency(getCategoryTotal(key, data))}
+                            {(key === 'income' || key === 'expense') && (
+                              <span className="ml-1 text-xs text-gray-500">/yr</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               }

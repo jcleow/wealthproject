@@ -494,6 +494,7 @@ export function NetWorthProjection({
                   strokeOpacity={0.85}
                   type="monotone"
                   name="Net Worth"
+                  isAnimationActive={false}
                 />
 
                 <Tooltip
