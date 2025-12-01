@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/Modal'
 import { financialApi } from '@/services/financialApi'
 import type { GrowthConfig, UserSettings, YearDisplayFormat } from '@/types/financial'
 import { GrowthConfigCategoryLabels } from '@/types/financial'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -28,13 +29,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   // Queries
   const { data: configs, isLoading: isLoadingConfigs } = useQuery({
-    queryKey: ['growth-configs'],
+    queryKey: QUERY_KEYS.financial.growth,
     queryFn: () => financialApi.getGrowthConfigs(),
     enabled: isOpen,
   })
 
   const { data: settings, isLoading: isLoadingSettings } = useQuery({
-    queryKey: ['user-settings'],
+    queryKey: QUERY_KEYS.settings.user,
     queryFn: () => financialApi.getUserSettings(),
     enabled: isOpen,
   })
@@ -43,8 +44,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const updateGrowthMutation = useMutation({
     mutationFn: (configs: GrowthConfig[]) => financialApi.updateGrowthConfigs(configs),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['growth-configs'] })
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.growth })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       setHasGrowthChanges(false)
       onClose()
     },
@@ -53,8 +54,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const updateSettingsMutation = useMutation({
     mutationFn: (settings: UserSettings) => financialApi.updateUserSettings(settings),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-settings'] })
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings.user })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       setHasSettingsChanges(false)
       onClose()
     },

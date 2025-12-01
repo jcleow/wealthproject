@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/Modal'
 import type { Asset, Expense, Frequency, Income, Liability, GrowthConfig } from '../../types/financial'
 import { formatCurrency } from '@/lib/format'
 import { financialApi } from '@/services/financialApi'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
 const PROPERTY_CATEGORY = 'property_real_estate'
 const MORTGAGE_CATEGORY = 'mortgage_home'
@@ -264,7 +265,7 @@ export function FinancialFormModal({
 
   // Fetch user's growth configs for default rates
   const { data: growthConfigs } = useQuery({
-    queryKey: ['growth-configs'],
+    queryKey: QUERY_KEYS.financial.growth,
     queryFn: () => financialApi.getGrowthConfigs(),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   })

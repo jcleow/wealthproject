@@ -17,6 +17,7 @@ import type { ScenarioEvent } from '@/types/scenario'
 import type { TimelineYear } from '@/types/timeline'
 import { formatCurrency } from '@/lib/format'
 import { financialApi } from '@/services/financialApi'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 import ScenarioMarker from './ScenarioMarker'
 
 const chartColors = {
@@ -181,7 +182,7 @@ export function NetWorthProjection({
 
   // Fetch user settings for year display format
   const { data: userSettings } = useQuery({
-    queryKey: ['user-settings'],
+    queryKey: QUERY_KEYS.settings.user,
     queryFn: () => financialApi.getUserSettings(),
     staleTime: 5 * 60 * 1000,
   })

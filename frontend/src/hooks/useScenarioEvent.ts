@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { financialApi } from '@/services/financialApi'
 import type { ScenarioEvent } from '@/types/scenario'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export function useScenarioEvent(
   id?: string,
@@ -9,7 +10,7 @@ export function useScenarioEvent(
   initialData?: ScenarioEvent
 ) {
   return useQuery<ScenarioEvent | undefined>({
-    queryKey: ['scenarioEvent', id],
+    queryKey: [...QUERY_KEYS.financial.scenarioEvents, id],
     queryFn: () => (id ? financialApi.getScenarioEvent(id) : undefined),
     enabled: enabled && Boolean(id),
     staleTime: 0,
