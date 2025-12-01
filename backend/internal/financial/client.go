@@ -758,7 +758,7 @@ func (c *Client) CalculateNetWorth(ctx context.Context, userID string) (float64,
 }
 
 // ============================================
-// SECTION: Context Injection (Agent 1)
+// SECTION: Context Injection
 // ============================================
 
 // GetFinancialContext returns the user's complete financial snapshot for AI context injection
@@ -1521,7 +1521,7 @@ func derefFloat(v *float64) float64 {
 }
 
 // ============================================
-// SECTION: Scenario CRUD Methods (Agent 2)
+// SECTION: Scenario CRUD Methods
 // ============================================
 
 // CreateScenarioEvent creates a new what-if scenario event.

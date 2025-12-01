@@ -745,7 +745,7 @@ func (r *FinancialToolRegistry) registerTools() {
 	}
 
 	// ============================================
-	// SECTION: Scenario CRUD Tools (Agent 2)
+	// SECTION: Scenario CRUD Tools
 	// ============================================
 
 	// Tool 19: Create Scenario Event

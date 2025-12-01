@@ -263,7 +263,7 @@ func (s *ActionPreviewService) generateFriendlyDescription(toolName string, args
 		category := getStringParam(args, "category", "all")
 		return fmt.Sprintf("Identify top %d %s factors affecting net worth", topN, category)
 
-	// Scenario CRUD tools (Agent 2)
+	// Scenario CRUD tools
 	case "createScenarioEvent":
 		name := getStringParam(args, "name", "New Scenario")
 		targetYear := getIntParam(args, "targetYear", 0)
@@ -618,7 +618,7 @@ var readOnlyTools = map[string]bool{
 	"compareScenarioImpact":   true,
 	"projectNetWorthAtYear":   true,
 	"identifyNetWorthLevers":  true,
-	"listScenarioEvents":      true, // Agent 2 - read-only list operation
+	"listScenarioEvents":      true,
 }
 
 // IsReadOnlyTool returns true if the tool is read-only and can be executed immediately

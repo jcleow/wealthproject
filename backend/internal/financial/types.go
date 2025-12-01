@@ -174,7 +174,7 @@ type IdentifyNetWorthLeversParams struct {
 }
 
 // ============================================
-// SECTION: Context Injection (Agent 1)
+// SECTION: Context Injection
 // ============================================
 
 // FinancialContext represents the user's complete financial snapshot for AI context
@@ -217,7 +217,7 @@ type FinancialSummary struct {
 }
 
 // ============================================
-// SECTION: Scenario CRUD Params (Agent 2)
+// SECTION: Scenario CRUD Params
 // ============================================
 
 // CreateScenarioEventParams represents the inputs to create a scenario event.

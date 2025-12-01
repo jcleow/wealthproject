@@ -470,24 +470,24 @@ export function ScenarioEventModal({
   const renderIconOption = (IconComp?: ComponentType<{ className?: string }>) => (IconComp ? <IconComp className="h-4 w-4" /> : null)
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} overlayClassName="bg-black/60 backdrop-blur-sm p-4 sm:p-6">
-      <div className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-[#0b1222] text-white shadow-2xl">
-        <div className="max-h-[80vh] overflow-y-auto p-6 pr-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <Modal isOpen={isOpen} onClose={onClose} overlayClassName="bg-black/80 backdrop-blur-sm p-4 sm:p-6">
+      <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/95 backdrop-blur-xl text-white shadow-xl shadow-black/50">
+        <div className="max-h-[80vh] overflow-y-auto p-6 pr-3 custom-scrollbar">
           {isFetching && (
-            <div className="mb-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200 animate-pulse">
+            <div className="mb-4 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-slate-300 animate-pulse">
               Loading scenario...
             </div>
           )}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Scenario</p>
-              <h2 className="text-2xl font-semibold">{event ? 'Edit Scenario Event' : 'Create a new scenario'}</h2>
-              <p className="text-sm text-gray-400">Define event details and financial impacts.</p>
+              <p className="text-[10px] uppercase tracking-[0.25em] text-slate-500 font-medium">Scenario</p>
+              <h2 className="text-xl font-semibold tracking-tight text-white mt-1">{event ? 'Edit Scenario Event' : 'Create a new scenario'}</h2>
+              <p className="text-sm text-slate-500 mt-0.5">Define event details and financial impacts.</p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-100 transition hover:bg-white/10 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-medium text-slate-400 transition-all hover:border-white/[0.15] hover:bg-white/[0.06] hover:text-slate-200 disabled:opacity-50 disabled:pointer-events-none"
                 onClick={() => {
                   const exampleOccurs = new Date()
                   exampleOccurs.setFullYear(exampleOccurs.getFullYear() + 3)
@@ -517,12 +517,12 @@ export function ScenarioEventModal({
                 }}
                 disabled={loadingState}
               >
-                {SparklesIcon ? <SparklesIcon className="h-4 w-4 text-blue-200" /> : '★'}
+                {SparklesIcon ? <SparklesIcon className="h-3.5 w-3.5 text-blue-400" /> : '★'}
                 Example
               </button>
               <button
                 type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-gray-300 transition hover:bg-white/10"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-slate-400 transition-all hover:border-white/[0.15] hover:bg-white/[0.06] hover:text-white"
                 onClick={onClose}
                 aria-label="Close scenario modal"
               >
