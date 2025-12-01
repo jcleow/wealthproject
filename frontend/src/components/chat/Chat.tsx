@@ -13,6 +13,7 @@ interface ChatProps {
   className?: string
   onToggleHistory?: () => void
   isHistoryOpen?: boolean
+  onCollapse?: () => void
 }
 
 const suggestedQuestions = [
@@ -22,7 +23,7 @@ const suggestedQuestions = [
   "Can I afford to buy a house?"
 ]
 
-export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: ChatProps) {
+export function Chat({ chatId, className, onToggleHistory, isHistoryOpen, onCollapse }: ChatProps) {
   const [sessionId] = useState(() => generateUUID())
   const inputRef = useRef<ChatInputHandle>(null)
 
@@ -68,9 +69,11 @@ export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: Chat
         chatId={chatId}
         onToggleHistory={onToggleHistory}
         isHistoryOpen={isHistoryOpen}
+        onCollapse={onCollapse}
       />
 
-      <div className="flex min-h-0 flex-1 flex-col px-4 pb-8">
+      {/* Chat Area */}
+      <div className="custom-scrollbar relative z-10 flex-1 space-y-6 overflow-y-auto px-4 py-4">
         <Messages
           messages={messages}
           actionReviews={actionReviews}
@@ -79,27 +82,26 @@ export function Chat({ chatId, className, onToggleHistory, isHistoryOpen }: Chat
           onCancelAction={cancelAction}
           isDispatching={isDispatching}
         />
-
-        {messages.length === 0 && (
-          <div className="mt-auto w-full pt-4">
-            <div className="grid gap-2 sm:grid-cols-2">
-              {suggestedQuestions.map((question, index) => (
-                <button
-                  key={question}
-                  onClick={() => handleSuggestedQuestion(question)}
-                  className="text-left rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-gray-200 transition hover:bg-white/10"
-                  type="button"
-                  style={{ animationDelay: `${index * 60}ms` }}
-                >
-                  {question}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      <div className="px-4 pb-4 pt-4">
+      {/* Input Area */}
+      <div className="relative z-10 px-4 pb-4 pt-2">
+        {/* Suggested prompts as wrapped pills - shown when no messages */}
+        {messages.length === 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {suggestedQuestions.map((question) => (
+              <button
+                key={question}
+                onClick={() => handleSuggestedQuestion(question)}
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300 shadow-sm backdrop-blur-sm transition-all hover:border-white/20 hover:bg-white/10 hover:text-white hover:shadow-glow"
+                type="button"
+              >
+                {question}
+              </button>
+            ))}
+          </div>
+        )}
+
         <ChatInput
           ref={inputRef}
           onSendMessage={sendMessage}

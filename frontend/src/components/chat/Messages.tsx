@@ -61,8 +61,6 @@ export default function Messages({
         {combinedItems.length === 0 && (
           <div className="flex items-center justify-center py-12 text-center">
             <div className="space-y-2">
-              <div className="text-3xl">💡</div>
-              <h3 className="text-xl font-semibold text-white">Welcome to Financial Chat</h3>
               <p className="text-sm text-gray-400">
                 Tell me about your financial goals or ask questions about your finances to get started.
               </p>

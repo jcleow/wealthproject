@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Home, Info, ArrowDownWideNarrow, ChevronRight, Star } from 'lucide-react'
+import { Plus, Pencil, Trash2, Home, Info, ArrowDownWideNarrow, ChevronRight, Star, Filter, ArrowUpRight, ArrowDownRight, Wallet, TrendingUp, CreditCard, Activity } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -29,8 +29,11 @@ type FinancialCategory = FinancialDataType
 type CategoryConfig = {
   title: string
   emptyDescription: string
-  icon: string
+  icon: LucideIcon
   accent: string
+  gradientBg: string
+  textColor: string
+  progressColor: string
   singular: string
   plural: string
   helper?: string
@@ -40,32 +43,44 @@ const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
   asset: {
     title: 'Assets',
     emptyDescription: 'No assets added yet',
-    icon: '📈',
-  accent: 'bg-blue-500',
+    icon: Wallet,
+    accent: 'bg-emerald-500',
+    gradientBg: 'bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/20',
+    textColor: 'text-emerald-400',
+    progressColor: 'bg-emerald-500',
     singular: 'asset',
     plural: 'assets',
   },
   income: {
-    title: 'Income',
+    title: 'Annual Income',
     emptyDescription: 'No income added yet',
-    icon: '💼',
-    accent: 'text-grey-500 bg-white/5 ',
+    icon: TrendingUp,
+    accent: 'bg-blue-500',
+    gradientBg: 'bg-gradient-to-br from-blue-500/20 to-blue-500/5 border-blue-500/20',
+    textColor: 'text-blue-400',
+    progressColor: 'bg-blue-500',
     singular: 'income',
     plural: 'income',
   },
   liability: {
     title: 'Liabilities',
     emptyDescription: 'No liabilities added yet',
-    icon: '💳',
+    icon: CreditCard,
     accent: 'bg-rose-500',
+    gradientBg: 'bg-gradient-to-br from-rose-500/20 to-rose-500/5 border-rose-500/20',
+    textColor: 'text-rose-400',
+    progressColor: 'bg-rose-500',
     singular: 'liability',
     plural: 'liabilities',
   },
   expense: {
-    title: 'Expenses',
+    title: 'Annual Expenses',
     emptyDescription: 'No expenses added yet',
-    icon: '💰',
+    icon: Activity,
     accent: 'bg-amber-500',
+    gradientBg: 'bg-gradient-to-br from-amber-500/20 to-amber-500/5 border-amber-500/20',
+    textColor: 'text-amber-400',
+    progressColor: 'bg-amber-500',
     singular: 'expense',
     plural: 'expenses',
   },
@@ -555,11 +570,6 @@ export function FinancialDataManagement({
     }
   }
 
-  const formatCountLabel = (count: number, config: CategoryConfig) => {
-    const noun = count === 1 ? config.singular : config.plural
-    return `${count} ${noun}`
-  }
-
   const sortItems = (items: TimelineItem[], direction: 'asc' | 'desc'): TimelineItem[] =>
     [...items].sort((a, b) =>
       direction === 'desc' ? summarizeAmount(b) - summarizeAmount(a) : summarizeAmount(a) - summarizeAmount(b)
@@ -618,7 +628,7 @@ export function FinancialDataManagement({
     <>
       <div
         id="financial-data-section"
-        className="flex h-full flex-col border-0 bg-midnight-900 text-white"
+        className="flex h-full flex-col bg-transparent text-white"
         onClick={(e) => {
           // Deselect when clicking outside of line items
           if (selectedItemId && (e.target as HTMLElement).closest('[data-line-item]') === null) {
@@ -634,11 +644,19 @@ export function FinancialDataManagement({
                 Manage your income, expenses, assets, and liabilities
               </p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-gray-300">
-              <label className="hidden sm:block text-gray-400" htmlFor="year-selector">
-                Year
-              </label>
+            <div className="flex items-center gap-3 text-xs text-gray-300">
+              {/* Filter button */}
+              <button
+                type="button"
+                className="glass-card flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[10px] text-slate-400 transition hover:text-white"
+              >
+                <Filter className="h-3 w-3" />
+                Filter View
+              </button>
               <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
+                <label className="hidden text-gray-400 sm:block" htmlFor="year-selector">
+                  Year
+                </label>
                 <select
                   id="year-selector"
                   className="w-24 rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
@@ -659,77 +677,78 @@ export function FinancialDataManagement({
 
         <div className="flex-1 overflow-auto px-6 py-6">
           <div className="flex h-full flex-col gap-6">
-            <div className="grid flex-1 content-stretch gap-6 auto-rows-[1fr] lg:grid-cols-2">
+            <div className="grid flex-1 content-stretch gap-4 auto-rows-[1fr] lg:grid-cols-2">
             {(Object.keys(categoryConfig) as FinancialCategory[]).map(
               (key) => {
                 const config = categoryConfig[key]
                 const direction = sortDirections[key]
                 const data = sortItems(getDataForCategory(key), direction)
                 const hasData = data.length > 0
-                const description = hasData
-                  ? formatCountLabel(data.length, config)
-                  : config.emptyDescription
+
+                // Calculate a mock trend (in real app, compare to previous period)
+                const categoryTotal = getCategoryTotal(key, data)
+                const mockTrend = key === 'asset' ? 12.5 : key === 'income' ? 5.2 : key === 'liability' ? -2.1 : 1.2
+                const isPositiveTrend = mockTrend >= 0
+                const IconComponent = config.icon
 
                 return (
                   <div
                     key={key}
-                    className="flex h-full w-full min-w-0 flex-col rounded-2xl bg-white/5 shadow-lg"
+                    className="flex w-full min-w-0 max-h-[350px] flex-col overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/60 transition-all hover:border-white/[0.15]"
                   >
-                    <div className="p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div
-                            className={`flex h-10 w-10 items-center justify-center rounded-full ${config.accent}`}
-                          >
-                            <span className="text-lg">{config.icon}</span>
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="truncate text-base font-semibold text-white">
-                              {config.title}
-                            </h4>
-                            <p className="text-xs text-gray-400">
-                              {description}
-                            </p>
-                          </div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`rounded-lg border p-1.5 ${config.gradientBg}`}>
+                          <IconComponent className={`h-4 w-4 ${config.textColor}`} />
                         </div>
-                        <div className="flex flex-shrink-0 items-center gap-2">
-                          <button
-                            type="button"
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-gray-300 transition hover:bg-white/10"
-                            aria-label={`Sort ${direction === 'desc' ? 'high to low' : 'low to high'}`}
-                            onClick={() =>
-                              setSortDirections((prev) => ({
-                                ...prev,
-                                [key]: prev[key] === 'desc' ? 'asc' : 'desc',
-                              }))
-                            }
-                          >
-                            <ArrowDownWideNarrow
-                              className={`h-4 w-4 ${direction === 'desc' ? 'text-blue-200' : 'rotate-180 text-blue-200'}`}
-                            />
-                          </button>
-                          {/* <button
-                            onClick={() => handleSettings(key)}
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-gray-300 transition hover:bg-white/10 disabled:opacity-50"
-                            type="button"
-                            disabled={usingTimeline}
-                          >
-                            <SlidersHorizontal className="h-4 w-4" />
-                          </button> */}
-                          <button
-                            onClick={() => handleAddItem(key)}
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-grey-500 bg-white/5 transition hover:bg-white/10 disabled:opacity-50"
-                            type="button"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        </div>
+                        <h4 className="text-sm font-medium text-slate-200">{config.title}</h4>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+                          aria-label={`Sort ${direction === 'desc' ? 'high to low' : 'low to high'}`}
+                          onClick={() =>
+                            setSortDirections((prev) => ({
+                              ...prev,
+                              [key]: prev[key] === 'desc' ? 'asc' : 'desc',
+                            }))
+                          }
+                        >
+                          <ArrowDownWideNarrow
+                            className={`h-4 w-4 ${direction === 'desc' ? '' : 'rotate-180'}`}
+                          />
+                        </button>
+                        <button
+                          onClick={() => handleAddItem(key)}
+                          className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+                          type="button"
+                          title="Add Item"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
 
-                    <div className="flex flex-1 flex-col justify-start gap-3 px-4 py-6 text-gray-300">
-                      {hasData ? (
-                        <div className="space-y-2 text-left text-sm max-h-64 overflow-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    {/* Total & Trend */}
+                    <div className="border-b border-white/[0.04] px-4 py-2.5">
+                      <div className="text-2xl font-light tracking-tight text-slate-100">
+                        {formatCurrency(categoryTotal)}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <div className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${isPositiveTrend ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'}`}>
+                          {isPositiveTrend ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
+                          {Math.abs(mockTrend)}%
+                        </div>
+                        <span className="text-[10px] text-slate-500">vs last month</span>
+                      </div>
+                    </div>
+
+                    {/* List Items */}
+                    <div className="custom-scrollbar flex-1 overflow-y-auto px-3 py-2">
+                        {hasData ? (
+                          <>
                           {data.map((item: any, index) => {
                             const itemId = getItemId(item) || `${key}-${index}`
                             const scenarioImpacts = getAppliedImpacts(item, key as ScenarioTargetType, scenarioEvents)
@@ -755,10 +774,11 @@ export function FinancialDataManagement({
                                       handleEditItem(key, item)
                                     }
                                   }}
-                                  className={`group/item relative flex cursor-pointer items-center justify-between gap-3 overflow-hidden rounded-md px-2 py-1 text-gray-200 transition-colors ${isSelected ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                                  className={`group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors ${isSelected ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'}`}
                                 >
+                                  {/* Left side: name */}
                                   <div className="flex min-w-0 items-center gap-2">
-                                    <span className="truncate text-sm">
+                                    <span className={`truncate text-sm transition-colors ${isSelected ? 'text-slate-100' : 'text-slate-300'}`}>
                                       {'name' in item
                                         ? item.name
                                         : 'source' in item
@@ -767,12 +787,12 @@ export function FinancialDataManagement({
                                         ? item.payee
                                         : 'Entry'}
                                     </span>
-                                    {/* Accumulator star for cash accounts */}
+                                    {/* Accumulator star */}
                                     {item.isAccumulator && (
                                       <Tooltip.Provider delayDuration={0}>
                                         <Tooltip.Root>
                                           <Tooltip.Trigger asChild>
-                                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400 flex-shrink-0" />
+                                            <Star className="h-2.5 w-2.5 flex-shrink-0 fill-amber-400 text-amber-400" />
                                           </Tooltip.Trigger>
                                           <Tooltip.Content
                                             side="top"
@@ -784,8 +804,9 @@ export function FinancialDataManagement({
                                         </Tooltip.Root>
                                       </Tooltip.Provider>
                                     )}
-                                    {/* Indicators aligned immediately after label */}
-                                    {hasScenarios && <span className="h-2 w-2 flex-shrink-0 rounded-full bg-amber-400" />}
+                                    {/* Scenario indicator */}
+                                    {hasScenarios && <span className="h-1 w-1 flex-shrink-0 rounded-full bg-amber-400" />}
+                                    {/* Annualization info */}
                                     {getAnnualizationLabel(item) && (
                                       <Tooltip.Provider delayDuration={0}>
                                         <Tooltip.Root
@@ -803,11 +824,11 @@ export function FinancialDataManagement({
                                                 const id = item.id ?? `${key}-${index}`
                                                 setActiveAnnualizationId((prev) => (prev === id ? null : id))
                                               }}
-                                              className="flex h-4 w-4 items-center justify-center rounded-full text-gray-400 transition hover:text-white"
-                                                aria-label="Show annualized source"
-                                              >
-                                                <Info className="h-3.5 w-3.5" />
-                                              </button>
+                                              className="flex h-3.5 w-3.5 items-center justify-center rounded text-slate-600 transition hover:text-slate-300"
+                                              aria-label="Show annualized source"
+                                            >
+                                              <Info className="h-2.5 w-2.5" />
+                                            </button>
                                           </Tooltip.Trigger>
                                           <Tooltip.Content
                                             side="top"
@@ -819,17 +840,18 @@ export function FinancialDataManagement({
                                         </Tooltip.Root>
                                       </Tooltip.Provider>
                                     )}
-                                    {/* Caret after indicators */}
+                                    {/* Scenario expand caret */}
                                     {hasScenarios && (
                                       <button
                                         type="button"
                                         onClick={() => toggleScenarioExpanded(itemId)}
-                                        className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-gray-400 transition hover:bg-white/10 hover:text-white"
+                                        className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded text-slate-600 transition hover:text-slate-300"
                                         aria-label={isExpanded ? 'Collapse scenarios' : 'Expand scenarios'}
                                       >
-                                        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                        <ChevronRight className={`h-2.5 w-2.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                                       </button>
                                     )}
+                                    {/* Property link */}
                                     {key !== 'income' && key !== 'expense' && (() => {
                                       const id = getItemId(item)
                                       if (!id) return null
@@ -849,76 +871,78 @@ export function FinancialDataManagement({
                                         <button
                                           type="button"
                                           onClick={() => openPlannerFromLink(link)}
-                                          className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-blue-100 transition hover:bg-white/20"
+                                          className="flex h-4 w-4 items-center justify-center rounded bg-white/5 text-blue-300 transition hover:bg-white/10"
                                           title="Open property scenario"
                                         >
-                                          <Home className="h-4 w-4" />
+                                          <Home className="h-2.5 w-2.5" />
                                         </button>
                                       )
                                     })()}
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    {!isSelected && (
-                                      <span className="text-sm text-gray-400">
-                                        {formatCurrency(item.adjAnnualAmt ?? item.adj_annual_amt ?? getDisplayAmount(item))}
-                                      </span>
-                                    )}
-                                    {isSelected && (
-                                      <div className="flex items-center gap-1">
-                                        {/* Set as accumulator button for cash accounts */}
-                                        {item.itemType === 'cash_account' && !item.isAccumulator && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              const id = getItemId(item)
-                                              if (id) setAccumulatorMutation.mutate(id)
-                                            }}
-                                            className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-amber-500/30 hover:text-amber-50"
-                                            type="button"
-                                            title="Set as accumulator"
-                                          >
-                                            <Star className="h-3.5 w-3.5" />
-                                          </button>
-                                        )}
+
+                                  {/* Right side: amount with hover actions */}
+                                  <div className="flex items-center gap-1">
+                                    {/* Value */}
+                                    <span className={`font-mono text-sm text-slate-300 transition-opacity ${isSelected ? 'opacity-0' : 'opacity-100'}`}>
+                                      {formatCurrency(item.adjAnnualAmt ?? item.adj_annual_amt ?? getDisplayAmount(item))}
+                                    </span>
+
+                                    {/* Actions - shown on click */}
+                                    <div className={`absolute right-2 flex items-center gap-0.5 transition-opacity ${isSelected ? 'opacity-100 pointer-events-auto' : 'pointer-events-none opacity-0'}`}>
+                                      {/* Set as accumulator button for cash accounts */}
+                                      {item.itemType === 'cash_account' && !item.isAccumulator && (
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
                                             const id = getItemId(item)
-                                            if (item.itemType === 'cash_account') {
-                                              // Find the cash account from our list
-                                              const cashAccount = cashAccounts.find(ca => ca.id === id)
-                                              if (cashAccount) {
-                                                setCashAccountModalState({ isOpen: true, mode: 'edit', data: cashAccount })
-                                              }
-                                            } else {
-                                              handleEditItem(key, item)
-                                            }
+                                            if (id) setAccumulatorMutation.mutate(id)
                                           }}
-                                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-white/20"
+                                          className="rounded p-1 text-slate-500 transition-colors hover:bg-amber-500/20 hover:text-amber-300"
                                           type="button"
+                                          title="Set as accumulator"
                                         >
-                                          <Pencil className="h-3.5 w-3.5" />
+                                          <Star className="h-3 w-3" />
                                         </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            const id = getItemId(item)
-                                            if (!id) return
-                                            if (item.itemType === 'cash_account') {
-                                              if (confirm('Are you sure you want to delete this cash account?')) {
-                                                deleteCashAccountMutation.mutate(id)
-                                              }
-                                            } else {
-                                              void handleDeleteItem(key, id)
+                                      )}
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          const id = getItemId(item)
+                                          if (item.itemType === 'cash_account') {
+                                            const cashAccount = cashAccounts.find(ca => ca.id === id)
+                                            if (cashAccount) {
+                                              setCashAccountModalState({ isOpen: true, mode: 'edit', data: cashAccount })
                                             }
-                                          }}
-                                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-xs text-gray-200 transition hover:bg-rose-500/30 hover:text-rose-50"
-                                          type="button"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                      </div>
-                                    )}
+                                          } else {
+                                            handleEditItem(key, item)
+                                          }
+                                        }}
+                                        className="rounded p-1 text-slate-500 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                                        type="button"
+                                        title="Edit"
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          const id = getItemId(item)
+                                          if (!id) return
+                                          if (item.itemType === 'cash_account') {
+                                            if (confirm('Are you sure you want to delete this cash account?')) {
+                                              deleteCashAccountMutation.mutate(id)
+                                            }
+                                          } else {
+                                            void handleDeleteItem(key, id)
+                                          }
+                                        }}
+                                        className="rounded p-1 text-slate-500 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                                        type="button"
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
 
@@ -986,64 +1010,44 @@ export function FinancialDataManagement({
                               </div>
                             )
                           })}
-                        </div>
-                      ) : (
-                        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-                          <p className="text-sm">{config.emptyDescription}</p>
-                          <p className="text-xs text-gray-500">
-                            Click the + button to add your first entry
-                          </p>
-                        </div>
-                      )}
+                          </>
+                        ) : (
+                          <div className="flex flex-1 flex-col items-center justify-center gap-1 py-6 text-center">
+                            <p className="text-[11px] text-slate-500">{config.emptyDescription}</p>
+                            <p className="text-[10px] text-slate-600">
+                              Click + to add
+                            </p>
+                          </div>
+                        )}
                     </div>
-                    {/* Grand Total */}
-                    {hasData && (
-                      <div className="border-t border-white/10 px-4 py-3">
-                        <div className="flex items-center justify-between px-2">
-                          <span className="text-sm font-medium text-gray-400">Total</span>
-                          <span className="text-sm font-semibold text-white">
-                            {formatCurrency(getCategoryTotal(key, data))}
-                            {(key === 'income' || key === 'expense') && (
-                              <span className="ml-1 text-xs text-gray-500">/yr</span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )
               }
             )}
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="rounded-2xl bg-white/5 p-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/60 p-4 transition-all hover:border-white/[0.15]">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold text-white">Net Worth</h4>
-                    <p className="text-xs text-gray-400">
-                      Assets minus liabilities
-                    </p>
+                    <h4 className="text-sm font-medium text-slate-200">Net Worth</h4>
+                    <p className="text-xs text-slate-500">Assets minus liabilities</p>
                   </div>
                   <div className="h-2 w-2 rounded-full bg-blue-400" />
                 </div>
-                <p className="mt-4 text-xl font-bold text-white">
+                <p className="mt-3 text-2xl font-light tracking-tight text-slate-100">
                   {formatCurrency(getNetWorthForYear())}
                 </p>
               </div>
-              <div className="rounded-2xl bg-white/5 p-5">
+              <div className="rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/60 p-4 transition-all hover:border-white/[0.15]">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold text-white">
-                      Savings
-                    </h4>
-                    <p className="text-xs text-gray-400">
-                      Income minus expenses
-                    </p>
+                    <h4 className="text-sm font-medium text-slate-200">Savings</h4>
+                    <p className="text-xs text-slate-500">Income minus expenses</p>
                   </div>
                   <div className="h-2 w-2 rounded-full bg-emerald-400" />
                 </div>
-                <p className="mt-4 text-2xl font-bold text-white">
+                <p className="mt-3 text-2xl font-light tracking-tight text-slate-100">
                   {formatCurrency(getAnnualSavingsForYear())}
                 </p>
               </div>
