@@ -11,6 +11,7 @@ export interface ChatResponse {
   content: string
   proposed_actions: ProposedAction[]
   requires_approval: boolean
+  actions_executed?: number
 }
 
 export interface ProposedAction {

@@ -3,14 +3,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { financialApi } from '@/services/financialApi'
 import type { ScenarioEvent } from '@/types/scenario'
-
-const QUERY_KEY = ['scenario-events']
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export function useScenarioEvents() {
   const queryClient = useQueryClient()
 
   const query = useQuery<ScenarioEvent[]>({
-    queryKey: QUERY_KEY,
+    queryKey: QUERY_KEYS.financial.scenarioEvents,
     queryFn: () => financialApi.listScenarioEvents(),
     staleTime: 1000 * 60 * 5,
     retry: 1,
@@ -19,7 +18,7 @@ export function useScenarioEvents() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const handler = () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY }).catch(() => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.scenarioEvents }).catch(() => {
         // ignore cache errors
       })
     }

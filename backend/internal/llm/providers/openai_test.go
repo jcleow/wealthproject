@@ -238,20 +238,22 @@ func TestOpenAIProvider_GenerateToolCalls_MockServer(t *testing.T) {
 				Function: llm.FunctionSchema{
 					Name:        "createAsset",
 					Description: "Create a financial asset",
-					Parameters: map[string]interface{}{
-						"type": "object",
-						"properties": map[string]interface{}{
-							"name": map[string]interface{}{
-								"type": "string",
+					Parameters: llm.JSONSchema{
+						Type: "object",
+						Properties: map[string]*llm.PropertySchema{
+							"name": {
+								Type:     "string",
+								Required: true,
 							},
-							"category": map[string]interface{}{
-								"type": "string",
+							"category": {
+								Type:     "string",
+								Required: true,
 							},
-							"currentValue": map[string]interface{}{
-								"type": "number",
+							"currentValue": {
+								Type:     "number",
+								Required: true,
 							},
 						},
-						"required": []string{"name", "category", "currentValue"},
 					},
 				},
 			},
@@ -502,11 +504,11 @@ func TestOpenAIProvider_ConvertRequest(t *testing.T) {
 				Function: llm.FunctionSchema{
 					Name:        "createAsset",
 					Description: "Create asset",
-					Parameters: map[string]interface{}{
-						"type": "object",
-						"properties": map[string]interface{}{
-							"name": map[string]interface{}{
-								"type": "string",
+					Parameters: llm.JSONSchema{
+						Type: "object",
+						Properties: map[string]*llm.PropertySchema{
+							"name": {
+								Type: "string",
 							},
 						},
 					},

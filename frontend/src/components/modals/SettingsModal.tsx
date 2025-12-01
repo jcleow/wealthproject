@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/Modal'
 import { financialApi } from '@/services/financialApi'
 import type { GrowthConfig, UserSettings, YearDisplayFormat } from '@/types/financial'
 import { GrowthConfigCategoryLabels } from '@/types/financial'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -23,18 +24,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [hasGrowthChanges, setHasGrowthChanges] = useState(false)
 
   // User settings state
-  const [editedSettings, setEditedSettings] = useState<UserSettings>({ startingAge: 30, terminalAge: 65, yearDisplayFormat: 'year_number' })
+  const [editedSettings, setEditedSettings] = useState<UserSettings>({ startingAge: 30, terminalAge: 65, yearDisplayFormat: 'year_number', autoExecuteTools: false })
   const [hasSettingsChanges, setHasSettingsChanges] = useState(false)
 
   // Queries
   const { data: configs, isLoading: isLoadingConfigs } = useQuery({
-    queryKey: ['growth-configs'],
+    queryKey: QUERY_KEYS.financial.growth,
     queryFn: () => financialApi.getGrowthConfigs(),
     enabled: isOpen,
   })
 
   const { data: settings, isLoading: isLoadingSettings } = useQuery({
-    queryKey: ['user-settings'],
+    queryKey: QUERY_KEYS.settings.user,
     queryFn: () => financialApi.getUserSettings(),
     enabled: isOpen,
   })
@@ -43,18 +44,20 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const updateGrowthMutation = useMutation({
     mutationFn: (configs: GrowthConfig[]) => financialApi.updateGrowthConfigs(configs),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['growth-configs'] })
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.growth })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       setHasGrowthChanges(false)
+      onClose()
     },
   })
 
   const updateSettingsMutation = useMutation({
     mutationFn: (settings: UserSettings) => financialApi.updateUserSettings(settings),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-settings'] })
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings.user })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       setHasSettingsChanges(false)
+      onClose()
     },
   })
 
@@ -105,6 +108,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const handleYearDisplayFormatChange = (value: YearDisplayFormat) => {
     setEditedSettings(prev => ({ ...prev, yearDisplayFormat: value }))
+    setHasSettingsChanges(true)
+  }
+
+  const handleAutoExecuteToolsChange = (enabled: boolean) => {
+    setEditedSettings(prev => ({ ...prev, autoExecuteTools: enabled }))
     setHasSettingsChanges(true)
   }
 
@@ -250,6 +258,37 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <option value="year_number">Year Number (Year 0, Year 1...)</option>
                     <option value="actual_year">Actual Year ({new Date().getFullYear()}, {new Date().getFullYear() + 1}...)</option>
                   </select>
+                </div>
+
+                <div className="pt-4 border-t border-white/[0.06]">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300">
+                        Auto-Execute AI Actions
+                      </label>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Execute AI-suggested changes immediately without confirmation
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAutoExecuteToolsChange(!editedSettings.autoExecuteTools)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        editedSettings.autoExecuteTools ? 'bg-blue-600' : 'bg-slate-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          editedSettings.autoExecuteTools ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  {editedSettings.autoExecuteTools && (
+                    <p className="mt-2 text-xs text-amber-400">
+                      ⚠️ Actions will be executed immediately. Use with caution.
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (

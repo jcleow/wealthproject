@@ -354,6 +354,44 @@ TypeScript & React Coding Agent Rules
   - Reduced boilerplate code
   - Better user experience with instant feedback
 
+## TanStack Query Cache Update Pitfalls
+
+**CRITICAL: When updating query caches after mutations, follow these rules:**
+
+1. **Use `setQueryData` for immediate UI updates** - This updates the cache synchronously and triggers re-renders immediately
+2. **Only invalidate queries that need server recalculation** - Don't invalidate queries you just set with `setQueryData`
+3. **Include ALL data types in `setQueryData`** - If your mutation returns multiple data types (assets, liabilities, scenarioEvents, etc.), update ALL of them
+
+**Common Bug Pattern:**
+```typescript
+// BAD: Missing some data types in setQueryData, then invalidating everything
+onSuccess: (data) => {
+  queryClient.setQueryData(QUERY_KEYS.financial.assets, data.assets)
+  queryClient.setQueryData(QUERY_KEYS.financial.liabilities, data.liabilities)
+  // MISSING: scenarioEvents - UI won't update for scenarios!
+
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.all }) // Invalidates everything, causing stale state
+}
+
+// GOOD: Set ALL returned data, only invalidate derived queries
+onSuccess: (data) => {
+  queryClient.setQueryData(QUERY_KEYS.financial.assets, data.assets)
+  queryClient.setQueryData(QUERY_KEYS.financial.liabilities, data.liabilities)
+  queryClient.setQueryData(QUERY_KEYS.financial.incomes, data.incomes)
+  queryClient.setQueryData(QUERY_KEYS.financial.expenses, data.expenses)
+  queryClient.setQueryData(QUERY_KEYS.financial.scenarioEvents, data.scenarioEvents) // Don't forget this!
+
+  // Only invalidate server-computed derived data
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
+}
+```
+
+**Why this matters:**
+- `setQueryData` → Immediate UI update (synchronous)
+- `invalidateQueries` → Marks data stale, triggers background refetch (async)
+- If you call both on the same query key, the invalidate can cause UI to show loading state or wait for refetch
+
 
 ### Features
 - For every CRUD action via the UI, the chat<->dispatch flow must support it as well.

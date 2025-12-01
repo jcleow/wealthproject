@@ -160,6 +160,16 @@ func buildImpactsFromDTO(reqs []scenarioImpactDTO) ([]repository.ScenarioImpact,
 			end = &val
 		}
 		targetID := ptrOrNil(ptrOrEmpty(in.TargetID))
+
+		// Validate targetId is required for all impact types
+		// - delta/override: must reference an existing item to modify
+		// - start: must reference a newly created item (created by frontend before this call)
+		// - stop: must reference an existing item to stop
+		if targetID == nil || strings.TrimSpace(*targetID) == "" {
+			return nil, errors.New("targetId is required for all impact types; " +
+				"for 'start' impacts, create the financial item first and pass its ID")
+		}
+
 		impact := repository.ScenarioImpact{
 			TargetType: tt,
 			TargetID:   targetID,

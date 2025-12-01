@@ -205,9 +205,11 @@ export const financialApi = {
     if (!id) throw new Error('Scenario event id is required')
     const data = await jsonRequest<any>(`${API_BASE}/scenario-events/${encodeURIComponent(id)}`)
     if (process.env.NODE_ENV === 'development') {
+      const rawImpacts = data.impacts ?? data.Impacts ?? []
       console.debug('[financialApi.getScenarioEvent] response', {
         id: data.id ?? data.ID ?? id,
-        impacts: Array.isArray(data.impacts) ? data.impacts.length : Array.isArray(data.Impacts) ? data.Impacts.length : null,
+        impactCount: Array.isArray(rawImpacts) ? rawImpacts.length : null,
+        rawImpacts: rawImpacts,
         keys: Object.keys(data || {}),
       })
     }
@@ -215,9 +217,9 @@ export const financialApi = {
       id: data.id ?? data.ID ?? id,
       name: data.name ?? data.Name ?? '',
       description: data.description ?? data.Description ?? '',
-      occurs_on: data.occurs_on ?? data.OccursOn ?? data.occursOn ?? '',
-      display_icon: data.display_icon ?? data.DisplayIcon ?? '',
-      display_color: data.display_color ?? data.DisplayColor ?? '',
+      occurs_on: data.occurs_on ?? data.occursOn ?? data.OccursOn ?? '',
+      display_icon: data.display_icon ?? data.displayIcon ?? data.DisplayIcon ?? '',
+      display_color: data.display_color ?? data.displayColor ?? data.DisplayColor ?? '',
       tags: data.tags ?? data.Tags ?? [],
       scenario_id: data.scenario_id ?? data.scenarioId ?? data.ScenarioID ?? data.ScenarioId,
       is_included: data.is_included ?? data.isIncluded ?? data.IsIncluded ?? true,
@@ -700,6 +702,7 @@ export const financialApi = {
       startingAge: data.startingAge ?? 30,
       terminalAge: data.terminalAge ?? 65,
       yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
+      autoExecuteTools: data.autoExecuteTools ?? false,
       updatedAt: data.updatedAt,
     }
   },
@@ -711,6 +714,7 @@ export const financialApi = {
         startingAge: settings.startingAge,
         terminalAge: settings.terminalAge,
         yearDisplayFormat: settings.yearDisplayFormat,
+        autoExecuteTools: settings.autoExecuteTools,
       }),
     })
     return {
@@ -718,6 +722,7 @@ export const financialApi = {
       startingAge: data.startingAge ?? 30,
       terminalAge: data.terminalAge ?? 65,
       yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
+      autoExecuteTools: data.autoExecuteTools ?? false,
       updatedAt: data.updatedAt,
     }
   },

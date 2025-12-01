@@ -146,6 +146,20 @@ func (f *fakePropertyLinkStore) ListPropertyLinksByLiability(_ context.Context, 
 	return out, nil
 }
 
+func (f *fakePropertyLinkStore) ListAllPropertyLinks(_ context.Context, userID string, pagination repository.PaginationParams) (repository.PaginatedResult[repository.PropertyLink], error) {
+	var out []repository.PropertyLink
+	for _, l := range f.links {
+		out = append(out, l)
+	}
+	return repository.PaginatedResult[repository.PropertyLink]{
+		Data:    out,
+		Total:   len(out),
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+		HasMore: false,
+	}, nil
+}
+
 func TestPropertyLinkCreateCreatesScenarioAndConverts(t *testing.T) {
 	store := newFakePropertyLinkStore()
 	store.assets["a1"] = repository.Asset{ID: "a1", Category: "other"}

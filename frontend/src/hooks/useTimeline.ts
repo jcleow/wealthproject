@@ -3,15 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { timelineApi } from '@/services/timelineApi'
 import type { TimelineEditRequest, TimelineResponse, TimelineYear } from '@/types/timeline'
-
-const TIMELINE_QUERY_KEY = ['timeline']
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export function useTimeline() {
   const queryClient = useQueryClient()
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
 
   const timelineQuery = useQuery<TimelineResponse>({
-    queryKey: TIMELINE_QUERY_KEY,
+    queryKey: QUERY_KEYS.financial.timeline,
     queryFn: () => timelineApi.getTimeline({ includeScenarios: true }),
     staleTime: 1000 * 60 * 5,
     retry: 1,
@@ -45,14 +44,14 @@ export function useTimeline() {
     mutationFn: (payload: TimelineEditRequest) =>
       timelineApi.putTimeline(payload.year, payload),
     onSuccess: (data, variables) => {
-      queryClient.setQueryData(TIMELINE_QUERY_KEY, data)
+      queryClient.setQueryData<TimelineResponse>(QUERY_KEYS.financial.timeline, data)
       setSelectedYear(variables.year)
     },
   })
 
   useEffect(() => {
     const handler = () => {
-      queryClient.invalidateQueries({ queryKey: TIMELINE_QUERY_KEY }).catch(() => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline }).catch(() => {
         // ignore cache errors
       })
     }

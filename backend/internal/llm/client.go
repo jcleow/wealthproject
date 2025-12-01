@@ -173,8 +173,8 @@ func FormatChatHistory(messages []ChatMessage, maxMessages int) []ChatMessage {
 
 // ValidateToolDefinitions validates tool definitions for common issues
 func ValidateToolDefinitions(tools []ToolDefinition) error {
-	if len(tools) > 20 {
-		return fmt.Errorf("too many tools: %d (maximum 20 recommended)", len(tools))
+	if len(tools) > 30 {
+		return fmt.Errorf("too many tools: %d (maximum 30 recommended)", len(tools))
 	}
 
 	names := make(map[string]bool)

@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
 import type { PropertyScenarioRecord } from '@/types/property'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
-export const PROPERTY_SCENARIOS_QUERY_KEY = ['property-scenarios'] as const
-export const PROPERTY_LINKS_QUERY_KEY = ['property-links'] as const
+export const PROPERTY_SCENARIOS_QUERY_KEY = QUERY_KEYS.financial.propertyScenarios
+export const PROPERTY_LINKS_QUERY_KEY = QUERY_KEYS.financial.propertyLinks
 
 // Property Scenarios
 export function usePropertyScenariosQuery() {
@@ -34,7 +35,7 @@ export function useCreatePropertyScenarioMutation() {
       queryClient.setQueryData<PropertyScenarioRecord[]>(PROPERTY_SCENARIOS_QUERY_KEY, (old) =>
         old ? [...old, newScenario] : [newScenario]
       )
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
     },
   })
 }
@@ -49,7 +50,7 @@ export function useDeletePropertyScenarioMutation() {
         old?.filter((s) => s.id !== deletedId) ?? []
       )
       queryClient.removeQueries({ queryKey: [...PROPERTY_SCENARIOS_QUERY_KEY, deletedId] })
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
     },
   })
 }
@@ -92,7 +93,7 @@ export function useCreatePropertyLinkMutation() {
       // Invalidate all property links queries as they might be filtered differently
       queryClient.invalidateQueries({ queryKey: PROPERTY_LINKS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPERTY_SCENARIOS_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
     },
   })
 }
@@ -105,7 +106,7 @@ export function useUpdatePropertyLinkMutation() {
       financialApi.updatePropertyLink(id, link),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PROPERTY_LINKS_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
     },
   })
 }

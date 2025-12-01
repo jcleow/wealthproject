@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
 import type { Asset } from '@/types/financial'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
-export const ASSETS_QUERY_KEY = ['assets'] as const
+export const ASSETS_QUERY_KEY = QUERY_KEYS.financial.assets
 
 export function useAssetsQuery() {
   return useQuery({
@@ -28,8 +29,8 @@ export function useCreateAssetMutation() {
         old ? [...old, newAsset] : [newAsset]
       )
       // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['net-worth'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
     },
   })
 }
@@ -46,8 +47,8 @@ export function useUpdateAssetMutation() {
         old?.map((asset) => asset.id === updatedAsset.id ? updatedAsset : asset) ?? []
       )
       // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['net-worth'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
     },
   })
 }
@@ -63,8 +64,8 @@ export function useDeleteAssetMutation() {
         old?.filter((asset) => asset.id !== deletedId) ?? []
       )
       // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['net-worth'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
     },
   })
 }

@@ -103,8 +103,21 @@ func (p *GeminiProvider) GenerateToolCalls(ctx context.Context, req llm.ChatRequ
 		model.Tools = tools
 	}
 
-	// Convert messages to Gemini format
-	parts := p.convertMessages(req.Messages)
+	// Extract system message and set as SystemInstruction (Gemini's proper way to handle system prompts)
+	var nonSystemMessages []llm.ChatMessage
+	for _, msg := range req.Messages {
+		if msg.Role == "system" {
+			// Set system instruction on the model
+			model.SystemInstruction = &genai.Content{
+				Parts: []genai.Part{genai.Text(msg.Content)},
+			}
+		} else {
+			nonSystemMessages = append(nonSystemMessages, msg)
+		}
+	}
+
+	// Convert non-system messages to Gemini format
+	parts := p.convertMessages(nonSystemMessages)
 
 	// Start chat session
 	cs := model.StartChat()
@@ -145,11 +158,7 @@ func (p *GeminiProvider) convertTools(tools []llm.ToolDefinition) []*genai.Tool 
 			continue
 		}
 
-		// Parse the parameters JSON schema
-		var schema map[string]interface{}
-		// Parameters is already a map[string]interface{}, not a string
-		schema = tool.Function.Parameters
-
+		params := tool.Function.Parameters
 		geminiTool := &genai.Tool{
 			FunctionDeclarations: []*genai.FunctionDeclaration{
 				{
@@ -158,29 +167,15 @@ func (p *GeminiProvider) convertTools(tools []llm.ToolDefinition) []*genai.Tool 
 					Parameters: &genai.Schema{
 						Type:       genai.TypeObject,
 						Properties: make(map[string]*genai.Schema),
+						Required:   params.Required,
 					},
 				},
 			},
 		}
 
-		// Convert properties if they exist
-		if props, ok := schema["properties"].(map[string]interface{}); ok {
-			for propName, propDef := range props {
-				if propMap, ok := propDef.(map[string]interface{}); ok {
-					geminiTool.FunctionDeclarations[0].Parameters.Properties[propName] = p.convertSchema(propMap)
-				}
-			}
-		}
-
-		// Add required fields
-		if required, ok := schema["required"].([]interface{}); ok {
-			var requiredStrings []string
-			for _, r := range required {
-				if s, ok := r.(string); ok {
-					requiredStrings = append(requiredStrings, s)
-				}
-			}
-			geminiTool.FunctionDeclarations[0].Parameters.Required = requiredStrings
+		// Convert properties from typed schema
+		for propName, propDef := range params.Properties {
+			geminiTool.FunctionDeclarations[0].Parameters.Properties[propName] = p.convertPropertySchema(propDef)
 		}
 
 		geminiTools = append(geminiTools, geminiTool)
@@ -189,43 +184,50 @@ func (p *GeminiProvider) convertTools(tools []llm.ToolDefinition) []*genai.Tool 
 	return geminiTools
 }
 
-// convertSchema converts a JSON schema to Gemini schema format
-func (p *GeminiProvider) convertSchema(schema map[string]interface{}) *genai.Schema {
-	result := &genai.Schema{}
-
-	if typeStr, ok := schema["type"].(string); ok {
-		switch typeStr {
-		case "string":
-			result.Type = genai.TypeString
-		case "number":
-			result.Type = genai.TypeNumber
-		case "integer":
-			result.Type = genai.TypeInteger
-		case "boolean":
-			result.Type = genai.TypeBoolean
-		case "array":
-			result.Type = genai.TypeArray
-			if items, ok := schema["items"].(map[string]interface{}); ok {
-				result.Items = p.convertSchema(items)
-			}
-		case "object":
-			result.Type = genai.TypeObject
-			if props, ok := schema["properties"].(map[string]interface{}); ok {
-				result.Properties = make(map[string]*genai.Schema)
-				for propName, propDef := range props {
-					if propMap, ok := propDef.(map[string]interface{}); ok {
-						result.Properties[propName] = p.convertSchema(propMap)
-					}
-				}
-			}
-		}
+// convertPropertySchema converts a typed PropertySchema to Gemini schema format
+func (p *GeminiProvider) convertPropertySchema(prop *llm.PropertySchema) *genai.Schema {
+	result := &genai.Schema{
+		Description: prop.Description,
 	}
 
-	if desc, ok := schema["description"].(string); ok {
-		result.Description = desc
+	switch prop.Type {
+	case "string":
+		result.Type = genai.TypeString
+		if len(prop.Enum) > 0 {
+			result.Enum = prop.Enum
+		}
+	case "number":
+		result.Type = genai.TypeNumber
+	case "integer":
+		result.Type = genai.TypeInteger
+	case "boolean":
+		result.Type = genai.TypeBoolean
+	case "array":
+		result.Type = genai.TypeArray
+		if prop.Items != nil {
+			result.Items = &genai.Schema{Type: p.convertTypeString(prop.Items.Type)}
+		}
+	case "object":
+		result.Type = genai.TypeObject
 	}
 
 	return result
+}
+
+// convertTypeString converts a type string to Gemini type
+func (p *GeminiProvider) convertTypeString(typeStr string) genai.Type {
+	switch typeStr {
+	case "string":
+		return genai.TypeString
+	case "number":
+		return genai.TypeNumber
+	case "integer":
+		return genai.TypeInteger
+	case "boolean":
+		return genai.TypeBoolean
+	default:
+		return genai.TypeString
+	}
 }
 
 // convertMessages converts our messages to Gemini format
@@ -306,6 +308,25 @@ func (p *GeminiProvider) convertResponse(response *genai.GenerateContentResponse
 	}
 
 	candidate := response.Candidates[0]
+
+	// Check if Content is nil (can happen with certain finish reasons)
+	if candidate.Content == nil {
+		// Return empty response with appropriate finish reason
+		finishReason := "stop"
+		if candidate.FinishReason == genai.FinishReasonSafety {
+			finishReason = "safety"
+			return nil, fmt.Errorf("response blocked by safety filter")
+		}
+		return &llm.ToolCallResponse{
+			Message:        llm.ChatMessage{Role: "assistant", Content: ""},
+			ToolCalls:      nil,
+			FinishReason:   finishReason,
+			RequestID:      fmt.Sprintf("gemini_%d", time.Now().UnixNano()),
+			Provider:       "gemini",
+			Model:          p.config.Model,
+			ProcessingTime: processingTime,
+		}, nil
+	}
 
 	// Create assistant message
 	assistantMsg := llm.ChatMessage{

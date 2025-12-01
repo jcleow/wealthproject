@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
 import type { ScenarioEvent } from '@/types/scenario'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
-export const SCENARIO_EVENTS_QUERY_KEY = ['scenario-events'] as const
+export const SCENARIO_EVENTS_QUERY_KEY = QUERY_KEYS.financial.scenarioEvents
 
 export function useScenarioEventsQuery() {
   return useQuery({
@@ -33,8 +34,7 @@ export function useCreateScenarioEventMutation() {
         old ? [...old, newEvent] : [newEvent]
       )
       // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['scenario-analysis'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
     },
   })
 }
@@ -53,8 +53,7 @@ export function useUpdateScenarioEventMutation() {
       // Update individual cache
       queryClient.setQueryData([...SCENARIO_EVENTS_QUERY_KEY, variables.id], updatedEvent)
       // Invalidate related
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['scenario-analysis'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
     },
   })
 }
@@ -72,8 +71,7 @@ export function useDeleteScenarioEventMutation() {
       // Remove individual cache
       queryClient.removeQueries({ queryKey: [...SCENARIO_EVENTS_QUERY_KEY, deletedId] })
       // Invalidate related
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['scenario-analysis'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
     },
   })
 }

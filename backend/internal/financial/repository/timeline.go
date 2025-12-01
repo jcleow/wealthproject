@@ -14,6 +14,7 @@ type UserSettings struct {
 	StartingAge       int       `json:"startingAge"`
 	TerminalAge       int       `json:"terminalAge"`
 	YearDisplayFormat string    `json:"yearDisplayFormat"`
+	AutoExecuteTools  bool      `json:"autoExecuteTools"`
 	UpdatedAt         time.Time `json:"updatedAt,omitempty"`
 }
 
@@ -22,6 +23,7 @@ var DefaultUserSettings = UserSettings{
 	StartingAge:       30,
 	TerminalAge:       65,
 	YearDisplayFormat: "year_number",
+	AutoExecuteTools:  false,
 }
 
 // GrowthConfig stores bounded annual growth assumptions.
@@ -231,11 +233,11 @@ func (s *Store) CreateCustomItem(ctx context.Context, item CustomItem) (CustomIt
 // GetUserSettings returns user settings, or defaults if not set.
 func (s *Store) GetUserSettings(ctx context.Context, userID string) (UserSettings, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, user_id, starting_age, terminal_age, year_display_format, updated_at
+		SELECT id, user_id, starting_age, terminal_age, year_display_format, COALESCE(auto_execute_tools, false), updated_at
 		FROM user_settings
 		WHERE user_id = $1`, userID)
 	var settings UserSettings
-	if err := row.Scan(&settings.ID, &settings.UserID, &settings.StartingAge, &settings.TerminalAge, &settings.YearDisplayFormat, &settings.UpdatedAt); err != nil {
+	if err := row.Scan(&settings.ID, &settings.UserID, &settings.StartingAge, &settings.TerminalAge, &settings.YearDisplayFormat, &settings.AutoExecuteTools, &settings.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return DefaultUserSettings, nil
 		}
@@ -247,17 +249,18 @@ func (s *Store) GetUserSettings(ctx context.Context, userID string) (UserSetting
 // UpsertUserSettings inserts or updates user settings.
 func (s *Store) UpsertUserSettings(ctx context.Context, userID string, settings UserSettings) (UserSettings, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO user_settings (user_id, starting_age, terminal_age, year_display_format)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO user_settings (user_id, starting_age, terminal_age, year_display_format, auto_execute_tools)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (user_id) DO UPDATE
 		SET starting_age = EXCLUDED.starting_age,
 		    terminal_age = EXCLUDED.terminal_age,
 		    year_display_format = EXCLUDED.year_display_format,
+		    auto_execute_tools = EXCLUDED.auto_execute_tools,
 		    updated_at = NOW()
-		RETURNING id, user_id, starting_age, terminal_age, year_display_format, updated_at`,
-		userID, settings.StartingAge, settings.TerminalAge, settings.YearDisplayFormat)
+		RETURNING id, user_id, starting_age, terminal_age, year_display_format, COALESCE(auto_execute_tools, false), updated_at`,
+		userID, settings.StartingAge, settings.TerminalAge, settings.YearDisplayFormat, settings.AutoExecuteTools)
 	var updated UserSettings
-	if err := row.Scan(&updated.ID, &updated.UserID, &updated.StartingAge, &updated.TerminalAge, &updated.YearDisplayFormat, &updated.UpdatedAt); err != nil {
+	if err := row.Scan(&updated.ID, &updated.UserID, &updated.StartingAge, &updated.TerminalAge, &updated.YearDisplayFormat, &updated.AutoExecuteTools, &updated.UpdatedAt); err != nil {
 		return UserSettings{}, err
 	}
 	return updated, nil

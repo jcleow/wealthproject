@@ -182,15 +182,23 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 		var tagsJSON []byte
 		var scenarioID sql.NullString
 
+		// All impact fields must be nullable since LEFT JOIN can return NULLs
 		var impID sql.NullString
 		var impEventID sql.NullString
+		var impTargetType sql.NullString
 		var impTargetID sql.NullString
+		var impImpactKind sql.NullString
+		var impAmount sql.NullInt64
+		var impCurrency sql.NullString
+		var impCadence sql.NullString
+		var impStartMonth sql.NullTime
 		var impEndMonth sql.NullTime
-		var imp ScenarioImpact
+		var impNotes sql.NullString
+		var impCreatedAt sql.NullTime
 
 		if err := rows.Scan(
 			&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &scenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt,
-			&impID, &impEventID, &imp.TargetType, &impTargetID, &imp.ImpactKind, &imp.Amount, &imp.Currency, &imp.Cadence, &imp.StartMonth, &impEndMonth, &imp.Notes, &imp.CreatedAt,
+			&impID, &impEventID, &impTargetType, &impTargetID, &impImpactKind, &impAmount, &impCurrency, &impCadence, &impStartMonth, &impEndMonth, &impNotes, &impCreatedAt,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -208,17 +216,30 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 		}
 
 		if impID.Valid {
-			imp.ID = impID.String
+			imp := ScenarioImpact{
+				ID:         impID.String,
+				EventID:    ev.ID,
+				TargetType: impTargetType.String,
+				ImpactKind: impImpactKind.String,
+				Amount:     impAmount.Int64,
+				Currency:   impCurrency.String,
+				Cadence:    impCadence.String,
+				Notes:      impNotes.String,
+			}
 			if impTargetID.Valid {
 				imp.TargetID = &impTargetID.String
 			}
 			if impEventID.Valid {
 				imp.EventID = impEventID.String
-			} else {
-				imp.EventID = ev.ID
+			}
+			if impStartMonth.Valid {
+				imp.StartMonth = impStartMonth.Time
 			}
 			if impEndMonth.Valid {
 				imp.EndMonth = &impEndMonth.Time
+			}
+			if impCreatedAt.Valid {
+				imp.CreatedAt = impCreatedAt.Time
 			}
 			current.Impacts = append(current.Impacts, imp)
 		}

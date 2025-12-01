@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   transpilePackages: ['lucide-react'],
   turbopack: {
     // Force Turbopack root to this worktree's frontend to avoid parent lockfile warnings

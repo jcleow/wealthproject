@@ -136,3 +136,163 @@ type DeleteExpenseParams struct {
 	LastExpenseID string `json:"lastExpenseId,omitempty"`
 	ExpenseName   string `json:"expenseName,omitempty"`
 }
+
+// ============================================
+// SECTION: Analysis Params (Agent 3)
+// ============================================
+
+// GetNetWorthSummaryParams represents inputs for getNetWorthSummary tool.
+type GetNetWorthSummaryParams struct {
+	IncludeScenarios bool `json:"includeScenarios"`
+	AsOfYear         int  `json:"asOfYear"`
+}
+
+// AnalyzeNetWorthTrendsParams represents inputs for analyzeNetWorthTrends tool.
+type AnalyzeNetWorthTrendsParams struct {
+	IncludeScenarios bool `json:"includeScenarios"`
+	YearsToAnalyze   int  `json:"yearsToAnalyze"`
+}
+
+// CompareScenarioImpactParams represents inputs for compareScenarioImpact tool.
+type CompareScenarioImpactParams struct {
+	ScenarioID     string `json:"scenarioId,omitempty"`
+	ScenarioName   string `json:"scenarioName,omitempty"`
+	YearsToProject int    `json:"yearsToProject"`
+}
+
+// ProjectNetWorthAtYearParams represents inputs for projectNetWorthAtYear tool.
+type ProjectNetWorthAtYearParams struct {
+	TargetYear       int  `json:"targetYear,omitempty"`
+	TargetAge        int  `json:"targetAge,omitempty"`
+	IncludeScenarios bool `json:"includeScenarios"`
+}
+
+// IdentifyNetWorthLeversParams represents inputs for identifyNetWorthLevers tool.
+type IdentifyNetWorthLeversParams struct {
+	TopN     int    `json:"topN"`
+	Category string `json:"category"`
+}
+
+// ============================================
+// SECTION: Context Injection
+// ============================================
+
+// FinancialContext represents the user's complete financial snapshot for AI context
+type FinancialContext struct {
+	NetWorth    float64               `json:"netWorth"`
+	Assets      []ContextItem         `json:"assets"`
+	Liabilities []ContextItem         `json:"liabilities"`
+	Income      []ContextItem         `json:"income"`
+	Expenses    []ContextItem         `json:"expenses"`
+	Scenarios   []ContextScenario     `json:"scenarios"`
+	Summary     FinancialSummary      `json:"summary"`
+}
+
+// ContextItem represents a single financial item for AI context
+type ContextItem struct {
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	Category string  `json:"category"`
+	Amount   float64 `json:"amount"`
+	Notes    string  `json:"notes,omitempty"`
+}
+
+// ContextScenario represents a scenario for AI context
+type ContextScenario struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	IsIncluded  bool   `json:"isIncluded"`
+}
+
+// FinancialSummary provides aggregated financial data
+type FinancialSummary struct {
+	TotalAssets      float64 `json:"totalAssets"`
+	TotalLiabilities float64 `json:"totalLiabilities"`
+	TotalCash        float64 `json:"totalCash"`
+	MonthlyIncome    float64 `json:"monthlyIncome"`
+	MonthlyExpenses  float64 `json:"monthlyExpenses"`
+	MonthlySavings   float64 `json:"monthlySavings"`
+	SavingsRate      float64 `json:"savingsRate"`
+}
+
+// ============================================
+// SECTION: Scenario CRUD Params
+// ============================================
+
+// CreateScenarioEventParams represents the inputs to create a scenario event.
+type CreateScenarioEventParams struct {
+	Name           string                 `json:"name"`
+	Description    string                 `json:"description,omitempty"`
+	TargetYear     int                    `json:"targetYear"`
+	TargetType     string                 `json:"targetType"`
+	TargetID       string                 `json:"targetId,omitempty"`
+	ImpactType     string                 `json:"impactType"`
+	ImpactValue    *float64               `json:"impactValue,omitempty"`
+	ImpactMetadata map[string]interface{} `json:"impactMetadata,omitempty"`
+	IsIncluded     *bool                  `json:"isIncluded,omitempty"`
+}
+
+// StopFinancialItemParams represents the inputs to stop/pause an existing financial item in a scenario.
+type StopFinancialItemParams struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	TargetYear  int    `json:"targetYear"`
+	TargetType  string `json:"targetType"`
+	TargetID    string `json:"targetId"`
+	IsIncluded  *bool  `json:"isIncluded,omitempty"`
+}
+
+// StartFinancialItemParams represents the inputs to create a new financial item in a scenario.
+type StartFinancialItemParams struct {
+	Name         string   `json:"name"`
+	Description  string   `json:"description,omitempty"`
+	TargetYear   int      `json:"targetYear"`
+	TargetType   string   `json:"targetType"`
+	ImpactValue  float64  `json:"impactValue"`
+	ItemName     string   `json:"itemName,omitempty"`     // Name for the created item
+	ItemCategory string   `json:"itemCategory,omitempty"` // Category for the created item
+	IsIncluded   *bool    `json:"isIncluded,omitempty"`
+}
+
+// ModifyFinancialItemParams represents the inputs to modify an existing financial item's value in a scenario.
+type ModifyFinancialItemParams struct {
+	Name        string  `json:"name"`
+	Description string  `json:"description,omitempty"`
+	TargetYear  int     `json:"targetYear"`
+	TargetType  string  `json:"targetType"`
+	TargetID    string  `json:"targetId"`
+	ImpactType  string  `json:"impactType"` // "delta" or "override"
+	ImpactValue float64 `json:"impactValue"`
+	IsIncluded  *bool   `json:"isIncluded,omitempty"`
+}
+
+// UpdateScenarioEventParams represents the inputs to update an existing scenario event.
+type UpdateScenarioEventParams struct {
+	ScenarioID   string   `json:"scenarioId,omitempty"`
+	ScenarioName string   `json:"scenarioName,omitempty"`
+	Name         string   `json:"name,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	TargetYear   *int     `json:"targetYear,omitempty"`
+	ImpactValue  *float64 `json:"impactValue,omitempty"`
+	IsIncluded   *bool    `json:"isIncluded,omitempty"`
+}
+
+// DeleteScenarioEventParams represents the inputs to delete a scenario event.
+type DeleteScenarioEventParams struct {
+	ScenarioID   string `json:"scenarioId,omitempty"`
+	ScenarioName string `json:"scenarioName,omitempty"`
+}
+
+// ListScenarioEventsParams represents the inputs to list scenario events.
+type ListScenarioEventsParams struct {
+	IncludeDisabled bool   `json:"includeDisabled,omitempty"`
+	TargetType      string `json:"targetType,omitempty"`
+}
+
+// ToggleScenarioIncludedParams represents the inputs to toggle a scenario's included status.
+type ToggleScenarioIncludedParams struct {
+	ScenarioID   string `json:"scenarioId,omitempty"`
+	ScenarioName string `json:"scenarioName,omitempty"`
+	IsIncluded   bool   `json:"isIncluded"`
+}
