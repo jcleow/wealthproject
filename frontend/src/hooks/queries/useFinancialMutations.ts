@@ -1,10 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
-import { ASSETS_QUERY_KEY } from './useAssetsQuery'
-import { LIABILITIES_QUERY_KEY } from './useLiabilitiesQuery'
-import { INCOMES_QUERY_KEY } from './useIncomesQuery'
-import { EXPENSES_QUERY_KEY } from './useExpensesQuery'
-import { CASH_ACCOUNTS_QUERY_KEY } from './useCashAccountsQuery'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export { useLoadSampleDataMutation } from './useLoadSampleDataMutation'
 
@@ -24,17 +20,14 @@ export function useDeleteAllFinancialDataMutation() {
     },
     onSuccess: () => {
       // Clear all caches
-      queryClient.setQueryData(ASSETS_QUERY_KEY, [])
-      queryClient.setQueryData(LIABILITIES_QUERY_KEY, [])
-      queryClient.setQueryData(INCOMES_QUERY_KEY, [])
-      queryClient.setQueryData(EXPENSES_QUERY_KEY, [])
-      queryClient.setQueryData(CASH_ACCOUNTS_QUERY_KEY, [])
+      queryClient.setQueryData(QUERY_KEYS.financial.assets, [])
+      queryClient.setQueryData(QUERY_KEYS.financial.liabilities, [])
+      queryClient.setQueryData(QUERY_KEYS.financial.incomes, [])
+      queryClient.setQueryData(QUERY_KEYS.financial.expenses, [])
+      queryClient.setQueryData(QUERY_KEYS.financial.cashAccounts, [])
 
-      // Invalidate all related queries
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['net-worth'] })
-      queryClient.invalidateQueries({ queryKey: ['cashflow'] })
-      queryClient.invalidateQueries({ queryKey: ['scenario-events'] })
+      // Invalidate all financial queries with single call
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.all })
     },
   })
 }

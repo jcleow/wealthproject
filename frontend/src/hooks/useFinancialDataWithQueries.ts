@@ -5,21 +5,15 @@ import { useLiabilitiesQuery, useCreateLiabilityMutation, useUpdateLiabilityMuta
 import { useIncomesQuery, useCreateIncomeMutation, useUpdateIncomeMutation, useDeleteIncomeMutation } from './queries/useIncomesQuery'
 import { useExpensesQuery, useCreateExpenseMutation, useUpdateExpenseMutation, useDeleteExpenseMutation } from './queries/useExpensesQuery'
 import { useDeleteAllFinancialDataMutation, useLoadSampleDataMutation } from './queries/useFinancialMutations'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export function useFinancialData() {
   const queryClient = useQueryClient()
 
   // Listen for financial-data-refresh events (dispatched by chat when actions are executed)
   const invalidateAllQueries = useCallback(() => {
-    console.log('[useFinancialData] Invalidating all queries')
-    queryClient.invalidateQueries({ queryKey: ['assets'] })
-    queryClient.invalidateQueries({ queryKey: ['liabilities'] })
-    queryClient.invalidateQueries({ queryKey: ['incomes'] })
-    queryClient.invalidateQueries({ queryKey: ['expenses'] })
-    queryClient.invalidateQueries({ queryKey: ['cash-accounts'] })
-    queryClient.invalidateQueries({ queryKey: ['scenario-events'] })
-    queryClient.invalidateQueries({ queryKey: ['timeline'] })
-    queryClient.invalidateQueries({ queryKey: ['property-scenarios'] })
+    console.log('[useFinancialData] Invalidating all financial queries')
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.all })
   }, [queryClient])
 
   useEffect(() => {
@@ -122,17 +116,9 @@ export function useFinancialData() {
     return getMonthlyIncome() - getMonthlyExpenses()
   }
 
-  // Refresh function
+  // Refresh function - invalidates all financial queries with single call
   const refresh = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['assets'] }),
-      queryClient.invalidateQueries({ queryKey: ['liabilities'] }),
-      queryClient.invalidateQueries({ queryKey: ['incomes'] }),
-      queryClient.invalidateQueries({ queryKey: ['expenses'] }),
-      queryClient.invalidateQueries({ queryKey: ['cash-accounts'] }),
-      queryClient.invalidateQueries({ queryKey: ['scenario-events'] }),
-      queryClient.invalidateQueries({ queryKey: ['timeline'] }),
-    ])
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.all })
   }
 
   return {

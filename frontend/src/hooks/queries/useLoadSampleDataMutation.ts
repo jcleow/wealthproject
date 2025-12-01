@@ -2,11 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
 import type { Income, Expense } from '@/types/financial'
 import type { ScenarioEvent } from '@/types/scenario'
-import { ASSETS_QUERY_KEY } from './useAssetsQuery'
-import { LIABILITIES_QUERY_KEY } from './useLiabilitiesQuery'
-import { INCOMES_QUERY_KEY } from './useIncomesQuery'
-import { EXPENSES_QUERY_KEY } from './useExpensesQuery'
-import { CASH_ACCOUNTS_QUERY_KEY } from './useCashAccountsQuery'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
 // Helper to generate YYYY-MM format date strings
 function getMonthString(yearsFromNow: number, monthOffset = 0): string {
@@ -548,16 +544,13 @@ export function useLoadSampleDataMutation() {
     },
     onSuccess: (data) => {
       // Update all caches with the new data
-      queryClient.setQueryData(ASSETS_QUERY_KEY, data.assets)
-      queryClient.setQueryData(LIABILITIES_QUERY_KEY, data.liabilities)
-      queryClient.setQueryData(INCOMES_QUERY_KEY, data.incomes)
-      queryClient.setQueryData(EXPENSES_QUERY_KEY, data.expenses)
+      queryClient.setQueryData(QUERY_KEYS.financial.assets, data.assets)
+      queryClient.setQueryData(QUERY_KEYS.financial.liabilities, data.liabilities)
+      queryClient.setQueryData(QUERY_KEYS.financial.incomes, data.incomes)
+      queryClient.setQueryData(QUERY_KEYS.financial.expenses, data.expenses)
 
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['timeline'] })
-      queryClient.invalidateQueries({ queryKey: ['net-worth'] })
-      queryClient.invalidateQueries({ queryKey: ['cashflow'] })
-      queryClient.invalidateQueries({ queryKey: ['scenario-events'] })
+      // Invalidate all financial queries with single call
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.all })
     },
   })
 }
