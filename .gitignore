@@ -1,6 +1,7 @@
 # Binaries
 bin/
 backend/.gocache/
+backend/server
 *.exe
 *.exe~
 *.dll
