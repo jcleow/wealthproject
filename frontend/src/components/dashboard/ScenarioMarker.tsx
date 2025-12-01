@@ -27,8 +27,11 @@ export default function ScenarioMarker({
   const iconSize = markerRadius * 1.2
 
   const handleClick = (primary?: ScenarioEvent) => {
-    if (onSelectYear) onSelectYear(yearIndex)
-    if (primary && onScenarioSelect) onScenarioSelect(primary)
+    if (primary && onScenarioSelect) {
+      onScenarioSelect(primary)
+    } else if (onSelectYear) {
+      onSelectYear(yearIndex)
+    }
   }
 
   return (

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
+import { Modal } from '@/components/ui/Modal'
 import type { Asset, Expense, Frequency, Income, Liability, GrowthConfig } from '../../types/financial'
 import { formatCurrency } from '@/lib/format'
 import { financialApi } from '@/services/financialApi'
@@ -439,8 +440,6 @@ export function FinancialFormModal({
       ? categoryOptions
       : [...categoryOptions, { value: formData.category, label: formData.category }]
 
-  if (!isOpen) return null
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (isCpfMode && type === 'asset' && mode === 'create') {
@@ -613,9 +612,15 @@ export function FinancialFormModal({
         ? 'Payee'
         : 'Name'
 
+  const isBusy = isSaving || isDeleting
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-md rounded-lg border border-gray-700 bg-gray-800">
+    <Modal
+      isOpen={isOpen}
+      onClose={isBusy ? undefined : onClose}
+      overlayClassName="bg-black/60"
+      className="mx-4 w-full max-w-md rounded-xl border border-white/[0.08] bg-[#0a0a0a]"
+    >
         <div className="flex items-center justify-between border-b border-gray-700 p-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500">
@@ -936,8 +941,7 @@ export function FinancialFormModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
 

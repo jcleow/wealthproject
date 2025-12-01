@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { LogOut, User, ChevronDown, Settings } from 'lucide-react'
@@ -15,11 +15,24 @@ export function UserMenu() {
   const [mounted, setMounted] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const router = useRouter()
+  const menuRef = useRef<HTMLDivElement>(null)
 
   // Prevent hydration mismatch by only rendering after mount
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
 
   const handleSignOut = async () => {
     setIsSigningOut(true)
@@ -60,7 +73,7 @@ export function UserMenu() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative z-[100]" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-800 transition-colors"
@@ -83,20 +96,12 @@ export function UserMenu() {
       </button>
 
       {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setIsOpen(false)}
-          />
-
-          {/* Dropdown */}
-          <div className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-800 rounded-lg shadow-lg z-50">
-            <div className="px-4 py-3 border-b border-gray-800">
-              <p className="text-sm font-medium text-white truncate">
+          <div className="absolute right-0 z-[100] mt-2 w-56 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl" style={{ isolation: 'isolate' }}>
+            <div className="px-4 py-3 border-b border-white/[0.06]">
+              <p className="text-sm font-medium text-slate-200 truncate">
                 {session.user.name}
               </p>
-              <p className="text-xs text-gray-400 truncate">
+              <p className="text-xs text-slate-400 truncate">
                 {session.user.email}
               </p>
             </div>
@@ -107,7 +112,7 @@ export function UserMenu() {
                   setIsOpen(false)
                   setIsSettingsOpen(true)
                 }}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 hover:text-slate-100 transition-colors"
               >
                 <Settings className="w-4 h-4" />
                 Settings
@@ -115,14 +120,13 @@ export function UserMenu() {
               <button
                 onClick={handleSignOut}
                 disabled={isSigningOut}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors disabled:opacity-50"
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 hover:text-slate-100 transition-colors disabled:opacity-50"
               >
                 <LogOut className="w-4 h-4" />
                 {isSigningOut ? 'Signing out...' : 'Sign out'}
               </button>
             </div>
           </div>
-        </>
       )}
 
       <SettingsModal

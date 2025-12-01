@@ -152,7 +152,7 @@ export function FinancialWorkspace({
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-transparent text-slate-200">
       {/* Compact Header */}
-      <header className="flex h-14 shrink-0 items-center justify-between px-6">
+      <header className="relative z-[100] flex h-14 shrink-0 items-center justify-between px-6">
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             {/* <h2 className="text-lg font-medium tracking-tight text-slate-100">Workspace</h2> */}
@@ -167,7 +167,7 @@ export function FinancialWorkspace({
             <input
               type="text"
               placeholder="Search..."
-              className="w-24 bg-transparent text-[11px] text-slate-300 placeholder-slate-600 focus:outline-none"
+              className="w-48 bg-transparent text-[13px] text-slate-300 placeholder-slate-600 focus:outline-none"
             />
           </div>
 
@@ -194,18 +194,24 @@ export function FinancialWorkspace({
 
           <div className="h-4 w-px bg-white/[0.06]" />
 
-          <div className="relative" ref={moduleMenuRef}>
+          <div className="relative z-[100]" ref={moduleMenuRef}>
             <button
               onClick={() => setIsModuleMenuOpen((prev) => !prev)}
               className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-white/5 hover:text-slate-200"
               type="button"
             >
               <Sparkles className="h-3 w-3 text-blue-400/70" />
-              <span className="hidden md:inline">Modules</span>
+              <span className="text-[13px] hidden md:inline">Modules</span>
               <ChevronDown className={`h-2.5 w-2.5 transition ${isModuleMenuOpen ? 'rotate-180' : ''}`} />
             </button>
             {isModuleMenuOpen && (
-              <div className="absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0a]/95 shadow-2xl backdrop-blur-xl">
+              <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-[99]"
+                onClick={() => setIsModuleMenuOpen(false)}
+              />
+              <div className="absolute right-0 z-[100] mt-2 w-64 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl" style={{ isolation: 'isolate' }}>
                 <button
                   onClick={() => {
                     setIsModuleMenuOpen(false)
@@ -219,44 +225,45 @@ export function FinancialWorkspace({
                   </span>
                   <div className="space-y-0.5">
                     <div className="font-medium">Property Planner</div>
-                    <p className="text-[10px] text-slate-500">Model affordability, mortgages, and cash flow.</p>
+                    <p className="text-xs text-slate-400">Model affordability, mortgages, and cash flow.</p>
                   </div>
                 </button>
                 {/* Coming Soon Modules */}
-                <div className="cursor-not-allowed opacity-40">
+                <div className="cursor-not-allowed opacity-60">
                   <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
-                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-600">
+                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-500">
                       <Calculator className="h-4 w-4" />
                     </span>
                     <div className="space-y-0.5">
-                      <div className="font-medium text-slate-500">CPF Calculator</div>
-                      <p className="text-[10px] text-slate-600">Coming soon</p>
+                      <div className="font-medium text-slate-400">CPF Calculator</div>
+                      <p className="text-xs text-slate-500">Coming soon</p>
                     </div>
                   </div>
                 </div>
-                <div className="cursor-not-allowed opacity-40">
+                <div className="cursor-not-allowed opacity-60">
                   <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
-                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-600">
+                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-500">
                       <Car className="h-4 w-4" />
                     </span>
                     <div className="space-y-0.5">
-                      <div className="font-medium text-slate-500">Vehicle Purchase</div>
-                      <p className="text-[10px] text-slate-600">Coming soon</p>
+                      <div className="font-medium text-slate-400">Vehicle Purchase</div>
+                      <p className="text-xs text-slate-500">Coming soon</p>
                     </div>
                   </div>
                 </div>
-                <div className="cursor-not-allowed opacity-40">
+                <div className="cursor-not-allowed opacity-60">
                   <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
-                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-600">
+                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-500">
                       <Receipt className="h-4 w-4" />
                     </span>
                     <div className="space-y-0.5">
-                      <div className="font-medium text-slate-500">Tax Module</div>
-                      <p className="text-[10px] text-slate-600">Coming soon</p>
+                      <div className="font-medium text-slate-400">Tax Module</div>
+                      <p className="text-xs text-slate-500">Coming soon</p>
                     </div>
                   </div>
                 </div>
               </div>
+              </>
             )}
           </div>
 

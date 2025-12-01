@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Settings, TrendingUp, User } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { Modal } from '@/components/ui/Modal'
 import { financialApi } from '@/services/financialApi'
 import type { GrowthConfig, UserSettings, YearDisplayFormat } from '@/types/financial'
 import { GrowthConfigCategoryLabels } from '@/types/financial'
@@ -72,21 +73,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     }
   }, [settings])
 
-  // Handle escape key to close modal
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !updateGrowthMutation.isPending && !updateSettingsMutation.isPending) {
-        onClose()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, updateGrowthMutation.isPending, updateSettingsMutation.isPending, onClose])
-
-  if (!isOpen) return null
+  const isPending = activeSection === 'growth-rates' ? updateGrowthMutation.isPending : updateSettingsMutation.isPending
 
   const handleRateChange = (category: string, value: string) => {
     const numValue = parseFloat(value) || 0
@@ -140,7 +127,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   }
 
   const hasChanges = activeSection === 'growth-rates' ? hasGrowthChanges : hasSettingsChanges
-  const isPending = activeSection === 'growth-rates' ? updateGrowthMutation.isPending : updateSettingsMutation.isPending
   const isLoading = activeSection === 'growth-rates' ? isLoadingConfigs : isLoadingSettings
 
   const sections: { id: SettingsSection; label: string; icon: typeof Settings }[] = [
@@ -149,13 +135,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   ]
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="mx-4 flex h-[500px] w-full max-w-3xl overflow-hidden rounded-lg border border-gray-700 bg-gray-900">
+    <Modal
+      isOpen={isOpen}
+      onClose={isPending ? undefined : onClose}
+      overlayClassName="bg-black/60"
+      className="mx-4 flex h-[500px] w-full max-w-3xl overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl"
+    >
         {/* Sidebar */}
-        <div className="w-48 flex-shrink-0 border-r border-gray-700 bg-gray-800/50">
-          <div className="flex items-center gap-2 border-b border-gray-700 p-4">
-            <Settings className="h-5 w-5 text-gray-400" />
-            <span className="font-semibold text-white">Settings</span>
+        <div className="w-48 flex-shrink-0 border-r border-white/[0.06] bg-[#0f0f0f]">
+          <div className="flex items-center gap-2 border-b border-white/[0.06] p-4">
+            <Settings className="h-5 w-5 text-slate-400" />
+            <span className="font-semibold text-slate-200">Settings</span>
           </div>
           <nav className="p-2">
             {sections.map(section => {
@@ -164,10 +154,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <button
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
-                  className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                     activeSection === section.id
                       ? 'bg-blue-600 text-white'
-                      : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -181,19 +171,19 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         {/* Content */}
         <div className="flex flex-1 flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-gray-700 px-6 py-4">
+          <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4">
             <div>
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-lg font-semibold text-slate-200">
                 {activeSection === 'general' ? 'General Settings' : 'Default Growth Rates'}
               </h2>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-slate-500">
                 {activeSection === 'general'
                   ? 'Configure your personal settings'
                   : 'Set default rates for new items'}
               </p>
             </div>
             <button
-              className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
               onClick={onClose}
               title="Close"
               type="button"
@@ -205,14 +195,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {/* Content Area */}
           <div className="flex-1 overflow-y-auto p-6">
             {isLoading ? (
-              <div className="text-center text-gray-400">Loading...</div>
+              <div className="text-center text-slate-400">Loading...</div>
             ) : activeSection === 'general' ? (
               <div className="space-y-6">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-300">
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
                     Starting Age
                   </label>
-                  <p className="mb-3 text-xs text-gray-500">
+                  <p className="mb-3 text-xs text-slate-500">
                     Your current age, used to calculate timeline years
                   </p>
                   <input
@@ -221,15 +211,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     max="120"
                     value={editedSettings.startingAge || ''}
                     onChange={e => handleStartingAgeChange(e.target.value)}
-                    className="w-32 rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-32 rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-3 py-2 text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-300">
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
                     Terminal Age
                   </label>
-                  <p className="mb-3 text-xs text-gray-500">
+                  <p className="mb-3 text-xs text-slate-500">
                     Planning horizon end age (e.g., retirement age)
                   </p>
                   <input
@@ -238,24 +228,24 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     max="120"
                     value={editedSettings.terminalAge || ''}
                     onChange={e => handleTerminalAgeChange(e.target.value)}
-                    className="w-32 rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                    className="w-32 rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-3 py-2 text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
                   />
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-slate-500">
                     Planning years: {Math.max(0, editedSettings.terminalAge - editedSettings.startingAge)}
                   </p>
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-300">
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
                     Year Display Format
                   </label>
-                  <p className="mb-3 text-xs text-gray-500">
+                  <p className="mb-3 text-xs text-slate-500">
                     How years are displayed in the timeline
                   </p>
                   <select
                     value={editedSettings.yearDisplayFormat}
                     onChange={e => handleYearDisplayFormatChange(e.target.value as YearDisplayFormat)}
-                    className="w-64 rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-blue-500 focus:outline-none"
+                    className="w-64 rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-3 py-2 text-slate-200 focus:border-blue-500 focus:outline-none"
                   >
                     <option value="year_number">Year Number (Year 0, Year 1...)</option>
                     <option value="actual_year">Actual Year ({new Date().getFullYear()}, {new Date().getFullYear() + 1}...)</option>
@@ -264,16 +254,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-slate-400">
                   These rates are used as defaults when creating new financial items.
                 </p>
                 <div className="space-y-2">
                   {editedConfigs.map(cfg => (
                     <div
                       key={cfg.category}
-                      className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-800 px-4 py-3"
+                      className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#111111] px-4 py-3"
                     >
-                      <span className="text-sm text-white">
+                      <span className="text-sm text-slate-200">
                         {GrowthConfigCategoryLabels[cfg.category] ?? cfg.category}
                       </span>
                       <div className="flex items-center gap-2">
@@ -282,9 +272,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           step="0.1"
                           value={cfg.annualRatePct}
                           onChange={e => handleRateChange(cfg.category, e.target.value)}
-                          className="w-20 rounded-md border border-gray-600 bg-gray-700 px-2 py-1 text-right text-sm text-white focus:border-blue-500 focus:outline-none"
+                          className="w-20 rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2 py-1 text-right text-sm text-slate-200 focus:border-blue-500 focus:outline-none"
                         />
-                        <span className="text-sm text-gray-400">%</span>
+                        <span className="text-sm text-slate-400">%</span>
                       </div>
                     </div>
                   ))}
@@ -294,9 +284,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </div>
 
           {/* Footer */}
-          <div className="flex justify-between border-t border-gray-700 px-6 py-4">
+          <div className="flex justify-between border-t border-white/[0.06] px-6 py-4">
             <button
-              className="px-4 py-2 text-sm text-gray-400 transition-colors hover:text-white disabled:opacity-50"
+              className="px-4 py-2 text-sm text-slate-400 transition-colors hover:text-slate-200 disabled:opacity-50"
               onClick={handleReset}
               disabled={!hasChanges || isPending}
               type="button"
@@ -305,14 +295,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </button>
             <div className="flex gap-3">
               <button
-                className="px-4 py-2 text-sm text-gray-400 transition-colors hover:text-white"
+                className="px-4 py-2 text-sm text-slate-400 transition-colors hover:text-slate-200"
                 onClick={onClose}
                 type="button"
               >
                 Cancel
               </button>
               <button
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:bg-gray-600"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-400"
                 onClick={handleSave}
                 disabled={!hasChanges || isPending}
                 type="button"
@@ -322,8 +312,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 

@@ -14,6 +14,8 @@ import {
   Bar,
 } from 'recharts'
 import { Calendar, Loader2, Percent, PiggyBank, TrendingDown, X } from 'lucide-react'
+
+import { Modal } from '@/components/ui/Modal'
 import type { MortgageInputs, PropertyPlannerType } from '@/types/property'
 import type { Asset, Liability } from '@/types/financial'
 import { financialApi } from '@/services/financialApi'
@@ -495,11 +497,13 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
     })
   })()
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur">
-      <div className="relative mx-4 h-[96vh] w-full max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-gray-950 shadow-[0_25px_80px_rgba(0,0,0,0.6)]">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      overlayClassName="bg-black/90"
+      className="relative mx-4 h-[96vh] w-full max-w-6xl overflow-hidden rounded-3xl border border-white/10 bg-gray-950 shadow-[0_25px_80px_rgba(0,0,0,0.6)]"
+    >
         <div className="flex items-center justify-between border-b border-white/10 bg-gradient-to-br from-gray-900 via-gray-950 to-black px-8 py-6">
           <div className="space-y-2">            
             <h2 className="text-2xl font-semibold text-white">Property Planner</h2>
@@ -617,8 +621,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }
 

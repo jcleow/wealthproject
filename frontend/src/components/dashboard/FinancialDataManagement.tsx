@@ -644,15 +644,7 @@ export function FinancialDataManagement({
                 Manage your income, expenses, assets, and liabilities
               </p>
             </div>
-            <div className="flex items-center gap-3 text-xs text-gray-300">
-              {/* Filter button */}
-              <button
-                type="button"
-                className="glass-card flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[10px] text-slate-400 transition hover:text-white"
-              >
-                <Filter className="h-3 w-3" />
-                Filter View
-              </button>
+            <div className="flex items-center gap-3 text-xs text-gray-300">              
               <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
                 <label className="hidden text-gray-400 sm:block" htmlFor="year-selector">
                   Year
@@ -746,7 +738,7 @@ export function FinancialDataManagement({
                     </div>
 
                     {/* List Items */}
-                    <div className="custom-scrollbar flex-1 overflow-y-auto px-3 py-2">
+                    <div className="scrollbar-hide flex-1 overflow-y-auto px-3 py-2">
                         {hasData ? (
                           <>
                           {data.map((item: any, index) => {

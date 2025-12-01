@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { Modal } from '@/components/ui/Modal'
 import { financialApi } from '@/services/financialApi'
 
 type CPFFields = {
@@ -25,8 +26,6 @@ export function CpfBalanceModal({ isOpen, onClose, onSuccess }: CpfBalanceModalP
   const [errors, setErrors] = useState<CPFErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
-
-  if (!isOpen) return null
 
   const validate = () => {
     const nextErrors: CPFErrors = {}
@@ -103,8 +102,12 @@ export function CpfBalanceModal({ isOpen, onClose, onSuccess }: CpfBalanceModalP
   }
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-lg border border-white/5 bg-midnight-900 p-6 shadow-2xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={submitting ? undefined : onClose}
+      overlayClassName="bg-black/60"
+      className="w-full max-w-md rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-6 shadow-2xl"
+    >
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-wide text-blue-200">CPF Accounts</p>
@@ -163,8 +166,7 @@ export function CpfBalanceModal({ isOpen, onClose, onSuccess }: CpfBalanceModalP
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
