@@ -239,6 +239,62 @@ func (s *ActionPreviewService) generateFriendlyDescription(toolName string, args
 
 		return desc
 
+	// Analysis tools (read-only, no approval needed)
+	case "getNetWorthSummary":
+		return "Get current net worth summary with breakdown"
+	case "analyzeNetWorthTrends":
+		years := getIntParam(args, "yearsToAnalyze", 30)
+		return fmt.Sprintf("Analyze net worth trends over %d years", years)
+	case "compareScenarioImpact":
+		scenarioName := getStringParam(args, "scenarioName", "")
+		if scenarioName != "" {
+			return fmt.Sprintf("Compare impact of '%s' scenario", scenarioName)
+		}
+		return "Compare scenario impact on net worth"
+	case "projectNetWorthAtYear":
+		targetYear := getIntParam(args, "targetYear", 0)
+		targetAge := getIntParam(args, "targetAge", 0)
+		if targetAge > 0 {
+			return fmt.Sprintf("Project net worth at age %d", targetAge)
+		}
+		return fmt.Sprintf("Project net worth at year %d", targetYear)
+	case "identifyNetWorthLevers":
+		topN := getIntParam(args, "topN", 5)
+		category := getStringParam(args, "category", "all")
+		return fmt.Sprintf("Identify top %d %s factors affecting net worth", topN, category)
+
+	// Scenario CRUD tools (Agent 2)
+	case "createScenarioEvent":
+		name := getStringParam(args, "name", "New Scenario")
+		targetYear := getIntParam(args, "targetYear", 0)
+		impactType := getStringParam(args, "impactType", "delta")
+		return fmt.Sprintf("Create scenario '%s' for year %d (%s impact)", name, targetYear, impactType)
+	case "updateScenarioEvent":
+		scenarioName := getStringParam(args, "scenarioName", "")
+		if scenarioName != "" {
+			return fmt.Sprintf("Update scenario '%s'", scenarioName)
+		}
+		return "Update scenario details"
+	case "deleteScenarioEvent":
+		scenarioName := getStringParam(args, "scenarioName", "")
+		if scenarioName != "" {
+			return fmt.Sprintf("Delete scenario '%s'", scenarioName)
+		}
+		return "Delete scenario"
+	case "listScenarioEvents":
+		return "List all scenarios"
+	case "toggleScenarioIncluded":
+		scenarioName := getStringParam(args, "scenarioName", "")
+		isIncluded := getBoolParam(args, "isIncluded", true)
+		status := "enable"
+		if !isIncluded {
+			status = "disable"
+		}
+		if scenarioName != "" {
+			return fmt.Sprintf("%s scenario '%s'", status, scenarioName)
+		}
+		return fmt.Sprintf("%s scenario", status)
+
 	default:
 		return fmt.Sprintf("Execute %s with provided parameters", toolName)
 	}
@@ -450,6 +506,22 @@ func getIntParam(args map[string]interface{}, key string, defaultValue int) int 
 	return defaultValue
 }
 
+func getBoolParam(args map[string]interface{}, key string, defaultValue bool) bool {
+	if value, exists := args[key]; exists {
+		switch v := value.(type) {
+		case bool:
+			return v
+		case string:
+			return v == "true" || v == "1" || v == "yes"
+		case int:
+			return v != 0
+		case float64:
+			return v != 0
+		}
+	}
+	return defaultValue
+}
+
 // Formatting functions
 func formatCurrency(amount float64) string {
 	if amount >= 1000000 {
@@ -533,4 +605,23 @@ func formatPropertyType(propertyType string) string {
 	default:
 		return "property"
 	}
+}
+
+// ============================================
+// SECTION: Analysis Tools Helper (Agent 3)
+// ============================================
+
+// readOnlyTools lists tools that don't modify data and can execute immediately
+var readOnlyTools = map[string]bool{
+	"getNetWorthSummary":      true,
+	"analyzeNetWorthTrends":   true,
+	"compareScenarioImpact":   true,
+	"projectNetWorthAtYear":   true,
+	"identifyNetWorthLevers":  true,
+	"listScenarioEvents":      true, // Agent 2 - read-only list operation
+}
+
+// IsReadOnlyTool returns true if the tool is read-only and can be executed immediately
+func IsReadOnlyTool(toolName string) bool {
+	return readOnlyTools[toolName]
 }

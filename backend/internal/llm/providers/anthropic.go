@@ -260,27 +260,42 @@ func (p *AnthropicProvider) convertRequest(req llm.ChatRequest) (*AnthropicReque
 	if len(req.Tools) > 0 {
 		tools = make([]AnthropicTool, len(req.Tools))
 		for i, tool := range req.Tools {
-			inputSchema := AnthropicInputSchema{
-				Type: "object",
-			}
-
-			// Extract properties and required fields from JSON Schema
 			params := tool.Function.Parameters
-			if props, ok := params["properties"].(map[string]interface{}); ok {
-				inputSchema.Properties = make(map[string]map[string]interface{})
-				for name, prop := range props {
-					if propMap, ok := prop.(map[string]interface{}); ok {
-						inputSchema.Properties[name] = propMap
-					}
-				}
+			inputSchema := AnthropicInputSchema{
+				Type:       "object",
+				Properties: make(map[string]map[string]interface{}),
+				Required:   params.Required,
 			}
 
-			if required, ok := params["required"].([]interface{}); ok {
-				for _, req := range required {
-					if reqStr, ok := req.(string); ok {
-						inputSchema.Required = append(inputSchema.Required, reqStr)
-					}
+			// Convert typed PropertySchema to map format for Anthropic API
+			for name, prop := range params.Properties {
+				propMap := make(map[string]interface{})
+				propMap["type"] = prop.Type
+				if prop.Description != "" {
+					propMap["description"] = prop.Description
 				}
+				if len(prop.Enum) > 0 {
+					propMap["enum"] = prop.Enum
+				}
+				if prop.Minimum != nil {
+					propMap["minimum"] = *prop.Minimum
+				}
+				if prop.Maximum != nil {
+					propMap["maximum"] = *prop.Maximum
+				}
+				if prop.MinLength != nil {
+					propMap["minLength"] = *prop.MinLength
+				}
+				if prop.MaxLength != nil {
+					propMap["maxLength"] = *prop.MaxLength
+				}
+				if prop.Default != nil {
+					propMap["default"] = prop.Default
+				}
+				if prop.Items != nil {
+					propMap["items"] = map[string]interface{}{"type": prop.Items.Type}
+				}
+				inputSchema.Properties[name] = propMap
 			}
 
 			tools[i] = AnthropicTool{

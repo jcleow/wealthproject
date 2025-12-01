@@ -60,6 +60,9 @@ func main() {
 	scenarioService := scenario.NewService(finStore)
 	timelineService := timeline.NewServiceWithScenario(finStore, scenarioService)
 
+	// Inject timeline service into financial client for analysis methods
+	financialClient.SetTimelineService(timelineService)
+
 	// Initialize middleware
 	versionMiddleware := middleware.NewVersionMiddleware()
 
@@ -215,7 +218,7 @@ func main() {
 		defaultModel = cfg.GeminiModel
 		defaultMaxTokens = cfg.GeminiMaxTokens
 	}
-	chatHandler := handlers.NewChatHandler(llmManager, previewService, sessionStore, defaultModel, defaultMaxTokens)
+	chatHandler := handlers.NewChatHandler(llmManager, previewService, sessionStore, financialClient, defaultModel, defaultMaxTokens)
 	dispatchHandler := handlers.NewDispatchHandler(financialClient, sessionStore, previewService)
 	timelineHandler := handlers.NewTimelineHandler(timelineService)
 	growthHandler := handlers.NewGrowthHandler(timelineService)

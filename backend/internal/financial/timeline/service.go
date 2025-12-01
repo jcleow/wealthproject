@@ -73,6 +73,8 @@ func (s *Service) GetTimelineWithScenarios(ctx context.Context, userID string, i
 	baseYear := time.Now().Year()
 
 	applied := map[string]struct{}{}
+
+	// First pass: apply scenarios to all items
 	for i, year := range resp.Years {
 		yearRows := make([]scenario.Row, 0, len(year.Assets)+len(year.Liabilities)+len(year.Income)+len(year.Expenses))
 		apply := func(items []TimelineItem) []TimelineItem {
@@ -95,13 +97,77 @@ func (s *Service) GetTimelineWithScenarios(ctx context.Context, userID string, i
 		resp.Years[i].Income = apply(year.Income)
 		resp.Years[i].Expenses = apply(year.Expenses)
 		resp.Years[i].NetCash = sumAdjusted(resp.Years[i].Income) - sumAdjusted(resp.Years[i].Expenses)
-		resp.Years[i].NetWorth = sumAdjusted(resp.Years[i].Assets) - sumAdjusted(resp.Years[i].Liabilities)
 		for _, r := range yearRows {
 			for _, imp := range r.EventImpacts {
 				applied[imp.EventID] = struct{}{}
 			}
 		}
 	}
+
+	// Second pass: recalculate cash accumulation based on adjusted income/expenses
+	// This is critical for scenarios like retirement that stop income
+	if len(resp.Years) > 0 {
+		// Get the accumulator account and its interest rate from year 0
+		var accumulatorID string
+		var cashGrowthRate float64
+		accumulatedCash := 0.0
+
+		// Find accumulator in year 0 cash accounts
+		for _, ca := range resp.Years[0].CashAccounts {
+			if ca.IsAccumulator {
+				accumulatorID = ca.ItemID
+				accumulatedCash = ca.AmountAnnual // Start with year 0 balance
+				break
+			}
+		}
+		// Get interest rate from AccumulatedCashEnd calculation (approximation)
+		if resp.Years[0].AccumulatedCashEnd > 0 && resp.Years[0].InterestEarned > 0 {
+			// Back-calculate interest rate from year 1's interest earned
+			if len(resp.Years) > 1 && resp.Years[1].AccumulatedCashStart > 0 {
+				cashGrowthRate = (resp.Years[1].InterestEarned / resp.Years[1].AccumulatedCashStart) * 100
+			}
+		}
+		if cashGrowthRate == 0 {
+			cashGrowthRate = 1.5 // Default interest rate
+		}
+
+		// Recalculate cash for each year based on adjusted net cash
+		for i := range resp.Years {
+			year := &resp.Years[i]
+			cashAtStart := accumulatedCash
+
+			// Calculate adjusted net savings from scenario-modified income/expenses
+			adjustedNetSavings := sumAdjusted(year.Income) - sumAdjusted(year.Expenses)
+
+			interestEarned := 0.0
+			if i > 0 {
+				// Add net savings (can be negative in retirement)
+				accumulatedCash += adjustedNetSavings
+
+				// Apply interest
+				interestEarned = accumulatedCash * (cashGrowthRate / 100.0)
+				accumulatedCash += interestEarned
+			}
+
+			// Update cash account balances
+			for j := range year.CashAccounts {
+				if year.CashAccounts[j].ItemID == accumulatorID || year.CashAccounts[j].IsAccumulator {
+					year.CashAccounts[j].AmountAnnual = accumulatedCash
+					year.CashAccounts[j].AdjustedAnnual = accumulatedCash
+				}
+			}
+
+			// Update year fields
+			year.AnnualNetSavings = adjustedNetSavings
+			year.AccumulatedCashStart = cashAtStart
+			year.AccumulatedCashEnd = accumulatedCash
+			year.InterestEarned = interestEarned
+
+			// Recalculate net worth with corrected cash
+			year.NetWorth = sumAdjusted(year.Assets) + sumCashAccountBalances(year.CashAccounts) - sumAdjusted(year.Liabilities)
+		}
+	}
+
 	for id := range applied {
 		resp.ScenariosApplied = append(resp.ScenariosApplied, id)
 	}

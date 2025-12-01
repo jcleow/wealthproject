@@ -69,7 +69,7 @@ func TestProjection_NewItemPersistsForward(t *testing.T) {
 
 	resp, err := svc.GetTimeline(ctx)
 	require.NoError(t, err)
-	require.Len(t, resp.Years, 31)
+	require.Len(t, resp.Years, 36) // terminalAge(65) - startingAge(30) + 1 = 36
 
 	year2 := resp.Years[2]
 	require.Equal(t, 1, countItems(year2.Income))
@@ -79,8 +79,9 @@ func TestProjection_NewItemPersistsForward(t *testing.T) {
 
 	year3 := resp.Years[3]
 	require.Equal(t, 1, countItems(year3.Income))
-	// income default growth 3% -> 6000 * 1.03 = 6180
-	require.InDelta(t, 6180.0, year3.Income[0].AmountAnnual, 1e-6)
+	// Income persists forward without growth (no explicit growth rate set)
+	// Income/expense items don't use category defaults - they use their per-item rate (0 if not set)
+	require.InDelta(t, 6000.0, year3.Income[0].AmountAnnual, 1e-6)
 	require.False(t, year3.HasOverrides)
 }
 
@@ -148,15 +149,15 @@ func TestCashAccumulation_AutoCreatesDefaultAccount(t *testing.T) {
 	resp, err := svc.GetTimeline(ctx)
 	require.NoError(t, err)
 
-	// Should auto-create a default "Cash Savings" account
+	// Should auto-create a default "Cash" account
 	require.Len(t, store.cashAccounts, 1)
-	require.Equal(t, "Cash Savings", store.cashAccounts[0].Name)
+	require.Equal(t, "Cash", store.cashAccounts[0].Name)
 	require.True(t, store.cashAccounts[0].IsAccumulator)
 	require.InDelta(t, 1.5, store.cashAccounts[0].InterestRate, 1e-9)
 
 	// Year 0 should have cash accounts
 	require.Len(t, resp.Years[0].CashAccounts, 1)
-	require.Equal(t, "Cash Savings", resp.Years[0].CashAccounts[0].Name)
+	require.Equal(t, "Cash", resp.Years[0].CashAccounts[0].Name)
 	require.True(t, resp.Years[0].CashAccounts[0].IsAccumulator)
 }
 
@@ -194,25 +195,24 @@ func TestCashAccumulation_AccumulatesNetSavings(t *testing.T) {
 	resp, err := svc.GetTimeline(ctx)
 	require.NoError(t, err)
 
-	// Year 0: Net savings = 120000 - 60000 = 60000
-	// Cash at end of year 0 = 0 + 60000 + interest(60000 * 1.5%) = 60000 + 900 = 60900
+	// Year 0: Net savings = 120000 - 60000 = 60000 (baseline year - no accumulation)
+	// Year 0 is baseline: cash stays at initial balance (0)
 	year0 := resp.Years[0]
 	require.InDelta(t, 60000.0, year0.AnnualNetSavings, 1e-6)
 	require.InDelta(t, 0.0, year0.AccumulatedCashStart, 1e-6)
-	require.InDelta(t, 60900.0, year0.AccumulatedCashEnd, 1e-6)
-	require.InDelta(t, 900.0, year0.InterestEarned, 1e-6)
+	require.InDelta(t, 0.0, year0.AccumulatedCashEnd, 1e-6) // No accumulation in year 0
+	require.InDelta(t, 0.0, year0.InterestEarned, 1e-6)
 
-	// Cash accounts should show the accumulated value
+	// Cash accounts should show initial value (0) in year 0
 	require.Len(t, year0.CashAccounts, 1)
-	require.InDelta(t, 60900.0, year0.CashAccounts[0].AmountAnnual, 1e-6)
+	require.InDelta(t, 0.0, year0.CashAccounts[0].AmountAnnual, 1e-6)
 
-	// Year 1: starts with 60900, income/expense grow by default rates
-	// Income grows by 3% -> 120000 * 1.03 = 123600
-	// Expense grows by 2% -> 60000 * 1.02 = 61200
-	// Net savings = 123600 - 61200 = 62400
-	// Cash at end = 60900 + 62400 + interest((60900+62400)*1.5%)
+	// Year 1: accumulation starts
+	// Net savings year 0 = 60000, now accumulated
+	// Cash = 0 + 60000 + interest(60000 * 1.5%) = 60000 + 900 = 60900
 	year1 := resp.Years[1]
-	require.InDelta(t, 60900.0, year1.AccumulatedCashStart, 1e-6)
+	require.InDelta(t, 0.0, year1.AccumulatedCashStart, 1e-6)
+	require.InDelta(t, 60900.0, year1.AccumulatedCashEnd, 1e-6)
 	require.True(t, year1.AccumulatedCashEnd > year0.AccumulatedCashEnd)
 }
 
@@ -237,15 +237,22 @@ func TestCashAccumulation_ExistingAccountUsesItsBalance(t *testing.T) {
 	resp, err := svc.GetTimeline(ctx)
 	require.NoError(t, err)
 
-	// Year 0: starts with 50000 balance, no income/expense
-	// Cash at end = 50000 + 0 + interest(50000 * 2%) = 50000 + 1000 = 51000
+	// Year 0: starts with 50000 balance, no income/expense (baseline year)
+	// Year 0 is baseline: no accumulation, just shows initial balance
 	year0 := resp.Years[0]
 	require.InDelta(t, 50000.0, year0.AccumulatedCashStart, 1e-6)
-	require.InDelta(t, 51000.0, year0.AccumulatedCashEnd, 1e-6)
-	require.InDelta(t, 1000.0, year0.InterestEarned, 1e-6)
+	require.InDelta(t, 50000.0, year0.AccumulatedCashEnd, 1e-6) // No accumulation in year 0
+	require.InDelta(t, 0.0, year0.InterestEarned, 1e-6)
 
-	// Verify it used the 2% rate from the existing account, not the default 1.5%
+	// Verify it used the existing account
 	require.Equal(t, cashID, year0.AccumulatorAccountID)
+
+	// Year 1: accumulation starts with interest
+	// Cash at end = 50000 + 0 + interest(50000 * 2%) = 50000 + 1000 = 51000
+	year1 := resp.Years[1]
+	require.InDelta(t, 50000.0, year1.AccumulatedCashStart, 1e-6)
+	require.InDelta(t, 51000.0, year1.AccumulatedCashEnd, 1e-6)
+	require.InDelta(t, 1000.0, year1.InterestEarned, 1e-6)
 }
 
 func TestCashAccumulation_NegativeNetSavingsReducesCash(t *testing.T) {
@@ -294,12 +301,18 @@ func TestCashAccumulation_NegativeNetSavingsReducesCash(t *testing.T) {
 	resp, err := svc.GetTimeline(ctx)
 	require.NoError(t, err)
 
-	// Year 0: Net savings = 60000 - 120000 = -60000
-	// Cash at end = 100000 + (-60000) + interest(40000 * 1%) = 40000 + 400 = 40400
+	// Year 0: Net savings = 60000 - 120000 = -60000 (baseline year)
+	// Year 0 is baseline: no accumulation
 	year0 := resp.Years[0]
 	require.InDelta(t, -60000.0, year0.AnnualNetSavings, 1e-6)
 	require.InDelta(t, 100000.0, year0.AccumulatedCashStart, 1e-6)
-	require.InDelta(t, 40400.0, year0.AccumulatedCashEnd, 1e-6)
+	require.InDelta(t, 100000.0, year0.AccumulatedCashEnd, 1e-6) // No accumulation in year 0
+
+	// Year 1: accumulation happens
+	// Cash at end = 100000 + (-60000) + interest(40000 * 1%) = 40000 + 400 = 40400
+	year1 := resp.Years[1]
+	require.InDelta(t, 100000.0, year1.AccumulatedCashStart, 1e-6)
+	require.InDelta(t, 40400.0, year1.AccumulatedCashEnd, 1e-6)
 }
 
 func TestCashAccumulation_NetWorthIncludesCash(t *testing.T) {
@@ -348,9 +361,9 @@ func TestCashAccumulation_NetWorthIncludesCash(t *testing.T) {
 	require.NoError(t, err)
 
 	// Net worth = Assets + Cash - Liabilities
-	// Year 0 (before growth): 200000 + (100000 + interest) - 50000 = 200000 + 101500 - 50000 = 251500
+	// Year 0 (baseline - no interest accumulation): 200000 + 100000 - 50000 = 250000
 	year0 := resp.Years[0]
-	expectedCash := 100000.0 * 1.015 // 100000 + 1.5% interest
+	expectedCash := 100000.0 // No interest in year 0
 	expectedNetWorth := 200000.0 + expectedCash - 50000.0
 	require.InDelta(t, expectedNetWorth, year0.NetWorth, 1e-6)
 }
@@ -377,19 +390,19 @@ func newStubStore() *stubStore {
 	}
 }
 
-func (s *stubStore) ListAssets(ctx context.Context, userID string) ([]repository.Asset, error) {
+func (s *stubStore) ListAllAssets(ctx context.Context, userID string) ([]repository.Asset, error) {
 	return append([]repository.Asset(nil), s.assets...), nil
 }
 
-func (s *stubStore) ListLiabilities(ctx context.Context, userID string) ([]repository.Liability, error) {
+func (s *stubStore) ListAllLiabilities(ctx context.Context, userID string) ([]repository.Liability, error) {
 	return append([]repository.Liability(nil), s.liabilities...), nil
 }
 
-func (s *stubStore) ListIncomes(ctx context.Context, userID string) ([]repository.Income, error) {
+func (s *stubStore) ListAllIncomes(ctx context.Context, userID string) ([]repository.Income, error) {
 	return append([]repository.Income(nil), s.incomes...), nil
 }
 
-func (s *stubStore) ListExpenses(ctx context.Context, userID string) ([]repository.Expense, error) {
+func (s *stubStore) ListAllExpenses(ctx context.Context, userID string) ([]repository.Expense, error) {
 	return append([]repository.Expense(nil), s.expenses...), nil
 }
 
@@ -492,6 +505,15 @@ func (s *stubStore) SetAccumulatorAccount(ctx context.Context, userID string, ac
 		return repository.ErrNotFound
 	}
 	return nil
+}
+
+// User settings methods
+func (s *stubStore) GetUserSettings(ctx context.Context, userID string) (repository.UserSettings, error) {
+	return repository.DefaultUserSettings, nil
+}
+
+func (s *stubStore) UpsertUserSettings(ctx context.Context, userID string, settings repository.UserSettings) (repository.UserSettings, error) {
+	return settings, nil
 }
 
 func ptr[T any](v T) *T { return &v }

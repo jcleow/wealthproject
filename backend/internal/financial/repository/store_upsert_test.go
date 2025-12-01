@@ -64,9 +64,9 @@ func TestCreateFinancialRowsUpsertByParentAndYear(t *testing.T) {
 		{
 			name:    "income",
 			pattern: `(?s)INSERT INTO finance_incomes .*ON CONFLICT \(parent_id, start_year\) DO UPDATE`,
-			columns: []string{"id", "parent_id", "source", "amount", "frequency", "start_year", "end_year", "start_date", "category", "notes", "updated_at"},
-			values:  []driver.Value{"row-income", "income-parent", "Salary", 8000.0, "monthly", 0, nil, now, "employment", "", now},
-			args:    10,
+			columns: []string{"id", "parent_id", "source", "amount", "frequency", "start_year", "end_year", "start_date", "category", "growth_rate", "notes", "updated_at"},
+			values:  []driver.Value{"row-income", "income-parent", "Salary", 8000.0, "monthly", 0, nil, now, "employment", 3.0, "", now},
+			args:    11,
 			call: func(ctx context.Context, s *Store) error {
 				_, err := s.CreateIncome(ctx, "test-user", Income{
 					ParentID:  "income-parent",
@@ -83,9 +83,9 @@ func TestCreateFinancialRowsUpsertByParentAndYear(t *testing.T) {
 		{
 			name:    "expense",
 			pattern: `(?s)INSERT INTO finance_expenses .*ON CONFLICT \(parent_id, start_year\) DO UPDATE`,
-			columns: []string{"id", "parent_id", "payee", "amount", "frequency", "start_year", "end_year", "category", "notes", "updated_at"},
-			values:  []driver.Value{"row-expense", "expense-parent", "Rent", 2500.0, "monthly", 0, nil, "housing", "", now},
-			args:    9,
+			columns: []string{"id", "parent_id", "payee", "amount", "frequency", "start_year", "end_year", "category", "growth_rate", "notes", "updated_at"},
+			values:  []driver.Value{"row-expense", "expense-parent", "Rent", 2500.0, "monthly", 0, nil, "housing", 2.0, "", now},
+			args:    10,
 			call: func(ctx context.Context, s *Store) error {
 				_, err := s.CreateExpense(ctx, "test-user", Expense{
 					ParentID:  "expense-parent",

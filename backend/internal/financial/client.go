@@ -3,21 +3,49 @@ package financial
 import (
 	"context"
 	"fmt"
+	"math"
+	"sort"
 	"strings"
 	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
+	"financial-chat-system/backend/internal/financial/timeline"
 	"financial-chat-system/backend/internal/middleware"
 )
 
 // Client handles financial operations backed by repository storage.
 type Client struct {
-	store *repository.Store
+	store           *repository.Store
+	timelineService *timeline.Service
 }
 
 // NewClient creates a new financial client
 func NewClient(store *repository.Store) *Client {
 	return &Client{store: store}
+}
+
+// NewClientWithTimeline creates a new financial client with timeline service for analysis
+func NewClientWithTimeline(store *repository.Store, ts *timeline.Service) *Client {
+	return &Client{store: store, timelineService: ts}
+}
+
+// SetTimelineService sets the timeline service (for dependency injection)
+func (c *Client) SetTimelineService(ts *timeline.Service) {
+	c.timelineService = ts
+}
+
+// GetAutoExecuteTools returns whether the user has auto-execute tools enabled
+func (c *Client) GetAutoExecuteTools(ctx context.Context, userID string) bool {
+	if c.timelineService == nil {
+		return false
+	}
+	// Create a context with the userID for the timeline service
+	userCtx := context.WithValue(ctx, "userID", userID)
+	settings, err := c.timelineService.GetUserSettings(userCtx)
+	if err != nil {
+		return false
+	}
+	return settings.AutoExecuteTools
 }
 
 // getUserIDFromContext extracts userID from context
@@ -684,15 +712,721 @@ func (c *Client) upsertPropertyLiability(ctx context.Context, userID, name strin
 	return created.ID, nil
 }
 
-// CalculateNetWorth calculates the current net worth
-func (c *Client) CalculateNetWorth(ctx context.Context, userID string) (float64, error) {
-	// In a real implementation, this would:
-	// 1. Sum all asset values
-	// 2. Sum all liability balances
-	// 3. Return assets - liabilities
+// ============================================
+// SECTION: Analysis (Agent 3)
+// ============================================
 
-	// Simulated calculation
-	return 500000.00, nil
+// CalculateNetWorth calculates the current net worth from actual data
+func (c *Client) CalculateNetWorth(ctx context.Context, userID string) (float64, error) {
+	// Fetch all assets
+	assets, err := c.store.ListAssets(ctx, userID, repository.PaginationParams{Limit: -1})
+	if err != nil {
+		return 0, err
+	}
+
+	// Fetch all liabilities
+	liabilities, err := c.store.ListLiabilities(ctx, userID, repository.PaginationParams{Limit: -1})
+	if err != nil {
+		return 0, err
+	}
+
+	// Fetch cash accounts
+	cashAccounts, err := c.store.ListCashAccounts(ctx, userID)
+	if err != nil {
+		return 0, err
+	}
+
+	// Sum assets
+	var totalAssets float64
+	for _, asset := range assets.Data {
+		totalAssets += asset.CurrentValue
+	}
+
+	// Sum cash accounts
+	var totalCash float64
+	for _, ca := range cashAccounts {
+		totalCash += ca.Balance
+	}
+
+	// Sum liabilities
+	var totalLiabilities float64
+	for _, liability := range liabilities.Data {
+		totalLiabilities += liability.CurrentBalance
+	}
+
+	return totalAssets + totalCash - totalLiabilities, nil
+}
+
+// ============================================
+// SECTION: Context Injection (Agent 1)
+// ============================================
+
+// GetFinancialContext returns the user's complete financial snapshot for AI context injection
+func (c *Client) GetFinancialContext(ctx context.Context, userID string) (*FinancialContext, error) {
+	// Fetch all assets
+	assets, err := c.store.ListAssets(ctx, userID, repository.PaginationParams{Limit: -1})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch assets: %w", err)
+	}
+
+	// Fetch all liabilities
+	liabilities, err := c.store.ListLiabilities(ctx, userID, repository.PaginationParams{Limit: -1})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch liabilities: %w", err)
+	}
+
+	// Fetch all incomes
+	incomes, err := c.store.ListIncomes(ctx, userID, repository.PaginationParams{Limit: -1})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch incomes: %w", err)
+	}
+
+	// Fetch all expenses
+	expenses, err := c.store.ListExpenses(ctx, userID, repository.PaginationParams{Limit: -1})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch expenses: %w", err)
+	}
+
+	// Fetch cash accounts
+	cashAccounts, err := c.store.ListCashAccounts(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch cash accounts: %w", err)
+	}
+
+	// Fetch scenarios
+	scenarios, _, err := c.store.ListScenarioEvents(ctx, userID, repository.ScenarioFilters{Limit: 100})
+	if err != nil {
+		// Non-fatal - continue without scenarios
+		scenarios = []repository.ScenarioEvent{}
+	}
+
+	// Build context items
+	contextAssets := make([]ContextItem, 0, len(assets.Data))
+	var totalAssets float64
+	for _, a := range assets.Data {
+		contextAssets = append(contextAssets, ContextItem{
+			ID:       a.ID,
+			Name:     a.Name,
+			Category: a.Category,
+			Amount:   a.CurrentValue,
+			Notes:    a.Notes,
+		})
+		totalAssets += a.CurrentValue
+	}
+
+	// Add cash accounts to assets
+	var totalCash float64
+	for _, ca := range cashAccounts {
+		contextAssets = append(contextAssets, ContextItem{
+			ID:       ca.ID,
+			Name:     ca.Name,
+			Category: "cash",
+			Amount:   ca.Balance,
+		})
+		totalCash += ca.Balance
+	}
+
+	contextLiabilities := make([]ContextItem, 0, len(liabilities.Data))
+	var totalLiabilities float64
+	for _, l := range liabilities.Data {
+		contextLiabilities = append(contextLiabilities, ContextItem{
+			ID:       l.ID,
+			Name:     l.Name,
+			Category: l.Category,
+			Amount:   l.CurrentBalance,
+			Notes:    l.Notes,
+		})
+		totalLiabilities += l.CurrentBalance
+	}
+
+	contextIncome := make([]ContextItem, 0, len(incomes.Data))
+	var monthlyIncome float64
+	for _, i := range incomes.Data {
+		monthly := annualToMonthly(i.Amount, i.Frequency)
+		contextIncome = append(contextIncome, ContextItem{
+			ID:       i.ID,
+			Name:     i.Source,
+			Category: i.Category,
+			Amount:   monthly,
+			Notes:    i.Notes,
+		})
+		monthlyIncome += monthly
+	}
+
+	contextExpenses := make([]ContextItem, 0, len(expenses.Data))
+	var monthlyExpenses float64
+	for _, e := range expenses.Data {
+		monthly := annualToMonthly(e.Amount, e.Frequency)
+		contextExpenses = append(contextExpenses, ContextItem{
+			ID:       e.ID,
+			Name:     e.Payee,
+			Category: e.Category,
+			Amount:   monthly,
+			Notes:    e.Notes,
+		})
+		monthlyExpenses += monthly
+	}
+
+	contextScenarios := make([]ContextScenario, 0, len(scenarios))
+	for _, s := range scenarios {
+		contextScenarios = append(contextScenarios, ContextScenario{
+			ID:          s.ID,
+			Name:        s.Name,
+			Description: s.Description,
+			IsIncluded:  s.IsIncluded,
+		})
+	}
+
+	// Calculate summary
+	netWorth := totalAssets + totalCash - totalLiabilities
+	monthlySavings := monthlyIncome - monthlyExpenses
+	savingsRate := 0.0
+	if monthlyIncome > 0 {
+		savingsRate = (monthlySavings / monthlyIncome) * 100
+	}
+
+	return &FinancialContext{
+		NetWorth:    netWorth,
+		Assets:      contextAssets,
+		Liabilities: contextLiabilities,
+		Income:      contextIncome,
+		Expenses:    contextExpenses,
+		Scenarios:   contextScenarios,
+		Summary: FinancialSummary{
+			TotalAssets:      totalAssets + totalCash,
+			TotalLiabilities: totalLiabilities,
+			TotalCash:        totalCash,
+			MonthlyIncome:    monthlyIncome,
+			MonthlyExpenses:  monthlyExpenses,
+			MonthlySavings:   monthlySavings,
+			SavingsRate:      savingsRate,
+		},
+	}, nil
+}
+
+// FormatContextForPrompt formats the financial context as a text block for the system prompt
+func (c *Client) FormatContextForPrompt(ctx *FinancialContext) string {
+	var sb strings.Builder
+
+	sb.WriteString("## YOUR FINANCIAL DATA\n\n")
+	sb.WriteString(fmt.Sprintf("**Current Net Worth:** $%.0f\n\n", ctx.NetWorth))
+
+	// Assets
+	if len(ctx.Assets) > 0 {
+		sb.WriteString("**Assets:**\n")
+		for _, a := range ctx.Assets {
+			sb.WriteString(fmt.Sprintf("- %s (ID: %s): $%.0f [%s]\n", a.Name, a.ID, a.Amount, a.Category))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Liabilities
+	if len(ctx.Liabilities) > 0 {
+		sb.WriteString("**Liabilities:**\n")
+		for _, l := range ctx.Liabilities {
+			sb.WriteString(fmt.Sprintf("- %s (ID: %s): $%.0f [%s]\n", l.Name, l.ID, l.Amount, l.Category))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Income
+	if len(ctx.Income) > 0 {
+		sb.WriteString("**Monthly Income:**\n")
+		for _, i := range ctx.Income {
+			sb.WriteString(fmt.Sprintf("- %s (ID: %s): $%.0f/month [%s]\n", i.Name, i.ID, i.Amount, i.Category))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Expenses
+	if len(ctx.Expenses) > 0 {
+		sb.WriteString("**Monthly Expenses:**\n")
+		for _, e := range ctx.Expenses {
+			sb.WriteString(fmt.Sprintf("- %s (ID: %s): $%.0f/month [%s]\n", e.Name, e.ID, e.Amount, e.Category))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Scenarios
+	if len(ctx.Scenarios) > 0 {
+		sb.WriteString("**Existing Scenarios:**\n")
+		for _, s := range ctx.Scenarios {
+			status := "inactive"
+			if s.IsIncluded {
+				status = "active"
+			}
+			sb.WriteString(fmt.Sprintf("- %s (ID: %s): %s [%s]\n", s.Name, s.ID, s.Description, status))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Summary
+	sb.WriteString("**Summary:**\n")
+	sb.WriteString(fmt.Sprintf("- Total Assets: $%.0f\n", ctx.Summary.TotalAssets))
+	sb.WriteString(fmt.Sprintf("- Total Liabilities: $%.0f\n", ctx.Summary.TotalLiabilities))
+	sb.WriteString(fmt.Sprintf("- Monthly Income: $%.0f\n", ctx.Summary.MonthlyIncome))
+	sb.WriteString(fmt.Sprintf("- Monthly Expenses: $%.0f\n", ctx.Summary.MonthlyExpenses))
+	sb.WriteString(fmt.Sprintf("- Monthly Savings: $%.0f (%.1f%% rate)\n", ctx.Summary.MonthlySavings, ctx.Summary.SavingsRate))
+
+	return sb.String()
+}
+
+// GetNetWorthSummary returns a formatted net worth summary for AI responses
+func (c *Client) GetNetWorthSummary(ctx context.Context, userID string, params GetNetWorthSummaryParams) (*string, error) {
+	// Fetch all financial data
+	assets, err := c.store.ListAssets(ctx, userID, repository.PaginationParams{Limit: -1})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch assets: %w", err)
+	}
+
+	liabilities, err := c.store.ListLiabilities(ctx, userID, repository.PaginationParams{Limit: -1})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch liabilities: %w", err)
+	}
+
+	incomes, err := c.store.ListIncomes(ctx, userID, repository.PaginationParams{Limit: -1})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch incomes: %w", err)
+	}
+
+	expenses, err := c.store.ListExpenses(ctx, userID, repository.PaginationParams{Limit: -1})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch expenses: %w", err)
+	}
+
+	cashAccounts, err := c.store.ListCashAccounts(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch cash accounts: %w", err)
+	}
+
+	// Calculate totals
+	var totalAssets, totalLiabilities, totalCash float64
+	assetsByCategory := make(map[string]float64)
+	liabilitiesByCategory := make(map[string]float64)
+
+	for _, a := range assets.Data {
+		totalAssets += a.CurrentValue
+		assetsByCategory[a.Category] += a.CurrentValue
+	}
+
+	for _, ca := range cashAccounts {
+		totalCash += ca.Balance
+	}
+
+	for _, l := range liabilities.Data {
+		totalLiabilities += l.CurrentBalance
+		liabilitiesByCategory[l.Category] += l.CurrentBalance
+	}
+
+	// Calculate monthly income/expenses
+	var monthlyIncome, monthlyExpenses float64
+	for _, i := range incomes.Data {
+		monthlyIncome += annualToMonthly(i.Amount, i.Frequency)
+	}
+	for _, e := range expenses.Data {
+		monthlyExpenses += annualToMonthly(e.Amount, e.Frequency)
+	}
+
+	netWorth := totalAssets + totalCash - totalLiabilities
+	monthlySavings := monthlyIncome - monthlyExpenses
+	savingsRate := 0.0
+	if monthlyIncome > 0 {
+		savingsRate = (monthlySavings / monthlyIncome) * 100
+	}
+
+	// Build formatted response
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Your current net worth is **$%s**.\n\n", formatMoney(netWorth)))
+
+	sb.WriteString("**Assets Breakdown:**\n")
+	for cat, val := range assetsByCategory {
+		sb.WriteString(fmt.Sprintf("- %s: $%s\n", cat, formatMoney(val)))
+	}
+	if totalCash > 0 {
+		sb.WriteString(fmt.Sprintf("- Cash Accounts: $%s\n", formatMoney(totalCash)))
+	}
+	sb.WriteString(fmt.Sprintf("- **Total Assets: $%s**\n\n", formatMoney(totalAssets+totalCash)))
+
+	sb.WriteString("**Liabilities Breakdown:**\n")
+	for cat, val := range liabilitiesByCategory {
+		sb.WriteString(fmt.Sprintf("- %s: $%s\n", cat, formatMoney(val)))
+	}
+	sb.WriteString(fmt.Sprintf("- **Total Liabilities: $%s**\n\n", formatMoney(totalLiabilities)))
+
+	sb.WriteString("**Monthly Cash Flow:**\n")
+	sb.WriteString(fmt.Sprintf("- Income: $%s/month\n", formatMoney(monthlyIncome)))
+	sb.WriteString(fmt.Sprintf("- Expenses: $%s/month\n", formatMoney(monthlyExpenses)))
+	sb.WriteString(fmt.Sprintf("- Savings: $%s/month (%.1f%% rate)\n", formatMoney(monthlySavings), savingsRate))
+
+	result := sb.String()
+	return &result, nil
+}
+
+// AnalyzeNetWorthTrends analyzes net worth growth over the planning horizon
+func (c *Client) AnalyzeNetWorthTrends(ctx context.Context, userID string, params AnalyzeNetWorthTrendsParams) (*string, error) {
+	if c.timelineService == nil {
+		return nil, fmt.Errorf("timeline service not available")
+	}
+
+	yearsToAnalyze := params.YearsToAnalyze
+	if yearsToAnalyze <= 0 {
+		yearsToAnalyze = 30
+	}
+
+	// Get timeline
+	tl, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, params.IncludeScenarios, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get timeline: %w", err)
+	}
+
+	if len(tl.Years) == 0 {
+		result := "No timeline data available for analysis."
+		return &result, nil
+	}
+
+	// Extract key data points
+	var sb strings.Builder
+	sb.WriteString("**Net Worth Trajectory:**\n\n")
+
+	keyYears := []int{0, 5, 10, 15, 20, 25, 30}
+	for _, y := range keyYears {
+		if y < len(tl.Years) && y <= yearsToAnalyze {
+			sb.WriteString(fmt.Sprintf("- Year %d: $%s\n", y, formatMoney(tl.Years[y].NetWorth)))
+		}
+	}
+
+	// Calculate growth rate
+	if len(tl.Years) > 1 {
+		startNW := tl.Years[0].NetWorth
+		endYear := min(yearsToAnalyze, len(tl.Years)-1)
+		endNW := tl.Years[endYear].NetWorth
+
+		if startNW > 0 && endNW > startNW {
+			cagr := (math.Pow(endNW/startNW, 1.0/float64(endYear)) - 1) * 100
+			sb.WriteString(fmt.Sprintf("\n**Average Annual Growth Rate:** %.1f%%\n", cagr))
+		}
+	}
+
+	// Find milestones
+	milestones := []float64{100000, 250000, 500000, 1000000, 2000000, 5000000}
+	sb.WriteString("\n**Projected Milestones:**\n")
+	for _, milestone := range milestones {
+		for i, year := range tl.Years {
+			if i > yearsToAnalyze {
+				break
+			}
+			if year.NetWorth >= milestone {
+				sb.WriteString(fmt.Sprintf("- $%s reached in Year %d\n", formatMoney(milestone), i))
+				break
+			}
+		}
+	}
+
+	result := sb.String()
+	return &result, nil
+}
+
+// CompareScenarioImpact compares net worth with and without a specific scenario
+func (c *Client) CompareScenarioImpact(ctx context.Context, userID string, params CompareScenarioImpactParams) (*string, error) {
+	if c.timelineService == nil {
+		return nil, fmt.Errorf("timeline service not available")
+	}
+
+	yearsToProject := params.YearsToProject
+	if yearsToProject <= 0 {
+		yearsToProject = 10
+	}
+
+	// Resolve scenario ID
+	scenarioID := params.ScenarioID
+	scenarioName := params.ScenarioName
+	if scenarioID == "" && scenarioName != "" {
+		// Look up by name
+		events, _, err := c.store.ListScenarioEvents(ctx, userID, repository.ScenarioFilters{})
+		if err == nil {
+			for _, e := range events {
+				if strings.EqualFold(e.Name, scenarioName) {
+					scenarioID = e.ID
+					scenarioName = e.Name
+					break
+				}
+			}
+		}
+	}
+
+	if scenarioID == "" {
+		result := "Could not find the specified scenario. Please provide a valid scenario ID or name."
+		return &result, nil
+	}
+
+	// Get baseline timeline (without scenario)
+	baselineTL, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, false, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get baseline timeline: %w", err)
+	}
+
+	// Get timeline with scenario
+	withScenarioTL, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, true, []string{scenarioID})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get scenario timeline: %w", err)
+	}
+
+	targetYear := min(yearsToProject, min(len(baselineTL.Years)-1, len(withScenarioTL.Years)-1))
+	if targetYear < 0 {
+		result := "Insufficient timeline data for comparison."
+		return &result, nil
+	}
+
+	baselineNW := baselineTL.Years[targetYear].NetWorth
+	scenarioNW := withScenarioTL.Years[targetYear].NetWorth
+	difference := scenarioNW - baselineNW
+
+	var sb strings.Builder
+	if scenarioName != "" {
+		sb.WriteString(fmt.Sprintf("**Impact of \"%s\" Scenario:**\n\n", scenarioName))
+	} else {
+		sb.WriteString("**Scenario Impact Analysis:**\n\n")
+	}
+
+	sb.WriteString(fmt.Sprintf("After %d years:\n", targetYear))
+	sb.WriteString(fmt.Sprintf("- Without scenario: $%s\n", formatMoney(baselineNW)))
+	sb.WriteString(fmt.Sprintf("- With scenario: $%s\n", formatMoney(scenarioNW)))
+
+	if difference >= 0 {
+		sb.WriteString(fmt.Sprintf("\n**Net Impact: +$%s** (positive)\n", formatMoney(difference)))
+	} else {
+		sb.WriteString(fmt.Sprintf("\n**Net Impact: -$%s** (negative)\n", formatMoney(-difference)))
+	}
+
+	result := sb.String()
+	return &result, nil
+}
+
+// ProjectNetWorthAtYear projects net worth at a specific future year
+func (c *Client) ProjectNetWorthAtYear(ctx context.Context, userID string, params ProjectNetWorthAtYearParams) (*string, error) {
+	if c.timelineService == nil {
+		return nil, fmt.Errorf("timeline service not available")
+	}
+
+	targetYear := params.TargetYear
+
+	// Convert age to year if provided
+	if params.TargetAge > 0 && targetYear == 0 {
+		settings, err := c.store.GetUserSettings(ctx, userID)
+		if err == nil && settings.StartingAge > 0 {
+			targetYear = params.TargetAge - settings.StartingAge
+		} else {
+			// Default assumption: user is 30
+			targetYear = params.TargetAge - 30
+		}
+	}
+
+	if targetYear < 0 {
+		targetYear = 0
+	}
+	if targetYear > 30 {
+		targetYear = 30
+	}
+
+	// Get timeline
+	tl, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, params.IncludeScenarios, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get timeline: %w", err)
+	}
+
+	if targetYear >= len(tl.Years) {
+		result := fmt.Sprintf("Timeline data not available for year %d.", targetYear)
+		return &result, nil
+	}
+
+	year := tl.Years[targetYear]
+
+	var sb strings.Builder
+	if params.TargetAge > 0 {
+		sb.WriteString(fmt.Sprintf("**Projected Net Worth at Age %d (Year %d):**\n\n", params.TargetAge, targetYear))
+	} else {
+		sb.WriteString(fmt.Sprintf("**Projected Net Worth at Year %d:**\n\n", targetYear))
+	}
+
+	sb.WriteString(fmt.Sprintf("Net Worth: **$%s**\n\n", formatMoney(year.NetWorth)))
+	sb.WriteString("Breakdown:\n")
+
+	// Sum assets
+	var totalAssets float64
+	for _, a := range year.Assets {
+		totalAssets += a.AdjustedAnnual
+	}
+	for _, ca := range year.CashAccounts {
+		totalAssets += ca.AdjustedAnnual
+	}
+	sb.WriteString(fmt.Sprintf("- Total Assets: $%s\n", formatMoney(totalAssets)))
+
+	// Sum liabilities
+	var totalLiabilities float64
+	for _, l := range year.Liabilities {
+		totalLiabilities += l.AdjustedAnnual
+	}
+	sb.WriteString(fmt.Sprintf("- Total Liabilities: $%s\n", formatMoney(totalLiabilities)))
+
+	sb.WriteString(fmt.Sprintf("- Annual Net Cash Flow: $%s\n", formatMoney(year.NetCash)))
+
+	result := sb.String()
+	return &result, nil
+}
+
+// IdentifyNetWorthLevers identifies factors with biggest impact on net worth
+func (c *Client) IdentifyNetWorthLevers(ctx context.Context, userID string, params IdentifyNetWorthLeversParams) (*string, error) {
+	topN := params.TopN
+	if topN <= 0 {
+		topN = 5
+	}
+
+	category := params.Category
+	if category == "" {
+		category = "all"
+	}
+
+	type lever struct {
+		Type         string
+		Name         string
+		AnnualImpact float64
+		Description  string
+	}
+
+	var levers []lever
+
+	// Fetch data based on category filter
+	if category == "all" || category == "income" {
+		incomes, _ := c.store.ListIncomes(ctx, userID, repository.PaginationParams{Limit: -1})
+		for _, i := range incomes.Data {
+			annual := toAnnual(i.Amount, i.Frequency)
+			levers = append(levers, lever{
+				Type:         "income",
+				Name:         i.Source,
+				AnnualImpact: annual,
+				Description:  fmt.Sprintf("+$%s/year income", formatMoney(annual)),
+			})
+		}
+	}
+
+	if category == "all" || category == "expenses" {
+		expenses, _ := c.store.ListExpenses(ctx, userID, repository.PaginationParams{Limit: -1})
+		for _, e := range expenses.Data {
+			annual := toAnnual(e.Amount, e.Frequency)
+			levers = append(levers, lever{
+				Type:         "expense",
+				Name:         e.Payee,
+				AnnualImpact: -annual,
+				Description:  fmt.Sprintf("-$%s/year expense", formatMoney(annual)),
+			})
+		}
+	}
+
+	if category == "all" || category == "assets" {
+		assets, _ := c.store.ListAssets(ctx, userID, repository.PaginationParams{Limit: -1})
+		for _, a := range assets.Data {
+			growthImpact := a.CurrentValue * (a.AnnualGrowthRate / 100)
+			levers = append(levers, lever{
+				Type:         "asset",
+				Name:         a.Name,
+				AnnualImpact: growthImpact,
+				Description:  fmt.Sprintf("$%s growing at %.1f%%/year", formatMoney(a.CurrentValue), a.AnnualGrowthRate),
+			})
+		}
+	}
+
+	if category == "all" || category == "liabilities" {
+		liabilities, _ := c.store.ListLiabilities(ctx, userID, repository.PaginationParams{Limit: -1})
+		for _, l := range liabilities.Data {
+			interestCost := l.CurrentBalance * (l.InterestRateAPR / 100)
+			levers = append(levers, lever{
+				Type:         "liability",
+				Name:         l.Name,
+				AnnualImpact: -interestCost,
+				Description:  fmt.Sprintf("$%s balance at %.1f%% interest", formatMoney(l.CurrentBalance), l.InterestRateAPR),
+			})
+		}
+	}
+
+	// Sort by absolute impact (descending)
+	sort.Slice(levers, func(i, j int) bool {
+		return math.Abs(levers[i].AnnualImpact) > math.Abs(levers[j].AnnualImpact)
+	})
+
+	// Take top N
+	if len(levers) > topN {
+		levers = levers[:topN]
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("**Top %d Net Worth Levers", len(levers)))
+	if category != "all" {
+		sb.WriteString(fmt.Sprintf(" (%s)", category))
+	}
+	sb.WriteString(":**\n\n")
+
+	for i, l := range levers {
+		impact := "positive"
+		if l.AnnualImpact < 0 {
+			impact = "negative"
+		}
+		sb.WriteString(fmt.Sprintf("%d. **%s** (%s)\n", i+1, l.Name, l.Type))
+		sb.WriteString(fmt.Sprintf("   - %s\n", l.Description))
+		sb.WriteString(fmt.Sprintf("   - Annual impact: $%s (%s)\n\n", formatMoney(math.Abs(l.AnnualImpact)), impact))
+	}
+
+	result := sb.String()
+	return &result, nil
+}
+
+// Helper functions for analysis methods
+
+func formatMoney(amount float64) string {
+	if amount < 0 {
+		return fmt.Sprintf("-%.0f", -amount)
+	}
+	return fmt.Sprintf("%.0f", amount)
+}
+
+func annualToMonthly(amount float64, frequency string) float64 {
+	switch strings.ToLower(frequency) {
+	case "monthly":
+		return amount
+	case "annual", "yearly":
+		return amount / 12
+	case "weekly":
+		return amount * 52 / 12
+	case "biweekly":
+		return amount * 26 / 12
+	case "quarterly":
+		return amount * 4 / 12
+	default:
+		return amount / 12 // assume annual
+	}
+}
+
+func toAnnual(amount float64, frequency string) float64 {
+	switch strings.ToLower(frequency) {
+	case "monthly":
+		return amount * 12
+	case "annual", "yearly":
+		return amount
+	case "weekly":
+		return amount * 52
+	case "biweekly":
+		return amount * 26
+	case "quarterly":
+		return amount * 4
+	default:
+		return amount // assume annual
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // GetFinancialSummary retrieves a financial summary for a user
@@ -784,4 +1518,286 @@ func derefFloat(v *float64) float64 {
 		return 0
 	}
 	return *v
+}
+
+// ============================================
+// SECTION: Scenario CRUD Methods (Agent 2)
+// ============================================
+
+// CreateScenarioEvent creates a new what-if scenario event.
+func (c *Client) CreateScenarioEvent(ctx context.Context, params CreateScenarioEventParams) (*string, error) {
+	userID, ok := ctx.Value("userID").(string)
+	if !ok || userID == "" {
+		return nil, fmt.Errorf("user ID not found in context")
+	}
+
+	// Convert target year to actual date
+	baseYear := time.Now().Year()
+	occursOn := time.Date(baseYear+params.TargetYear, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Determine icon and color based on target type
+	displayIcon := "sparkles" // default
+	displayColor := "#0ea5e9" // default blue
+	switch params.TargetType {
+	case "income":
+		displayIcon = "wallet"
+		displayColor = "#22c55e" // green
+	case "expense":
+		displayIcon = "credit-card"
+		displayColor = "#ef4444" // red
+	case "asset":
+		displayIcon = "landmark"
+		displayColor = "#3b82f6" // blue
+	case "liability":
+		displayIcon = "banknote"
+		displayColor = "#f97316" // orange
+	}
+
+	// Build the scenario event
+	ev := repository.ScenarioEvent{
+		UserID:       userID,
+		Name:         params.Name,
+		Description:  params.Description,
+		OccursOn:     occursOn,
+		DisplayIcon:  displayIcon,
+		DisplayColor: &displayColor,
+		IsIncluded:   true,
+	}
+	if params.IsIncluded != nil {
+		ev.IsIncluded = *params.IsIncluded
+	}
+
+	// Build impact if provided
+	if params.ImpactValue != nil || params.ImpactType == "stop" {
+		impact := repository.ScenarioImpact{
+			TargetType: params.TargetType,
+			ImpactKind: params.ImpactType,
+			Currency:   "SGD",
+			Cadence:    "one_time",
+			StartMonth: occursOn,
+		}
+		if params.TargetID != "" {
+			impact.TargetID = &params.TargetID
+		}
+		if params.ImpactValue != nil {
+			impact.Amount = int64(*params.ImpactValue * 100) // Convert to cents
+		}
+		ev.Impacts = []repository.ScenarioImpact{impact}
+	}
+
+	created, err := c.store.CreateScenarioEvent(ctx, ev)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create scenario event: %w", err)
+	}
+
+	return &created.ID, nil
+}
+
+// StopFinancialItem creates a scenario event that stops an existing financial item.
+func (c *Client) StopFinancialItem(ctx context.Context, params StopFinancialItemParams) (*string, error) {
+	// Convert to CreateScenarioEventParams and delegate
+	return c.CreateScenarioEvent(ctx, CreateScenarioEventParams{
+		Name:        params.Name,
+		Description: params.Description,
+		TargetYear:  params.TargetYear,
+		TargetType:  params.TargetType,
+		TargetID:    params.TargetID,
+		ImpactType:  "stop",
+		IsIncluded:  params.IsIncluded,
+	})
+}
+
+// StartFinancialItem creates a scenario event that starts a new financial item.
+func (c *Client) StartFinancialItem(ctx context.Context, params StartFinancialItemParams) (*string, error) {
+	// Convert to CreateScenarioEventParams and delegate
+	return c.CreateScenarioEvent(ctx, CreateScenarioEventParams{
+		Name:        params.Name,
+		Description: params.Description,
+		TargetYear:  params.TargetYear,
+		TargetType:  params.TargetType,
+		ImpactType:  "start",
+		ImpactValue: &params.ImpactValue,
+		IsIncluded:  params.IsIncluded,
+	})
+}
+
+// ModifyFinancialItem creates a scenario event that modifies an existing financial item.
+func (c *Client) ModifyFinancialItem(ctx context.Context, params ModifyFinancialItemParams) (*string, error) {
+	// Convert to CreateScenarioEventParams and delegate
+	return c.CreateScenarioEvent(ctx, CreateScenarioEventParams{
+		Name:        params.Name,
+		Description: params.Description,
+		TargetYear:  params.TargetYear,
+		TargetType:  params.TargetType,
+		TargetID:    params.TargetID,
+		ImpactType:  params.ImpactType,
+		ImpactValue: &params.ImpactValue,
+		IsIncluded:  params.IsIncluded,
+	})
+}
+
+// UpdateScenarioEvent updates an existing scenario event.
+func (c *Client) UpdateScenarioEvent(ctx context.Context, params UpdateScenarioEventParams) (*string, error) {
+	userID, ok := ctx.Value("userID").(string)
+	if !ok || userID == "" {
+		return nil, fmt.Errorf("user ID not found in context")
+	}
+
+	scenarioID, err := c.resolveScenarioID(ctx, userID, params.ScenarioID, params.ScenarioName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch current event
+	current, err := c.store.GetScenarioEvent(ctx, userID, scenarioID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch scenario event: %w", err)
+	}
+
+	// Apply updates
+	if params.Name != "" {
+		current.Name = params.Name
+	}
+	if params.Description != "" {
+		current.Description = params.Description
+	}
+	if params.TargetYear != nil {
+		baseYear := time.Now().Year()
+		current.OccursOn = time.Date(baseYear+*params.TargetYear, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+	if params.IsIncluded != nil {
+		current.IsIncluded = *params.IsIncluded
+	}
+	if params.ImpactValue != nil && len(current.Impacts) > 0 {
+		current.Impacts[0].Amount = int64(*params.ImpactValue * 100)
+	}
+
+	updated, err := c.store.UpdateScenarioEvent(ctx, current)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update scenario event: %w", err)
+	}
+
+	return &updated.ID, nil
+}
+
+// DeleteScenarioEvent deletes a scenario event.
+func (c *Client) DeleteScenarioEvent(ctx context.Context, params DeleteScenarioEventParams) (*string, error) {
+	userID, ok := ctx.Value("userID").(string)
+	if !ok || userID == "" {
+		return nil, fmt.Errorf("user ID not found in context")
+	}
+
+	scenarioID, err := c.resolveScenarioID(ctx, userID, params.ScenarioID, params.ScenarioName)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.store.DeleteScenarioEvent(ctx, userID, scenarioID); err != nil {
+		return nil, fmt.Errorf("failed to delete scenario event: %w", err)
+	}
+
+	return &scenarioID, nil
+}
+
+// ListScenarioEvents lists all scenario events for the user.
+func (c *Client) ListScenarioEvents(ctx context.Context, userID string, params ListScenarioEventsParams) (*string, error) {
+	filters := repository.ScenarioFilters{
+		Limit:  100,
+		Offset: 0,
+	}
+
+	if !params.IncludeDisabled {
+		included := true
+		filters.IncludedOnly = &included
+	}
+
+	events, _, err := c.store.ListScenarioEvents(ctx, userID, filters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list scenario events: %w", err)
+	}
+
+	if len(events) == 0 {
+		result := "No scenarios found."
+		return &result, nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Found %d scenarios:\n\n", len(events)))
+
+	for i, ev := range events {
+		status := "✅ Active"
+		if !ev.IsIncluded {
+			status = "⏸️ Disabled"
+		}
+
+		sb.WriteString(fmt.Sprintf("%d. **%s** [%s]\n", i+1, ev.Name, status))
+		sb.WriteString(fmt.Sprintf("   ID: %s\n", ev.ID))
+		sb.WriteString(fmt.Sprintf("   Year: %d\n", ev.OccursOn.Year()))
+		if ev.Description != "" {
+			sb.WriteString(fmt.Sprintf("   Description: %s\n", ev.Description))
+		}
+		if len(ev.Impacts) > 0 {
+			imp := ev.Impacts[0]
+			value := float64(imp.Amount) / 100
+			sb.WriteString(fmt.Sprintf("   Impact: %s on %s ($%.2f)\n", imp.ImpactKind, imp.TargetType, value))
+		}
+		sb.WriteString("\n")
+	}
+
+	result := sb.String()
+	return &result, nil
+}
+
+// ToggleScenarioIncluded toggles whether a scenario is included in projections.
+func (c *Client) ToggleScenarioIncluded(ctx context.Context, params ToggleScenarioIncludedParams) (*string, error) {
+	userID, ok := ctx.Value("userID").(string)
+	if !ok || userID == "" {
+		return nil, fmt.Errorf("user ID not found in context")
+	}
+
+	scenarioID, err := c.resolveScenarioID(ctx, userID, params.ScenarioID, params.ScenarioName)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.store.ToggleScenarioIncluded(ctx, userID, scenarioID, params.IsIncluded); err != nil {
+		return nil, fmt.Errorf("failed to toggle scenario: %w", err)
+	}
+
+	return &scenarioID, nil
+}
+
+// resolveScenarioID resolves a scenario ID from explicit ID or name.
+func (c *Client) resolveScenarioID(ctx context.Context, userID, explicitID, byName string) (string, error) {
+	if explicitID != "" {
+		return explicitID, nil
+	}
+
+	if byName == "" {
+		return "", fmt.Errorf("scenario ID or name is required")
+	}
+
+	// Search by name
+	filters := repository.ScenarioFilters{
+		Search: byName,
+		Limit:  10,
+	}
+	events, _, err := c.store.ListScenarioEvents(ctx, userID, filters)
+	if err != nil {
+		return "", fmt.Errorf("failed to search scenarios: %w", err)
+	}
+
+	// Find exact or closest match
+	byName = strings.ToLower(byName)
+	for _, ev := range events {
+		if strings.ToLower(ev.Name) == byName {
+			return ev.ID, nil
+		}
+	}
+	// Return first match if any
+	if len(events) > 0 {
+		return events[0].ID, nil
+	}
+
+	return "", fmt.Errorf("scenario '%s' not found", byName)
 }
