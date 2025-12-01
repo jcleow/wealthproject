@@ -17,7 +17,20 @@ func NewFinancialToolRegistry() *FinancialToolRegistry {
 
 	// Register all financial tools
 	registry.registerTools()
+
+	// Build Required arrays from PropertySchema.Required flags for JSON serialization
+	registry.buildRequiredArrays()
+
 	return registry
+}
+
+// buildRequiredArrays populates the Required slice on each tool's JSONSchema
+// from the PropertySchema.Required flags for proper JSON serialization to LLM APIs
+func (r *FinancialToolRegistry) buildRequiredArrays() {
+	for name, tool := range r.tools {
+		tool.Function.Parameters.BuildRequiredArray()
+		r.tools[name] = tool
+	}
 }
 
 // GetTools returns all registered tools
@@ -49,6 +62,7 @@ func (r *FinancialToolRegistry) registerTools() {
 					"category": {
 						Type:        "string",
 						Description: "Specific type of asset being added",
+						Required:    true,
 						Enum: []string{
 							"property_real_estate",
 							"hdb_property", "condo_property", "landed_property",
@@ -59,12 +73,14 @@ func (r *FinancialToolRegistry) registerTools() {
 					"name": {
 						Type:        "string",
 						Description: "Descriptive name for the asset (e.g., 'Toa Payoh 4-room HDB', 'DBS Savings Account', 'STI ETF Portfolio')",
+						Required:    true,
 						MinLength:   llm.Int(1),
 						MaxLength:   llm.Int(100),
 					},
 					"currentValue": {
 						Type:        "number",
 						Description: "Current market value of the asset in Singapore Dollars (SGD). Always use full numbers (e.g., 1200000 for 1.2M)",
+						Required:    true,
 						Minimum:     llm.Float(1),
 						Maximum:     llm.Float(100000000),
 					},
@@ -80,7 +96,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						MaxLength:   llm.Int(500),
 					},
 				},
-				Required:             []string{"category", "name", "currentValue"},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -127,7 +142,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						MaxLength:   llm.Int(500),
 					},
 				},
-				Required:             []string{},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -155,7 +169,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						Description: "Fallback asset ID from prior context.",
 					},
 				},
-				Required:             []string{},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -173,6 +186,7 @@ func (r *FinancialToolRegistry) registerTools() {
 					"category": {
 						Type:        "string",
 						Description: "Type of liability/debt",
+						Required:    true,
 						Enum: []string{
 							"mortgage_home", "mortgage", "personal_loan", "car_loan", "education_loan",
 							"credit_card", "business_loan", "overdraft", "other_debt",
@@ -181,18 +195,21 @@ func (r *FinancialToolRegistry) registerTools() {
 					"name": {
 						Type:        "string",
 						Description: "Descriptive name for the liability (e.g., 'HDB Mortgage', 'Car Loan - Honda Civic', 'OCBC Credit Card')",
+						Required:    true,
 						MinLength:   llm.Int(1),
 						MaxLength:   llm.Int(100),
 					},
 					"currentBalance": {
 						Type:        "number",
 						Description: "Current outstanding balance in SGD. Use full numbers (e.g., 350000 for 350k)",
+						Required:    true,
 						Minimum:     llm.Float(1),
 						Maximum:     llm.Float(50000000),
 					},
 					"interestRate": {
 						Type:        "number",
 						Description: "Annual interest rate as decimal (e.g., 0.025 for 2.5% per year)",
+						Required:    true,
 						Minimum:     llm.Float(0),
 						Maximum:     llm.Float(1),
 					},
@@ -212,7 +229,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						MaxLength:   llm.Int(500),
 					},
 				},
-				Required:             []string{"category", "name", "currentBalance", "interestRate"},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -263,7 +279,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						MaxLength:   llm.Int(500),
 					},
 				},
-				Required:             []string{},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -291,7 +306,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						Description: "Fallback liability ID from prior context.",
 					},
 				},
-				Required:             []string{},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -309,15 +323,18 @@ func (r *FinancialToolRegistry) registerTools() {
 					"source": {
 						Type:        "string",
 						Description: "Name of the income source (e.g., Salary, Bonus, Rental).",
+						Required:    true,
 					},
 					"amount": {
 						Type:        "number",
 						Description: "Income amount in SGD per the given frequency.",
+						Required:    true,
 						Minimum:     llm.Float(1),
 					},
 					"frequency": {
 						Type:        "string",
 						Description: "Income frequency (weekly, biweekly, monthly, quarterly, yearly).",
+						Required:    true,
 					},
 					"startDate": {
 						Type:        "string",
@@ -333,7 +350,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						MaxLength:   llm.Int(500),
 					},
 				},
-				Required:             []string{"source", "amount", "frequency"},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -387,7 +403,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						MaxLength:   llm.Int(500),
 					},
 				},
-				Required:             []string{},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -415,7 +430,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						Description: "Fallback income ID from prior context.",
 					},
 				},
-				Required:             []string{},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -433,16 +447,19 @@ func (r *FinancialToolRegistry) registerTools() {
 					"payee": {
 						Type:        "string",
 						Description: "Who/what the expense is for.",
+						Required:    true,
 						MinLength:   llm.Int(1),
 					},
 					"amount": {
 						Type:        "number",
 						Description: "Expense amount in SGD per the given frequency.",
+						Required:    true,
 						Minimum:     llm.Float(1),
 					},
 					"frequency": {
 						Type:        "string",
 						Description: "Expense frequency (weekly, biweekly, monthly, quarterly, yearly).",
+						Required:    true,
 					},
 					"category": {
 						Type:        "string",
@@ -458,7 +475,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						MaxLength:   llm.Int(500),
 					},
 				},
-				Required:             []string{"payee", "amount", "frequency"},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -508,7 +524,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						MaxLength:   llm.Int(500),
 					},
 				},
-				Required:             []string{},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -536,7 +551,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						Description: "Fallback expense ID from prior context.",
 					},
 				},
-				Required:             []string{},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -554,36 +568,42 @@ func (r *FinancialToolRegistry) registerTools() {
 					"propertyPrice": {
 						Type:        "number",
 						Description: "Total purchase price of the property in SGD",
+						Required:    true,
 						Minimum:     llm.Float(100000),
 						Maximum:     llm.Float(50000000),
 					},
 					"downPayment": {
 						Type:        "number",
 						Description: "Down payment amount in SGD (typically 20-25% of property price)",
+						Required:    true,
 						Minimum:     llm.Float(10000),
 						Maximum:     llm.Float(25000000),
 					},
 					"loanAmount": {
 						Type:        "number",
 						Description: "Mortgage loan amount needed in SGD (propertyPrice - downPayment)",
+						Required:    true,
 						Minimum:     llm.Float(50000),
 						Maximum:     llm.Float(40000000),
 					},
 					"interestRate": {
 						Type:        "number",
 						Description: "Annual mortgage interest rate as decimal (e.g., 0.025 for 2.5%)",
+						Required:    true,
 						Minimum:     llm.Float(0.005),
 						Maximum:     llm.Float(0.1),
 					},
 					"loanTenure": {
 						Type:        "integer",
 						Description: "Loan term in years (typically 25-30 years)",
+						Required:    true,
 						Minimum:     llm.Float(5),
 						Maximum:     llm.Float(35),
 					},
 					"propertyType": {
 						Type:        "string",
 						Description: "Type of property being purchased",
+						Required:    true,
 						Enum: []string{
 							"hdb_bto", "hdb_resale", "condo_new", "condo_resale",
 							"landed_terrace", "landed_semi_d", "landed_bungalow",
@@ -602,7 +622,6 @@ func (r *FinancialToolRegistry) registerTools() {
 						MaxLength:   llm.Int(500),
 					},
 				},
-				Required:             []string{"propertyPrice", "downPayment", "loanAmount", "interestRate", "loanTenure", "propertyType"},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -782,6 +801,7 @@ EXAMPLES (assuming user has income with ID "abc-123"):
 					"name": {
 						Type:        "string",
 						Description: "Descriptive name for the scenario (e.g., 'Career Break 2030', 'Salary Promotion', 'Buy Condo')",
+						Required:    true,
 						MinLength:   llm.Int(1),
 						MaxLength:   llm.Int(100),
 					},
@@ -793,12 +813,14 @@ EXAMPLES (assuming user has income with ID "abc-123"):
 					"targetYear": {
 						Type:        "integer",
 						Description: "Year offset when this scenario takes effect (0 = current year, 1 = next year, 5 = 5 years from now, etc.)",
+						Required:    true,
 						Minimum:     llm.Float(0),
 						Maximum:     llm.Float(30),
 					},
 					"targetType": {
 						Type:        "string",
 						Description: "Type of financial item being affected",
+						Required:    true,
 						Enum:        []string{"asset", "liability", "income", "expense"},
 					},
 					"targetId": {
@@ -808,6 +830,7 @@ EXAMPLES (assuming user has income with ID "abc-123"):
 					"impactType": {
 						Type:        "string",
 						Description: "How the scenario affects the target: 'stop' (end existing item - requires targetId, no impactValue), 'delta' (add/subtract - requires targetId and impactValue), 'override' (replace value - requires targetId and impactValue), 'start' (create new - requires impactValue, no targetId)",
+						Required:    true,
 						Enum:        []string{"delta", "override", "start", "stop"},
 					},
 					"impactValue": {
@@ -820,7 +843,6 @@ EXAMPLES (assuming user has income with ID "abc-123"):
 						Default:     true,
 					},
 				},
-				Required:             []string{"name", "targetYear", "targetType", "impactType"},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -850,6 +872,7 @@ Examples:
 					"name": {
 						Type:        "string",
 						Description: "Descriptive name for the scenario (e.g., 'Career Break 2030', 'Cancel Gym Membership')",
+						Required:    true,
 						MinLength:   llm.Int(1),
 						MaxLength:   llm.Int(100),
 					},
@@ -861,17 +884,20 @@ Examples:
 					"targetYear": {
 						Type:        "integer",
 						Description: "Year offset when the item stops (0 = current year, 1 = next year, etc.)",
+						Required:    true,
 						Minimum:     llm.Float(0),
 						Maximum:     llm.Float(30),
 					},
 					"targetType": {
 						Type:        "string",
 						Description: "Type of financial item being stopped",
+						Required:    true,
 						Enum:        []string{"asset", "liability", "income", "expense"},
 					},
 					"targetId": {
 						Type:        "string",
 						Description: "ID of the existing item to stop. REQUIRED - look up from the user's financial data.",
+						Required:    true,
 					},
 					"isIncluded": {
 						Type:        "boolean",
@@ -879,7 +905,6 @@ Examples:
 						Default:     true,
 					},
 				},
-				Required:             []string{"name", "targetYear", "targetType", "targetId"},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -909,6 +934,7 @@ Examples:
 					"name": {
 						Type:        "string",
 						Description: "Descriptive name for the scenario (e.g., 'Start Rental Income', 'Buy Investment Property')",
+						Required:    true,
 						MinLength:   llm.Int(1),
 						MaxLength:   llm.Int(100),
 					},
@@ -920,17 +946,20 @@ Examples:
 					"targetYear": {
 						Type:        "integer",
 						Description: "Year offset when the new item starts (0 = current year, 1 = next year, etc.)",
+						Required:    true,
 						Minimum:     llm.Float(0),
 						Maximum:     llm.Float(30),
 					},
 					"targetType": {
 						Type:        "string",
 						Description: "Type of financial item to create",
+						Required:    true,
 						Enum:        []string{"asset", "liability", "income", "expense"},
 					},
 					"impactValue": {
 						Type:        "number",
 						Description: "The value for the new item. For income/expense: annual amount. For asset/liability: the value.",
+						Required:    true,
 						Minimum:     llm.Float(1),
 					},
 					"itemName": {
@@ -944,7 +973,6 @@ Examples:
 						Default:     true,
 					},
 				},
-				Required:             []string{"name", "targetYear", "targetType", "impactValue"},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -978,6 +1006,7 @@ Examples:
 					"name": {
 						Type:        "string",
 						Description: "Descriptive name for the scenario (e.g., 'Salary Raise 2025', 'Rent Increase')",
+						Required:    true,
 						MinLength:   llm.Int(1),
 						MaxLength:   llm.Int(100),
 					},
@@ -989,26 +1018,31 @@ Examples:
 					"targetYear": {
 						Type:        "integer",
 						Description: "Year offset when the modification takes effect (0 = current year, 1 = next year, etc.)",
+						Required:    true,
 						Minimum:     llm.Float(0),
 						Maximum:     llm.Float(30),
 					},
 					"targetType": {
 						Type:        "string",
 						Description: "Type of financial item being modified",
+						Required:    true,
 						Enum:        []string{"asset", "liability", "income", "expense"},
 					},
 					"targetId": {
 						Type:        "string",
 						Description: "ID of the existing item to modify. REQUIRED - look up from the user's financial data.",
+						Required:    true,
 					},
 					"impactType": {
 						Type:        "string",
 						Description: "How to apply the change: 'delta' (add/subtract from current) or 'override' (replace value)",
+						Required:    true,
 						Enum:        []string{"delta", "override"},
 					},
 					"impactValue": {
 						Type:        "number",
 						Description: "The amount to change by (for delta) or the new value (for override). Use negative for decreases in delta mode.",
+						Required:    true,
 					},
 					"isIncluded": {
 						Type:        "boolean",
@@ -1016,7 +1050,6 @@ Examples:
 						Default:     true,
 					},
 				},
-				Required:             []string{"name", "targetYear", "targetType", "targetId", "impactType", "impactValue"},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -1064,13 +1097,12 @@ Examples:
 						Description: "Updated inclusion status",
 					},
 				},
-				Required:             []string{},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
 	}
 
-	// Tool 21: Delete Scenario Event
+	// Tool 24: Delete Scenario Event
 	r.tools["deleteScenarioEvent"] = llm.ToolDefinition{
 		Type: "function",
 		Function: llm.FunctionSchema{
@@ -1088,13 +1120,12 @@ Examples:
 						Description: "Name of scenario to match when ID is unknown",
 					},
 				},
-				Required:             []string{},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
 	}
 
-	// Tool 22: List Scenario Events
+	// Tool 25: List Scenario Events
 	r.tools["listScenarioEvents"] = llm.ToolDefinition{
 		Type: "function",
 		Function: llm.FunctionSchema{
@@ -1119,7 +1150,7 @@ Examples:
 		},
 	}
 
-	// Tool 23: Toggle Scenario Included
+	// Tool 26: Toggle Scenario Included
 	r.tools["toggleScenarioIncluded"] = llm.ToolDefinition{
 		Type: "function",
 		Function: llm.FunctionSchema{
@@ -1139,9 +1170,9 @@ Examples:
 					"isIncluded": {
 						Type:        "boolean",
 						Description: "Whether to include the scenario in projections",
+						Required:    true,
 					},
 				},
-				Required:             []string{"isIncluded"},
 				AdditionalProperties: llm.Bool(false),
 			},
 		},
@@ -1170,10 +1201,12 @@ func (r *FinancialToolRegistry) ValidateToolCall(toolName string, arguments map[
 
 	missing := []string{}
 
-	// Validate required fields
-	for _, requiredField := range tool.Function.Parameters.Required {
-		if _, exists := arguments[requiredField]; !exists {
-			missing = append(missing, requiredField)
+	// Validate required fields using PropertySchema.Required flag (O(n) instead of O(n²))
+	for fieldName, prop := range tool.Function.Parameters.Properties {
+		if prop != nil && prop.Required {
+			if _, exists := arguments[fieldName]; !exists {
+				missing = append(missing, fieldName)
+			}
 		}
 	}
 

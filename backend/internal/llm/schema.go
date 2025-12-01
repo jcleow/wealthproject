@@ -19,6 +19,7 @@ type PropertySchema struct {
 	MaxLength   *int        `json:"maxLength,omitempty"`
 	Default     any         `json:"default,omitempty"`
 	Items       *ItemSchema `json:"items,omitempty"` // For array types
+	Required    bool        `json:"-"`               // Internal flag, not serialized (Required array is built from this)
 }
 
 // ItemSchema represents items in an array property
@@ -30,3 +31,36 @@ type ItemSchema struct {
 func Bool(v bool) *bool        { return &v }
 func Float(v float64) *float64 { return &v }
 func Int(v int) *int           { return &v }
+
+// BuildRequiredArray populates the Required slice from PropertySchema.Required flags.
+// Call this after setting up Properties to ensure the Required array is in sync.
+func (s *JSONSchema) BuildRequiredArray() {
+	s.Required = nil
+	for name, prop := range s.Properties {
+		if prop != nil && prop.Required {
+			s.Required = append(s.Required, name)
+		}
+	}
+}
+
+// GetRequiredFields returns the names of all required fields
+func (s *JSONSchema) GetRequiredFields() []string {
+	var required []string
+	for name, prop := range s.Properties {
+		if prop != nil && prop.Required {
+			required = append(required, name)
+		}
+	}
+	return required
+}
+
+// GetOptionalFields returns the names of all optional fields
+func (s *JSONSchema) GetOptionalFields() []string {
+	var optional []string
+	for name, prop := range s.Properties {
+		if prop != nil && !prop.Required {
+			optional = append(optional, name)
+		}
+	}
+	return optional
+}
