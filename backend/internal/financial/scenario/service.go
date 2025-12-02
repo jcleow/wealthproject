@@ -41,8 +41,15 @@ type ApplyRequest struct {
 	SelectedIDs []string // optional: limit to these scenario IDs; if empty, use all included
 }
 
+// startStopInfo tracks when an item starts or stops with month-level precision for proration.
+type startStopInfo struct {
+	isStop bool      // true = stop impact, false = start impact
+	month  time.Time // the month when the start/stop occurs
+}
+
 // Apply merges included scenarios into baseline rows for a given year.
 // Ordering: start/stop -> override -> delta. Cross-scenario overrides: latest updated_at wins.
+// Amounts are prorated based on which month in the year the start/stop occurs.
 func (s *Service) Apply(ctx context.Context, req ApplyRequest) ([]Row, error) {
 	if req.UserID == "" {
 		return nil, errors.New("user_id required")
@@ -81,9 +88,10 @@ func (s *Service) Apply(ctx context.Context, req ApplyRequest) ([]Row, error) {
 		t  string
 		id string
 	}
-	startStop := map[key]bool{}           // false means stopped
+	// Track start/stop with month-level precision for proration
+	startStops := map[key]startStopInfo{}
 	overrides := map[key]overrideChoice{} // latest updated_at wins
-	deltas := map[key]float64{}
+	deltas := map[key]deltaInfo{}
 	impactRefs := map[key][]repository.ScenarioImpact{}
 
 	for _, ev := range events {
@@ -97,17 +105,24 @@ func (s *Service) Apply(ctx context.Context, req ApplyRequest) ([]Row, error) {
 			k := key{t: imp.TargetType, id: *imp.TargetID}
 			switch imp.ImpactKind {
 			case "start":
-				startStop[k] = true
+				startStops[k] = startStopInfo{isStop: false, month: imp.StartMonth}
 			case "stop":
-				startStop[k] = false
+				startStops[k] = startStopInfo{isStop: true, month: imp.StartMonth}
 			case "override":
 				win, ok := overrides[k]
 				if !ok || ev.UpdatedAt.After(win.updatedAt) {
-					overrides[k] = overrideChoice{amount: annualize(imp), updatedAt: ev.UpdatedAt}
+					overrides[k] = overrideChoice{
+						amount:    annualize(imp),
+						updatedAt: ev.UpdatedAt,
+						month:     imp.StartMonth,
+					}
 				}
 				impactRefs[k] = append(impactRefs[k], imp)
 			case "delta":
-				deltas[k] += annualize(imp)
+				existing := deltas[k]
+				existing.amount += annualizeWithProration(imp, calendarYear)
+				existing.month = imp.StartMonth
+				deltas[k] = existing
 				impactRefs[k] = append(impactRefs[k], imp)
 			}
 		}
@@ -117,15 +132,35 @@ func (s *Service) Apply(ctx context.Context, req ApplyRequest) ([]Row, error) {
 	for _, row := range req.Rows {
 		k := key{t: row.Type, id: row.ID}
 		amount := row.AmountAnnual
-		if stopped, ok := startStop[k]; ok && !stopped {
-			amount = 0
+
+		// Apply start/stop with proration
+		if info, ok := startStops[k]; ok {
+			if info.isStop {
+				// Item stops this year - prorate based on active months
+				proration := calculateStopProration(info.month, calendarYear)
+				amount *= proration
+			} else {
+				// Item starts this year - prorate based on remaining months
+				proration := calculateStartProration(info.month, calendarYear)
+				amount *= proration
+			}
 		}
+
+		// Apply override with proration - blend original and new amounts
 		if ov, ok := overrides[k]; ok {
-			amount = ov.amount
+			// Calculate what fraction of the year is AFTER the override
+			afterProration := calculateStartProration(ov.month, calendarYear)
+			// The fraction BEFORE the override
+			beforeProration := 1.0 - afterProration
+			// Blend: original amount for months before, new amount for months after
+			amount = (amount * beforeProration) + (ov.amount * afterProration)
 		}
+
+		// Apply delta (already prorated in annualizeWithProration)
 		if delta, ok := deltas[k]; ok {
-			amount += delta
+			amount += delta.amount
 		}
+
 		row.AmountAnnual = amount
 		if refs, ok := impactRefs[k]; ok {
 			row.EventImpacts = refs
@@ -135,9 +170,16 @@ func (s *Service) Apply(ctx context.Context, req ApplyRequest) ([]Row, error) {
 	return out, nil
 }
 
+// deltaInfo tracks delta amount with timing info
+type deltaInfo struct {
+	amount float64
+	month  time.Time
+}
+
 type overrideChoice struct {
 	amount    float64
 	updatedAt time.Time
+	month     time.Time
 }
 
 func appliesToYear(imp repository.ScenarioImpact, calendarYear int) bool {
@@ -165,6 +207,72 @@ func annualize(imp repository.ScenarioImpact) float64 {
 	default:
 		return float64(imp.Amount)
 	}
+}
+
+// annualizeWithProration annualizes the impact amount with month-level proration.
+// For impacts that start mid-year, only the remaining months are counted.
+func annualizeWithProration(imp repository.ScenarioImpact, calendarYear int) float64 {
+	base := annualize(imp)
+	proration := calculateStartProration(imp.StartMonth, calendarYear)
+	return base * proration
+}
+
+// calculateStopProration returns the fraction of the year that was active before a stop.
+// A stop in month M means months 1 through M-1 were active.
+// Example: Stop in December (month 12) = 11/12 active
+// Example: Stop in January (month 1) = 0/12 active (stopped at start of year)
+func calculateStopProration(stopMonth time.Time, calendarYear int) float64 {
+	stopYear := stopMonth.Year()
+
+	// If stop is in a future year, full year is active
+	if stopYear > calendarYear {
+		return 1.0
+	}
+
+	// If stop was in a previous year, no activity this year
+	if stopYear < calendarYear {
+		return 0.0
+	}
+
+	// Stop is in this calendar year - prorate based on month
+	month := int(stopMonth.Month())
+	// Stop at month M means active for months 1 to M-1
+	activeMonths := month - 1
+	if activeMonths < 0 {
+		activeMonths = 0
+	}
+	return float64(activeMonths) / 12.0
+}
+
+// calculateStartProration returns the fraction of the year that is active after a start.
+// A start in month M means months M through 12 are active.
+// Example: Start in January (month 1) = 12/12 active
+// Example: Start in April (month 4) = 9/12 active
+// Example: Start in December (month 12) = 1/12 active
+func calculateStartProration(startMonth time.Time, calendarYear int) float64 {
+	startYear := startMonth.Year()
+
+	// If start was in a previous year, full year is active
+	if startYear < calendarYear {
+		return 1.0
+	}
+
+	// If start is in a future year, no activity this year
+	if startYear > calendarYear {
+		return 0.0
+	}
+
+	// Start is in this calendar year - prorate based on month
+	month := int(startMonth.Month())
+	// Start at month M means active for months M to 12
+	activeMonths := 13 - month
+	if activeMonths > 12 {
+		activeMonths = 12
+	}
+	if activeMonths < 0 {
+		activeMonths = 0
+	}
+	return float64(activeMonths) / 12.0
 }
 
 func boolPtr(b bool) *bool { return &b }

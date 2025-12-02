@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
+	"financial-chat-system/backend/internal/financial/scenario"
 	"financial-chat-system/backend/internal/middleware"
 
 	"github.com/google/uuid"
@@ -520,4 +521,199 @@ func ptr[T any](v T) *T { return &v }
 
 func countItems(items []TimelineItem) int {
 	return len(items)
+}
+
+// ---- Scenario Integration Tests ----
+
+// mockScenarioApplier simulates the scenario.Service for testing
+type mockScenarioApplier struct {
+	overrideAmount float64  // The override amount to apply
+	overrideMonth  int      // Month when override starts (1-12)
+	overrideYear   int      // Calendar year when override starts
+	targetType     string   // Type of item to override (income, expense, etc.)
+	targetID       string   // ID of item to override
+}
+
+func (m *mockScenarioApplier) Apply(ctx context.Context, req scenario.ApplyRequest) ([]scenario.Row, error) {
+	result := make([]scenario.Row, 0, len(req.Rows))
+	calendarYear := req.BaseYear + req.Year
+
+	for _, row := range req.Rows {
+		newRow := scenario.Row{
+			ID:           row.ID,
+			Type:         row.Type,
+			AmountAnnual: row.AmountAnnual,
+		}
+
+		// Apply override to matching target
+		if row.Type == m.targetType && row.ID == m.targetID {
+			if calendarYear > m.overrideYear {
+				// Full year at override amount
+				newRow.AmountAnnual = m.overrideAmount
+			} else if calendarYear == m.overrideYear {
+				// Prorated: blend original and new based on month
+				afterProration := float64(13-m.overrideMonth) / 12.0
+				beforeProration := 1.0 - afterProration
+				newRow.AmountAnnual = (row.AmountAnnual * beforeProration) + (m.overrideAmount * afterProration)
+			}
+			// If calendarYear < m.overrideYear, no change (keeps original)
+		}
+
+		result = append(result, newRow)
+	}
+	return result, nil
+}
+
+func TestCashAccumulation_WithScenarioProration(t *testing.T) {
+	ctx := testContext()
+	store := newStubStore()
+
+	// Income of 120000/year (10000/month)
+	incomeID := uuid.NewString()
+	store.incomes = []repository.Income{
+		{
+			ID:        incomeID,
+			ParentID:  incomeID,
+			Source:    "Salary",
+			Amount:    10000,
+			Frequency: "monthly",
+			Category:  "employment",
+		},
+	}
+
+	// Expenses of 60000/year (5000/month)
+	expenseID := uuid.NewString()
+	store.expenses = []repository.Expense{
+		{
+			ID:        expenseID,
+			ParentID:  expenseID,
+			Payee:     "Living Expenses",
+			Amount:    5000,
+			Frequency: "monthly",
+			Category:  "housing",
+		},
+	}
+
+	// Cash account with initial balance
+	cashID := uuid.NewString()
+	store.cashAccounts = []repository.CashAccount{
+		{
+			ID:            cashID,
+			UserID:        "test-user",
+			Name:          "Savings",
+			Balance:       100000,
+			InterestRate:  1.5,
+			IsAccumulator: true,
+		},
+	}
+
+	// Scenario: Income becomes $0 in December of year 0 (current year 2025)
+	scenarioApplier := &mockScenarioApplier{
+		overrideAmount: 0,
+		overrideMonth:  12, // December
+		overrideYear:   time.Now().Year(),
+		targetType:     "income",
+		targetID:       incomeID,
+	}
+
+	svc := NewServiceWithScenario(store, scenarioApplier)
+	resp, err := svc.GetTimelineWithScenarios(ctx, testUserID, true, nil)
+	require.NoError(t, err)
+
+	// Year 0: Income should be prorated
+	// Original: $120k -> December means 11/12 * $120k + 1/12 * $0 = $110k
+	// Net savings: $110k - $60k = $50k
+	year0 := resp.Years[0]
+	expectedIncome := (120000.0 * 11.0 / 12.0) + (0.0 * 1.0 / 12.0) // $110k
+	require.InDelta(t, expectedIncome, sumAdjusted(year0.Income), 1)
+
+	expectedNetSavings := expectedIncome - 60000.0 // $50k
+	require.InDelta(t, expectedNetSavings, year0.AnnualNetSavings, 1)
+
+	// Year 1: Income is $0 (full year at override)
+	// Net savings: $0 - $60k = -$60k (drawing down cash)
+	year1 := resp.Years[1]
+	require.InDelta(t, 0.0, sumAdjusted(year1.Income), 1)
+	require.InDelta(t, -60000.0, year1.AnnualNetSavings, 1)
+
+	// Cash should decrease after year 0 savings are applied
+	// Year 1 start: $100k + $50k (net savings from year 0) = $150k
+	// After interest: $150k * 1.015 = $152,250
+	// Actually the recalculation in GetTimelineWithScenarios starts from year 0 accumulator balance
+	// Year 0: Cash stays at $100k (baseline)
+	// Year 1: Cash = $100k + $50k (year 0 net savings) + interest
+	require.True(t, year1.AccumulatedCashStart >= 100000, "Cash start should be at least initial balance")
+}
+
+func TestCashAccumulation_ScenarioExpenseReduction(t *testing.T) {
+	ctx := testContext()
+	store := newStubStore()
+
+	// Income of 120000/year
+	incomeID := uuid.NewString()
+	store.incomes = []repository.Income{
+		{
+			ID:        incomeID,
+			ParentID:  incomeID,
+			Source:    "Salary",
+			Amount:    10000,
+			Frequency: "monthly",
+			Category:  "employment",
+		},
+	}
+
+	// Rent of 24000/year (2000/month)
+	expenseID := uuid.NewString()
+	store.expenses = []repository.Expense{
+		{
+			ID:        expenseID,
+			ParentID:  expenseID,
+			Payee:     "Rent",
+			Amount:    2000,
+			Frequency: "monthly",
+			Category:  "housing",
+		},
+	}
+
+	// Cash account
+	cashID := uuid.NewString()
+	store.cashAccounts = []repository.CashAccount{
+		{
+			ID:            cashID,
+			UserID:        "test-user",
+			Name:          "Savings",
+			Balance:       50000,
+			InterestRate:  1.5,
+			IsAccumulator: true,
+		},
+	}
+
+	// Scenario: Rent becomes $0 in October (buying a house)
+	scenarioApplier := &mockScenarioApplier{
+		overrideAmount: 0,
+		overrideMonth:  10, // October
+		overrideYear:   time.Now().Year(),
+		targetType:     "expense",
+		targetID:       expenseID,
+	}
+
+	svc := NewServiceWithScenario(store, scenarioApplier)
+	resp, err := svc.GetTimelineWithScenarios(ctx, testUserID, true, nil)
+	require.NoError(t, err)
+
+	// Year 0: Expense should be prorated
+	// Original: $24k -> October means 9/12 * $24k + 3/12 * $0 = $18k
+	year0 := resp.Years[0]
+	expectedExpense := (24000.0 * 9.0 / 12.0) + (0.0 * 3.0 / 12.0) // $18k
+	require.InDelta(t, expectedExpense, sumAdjusted(year0.Expenses), 1)
+
+	// Net savings should be higher due to reduced expenses
+	// Net savings: $120k - $18k = $102k
+	expectedNetSavings := 120000.0 - expectedExpense
+	require.InDelta(t, expectedNetSavings, year0.AnnualNetSavings, 1)
+
+	// Year 1: Expense is $0 (full year at override)
+	year1 := resp.Years[1]
+	require.InDelta(t, 0.0, sumAdjusted(year1.Expenses), 1)
+	require.InDelta(t, 120000.0, year1.AnnualNetSavings, 1) // All income saved
 }

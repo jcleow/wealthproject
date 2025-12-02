@@ -31,6 +31,9 @@ type Config struct {
 	// Session management
 	SessionTTLHours               int
 	SessionCleanupIntervalMinutes int
+
+	// Usage tracking
+	UsageTrackingEnabled bool
 }
 
 func New() *Config {
@@ -60,6 +63,9 @@ func New() *Config {
 		// Session management
 		SessionTTLHours:               getEnvAsInt("SESSION_TTL_HOURS", 24),
 		SessionCleanupIntervalMinutes: getEnvAsInt("SESSION_CLEANUP_INTERVAL_MINUTES", 60),
+
+		// Usage tracking
+		UsageTrackingEnabled: getEnvAsBool("USAGE_TRACKING_ENABLED", true),
 	}
 }
 
@@ -92,6 +98,15 @@ func getEnvAsFloat64(key string, defaultValue float64) float64 {
 	if value := os.Getenv(key); value != "" {
 		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
 			return floatValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
 		}
 	}
 	return defaultValue

@@ -1,12 +1,53 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
 )
+
+// incomeInput is the JSON-friendly input struct for income creation/update.
+// It uses *int for nullable year fields since sql.NullInt32 doesn't unmarshal from JSON numbers.
+type incomeInput struct {
+	ID         string     `json:"id"`
+	ParentID   string     `json:"parentId"`
+	Source     string     `json:"source"`
+	Amount     float64    `json:"amount"`
+	Frequency  string     `json:"frequency"`
+	StartDate  *time.Time `json:"startDate"`
+	StartYear  *int       `json:"startYear"`
+	EndYear    *int       `json:"endYear"`
+	Category   string     `json:"category"`
+	GrowthRate *float64   `json:"growthRate"`
+	Notes      string     `json:"notes"`
+}
+
+func (i incomeInput) toIncome() repository.Income {
+	inc := repository.Income{
+		ID:        i.ID,
+		ParentID:  i.ParentID,
+		Source:    i.Source,
+		Amount:    i.Amount,
+		Frequency: i.Frequency,
+		StartDate: i.StartDate,
+		Category:  i.Category,
+		Notes:     i.Notes,
+	}
+	if i.StartYear != nil {
+		inc.StartYear = *i.StartYear
+	}
+	if i.EndYear != nil {
+		inc.EndYear = sql.NullInt32{Int32: int32(*i.EndYear), Valid: true}
+	}
+	if i.GrowthRate != nil {
+		inc.GrowthRate = *i.GrowthRate
+	}
+	return inc
+}
 
 // IncomeHandler serves income CRUD endpoints.
 type IncomeHandler struct {
@@ -88,16 +129,16 @@ func (h *IncomeHandler) create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var payload repository.Income
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	var input incomeInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		badRequest(w, err)
 		return
 	}
-	if payload.Source == "" || payload.Amount == 0 || payload.Frequency == "" || payload.Category == "" {
+	if input.Source == "" || input.Amount == 0 || input.Frequency == "" || input.Category == "" {
 		badRequest(w, errMissingFields("source, amount, frequency, category"))
 		return
 	}
-	created, err := h.store.CreateIncome(r.Context(), userID, payload)
+	created, err := h.store.CreateIncome(r.Context(), userID, input.toIncome())
 	if err != nil {
 		internalError(w)
 		return
@@ -110,13 +151,13 @@ func (h *IncomeHandler) update(w http.ResponseWriter, r *http.Request, id string
 	if !ok {
 		return
 	}
-	var payload repository.Income
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	var input incomeInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		badRequest(w, err)
 		return
 	}
-	payload.ID = id
-	updated, err := h.store.UpdateIncome(r.Context(), userID, payload)
+	input.ID = id
+	updated, err := h.store.UpdateIncome(r.Context(), userID, input.toIncome())
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)

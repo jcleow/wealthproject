@@ -19,6 +19,7 @@ import (
 	"financial-chat-system/backend/internal/llm/providers"
 	"financial-chat-system/backend/internal/middleware"
 	"financial-chat-system/backend/internal/session"
+	"financial-chat-system/backend/internal/usage"
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
@@ -59,6 +60,8 @@ func main() {
 	sessionStore := session.NewStore(db, sessionTTL)
 	scenarioService := scenario.NewService(finStore)
 	timelineService := timeline.NewServiceWithScenario(finStore, scenarioService)
+	usageRepo := usage.NewRepository(db, cfg.UsageTrackingEnabled)
+	log.Printf("CONFIG: Usage tracking enabled: %v", cfg.UsageTrackingEnabled)
 
 	// Inject timeline service into financial client for analysis methods
 	financialClient.SetTimelineService(timelineService)
@@ -218,7 +221,7 @@ func main() {
 		defaultModel = cfg.GeminiModel
 		defaultMaxTokens = cfg.GeminiMaxTokens
 	}
-	chatHandler := handlers.NewChatHandler(llmManager, previewService, sessionStore, financialClient, defaultModel, defaultMaxTokens)
+	chatHandler := handlers.NewChatHandler(llmManager, previewService, sessionStore, financialClient, usageRepo, defaultModel, defaultMaxTokens)
 	dispatchHandler := handlers.NewDispatchHandler(financialClient, sessionStore, previewService)
 	timelineHandler := handlers.NewTimelineHandler(timelineService)
 	growthHandler := handlers.NewGrowthHandler(timelineService)
