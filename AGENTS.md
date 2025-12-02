@@ -27,6 +27,9 @@ Ask first:
   - if a single ticket is too complex (ie. > 5 points), do break it out into smaller tickets
   - always ask questions if in doubt
 
+### When doing research
+ - always look under the specs/ folder and see if any research was done before and use it as reference whenever possible
+
 ### PRD and Epic Creation Prompt
 
 When asked to create epics, user stories, and implementation tickets for a feature, use this comprehensive approach:
