@@ -260,7 +260,18 @@ export function FinancialWorkspace({
                       <div className="font-medium text-slate-400">Tax Module</div>
                       <p className="text-xs text-slate-500">Coming soon</p>
                     </div>
-                  </div>
+                  </div>                                    
+                </div>
+                <div className="cursor-not-allowed opacity-60">
+                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
+                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-500">
+                      <Receipt className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-0.5">
+                      <div className="font-medium text-slate-400">Insurance Coverage</div>
+                      <p className="text-xs text-slate-500">Coming soon</p>
+                    </div>
+                  </div>                                    
                 </div>
               </div>
               </>

@@ -31,6 +31,8 @@ const chartColors = {
 const DEFAULT_STARTING_AGE = 30
 const DEFAULT_TERMINAL_AGE = 65
 const BASE_CALENDAR_YEAR = new Date().getFullYear()
+const AREA_ANIMATION_MS = 700
+const MARKER_BUFFER_MS = 400
 
 type AxisMode = 'age' | 'year_number' | 'actual_year'
 
@@ -190,6 +192,8 @@ export function NetWorthProjection({
   const [xAxisMode, setXAxisMode] = useState<AxisMode>('year_number')
   const [hasSize, setHasSize] = useState(false)
   const [containerWidth, setContainerWidth] = useState(0)
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+  const [markersReady, setMarkersReady] = useState(false)
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartWrapperRef = useRef<HTMLDivElement>(null)
 
@@ -200,7 +204,16 @@ export function NetWorthProjection({
     }
   }, [userSettings?.yearDisplayFormat])
 
-  const projection = (() => {
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const listener = () => setPrefersReducedMotion(media.matches)
+    listener()
+    media.addEventListener('change', listener)
+    return () => media.removeEventListener('change', listener)
+  }, [])
+
+  const projection = useMemo<ProjectionPoint[]>(() => {
     if (timelineYears && timelineYears.length > 0) {
       const baseCalendarYear = 2025
       const timelineProjection = timelineYears.map<ProjectionPoint>((year) => {
@@ -304,7 +317,16 @@ export function NetWorthProjection({
     }
 
     return data
-  })()
+  }, [
+    assets,
+    expenses,
+    getMonthlySavings,
+    incomes,
+    liabilities,
+    timelineYears,
+    userSettings?.startingAge,
+    userSettings?.terminalAge,
+  ])
 
   useEffect(() => {
     const element = chartContainerRef.current
@@ -320,8 +342,33 @@ export function NetWorthProjection({
     return () => observer.disconnect()
   }, [])
 
-  // Filter data based on zoom
+  // Filter data based on zoom (currently passthrough)
   const displayData = projection
+  const areaAnimationEnabled = !prefersReducedMotion && displayData.length > 0
+
+  // Reset marker visibility when data changes; show once line animation finishes (with fallback timer)
+  useEffect(() => {
+    if (!areaAnimationEnabled) {
+      setMarkersReady(true)
+      return
+    }
+    setMarkersReady(false)
+    const timer = window.setTimeout(
+      () => setMarkersReady(true),
+      AREA_ANIMATION_MS + MARKER_BUFFER_MS
+    )
+    return () => window.clearTimeout(timer)
+  }, [displayData.length, areaAnimationEnabled])
+
+  // Absolute fallback to ensure markers are shown even if animation callbacks fail
+  useEffect(() => {
+    if (!areaAnimationEnabled) return
+    const safetyTimer = window.setTimeout(
+      () => setMarkersReady(true),
+      AREA_ANIMATION_MS + MARKER_BUFFER_MS + 300
+    )
+    return () => window.clearTimeout(safetyTimer)
+  }, [displayData.length, areaAnimationEnabled])
 
   const ticks = (() => {
     const totalPoints = displayData.length
@@ -501,7 +548,10 @@ export function NetWorthProjection({
                   strokeOpacity={0.85}
                   type="monotone"
                   name="Net Worth"
-                  isAnimationActive={false}
+                  isAnimationActive={areaAnimationEnabled}
+                  animationDuration={AREA_ANIMATION_MS}
+                  animationEasing="ease-out"
+                  animationBegin={0}
                 />
 
                 <Tooltip
@@ -523,9 +573,12 @@ export function NetWorthProjection({
                         yearIndex={payload?.yearIndex ?? 0}
                         onSelectYear={onSelectYear}
                         onScenarioSelect={onScenarioSelect}
+                        visible={markersReady}
+                        animate={!prefersReducedMotion}
                       />
                     )}
                     isAnimationActive={false}
+                    style={{ pointerEvents: markersReady ? 'auto' : 'none' }}
                   />
                 )}
               </ComposedChart>

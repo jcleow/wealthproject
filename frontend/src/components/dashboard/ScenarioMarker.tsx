@@ -11,6 +11,8 @@ type ScenarioMarkerProps = {
   yearIndex: number
   onSelectYear?: (year: number) => void
   onScenarioSelect?: (event: ScenarioEvent) => void
+  visible?: boolean
+  animate?: boolean
 }
 
 export default function ScenarioMarker({
@@ -20,9 +22,11 @@ export default function ScenarioMarker({
   yearIndex,
   onSelectYear,
   onScenarioSelect,
+  visible = true,
+  animate = true,
 }: ScenarioMarkerProps) {
   const markerRadius = 14
-  const baseLift = markerRadius + 8
+  const baseLift = markerRadius * 1.5 + 10
   const stackSpacing = markerRadius * 2 + 8
   const iconSize = markerRadius * 1.2
 
@@ -42,6 +46,9 @@ export default function ScenarioMarker({
         const Icon = getIconByName(iconName)
         const offsetY = -(baseLift + idx * stackSpacing)
         const isDisabled = evt.isIncluded === false
+        const opacity = visible ? (isDisabled ? 0.45 : 1) : 0
+        const transition = animate ? 'opacity 380ms ease-in-out 140ms' : 'none'
+        const pointerEvents = visible ? 'auto' : 'none'
         return (
           <g
             key={`${evt.id ?? idx}-${idx}`}
@@ -53,7 +60,8 @@ export default function ScenarioMarker({
                 handleClick(evt)
               }
             }}
-            opacity={isDisabled ? 0.45 : 1}
+            opacity={opacity}
+            style={{ cursor: 'pointer', transition, pointerEvents, willChange: 'opacity' }}
           >
             <circle
               r={markerRadius}

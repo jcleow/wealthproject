@@ -292,9 +292,9 @@ export const financialApi = {
       hasMore: data?.hasMore ?? false,
     }
   },
-  async createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): Promise<Income> {
+  async createIncome(payload: Omit<Income, 'id' | 'updatedAt'> & { startYear?: number; endYear?: number }): Promise<Income> {
     const startDate = payload.startDate ?? new Date().toISOString()
-    const body = {
+    const body: Record<string, unknown> = {
       source: payload.source,
       amount: payload.amount,
       frequency: payload.frequency,
@@ -302,6 +302,12 @@ export const financialApi = {
       category: payload.category,
       growthRate: payload.growthRate ?? 3.0,
       notes: payload.notes,
+    }
+    if (payload.startYear !== undefined) {
+      body.startYear = payload.startYear
+    }
+    if (payload.endYear !== undefined) {
+      body.endYear = payload.endYear
     }
     const data = await jsonRequest<any>(`${API_BASE}/cashflow/incomes`, { method: 'POST', body: JSON.stringify(body) })
     return toIncome(data)
@@ -337,14 +343,20 @@ export const financialApi = {
       hasMore: data?.hasMore ?? false,
     }
   },
-  async createExpense(payload: Omit<Expense, 'id' | 'updatedAt'>): Promise<Expense> {
-    const body = {
+  async createExpense(payload: Omit<Expense, 'id' | 'updatedAt'> & { startYear?: number; endYear?: number }): Promise<Expense> {
+    const body: Record<string, unknown> = {
       payee: payload.payee,
       amount: payload.amount,
       frequency: payload.frequency,
       category: payload.category,
       growthRate: payload.growthRate ?? 2.0,
       notes: payload.notes,
+    }
+    if (payload.startYear !== undefined) {
+      body.startYear = payload.startYear
+    }
+    if (payload.endYear !== undefined) {
+      body.endYear = payload.endYear
     }
     const data = await jsonRequest<any>(`${API_BASE}/cashflow/expenses`, { method: 'POST', body: JSON.stringify(body) })
     return toExpense(data)
@@ -583,7 +595,8 @@ export const financialApi = {
 
   // Timeline
   async getTimeline(): Promise<TimelineResponse> {
-    const data = await jsonRequest<TimelineResponse>(`${API_BASE}/financial/timeline`)
+    // Always include scenarios so timeline items have eventImpacts populated
+    const data = await jsonRequest<TimelineResponse>(`${API_BASE}/financial/timeline?include_scenarios=true`)
     return data
   },
 

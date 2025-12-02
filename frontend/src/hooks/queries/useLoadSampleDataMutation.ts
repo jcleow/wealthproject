@@ -459,6 +459,9 @@ export function useLoadSampleDataMutation() {
             const startMonth = impact.startMonth ?? event.occursOn
             // Use the impact amount (must be positive for income/expense schemas)
             const impactAmount = Math.abs(impact.amount ?? 1)
+            // Calculate the year from startMonth for one-time items
+            const startYear = startMonth ? new Date(startMonth).getFullYear() - new Date().getFullYear() : 0
+            const isOneTime = impact.cadence === 'one_time'
 
             if (impact.targetType === 'asset') {
               const newAsset = await financialApi.createAsset({
@@ -484,10 +487,13 @@ export function useLoadSampleDataMutation() {
                 source: impact.notes || `${event.name} - Income`,
                 category: 'Other',
                 amount: impactAmount,
-                frequency: impact.cadence === 'one_time' ? 'yearly' : 'monthly',
+                frequency: isOneTime ? 'yearly' : 'monthly',
                 startDate: startMonth ? new Date(startMonth).toISOString() : new Date().toISOString(),
                 growthRate: 0,
                 notes: `Created by scenario: ${event.name}`,
+                startYear,
+                // For one-time items, set endYear = startYear so they only appear in one year
+                endYear: isOneTime ? startYear : undefined,
               })
               targetId = newIncome.id
             } else if (impact.targetType === 'expense') {
@@ -495,9 +501,12 @@ export function useLoadSampleDataMutation() {
                 payee: impact.notes || `${event.name} - Expense`,
                 category: 'Other',
                 amount: impactAmount,
-                frequency: impact.cadence === 'one_time' ? 'yearly' : 'monthly',
+                frequency: isOneTime ? 'yearly' : 'monthly',
                 growthRate: 0,
                 notes: `Created by scenario: ${event.name}`,
+                startYear,
+                // For one-time items, set endYear = startYear so they only appear in one year
+                endYear: isOneTime ? startYear : undefined,
               })
               targetId = newExpense.id
             }
