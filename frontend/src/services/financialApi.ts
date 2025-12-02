@@ -292,9 +292,9 @@ export const financialApi = {
       hasMore: data?.hasMore ?? false,
     }
   },
-  async createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): Promise<Income> {
+  async createIncome(payload: Omit<Income, 'id' | 'updatedAt'> & { startYear?: number; endYear?: number }): Promise<Income> {
     const startDate = payload.startDate ?? new Date().toISOString()
-    const body = {
+    const body: Record<string, unknown> = {
       source: payload.source,
       amount: payload.amount,
       frequency: payload.frequency,
@@ -302,6 +302,12 @@ export const financialApi = {
       category: payload.category,
       growthRate: payload.growthRate ?? 3.0,
       notes: payload.notes,
+    }
+    if (payload.startYear !== undefined) {
+      body.startYear = payload.startYear
+    }
+    if (payload.endYear !== undefined) {
+      body.endYear = payload.endYear
     }
     const data = await jsonRequest<any>(`${API_BASE}/cashflow/incomes`, { method: 'POST', body: JSON.stringify(body) })
     return toIncome(data)
@@ -337,7 +343,7 @@ export const financialApi = {
       hasMore: data?.hasMore ?? false,
     }
   },
-  async createExpense(payload: Omit<Expense, 'id' | 'updatedAt'>): Promise<Expense> {
+  async createExpense(payload: Omit<Expense, 'id' | 'updatedAt'> & { startYear?: number; endYear?: number }): Promise<Expense> {
     const body = {
       payee: payload.payee,
       amount: payload.amount,
@@ -345,12 +351,14 @@ export const financialApi = {
       category: payload.category,
       growthRate: payload.growthRate ?? 2.0,
       notes: payload.notes,
+      ...(payload.startYear !== undefined && { startYear: payload.startYear }),
+      ...(payload.endYear !== undefined && { endYear: payload.endYear }),
     }
-    const data = await jsonRequest<any>(`${API_BASE}/cashflow/expenses`, { method: 'POST', body: JSON.stringify(body) })
+    const data = await jsonRequest<Expense>(`${API_BASE}/cashflow/expenses`, { method: 'POST', body: JSON.stringify(body) })
     return toExpense(data)
   },
   async updateExpense(id: string, payload: Partial<Expense>): Promise<Expense> {
-    const body: Record<string, any> = {
+    const body = {
       payee: payload.payee,
       amount: payload.amount,
       frequency: payload.frequency,
@@ -358,7 +366,7 @@ export const financialApi = {
       growthRate: payload.growthRate,
       notes: payload.notes,
     }
-    const data = await jsonRequest<any>(`${API_BASE}/cashflow/expenses/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+    const data = await jsonRequest<Expense>(`${API_BASE}/cashflow/expenses/${id}`, { method: 'PUT', body: JSON.stringify(body) })
     return toExpense(data)
   },
   async deleteExpense(id: string): Promise<void> {
@@ -583,7 +591,8 @@ export const financialApi = {
 
   // Timeline
   async getTimeline(): Promise<TimelineResponse> {
-    const data = await jsonRequest<TimelineResponse>(`${API_BASE}/financial/timeline`)
+    // Always include scenarios so timeline items have eventImpacts populated
+    const data = await jsonRequest<TimelineResponse>(`${API_BASE}/financial/timeline?include_scenarios=true`)
     return data
   },
 

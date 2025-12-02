@@ -367,12 +367,14 @@ func (p *GeminiProvider) convertResponse(response *genai.GenerateContentResponse
 		assistantMsg.Content = strings.Join(textContent, "\n")
 	}
 
-	// Calculate token usage (approximate for Gemini)
+	// Extract token usage from UsageMetadata
 	var usage *llm.TokenUsage
-	if candidate.TokenCount > 0 {
+	if response.UsageMetadata != nil {
 		usage = &llm.TokenUsage{
-			CompletionTokens: int(candidate.TokenCount),
-			TotalTokens:      int(candidate.TokenCount), // Gemini doesn't provide prompt tokens separately
+			PromptTokens:     int(response.UsageMetadata.PromptTokenCount),
+			CompletionTokens: int(response.UsageMetadata.CandidatesTokenCount),
+			CachedTokens:     int(response.UsageMetadata.CachedContentTokenCount),
+			TotalTokens:      int(response.UsageMetadata.TotalTokenCount),
 		}
 	}
 

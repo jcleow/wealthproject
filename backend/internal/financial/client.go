@@ -1576,9 +1576,20 @@ func (c *Client) CreateScenarioEvent(ctx context.Context, params CreateScenarioE
 			Cadence:    "one_time",
 			StartMonth: occursOn,
 		}
-		if params.TargetID != "" {
+
+		// For "start" impacts, we need to create the financial item first
+		if params.ImpactType == "start" && params.TargetID == "" && params.ImpactValue != nil {
+			createdID, err := c.createFinancialItemForScenario(ctx, userID, params)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create financial item for scenario: %w", err)
+			}
+			impact.TargetID = &createdID
+		} else if params.TargetID != "" {
 			impact.TargetID = &params.TargetID
+		} else {
+			return nil, fmt.Errorf("target_id is required for impact type '%s'", params.ImpactType)
 		}
+
 		if params.ImpactValue != nil {
 			impact.Amount = int64(*params.ImpactValue * 100) // Convert to cents
 		}
@@ -1591,6 +1602,72 @@ func (c *Client) CreateScenarioEvent(ctx context.Context, params CreateScenarioE
 	}
 
 	return &created.ID, nil
+}
+
+// createFinancialItemForScenario creates a new financial item for a "start" scenario impact.
+// This ensures the scenario impact has a valid target_id to reference.
+func (c *Client) createFinancialItemForScenario(ctx context.Context, userID string, params CreateScenarioEventParams) (string, error) {
+	if params.ImpactValue == nil {
+		return "", fmt.Errorf("impact value is required for creating a new financial item")
+	}
+
+	itemName := params.Name // Use scenario name as the item name
+	if itemName == "" {
+		itemName = fmt.Sprintf("Scenario Item (%s)", params.TargetType)
+	}
+
+	switch params.TargetType {
+	case "asset":
+		created, err := c.store.CreateAsset(ctx, userID, repository.Asset{
+			Category:     "other_asset",
+			Name:         itemName,
+			CurrentValue: *params.ImpactValue,
+			Notes:        fmt.Sprintf("Created for scenario: %s", params.Name),
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to create asset: %w", err)
+		}
+		return created.ID, nil
+
+	case "liability":
+		created, err := c.store.CreateLiability(ctx, userID, repository.Liability{
+			Category:       "other_debt",
+			Name:           itemName,
+			CurrentBalance: *params.ImpactValue,
+			Notes:          fmt.Sprintf("Created for scenario: %s", params.Name),
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to create liability: %w", err)
+		}
+		return created.ID, nil
+
+	case "income":
+		created, err := c.store.CreateIncome(ctx, userID, repository.Income{
+			Source:    itemName,
+			Amount:    *params.ImpactValue,
+			Frequency: "monthly",
+			Notes:     fmt.Sprintf("Created for scenario: %s", params.Name),
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to create income: %w", err)
+		}
+		return created.ID, nil
+
+	case "expense":
+		created, err := c.store.CreateExpense(ctx, userID, repository.Expense{
+			Payee:     itemName,
+			Amount:    *params.ImpactValue,
+			Frequency: "monthly",
+			Notes:     fmt.Sprintf("Created for scenario: %s", params.Name),
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to create expense: %w", err)
+		}
+		return created.ID, nil
+
+	default:
+		return "", fmt.Errorf("unsupported target type: %s", params.TargetType)
+	}
 }
 
 // StopFinancialItem creates a scenario event that stops an existing financial item.

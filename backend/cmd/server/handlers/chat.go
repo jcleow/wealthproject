@@ -16,6 +16,7 @@ import (
 	"financial-chat-system/backend/internal/llm"
 	"financial-chat-system/backend/internal/middleware"
 	"financial-chat-system/backend/internal/session"
+	"financial-chat-system/backend/internal/usage"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -27,6 +28,7 @@ type ChatHandler struct {
 	previewSvc       previewGenerator
 	sessionStore     chatSessionStore
 	financialClient  *financial.Client
+	usageRepo        *usage.Repository
 	tools            []llm.ToolDefinition
 	defaultModel     string
 	defaultMaxTokens int
@@ -42,6 +44,7 @@ type chatSessionStore interface {
 	AddPendingActions(ctx context.Context, sessionID string, toolCalls []llm.ToolCall) error
 	UpdatePendingActionMetadata(ctx context.Context, sessionID string, metadata map[string]session.PendingActionMetadata) error
 	GetConversationHistory(ctx context.Context, sessionID string, limit int) ([]llm.ChatMessage, error)
+	SaveConversationHistory(ctx context.Context, sessionID string, messages []llm.ChatMessage) error
 }
 
 type previewGenerator interface {
@@ -53,7 +56,7 @@ type llmToolCaller interface {
 }
 
 // NewChatHandler creates a new chat handler
-func NewChatHandler(llmClient *llm.ClientManager, previewSvc *financial.ActionPreviewService, sessionStore *session.Store, financialClient *financial.Client, defaultModel string, defaultMaxTokens int) *ChatHandler {
+func NewChatHandler(llmClient *llm.ClientManager, previewSvc *financial.ActionPreviewService, sessionStore *session.Store, financialClient *financial.Client, usageRepo *usage.Repository, defaultModel string, defaultMaxTokens int) *ChatHandler {
 	// Initialize the registry if not already done
 	if financial.GlobalRegistry == nil {
 		financial.InitializeRegistry()
@@ -69,6 +72,7 @@ func NewChatHandler(llmClient *llm.ClientManager, previewSvc *financial.ActionPr
 		previewSvc:       previewSvc,
 		sessionStore:     sessionStore,
 		financialClient:  financialClient,
+		usageRepo:        usageRepo,
 		tools:            financial.GlobalRegistry.GetTools(),
 		defaultModel:     defaultModel,
 		defaultMaxTokens: defaultMaxTokens,
@@ -243,6 +247,27 @@ func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "llm_error", "Failed to generate response")
 		return
 	}
+
+	// Log usage (non-blocking)
+	if h.usageRepo != nil && h.usageRepo.IsEnabled() {
+		sessionIDPtr := &req.SessionID
+		go func() {
+			if err := h.usageRepo.LogUsage(context.Background(), authUserID, sessionIDPtr, response); err != nil {
+				log.Printf("WARN: Failed to log usage for session %s: %v", req.SessionID, err)
+			}
+		}()
+	}
+
+	// Save conversation history (non-blocking)
+	go func() {
+		messagesToSave := []llm.ChatMessage{
+			{Role: "user", Content: req.Message},
+			response.Message,
+		}
+		if err := h.sessionStore.SaveConversationHistory(context.Background(), req.SessionID, messagesToSave); err != nil {
+			log.Printf("WARN: Failed to save conversation history for session %s: %v", req.SessionID, err)
+		}
+	}()
 
 	// Extract content and tool calls from response
 	responseContent := ""
