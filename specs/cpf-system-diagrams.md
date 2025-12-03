@@ -307,7 +307,7 @@ flowchart TD
 
     BTO --> USE_OA[Use OA for<br/>Downpayment + Instalments]
 
-    RESALE --> CALC_VL[VL = min(Price, Valuation)]
+    RESALE --> CALC_VL["VL = min#40;Price, Valuation#41;"]
     PRIVATE --> CALC_VL
 
     CALC_VL --> LOAN{Loan Type?}
@@ -911,6 +911,107 @@ xychart-beta
 | Cash | SA/RA | Top-up | Up to FRS, $8K tax relief |
 | OA | SA | Transfer (before 55) | Up to FRS, $8K tax relief |
 | OA | Education | Loan | Course fees, 2.5% interest |
+
+---
+
+---
+
+## 22. CPF Lifecycle & Concept Interactions (Comprehensive Overview)
+
+This diagram shows how all CPF concepts interact across the entire lifecycle from employment to retirement.
+
+```mermaid
+flowchart TB
+    subgraph Employment["💼 Employment Phase (Before 55)"]
+        Salary[Monthly Salary] --> |"Employee: 20%<br/>Employer: 17%"| CPF[Total CPF Contribution]
+        CPF --> |"23% of wage"| OA[Ordinary Account<br/>2.5% p.a.]
+        CPF --> |"6% of wage"| SA[Special Account<br/>4% p.a.]
+        CPF --> |"8% of wage"| MA[MediSave Account<br/>4% p.a.]
+    end
+
+    subgraph OA_Uses["OA Usage"]
+        OA --> |"Housing"| HDB[HDB Purchase<br/>Down payment + Loan]
+        OA --> |"Education"| EDU[Education<br/>Approved institutions]
+        OA --> |"Investment"| CPFIS_OA[CPFIS-OA<br/>Stocks, Unit Trusts]
+        OA --> |"Voluntary"| SA_TopUp[Top-up to SA<br/>Tax relief up to $8k]
+    end
+
+    subgraph SA_Uses["SA Usage"]
+        SA --> |"Investment"| CPFIS_SA[CPFIS-SA<br/>Lower risk only]
+        SA --> |"Cannot withdraw"| SA_Lock[Locked until 55]
+    end
+
+    subgraph MA_Uses["MA Usage"]
+        MA --> |"Healthcare"| Medical[Medical Bills<br/>Hospitalization]
+        MA --> |"Insurance"| Shield[MediShield Life<br/>+ Integrated Plans]
+        MA --> |"Cap"| BHS[Basic Healthcare Sum<br/>$71,500 in 2025]
+    end
+
+    subgraph Age55["🎂 At Age 55"]
+        SA --> |"Transfers to"| RA[Retirement Account<br/>4% p.a.]
+        OA --> |"Tops up RA to FRS"| RA
+
+        RA --> |"Must meet"| FRS[Full Retirement Sum<br/>$213,000 in 2025]
+
+        OA --> |"If FRS met"| Withdraw55[Withdraw Excess OA]
+        OA --> |"If FRS not met"| NoWithdraw[Cannot Withdraw<br/>Must top up RA]
+    end
+
+    subgraph Retirement["🏖️ Retirement Phase (55+)"]
+        RA --> |"Option 1"| CPFLIFE[CPF LIFE<br/>Lifelong payouts from 65]
+        RA --> |"Option 2"| RS[Retirement Sum Scheme<br/>Fixed period payouts]
+
+        CPFLIFE --> Standard[Standard Plan<br/>Higher payout]
+        CPFLIFE --> Basic[Basic Plan<br/>Higher bequest]
+        CPFLIFE --> Escalating[Escalating Plan<br/>+2% yearly]
+    end
+
+    subgraph Schemes["Key Retirement Sums"]
+        BRS[Basic Retirement Sum<br/>$106,500] --> |"Half of FRS"| FRS
+        FRS --> |"Double of BRS"| ERS[Enhanced Retirement Sum<br/>$426,000]
+    end
+
+    subgraph Death["Upon Death"]
+        OA --> |"Nominee"| Beneficiary[Beneficiaries]
+        SA --> |"Nominee"| Beneficiary
+        MA --> |"Nominee"| Beneficiary
+        RA --> |"Bequest"| Beneficiary
+    end
+
+    subgraph Special["Special Schemes"]
+        OA --> |"Property pledge"| Pledge[Property Pledge<br/>Use property to meet FRS]
+        SA --> |"Before 55"| Shield_SA[SA Shielding<br/>Transfer to spouse/invest]
+        RA --> |"Top-up"| RSTU[Retirement Sum Top-up<br/>Tax relief up to $8k]
+    end
+
+    style OA fill:#3b82f6,color:#fff
+    style SA fill:#10b981,color:#fff
+    style MA fill:#f59e0b,color:#fff
+    style RA fill:#8b5cf6,color:#fff
+    style FRS fill:#ef4444,color:#fff
+    style BRS fill:#f97316,color:#fff
+    style ERS fill:#dc2626,color:#fff
+    style CPFLIFE fill:#06b6d4,color:#fff
+```
+
+### Key Lifecycle Summary
+
+| Age | What Happens |
+|-----|--------------|
+| Working | Contributions split into OA (23%), SA (6%), MA (8%) |
+| Before 55 | OA for housing/education, SA locked, MA for healthcare |
+| At 55 | SA closes → transfers to RA. OA tops up RA to meet FRS |
+| 55+ | Can withdraw OA excess only if FRS is met in RA |
+| 65+ | CPF LIFE payouts begin from RA |
+
+### Critical Rules
+
+1. **FRS is mandatory** - Must have $213k (2025) in RA before any OA withdrawal at 55
+2. **SA → RA is automatic** - No choice at age 55, entire SA transfers to RA
+3. **OA → RA is forced** - If SA transfer doesn't meet FRS, OA must top up
+4. **Property counts** - Can pledge property value toward FRS requirement
+5. **No early SA withdrawal** - SA is completely locked until 55 (except CPFIS investments)
+6. **MA has BHS cap** - Excess spills over to SA/RA, then OA
 
 ---
 
