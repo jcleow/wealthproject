@@ -45,8 +45,19 @@ func NewSettingsHandler(svc *timeline.Service) *SettingsHandler {
 	return &SettingsHandler{svc: svc}
 }
 
-// HandleGetTimeline returns the full 0..20 timeline.
+// HandleGetTimeline returns the full timeline with optional resolution override.
+// Query parameters:
+//   - resolution: optional override ("yearly" or "monthly") to temporarily change from user's saved preference
+//   - include_scenarios: include scenario impacts if "true"
+//   - scenario_ids: comma-separated list of scenario IDs to apply
 func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Request) {
+	// Parse optional resolution override
+	resolution := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("resolution")))
+	if resolution != "" && resolution != "yearly" && resolution != "monthly" {
+		badRequest(w, errors.New("resolution must be 'yearly' or 'monthly'"))
+		return
+	}
+
 	includeScenarios := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("include_scenarios"))) == "true"
 	var selected []string
 	if raw := strings.TrimSpace(r.URL.Query().Get("scenario_ids")); raw != "" {
@@ -61,7 +72,11 @@ func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Reque
 
 	var resp timeline.TimelineResponse
 	var err error
-	if includeScenarios && userCtx.UserID != "" {
+
+	// If resolution override is provided, use GetTimelineWithResolution
+	if resolution != "" {
+		resp, err = h.svc.GetTimelineWithResolution(r.Context(), resolution)
+	} else if includeScenarios && userCtx.UserID != "" {
 		resp, err = h.svc.GetTimelineWithScenarios(r.Context(), userCtx.UserID, true, selected)
 	} else {
 		resp, err = h.svc.GetTimeline(r.Context())
@@ -71,6 +86,7 @@ func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Reque
 		internalError(w)
 		return
 	}
+
 	writeJSON(w, resp)
 }
 
