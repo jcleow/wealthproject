@@ -26,6 +26,19 @@ export function Dashboard() {
       ? timeline.timelineQuery.error.message
       : null
 
+  // Keyboard shortcut: Cmd+B to toggle chat
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+        e.preventDefault()
+        setIsChatCollapsed((prev) => !prev)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   return (
     <FinancialDataProvider>
       <div className="relative h-screen w-full overflow-hidden bg-[#050505] font-sans text-slate-200">
