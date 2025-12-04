@@ -8,13 +8,18 @@ import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { UserMenu } from '../auth/UserMenu'
-import type { TimelineYear } from '@/types/timeline'
+import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
+import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 
 interface FinancialWorkspaceProps {
   selectedYear: number
   onSelectYear: (year: number) => void
   timelineYears?: TimelineYear[]
+  timelineMonths?: TimelineMonth[]
+  resolution?: TimeResolution
+  zoomLevel?: ZoomLevel
+  onZoomLevelChange?: (level: ZoomLevel) => void
   overrideYears?: Set<number>
   timelineError?: string | null
   onOpenCPF?: () => void
@@ -24,6 +29,10 @@ export function FinancialWorkspace({
   selectedYear,
   onSelectYear,
   timelineYears,
+  timelineMonths,
+  resolution = 'yearly',
+  zoomLevel = 'yearly',
+  onZoomLevelChange,
   overrideYears = new Set<number>(),
   timelineError = null,
   onOpenCPF,
@@ -315,6 +324,10 @@ export function FinancialWorkspace({
               chartTitle="Net Worth Projection"
               chartSubtitle={`Age ${31 + (timelineYears?.[0]?.year ?? 0)} to ${31 + (timelineYears?.[timelineYears.length - 1]?.year ?? 30)} (${timelineYears?.length ?? 31} years)`}
               timelineYears={timelineYears}
+              timelineMonths={timelineMonths}
+              resolution={resolution}
+              zoomLevel={zoomLevel}
+              onZoomLevelChange={onZoomLevelChange}
               overrideYears={overrideYears}
               selectedYear={selectedYear}
               scenarioEvents={scenarioEvents}

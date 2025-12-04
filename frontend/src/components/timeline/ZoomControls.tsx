@@ -2,7 +2,7 @@
 
 import { ZoomIn, ZoomOut, Minimize2 } from 'lucide-react'
 
-export type ZoomLevel = 'yearly' | 'quarterly' | 'monthly'
+export type ZoomLevel = 'yearly' | 'monthly'
 
 export interface ZoomControlsProps {
   /** Current zoom level */
@@ -17,7 +17,7 @@ export interface ZoomControlsProps {
   className?: string
 }
 
-const ZOOM_LEVELS: ZoomLevel[] = ['yearly', 'quarterly', 'monthly']
+const ZOOM_LEVELS: ZoomLevel[] = ['yearly', 'monthly']
 
 export function ZoomControls({
   zoomLevel,
@@ -64,7 +64,6 @@ export function ZoomControls({
         {/* Current Zoom Level */}
         <div className="min-w-[80px] px-3 text-center text-sm font-medium text-gray-200">
           {zoomLevel === 'yearly' && 'Yearly'}
-          {zoomLevel === 'quarterly' && 'Quarterly'}
           {zoomLevel === 'monthly' && 'Monthly'}
         </div>
 
@@ -92,13 +91,6 @@ export function ZoomControls({
             </button>
           </div>
         )}
-      </div>
-
-      {/* Info Text */}
-      <div className="text-xs text-gray-400">
-        {zoomLevel === 'yearly' && '35-40 years visible'}
-        {zoomLevel === 'quarterly' && '~10 years visible'}
-        {zoomLevel === 'monthly' && '~3 years visible'}
       </div>
     </div>
   )

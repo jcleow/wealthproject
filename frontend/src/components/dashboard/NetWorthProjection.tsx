@@ -14,11 +14,12 @@ import { Plus } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import type { ScenarioEvent } from '@/types/scenario'
-import type { TimelineYear } from '@/types/timeline'
+import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
 import { formatCurrency } from '@/lib/format'
 import { financialApi } from '@/services/financialApi'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import ScenarioMarker from './ScenarioMarker'
+import { ZoomControls, type ZoomLevel } from '@/components/timeline/ZoomControls'
 
 const chartColors = {
   axis: '#aeb6c9',
@@ -51,18 +52,21 @@ interface CustomTooltipProps {
   active?: boolean
   payload?: ReadonlyArray<{ payload: ProjectionPoint }>
   startingAge?: number
+  resolution?: 'yearly' | 'monthly'
 }
 
 function CustomTooltip({
   active,
   payload,
   startingAge = DEFAULT_STARTING_AGE,
+  resolution = 'yearly',
 }: CustomTooltipProps) {
   if (!active || !payload || !payload.length) return null
   const data = payload[0].payload
 
-  // Calculate age for this year
-  const age = startingAge + data.yearIndex
+  // Calculate age - yearIndex is month index in monthly mode, year index in yearly mode
+  const yearsPassed = resolution === 'monthly' ? Math.floor(data.yearIndex / 12) : data.yearIndex
+  const age = startingAge + yearsPassed
 
   return (
     <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur-xl min-w-[180px]">
@@ -101,6 +105,8 @@ function YearTick({
   selectedYear,
   mode,
   startingAge,
+  resolution,
+  zoomLevel,
 }: {
   x?: number
   y?: number
@@ -110,16 +116,44 @@ function YearTick({
   selectedYear?: number
   mode: AxisMode
   startingAge?: number
+  resolution?: TimeResolution
+  zoomLevel?: ZoomLevel
 }) {
   if (!payload) return null
   const isOverride = overrideYears.has(payload.value)
   const isSelected = selectedYear === payload.value
   const age = startingAge ?? DEFAULT_STARTING_AGE
-  const labelValue = mode === 'age'
-    ? age + payload.value
-    : mode === 'actual_year'
-      ? `'${String(BASE_CALENDAR_YEAR + payload.value).slice(-2)}`
-      : payload.value
+
+  let labelValue: string | number
+
+  if (resolution === 'monthly') {
+    const monthIndex = payload.value
+    const year = Math.floor(monthIndex / 12)
+    const month = monthIndex % 12
+
+    if (zoomLevel === 'monthly') {
+      // Show month abbreviation with year suffix (e.g., "Sep'25", "Oct'25")
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      const calendarYear = BASE_CALENDAR_YEAR + year
+      const yearSuffix = `'${String(calendarYear).slice(-2)}`
+      labelValue = `${monthNames[month]}${yearSuffix}`
+    } else {
+      // Yearly zoom - show year
+      labelValue = mode === 'age'
+        ? age + year
+        : mode === 'actual_year'
+          ? `'${String(BASE_CALENDAR_YEAR + year).slice(-2)}`
+          : year
+    }
+  } else {
+    // Yearly resolution - use existing logic
+    labelValue = mode === 'age'
+      ? age + payload.value
+      : mode === 'actual_year'
+        ? `'${String(BASE_CALENDAR_YEAR + payload.value).slice(-2)}`
+        : payload.value
+  }
+
   const handleClick = () => {
     if (onSelectYear) onSelectYear(payload.value)
   }
@@ -153,6 +187,10 @@ function YearTick({
 
 export interface NetWorthProjectionProps {
   timelineYears?: TimelineYear[]
+  timelineMonths?: TimelineMonth[]
+  resolution?: TimeResolution
+  zoomLevel?: ZoomLevel
+  onZoomLevelChange?: (level: ZoomLevel) => void
   overrideYears?: Set<number>
   selectedYear?: number
   onSelectYear?: (year: number) => void
@@ -165,6 +203,10 @@ export interface NetWorthProjectionProps {
 
 export function NetWorthProjection({
   timelineYears,
+  timelineMonths,
+  resolution = 'yearly',
+  zoomLevel: externalZoomLevel,
+  onZoomLevelChange,
   overrideYears,
   selectedYear,
   onSelectYear,
@@ -190,6 +232,22 @@ export function NetWorthProjection({
   })
 
   const [xAxisMode, setXAxisMode] = useState<AxisMode>('year_number')
+  const [internalZoomLevel, setInternalZoomLevel] = useState<ZoomLevel>('yearly')
+  const zoomLevel = externalZoomLevel ?? internalZoomLevel
+
+  // Windowing state for zoom
+  const [startIndex, setStartIndex] = useState<number | null>(null)
+  const [endIndex, setEndIndex] = useState<number | null>(null)
+
+  const setZoomLevel = (value: ZoomLevel | ((prev: ZoomLevel) => ZoomLevel)) => {
+    if (onZoomLevelChange) {
+      const newLevel = typeof value === 'function' ? value(zoomLevel) : value
+      onZoomLevelChange(newLevel)
+    } else {
+      setInternalZoomLevel(value)
+    }
+  }
+
   const [hasSize, setHasSize] = useState(false)
   const [containerWidth, setContainerWidth] = useState(0)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
@@ -214,6 +272,37 @@ export function NetWorthProjection({
   }, [])
 
   const projection = useMemo<ProjectionPoint[]>(() => {
+    // Handle monthly data
+    if (timelineMonths && timelineMonths.length > 0) {
+      const baseCalendarYear = 2025
+      const monthlyProjection = timelineMonths.map<ProjectionPoint>((month) => {
+        const assets = month.assets ?? []
+        const liabilities = month.liabilities ?? []
+
+        const totalAssets = assets.reduce((sum, item) => sum + (item.amountMonthly ?? item.amountAnnual ?? 0), 0)
+        const totalLiabilities = liabilities.reduce(
+          (sum, item) => sum + (item.amountMonthly ?? item.amountAnnual ?? 0),
+          0
+        )
+
+        const calendarYear = baseCalendarYear + month.year
+
+        return {
+          yearIndex: month.monthIndex, // Use global month index for x-axis
+          yearLabel: `${month.year}-${String(month.month).padStart(2, '0')}`,
+          netWorth: month.netWorth ?? 0,
+          totalAssets,
+          totalLiabilities,
+          calendarYear,
+          hasNonAnnualSource: false,
+          hasOverride: !!month.hasOverrides,
+        }
+      })
+
+      return monthlyProjection
+    }
+
+    // Handle yearly data
     if (timelineYears && timelineYears.length > 0) {
       const baseCalendarYear = 2025
       const timelineProjection = timelineYears.map<ProjectionPoint>((year) => {
@@ -324,6 +413,7 @@ export function NetWorthProjection({
     incomes,
     liabilities,
     timelineYears,
+    timelineMonths,
     userSettings?.startingAge,
     userSettings?.terminalAge,
   ])
@@ -342,8 +432,96 @@ export function NetWorthProjection({
     return () => observer.disconnect()
   }, [])
 
-  // Filter data based on zoom (currently passthrough)
-  const displayData = projection
+  // Window data based on zoom level
+  const displayData = useMemo(() => {
+    if (resolution !== 'monthly' || startIndex === null || endIndex === null) {
+      return projection
+    }
+
+    // Return windowed subset of data
+    return projection.slice(startIndex, endIndex + 1)
+  }, [projection, resolution, startIndex, endIndex])
+
+  // Mouse wheel zoom handler with fixed zoom levels
+  useEffect(() => {
+    const chartElement = chartWrapperRef.current
+    if (!chartElement) return
+    if (resolution !== 'monthly') return // Only enable wheel zoom in monthly mode
+    if (projection.length === 0) return
+
+    const handleWheel = (e: WheelEvent) => {
+      // Only handle wheel events when hovering over the chart
+      if (!chartElement.contains(e.target as Node)) return
+
+      e.preventDefault()
+
+      const direction = e.deltaY < 0 ? -1 : 1 // -1 = zoom in, 1 = zoom out
+
+      // Calculate mouse position as data index
+      const rect = chartElement.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mousePercentage = mouseX / rect.width
+
+      // Get current center point
+      const currentStart = startIndex ?? 0
+      const currentEnd = endIndex ?? projection.length - 1
+      const currentRange = currentEnd - currentStart
+      const centerIndex = Math.floor(currentStart + currentRange * mousePercentage)
+
+      // Determine current zoom level based on range
+      // ±5 years = 120 months total, ±24 months = 48 months total
+      let currentLevel: 'all' | '5years' | '2years'
+      if (startIndex === null || endIndex === null) {
+        currentLevel = 'all'
+      } else if (currentRange > 120) { // More than 120 months = showing all
+        currentLevel = 'all'
+      } else if (currentRange > 48) { // Between 48 and 120 months = 5 years view
+        currentLevel = '5years'
+      } else { // 48 months or less = 2 years view
+        currentLevel = '2years'
+      }
+
+      if (direction < 0) {
+        // Zoom in
+        if (currentLevel === 'all') {
+          // Zoom to ±5 years (±60 months = 120 months total)
+          const newStart = Math.max(0, centerIndex - 60)
+          const newEnd = Math.min(projection.length - 1, centerIndex + 60)
+          setStartIndex(newStart)
+          setEndIndex(newEnd)
+          setZoomLevel('monthly')
+        } else if (currentLevel === '5years') {
+          // Zoom to ±24 months (48 months total)
+          const newStart = Math.max(0, centerIndex - 24)
+          const newEnd = Math.min(projection.length - 1, centerIndex + 24)
+          setStartIndex(newStart)
+          setEndIndex(newEnd)
+          setZoomLevel('monthly')
+        }
+        // Already at max zoom (2 years), do nothing
+      } else {
+        // Zoom out
+        if (currentLevel === '2years') {
+          // Zoom to ±5 years
+          const newStart = Math.max(0, centerIndex - 60)
+          const newEnd = Math.min(projection.length - 1, centerIndex + 60)
+          setStartIndex(newStart)
+          setEndIndex(newEnd)
+          setZoomLevel('monthly')
+        } else if (currentLevel === '5years') {
+          // Zoom to all
+          setStartIndex(null)
+          setEndIndex(null)
+          setZoomLevel('yearly')
+        }
+        // Already at min zoom (all), do nothing
+      }
+    }
+
+    chartElement.addEventListener('wheel', handleWheel, { passive: false })
+    return () => chartElement.removeEventListener('wheel', handleWheel)
+  }, [resolution, projection.length, startIndex, endIndex])
+
   const areaAnimationEnabled = !prefersReducedMotion && displayData.length > 0
 
   // Reset marker visibility when data changes; show once line animation finishes (with fallback timer)
@@ -400,49 +578,55 @@ export function NetWorthProjection({
   const scenarioMarkers = useMemo(() => {
     if (!scenarioEvents || scenarioEvents.length === 0 || displayData.length === 0) return []
 
-    const currentYear = new Date().getFullYear()
-    const basePoint = displayData[0]
-    const baseYear = basePoint?.calendarYear ?? currentYear
-    const baseIndex = basePoint?.yearIndex ?? 0
-    const minIndex = projection[0]?.yearIndex ?? 0
-    const maxIndex = projection[projection.length - 1]?.yearIndex ?? minIndex
+    const markersByIndex = new Map<number, { events: ScenarioEvent[]; netWorth: number }>()
 
-    const markersByYear = new Map<number, { events: ScenarioEvent[]; netWorth: number }>()
-
-    const parseEventYear = (occursOn: string) => {
-      const year = Number.parseInt(occursOn.slice(0, 4), 10)
-      return Number.isFinite(year) ? year : null
+    // Parse event date (YYYY-MM-DD format) and extract year and month
+    const parseEventDate = (occursOn: string): { year: number; month: number } | null => {
+      const parts = occursOn.split('-')
+      if (parts.length < 2) return null
+      const year = Number.parseInt(parts[0], 10)
+      const month = Number.parseInt(parts[1], 10)
+      if (!Number.isFinite(year) || !Number.isFinite(month)) return null
+      return { year, month }
     }
 
     scenarioEvents.forEach((event) => {
       if (event.isIncluded === false) return
-      const eventYear = parseEventYear(event.occursOn)
-      if (eventYear === null) return
+      const eventDate = parseEventDate(event.occursOn)
+      if (eventDate === null) return
 
-      // Calculate the year index relative to the base display point
-      const yearIndex = baseIndex + (eventYear - baseYear)
-      const clampedIndex = Math.max(minIndex, Math.min(maxIndex, yearIndex))
+      let displayPoint: ProjectionPoint | undefined
 
-      // Match by calendarYear if present; otherwise by yearIndex
-      const displayPoint =
-        displayData.find((entry) => entry.calendarYear === eventYear) ??
-        displayData.find((entry) => entry.yearIndex === clampedIndex) ??
-        displayData.find((entry) => entry.yearIndex === yearIndex)
+      if (resolution === 'monthly') {
+        // Monthly mode: match by calendar year and month directly in displayData
+        // Each displayPoint has calendarYear and we can calculate the month from yearIndex
+        displayPoint = displayData.find((point) => {
+          const pointMonth = (point.yearIndex % 12) + 1 // Convert 0-based month index to 1-based month
+          return point.calendarYear === eventDate.year && pointMonth === eventDate.month
+        })
 
-      if (!displayPoint) return
+        // If not found in current window, skip this event
+        if (!displayPoint) return
+      } else {
+        // Yearly mode: match by calendar year
+        displayPoint = displayData.find((entry) => entry.calendarYear === eventDate.year)
+
+        // If not found in current window, skip this event
+        if (!displayPoint) return
+      }
 
       const netWorth = displayPoint.netWorth
 
-      const existing = markersByYear.get(displayPoint.yearIndex) ?? { events: [], netWorth }
-      markersByYear.set(displayPoint.yearIndex, { events: [...existing.events, event], netWorth })
+      const existing = markersByIndex.get(displayPoint.yearIndex) ?? { events: [], netWorth }
+      markersByIndex.set(displayPoint.yearIndex, { events: [...existing.events, event], netWorth })
     })
 
-    return Array.from(markersByYear.entries()).map(([yearIndex, data]) => ({
+    return Array.from(markersByIndex.entries()).map(([yearIndex, data]) => ({
       yearIndex,
       netWorth: Math.max(data.netWorth, 0),
       events: data.events,
     }))
-  }, [scenarioEvents, displayData, projection])
+  }, [scenarioEvents, displayData, projection, resolution, timelineMonths, zoomLevel])
 
   const planningYears = Math.max(1, (userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE) - (userSettings?.startingAge ?? DEFAULT_STARTING_AGE))
 
@@ -460,16 +644,26 @@ export function NetWorthProjection({
             {chartSubtitle ?? defaultSubtitle}
           </p>
         </div>
-        {onAddScenario && (
-          <button
-            onClick={onAddScenario}
-            className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:border-white/[0.12] hover:bg-white/[0.04] hover:text-slate-200"
-            type="button"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Scenario
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {resolution === 'monthly' && (
+            <ZoomControls
+              zoomLevel={zoomLevel}
+              onZoomChange={setZoomLevel}
+              canZoomIn={zoomLevel !== 'monthly'}
+              canZoomOut={zoomLevel !== 'yearly'}
+            />
+          )}
+          {onAddScenario && (
+            <button
+              onClick={onAddScenario}
+              className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:border-white/[0.12] hover:bg-white/[0.04] hover:text-slate-200"
+              type="button"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Scenario
+            </button>
+          )}
+        </div>
       </div>
 
       <div
@@ -517,6 +711,8 @@ export function NetWorthProjection({
                       selectedYear={selectedYear}
                       mode={xAxisMode}
                       startingAge={userSettings?.startingAge}
+                      resolution={resolution}
+                      zoomLevel={zoomLevel}
                     />
                   }
                 />
@@ -555,7 +751,7 @@ export function NetWorthProjection({
                 />
 
                 <Tooltip
-                  content={<CustomTooltip startingAge={userSettings?.startingAge} />}
+                  content={<CustomTooltip startingAge={userSettings?.startingAge} resolution={resolution} />}
                   cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }}
                 />
 
@@ -565,6 +761,7 @@ export function NetWorthProjection({
                     dataKey="netWorth"
                     xAxisId={0}
                     yAxisId={0}
+                    fill="#8884d8"
                     shape={({ cx = 0, cy = 0, payload }: any) => (
                       <ScenarioMarker
                         cx={cx}
