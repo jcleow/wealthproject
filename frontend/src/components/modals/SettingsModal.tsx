@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Modal } from '@/components/ui/Modal'
 import { financialApi } from '@/services/financialApi'
-import type { GrowthConfig, UserSettings, YearDisplayFormat } from '@/types/financial'
+import type { GrowthConfig, UserSettings, YearDisplayFormat, TimeResolution } from '@/types/financial'
 import { GrowthConfigCategoryLabels } from '@/types/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
@@ -108,6 +108,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const handleYearDisplayFormatChange = (value: YearDisplayFormat) => {
     setEditedSettings(prev => ({ ...prev, yearDisplayFormat: value }))
+    setHasSettingsChanges(true)
+  }
+
+  const handleTimeResolutionChange = (value: TimeResolution) => {
+    setEditedSettings(prev => ({ ...prev, timeResolution: value }))
     setHasSettingsChanges(true)
   }
 
@@ -258,6 +263,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <option value="year_number">Year Number (Year 0, Year 1...)</option>
                     <option value="actual_year">Actual Year ({new Date().getFullYear()}, {new Date().getFullYear() + 1}...)</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Time Resolution
+                  </label>
+                  <p className="mb-3 text-xs text-slate-500">
+                    Default time granularity for financial data (yearly vs monthly)
+                  </p>
+                  <select
+                    value={editedSettings.timeResolution}
+                    onChange={e => handleTimeResolutionChange(e.target.value as TimeResolution)}
+                    className="w-64 rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-3 py-2 text-slate-200 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="yearly">Yearly - Annual snapshots (35 years)</option>
+                    <option value="monthly">Monthly - Month-by-month tracking (420 months)</option>
+                  </select>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {editedSettings.timeResolution === 'yearly'
+                      ? 'View financial data at yearly intervals with annual growth'
+                      : 'View financial data at monthly intervals with compound monthly growth'}
+                  </p>
                 </div>
 
                 <div className="pt-4 border-t border-white/[0.06]">
