@@ -183,12 +183,14 @@ export const GrowthConfigCategoryLabels: Record<string, string> = {
 
 // User Settings
 export type YearDisplayFormat = 'year_number' | 'actual_year'
+export type TimeResolution = 'yearly' | 'monthly'
 
 export type UserSettings = {
   id?: string
   startingAge: number
   terminalAge: number
   yearDisplayFormat: YearDisplayFormat
+  timeResolution: TimeResolution
   autoExecuteTools: boolean
   updatedAt?: string
 }

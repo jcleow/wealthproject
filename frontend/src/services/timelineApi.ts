@@ -36,8 +36,15 @@ async function jsonRequest<T>(path: string, options: RequestInit): Promise<T> {
 }
 
 export const timelineApi = {
-  async getTimeline(options?: { includeScenarios?: boolean; scenarioIds?: string[] }): Promise<TimelineResponse> {
+  async getTimeline(options?: {
+    resolution?: 'yearly' | 'monthly'
+    includeScenarios?: boolean
+    scenarioIds?: string[]
+  }): Promise<TimelineResponse> {
     const params = new URLSearchParams()
+    if (options?.resolution) {
+      params.set('resolution', options.resolution)
+    }
     if (options?.includeScenarios) {
       params.set('include_scenarios', 'true')
     }
