@@ -3,14 +3,14 @@ CREATE TABLE IF NOT EXISTS cpf_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id VARCHAR(36) NOT NULL,
 
-    -- Current balances (in dollars, rounded to 2 decimal places)
-    oa_balance NUMERIC(15,2) NOT NULL DEFAULT 0,
-    sa_balance NUMERIC(15,2) NOT NULL DEFAULT 0,
-    ma_balance NUMERIC(15,2) NOT NULL DEFAULT 0,
-    ra_balance NUMERIC(15,2) NOT NULL DEFAULT 0,
+    -- Current balances (in dollars, 6 decimal places for calculation precision)
+    oa_balance NUMERIC(15,6) NOT NULL DEFAULT 0,
+    sa_balance NUMERIC(15,6) NOT NULL DEFAULT 0,
+    ma_balance NUMERIC(15,6) NOT NULL DEFAULT 0,
+    ra_balance NUMERIC(15,6) NOT NULL DEFAULT 0,
 
     -- Housing tracking (for accrued interest calculation)
-    oa_used_for_housing NUMERIC(15,2) NOT NULL DEFAULT 0,
+    oa_used_for_housing NUMERIC(15,6) NOT NULL DEFAULT 0,
     housing_start_date TIMESTAMPTZ,
 
     -- User profile for contribution rates
