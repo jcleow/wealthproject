@@ -61,9 +61,9 @@ type InterestRates struct {
 	RA float64 `json:"ra"` // Retirement Account base rate (typically 4%)
 
 	// Extra interest rates
-	ExtraFirst60k        float64 `json:"extraFirst60k"`        // Extra 1% on first $60k (below 55)
-	ExtraFirst30kAbove55 float64 `json:"extraFirst30kAbove55"` // Extra 2% on first $30k (55+)
-	ExtraNext30kAbove55  float64 `json:"extraNext30kAbove55"`  // Extra 1% on next $30k (55+)
+	Extra1PctFirst60k        float64 `json:"extra1PctFirst60k"`        // Extra 1% on first $60k (below 55)
+	Extra2PctFirst30kAbove55 float64 `json:"extra2PctFirst30kAbove55"` // Extra 2% on first $30k (55+)
+	Extra1PctNext30kAbove55  float64 `json:"extra1PctNext30kAbove55"`  // Extra 1% on next $30k (55+)
 }
 
 // ContributionRateTable contains contribution rates for all residency statuses

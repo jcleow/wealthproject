@@ -46,9 +46,9 @@ func Config2024() CPFConfiguration {
 				SA:                   0.04,
 				MA:                   0.04,
 				RA:                   0.04,
-				ExtraFirst60k:        0.01,
-				ExtraFirst30kAbove55: 0.02,
-				ExtraNext30kAbove55:  0.01,
+				Extra1PctFirst60k:        0.01,
+				Extra2PctFirst30kAbove55: 0.02,
+				Extra1PctNext30kAbove55:  0.01,
 			},
 
 			ContributionRates: ContributionRateTable{
@@ -112,9 +112,9 @@ func Config2025() CPFConfiguration {
 				SA:                   0.04,
 				MA:                   0.04,
 				RA:                   0.04,
-				ExtraFirst60k:        0.01,
-				ExtraFirst30kAbove55: 0.02,
-				ExtraNext30kAbove55:  0.01,
+				Extra1PctFirst60k:        0.01,
+				Extra2PctFirst30kAbove55: 0.02,
+				Extra1PctNext30kAbove55:  0.01,
 			},
 
 			ContributionRates: ContributionRateTable{
