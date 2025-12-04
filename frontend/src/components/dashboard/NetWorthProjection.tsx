@@ -128,20 +128,27 @@ export function NetWorthProjection({
   // Always use 'monthly' if we have monthly data (which we always do now)
   const effectiveResolution: TimeResolution = 'monthly'
 
-  // Reset windowing when switching to yearly mode
+  // Derive windowing indices - clear them when in yearly mode
+  const actualStartIndex = zoomLevel === 'yearly' ? null : startIndex
+  const actualEndIndex = zoomLevel === 'yearly' ? null : endIndex
+
+  // Refs for stable event handlers (avoid recreating handlers on every state change)
+  const startIndexRef = useRef(startIndex)
+  const endIndexRef = useRef(endIndex)
+  const zoomRangeStackRef = useRef(zoomRangeStack)
+  const zoomLevelRef = useRef(zoomLevel)
+
+  // Keep refs in sync with state
   useEffect(() => {
-    if (zoomLevel === 'yearly') {
-      setStartIndex(null)
-      setEndIndex(null)
-    }
-  }, [zoomLevel])
+    startIndexRef.current = startIndex
+    endIndexRef.current = endIndex
+    zoomRangeStackRef.current = zoomRangeStack
+    zoomLevelRef.current = zoomLevel
+  })
 
   const projection = useMemo<ProjectionPoint[]>(() => {
-    // When zoomLevel is 'yearly', use yearly data even if monthly data exists
-    // When zoomLevel is 'monthly', use monthly data if available
-    const useYearlyData = zoomLevel === 'yearly'
-
-    // Handle monthly data - use it regardless of zoom level if it's the only data available
+    // Always use monthly data when available (regardless of zoom level)
+    // The zoom level only affects how we display the data (axis labels, windowing)
     if (timelineMonths && timelineMonths.length > 0) {
       const baseCalendarYear = 2025
       const monthlyProjection = timelineMonths.map<ProjectionPoint>((month) => {
@@ -304,23 +311,23 @@ export function NetWorthProjection({
 
   // Window data based on zoom level
   const displayData = useMemo(() => {
-    if (effectiveResolution !== 'monthly' || startIndex === null || endIndex === null) {
+    if (effectiveResolution !== 'monthly' || actualStartIndex === null || actualEndIndex === null) {
       return projection
     }
 
     // Return windowed subset of data
-    return projection.slice(startIndex, endIndex + 1)
-  }, [projection, effectiveResolution, startIndex, endIndex])
+    return projection.slice(actualStartIndex, actualEndIndex + 1)
+  }, [projection, effectiveResolution, actualStartIndex, actualEndIndex])
 
   // Calculate visible range in months
   const visibleRangeMonths = useMemo(() => {
-    if (effectiveResolution !== 'monthly' || startIndex === null || endIndex === null) {
+    if (effectiveResolution !== 'monthly' || actualStartIndex === null || actualEndIndex === null) {
       return projection.length
     }
-    return endIndex - startIndex + 1
-  }, [effectiveResolution, startIndex, endIndex, projection.length])
+    return actualEndIndex - actualStartIndex + 1
+  }, [effectiveResolution, actualStartIndex, actualEndIndex, projection.length])
 
-  // Mouse wheel zoom handler with fixed zoom levels
+  // Mouse wheel zoom handler with stable reference
   useEffect(() => {
     const chartElement = chartWrapperRef.current
     if (!chartElement) return
@@ -348,9 +355,9 @@ export function NetWorthProjection({
       const mouseX = e.clientX - rect.left
       const mousePercentage = mouseX / rect.width
 
-      // Get current center point
-      const currentStart = startIndex ?? 0
-      const currentEnd = endIndex ?? projection.length - 1
+      // Get current center point using refs for latest values
+      const currentStart = startIndexRef.current ?? 0
+      const currentEnd = endIndexRef.current ?? projection.length - 1
       const currentRange = currentEnd - currentStart + 1
       const centerIndex = Math.floor(currentStart + currentRange * mousePercentage)
 
@@ -378,9 +385,9 @@ export function NetWorthProjection({
         setZoomLevel('monthly')
       } else {
         // Zoom out: use stack to restore previous range for symmetry
-        if (zoomRangeStack.length > 0) {
+        if (zoomRangeStackRef.current.length > 0) {
           // Pop from stack to get the exact previous range
-          const previousRange = zoomRangeStack[zoomRangeStack.length - 1]
+          const previousRange = zoomRangeStackRef.current[zoomRangeStackRef.current.length - 1]
           setZoomRangeStack(prev => prev.slice(0, -1))
 
           // If we're going back to full view, switch to yearly
@@ -409,25 +416,29 @@ export function NetWorthProjection({
 
     chartElement.addEventListener('wheel', handleWheel, { passive: false })
     return () => chartElement.removeEventListener('wheel', handleWheel)
-  }, [timelineMonths, projection.length, startIndex, endIndex, scrollMode, zoomLevel, zoomRangeStack])
+  }, [scrollMode, resolution, projection.length]) // Reduced dependencies - use refs for state
 
-  // Drag-to-pan handler
+  // Drag-to-pan handler with stable reference
   useEffect(() => {
     const chartElement = chartWrapperRef.current
     if (!chartElement) return
     if (effectiveResolution !== 'monthly') return
-    if (startIndex === null || endIndex === null) return // Only allow panning when zoomed
+    if (startIndexRef.current === null || endIndexRef.current === null) return // Only allow panning when zoomed
 
     let isDragging = false
     let dragStartData: { x: number; startIdx: number; endIdx: number } | null = null
 
     const handleMouseDown = (e: MouseEvent) => {
       if (!chartElement.contains(e.target as Node)) return
+      const currentStart = startIndexRef.current
+      const currentEnd = endIndexRef.current
+      if (currentStart === null || currentEnd === null) return
+
       isDragging = true
       dragStartData = {
         x: e.clientX,
-        startIdx: startIndex,
-        endIdx: endIndex,
+        startIdx: currentStart,
+        endIdx: currentEnd,
       }
       chartElement.style.cursor = 'grabbing'
     }
@@ -467,7 +478,7 @@ export function NetWorthProjection({
       window.removeEventListener('mouseup', handleMouseUp)
       chartElement.style.cursor = 'default'
     }
-  }, [effectiveResolution, projection.length, startIndex, endIndex])
+  }, [effectiveResolution, projection.length]) // Reduced dependencies - use refs for indices
 
   // Helper functions for zoom in/out buttons
   const handleZoomIn = useCallback(() => {
@@ -541,28 +552,23 @@ export function NetWorthProjection({
 
   const areaAnimationEnabled = !prefersReducedMotion && displayData.length > 0
 
-  // Reset marker visibility when data changes; show once line animation finishes (with fallback timer)
+  // Manage marker visibility after chart animation completes
   useEffect(() => {
     if (!areaAnimationEnabled) {
       setMarkersReady(true)
       return
     }
+
+    // Hide markers during animation
     setMarkersReady(false)
+
+    // Show markers after animation completes (with safety buffer)
     const timer = window.setTimeout(
       () => setMarkersReady(true),
-      AREA_ANIMATION_MS + MARKER_BUFFER_MS
+      AREA_ANIMATION_MS + MARKER_BUFFER_MS + 300 // Combined primary + safety timeout
     )
-    return () => window.clearTimeout(timer)
-  }, [displayData.length, areaAnimationEnabled])
 
-  // Absolute fallback to ensure markers are shown even if animation callbacks fail
-  useEffect(() => {
-    if (!areaAnimationEnabled) return
-    const safetyTimer = window.setTimeout(
-      () => setMarkersReady(true),
-      AREA_ANIMATION_MS + MARKER_BUFFER_MS + 300
-    )
-    return () => window.clearTimeout(safetyTimer)
+    return () => window.clearTimeout(timer)
   }, [displayData.length, areaAnimationEnabled])
 
   const ticks = useMemo(() => {
@@ -773,7 +779,6 @@ export function NetWorthProjection({
                       mode={xAxisMode}
                       startingAge={userSettings?.startingAge}
                       resolution={effectiveResolution}
-                      zoomLevel={zoomLevel}
                       visibleRangeMonths={visibleRangeMonths}
                     />
                   }

@@ -1,5 +1,4 @@
 import type { TimeResolution } from '@/types/timeline'
-import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 import { DEFAULT_STARTING_AGE, BASE_CALENDAR_YEAR, type AxisMode } from './types'
 
 interface YearTickProps {
@@ -12,7 +11,6 @@ interface YearTickProps {
   mode: AxisMode
   startingAge?: number
   resolution?: TimeResolution
-  zoomLevel?: ZoomLevel
   visibleRangeMonths?: number
 }
 
@@ -26,7 +24,6 @@ export function YearTick({
   mode,
   startingAge,
   resolution,
-  zoomLevel,
   visibleRangeMonths,
 }: YearTickProps) {
   if (!payload) return null
