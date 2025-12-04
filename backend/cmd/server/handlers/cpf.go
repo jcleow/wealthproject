@@ -392,7 +392,7 @@ func (h *CPFHandler) handleContributionPreview(w http.ResponseWriter, r *http.Re
 	grossWageStr := r.URL.Query().Get("gross_wage")
 	ageStr := r.URL.Query().Get("age")
 	residencyStatusStr := r.URL.Query().Get("residency_status")
-	wageType := r.URL.Query().Get("wage_type")
+	cpfWageType := r.URL.Query().Get("cpf_wage_type")
 
 	if grossWageStr == "" || ageStr == "" {
 		badRequest(w, errMissingFields("gross_wage, age"))
@@ -427,7 +427,7 @@ func (h *CPFHandler) handleContributionPreview(w http.ResponseWriter, r *http.Re
 	calc := contribution.NewCalculator(&cfg.Config)
 
 	var result contribution.ContributionResult
-	if wageType == "aw" {
+	if cpfWageType == "aw" {
 		// For AW, we need YTD values (default to 0 for preview)
 		result = calc.CalculateAW(grossWage, age, residency, 0, 0)
 	} else {

@@ -81,9 +81,9 @@ export const incomeTypeEnum = z.enum([
 
 export type IncomeType = z.infer<typeof incomeTypeEnum>
 
-export const wageTypeEnum = z.enum(["ow", "aw"])
+export const cpfWageTypeEnum = z.enum(["ow", "aw"])
 
-export type WageType = z.infer<typeof wageTypeEnum>
+export type CpfWageType = z.infer<typeof cpfWageTypeEnum>
 
 export const incomeSchema = z.object({
   id: z.string().min(1),
@@ -98,7 +98,7 @@ export const incomeSchema = z.object({
   updatedAt: isoDateTime,
   // CPF-related fields
   incomeType: incomeTypeEnum.optional(),
-  wageType: wageTypeEnum.optional().nullable(),
+  cpfWageType: cpfWageTypeEnum.optional().nullable(),
   cpfApplicable: z.boolean().optional(),
 })
 

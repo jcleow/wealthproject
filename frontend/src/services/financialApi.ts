@@ -91,7 +91,7 @@ const toIncome = (item: any): Income => ({
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
   // CPF-related fields
   incomeType: item.income_type ?? item.incomeType ?? item.IncomeType,
-  wageType: item.wage_type ?? item.wageType ?? item.WageType,
+  cpfWageType: item.cpf_wage_type ?? item.cpfWageType ?? item.CpfWageType,
   cpfApplicable: item.cpf_applicable ?? item.cpfApplicable ?? item.CPFApplicable,
 })
 
@@ -819,13 +819,13 @@ export const financialApi = {
     grossWage: number
     age: number
     residencyStatus: ResidencyStatus
-    wageType: 'ow' | 'aw'
+    cpfWageType: 'ow' | 'aw'
   }): Promise<CPFContributionPreview> {
     const searchParams = new URLSearchParams({
       gross_wage: params.grossWage.toString(),
       age: params.age.toString(),
       residency_status: params.residencyStatus,
-      wage_type: params.wageType,
+      cpf_wage_type: params.cpfWageType,
     })
     const data = await jsonRequest<any>(`${API_BASE}/cpf/contribution-preview?${searchParams}`)
     return toCPFContributionPreview(data)
