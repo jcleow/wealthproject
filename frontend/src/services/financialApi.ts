@@ -716,6 +716,7 @@ export const financialApi = {
       startingAge: data.startingAge ?? 30,
       terminalAge: data.terminalAge ?? 65,
       yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
+      timeResolution: data.timeResolution ?? 'yearly',
       autoExecuteTools: data.autoExecuteTools ?? false,
       updatedAt: data.updatedAt,
     }
@@ -728,6 +729,7 @@ export const financialApi = {
         startingAge: settings.startingAge,
         terminalAge: settings.terminalAge,
         yearDisplayFormat: settings.yearDisplayFormat,
+        timeResolution: settings.timeResolution,
         autoExecuteTools: settings.autoExecuteTools,
       }),
     })
@@ -736,6 +738,7 @@ export const financialApi = {
       startingAge: data.startingAge ?? 30,
       terminalAge: data.terminalAge ?? 65,
       yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
+      timeResolution: data.timeResolution ?? 'yearly',
       autoExecuteTools: data.autoExecuteTools ?? false,
       updatedAt: data.updatedAt,
     }

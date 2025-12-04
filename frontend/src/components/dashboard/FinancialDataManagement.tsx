@@ -21,8 +21,9 @@ import { FinancialFormModal } from '../modals/FinancialFormModal'
 import { CashAccountFormModal } from '../modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { financialApi } from '@/services/financialApi'
-import type { TimelineYear, TimelineEditRequest, TimelineEdit, TimelineItemType, TimelineFrequency, TimelineItem, TimelineEventImpact } from '@/types/timeline'
+import type { TimelineYear, TimelineMonth, TimeResolution, TimelineEditRequest, TimelineEdit, TimelineItemType, TimelineFrequency, TimelineItem, TimelineEventImpact } from '@/types/timeline'
 import { formatCurrency } from '@/lib/format'
+import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 
 type FinancialCategory = FinancialDataType
 
@@ -136,7 +137,12 @@ interface ModalState {
 export interface FinancialDataManagementProps {
   selectedYear?: number
   onSelectYear?: (year: number) => void
+  selectedMonth?: number
+  onSelectMonth?: (month: number | null) => void
   timelineYear?: TimelineYear
+  timelineMonth?: TimelineMonth
+  resolution?: TimeResolution
+  zoomLevel?: ZoomLevel
   isTimelineLoading?: boolean
   onSaveTimelineEdits?: (payload: TimelineEditRequest) => Promise<void>
 }
@@ -144,18 +150,43 @@ export interface FinancialDataManagementProps {
 export function FinancialDataManagement({
   selectedYear = 0,
   onSelectYear,
+  selectedMonth,
+  onSelectMonth,
   timelineYear,
+  timelineMonth,
+  resolution,
   isTimelineLoading = false,
   onSaveTimelineEdits,
 }: FinancialDataManagementProps) {
   const usingTimeline = true
-  const timelineAssets = useMemo(() => timelineYear?.assets ?? [], [timelineYear?.assets])
-  const timelineCashAccounts = useMemo(() => timelineYear?.cashAccounts ?? [], [timelineYear?.cashAccounts])
+  const [viewMode, setViewMode] = useState<'annualized' | 'monthly'>('annualized')
+
+  // Determine if we should show monthly data
+  const showMonthlyData = viewMode === 'monthly' && resolution === 'monthly' && timelineMonth
+
+  // Use monthly data if a month is selected, otherwise use yearly data
+  const timelineAssets = useMemo(() =>
+    showMonthlyData ? (timelineMonth?.assets ?? []) : (timelineYear?.assets ?? []),
+    [showMonthlyData, timelineMonth?.assets, timelineYear?.assets]
+  )
+  const timelineCashAccounts = useMemo(() =>
+    showMonthlyData ? (timelineMonth?.cashAccounts ?? []) : (timelineYear?.cashAccounts ?? []),
+    [showMonthlyData, timelineMonth?.cashAccounts, timelineYear?.cashAccounts]
+  )
   // Merge assets and cash accounts for display - cash accounts appear as assets
   const yearAssets = useMemo(() => [...timelineAssets, ...timelineCashAccounts], [timelineAssets, timelineCashAccounts])
-  const yearLiabilities = useMemo(() => timelineYear?.liabilities ?? [], [timelineYear?.liabilities])
-  const yearIncomes = useMemo(() => timelineYear?.income ?? [], [timelineYear?.income])
-  const yearExpenses = useMemo(() => timelineYear?.expenses ?? [], [timelineYear?.expenses])
+  const yearLiabilities = useMemo(() =>
+    showMonthlyData ? (timelineMonth?.liabilities ?? []) : (timelineYear?.liabilities ?? []),
+    [showMonthlyData, timelineMonth?.liabilities, timelineYear?.liabilities]
+  )
+  const yearIncomes = useMemo(() =>
+    showMonthlyData ? (timelineMonth?.income ?? []) : (timelineYear?.income ?? []),
+    [showMonthlyData, timelineMonth?.income, timelineYear?.income]
+  )
+  const yearExpenses = useMemo(() =>
+    showMonthlyData ? (timelineMonth?.expenses ?? []) : (timelineYear?.expenses ?? []),
+    [showMonthlyData, timelineMonth?.expenses, timelineYear?.expenses]
+  )
 
   const {
     addAsset,
@@ -644,7 +675,7 @@ export function FinancialDataManagement({
                 Manage your income, expenses, assets, and liabilities
               </p>
             </div>
-            <div className="flex items-center gap-3 text-xs text-gray-300">              
+            <div className="flex items-center gap-3 text-xs text-gray-300">
               <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
                 <label className="hidden text-gray-400 sm:block" htmlFor="year-selector">
                   Year
@@ -663,6 +694,60 @@ export function FinancialDataManagement({
                   ))}
                 </select>
               </div>
+
+              {resolution === 'monthly' && (
+                <>
+                  <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
+                    <label className="hidden text-gray-400 sm:block" htmlFor="view-mode-selector">
+                      View
+                    </label>
+                    <select
+                      id="view-mode-selector"
+                      className="rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
+                      value={viewMode}
+                      disabled={isTimelineLoading}
+                      onChange={(event) => {
+                        const mode = event.target.value as 'annualized' | 'monthly'
+                        setViewMode(mode)
+                      }}
+                    >
+                      <option value="annualized">Annualized</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+
+                  {viewMode === 'monthly' && (
+                    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
+                      <label className="hidden text-gray-400 sm:block" htmlFor="month-selector">
+                        Month
+                      </label>
+                      <select
+                        id="month-selector"
+                        className="w-28 rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
+                        value={selectedMonth ?? 1}
+                        disabled={isTimelineLoading}
+                        onChange={(event) => {
+                          const month = Number(event.target.value)
+                          onSelectMonth?.(month)
+                        }}
+                      >
+                        <option value={1}>January</option>
+                        <option value={2}>February</option>
+                        <option value={3}>March</option>
+                        <option value={4}>April</option>
+                        <option value={5}>May</option>
+                        <option value={6}>June</option>
+                        <option value={7}>July</option>
+                        <option value={8}>August</option>
+                        <option value={9}>September</option>
+                        <option value={10}>October</option>
+                        <option value={11}>November</option>
+                        <option value={12}>December</option>
+                      </select>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
