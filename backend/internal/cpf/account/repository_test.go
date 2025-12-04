@@ -105,27 +105,27 @@ func TestCPFAccount_AgeAtDate(t *testing.T) {
 func TestCPFAccount_TotalBalance(t *testing.T) {
 	tests := []struct {
 		name     string
-		oa       int64
-		sa       int64
-		ma       int64
-		ra       int64
-		expected int64
+		oa       float64
+		sa       float64
+		ma       float64
+		ra       float64
+		expected float64
 	}{
 		{
 			name:     "All accounts have balance",
-			oa:       10000000, // $100,000 in cents
-			sa:       5000000,  // $50,000
-			ma:       3000000,  // $30,000
-			ra:       2000000,  // $20,000
-			expected: 20000000, // $200,000
+			oa:       100000.00,
+			sa:       50000.00,
+			ma:       30000.00,
+			ra:       20000.00,
+			expected: 200000.00,
 		},
 		{
 			name:     "Only OA and SA (under 55)",
-			oa:       5000000,
-			sa:       2000000,
-			ma:       1000000,
+			oa:       50000.00,
+			sa:       20000.00,
+			ma:       10000.00,
 			ra:       0,
-			expected: 8000000,
+			expected: 80000.00,
 		},
 		{
 			name:     "Zero balances",
@@ -147,7 +147,7 @@ func TestCPFAccount_TotalBalance(t *testing.T) {
 			}
 			total := acc.TotalBalance()
 			if total != tt.expected {
-				t.Errorf("Expected total balance %d, got %d", tt.expected, total)
+				t.Errorf("Expected total balance $%.2f, got $%.2f", tt.expected, total)
 			}
 		})
 	}
@@ -224,13 +224,13 @@ func TestCPFAccount_PRGrantDate(t *testing.T) {
 func TestCPFAccount_HousingTracking(t *testing.T) {
 	housingStart := time.Date(2020, 3, 1, 0, 0, 0, 0, time.UTC)
 	acc := &CPFAccount{
-		OABalance:        5000000, // $50,000
-		OAUsedForHousing: 3000000, // $30,000 used for housing
+		OABalance:        50000.00,
+		OAUsedForHousing: 30000.00,
 		HousingStartDate: &housingStart,
 	}
 
-	if acc.OAUsedForHousing != 3000000 {
-		t.Errorf("Expected $30,000 used for housing, got %d cents", acc.OAUsedForHousing)
+	if acc.OAUsedForHousing != 30000.00 {
+		t.Errorf("Expected $30,000 used for housing, got $%.2f", acc.OAUsedForHousing)
 	}
 	if acc.HousingStartDate == nil {
 		t.Fatal("Expected housing start date to be set")

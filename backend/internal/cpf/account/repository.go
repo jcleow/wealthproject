@@ -19,11 +19,11 @@ var ErrNotFound = errors.New("cpf account not found")
 type CPFAccount struct {
 	ID               string                 `json:"id"`
 	UserID           string                 `json:"userId"`
-	OABalance        int64                  `json:"oaBalance"`        // in cents
-	SABalance        int64                  `json:"saBalance"`        // in cents
-	MABalance        int64                  `json:"maBalance"`        // in cents
-	RABalance        int64                  `json:"raBalance"`        // in cents
-	OAUsedForHousing int64                  `json:"oaUsedForHousing"` // in cents
+	OABalance        float64                `json:"oaBalance"`
+	SABalance        float64                `json:"saBalance"`
+	MABalance        float64                `json:"maBalance"`
+	RABalance        float64                `json:"raBalance"`
+	OAUsedForHousing float64                `json:"oaUsedForHousing"`
 	HousingStartDate *time.Time             `json:"housingStartDate"`
 	DateOfBirth      time.Time              `json:"dateOfBirth"`
 	ResidencyStatus  config.ResidencyStatus `json:"residencyStatus"`
@@ -32,8 +32,8 @@ type CPFAccount struct {
 	UpdatedAt        time.Time              `json:"updatedAt"`
 }
 
-// TotalBalance returns the total CPF balance in cents.
-func (a *CPFAccount) TotalBalance() int64 {
+// TotalBalance returns the total CPF balance.
+func (a *CPFAccount) TotalBalance() float64 {
 	return a.OABalance + a.SABalance + a.MABalance + a.RABalance
 }
 
@@ -254,8 +254,7 @@ func (r *Repository) Upsert(ctx context.Context, acc *CPFAccount) (*CPFAccount, 
 }
 
 // AddContribution adds contribution amounts to the respective accounts.
-// Amounts are in cents.
-func (r *Repository) AddContribution(ctx context.Context, userID string, oaAmount, saAmount, maAmount, raAmount int64) (*CPFAccount, error) {
+func (r *Repository) AddContribution(ctx context.Context, userID string, oaAmount, saAmount, maAmount, raAmount float64) (*CPFAccount, error) {
 	row := r.db.QueryRowContext(ctx, `
 		UPDATE cpf_accounts
 		SET oa_balance = oa_balance + $2,
@@ -300,7 +299,7 @@ func (r *Repository) AddContribution(ctx context.Context, userID string, oaAmoun
 
 // WithdrawFromOA withdraws from OA for housing purposes.
 // Records the withdrawal and updates the housing usage tracker.
-func (r *Repository) WithdrawFromOA(ctx context.Context, userID string, amount int64) (*CPFAccount, error) {
+func (r *Repository) WithdrawFromOA(ctx context.Context, userID string, amount float64) (*CPFAccount, error) {
 	row := r.db.QueryRowContext(ctx, `
 		UPDATE cpf_accounts
 		SET oa_balance = oa_balance - $2,

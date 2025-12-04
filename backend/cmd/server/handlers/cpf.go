@@ -53,11 +53,11 @@ func (h *CPFHandler) handleAccount(w http.ResponseWriter, r *http.Request) {
 type cpfAccountResponse struct {
 	ID               string  `json:"id"`
 	UserID           string  `json:"user_id"`
-	OABalance        int64   `json:"oa_balance"`
-	SABalance        int64   `json:"sa_balance"`
-	MABalance        int64   `json:"ma_balance"`
-	RABalance        int64   `json:"ra_balance"`
-	OAUsedForHousing int64   `json:"oa_used_for_housing"`
+	OABalance        float64 `json:"oa_balance"`
+	SABalance        float64 `json:"sa_balance"`
+	MABalance        float64 `json:"ma_balance"`
+	RABalance        float64 `json:"ra_balance"`
+	OAUsedForHousing float64 `json:"oa_used_for_housing"`
 	HousingStartDate *string `json:"housing_start_date,omitempty"`
 	DateOfBirth      string  `json:"date_of_birth"`
 	ResidencyStatus  string  `json:"residency_status"`
@@ -111,15 +111,15 @@ func (h *CPFHandler) getAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 type createAccountRequest struct {
-	OABalance        *int64  `json:"oa_balance"`
-	SABalance        *int64  `json:"sa_balance"`
-	MABalance        *int64  `json:"ma_balance"`
-	RABalance        *int64  `json:"ra_balance"`
-	OAUsedForHousing *int64  `json:"oa_used_for_housing"`
-	HousingStartDate *string `json:"housing_start_date"`
-	DateOfBirth      string  `json:"date_of_birth"`
-	ResidencyStatus  string  `json:"residency_status"`
-	PRGrantDate      *string `json:"pr_grant_date"`
+	OABalance        *float64 `json:"oa_balance"`
+	SABalance        *float64 `json:"sa_balance"`
+	MABalance        *float64 `json:"ma_balance"`
+	RABalance        *float64 `json:"ra_balance"`
+	OAUsedForHousing *float64 `json:"oa_used_for_housing"`
+	HousingStartDate *string  `json:"housing_start_date"`
+	DateOfBirth      string   `json:"date_of_birth"`
+	ResidencyStatus  string   `json:"residency_status"`
+	PRGrantDate      *string  `json:"pr_grant_date"`
 }
 
 func (h *CPFHandler) createAccount(w http.ResponseWriter, r *http.Request) {
@@ -198,15 +198,15 @@ func (h *CPFHandler) createAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateAccountRequest struct {
-	OABalance        *int64  `json:"oa_balance"`
-	SABalance        *int64  `json:"sa_balance"`
-	MABalance        *int64  `json:"ma_balance"`
-	RABalance        *int64  `json:"ra_balance"`
-	OAUsedForHousing *int64  `json:"oa_used_for_housing"`
-	HousingStartDate *string `json:"housing_start_date"`
-	DateOfBirth      *string `json:"date_of_birth"`
-	ResidencyStatus  *string `json:"residency_status"`
-	PRGrantDate      *string `json:"pr_grant_date"`
+	OABalance        *float64 `json:"oa_balance"`
+	SABalance        *float64 `json:"sa_balance"`
+	MABalance        *float64 `json:"ma_balance"`
+	RABalance        *float64 `json:"ra_balance"`
+	OAUsedForHousing *float64 `json:"oa_used_for_housing"`
+	HousingStartDate *string  `json:"housing_start_date"`
+	DateOfBirth      *string  `json:"date_of_birth"`
+	ResidencyStatus  *string  `json:"residency_status"`
+	PRGrantDate      *string  `json:"pr_grant_date"`
 }
 
 func (h *CPFHandler) updateAccount(w http.ResponseWriter, r *http.Request) {
