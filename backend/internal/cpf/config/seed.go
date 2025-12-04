@@ -1,28 +1,8 @@
 package config
 
 import (
-	"context"
-	"fmt"
 	"time"
 )
-
-// SeedConfigurations seeds the database with CPF configurations for known years.
-// Rates and ceilings are sourced from:
-// https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
-func SeedConfigurations(ctx context.Context, loader *Loader) error {
-	configs := []CPFConfiguration{
-		Config2024(),
-		Config2025(),
-	}
-
-	for _, cfg := range configs {
-		if err := loader.Upsert(ctx, &cfg); err != nil {
-			return fmt.Errorf("failed to seed CPF config for %d: %w", cfg.Year, err)
-		}
-	}
-
-	return nil
-}
 
 // Config2024 returns the CPF configuration for 2024
 func Config2024() CPFConfiguration {
@@ -44,13 +24,13 @@ func Config2024() CPFConfiguration {
 			BHS: 68500,
 
 			InterestRates: InterestRates{
-				OA:                   0.025,
-				SA:                   0.04,
-				MA:                   0.04,
-				RA:                   0.04,
-				Extra1PctFirst60k:        0.01,
-				Extra2PctFirst30kAbove55: 0.02,
-				Extra1PctNext30kAbove55:  0.01,
+				OA:                        0.025,
+				SA:                        0.04,
+				MA:                        0.04,
+				RA:                        0.04,
+				Extra1PctFirst60k:         0.01,
+				Extra2PctFirst30kAbove55:  0.02,
+				Extra1PctNext30kAbove55:   0.01,
 			},
 
 			ContributionRates: ContributionRateTable{
@@ -91,6 +71,8 @@ func Config2024() CPFConfiguration {
 }
 
 // Config2025 returns the CPF configuration for 2025
+// Rates and ceilings sourced from:
+// https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 func Config2025() CPFConfiguration {
 	return CPFConfiguration{
 		Year:          2025,
@@ -110,13 +92,13 @@ func Config2025() CPFConfiguration {
 			BHS: 71500, // Updated for 2025
 
 			InterestRates: InterestRates{
-				OA:                   0.025,
-				SA:                   0.04,
-				MA:                   0.04,
-				RA:                   0.04,
-				Extra1PctFirst60k:        0.01,
-				Extra2PctFirst30kAbove55: 0.02,
-				Extra1PctNext30kAbove55:  0.01,
+				OA:                        0.025,
+				SA:                        0.04,
+				MA:                        0.04,
+				RA:                        0.04,
+				Extra1PctFirst60k:         0.01,
+				Extra2PctFirst30kAbove55:  0.02,
+				Extra1PctNext30kAbove55:   0.01,
 			},
 
 			ContributionRates: ContributionRateTable{

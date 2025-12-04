@@ -11,7 +11,6 @@ import (
 	"financial-chat-system/backend/cmd/server/handlers"
 	"financial-chat-system/backend/internal/config"
 	"financial-chat-system/backend/internal/cpf/account"
-	cpfConfig "financial-chat-system/backend/internal/cpf/config"
 	"financial-chat-system/backend/internal/database"
 	"financial-chat-system/backend/internal/financial"
 	finRepo "financial-chat-system/backend/internal/financial/repository"
@@ -66,15 +65,7 @@ func main() {
 	log.Printf("CONFIG: Usage tracking enabled: %v", cfg.UsageTrackingEnabled)
 
 	// Initialize CPF services
-	cpfConfigLoader := cpfConfig.NewLoader(db)
 	cpfAccountRepo := account.NewRepository(db)
-
-	// Seed CPF configurations (2024, 2025)
-	if err := cpfConfig.SeedConfigurations(context.Background(), cpfConfigLoader); err != nil {
-		log.Printf("Warning: failed to seed CPF configurations: %v", err)
-	} else {
-		log.Println("CPF configurations seeded successfully")
-	}
 
 	// Inject timeline service into financial client for analysis methods
 	financialClient.SetTimelineService(timelineService)
@@ -261,7 +252,7 @@ func main() {
 	propertyLinkHandler := handlers.NewPropertyLinkHandler(finStore)
 	scenarioHandler := handlers.NewScenarioEventHandler(finStore)
 	cashAccountHandler := handlers.NewCashAccountHandler(finStore)
-	cpfHandler := handlers.NewCPFHandler(cpfAccountRepo, cpfConfigLoader)
+	cpfHandler := handlers.NewCPFHandler(cpfAccountRepo)
 	v1Router.PathPrefix("/assets").Handler(handlerToHTTPMux("/api/v1", assetHandler.RegisterRoutes))
 	v1Router.PathPrefix("/liabilities").Handler(handlerToHTTPMux("/api/v1", liabilityHandler.RegisterRoutes))
 	v1Router.PathPrefix("/cashflow/incomes").Handler(handlerToHTTPMux("/api/v1", incomeHandler.RegisterRoutes))

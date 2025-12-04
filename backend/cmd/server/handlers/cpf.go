@@ -15,14 +15,12 @@ import (
 
 // CPFHandler serves CPF-related endpoints.
 type CPFHandler struct {
-	accountRepo  *account.Repository
-	configLoader *config.Loader
+	accountRepo *account.Repository
 }
 
-func NewCPFHandler(accountRepo *account.Repository, configLoader *config.Loader) *CPFHandler {
+func NewCPFHandler(accountRepo *account.Repository) *CPFHandler {
 	return &CPFHandler{
-		accountRepo:  accountRepo,
-		configLoader: configLoader,
+		accountRepo: accountRepo,
 	}
 }
 
@@ -313,16 +311,16 @@ func (h *CPFHandler) handleConfig(w http.ResponseWriter, r *http.Request) {
 			badRequest(w, errors.New("invalid year parameter"))
 			return
 		}
-		cfg, err = h.configLoader.GetByYear(r.Context(), year)
+		cfg, err = config.GetByYear(year)
 	} else if dateStr != "" {
 		date, parseErr := time.Parse("2006-01-02", dateStr)
 		if parseErr != nil {
 			badRequest(w, errors.New("invalid date parameter, expected YYYY-MM-DD"))
 			return
 		}
-		cfg, err = h.configLoader.GetByDate(r.Context(), date)
+		cfg, err = config.GetByDate(date)
 	} else {
-		cfg, err = h.configLoader.GetCurrentYear(r.Context())
+		cfg, err = config.GetCurrentYear()
 	}
 
 	if err != nil {
@@ -369,12 +367,7 @@ func (h *CPFHandler) handleConfigYears(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	years, err := h.configLoader.ListYears(r.Context())
-	if err != nil {
-		internalError(w)
-		return
-	}
-
+	years := config.ListYears()
 	writeJSON(w, map[string][]int{"years": years})
 }
 
@@ -417,7 +410,7 @@ func (h *CPFHandler) handleContributionPreview(w http.ResponseWriter, r *http.Re
 	}
 
 	// Get current year's config
-	cfg, err := h.configLoader.GetCurrentYear(r.Context())
+	cfg, err := config.GetCurrentYear()
 	if err != nil {
 		internalError(w)
 		return
