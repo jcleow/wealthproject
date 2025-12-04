@@ -42,11 +42,14 @@ type TimelineItem struct {
 	Category        string               `json:"category"`
 	AmountAnnual    float64              `json:"amountAnnual"`
 	AdjustedAnnual  float64              `json:"adjAnnualAmt"`
+	AmountMonthly   float64              `json:"amountMonthly,omitempty"`   // Monthly amount (when resolution is monthly)
+	AdjustedMonthly float64              `json:"adjMonthlyAmt,omitempty"`   // Adjusted monthly amount
 	EventImpacts    []EventImpactSummary `json:"eventImpacts,omitempty"`
 	SourceAmount    *float64             `json:"sourceAmount,omitempty"`
 	SourceFrequency string               `json:"sourceFrequency,omitempty"`
 	ItemType        ItemType             `json:"itemType"`
 	CreatedYear     int                  `json:"createdYear"`
+	CreatedMonth    int                  `json:"createdMonth,omitempty"` // Month when created (1-12)
 	// GrowthRate is the per-item annual growth rate (percentage)
 	GrowthRate float64 `json:"growthRate,omitempty"`
 	// IsAccumulator indicates this is the designated cash account receiving net savings (cash accounts only)
@@ -80,10 +83,36 @@ type TimelineYear struct {
 	AccumulatorAccountID string  `json:"accumulatorAccountId,omitempty"` // ID of the accumulator cash account
 }
 
+// TimelineMonth is a single month's view of the projection (for monthly resolution).
+type TimelineMonth struct {
+	Year          int             `json:"year"`          // Calendar year (e.g., 2025)
+	Month         int             `json:"month"`         // Month number (1-12)
+	YearIndex     int             `json:"yearIndex"`     // 0-based year index
+	MonthIndex    int             `json:"monthIndex"`    // 0-based global month index
+	Assets        []TimelineItem  `json:"assets"`
+	CashAccounts  []TimelineItem  `json:"cashAccounts"`
+	Liabilities   []TimelineItem  `json:"liabilities"`
+	Income        []TimelineItem  `json:"income"`
+	Expenses      []TimelineItem  `json:"expenses"`
+	NetCash       float64         `json:"netCash"`       // Monthly net savings
+	NetWorth      float64         `json:"netWorth"`
+	HasOverrides  bool            `json:"hasOverrides"`
+	GrowthApplied []GrowthApplied `json:"growthApplied"`
+
+	// Monthly cash accumulation tracking
+	MonthlyNetSavings    float64 `json:"monthlyNetSavings,omitempty"`
+	AccumulatedCashStart float64 `json:"accumulatedCashStart,omitempty"`
+	AccumulatedCashEnd   float64 `json:"accumulatedCashEnd,omitempty"`
+	InterestEarned       float64 `json:"interestEarned,omitempty"`
+	AccumulatorAccountID string  `json:"accumulatorAccountId,omitempty"`
+}
+
 // TimelineResponse is the API shape returned to the client.
 type TimelineResponse struct {
-	Years   []TimelineYear `json:"years"`
-	Version string         `json:"version"`
+	Resolution string          `json:"resolution"`               // "yearly" or "monthly"
+	Years      []TimelineYear  `json:"years,omitempty"`
+	Months     []TimelineMonth `json:"months,omitempty"`
+	Version    string          `json:"version"`
 	// ScenariosApplied lists scenario IDs merged into this response (optional).
 	ScenariosApplied []string `json:"scenariosApplied,omitempty"`
 }
@@ -155,4 +184,24 @@ func Annualize(amount float64, freq Frequency) (float64, error) {
 		return 0, errUnsupportedFrequency
 	}
 	return amount * factor, nil
+}
+
+// ConvertToMonthly converts a value with a given frequency into a monthly amount.
+func ConvertToMonthly(amount float64, freq Frequency) (float64, error) {
+	switch freq {
+	case FrequencyAnnual:
+		return amount / 12, nil
+	case FrequencyMonthly:
+		return amount, nil
+	case FrequencyWeekly:
+		return amount * 52 / 12, nil
+	case FrequencyBiweekly:
+		return amount * 26 / 12, nil
+	case FrequencyQuarterly:
+		return amount * 4 / 12, nil
+	case FrequencySemiannual:
+		return amount * 2 / 12, nil
+	default:
+		return 0, errUnsupportedFrequency
+	}
 }
