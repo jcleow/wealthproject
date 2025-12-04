@@ -607,11 +607,22 @@ export function FinancialDataManagement({
     )
 
   const summarizeAmount = (item: TimelineItem): number => {
+    // If in monthly view mode, use monthly amounts for sorting/totals
+    if (showMonthlyData) {
+      return item.adjMonthlyAmt ?? item.amountMonthly ?? 0
+    }
+    // Otherwise use annual amounts
     return item.adjAnnualAmt ?? item.amountAnnual ?? 0
   }
 
-  const getDisplayAmount = (item: TimelineItem): number =>
-    item.adjAnnualAmt ?? item.amountAnnual ?? 0
+  const getDisplayAmount = (item: TimelineItem): number => {
+    // If in monthly view mode, show monthly amounts
+    if (showMonthlyData) {
+      return item.adjMonthlyAmt ?? item.amountMonthly ?? 0
+    }
+    // Otherwise show annual amounts
+    return item.adjAnnualAmt ?? item.amountAnnual ?? 0
+  }
 
   const getAnnualizationLabel = (item: TimelineItem): string | null => {
     const sourceAmount = item.sourceAmount
