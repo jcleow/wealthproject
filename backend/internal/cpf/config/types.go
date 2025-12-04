@@ -1,8 +1,13 @@
+// Package config provides CPF configuration types and policy data.
+//
+// Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 package config
 
 import "time"
 
-// ResidencyStatus represents the CPF residency status for contribution rate lookup
+// ResidencyStatus represents the CPF residency status for contribution rate lookup.
+// PR contribution rates are graduated over the first 3 years of obtaining PR status.
+// Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 type ResidencyStatus string
 
 const (
@@ -73,7 +78,9 @@ type ContributionRateTable struct {
 	PRYear2           AgeBasedContributionRates `json:"prYear2"`
 }
 
-// AgeBasedContributionRates contains contribution rates for each age band
+// AgeBasedContributionRates contains contribution rates for each age band.
+// Age is determined based on the employee's age on the date of payment, not calendar year.
+// Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 type AgeBasedContributionRates struct {
 	UpTo55      RatePair `json:"upTo55"`
 	Above55To60 RatePair `json:"above55To60"`
@@ -163,7 +170,9 @@ func GetAllocationAgeBand(age int) AgeBand {
 	}
 }
 
-// GetContributionRates returns the contribution rates for a given residency and age
+// GetContributionRates returns the contribution rates for a given residency and age.
+// The age parameter should be the employee's age on the date of contribution/payment.
+// Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 func (c *ConfigData) GetContributionRates(residency ResidencyStatus, age int) RatePair {
 	var rates AgeBasedContributionRates
 

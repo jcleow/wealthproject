@@ -6,7 +6,9 @@ import (
 	"time"
 )
 
-// SeedConfigurations seeds the database with CPF configurations for known years
+// SeedConfigurations seeds the database with CPF configurations for known years.
+// Rates and ceilings are sourced from:
+// https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 func SeedConfigurations(ctx context.Context, loader *Loader) error {
 	configs := []CPFConfiguration{
 		Config2024(),

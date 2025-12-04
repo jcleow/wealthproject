@@ -1,3 +1,6 @@
+// Package account provides CPF account management and persistence.
+//
+// Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 package account
 
 import (
@@ -35,6 +38,9 @@ func (a *CPFAccount) TotalBalance() int64 {
 }
 
 // Age returns the current age based on date of birth.
+// CPF contribution rates are based on the employee's age on the date of contribution,
+// not the calendar year age.
+// Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 func (a *CPFAccount) Age() int {
 	now := time.Now()
 	age := now.Year() - a.DateOfBirth.Year()
@@ -46,6 +52,9 @@ func (a *CPFAccount) Age() int {
 }
 
 // AgeAtDate returns the age at a specific date.
+// Use this to calculate CPF contributions for a specific payment date,
+// as rates are based on age on the date of contribution.
+// Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 func (a *CPFAccount) AgeAtDate(date time.Time) int {
 	age := date.Year() - a.DateOfBirth.Year()
 	if date.YearDay() < a.DateOfBirth.YearDay() {

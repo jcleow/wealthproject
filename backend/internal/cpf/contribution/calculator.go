@@ -1,3 +1,6 @@
+// Package contribution provides CPF contribution calculation logic.
+//
+// Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 package contribution
 
 import (
@@ -6,7 +9,10 @@ import (
 	"financial-chat-system/backend/internal/cpf/config"
 )
 
-// WageType represents the type of wage (Ordinary or Additional)
+// WageType represents the type of wage (Ordinary or Additional).
+// OW (Ordinary Wages) are regular monthly wages like salary.
+// AW (Additional Wages) are irregular payments like bonuses, commissions, leave pay.
+// Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 type WageType string
 
 const (
@@ -52,17 +58,22 @@ func NewCalculator(cfg *config.ConfigData) *Calculator {
 	return &Calculator{config: cfg}
 }
 
-// CalculateOW calculates CPF contributions for Ordinary Wages (monthly salary)
+// CalculateOW calculates CPF contributions for Ordinary Wages (monthly salary).
+// OW is capped at the monthly OW ceiling ($7,400 in 2025).
+// The age parameter should be the employee's age on the date of payment.
+// Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 func (c *Calculator) CalculateOW(grossWage float64, age int, residency config.ResidencyStatus) ContributionResult {
 	return c.calculate(grossWage, age, residency, WageTypeOW, 0)
 }
 
-// CalculateAW calculates CPF contributions for Additional Wages (bonus, etc.)
-// ytdOW is the year-to-date Ordinary Wages already received
-// ytdAW is the year-to-date Additional Wages already received
+// CalculateAW calculates CPF contributions for Additional Wages (bonus, etc.).
+// AW ceiling = Annual Ceiling ($102,000) - YTD OW - YTD AW.
+// ytdOW is the year-to-date Ordinary Wages already received (capped amounts).
+// ytdAW is the year-to-date Additional Wages already received.
+// The age parameter should be the employee's age on the date of payment.
+// Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 func (c *Calculator) CalculateAW(grossWage float64, age int, residency config.ResidencyStatus, ytdOW float64, ytdAW float64) ContributionResult {
 	// For AW, the ceiling is: Annual Ceiling - YTD OW - YTD AW
-	// But we also need to cap each month's AW by (Annual Ceiling / 12 - OW ceiling)
 	awCeiling := float64(c.config.AnnualCeiling) - ytdOW - ytdAW
 	if awCeiling < 0 {
 		awCeiling = 0
