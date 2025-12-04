@@ -24,10 +24,16 @@ export interface TimelineItem {
   category: string
   amountAnnual: number
   adjAnnualAmt?: number
+  /** Monthly amount (when resolution is monthly) */
+  amountMonthly?: number
+  /** Adjusted monthly amount after growth (when resolution is monthly) */
+  adjMonthlyAmt?: number
   sourceAmount?: number
   sourceFrequency?: TimelineFrequency
   itemType: TimelineItemType
   createdYear: number
+  /** Month when item was created (1-12), used with createdYear */
+  createdMonth?: number
   /** Per-item annual growth rate (percentage) */
   growthRate?: number
   /** Scenario event impacts applied to this item */
@@ -60,9 +66,42 @@ export interface TimelineYear {
   accumulatorAccountId?: string
 }
 
+/** Timeline month for monthly resolution */
+export interface TimelineMonth {
+  /** Calendar year (e.g., 2025) */
+  year: number
+  /** Month number (1-12) */
+  month: number
+  /** Year index (0-based, e.g., 0, 1, 2...) */
+  yearIndex: number
+  /** Global month index (0-based, e.g., 0-419 for 35 years) */
+  monthIndex: number
+  assets: TimelineItem[]
+  cashAccounts: TimelineItem[]
+  liabilities: TimelineItem[]
+  income: TimelineItem[]
+  expenses: TimelineItem[]
+  /** Monthly net savings (income - expenses) */
+  netCash: number
+  netWorth: number
+  hasOverrides: boolean
+  growthApplied: GrowthApplied[]
+  // Monthly cash accumulation tracking
+  monthlyNetSavings?: number
+  accumulatedCashStart?: number
+  accumulatedCashEnd?: number
+  interestEarned?: number
+  accumulatorAccountId?: string
+}
+
+export type TimeResolution = 'yearly' | 'monthly'
+
 export interface TimelineResponse {
-  years: TimelineYear[]
+  resolution: TimeResolution
   version: string
+  years?: TimelineYear[]
+  months?: TimelineMonth[]
+  scenariosApplied?: string[]
 }
 
 export interface TimelineEdit {

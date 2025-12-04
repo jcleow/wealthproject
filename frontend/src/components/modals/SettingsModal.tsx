@@ -24,7 +24,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [hasGrowthChanges, setHasGrowthChanges] = useState(false)
 
   // User settings state
-  const [editedSettings, setEditedSettings] = useState<UserSettings>({ startingAge: 30, terminalAge: 65, yearDisplayFormat: 'year_number', autoExecuteTools: false })
+  const [editedSettings, setEditedSettings] = useState<UserSettings>({
+    startingAge: 30,
+    terminalAge: 65,
+    yearDisplayFormat: 'year_number',
+    timeResolution: 'yearly',
+    autoExecuteTools: false
+  })
   const [hasSettingsChanges, setHasSettingsChanges] = useState(false)
 
   // Queries
@@ -259,6 +265,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <option value="actual_year">Actual Year ({new Date().getFullYear()}, {new Date().getFullYear() + 1}...)</option>
                   </select>
                 </div>
+
 
                 <div className="pt-4 border-t border-white/[0.06]">
                   <div className="flex items-center justify-between">

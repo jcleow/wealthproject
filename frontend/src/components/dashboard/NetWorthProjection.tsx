@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Area,
   ComposedChart,
@@ -10,149 +10,34 @@ import {
   YAxis,
 } from 'recharts'
 import { useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Plus, Mouse, Hand } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import type { ScenarioEvent } from '@/types/scenario'
-import type { TimelineYear } from '@/types/timeline'
-import { formatCurrency } from '@/lib/format'
+import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
 import { financialApi } from '@/services/financialApi'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import ScenarioMarker from './ScenarioMarker'
-
-const chartColors = {
-  axis: '#aeb6c9',
-  grid: 'rgba(86, 91, 100, 0.6)',
-  gradientStart: '#4f81ff',
-  gradientEnd: 'rgba(59, 130, 246, 0.08)',
-  stroke: '#7db0ff',
-}
-
-const DEFAULT_STARTING_AGE = 30
-const DEFAULT_TERMINAL_AGE = 65
-const BASE_CALENDAR_YEAR = new Date().getFullYear()
-const AREA_ANIMATION_MS = 700
-const MARKER_BUFFER_MS = 400
-
-type AxisMode = 'age' | 'year_number' | 'actual_year'
-
-type ProjectionPoint = {
-  yearIndex: number
-  yearLabel: string
-  netWorth: number
-  totalAssets: number
-  totalLiabilities: number
-  calendarYear: number
-  hasNonAnnualSource?: boolean
-  hasOverride?: boolean
-}
-
-interface CustomTooltipProps {
-  active?: boolean
-  payload?: ReadonlyArray<{ payload: ProjectionPoint }>
-  startingAge?: number
-}
-
-function CustomTooltip({
-  active,
-  payload,
-  startingAge = DEFAULT_STARTING_AGE,
-}: CustomTooltipProps) {
-  if (!active || !payload || !payload.length) return null
-  const data = payload[0].payload
-
-  // Calculate age for this year
-  const age = startingAge + data.yearIndex
-
-  return (
-    <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur-xl min-w-[180px]">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-        Year {data.calendarYear} (Age {age})
-      </p>
-      <p className="mt-0.5 text-xl font-light text-white">
-        {formatCurrency(data.netWorth)}
-      </p>
-      <div className="mt-2 space-y-1">
-        <div className="flex items-center justify-between text-xs">
-          <span className="flex items-center gap-1.5 text-sky-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-            Assets
-          </span>
-          <span className="font-mono text-slate-200">{formatCurrency(data.totalAssets)}</span>
-        </div>
-        <div className="flex items-center justify-between text-xs">
-          <span className="flex items-center gap-1.5 text-rose-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
-            Liabilities
-          </span>
-          <span className="font-mono text-slate-200">{formatCurrency(data.totalLiabilities)}</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function YearTick({
-  x = 0,
-  y = 0,
-  payload,
-  overrideYears,
-  onSelectYear,
-  selectedYear,
-  mode,
-  startingAge,
-}: {
-  x?: number
-  y?: number
-  payload?: { value: number }
-  overrideYears: Set<number>
-  onSelectYear?: (year: number) => void
-  selectedYear?: number
-  mode: AxisMode
-  startingAge?: number
-}) {
-  if (!payload) return null
-  const isOverride = overrideYears.has(payload.value)
-  const isSelected = selectedYear === payload.value
-  const age = startingAge ?? DEFAULT_STARTING_AGE
-  const labelValue = mode === 'age'
-    ? age + payload.value
-    : mode === 'actual_year'
-      ? `'${String(BASE_CALENDAR_YEAR + payload.value).slice(-2)}`
-      : payload.value
-  const handleClick = () => {
-    if (onSelectYear) onSelectYear(payload.value)
-  }
-
-  return (
-    <g
-      transform={`translate(${x},${y})`}
-      className="cursor-pointer"
-      onClick={handleClick}
-      aria-label={`Year ${payload.value}`}
-    >
-      <text
-        dy={12}
-        fill={isSelected ? '#a5b4fc' : '#cbd5e1'}
-        fontSize={12}
-        fontWeight={isSelected ? 700 : 400}
-        textAnchor="middle"
-      >
-        {labelValue}
-      </text>
-      {isOverride && (
-        <path
-          d="M0,14 L7,28 L-7,28 Z"
-          fill="#38bdf8"
-          data-testid={`override-marker-${payload.value}`}
-        />
-      )}
-    </g>
-  )
-}
+import { ZoomControls, type ZoomLevel } from '@/components/timeline/ZoomControls'
+import { CustomTooltip } from './projections/CustomTooltip'
+import { YearTick } from './projections/YearTick'
+import {
+  chartColors,
+  DEFAULT_STARTING_AGE,
+  DEFAULT_TERMINAL_AGE,
+  BASE_CALENDAR_YEAR,
+  AREA_ANIMATION_MS,
+  MARKER_BUFFER_MS,
+  type AxisMode,
+  type ProjectionPoint,
+} from './projections/types'
 
 export interface NetWorthProjectionProps {
   timelineYears?: TimelineYear[]
+  timelineMonths?: TimelineMonth[]
+  resolution?: TimeResolution
+  zoomLevel?: ZoomLevel
+  onZoomLevelChange?: (level: ZoomLevel) => void
   overrideYears?: Set<number>
   selectedYear?: number
   onSelectYear?: (year: number) => void
@@ -165,6 +50,10 @@ export interface NetWorthProjectionProps {
 
 export function NetWorthProjection({
   timelineYears,
+  timelineMonths,
+  resolution = 'yearly',
+  zoomLevel: externalZoomLevel,
+  onZoomLevelChange,
   overrideYears,
   selectedYear,
   onSelectYear,
@@ -190,6 +79,28 @@ export function NetWorthProjection({
   })
 
   const [xAxisMode, setXAxisMode] = useState<AxisMode>('year_number')
+  const [internalZoomLevel, setInternalZoomLevel] = useState<ZoomLevel>('yearly')
+  const zoomLevel = externalZoomLevel ?? internalZoomLevel
+
+  // Scroll mode: 'page' allows normal page scrolling, 'zoom' enables zoom on scroll
+  const [scrollMode, setScrollMode] = useState<'page' | 'zoom'>('page')
+
+  // Windowing state for zoom
+  const [startIndex, setStartIndex] = useState<number | null>(null)
+  const [endIndex, setEndIndex] = useState<number | null>(null)
+
+  // Zoom level history to ensure symmetrical zoom in/out
+  const [zoomRangeStack, setZoomRangeStack] = useState<number[]>([])
+
+  const setZoomLevel = (value: ZoomLevel | ((prev: ZoomLevel) => ZoomLevel)) => {
+    if (onZoomLevelChange) {
+      const newLevel = typeof value === 'function' ? value(zoomLevel) : value
+      onZoomLevelChange(newLevel)
+    } else {
+      setInternalZoomLevel(value)
+    }
+  }
+
   const [hasSize, setHasSize] = useState(false)
   const [containerWidth, setContainerWidth] = useState(0)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
@@ -213,7 +124,61 @@ export function NetWorthProjection({
     return () => media.removeEventListener('change', listener)
   }, [])
 
+  // Effective resolution based on available data
+  // Always use 'monthly' if we have monthly data (which we always do now)
+  const effectiveResolution: TimeResolution = 'monthly'
+
+  // Derive windowing indices - clear them when in yearly mode
+  const actualStartIndex = zoomLevel === 'yearly' ? null : startIndex
+  const actualEndIndex = zoomLevel === 'yearly' ? null : endIndex
+
+  // Refs for stable event handlers (avoid recreating handlers on every state change)
+  const startIndexRef = useRef(startIndex)
+  const endIndexRef = useRef(endIndex)
+  const zoomRangeStackRef = useRef(zoomRangeStack)
+  const zoomLevelRef = useRef(zoomLevel)
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    startIndexRef.current = startIndex
+    endIndexRef.current = endIndex
+    zoomRangeStackRef.current = zoomRangeStack
+    zoomLevelRef.current = zoomLevel
+  })
+
   const projection = useMemo<ProjectionPoint[]>(() => {
+    // Always use monthly data when available (regardless of zoom level)
+    // The zoom level only affects how we display the data (axis labels, windowing)
+    if (timelineMonths && timelineMonths.length > 0) {
+      const baseCalendarYear = 2025
+      const monthlyProjection = timelineMonths.map<ProjectionPoint>((month) => {
+        const assets = month.assets ?? []
+        const liabilities = month.liabilities ?? []
+
+        const totalAssets = assets.reduce((sum, item) => sum + (item.amountMonthly ?? item.amountAnnual ?? 0), 0)
+        const totalLiabilities = liabilities.reduce(
+          (sum, item) => sum + (item.amountMonthly ?? item.amountAnnual ?? 0),
+          0
+        )
+
+        const calendarYear = baseCalendarYear + month.year
+
+        return {
+          yearIndex: month.monthIndex, // Use global month index for x-axis
+          yearLabel: `${month.year}-${String(month.month).padStart(2, '0')}`,
+          netWorth: month.netWorth ?? 0,
+          totalAssets,
+          totalLiabilities,
+          calendarYear,
+          hasNonAnnualSource: false,
+          hasOverride: !!month.hasOverrides,
+        }
+      })
+
+      return monthlyProjection
+    }
+
+    // Handle yearly data
     if (timelineYears && timelineYears.length > 0) {
       const baseCalendarYear = 2025
       const timelineProjection = timelineYears.map<ProjectionPoint>((year) => {
@@ -324,8 +289,10 @@ export function NetWorthProjection({
     incomes,
     liabilities,
     timelineYears,
+    timelineMonths,
     userSettings?.startingAge,
     userSettings?.terminalAge,
+    zoomLevel,
   ])
 
   useEffect(() => {
@@ -342,37 +309,309 @@ export function NetWorthProjection({
     return () => observer.disconnect()
   }, [])
 
-  // Filter data based on zoom (currently passthrough)
-  const displayData = projection
+  // Window data based on zoom level
+  const displayData = useMemo(() => {
+    if (effectiveResolution !== 'monthly' || actualStartIndex === null || actualEndIndex === null) {
+      return projection
+    }
+
+    // Return windowed subset of data
+    return projection.slice(actualStartIndex, actualEndIndex + 1)
+  }, [projection, effectiveResolution, actualStartIndex, actualEndIndex])
+
+  // Calculate visible range in months
+  const visibleRangeMonths = useMemo(() => {
+    if (effectiveResolution !== 'monthly' || actualStartIndex === null || actualEndIndex === null) {
+      return projection.length
+    }
+    return actualEndIndex - actualStartIndex + 1
+  }, [effectiveResolution, actualStartIndex, actualEndIndex, projection.length])
+
+  // Prevent page scroll when mouse is over chart container
+  useEffect(() => {
+    const chartContainer = chartContainerRef.current
+    if (!chartContainer) return
+
+    const preventScroll = (e: WheelEvent) => {
+      // Always prevent page scroll when over the chart area
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    chartContainer.addEventListener('wheel', preventScroll, { passive: false })
+    return () => chartContainer.removeEventListener('wheel', preventScroll)
+  }, [])
+
+  // Mouse wheel zoom handler with stable reference
+  useEffect(() => {
+    const chartElement = chartWrapperRef.current
+    if (!chartElement) return
+    if (projection.length === 0) return
+    if (scrollMode !== 'zoom') return // Only zoom when in zoom mode
+    if (resolution !== 'monthly') return // Only enable zoom when resolution is monthly
+
+    let isProcessing = false // Prevent multiple rapid zooms
+
+    const handleWheel = (e: WheelEvent) => {
+      // Only handle wheel events when hovering over the chart
+      if (!chartElement.contains(e.target as Node)) return
+      if (isProcessing) return // Debounce rapid scrolls
+
+      // Note: preventDefault is already called by the preventScroll handler above
+      isProcessing = true
+
+      // Reset processing flag after a short delay
+      setTimeout(() => { isProcessing = false }, 50)
+
+      const direction = e.deltaY < 0 ? -1 : 1 // -1 = zoom in, 1 = zoom out
+
+      // Calculate mouse position as data index
+      const rect = chartElement.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mousePercentage = mouseX / rect.width
+
+      // Get current center point using refs for latest values
+      const currentStart = startIndexRef.current ?? 0
+      const currentEnd = endIndexRef.current ?? projection.length - 1
+      const currentRange = currentEnd - currentStart + 1
+      const centerIndex = Math.floor(currentStart + currentRange * mousePercentage)
+
+      if (direction < 0) {
+        // Zoom in: reduce range by dividing by 1.5 for gradual zoom
+        const newRange = Math.max(12, Math.floor(currentRange / 1.5))
+        const halfRange = Math.floor(newRange / 2)
+
+        let newStart = centerIndex - halfRange
+        let newEnd = centerIndex + halfRange
+
+        // Clamp to valid bounds
+        if (newStart < 0) {
+          newStart = 0
+          newEnd = Math.min(projection.length - 1, newRange - 1)
+        } else if (newEnd >= projection.length) {
+          newEnd = projection.length - 1
+          newStart = Math.max(0, projection.length - newRange)
+        }
+
+        // Push current range to stack before zooming in (for perfect symmetry)
+        setZoomRangeStack(prev => [...prev, currentRange])
+        setStartIndex(newStart)
+        setEndIndex(newEnd)
+        setZoomLevel('monthly')
+      } else {
+        // Zoom out: use stack to restore previous range for symmetry
+        if (zoomRangeStackRef.current.length > 0) {
+          // Pop from stack to get the exact previous range
+          const previousRange = zoomRangeStackRef.current[zoomRangeStackRef.current.length - 1]
+          setZoomRangeStack(prev => prev.slice(0, -1))
+
+          // If we're going back to full view, switch to yearly
+          if (previousRange >= projection.length - 6) {
+            setStartIndex(null)
+            setEndIndex(null)
+            setZoomLevel('yearly')
+            return
+          }
+
+          const halfRange = Math.floor(previousRange / 2)
+          const newStart = Math.max(0, centerIndex - halfRange)
+          const newEnd = Math.min(projection.length - 1, centerIndex + halfRange)
+
+          setStartIndex(newStart)
+          setEndIndex(newEnd)
+          setZoomLevel('monthly')
+        } else {
+          // No history, just switch back to yearly view
+          setStartIndex(null)
+          setEndIndex(null)
+          setZoomLevel('yearly')
+        }
+      }
+    }
+
+    chartElement.addEventListener('wheel', handleWheel, { passive: false })
+    return () => chartElement.removeEventListener('wheel', handleWheel)
+  }, [scrollMode, resolution, projection.length]) // Reduced dependencies - use refs for state
+
+  // Drag-to-pan handler with stable reference
+  useEffect(() => {
+    const chartElement = chartWrapperRef.current
+    if (!chartElement) return
+    if (effectiveResolution !== 'monthly') return
+    if (startIndexRef.current === null || endIndexRef.current === null) return // Only allow panning when zoomed
+
+    let isDragging = false
+    let dragStartData: { x: number; startIdx: number; endIdx: number } | null = null
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!chartElement.contains(e.target as Node)) return
+      const currentStart = startIndexRef.current
+      const currentEnd = endIndexRef.current
+      if (currentStart === null || currentEnd === null) return
+
+      isDragging = true
+      dragStartData = {
+        x: e.clientX,
+        startIdx: currentStart,
+        endIdx: currentEnd,
+      }
+      chartElement.style.cursor = 'grabbing'
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !dragStartData) return
+
+      const rect = chartElement.getBoundingClientRect()
+      const deltaX = e.clientX - dragStartData.x
+      const dataRange = dragStartData.endIdx - dragStartData.startIdx
+      const pixelsPerIndex = rect.width / dataRange
+      const indexDelta = Math.round(-deltaX / pixelsPerIndex) // Negative for natural panning direction
+
+      const newStart = Math.max(0, Math.min(projection.length - dataRange, dragStartData.startIdx + indexDelta))
+      const newEnd = newStart + dataRange
+
+      setStartIndex(newStart)
+      setEndIndex(newEnd)
+    }
+
+    const handleMouseUp = () => {
+      isDragging = false
+      dragStartData = null
+      chartElement.style.cursor = 'grab'
+    }
+
+    // Set initial cursor
+    chartElement.style.cursor = 'grab'
+
+    window.addEventListener('mousedown', handleMouseDown)
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      chartElement.style.cursor = 'default'
+    }
+  }, [effectiveResolution, projection.length]) // Reduced dependencies - use refs for indices
+
+  // Helper functions for zoom in/out buttons
+  const handleZoomIn = useCallback(() => {
+    if (resolution !== 'monthly' || projection.length === 0) return
+
+    const currentStart = startIndex ?? 0
+    const currentEnd = endIndex ?? projection.length - 1
+    const currentRange = currentEnd - currentStart
+    const centerIndex = Math.floor((currentStart + currentEnd) / 2)
+
+    // Reduce the range by 25% (zoom in gradually)
+    const newRange = Math.max(12, Math.floor(currentRange * 0.75)) // Minimum 12 months visible
+    const halfRange = Math.floor(newRange / 2)
+
+    const newStart = Math.max(0, centerIndex - halfRange)
+    const newEnd = Math.min(projection.length - 1, centerIndex + halfRange)
+
+    setStartIndex(newStart)
+    setEndIndex(newEnd)
+    setZoomLevel('monthly')
+  }, [resolution, projection.length, startIndex, endIndex])
+
+  const handleZoomOut = useCallback(() => {
+    if (resolution !== 'monthly' || projection.length === 0) return
+
+    const currentStart = startIndex ?? 0
+    const currentEnd = endIndex ?? projection.length - 1
+    const currentRange = currentEnd - currentStart
+    const centerIndex = Math.floor((currentStart + currentEnd) / 2)
+
+    // Increase the range by 33% (zoom out gradually)
+    const newRange = Math.min(projection.length, Math.floor(currentRange * 1.33))
+
+    // If we're showing all or most of the data, switch back to yearly view
+    if (newRange >= projection.length - 6) {
+      setStartIndex(null)
+      setEndIndex(null)
+      setZoomLevel('yearly')
+      return
+    }
+
+    const halfRange = Math.floor(newRange / 2)
+    const newStart = Math.max(0, centerIndex - halfRange)
+    const newEnd = Math.min(projection.length - 1, centerIndex + halfRange)
+
+    setStartIndex(newStart)
+    setEndIndex(newEnd)
+    setZoomLevel('monthly')
+  }, [resolution, projection.length, startIndex, endIndex])
+
+  // Determine if zoom buttons should be enabled
+  const canZoomIn = useMemo(() => {
+    if (resolution !== 'monthly') return false
+    if (projection.length === 0) return false
+
+    const currentStart = startIndex ?? 0
+    const currentEnd = endIndex ?? projection.length - 1
+    const currentRange = currentEnd - currentStart
+
+    // Can zoom in if we're showing more than the minimum (12 months)
+    return currentRange > 12
+  }, [resolution, startIndex, endIndex, projection.length])
+
+  const canZoomOut = useMemo(() => {
+    if (resolution !== 'monthly') return false
+    if (projection.length === 0) return false
+
+    // Can zoom out if we're not showing all the data
+    return startIndex !== null && endIndex !== null
+  }, [resolution, startIndex, endIndex, projection.length])
+
   const areaAnimationEnabled = !prefersReducedMotion && displayData.length > 0
 
-  // Reset marker visibility when data changes; show once line animation finishes (with fallback timer)
+  // Manage marker visibility after chart animation completes
   useEffect(() => {
     if (!areaAnimationEnabled) {
       setMarkersReady(true)
       return
     }
+
+    // Hide markers during animation
     setMarkersReady(false)
+
+    // Show markers after animation completes (with safety buffer)
     const timer = window.setTimeout(
       () => setMarkersReady(true),
-      AREA_ANIMATION_MS + MARKER_BUFFER_MS
+      AREA_ANIMATION_MS + MARKER_BUFFER_MS + 300 // Combined primary + safety timeout
     )
+
     return () => window.clearTimeout(timer)
   }, [displayData.length, areaAnimationEnabled])
 
-  // Absolute fallback to ensure markers are shown even if animation callbacks fail
-  useEffect(() => {
-    if (!areaAnimationEnabled) return
-    const safetyTimer = window.setTimeout(
-      () => setMarkersReady(true),
-      AREA_ANIMATION_MS + MARKER_BUFFER_MS + 300
-    )
-    return () => window.clearTimeout(safetyTimer)
-  }, [displayData.length, areaAnimationEnabled])
-
-  const ticks = (() => {
+  const ticks = useMemo(() => {
     const totalPoints = displayData.length
     if (totalPoints === 0) return [] as number[]
+
+    // When showing years (not months), only show one tick per unique year
+    const showingYears = effectiveResolution === 'monthly' && visibleRangeMonths >= 24
+
+    if (showingYears) {
+      // Group by year and pick the first month of each year
+      const seenYears = new Set<number>()
+      const values: number[] = []
+
+      for (let i = 0; i < totalPoints; i++) {
+        const point = displayData[i]
+        const year = Math.floor(point.yearIndex / 12)
+
+        if (!seenYears.has(year)) {
+          seenYears.add(year)
+          values.push(point.yearIndex)
+        }
+      }
+
+      return values
+    }
+
+    // Default tick generation for monthly view or yearly resolution
     const minSpacingPx = 60
     const width = Math.max(containerWidth, 1)
     const maxTicks = Math.max(6, Math.floor(width / minSpacingPx))
@@ -386,7 +625,7 @@ export function NetWorthProjection({
     const first = displayData[0]?.yearIndex ?? 0
     if (values[0] !== first) values.unshift(first)
     return values
-  })()
+  }, [displayData, effectiveResolution, visibleRangeMonths, containerWidth])
 
   const overrideYearsSet = useMemo(
     () =>
@@ -400,49 +639,55 @@ export function NetWorthProjection({
   const scenarioMarkers = useMemo(() => {
     if (!scenarioEvents || scenarioEvents.length === 0 || displayData.length === 0) return []
 
-    const currentYear = new Date().getFullYear()
-    const basePoint = displayData[0]
-    const baseYear = basePoint?.calendarYear ?? currentYear
-    const baseIndex = basePoint?.yearIndex ?? 0
-    const minIndex = projection[0]?.yearIndex ?? 0
-    const maxIndex = projection[projection.length - 1]?.yearIndex ?? minIndex
+    const markersByIndex = new Map<number, { events: ScenarioEvent[]; netWorth: number }>()
 
-    const markersByYear = new Map<number, { events: ScenarioEvent[]; netWorth: number }>()
-
-    const parseEventYear = (occursOn: string) => {
-      const year = Number.parseInt(occursOn.slice(0, 4), 10)
-      return Number.isFinite(year) ? year : null
+    // Parse event date (YYYY-MM-DD format) and extract year and month
+    const parseEventDate = (occursOn: string): { year: number; month: number } | null => {
+      const parts = occursOn.split('-')
+      if (parts.length < 2) return null
+      const year = Number.parseInt(parts[0], 10)
+      const month = Number.parseInt(parts[1], 10)
+      if (!Number.isFinite(year) || !Number.isFinite(month)) return null
+      return { year, month }
     }
 
     scenarioEvents.forEach((event) => {
       if (event.isIncluded === false) return
-      const eventYear = parseEventYear(event.occursOn)
-      if (eventYear === null) return
+      const eventDate = parseEventDate(event.occursOn)
+      if (eventDate === null) return
 
-      // Calculate the year index relative to the base display point
-      const yearIndex = baseIndex + (eventYear - baseYear)
-      const clampedIndex = Math.max(minIndex, Math.min(maxIndex, yearIndex))
+      let displayPoint: ProjectionPoint | undefined
 
-      // Match by calendarYear if present; otherwise by yearIndex
-      const displayPoint =
-        displayData.find((entry) => entry.calendarYear === eventYear) ??
-        displayData.find((entry) => entry.yearIndex === clampedIndex) ??
-        displayData.find((entry) => entry.yearIndex === yearIndex)
+      if (effectiveResolution === 'monthly') {
+        // Monthly mode: match by calendar year and month directly in displayData
+        // Each displayPoint has calendarYear and we can calculate the month from yearIndex
+        displayPoint = displayData.find((point) => {
+          const pointMonth = (point.yearIndex % 12) + 1 // Convert 0-based month index to 1-based month
+          return point.calendarYear === eventDate.year && pointMonth === eventDate.month
+        })
 
-      if (!displayPoint) return
+        // If not found in current window, skip this event
+        if (!displayPoint) return
+      } else {
+        // Yearly mode: match by calendar year
+        displayPoint = displayData.find((entry) => entry.calendarYear === eventDate.year)
+
+        // If not found in current window, skip this event
+        if (!displayPoint) return
+      }
 
       const netWorth = displayPoint.netWorth
 
-      const existing = markersByYear.get(displayPoint.yearIndex) ?? { events: [], netWorth }
-      markersByYear.set(displayPoint.yearIndex, { events: [...existing.events, event], netWorth })
+      const existing = markersByIndex.get(displayPoint.yearIndex) ?? { events: [], netWorth }
+      markersByIndex.set(displayPoint.yearIndex, { events: [...existing.events, event], netWorth })
     })
 
-    return Array.from(markersByYear.entries()).map(([yearIndex, data]) => ({
+    return Array.from(markersByIndex.entries()).map(([yearIndex, data]) => ({
       yearIndex,
       netWorth: Math.max(data.netWorth, 0),
       events: data.events,
     }))
-  }, [scenarioEvents, displayData, projection])
+  }, [scenarioEvents, displayData, projection, effectiveResolution, timelineMonths, zoomLevel])
 
   const planningYears = Math.max(1, (userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE) - (userSettings?.startingAge ?? DEFAULT_STARTING_AGE))
 
@@ -460,22 +705,53 @@ export function NetWorthProjection({
             {chartSubtitle ?? defaultSubtitle}
           </p>
         </div>
-        {onAddScenario && (
-          <button
-            onClick={onAddScenario}
-            className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:border-white/[0.12] hover:bg-white/[0.04] hover:text-slate-200"
-            type="button"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Scenario
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {onAddScenario && (
+            <button
+              onClick={onAddScenario}
+              className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:border-white/[0.12] hover:bg-white/[0.04] hover:text-slate-200"
+              type="button"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Scenario
+            </button>
+          )}
+        </div>
       </div>
 
       <div
         ref={chartContainerRef}
         className="relative w-full flex-1 min-h-[250px] min-w-0 overflow-hidden [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
       >
+        {/* Zoom controls and scroll mode toggle positioned on the right side - always visible */}
+        <div className="absolute right-4 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-3">
+          {/* Scroll mode toggle */}
+          <button
+            onClick={() => setScrollMode(scrollMode === 'page' ? 'zoom' : 'page')}
+            className="flex flex-col items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0a0a0a]/80 p-2 backdrop-blur-sm transition-colors hover:bg-white/5"
+            title={scrollMode === 'page' ? 'Switch to scroll-to-zoom mode' : 'Switch to page scroll mode'}
+            type="button"
+          >
+            {scrollMode === 'page' ? (
+              <Mouse className="h-4 w-4 text-gray-400" />
+            ) : (
+              <Hand className="h-4 w-4 text-blue-400" />
+            )}
+            <span className="text-[9px] text-gray-400">
+              {scrollMode === 'page' ? 'Scroll' : 'Zoom'}
+            </span>
+          </button>
+
+          {/* Zoom controls - only show reset when zoomed in */}
+          <ZoomControls
+            zoomLevel={zoomLevel}
+            onZoomChange={setZoomLevel}
+            canZoomIn={canZoomIn}
+            canZoomOut={canZoomOut}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+          />
+        </div>
         {hasSize && displayData.length > 0 ? (
           <div
             ref={chartWrapperRef}
@@ -517,6 +793,8 @@ export function NetWorthProjection({
                       selectedYear={selectedYear}
                       mode={xAxisMode}
                       startingAge={userSettings?.startingAge}
+                      resolution={effectiveResolution}
+                      visibleRangeMonths={visibleRangeMonths}
                     />
                   }
                 />
@@ -555,7 +833,7 @@ export function NetWorthProjection({
                 />
 
                 <Tooltip
-                  content={<CustomTooltip startingAge={userSettings?.startingAge} />}
+                  content={<CustomTooltip startingAge={userSettings?.startingAge} resolution={effectiveResolution} />}
                   cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }}
                 />
 
@@ -565,6 +843,7 @@ export function NetWorthProjection({
                     dataKey="netWorth"
                     xAxisId={0}
                     yAxisId={0}
+                    fill="#8884d8"
                     shape={({ cx = 0, cy = 0, payload }: any) => (
                       <ScenarioMarker
                         cx={cx}

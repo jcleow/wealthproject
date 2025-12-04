@@ -1,26 +1,43 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { PanelLeftOpen } from 'lucide-react'
 
 import { Chat } from '../chat/Chat'
 import { ChatFloatingLauncher } from './ChatFloatingLauncher'
 import { FinancialDataManagement } from './FinancialDataManagement'
 import { FinancialWorkspace } from './FinancialWorkspace'
+import { CPFSimulationView } from '../cpf/CPFSimulationView'
 import { useTimeline } from '@/hooks/useTimeline'
 import { generateUUID } from '@/lib/utils'
 import { FinancialDataProvider } from '@/contexts/FinancialDataContext'
+import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 
 export function Dashboard() {
   const chatIdRef = useRef<string>(generateUUID())
   const chatId = chatIdRef.current
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
-  const [isChatCollapsed, setIsChatCollapsed] = useState(false)
-  const timeline = useTimeline()
+  const [isChatCollapsed, setIsChatCollapsed] = useState(true)
+  const [showCPFView, setShowCPFView] = useState(false)
+  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('yearly')
+  const timeline = useTimeline({ resolution: 'monthly' })
   const timelineError =
     timeline.timelineQuery.error instanceof Error
       ? timeline.timelineQuery.error.message
       : null
+
+  // Keyboard shortcut: Cmd+B to toggle chat
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+        e.preventDefault()
+        setIsChatCollapsed((prev) => !prev)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   return (
     <FinancialDataProvider>
@@ -82,27 +99,46 @@ export function Dashboard() {
 
           {/* Right side - Dashboard */}
           <div className="flex h-screen flex-1 flex-col gap-6 overflow-y-auto p-6">
-            {/* Top workspace with chart */}
-            <div className="flex min-h-[60vh] min-w-0 shrink-0 flex-col overflow-hidden rounded-2xl bg-transparent">
-              <FinancialWorkspace
-                selectedYear={timeline.selectedYear}
-                onSelectYear={timeline.setSelectedYear}
-                timelineYears={timeline.timelineQuery.data?.years}
-                overrideYears={timeline.overrideYears}
-                timelineError={timelineError}
-              />
-            </div>
+            {showCPFView ? (
+              /* CPF Simulation View */
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0a0a]/80">
+                <CPFSimulationView onClose={() => setShowCPFView(false)} />
+              </div>
+            ) : (
+              <>
+                {/* Top workspace with chart */}
+                <div className="flex min-h-[60vh] min-w-0 shrink-0 flex-col overflow-hidden rounded-2xl bg-transparent">
+                  <FinancialWorkspace
+                    selectedYear={timeline.selectedYear}
+                    onSelectYear={timeline.setSelectedYear}
+                    timelineYears={timeline.timelineQuery.data?.years}
+                    timelineMonths={timeline.timelineQuery.data?.months}
+                    resolution={timeline.resolution}
+                    zoomLevel={zoomLevel}
+                    onZoomLevelChange={setZoomLevel}
+                    overrideYears={timeline.overrideYears}
+                    timelineError={timelineError}
+                    onOpenCPF={() => setShowCPFView(true)}
+                  />
+                </div>
 
-            {/* Financial data cards */}
-            <div className="min-h-0 min-w-0 shrink-0">
-              <FinancialDataManagement
-                selectedYear={timeline.selectedYear}
-                onSelectYear={timeline.setSelectedYear}
-                timelineYear={timeline.selectedYearData}
-                isTimelineLoading={timeline.timelineQuery.isLoading}
-                onSaveTimelineEdits={timeline.saveEdits}
-              />
-            </div>
+                {/* Financial data cards */}
+                <div className="min-h-0 min-w-0 shrink-0">
+                  <FinancialDataManagement
+                    selectedYear={timeline.selectedYear}
+                    onSelectYear={timeline.setSelectedYear}
+                    selectedMonth={timeline.selectedMonth}
+                    onSelectMonth={timeline.setSelectedMonth}
+                    timelineYear={timeline.selectedYearData}
+                    timelineMonth={timeline.selectedMonthData}
+                    resolution={timeline.resolution}
+                    zoomLevel={zoomLevel}
+                    isTimelineLoading={timeline.timelineQuery.isLoading}
+                    onSaveTimelineEdits={timeline.saveEdits}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

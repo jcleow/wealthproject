@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -44,13 +45,186 @@ func NewServiceWithScenario(store Store, sa scenarioApplier) *Service {
 	return &Service{store: store, scenarios: sa}
 }
 
-// GetTimeline returns the full 0..30 timeline.
+// GetTimeline returns the full timeline using user's saved resolution preference.
 func (s *Service) GetTimeline(ctx context.Context) (TimelineResponse, error) {
 	userID := getUserIDFromContext(ctx)
 	if userID == "" {
 		return TimelineResponse{}, errors.New("user context required")
 	}
 	return s.buildTimeline(ctx, userID)
+}
+
+// GetTimelineWithResolution returns the full timeline with an optional resolution override.
+// If resolutionOverride is empty, uses the user's saved preference.
+func (s *Service) GetTimelineWithResolution(ctx context.Context, resolutionOverride string) (TimelineResponse, error) {
+	userID := getUserIDFromContext(ctx)
+	if userID == "" {
+		return TimelineResponse{}, errors.New("user context required")
+	}
+
+	// Fetch user settings
+	userSettings, err := s.store.GetUserSettings(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	// Apply resolution override if provided
+	if resolutionOverride != "" && (resolutionOverride == "yearly" || resolutionOverride == "monthly") {
+		userSettings.TimeResolution = resolutionOverride
+	}
+
+	// Check if monthly resolution is requested
+	if userSettings.TimeResolution == "monthly" {
+		return s.buildTimelineMonthly(ctx, userID, userSettings)
+	}
+
+	// Calculate total years from user settings
+	totalYears := defaultTotalYears
+	if userSettings.TerminalAge > userSettings.StartingAge {
+		totalYears = userSettings.TerminalAge - userSettings.StartingAge + 1
+	}
+
+	growthCfg, err := s.ensureGrowth(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	// Ensure accumulator cash account exists
+	accumulator, err := s.ensureAccumulatorAccount(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	// Load all cash accounts
+	cashAccounts, err := s.store.ListCashAccounts(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	rows, err := s.loadEffectiveRows(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+	rowsByYear := map[int][]effectiveRow{}
+	for _, r := range rows {
+		rowsByYear[r.StartYear] = append(rowsByYear[r.StartYear], r)
+	}
+
+	state := map[string]itemState{}
+
+	// Track accumulated cash (starts from accumulator's initial balance)
+	accumulatedCash := accumulator.Balance
+	cashGrowthRate := accumulator.InterestRate
+
+	years := make([]TimelineYear, totalYears)
+	for year := 0; year < totalYears; year++ {
+		cashAtStart := accumulatedCash
+
+		// expire by end_year
+		for id, st := range state {
+			if st.endYear != nil && year > *st.endYear {
+				delete(state, id)
+			}
+		}
+
+		if year > 0 {
+			for id, st := range state {
+				rate := st.growthRate
+				if rate == 0 && st.item.ItemType != ItemTypeIncome && st.item.ItemType != ItemTypeExpense {
+					rate = lookupGrowthRate(growthCfg, st.item.Category, st.item.ItemType)
+				}
+				st.amount = applyGrowth(st.amount, rate)
+				st.item.AmountAnnual = st.amount
+				st.item.AdjustedAnnual = st.amount
+				state[id] = st
+			}
+		}
+
+		hasOverride := len(rowsByYear[year]) > 0 && year > 0
+		for _, r := range rowsByYear[year] {
+			annual, err := Annualize(r.Amount, r.Frequency)
+			if err != nil {
+				return TimelineResponse{}, err
+			}
+
+			if r.Amount == 0 {
+				delete(state, r.ParentID)
+				hasOverride = true
+				continue
+			}
+
+			var endYearPtr *int
+			if r.EndYear.Valid {
+				val := int(r.EndYear.Int32)
+				endYearPtr = &val
+			}
+
+			state[r.ParentID] = itemState{
+				item: TimelineItem{
+					ItemID:          r.ParentID,
+					RowID:           r.ID,
+					ParentID:        r.ParentID,
+					Name:            r.Name,
+					Category:        r.Category,
+					AmountAnnual:    annual,
+					AdjustedAnnual:  annual,
+					SourceAmount:    &r.Amount,
+					SourceFrequency: string(r.Frequency),
+					ItemType:        r.ItemType,
+					CreatedYear:     r.StartYear,
+					GrowthRate:      r.GrowthRate,
+				},
+				amount:     annual,
+				endYear:    endYearPtr,
+				growthRate: r.GrowthRate,
+			}
+		}
+
+		yearItems := segregateItems(state, year)
+
+		// Calculate annual net savings (income - expenses)
+		annualNetSavings := sumAnnual(yearItems.Income) - sumAnnual(yearItems.Expenses)
+
+		// Only accumulate starting from year 1 - year 0 is the baseline
+		interestEarned := 0.0
+		if year > 0 {
+			accumulatedCash += annualNetSavings
+			interestEarned = accumulatedCash * (cashGrowthRate / 100.0)
+			accumulatedCash += interestEarned
+		}
+
+		cashItems := buildCashItems(cashAccounts, accumulator.ID, accumulatedCash, year)
+
+		totalCash := sumCashAccountBalances(cashItems)
+		totalAssets := sumAnnual(yearItems.Assets)
+		netWorth := totalAssets + totalCash - sumAnnual(yearItems.Liabilities)
+
+		years[year] = TimelineYear{
+			Year:          year,
+			Assets:        yearItems.Assets,
+			CashAccounts:  cashItems,
+			Liabilities:   yearItems.Liabilities,
+			Income:        yearItems.Income,
+			Expenses:      yearItems.Expenses,
+			NetCash:       annualNetSavings,
+			NetWorth:      netWorth,
+			HasOverrides:  hasOverride,
+			GrowthApplied: toGrowthApplied(growthCfg),
+
+			AnnualNetSavings:     annualNetSavings,
+			AccumulatedCashStart: cashAtStart,
+			AccumulatedCashEnd:   accumulatedCash,
+			InterestEarned:       interestEarned,
+			AccumulatorAccountID: accumulator.ID,
+		}
+	}
+
+	resp := TimelineResponse{
+		Resolution: "yearly",
+		Years:      years,
+		Version:    defaultVersion,
+	}
+	return resp, nil
 }
 
 // GetTimelineWithScenarios optionally merges scenarios for a given user/year selection.
@@ -312,6 +486,11 @@ func (s *Service) buildTimeline(ctx context.Context, userID string) (TimelineRes
 		return TimelineResponse{}, err
 	}
 
+	// Check if monthly resolution is requested
+	if userSettings.TimeResolution == "monthly" {
+		return s.buildTimelineMonthly(ctx, userID, userSettings)
+	}
+
 	// Calculate total years from user settings
 	totalYears := defaultTotalYears
 	if userSettings.TerminalAge > userSettings.StartingAge {
@@ -463,10 +642,299 @@ func (s *Service) buildTimeline(ctx context.Context, userID string) (TimelineRes
 	}
 
 	resp := TimelineResponse{
-		Years:   years,
-		Version: defaultVersion,
+		Resolution: "yearly",
+		Years:      years,
+		Version:    defaultVersion,
 	}
 	return resp, nil
+}
+
+// buildTimelineMonthly generates a monthly-resolution timeline (420 months for 35-year horizon).
+func (s *Service) buildTimelineMonthly(ctx context.Context, userID string, userSettings repository.UserSettings) (TimelineResponse, error) {
+	// Calculate total months from user settings
+	totalYears := defaultTotalYears
+	if userSettings.TerminalAge > userSettings.StartingAge {
+		totalYears = userSettings.TerminalAge - userSettings.StartingAge + 1
+	}
+	totalMonths := totalYears * 12
+
+	growthCfg, err := s.ensureGrowth(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	// Ensure accumulator cash account exists
+	accumulator, err := s.ensureAccumulatorAccount(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	// Load all cash accounts
+	cashAccounts, err := s.store.ListCashAccounts(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	rows, err := s.loadEffectiveRows(ctx, userID)
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	// Group rows by start year and month for efficient lookup
+	// Key format: "year:month" where month defaults to 1 if not specified
+	rowsByYearMonth := map[string][]effectiveRow{}
+	for _, r := range rows {
+		startMonth := 1 // Default to January if not specified
+		key := formatYearMonth(r.StartYear, startMonth)
+		rowsByYearMonth[key] = append(rowsByYearMonth[key], r)
+	}
+
+	state := map[string]itemState{}
+
+	// Track accumulated cash (starts from accumulator's initial balance)
+	accumulatedCash := accumulator.Balance
+	cashGrowthRate := accumulator.InterestRate
+	monthlyInterestRate := math.Pow(1+cashGrowthRate/100, 1.0/12.0) - 1
+
+	months := make([]TimelineMonth, totalMonths)
+	for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
+		year := monthIdx / 12
+		month := (monthIdx % 12) + 1
+		cashAtStart := accumulatedCash
+
+		// Expire items by end_year and end_month
+		for id, st := range state {
+			if st.endYear != nil && year > *st.endYear {
+				delete(state, id)
+			}
+			// TODO: Add end_month handling when database schema supports it
+		}
+
+		// Apply monthly compound growth (month > 0 only)
+		if monthIdx > 0 {
+			for id, st := range state {
+				// Use per-item growth rate if explicitly set, otherwise fallback to category defaults
+				rate := st.growthRate
+				if rate == 0 && st.item.ItemType != ItemTypeIncome && st.item.ItemType != ItemTypeExpense {
+					// For assets/liabilities without explicit rate, use category default
+					rate = lookupGrowthRate(growthCfg, st.item.Category, st.item.ItemType)
+				}
+
+				// Convert annual rate to monthly compound rate
+				monthlyRate := math.Pow(1+rate/100, 1.0/12.0) - 1
+				st.amount = st.amount * (1 + monthlyRate)
+				st.item.AmountAnnual = st.amount * 12 // Annualized value for compatibility
+				st.item.AmountMonthly = st.amount
+				st.item.AdjustedAnnual = st.item.AmountAnnual
+				st.item.AdjustedMonthly = st.amount
+				state[id] = st
+			}
+		}
+
+		// Add new items starting this month
+		hasOverride := false
+		key := formatYearMonth(year, month)
+		for _, r := range rowsByYearMonth[key] {
+			monthly, err := ConvertToMonthly(r.Amount, r.Frequency)
+			if err != nil {
+				return TimelineResponse{}, err
+			}
+			annual := monthly * 12
+
+			if r.Amount == 0 {
+				delete(state, r.ParentID)
+				hasOverride = true
+				continue
+			}
+
+			var endYearPtr *int
+			if r.EndYear.Valid {
+				val := int(r.EndYear.Int32)
+				endYearPtr = &val
+			}
+
+			state[r.ParentID] = itemState{
+				item: TimelineItem{
+					ItemID:          r.ParentID,
+					RowID:           r.ID,
+					ParentID:        r.ParentID,
+					Name:            r.Name,
+					Category:        r.Category,
+					AmountAnnual:    annual,
+					AmountMonthly:   monthly,
+					AdjustedAnnual:  annual,
+					AdjustedMonthly: monthly,
+					SourceAmount:    &r.Amount,
+					SourceFrequency: string(r.Frequency),
+					ItemType:        r.ItemType,
+					CreatedYear:     r.StartYear,
+					CreatedMonth:    month,
+					GrowthRate:      r.GrowthRate,
+				},
+				amount:     monthly, // Store monthly amount for growth calculations
+				endYear:    endYearPtr,
+				growthRate: r.GrowthRate,
+			}
+		}
+
+		monthItems := segregateItemsMonthly(state, year, month)
+
+		// Calculate monthly net savings (income - expenses)
+		monthlyNetSavings := sumMonthly(monthItems.Income) - sumMonthly(monthItems.Expenses)
+
+		// Only accumulate starting from month 1 (index 1) - month 0 is baseline
+		interestEarned := 0.0
+		if monthIdx > 0 {
+			// Accumulate surplus into cash
+			accumulatedCash += monthlyNetSavings
+
+			// Apply monthly interest to accumulated cash
+			interestEarned = accumulatedCash * monthlyInterestRate
+			accumulatedCash += interestEarned
+		}
+
+		// Build cash account items for this month
+		cashItems := buildCashItemsMonthly(cashAccounts, accumulator.ID, accumulatedCash, year, monthIdx)
+
+		// Calculate totals
+		totalCash := sumCashAccountBalances(cashItems)
+		totalAssets := sumMonthly(monthItems.Assets)
+		netWorth := totalAssets + totalCash - sumMonthly(monthItems.Liabilities)
+
+		months[monthIdx] = TimelineMonth{
+			Year:          year,
+			Month:         month,
+			YearIndex:     year,
+			MonthIndex:    monthIdx,
+			Assets:        monthItems.Assets,
+			CashAccounts:  cashItems,
+			Liabilities:   monthItems.Liabilities,
+			Income:        monthItems.Income,
+			Expenses:      monthItems.Expenses,
+			NetCash:       monthlyNetSavings,
+			NetWorth:      netWorth,
+			HasOverrides:  hasOverride,
+			GrowthApplied: toGrowthApplied(growthCfg),
+
+			// Monthly cash accumulation fields
+			MonthlyNetSavings:    monthlyNetSavings,
+			AccumulatedCashStart: cashAtStart,
+			AccumulatedCashEnd:   accumulatedCash,
+			InterestEarned:       interestEarned,
+			AccumulatorAccountID: accumulator.ID,
+		}
+	}
+
+	resp := TimelineResponse{
+		Resolution: "monthly",
+		Months:     months,
+		Version:    defaultVersion,
+	}
+	return resp, nil
+}
+
+// formatYearMonth creates a lookup key for year-month combinations.
+func formatYearMonth(year, month int) string {
+	return fmt.Sprintf("%d:%d", year, month)
+}
+
+// segregateItemsMonthly segregates items by type for the current month view.
+func segregateItemsMonthly(state map[string]itemState, year, month int) struct {
+	Assets      []TimelineItem
+	Liabilities []TimelineItem
+	Income      []TimelineItem
+	Expenses    []TimelineItem
+} {
+	out := struct {
+		Assets      []TimelineItem
+		Liabilities []TimelineItem
+		Income      []TimelineItem
+		Expenses    []TimelineItem
+	}{}
+
+	for _, st := range state {
+		item := st.item
+		// Check if item has started
+		if item.CreatedYear > year {
+			continue
+		}
+		if item.CreatedYear == year && item.CreatedMonth > month {
+			continue
+		}
+
+		switch item.ItemType {
+		case ItemTypeAsset:
+			out.Assets = append(out.Assets, item)
+		case ItemTypeLiability:
+			out.Liabilities = append(out.Liabilities, item)
+		case ItemTypeIncome:
+			out.Income = append(out.Income, item)
+		case ItemTypeExpense:
+			out.Expenses = append(out.Expenses, item)
+		}
+	}
+
+	// Sort descending by monthly amount
+	sort.Slice(out.Assets, func(i, j int) bool { return out.Assets[i].AmountMonthly > out.Assets[j].AmountMonthly })
+	sort.Slice(out.Liabilities, func(i, j int) bool { return out.Liabilities[i].AmountMonthly > out.Liabilities[j].AmountMonthly })
+	sort.Slice(out.Income, func(i, j int) bool { return out.Income[i].AmountMonthly > out.Income[j].AmountMonthly })
+	sort.Slice(out.Expenses, func(i, j int) bool { return out.Expenses[i].AmountMonthly > out.Expenses[j].AmountMonthly })
+
+	return out
+}
+
+// sumMonthly sums monthly amounts from timeline items.
+func sumMonthly(items []TimelineItem) float64 {
+	total := 0.0
+	for _, it := range items {
+		total += it.AmountMonthly
+	}
+	return total
+}
+
+// buildCashItemsMonthly converts cash accounts to timeline items for a given month.
+func buildCashItemsMonthly(accounts []repository.CashAccount, accumulatorID string, accumulatedBalance float64, year, monthIdx int) []TimelineItem {
+	items := make([]TimelineItem, 0, len(accounts))
+	for _, acc := range accounts {
+		// Check if account is active for this year
+		if acc.StartYear > year {
+			continue
+		}
+		if acc.EndYear.Valid && int(acc.EndYear.Int32) < year {
+			continue
+		}
+
+		balance := acc.Balance
+		isAccumulator := acc.ID == accumulatorID
+
+		if isAccumulator {
+			// Accumulator uses the running accumulated balance
+			balance = accumulatedBalance
+		} else if monthIdx > 0 {
+			// Non-accumulator accounts compound monthly with their own interest rate
+			monthlyRate := math.Pow(1+acc.InterestRate/100, 1.0/12.0) - 1
+			balance = acc.Balance * math.Pow(1+monthlyRate, float64(monthIdx))
+		}
+
+		items = append(items, TimelineItem{
+			ItemID:         acc.ID,
+			Name:           acc.Name,
+			Category:       "cash",
+			AmountAnnual:   balance * 12, // Annualized for compatibility
+			AmountMonthly:  balance,
+			AdjustedAnnual: balance * 12,
+			AdjustedMonthly: balance,
+			ItemType:       ItemTypeCashAccount,
+			IsAccumulator:  isAccumulator,
+		})
+	}
+
+	// Sort by balance descending
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].AmountMonthly > items[j].AmountMonthly
+	})
+
+	return items
 }
 
 // buildCashItems converts cash accounts to timeline items for a given year.
