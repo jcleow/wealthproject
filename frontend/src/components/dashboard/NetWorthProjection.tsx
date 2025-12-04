@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Area,
   ComposedChart,
@@ -10,180 +10,27 @@ import {
   YAxis,
 } from 'recharts'
 import { useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Plus, Mouse, Hand } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
-import { formatCurrency } from '@/lib/format'
 import { financialApi } from '@/services/financialApi'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import ScenarioMarker from './ScenarioMarker'
 import { ZoomControls, type ZoomLevel } from '@/components/timeline/ZoomControls'
-
-const chartColors = {
-  axis: '#aeb6c9',
-  grid: 'rgba(86, 91, 100, 0.6)',
-  gradientStart: '#4f81ff',
-  gradientEnd: 'rgba(59, 130, 246, 0.08)',
-  stroke: '#7db0ff',
-}
-
-const DEFAULT_STARTING_AGE = 30
-const DEFAULT_TERMINAL_AGE = 65
-const BASE_CALENDAR_YEAR = new Date().getFullYear()
-const AREA_ANIMATION_MS = 700
-const MARKER_BUFFER_MS = 400
-
-type AxisMode = 'age' | 'year_number' | 'actual_year'
-
-type ProjectionPoint = {
-  yearIndex: number
-  yearLabel: string
-  netWorth: number
-  totalAssets: number
-  totalLiabilities: number
-  calendarYear: number
-  hasNonAnnualSource?: boolean
-  hasOverride?: boolean
-}
-
-interface CustomTooltipProps {
-  active?: boolean
-  payload?: ReadonlyArray<{ payload: ProjectionPoint }>
-  startingAge?: number
-  resolution?: 'yearly' | 'monthly'
-}
-
-function CustomTooltip({
-  active,
-  payload,
-  startingAge = DEFAULT_STARTING_AGE,
-  resolution = 'yearly',
-}: CustomTooltipProps) {
-  if (!active || !payload || !payload.length) return null
-  const data = payload[0].payload
-
-  // Calculate age - yearIndex is month index in monthly mode, year index in yearly mode
-  const yearsPassed = resolution === 'monthly' ? Math.floor(data.yearIndex / 12) : data.yearIndex
-  const age = startingAge + yearsPassed
-
-  return (
-    <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur-xl min-w-[180px]">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-        Year {data.calendarYear} (Age {age})
-      </p>
-      <p className="mt-0.5 text-xl font-light text-white">
-        {formatCurrency(data.netWorth)}
-      </p>
-      <div className="mt-2 space-y-1">
-        <div className="flex items-center justify-between text-xs">
-          <span className="flex items-center gap-1.5 text-sky-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-            Assets
-          </span>
-          <span className="font-mono text-slate-200">{formatCurrency(data.totalAssets)}</span>
-        </div>
-        <div className="flex items-center justify-between text-xs">
-          <span className="flex items-center gap-1.5 text-rose-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
-            Liabilities
-          </span>
-          <span className="font-mono text-slate-200">{formatCurrency(data.totalLiabilities)}</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function YearTick({
-  x = 0,
-  y = 0,
-  payload,
-  overrideYears,
-  onSelectYear,
-  selectedYear,
-  mode,
-  startingAge,
-  resolution,
-  zoomLevel,
-}: {
-  x?: number
-  y?: number
-  payload?: { value: number }
-  overrideYears: Set<number>
-  onSelectYear?: (year: number) => void
-  selectedYear?: number
-  mode: AxisMode
-  startingAge?: number
-  resolution?: TimeResolution
-  zoomLevel?: ZoomLevel
-}) {
-  if (!payload) return null
-  const isOverride = overrideYears.has(payload.value)
-  const isSelected = selectedYear === payload.value
-  const age = startingAge ?? DEFAULT_STARTING_AGE
-
-  let labelValue: string | number
-
-  if (resolution === 'monthly') {
-    const monthIndex = payload.value
-    const year = Math.floor(monthIndex / 12)
-    const month = monthIndex % 12
-
-    if (zoomLevel === 'monthly') {
-      // Show month abbreviation with year suffix (e.g., "Sep'25", "Oct'25")
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-      const calendarYear = BASE_CALENDAR_YEAR + year
-      const yearSuffix = `'${String(calendarYear).slice(-2)}`
-      labelValue = `${monthNames[month]}${yearSuffix}`
-    } else {
-      // Yearly zoom - show year
-      labelValue = mode === 'age'
-        ? age + year
-        : mode === 'actual_year'
-          ? `'${String(BASE_CALENDAR_YEAR + year).slice(-2)}`
-          : year
-    }
-  } else {
-    // Yearly resolution - use existing logic
-    labelValue = mode === 'age'
-      ? age + payload.value
-      : mode === 'actual_year'
-        ? `'${String(BASE_CALENDAR_YEAR + payload.value).slice(-2)}`
-        : payload.value
-  }
-
-  const handleClick = () => {
-    if (onSelectYear) onSelectYear(payload.value)
-  }
-
-  return (
-    <g
-      transform={`translate(${x},${y})`}
-      className="cursor-pointer"
-      onClick={handleClick}
-      aria-label={`Year ${payload.value}`}
-    >
-      <text
-        dy={12}
-        fill={isSelected ? '#a5b4fc' : '#cbd5e1'}
-        fontSize={12}
-        fontWeight={isSelected ? 700 : 400}
-        textAnchor="middle"
-      >
-        {labelValue}
-      </text>
-      {isOverride && (
-        <path
-          d="M0,14 L7,28 L-7,28 Z"
-          fill="#38bdf8"
-          data-testid={`override-marker-${payload.value}`}
-        />
-      )}
-    </g>
-  )
-}
+import { CustomTooltip } from './projections/CustomTooltip'
+import { YearTick } from './projections/YearTick'
+import {
+  chartColors,
+  DEFAULT_STARTING_AGE,
+  DEFAULT_TERMINAL_AGE,
+  BASE_CALENDAR_YEAR,
+  AREA_ANIMATION_MS,
+  MARKER_BUFFER_MS,
+  type AxisMode,
+  type ProjectionPoint,
+} from './projections/types'
 
 export interface NetWorthProjectionProps {
   timelineYears?: TimelineYear[]
@@ -235,9 +82,15 @@ export function NetWorthProjection({
   const [internalZoomLevel, setInternalZoomLevel] = useState<ZoomLevel>('yearly')
   const zoomLevel = externalZoomLevel ?? internalZoomLevel
 
+  // Scroll mode: 'page' allows normal page scrolling, 'zoom' enables zoom on scroll
+  const [scrollMode, setScrollMode] = useState<'page' | 'zoom'>('page')
+
   // Windowing state for zoom
   const [startIndex, setStartIndex] = useState<number | null>(null)
   const [endIndex, setEndIndex] = useState<number | null>(null)
+
+  // Zoom level history to ensure symmetrical zoom in/out
+  const [zoomRangeStack, setZoomRangeStack] = useState<number[]>([])
 
   const setZoomLevel = (value: ZoomLevel | ((prev: ZoomLevel) => ZoomLevel)) => {
     if (onZoomLevelChange) {
@@ -271,8 +124,24 @@ export function NetWorthProjection({
     return () => media.removeEventListener('change', listener)
   }, [])
 
+  // Effective resolution based on available data
+  // Always use 'monthly' if we have monthly data (which we always do now)
+  const effectiveResolution: TimeResolution = 'monthly'
+
+  // Reset windowing when switching to yearly mode
+  useEffect(() => {
+    if (zoomLevel === 'yearly') {
+      setStartIndex(null)
+      setEndIndex(null)
+    }
+  }, [zoomLevel])
+
   const projection = useMemo<ProjectionPoint[]>(() => {
-    // Handle monthly data
+    // When zoomLevel is 'yearly', use yearly data even if monthly data exists
+    // When zoomLevel is 'monthly', use monthly data if available
+    const useYearlyData = zoomLevel === 'yearly'
+
+    // Handle monthly data - use it regardless of zoom level if it's the only data available
     if (timelineMonths && timelineMonths.length > 0) {
       const baseCalendarYear = 2025
       const monthlyProjection = timelineMonths.map<ProjectionPoint>((month) => {
@@ -416,6 +285,7 @@ export function NetWorthProjection({
     timelineMonths,
     userSettings?.startingAge,
     userSettings?.terminalAge,
+    zoomLevel,
   ])
 
   useEffect(() => {
@@ -434,26 +304,42 @@ export function NetWorthProjection({
 
   // Window data based on zoom level
   const displayData = useMemo(() => {
-    if (resolution !== 'monthly' || startIndex === null || endIndex === null) {
+    if (effectiveResolution !== 'monthly' || startIndex === null || endIndex === null) {
       return projection
     }
 
     // Return windowed subset of data
     return projection.slice(startIndex, endIndex + 1)
-  }, [projection, resolution, startIndex, endIndex])
+  }, [projection, effectiveResolution, startIndex, endIndex])
+
+  // Calculate visible range in months
+  const visibleRangeMonths = useMemo(() => {
+    if (effectiveResolution !== 'monthly' || startIndex === null || endIndex === null) {
+      return projection.length
+    }
+    return endIndex - startIndex + 1
+  }, [effectiveResolution, startIndex, endIndex, projection.length])
 
   // Mouse wheel zoom handler with fixed zoom levels
   useEffect(() => {
     const chartElement = chartWrapperRef.current
     if (!chartElement) return
-    if (resolution !== 'monthly') return // Only enable wheel zoom in monthly mode
     if (projection.length === 0) return
+    if (scrollMode !== 'zoom') return // Only zoom when in zoom mode
+    if (resolution !== 'monthly') return // Only enable zoom when resolution is monthly
+
+    let isProcessing = false // Prevent multiple rapid zooms
 
     const handleWheel = (e: WheelEvent) => {
       // Only handle wheel events when hovering over the chart
       if (!chartElement.contains(e.target as Node)) return
+      if (isProcessing) return // Debounce rapid scrolls
 
       e.preventDefault()
+      isProcessing = true
+
+      // Reset processing flag after a short delay
+      setTimeout(() => { isProcessing = false }, 50)
 
       const direction = e.deltaY < 0 ? -1 : 1 // -1 = zoom in, 1 = zoom out
 
@@ -465,62 +351,193 @@ export function NetWorthProjection({
       // Get current center point
       const currentStart = startIndex ?? 0
       const currentEnd = endIndex ?? projection.length - 1
-      const currentRange = currentEnd - currentStart
+      const currentRange = currentEnd - currentStart + 1
       const centerIndex = Math.floor(currentStart + currentRange * mousePercentage)
 
-      // Determine current zoom level based on range
-      // ±5 years = 120 months total, ±24 months = 48 months total
-      let currentLevel: 'all' | '5years' | '2years'
-      if (startIndex === null || endIndex === null) {
-        currentLevel = 'all'
-      } else if (currentRange > 120) { // More than 120 months = showing all
-        currentLevel = 'all'
-      } else if (currentRange > 48) { // Between 48 and 120 months = 5 years view
-        currentLevel = '5years'
-      } else { // 48 months or less = 2 years view
-        currentLevel = '2years'
-      }
-
       if (direction < 0) {
-        // Zoom in
-        if (currentLevel === 'all') {
-          // Zoom to ±5 years (±60 months = 120 months total)
-          const newStart = Math.max(0, centerIndex - 60)
-          const newEnd = Math.min(projection.length - 1, centerIndex + 60)
-          setStartIndex(newStart)
-          setEndIndex(newEnd)
-          setZoomLevel('monthly')
-        } else if (currentLevel === '5years') {
-          // Zoom to ±24 months (48 months total)
-          const newStart = Math.max(0, centerIndex - 24)
-          const newEnd = Math.min(projection.length - 1, centerIndex + 24)
-          setStartIndex(newStart)
-          setEndIndex(newEnd)
-          setZoomLevel('monthly')
+        // Zoom in: reduce range by dividing by 1.5 for gradual zoom
+        const newRange = Math.max(12, Math.floor(currentRange / 1.5))
+        const halfRange = Math.floor(newRange / 2)
+
+        let newStart = centerIndex - halfRange
+        let newEnd = centerIndex + halfRange
+
+        // Clamp to valid bounds
+        if (newStart < 0) {
+          newStart = 0
+          newEnd = Math.min(projection.length - 1, newRange - 1)
+        } else if (newEnd >= projection.length) {
+          newEnd = projection.length - 1
+          newStart = Math.max(0, projection.length - newRange)
         }
-        // Already at max zoom (2 years), do nothing
+
+        // Push current range to stack before zooming in (for perfect symmetry)
+        setZoomRangeStack(prev => [...prev, currentRange])
+        setStartIndex(newStart)
+        setEndIndex(newEnd)
+        setZoomLevel('monthly')
       } else {
-        // Zoom out
-        if (currentLevel === '2years') {
-          // Zoom to ±5 years
-          const newStart = Math.max(0, centerIndex - 60)
-          const newEnd = Math.min(projection.length - 1, centerIndex + 60)
+        // Zoom out: use stack to restore previous range for symmetry
+        if (zoomRangeStack.length > 0) {
+          // Pop from stack to get the exact previous range
+          const previousRange = zoomRangeStack[zoomRangeStack.length - 1]
+          setZoomRangeStack(prev => prev.slice(0, -1))
+
+          // If we're going back to full view, switch to yearly
+          if (previousRange >= projection.length - 6) {
+            setStartIndex(null)
+            setEndIndex(null)
+            setZoomLevel('yearly')
+            return
+          }
+
+          const halfRange = Math.floor(previousRange / 2)
+          const newStart = Math.max(0, centerIndex - halfRange)
+          const newEnd = Math.min(projection.length - 1, centerIndex + halfRange)
+
           setStartIndex(newStart)
           setEndIndex(newEnd)
           setZoomLevel('monthly')
-        } else if (currentLevel === '5years') {
-          // Zoom to all
+        } else {
+          // No history, just switch back to yearly view
           setStartIndex(null)
           setEndIndex(null)
           setZoomLevel('yearly')
         }
-        // Already at min zoom (all), do nothing
       }
     }
 
     chartElement.addEventListener('wheel', handleWheel, { passive: false })
     return () => chartElement.removeEventListener('wheel', handleWheel)
+  }, [timelineMonths, projection.length, startIndex, endIndex, scrollMode, zoomLevel, zoomRangeStack])
+
+  // Drag-to-pan handler
+  useEffect(() => {
+    const chartElement = chartWrapperRef.current
+    if (!chartElement) return
+    if (effectiveResolution !== 'monthly') return
+    if (startIndex === null || endIndex === null) return // Only allow panning when zoomed
+
+    let isDragging = false
+    let dragStartData: { x: number; startIdx: number; endIdx: number } | null = null
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!chartElement.contains(e.target as Node)) return
+      isDragging = true
+      dragStartData = {
+        x: e.clientX,
+        startIdx: startIndex,
+        endIdx: endIndex,
+      }
+      chartElement.style.cursor = 'grabbing'
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !dragStartData) return
+
+      const rect = chartElement.getBoundingClientRect()
+      const deltaX = e.clientX - dragStartData.x
+      const dataRange = dragStartData.endIdx - dragStartData.startIdx
+      const pixelsPerIndex = rect.width / dataRange
+      const indexDelta = Math.round(-deltaX / pixelsPerIndex) // Negative for natural panning direction
+
+      const newStart = Math.max(0, Math.min(projection.length - dataRange, dragStartData.startIdx + indexDelta))
+      const newEnd = newStart + dataRange
+
+      setStartIndex(newStart)
+      setEndIndex(newEnd)
+    }
+
+    const handleMouseUp = () => {
+      isDragging = false
+      dragStartData = null
+      chartElement.style.cursor = 'grab'
+    }
+
+    // Set initial cursor
+    chartElement.style.cursor = 'grab'
+
+    window.addEventListener('mousedown', handleMouseDown)
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      chartElement.style.cursor = 'default'
+    }
+  }, [effectiveResolution, projection.length, startIndex, endIndex])
+
+  // Helper functions for zoom in/out buttons
+  const handleZoomIn = useCallback(() => {
+    if (resolution !== 'monthly' || projection.length === 0) return
+
+    const currentStart = startIndex ?? 0
+    const currentEnd = endIndex ?? projection.length - 1
+    const currentRange = currentEnd - currentStart
+    const centerIndex = Math.floor((currentStart + currentEnd) / 2)
+
+    // Reduce the range by 25% (zoom in gradually)
+    const newRange = Math.max(12, Math.floor(currentRange * 0.75)) // Minimum 12 months visible
+    const halfRange = Math.floor(newRange / 2)
+
+    const newStart = Math.max(0, centerIndex - halfRange)
+    const newEnd = Math.min(projection.length - 1, centerIndex + halfRange)
+
+    setStartIndex(newStart)
+    setEndIndex(newEnd)
+    setZoomLevel('monthly')
   }, [resolution, projection.length, startIndex, endIndex])
+
+  const handleZoomOut = useCallback(() => {
+    if (resolution !== 'monthly' || projection.length === 0) return
+
+    const currentStart = startIndex ?? 0
+    const currentEnd = endIndex ?? projection.length - 1
+    const currentRange = currentEnd - currentStart
+    const centerIndex = Math.floor((currentStart + currentEnd) / 2)
+
+    // Increase the range by 33% (zoom out gradually)
+    const newRange = Math.min(projection.length, Math.floor(currentRange * 1.33))
+
+    // If we're showing all or most of the data, switch back to yearly view
+    if (newRange >= projection.length - 6) {
+      setStartIndex(null)
+      setEndIndex(null)
+      setZoomLevel('yearly')
+      return
+    }
+
+    const halfRange = Math.floor(newRange / 2)
+    const newStart = Math.max(0, centerIndex - halfRange)
+    const newEnd = Math.min(projection.length - 1, centerIndex + halfRange)
+
+    setStartIndex(newStart)
+    setEndIndex(newEnd)
+    setZoomLevel('monthly')
+  }, [resolution, projection.length, startIndex, endIndex])
+
+  // Determine if zoom buttons should be enabled
+  const canZoomIn = useMemo(() => {
+    if (resolution !== 'monthly') return false
+    if (projection.length === 0) return false
+
+    const currentStart = startIndex ?? 0
+    const currentEnd = endIndex ?? projection.length - 1
+    const currentRange = currentEnd - currentStart
+
+    // Can zoom in if we're showing more than the minimum (12 months)
+    return currentRange > 12
+  }, [resolution, startIndex, endIndex, projection.length])
+
+  const canZoomOut = useMemo(() => {
+    if (resolution !== 'monthly') return false
+    if (projection.length === 0) return false
+
+    // Can zoom out if we're not showing all the data
+    return startIndex !== null && endIndex !== null
+  }, [resolution, startIndex, endIndex, projection.length])
 
   const areaAnimationEnabled = !prefersReducedMotion && displayData.length > 0
 
@@ -548,9 +565,32 @@ export function NetWorthProjection({
     return () => window.clearTimeout(safetyTimer)
   }, [displayData.length, areaAnimationEnabled])
 
-  const ticks = (() => {
+  const ticks = useMemo(() => {
     const totalPoints = displayData.length
     if (totalPoints === 0) return [] as number[]
+
+    // When showing years (not months), only show one tick per unique year
+    const showingYears = effectiveResolution === 'monthly' && visibleRangeMonths >= 24
+
+    if (showingYears) {
+      // Group by year and pick the first month of each year
+      const seenYears = new Set<number>()
+      const values: number[] = []
+
+      for (let i = 0; i < totalPoints; i++) {
+        const point = displayData[i]
+        const year = Math.floor(point.yearIndex / 12)
+
+        if (!seenYears.has(year)) {
+          seenYears.add(year)
+          values.push(point.yearIndex)
+        }
+      }
+
+      return values
+    }
+
+    // Default tick generation for monthly view or yearly resolution
     const minSpacingPx = 60
     const width = Math.max(containerWidth, 1)
     const maxTicks = Math.max(6, Math.floor(width / minSpacingPx))
@@ -564,7 +604,7 @@ export function NetWorthProjection({
     const first = displayData[0]?.yearIndex ?? 0
     if (values[0] !== first) values.unshift(first)
     return values
-  })()
+  }, [displayData, effectiveResolution, visibleRangeMonths, containerWidth])
 
   const overrideYearsSet = useMemo(
     () =>
@@ -597,7 +637,7 @@ export function NetWorthProjection({
 
       let displayPoint: ProjectionPoint | undefined
 
-      if (resolution === 'monthly') {
+      if (effectiveResolution === 'monthly') {
         // Monthly mode: match by calendar year and month directly in displayData
         // Each displayPoint has calendarYear and we can calculate the month from yearIndex
         displayPoint = displayData.find((point) => {
@@ -626,7 +666,7 @@ export function NetWorthProjection({
       netWorth: Math.max(data.netWorth, 0),
       events: data.events,
     }))
-  }, [scenarioEvents, displayData, projection, resolution, timelineMonths, zoomLevel])
+  }, [scenarioEvents, displayData, projection, effectiveResolution, timelineMonths, zoomLevel])
 
   const planningYears = Math.max(1, (userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE) - (userSettings?.startingAge ?? DEFAULT_STARTING_AGE))
 
@@ -645,14 +685,6 @@ export function NetWorthProjection({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {resolution === 'monthly' && (
-            <ZoomControls
-              zoomLevel={zoomLevel}
-              onZoomChange={setZoomLevel}
-              canZoomIn={zoomLevel !== 'monthly'}
-              canZoomOut={zoomLevel !== 'yearly'}
-            />
-          )}
           {onAddScenario && (
             <button
               onClick={onAddScenario}
@@ -670,6 +702,35 @@ export function NetWorthProjection({
         ref={chartContainerRef}
         className="relative w-full flex-1 min-h-[250px] min-w-0 overflow-hidden [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
       >
+        {/* Zoom controls and scroll mode toggle positioned on the right side - always visible */}
+        <div className="absolute right-4 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-3">
+          {/* Scroll mode toggle */}
+          <button
+            onClick={() => setScrollMode(scrollMode === 'page' ? 'zoom' : 'page')}
+            className="flex flex-col items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0a0a0a]/80 p-2 backdrop-blur-sm transition-colors hover:bg-white/5"
+            title={scrollMode === 'page' ? 'Switch to scroll-to-zoom mode' : 'Switch to page scroll mode'}
+            type="button"
+          >
+            {scrollMode === 'page' ? (
+              <Mouse className="h-4 w-4 text-gray-400" />
+            ) : (
+              <Hand className="h-4 w-4 text-blue-400" />
+            )}
+            <span className="text-[9px] text-gray-400">
+              {scrollMode === 'page' ? 'Scroll' : 'Zoom'}
+            </span>
+          </button>
+
+          {/* Zoom controls - only show reset when zoomed in */}
+          <ZoomControls
+            zoomLevel={zoomLevel}
+            onZoomChange={setZoomLevel}
+            canZoomIn={canZoomIn}
+            canZoomOut={canZoomOut}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+          />
+        </div>
         {hasSize && displayData.length > 0 ? (
           <div
             ref={chartWrapperRef}
@@ -711,8 +772,9 @@ export function NetWorthProjection({
                       selectedYear={selectedYear}
                       mode={xAxisMode}
                       startingAge={userSettings?.startingAge}
-                      resolution={resolution}
+                      resolution={effectiveResolution}
                       zoomLevel={zoomLevel}
+                      visibleRangeMonths={visibleRangeMonths}
                     />
                   }
                 />
@@ -751,7 +813,7 @@ export function NetWorthProjection({
                 />
 
                 <Tooltip
-                  content={<CustomTooltip startingAge={userSettings?.startingAge} resolution={resolution} />}
+                  content={<CustomTooltip startingAge={userSettings?.startingAge} resolution={effectiveResolution} />}
                   cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }}
                 />
 

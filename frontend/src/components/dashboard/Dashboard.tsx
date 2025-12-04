@@ -20,7 +20,7 @@ export function Dashboard() {
   const [isChatCollapsed, setIsChatCollapsed] = useState(true)
   const [showCPFView, setShowCPFView] = useState(false)
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('yearly')
-  const timeline = useTimeline()
+  const timeline = useTimeline({ resolution: 'monthly' })
   const timelineError =
     timeline.timelineQuery.error instanceof Error
       ? timeline.timelineQuery.error.message
@@ -127,6 +127,8 @@ export function Dashboard() {
                   <FinancialDataManagement
                     selectedYear={timeline.selectedYear}
                     onSelectYear={timeline.setSelectedYear}
+                    selectedMonth={timeline.selectedMonth}
+                    onSelectMonth={timeline.setSelectedMonth}
                     timelineYear={timeline.selectedYearData}
                     timelineMonth={timeline.selectedMonthData}
                     resolution={timeline.resolution}
