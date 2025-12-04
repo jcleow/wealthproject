@@ -67,25 +67,31 @@ type FinancialConstraintParams struct {
 
 // IncomeParams represents the inputs to create an income.
 type IncomeParams struct {
-	Source    string  `json:"source"`
-	Amount    float64 `json:"amount"`
-	Frequency string  `json:"frequency"`
-	StartDate string  `json:"startDate,omitempty"`
-	Category  string  `json:"category,omitempty"`
-	Notes     string  `json:"notes,omitempty"`
+	Source        string  `json:"source"`
+	Amount        float64 `json:"amount"`
+	Frequency     string  `json:"frequency"`
+	StartDate     string  `json:"startDate,omitempty"`
+	Category      string  `json:"category,omitempty"`
+	Notes         string  `json:"notes,omitempty"`
+	IncomeType    string  `json:"incomeType,omitempty"`    // salary, bonus, commission, rental, dividend, freelance, other
+	WageType      string  `json:"wageType,omitempty"`      // ow (Ordinary Wages), aw (Additional Wages), null
+	CPFApplicable *bool   `json:"cpfApplicable,omitempty"` // Whether CPF contributions apply
 }
 
 // UpdateIncomeParams represents the inputs to update an income.
 type UpdateIncomeParams struct {
-	IncomeID     string   `json:"incomeId,omitempty"`
-	LastIncomeID string   `json:"lastIncomeId,omitempty"`
-	IncomeName   string   `json:"incomeName,omitempty"`
-	Source       string   `json:"source,omitempty"`
-	Amount       *float64 `json:"amount,omitempty"`
-	Frequency    string   `json:"frequency,omitempty"`
-	StartDate    string   `json:"startDate,omitempty"`
-	Category     string   `json:"category,omitempty"`
-	Notes        string   `json:"notes,omitempty"`
+	IncomeID      string   `json:"incomeId,omitempty"`
+	LastIncomeID  string   `json:"lastIncomeId,omitempty"`
+	IncomeName    string   `json:"incomeName,omitempty"`
+	Source        string   `json:"source,omitempty"`
+	Amount        *float64 `json:"amount,omitempty"`
+	Frequency     string   `json:"frequency,omitempty"`
+	StartDate     string   `json:"startDate,omitempty"`
+	Category      string   `json:"category,omitempty"`
+	Notes         string   `json:"notes,omitempty"`
+	IncomeType    string   `json:"incomeType,omitempty"`    // salary, bonus, commission, rental, dividend, freelance, other
+	WageType      string   `json:"wageType,omitempty"`      // ow (Ordinary Wages), aw (Additional Wages), null
+	CPFApplicable *bool    `json:"cpfApplicable,omitempty"` // Whether CPF contributions apply
 }
 
 // ExpenseParams represents the inputs to create an expense.

@@ -69,6 +69,22 @@ export type PropertyLink = {
   updatedAt: string
 }
 
+export const incomeTypeEnum = z.enum([
+  "salary",
+  "bonus",
+  "commission",
+  "rental",
+  "dividend",
+  "freelance",
+  "other",
+])
+
+export type IncomeType = z.infer<typeof incomeTypeEnum>
+
+export const wageTypeEnum = z.enum(["ow", "aw"])
+
+export type WageType = z.infer<typeof wageTypeEnum>
+
 export const incomeSchema = z.object({
   id: z.string().min(1),
   parentId: z.string().optional(),
@@ -80,6 +96,10 @@ export const incomeSchema = z.object({
   growthRate: z.number().optional(),
   notes: optionalNotes,
   updatedAt: isoDateTime,
+  // CPF-related fields
+  incomeType: incomeTypeEnum.optional(),
+  wageType: wageTypeEnum.optional().nullable(),
+  cpfApplicable: z.boolean().optional(),
 })
 
 export type Income = z.infer<typeof incomeSchema>
