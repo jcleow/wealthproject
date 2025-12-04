@@ -10,6 +10,7 @@ import (
 
 	"financial-chat-system/backend/cmd/server/handlers"
 	"financial-chat-system/backend/internal/config"
+	"financial-chat-system/backend/internal/cpf/account"
 	"financial-chat-system/backend/internal/database"
 	"financial-chat-system/backend/internal/financial"
 	finRepo "financial-chat-system/backend/internal/financial/repository"
@@ -62,6 +63,9 @@ func main() {
 	timelineService := timeline.NewServiceWithScenario(finStore, scenarioService)
 	usageRepo := usage.NewRepository(db, cfg.UsageTrackingEnabled)
 	log.Printf("CONFIG: Usage tracking enabled: %v", cfg.UsageTrackingEnabled)
+
+	// Initialize CPF services
+	cpfAccountRepo := account.NewRepository(db)
 
 	// Inject timeline service into financial client for analysis methods
 	financialClient.SetTimelineService(timelineService)
@@ -248,6 +252,7 @@ func main() {
 	propertyLinkHandler := handlers.NewPropertyLinkHandler(finStore)
 	scenarioHandler := handlers.NewScenarioEventHandler(finStore)
 	cashAccountHandler := handlers.NewCashAccountHandler(finStore)
+	cpfHandler := handlers.NewCPFHandler(cpfAccountRepo)
 	v1Router.PathPrefix("/assets").Handler(handlerToHTTPMux("/api/v1", assetHandler.RegisterRoutes))
 	v1Router.PathPrefix("/liabilities").Handler(handlerToHTTPMux("/api/v1", liabilityHandler.RegisterRoutes))
 	v1Router.PathPrefix("/cashflow/incomes").Handler(handlerToHTTPMux("/api/v1", incomeHandler.RegisterRoutes))
@@ -256,6 +261,7 @@ func main() {
 	v1Router.PathPrefix("/property-links").Handler(handlerToHTTPMux("/api/v1", propertyLinkHandler.RegisterRoutes))
 	v1Router.PathPrefix("/scenario-events").Handler(handlerToHTTPMux("/api/v1", scenarioHandler.RegisterRoutes))
 	v1Router.PathPrefix("/cash-accounts").Handler(handlerToHTTPMux("/api/v1", cashAccountHandler.RegisterRoutes))
+	v1Router.PathPrefix("/cpf").Handler(handlerToHTTPMux("/api/v1", cpfHandler.RegisterRoutes))
 	v1Router.HandleFunc("/financial/timeline", timelineHandler.HandleGetTimeline).Methods("GET")
 	v1Router.HandleFunc("/financial/timeline/{year}", timelineHandler.HandleUpsertYear).Methods("PUT", "OPTIONS")
 	v1Router.HandleFunc("/financial/growth", growthHandler.HandleGetGrowth).Methods("GET")

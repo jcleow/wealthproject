@@ -1,4 +1,5 @@
 import type { Asset, Liability, Income, Expense, CashAccount, GrowthConfig, UserSettings, PaginatedResponse, PaginationParams } from '@/types/financial'
+import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload, CPFConfiguration, CPFContributionPreview, ResidencyStatus } from '@/types/cpf'
 import type { PropertyLinkRecord, PropertyScenarioRecord } from '@/types/property'
 import {
   type ScenarioEvent,
@@ -88,6 +89,10 @@ const toIncome = (item: any): Income => ({
   growthRate: item.growth_rate ?? item.growthRate ?? item.GrowthRate ?? 3.0,
   notes: item.notes ?? item.Notes ?? '',
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+  // CPF-related fields
+  incomeType: item.income_type ?? item.incomeType ?? item.IncomeType,
+  cpfWageType: item.cpf_wage_type ?? item.cpfWageType ?? item.CpfWageType,
+  cpfApplicable: item.cpf_applicable ?? item.cpfApplicable ?? item.CPFApplicable,
 })
 
 const toExpense = (item: any): Expense => ({
@@ -735,4 +740,142 @@ export const financialApi = {
       updatedAt: data.updatedAt,
     }
   },
+
+  // ============================
+  // CPF Account APIs
+  // ============================
+
+  async getCPFAccount(): Promise<CPFAccount | null> {
+    try {
+      const data = await jsonRequest<any>(`${API_BASE}/cpf/account`)
+      return toCPFAccount(data)
+    } catch {
+      // Return null if account doesn't exist yet
+      return null
+    }
+  },
+
+  async createCPFAccount(payload: CPFAccountCreatePayload): Promise<CPFAccount> {
+    const body = {
+      oa_balance: payload.oaBalance ?? 0,
+      sa_balance: payload.saBalance ?? 0,
+      ma_balance: payload.maBalance ?? 0,
+      ra_balance: payload.raBalance ?? 0,
+      oa_used_for_housing: payload.oaUsedForHousing ?? 0,
+      housing_start_date: payload.housingStartDate,
+      date_of_birth: payload.dateOfBirth,
+      residency_status: payload.residencyStatus,
+      pr_grant_date: payload.prGrantDate,
+    }
+    const data = await jsonRequest<any>(`${API_BASE}/cpf/account`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    return toCPFAccount(data)
+  },
+
+  async updateCPFAccount(payload: CPFAccountUpdatePayload): Promise<CPFAccount> {
+    const body: Record<string, unknown> = {}
+    if (payload.oaBalance !== undefined) body.oa_balance = payload.oaBalance
+    if (payload.saBalance !== undefined) body.sa_balance = payload.saBalance
+    if (payload.maBalance !== undefined) body.ma_balance = payload.maBalance
+    if (payload.raBalance !== undefined) body.ra_balance = payload.raBalance
+    if (payload.oaUsedForHousing !== undefined) body.oa_used_for_housing = payload.oaUsedForHousing
+    if (payload.housingStartDate !== undefined) body.housing_start_date = payload.housingStartDate
+    if (payload.dateOfBirth !== undefined) body.date_of_birth = payload.dateOfBirth
+    if (payload.residencyStatus !== undefined) body.residency_status = payload.residencyStatus
+    if (payload.prGrantDate !== undefined) body.pr_grant_date = payload.prGrantDate
+
+    const data = await jsonRequest<any>(`${API_BASE}/cpf/account`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    })
+    return toCPFAccount(data)
+  },
+
+  // ============================
+  // CPF Configuration APIs
+  // ============================
+
+  async getCPFConfig(params?: { year?: number; date?: string }): Promise<CPFConfiguration> {
+    const searchParams = new URLSearchParams()
+    if (params?.year) searchParams.set('year', params.year.toString())
+    if (params?.date) searchParams.set('date', params.date)
+    const url = `${API_BASE}/cpf/config${searchParams.toString() ? `?${searchParams}` : ''}`
+    const data = await jsonRequest<any>(url)
+    return toCPFConfiguration(data)
+  },
+
+  async listCPFConfigYears(): Promise<number[]> {
+    const data = await jsonRequest<{ years: number[] }>(`${API_BASE}/cpf/config/years`)
+    return data.years
+  },
+
+  // ============================
+  // CPF Contribution Preview API
+  // ============================
+
+  async getCPFContributionPreview(params: {
+    grossWage: number
+    age: number
+    residencyStatus: ResidencyStatus
+    cpfWageType: 'ow' | 'aw'
+  }): Promise<CPFContributionPreview> {
+    const searchParams = new URLSearchParams({
+      gross_wage: params.grossWage.toString(),
+      age: params.age.toString(),
+      residency_status: params.residencyStatus,
+      cpf_wage_type: params.cpfWageType,
+    })
+    const data = await jsonRequest<any>(`${API_BASE}/cpf/contribution-preview?${searchParams}`)
+    return toCPFContributionPreview(data)
+  },
 }
+
+// CPF type mappers
+const toCPFAccount = (item: any): CPFAccount => ({
+  id: item.id ?? item.ID,
+  userId: item.user_id ?? item.userId ?? item.UserID,
+  oaBalance: item.oa_balance ?? item.oaBalance ?? item.OABalance ?? 0,
+  saBalance: item.sa_balance ?? item.saBalance ?? item.SABalance ?? 0,
+  maBalance: item.ma_balance ?? item.maBalance ?? item.MABalance ?? 0,
+  raBalance: item.ra_balance ?? item.raBalance ?? item.RABalance ?? 0,
+  oaUsedForHousing: item.oa_used_for_housing ?? item.oaUsedForHousing ?? item.OAUsedForHousing ?? 0,
+  housingStartDate: item.housing_start_date ?? item.housingStartDate ?? item.HousingStartDate,
+  dateOfBirth: item.date_of_birth ?? item.dateOfBirth ?? item.DateOfBirth,
+  residencyStatus: item.residency_status ?? item.residencyStatus ?? item.ResidencyStatus ?? 'citizen',
+  prGrantDate: item.pr_grant_date ?? item.prGrantDate ?? item.PRGrantDate,
+  createdAt: item.created_at ?? item.createdAt ?? item.CreatedAt,
+  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+})
+
+const toCPFConfiguration = (item: any): CPFConfiguration => ({
+  id: item.id ?? item.ID,
+  year: item.year ?? item.Year,
+  effectiveFrom: item.effective_from ?? item.effectiveFrom ?? item.EffectiveFrom,
+  effectiveTo: item.effective_to ?? item.effectiveTo ?? item.EffectiveTo,
+  config: item.config ?? item.Config,
+  createdAt: item.created_at ?? item.createdAt ?? item.CreatedAt,
+  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+})
+
+const toCPFContributionPreview = (item: any): CPFContributionPreview => ({
+  grossWage: item.gross_wage ?? item.grossWage ?? item.GrossWage,
+  cappedWage: item.capped_wage ?? item.cappedWage ?? item.CappedWage,
+  employeeContribution: item.employee_contribution ?? item.employeeContribution ?? item.EmployeeContribution,
+  employerContribution: item.employer_contribution ?? item.employerContribution ?? item.EmployerContribution,
+  totalContribution: item.total_contribution ?? item.totalContribution ?? item.TotalContribution,
+  takeHomePay: item.take_home_pay ?? item.takeHomePay ?? item.TakeHomePay,
+  allocation: {
+    oa: item.allocation?.oa ?? item.Allocation?.OA ?? 0,
+    sa: item.allocation?.sa ?? item.Allocation?.SA ?? 0,
+    ma: item.allocation?.ma ?? item.Allocation?.MA ?? 0,
+    ra: item.allocation?.ra ?? item.Allocation?.RA ?? 0,
+  },
+  ratesApplied: {
+    employee: item.rates_applied?.employee ?? item.ratesApplied?.employee ?? 0,
+    employer: item.rates_applied?.employer ?? item.ratesApplied?.employer ?? 0,
+    ageGroup: item.rates_applied?.age_group ?? item.ratesApplied?.ageGroup ?? '',
+    residencyStatus: item.rates_applied?.residency_status ?? item.ratesApplied?.residencyStatus ?? 'citizen',
+  },
+})
