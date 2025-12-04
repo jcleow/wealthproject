@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Building2, Calculator, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell } from 'lucide-react'
+import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -17,6 +17,7 @@ interface FinancialWorkspaceProps {
   timelineYears?: TimelineYear[]
   overrideYears?: Set<number>
   timelineError?: string | null
+  onOpenCPF?: () => void
 }
 
 export function FinancialWorkspace({
@@ -25,6 +26,7 @@ export function FinancialWorkspace({
   timelineYears,
   overrideYears = new Set<number>(),
   timelineError = null,
+  onOpenCPF,
 }: FinancialWorkspaceProps) {
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
@@ -228,18 +230,24 @@ export function FinancialWorkspace({
                     <p className="text-xs text-slate-400">Model affordability, mortgages, and cash flow.</p>
                   </div>
                 </button>
-                {/* Coming Soon Modules */}
-                <div className="cursor-not-allowed opacity-60">
-                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
-                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-500">
-                      <Calculator className="h-4 w-4" />
-                    </span>
-                    <div className="space-y-0.5">
-                      <div className="font-medium text-slate-400">CPF Calculator</div>
-                      <p className="text-xs text-slate-500">Coming soon</p>
-                    </div>
+                {/* CPF Simulation */}
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    onOpenCPF?.()
+                  }}
+                  className="flex w-full items-start gap-3 border-b border-white/[0.04] px-4 py-3 text-left text-sm text-slate-200 transition hover:bg-white/5"
+                  type="button"
+                >
+                  <span className="mt-0.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2 text-emerald-400">
+                    <Wallet className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">CPF</div>
+                    <p className="text-xs text-slate-400">Simulate balances, investments, and retirement.</p>
                   </div>
-                </div>
+                </button>
+                {/* Coming Soon Modules */}
                 <div className="cursor-not-allowed opacity-60">
                   <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
                     <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-500">

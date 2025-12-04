@@ -2,6 +2,75 @@
 
 This document contains Mermaid diagrams illustrating the interactions and flows within Singapore's personal finance system.
 
+> **⚠️ IMPORTANT**: This document is used for financial projections. All figures must be verified against official CPF sources before use in production calculations.
+
+---
+
+## Quick Reference: 2025 Key Figures
+
+### Contribution Ceilings
+
+| Parameter | 2025 Value | Notes |
+|-----------|------------|-------|
+| **OW Ceiling** | $7,400/month | Maximum Ordinary Wages subject to CPF |
+| **AW Ceiling** | $102,000 - YTD OW | Additional Wages ceiling (annual) |
+| **Total Wage Ceiling** | $102,000/year | Maximum total wages subject to CPF |
+
+### Retirement Sums (Cohort turning 55 in 2025)
+
+| Sum | Amount | Purpose |
+|-----|--------|---------|
+| **BRS** (Basic) | $106,500 | Minimum for property pledge option |
+| **FRS** (Full) | $213,000 | Standard requirement (2 × BRS) |
+| **ERS** (Enhanced) | $426,000 | Maximum top-up for higher payouts (4 × BRS) |
+
+### Healthcare
+
+| Parameter | 2025 Value | Notes |
+|-----------|------------|-------|
+| **BHS** (Basic Healthcare Sum) | $71,500 | MediSave cap - excess spills over |
+
+### Interest Rates
+
+| Account | Base Rate | Extra Interest |
+|---------|-----------|----------------|
+| **OA** | 2.5% p.a. | +1% on first $20K (within $60K combined) |
+| **SA** | 4.0% p.a. | +1% on first $60K combined |
+| **MA** | 4.0% p.a. | +1% on first $60K combined |
+| **RA** | 4.0% p.a. | +2% on first $30K, +1% on next $30K |
+
+### SRS Contribution Caps
+
+| Status | Annual Cap |
+|--------|------------|
+| Singapore Citizen/PR | $15,300 |
+| Foreigner | $35,700 |
+
+---
+
+## Glossary of CPF Terms
+
+| Acronym | Full Name | Description |
+|---------|-----------|-------------|
+| **CPF** | Central Provident Fund | Singapore's mandatory social security savings scheme |
+| **OA** | Ordinary Account | For housing, education, investment, insurance. Earns 2.5% p.a. |
+| **SA** | Special Account | For retirement. Earns 4% p.a. Locked until 55 |
+| **MA** | MediSave Account | For healthcare expenses. Earns 4% p.a. |
+| **RA** | Retirement Account | Created at 55 from SA+OA. For CPF LIFE |
+| **BRS** | Basic Retirement Sum | Minimum retirement savings ($106,500 in 2025) |
+| **FRS** | Full Retirement Sum | Standard retirement target ($213,000 in 2025) |
+| **ERS** | Enhanced Retirement Sum | Maximum for higher payouts ($426,000 in 2025) |
+| **BHS** | Basic Healthcare Sum | MediSave cap ($71,500 in 2025) |
+| **VL** | Valuation Limit | min(Purchase Price, Valuation) - first CPF usage tier |
+| **WL** | Withdrawal Limit | 120% × VL - maximum CPF for property (bank loan) |
+| **OW** | Ordinary Wages | Regular monthly salary (capped at $7,400) |
+| **AW** | Additional Wages | Bonus, commission, etc. (capped at $102,000 - YTD OW) |
+| **CPFIS** | CPF Investment Scheme | Invest OA/SA in approved products |
+| **SRS** | Supplementary Retirement Scheme | Voluntary tax-advantaged savings |
+| **AWL** | Additional Withdrawal Limits | Annual MediSave limit for insurance premiums |
+| **RSTU** | Retirement Sum Topping-Up | Cash top-up scheme with tax relief |
+| **CPF LIFE** | CPF Lifelong Income For the Elderly | National annuity scheme from RA |
+
 ---
 
 ## 1. System Overview: Account Relationships
@@ -136,29 +205,65 @@ flowchart TD
 
 ## 3. CPF Account Allocation by Age
 
+### Complete Contribution & Allocation Rates (2025)
+
+| Age Group | Total Rate | Employee | Employer | OA | SA | MA |
+|-----------|------------|----------|----------|----|----|-----|
+| **≤35** | 37% | 20% | 17% | 23% | 6% | 8% |
+| **36-45** | 37% | 20% | 17% | 21% | 7% | 9% |
+| **46-50** | 37% | 20% | 17% | 19% | 8% | 10% |
+| **51-55** | 37% | 20% | 17% | 15% | 11.5% | 10.5% |
+| **56-60** | 29.5% | 15% | 14.5% | 12% | 3.5% | 10.5% |
+| **61-65** | 20.5% | 9.5% | 11% | 3.5% | 2.5% | 10.5% |
+| **66-70** | 16.5% | 7.5% | 9% | 3.5% | 1% | 8% |
+| **>70** | 12.5% | 5% | 7.5% | 1% | 1% | 5.5% |
+
+*Note: OA/SA/MA columns show % of total wages, not % of contribution.*
+
+### Allocation Percentages (of Total Contribution)
+
+| Age Group | OA % | SA % | MA % |
+|-----------|------|------|------|
+| **≤35** | 62.16% | 16.22% | 21.62% |
+| **36-45** | 56.76% | 18.92% | 24.32% |
+| **46-50** | 51.35% | 21.62% | 27.03% |
+| **51-55** | 40.54% | 31.08% | 28.38% |
+| **56-60** | 40.68% | 11.86% | 35.59% |
+| **61-65** | 17.07% | 12.20% | 51.22% |
+| **66-70** | 21.21% | 6.06% | 48.48% |
+| **>70** | 8.00% | 8.00% | 44.00% |
+
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'pie1': '#4CAF50', 'pie2': '#2196F3', 'pie3': '#FF9800'}}}%%
-pie showData title Age ≤35 Allocation
-    "OA (62.16%)" : 62.16
-    "SA (16.22%)" : 16.22
-    "MA (21.62%)" : 21.62
+pie showData title Age 35 and Below - Allocation of 37% Contribution
+    "OA (23% of wage)" : 62.16
+    "SA (6% of wage)" : 16.22
+    "MA (8% of wage)" : 21.62
 ```
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'pie1': '#4CAF50', 'pie2': '#2196F3', 'pie3': '#FF9800'}}}%%
-pie showData title Age 50-55 Allocation
-    "OA (40.54%)" : 40.54
-    "SA (31.08%)" : 31.08
-    "MA (28.38%)" : 28.38
+pie showData title Age 51-55 - Allocation of 37% Contribution
+    "OA (15% of wage)" : 40.54
+    "SA (11.5% of wage)" : 31.08
+    "MA (10.5% of wage)" : 28.38
 ```
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'pie1': '#4CAF50', 'pie2': '#2196F3', 'pie3': '#FF9800'}}}%%
-pie showData title Age 60-65 Allocation
-    "OA (14.89%)" : 14.89
-    "SA (10.64%)" : 10.64
-    "MA (74.47%)" : 74.47
+pie showData title Age 61-65 - Allocation of 20.5% Contribution
+    "OA (3.5% of wage)" : 17.07
+    "SA (2.5% of wage)" : 12.20
+    "MA (10.5% of wage)" : 51.22
 ```
+
+### Key Observations
+
+1. **OA decreases with age** - From 23% (≤35) to 1% (>70)
+2. **SA peaks at 51-55** - 11.5% before RA creation at 55
+3. **MA stays relatively stable** - Around 8-10.5% throughout working life
+4. **Total rate drops after 55** - From 37% to 29.5%, then 20.5%, 16.5%, 12.5%
+5. **After 55, no more SA** - SA closes, contributions go to RA instead
 
 ---
 
@@ -250,6 +355,63 @@ flowchart TD
 
 ## 6. CPF Interest Calculation
 
+### Base Interest Rates
+
+| Account | Base Rate | Floor Rate | Notes |
+|---------|-----------|------------|-------|
+| **OA** | 2.5% p.a. | 2.5% | Pegged to 3-month average of major local banks' rates |
+| **SA** | 4.0% p.a. | 4.0% | = 12-month average yield of 10-year SGS + 1% |
+| **MA** | 4.0% p.a. | 4.0% | Same as SA |
+| **RA** | 4.0% p.a. | 4.0% | Same as SA |
+
+### Extra Interest Scheme
+
+**For members below 55:**
+| Tier | Eligible Balance | Extra Rate | Where Credited |
+|------|-----------------|------------|----------------|
+| First $60,000 | OA (max $20K) + SA + MA | +1% p.a. | SA |
+
+**For members 55 and above:**
+| Tier | Eligible Balance | Extra Rate | Where Credited |
+|------|-----------------|------------|----------------|
+| First $30,000 | OA (max $20K) + SA + MA + RA | +2% p.a. | RA |
+| Next $30,000 | OA (max $20K) + SA + MA + RA | +1% p.a. | RA |
+
+### Effective Interest Rates Summary
+
+| Age | OA (first $20K) | OA (above $20K) | SA | MA | RA |
+|-----|-----------------|-----------------|----|----|-----|
+| **< 55** | 3.5% | 2.5% | 5.0% | 5.0% | N/A |
+| **55-65** | 6.0% (first $30K) | 2.5% | 6.0% | 6.0% | 6.0% |
+| **> 65** | 6.0% (first $30K) | 2.5% | 6.0% | 6.0% | 6.0% |
+
+*Note: Extra interest calculation order is OA → SA → MA → RA*
+
+### Calculation Example (Age 40)
+
+```
+Balances: OA $50,000, SA $30,000, MA $20,000
+
+Step 1: Calculate combined for extra interest
+- OA eligible: min($50K, $20K) = $20,000
+- Combined: $20K + $30K + $20K = $70,000
+- First $60K gets extra 1%
+
+Step 2: Base interest
+- OA: $50,000 × 2.5% = $1,250
+- SA: $30,000 × 4.0% = $1,200
+- MA: $20,000 × 4.0% = $800
+
+Step 3: Extra interest (credited to SA)
+- Extra = $60,000 × 1% = $600 → SA
+
+Total Annual Interest:
+- OA: $1,250
+- SA: $1,200 + $600 = $1,800
+- MA: $800
+- Total: $3,850 (effective ~3.85%)
+```
+
 ```mermaid
 flowchart TD
     START([Monthly Interest Calculation]) --> GET_BAL[Get Account Balances<br/>OA, SA, MA, RA]
@@ -297,46 +459,98 @@ flowchart TD
 
 ## 7. CPF Housing Usage Flow
 
+### Key Terms
+
+| Term | Full Name | Definition |
+|------|-----------|------------|
+| **VL** | Valuation Limit | Lower of purchase price or property valuation |
+| **WL** | Withdrawal Limit | Maximum CPF that can be used = 120% × VL |
+| **BRS** | Basic Retirement Sum | $106,500 (2025) - minimum needed before using CPF beyond VL |
+
+### VL and WL Explained
+
+**Valuation Limit (VL)** = min(Purchase Price, Market Valuation)
+- Example: Price $500K, Valuation $480K → VL = $480K
+
+**Withdrawal Limit (WL)** = VL × 120%
+- Example: VL $480K → WL = $576K
+- The extra 20% (VL to WL) requires meeting BRS first
+
+### Usage Rules by Property & Loan Type
+
+| Property Type | Loan Type | CPF Usage Limit | BRS Requirement |
+|--------------|-----------|-----------------|-----------------|
+| **BTO (New HDB)** | HDB Loan | No limit | None |
+| **HDB Resale** | HDB Loan | Beyond VL allowed | Must meet BRS |
+| **HDB Resale** | Bank Loan | Up to WL (120% VL) | Must meet BRS for VL→WL |
+| **Private** | Bank Loan | Up to WL (120% VL) | Must meet BRS for VL→WL |
+
 ```mermaid
 flowchart TD
     START([Property Purchase]) --> TYPE{Property Type?}
 
-    TYPE --> |BTO| BTO[No VL/WL Limits<br/>Use OA Freely]
-    TYPE --> |HDB Resale| RESALE[VL Applies]
-    TYPE --> |Private| PRIVATE[VL & WL Apply]
+    TYPE --> |"BTO/New HDB"| BTO["No VL/WL Limits<br/>Use OA freely for:<br/>- Downpayment<br/>- Monthly instalments"]
+    TYPE --> |"HDB Resale"| RESALE[VL Applies]
+    TYPE --> |"Private Property"| PRIVATE[VL & WL Apply]
 
     BTO --> USE_OA[Use OA for<br/>Downpayment + Instalments]
 
-    RESALE --> CALC_VL["VL = min#40;Price, Valuation#41;"]
+    RESALE --> CALC_VL["Calculate VL<br/>VL = min#40;Price, Valuation#41;"]
     PRIVATE --> CALC_VL
 
     CALC_VL --> LOAN{Loan Type?}
 
-    LOAN --> |HDB Loan| HDB_LOAN[Can Exceed VL<br/>if BRS Met]
-    LOAN --> |Bank Loan| BANK_LOAN[WL = 120% × VL<br/>Max CPF Usage]
+    LOAN --> |"HDB Loan<br/>#40;2.6% interest#41;"| HDB_LOAN["HDB Loan Rules:<br/>Can exceed VL if BRS met"]
+    LOAN --> |"Bank Loan<br/>#40;~4% interest#41;"| BANK_LOAN["Bank Loan Rules:<br/>WL = 120% × VL<br/>This is max CPF usage"]
 
-    HDB_LOAN --> BRS_CHECK_1{CPF ≥ BRS?}
-    BANK_LOAN --> VL_FIRST[Use OA up to VL]
+    HDB_LOAN --> BRS_CHECK_1{"Total CPF<br/>#40;OA+SA+MA#41; ≥ BRS?<br/>BRS = $106,500"}
+    BANK_LOAN --> PHASE1["Phase 1: Use OA up to VL<br/>#40;No BRS check needed#41;"]
 
-    BRS_CHECK_1 --> |Yes| USE_BEYOND[Use Beyond VL]
-    BRS_CHECK_1 --> |No| CAP_VL_1[Cap at VL]
+    BRS_CHECK_1 --> |"Yes - BRS met"| USE_BEYOND["Can use OA beyond VL<br/>No hard cap"]
+    BRS_CHECK_1 --> |"No - Below BRS"| CAP_VL_1["Capped at VL<br/>Cannot exceed"]
 
-    VL_FIRST --> BRS_CHECK_2{CPF ≥ BRS?}
+    PHASE1 --> BRS_CHECK_2{"Total CPF ≥ BRS?<br/>BRS = $106,500"}
 
-    BRS_CHECK_2 --> |Yes| USE_TO_WL[Use VL to WL<br/>Additional 20%]
-    BRS_CHECK_2 --> |No| CAP_VL_2[Cap at VL]
+    BRS_CHECK_2 --> |"Yes - BRS met"| PHASE2["Phase 2: Use VL to WL<br/>Additional 20% of VL"]
+    BRS_CHECK_2 --> |"No - Below BRS"| CAP_VL_2["Capped at VL<br/>Cannot use the extra 20%"]
 
-    USE_OA --> TRACK[Track Principal<br/>for Accrued Interest]
+    USE_OA --> TRACK["Track All CPF Used:<br/>- Principal amount<br/>- Date of each withdrawal<br/>- For accrued interest calc"]
     USE_BEYOND --> TRACK
     CAP_VL_1 --> TRACK
-    USE_TO_WL --> TRACK
+    PHASE2 --> TRACK
     CAP_VL_2 --> TRACK
 
-    TRACK --> DONE([CPF Used for Property])
+    TRACK --> ACCRUE["Accrued Interest:<br/>2.5% p.a. compound<br/>From withdrawal date"]
+
+    ACCRUE --> DONE(["CPF Used for Property<br/>Must refund on sale"])
 
     style START fill:#4CAF50,color:#fff
     style DONE fill:#4CAF50,color:#fff
     style BTO fill:#8BC34A,color:#fff
+    style PHASE2 fill:#2196F3,color:#fff
+    style USE_BEYOND fill:#2196F3,color:#fff
+    style CAP_VL_1 fill:#f44336,color:#fff
+    style CAP_VL_2 fill:#f44336,color:#fff
+```
+
+### Worked Example: Bank Loan on Private Property
+
+```
+Purchase Price: $1,000,000
+Valuation: $950,000
+Your CPF OA: $200,000
+Your Total CPF (OA+SA+MA): $280,000
+
+VL = min($1,000,000, $950,000) = $950,000
+WL = $950,000 × 120% = $1,140,000
+
+Since Total CPF ($280,000) > BRS ($106,500):
+✓ Can use full OA up to WL ($1,140,000)
+✓ But you only have $200,000 OA, so use all $200K
+
+If Total CPF was only $80,000 (below BRS):
+✗ Can only use OA up to VL ($950,000)
+✗ Cannot access the extra 20% (VL to WL)
 ```
 
 ---
@@ -380,25 +594,72 @@ flowchart TD
 
 ## 9. CPF LIFE Payout Flow
 
+### CPF LIFE Overview
+
+| Criteria | Details |
+|----------|---------|
+| **Eligibility** | Singapore Citizens/PRs with RA ≥ $60,000 at age 65 |
+| **Auto-enrollment** | Yes, if RA ≥ $60,000 |
+| **Payout Start** | Age 65 (can defer up to 70) |
+| **Payout Duration** | Lifelong (until death) |
+| **Bequest** | Remaining annuity premium to beneficiaries |
+
+### Three CPF LIFE Plans Compared
+
+| Feature | Standard | Basic | Escalating |
+|---------|----------|-------|------------|
+| **Monthly Payout** | Highest | Lower | Lowest initially |
+| **Bequest** | Lower | Highest | Medium |
+| **Payout Pattern** | Level (fixed) | Level (fixed) | +2% yearly |
+| **Best For** | Maximize income | Leave more to family | Inflation protection |
+
+### Approximate Payout Factors (per $1,000 of RA balance)
+
+*These are estimates - actual rates depend on cohort and prevailing interest rates*
+
+| Start Age | Standard ($/month) | Basic ($/month) | Escalating ($/month) |
+|-----------|-------------------|-----------------|---------------------|
+| **65** | $5.50 | $5.00 | $4.40 |
+| **66** | $5.90 | $5.40 | $4.70 |
+| **67** | $6.30 | $5.80 | $5.00 |
+| **68** | $6.80 | $6.20 | $5.40 |
+| **69** | $7.30 | $6.70 | $5.80 |
+| **70** | $7.90 | $7.20 | $6.30 |
+
+**Example**: RA balance $200,000, Standard plan at age 65:
+- Monthly payout ≈ $200K ÷ $1K × $5.50 = **$1,100/month**
+
+### Deferral Bonus
+
+| Defer From 65 To | Payout Increase |
+|------------------|-----------------|
+| 66 | +7% |
+| 67 | +14% |
+| 68 | +21% |
+| 69 | +28% |
+| 70 | +35% |
+
+*Approximately 7% increase per year of deferral*
+
 ```mermaid
 flowchart TD
     START([Member Turns 65]) --> CHECK_RA{RA ≥ $60,000?}
 
-    CHECK_RA --> |No| DRAWDOWN[RA Drawdown<br/>Until Depleted]
-    CHECK_RA --> |Yes| AUTO_ENROLL[Auto-Enrolled in CPF LIFE]
+    CHECK_RA --> |"No - Below $60K"| DRAWDOWN["Retirement Sum Scheme<br/>Monthly drawdown<br/>Until RA depleted"]
+    CHECK_RA --> |"Yes - $60K or more"| AUTO_ENROLL["Auto-Enrolled in CPF LIFE<br/>Lifelong payouts guaranteed"]
 
-    AUTO_ENROLL --> SELECT_PLAN{Select Plan}
+    AUTO_ENROLL --> SELECT_PLAN{Select Plan<br/>by age 65}
 
-    SELECT_PLAN --> STANDARD["Standard Plan<br/>Higher Payout<br/>Lower Bequest"]
-    SELECT_PLAN --> BASIC["Basic Plan<br/>Lower Payout<br/>Higher Bequest"]
-    SELECT_PLAN --> ESCALATING["Escalating Plan<br/>+2%/Year<br/>Lower Initial"]
+    SELECT_PLAN --> STANDARD["STANDARD PLAN<br/>━━━━━━━━━━━━<br/>✓ Highest monthly payout<br/>✓ Level payouts for life<br/>✗ Lower bequest"]
+    SELECT_PLAN --> BASIC["BASIC PLAN<br/>━━━━━━━━━━━━<br/>✓ Highest bequest<br/>✓ Level payouts for life<br/>✗ Lower monthly payout"]
+    SELECT_PLAN --> ESCALATING["ESCALATING PLAN<br/>━━━━━━━━━━━━<br/>✓ Payouts increase 2%/year<br/>✓ Inflation protection<br/>✗ Lowest starting payout"]
 
-    STANDARD --> DEFER{Defer Payout?}
+    STANDARD --> DEFER{Defer Payout?<br/>Can wait up to age 70}
     BASIC --> DEFER
     ESCALATING --> DEFER
 
-    DEFER --> |"Start at 65"| PAYOUT_65[Base Payout]
-    DEFER --> |"Defer to 70"| PAYOUT_70["Payout × 1.35<br/>(+7% per year)"]
+    DEFER --> |"Start at 65"| PAYOUT_65["Base Payout<br/>100% of estimated amount"]
+    DEFER --> |"Defer to 70"| PAYOUT_70["Enhanced Payout<br/>~135% of base amount<br/>#40;+7% per year#41;"]
 
     PAYOUT_65 --> LIFETIME[Lifetime Monthly Payouts]
     PAYOUT_70 --> LIFETIME
@@ -893,24 +1154,46 @@ xychart-beta
 
 ## Summary: Key Account Interactions
 
-| From | To | Trigger | Amount |
-|------|-----|---------|--------|
-| Employment | OA/SA/MA | Monthly payroll | Based on rates & ceilings |
-| MA | SA/RA | MA > BHS | Spillover excess |
-| MA | OA | MA > BHS, SA/RA ≥ FRS | Remaining spillover |
-| OA | Property | Purchase/instalment | Up to VL/WL |
-| OA | RA | Age 55 | To fill FRS gap |
-| SA | RA | Age 55 | Up to FRS |
-| RA | CPF LIFE | Age 65 | Annuity premium |
-| CPF LIFE | Member | Age 65+ | Monthly payout |
-| Property Sale | OA/RA | Sale completed | Principal + accrued interest |
-| Income | SRS | Voluntary | Up to $15,300/$35,700 |
-| SRS | Member | Age 63+ | 50% taxable withdrawal |
-| OA | CPFIS | Voluntary | Investible balance (OA - $20K) |
-| SA | CPFIS | Voluntary | Investible balance (SA - $40K) - lower risk only |
-| Cash | SA/RA | Top-up | Up to FRS, $8K tax relief |
-| OA | SA | Transfer (before 55) | Up to FRS, $8K tax relief |
-| OA | Education | Loan | Course fees, 2.5% interest |
+### CPF Flow Summary Table
+
+| From | To | Trigger | Amount/Limit | BRS Requirement |
+|------|-----|---------|--------------|-----------------|
+| **Employment** | OA/SA/MA | Monthly payroll | Based on age rates & OW/AW ceilings | N/A |
+| **MA** | SA/RA | MA > BHS ($71,500) | Spillover excess | N/A |
+| **MA** | OA | MA > BHS, SA/RA ≥ FRS | Remaining spillover | N/A |
+| **OA** | BTO Property | Purchase/instalment | No limit | None |
+| **OA** | HDB Resale (HDB Loan) | Purchase/instalment | Beyond VL allowed | Must meet BRS |
+| **OA** | HDB Resale/Private (Bank Loan) | Purchase/instalment | Up to VL freely | None for VL |
+| **OA** | HDB Resale/Private (Bank Loan) | Purchase/instalment | VL to WL (extra 20%) | Must meet BRS |
+| **OA** | RA | Age 55 | To fill FRS gap | N/A (automatic) |
+| **SA** | RA | Age 55 | Full SA transfers | N/A (automatic) |
+| **RA** | CPF LIFE | Age 65 | Annuity premium | RA ≥ $60K |
+| **CPF LIFE** | Member | Age 65+ | Monthly payout (lifelong) | N/A |
+| **Property Sale** | OA (< 55) | Sale completed | Principal + accrued interest | N/A |
+| **Property Sale** | RA then OA (≥ 55) | Sale completed | Fill RA to FRS first | N/A |
+| **Income** | SRS | Voluntary | Up to $15,300/$35,700 | N/A |
+| **SRS** | Member | Age 63+ | 50% taxable withdrawal | N/A |
+| **OA** | CPFIS | Voluntary | OA - $20K reserve | N/A |
+| **SA** | CPFIS | Voluntary | SA - $40K reserve (low risk only) | N/A |
+| **Cash** | SA (< 55) | Top-up | Up to FRS, $8K tax relief | N/A |
+| **Cash** | RA (≥ 55) | Top-up | Up to ERS, $8K tax relief | N/A |
+| **OA** | SA (< 55) | Transfer | Up to FRS, $8K tax relief | N/A |
+| **OA** | Education | Loan | Course fees, 2.5% accrued interest | N/A |
+
+### Housing CPF Usage Quick Reference
+
+| Scenario | Max CPF Usage | BRS Check Required? |
+|----------|---------------|---------------------|
+| BTO (New HDB) | No limit | No |
+| HDB Resale + HDB Loan | Beyond VL | Yes - for beyond VL |
+| HDB Resale + Bank Loan | VL | No |
+| HDB Resale + Bank Loan | VL to WL (+20%) | Yes - for VL→WL |
+| Private + Bank Loan | VL | No |
+| Private + Bank Loan | VL to WL (+20%) | Yes - for VL→WL |
+
+**VL** = min(Price, Valuation)
+**WL** = VL × 120%
+**BRS** = $106,500 (2025)
 
 ---
 
@@ -1012,6 +1295,458 @@ flowchart TB
 4. **Property counts** - Can pledge property value toward FRS requirement
 5. **No early SA withdrawal** - SA is completely locked until 55 (except CPFIS investments)
 6. **MA has BHS cap** - Excess spills over to SA/RA, then OA
+
+---
+
+## 23. CPF Integration with Assetra Core Modules
+
+This section maps how CPF events interact with Assetra's core financial data models for projection calculations.
+
+### Assetra Core Entities Reference
+
+| Entity | Description | Key Fields |
+|--------|-------------|------------|
+| **CashAccount** | User's bank savings/checking | `balance`, `interestRate`, `isAccumulator` |
+| **Income** | Salary, bonus, dividends | `amount`, `frequency`, `category`, `growthRate` |
+| **Expense** | Monthly/annual spending | `amount`, `frequency`, `category`, `growthRate` |
+| **Asset** | Property, investments, etc. | `currentValue`, `annualGrowthRate`, `category` |
+| **Liability** | Mortgages, loans, debts | `currentBalance`, `interestRateApr`, `minimumPayment` |
+| **PropertyScenario** | HDB/Condo/Landed details | `propertyPrice`, `downPayment`, `loanAmount`, `loanTenure` |
+| **ScenarioEvent** | Life events with impacts | `occursOn`, `impacts[]` on above entities |
+
+---
+
+### 23.1 CPF ↔ Assetra Integration Map
+
+```mermaid
+flowchart TB
+    subgraph Assetra["Assetra Core Modules"]
+        CASH[("CashAccount<br/>Bank Savings")]
+        INCOME[("Income<br/>Salary/Bonus")]
+        EXPENSE[("Expense<br/>Monthly Bills")]
+        ASSET[("Asset<br/>Properties/Investments")]
+        LIABILITY[("Liability<br/>Mortgages/Loans")]
+        TIMELINE[("Timeline<br/>Net Worth Projection")]
+    end
+
+    subgraph CPF["CPF Accounts"]
+        OA[("OA<br/>Ordinary Account")]
+        SA[("SA<br/>Special Account")]
+        MA[("MA<br/>MediSave Account")]
+        RA[("RA<br/>Retirement Account")]
+    end
+
+    subgraph Events["Life Events / Triggers"]
+        E1[Monthly Salary]
+        E2[Buy Property]
+        E3[Medical Bill]
+        E4[Turn 55]
+        E5[Turn 65]
+        E6[Sell Property]
+        E7[Top-up CPF]
+        E8[CPFIS Investment]
+    end
+
+    %% Salary flows
+    E1 --> |"Employee 20%"| CASH
+    E1 --> |"→ OA/SA/MA"| CPF
+    INCOME --> |"Gross Salary"| E1
+
+    %% Property purchase
+    E2 --> |"Cash portion"| CASH
+    E2 --> |"OA for downpayment"| OA
+    E2 --> |"OA for monthly"| OA
+    E2 --> |"Create Asset"| ASSET
+    E2 --> |"Create Liability"| LIABILITY
+
+    %% Medical
+    E3 --> |"MA withdrawal"| MA
+    E3 --> |"Cash if MA insufficient"| CASH
+    E3 --> |"Create Expense"| EXPENSE
+
+    %% Age 55
+    E4 --> |"SA → RA"| RA
+    E4 --> |"OA → RA"| RA
+    E4 --> |"Withdraw excess → Cash"| CASH
+
+    %% Age 65
+    E5 --> |"CPF LIFE payout"| RA
+    RA --> |"Monthly income"| INCOME
+    RA --> |"→ Cash"| CASH
+
+    %% Property sale
+    E6 --> |"Refund OA+interest"| OA
+    E6 --> |"Net proceeds → Cash"| CASH
+    E6 --> |"Remove Asset"| ASSET
+    E6 --> |"Clear Liability"| LIABILITY
+
+    %% Top-ups
+    E7 --> |"Cash → SA/RA"| CASH
+    E7 --> |"Tax relief"| EXPENSE
+
+    %% CPFIS
+    E8 --> |"OA → Investment"| OA
+    E8 --> |"SA → Investment"| SA
+    E8 --> |"Create Asset"| ASSET
+
+    style CASH fill:#4CAF50,color:#fff
+    style OA fill:#3b82f6,color:#fff
+    style SA fill:#10b981,color:#fff
+    style MA fill:#f59e0b,color:#fff
+    style RA fill:#8b5cf6,color:#fff
+```
+
+---
+
+### 23.2 Complete CPF Use Case → Assetra Impact Matrix
+
+#### Employment & Contributions
+
+| Use Case | Trigger | CPF Impact | Assetra Impact |
+|----------|---------|------------|----------------|
+| **Monthly Salary** | Payroll | OA ↑, SA ↑, MA ↑ | `Income` (gross), `CashAccount` ↑ (take-home) |
+| **Annual Bonus** | Year-end | OA ↑, SA ↑, MA ↑ (subject to AW ceiling) | `Income` (bonus), `CashAccount` ↑ |
+| **Salary Increase** | Promotion | Higher contributions | `Income.amount` ↑, `Income.growthRate` adjustment |
+| **Job Loss** | Retrenchment | Contributions stop | `Income` end date set, `CashAccount` drawdown |
+
+#### Housing (Property Purchase)
+
+| Use Case | Trigger | CPF Impact | Assetra Impact |
+|----------|---------|------------|----------------|
+| **BTO Purchase** | Buy HDB | OA ↓ (downpayment + monthly) | `Asset` created (property), `Liability` created (HDB loan), `CashAccount` ↓ (cash portion) |
+| **HDB Resale Purchase** | Buy resale | OA ↓ (up to VL/WL) | `Asset` created, `Liability` created, `CashAccount` ↓, `PropertyLink` created |
+| **Private Property** | Buy condo/landed | OA ↓ (up to WL, need BRS) | `Asset` created, `Liability` created, `CashAccount` ↓ (larger cash portion) |
+| **Monthly Mortgage (CPF)** | Loan servicing | OA ↓ monthly | No cash impact (unless OA insufficient) |
+| **Monthly Mortgage (Cash)** | OA insufficient | OA depleted | `CashAccount` ↓, `Expense` created |
+| **Property Sale** | Sell property | OA ↑ (refund + accrued interest) | `Asset` removed, `Liability` cleared, `CashAccount` ↑ (net proceeds) |
+| **Refinancing** | Switch loan | Accrued interest continues | `Liability` updated (new terms) |
+
+#### Healthcare (MediSave)
+
+| Use Case | Trigger | CPF Impact | Assetra Impact |
+|----------|---------|------------|----------------|
+| **MediShield Life Premium** | Annual | MA ↓ (auto-deducted) | No cash impact |
+| **Integrated Shield Plan** | Annual | MA ↓ (up to AWL), Cash ↓ (excess) | `Expense` created (insurance), `CashAccount` ↓ |
+| **ISP Rider** | Annual | No MA usage | `Expense` created, `CashAccount` ↓ |
+| **Hospitalization** | Medical event | MA ↓ (within limits) | `Expense` created (co-pay), `CashAccount` ↓ |
+| **Outpatient (Chronic)** | Regular treatment | MA ↓ (CHAS limits) | `Expense` created, `CashAccount` ↓ |
+| **Family MediSave Withdrawal** | Pay for family | MA ↓ | No direct Assetra impact |
+
+#### Retirement (Age 55+)
+
+| Use Case | Trigger | CPF Impact | Assetra Impact |
+|----------|---------|------------|----------------|
+| **Turn 55 - RA Creation** | Birthday | SA → RA (full), OA → RA (to FRS) | `ScenarioEvent` (milestone) |
+| **Turn 55 - Withdrawal** | FRS met | OA ↓ (excess withdrawn) | `CashAccount` ↑ (lump sum) |
+| **Turn 55 - No Withdrawal** | Below FRS | All locked in RA | No cash impact |
+| **Property Pledge** | Meet FRS with property | RA remains at BRS | Additional OA withdrawable → `CashAccount` ↑ |
+| **Turn 65 - CPF LIFE Start** | Birthday | RA → Annuity premium | `Income` created (monthly payout), `CashAccount` ↑ monthly |
+| **CPF LIFE Payout** | Monthly (65+) | RA ↓ (notional) | `Income` (recurring), `CashAccount` ↑ |
+| **Defer CPF LIFE** | Defer to 70 | RA continues earning interest | Higher future `Income` |
+| **Death - Bequest** | Member dies | RA → Beneficiaries | `CashAccount` ↑ (for beneficiaries) |
+
+#### Voluntary Top-ups & Transfers
+
+| Use Case | Trigger | CPF Impact | Assetra Impact |
+|----------|---------|------------|----------------|
+| **Cash Top-up to SA (< 55)** | Voluntary | SA ↑ | `CashAccount` ↓, Tax relief → `Expense` reduction |
+| **Cash Top-up to RA (≥ 55)** | Voluntary | RA ↑ | `CashAccount` ↓, Tax relief |
+| **OA → SA Transfer (< 55)** | Voluntary | OA ↓, SA ↑ | No cash impact, Tax relief |
+| **OA → RA Transfer (≥ 55)** | Voluntary | OA ↓, RA ↑ | No cash impact, Tax relief |
+| **Top-up for Family** | Voluntary | Recipient's SA/RA ↑ | `CashAccount` ↓, Tax relief up to $8K |
+| **RSTU Tax Relief** | Year-end | N/A | `Expense` reduction (up to $16K combined) |
+
+#### CPFIS Investments
+
+| Use Case | Trigger | CPF Impact | Assetra Impact |
+|----------|---------|------------|----------------|
+| **OA → CPFIS Investment** | Buy stocks/ETF | OA ↓ (investible: OA - $20K) | `Asset` created (investment), tracks growth |
+| **SA → CPFIS Investment** | Buy low-risk | SA ↓ (investible: SA - $40K) | `Asset` created (investment) |
+| **CPFIS Returns** | Dividends/Growth | OA/SA ↑ (on sale) | `Asset.currentValue` ↑ |
+| **CPFIS Loss** | Market decline | OA/SA unchanged until sale | `Asset.currentValue` ↓ |
+| **Sell CPFIS Investment** | Liquidate | OA/SA ↑ (proceeds) | `Asset` removed |
+
+#### Education Scheme
+
+| Use Case | Trigger | CPF Impact | Assetra Impact |
+|----------|---------|------------|----------------|
+| **Education Loan (Self)** | Start studies | OA ↓ (tuition withdrawn) | `Liability` created (CPF education loan) |
+| **Education Loan (Child)** | Child's education | OA ↓ | `Liability` created, `Expense` (if cash top-up) |
+| **Loan Repayment** | Monthly | OA ↑ (repayments return) | `Liability` ↓, `CashAccount` ↓ (if cash repay) |
+| **Loan Waiver (55+)** | FRS met at 55 | Loan forgiven | `Liability` removed |
+
+#### SA Shielding (Advanced)
+
+| Use Case | Trigger | CPF Impact | Assetra Impact |
+|----------|---------|------------|----------------|
+| **Buy T-Bills with SA** | Before 55 | SA ↓ (CPFIS) | `Asset` created (T-Bill) |
+| **Turn 55 (Shielded)** | Birthday | Low SA → RA, High OA → RA | More OA in RA instead of SA |
+| **T-Bills Mature** | 6 months later | SA ↑ (proceeds return) | `Asset` removed, SA balance ↑ |
+| **Benefit** | Ongoing | SA at 4% (withdrawable) vs RA locked | More flexibility, same interest |
+
+---
+
+### 23.3 CPF Account Flow Diagram with Assetra Integration
+
+```mermaid
+flowchart TD
+    subgraph Employment["Monthly Employment"]
+        GROSS["Gross Salary<br/>#40;Income entity#41;"]
+        TAKE_HOME["Take-Home Pay<br/>#40;→ CashAccount#41;"]
+        CPF_CONTRIB["CPF Contribution<br/>#40;37% if ≤55#41;"]
+    end
+
+    GROSS --> |"Employee 20%"| CPF_CONTRIB
+    GROSS --> |"Net 63%"| TAKE_HOME
+
+    subgraph CPF_Accounts["CPF Accounts"]
+        OA["OA<br/>2.5% p.a."]
+        SA["SA<br/>4% p.a."]
+        MA["MA<br/>4% p.a."]
+        RA["RA<br/>4% p.a."]
+    end
+
+    CPF_CONTRIB --> |"23%"| OA
+    CPF_CONTRIB --> |"6%"| SA
+    CPF_CONTRIB --> |"8%"| MA
+
+    subgraph Housing["Housing Purchase"]
+        PROP_ASSET["Property Asset<br/>#40;Asset entity#41;"]
+        MORTGAGE["Mortgage<br/>#40;Liability entity#41;"]
+        CASH_DOWN["Cash Downpayment<br/>#40;CashAccount ↓#41;"]
+    end
+
+    OA --> |"Downpayment<br/>+ Monthly"| Housing
+    TAKE_HOME --> |"Cash portion"| CASH_DOWN
+
+    subgraph Healthcare["Healthcare"]
+        MSL["MediShield Life"]
+        ISP["Integrated Shield<br/>#40;Expense entity#41;"]
+        MEDICAL_BILL["Medical Bills<br/>#40;Expense entity#41;"]
+    end
+
+    MA --> |"Premiums"| MSL
+    MA --> |"Up to AWL"| ISP
+    MA --> |"Within limits"| MEDICAL_BILL
+    TAKE_HOME --> |"Cash if MA insufficient"| MEDICAL_BILL
+
+    subgraph Age55["At Age 55"]
+        RA_CREATE["RA Created"]
+        WITHDRAW["Excess Withdrawal<br/>#40;→ CashAccount#41;"]
+    end
+
+    SA --> |"Full transfer"| RA_CREATE
+    OA --> |"Top up to FRS"| RA_CREATE
+    OA --> |"If FRS met"| WITHDRAW
+
+    subgraph Retirement["Age 65+ Retirement"]
+        CPFLIFE["CPF LIFE Payout<br/>#40;Income entity#41;"]
+        RETIRE_CASH["Monthly Cash<br/>#40;CashAccount ↑#41;"]
+    end
+
+    RA --> |"Annuity"| CPFLIFE
+    CPFLIFE --> |"$X/month"| RETIRE_CASH
+
+    subgraph Sale["Property Sale"]
+        REFUND["CPF Refund<br/>#40;Principal + Interest#41;"]
+        NET_PROCEEDS["Net Proceeds<br/>#40;CashAccount ↑#41;"]
+        REMOVE_ASSET["Remove Property<br/>#40;Asset deleted#41;"]
+        CLEAR_LOAN["Clear Mortgage<br/>#40;Liability deleted#41;"]
+    end
+
+    PROP_ASSET --> |"Sale"| REMOVE_ASSET
+    MORTGAGE --> |"Paid off"| CLEAR_LOAN
+    Sale --> REFUND
+    REFUND --> |"< 55"| OA
+    REFUND --> |"≥ 55"| RA
+    Sale --> NET_PROCEEDS
+
+    style OA fill:#3b82f6,color:#fff
+    style SA fill:#10b981,color:#fff
+    style MA fill:#f59e0b,color:#fff
+    style RA fill:#8b5cf6,color:#fff
+    style TAKE_HOME fill:#4CAF50,color:#fff
+    style RETIRE_CASH fill:#4CAF50,color:#fff
+    style WITHDRAW fill:#4CAF50,color:#fff
+    style NET_PROCEEDS fill:#4CAF50,color:#fff
+```
+
+---
+
+### 23.4 Timeline Projection Integration
+
+When running Assetra's timeline projection, CPF events should be incorporated:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Timeline as Timeline Engine
+    participant CPF as CPF Module
+    participant Core as Assetra Core
+
+    User->>Timeline: Request 40-year projection
+
+    loop Each Year
+        Timeline->>Core: Get Income/Expenses
+        Timeline->>CPF: Calculate CPF contributions
+        CPF-->>Timeline: OA/SA/MA allocations
+
+        alt Housing Purchase Year
+            Timeline->>CPF: Deduct OA for property
+            Timeline->>Core: Create Asset + Liability
+            Timeline->>Core: Deduct CashAccount
+        end
+
+        alt Medical Event
+            Timeline->>CPF: Deduct MA
+            Timeline->>Core: Create Expense
+        end
+
+        alt Age 55
+            Timeline->>CPF: Transfer SA → RA
+            Timeline->>CPF: Transfer OA → RA (to FRS)
+            alt FRS Met
+                Timeline->>Core: Add excess to CashAccount
+            end
+        end
+
+        alt Age 65+
+            Timeline->>CPF: Calculate CPF LIFE payout
+            Timeline->>Core: Add Income (monthly payout)
+            Timeline->>Core: Increase CashAccount
+        end
+
+        Timeline->>CPF: Apply interest to all accounts
+        Timeline->>Core: Calculate net worth
+    end
+
+    Timeline-->>User: Return TimelineResponse
+```
+
+---
+
+### 23.5 Assetra Entity Updates by CPF Event
+
+#### ScenarioEvent Examples for CPF Integration
+
+```typescript
+// Example: Buy HDB BTO
+{
+  name: "Buy HDB BTO",
+  occursOn: "2025-06-01",
+  impacts: [
+    // Create property asset
+    {
+      targetType: "asset",
+      impactKind: "start",
+      amount: 500000, // Property value
+      cadence: "once",
+      notes: "HDB BTO property"
+    },
+    // Create mortgage liability
+    {
+      targetType: "liability",
+      impactKind: "start",
+      amount: 400000, // Loan amount
+      cadence: "monthly", // $1,800/month
+      notes: "HDB loan at 2.6%"
+    },
+    // Cash downpayment
+    {
+      targetType: "expense",
+      impactKind: "delta",
+      amount: -25000, // Cash portion of downpayment
+      cadence: "once"
+    }
+    // CPF OA deduction handled by CPF module
+  ]
+}
+
+// Example: Turn 55 with FRS met
+{
+  name: "Turn 55 - CPF Withdrawal",
+  occursOn: "2045-03-15",
+  impacts: [
+    // Lump sum withdrawal to cash
+    {
+      targetType: "asset", // CashAccount treated as asset
+      targetId: "accumulator-account-id",
+      impactKind: "delta",
+      amount: 150000, // Excess OA withdrawn
+      cadence: "once",
+      notes: "CPF withdrawal - FRS met"
+    }
+  ]
+}
+
+// Example: CPF LIFE starts at 65
+{
+  name: "CPF LIFE Payout Begins",
+  occursOn: "2055-03-15",
+  impacts: [
+    // Monthly retirement income
+    {
+      targetType: "income",
+      impactKind: "start",
+      amount: 1500, // Monthly payout
+      cadence: "monthly",
+      notes: "CPF LIFE Standard Plan"
+    }
+  ]
+}
+```
+
+---
+
+### 23.6 Data Mapping Reference
+
+| CPF Field | Assetra Entity | Assetra Field | Notes |
+|-----------|---------------|---------------|-------|
+| Monthly salary | `Income` | `amount`, `frequency: monthly` | Gross salary for CPF calc |
+| Take-home pay | `CashAccount` | `balance` ↑ | Net after CPF deduction |
+| OA for housing | `CPFHousingUsage` | `downPayment.oaUsed` | Track separately from cash |
+| Property value | `Asset` | `currentValue`, `category: property` | Via PropertyLink |
+| Mortgage balance | `Liability` | `currentBalance`, `category: property` | Via PropertyLink |
+| Monthly mortgage | `Expense` OR CPF | Depends on source | OA or cash payment |
+| Medical expense | `Expense` | `amount`, `category: healthcare` | After MA withdrawal |
+| CPF LIFE payout | `Income` | `amount`, `frequency: monthly`, `category: retirement` | From age 65 |
+| CPF withdrawal | `CashAccount` | `balance` ↑ | Lump sum at 55 |
+| Top-up tax relief | `Expense` | Reduction in tax | Via income tax calc |
+| CPFIS investment | `Asset` | `currentValue`, `category: cpfis` | Track separately |
+
+---
+
+### 23.7 Key Integration Points for Implementation
+
+1. **CPF Contribution Calculator**
+   - Input: `Income.amount` (gross salary)
+   - Output: OA/SA/MA amounts, take-home pay
+   - Updates: `CashAccount.balance`
+
+2. **Housing Purchase Flow**
+   - Input: PropertyScenario, CPF OA balance
+   - Output: Asset, Liability, CPFHousingUsage
+   - Updates: OA balance, `CashAccount.balance`
+
+3. **Age 55 Transition**
+   - Input: OA, SA, MA balances, FRS target
+   - Output: RA balance, withdrawable amount
+   - Updates: `CashAccount.balance` if FRS met
+
+4. **CPF LIFE Projection**
+   - Input: RA balance at 65, plan choice
+   - Output: Monthly payout amount
+   - Creates: `Income` entity for retirement
+
+5. **Healthcare Withdrawals**
+   - Input: Medical bill, MA balance
+   - Output: MA deduction, cash expense
+   - Updates: MA balance, may create `Expense`
+
+6. **Property Sale**
+   - Input: Sale price, CPF usage history
+   - Output: Refund amount, net proceeds
+   - Updates: OA/RA balance, `CashAccount.balance`, removes Asset/Liability
 
 ---
 
