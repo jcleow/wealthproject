@@ -327,18 +327,19 @@ export function NetWorthProjection({
     return actualEndIndex - actualStartIndex + 1
   }, [effectiveResolution, actualStartIndex, actualEndIndex, projection.length])
 
-  // Prevent page scroll when mouse is over chart
+  // Prevent page scroll when mouse is over chart container
   useEffect(() => {
-    const chartElement = chartWrapperRef.current
-    if (!chartElement) return
+    const chartContainer = chartContainerRef.current
+    if (!chartContainer) return
 
     const preventScroll = (e: WheelEvent) => {
-      if (!chartElement.contains(e.target as Node)) return
+      // Always prevent page scroll when over the chart area
       e.preventDefault()
+      e.stopPropagation()
     }
 
-    chartElement.addEventListener('wheel', preventScroll, { passive: false })
-    return () => chartElement.removeEventListener('wheel', preventScroll)
+    chartContainer.addEventListener('wheel', preventScroll, { passive: false })
+    return () => chartContainer.removeEventListener('wheel', preventScroll)
   }, [])
 
   // Mouse wheel zoom handler with stable reference
