@@ -327,6 +327,20 @@ export function NetWorthProjection({
     return actualEndIndex - actualStartIndex + 1
   }, [effectiveResolution, actualStartIndex, actualEndIndex, projection.length])
 
+  // Prevent page scroll when mouse is over chart
+  useEffect(() => {
+    const chartElement = chartWrapperRef.current
+    if (!chartElement) return
+
+    const preventScroll = (e: WheelEvent) => {
+      if (!chartElement.contains(e.target as Node)) return
+      e.preventDefault()
+    }
+
+    chartElement.addEventListener('wheel', preventScroll, { passive: false })
+    return () => chartElement.removeEventListener('wheel', preventScroll)
+  }, [])
+
   // Mouse wheel zoom handler with stable reference
   useEffect(() => {
     const chartElement = chartWrapperRef.current
@@ -342,7 +356,7 @@ export function NetWorthProjection({
       if (!chartElement.contains(e.target as Node)) return
       if (isProcessing) return // Debounce rapid scrolls
 
-      e.preventDefault()
+      // Note: preventDefault is already called by the preventScroll handler above
       isProcessing = true
 
       // Reset processing flag after a short delay
