@@ -2,8 +2,6 @@ package growth
 
 import (
 	"financial-chat-system/backend/internal/decimal"
-
-	"github.com/cockroachdb/apd/v3"
 )
 
 type StrategyType string
@@ -47,7 +45,6 @@ func (s CompoundMonthlyStrategy) Calculate(params Params) (*decimal.Decimal, err
 	// Monthly rate calculation: (1 + Rate/100)^(1/12) - 1
 	one := decimal.One()
 	hundred := decimal.MustFromString("100")
-	twelve := decimal.MustFromString("12")
 	oneOverTwelve := decimal.MustFromString("0.083333333333") // 1/12
 
 	// Convert rate from percentage: Rate / 100
