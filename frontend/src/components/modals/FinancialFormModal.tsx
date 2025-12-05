@@ -372,8 +372,29 @@ export function FinancialFormModal({
       }
       case 'income': {
         const income = data as Income
-        const amt = (income as any).amountAnnual ?? (income as any).amount_annual ?? income.amount ?? 0
+        // For income/expense flows, use the appropriate amount based on source frequency
+        // If we have both amountAnnual and amountMonthly (from timeline), use sourceAmount which is the original input
+        const sourceAmt = (income as any).sourceAmount
         const freq = (income as any).sourceFrequency ?? (income as any).source_frequency ?? income.frequency ?? 'annual'
+
+        // Prefer sourceAmount (original input), otherwise derive from annual/monthly based on frequency
+        let amt: number
+        if (sourceAmt !== undefined && sourceAmt !== null) {
+          amt = sourceAmt
+        } else {
+          // Fallback: use annual or monthly based on frequency
+          const annualAmt = (income as any).amountAnnual ?? (income as any).amount_annual ?? income.amount ?? 0
+          const monthlyAmt = (income as any).amountMonthly ?? (income as any).amount_monthly
+
+          if (freq === 'monthly' && monthlyAmt !== undefined) {
+            amt = monthlyAmt
+          } else if (freq === 'monthly' && annualAmt) {
+            amt = annualAmt / 12
+          } else {
+            amt = annualAmt
+          }
+        }
+
         // Handle both Income (source) and TimelineItem (name) data shapes
         const itemName = income.source ?? (income as any).name ?? ''
         // Use item's growth rate if set, otherwise fall back to user's growth config
@@ -396,8 +417,29 @@ export function FinancialFormModal({
       }
       case 'expense': {
         const expense = data as Expense
-        const amt = (expense as any).amountAnnual ?? (expense as any).amount_annual ?? expense.amount ?? 0
+        // For income/expense flows, use the appropriate amount based on source frequency
+        // If we have both amountAnnual and amountMonthly (from timeline), use sourceAmount which is the original input
+        const sourceAmt = (expense as any).sourceAmount
         const freq = (expense as any).sourceFrequency ?? (expense as any).source_frequency ?? expense.frequency ?? 'annual'
+
+        // Prefer sourceAmount (original input), otherwise derive from annual/monthly based on frequency
+        let amt: number
+        if (sourceAmt !== undefined && sourceAmt !== null) {
+          amt = sourceAmt
+        } else {
+          // Fallback: use annual or monthly based on frequency
+          const annualAmt = (expense as any).amountAnnual ?? (expense as any).amount_annual ?? expense.amount ?? 0
+          const monthlyAmt = (expense as any).amountMonthly ?? (expense as any).amount_monthly
+
+          if (freq === 'monthly' && monthlyAmt !== undefined) {
+            amt = monthlyAmt
+          } else if (freq === 'monthly' && annualAmt) {
+            amt = annualAmt / 12
+          } else {
+            amt = annualAmt
+          }
+        }
+
         // Handle both Expense (payee) and TimelineItem (name) data shapes
         const itemName = expense.payee ?? (expense as any).name ?? ''
         // Use item's growth rate if set, otherwise fall back to user's growth config

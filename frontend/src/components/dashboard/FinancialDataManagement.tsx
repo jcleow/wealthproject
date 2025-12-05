@@ -21,7 +21,7 @@ import { FinancialFormModal } from '../modals/FinancialFormModal'
 import { CashAccountFormModal } from '../modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { financialApi } from '@/services/financialApi'
-import type { TimelineYear, TimelineMonth, TimeResolution, TimelineEditRequest, TimelineEdit, TimelineItemType, TimelineFrequency, TimelineItem, TimelineEventImpact } from '@/types/timeline'
+import type { TimelineYear, TimelineMonth, TimeResolution, TimelineEditRequest, TimelineEdit, TimelineFrequency, TimelineItem, TimelineEventImpact } from '@/types/timeline'
 import { formatCurrency } from '@/lib/format'
 import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 
@@ -381,67 +381,40 @@ export function FinancialDataManagement({
 
   const handleDeleteItem = async (category: FinancialCategory, id: string) => {
     try {
-      // For timeline mode, we need to handle deletion differently
-      // Timeline items cannot be deleted directly via API
-      if (usingTimeline && timelineYear) {
-        const resolveFrequency = (item: TimelineItem): TimelineFrequency =>
-          item.sourceFrequency ?? 'annual'
-
-        const currentItems = (() => {
-          switch (category) {
-            case 'asset':
-              return yearAssets
-            case 'liability':
-              return yearLiabilities
-            case 'income':
-              return yearIncomes
-            case 'expense':
-              return yearExpenses
-            default:
-              return []
-          }
-        })()
-
-        const target = currentItems.find(item => getItemId(item) === id)
-        if (!target) {
-          console.warn('Timeline item not found for delete', { category, id })
-          return
+      // When using timeline, delete via timeline edit (set amount to 0)
+      if (usingTimeline && onSaveTimelineEdits && selectedYear > 0) {
+        // For timeline items in year > 0, create a deletion edit
+        const edit: TimelineEdit = {
+          itemId: id,
+          itemType: category,
+          amount: 0, // Amount of 0 signals deletion in timeline
+          frequency: 'annual',
         }
 
-        // Save the updated timeline
-        if (onSaveTimelineEdits) {
-          await onSaveTimelineEdits({
-            year: selectedYear,
-            edits: [
-              {
-                itemId: getItemId(target),
-                itemType: category as TimelineItemType,
-                category: target.category ?? 'other',
-                amount: 0,
-                frequency: resolveFrequency(target),
-              },
-            ],
-            note: `Removed ${category}`,
-          })
+        const request: TimelineEditRequest = {
+          year: selectedYear,
+          edits: [edit],
         }
-      } else {
-        // Original non-timeline deletion logic
-        switch (category) {
-          case 'asset':
-            await deleteAsset(id)
-            break
-          case 'liability':
-            await deleteLiability(id)
-            break
-          case 'income':
-            await deleteIncome(id)
-            break
-          case 'expense':
-            await deleteExpense(id)
-            break
-        }
-        await refresh()
+        await onSaveTimelineEdits(request)
+        return
       }
+
+      // For year 0 or non-timeline mode, use proper DELETE endpoints
+      switch (category) {
+        case 'asset':
+          await deleteAsset(id)
+          break
+        case 'liability':
+          await deleteLiability(id)
+          break
+        case 'income':
+          await deleteIncome(id)
+          break
+        case 'expense':
+          await deleteExpense(id)
+          break
+      }
+      await refresh()
     } catch (error) {
       console.error(`Failed to delete ${category}:`, error)
     }

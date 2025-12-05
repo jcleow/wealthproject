@@ -435,7 +435,18 @@ func (s *Store) UpdateAsset(ctx context.Context, userID string, a Asset) (Asset,
 }
 
 func (s *Store) DeleteAsset(ctx context.Context, userID, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_assets WHERE user_id=$1 AND id=$2`, userID, id)
+	// Delete the row AND all descendant rows recursively (any override chains)
+	// Example: deleting 1st override deletes 1st, 2nd, 3rd... but not the original
+	result, err := s.db.ExecContext(ctx, `
+		WITH RECURSIVE descendants AS (
+			SELECT id FROM finance_assets WHERE user_id=$1 AND id=$2
+			UNION ALL
+			SELECT a.id FROM finance_assets a
+			INNER JOIN descendants d ON a.parent_id = d.id
+			WHERE a.user_id=$1
+		)
+		DELETE FROM finance_assets WHERE id IN (SELECT id FROM descendants)
+	`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -708,7 +719,17 @@ func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability
 }
 
 func (s *Store) DeleteLiability(ctx context.Context, userID, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_liabilities WHERE user_id=$1 AND id=$2`, userID, id)
+	// Delete the row AND all descendant rows recursively (any override chains)
+	result, err := s.db.ExecContext(ctx, `
+		WITH RECURSIVE descendants AS (
+			SELECT id FROM finance_liabilities WHERE user_id=$1 AND id=$2
+			UNION ALL
+			SELECT l.id FROM finance_liabilities l
+			INNER JOIN descendants d ON l.parent_id = d.id
+			WHERE l.user_id=$1
+		)
+		DELETE FROM finance_liabilities WHERE id IN (SELECT id FROM descendants)
+	`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -1053,7 +1074,17 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Inc
 }
 
 func (s *Store) DeleteIncome(ctx context.Context, userID, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_incomes WHERE user_id=$1 AND id=$2`, userID, id)
+	// Delete the row AND all descendant rows recursively (any override chains)
+	result, err := s.db.ExecContext(ctx, `
+		WITH RECURSIVE descendants AS (
+			SELECT id FROM finance_incomes WHERE user_id=$1 AND id=$2
+			UNION ALL
+			SELECT i.id FROM finance_incomes i
+			INNER JOIN descendants d ON i.parent_id = d.id
+			WHERE i.user_id=$1
+		)
+		DELETE FROM finance_incomes WHERE id IN (SELECT id FROM descendants)
+	`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -1251,7 +1282,17 @@ func (s *Store) UpdateExpense(ctx context.Context, userID string, it Expense) (E
 }
 
 func (s *Store) DeleteExpense(ctx context.Context, userID, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_expenses WHERE user_id=$1 AND id=$2`, userID, id)
+	// Delete the row AND all descendant rows recursively (any override chains)
+	result, err := s.db.ExecContext(ctx, `
+		WITH RECURSIVE descendants AS (
+			SELECT id FROM finance_expenses WHERE user_id=$1 AND id=$2
+			UNION ALL
+			SELECT e.id FROM finance_expenses e
+			INNER JOIN descendants d ON e.parent_id = d.id
+			WHERE e.user_id=$1
+		)
+		DELETE FROM finance_expenses WHERE id IN (SELECT id FROM descendants)
+	`, userID, id)
 	if err != nil {
 		return err
 	}

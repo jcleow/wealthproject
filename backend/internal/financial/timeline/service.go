@@ -401,10 +401,12 @@ func validateEdit(edit EditRequest) error {
 	if _, ok := freqFactors[edit.Frequency]; !ok {
 		return errUnsupportedFrequency
 	}
+	// Allow amount of 0 for deletions, but not negative amounts
 	if edit.Amount < 0 {
-		return errors.New("amount must be non-negative")
+		return errors.New("amount cannot be negative")
 	}
-	if edit.ItemID == nil && (edit.Name == nil || strings.TrimSpace(*edit.Name) == "") {
+	// For non-zero amounts (creates/updates), validate name is provided for new items
+	if edit.Amount > 0 && edit.ItemID == nil && (edit.Name == nil || strings.TrimSpace(*edit.Name) == "") {
 		return errors.New("name is required when creating a new item")
 	}
 	return nil
@@ -422,23 +424,6 @@ func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit E
 	category := strings.TrimSpace(edit.Category)
 	if category == "" {
 		category = "other"
-	}
-
-	// If amount is 0, this is a delete operation - delete the actual item from the database
-	if edit.Amount == 0 && parentID != "" {
-		log.Printf("[applyEdit] Deleting item: ItemID=%s, ItemType=%s", parentID, edit.ItemType)
-		switch edit.ItemType {
-		case ItemTypeAsset:
-			return s.store.DeleteAsset(ctx, userID, parentID)
-		case ItemTypeLiability:
-			return s.store.DeleteLiability(ctx, userID, parentID)
-		case ItemTypeIncome:
-			return s.store.DeleteIncome(ctx, userID, parentID)
-		case ItemTypeExpense:
-			return s.store.DeleteExpense(ctx, userID, parentID)
-		default:
-			return errors.New("unsupported item type")
-		}
 	}
 
 	// Convert relative year to absolute year for storage
