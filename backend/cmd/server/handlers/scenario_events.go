@@ -34,6 +34,18 @@ func NewScenarioEventHandler(store scenarioEventStore) *ScenarioEventHandler {
 }
 
 // RegisterRoutes wires routes using http.ServeMux style.
+// @Summary List or create scenario events
+// @Description List all scenario events or create a new one
+// @Tags Scenario Events
+// @Accept json
+// @Produce json
+// @Param body body scenarioEventInput false "New scenario event"
+// @Success 200 {array} repository.ScenarioEvent
+// @Success 201 {object} repository.ScenarioEvent
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /scenario-events [get]
+// @Router /scenario-events [post]
 func (h *ScenarioEventHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/scenario-events", h.handleCollection)
 	mux.HandleFunc("/scenario-events/", h.handleItem)

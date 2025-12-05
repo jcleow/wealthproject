@@ -47,10 +47,17 @@ func NewSettingsHandler(svc *timeline.Service) *SettingsHandler {
 }
 
 // HandleGetTimeline returns the full timeline with optional resolution override.
-// Query parameters:
-//   - resolution: optional override ("yearly" or "monthly") to temporarily change from user's saved preference
-//   - include_scenarios: include scenario impacts if "true"
-//   - scenario_ids: comma-separated list of scenario IDs to apply
+// @Summary Get financial timeline
+// @Description Returns the full financial timeline with optional resolution and scenario filtering
+// @Tags Timeline
+// @Produce json
+// @Param resolution query string false "Resolution override (yearly or monthly)"
+// @Param include_scenarios query boolean false "Include scenario impacts"
+// @Param scenario_ids query string false "Comma-separated list of scenario IDs"
+// @Success 200 {object} timeline.TimelineResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /financial/timeline [get]
 func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Request) {
 	// Parse optional resolution override
 	resolution := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("resolution")))
@@ -106,6 +113,17 @@ func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Reque
 }
 
 // HandleUpsertYear upserts overrides/new items for a given year and returns refreshed timeline.
+// @Summary Update financial data for a specific year
+// @Description Upserts financial data edits for a given year
+// @Tags Timeline
+// @Accept json
+// @Produce json
+// @Param year path int true "Year (absolute)"
+// @Param body body map[string]interface{} true "Year edits"
+// @Success 200 {object} timeline.TimelineResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Router /financial/timeline/{year} [put]
 func (h *TimelineHandler) HandleUpsertYear(w http.ResponseWriter, r *http.Request) {
 	yearStr := mux.Vars(r)["year"]
 	absoluteYear, err := strconv.Atoi(yearStr)

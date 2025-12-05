@@ -30,6 +30,12 @@ type HealthResponse struct {
 }
 
 // HandleHealth returns the health status of the application
+// @Summary Health check
+// @Description Get the health status of the application
+// @Tags Health
+// @Produce json
+// @Success 200 {object} HealthResponse
+// @Router /health [get]
 func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	uptime := time.Since(h.startTime)
 
@@ -72,6 +78,12 @@ func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleTools returns the available financial tools
+// @Summary Get available financial tools
+// @Description Returns a list of all available financial tools and their metadata
+// @Tags Health
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /tools [get]
 func (h *HealthHandler) HandleTools(w http.ResponseWriter, r *http.Request) {
 	registry := financial.GetRegistry()
 	tools := registry.GetTools()
