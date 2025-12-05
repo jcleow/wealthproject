@@ -9,19 +9,21 @@ import (
 
 // CashAccount represents a persisted cash/liquid account record.
 type CashAccount struct {
-	ID            string        `json:"id"`
-	UserID        string        `json:"userId"`
-	Name          string        `json:"name"`
-	Balance       float64       `json:"balance"`
-	InterestRate  float64       `json:"interestRate"`
-	BankName      string        `json:"bankName,omitempty"`
-	AccountType   string        `json:"accountType,omitempty"` // checking, savings, money_market
-	IsAccumulator bool          `json:"isAccumulator"`
-	StartYear     int           `json:"startYear"`
-	EndYear       sql.NullInt32 `json:"endYear,omitempty"`
-	Notes         string        `json:"notes,omitempty"`
-	CreatedAt     time.Time     `json:"createdAt"`
-	UpdatedAt     time.Time     `json:"updatedAt"`
+	ID             string                 `json:"id"`
+	UserID         string                 `json:"userId"`
+	Name           string                 `json:"name"`
+	Balance        float64                `json:"balance"`
+	InterestRate   float64                `json:"interestRate"`
+	BankName       string                 `json:"bankName,omitempty"`
+	AccountType    string                 `json:"accountType,omitempty"` // checking, savings, money_market
+	IsAccumulator  bool                   `json:"isAccumulator"`
+	StartYear      int                    `json:"startYear"`
+	EndYear        sql.NullInt32          `json:"endYear,omitempty"`
+	Notes          string                 `json:"notes,omitempty"`
+	GrowthStrategy string                 `json:"growthStrategy"`
+	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
+	CreatedAt      time.Time              `json:"createdAt"`
+	UpdatedAt      time.Time              `json:"updatedAt"`
 }
 
 // ----- CashAccount operations -----
@@ -121,7 +123,7 @@ func (s *Store) GetAccumulatorAccount(ctx context.Context, userID string) (CashA
 func (s *Store) CreateCashAccount(ctx context.Context, acc CashAccount) (CashAccount, error) {
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO cash_accounts (user_id, name, balance, interest_rate, bank_name, account_type, is_accumulator, start_year, end_year, notes)
-		VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, COALESCE($8, 0), $9, NULLIF($10, ''))
+		VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, COALESCE(NULLIF($8, 0), EXTRACT(YEAR FROM NOW())::int), $9, NULLIF($10, ''))
 		RETURNING id, user_id, name, balance, interest_rate,
 		          COALESCE(bank_name, '') as bank_name,
 		          COALESCE(account_type, '') as account_type,

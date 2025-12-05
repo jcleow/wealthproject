@@ -197,16 +197,30 @@ func appliesToYear(imp repository.ScenarioImpact, calendarYear int) bool {
 }
 
 func annualize(imp repository.ScenarioImpact) float64 {
-	switch strings.ToLower(imp.Cadence) {
-	case "one_time":
-		return float64(imp.Amount)
-	case "monthly":
-		return float64(imp.Amount) * 12
-	case "annual":
-		return float64(imp.Amount)
-	default:
-		return float64(imp.Amount)
+	// Assets and liabilities are balances (snapshots), not flows
+	// They should not be multiplied by 12 regardless of cadence
+	targetType := strings.ToLower(imp.TargetType)
+	result := float64(imp.Amount)
+
+	if targetType == "asset" || targetType == "liability" {
+		// Balance items: use amount directly
+		result = float64(imp.Amount)
+	} else {
+		// Flow items (income/expense): annualize based on cadence
+		cadence := strings.ToLower(imp.Cadence)
+		switch cadence {
+		case "one_time":
+			result = float64(imp.Amount)
+		case "monthly":
+			result = float64(imp.Amount) * 12
+		case "annual":
+			result = float64(imp.Amount)
+		default:
+			result = float64(imp.Amount)
+		}
 	}
+
+	return result
 }
 
 // annualizeWithProration annualizes the impact amount with month-level proration.
