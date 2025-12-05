@@ -131,6 +131,7 @@ export function Dashboard() {
                     onSelectMonth={timeline.setSelectedMonth}
                     timelineYear={timeline.selectedYearData}
                     timelineMonth={timeline.selectedMonthData}
+                    timelineYears={timeline.timelineQuery.data?.years}
                     resolution={timeline.resolution}
                     zoomLevel={zoomLevel}
                     isTimelineLoading={timeline.timelineQuery.isLoading}

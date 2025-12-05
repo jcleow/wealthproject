@@ -39,8 +39,8 @@ export function TimelineSnapshot({ year, month, timelineYear, timelineMonth, res
   }
 
   // Use monthly data if available and in monthly resolution
-  const isMonthly = resolution === 'monthly' && timelineMonth
-  const data = isMonthly ? timelineMonth : timelineYear
+  const isMonthly = resolution === 'monthly' && !!timelineMonth
+  const data = (resolution === 'monthly' && timelineMonth) ? timelineMonth : timelineYear
 
   if (!data) return null
 

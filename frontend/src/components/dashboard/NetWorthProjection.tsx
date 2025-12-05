@@ -150,7 +150,6 @@ export function NetWorthProjection({
     // Always use monthly data when available (regardless of zoom level)
     // The zoom level only affects how we display the data (axis labels, windowing)
     if (timelineMonths && timelineMonths.length > 0) {
-      const baseCalendarYear = 2025
       const monthlyProjection = timelineMonths.map<ProjectionPoint>((month) => {
         const assets = month.assets ?? []
         const liabilities = month.liabilities ?? []
@@ -161,7 +160,8 @@ export function NetWorthProjection({
           0
         )
 
-        const calendarYear = baseCalendarYear + month.year
+        // month.year is already an absolute calendar year (e.g., 2025)
+        const calendarYear = month.year
 
         return {
           yearIndex: month.monthIndex, // Use global month index for x-axis

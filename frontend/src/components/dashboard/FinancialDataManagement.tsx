@@ -141,6 +141,7 @@ export interface FinancialDataManagementProps {
   onSelectMonth?: (month: number | null) => void
   timelineYear?: TimelineYear
   timelineMonth?: TimelineMonth
+  timelineYears?: TimelineYear[]
   resolution?: TimeResolution
   zoomLevel?: ZoomLevel
   isTimelineLoading?: boolean
@@ -154,6 +155,7 @@ export function FinancialDataManagement({
   onSelectMonth,
   timelineYear,
   timelineMonth,
+  timelineYears,
   resolution,
   isTimelineLoading = false,
   onSaveTimelineEdits,
@@ -174,7 +176,10 @@ export function FinancialDataManagement({
     [showMonthlyData, timelineMonth?.cashAccounts, timelineYear?.cashAccounts]
   )
   // Merge assets and cash accounts for display - cash accounts appear as assets
-  const yearAssets = useMemo(() => [...timelineAssets, ...timelineCashAccounts], [timelineAssets, timelineCashAccounts])
+  const yearAssets = useMemo(() => {
+    const result = [...timelineAssets, ...timelineCashAccounts]
+    return result
+  }, [timelineAssets, timelineCashAccounts])
   const yearLiabilities = useMemo(() =>
     showMonthlyData ? (timelineMonth?.liabilities ?? []) : (timelineYear?.liabilities ?? []),
     [showMonthlyData, timelineMonth?.liabilities, timelineYear?.liabilities]
@@ -616,11 +621,22 @@ export function FinancialDataManagement({
   }
 
   const getDisplayAmount = (item: TimelineItem): number => {
-    // If in monthly view mode, show monthly amounts
+    // Assets, liabilities, and cash accounts are snapshots (point-in-time balances)
+    // Always show the full balance, regardless of view mode
+    const isSnapshot = item.itemType === 'asset' ||
+                       item.itemType === 'liability' ||
+                       item.itemType === 'cash_account'
+
+    if (isSnapshot) {
+      // For snapshots, use the balance amount (which is stored in both annual and monthly fields as the same value)
+      return item.adjMonthlyAmt ?? item.amountMonthly ?? item.amountAnnual ?? 0
+    }
+
+    // For income and expenses (flows), use monthly or annual based on view mode
     if (showMonthlyData) {
       return item.adjMonthlyAmt ?? item.amountMonthly ?? 0
     }
-    // Otherwise show annual amounts
+    // Annualized view for income/expenses
     return item.adjAnnualAmt ?? item.amountAnnual ?? 0
   }
 
@@ -645,7 +661,7 @@ export function FinancialDataManagement({
 
   const getCategoryTotal = (_category: FinancialCategory, data: TimelineItem[]): number => {
     return data.reduce((sum, item) => {
-      const amount = item.adjAnnualAmt ?? item.amountAnnual ?? 0
+      const amount = summarizeAmount(item)
       return sum + amount
     }, 0)
   }
@@ -660,10 +676,19 @@ export function FinancialDataManagement({
   }
 
   const handleYearInput = (value: string) => {
-    const parsed = Number.parseInt(value, 10)
-    if (Number.isNaN(parsed)) return
-    const clamped = Math.max(0, Math.min(30, parsed))
-    onSelectYear?.(clamped)
+    const yearIndex = Number.parseInt(value, 10)
+    if (Number.isNaN(yearIndex)) return
+    const clamped = Math.max(0, Math.min(30, yearIndex))
+
+    // Convert index to absolute year
+    // Try to use timelineYears first, otherwise calculate from base year
+    if (timelineYears && timelineYears[clamped]) {
+      onSelectYear?.(timelineYears[clamped].year)
+    } else {
+      // Calculate absolute year from index (base year + index)
+      const baseYear = new Date().getFullYear()
+      onSelectYear?.(baseYear + clamped)
+    }
   }
 
   return (
@@ -694,7 +719,12 @@ export function FinancialDataManagement({
                 <select
                   id="year-selector"
                   className="w-24 rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
-                  value={selectedYear}
+                  value={(() => {
+                    // Calculate year index from selected year
+                    const baseYear = new Date().getFullYear()
+                    const yearIndex = selectedYear - baseYear
+                    return Math.max(0, Math.min(30, yearIndex))
+                  })()}
                   disabled={isTimelineLoading}
                   onChange={(event) => handleYearInput(event.target.value)}
                 >
@@ -727,36 +757,56 @@ export function FinancialDataManagement({
                     </select>
                   </div>
 
-                  {viewMode === 'monthly' && (
-                    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
-                      <label className="hidden text-gray-400 sm:block" htmlFor="month-selector">
-                        Month
-                      </label>
-                      <select
-                        id="month-selector"
-                        className="rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
-                        value={selectedMonth ?? 1}
-                        disabled={isTimelineLoading}
-                        onChange={(event) => {
-                          const month = Number(event.target.value)
-                          onSelectMonth?.(month)
-                        }}
-                      >
-                        <option value={1}>January</option>
-                        <option value={2}>February</option>
-                        <option value={3}>March</option>
-                        <option value={4}>April</option>
-                        <option value={5}>May</option>
-                        <option value={6}>June</option>
-                        <option value={7}>July</option>
-                        <option value={8}>August</option>
-                        <option value={9}>September</option>
-                        <option value={10}>October</option>
-                        <option value={11}>November</option>
-                        <option value={12}>December</option>
-                      </select>
-                    </div>
-                  )}
+                  {viewMode === 'monthly' && (() => {
+                    const baseYear = new Date().getFullYear()
+                    const isYearZero = selectedYear === baseYear
+
+                    if (isYearZero) {
+                      // Year 0 is baseline - no month selection
+                      return (
+                        <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
+                          <label className="hidden text-gray-400 sm:block">
+                            Month
+                          </label>
+                          <span className="px-2 py-1 text-sm text-gray-400">
+                            N/A
+                          </span>
+                        </div>
+                      )
+                    }
+
+                    // Year 1+ - show month selector
+                    return (
+                      <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
+                        <label className="hidden text-gray-400 sm:block" htmlFor="month-selector">
+                          Month
+                        </label>
+                        <select
+                          id="month-selector"
+                          className="rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
+                          value={selectedMonth ?? 1}
+                          disabled={isTimelineLoading}
+                          onChange={(event) => {
+                            const month = Number(event.target.value)
+                            onSelectMonth?.(month)
+                          }}
+                        >
+                          <option value={1}>January</option>
+                          <option value={2}>February</option>
+                          <option value={3}>March</option>
+                          <option value={4}>April</option>
+                          <option value={5}>May</option>
+                          <option value={6}>June</option>
+                          <option value={7}>July</option>
+                          <option value={8}>August</option>
+                          <option value={9}>September</option>
+                          <option value={10}>October</option>
+                          <option value={11}>November</option>
+                          <option value={12}>December</option>
+                        </select>
+                      </div>
+                    )
+                  })()}
                 </>
               )}
             </div>
@@ -972,7 +1022,7 @@ export function FinancialDataManagement({
                                   <div className="flex items-center gap-1">
                                     {/* Value */}
                                     <span className={`font-mono text-sm text-slate-300 transition-opacity ${isSelected ? 'opacity-0' : 'opacity-100'}`}>
-                                      {formatCurrency(item.adjAnnualAmt ?? item.adj_annual_amt ?? getDisplayAmount(item))}
+                                      {formatCurrency(getDisplayAmount(item))}
                                     </span>
 
                                     {/* Actions - shown on click */}
@@ -1042,7 +1092,7 @@ export function FinancialDataManagement({
                                             <span className="text-xs italic">Original</span>
                                           </div>
                                           <span className="text-xs italic">
-                                            {formatCurrency(item.amountAnnual ?? 0)}
+                                            {formatCurrency(showMonthlyData ? (item.amountMonthly ?? 0) : (item.amountAnnual ?? 0))}
                                           </span>
                                         </div>
                                         {scenarioImpacts.map(({ event, impact }) => {
@@ -1081,7 +1131,9 @@ export function FinancialDataManagement({
                                               </div>
                                               <div className="flex items-center gap-2">
                                                 {(() => {
-                                                  const impactAmt = impact.amountAnnual ?? 0
+                                                  const impactAmt = showMonthlyData
+                                                    ? (impact.amountMonthly ?? (impact.amountAnnual ?? 0) / 12)
+                                                    : (impact.amountAnnual ?? 0)
                                                   const impactClass = impactAmt < 0 ? 'text-rose-400' : 'text-emerald-400'
                                                   return (
                                                     <span className={`text-xs italic ${impactClass}`}>
