@@ -468,6 +468,46 @@ func (s *stubStore) CreateExpense(ctx context.Context, userID string, exp reposi
 	return exp, nil
 }
 
+func (s *stubStore) DeleteAsset(ctx context.Context, userID string, id string) error {
+	for i, a := range s.assets {
+		if a.ID == id || a.ParentID == id {
+			s.assets = append(s.assets[:i], s.assets[i+1:]...)
+			return nil
+		}
+	}
+	return repository.ErrNotFound
+}
+
+func (s *stubStore) DeleteLiability(ctx context.Context, userID string, id string) error {
+	for i, li := range s.liabilities {
+		if li.ID == id || li.ParentID == id {
+			s.liabilities = append(s.liabilities[:i], s.liabilities[i+1:]...)
+			return nil
+		}
+	}
+	return repository.ErrNotFound
+}
+
+func (s *stubStore) DeleteIncome(ctx context.Context, userID string, id string) error {
+	for i, inc := range s.incomes {
+		if inc.ID == id || inc.ParentID == id {
+			s.incomes = append(s.incomes[:i], s.incomes[i+1:]...)
+			return nil
+		}
+	}
+	return repository.ErrNotFound
+}
+
+func (s *stubStore) DeleteExpense(ctx context.Context, userID string, id string) error {
+	for i, exp := range s.expenses {
+		if exp.ID == id || exp.ParentID == id {
+			s.expenses = append(s.expenses[:i], s.expenses[i+1:]...)
+			return nil
+		}
+	}
+	return repository.ErrNotFound
+}
+
 // Cash account methods
 func (s *stubStore) ListCashAccounts(ctx context.Context, userID string) ([]repository.CashAccount, error) {
 	return append([]repository.CashAccount(nil), s.cashAccounts...), nil

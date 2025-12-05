@@ -24,7 +24,28 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	httpSwagger "github.com/swaggo/http-swagger"
+	_ "financial-chat-system/docs"
 )
+
+// @title Financial Chat System API
+// @version 1.0
+// @description API for managing financial data, chat interactions, and scenario planning
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.email support@example.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api/v1
+// @schemes http https
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name X-API-Key
 
 func main() {
 	// Load environment variables (try repo root and backend dir so it works regardless of cwd)
@@ -273,6 +294,14 @@ func main() {
 	// Financial action endpoints
 	v1Router.HandleFunc("/financial/actions/dispatch", dispatchHandler.HandleDispatch).Methods("POST", "OPTIONS")
 
+	// Swagger UI endpoint (accessible without /api/v1 prefix)
+	router.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("none"),
+		httpSwagger.DomID("swagger-ui"),
+	)).Methods(http.MethodGet)
+
 	// Start server
 	port := cfg.Port
 	if port == "" {
@@ -280,6 +309,7 @@ func main() {
 	}
 
 	fmt.Printf("Starting server on port %s\n", port)
+	fmt.Printf("Swagger UI available at http://localhost:%s/swagger/index.html\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }
 

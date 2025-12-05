@@ -19,35 +19,60 @@ func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
+// NullInt32ToIntPtr converts sql.NullInt32 to *int for JSON marshaling.
+func NullInt32ToIntPtr(n sql.NullInt32) *int {
+	if !n.Valid {
+		return nil
+	}
+	val := int(n.Int32)
+	return &val
+}
+
+// IntPtrToNullInt32 converts *int to sql.NullInt32 for database operations.
+func IntPtrToNullInt32(i *int) sql.NullInt32 {
+	if i == nil {
+		return sql.NullInt32{Valid: false}
+	}
+	return sql.NullInt32{Int32: int32(*i), Valid: true}
+}
+
 // Asset represents a persisted asset record.
 type Asset struct {
-	ID               string        `json:"id"`
-	ParentID         string        `json:"parentId"`
-	Name             string        `json:"name"`
-	Category         string        `json:"category"`
-	CurrentValue     float64       `json:"currentValue"`
-	AnnualGrowthRate float64       `json:"annualGrowthRate"`
-	Frequency        string        `json:"frequency"`
-	StartYear        int           `json:"startYear"`
-	EndYear          sql.NullInt32 `json:"endYear"`
-	Notes            string        `json:"notes"`
-	UpdatedAt        time.Time     `json:"updatedAt"`
+	ID               string                 `json:"id"`
+	ParentID         string                 `json:"parentId"`
+	Name             string                 `json:"name"`
+	Category         string                 `json:"category"`
+	CurrentValue     float64                `json:"currentValue"`
+	AnnualGrowthRate float64                `json:"annualGrowthRate"`
+	Frequency        string                 `json:"frequency"`
+	StartYear        int                    `json:"startYear"`
+	StartMonth       *int                   `json:"startMonth,omitempty"`
+	EndYear          *int                   `json:"endYear,omitempty"`
+	EndMonth         *int                   `json:"endMonth,omitempty"`
+	Notes            string                 `json:"notes"`
+	GrowthStrategy   string                 `json:"growthStrategy"`
+	GrowthMetadata   map[string]interface{} `json:"growthMetadata,omitempty"`
+	UpdatedAt        time.Time              `json:"updatedAt"`
 }
 
 // Liability represents a persisted liability record.
 type Liability struct {
-	ID              string        `json:"id"`
-	ParentID        string        `json:"parentId"`
-	Name            string        `json:"name"`
-	Category        string        `json:"category"`
-	CurrentBalance  float64       `json:"currentBalance"`
-	InterestRateAPR float64       `json:"interestRateApr"`
-	MinimumPayment  float64       `json:"minimumPayment"`
-	Frequency       string        `json:"frequency"`
-	StartYear       int           `json:"startYear"`
-	EndYear         sql.NullInt32 `json:"endYear"`
-	Notes           string        `json:"notes"`
-	UpdatedAt       time.Time     `json:"updatedAt"`
+	ID              string                 `json:"id"`
+	ParentID        string                 `json:"parentId"`
+	Name            string                 `json:"name"`
+	Category        string                 `json:"category"`
+	CurrentBalance  float64                `json:"currentBalance"`
+	InterestRateAPR float64                `json:"interestRateApr"`
+	MinimumPayment  float64                `json:"minimumPayment"`
+	Frequency       string                 `json:"frequency"`
+	StartYear       int                    `json:"startYear"`
+	StartMonth      *int                   `json:"startMonth,omitempty"`
+	EndYear         *int                   `json:"endYear,omitempty"`
+	EndMonth        *int                   `json:"endMonth,omitempty"`
+	Notes           string                 `json:"notes"`
+	GrowthStrategy  string                 `json:"growthStrategy"`
+	GrowthMetadata  map[string]interface{} `json:"growthMetadata,omitempty"`
+	UpdatedAt       time.Time              `json:"updatedAt"`
 }
 
 // PropertyScenario represents a persisted property scenario record.
@@ -73,33 +98,37 @@ type PropertyScenario struct {
 
 // Income represents a persisted income record.
 type Income struct {
-	ID         string        `json:"id"`
-	ParentID   string        `json:"parentId"`
-	Source     string        `json:"source"`
-	Amount     float64       `json:"amount"`
-	Frequency  string        `json:"frequency"`
-	StartDate  *time.Time    `json:"startDate"`
-	StartYear  int           `json:"startYear"`
-	EndYear    sql.NullInt32 `json:"endYear"`
-	Category   string        `json:"category"`
-	GrowthRate float64       `json:"growthRate"`
-	Notes      string        `json:"notes"`
-	UpdatedAt  time.Time     `json:"updatedAt"`
+	ID             string                 `json:"id"`
+	ParentID       string                 `json:"parentId"`
+	Source         string                 `json:"source"`
+	Amount         float64                `json:"amount"`
+	Frequency      string                 `json:"frequency"`
+	StartDate      *time.Time             `json:"startDate"`
+	StartYear      int                    `json:"startYear"`
+	EndYear        sql.NullInt32          `json:"endYear"`
+	Category       string                 `json:"category"`
+	GrowthRate     float64                `json:"growthRate"`
+	Notes          string                 `json:"notes"`
+	GrowthStrategy string                 `json:"growthStrategy"`
+	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
+	UpdatedAt      time.Time              `json:"updatedAt"`
 }
 
 // Expense represents a persisted expense record.
 type Expense struct {
-	ID         string        `json:"id"`
-	ParentID   string        `json:"parentId"`
-	Payee      string        `json:"payee"`
-	Amount     float64       `json:"amount"`
-	Frequency  string        `json:"frequency"`
-	StartYear  int           `json:"startYear"`
-	EndYear    sql.NullInt32 `json:"endYear"`
-	Category   string        `json:"category"`
-	GrowthRate float64       `json:"growthRate"`
-	Notes      string        `json:"notes"`
-	UpdatedAt  time.Time     `json:"updatedAt"`
+	ID             string                 `json:"id"`
+	ParentID       string                 `json:"parentId"`
+	Payee          string                 `json:"payee"`
+	Amount         float64                `json:"amount"`
+	Frequency      string                 `json:"frequency"`
+	StartYear      int                    `json:"startYear"`
+	EndYear        sql.NullInt32          `json:"endYear"`
+	Category       string                 `json:"category"`
+	GrowthRate     float64                `json:"growthRate"`
+	Notes          string                 `json:"notes"`
+	GrowthStrategy string                 `json:"growthStrategy"`
+	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
+	UpdatedAt      time.Time              `json:"updatedAt"`
 }
 
 // PaginationParams holds pagination parameters for list queries.
@@ -211,7 +240,9 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 			       annual_growth_rate,
 			       COALESCE(frequency, 'annual') as frequency,
 			       COALESCE(start_year, 0) as start_year,
+			       start_month,
 			       end_year,
+			       end_month,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_assets
@@ -228,7 +259,9 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 			       annual_growth_rate,
 			       COALESCE(frequency, 'annual') as frequency,
 			       COALESCE(start_year, 0) as start_year,
+			       start_month,
 			       end_year,
+			       end_month,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_assets
@@ -244,9 +277,13 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 	var assets []Asset
 	for rows.Next() {
 		var a Asset
-		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartYear, &a.EndYear, &a.Notes, &a.UpdatedAt); err != nil {
+		var startMonth, endYear, endMonth sql.NullInt32
+		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartYear, &startMonth, &endYear, &endMonth, &a.Notes, &a.UpdatedAt); err != nil {
 			return PaginatedResult[Asset]{}, err
 		}
+		a.StartMonth = NullInt32ToIntPtr(startMonth)
+		a.EndYear = NullInt32ToIntPtr(endYear)
+		a.EndMonth = NullInt32ToIntPtr(endMonth)
 		assets = append(assets, a)
 	}
 	if assets == nil {
@@ -276,7 +313,9 @@ func (s *Store) ListAllAssets(ctx context.Context, userID string) ([]Asset, erro
 		       annual_growth_rate,
 		       COALESCE(frequency, 'annual') as frequency,
 		       COALESCE(start_year, 0) as start_year,
+		       start_month,
 		       end_year,
+		       end_month,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_assets
@@ -290,9 +329,13 @@ func (s *Store) ListAllAssets(ctx context.Context, userID string) ([]Asset, erro
 	var assets []Asset
 	for rows.Next() {
 		var a Asset
-		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartYear, &a.EndYear, &a.Notes, &a.UpdatedAt); err != nil {
+		var startMonth, endYear, endMonth sql.NullInt32
+		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartYear, &startMonth, &endYear, &endMonth, &a.Notes, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
+		a.StartMonth = NullInt32ToIntPtr(startMonth)
+		a.EndYear = NullInt32ToIntPtr(endYear)
+		a.EndMonth = NullInt32ToIntPtr(endMonth)
 		assets = append(assets, a)
 	}
 	if assets == nil {
@@ -311,40 +354,52 @@ func (s *Store) GetAsset(ctx context.Context, userID, id string) (Asset, error) 
 		       annual_growth_rate,
 		       COALESCE(frequency, 'annual') as frequency,
 		       COALESCE(start_year, 0) as start_year,
+		       start_month,
 		       end_year,
+		       end_month,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_assets
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var a Asset
-	if err := row.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartYear, &a.EndYear, &a.Notes, &a.UpdatedAt); err != nil {
+	var startMonth, endYear, endMonth sql.NullInt32
+	if err := row.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartYear, &startMonth, &endYear, &endMonth, &a.Notes, &a.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Asset{}, ErrNotFound
 		}
 		return Asset{}, err
 	}
+	a.StartMonth = NullInt32ToIntPtr(startMonth)
+	a.EndYear = NullInt32ToIntPtr(endYear)
+	a.EndMonth = NullInt32ToIntPtr(endMonth)
 	return a, nil
 }
 
 func (s *Store) CreateAsset(ctx context.Context, userID string, a Asset) (Asset, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, frequency, start_year, end_year, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, COALESCE($7,'annual'), COALESCE($8,0), $9, NULLIF($10, ''))
+		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, frequency, start_year, start_month, end_year, end_month, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, COALESCE($7,'annual'), COALESCE($8,0), $9, $10, $11, NULLIF($12, ''))
 		ON CONFLICT (parent_id, start_year) DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
 		    current_value=EXCLUDED.current_value,
 		    annual_growth_rate=EXCLUDED.annual_growth_rate,
 		    frequency=EXCLUDED.frequency,
+		    start_month=EXCLUDED.start_month,
 		    end_year=EXCLUDED.end_year,
+		    end_month=EXCLUDED.end_month,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
-		userID, nullIfEmpty(a.ParentID), a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, a.Frequency, a.StartYear, nullableFromNullInt32(a.EndYear), a.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), COALESCE(start_year,0), start_month, end_year, end_month, COALESCE(notes, ''), updated_at`,
+		userID, nullIfEmpty(a.ParentID), a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, a.Frequency, a.StartYear, IntPtrToNullInt32(a.StartMonth), IntPtrToNullInt32(a.EndYear), IntPtrToNullInt32(a.EndMonth), a.Notes)
 	var created Asset
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentValue, &created.AnnualGrowthRate, &created.Frequency, &created.StartYear, &created.EndYear, &created.Notes, &created.UpdatedAt); err != nil {
+	var startMonth, endYear, endMonth sql.NullInt32
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentValue, &created.AnnualGrowthRate, &created.Frequency, &created.StartYear, &startMonth, &endYear, &endMonth, &created.Notes, &created.UpdatedAt); err != nil {
 		return Asset{}, err
 	}
+	created.StartMonth = NullInt32ToIntPtr(startMonth)
+	created.EndYear = NullInt32ToIntPtr(endYear)
+	created.EndMonth = NullInt32ToIntPtr(endMonth)
 	return created, nil
 }
 
@@ -357,24 +412,41 @@ func (s *Store) UpdateAsset(ctx context.Context, userID string, a Asset) (Asset,
 		    annual_growth_rate=$6,
 		    frequency=COALESCE($7, frequency),
 		    start_year=COALESCE($8, start_year),
-		    end_year=$9,
-		    notes=NULLIF($10, ''),
+		    start_month=$9,
+		    end_year=$10,
+		    end_month=$11,
+		    notes=NULLIF($12, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
-		userID, a.ID, a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, nullIfEmpty(a.Frequency), nullableInt32(a.StartYear), nullableFromNullInt32(a.EndYear), a.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), COALESCE(start_year,0), start_month, end_year, end_month, COALESCE(notes, ''), updated_at`,
+		userID, a.ID, a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, nullIfEmpty(a.Frequency), nullableInt32(a.StartYear), IntPtrToNullInt32(a.StartMonth), IntPtrToNullInt32(a.EndYear), IntPtrToNullInt32(a.EndMonth), a.Notes)
 	var updated Asset
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentValue, &updated.AnnualGrowthRate, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.Notes, &updated.UpdatedAt); err != nil {
+	var startMonth, endYear, endMonth sql.NullInt32
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentValue, &updated.AnnualGrowthRate, &updated.Frequency, &updated.StartYear, &startMonth, &endYear, &endMonth, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Asset{}, ErrNotFound
 		}
 		return Asset{}, err
 	}
+	updated.StartMonth = NullInt32ToIntPtr(startMonth)
+	updated.EndYear = NullInt32ToIntPtr(endYear)
+	updated.EndMonth = NullInt32ToIntPtr(endMonth)
 	return updated, nil
 }
 
 func (s *Store) DeleteAsset(ctx context.Context, userID, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_assets WHERE user_id=$1 AND id=$2`, userID, id)
+	// Delete the row AND all descendant rows recursively (any override chains)
+	// Example: deleting 1st override deletes 1st, 2nd, 3rd... but not the original
+	result, err := s.db.ExecContext(ctx, `
+		WITH RECURSIVE descendants AS (
+			SELECT id FROM finance_assets WHERE user_id=$1 AND id=$2
+			UNION ALL
+			SELECT a.id FROM finance_assets a
+			INNER JOIN descendants d ON a.parent_id = d.id
+			WHERE a.user_id=$1
+		)
+		DELETE FROM finance_assets WHERE id IN (SELECT id FROM descendants)
+	`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -447,7 +519,9 @@ func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination P
 			       minimum_payment,
 			       COALESCE(frequency, 'annual') as frequency,
 			       COALESCE(start_year, 0) as start_year,
+			       start_month,
 			       end_year,
+			       end_month,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_liabilities
@@ -465,7 +539,9 @@ func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination P
 			       minimum_payment,
 			       COALESCE(frequency, 'annual') as frequency,
 			       COALESCE(start_year, 0) as start_year,
+			       start_month,
 			       end_year,
+			       end_month,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_liabilities
@@ -481,9 +557,13 @@ func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination P
 	var items []Liability
 	for rows.Next() {
 		var li Liability
-		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartYear, &li.EndYear, &li.Notes, &li.UpdatedAt); err != nil {
+		var startMonth, endYear, endMonth sql.NullInt32
+		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartYear, &startMonth, &endYear, &endMonth, &li.Notes, &li.UpdatedAt); err != nil {
 			return PaginatedResult[Liability]{}, err
 		}
+		li.StartMonth = NullInt32ToIntPtr(startMonth)
+		li.EndYear = NullInt32ToIntPtr(endYear)
+		li.EndMonth = NullInt32ToIntPtr(endMonth)
 		items = append(items, li)
 	}
 	if items == nil {
@@ -514,7 +594,9 @@ func (s *Store) ListAllLiabilities(ctx context.Context, userID string) ([]Liabil
 		       minimum_payment,
 		       COALESCE(frequency, 'annual') as frequency,
 		       COALESCE(start_year, 0) as start_year,
+		       start_month,
 		       end_year,
+		       end_month,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_liabilities
@@ -528,9 +610,13 @@ func (s *Store) ListAllLiabilities(ctx context.Context, userID string) ([]Liabil
 	var items []Liability
 	for rows.Next() {
 		var li Liability
-		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartYear, &li.EndYear, &li.Notes, &li.UpdatedAt); err != nil {
+		var startMonth, endYear, endMonth sql.NullInt32
+		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartYear, &startMonth, &endYear, &endMonth, &li.Notes, &li.UpdatedAt); err != nil {
 			return nil, err
 		}
+		li.StartMonth = NullInt32ToIntPtr(startMonth)
+		li.EndYear = NullInt32ToIntPtr(endYear)
+		li.EndMonth = NullInt32ToIntPtr(endMonth)
 		items = append(items, li)
 	}
 	if items == nil {
@@ -550,25 +636,31 @@ func (s *Store) GetLiability(ctx context.Context, userID, id string) (Liability,
 		       minimum_payment,
 		       COALESCE(frequency, 'annual') as frequency,
 		       COALESCE(start_year, 0) as start_year,
+		       start_month,
 		       end_year,
+		       end_month,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_liabilities
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var li Liability
-	if err := row.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartYear, &li.EndYear, &li.Notes, &li.UpdatedAt); err != nil {
+	var startMonth, endYear, endMonth sql.NullInt32
+	if err := row.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartYear, &startMonth, &endYear, &endMonth, &li.Notes, &li.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Liability{}, ErrNotFound
 		}
 		return Liability{}, err
 	}
+	li.StartMonth = NullInt32ToIntPtr(startMonth)
+	li.EndYear = NullInt32ToIntPtr(endYear)
+	li.EndMonth = NullInt32ToIntPtr(endMonth)
 	return li, nil
 }
 
 func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability) (Liability, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, frequency, start_year, end_year, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, COALESCE($8,'annual'), COALESCE($9,0), $10, NULLIF($11, ''))
+		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, frequency, start_year, start_month, end_year, end_month, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, COALESCE($8,'annual'), COALESCE($9,0), $10, $11, $12, NULLIF($13, ''))
 		ON CONFLICT (parent_id, start_year) DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
@@ -576,15 +668,21 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 		    interest_rate_apr=EXCLUDED.interest_rate_apr,
 		    minimum_payment=EXCLUDED.minimum_payment,
 		    frequency=EXCLUDED.frequency,
+		    start_month=EXCLUDED.start_month,
 		    end_year=EXCLUDED.end_year,
+		    end_month=EXCLUDED.end_month,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
-		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, li.Frequency, li.StartYear, nullableFromNullInt32(li.EndYear), li.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), COALESCE(start_year,0), start_month, end_year, end_month, COALESCE(notes, ''), updated_at`,
+		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, li.Frequency, li.StartYear, IntPtrToNullInt32(li.StartMonth), IntPtrToNullInt32(li.EndYear), IntPtrToNullInt32(li.EndMonth), li.Notes)
 	var created Liability
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.Frequency, &created.StartYear, &created.EndYear, &created.Notes, &created.UpdatedAt); err != nil {
+	var startMonth, endYear, endMonth sql.NullInt32
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.Frequency, &created.StartYear, &startMonth, &endYear, &endMonth, &created.Notes, &created.UpdatedAt); err != nil {
 		return Liability{}, err
 	}
+	created.StartMonth = NullInt32ToIntPtr(startMonth)
+	created.EndYear = NullInt32ToIntPtr(endYear)
+	created.EndMonth = NullInt32ToIntPtr(endMonth)
 	return created, nil
 }
 
@@ -598,24 +696,40 @@ func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability
 		    minimum_payment=$7,
 		    frequency=COALESCE($8, frequency),
 		    start_year=COALESCE($9, start_year),
-		    end_year=$10,
-		    notes=NULLIF($11, ''),
+		    start_month=$10,
+		    end_year=$11,
+		    end_month=$12,
+		    notes=NULLIF($13, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), COALESCE(start_year,0), end_year, COALESCE(notes, ''), updated_at`,
-		userID, li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, nullIfEmpty(li.Frequency), nullableInt32(li.StartYear), nullableFromNullInt32(li.EndYear), li.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), COALESCE(start_year,0), start_month, end_year, end_month, COALESCE(notes, ''), updated_at`,
+		userID, li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, nullIfEmpty(li.Frequency), nullableInt32(li.StartYear), IntPtrToNullInt32(li.StartMonth), IntPtrToNullInt32(li.EndYear), IntPtrToNullInt32(li.EndMonth), li.Notes)
 	var updated Liability
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentBalance, &updated.InterestRateAPR, &updated.MinimumPayment, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.Notes, &updated.UpdatedAt); err != nil {
+	var startMonth, endYear, endMonth sql.NullInt32
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentBalance, &updated.InterestRateAPR, &updated.MinimumPayment, &updated.Frequency, &updated.StartYear, &startMonth, &endYear, &endMonth, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Liability{}, ErrNotFound
 		}
 		return Liability{}, err
 	}
+	updated.StartMonth = NullInt32ToIntPtr(startMonth)
+	updated.EndYear = NullInt32ToIntPtr(endYear)
+	updated.EndMonth = NullInt32ToIntPtr(endMonth)
 	return updated, nil
 }
 
 func (s *Store) DeleteLiability(ctx context.Context, userID, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_liabilities WHERE user_id=$1 AND id=$2`, userID, id)
+	// Delete the row AND all descendant rows recursively (any override chains)
+	result, err := s.db.ExecContext(ctx, `
+		WITH RECURSIVE descendants AS (
+			SELECT id FROM finance_liabilities WHERE user_id=$1 AND id=$2
+			UNION ALL
+			SELECT l.id FROM finance_liabilities l
+			INNER JOIN descendants d ON l.parent_id = d.id
+			WHERE l.user_id=$1
+		)
+		DELETE FROM finance_liabilities WHERE id IN (SELECT id FROM descendants)
+	`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -960,7 +1074,17 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Inc
 }
 
 func (s *Store) DeleteIncome(ctx context.Context, userID, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_incomes WHERE user_id=$1 AND id=$2`, userID, id)
+	// Delete the row AND all descendant rows recursively (any override chains)
+	result, err := s.db.ExecContext(ctx, `
+		WITH RECURSIVE descendants AS (
+			SELECT id FROM finance_incomes WHERE user_id=$1 AND id=$2
+			UNION ALL
+			SELECT i.id FROM finance_incomes i
+			INNER JOIN descendants d ON i.parent_id = d.id
+			WHERE i.user_id=$1
+		)
+		DELETE FROM finance_incomes WHERE id IN (SELECT id FROM descendants)
+	`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -1158,7 +1282,17 @@ func (s *Store) UpdateExpense(ctx context.Context, userID string, it Expense) (E
 }
 
 func (s *Store) DeleteExpense(ctx context.Context, userID, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_expenses WHERE user_id=$1 AND id=$2`, userID, id)
+	// Delete the row AND all descendant rows recursively (any override chains)
+	result, err := s.db.ExecContext(ctx, `
+		WITH RECURSIVE descendants AS (
+			SELECT id FROM finance_expenses WHERE user_id=$1 AND id=$2
+			UNION ALL
+			SELECT e.id FROM finance_expenses e
+			INNER JOIN descendants d ON e.parent_id = d.id
+			WHERE e.user_id=$1
+		)
+		DELETE FROM finance_expenses WHERE id IN (SELECT id FROM descendants)
+	`, userID, id)
 	if err != nil {
 		return err
 	}

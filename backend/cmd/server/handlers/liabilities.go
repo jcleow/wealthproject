@@ -92,6 +92,11 @@ func (h *LiabilityHandler) list(w http.ResponseWriter, r *http.Request) {
 		internalError(w)
 		return
 	}
+	// Debug logging
+	for _, l := range result.Data {
+		r.Context().Value("logger")
+		println("[DEBUG] Liability:", l.Name, "StartYear:", l.StartYear)
+	}
 	writeJSON(w, result)
 }
 

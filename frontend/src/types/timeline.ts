@@ -12,6 +12,7 @@ export type TimelineItemType = 'asset' | 'liability' | 'income' | 'expense' | 'c
 export interface TimelineEventImpact {
   eventId: string
   amountAnnual?: number
+  amountMonthly?: number
   impactKind?: 'delta' | 'override' | 'start' | 'stop'
   notes?: string
 }

@@ -70,16 +70,22 @@ export default function ScenarioMarker({
               strokeWidth={1}
             />
             {Icon ? (
-              <Icon
-                aria-hidden
-                className="text-white"
+              <foreignObject
+                x={-iconSize / 2}
+                y={-iconSize / 2}
                 width={iconSize}
                 height={iconSize}
-                style={{ transform: `translate(-${iconSize / 2}px, -${iconSize / 2}px)` }}
-                stroke="rgba(255,255,255,0.9)"
-                strokeWidth={1.5}
-                fill="none"
-              />
+              >
+                <Icon
+                  aria-hidden
+                  className="text-white"
+                  width={iconSize}
+                  height={iconSize}
+                  stroke="rgba(255,255,255,0.9)"
+                  strokeWidth={1.5}
+                  fill="none"
+                />
+              </foreignObject>
             ) : (
               <text
                 x={0}

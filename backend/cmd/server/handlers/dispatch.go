@@ -114,6 +114,17 @@ type ExecutionSummary struct {
 }
 
 // HandleDispatch executes approved financial actions
+// @Summary Execute financial actions
+// @Description Execute approved financial actions from a chat session
+// @Tags Actions
+// @Accept json
+// @Produce json
+// @Param body body DispatchRequest true "Actions to execute"
+// @Success 200 {object} DispatchResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 409 {object} map[string]interface{}
+// @Router /financial/actions/dispatch [post]
 func (h *DispatchHandler) HandleDispatch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	startTime := time.Now()

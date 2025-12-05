@@ -1,0 +1,16 @@
+
+# Local development files
+backend/financial.db
+backend/test_query.go
+
+# Sample data and generation scripts
+generate_*.py
+generate_*.js
+sample_data_*.csv
+sample_data_*.xlsx
+sample_data_*.html
+sample_data_*.tsv
+go_examples/
+
+# Office temp files
+~$*.xlsx

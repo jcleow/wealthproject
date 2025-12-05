@@ -61,6 +61,10 @@ const toAsset = (item: any): Asset => ({
   category: item.category ?? item.Category,
   currentValue: item.current_value ?? item.currentValue ?? item.CurrentValue,
   annualGrowthRate: item.annual_growth_rate ?? item.annualGrowthRate ?? item.AnnualGrowthRate,
+  startYear: item.start_year ?? item.startYear ?? item.StartYear,
+  startMonth: item.start_month ?? item.startMonth ?? item.StartMonth,
+  endYear: item.end_year ?? item.endYear ?? item.EndYear,
+  endMonth: item.end_month ?? item.endMonth ?? item.EndMonth,
   notes: item.notes ?? item.Notes ?? '',
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
   parentId: item.parent_id ?? item.parentId ?? item.ParentID,
@@ -73,6 +77,10 @@ const toLiability = (item: any): Liability => ({
   currentBalance: item.current_balance ?? item.currentBalance ?? item.CurrentBalance,
   interestRateApr: item.interest_rate_apr ?? item.interestRateApr ?? item.InterestRateAPR ?? item.InterestRateApr,
   minimumPayment: item.minimum_payment ?? item.minimumPayment ?? item.MinimumPayment,
+  startYear: item.start_year ?? item.startYear ?? item.StartYear,
+  startMonth: item.start_month ?? item.startMonth ?? item.StartMonth,
+  endYear: item.end_year ?? item.endYear ?? item.EndYear,
+  endMonth: item.end_month ?? item.endMonth ?? item.EndMonth,
   notes: item.notes ?? item.Notes ?? '',
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
   parentId: item.parent_id ?? item.parentId ?? item.ParentID,
@@ -177,13 +185,17 @@ export const financialApi = {
     }
   },
   async createAsset(payload: Omit<Asset, 'id' | 'updatedAt'>): Promise<Asset> {
-    const body = {
+    const body: Record<string, any> = {
       name: payload.name,
       category: payload.category,
       currentValue: payload.currentValue,
       annualGrowthRate: payload.annualGrowthRate,
       notes: payload.notes,
     }
+    if (payload.startYear !== undefined) body.startYear = payload.startYear
+    if (payload.startMonth !== undefined) body.startMonth = payload.startMonth
+    if (payload.endYear !== undefined) body.endYear = payload.endYear
+    if (payload.endMonth !== undefined) body.endMonth = payload.endMonth
     const data = await jsonRequest<any>(`${API_BASE}/assets`, { method: 'POST', body: JSON.stringify(body) })
     return toAsset(data)
   },
@@ -252,7 +264,7 @@ export const financialApi = {
     }
   },
   async createLiability(payload: Omit<Liability, 'id' | 'updatedAt'>): Promise<Liability> {
-    const body = {
+    const body: Record<string, any> = {
       name: payload.name,
       category: payload.category,
       currentBalance: payload.currentBalance,
@@ -260,6 +272,10 @@ export const financialApi = {
       minimumPayment: payload.minimumPayment,
       notes: payload.notes,
     }
+    if (payload.startYear !== undefined) body.startYear = payload.startYear
+    if (payload.startMonth !== undefined) body.startMonth = payload.startMonth
+    if (payload.endYear !== undefined) body.endYear = payload.endYear
+    if (payload.endMonth !== undefined) body.endMonth = payload.endMonth
     const data = await jsonRequest<any>(`${API_BASE}/liabilities`, { method: 'POST', body: JSON.stringify(body) })
     return toLiability(data)
   },
@@ -716,6 +732,7 @@ export const financialApi = {
       startingAge: data.startingAge ?? 30,
       terminalAge: data.terminalAge ?? 65,
       yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
+      timeResolution: data.timeResolution ?? 'yearly',
       autoExecuteTools: data.autoExecuteTools ?? false,
       updatedAt: data.updatedAt,
     }
@@ -728,6 +745,7 @@ export const financialApi = {
         startingAge: settings.startingAge,
         terminalAge: settings.terminalAge,
         yearDisplayFormat: settings.yearDisplayFormat,
+        timeResolution: settings.timeResolution,
         autoExecuteTools: settings.autoExecuteTools,
       }),
     })
@@ -736,6 +754,7 @@ export const financialApi = {
       startingAge: data.startingAge ?? 30,
       terminalAge: data.terminalAge ?? 65,
       yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
+      timeResolution: data.timeResolution ?? 'yearly',
       autoExecuteTools: data.autoExecuteTools ?? false,
       updatedAt: data.updatedAt,
     }

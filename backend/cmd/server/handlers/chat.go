@@ -135,6 +135,16 @@ func loadSystemPrompt() (string, error) {
 }
 
 // HandleChat processes chat requests and generates responses with tool calls
+// @Summary Send a chat message
+// @Description Process a chat message and generate AI response with financial tool calls
+// @Tags Chat
+// @Accept json
+// @Produce json
+// @Param body body ChatRequest true "Chat message"
+// @Success 200 {object} ChatResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /chat [post]
 func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
