@@ -119,11 +119,12 @@ type TimelineResponse struct {
 
 // EventImpactSummary annotates a row with scenario impact info.
 type EventImpactSummary struct {
-	EventID      string  `json:"eventId"`
-	ImpactKind   string  `json:"impactKind"`   // override|delta|start|stop
-	AmountAnnual float64 `json:"amountAnnual"` // annualized
-	Cadence      string  `json:"cadence"`
-	Notes        string  `json:"notes,omitempty"`
+	EventID       string  `json:"eventId"`
+	ImpactKind    string  `json:"impactKind"`   // override|delta|start|stop
+	AmountAnnual  float64 `json:"amountAnnual"` // annualized
+	AmountMonthly float64 `json:"amountMonthly,omitempty"`
+	Cadence       string  `json:"cadence"`
+	Notes         string  `json:"notes,omitempty"`
 }
 
 // EditRequest represents a user edit or new item creation for a given year.
@@ -148,6 +149,11 @@ type Store interface {
 	CreateLiability(context.Context, string, repository.Liability) (repository.Liability, error)
 	CreateIncome(context.Context, string, repository.Income) (repository.Income, error)
 	CreateExpense(context.Context, string, repository.Expense) (repository.Expense, error)
+
+	DeleteAsset(context.Context, string, string) error
+	DeleteLiability(context.Context, string, string) error
+	DeleteIncome(context.Context, string, string) error
+	DeleteExpense(context.Context, string, string) error
 
 	GetGrowthConfigs(context.Context, string) ([]repository.GrowthConfig, error)
 	UpsertGrowthConfigs(context.Context, string, []repository.GrowthConfig) error

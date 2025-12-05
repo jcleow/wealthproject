@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
 	"financial-chat-system/backend/internal/financial/timeline"
@@ -73,12 +74,19 @@ func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Reque
 	var resp timeline.TimelineResponse
 	var err error
 
-	// If resolution override is provided, use GetTimelineWithResolution
+	// Route to appropriate function based on resolution and scenarios
+	log.Printf("[Timeline] Request: resolution='%s', includeScenarios=%v, userID='%s'", resolution, includeScenarios, userCtx.UserID)
 	if resolution != "" {
+		// Resolution override (yearly or monthly)
+		log.Printf("[Timeline] Calling GetTimelineWithResolution")
 		resp, err = h.svc.GetTimelineWithResolution(r.Context(), resolution)
 	} else if includeScenarios && userCtx.UserID != "" {
+		// Yearly resolution with scenarios (default)
+		log.Printf("[Timeline] Calling GetTimelineWithScenarios")
 		resp, err = h.svc.GetTimelineWithScenarios(r.Context(), userCtx.UserID, true, selected)
 	} else {
+		// Default yearly timeline
+		log.Printf("[Timeline] Calling GetTimeline (default)")
 		resp, err = h.svc.GetTimeline(r.Context())
 	}
 	if err != nil {
@@ -87,17 +95,31 @@ func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// DEBUG: Log first year's data
+	if len(resp.Years) > 0 {
+		year0 := resp.Years[0]
+		log.Printf("[Timeline] Year 0 (Year=%d): Assets=%d, Liabilities=%d, Income=%d, Expenses=%d",
+			year0.Year, len(year0.Assets), len(year0.Liabilities), len(year0.Income), len(year0.Expenses))
+	}
+
 	writeJSON(w, resp)
 }
 
 // HandleUpsertYear upserts overrides/new items for a given year and returns refreshed timeline.
 func (h *TimelineHandler) HandleUpsertYear(w http.ResponseWriter, r *http.Request) {
 	yearStr := mux.Vars(r)["year"]
-	year, err := strconv.Atoi(yearStr)
+	absoluteYear, err := strconv.Atoi(yearStr)
 	if err != nil {
 		badRequest(w, errMissingFields("year must be an integer"))
 		return
 	}
+
+	// Convert absolute year to relative year (offset from current year)
+	// Frontend sends absolute year (e.g., 2025), backend expects relative (e.g., 0)
+	baseYear := time.Now().Year()
+	year := absoluteYear - baseYear
+
+	log.Printf("[HandleUpsertYear] Absolute year: %d, Base year: %d, Relative year: %d", absoluteYear, baseYear, year)
 
 	var payload struct {
 		Year  int                    `json:"year"`
@@ -105,14 +127,19 @@ func (h *TimelineHandler) HandleUpsertYear(w http.ResponseWriter, r *http.Reques
 		Note  string                 `json:"note,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		log.Printf("[HandleUpsertYear] JSON decode error: %v", err)
 		badRequest(w, err)
 		return
 	}
-	if payload.Year != 0 && payload.Year != year {
+	log.Printf("[HandleUpsertYear] Received payload: Year=%d (path=%d), Edits count=%d", payload.Year, year, len(payload.Edits))
+	// Allow payload.Year to be either 0 (not set), relative year, or absolute year
+	if payload.Year != 0 && payload.Year != year && payload.Year != absoluteYear {
+		log.Printf("[HandleUpsertYear] Year mismatch: payload.Year=%d, path relative year=%d, path absolute year=%d", payload.Year, year, absoluteYear)
 		badRequest(w, errMissingFields("path year must match body year"))
 		return
 	}
 	if len(payload.Edits) == 0 {
+		log.Printf("[HandleUpsertYear] No edits provided")
 		badRequest(w, errMissingFields("edits"))
 		return
 	}
@@ -123,6 +150,7 @@ func (h *TimelineHandler) HandleUpsertYear(w http.ResponseWriter, r *http.Reques
 
 	resp, err := h.svc.UpsertYear(r.Context(), year, payload.Edits)
 	if err != nil {
+		log.Printf("[HandleUpsertYear] UpsertYear error: %v", err)
 		if err.Error() == "year must be between 0 and 20" {
 			badRequest(w, err)
 			return
