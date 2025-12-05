@@ -138,6 +138,22 @@ type EditRequest struct {
 	SourceYear int       `json:"-"`
 }
 
+// TimelineOptions specifies options for building a timeline.
+// Use this struct to configure timeline generation behavior including
+// resolution (yearly/monthly) and scenario application.
+type TimelineOptions struct {
+	// Resolution overrides the user's preferred resolution setting.
+	// Valid values: "yearly", "monthly", "" (empty = use user preference)
+	Resolution string
+
+	// IncludeScenarios applies scenario impacts to the timeline if true.
+	IncludeScenarios bool
+
+	// SelectedIDs limits scenario application to specific scenario IDs.
+	// If empty and IncludeScenarios is true, all user's scenarios are applied.
+	SelectedIDs []string
+}
+
 // Store defines the dependencies needed for timeline operations.
 type Store interface {
 	ListAllAssets(context.Context, string) ([]repository.Asset, error)
