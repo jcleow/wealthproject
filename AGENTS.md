@@ -101,6 +101,8 @@ Break epics into implementable tickets using this structure:
 - Estimate complexity points: 1 (trivial), 2 (simple), 3 (moderate), 5 (complex), 8 (very complex)
 - Break tickets >5 points into smaller chunks
 - Include technical debt and refactoring considerations
+
+### Testing: This is very important. Please state all tests (minimum unit tests) that will be implemented. If not tests are implemented, user will be harmed.
 ```
 
 ### Example Epic Structure:
@@ -131,7 +133,7 @@ This approach ensures:
 
 ### When working on tasks
 
-- refer to `specs/rewrite-phase-1/frontend-tickets.txt` and `specs/rewrite-phase-1/backend-tickets.txt` for respective tickets
+- refer to `specs/` folder for example tickets.
 - always indicate the status of a ticket with `status: todo, in-progress, done`
 - always indicate which are the corresponding frontend/backend tickets that are blocked for user to test
 - Use TanStack Query for client-side data fetching/caching in modals and forms whenever feasible (adhere to existing guidelines for TanStack Query usage).
