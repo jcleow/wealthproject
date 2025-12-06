@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -19,6 +21,17 @@ type ErrorResponse struct {
 
 // writeError writes an error response to the client
 func writeError(w http.ResponseWriter, statusCode int, errorCode string, message string) {
+	// Log stack trace for 4xx and 5xx errors
+	if statusCode >= 400 {
+		requestID := w.Header().Get("X-Request-ID")
+		if requestID == "" {
+			requestID = "unknown"
+		}
+
+		log.Printf("ERROR [%d] RequestID: %s | Error: %s | Message: %s\nStack trace:\n%s",
+			statusCode, requestID, errorCode, message, string(debug.Stack()))
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("API-Version", "v1")
 	w.WriteHeader(statusCode)
