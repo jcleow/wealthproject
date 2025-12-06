@@ -44,6 +44,8 @@ func NewScenarioEventHandler(store scenarioEventStore) *ScenarioEventHandler {
 // @Success 201 {object} repository.ScenarioEvent
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
 // @Router /scenario-events [get]
 // @Router /scenario-events [post]
 func (h *ScenarioEventHandler) RegisterRoutes(mux *http.ServeMux) {

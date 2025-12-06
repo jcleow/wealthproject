@@ -116,6 +116,10 @@ func main() {
 	v1Router.Use(middleware.Logging)
 	v1Router.Use(middleware.Authenticate)
 
+	// Initialize user financial setup on first request
+	userInitMiddleware := middleware.NewUserInitializer(finStore)
+	v1Router.Use(userInitMiddleware.EnsureFinancialSetup)
+
 	// Handle CORS preflight for all API routes
 	v1Router.PathPrefix("/").Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

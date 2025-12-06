@@ -124,6 +124,8 @@ type ExecutionSummary struct {
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 409 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
 // @Router /financial/actions/dispatch [post]
 func (h *DispatchHandler) HandleDispatch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

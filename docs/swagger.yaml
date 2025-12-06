@@ -669,6 +669,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Send a chat message
       tags:
       - Chat
@@ -706,15 +709,16 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Execute financial actions
       tags:
       - Actions
   /financial/timeline:
     get:
       description: Returns the full financial timeline with optional resolution and
-        scenario filtering. Automatically initializes user financial data (default
-        settings, growth configs, cash account) on first access if not already set
-        up.
+        scenario filtering
       parameters:
       - description: Resolution override (yearly or monthly)
         in: query
@@ -745,6 +749,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Get financial timeline
       tags:
       - Timeline
@@ -783,6 +790,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Update financial data for a specific year
       tags:
       - Timeline
@@ -833,6 +843,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: List or create scenario events
       tags:
       - Scenario Events
@@ -869,6 +882,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: List or create scenario events
       tags:
       - Scenario Events

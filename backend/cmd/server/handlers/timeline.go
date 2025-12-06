@@ -57,6 +57,8 @@ func NewSettingsHandler(svc *timeline.Service) *SettingsHandler {
 // @Success 200 {object} timeline.TimelineResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
 // @Router /financial/timeline [get]
 func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Request) {
 	// Parse optional resolution override
@@ -116,6 +118,8 @@ func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Reque
 // @Success 200 {object} timeline.TimelineResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
 // @Router /financial/timeline/{year} [put]
 func (h *TimelineHandler) HandleUpsertYear(w http.ResponseWriter, r *http.Request) {
 	yearStr := mux.Vars(r)["year"]
