@@ -1074,7 +1074,9 @@ func (c *Client) AnalyzeNetWorthTrends(ctx context.Context, userID string, param
 	}
 
 	// Get timeline
-	tl, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, params.IncludeScenarios, nil)
+	tl, err := c.timelineService.GetTimeline(ctx, timeline.TimelineOptions{
+		IncludeScenarios: params.IncludeScenarios,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get timeline: %w", err)
 	}
@@ -1160,13 +1162,16 @@ func (c *Client) CompareScenarioImpact(ctx context.Context, userID string, param
 	}
 
 	// Get baseline timeline (without scenario)
-	baselineTL, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, false, nil)
+	baselineTL, err := c.timelineService.GetTimeline(ctx, timeline.TimelineOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get baseline timeline: %w", err)
 	}
 
 	// Get timeline with scenario
-	withScenarioTL, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, true, []string{scenarioID})
+	withScenarioTL, err := c.timelineService.GetTimeline(ctx, timeline.TimelineOptions{
+		IncludeScenarios: true,
+		SelectedIDs:      []string{scenarioID},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get scenario timeline: %w", err)
 	}
@@ -1229,7 +1234,9 @@ func (c *Client) ProjectNetWorthAtYear(ctx context.Context, userID string, param
 	}
 
 	// Get timeline
-	tl, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, params.IncludeScenarios, nil)
+	tl, err := c.timelineService.GetTimeline(ctx, timeline.TimelineOptions{
+		IncludeScenarios: params.IncludeScenarios,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get timeline: %w", err)
 	}

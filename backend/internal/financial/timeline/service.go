@@ -92,8 +92,7 @@ func (s *Service) InitializeUserFinancialData(ctx context.Context, userID string
 }
 
 // GetTimeline returns the full timeline with optional resolution override and scenario application.
-// This is the unified API for fetching timelines - it consolidates the previous GetTimeline,
-// GetTimelineWithResolution, and GetTimelineWithScenarios functions into one.
+// This is the unified API for fetching timelines.
 //
 // Use TimelineOptions to configure:
 // - Resolution: override user's preference ("yearly", "monthly", or "" for user default)
@@ -166,16 +165,6 @@ func (s *Service) GetTimeline(ctx context.Context, opts TimelineOptions) (Timeli
 	}
 
 	return resp, nil
-}
-
-// Deprecated: Use GetTimeline with TimelineOptions{} instead.
-func (s *Service) GetTimelineOld(ctx context.Context) (TimelineResponse, error) {
-	return s.GetTimeline(ctx, TimelineOptions{})
-}
-
-// Deprecated: Use GetTimeline with TimelineOptions{Resolution: resolutionOverride} instead.
-func (s *Service) GetTimelineWithResolution(ctx context.Context, resolutionOverride string) (TimelineResponse, error) {
-	return s.GetTimeline(ctx, TimelineOptions{Resolution: resolutionOverride})
 }
 
 // applyScenarios applies scenario impacts to an existing timeline response.
@@ -366,25 +355,6 @@ func (s *Service) applyScenarios(ctx context.Context, userID string, resp Timeli
 	sort.Strings(resp.ScenariosApplied)
 
 	return resp, nil
-}
-
-// GetTimelineWithScenarios optionally merges scenarios for a given user/year selection.
-// Deprecated: Use GetTimeline with TimelineOptions{IncludeScenarios: true} instead.
-func (s *Service) GetTimelineWithScenarios(ctx context.Context, userID string, include bool, selectedIDs []string) (TimelineResponse, error) {
-	if userID == "" {
-		userID = getUserIDFromContext(ctx)
-	}
-	if userID == "" {
-		return TimelineResponse{}, errors.New("user context required")
-	}
-	resp, err := s.buildTimeline(ctx, userID)
-	if err != nil {
-		return TimelineResponse{}, err
-	}
-	if !include {
-		return resp, nil
-	}
-	return s.applyScenarios(ctx, userID, resp, selectedIDs)
 }
 
 // UpsertYear stores edits/new items for a year and returns the refreshed timeline.
