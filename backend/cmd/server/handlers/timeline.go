@@ -166,14 +166,11 @@ func (h *TimelineHandler) HandleUpsertYear(w http.ResponseWriter, r *http.Reques
 	resp, err := h.svc.UpsertYear(r.Context(), year, payload.Edits)
 	if err != nil {
 		log.Printf("[HandleUpsertYear] UpsertYear error: %v", err)
-		if err.Error() == "year must be between 0 and 20" {
-			badRequest(w, err)
-			return
-		}
 		if errorsIsNotFound(err) {
 			notFound(w)
 			return
 		}
+		// Handle validation errors (including year out of range) as bad requests
 		badRequest(w, err)
 		return
 	}

@@ -21,15 +21,19 @@ type ErrorResponse struct {
 
 // writeError writes an error response to the client
 func writeError(w http.ResponseWriter, statusCode int, errorCode string, message string) {
-	// Log stack trace for 4xx and 5xx errors
-	if statusCode >= 400 {
-		requestID := w.Header().Get("X-Request-ID")
-		if requestID == "" {
-			requestID = "unknown"
-		}
+	requestID := w.Header().Get("X-Request-ID")
+	if requestID == "" {
+		requestID = "unknown"
+	}
 
+	// Log stack trace only for server errors (5xx)
+	if statusCode >= 500 {
 		log.Printf("ERROR [%d] RequestID: %s | Error: %s | Message: %s\nStack trace:\n%s",
 			statusCode, requestID, errorCode, message, string(debug.Stack()))
+	} else if statusCode >= 400 {
+		// Just log the error without stack trace for client errors (4xx)
+		log.Printf("WARN [%d] RequestID: %s | Error: %s | Message: %s",
+			statusCode, requestID, errorCode, message)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

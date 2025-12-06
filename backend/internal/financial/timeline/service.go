@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	defaultTotalYears = 31 // years 0..30 inclusive (fallback)
-	defaultVersion    = "v1"
+	defaultTotalYears            = 31  // years 0..30 inclusive (fallback)
+	defaultVersion               = "v1"
+	defaultCashInterestRateAnnual = 1.5 // Default annual interest rate for cash accounts (%)
 )
 
 // Service encapsulates timeline logic.
@@ -193,6 +194,7 @@ func (s *Service) applyScenarios(ctx context.Context, userID string, resp Timeli
 					SelectedIDs: selectedIDs,
 				})
 				if err != nil {
+					log.Printf("Warning: Failed to apply scenarios for year %d: %v", year.Year, err)
 					return items
 				}
 				yearRows = append(yearRows, out...)
@@ -231,7 +233,7 @@ func (s *Service) applyScenarios(ctx context.Context, userID string, resp Timeli
 				}
 			}
 			if cashGrowthRate == 0 {
-				cashGrowthRate = 1.5
+				cashGrowthRate = defaultCashInterestRateAnnual
 			}
 
 			// Recalculate cash for each year
@@ -276,6 +278,7 @@ func (s *Service) applyScenarios(ctx context.Context, userID string, resp Timeli
 					SelectedIDs: selectedIDs,
 				})
 				if err != nil {
+					log.Printf("Warning: Failed to apply scenarios for month %d-%02d: %v", month.Year, month.Month, err)
 					return items
 				}
 				monthRows = append(monthRows, out...)
@@ -315,7 +318,7 @@ func (s *Service) applyScenarios(ctx context.Context, userID string, resp Timeli
 			}
 			if cashGrowthRate == 0 {
 				// Default to 1.5% annual = ~0.125% monthly
-				cashGrowthRate = 1.5 / 12.0
+				cashGrowthRate = defaultCashInterestRateAnnual / 12.0
 			}
 
 			// Recalculate cash for each month
@@ -782,14 +785,6 @@ func (s *Service) buildTimelineMonthly(ctx context.Context, userID string, userS
 	cashGrowthRate := accumulator.InterestRate
 	monthlyInterestRate := math.Pow(1+cashGrowthRate/100, 1.0/12.0) - 1
 
-	// DEBUG: Log accumulator starting balance
-	fmt.Printf("[DEBUG] Accumulator starting balance: %.2f, ID: %s, Name: %s\n", accumulator.Balance, accumulator.ID, accumulator.Name)
-	fmt.Printf("[DEBUG] Total cash accounts: %d\n", len(cashAccounts))
-	for i, acc := range cashAccounts {
-		fmt.Printf("[DEBUG] Cash account %d: Name=%s, Balance=%.2f, StartYear=%d, IsAccumulator=%v\n",
-			i, acc.Name, acc.Balance, acc.StartYear, acc.IsAccumulator)
-	}
-
 	months := make([]TimelineMonth, totalMonths)
 	for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
 		year := monthIdx / 12
@@ -924,12 +919,6 @@ func (s *Service) buildTimelineMonthly(ctx context.Context, userID string, userS
 		totalCash := sumCashAccountBalances(cashItems)
 		totalAssets := sumMonthly(monthItems.Assets)
 		netWorth := totalAssets + totalCash - sumMonthly(monthItems.Liabilities)
-
-		// DEBUG: Log first month details
-		if monthIdx == 0 {
-			fmt.Printf("[DEBUG] Month 0: accumulatedCash=%.2f, totalCash=%.2f, totalAssets=%.2f, netWorth=%.2f, cashItems=%d\n",
-				accumulatedCash, totalCash, totalAssets, netWorth, len(cashItems))
-		}
 
 		months[monthIdx] = TimelineMonth{
 			Year:          baseYear + year, // Convert relative year to absolute calendar year
