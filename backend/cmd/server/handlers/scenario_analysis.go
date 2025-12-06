@@ -11,8 +11,7 @@ import (
 )
 
 type scenarioAnalysisTimeline interface {
-	GetTimeline(ctx context.Context) (timeline.TimelineResponse, error)
-	GetTimelineWithScenarios(ctx context.Context, userID string, include bool, selectedIDs []string) (timeline.TimelineResponse, error)
+	GetTimeline(ctx context.Context, opts timeline.TimelineOptions) (timeline.TimelineResponse, error)
 }
 
 // ScenarioAnalysisHandler serves /scenario-analysis for baseline vs scenario comparisons.
@@ -45,13 +44,18 @@ func (h *ScenarioAnalysisHandler) Handle(w http.ResponseWriter, r *http.Request)
 		_ = json.NewDecoder(r.Body).Decode(&payload) // tolerate empty body
 	}
 
-	baseline, err := h.timeline.GetTimeline(r.Context())
+	// Get baseline timeline (no scenarios)
+	baseline, err := h.timeline.GetTimeline(r.Context(), timeline.TimelineOptions{})
 	if err != nil {
 		internalError(w)
 		return
 	}
 
-	scResp, err := h.timeline.GetTimelineWithScenarios(r.Context(), userCtx.UserID, true, payload.ScenarioIDs)
+	// Get timeline with scenarios applied
+	scResp, err := h.timeline.GetTimeline(r.Context(), timeline.TimelineOptions{
+		IncludeScenarios: true,
+		SelectedIDs:      payload.ScenarioIDs,
+	})
 	if err != nil {
 		internalError(w)
 		return

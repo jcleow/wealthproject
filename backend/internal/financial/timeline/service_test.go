@@ -68,7 +68,7 @@ func TestProjection_NewItemPersistsForward(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	resp, err := svc.GetTimeline(ctx)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{})
 	require.NoError(t, err)
 	require.Len(t, resp.Years, 36) // terminalAge(65) - startingAge(30) + 1 = 36
 
@@ -123,7 +123,7 @@ func TestProjection_OverrideLatestWinsAppliedForward(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	resp, err := svc.GetTimeline(ctx)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{})
 	require.NoError(t, err)
 
 	year0 := resp.Years[0]
@@ -142,15 +142,15 @@ func TestProjection_OverrideLatestWinsAppliedForward(t *testing.T) {
 
 // ---- Cash Accumulation Tests ----
 
-func TestCashAccumulation_AutoCreatesDefaultAccount(t *testing.T) {
+func TestCashAccumulation_UsesDefaultAccount(t *testing.T) {
 	ctx := testContext()
 	store := newStubStore()
 	svc := NewService(store)
 
-	resp, err := svc.GetTimeline(ctx)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{})
 	require.NoError(t, err)
 
-	// Should auto-create a default "Cash" account
+	// Should use the default "Cash" account created by stub store (simulates InitializeUserFinancialData)
 	require.Len(t, store.cashAccounts, 1)
 	require.Equal(t, "Cash", store.cashAccounts[0].Name)
 	require.True(t, store.cashAccounts[0].IsAccumulator)
@@ -193,7 +193,7 @@ func TestCashAccumulation_AccumulatesNetSavings(t *testing.T) {
 	}
 
 	svc := NewService(store)
-	resp, err := svc.GetTimeline(ctx)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{})
 	require.NoError(t, err)
 
 	// Year 0: Net savings = 120000 - 60000 = 60000 (baseline year - no accumulation)
@@ -235,7 +235,7 @@ func TestCashAccumulation_ExistingAccountUsesItsBalance(t *testing.T) {
 	}
 
 	svc := NewService(store)
-	resp, err := svc.GetTimeline(ctx)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{})
 	require.NoError(t, err)
 
 	// Year 0: starts with 50000 balance, no income/expense (baseline year)
@@ -299,7 +299,7 @@ func TestCashAccumulation_NegativeNetSavingsReducesCash(t *testing.T) {
 	}
 
 	svc := NewService(store)
-	resp, err := svc.GetTimeline(ctx)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{})
 	require.NoError(t, err)
 
 	// Year 0: Net savings = 60000 - 120000 = -60000 (baseline year)
@@ -358,7 +358,7 @@ func TestCashAccumulation_NetWorthIncludesCash(t *testing.T) {
 	}
 
 	svc := NewService(store)
-	resp, err := svc.GetTimeline(ctx)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{})
 	require.NoError(t, err)
 
 	// Net worth = Assets + Cash - Liabilities
@@ -381,13 +381,26 @@ type stubStore struct {
 }
 
 func newStubStore() *stubStore {
+	// Auto-create a default cash account for tests (simulates InitializeUserFinancialData)
+	defaultCashAccount := repository.CashAccount{
+		ID:            uuid.NewString(),
+		UserID:        testUserID,
+		Name:          "Cash",
+		Balance:       0,
+		InterestRate:  1.5,
+		IsAccumulator: true,
+		StartYear:     time.Now().Year(),
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
 	return &stubStore{
 		assets:       []repository.Asset{},
 		liabilities:  []repository.Liability{},
 		incomes:      []repository.Income{},
 		expenses:     []repository.Expense{},
 		growth:       []repository.GrowthConfig{},
-		cashAccounts: []repository.CashAccount{},
+		cashAccounts: []repository.CashAccount{defaultCashAccount},
 	}
 }
 
@@ -657,7 +670,9 @@ func TestCashAccumulation_WithScenarioProration(t *testing.T) {
 	}
 
 	svc := NewServiceWithScenario(store, scenarioApplier)
-	resp, err := svc.GetTimelineWithScenarios(ctx, testUserID, true, nil)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{
+		IncludeScenarios: true,
+	})
 	require.NoError(t, err)
 
 	// Year 0: Income should be prorated
@@ -738,7 +753,9 @@ func TestCashAccumulation_ScenarioExpenseReduction(t *testing.T) {
 	}
 
 	svc := NewServiceWithScenario(store, scenarioApplier)
-	resp, err := svc.GetTimelineWithScenarios(ctx, testUserID, true, nil)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{
+		IncludeScenarios: true,
+	})
 	require.NoError(t, err)
 
 	// Year 0: Expense should be prorated

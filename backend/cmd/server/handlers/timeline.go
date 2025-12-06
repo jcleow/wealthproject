@@ -78,24 +78,17 @@ func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Reque
 	}
 	userCtx := middleware.GetUserContext(r.Context())
 
-	var resp timeline.TimelineResponse
-	var err error
-
-	// Route to appropriate function based on resolution and scenarios
-	log.Printf("[Timeline] Request: resolution='%s', includeScenarios=%v, userID='%s'", resolution, includeScenarios, userCtx.UserID)
-	if resolution != "" {
-		// Resolution override (yearly or monthly)
-		log.Printf("[Timeline] Calling GetTimelineWithResolution")
-		resp, err = h.svc.GetTimelineWithResolution(r.Context(), resolution)
-	} else if includeScenarios && userCtx.UserID != "" {
-		// Yearly resolution with scenarios (default)
-		log.Printf("[Timeline] Calling GetTimelineWithScenarios")
-		resp, err = h.svc.GetTimelineWithScenarios(r.Context(), userCtx.UserID, true, selected)
-	} else {
-		// Default yearly timeline
-		log.Printf("[Timeline] Calling GetTimeline (default)")
-		resp, err = h.svc.GetTimeline(r.Context())
+	// Build TimelineOptions from query parameters
+	opts := timeline.TimelineOptions{
+		Resolution:       resolution,
+		IncludeScenarios: includeScenarios,
+		SelectedIDs:      selected,
 	}
+
+	log.Printf("[Timeline] Request: resolution='%s', includeScenarios=%v, selectedIDs=%v, userID='%s'",
+		opts.Resolution, opts.IncludeScenarios, opts.SelectedIDs, userCtx.UserID)
+
+	resp, err := h.svc.GetTimeline(r.Context(), opts)
 	if err != nil {
 		log.Printf("[Timeline] GetTimeline error: %v", err)
 		internalError(w)

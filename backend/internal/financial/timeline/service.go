@@ -91,200 +91,206 @@ func (s *Service) InitializeUserFinancialData(ctx context.Context, userID string
 	return nil
 }
 
-// GetTimeline returns the full timeline using user's saved resolution preference.
-func (s *Service) GetTimeline(ctx context.Context) (TimelineResponse, error) {
+// GetTimeline returns the full timeline with optional resolution override and scenario application.
+// This is the unified API for fetching timelines - it consolidates the previous GetTimeline,
+// GetTimelineWithResolution, and GetTimelineWithScenarios functions into one.
+//
+// Use TimelineOptions to configure:
+// - Resolution: override user's preference ("yearly", "monthly", or "" for user default)
+// - IncludeScenarios: apply scenario impacts if true
+// - SelectedIDs: limit scenarios to specific IDs (empty = all scenarios)
+//
+// Example usage:
+//   // Basic timeline with user's preferred resolution
+//   resp, err := service.GetTimeline(ctx, TimelineOptions{})
+//
+//   // Monthly timeline
+//   resp, err := service.GetTimeline(ctx, TimelineOptions{Resolution: "monthly"})
+//
+//   // Timeline with scenarios
+//   resp, err := service.GetTimeline(ctx, TimelineOptions{IncludeScenarios: true})
+//
+//   // Monthly timeline with specific scenarios
+//   resp, err := service.GetTimeline(ctx, TimelineOptions{
+//       Resolution: "monthly",
+//       IncludeScenarios: true,
+//       SelectedIDs: []string{"retirement-scenario-1"},
+//   })
+func (s *Service) GetTimeline(ctx context.Context, opts TimelineOptions) (TimelineResponse, error) {
 	userID := getUserIDFromContext(ctx)
 	if userID == "" {
 		return TimelineResponse{}, errors.New("user context required")
 	}
-	return s.buildTimeline(ctx, userID)
+
+	// Determine resolution (user preference or override)
+	resolution := opts.Resolution
+	if resolution == "" {
+		// Fetch user settings to get preferred resolution
+		settings, err := s.store.GetUserSettings(ctx, userID)
+		if err != nil {
+			// If no settings found, default to yearly
+			resolution = "yearly"
+		} else {
+			resolution = settings.TimeResolution
+			if resolution == "" {
+				resolution = "yearly"
+			}
+		}
+	}
+
+	// Build base timeline with appropriate resolution
+	var resp TimelineResponse
+	var err error
+
+	if resolution == "monthly" {
+		// For monthly, we need to fetch settings first
+		settings, err := s.store.GetUserSettings(ctx, userID)
+		if err != nil {
+			return TimelineResponse{}, err
+		}
+		resp, err = s.buildTimelineMonthly(ctx, userID, settings)
+	} else {
+		resp, err = s.buildTimeline(ctx, userID)
+	}
+
+	if err != nil {
+		return TimelineResponse{}, err
+	}
+
+	// Apply scenarios if requested
+	if opts.IncludeScenarios {
+		resp, err = s.applyScenarios(ctx, userID, resp, opts.SelectedIDs)
+		if err != nil {
+			return TimelineResponse{}, err
+		}
+	}
+
+	return resp, nil
 }
 
-// GetTimelineWithResolution returns the full timeline with an optional resolution override.
-// If resolutionOverride is empty, uses the user's saved preference.
+// Deprecated: Use GetTimeline with TimelineOptions{} instead.
+func (s *Service) GetTimelineOld(ctx context.Context) (TimelineResponse, error) {
+	return s.GetTimeline(ctx, TimelineOptions{})
+}
+
+// Deprecated: Use GetTimeline with TimelineOptions{Resolution: resolutionOverride} instead.
 func (s *Service) GetTimelineWithResolution(ctx context.Context, resolutionOverride string) (TimelineResponse, error) {
-	userID := getUserIDFromContext(ctx)
-	if userID == "" {
-		return TimelineResponse{}, errors.New("user context required")
+	return s.GetTimeline(ctx, TimelineOptions{Resolution: resolutionOverride})
+}
+
+// applyScenarios applies scenario impacts to an existing timeline response.
+// Works with both yearly and monthly resolutions.
+// Returns the updated timeline response with scenarios applied.
+func (s *Service) applyScenarios(ctx context.Context, userID string, resp TimelineResponse, selectedIDs []string) (TimelineResponse, error) {
+	if s.scenarios == nil {
+		return resp, nil
 	}
 
-	// Fetch user settings
-	userSettings, err := s.store.GetUserSettings(ctx, userID)
-	if err != nil {
-		return TimelineResponse{}, err
-	}
-
-	// Apply resolution override if provided
-	if resolutionOverride != "" && (resolutionOverride == "yearly" || resolutionOverride == "monthly") {
-		userSettings.TimeResolution = resolutionOverride
-	}
-
-	// Check if monthly resolution is requested
-	if userSettings.TimeResolution == "monthly" {
-		return s.buildTimelineMonthly(ctx, userID, userSettings)
-	}
-
-	// Calculate total years from user settings
-	totalYears := defaultTotalYears
-	if userSettings.TerminalAge > userSettings.StartingAge {
-		totalYears = userSettings.TerminalAge - userSettings.StartingAge + 1
-	}
-
-	growthCfg, err := s.ensureGrowth(ctx, userID)
-	if err != nil {
-		return TimelineResponse{}, err
-	}
-
-	// Ensure accumulator cash account exists
-	accumulator, err := s.ensureAccumulatorAccount(ctx, userID)
-	if err != nil {
-		return TimelineResponse{}, err
-	}
-
-	// Load all cash accounts
-	cashAccounts, err := s.store.ListCashAccounts(ctx, userID)
-	if err != nil {
-		return TimelineResponse{}, err
-	}
-
-	rows, err := s.loadEffectiveRows(ctx, userID)
-	if err != nil {
-		return TimelineResponse{}, err
-	}
-
-	// Convert absolute years to relative year indices (0, 1, 2, ..., 30)
 	baseYear := time.Now().Year()
-	rowsByYear := map[int][]effectiveRow{}
-	for _, r := range rows {
-		relativeYear := r.StartYear - baseYear
-		rowsByYear[relativeYear] = append(rowsByYear[relativeYear], r)
-	}
+	applied := map[string]struct{}{}
 
-	state := map[string]itemState{}
-
-	// Track accumulated cash (starts from accumulator's initial balance)
-	accumulatedCash := accumulator.Balance
-	cashGrowthRate := accumulator.InterestRate
-
-	years := make([]TimelineYear, totalYears)
-	for year := 0; year < totalYears; year++ {
-		cashAtStart := accumulatedCash
-
-		// expire by end_year (convert absolute end year to relative)
-		for id, st := range state {
-			if st.endYear != nil {
-				relativeEndYear := *st.endYear - baseYear
-				if year > relativeEndYear {
-					delete(state, id)
+	// First pass: apply scenarios to all items
+	switch resp.Resolution {
+	case "yearly":
+		for i, year := range resp.Years {
+			yearRows := make([]scenario.Row, 0, len(year.Assets)+len(year.Liabilities)+len(year.Income)+len(year.Expenses))
+			apply := func(items []TimelineItem) []TimelineItem {
+				rows := mapItems(items)
+				out, err := s.scenarios.Apply(ctx, scenario.ApplyRequest{
+					UserID:      userID,
+					Year:        year.Year,
+					BaseYear:    baseYear,
+					Rows:        rows,
+					SelectedIDs: selectedIDs,
+				})
+				if err != nil {
+					return items
+				}
+				yearRows = append(yearRows, out...)
+				return annotateItems(items, out)
+			}
+			resp.Years[i].Assets = apply(year.Assets)
+			resp.Years[i].Liabilities = apply(year.Liabilities)
+			resp.Years[i].Income = apply(year.Income)
+			resp.Years[i].Expenses = apply(year.Expenses)
+			resp.Years[i].NetCash = sumAdjusted(resp.Years[i].Income) - sumAdjusted(resp.Years[i].Expenses)
+			for _, r := range yearRows {
+				for _, imp := range r.EventImpacts {
+					applied[imp.EventID] = struct{}{}
 				}
 			}
 		}
 
-		if year > 0 {
-			for id, st := range state {
-				rate := st.growthRate
-				if rate == 0 && st.item.ItemType != ItemTypeIncome && st.item.ItemType != ItemTypeExpense {
-					rate = lookupGrowthRate(growthCfg, st.item.Category, st.item.ItemType)
+		// Second pass: recalculate cash accumulation based on adjusted income/expenses
+		if len(resp.Years) > 0 {
+			var accumulatorID string
+			var cashGrowthRate float64
+			accumulatedCash := 0.0
+
+			// Find accumulator in year 0 cash accounts
+			for _, ca := range resp.Years[0].CashAccounts {
+				if ca.IsAccumulator {
+					accumulatorID = ca.ItemID
+					accumulatedCash = ca.AmountAnnual
+					break
 				}
-				st.amount = applyGrowth(st.amount, rate)
-				st.item.AmountAnnual = st.amount
-				st.item.AdjustedAnnual = st.amount
-				state[id] = st
+			}
+			// Get interest rate from year 0
+			if resp.Years[0].AccumulatedCashEnd > 0 && resp.Years[0].InterestEarned > 0 {
+				if len(resp.Years) > 1 && resp.Years[1].AccumulatedCashStart > 0 {
+					cashGrowthRate = (resp.Years[1].InterestEarned / resp.Years[1].AccumulatedCashStart) * 100
+				}
+			}
+			if cashGrowthRate == 0 {
+				cashGrowthRate = 1.5
+			}
+
+			// Recalculate cash for each year
+			for i := range resp.Years {
+				year := &resp.Years[i]
+				cashAtStart := accumulatedCash
+				adjustedNetSavings := sumAdjusted(year.Income) - sumAdjusted(year.Expenses)
+
+				interestEarned := 0.0
+				if i > 0 {
+					accumulatedCash += adjustedNetSavings
+					interestEarned = accumulatedCash * (cashGrowthRate / 100.0)
+					accumulatedCash += interestEarned
+				}
+
+				// Update cash account balances
+				for j := range year.CashAccounts {
+					if year.CashAccounts[j].ItemID == accumulatorID || year.CashAccounts[j].IsAccumulator {
+						year.CashAccounts[j].AmountAnnual = accumulatedCash
+						year.CashAccounts[j].AdjustedAnnual = accumulatedCash
+					}
+				}
+
+				year.AnnualNetSavings = adjustedNetSavings
+				year.AccumulatedCashStart = cashAtStart
+				year.AccumulatedCashEnd = accumulatedCash
+				year.InterestEarned = interestEarned
+				year.NetWorth = sumAdjusted(year.Assets) + sumCashAccountBalances(year.CashAccounts) - sumAdjusted(year.Liabilities)
 			}
 		}
 
-		hasOverride := len(rowsByYear[year]) > 0 && year > 0
-		for _, r := range rowsByYear[year] {
-			annual, err := Annualize(r.Amount, r.Frequency)
-			if err != nil {
-				return TimelineResponse{}, err
-			}
-
-			if r.Amount == 0 {
-				delete(state, r.ParentID)
-				hasOverride = true
-				continue
-			}
-
-			// Store end year as absolute year (not relative)
-			var endYearPtr *int
-			if r.EndYear.Valid {
-				val := int(r.EndYear.Int32)
-				endYearPtr = &val
-			}
-
-			// Convert absolute StartYear to relative year for CreatedYear
-			relativeCreatedYear := r.StartYear - baseYear
-
-			state[r.ParentID] = itemState{
-				item: TimelineItem{
-					ItemID:          r.ParentID,
-					RowID:           r.ID,
-					ParentID:        r.ParentID,
-					Name:            r.Name,
-					Category:        r.Category,
-					AmountAnnual:    annual,
-					AdjustedAnnual:  annual,
-					SourceAmount:    &r.Amount,
-					SourceFrequency: string(r.Frequency),
-					ItemType:        r.ItemType,
-					CreatedYear:     relativeCreatedYear,
-					GrowthRate:      r.GrowthRate,
-				},
-				amount:     annual,
-				endYear:    endYearPtr,
-				growthRate: r.GrowthRate,
-			}
-		}
-
-		yearItems := segregateItems(state, year)
-
-		// Calculate annual net savings (income - expenses)
-		annualNetSavings := sumAnnual(yearItems.Income) - sumAnnual(yearItems.Expenses)
-
-		// Only accumulate starting from year 1 - year 0 is the baseline
-		interestEarned := 0.0
-		if year > 0 {
-			accumulatedCash += annualNetSavings
-			interestEarned = accumulatedCash * (cashGrowthRate / 100.0)
-			accumulatedCash += interestEarned
-		}
-
-		cashItems := buildCashItems(cashAccounts, accumulator.ID, accumulatedCash, year)
-
-		totalCash := sumCashAccountBalances(cashItems)
-		totalAssets := sumAnnual(yearItems.Assets)
-		netWorth := totalAssets + totalCash - sumAnnual(yearItems.Liabilities)
-
-		years[year] = TimelineYear{
-			Year:          baseYear + year, // Convert relative year to absolute calendar year
-			Assets:        yearItems.Assets,
-			CashAccounts:  cashItems,
-			Liabilities:   yearItems.Liabilities,
-			Income:        yearItems.Income,
-			Expenses:      yearItems.Expenses,
-			NetCash:       annualNetSavings,
-			NetWorth:      netWorth,
-			HasOverrides:  hasOverride,
-			GrowthApplied: toGrowthApplied(growthCfg),
-
-			AnnualNetSavings:     annualNetSavings,
-			AccumulatedCashStart: cashAtStart,
-			AccumulatedCashEnd:   accumulatedCash,
-			InterestEarned:       interestEarned,
-			AccumulatorAccountID: accumulator.ID,
-		}
+	case "monthly":
+		// TODO: Implement monthly scenario application
+		// For now, monthly + scenarios is not supported
+		return resp, fmt.Errorf("scenario application for monthly resolution not yet implemented")
 	}
 
-	resp := TimelineResponse{
-		Resolution: "yearly",
-		Years:      years,
-		Version:    defaultVersion,
+	// Collect applied scenario IDs
+	for id := range applied {
+		resp.ScenariosApplied = append(resp.ScenariosApplied, id)
 	}
+	sort.Strings(resp.ScenariosApplied)
+
 	return resp, nil
 }
 
 // GetTimelineWithScenarios optionally merges scenarios for a given user/year selection.
+// Deprecated: Use GetTimeline with TimelineOptions{IncludeScenarios: true} instead.
 func (s *Service) GetTimelineWithScenarios(ctx context.Context, userID string, include bool, selectedIDs []string) (TimelineResponse, error) {
 	if userID == "" {
 		userID = getUserIDFromContext(ctx)
@@ -296,114 +302,10 @@ func (s *Service) GetTimelineWithScenarios(ctx context.Context, userID string, i
 	if err != nil {
 		return TimelineResponse{}, err
 	}
-	if !include || s.scenarios == nil {
+	if !include {
 		return resp, nil
 	}
-
-	// Use current calendar year as the base (year 0 in timeline).
-	baseYear := time.Now().Year()
-
-	applied := map[string]struct{}{}
-
-	// First pass: apply scenarios to all items
-	for i, year := range resp.Years {
-		yearRows := make([]scenario.Row, 0, len(year.Assets)+len(year.Liabilities)+len(year.Income)+len(year.Expenses))
-		apply := func(items []TimelineItem) []TimelineItem {
-			rows := mapItems(items)
-			out, err := s.scenarios.Apply(ctx, scenario.ApplyRequest{
-				UserID:      userID,
-				Year:        year.Year,
-				BaseYear:    baseYear,
-				Rows:        rows,
-				SelectedIDs: selectedIDs,
-			})
-			if err != nil {
-				return items
-			}
-			yearRows = append(yearRows, out...)
-			return annotateItems(items, out)
-		}
-		resp.Years[i].Assets = apply(year.Assets)
-		resp.Years[i].Liabilities = apply(year.Liabilities)
-		resp.Years[i].Income = apply(year.Income)
-		resp.Years[i].Expenses = apply(year.Expenses)
-		resp.Years[i].NetCash = sumAdjusted(resp.Years[i].Income) - sumAdjusted(resp.Years[i].Expenses)
-		for _, r := range yearRows {
-			for _, imp := range r.EventImpacts {
-				applied[imp.EventID] = struct{}{}
-			}
-		}
-	}
-
-	// Second pass: recalculate cash accumulation based on adjusted income/expenses
-	// This is critical for scenarios like retirement that stop income
-	if len(resp.Years) > 0 {
-		// Get the accumulator account and its interest rate from year 0
-		var accumulatorID string
-		var cashGrowthRate float64
-		accumulatedCash := 0.0
-
-		// Find accumulator in year 0 cash accounts
-		for _, ca := range resp.Years[0].CashAccounts {
-			if ca.IsAccumulator {
-				accumulatorID = ca.ItemID
-				accumulatedCash = ca.AmountAnnual // Start with year 0 balance
-				break
-			}
-		}
-		// Get interest rate from AccumulatedCashEnd calculation (approximation)
-		if resp.Years[0].AccumulatedCashEnd > 0 && resp.Years[0].InterestEarned > 0 {
-			// Back-calculate interest rate from year 1's interest earned
-			if len(resp.Years) > 1 && resp.Years[1].AccumulatedCashStart > 0 {
-				cashGrowthRate = (resp.Years[1].InterestEarned / resp.Years[1].AccumulatedCashStart) * 100
-			}
-		}
-		if cashGrowthRate == 0 {
-			cashGrowthRate = 1.5 // Default interest rate
-		}
-
-		// Recalculate cash for each year based on adjusted net cash
-		for i := range resp.Years {
-			year := &resp.Years[i]
-			cashAtStart := accumulatedCash
-
-			// Calculate adjusted net savings from scenario-modified income/expenses
-			adjustedNetSavings := sumAdjusted(year.Income) - sumAdjusted(year.Expenses)
-
-			interestEarned := 0.0
-			if i > 0 {
-				// Add net savings (can be negative in retirement)
-				accumulatedCash += adjustedNetSavings
-
-				// Apply interest
-				interestEarned = accumulatedCash * (cashGrowthRate / 100.0)
-				accumulatedCash += interestEarned
-			}
-
-			// Update cash account balances
-			for j := range year.CashAccounts {
-				if year.CashAccounts[j].ItemID == accumulatorID || year.CashAccounts[j].IsAccumulator {
-					year.CashAccounts[j].AmountAnnual = accumulatedCash
-					year.CashAccounts[j].AdjustedAnnual = accumulatedCash
-				}
-			}
-
-			// Update year fields
-			year.AnnualNetSavings = adjustedNetSavings
-			year.AccumulatedCashStart = cashAtStart
-			year.AccumulatedCashEnd = accumulatedCash
-			year.InterestEarned = interestEarned
-
-			// Recalculate net worth with corrected cash
-			year.NetWorth = sumAdjusted(year.Assets) + sumCashAccountBalances(year.CashAccounts) - sumAdjusted(year.Liabilities)
-		}
-	}
-
-	for id := range applied {
-		resp.ScenariosApplied = append(resp.ScenariosApplied, id)
-	}
-	sort.Strings(resp.ScenariosApplied)
-	return resp, nil
+	return s.applyScenarios(ctx, userID, resp, selectedIDs)
 }
 
 // UpsertYear stores edits/new items for a year and returns the refreshed timeline.
