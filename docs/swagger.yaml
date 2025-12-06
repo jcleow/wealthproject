@@ -712,7 +712,9 @@ paths:
   /financial/timeline:
     get:
       description: Returns the full financial timeline with optional resolution and
-        scenario filtering
+        scenario filtering. Automatically initializes user financial data (default
+        settings, growth configs, cash account) on first access if not already set
+        up.
       parameters:
       - description: Resolution override (yearly or monthly)
         in: query
@@ -888,8 +890,14 @@ schemes:
 - http
 - https
 securityDefinitions:
-  ApiKeyAuth:
+  AuthToken:
+    description: JWT token for production authentication (HMAC-signed with BACKEND_SHARED_SECRET)
     in: header
-    name: X-API-Key
+    name: X-Auth-Token
+    type: apiKey
+  SessionID:
+    description: User/Session ID for development mode authentication
+    in: header
+    name: X-Session-ID
     type: apiKey
 swagger: "2.0"

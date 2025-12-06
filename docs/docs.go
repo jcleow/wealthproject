@@ -128,7 +128,7 @@ const docTemplate = `{
         },
         "/financial/timeline": {
             "get": {
-                "description": "Returns the full financial timeline with optional resolution and scenario filtering",
+                "description": "Returns the full financial timeline with optional resolution and scenario filtering. Automatically initializes user financial data (default settings, growth configs, cash account) on first access if not already set up.",
                 "produces": [
                     "application/json"
                 ],
@@ -1312,9 +1312,16 @@ const docTemplate = `{
         }
     },
     "securityDefinitions": {
-        "ApiKeyAuth": {
+        "AuthToken": {
+            "description": "JWT token for production authentication (HMAC-signed with BACKEND_SHARED_SECRET)",
             "type": "apiKey",
-            "name": "X-API-Key",
+            "name": "X-Auth-Token",
+            "in": "header"
+        },
+        "SessionID": {
+            "description": "User/Session ID for development mode authentication",
+            "type": "apiKey",
+            "name": "X-Session-ID",
             "in": "header"
         }
     }
