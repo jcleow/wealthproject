@@ -275,9 +275,88 @@ func (s *Service) applyScenarios(ctx context.Context, userID string, resp Timeli
 		}
 
 	case "monthly":
-		// TODO: Implement monthly scenario application
-		// For now, monthly + scenarios is not supported
-		return resp, fmt.Errorf("scenario application for monthly resolution not yet implemented")
+		for i, month := range resp.Months {
+			monthRows := make([]scenario.Row, 0, len(month.Assets)+len(month.Liabilities)+len(month.Income)+len(month.Expenses))
+			apply := func(items []TimelineItem) []TimelineItem {
+				rows := mapItems(items)
+				out, err := s.scenarios.Apply(ctx, scenario.ApplyRequest{
+					UserID:      userID,
+					Year:        month.YearIndex,
+					BaseYear:    baseYear,
+					Rows:        rows,
+					SelectedIDs: selectedIDs,
+				})
+				if err != nil {
+					return items
+				}
+				monthRows = append(monthRows, out...)
+				return annotateItems(items, out)
+			}
+			resp.Months[i].Assets = apply(month.Assets)
+			resp.Months[i].Liabilities = apply(month.Liabilities)
+			resp.Months[i].Income = apply(month.Income)
+			resp.Months[i].Expenses = apply(month.Expenses)
+			resp.Months[i].NetCash = sumAdjusted(resp.Months[i].Income) - sumAdjusted(resp.Months[i].Expenses)
+			for _, r := range monthRows {
+				for _, imp := range r.EventImpacts {
+					applied[imp.EventID] = struct{}{}
+				}
+			}
+		}
+
+		// Second pass: recalculate cash accumulation for monthly resolution
+		if len(resp.Months) > 0 {
+			var accumulatorID string
+			var cashGrowthRate float64
+			accumulatedCash := 0.0
+
+			// Find accumulator in first month cash accounts
+			for _, ca := range resp.Months[0].CashAccounts {
+				if ca.IsAccumulator {
+					accumulatorID = ca.ItemID
+					accumulatedCash = ca.AmountMonthly
+					break
+				}
+			}
+			// Get monthly interest rate from first month
+			if resp.Months[0].AccumulatedCashEnd > 0 && resp.Months[0].InterestEarned > 0 {
+				if len(resp.Months) > 1 && resp.Months[1].AccumulatedCashStart > 0 {
+					cashGrowthRate = (resp.Months[1].InterestEarned / resp.Months[1].AccumulatedCashStart) * 100
+				}
+			}
+			if cashGrowthRate == 0 {
+				// Default to 1.5% annual = ~0.125% monthly
+				cashGrowthRate = 1.5 / 12.0
+			}
+
+			// Recalculate cash for each month
+			for i := range resp.Months {
+				month := &resp.Months[i]
+				cashAtStart := accumulatedCash
+				adjustedNetSavings := sumAdjusted(month.Income) - sumAdjusted(month.Expenses)
+
+				interestEarned := 0.0
+				if i > 0 {
+					accumulatedCash += adjustedNetSavings
+					interestEarned = accumulatedCash * (cashGrowthRate / 100.0)
+					accumulatedCash += interestEarned
+				}
+
+				// Update cash account balances
+				for j := range month.CashAccounts {
+					if month.CashAccounts[j].ItemID == accumulatorID || month.CashAccounts[j].IsAccumulator {
+						month.CashAccounts[j].AmountMonthly = accumulatedCash
+						month.CashAccounts[j].AdjustedMonthly = accumulatedCash
+					}
+				}
+
+				month.MonthlyNetSavings = adjustedNetSavings
+				month.AccumulatedCashStart = cashAtStart
+				month.AccumulatedCashEnd = accumulatedCash
+				month.InterestEarned = interestEarned
+				month.NetWorth = sumAdjusted(month.Assets) + sumCashAccountBalances(month.CashAccounts) - sumAdjusted(month.Liabilities)
+			}
+		}
 	}
 
 	// Collect applied scenario IDs
