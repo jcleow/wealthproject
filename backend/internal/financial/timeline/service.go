@@ -531,13 +531,7 @@ func (s *Service) buildTimeline(ctx context.Context, userID string) (TimelineRes
 		var err error
 		accumulator, err = s.store.GetAccumulatorAccount(gctx, userID)
 		if err != nil {
-			// If no accumulator exists, use default values (balance=0, rate=1.5%)
-			// This allows timeline to work even without InitializeUserFinancialData
-			accumulator = repository.CashAccount{
-				Balance:      0,
-				InterestRate: 1.5,
-			}
-			return nil
+			return fmt.Errorf("no accumulator account found: %w", err)
 		}
 		return nil
 	})
@@ -746,13 +740,7 @@ func (s *Service) buildTimelineMonthly(ctx context.Context, userID string, userS
 		var err error
 		accumulator, err = s.store.GetAccumulatorAccount(gctx, userID)
 		if err != nil {
-			// If no accumulator exists, use default values (balance=0, rate=1.5%)
-			// This allows timeline to work even without InitializeUserFinancialData
-			accumulator = repository.CashAccount{
-				Balance:      0,
-				InterestRate: 1.5,
-			}
-			return nil
+			return fmt.Errorf("no accumulator account found: %w", err)
 		}
 		return nil
 	})

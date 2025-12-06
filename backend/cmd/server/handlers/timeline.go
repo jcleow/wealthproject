@@ -48,7 +48,7 @@ func NewSettingsHandler(svc *timeline.Service) *SettingsHandler {
 
 // HandleGetTimeline returns the full timeline with optional resolution override.
 // @Summary Get financial timeline
-// @Description Returns the full financial timeline with optional resolution and scenario filtering
+// @Description Returns the full financial timeline with optional resolution and scenario filtering. Automatically initializes user financial data (default settings, growth configs, cash account) on first access if not already set up.
 // @Tags Timeline
 // @Produce json
 // @Param resolution query string false "Resolution override (yearly or monthly)"
@@ -90,9 +90,26 @@ func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Reque
 
 	resp, err := h.svc.GetTimeline(r.Context(), opts)
 	if err != nil {
-		log.Printf("[Timeline] GetTimeline error: %v", err)
-		internalError(w)
-		return
+		// If timeline fails due to missing initialization, initialize and retry once
+		if strings.Contains(err.Error(), "no accumulator account found") {
+			log.Printf("[Timeline] First-time user detected, initializing financial data for user: %s", userCtx.UserID)
+			if initErr := h.svc.InitializeUserFinancialData(r.Context(), userCtx.UserID); initErr != nil {
+				log.Printf("[Timeline] Initialization error: %v", initErr)
+				internalError(w)
+				return
+			}
+			// Retry after initialization
+			resp, err = h.svc.GetTimeline(r.Context(), opts)
+			if err != nil {
+				log.Printf("[Timeline] GetTimeline error after initialization: %v", err)
+				internalError(w)
+				return
+			}
+		} else {
+			log.Printf("[Timeline] GetTimeline error: %v", err)
+			internalError(w)
+			return
+		}
 	}
 
 	// DEBUG: Log first year's data
