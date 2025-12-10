@@ -58,19 +58,27 @@ export function useTimeline(options?: UseTimelineOptions) {
 
   // Get selected period data (year or month depending on resolution)
   const selectedYearData: TimelineYear | undefined = useMemo(() => {
+    const baseYear = new Date().getFullYear()
+
     if (resolution === 'yearly') {
-      return timelineQuery.data?.years?.find((year) => year.year === selectedYearValue)
+      // Backend sends absolute calendar years (2025, 2026, etc.)
+      // selectedYearValue could be either relative (0, 1, 2) or absolute (2025, 2026)
+      // Try both to handle the transition
+      return timelineQuery.data?.years?.find((year) =>
+        year.year === selectedYearValue || year.year === baseYear + selectedYearValue
+      )
     }
     // For monthly resolution, aggregate the 12 months of selected year into a TimelineYear structure
     // This allows components to work with both resolutions seamlessly
-    const monthsInYear = timelineQuery.data?.months?.filter(m => m.year === selectedYearValue) || []
+    const searchYear = selectedYearValue >= 1900 ? selectedYearValue : baseYear + selectedYearValue
+    const monthsInYear = timelineQuery.data?.months?.filter(m => m.year === searchYear) || []
     if (monthsInYear.length === 0) return undefined
 
     // Use December's data as representative for the year (or last available month)
     const decemberMonth = monthsInYear.find(m => m.month === 12) || monthsInYear[monthsInYear.length - 1]
 
     return {
-      year: selectedYearValue,
+      year: searchYear,
       assets: decemberMonth.assets,
       cashAccounts: decemberMonth.cashAccounts,
       liabilities: decemberMonth.liabilities,
@@ -90,8 +98,11 @@ export function useTimeline(options?: UseTimelineOptions) {
 
   const selectedMonthData: TimelineMonth | undefined = useMemo(() => {
     if (resolution !== 'monthly') return undefined
+    const baseYear = new Date().getFullYear()
+    // Convert relative year to absolute if needed
+    const searchYear = selectedYearValue >= 1900 ? selectedYearValue : baseYear + selectedYearValue
     return timelineQuery.data?.months?.find(
-      (m) => m.year === selectedYearValue && m.month === selectedMonthValue
+      (m) => m.year === searchYear && m.month === selectedMonthValue
     )
   }, [timelineQuery.data, resolution, selectedYearValue, selectedMonthValue])
 
