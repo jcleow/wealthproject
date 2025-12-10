@@ -75,7 +75,7 @@ func (h *LiabilityHandler) convertToProperty(w http.ResponseWriter, r *http.Requ
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, updated)
@@ -89,7 +89,7 @@ func (h *LiabilityHandler) list(w http.ResponseWriter, r *http.Request) {
 	pagination := parsePagination(r)
 	result, err := h.store.ListLiabilities(r.Context(), userID, pagination)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	// Debug logging
@@ -111,7 +111,7 @@ func (h *LiabilityHandler) get(w http.ResponseWriter, r *http.Request, id string
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, item)
@@ -133,7 +133,7 @@ func (h *LiabilityHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := h.store.CreateLiability(r.Context(), userID, payload)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, created)
@@ -156,7 +156,7 @@ func (h *LiabilityHandler) update(w http.ResponseWriter, r *http.Request, id str
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, updated)
@@ -172,7 +172,7 @@ func (h *LiabilityHandler) delete(w http.ResponseWriter, r *http.Request, id str
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

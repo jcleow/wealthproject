@@ -14,3 +14,7 @@ go_examples/
 
 # Office temp files
 ~$*.xlsx
+
+# Air live reload
+tmp/
+build-errors.log

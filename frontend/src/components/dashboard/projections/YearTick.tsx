@@ -1,5 +1,5 @@
 import type { TimeResolution } from '@/types/timeline'
-import { DEFAULT_STARTING_AGE, BASE_CALENDAR_YEAR, type AxisMode } from './types'
+import { DEFAULT_STARTING_AGE, type AxisMode } from './types'
 
 interface YearTickProps {
   x?: number
@@ -12,6 +12,7 @@ interface YearTickProps {
   startingAge?: number
   resolution?: TimeResolution
   visibleRangeMonths?: number
+  baseCalendarYear?: number
 }
 
 export function YearTick({
@@ -23,8 +24,9 @@ export function YearTick({
   selectedYear,
   mode,
   startingAge,
-  resolution,
+  resolution = 'monthly', // Default to monthly
   visibleRangeMonths,
+  baseCalendarYear,
 }: YearTickProps) {
   if (!payload) return null
   const isOverride = overrideYears.has(payload.value)
@@ -33,9 +35,10 @@ export function YearTick({
 
   let labelValue: string | number
 
-  if (resolution === 'monthly') {
+  // Monthly resolution - payload.value is monthIndex (0-based global month index)
+  if (resolution === 'monthly' || resolution === undefined) {
     const monthIndex = payload.value
-    const year = Math.floor(monthIndex / 12)
+    const yearOffset = Math.floor(monthIndex / 12)  // Years since start (0, 1, 2, ...)
     const month = monthIndex % 12
 
     // Only show months when visible range is less than 24 months (2 years)
@@ -44,23 +47,23 @@ export function YearTick({
     if (showMonths) {
       // Show month abbreviation with year suffix (e.g., "Sep'25", "Oct'25")
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-      const calendarYear = BASE_CALENDAR_YEAR + year
+      const calendarYear = (baseCalendarYear ?? new Date().getFullYear()) + yearOffset
       const yearSuffix = `'${String(calendarYear).slice(-2)}`
       labelValue = `${monthNames[month]}${yearSuffix}`
     } else {
       // Show year only when showing 2+ years (24+ months)
       labelValue = mode === 'age'
-        ? age + year
+        ? age + yearOffset
         : mode === 'actual_year'
-          ? `'${String(BASE_CALENDAR_YEAR + year).slice(-2)}`
-          : year
+          ? `'${String((baseCalendarYear ?? new Date().getFullYear()) + yearOffset).slice(-2)}`
+          : yearOffset
     }
   } else {
     // Yearly resolution - use existing logic
     labelValue = mode === 'age'
       ? age + payload.value
       : mode === 'actual_year'
-        ? `'${String(BASE_CALENDAR_YEAR + payload.value).slice(-2)}`
+        ? `'${String((baseCalendarYear ?? new Date().getFullYear()) + payload.value).slice(-2)}`
         : payload.value
   }
 

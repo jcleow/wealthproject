@@ -75,7 +75,7 @@ func (h *AssetHandler) convertToProperty(w http.ResponseWriter, r *http.Request,
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, updated)
@@ -89,7 +89,7 @@ func (h *AssetHandler) list(w http.ResponseWriter, r *http.Request) {
 	pagination := parsePagination(r)
 	result, err := h.store.ListAssets(r.Context(), userID, pagination)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, result)
@@ -106,7 +106,7 @@ func (h *AssetHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, item)
@@ -128,7 +128,7 @@ func (h *AssetHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := h.store.CreateAsset(r.Context(), userID, payload)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, created)
@@ -151,7 +151,7 @@ func (h *AssetHandler) update(w http.ResponseWriter, r *http.Request, id string)
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, updated)
@@ -167,7 +167,7 @@ func (h *AssetHandler) delete(w http.ResponseWriter, r *http.Request, id string)
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

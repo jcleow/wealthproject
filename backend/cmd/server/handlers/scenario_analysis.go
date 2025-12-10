@@ -47,7 +47,7 @@ func (h *ScenarioAnalysisHandler) Handle(w http.ResponseWriter, r *http.Request)
 	// Get baseline timeline (no scenarios)
 	baseline, err := h.timeline.GetTimeline(r.Context(), timeline.TimelineOptions{})
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -57,7 +57,7 @@ func (h *ScenarioAnalysisHandler) Handle(w http.ResponseWriter, r *http.Request)
 		SelectedIDs:      payload.ScenarioIDs,
 	})
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 

@@ -147,6 +147,11 @@ func buildImpactsFromDTO(reqs []scenarioImpactDTO) ([]repository.ScenarioImpact,
 		if !inSet(cad, []string{"one_time", "weekly", "bi_weekly", "monthly", "quarterly", "semi_annual", "annual"}) {
 			return nil, errors.New("invalid cadence")
 		}
+
+		// Validate startMonth is provided
+		if strings.TrimSpace(in.StartMonth) == "" {
+			return nil, errors.New("startMonth is required for impact")
+		}
 		start, err := parseMonthStart(in.StartMonth)
 		if err != nil {
 			return nil, errors.New("invalid startMonth; expected YYYY-MM or month-start timestamp")

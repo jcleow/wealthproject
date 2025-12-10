@@ -93,7 +93,7 @@ func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Reque
 	resp, err := h.svc.GetTimeline(r.Context(), opts)
 	if err != nil {
 		log.Printf("[Timeline] GetTimeline error: %v", err)
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -181,7 +181,7 @@ func (h *TimelineHandler) HandleUpsertYear(w http.ResponseWriter, r *http.Reques
 func (h *GrowthHandler) HandleGetGrowth(w http.ResponseWriter, r *http.Request) {
 	cfg, err := h.svc.GetGrowthConfig(r.Context())
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, map[string]interface{}{
@@ -227,7 +227,7 @@ func errorsIsNotFound(err error) bool {
 func (h *SettingsHandler) HandleGetSettings(w http.ResponseWriter, r *http.Request) {
 	settings, err := h.svc.GetUserSettings(r.Context())
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, settings)

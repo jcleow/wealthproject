@@ -13,29 +13,35 @@ import (
 // incomeInput is the JSON-friendly input struct for income creation/update.
 // It uses *int for nullable year fields since sql.NullInt32 doesn't unmarshal from JSON numbers.
 type incomeInput struct {
-	ID         string     `json:"id"`
-	ParentID   string     `json:"parentId"`
-	Source     string     `json:"source"`
-	Amount     float64    `json:"amount"`
-	Frequency  string     `json:"frequency"`
-	StartDate  *time.Time `json:"startDate"`
-	StartYear  *int       `json:"startYear"`
-	EndYear    *int       `json:"endYear"`
-	Category   string     `json:"category"`
-	GrowthRate *float64   `json:"growthRate"`
-	Notes      string     `json:"notes"`
+	ID             string     `json:"id"`
+	ParentID       string     `json:"parentId"`
+	Source         string     `json:"source"`
+	Amount         float64    `json:"amount"`
+	Frequency      string     `json:"frequency"`
+	StartDate      *time.Time `json:"startDate"`
+	StartYear      *int       `json:"startYear"`
+	EndYear        *int       `json:"endYear"`
+	Category       string     `json:"category"`
+	GrowthRate     *float64   `json:"growthRate"`
+	GrowthStrategy string     `json:"growthStrategy"`
+	Notes          string     `json:"notes"`
 }
 
 func (i incomeInput) toIncome() repository.Income {
 	inc := repository.Income{
-		ID:        i.ID,
-		ParentID:  i.ParentID,
-		Source:    i.Source,
-		Amount:    i.Amount,
-		Frequency: i.Frequency,
-		StartDate: i.StartDate,
-		Category:  i.Category,
-		Notes:     i.Notes,
+		ID:             i.ID,
+		ParentID:       i.ParentID,
+		Source:         i.Source,
+		Amount:         i.Amount,
+		Frequency:      i.Frequency,
+		Category:       i.Category,
+		GrowthStrategy: i.GrowthStrategy,
+		Notes:          i.Notes,
+	}
+	if i.StartDate != nil {
+		inc.StartDate = *i.StartDate
+	} else {
+		inc.StartDate = time.Now()
 	}
 	if i.StartYear != nil {
 		inc.StartYear = *i.StartYear
@@ -101,7 +107,7 @@ func (h *IncomeHandler) list(w http.ResponseWriter, r *http.Request) {
 	pagination := parsePagination(r)
 	result, err := h.store.ListIncomes(r.Context(), userID, pagination)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, result)
@@ -118,7 +124,7 @@ func (h *IncomeHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, item)
@@ -140,7 +146,7 @@ func (h *IncomeHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := h.store.CreateIncome(r.Context(), userID, input.toIncome())
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, created)
@@ -163,7 +169,7 @@ func (h *IncomeHandler) update(w http.ResponseWriter, r *http.Request, id string
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, updated)
@@ -179,7 +185,7 @@ func (h *IncomeHandler) delete(w http.ResponseWriter, r *http.Request, id string
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

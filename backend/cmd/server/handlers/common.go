@@ -70,8 +70,13 @@ func badRequest(w http.ResponseWriter, err error) {
 	writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 }
 
-func internalError(w http.ResponseWriter) {
-	writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+func internalError(w http.ResponseWriter, err error) {
+	errMsg := "internal server error"
+	if err != nil {
+		log.Printf("Internal error details: %v", err)
+		errMsg = err.Error()
+	}
+	writeError(w, http.StatusInternalServerError, "internal_error", errMsg)
 }
 
 func errMissingFields(fields string) error {

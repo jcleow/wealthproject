@@ -277,11 +277,11 @@ func (c *Client) CreateIncome(ctx context.Context, params IncomeParams) (*string
 		return nil, fmt.Errorf("income frequency is required")
 	}
 
-	var startDate *time.Time
+	startDate := time.Now()
 	if params.StartDate != "" {
 		parsed, err := time.Parse("2006-01-02", params.StartDate)
 		if err == nil {
-			startDate = &parsed
+			startDate = parsed
 		}
 	}
 
@@ -331,7 +331,7 @@ func (c *Client) UpdateIncome(ctx context.Context, params UpdateIncomeParams) (*
 	}
 	if params.StartDate != "" {
 		if parsed, err := time.Parse("2006-01-02", params.StartDate); err == nil {
-			current.StartDate = &parsed
+			current.StartDate = parsed
 		}
 	}
 	if params.Category != "" {
@@ -470,7 +470,7 @@ func (c *Client) resolveAssetID(ctx context.Context, userID, explicit, last, byN
 		return "", fmt.Errorf("asset ID is required")
 	}
 
-	assets, err := c.store.ListAllAssets(ctx, userID)
+	assets, err := c.store.ListAllAssets(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -499,7 +499,7 @@ func (c *Client) resolveLiabilityID(ctx context.Context, userID, explicit, last,
 		return "", fmt.Errorf("liability ID is required")
 	}
 
-	liabilities, err := c.store.ListAllLiabilities(ctx, userID)
+	liabilities, err := c.store.ListAllLiabilities(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -528,7 +528,7 @@ func (c *Client) resolveIncomeID(ctx context.Context, userID, explicit, last, by
 		return "", fmt.Errorf("income ID is required")
 	}
 
-	incomes, err := c.store.ListAllIncomes(ctx, userID)
+	incomes, err := c.store.ListAllIncomes(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -557,7 +557,7 @@ func (c *Client) resolveExpenseID(ctx context.Context, userID, explicit, last, b
 		return "", fmt.Errorf("expense ID is required")
 	}
 
-	expenses, err := c.store.ListAllExpenses(ctx, userID)
+	expenses, err := c.store.ListAllExpenses(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -778,7 +778,7 @@ func (c *Client) CalculateNetWorth(ctx context.Context, userID string) (float64,
 	}
 
 	// Fetch cash accounts
-	cashAccounts, err := c.store.ListCashAccounts(ctx, userID)
+	cashAccounts, err := c.store.ListCashAccounts(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return 0, err
 	}
@@ -835,7 +835,7 @@ func (c *Client) GetFinancialContext(ctx context.Context, userID string) (*Finan
 	}
 
 	// Fetch cash accounts
-	cashAccounts, err := c.store.ListCashAccounts(ctx, userID)
+	cashAccounts, err := c.store.ListCashAccounts(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch cash accounts: %w", err)
 	}
@@ -1041,7 +1041,7 @@ func (c *Client) GetNetWorthSummary(ctx context.Context, userID string, params G
 		return nil, fmt.Errorf("failed to fetch expenses: %w", err)
 	}
 
-	cashAccounts, err := c.store.ListCashAccounts(ctx, userID)
+	cashAccounts, err := c.store.ListCashAccounts(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch cash accounts: %w", err)
 	}

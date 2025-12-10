@@ -101,7 +101,7 @@ func (h *CPFHandler) getAccount(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "CPF account not found")
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -187,7 +187,7 @@ func (h *CPFHandler) createAccount(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.accountRepo.Upsert(r.Context(), acc)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -220,7 +220,7 @@ func (h *CPFHandler) updateAccount(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "CPF account not found")
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -281,7 +281,7 @@ func (h *CPFHandler) updateAccount(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.accountRepo.Update(r.Context(), userID, existing)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -328,7 +328,7 @@ func (h *CPFHandler) handleConfig(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "not_found", "CPF configuration not found")
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -412,7 +412,7 @@ func (h *CPFHandler) handleContributionPreview(w http.ResponseWriter, r *http.Re
 	// Get current year's config
 	cfg, err := config.GetCurrentYear()
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 

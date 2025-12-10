@@ -404,19 +404,19 @@ func newStubStore() *stubStore {
 	}
 }
 
-func (s *stubStore) ListAllAssets(ctx context.Context, userID string) ([]repository.Asset, error) {
+func (s *stubStore) ListAllAssets(ctx context.Context, userID string, opts repository.DateRangeOptions) ([]repository.Asset, error) {
 	return append([]repository.Asset(nil), s.assets...), nil
 }
 
-func (s *stubStore) ListAllLiabilities(ctx context.Context, userID string) ([]repository.Liability, error) {
+func (s *stubStore) ListAllLiabilities(ctx context.Context, userID string, opts repository.DateRangeOptions) ([]repository.Liability, error) {
 	return append([]repository.Liability(nil), s.liabilities...), nil
 }
 
-func (s *stubStore) ListAllIncomes(ctx context.Context, userID string) ([]repository.Income, error) {
+func (s *stubStore) ListAllIncomes(ctx context.Context, userID string, opts repository.DateRangeOptions) ([]repository.Income, error) {
 	return append([]repository.Income(nil), s.incomes...), nil
 }
 
-func (s *stubStore) ListAllExpenses(ctx context.Context, userID string) ([]repository.Expense, error) {
+func (s *stubStore) ListAllExpenses(ctx context.Context, userID string, opts repository.DateRangeOptions) ([]repository.Expense, error) {
 	return append([]repository.Expense(nil), s.expenses...), nil
 }
 
@@ -460,9 +460,8 @@ func (s *stubStore) CreateIncome(ctx context.Context, userID string, inc reposit
 	if strings.TrimSpace(inc.ParentID) == "" {
 		inc.ParentID = inc.ID
 	}
-	if inc.StartDate == nil {
-		now := time.Now()
-		inc.StartDate = &now
+	if inc.StartDate.IsZero() {
+		inc.StartDate = time.Now()
 	}
 	inc.UpdatedAt = time.Now()
 	s.incomes = append(s.incomes, inc)
@@ -522,7 +521,7 @@ func (s *stubStore) DeleteExpense(ctx context.Context, userID string, id string)
 }
 
 // Cash account methods
-func (s *stubStore) ListCashAccounts(ctx context.Context, userID string) ([]repository.CashAccount, error) {
+func (s *stubStore) ListCashAccounts(ctx context.Context, userID string, opts repository.DateRangeOptions) ([]repository.CashAccount, error) {
 	return append([]repository.CashAccount(nil), s.cashAccounts...), nil
 }
 
