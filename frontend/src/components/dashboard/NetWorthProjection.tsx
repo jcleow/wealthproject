@@ -51,7 +51,7 @@ export interface NetWorthProjectionProps {
 export function NetWorthProjection({
   timelineYears,
   timelineMonths,
-  resolution = 'yearly',
+  resolution,
   zoomLevel: externalZoomLevel,
   onZoomLevelChange,
   overrideYears,
@@ -78,7 +78,8 @@ export function NetWorthProjection({
     staleTime: 5 * 60 * 1000,
   })
 
-  const [xAxisMode, setXAxisMode] = useState<AxisMode>('year_number')
+  const [xAxisMode, setXAxisMode] = useState<AxisMode>('age')
+  const [xAxisModeInitialized, setXAxisModeInitialized] = useState(false)
   const [internalZoomLevel, setInternalZoomLevel] = useState<ZoomLevel>('yearly')
   const zoomLevel = externalZoomLevel ?? internalZoomLevel
 
@@ -108,12 +109,14 @@ export function NetWorthProjection({
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartWrapperRef = useRef<HTMLDivElement>(null)
 
-  // Sync xAxisMode with user settings when loaded
+  // Sync xAxisMode with user settings ONCE when settings first load
+  // After that, respect user's local toggle changes (don't override them)
   useEffect(() => {
-    if (userSettings?.yearDisplayFormat) {
+    if (userSettings?.yearDisplayFormat && !xAxisModeInitialized) {
       setXAxisMode(userSettings.yearDisplayFormat)
+      setXAxisModeInitialized(true)
     }
-  }, [userSettings?.yearDisplayFormat])
+  }, [userSettings?.yearDisplayFormat, xAxisModeInitialized])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -124,9 +127,11 @@ export function NetWorthProjection({
     return () => media.removeEventListener('change', listener)
   }, [])
 
-  // Effective resolution based on available data
-  // Always use 'monthly' if we have monthly data (which we always do now)
-  const effectiveResolution: TimeResolution = 'monthly'
+  // Determine the actual resolution of the data we have
+  const dataResolution: TimeResolution = timelineMonths && timelineMonths.length > 0 ? 'monthly' : 'yearly'
+
+  // Effective resolution based on available data and user preference
+  const effectiveResolution: TimeResolution = resolution ?? dataResolution
 
   // Derive windowing indices - clear them when in yearly mode
   const actualStartIndex = zoomLevel === 'yearly' ? null : startIndex
@@ -147,6 +152,14 @@ export function NetWorthProjection({
   })
 
   const projection = useMemo<ProjectionPoint[]>(() => {
+    console.log('[PROJECTION DEBUG]', {
+      hasTimelineMonths: !!timelineMonths,
+      timelineMonthsLength: timelineMonths?.length,
+      hasTimelineYears: !!timelineYears,
+      timelineYearsLength: timelineYears?.length,
+      firstMonth: timelineMonths?.[0]
+    })
+
     // Always use monthly data when available (regardless of zoom level)
     // The zoom level only affects how we display the data (axis labels, windowing)
     if (timelineMonths && timelineMonths.length > 0) {
@@ -161,15 +174,17 @@ export function NetWorthProjection({
         )
 
         // month.year is already an absolute calendar year (e.g., 2025)
+        // month.yearIndex is the 0-based year offset (0, 1, 2, 3...)
+        // month.monthIndex is the global 0-based month index (0, 1, 2... for 420 months)
         const calendarYear = month.year
 
         return {
-          yearIndex: month.monthIndex, // Use global month index for x-axis
+          yearIndex: month.monthIndex, // Use global month index for x-axis positioning
           yearLabel: `${month.year}-${String(month.month).padStart(2, '0')}`,
           netWorth: month.netWorth ?? 0,
           totalAssets,
           totalLiabilities,
-          calendarYear,
+          calendarYear, // This is the absolute year (2025, 2026, etc.) for display
           hasNonAnnualSource: false,
           hasOverride: !!month.hasOverrides,
         }
@@ -181,7 +196,7 @@ export function NetWorthProjection({
     // Handle yearly data
     if (timelineYears && timelineYears.length > 0) {
       const baseCalendarYear = 2025
-      const timelineProjection = timelineYears.map<ProjectionPoint>((year) => {
+      const timelineProjection = timelineYears.map<ProjectionPoint>((year, i) => {
         const assets = year.assets ?? []
         const liabilities = year.liabilities ?? []
         const incomes = year.income ?? []
@@ -202,8 +217,8 @@ export function NetWorthProjection({
         const calendarYear = year.year >= 1900 ? year.year : baseCalendarYear + (year.year ?? 0)
 
         return {
-          yearIndex: year.year ?? 0,
-          yearLabel: `Year ${year.year ?? 0}`,
+          yearIndex: i,  // Use array index (0, 1, 2...) instead of calendar year
+          yearLabel: `Year ${i}`,
           netWorth: year.netWorth ?? 0,
           totalAssets,
           totalLiabilities,
@@ -348,7 +363,7 @@ export function NetWorthProjection({
     if (!chartElement) return
     if (projection.length === 0) return
     if (scrollMode !== 'zoom') return // Only zoom when in zoom mode
-    if (resolution !== 'monthly') return // Only enable zoom when resolution is monthly
+    if (effectiveResolution !== 'monthly') return // Only enable zoom when resolution is monthly
 
     let isProcessing = false // Prevent multiple rapid zooms
 
@@ -431,7 +446,7 @@ export function NetWorthProjection({
 
     chartElement.addEventListener('wheel', handleWheel, { passive: false })
     return () => chartElement.removeEventListener('wheel', handleWheel)
-  }, [scrollMode, resolution, projection.length]) // Reduced dependencies - use refs for state
+  }, [scrollMode, effectiveResolution, projection.length]) // Reduced dependencies - use refs for state
 
   // Drag-to-pan handler with stable reference
   useEffect(() => {
@@ -497,7 +512,7 @@ export function NetWorthProjection({
 
   // Helper functions for zoom in/out buttons
   const handleZoomIn = useCallback(() => {
-    if (resolution !== 'monthly' || projection.length === 0) return
+    if (effectiveResolution !== 'monthly' || projection.length === 0) return
 
     const currentStart = startIndex ?? 0
     const currentEnd = endIndex ?? projection.length - 1
@@ -514,10 +529,10 @@ export function NetWorthProjection({
     setStartIndex(newStart)
     setEndIndex(newEnd)
     setZoomLevel('monthly')
-  }, [resolution, projection.length, startIndex, endIndex])
+  }, [effectiveResolution, projection.length, startIndex, endIndex])
 
   const handleZoomOut = useCallback(() => {
-    if (resolution !== 'monthly' || projection.length === 0) return
+    if (effectiveResolution !== 'monthly' || projection.length === 0) return
 
     const currentStart = startIndex ?? 0
     const currentEnd = endIndex ?? projection.length - 1
@@ -542,11 +557,11 @@ export function NetWorthProjection({
     setStartIndex(newStart)
     setEndIndex(newEnd)
     setZoomLevel('monthly')
-  }, [resolution, projection.length, startIndex, endIndex])
+  }, [effectiveResolution, projection.length, startIndex, endIndex])
 
   // Determine if zoom buttons should be enabled
   const canZoomIn = useMemo(() => {
-    if (resolution !== 'monthly') return false
+    if (effectiveResolution !== 'monthly') return false
     if (projection.length === 0) return false
 
     const currentStart = startIndex ?? 0
@@ -555,15 +570,15 @@ export function NetWorthProjection({
 
     // Can zoom in if we're showing more than the minimum (12 months)
     return currentRange > 12
-  }, [resolution, startIndex, endIndex, projection.length])
+  }, [effectiveResolution, startIndex, endIndex, projection.length])
 
   const canZoomOut = useMemo(() => {
-    if (resolution !== 'monthly') return false
+    if (effectiveResolution !== 'monthly') return false
     if (projection.length === 0) return false
 
     // Can zoom out if we're not showing all the data
     return startIndex !== null && endIndex !== null
-  }, [resolution, startIndex, endIndex, projection.length])
+  }, [effectiveResolution, startIndex, endIndex, projection.length])
 
   const areaAnimationEnabled = !prefersReducedMotion && displayData.length > 0
 
@@ -586,12 +601,28 @@ export function NetWorthProjection({
     return () => window.clearTimeout(timer)
   }, [displayData.length, areaAnimationEnabled])
 
+  // Calculate the base calendar year for tick labels
+  const baseCalendarYear = useMemo(() => {
+    if (displayData.length === 0) return BASE_CALENDAR_YEAR
+
+    const firstPoint = displayData[0]
+    if (dataResolution === 'monthly') {
+      // For monthly data: yearIndex is monthIndex
+      // baseCalendarYear = calendarYear - (monthIndex / 12)
+      const yearOffset = Math.floor(firstPoint.yearIndex / 12)
+      return firstPoint.calendarYear - yearOffset
+    } else {
+      // For yearly data: yearIndex is year offset
+      return firstPoint.calendarYear - firstPoint.yearIndex
+    }
+  }, [displayData, dataResolution])
+
   const ticks = useMemo(() => {
     const totalPoints = displayData.length
     if (totalPoints === 0) return [] as number[]
 
     // When showing years (not months), only show one tick per unique year
-    const showingYears = effectiveResolution === 'monthly' && visibleRangeMonths >= 24
+    const showingYears = dataResolution === 'monthly' && visibleRangeMonths >= 24
 
     if (showingYears) {
       // Group by year and pick the first month of each year
@@ -625,7 +656,7 @@ export function NetWorthProjection({
     const first = displayData[0]?.yearIndex ?? 0
     if (values[0] !== first) values.unshift(first)
     return values
-  }, [displayData, effectiveResolution, visibleRangeMonths, containerWidth])
+  }, [displayData, dataResolution, visibleRangeMonths, containerWidth])
 
   const overrideYearsSet = useMemo(
     () =>
@@ -658,7 +689,7 @@ export function NetWorthProjection({
 
       let displayPoint: ProjectionPoint | undefined
 
-      if (effectiveResolution === 'monthly') {
+      if (dataResolution === 'monthly') {
         // Monthly mode: match by calendar year and month directly in displayData
         // Each displayPoint has calendarYear and we can calculate the month from yearIndex
         displayPoint = displayData.find((point) => {
@@ -687,12 +718,67 @@ export function NetWorthProjection({
       netWorth: Math.max(data.netWorth, 0),
       events: data.events,
     }))
-  }, [scenarioEvents, displayData, projection, effectiveResolution, timelineMonths, zoomLevel])
+  }, [scenarioEvents, displayData, projection, dataResolution, timelineMonths, zoomLevel])
 
-  const planningYears = Math.max(1, (userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE) - (userSettings?.startingAge ?? DEFAULT_STARTING_AGE))
+  // Calculate age range from actual displayed data
+  const ageRange = useMemo(() => {
+    const startingAge = userSettings?.startingAge ?? DEFAULT_STARTING_AGE
+    const terminalAge = userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE
+
+    if (displayData.length === 0) {
+      return { startAge: startingAge, endAge: terminalAge, years: Math.max(1, terminalAge - startingAge) }
+    }
+
+    // For monthly data, calculate age from yearIndex (0-based year offset)
+    if (dataResolution === 'monthly') {
+      const firstMonthIndex = displayData[0].yearIndex ?? 0
+      const lastMonthIndex = displayData[displayData.length - 1].yearIndex ?? 0
+
+      const firstYearOffset = Math.floor(firstMonthIndex / 12)
+      const lastYearOffset = Math.floor(lastMonthIndex / 12)
+
+      const startAge = startingAge + firstYearOffset
+      const endAge = startingAge + lastYearOffset
+      const years = endAge - startAge
+
+      console.log('[AGE DEBUG]', {
+        dataResolution,
+        startingAge,
+        firstMonthIndex,
+        lastMonthIndex,
+        firstYearOffset,
+        lastYearOffset,
+        startAge,
+        endAge,
+        firstCalendarYear: displayData[0].calendarYear,
+        lastCalendarYear: displayData[displayData.length - 1].calendarYear
+      })
+
+      return { startAge, endAge, years }
+    }
+
+    // For yearly data, use yearIndex directly
+    const firstYearIndex = displayData[0].yearIndex ?? 0
+    const lastYearIndex = displayData[displayData.length - 1].yearIndex ?? 0
+
+    const startAge = startingAge + firstYearIndex
+    const endAge = startingAge + lastYearIndex
+    const years = endAge - startAge
+
+    return { startAge, endAge, years }
+  }, [displayData, userSettings?.startingAge, userSettings?.terminalAge, dataResolution])
 
   const defaultTitle = 'Net Worth Projection'
-  const defaultSubtitle = `Age ${userSettings?.startingAge ?? DEFAULT_STARTING_AGE} to ${userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE} (${planningYears} years)`
+  const defaultSubtitle = `Age ${ageRange.startAge} to ${ageRange.endAge} (${ageRange.years} years)`
+
+  // Debug: log what we're showing
+  console.log('[SUBTITLE DEBUG]', {
+    startAge: ageRange.startAge,
+    endAge: ageRange.endAge,
+    displayDataLength: displayData.length,
+    firstYearIndex: displayData[0]?.yearIndex,
+    firstCalendarYear: displayData[0]?.calendarYear
+  })
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col p-5">
@@ -793,8 +879,9 @@ export function NetWorthProjection({
                       selectedYear={selectedYear}
                       mode={xAxisMode}
                       startingAge={userSettings?.startingAge}
-                      resolution={effectiveResolution}
+                      resolution={dataResolution}
                       visibleRangeMonths={visibleRangeMonths}
+                      baseCalendarYear={baseCalendarYear}
                     />
                   }
                 />
@@ -833,7 +920,7 @@ export function NetWorthProjection({
                 />
 
                 <Tooltip
-                  content={<CustomTooltip startingAge={userSettings?.startingAge} resolution={effectiveResolution} />}
+                  content={<CustomTooltip startingAge={userSettings?.startingAge} resolution={dataResolution} />}
                   cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }}
                 />
 
@@ -873,12 +960,9 @@ export function NetWorthProjection({
         <button
           type="button"
           className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200 transition hover:bg-white/10"
-          onClick={() => setXAxisMode((prev) => {
-            if (prev === 'age') return userSettings?.yearDisplayFormat ?? 'year_number'
-            return 'age'
-          })}
+          onClick={() => setXAxisMode((prev) => prev === 'age' ? 'actual_year' : 'age')}
         >
-          {xAxisMode === 'age' ? 'Age' : xAxisMode === 'actual_year' ? 'Year' : 'Year #'}
+          {xAxisMode === 'age' ? 'Age' : 'Year'}
         </button>
       </div>
       {overrideYearsSet.size > 0 && (

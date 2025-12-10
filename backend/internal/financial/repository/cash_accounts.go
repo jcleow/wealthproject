@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -17,8 +18,10 @@ type CashAccount struct {
 	BankName       string                 `json:"bankName,omitempty"`
 	AccountType    string                 `json:"accountType,omitempty"` // checking, savings, money_market
 	IsAccumulator  bool                   `json:"isAccumulator"`
-	StartYear      int                    `json:"startYear"`
-	EndYear        sql.NullInt32          `json:"endYear,omitempty"`
+	StartDate      time.Time              `json:"startDate"`           // Precise start date (day-level)
+	EndDate        *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
+	StartYear      int                    `json:"startYear"`           // Legacy: for migration period
+	EndYear        sql.NullInt32          `json:"endYear,omitempty"`   // Legacy: for migration period
 	Notes          string                 `json:"notes,omitempty"`
 	GrowthStrategy string                 `json:"growthStrategy"`
 	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
@@ -28,18 +31,39 @@ type CashAccount struct {
 
 // ----- CashAccount operations -----
 
-// ListCashAccounts returns all cash accounts for a user.
-func (s *Store) ListCashAccounts(ctx context.Context, userID string) ([]CashAccount, error) {
-	rows, err := s.db.QueryContext(ctx, `
+// ListCashAccounts returns all cash accounts for a user with optional date range filtering.
+// Pass empty DateRangeOptions{} to get all accounts without filtering.
+func (s *Store) ListCashAccounts(ctx context.Context, userID string, opts DateRangeOptions) ([]CashAccount, error) {
+	query := `
 		SELECT id, user_id, name, balance, interest_rate,
 		       COALESCE(bank_name, '') as bank_name,
 		       COALESCE(account_type, '') as account_type,
-		       is_accumulator, start_year, end_year,
+		       is_accumulator,
+		       start_date,
+		       end_date,
 		       COALESCE(notes, '') as notes,
 		       created_at, updated_at
 		FROM cash_accounts
-		WHERE user_id = $1
-		ORDER BY created_at`, userID)
+		WHERE user_id = $1`
+
+	args := []interface{}{userID}
+	argIdx := 2
+
+	// Add optional date range filtering
+	if opts.ActiveAfter != nil {
+		query += ` AND (end_date IS NULL OR end_date >= $` + fmt.Sprintf("%d", argIdx) + `)`
+		args = append(args, *opts.ActiveAfter)
+		argIdx++
+	}
+	if opts.ActiveBefore != nil {
+		query += ` AND start_date <= $` + fmt.Sprintf("%d", argIdx)
+		args = append(args, *opts.ActiveBefore)
+		argIdx++
+	}
+
+	query += ` ORDER BY created_at`
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -48,13 +72,17 @@ func (s *Store) ListCashAccounts(ctx context.Context, userID string) ([]CashAcco
 	var accounts []CashAccount
 	for rows.Next() {
 		var acc CashAccount
+		var endDate sql.NullTime
 		if err := rows.Scan(
 			&acc.ID, &acc.UserID, &acc.Name, &acc.Balance, &acc.InterestRate,
 			&acc.BankName, &acc.AccountType, &acc.IsAccumulator,
-			&acc.StartYear, &acc.EndYear, &acc.Notes,
-			&acc.CreatedAt, &acc.UpdatedAt,
+			&acc.StartDate, &endDate,
+			&acc.Notes, &acc.CreatedAt, &acc.UpdatedAt,
 		); err != nil {
 			return nil, err
+		}
+		if endDate.Valid {
+			acc.EndDate = &endDate.Time
 		}
 		accounts = append(accounts, acc)
 	}
@@ -70,23 +98,27 @@ func (s *Store) GetCashAccount(ctx context.Context, userID, id string) (CashAcco
 		SELECT id, user_id, name, balance, interest_rate,
 		       COALESCE(bank_name, '') as bank_name,
 		       COALESCE(account_type, '') as account_type,
-		       is_accumulator, start_year, end_year,
+		       is_accumulator, start_date, end_date,
 		       COALESCE(notes, '') as notes,
 		       created_at, updated_at
 		FROM cash_accounts
 		WHERE user_id = $1 AND id = $2`, userID, id)
 
 	var acc CashAccount
+	var endDate sql.NullTime
 	if err := row.Scan(
 		&acc.ID, &acc.UserID, &acc.Name, &acc.Balance, &acc.InterestRate,
 		&acc.BankName, &acc.AccountType, &acc.IsAccumulator,
-		&acc.StartYear, &acc.EndYear, &acc.Notes,
+		&acc.StartDate, &endDate, &acc.Notes,
 		&acc.CreatedAt, &acc.UpdatedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return CashAccount{}, ErrNotFound
 		}
 		return CashAccount{}, err
+	}
+	if endDate.Valid {
+		acc.EndDate = &endDate.Time
 	}
 	return acc, nil
 }
@@ -97,7 +129,7 @@ func (s *Store) GetAccumulatorAccount(ctx context.Context, userID string) (CashA
 		SELECT id, user_id, name, balance, interest_rate,
 		       COALESCE(bank_name, '') as bank_name,
 		       COALESCE(account_type, '') as account_type,
-		       is_accumulator, start_year, end_year,
+		       is_accumulator, start_date, end_date,
 		       COALESCE(notes, '') as notes,
 		       created_at, updated_at
 		FROM cash_accounts
@@ -105,10 +137,11 @@ func (s *Store) GetAccumulatorAccount(ctx context.Context, userID string) (CashA
 		LIMIT 1`, userID)
 
 	var acc CashAccount
+	var endDate sql.NullTime
 	if err := row.Scan(
 		&acc.ID, &acc.UserID, &acc.Name, &acc.Balance, &acc.InterestRate,
 		&acc.BankName, &acc.AccountType, &acc.IsAccumulator,
-		&acc.StartYear, &acc.EndYear, &acc.Notes,
+		&acc.StartDate, &endDate, &acc.Notes,
 		&acc.CreatedAt, &acc.UpdatedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -116,32 +149,48 @@ func (s *Store) GetAccumulatorAccount(ctx context.Context, userID string) (CashA
 		}
 		return CashAccount{}, err
 	}
+	if endDate.Valid {
+		acc.EndDate = &endDate.Time
+	}
 	return acc, nil
 }
 
 // CreateCashAccount creates a new cash account.
 func (s *Store) CreateCashAccount(ctx context.Context, acc CashAccount) (CashAccount, error) {
+	// Compute startDate from StartDate field
+	startDate := acc.StartDate
+	if startDate.IsZero() {
+		startDate = time.Now().UTC()
+	}
+
+	// Use EndDate field
+	endDate := acc.EndDate
+
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO cash_accounts (user_id, name, balance, interest_rate, bank_name, account_type, is_accumulator, start_year, end_year, notes)
-		VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, COALESCE(NULLIF($8, 0), EXTRACT(YEAR FROM NOW())::int), $9, NULLIF($10, ''))
+		INSERT INTO cash_accounts (user_id, name, balance, interest_rate, bank_name, account_type, is_accumulator, start_date, end_date, notes)
+		VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, $8, $9, NULLIF($10, ''))
 		RETURNING id, user_id, name, balance, interest_rate,
 		          COALESCE(bank_name, '') as bank_name,
 		          COALESCE(account_type, '') as account_type,
-		          is_accumulator, start_year, end_year,
+		          is_accumulator, start_date, end_date,
 		          COALESCE(notes, '') as notes,
 		          created_at, updated_at`,
 		acc.UserID, acc.Name, acc.Balance, acc.InterestRate,
 		acc.BankName, acc.AccountType, acc.IsAccumulator,
-		acc.StartYear, nullableFromNullInt32(acc.EndYear), acc.Notes)
+		startDate, endDate, acc.Notes)
 
 	var created CashAccount
+	var endDateVal sql.NullTime
 	if err := row.Scan(
 		&created.ID, &created.UserID, &created.Name, &created.Balance, &created.InterestRate,
 		&created.BankName, &created.AccountType, &created.IsAccumulator,
-		&created.StartYear, &created.EndYear, &created.Notes,
+		&created.StartDate, &endDateVal, &created.Notes,
 		&created.CreatedAt, &created.UpdatedAt,
 	); err != nil {
 		return CashAccount{}, err
+	}
+	if endDateVal.Valid {
+		created.EndDate = &endDateVal.Time
 	}
 	return created, nil
 }
@@ -156,32 +205,36 @@ func (s *Store) UpdateCashAccount(ctx context.Context, acc CashAccount) (CashAcc
 		    bank_name = NULLIF($6, ''),
 		    account_type = NULLIF($7, ''),
 		    is_accumulator = $8,
-		    start_year = COALESCE($9, start_year),
-		    end_year = $10,
+		    start_date = COALESCE($9, start_date),
+		    end_date = $10,
 		    notes = NULLIF($11, ''),
 		    updated_at = NOW()
 		WHERE user_id = $1 AND id = $2
 		RETURNING id, user_id, name, balance, interest_rate,
 		          COALESCE(bank_name, '') as bank_name,
 		          COALESCE(account_type, '') as account_type,
-		          is_accumulator, start_year, end_year,
+		          is_accumulator, start_date, end_date,
 		          COALESCE(notes, '') as notes,
 		          created_at, updated_at`,
 		acc.UserID, acc.ID, acc.Name, acc.Balance, acc.InterestRate,
 		acc.BankName, acc.AccountType, acc.IsAccumulator,
-		acc.StartYear, nullableFromNullInt32(acc.EndYear), acc.Notes)
+		acc.StartDate, acc.EndDate, acc.Notes)
 
 	var updated CashAccount
+	var endDate sql.NullTime
 	if err := row.Scan(
 		&updated.ID, &updated.UserID, &updated.Name, &updated.Balance, &updated.InterestRate,
 		&updated.BankName, &updated.AccountType, &updated.IsAccumulator,
-		&updated.StartYear, &updated.EndYear, &updated.Notes,
+		&updated.StartDate, &endDate, &updated.Notes,
 		&updated.CreatedAt, &updated.UpdatedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return CashAccount{}, ErrNotFound
 		}
 		return CashAccount{}, err
+	}
+	if endDate.Valid {
+		updated.EndDate = &endDate.Time
 	}
 	return updated, nil
 }

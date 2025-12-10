@@ -57,6 +57,7 @@ A modern financial planning chat application with LLM-native tool calling archit
    - Backend API: http://localhost:8080
    - Frontend: http://localhost:3000
    - Health check: http://localhost:8080/api/v1/health
+   - API Documentation (Swagger UI): http://localhost:8080/swagger/index.html
 
 ## Development
 

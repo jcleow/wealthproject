@@ -34,6 +34,33 @@ func (c *Client) SetTimelineService(ts *timeline.Service) {
 	c.timelineService = ts
 }
 
+// ensureCashAccumulator ensures a cash accumulator account exists for the user.
+// If one doesn't exist, it creates a default one. This is called whenever financial
+// items are created to ensure timeline can be displayed.
+func (c *Client) ensureCashAccumulator(ctx context.Context, userID string) error {
+	// Check if accumulator already exists
+	_, err := c.store.GetAccumulatorAccount(ctx, userID)
+	if err == nil {
+		// Accumulator exists, nothing to do
+		return nil
+	}
+
+	// Create default cash accumulator account
+	_, err = c.store.CreateCashAccount(ctx, repository.CashAccount{
+		UserID:        userID,
+		Name:          "Cash",
+		Balance:       0,
+		InterestRate:  1.5,
+		IsAccumulator: true,
+		StartYear:     time.Now().Year(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create cash accumulator: %w", err)
+	}
+
+	return nil
+}
+
 // GetAutoExecuteTools returns whether the user has auto-execute tools enabled
 func (c *Client) GetAutoExecuteTools(ctx context.Context, userID string) bool {
 	if c.timelineService == nil {
@@ -67,6 +94,11 @@ func (c *Client) CreateAsset(ctx context.Context, params AssetParams) (*string, 
 	}
 	if params.CurrentValue <= 0 {
 		return nil, fmt.Errorf("valid current value is required")
+	}
+
+	// Ensure cash accumulator exists for timeline display
+	if err := c.ensureCashAccumulator(ctx, userID); err != nil {
+		return nil, err
 	}
 
 	created, err := c.store.CreateAsset(ctx, userID, repository.Asset{
@@ -152,6 +184,11 @@ func (c *Client) CreateLiability(ctx context.Context, params LiabilityParams) (*
 	}
 	if params.InterestRate < 0 {
 		return nil, fmt.Errorf("valid interest rate is required")
+	}
+
+	// Ensure cash accumulator exists for timeline display
+	if err := c.ensureCashAccumulator(ctx, userID); err != nil {
+		return nil, err
 	}
 
 	created, err := c.store.CreateLiability(ctx, userID, repository.Liability{
@@ -240,12 +277,17 @@ func (c *Client) CreateIncome(ctx context.Context, params IncomeParams) (*string
 		return nil, fmt.Errorf("income frequency is required")
 	}
 
-	var startDate *time.Time
+	startDate := time.Now()
 	if params.StartDate != "" {
 		parsed, err := time.Parse("2006-01-02", params.StartDate)
 		if err == nil {
-			startDate = &parsed
+			startDate = parsed
 		}
+	}
+
+	// Ensure cash accumulator exists for timeline display
+	if err := c.ensureCashAccumulator(ctx, userID); err != nil {
+		return nil, err
 	}
 
 	created, err := c.store.CreateIncome(ctx, userID, repository.Income{
@@ -289,7 +331,7 @@ func (c *Client) UpdateIncome(ctx context.Context, params UpdateIncomeParams) (*
 	}
 	if params.StartDate != "" {
 		if parsed, err := time.Parse("2006-01-02", params.StartDate); err == nil {
-			current.StartDate = &parsed
+			current.StartDate = parsed
 		}
 	}
 	if params.Category != "" {
@@ -337,6 +379,11 @@ func (c *Client) CreateExpense(ctx context.Context, params ExpenseParams) (*stri
 	}
 	if params.Frequency == "" {
 		return nil, fmt.Errorf("expense frequency is required")
+	}
+
+	// Ensure cash accumulator exists for timeline display
+	if err := c.ensureCashAccumulator(ctx, userID); err != nil {
+		return nil, err
 	}
 
 	created, err := c.store.CreateExpense(ctx, userID, repository.Expense{
@@ -423,7 +470,7 @@ func (c *Client) resolveAssetID(ctx context.Context, userID, explicit, last, byN
 		return "", fmt.Errorf("asset ID is required")
 	}
 
-	assets, err := c.store.ListAllAssets(ctx, userID)
+	assets, err := c.store.ListAllAssets(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -452,7 +499,7 @@ func (c *Client) resolveLiabilityID(ctx context.Context, userID, explicit, last,
 		return "", fmt.Errorf("liability ID is required")
 	}
 
-	liabilities, err := c.store.ListAllLiabilities(ctx, userID)
+	liabilities, err := c.store.ListAllLiabilities(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -481,7 +528,7 @@ func (c *Client) resolveIncomeID(ctx context.Context, userID, explicit, last, by
 		return "", fmt.Errorf("income ID is required")
 	}
 
-	incomes, err := c.store.ListAllIncomes(ctx, userID)
+	incomes, err := c.store.ListAllIncomes(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -510,7 +557,7 @@ func (c *Client) resolveExpenseID(ctx context.Context, userID, explicit, last, b
 		return "", fmt.Errorf("expense ID is required")
 	}
 
-	expenses, err := c.store.ListAllExpenses(ctx, userID)
+	expenses, err := c.store.ListAllExpenses(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -731,7 +778,7 @@ func (c *Client) CalculateNetWorth(ctx context.Context, userID string) (float64,
 	}
 
 	// Fetch cash accounts
-	cashAccounts, err := c.store.ListCashAccounts(ctx, userID)
+	cashAccounts, err := c.store.ListCashAccounts(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return 0, err
 	}
@@ -788,7 +835,7 @@ func (c *Client) GetFinancialContext(ctx context.Context, userID string) (*Finan
 	}
 
 	// Fetch cash accounts
-	cashAccounts, err := c.store.ListCashAccounts(ctx, userID)
+	cashAccounts, err := c.store.ListCashAccounts(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch cash accounts: %w", err)
 	}
@@ -994,7 +1041,7 @@ func (c *Client) GetNetWorthSummary(ctx context.Context, userID string, params G
 		return nil, fmt.Errorf("failed to fetch expenses: %w", err)
 	}
 
-	cashAccounts, err := c.store.ListCashAccounts(ctx, userID)
+	cashAccounts, err := c.store.ListCashAccounts(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch cash accounts: %w", err)
 	}
@@ -1074,7 +1121,9 @@ func (c *Client) AnalyzeNetWorthTrends(ctx context.Context, userID string, param
 	}
 
 	// Get timeline
-	tl, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, params.IncludeScenarios, nil)
+	tl, err := c.timelineService.GetTimeline(ctx, timeline.TimelineOptions{
+		IncludeScenarios: params.IncludeScenarios,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get timeline: %w", err)
 	}
@@ -1160,13 +1209,16 @@ func (c *Client) CompareScenarioImpact(ctx context.Context, userID string, param
 	}
 
 	// Get baseline timeline (without scenario)
-	baselineTL, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, false, nil)
+	baselineTL, err := c.timelineService.GetTimeline(ctx, timeline.TimelineOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get baseline timeline: %w", err)
 	}
 
 	// Get timeline with scenario
-	withScenarioTL, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, true, []string{scenarioID})
+	withScenarioTL, err := c.timelineService.GetTimeline(ctx, timeline.TimelineOptions{
+		IncludeScenarios: true,
+		SelectedIDs:      []string{scenarioID},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get scenario timeline: %w", err)
 	}
@@ -1229,7 +1281,9 @@ func (c *Client) ProjectNetWorthAtYear(ctx context.Context, userID string, param
 	}
 
 	// Get timeline
-	tl, err := c.timelineService.GetTimelineWithScenarios(ctx, userID, params.IncludeScenarios, nil)
+	tl, err := c.timelineService.GetTimeline(ctx, timeline.TimelineOptions{
+		IncludeScenarios: params.IncludeScenarios,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get timeline: %w", err)
 	}

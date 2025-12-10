@@ -69,9 +69,9 @@ func (h *CashAccountHandler) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := h.store.ListCashAccounts(r.Context(), userID)
+	items, err := h.store.ListCashAccounts(r.Context(), userID, repository.DateRangeOptions{})
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, items)
@@ -88,7 +88,7 @@ func (h *CashAccountHandler) get(w http.ResponseWriter, r *http.Request, id stri
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, item)
@@ -111,7 +111,7 @@ func (h *CashAccountHandler) create(w http.ResponseWriter, r *http.Request) {
 	payload.UserID = userID
 	created, err := h.store.CreateCashAccount(r.Context(), payload)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -136,7 +136,7 @@ func (h *CashAccountHandler) update(w http.ResponseWriter, r *http.Request, id s
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, updated)
@@ -147,12 +147,30 @@ func (h *CashAccountHandler) delete(w http.ResponseWriter, r *http.Request, id s
 	if !ok {
 		return
 	}
+
+	// Check if this is the accumulator account
+	account, err := h.store.GetCashAccount(r.Context(), userID, id)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w, err)
+		return
+	}
+
+	// Prevent deletion of accumulator account
+	if account.IsAccumulator {
+		writeError(w, http.StatusBadRequest, "cannot_delete_accumulator", "Cannot delete cash accumulator account. Set balance to 0 instead.")
+		return
+	}
+
 	if err := h.store.DeleteCashAccount(r.Context(), userID, id); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -168,7 +186,7 @@ func (h *CashAccountHandler) setAccumulator(w http.ResponseWriter, r *http.Reque
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, map[string]string{"status": "ok"})

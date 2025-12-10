@@ -44,6 +44,8 @@ func NewScenarioEventHandler(store scenarioEventStore) *ScenarioEventHandler {
 // @Success 201 {object} repository.ScenarioEvent
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
 // @Router /scenario-events [get]
 // @Router /scenario-events [post]
 func (h *ScenarioEventHandler) RegisterRoutes(mux *http.ServeMux) {
@@ -233,7 +235,7 @@ func (h *ScenarioEventHandler) create(w http.ResponseWriter, r *http.Request) {
 	created, err := h.store.CreateScenarioEvent(r.Context(), ev)
 	if err != nil {
 		log.Printf("scenario create failed: %v", err)
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeSuccess(w, toScenarioEventDTO(created))
@@ -291,7 +293,7 @@ func (h *ScenarioEventHandler) list(w http.ResponseWriter, r *http.Request) {
 	events, total, err := h.store.ListScenarioEvents(r.Context(), userCtx.UserID, filters)
 	if err != nil {
 		log.Printf("scenario list failed: %v", err)
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -321,7 +323,7 @@ func (h *ScenarioEventHandler) get(w http.ResponseWriter, r *http.Request, id st
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeSuccess(w, toScenarioEventDTO(ev))
@@ -353,7 +355,7 @@ func (h *ScenarioEventHandler) update(w http.ResponseWriter, r *http.Request, id
 			return
 		}
 		log.Printf("scenario update failed: %v", err)
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeSuccess(w, toScenarioEventDTO(updated))
@@ -371,7 +373,7 @@ func (h *ScenarioEventHandler) delete(w http.ResponseWriter, r *http.Request, id
 			return
 		}
 		log.Printf("scenario delete failed: %v", err)
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeSuccess(w, map[string]string{"status": "deleted"})
@@ -403,7 +405,7 @@ func (h *ScenarioEventHandler) toggle(w http.ResponseWriter, r *http.Request, id
 			return
 		}
 		log.Printf("scenario toggle failed: %v", err)
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeSuccess(w, map[string]bool{"isIncluded": val})

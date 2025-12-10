@@ -669,6 +669,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Send a chat message
       tags:
       - Chat
@@ -706,6 +709,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Execute financial actions
       tags:
       - Actions
@@ -743,6 +749,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Get financial timeline
       tags:
       - Timeline
@@ -781,6 +790,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Update financial data for a specific year
       tags:
       - Timeline
@@ -831,6 +843,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: List or create scenario events
       tags:
       - Scenario Events
@@ -867,6 +882,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: List or create scenario events
       tags:
       - Scenario Events
@@ -888,8 +906,14 @@ schemes:
 - http
 - https
 securityDefinitions:
-  ApiKeyAuth:
+  AuthToken:
+    description: JWT token for production authentication (HMAC-signed with BACKEND_SHARED_SECRET)
     in: header
-    name: X-API-Key
+    name: X-Auth-Token
+    type: apiKey
+  SessionID:
+    description: User/Session ID for development mode authentication
+    in: header
+    name: X-Session-ID
     type: apiKey
 swagger: "2.0"

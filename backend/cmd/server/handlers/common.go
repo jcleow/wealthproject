@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -19,6 +21,21 @@ type ErrorResponse struct {
 
 // writeError writes an error response to the client
 func writeError(w http.ResponseWriter, statusCode int, errorCode string, message string) {
+	requestID := w.Header().Get("X-Request-ID")
+	if requestID == "" {
+		requestID = "unknown"
+	}
+
+	// Log stack trace only for server errors (5xx)
+	if statusCode >= 500 {
+		log.Printf("ERROR [%d] RequestID: %s | Error: %s | Message: %s\nStack trace:\n%s",
+			statusCode, requestID, errorCode, message, string(debug.Stack()))
+	} else if statusCode >= 400 {
+		// Just log the error without stack trace for client errors (4xx)
+		log.Printf("WARN [%d] RequestID: %s | Error: %s | Message: %s",
+			statusCode, requestID, errorCode, message)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("API-Version", "v1")
 	w.WriteHeader(statusCode)
@@ -53,8 +70,13 @@ func badRequest(w http.ResponseWriter, err error) {
 	writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 }
 
-func internalError(w http.ResponseWriter) {
-	writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+func internalError(w http.ResponseWriter, err error) {
+	errMsg := "internal server error"
+	if err != nil {
+		log.Printf("Internal error details: %v", err)
+		errMsg = err.Error()
+	}
+	writeError(w, http.StatusInternalServerError, "internal_error", errMsg)
 }
 
 func errMissingFields(fields string) error {

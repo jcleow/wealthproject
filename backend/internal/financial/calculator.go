@@ -329,20 +329,18 @@ func (c *FinancialCalculator) calculateMaxAffordablePrice(monthlyIncome, monthly
 		maxLoanAmount := maxMonthlyPayment * float64(years*12)
 		maxPrice := maxLoanAmount / (1 - downPaymentRatio)
 		return maxPrice
-	} else {
-		monthlyRate := rate / 12
-		numPayments := float64(years * 12)
-
-		// Reverse mortgage payment formula to get principal
-		factor := (math.Pow(1+monthlyRate, numPayments) - 1) / (monthlyRate * math.Pow(1+monthlyRate, numPayments))
-		maxLoanAmount := maxMonthlyPayment * factor
-
-		// Add down payment to get total affordable price
-		maxPrice := maxLoanAmount / (1 - downPaymentRatio)
-		return maxPrice
 	}
 
-	return 0
+	monthlyRate := rate / 12
+	numPayments := float64(years * 12)
+
+	// Reverse mortgage payment formula to get principal
+	factor := (math.Pow(1+monthlyRate, numPayments) - 1) / (monthlyRate * math.Pow(1+monthlyRate, numPayments))
+	maxLoanAmount := maxMonthlyPayment * factor
+
+	// Add down payment to get total affordable price
+	maxPrice := maxLoanAmount / (1 - downPaymentRatio)
+	return maxPrice
 }
 
 // AffordabilityResult represents affordability analysis results

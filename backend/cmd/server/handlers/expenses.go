@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -12,27 +13,29 @@ import (
 // expenseInput is the JSON-friendly input struct for expense creation/update.
 // It uses *int for nullable year fields since sql.NullInt32 doesn't unmarshal from JSON numbers.
 type expenseInput struct {
-	ID         string   `json:"id"`
-	ParentID   string   `json:"parentId"`
-	Payee      string   `json:"payee"`
-	Amount     float64  `json:"amount"`
-	Frequency  string   `json:"frequency"`
-	StartYear  *int     `json:"startYear"`
-	EndYear    *int     `json:"endYear"`
-	Category   string   `json:"category"`
-	GrowthRate *float64 `json:"growthRate"`
-	Notes      string   `json:"notes"`
+	ID             string   `json:"id"`
+	ParentID       string   `json:"parentId"`
+	Payee          string   `json:"payee"`
+	Amount         float64  `json:"amount"`
+	Frequency      string   `json:"frequency"`
+	StartYear      *int     `json:"startYear"`
+	EndYear        *int     `json:"endYear"`
+	Category       string   `json:"category"`
+	GrowthRate     *float64 `json:"growthRate"`
+	GrowthStrategy string   `json:"growthStrategy"`
+	Notes          string   `json:"notes"`
 }
 
 func (e expenseInput) toExpense() repository.Expense {
 	exp := repository.Expense{
-		ID:        e.ID,
-		ParentID:  e.ParentID,
-		Payee:     e.Payee,
-		Amount:    e.Amount,
-		Frequency: e.Frequency,
-		Category:  e.Category,
-		Notes:     e.Notes,
+		ID:             e.ID,
+		ParentID:       e.ParentID,
+		Payee:          e.Payee,
+		Amount:         e.Amount,
+		Frequency:      e.Frequency,
+		Category:       e.Category,
+		GrowthStrategy: e.GrowthStrategy,
+		Notes:          e.Notes,
 	}
 	if e.StartYear != nil {
 		exp.StartYear = *e.StartYear
@@ -98,7 +101,7 @@ func (h *ExpenseHandler) list(w http.ResponseWriter, r *http.Request) {
 	pagination := parsePagination(r)
 	result, err := h.store.ListExpenses(r.Context(), userID, pagination)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, result)
@@ -115,7 +118,7 @@ func (h *ExpenseHandler) get(w http.ResponseWriter, r *http.Request, id string) 
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, item)
@@ -137,7 +140,8 @@ func (h *ExpenseHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := h.store.CreateExpense(r.Context(), userID, input.toExpense())
 	if err != nil {
-		internalError(w)
+		log.Printf("CreateExpense error: %v", err)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, created)
@@ -160,7 +164,7 @@ func (h *ExpenseHandler) update(w http.ResponseWriter, r *http.Request, id strin
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, updated)
@@ -176,7 +180,7 @@ func (h *ExpenseHandler) delete(w http.ResponseWriter, r *http.Request, id strin
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

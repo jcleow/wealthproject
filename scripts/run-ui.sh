@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Run a single worktree's frontend (and optional backend) with isolated Postgres.
-# Usage: bash scripts/run-ui.sh [fe=PORT] [be=PORT] [db=PORT] [env=/path/to/.env] [env_mode=copy|symlink] [no-backend] [no-install]
+# Usage: bash scripts/run-ui.sh [fe=PORT] [be=PORT] [db=PORT] [env=/path/to/.env] [env_mode=copy|symlink] [no-backend] [no-install] [use-air]
 # Defaults: frontend 3000, backend 8080, backend + Postgres auto-start unless no-backend is provided. Auto-installs frontend deps if needed.
 
 set -euo pipefail
@@ -27,6 +27,7 @@ START_BACKEND=true
 ENV_SOURCE=""
 ENV_MODE="copy" # copy | symlink
 AUTO_INSTALL=true
+USE_AIR=false
 POSTGRES_IMAGE="postgres:15-alpine"
 
 slugify() {
@@ -73,9 +74,12 @@ for arg in "$@"; do
     no-backend)
       START_BACKEND=false
       ;;
+    use-air)
+      USE_AIR=true
+      ;;
     *)
       echo "Unknown arg: $arg"
-      echo "Usage: $0 [fe=PORT] [be=PORT] [db=PORT] [env=/path/to/.env] [env_mode=copy|symlink] [no-backend] [no-install]"
+      echo "Usage: $0 [fe=PORT] [be=PORT] [db=PORT] [env=/path/to/.env] [env_mode=copy|symlink] [no-backend] [no-install] [use-air]"
       exit 1
       ;;
 esac
@@ -489,10 +493,22 @@ if [[ "${START_BACKEND}" == "true" ]]; then
   echo "Starting backend on ${BACKEND_PORT}"
   echo "Postgres container: ${POSTGRES_CONTAINER} (volume ${POSTGRES_VOLUME}) db=${DB_NAME} port=${POSTGRES_PORT}"
   echo "Using DB credentials: user=${DB_USER} name=${DB_NAME}"
-  (
-    cd "$BACKEND_DIR"
-    PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" go run ./cmd/server
-  ) &
+  if [[ "${USE_AIR}" == "true" ]]; then
+    if ! command -v air >/dev/null 2>&1; then
+      echo "Air not found. Install with: go install github.com/air-verse/air@latest"
+      exit 1
+    fi
+    echo "Using Air for live reload"
+    (
+      cd "$BACKEND_DIR"
+      PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" air
+    ) &
+  else
+    (
+      cd "$BACKEND_DIR"
+      PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" go run ./cmd/server
+    ) &
+  fi
   pids+=($!)
   if ! wait_for_backend "$BACKEND_PORT"; then
     echo "Backend did not become healthy; stopping services."

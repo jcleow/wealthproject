@@ -90,7 +90,7 @@ func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	asset, err := h.store.ConvertAssetToProperty(r.Context(), userID, payload.AssetID)
@@ -99,7 +99,7 @@ func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -108,7 +108,7 @@ func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	liability, err := h.store.ConvertLiabilityToProperty(r.Context(), userID, payload.LiabilityID)
@@ -117,7 +117,7 @@ func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -144,7 +144,7 @@ func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
 		}
 		createdScenario, err := h.store.CreatePropertyScenario(r.Context(), userID, newScenario)
 		if err != nil {
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		scenario = createdScenario
@@ -156,7 +156,7 @@ func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
 				notFound(w)
 				return
 			}
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		scenario = existing
@@ -210,7 +210,7 @@ func (h *PropertyLinkHandler) update(w http.ResponseWriter, r *http.Request, id 
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	if _, err := h.store.ConvertLiabilityToProperty(r.Context(), userID, payload.LiabilityID); err != nil {
@@ -218,7 +218,7 @@ func (h *PropertyLinkHandler) update(w http.ResponseWriter, r *http.Request, id 
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -227,7 +227,7 @@ func (h *PropertyLinkHandler) update(w http.ResponseWriter, r *http.Request, id 
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -242,7 +242,7 @@ func (h *PropertyLinkHandler) update(w http.ResponseWriter, r *http.Request, id 
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, link)
@@ -261,21 +261,21 @@ func (h *PropertyLinkHandler) list(w http.ResponseWriter, r *http.Request) {
 	case scenarioID != "":
 		links, err := h.store.ListPropertyLinksByScenario(r.Context(), userID, scenarioID)
 		if err != nil {
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		writeJSON(w, links)
 	case assetID != "":
 		links, err := h.store.ListPropertyLinksByAsset(r.Context(), userID, assetID)
 		if err != nil {
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		writeJSON(w, links)
 	case liabilityID != "":
 		links, err := h.store.ListPropertyLinksByLiability(r.Context(), userID, liabilityID)
 		if err != nil {
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		writeJSON(w, links)
@@ -284,7 +284,7 @@ func (h *PropertyLinkHandler) list(w http.ResponseWriter, r *http.Request) {
 		pagination := parsePagination(r)
 		result, err := h.store.ListAllPropertyLinks(r.Context(), userID, pagination)
 		if err != nil {
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		writeJSON(w, result)

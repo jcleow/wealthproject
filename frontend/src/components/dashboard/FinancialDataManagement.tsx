@@ -802,6 +802,17 @@ export function FinancialDataManagement({
                 const isPositiveTrend = mockTrend >= 0
                 const IconComponent = config.icon
 
+                // Dynamic title based on view mode
+                const getTitle = () => {
+                  if (key === 'income') {
+                    return showMonthlyData ? 'Monthly Income' : 'Annual Income'
+                  }
+                  if (key === 'expense') {
+                    return showMonthlyData ? 'Monthly Expenses' : 'Annual Expenses'
+                  }
+                  return config.title
+                }
+
                 return (
                   <div
                     key={key}
@@ -813,7 +824,7 @@ export function FinancialDataManagement({
                         <div className={`rounded-lg border p-1.5 ${config.gradientBg}`}>
                           <IconComponent className={`h-4 w-4 ${config.textColor}`} />
                         </div>
-                        <h4 className="text-sm font-medium text-slate-200">{config.title}</h4>
+                        <h4 className="text-sm font-medium text-slate-200">{getTitle()}</h4>
                       </div>
                       <div className="flex items-center gap-0.5">
                         <button
@@ -844,8 +855,13 @@ export function FinancialDataManagement({
 
                     {/* Total & Trend */}
                     <div className="border-b border-white/[0.04] px-4 py-2.5">
-                      <div className="text-2xl font-light tracking-tight text-slate-100">
-                        {formatCurrency(categoryTotal)}
+                      <div className="flex items-baseline gap-1.5">
+                        <div className="text-2xl font-light tracking-tight text-slate-100">
+                          {formatCurrency(categoryTotal)}
+                        </div>
+                        {showMonthlyData && (key === 'income' || key === 'expense') && (
+                          <span className="text-xs text-slate-400">/mo</span>
+                        )}
                       </div>
                       <div className="mt-1 flex items-center gap-2">
                         <div className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${isPositiveTrend ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'}`}>
@@ -996,6 +1012,9 @@ export function FinancialDataManagement({
                                     {/* Value */}
                                     <span className={`font-mono text-sm text-slate-300 transition-opacity ${isSelected ? 'opacity-0' : 'opacity-100'}`}>
                                       {formatCurrency(getDisplayAmount(item))}
+                                      {showMonthlyData && (key === 'income' || key === 'expense') && (
+                                        <span className="ml-1 text-xs text-slate-400">/mo</span>
+                                      )}
                                     </span>
 
                                     {/* Actions - shown on click */}

@@ -43,9 +43,15 @@ import (
 // @BasePath /api/v1
 // @schemes http https
 
-// @securityDefinitions.apikey ApiKeyAuth
+// @securityDefinitions.apikey AuthToken
 // @in header
-// @name X-API-Key
+// @name X-Auth-Token
+// @description JWT token for production authentication (HMAC-signed with BACKEND_SHARED_SECRET)
+
+// @securityDefinitions.apikey SessionID
+// @in header
+// @name X-Session-ID
+// @description User/Session ID for development mode authentication
 
 func main() {
 	// Load environment variables (try repo root and backend dir so it works regardless of cwd)
@@ -108,6 +114,9 @@ func main() {
 	v1Router.Use(versionMiddleware.ValidateVersion)
 	v1Router.Use(middleware.RequestID)
 	v1Router.Use(middleware.Logging)
+
+	// Set financial store for auth middleware (creates cash accumulator on first request)
+	middleware.SetFinancialStore(finStore)
 	v1Router.Use(middleware.Authenticate)
 
 	// Handle CORS preflight for all API routes

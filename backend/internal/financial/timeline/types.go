@@ -138,12 +138,28 @@ type EditRequest struct {
 	SourceYear int       `json:"-"`
 }
 
+// TimelineOptions specifies options for building a timeline.
+// Use this struct to configure timeline generation behavior including
+// resolution (yearly/monthly) and scenario application.
+type TimelineOptions struct {
+	// Resolution overrides the user's preferred resolution setting.
+	// Valid values: "yearly", "monthly", "" (empty = use user preference)
+	Resolution string
+
+	// IncludeScenarios applies scenario impacts to the timeline if true.
+	IncludeScenarios bool
+
+	// SelectedIDs limits scenario application to specific scenario IDs.
+	// If empty and IncludeScenarios is true, all user's scenarios are applied.
+	SelectedIDs []string
+}
+
 // Store defines the dependencies needed for timeline operations.
 type Store interface {
-	ListAllAssets(context.Context, string) ([]repository.Asset, error)
-	ListAllLiabilities(context.Context, string) ([]repository.Liability, error)
-	ListAllIncomes(context.Context, string) ([]repository.Income, error)
-	ListAllExpenses(context.Context, string) ([]repository.Expense, error)
+	ListAllAssets(context.Context, string, repository.DateRangeOptions) ([]repository.Asset, error)
+	ListAllLiabilities(context.Context, string, repository.DateRangeOptions) ([]repository.Liability, error)
+	ListAllIncomes(context.Context, string, repository.DateRangeOptions) ([]repository.Income, error)
+	ListAllExpenses(context.Context, string, repository.DateRangeOptions) ([]repository.Expense, error)
 
 	CreateAsset(context.Context, string, repository.Asset) (repository.Asset, error)
 	CreateLiability(context.Context, string, repository.Liability) (repository.Liability, error)
@@ -163,7 +179,7 @@ type Store interface {
 	UpsertUserSettings(context.Context, string, repository.UserSettings) (repository.UserSettings, error)
 
 	// Cash account operations
-	ListCashAccounts(context.Context, string) ([]repository.CashAccount, error)
+	ListCashAccounts(context.Context, string, repository.DateRangeOptions) ([]repository.CashAccount, error)
 	GetAccumulatorAccount(context.Context, string) (repository.CashAccount, error)
 	CreateCashAccount(context.Context, repository.CashAccount) (repository.CashAccount, error)
 	SetAccumulatorAccount(context.Context, string, string) error

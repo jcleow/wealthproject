@@ -289,6 +289,42 @@ When generating or modifying Go code, follow these principles:
 - Maintain clean naming, meaningful types, and small readable functions.
 - Avoid trivial flags/columns that can be computed on the fly — prefer computed values over storing redundant state (e.g., don't store `HasCashDeficit` when it can be derived from `AccumulatedCashEnd < 0`).
 
+### Interface Design Principles
+- **Interfaces are for CONSUMERS, not CREATORS**: Return concrete types from functions; let consumers define interfaces they need
+- **Avoid factory patterns**: Factory patterns from Java/C# have no place in Go; they create brittle code due to misuse of Go interface types
+- **Return concrete types**: Functions should return concrete structs, not interfaces, unless absolutely necessary
+- **Consumer-defined interfaces**: Let the code that uses your types define the interface it needs (accept interfaces, return structs)
+- **Private interfaces for internal use**: If you must expose a public interface that could change, make it unimplementable externally by adding a private() method
+- **Only expose immutable interfaces**: Public interfaces should NEVER change (like io.Reader, io.Writer) — if it might change, keep it internal
+- **Testing without factories**: Concrete return types are still testable — consumers can define minimal interfaces for mocking only what they need
+
+Example:
+```go
+// BAD: Java-style factory pattern
+type UserService interface {
+    GetUser(id string) (*User, error)
+    CreateUser(user *User) error
+}
+
+func NewUserService() UserService {
+    return &userServiceImpl{}
+}
+
+// GOOD: Return concrete type, let consumer define interface
+type UserService struct {
+    db *DB
+}
+
+func NewUserService(db *DB) *UserService {
+    return &UserService{db: db}
+}
+
+// Consumer defines what they need for testing
+type userGetter interface {
+    GetUser(id string) (*User, error)
+}
+```
+
 ## React and Typescript best practices to follow
 TypeScript & React Coding Agent Rules
 

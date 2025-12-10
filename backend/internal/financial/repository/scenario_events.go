@@ -216,6 +216,11 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 		}
 
 		if impID.Valid {
+			// StartMonth is required by database schema (NOT NULL constraint)
+			if !impStartMonth.Valid {
+				return nil, 0, fmt.Errorf("impact %s has NULL start_month (database constraint violation)", impID.String)
+			}
+
 			imp := ScenarioImpact{
 				ID:         impID.String,
 				EventID:    ev.ID,
@@ -224,6 +229,7 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 				Amount:     impAmount.Int64,
 				Currency:   impCurrency.String,
 				Cadence:    impCadence.String,
+				StartMonth: impStartMonth.Time, // Safe to access since we checked Valid above
 				Notes:      impNotes.String,
 			}
 			if impTargetID.Valid {
@@ -231,9 +237,6 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 			}
 			if impEventID.Valid {
 				imp.EventID = impEventID.String
-			}
-			if impStartMonth.Valid {
-				imp.StartMonth = impStartMonth.Time
 			}
 			if impEndMonth.Valid {
 				imp.EndMonth = &impEndMonth.Time
@@ -330,7 +333,7 @@ func (s *Store) ListScenarioImpacts(ctx context.Context, eventID string) ([]Scen
 		SELECT id, event_id, target_type, target_id, impact_kind, amount, currency, cadence, start_month, end_month, notes, created_at
 		FROM scenario_event_impacts
 		WHERE event_id = $1
-		ORDER BY start_month ASC, created_at ASC`, eventID)
+		ORDER BY start_month ASC NULLS LAST, created_at ASC`, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -338,8 +341,24 @@ func (s *Store) ListScenarioImpacts(ctx context.Context, eventID string) ([]Scen
 	var impacts []ScenarioImpact
 	for rows.Next() {
 		var imp ScenarioImpact
-		if err := rows.Scan(&imp.ID, &imp.EventID, &imp.TargetType, &imp.TargetID, &imp.ImpactKind, &imp.Amount, &imp.Currency, &imp.Cadence, &imp.StartMonth, &imp.EndMonth, &imp.Notes, &imp.CreatedAt); err != nil {
+		var startMonth sql.NullTime
+		var endMonth sql.NullTime
+		var targetID sql.NullString
+		if err := rows.Scan(&imp.ID, &imp.EventID, &imp.TargetType, &targetID, &imp.ImpactKind, &imp.Amount, &imp.Currency, &imp.Cadence, &startMonth, &endMonth, &imp.Notes, &imp.CreatedAt); err != nil {
 			return nil, err
+		}
+
+		// StartMonth is required by database schema (NOT NULL constraint)
+		if !startMonth.Valid {
+			return nil, fmt.Errorf("impact %s has NULL start_month (database constraint violation)", imp.ID)
+		}
+		imp.StartMonth = startMonth.Time
+
+		if targetID.Valid {
+			imp.TargetID = &targetID.String
+		}
+		if endMonth.Valid {
+			imp.EndMonth = &endMonth.Time
 		}
 		impacts = append(impacts, imp)
 	}

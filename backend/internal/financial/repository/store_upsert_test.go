@@ -74,7 +74,7 @@ func TestCreateFinancialRowsUpsertByParentAndYear(t *testing.T) {
 					Amount:    8000,
 					Frequency: "monthly",
 					StartYear: 0,
-					StartDate: &now,
+					StartDate: now,
 					Category:  "employment",
 				})
 				return err

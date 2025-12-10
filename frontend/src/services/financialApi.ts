@@ -699,7 +699,9 @@ export const financialApi = {
 
   async deleteAllCashAccounts(): Promise<void> {
     const accounts = await financialApi.listCashAccounts()
-    await Promise.all(accounts.map(account => financialApi.deleteCashAccount(account.id)))
+    // Skip the accumulator account - it's auto-created and should not be deleted
+    const nonAccumulatorAccounts = accounts.filter(account => !account.isAccumulator)
+    await Promise.all(nonAccumulatorAccounts.map(account => financialApi.deleteCashAccount(account.id)))
   },
 
   // Growth Configs (user defaults)

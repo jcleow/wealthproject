@@ -65,7 +65,7 @@ func (h *PropertyScenarioHandler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := h.store.ListPropertyScenarios(r.Context(), userID)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, items)
@@ -82,7 +82,7 @@ func (h *PropertyScenarioHandler) get(w http.ResponseWriter, r *http.Request, id
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, item)
@@ -104,7 +104,7 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 	}
 	created, err := h.store.CreatePropertyScenario(r.Context(), userID, payload.PropertyScenario)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -115,7 +115,7 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 				notFound(w)
 				return
 			}
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		if _, err := h.store.ConvertLiabilityToProperty(r.Context(), userID, payload.LiabilityID); err != nil {
@@ -123,7 +123,7 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 				notFound(w)
 				return
 			}
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		if _, err := h.store.CreateOrReplacePropertyLink(r.Context(), userID, repository.PropertyLink{
@@ -131,7 +131,7 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 			AssetID:            payload.AssetID,
 			LiabilityID:        payload.LiabilityID,
 		}); err != nil {
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 	} else if payload.AssetID != "" || payload.LiabilityID != "" {
@@ -159,7 +159,7 @@ func (h *PropertyScenarioHandler) update(w http.ResponseWriter, r *http.Request,
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, updated)
@@ -175,7 +175,7 @@ func (h *PropertyScenarioHandler) delete(w http.ResponseWriter, r *http.Request,
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

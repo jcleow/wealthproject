@@ -1,10 +1,10 @@
 package growth_test
 
 import (
-	"math"
 	"testing"
 
-	"github.com/jcleow/financial-chat-system-backend/internal/financial/growth"
+	"financial-chat-system/backend/internal/decimal"
+	"financial-chat-system/backend/internal/financial/growth"
 )
 
 func TestCompoundMonthlyStrategy(t *testing.T) {
@@ -17,40 +17,50 @@ func TestCompoundMonthlyStrategy(t *testing.T) {
 	})
 
 	t.Run("Single month growth", func(t *testing.T) {
-		result := strategy.Calculate(growth.Params{
-			CurrentValue: 25000,
-			Rate:         2.5,
+		currentValue := decimal.MustFromFloat64(25000)
+		rate := decimal.MustFromFloat64(2.5)
+
+		result, err := strategy.Calculate(growth.Params{
+			CurrentValue: currentValue,
+			Rate:         rate,
 			PeriodIndex:  0,
 			Frequency:    "monthly",
 		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-		// Expected: 25000 * (1 + (1.025^(1/12) - 1))
-		monthlyRate := math.Pow(1+2.5/100, 1.0/12.0) - 1
-		expected := 25000 * (1 + monthlyRate)
-
-		if !almostEqual(result, expected, 0.01) {
-			t.Errorf("got %f, want %f", result, expected)
+		// Expected: 25000 * (1.025^(1/12))
+		// Monthly multiplier ≈ 1.00206 so 25000 * 1.00206 ≈ 25051.5
+		expected := decimal.MustFromString("25051.5")
+		if !almostEqualDecimal(result, expected, decimal.MustFromString("1")) {
+			t.Errorf("got %s, want %s", result.String(), expected.String())
 		}
 	})
 
 	t.Run("12 months should equal annual rate", func(t *testing.T) {
-		amount := 25000.0
-		rate := 2.5
+		amount := decimal.MustFromFloat64(25000.0)
+		rate := decimal.MustFromFloat64(2.5)
 
 		// Apply monthly compounding 12 times
 		for i := 0; i < 12; i++ {
-			amount = strategy.Calculate(growth.Params{
+			var err error
+			amount, err = strategy.Calculate(growth.Params{
 				CurrentValue: amount,
 				Rate:         rate,
 				PeriodIndex:  i,
 				Frequency:    "monthly",
 			})
+			if err != nil {
+				t.Fatalf("unexpected error at month %d: %v", i, err)
+			}
 		}
 
-		// Should equal annual growth: 25000 * 1.025
-		expected := 25000 * 1.025
-		if !almostEqual(amount, expected, 0.01) {
-			t.Errorf("after 12 months: got %f, want %f", amount, expected)
+		// Should equal annual growth: 25000 * 1.025 = 25625
+		expected := decimal.MustFromFloat64(25625)
+		tolerance := decimal.MustFromString("1")
+		if !almostEqualDecimal(amount, expected, tolerance) {
+			t.Errorf("after 12 months: got %s, want %s", amount.String(), expected.String())
 		}
 	})
 }
@@ -65,85 +75,101 @@ func TestAnnualStepStrategy(t *testing.T) {
 	})
 
 	t.Run("Monthly frequency - Year 0 all months same", func(t *testing.T) {
-		baseAmount := 1200.0
-		rate := 3.0
+		baseAmount := decimal.MustFromFloat64(1200.0)
+		rate := decimal.MustFromFloat64(3.0)
 
 		for month := 0; month < 12; month++ {
-			result := strategy.Calculate(growth.Params{
+			result, err := strategy.Calculate(growth.Params{
 				CurrentValue: baseAmount,
 				Rate:         rate,
 				PeriodIndex:  month,
 				Frequency:    "monthly",
 			})
+			if err != nil {
+				t.Fatalf("unexpected error at month %d: %v", month, err)
+			}
 
-			if result != baseAmount {
-				t.Errorf("Month %d: expected %f, got %f", month, baseAmount, result)
+			if result.Cmp(baseAmount) != 0 {
+				t.Errorf("Month %d: expected %s, got %s", month, baseAmount.String(), result.String())
 			}
 		}
 	})
 
 	t.Run("Monthly frequency - Year 1 increases by rate", func(t *testing.T) {
-		baseAmount := 1200.0
-		rate := 3.0
-		expected := baseAmount * 1.03 // 1236
+		baseAmount := decimal.MustFromFloat64(1200.0)
+		rate := decimal.MustFromFloat64(3.0)
+		expected := decimal.MustFromFloat64(1236) // 1200 * 1.03
 
 		for month := 12; month < 24; month++ {
-			result := strategy.Calculate(growth.Params{
+			result, err := strategy.Calculate(growth.Params{
 				CurrentValue: baseAmount,
 				Rate:         rate,
 				PeriodIndex:  month,
 				Frequency:    "monthly",
 			})
+			if err != nil {
+				t.Fatalf("unexpected error at month %d: %v", month, err)
+			}
 
-			if !almostEqual(result, expected, 0.01) {
-				t.Errorf("Month %d: expected %f, got %f", month, expected, result)
+			tolerance := decimal.MustFromString("0.01")
+			if !almostEqualDecimal(result, expected, tolerance) {
+				t.Errorf("Month %d: expected %s, got %s", month, expected.String(), result.String())
 			}
 		}
 	})
 
 	t.Run("Monthly frequency - Year 2 increases by rate^2", func(t *testing.T) {
-		baseAmount := 1200.0
-		rate := 3.0
-		expected := baseAmount * math.Pow(1.03, 2) // 1273.08
+		baseAmount := decimal.MustFromFloat64(1200.0)
+		rate := decimal.MustFromFloat64(3.0)
+		expected := decimal.MustFromString("1273.08") // 1200 * 1.03^2
 
 		for month := 24; month < 36; month++ {
-			result := strategy.Calculate(growth.Params{
+			result, err := strategy.Calculate(growth.Params{
 				CurrentValue: baseAmount,
 				Rate:         rate,
 				PeriodIndex:  month,
 				Frequency:    "monthly",
 			})
+			if err != nil {
+				t.Fatalf("unexpected error at month %d: %v", month, err)
+			}
 
-			if !almostEqual(result, expected, 0.01) {
-				t.Errorf("Month %d: expected %f, got %f", month, expected, result)
+			tolerance := decimal.MustFromString("0.01")
+			if !almostEqualDecimal(result, expected, tolerance) {
+				t.Errorf("Month %d: expected %s, got %s", month, expected.String(), result.String())
 			}
 		}
 	})
 
 	t.Run("Yearly frequency", func(t *testing.T) {
-		baseAmount := 15000.0
-		rate := 3.0
+		baseAmount := decimal.MustFromFloat64(15000.0)
+		rate := decimal.MustFromFloat64(3.0)
 
 		tests := []struct {
 			yearIndex int
-			expected  float64
+			expected  string
 		}{
-			{0, 15000},                              // Year 0
-			{1, 15000 * 1.03},                       // Year 1
-			{2, 15000 * math.Pow(1.03, 2)},          // Year 2
-			{5, 15000 * math.Pow(1.03, 5)},          // Year 5
+			{0, "15000"},                 // Year 0
+			{1, "15450"},                 // Year 1: 15000 * 1.03
+			{2, "15913.5"},               // Year 2: 15000 * 1.03^2
+			{5, "17389.1425"},            // Year 5: 15000 * 1.03^5
 		}
 
 		for _, tt := range tests {
-			result := strategy.Calculate(growth.Params{
+			result, err := strategy.Calculate(growth.Params{
 				CurrentValue: baseAmount,
 				Rate:         rate,
 				PeriodIndex:  tt.yearIndex,
 				Frequency:    "yearly",
 			})
+			if err != nil {
+				t.Fatalf("unexpected error at year %d: %v", tt.yearIndex, err)
+			}
 
-			if !almostEqual(result, tt.expected, 0.01) {
-				t.Errorf("Year %d: expected %f, got %f", tt.yearIndex, tt.expected, result)
+			expected := decimal.MustFromString(tt.expected)
+			tolerance := decimal.MustFromString("1")
+			if !almostEqualDecimal(result, expected, tolerance) {
+				t.Errorf("Year %d: expected %s, got %s", tt.yearIndex, expected.String(), result.String())
 			}
 		}
 	})
@@ -165,75 +191,99 @@ func TestTieredADBStrategy(t *testing.T) {
 	}
 
 	t.Run("Balance below first tier threshold", func(t *testing.T) {
-		result := strategy.Calculate(growth.Params{
-			CurrentValue: 10000,
-			Rate:         0, // Rate param is ignored, uses tiers
+		currentValue := decimal.MustFromFloat64(10000)
+		rate := decimal.MustFromFloat64(0) // Rate param is ignored, uses tiers
+
+		result, err := strategy.Calculate(growth.Params{
+			CurrentValue: currentValue,
+			Rate:         rate,
 			PeriodIndex:  0,
 			Frequency:    "monthly",
 			Metadata: map[string]interface{}{
 				"tiers": tiers,
 			},
 		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
 		// Should use 0.05% rate
-		monthlyRate := math.Pow(1+0.05/100, 1.0/12.0) - 1
-		expected := 10000 * (1 + monthlyRate)
-
-		if !almostEqual(result, expected, 0.01) {
-			t.Errorf("got %f, want %f", result, expected)
+		// Monthly multiplier ≈ 1.000041 so 10000 * 1.000041 ≈ 10000.41
+		expected := decimal.MustFromString("10000.41")
+		tolerance := decimal.MustFromString("0.5")
+		if !almostEqualDecimal(result, expected, tolerance) {
+			t.Errorf("got %s, want %s", result.String(), expected.String())
 		}
 	})
 
 	t.Run("Balance in middle tier", func(t *testing.T) {
-		result := strategy.Calculate(growth.Params{
-			CurrentValue: 75000,
-			Rate:         0,
+		currentValue := decimal.MustFromFloat64(75000)
+		rate := decimal.MustFromFloat64(0)
+
+		result, err := strategy.Calculate(growth.Params{
+			CurrentValue: currentValue,
+			Rate:         rate,
 			PeriodIndex:  0,
 			Frequency:    "monthly",
 			Metadata: map[string]interface{}{
 				"tiers": tiers,
 			},
 		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
 		// Should use 1.5% rate (>= 50000, < 100000)
-		monthlyRate := math.Pow(1+1.5/100, 1.0/12.0) - 1
-		expected := 75000 * (1 + monthlyRate)
-
-		if !almostEqual(result, expected, 0.01) {
-			t.Errorf("got %f, want %f", result, expected)
+		// Monthly multiplier ≈ 1.00124 so 75000 * 1.00124 ≈ 75093
+		expected := decimal.MustFromString("75093")
+		tolerance := decimal.MustFromString("5")
+		if !almostEqualDecimal(result, expected, tolerance) {
+			t.Errorf("got %s, want %s", result.String(), expected.String())
 		}
 	})
 
 	t.Run("Balance in highest tier", func(t *testing.T) {
-		result := strategy.Calculate(growth.Params{
-			CurrentValue: 150000,
-			Rate:         0,
+		currentValue := decimal.MustFromFloat64(150000)
+		rate := decimal.MustFromFloat64(0)
+
+		result, err := strategy.Calculate(growth.Params{
+			CurrentValue: currentValue,
+			Rate:         rate,
 			PeriodIndex:  0,
 			Frequency:    "monthly",
 			Metadata: map[string]interface{}{
 				"tiers": tiers,
 			},
 		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
 		// Should use 2.5% rate (>= 100000)
-		monthlyRate := math.Pow(1+2.5/100, 1.0/12.0) - 1
-		expected := 150000 * (1 + monthlyRate)
-
-		if !almostEqual(result, expected, 0.01) {
-			t.Errorf("got %f, want %f", result, expected)
+		// Monthly multiplier ≈ 1.00206 so 150000 * 1.00206 ≈ 150309
+		expected := decimal.MustFromString("150309")
+		tolerance := decimal.MustFromString("10")
+		if !almostEqualDecimal(result, expected, tolerance) {
+			t.Errorf("got %s, want %s", result.String(), expected.String())
 		}
 	})
 
 	t.Run("Missing metadata returns same value", func(t *testing.T) {
-		result := strategy.Calculate(growth.Params{
-			CurrentValue: 10000,
-			Rate:         5.0,
+		currentValue := decimal.MustFromFloat64(10000)
+		rate := decimal.MustFromFloat64(5.0)
+
+		result, err := strategy.Calculate(growth.Params{
+			CurrentValue: currentValue,
+			Rate:         rate,
 			PeriodIndex:  0,
 			Frequency:    "monthly",
 		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-		if result != 10000 {
-			t.Errorf("expected 10000, got %f", result)
+		if result.Cmp(currentValue) != 0 {
+			t.Errorf("expected %s, got %s", currentValue.String(), result.String())
 		}
 	})
 }
@@ -250,16 +300,22 @@ func TestFixedStrategy(t *testing.T) {
 	t.Run("Always returns same value", func(t *testing.T) {
 		tests := []float64{100, 1000, 10000, 100000}
 
-		for _, amount := range tests {
-			result := strategy.Calculate(growth.Params{
+		for _, amountFloat := range tests {
+			amount := decimal.MustFromFloat64(amountFloat)
+			rate := decimal.MustFromFloat64(5.0)
+
+			result, err := strategy.Calculate(growth.Params{
 				CurrentValue: amount,
-				Rate:         5.0, // Should be ignored
-				PeriodIndex:  10,  // Should be ignored
+				Rate:         rate,
+				PeriodIndex:  10,
 				Frequency:    "monthly",
 			})
+			if err != nil {
+				t.Fatalf("unexpected error for amount %f: %v", amountFloat, err)
+			}
 
-			if result != amount {
-				t.Errorf("expected %f, got %f", amount, result)
+			if result.Cmp(amount) != 0 {
+				t.Errorf("expected %s, got %s", amount.String(), result.String())
 			}
 		}
 	})
@@ -297,7 +353,22 @@ func TestStrategyInterface(t *testing.T) {
 	var _ growth.Strategy = growth.NewFixed()
 }
 
-// almostEqual checks if two floats are equal within a tolerance
-func almostEqual(a, b, tolerance float64) bool {
-	return math.Abs(a-b) < tolerance
+// almostEqualDecimal checks if two decimals are equal within a tolerance
+func almostEqualDecimal(a, b, tolerance *decimal.Decimal) bool {
+	diff, err := a.Sub(b)
+	if err != nil {
+		return false
+	}
+
+	// Get absolute value by checking if negative and negating if so
+	absDiff := diff
+	if diff.IsNegative() {
+		zero := decimal.Zero()
+		absDiff, err = zero.Sub(diff)
+		if err != nil {
+			return false
+		}
+	}
+
+	return absDiff.Cmp(tolerance) < 0
 }

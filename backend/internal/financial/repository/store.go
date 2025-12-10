@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -45,10 +46,12 @@ type Asset struct {
 	CurrentValue     float64                `json:"currentValue"`
 	AnnualGrowthRate float64                `json:"annualGrowthRate"`
 	Frequency        string                 `json:"frequency"`
-	StartYear        int                    `json:"startYear"`
-	StartMonth       *int                   `json:"startMonth,omitempty"`
-	EndYear          *int                   `json:"endYear,omitempty"`
-	EndMonth         *int                   `json:"endMonth,omitempty"`
+	StartDate        time.Time              `json:"startDate"`           // Precise start date (day-level)
+	EndDate          *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
+	StartYear        int                    `json:"startYear"`           // Legacy: for migration period
+	StartMonth       *int                   `json:"startMonth,omitempty"` // Legacy: for migration period
+	EndYear          *int                   `json:"endYear,omitempty"`    // Legacy: for migration period
+	EndMonth         *int                   `json:"endMonth,omitempty"`   // Legacy: for migration period
 	Notes            string                 `json:"notes"`
 	GrowthStrategy   string                 `json:"growthStrategy"`
 	GrowthMetadata   map[string]interface{} `json:"growthMetadata,omitempty"`
@@ -65,10 +68,12 @@ type Liability struct {
 	InterestRateAPR float64                `json:"interestRateApr"`
 	MinimumPayment  float64                `json:"minimumPayment"`
 	Frequency       string                 `json:"frequency"`
-	StartYear       int                    `json:"startYear"`
-	StartMonth      *int                   `json:"startMonth,omitempty"`
-	EndYear         *int                   `json:"endYear,omitempty"`
-	EndMonth        *int                   `json:"endMonth,omitempty"`
+	StartDate       time.Time              `json:"startDate"`           // Precise start date (day-level)
+	EndDate         *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
+	StartYear       int                    `json:"startYear"`           // Legacy: for migration period
+	StartMonth      *int                   `json:"startMonth,omitempty"` // Legacy: for migration period
+	EndYear         *int                   `json:"endYear,omitempty"`    // Legacy: for migration period
+	EndMonth        *int                   `json:"endMonth,omitempty"`   // Legacy: for migration period
 	Notes           string                 `json:"notes"`
 	GrowthStrategy  string                 `json:"growthStrategy"`
 	GrowthMetadata  map[string]interface{} `json:"growthMetadata,omitempty"`
@@ -103,9 +108,10 @@ type Income struct {
 	Source         string                 `json:"source"`
 	Amount         float64                `json:"amount"`
 	Frequency      string                 `json:"frequency"`
-	StartDate      *time.Time             `json:"startDate"`
-	StartYear      int                    `json:"startYear"`
-	EndYear        sql.NullInt32          `json:"endYear"`
+	StartDate      time.Time              `json:"startDate"`           // Precise start date (day-level) - now required
+	EndDate        *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
+	StartYear      int                    `json:"startYear"`           // Legacy: for migration period
+	EndYear        sql.NullInt32          `json:"endYear"`             // Legacy: for migration period
 	Category       string                 `json:"category"`
 	GrowthRate     float64                `json:"growthRate"`
 	Notes          string                 `json:"notes"`
@@ -121,8 +127,10 @@ type Expense struct {
 	Payee          string                 `json:"payee"`
 	Amount         float64                `json:"amount"`
 	Frequency      string                 `json:"frequency"`
-	StartYear      int                    `json:"startYear"`
-	EndYear        sql.NullInt32          `json:"endYear"`
+	StartDate      time.Time              `json:"startDate"`           // Precise start date (day-level)
+	EndDate        *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
+	StartYear      int                    `json:"startYear"`           // Legacy: for migration period
+	EndYear        sql.NullInt32          `json:"endYear"`             // Legacy: for migration period
 	Category       string                 `json:"category"`
 	GrowthRate     float64                `json:"growthRate"`
 	Notes          string                 `json:"notes"`
@@ -239,15 +247,13 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 			       current_value,
 			       annual_growth_rate,
 			       COALESCE(frequency, 'annual') as frequency,
-			       COALESCE(start_year, 0) as start_year,
-			       start_month,
-			       end_year,
-			       end_month,
+			       start_date,
+			       end_date,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_assets
 			WHERE user_id = $1
-			ORDER BY parent_id, start_year
+			ORDER BY parent_id, start_date
 			OFFSET $2`, userID, p.Offset)
 	} else {
 		rows, err = s.db.QueryContext(ctx, `
@@ -258,15 +264,13 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 			       current_value,
 			       annual_growth_rate,
 			       COALESCE(frequency, 'annual') as frequency,
-			       COALESCE(start_year, 0) as start_year,
-			       start_month,
-			       end_year,
-			       end_month,
+			       start_date,
+			       end_date,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_assets
 			WHERE user_id = $1
-			ORDER BY parent_id, start_year
+			ORDER BY parent_id, start_date
 			LIMIT $2 OFFSET $3`, userID, p.Limit, p.Offset)
 	}
 	if err != nil {
@@ -277,13 +281,25 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 	var assets []Asset
 	for rows.Next() {
 		var a Asset
-		var startMonth, endYear, endMonth sql.NullInt32
-		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartYear, &startMonth, &endYear, &endMonth, &a.Notes, &a.UpdatedAt); err != nil {
+		var endDate sql.NullTime
+		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartDate, &endDate, &a.Notes, &a.UpdatedAt); err != nil {
 			return PaginatedResult[Asset]{}, err
 		}
-		a.StartMonth = NullInt32ToIntPtr(startMonth)
-		a.EndYear = NullInt32ToIntPtr(endYear)
-		a.EndMonth = NullInt32ToIntPtr(endMonth)
+		if endDate.Valid {
+			a.EndDate = &endDate.Time
+		}
+
+		// Populate legacy year/month fields from dates for backward compatibility
+		a.StartYear = a.StartDate.Year()
+		month := int(a.StartDate.Month())
+		a.StartMonth = &month
+		if a.EndDate != nil {
+			endYear := a.EndDate.Year()
+			a.EndYear = &endYear
+			endMonth := int(a.EndDate.Month())
+			a.EndMonth = &endMonth
+		}
+
 		assets = append(assets, a)
 	}
 	if assets == nil {
@@ -302,9 +318,10 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 	}, nil
 }
 
-// ListAllAssets returns all assets for a user (no pagination, for internal use like timeline).
-func (s *Store) ListAllAssets(ctx context.Context, userID string) ([]Asset, error) {
-	rows, err := s.db.QueryContext(ctx, `
+// ListAllAssets returns all assets for a user with optional date range filtering.
+// Pass empty DateRangeOptions{} to get all assets without filtering.
+func (s *Store) ListAllAssets(ctx context.Context, userID string, opts DateRangeOptions) ([]Asset, error) {
+	query := `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
 		       name,
@@ -312,15 +329,31 @@ func (s *Store) ListAllAssets(ctx context.Context, userID string) ([]Asset, erro
 		       current_value,
 		       annual_growth_rate,
 		       COALESCE(frequency, 'annual') as frequency,
-		       COALESCE(start_year, 0) as start_year,
-		       start_month,
-		       end_year,
-		       end_month,
+		       start_date,
+		       end_date,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_assets
-		WHERE user_id = $1
-		ORDER BY parent_id, start_year`, userID)
+		WHERE user_id = $1`
+
+	args := []interface{}{userID}
+	argIdx := 2
+
+	// Add optional date range filtering
+	if opts.ActiveAfter != nil {
+		query += ` AND (end_date IS NULL OR end_date >= $` + fmt.Sprintf("%d", argIdx) + `)`
+		args = append(args, *opts.ActiveAfter)
+		argIdx++
+	}
+	if opts.ActiveBefore != nil {
+		query += ` AND start_date <= $` + fmt.Sprintf("%d", argIdx)
+		args = append(args, *opts.ActiveBefore)
+		argIdx++
+	}
+
+	query += ` ORDER BY parent_id, start_date`
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -329,13 +362,25 @@ func (s *Store) ListAllAssets(ctx context.Context, userID string) ([]Asset, erro
 	var assets []Asset
 	for rows.Next() {
 		var a Asset
-		var startMonth, endYear, endMonth sql.NullInt32
-		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartYear, &startMonth, &endYear, &endMonth, &a.Notes, &a.UpdatedAt); err != nil {
+		var endDate sql.NullTime
+		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartDate, &endDate, &a.Notes, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
-		a.StartMonth = NullInt32ToIntPtr(startMonth)
-		a.EndYear = NullInt32ToIntPtr(endYear)
-		a.EndMonth = NullInt32ToIntPtr(endMonth)
+		if endDate.Valid {
+			a.EndDate = &endDate.Time
+		}
+
+		// Populate legacy year/month fields from dates for backward compatibility
+		a.StartYear = a.StartDate.Year()
+		month := int(a.StartDate.Month())
+		a.StartMonth = &month
+		if a.EndDate != nil {
+			endYear := a.EndDate.Year()
+			a.EndYear = &endYear
+			endMonth := int(a.EndDate.Month())
+			a.EndMonth = &endMonth
+		}
+
 		assets = append(assets, a)
 	}
 	if assets == nil {
@@ -353,57 +398,126 @@ func (s *Store) GetAsset(ctx context.Context, userID, id string) (Asset, error) 
 		       current_value,
 		       annual_growth_rate,
 		       COALESCE(frequency, 'annual') as frequency,
-		       COALESCE(start_year, 0) as start_year,
-		       start_month,
-		       end_year,
-		       end_month,
+		       start_date,
+		       end_date,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_assets
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var a Asset
-	var startMonth, endYear, endMonth sql.NullInt32
-	if err := row.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartYear, &startMonth, &endYear, &endMonth, &a.Notes, &a.UpdatedAt); err != nil {
+	var endDate sql.NullTime
+	if err := row.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartDate, &endDate, &a.Notes, &a.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Asset{}, ErrNotFound
 		}
 		return Asset{}, err
 	}
-	a.StartMonth = NullInt32ToIntPtr(startMonth)
-	a.EndYear = NullInt32ToIntPtr(endYear)
-	a.EndMonth = NullInt32ToIntPtr(endMonth)
+	if endDate.Valid {
+		a.EndDate = &endDate.Time
+	}
+
+	// Populate legacy year/month fields from dates for backward compatibility
+	a.StartYear = a.StartDate.Year()
+	month := int(a.StartDate.Month())
+	a.StartMonth = &month
+	if a.EndDate != nil {
+		endYear := a.EndDate.Year()
+		a.EndYear = &endYear
+		endMonth := int(a.EndDate.Month())
+		a.EndMonth = &endMonth
+	}
+
 	return a, nil
 }
 
 func (s *Store) CreateAsset(ctx context.Context, userID string, a Asset) (Asset, error) {
+	// Compute startDate from StartDate field or from legacy StartYear/StartMonth
+	startDate := a.StartDate
+	if startDate.IsZero() && a.StartYear > 0 {
+		month := 1
+		if a.StartMonth != nil {
+			month = *a.StartMonth
+		}
+		startDate = time.Date(a.StartYear, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	} else if startDate.IsZero() {
+		startDate = time.Now().UTC()
+	}
+
+	// Compute endDate from EndDate field or from legacy EndYear/EndMonth
+	var endDate *time.Time
+	if a.EndDate != nil {
+		endDate = a.EndDate
+	} else if a.EndYear != nil {
+		month := 12
+		if a.EndMonth != nil {
+			month = *a.EndMonth
+		}
+		// Last day of the end month
+		lastDay := time.Date(*a.EndYear, time.Month(month)+1, 0, 23, 59, 59, 0, time.UTC)
+		endDate = &lastDay
+	}
+
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, frequency, start_year, start_month, end_year, end_month, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, COALESCE($7,'annual'), COALESCE($8,0), $9, $10, $11, NULLIF($12, ''))
-		ON CONFLICT (parent_id, start_year) DO UPDATE
+		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, frequency, start_date, end_date, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, COALESCE($7,'annual'), $8, $9, NULLIF($10, ''))
+		ON CONFLICT ON CONSTRAINT finance_assets_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
 		    current_value=EXCLUDED.current_value,
 		    annual_growth_rate=EXCLUDED.annual_growth_rate,
 		    frequency=EXCLUDED.frequency,
-		    start_month=EXCLUDED.start_month,
-		    end_year=EXCLUDED.end_year,
-		    end_month=EXCLUDED.end_month,
+		    end_date=EXCLUDED.end_date,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), COALESCE(start_year,0), start_month, end_year, end_month, COALESCE(notes, ''), updated_at`,
-		userID, nullIfEmpty(a.ParentID), a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, a.Frequency, a.StartYear, IntPtrToNullInt32(a.StartMonth), IntPtrToNullInt32(a.EndYear), IntPtrToNullInt32(a.EndMonth), a.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), start_date, end_date, COALESCE(notes, ''), updated_at`,
+		userID, nullIfEmpty(a.ParentID), a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, a.Frequency, startDate, endDate, a.Notes)
+
 	var created Asset
-	var startMonth, endYear, endMonth sql.NullInt32
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentValue, &created.AnnualGrowthRate, &created.Frequency, &created.StartYear, &startMonth, &endYear, &endMonth, &created.Notes, &created.UpdatedAt); err != nil {
+	var endDateVal sql.NullTime
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentValue, &created.AnnualGrowthRate, &created.Frequency, &created.StartDate, &endDateVal, &created.Notes, &created.UpdatedAt); err != nil {
 		return Asset{}, err
 	}
-	created.StartMonth = NullInt32ToIntPtr(startMonth)
-	created.EndYear = NullInt32ToIntPtr(endYear)
-	created.EndMonth = NullInt32ToIntPtr(endMonth)
+	if endDateVal.Valid {
+		created.EndDate = &endDateVal.Time
+	}
+
+	// Populate legacy year/month fields from dates for backward compatibility
+	created.StartYear = created.StartDate.Year()
+	month := int(created.StartDate.Month())
+	created.StartMonth = &month
+	if created.EndDate != nil {
+		endYear := created.EndDate.Year()
+		created.EndYear = &endYear
+		endMonth := int(created.EndDate.Month())
+		created.EndMonth = &endMonth
+	}
+
 	return created, nil
 }
 
 func (s *Store) UpdateAsset(ctx context.Context, userID string, a Asset) (Asset, error) {
+	// Compute dates from StartDate field or from legacy StartYear/StartMonth
+	startDate := a.StartDate
+	if startDate.IsZero() && a.StartYear > 0 {
+		month := 1
+		if a.StartMonth != nil {
+			month = *a.StartMonth
+		}
+		startDate = time.Date(a.StartYear, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	}
+
+	var endDate *time.Time
+	if a.EndDate != nil {
+		endDate = a.EndDate
+	} else if a.EndYear != nil {
+		month := 12
+		if a.EndMonth != nil {
+			month = *a.EndMonth
+		}
+		lastDay := time.Date(*a.EndYear, time.Month(month)+1, 0, 23, 59, 59, 0, time.UTC)
+		endDate = &lastDay
+	}
+
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_assets
 		SET name=$3,
@@ -411,26 +525,37 @@ func (s *Store) UpdateAsset(ctx context.Context, userID string, a Asset) (Asset,
 		    current_value=$5,
 		    annual_growth_rate=$6,
 		    frequency=COALESCE($7, frequency),
-		    start_year=COALESCE($8, start_year),
-		    start_month=$9,
-		    end_year=$10,
-		    end_month=$11,
-		    notes=NULLIF($12, ''),
+		    start_date=COALESCE($8, start_date),
+		    end_date=$9,
+		    notes=NULLIF($10, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), COALESCE(start_year,0), start_month, end_year, end_month, COALESCE(notes, ''), updated_at`,
-		userID, a.ID, a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, nullIfEmpty(a.Frequency), nullableInt32(a.StartYear), IntPtrToNullInt32(a.StartMonth), IntPtrToNullInt32(a.EndYear), IntPtrToNullInt32(a.EndMonth), a.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), start_date, end_date, COALESCE(notes, ''), updated_at`,
+		userID, a.ID, a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, nullIfEmpty(a.Frequency), startDate, endDate, a.Notes)
+
 	var updated Asset
-	var startMonth, endYear, endMonth sql.NullInt32
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentValue, &updated.AnnualGrowthRate, &updated.Frequency, &updated.StartYear, &startMonth, &endYear, &endMonth, &updated.Notes, &updated.UpdatedAt); err != nil {
+	var endDateVal sql.NullTime
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentValue, &updated.AnnualGrowthRate, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Asset{}, ErrNotFound
 		}
 		return Asset{}, err
 	}
-	updated.StartMonth = NullInt32ToIntPtr(startMonth)
-	updated.EndYear = NullInt32ToIntPtr(endYear)
-	updated.EndMonth = NullInt32ToIntPtr(endMonth)
+	if endDateVal.Valid {
+		updated.EndDate = &endDateVal.Time
+	}
+
+	// Populate legacy year/month fields from dates for backward compatibility
+	updated.StartYear = updated.StartDate.Year()
+	month := int(updated.StartDate.Month())
+	updated.StartMonth = &month
+	if updated.EndDate != nil {
+		endYear := updated.EndDate.Year()
+		updated.EndYear = &endYear
+		endMonth := int(updated.EndDate.Month())
+		updated.EndMonth = &endMonth
+	}
+
 	return updated, nil
 }
 
@@ -518,15 +643,13 @@ func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination P
 			       interest_rate_apr,
 			       minimum_payment,
 			       COALESCE(frequency, 'annual') as frequency,
-			       COALESCE(start_year, 0) as start_year,
-			       start_month,
-			       end_year,
-			       end_month,
+			       start_date,
+			       end_date,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_liabilities
 			WHERE user_id = $1
-			ORDER BY parent_id, start_year
+			ORDER BY parent_id, start_date
 			OFFSET $2`, userID, p.Offset)
 	} else {
 		rows, err = s.db.QueryContext(ctx, `
@@ -538,15 +661,13 @@ func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination P
 			       interest_rate_apr,
 			       minimum_payment,
 			       COALESCE(frequency, 'annual') as frequency,
-			       COALESCE(start_year, 0) as start_year,
-			       start_month,
-			       end_year,
-			       end_month,
+			       start_date,
+			       end_date,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_liabilities
 			WHERE user_id = $1
-			ORDER BY parent_id, start_year
+			ORDER BY parent_id, start_date
 			LIMIT $2 OFFSET $3`, userID, p.Limit, p.Offset)
 	}
 	if err != nil {
@@ -557,13 +678,25 @@ func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination P
 	var items []Liability
 	for rows.Next() {
 		var li Liability
-		var startMonth, endYear, endMonth sql.NullInt32
-		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartYear, &startMonth, &endYear, &endMonth, &li.Notes, &li.UpdatedAt); err != nil {
+		var endDate sql.NullTime
+		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartDate, &endDate, &li.Notes, &li.UpdatedAt); err != nil {
 			return PaginatedResult[Liability]{}, err
 		}
-		li.StartMonth = NullInt32ToIntPtr(startMonth)
-		li.EndYear = NullInt32ToIntPtr(endYear)
-		li.EndMonth = NullInt32ToIntPtr(endMonth)
+		if endDate.Valid {
+			li.EndDate = &endDate.Time
+		}
+
+		// Populate legacy year/month fields from dates for backward compatibility
+		li.StartYear = li.StartDate.Year()
+		month := int(li.StartDate.Month())
+		li.StartMonth = &month
+		if li.EndDate != nil {
+			endYear := li.EndDate.Year()
+			li.EndYear = &endYear
+			endMonth := int(li.EndDate.Month())
+			li.EndMonth = &endMonth
+		}
+
 		items = append(items, li)
 	}
 	if items == nil {
@@ -582,9 +715,10 @@ func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination P
 	}, nil
 }
 
-// ListAllLiabilities returns all liabilities for a user (no pagination, for internal use like timeline).
-func (s *Store) ListAllLiabilities(ctx context.Context, userID string) ([]Liability, error) {
-	rows, err := s.db.QueryContext(ctx, `
+// ListAllLiabilities returns all liabilities for a user with optional date range filtering.
+// Pass empty DateRangeOptions{} to get all liabilities without filtering.
+func (s *Store) ListAllLiabilities(ctx context.Context, userID string, opts DateRangeOptions) ([]Liability, error) {
+	query := `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
 		       name,
@@ -593,15 +727,31 @@ func (s *Store) ListAllLiabilities(ctx context.Context, userID string) ([]Liabil
 		       interest_rate_apr,
 		       minimum_payment,
 		       COALESCE(frequency, 'annual') as frequency,
-		       COALESCE(start_year, 0) as start_year,
-		       start_month,
-		       end_year,
-		       end_month,
+		       start_date,
+		       end_date,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_liabilities
-		WHERE user_id = $1
-		ORDER BY parent_id, start_year`, userID)
+		WHERE user_id = $1`
+
+	args := []interface{}{userID}
+	argIdx := 2
+
+	// Add optional date range filtering
+	if opts.ActiveAfter != nil {
+		query += ` AND (end_date IS NULL OR end_date >= $` + fmt.Sprintf("%d", argIdx) + `)`
+		args = append(args, *opts.ActiveAfter)
+		argIdx++
+	}
+	if opts.ActiveBefore != nil {
+		query += ` AND start_date <= $` + fmt.Sprintf("%d", argIdx)
+		args = append(args, *opts.ActiveBefore)
+		argIdx++
+	}
+
+	query += ` ORDER BY parent_id, start_date`
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -610,13 +760,25 @@ func (s *Store) ListAllLiabilities(ctx context.Context, userID string) ([]Liabil
 	var items []Liability
 	for rows.Next() {
 		var li Liability
-		var startMonth, endYear, endMonth sql.NullInt32
-		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartYear, &startMonth, &endYear, &endMonth, &li.Notes, &li.UpdatedAt); err != nil {
+		var endDate sql.NullTime
+		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartDate, &endDate, &li.Notes, &li.UpdatedAt); err != nil {
 			return nil, err
 		}
-		li.StartMonth = NullInt32ToIntPtr(startMonth)
-		li.EndYear = NullInt32ToIntPtr(endYear)
-		li.EndMonth = NullInt32ToIntPtr(endMonth)
+		if endDate.Valid {
+			li.EndDate = &endDate.Time
+		}
+
+		// Populate legacy year/month fields from dates for backward compatibility
+		li.StartYear = li.StartDate.Year()
+		month := int(li.StartDate.Month())
+		li.StartMonth = &month
+		if li.EndDate != nil {
+			endYear := li.EndDate.Year()
+			li.EndYear = &endYear
+			endMonth := int(li.EndDate.Month())
+			li.EndMonth = &endMonth
+		}
+
 		items = append(items, li)
 	}
 	if items == nil {
@@ -635,58 +797,126 @@ func (s *Store) GetLiability(ctx context.Context, userID, id string) (Liability,
 		       interest_rate_apr,
 		       minimum_payment,
 		       COALESCE(frequency, 'annual') as frequency,
-		       COALESCE(start_year, 0) as start_year,
-		       start_month,
-		       end_year,
-		       end_month,
+		       start_date,
+		       end_date,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_liabilities
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var li Liability
-	var startMonth, endYear, endMonth sql.NullInt32
-	if err := row.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartYear, &startMonth, &endYear, &endMonth, &li.Notes, &li.UpdatedAt); err != nil {
+	var endDate sql.NullTime
+	if err := row.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartDate, &endDate, &li.Notes, &li.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Liability{}, ErrNotFound
 		}
 		return Liability{}, err
 	}
-	li.StartMonth = NullInt32ToIntPtr(startMonth)
-	li.EndYear = NullInt32ToIntPtr(endYear)
-	li.EndMonth = NullInt32ToIntPtr(endMonth)
+	if endDate.Valid {
+		li.EndDate = &endDate.Time
+	}
+
+	// Populate legacy year/month fields from dates for backward compatibility
+	li.StartYear = li.StartDate.Year()
+	month := int(li.StartDate.Month())
+	li.StartMonth = &month
+	if li.EndDate != nil {
+		endYear := li.EndDate.Year()
+		li.EndYear = &endYear
+		endMonth := int(li.EndDate.Month())
+		li.EndMonth = &endMonth
+	}
+
 	return li, nil
 }
 
 func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability) (Liability, error) {
+	// Compute startDate from StartDate field or from legacy StartYear/StartMonth
+	startDate := li.StartDate
+	if startDate.IsZero() && li.StartYear > 0 {
+		month := 1
+		if li.StartMonth != nil {
+			month = *li.StartMonth
+		}
+		startDate = time.Date(li.StartYear, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	} else if startDate.IsZero() {
+		startDate = time.Now().UTC()
+	}
+
+	// Compute endDate from EndDate field or from legacy EndYear/EndMonth
+	var endDate *time.Time
+	if li.EndDate != nil {
+		endDate = li.EndDate
+	} else if li.EndYear != nil {
+		month := 12
+		if li.EndMonth != nil {
+			month = *li.EndMonth
+		}
+		lastDay := time.Date(*li.EndYear, time.Month(month)+1, 0, 23, 59, 59, 0, time.UTC)
+		endDate = &lastDay
+	}
+
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, frequency, start_year, start_month, end_year, end_month, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, COALESCE($8,'annual'), COALESCE($9,0), $10, $11, $12, NULLIF($13, ''))
-		ON CONFLICT (parent_id, start_year) DO UPDATE
+		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, frequency, start_date, end_date, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, COALESCE($8,'annual'), $9, $10, NULLIF($11, ''))
+		ON CONFLICT ON CONSTRAINT finance_liabilities_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
 		    current_balance=EXCLUDED.current_balance,
 		    interest_rate_apr=EXCLUDED.interest_rate_apr,
 		    minimum_payment=EXCLUDED.minimum_payment,
 		    frequency=EXCLUDED.frequency,
-		    start_month=EXCLUDED.start_month,
-		    end_year=EXCLUDED.end_year,
-		    end_month=EXCLUDED.end_month,
+		    end_date=EXCLUDED.end_date,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), COALESCE(start_year,0), start_month, end_year, end_month, COALESCE(notes, ''), updated_at`,
-		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, li.Frequency, li.StartYear, IntPtrToNullInt32(li.StartMonth), IntPtrToNullInt32(li.EndYear), IntPtrToNullInt32(li.EndMonth), li.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), start_date, end_date, COALESCE(notes, ''), updated_at`,
+		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, li.Frequency, startDate, endDate, li.Notes)
+
 	var created Liability
-	var startMonth, endYear, endMonth sql.NullInt32
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.Frequency, &created.StartYear, &startMonth, &endYear, &endMonth, &created.Notes, &created.UpdatedAt); err != nil {
+	var endDateVal sql.NullTime
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.Frequency, &created.StartDate, &endDateVal, &created.Notes, &created.UpdatedAt); err != nil {
 		return Liability{}, err
 	}
-	created.StartMonth = NullInt32ToIntPtr(startMonth)
-	created.EndYear = NullInt32ToIntPtr(endYear)
-	created.EndMonth = NullInt32ToIntPtr(endMonth)
+	if endDateVal.Valid {
+		created.EndDate = &endDateVal.Time
+	}
+
+	// Populate legacy year/month fields from dates for backward compatibility
+	created.StartYear = created.StartDate.Year()
+	month := int(created.StartDate.Month())
+	created.StartMonth = &month
+	if created.EndDate != nil {
+		endYear := created.EndDate.Year()
+		created.EndYear = &endYear
+		endMonth := int(created.EndDate.Month())
+		created.EndMonth = &endMonth
+	}
+
 	return created, nil
 }
 
 func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability) (Liability, error) {
+	// Compute dates from StartDate field or from legacy StartYear/StartMonth
+	startDate := li.StartDate
+	if startDate.IsZero() && li.StartYear > 0 {
+		month := 1
+		if li.StartMonth != nil {
+			month = *li.StartMonth
+		}
+		startDate = time.Date(li.StartYear, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+	}
+
+	var endDate *time.Time
+	if li.EndDate != nil {
+		endDate = li.EndDate
+	} else if li.EndYear != nil {
+		month := 12
+		if li.EndMonth != nil {
+			month = *li.EndMonth
+		}
+		lastDay := time.Date(*li.EndYear, time.Month(month)+1, 0, 23, 59, 59, 0, time.UTC)
+		endDate = &lastDay
+	}
+
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_liabilities
 		SET name=$3,
@@ -695,26 +925,37 @@ func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability
 		    interest_rate_apr=$6,
 		    minimum_payment=$7,
 		    frequency=COALESCE($8, frequency),
-		    start_year=COALESCE($9, start_year),
-		    start_month=$10,
-		    end_year=$11,
-		    end_month=$12,
-		    notes=NULLIF($13, ''),
+		    start_date=COALESCE($9, start_date),
+		    end_date=$10,
+		    notes=NULLIF($11, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), COALESCE(start_year,0), start_month, end_year, end_month, COALESCE(notes, ''), updated_at`,
-		userID, li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, nullIfEmpty(li.Frequency), nullableInt32(li.StartYear), IntPtrToNullInt32(li.StartMonth), IntPtrToNullInt32(li.EndYear), IntPtrToNullInt32(li.EndMonth), li.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), start_date, end_date, COALESCE(notes, ''), updated_at`,
+		userID, li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, nullIfEmpty(li.Frequency), startDate, endDate, li.Notes)
+
 	var updated Liability
-	var startMonth, endYear, endMonth sql.NullInt32
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentBalance, &updated.InterestRateAPR, &updated.MinimumPayment, &updated.Frequency, &updated.StartYear, &startMonth, &endYear, &endMonth, &updated.Notes, &updated.UpdatedAt); err != nil {
+	var endDateVal sql.NullTime
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentBalance, &updated.InterestRateAPR, &updated.MinimumPayment, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Liability{}, ErrNotFound
 		}
 		return Liability{}, err
 	}
-	updated.StartMonth = NullInt32ToIntPtr(startMonth)
-	updated.EndYear = NullInt32ToIntPtr(endYear)
-	updated.EndMonth = NullInt32ToIntPtr(endMonth)
+	if endDateVal.Valid {
+		updated.EndDate = &endDateVal.Time
+	}
+
+	// Populate legacy year/month fields from dates for backward compatibility
+	updated.StartYear = updated.StartDate.Year()
+	month := int(updated.StartDate.Month())
+	updated.StartMonth = &month
+	if updated.EndDate != nil {
+		endYear := updated.EndDate.Year()
+		updated.EndYear = &endYear
+		endMonth := int(updated.EndDate.Month())
+		updated.EndMonth = &endMonth
+	}
+
 	return updated, nil
 }
 
@@ -902,16 +1143,15 @@ func (s *Store) ListIncomes(ctx context.Context, userID string, pagination Pagin
 			       source,
 			       amount,
 			       frequency,
-			       start_year,
-			       end_year,
 			       start_date,
+			       end_date,
 			       category,
 			       COALESCE(growth_rate, 3.0) as growth_rate,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_incomes
 			WHERE user_id = $1
-			ORDER BY parent_id, start_year
+			ORDER BY parent_id, start_date
 			OFFSET $2`, userID, p.Offset)
 	} else {
 		rows, err = s.db.QueryContext(ctx, `
@@ -920,16 +1160,15 @@ func (s *Store) ListIncomes(ctx context.Context, userID string, pagination Pagin
 			       source,
 			       amount,
 			       frequency,
-			       start_year,
-			       end_year,
 			       start_date,
+			       end_date,
 			       category,
 			       COALESCE(growth_rate, 3.0) as growth_rate,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_incomes
 			WHERE user_id = $1
-			ORDER BY parent_id, start_year
+			ORDER BY parent_id, start_date
 			LIMIT $2 OFFSET $3`, userID, p.Limit, p.Offset)
 	}
 	if err != nil {
@@ -940,9 +1179,20 @@ func (s *Store) ListIncomes(ctx context.Context, userID string, pagination Pagin
 	var items []Income
 	for rows.Next() {
 		var it Income
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.StartDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
+		var endDate sql.NullTime
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
 			return PaginatedResult[Income]{}, err
 		}
+		if endDate.Valid {
+			it.EndDate = &endDate.Time
+		}
+
+		// Populate legacy year fields from dates for backward compatibility
+		it.StartYear = it.StartDate.Year()
+		if it.EndDate != nil {
+			it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
+		}
+
 		items = append(items, it)
 	}
 	if items == nil {
@@ -961,24 +1211,42 @@ func (s *Store) ListIncomes(ctx context.Context, userID string, pagination Pagin
 	}, nil
 }
 
-// ListAllIncomes returns all incomes for a user (no pagination, for internal use like timeline).
-func (s *Store) ListAllIncomes(ctx context.Context, userID string) ([]Income, error) {
-	rows, err := s.db.QueryContext(ctx, `
+// ListAllIncomes returns all incomes for a user with optional date range filtering.
+// Pass empty DateRangeOptions{} to get all incomes without filtering.
+func (s *Store) ListAllIncomes(ctx context.Context, userID string, opts DateRangeOptions) ([]Income, error) {
+	query := `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
 		       source,
 		       amount,
 		       frequency,
-		       start_year,
-		       end_year,
 		       start_date,
+		       end_date,
 		       category,
 		       COALESCE(growth_rate, 3.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_incomes
-		WHERE user_id = $1
-		ORDER BY parent_id, start_year`, userID)
+		WHERE user_id = $1`
+
+	args := []interface{}{userID}
+	argIdx := 2
+
+	// Add optional date range filtering
+	if opts.ActiveAfter != nil {
+		query += ` AND (end_date IS NULL OR end_date >= $` + fmt.Sprintf("%d", argIdx) + `)`
+		args = append(args, *opts.ActiveAfter)
+		argIdx++
+	}
+	if opts.ActiveBefore != nil {
+		query += ` AND start_date <= $` + fmt.Sprintf("%d", argIdx)
+		args = append(args, *opts.ActiveBefore)
+		argIdx++
+	}
+
+	query += ` ORDER BY parent_id, start_date`
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -987,9 +1255,20 @@ func (s *Store) ListAllIncomes(ctx context.Context, userID string) ([]Income, er
 	var items []Income
 	for rows.Next() {
 		var it Income
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.StartDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
+		var endDate sql.NullTime
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
 			return nil, err
 		}
+		if endDate.Valid {
+			it.EndDate = &endDate.Time
+		}
+
+		// Populate legacy year fields from dates for backward compatibility
+		it.StartYear = it.StartDate.Year()
+		if it.EndDate != nil {
+			it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
+		}
+
 		items = append(items, it)
 	}
 	if items == nil {
@@ -1005,9 +1284,8 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (Income, error
 		       source,
 		       amount,
 		       frequency,
-		       start_year,
-		       end_year,
 		       start_date,
+		       end_date,
 		       category,
 		       COALESCE(growth_rate, 3.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
@@ -1015,61 +1293,127 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (Income, error
 		FROM finance_incomes
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var it Income
-	if err := row.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.StartDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
+	var endDate sql.NullTime
+	if err := row.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Income{}, ErrNotFound
 		}
 		return Income{}, err
 	}
+	if endDate.Valid {
+		it.EndDate = &endDate.Time
+	}
+
+	// Populate legacy year fields from dates for backward compatibility
+	it.StartYear = it.StartDate.Year()
+	if it.EndDate != nil {
+		it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
+	}
+
 	return it, nil
 }
 
 func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Income, error) {
+	// Compute startDate from StartDate field or from legacy StartYear
+	startDate := it.StartDate
+	if startDate.IsZero() && it.StartYear > 0 {
+		startDate = time.Date(it.StartYear, 1, 1, 0, 0, 0, 0, time.UTC)
+	} else if startDate.IsZero() {
+		startDate = time.Now().UTC()
+	}
+
+	// Compute endDate from EndDate field or from legacy EndYear
+	var endDate *time.Time
+	if it.EndDate != nil {
+		endDate = it.EndDate
+	} else if it.EndYear.Valid {
+		lastDay := time.Date(int(it.EndYear.Int32), 12, 31, 23, 59, 59, 0, time.UTC)
+		endDate = &lastDay
+	}
+
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_year, end_year, start_date, category, growth_rate, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, COALESCE($6,0), $7, COALESCE($8, NOW()), $9, COALESCE($10, 3.0), NULLIF($11, ''))
-		ON CONFLICT (parent_id, start_year) DO UPDATE
+		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, COALESCE($9, 3.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''))
+		ON CONFLICT ON CONSTRAINT finance_incomes_parent_start_date_key DO UPDATE
 		SET source=EXCLUDED.source,
 		    amount=EXCLUDED.amount,
 		    frequency=EXCLUDED.frequency,
-		    end_year=EXCLUDED.end_year,
-		    start_date=EXCLUDED.start_date,
+		    end_date=EXCLUDED.end_date,
 		    category=EXCLUDED.category,
 		    growth_rate=EXCLUDED.growth_rate,
+		    growth_strategy=EXCLUDED.growth_strategy,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_year, end_year, start_date, category, COALESCE(growth_rate, 3.0), COALESCE(notes, ''), updated_at`,
-		userID, nullIfEmpty(it.ParentID), it.Source, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.StartDate, it.Category, it.GrowthRate, it.Notes)
+		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), updated_at`,
+		userID, nullIfEmpty(it.ParentID), it.Source, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes)
+
 	var created Income
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Source, &created.Amount, &created.Frequency, &created.StartYear, &created.EndYear, &created.StartDate, &created.Category, &created.GrowthRate, &created.Notes, &created.UpdatedAt); err != nil {
+	var endDateVal sql.NullTime
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Source, &created.Amount, &created.Frequency, &created.StartDate, &endDateVal, &created.Category, &created.GrowthRate, &created.GrowthStrategy, &created.Notes, &created.UpdatedAt); err != nil {
 		return Income{}, err
 	}
+	if endDateVal.Valid {
+		created.EndDate = &endDateVal.Time
+	}
+
+	// Populate legacy year fields from dates for backward compatibility
+	created.StartYear = created.StartDate.Year()
+	if created.EndDate != nil {
+		created.EndYear = sql.NullInt32{Int32: int32(created.EndDate.Year()), Valid: true}
+	}
+
 	return created, nil
 }
 
 func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Income, error) {
+	// Compute dates from StartDate field or from legacy StartYear
+	startDate := it.StartDate
+	if startDate.IsZero() && it.StartYear > 0 {
+		startDate = time.Date(it.StartYear, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+
+	var endDate *time.Time
+	if it.EndDate != nil {
+		endDate = it.EndDate
+	} else if it.EndYear.Valid {
+		lastDay := time.Date(int(it.EndYear.Int32), 12, 31, 23, 59, 59, 0, time.UTC)
+		endDate = &lastDay
+	}
+
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_incomes
 		SET source=$3,
 		    amount=$4,
 		    frequency=$5,
-		    start_year=COALESCE($6, start_year),
-		    end_year=$7,
-		    start_date=COALESCE($8, start_date, NOW()),
-		    category=$9,
-		    growth_rate=COALESCE($10, growth_rate, 3.0),
+		    start_date=COALESCE($6, start_date),
+		    end_date=$7,
+		    category=$8,
+		    growth_rate=COALESCE($9, growth_rate, 3.0),
+		    growth_strategy=COALESCE(NULLIF($10, ''), growth_strategy, 'annual_step'),
 		    notes=NULLIF($11, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, COALESCE(start_year,0), end_year, start_date, category, COALESCE(growth_rate, 3.0), COALESCE(notes, ''), updated_at`,
-		userID, it.ID, it.Source, it.Amount, it.Frequency, nullableInt32(it.StartYear), nullableFromNullInt32(it.EndYear), it.StartDate, it.Category, it.GrowthRate, it.Notes)
+		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), updated_at`,
+		userID, it.ID, it.Source, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes)
+
 	var updated Income
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Source, &updated.Amount, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.StartDate, &updated.Category, &updated.GrowthRate, &updated.Notes, &updated.UpdatedAt); err != nil {
+	var endDateVal sql.NullTime
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Source, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Income{}, ErrNotFound
 		}
 		return Income{}, err
 	}
+	if endDateVal.Valid {
+		updated.EndDate = &endDateVal.Time
+	}
+
+	// Populate legacy year fields from dates for backward compatibility
+	updated.StartYear = updated.StartDate.Year()
+	if updated.EndDate != nil {
+		updated.EndYear = sql.NullInt32{Int32: int32(updated.EndDate.Year()), Valid: true}
+	}
+
 	return updated, nil
 }
 
@@ -1116,15 +1460,15 @@ func (s *Store) ListExpenses(ctx context.Context, userID string, pagination Pagi
 			       payee,
 			       amount,
 			       frequency,
-			       COALESCE(start_year, 0) as start_year,
-			       end_year,
+			       start_date,
+			       end_date,
 			       category,
 			       COALESCE(growth_rate, 2.0) as growth_rate,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_expenses
 			WHERE user_id = $1
-			ORDER BY parent_id, start_year
+			ORDER BY parent_id, start_date
 			OFFSET $2`, userID, p.Offset)
 	} else {
 		rows, err = s.db.QueryContext(ctx, `
@@ -1133,15 +1477,15 @@ func (s *Store) ListExpenses(ctx context.Context, userID string, pagination Pagi
 			       payee,
 			       amount,
 			       frequency,
-			       COALESCE(start_year, 0) as start_year,
-			       end_year,
+			       start_date,
+			       end_date,
 			       category,
 			       COALESCE(growth_rate, 2.0) as growth_rate,
 			       COALESCE(notes, '') as notes,
 			       updated_at
 			FROM finance_expenses
 			WHERE user_id = $1
-			ORDER BY parent_id, start_year
+			ORDER BY parent_id, start_date
 			LIMIT $2 OFFSET $3`, userID, p.Limit, p.Offset)
 	}
 	if err != nil {
@@ -1152,9 +1496,20 @@ func (s *Store) ListExpenses(ctx context.Context, userID string, pagination Pagi
 	var items []Expense
 	for rows.Next() {
 		var it Expense
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
+		var endDate sql.NullTime
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
 			return PaginatedResult[Expense]{}, err
 		}
+		if endDate.Valid {
+			it.EndDate = &endDate.Time
+		}
+
+		// Populate legacy year fields from dates for backward compatibility
+		it.StartYear = it.StartDate.Year()
+		if it.EndDate != nil {
+			it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
+		}
+
 		items = append(items, it)
 	}
 	if items == nil {
@@ -1173,23 +1528,42 @@ func (s *Store) ListExpenses(ctx context.Context, userID string, pagination Pagi
 	}, nil
 }
 
-// ListAllExpenses returns all expenses for a user (no pagination, for internal use like timeline).
-func (s *Store) ListAllExpenses(ctx context.Context, userID string) ([]Expense, error) {
-	rows, err := s.db.QueryContext(ctx, `
+// ListAllExpenses returns all expenses for a user with optional date range filtering.
+// Pass empty DateRangeOptions{} to get all expenses without filtering.
+func (s *Store) ListAllExpenses(ctx context.Context, userID string, opts DateRangeOptions) ([]Expense, error) {
+	query := `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
 		       payee,
 		       amount,
 		       frequency,
-		       COALESCE(start_year, 0) as start_year,
-		       end_year,
+		       start_date,
+		       end_date,
 		       category,
 		       COALESCE(growth_rate, 2.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
 		       updated_at
 		FROM finance_expenses
-		WHERE user_id = $1
-		ORDER BY parent_id, start_year`, userID)
+		WHERE user_id = $1`
+
+	args := []interface{}{userID}
+	argIdx := 2
+
+	// Add optional date range filtering
+	if opts.ActiveAfter != nil {
+		query += ` AND (end_date IS NULL OR end_date >= $` + fmt.Sprintf("%d", argIdx) + `)`
+		args = append(args, *opts.ActiveAfter)
+		argIdx++
+	}
+	if opts.ActiveBefore != nil {
+		query += ` AND start_date <= $` + fmt.Sprintf("%d", argIdx)
+		args = append(args, *opts.ActiveBefore)
+		argIdx++
+	}
+
+	query += ` ORDER BY parent_id, start_date`
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -1198,9 +1572,20 @@ func (s *Store) ListAllExpenses(ctx context.Context, userID string) ([]Expense, 
 	var items []Expense
 	for rows.Next() {
 		var it Expense
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
+		var endDate sql.NullTime
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
 			return nil, err
 		}
+		if endDate.Valid {
+			it.EndDate = &endDate.Time
+		}
+
+		// Populate legacy year fields from dates for backward compatibility
+		it.StartYear = it.StartDate.Year()
+		if it.EndDate != nil {
+			it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
+		}
+
 		items = append(items, it)
 	}
 	if items == nil {
@@ -1216,8 +1601,8 @@ func (s *Store) GetExpense(ctx context.Context, userID, id string) (Expense, err
 		       payee,
 		       amount,
 		       frequency,
-		       COALESCE(start_year, 0) as start_year,
-		       end_year,
+		       start_date,
+		       end_date,
 		       category,
 		       COALESCE(growth_rate, 2.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
@@ -1225,59 +1610,127 @@ func (s *Store) GetExpense(ctx context.Context, userID, id string) (Expense, err
 		FROM finance_expenses
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var it Expense
-	if err := row.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartYear, &it.EndYear, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
+	var endDate sql.NullTime
+	if err := row.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Expense{}, ErrNotFound
 		}
 		return Expense{}, err
 	}
+	if endDate.Valid {
+		it.EndDate = &endDate.Time
+	}
+
+	// Populate legacy year fields from dates for backward compatibility
+	it.StartYear = it.StartDate.Year()
+	if it.EndDate != nil {
+		it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
+	}
+
 	return it, nil
 }
 
 func (s *Store) CreateExpense(ctx context.Context, userID string, it Expense) (Expense, error) {
+	// Compute startDate from StartDate field or from legacy StartYear
+	startDate := it.StartDate
+	if startDate.IsZero() && it.StartYear > 0 {
+		startDate = time.Date(it.StartYear, 1, 1, 0, 0, 0, 0, time.UTC)
+	} else if startDate.IsZero() {
+		startDate = time.Now().UTC()
+	}
+
+	// Compute endDate from EndDate field or from legacy EndYear
+	var endDate *time.Time
+	if it.EndDate != nil {
+		endDate = it.EndDate
+	} else if it.EndYear.Valid {
+		lastDay := time.Date(int(it.EndYear.Int32), 12, 31, 23, 59, 59, 0, time.UTC)
+		endDate = &lastDay
+	}
+
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_year, end_year, category, growth_rate, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, COALESCE($6,0), $7, $8, COALESCE($9, 2.0), NULLIF($10, ''))
-		ON CONFLICT (parent_id, start_year) DO UPDATE
+		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, COALESCE($9, 2.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''))
+		ON CONFLICT ON CONSTRAINT finance_expenses_parent_start_date_key DO UPDATE
 		SET payee=EXCLUDED.payee,
 		    amount=EXCLUDED.amount,
 		    frequency=EXCLUDED.frequency,
-		    end_year=EXCLUDED.end_year,
+		    end_date=EXCLUDED.end_date,
 		    category=EXCLUDED.category,
 		    growth_rate=EXCLUDED.growth_rate,
+		    growth_strategy=EXCLUDED.growth_strategy,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_year, end_year, category, COALESCE(growth_rate, 2.0), COALESCE(notes, ''), updated_at`,
-		userID, nullIfEmpty(it.ParentID), it.Payee, it.Amount, it.Frequency, it.StartYear, nullableFromNullInt32(it.EndYear), it.Category, it.GrowthRate, it.Notes)
+		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at`,
+		userID, nullIfEmpty(it.ParentID), it.Payee, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes)
+
 	var created Expense
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency, &created.StartYear, &created.EndYear, &created.Category, &created.GrowthRate, &created.Notes, &created.UpdatedAt); err != nil {
+	var endDateVal sql.NullTime
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency, &created.StartDate, &endDateVal, &created.Category, &created.GrowthRate, &created.GrowthStrategy, &created.Notes, &created.UpdatedAt); err != nil {
 		return Expense{}, err
 	}
+	if endDateVal.Valid {
+		created.EndDate = &endDateVal.Time
+	}
+
+	// Populate legacy year fields from dates for backward compatibility
+	created.StartYear = created.StartDate.Year()
+	if created.EndDate != nil {
+		created.EndYear = sql.NullInt32{Int32: int32(created.EndDate.Year()), Valid: true}
+	}
+
 	return created, nil
 }
 
 func (s *Store) UpdateExpense(ctx context.Context, userID string, it Expense) (Expense, error) {
+	// Compute dates from StartDate field or from legacy StartYear
+	startDate := it.StartDate
+	if startDate.IsZero() && it.StartYear > 0 {
+		startDate = time.Date(it.StartYear, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+
+	var endDate *time.Time
+	if it.EndDate != nil {
+		endDate = it.EndDate
+	} else if it.EndYear.Valid {
+		lastDay := time.Date(int(it.EndYear.Int32), 12, 31, 23, 59, 59, 0, time.UTC)
+		endDate = &lastDay
+	}
+
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_expenses
 		SET payee=$3,
 		    amount=$4,
 		    frequency=$5,
-		    start_year=COALESCE($6, start_year),
-		    end_year=$7,
+		    start_date=COALESCE($6, start_date),
+		    end_date=$7,
 		    category=$8,
 		    growth_rate=COALESCE($9, growth_rate, 2.0),
-		    notes=NULLIF($10, ''),
+		    growth_strategy=COALESCE(NULLIF($10, ''), growth_strategy, 'annual_step'),
+		    notes=NULLIF($11, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, COALESCE(start_year,0), end_year, category, COALESCE(growth_rate, 2.0), COALESCE(notes, ''), updated_at`,
-		userID, it.ID, it.Payee, it.Amount, it.Frequency, nullableInt32(it.StartYear), nullableFromNullInt32(it.EndYear), it.Category, it.GrowthRate, it.Notes)
+		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at`,
+		userID, it.ID, it.Payee, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes)
+
 	var updated Expense
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Payee, &updated.Amount, &updated.Frequency, &updated.StartYear, &updated.EndYear, &updated.Category, &updated.GrowthRate, &updated.Notes, &updated.UpdatedAt); err != nil {
+	var endDateVal sql.NullTime
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Payee, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Expense{}, ErrNotFound
 		}
 		return Expense{}, err
 	}
+	if endDateVal.Valid {
+		updated.EndDate = &endDateVal.Time
+	}
+
+	// Populate legacy year fields from dates for backward compatibility
+	updated.StartYear = updated.StartDate.Year()
+	if updated.EndDate != nil {
+		updated.EndYear = sql.NullInt32{Int32: int32(updated.EndDate.Year()), Valid: true}
+	}
+
 	return updated, nil
 }
 

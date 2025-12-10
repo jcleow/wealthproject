@@ -25,6 +25,14 @@ const docTemplate = `{
     "paths": {
         "/chat": {
             "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Process a chat message and generate AI response with financial tool calls",
                 "consumes": [
                     "application/json"
@@ -73,6 +81,14 @@ const docTemplate = `{
         },
         "/financial/actions/dispatch": {
             "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Execute approved financial actions from a chat session",
                 "consumes": [
                     "application/json"
@@ -128,6 +144,14 @@ const docTemplate = `{
         },
         "/financial/timeline": {
             "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Returns the full financial timeline with optional resolution and scenario filtering",
                 "produces": [
                     "application/json"
@@ -182,6 +206,14 @@ const docTemplate = `{
         },
         "/financial/timeline/{year}": {
             "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Upserts financial data edits for a given year",
                 "consumes": [
                     "application/json"
@@ -258,6 +290,14 @@ const docTemplate = `{
         },
         "/scenario-events": {
             "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "List all scenario events or create a new one",
                 "consumes": [
                     "application/json"
@@ -312,6 +352,14 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "List all scenario events or create a new one",
                 "consumes": [
                     "application/json"
@@ -1312,9 +1360,16 @@ const docTemplate = `{
         }
     },
     "securityDefinitions": {
-        "ApiKeyAuth": {
+        "AuthToken": {
+            "description": "JWT token for production authentication (HMAC-signed with BACKEND_SHARED_SECRET)",
             "type": "apiKey",
-            "name": "X-API-Key",
+            "name": "X-Auth-Token",
+            "in": "header"
+        },
+        "SessionID": {
+            "description": "User/Session ID for development mode authentication",
+            "type": "apiKey",
+            "name": "X-Session-ID",
             "in": "header"
         }
     }
