@@ -147,6 +147,24 @@ func (h *CashAccountHandler) delete(w http.ResponseWriter, r *http.Request, id s
 	if !ok {
 		return
 	}
+
+	// Check if this is the accumulator account
+	account, err := h.store.GetCashAccount(r.Context(), userID, id)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w)
+		return
+	}
+
+	// Prevent deletion of accumulator account
+	if account.IsAccumulator {
+		writeError(w, http.StatusBadRequest, "cannot_delete_accumulator", "Cannot delete cash accumulator account. Set balance to 0 instead.")
+		return
+	}
+
 	if err := h.store.DeleteCashAccount(r.Context(), userID, id); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)

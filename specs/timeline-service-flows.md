@@ -1,7 +1,10 @@
 # Timeline Service Flow Analysis - Complete CRUD Mapping
 
 **Generated:** 2025-12-05
+**Updated:** 2025-12-06 (Added middleware flow and performance notes)
 **Purpose:** Deep dive into all flows that touch timeline service.go, mapping ALL functions for ALL CRUD operations
+
+**⚠️ See Also:** `timeline-performance-analysis.md` for detailed bottleneck analysis and optimization strategies
 
 ---
 
@@ -35,12 +38,15 @@
 timelineApi.getTimeline() // frontend/src/services/timelineApi.ts:39
 ```
 
+**Performance Note:** ~1.43s for monthly resolution with scenarios. See `timeline-performance-analysis.md` for optimization strategies.
+
 **Flow:**
 
 ```mermaid
 sequenceDiagram
     participant FE as Frontend<br/>timelineApi.ts
     participant Next as Next.js BFF<br/>/api/v1
+    participant Middleware as UserInit<br/>Middleware
     participant Handler as TimelineHandler<br/>HandleGetTimeline
     participant Service as TimelineService<br/>GetTimeline
     participant Build as TimelineService<br/>buildTimeline
@@ -48,85 +54,62 @@ sequenceDiagram
     participant DB as PostgreSQL
 
     FE->>Next: GET /api/v1/financial/timeline
-    Next->>Handler: HandleGetTimeline(w, r)
+    Next->>Middleware: Middleware chain
+
+    Note over Middleware,DB: UserInit Middleware (⚠️ ~50-100ms)
+    Middleware->>DB: GetAccumulatorAccount(userID)
+    alt No accumulator found
+        Middleware->>DB: CreateCashAccount(default)
+        Note over Middleware: Creates "Cash" account<br/>with 0 balance, 1.5% rate
+    end
+    DB-->>Middleware: CashAccount
+
+    Middleware->>Handler: HandleGetTimeline(w, r)
     Handler->>Handler: Extract user context<br/>from middleware
     Handler->>Service: GetTimeline(ctx)
     Service->>Service: getUserIDFromContext(ctx)
+
+    Note over Service,DB: Parallel Data Fetch (⚠️ ~200-400ms)
     Service->>Build: buildTimeline(ctx, userID)
 
-    Build->>Repo: GetUserSettings(ctx, userID)
-    Repo->>DB: SELECT FROM user_settings<br/>WHERE user_id = $1
-    DB-->>Repo: UserSettings or defaults
-    Repo-->>Build: UserSettings
-
-    Build->>Build: Calculate totalYears from<br/>TerminalAge - StartingAge + 1
-
-    Build->>Service: ensureGrowth(ctx, userID)
-    Service->>Repo: GetGrowthConfigs(ctx, userID)
-    Repo->>DB: SELECT FROM growth_configs<br/>WHERE user_id = $1
-    DB-->>Repo: GrowthConfigs or empty
-    Repo-->>Service: []GrowthConfig
-
-    alt No growth configs exist
-        Service->>Repo: UpsertGrowthConfigs(ctx, userID, defaults)
-        Repo->>DB: INSERT INTO growth_configs
-        DB-->>Repo: Success
+    Note over Build,DB: 5 parallel goroutines (errgroup)
+    par Parallel Queries
+        Build->>Repo: GetUserSettings(ctx, userID)
+        Repo->>DB: SELECT FROM user_settings<br/>WHERE user_id = $1
+        and
+        Build->>Repo: GetGrowthConfigs(ctx, userID)
+        Repo->>DB: SELECT FROM growth_configs<br/>WHERE user_id = $1
+        and
+        Build->>Repo: GetAccumulatorAccount(ctx, userID)
+        Repo->>DB: SELECT FROM cash_accounts<br/>WHERE user_id = $1<br/>AND is_accumulator = true
+        and
+        Build->>Repo: ListCashAccounts(ctx, userID)
+        Repo->>DB: SELECT FROM cash_accounts<br/>WHERE user_id = $1
+        and
+        Build->>Service: loadEffectiveRows(ctx, userID)
+        Service->>Repo: ListAllAssets(ctx, userID)
+        Repo->>DB: SELECT * FROM finance_assets<br/>WHERE user_id = $1
+        Service->>Repo: ListAllLiabilities(ctx, userID)
+        Repo->>DB: SELECT * FROM finance_liabilities<br/>WHERE user_id = $1
+        Service->>Repo: ListAllIncomes(ctx, userID)
+        Repo->>DB: SELECT * FROM finance_incomes<br/>WHERE user_id = $1
+        Service->>Repo: ListAllExpenses(ctx, userID)
+        Repo->>DB: SELECT * FROM finance_expenses<br/>WHERE user_id = $1
     end
-    Service-->>Build: []GrowthConfig
 
-    Build->>Service: ensureAccumulatorAccount(ctx, userID)
-    Service->>Repo: GetAccumulatorAccount(ctx, userID)
-    Repo->>DB: SELECT FROM cash_accounts<br/>WHERE user_id = $1<br/>AND is_accumulator = true
-
-    alt No accumulator found
-        Service->>Repo: ListCashAccounts(ctx, userID)
-        Repo->>DB: SELECT FROM cash_accounts
-        DB-->>Repo: []CashAccount
-
-        alt No cash accounts exist
-            Service->>Repo: CreateCashAccount(ctx, defaultAccount)
-            Repo->>DB: INSERT INTO cash_accounts
-            DB-->>Repo: CashAccount
-        else Cash accounts exist
-            Service->>Repo: SetAccumulatorAccount(ctx, userID, firstAccountID)
-            Repo->>DB: UPDATE cash_accounts<br/>SET is_accumulator = true
-        end
-    end
-    Service-->>Build: CashAccount (accumulator)
-
-    Build->>Repo: ListCashAccounts(ctx, userID)
-    Repo->>DB: SELECT FROM cash_accounts<br/>WHERE user_id = $1
-    DB-->>Repo: []CashAccount
-    Repo-->>Build: []CashAccount
-
-    Build->>Service: loadEffectiveRows(ctx, userID)
-    Service->>Repo: ListAllAssets(ctx, userID)
-    Repo->>DB: SELECT * FROM finance_assets<br/>WHERE user_id = $1
-    DB-->>Repo: []Asset
-
-    Service->>Repo: ListAllLiabilities(ctx, userID)
-    Repo->>DB: SELECT * FROM finance_liabilities<br/>WHERE user_id = $1
-    DB-->>Repo: []Liability
-
-    Service->>Repo: ListAllIncomes(ctx, userID)
-    Repo->>DB: SELECT * FROM finance_incomes<br/>WHERE user_id = $1
-    DB-->>Repo: []Income
-
-    Service->>Repo: ListAllExpenses(ctx, userID)
-    Repo->>DB: SELECT * FROM finance_expenses<br/>WHERE user_id = $1
-    DB-->>Repo: []Expense
-
-    Service-->>Build: []effectiveRow (all financial items)
+    Note over Build: All 5 goroutines complete<br/>Total: 8 DB queries in parallel
 
     Build->>Build: Convert absolute years to relative<br/>baseYear = time.Now().Year()<br/>relativeYear = StartYear - baseYear
 
     Build->>Build: Initialize state map and<br/>accumulatedCash from accumulator.Balance
 
+    Note over Build: Timeline Build Loop (⚠️ ~400-600ms for 420 months)
     loop For each year (0 to totalYears-1)
         Build->>Build: Track cashAtStart
         Build->>Build: Expire items by end_year
 
         alt year > 0
+            Note over Build: ⚠️ Bottleneck: growth calculation<br/>Uses math.Pow() for each item
             Build->>Build: Apply growth to all items<br/>rate = lookupGrowthRate(growthCfg, category, itemType)<br/>amount = applyGrowth(amount, rate)
         end
 

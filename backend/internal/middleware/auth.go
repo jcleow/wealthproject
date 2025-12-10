@@ -7,11 +7,26 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
+	"financial-chat-system/backend/internal/financial/repository"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 type userContextKey struct{}
+
+var (
+	// Cache of users who have been initialized (cash accumulator created)
+	initializedUsers sync.Map
+	// Store reference for creating cash accounts
+	finStore *repository.Store
+)
+
+// SetFinancialStore sets the repository store for user initialization
+func SetFinancialStore(store *repository.Store) {
+	finStore = store
+}
 
 // UserContext represents authenticated request metadata
 type UserContext struct {
@@ -21,6 +36,7 @@ type UserContext struct {
 }
 
 // Authenticate verifies HMAC-signed requests from the BFF and extracts user context
+// It also ensures new users have a cash accumulator account created (onboarding)
 func Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authToken := r.Header.Get("X-Auth-Token")
@@ -49,6 +65,11 @@ func Authenticate(next http.Handler) http.Handler {
 			userID = r.Header.Get("X-Session-ID")
 		}
 
+		// Ensure user has cash accumulator account (onboarding)
+		if userID != "" && finStore != nil {
+			ensureCashAccumulator(r.Context(), userID)
+		}
+
 		ctx := context.WithValue(r.Context(), userContextKey{}, UserContext{
 			UserID:     userID,
 			Token:      authToken,
@@ -56,6 +77,39 @@ func Authenticate(next http.Handler) http.Handler {
 		})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// ensureCashAccumulator creates a default cash accumulator for new users (cached)
+func ensureCashAccumulator(ctx context.Context, userID string) {
+	// Check cache first - avoid DB query if already initialized
+	if _, exists := initializedUsers.Load(userID); exists {
+		return
+	}
+
+	// Check if accumulator exists in database
+	_, err := finStore.GetAccumulatorAccount(ctx, userID)
+	if err == nil {
+		// Accumulator exists, cache and return
+		initializedUsers.Store(userID, true)
+		return
+	}
+
+	// Create default cash accumulator account (onboarding)
+	_, err = finStore.CreateCashAccount(ctx, repository.CashAccount{
+		UserID:        userID,
+		Name:          "Cash",
+		Balance:       0,
+		InterestRate:  1.5,
+		IsAccumulator: true,
+		StartYear:     time.Now().Year(),
+	})
+	if err != nil {
+		log.Printf("[Auth] Failed to create cash accumulator for user %s: %v", userID, err)
+		return
+	}
+
+	log.Printf("[Auth] Created cash accumulator for new user: %s", userID)
+	initializedUsers.Store(userID, true)
 }
 
 // verifyBFFToken verifies the HMAC-signed JWT from the Next.js BFF and extracts the user ID
