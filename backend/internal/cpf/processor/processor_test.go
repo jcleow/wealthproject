@@ -65,8 +65,8 @@ func TestProcessOrdinaryWage_CitizenUnder55(t *testing.T) {
 			takeHomeExpected.String(), result.NetTakeHomePay.String())
 	}
 
-	if result.WageType != WageTypeOW {
-		t.Errorf("wage type: expected %s, got %s", WageTypeOW, result.WageType)
+	if result.CPFWageType != CPFWageTypeOW {
+		t.Errorf("wage type: expected %s, got %s", CPFWageTypeOW, result.CPFWageType)
 	}
 
 	t.Logf("OW Result: Employee=%s, Employer=%s, Total=%s, TakeHome=%s",
@@ -200,8 +200,8 @@ func TestProcessAdditionalWage_Bonus(t *testing.T) {
 		t.Fatalf("failed to process AW: %v", err)
 	}
 
-	if result.WageType != WageTypeAW {
-		t.Errorf("wage type: expected %s, got %s", WageTypeAW, result.WageType)
+	if result.CPFWageType != CPFWageTypeAW {
+		t.Errorf("wage type: expected %s, got %s", CPFWageTypeAW, result.CPFWageType)
 	}
 
 	// Bonus should be fully used (under annual ceiling)

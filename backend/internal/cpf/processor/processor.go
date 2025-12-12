@@ -11,12 +11,12 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 )
 
-// WageType represents the type of wage for CPF calculation
-type WageType string
+// CPFWageType represents the type of wage for CPF calculation
+type CPFWageType string
 
 const (
-	WageTypeOW WageType = "ow" // Ordinary Wages (monthly salary)
-	WageTypeAW WageType = "aw" // Additional Wages (bonus, commission)
+	CPFWageTypeOW CPFWageType = "ow" // Ordinary Wages (monthly salary)
+	CPFWageTypeAW CPFWageType = "aw" // Additional Wages (bonus, commission)
 )
 
 // Processor handles CPF contribution calculations for timeline processing.
@@ -49,7 +49,7 @@ type ContributionResult struct {
 	AllocationSA         *decimal.Decimal // Amount to Special Account
 	AllocationMA         *decimal.Decimal // Amount to MediSave Account
 	AllocationRA         *decimal.Decimal // Amount to Retirement Account
-	WageType             WageType         // OW or AW
+	CPFWageType          CPFWageType      // OW or AW
 }
 
 // NewProcessor creates a new CPF processor for the given account.
@@ -130,7 +130,7 @@ func (p *Processor) ProcessOrdinaryWage(
 	cappedWage := decimal.MustFromFloat64(result.CappedWage)
 	state.YTDOrdinaryWages, _ = state.YTDOrdinaryWages.Add(cappedWage)
 
-	return p.buildResult(grossAmount, &result, WageTypeOW), nil
+	return p.buildResult(grossAmount, &result, CPFWageTypeOW), nil
 }
 
 // ProcessAdditionalWage calculates CPF for additional wages (bonus, commission).
@@ -160,7 +160,7 @@ func (p *Processor) ProcessAdditionalWage(
 	// Update YTD additional wages
 	state.YTDAWSWages, _ = state.YTDAWSWages.Add(decimal.MustFromFloat64(result.CappedWage))
 
-	return p.buildResult(grossAmount, &result, WageTypeAW), nil
+	return p.buildResult(grossAmount, &result, CPFWageTypeAW), nil
 }
 
 // AddContributionToState adds the contribution allocations to the accumulated balances.
@@ -189,7 +189,7 @@ func (p *Processor) getConfigForDate(date time.Time) (*config.CPFConfiguration, 
 }
 
 // buildResult converts the calculator result to our ContributionResult type.
-func (p *Processor) buildResult(grossAmount *decimal.Decimal, result *contribution.ContributionResult, wageType WageType) *ContributionResult {
+func (p *Processor) buildResult(grossAmount *decimal.Decimal, result *contribution.ContributionResult, cpfWageType CPFWageType) *ContributionResult {
 	return &ContributionResult{
 		GrossAmount:          grossAmount,
 		CappedAmount:         decimal.MustFromFloat64(result.CappedWage),
@@ -201,7 +201,7 @@ func (p *Processor) buildResult(grossAmount *decimal.Decimal, result *contributi
 		AllocationSA:         decimal.MustFromFloat64(result.Allocation.SA),
 		AllocationMA:         decimal.MustFromFloat64(result.Allocation.MA),
 		AllocationRA:         decimal.MustFromFloat64(result.Allocation.RA),
-		WageType:             wageType,
+		CPFWageType:          cpfWageType,
 	}
 }
 

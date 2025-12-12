@@ -36,8 +36,8 @@ type FinancialDataRow struct {
 	GrowthRate    decimal.Decimal // Per-item growth rate (percentage)
 	IsAccumulator bool            // For cash accounts - identifies the accumulator account
 	// CPF-related fields (for incomes)
-	CPFApplicable bool                  // Whether CPF contributions apply to this income
-	CPFWageType   cpfProcessor.WageType // WageTypeOW (Ordinary Wages) or WageTypeAW (Additional Wages)
+	CPFApplicable bool                     // Whether CPF contributions apply to this income
+	CPFWageType   cpfProcessor.CPFWageType // CPFWageTypeOW (Ordinary Wages) or CPFWageTypeAW (Additional Wages)
 }
 
 // EffectiveRows holds all financial data organized by type
@@ -147,7 +147,7 @@ func transformIncomes(incomes []repo.Income) []FinancialDataRow {
 			ItemType:      FinIncome,
 			GrowthRate:    i.GrowthRate,
 			CPFApplicable: i.CPFApplicable,
-			CPFWageType:   cpfProcessor.WageType(i.CPFWageType),
+			CPFWageType:   cpfProcessor.CPFWageType(i.CPFWageType),
 		})
 	}
 	return rows
@@ -294,7 +294,7 @@ func (c *CPFContext) ProcessIncomes(
 		}
 
 		var result *cpfProcessor.ContributionResult
-		if income.CPFWageType == cpfProcessor.WageTypeOW {
+		if income.CPFWageType == cpfProcessor.CPFWageTypeOW {
 			result, _ = c.Processor.ProcessOrdinaryWage(state[income.ID], c.State, date)
 		} else {
 			result, _ = c.Processor.ProcessAdditionalWage(state[income.ID], c.State, date)
