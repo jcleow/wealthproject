@@ -23,96 +23,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/v2/financial/timeline/chart": {
-            "get": {
-                "security": [
-                    {
-                        "SessionID": []
-                    },
-                    {
-                        "AuthToken": []
-                    }
-                ],
-                "description": "Returns the simplified financial timeline chart with net worth projections",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Timeline V2"
-                ],
-                "summary": "Get financial timeline chart (v2)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "yearly",
-                        "description": "Resolution (yearly or monthly)",
-                        "name": "resolution",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/timeline_v2.TimelineAnnualChartResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v2/financial/timeline/snapshot": {
-            "get": {
-                "security": [
-                    {
-                        "SessionID": []
-                    },
-                    {
-                        "AuthToken": []
-                    }
-                ],
-                "description": "Returns monthly snapshots with net worth, assets, liabilities, and cash balance",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Timeline V2"
-                ],
-                "summary": "Get monthly financial snapshots (v2)",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/timeline_v2.MonthlySnapshot"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/chat": {
+        "/v1/chat": {
             "post": {
                 "security": [
                     {
@@ -168,7 +79,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/financial/actions/dispatch": {
+        "/v1/financial/actions/dispatch": {
             "post": {
                 "security": [
                     {
@@ -231,7 +142,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/financial/timeline": {
+        "/v1/financial/timeline": {
             "get": {
                 "security": [
                     {
@@ -293,7 +204,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/financial/timeline/{year}": {
+        "/v1/financial/timeline/{year}": {
             "put": {
                 "security": [
                     {
@@ -357,7 +268,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/health": {
+        "/v1/health": {
             "get": {
                 "description": "Get the health status of the application",
                 "produces": [
@@ -377,7 +288,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/scenario-events": {
+        "/v1/scenario-events": {
             "get": {
                 "security": [
                     {
@@ -503,7 +414,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/tools": {
+        "/v1/tools": {
             "get": {
                 "description": "Returns a list of all available financial tools and their metadata",
                 "produces": [
@@ -516,6 +427,95 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/financial/timeline/chart": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns the simplified financial timeline chart with net worth projections",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Timeline V2"
+                ],
+                "summary": "Get financial timeline chart (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "yearly",
+                        "description": "Resolution (yearly or monthly)",
+                        "name": "resolution",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/timeline_v2.TimelineAnnualChartResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/financial/timeline/snapshot": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns monthly snapshots with net worth, assets, liabilities, and cash balance",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Timeline V2"
+                ],
+                "summary": "Get monthly financial snapshots (v2)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/timeline_v2.MonthlySnapshot"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1545,7 +1545,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:8080",
-	BasePath:         "/api/v1",
+	BasePath:         "/api",
 	Schemes:          []string{"http", "https"},
 	Title:            "Financial Chat System API",
 	Description:      "API for managing financial data, chat interactions, and scenario planning",

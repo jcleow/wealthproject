@@ -30,7 +30,7 @@ func NewTimelineV2Handler(svc *timeline_v2.Service) *TimelineV2Handler {
 // @Failure 500 {object} map[string]interface{}
 // @Security SessionID
 // @Security AuthToken
-// @Router /api/v2/financial/timeline/chart [get]
+// @Router /v2/financial/timeline/chart [get]
 func (h *TimelineV2Handler) HandleGetTimelineChart(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	resolution := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("resolution")))
@@ -54,4 +54,27 @@ func (h *TimelineV2Handler) HandleGetTimelineChart(w http.ResponseWriter, r *htt
 
 	// Return JSON response
 	writeJSON(w, resp)
+}
+
+// HandleGetSnapshot returns monthly financial snapshots for 420 months
+// @Summary Get monthly financial snapshots (v2)
+// @Description Returns monthly snapshots with net worth, assets, liabilities, and cash balance
+// @Tags Timeline V2
+// @Produce json
+// @Success 200 {object} []timeline_v2.MonthlySnapshot
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/financial/timeline/snapshot [get]
+func (h *TimelineV2Handler) HandleGetSnapshot(w http.ResponseWriter, r *http.Request) {
+	userCtx := middleware.GetUserContext(r.Context())
+
+	// Call service with empty options for now
+	snapshots, err := h.svc.ComputeFinancialSnapshot(r.Context(), userCtx.UserID)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+
+	writeJSON(w, snapshots)
 }

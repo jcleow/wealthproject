@@ -126,7 +126,7 @@ type ExecutionSummary struct {
 // @Failure 409 {object} map[string]interface{}
 // @Security SessionID
 // @Security AuthToken
-// @Router /financial/actions/dispatch [post]
+// @Router /v1/financial/actions/dispatch [post]
 func (h *DispatchHandler) HandleDispatch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	startTime := time.Now()

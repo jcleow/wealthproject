@@ -35,7 +35,7 @@ type HealthResponse struct {
 // @Tags Health
 // @Produce json
 // @Success 200 {object} HealthResponse
-// @Router /health [get]
+// @Router /v1/health [get]
 func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	uptime := time.Since(h.startTime)
 
@@ -83,7 +83,7 @@ func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 // @Tags Health
 // @Produce json
 // @Success 200 {object} map[string]interface{}
-// @Router /tools [get]
+// @Router /v1/tools [get]
 func (h *HealthHandler) HandleTools(w http.ResponseWriter, r *http.Request) {
 	registry := financial.GetRegistry()
 	tools := registry.GetTools()

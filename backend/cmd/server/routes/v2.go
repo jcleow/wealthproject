@@ -46,6 +46,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	// Timeline v2 endpoints
 	timelineHandler := handlers.NewTimelineV2Handler(deps.TimelineService)
 	router.HandleFunc("/financial/timeline/chart", timelineHandler.HandleGetTimelineChart).Methods("GET")
+	router.HandleFunc("/financial/timeline/snapshot", timelineHandler.HandleGetSnapshot).Methods("GET")
 
 	// Future v2 endpoints will go here
 }

@@ -22,7 +22,7 @@ import (
 	"financial-chat-system/backend/internal/session"
 	"financial-chat-system/backend/internal/usage"
 
-	_ "financial-chat-system/docs"
+	_ "financial-chat-system/backend/cmd/server/docs"
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
@@ -41,7 +41,7 @@ import (
 // @license.url https://opensource.org/licenses/MIT
 
 // @host localhost:8080
-// @BasePath /api/v1
+// @BasePath /api
 // @schemes http https
 
 // @securityDefinitions.apikey AuthToken

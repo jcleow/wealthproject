@@ -146,7 +146,7 @@ func loadSystemPrompt() (string, error) {
 // @Failure 500 {object} map[string]interface{}
 // @Security SessionID
 // @Security AuthToken
-// @Router /chat [post]
+// @Router /v1/chat [post]
 func (h *ChatHandler) HandleChat(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
