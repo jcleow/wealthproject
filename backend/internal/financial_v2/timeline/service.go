@@ -488,7 +488,8 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 }
 
 // buildCashAssetResponses builds responses for cash assets and returns total value and accumulator ID
-func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) ([]CashAssetResponse, *decimal.Decimal, string) {
+// cashAccumulator is added to the accumulator account's balance
+func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time, cashAccumulator *decimal.Decimal) ([]CashAssetResponse, *decimal.Decimal, string) {
 	responses := make([]CashAssetResponse, 0)
 	total := decimal.Zero()
 	var accumulatorID string
@@ -505,13 +506,18 @@ func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 		if row.IsAccumulator {
 			accumulatorID = row.ID
 		}
-		balance := state.Balance.Round(0)
+		balance := state.Balance
+		// Add accumulated cash to the accumulator account
+		if row.IsAccumulator && cashAccumulator != nil {
+			balance, _ = balance.Add(cashAccumulator)
+		}
+		balanceRounded := balance.Round(0)
 		responses = append(responses, CashAssetResponse{
 			ItemID:        row.ID,
 			Name:          row.Name,
 			Category:      row.Category,
-			Balance:       *balance,
-			AdjBalance:    *balance,
+			Balance:       *balanceRounded,
+			AdjBalance:    *balanceRounded,
 			ItemType:      string(row.ItemType),
 			CreatedYear:   state.CreatedYear,
 			CreatedMonth:  state.CreatedMonth,
@@ -754,7 +760,7 @@ func buildMonthDetailResponse(
 
 	// Build all item responses
 	nonCashAssets, nonCashTotal := buildNonCashAssetResponses(data.NonCashAssets, itemStates, date)
-	cashAssets, cashTotal, accumulatorID := buildCashAssetResponses(data.CashAssets, itemStates, date)
+	cashAssets, cashTotal, accumulatorID := buildCashAssetResponses(data.CashAssets, itemStates, date, cashAccumulator)
 	liabilities, liabilityTotal := buildLiabilityResponses(data.Liabilities, itemStates, date)
 	incomes := buildIncomeResponses(data.Incomes, itemStates, date, cpfContributions)
 	expenses := buildExpenseResponses(data.Expenses, itemStates, date)
