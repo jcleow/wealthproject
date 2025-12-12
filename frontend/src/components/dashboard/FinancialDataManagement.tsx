@@ -36,7 +36,6 @@ import type {
   CPFAssetResponseV2,
   LiabilityResponseV2,
   IncomeResponseV2,
-  CPFContributionResponseV2,
   ExpenseResponseV2,
 } from '@/types/timeline'
 
@@ -136,25 +135,6 @@ function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
     createdYear: item.createdYear,
     createdMonth: item.createdMonth,
     growthRate: parseDecimal(item.growthRate),
-  }
-}
-
-function cpfContributionV2ToTimelineItem(item: CPFContributionResponseV2): TimelineItem {
-  const totalContrib = parseDecimal(item.totalContribution)
-  return {
-    itemId: item.id,
-    parentId: item.parentId,
-    name: item.name,
-    category: item.category,
-    amountAnnual: totalContrib,
-    adjAnnualAmt: totalContrib,
-    amountMonthly: totalContrib,
-    adjMonthlyAmt: totalContrib,
-    sourceFrequency: item.sourceFrequency as TimelineFrequency,
-    itemType: 'cpf_contribution',
-    createdYear: item.createdYear,
-    createdMonth: item.createdMonth,
-    growthRate: 0,
   }
 }
 
@@ -365,9 +345,10 @@ export function FinancialDataManagement({
   }, [hasV2Data, timelineMonthV2, showMonthlyData, timelineMonth, timelineYear])
 
   // CPF Contributions (V2 only) - displayed as sub-section in Income card
-  const cpfContributions = useMemo(() => {
+  // Keep raw data to access employee/employer breakdown
+  const cpfContributionsRaw = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
-      return timelineMonthV2.cpfContributions.map(cpfContributionV2ToTimelineItem)
+      return timelineMonthV2.cpfContributions
     }
     return []
   }, [hasV2Data, timelineMonthV2])
@@ -984,8 +965,10 @@ export function FinancialDataManagement({
                 const data = sortItems(getDataForCategory(key), direction)
                 const hasData = data.length > 0
 
-                // Calculate a mock trend (in real app, compare to previous period)
-                const categoryTotal = getCategoryTotal(key, data)
+                // Calculate category total, including CPF assets for the asset category
+                const baseTotal = getCategoryTotal(key, data)
+                const cpfAssetsTotal = key === 'asset' ? cpfAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0) : 0
+                const categoryTotal = baseTotal + cpfAssetsTotal
                 const mockTrend = key === 'asset' ? 12.5 : key === 'income' ? 5.2 : key === 'liability' ? -2.1 : 1.2
                 const isPositiveTrend = mockTrend >= 0
                 const IconComponent = config.icon
@@ -1353,22 +1336,28 @@ export function FinancialDataManagement({
                           )}
 
                           {/* CPF Contributions Sub-section for Income (V2 only) */}
-                          {key === 'income' && cpfContributions.length > 0 && (
+                          {key === 'income' && cpfContributionsRaw.length > 0 && (
                             <div className="mt-3 border-t border-white/[0.06] pt-3">
                               <div className="mb-2 flex items-center gap-2 px-2">
                                 <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">CPF Contributions</span>
-                                <span className="text-[10px] text-slate-600">({formatCurrency(cpfContributions.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0))})</span>
+                                <span className="text-[10px] text-slate-600">({formatCurrency(cpfContributionsRaw.reduce((sum, item) => sum + parseDecimal(item.totalContribution), 0))})</span>
                               </div>
-                              {cpfContributions.map((item, index) => (
-                                <div
-                                  key={item.itemId || `cpf-contrib-${index}`}
-                                  className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
-                                >
-                                  <span className="truncate text-sm text-slate-300">{item.name}</span>
-                                  <span className="text-sm font-medium text-slate-200">
-                                    {formatCurrency(getDisplayAmount(item))}
-                                    {showMonthlyData && <span className="ml-1 text-xs text-slate-400">/mo</span>}
-                                  </span>
+                              {cpfContributionsRaw.map((item, index) => (
+                                <div key={item.id || `cpf-contrib-${index}`}>
+                                  <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
+                                    <span className="truncate text-sm text-slate-300">Employee Contribution - {item.name.replace('CPF Contribution - ', '')}</span>
+                                    <span className="font-mono text-sm text-slate-300">
+                                      ({formatCurrency(parseDecimal(item.employeeContribution))})
+                                      <span className="ml-1 text-xs text-slate-400">/mo</span>
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
+                                    <span className="truncate text-sm text-slate-300">Employer Contribution - {item.name.replace('CPF Contribution - ', '')}</span>
+                                    <span className="font-mono text-sm text-slate-300">
+                                      ({formatCurrency(parseDecimal(item.employerContribution))})
+                                      <span className="ml-1 text-xs text-slate-400">/mo</span>
+                                    </span>
+                                  </div>
                                 </div>
                               ))}
                             </div>
