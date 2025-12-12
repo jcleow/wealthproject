@@ -243,7 +243,7 @@ func TestYTDReset_AtYearBoundary(t *testing.T) {
 	}
 
 	// Reset for new year
-	processor.ResetYTDBalances(state)
+	processor.ResetYtdAWCeiling(state)
 
 	// YTD should be zero
 	if !state.YTDOrdinaryWages.IsZero() {

@@ -99,9 +99,10 @@ func NewCPFBalances(cpfAccount *account.CPFAccount) *CPFBalances {
 	}
 }
 
-// ResetYTDBalances resets the year-to-date wage tracking at year boundaries.
+// ResetYtdAWCeiling resets the year-to-date wage tracking at year boundaries.
+// This affects the AW ceiling calculation: AW Ceiling = $102,000 - YTD OW - YTD AW.
 // Call this when transitioning to a new year in the timeline.
-func (p *Processor) ResetYTDBalances(balances *CPFBalances) {
+func (p *Processor) ResetYtdAWCeiling(balances *CPFBalances) {
 	balances.YTDOrdinaryWages = decimal.Zero()
 	balances.YTDAWSWages = decimal.Zero()
 }

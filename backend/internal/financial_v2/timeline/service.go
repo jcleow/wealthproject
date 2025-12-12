@@ -49,6 +49,12 @@ type EffectiveRows struct {
 	Expenses      []FinancialDataRow
 }
 
+// SGFinancialDataRows wraps financial data with Singapore-specific CPF account
+type SGFinancialDataRows struct {
+	Rows       EffectiveRows
+	CPFAccount *account.CPFAccount
+}
+
 // ItemState tracks the current computed state of a financial item
 type ItemState struct {
 	Row          FinancialDataRow
@@ -182,7 +188,7 @@ func (s *Service) loadEffectiveRows(
 	userID string,
 	dateOpts repo.DateRangeOptions,
 	paginationOpts repo.PaginationParams,
-) (EffectiveRows, *account.CPFAccount, error) {
+) (SGFinancialDataRows, error) {
 	var (
 		nonCashAssets repo.PaginatedResult[repo.NonCashAsset]
 		cashAssets    repo.PaginatedResult[repo.CashAsset]
@@ -231,17 +237,20 @@ func (s *Service) loadEffectiveRows(
 	})
 
 	if err := g.Wait(); err != nil {
-		return EffectiveRows{}, nil, err
+		return SGFinancialDataRows{}, err
 	}
 
 	// Transform repository types to FinancialDataRow
-	return EffectiveRows{
-		NonCashAssets: transformNonCashAssets(nonCashAssets.Data),
-		CashAssets:    transformCashAssets(cashAssets.Data),
-		Liabilities:   transformLiabilities(liabilities.Data),
-		Incomes:       transformIncomes(incomes.Data),
-		Expenses:      transformExpenses(expenses.Data),
-	}, mapToCPFAccount(cpfAccount), nil
+	return SGFinancialDataRows{
+		Rows: EffectiveRows{
+			NonCashAssets: transformNonCashAssets(nonCashAssets.Data),
+			CashAssets:    transformCashAssets(cashAssets.Data),
+			Liabilities:   transformLiabilities(liabilities.Data),
+			Incomes:       transformIncomes(incomes.Data),
+			Expenses:      transformExpenses(expenses.Data),
+		},
+		CPFAccount: mapToCPFAccount(cpfAccount),
+	}, nil
 }
 
 // =============================================================================
@@ -264,13 +273,13 @@ func NewCPFContext(cpfAccount *account.CPFAccount) *CPFContext {
 	return &CPFContext{Processor: proc, Balances: balances}
 }
 
-// ResetYTDIfNewYear resets YTD tracking at year boundaries
+// ResetYTDIfNewYear resets YTD tracking at year boundaries for AW ceiling calculation
 func (c *CPFContext) ResetYTDIfNewYear(date time.Time, monthIdx int) {
 	if c == nil || monthIdx == 0 {
 		return
 	}
 	if date.Month() == 1 {
-		c.Processor.ResetYTDBalances(c.Balances)
+		c.Processor.ResetYtdAWCeiling(c.Balances)
 	}
 }
 
@@ -674,17 +683,17 @@ func (s *Service) ComputeFinancialSnapshot(
 	}
 	paginationOpts := repo.PaginationParams{}
 
-	financialData, cpfAccount, err := s.loadEffectiveRows(ctx, userID, dateOpts, paginationOpts)
+	sgData, err := s.loadEffectiveRows(ctx, userID, dateOpts, paginationOpts)
 	if err != nil {
 		return TimelineV2Response{}, fmt.Errorf("failed to load financial data: %w", err)
 	}
 
 	baseYear := opts.StartDate.Year()
 	registry := growth.NewRegistry()
-	cpfCtx := NewCPFContext(cpfAccount)
+	cpfCtx := NewCPFContext(sgData.CPFAccount)
 
 	// itemStates: detailed tracking per item (includes metadata like CreatedYear/CreatedMonth)
-	itemStates := initializeItemStates(financialData, baseYear)
+	itemStates := initializeItemStates(sgData.Rows, baseYear)
 
 	// state: map of itemID -> current balance, mutated each month as growth is applied.
 	// This is the "running balance" for each financial item that compounds over time.
@@ -711,23 +720,23 @@ func (s *Service) ComputeFinancialSnapshot(
 		}
 
 		// Apply growth (strategies handle arrears logic internally)
-		applyGrowth(financialData.Incomes, growthCtx, growth.StrategyAnnualStep)
-		applyGrowth(financialData.Expenses, growthCtx, growth.StrategyAnnualStep)
-		applyGrowth(financialData.NonCashAssets, growthCtx, growth.StrategyMonthlyCompound)
-		applyGrowth(financialData.CashAssets, growthCtx, growth.StrategyMonthlyCompound)
-		applyGrowth(financialData.Liabilities, growthCtx, growth.StrategyMonthlyCompound)
+		applyGrowth(sgData.Rows.Incomes, growthCtx, growth.StrategyAnnualStep)
+		applyGrowth(sgData.Rows.Expenses, growthCtx, growth.StrategyAnnualStep)
+		applyGrowth(sgData.Rows.NonCashAssets, growthCtx, growth.StrategyMonthlyCompound)
+		applyGrowth(sgData.Rows.CashAssets, growthCtx, growth.StrategyMonthlyCompound)
+		applyGrowth(sgData.Rows.Liabilities, growthCtx, growth.StrategyMonthlyCompound)
 
 		// Process CPF contributions for applicable incomes
-		employeeCPF, cpfContributions := cpfCtx.ProcessIncomes(financialData.Incomes, state, currentDate)
+		employeeCPF, cpfContributions := cpfCtx.ProcessIncomes(sgData.Rows.Incomes, state, currentDate)
 
 		// Calculate net cash flow (deduct employee CPF) and update accumulator
-		netCashFlow := calculateNetCashFlow(financialData, state, currentDate)
+		netCashFlow := calculateNetCashFlow(sgData.Rows, state, currentDate)
 		netCashFlow, _ = netCashFlow.Sub(employeeCPF)
 		cashAccumulator, _ = cashAccumulator.Add(netCashFlow)
 
 		// Build response for this month
 		syncStateToItemStates(state, itemStates)
-		monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, financialData, itemStates, cashAccumulator, netCashFlow, cpfContributions)
+		monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, sgData.Rows, itemStates, cashAccumulator, netCashFlow, cpfContributions)
 		resultMonths = append(resultMonths, monthResponse)
 	}
 
