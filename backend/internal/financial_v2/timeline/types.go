@@ -18,15 +18,15 @@ const (
 )
 
 type TimelineYearlySummary struct {
-	Year      int             `json:"year"`
-	YearIndex int             `json:"yearIndex"`
-	NetWorth  decimal.Decimal `json:"netWorth"`
+	Year          int             `json:"year"`
+	AllYearsIndex int             `json:"allYearsIndex"`
+	NetWorth      decimal.Decimal `json:"netWorth"`
 }
 
 type TimelineMonthlySummary struct {
-	Month      int             `json:"month"`
-	MonthIndex int             `json:"monthIndex"`
-	NetWorth   decimal.Decimal `json:"netWorth"`
+	Month          int             `json:"month"`
+	AllMonthsIndex int             `json:"allMonthsIndex"`
+	NetWorth       decimal.Decimal `json:"netWorth"`
 	// To add future stuff e.g Assets, CPF Balance, Liabilities, Net Cash etc
 
 }
@@ -62,8 +62,10 @@ type Store interface {
 
 // TimelineOptions configures which months to return in the timeline response
 type TimelineOptions struct {
-	RelativeStartMonth int // 0-indexed start month relative to base year (inclusive), default 0
-	RelativeEndMonth   int // 0-indexed end month relative to base year (exclusive), default 420 (35 years), 0 means no limit
+	StartYear  int // Start year (inclusive), e.g., 2025
+	StartMonth int // Start month (1-12, inclusive), e.g., 1 for January
+	EndYear    int // End year (inclusive), e.g., 2060
+	EndMonth   int // End month (1-12, inclusive), e.g., 12 for December
 }
 
 // ========== Timeline V2 Response Types ==========
@@ -75,10 +77,10 @@ type TimelineV2Response struct {
 
 // MonthDetailResponse represents a single month in the timeline
 type MonthDetailResponse struct {
-	Year                 int                      `json:"year"`
-	Month                int                      `json:"month"`
-	YearIndex            int                      `json:"yearIndex"`
-	MonthIndex           int                      `json:"monthIndex"`
+	Year           int                      `json:"year"`
+	Month          int                      `json:"month"`
+	AllYearsIndex  int                      `json:"allYearsIndex"`
+	AllMonthsIndex int                      `json:"allMonthsIndex"`
 	NonCashAssets        []NonCashAssetResponse   `json:"nonCashAssets"`
 	CashAssets           []CashAssetResponse      `json:"cashAssets"`
 	CPFAssets            []CPFAssetResponse       `json:"cpfAssets"`

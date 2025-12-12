@@ -348,13 +348,14 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 			continue
 		}
 		total, _ = total.Add(state.Balance)
+		balance := state.Balance.Round(0)
 		responses = append(responses, NonCashAssetResponse{
 			ID:           row.ID,
 			ParentID:     row.ParentID,
 			Name:         row.Name,
 			Category:     row.Category,
-			Balance:      *state.Balance,
-			AdjBalance:   *state.Balance,
+			Balance:      *balance,
+			AdjBalance:   *balance,
 			ItemType:     string(row.ItemType),
 			StartDate:    row.StartDate.Format("2006-01-02"),
 			CreatedYear:  state.CreatedYear,
@@ -382,12 +383,13 @@ func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 		if row.IsAccumulator {
 			accumulatorID = row.ID
 		}
+		balance := state.Balance.Round(0)
 		responses = append(responses, CashAssetResponse{
 			ItemID:        row.ID,
 			Name:          row.Name,
 			Category:      row.Category,
-			Balance:       *state.Balance,
-			AdjBalance:    *state.Balance,
+			Balance:       *balance,
+			AdjBalance:    *balance,
 			ItemType:      string(row.ItemType),
 			CreatedYear:   state.CreatedYear,
 			CreatedMonth:  state.CreatedMonth,
@@ -413,16 +415,18 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 		total, _ = total.Add(state.Balance)
 		twelve := decimal.NewFromInt64(12, 0)
 		monthlyAmt, _ := state.Balance.Div(twelve)
+		annualRounded := state.Balance.Round(0)
+		monthlyRounded := monthlyAmt.Round(0)
 		responses = append(responses, LiabilityResponse{
 			ID:            row.ID,
 			ParentID:      row.ParentID,
 			Name:          row.Name,
 			Category:      row.Category,
-			AnnualAmt:     *state.Balance,
-			AdjAnnualAmt:  *state.Balance,
-			MonthlyAmt:    *monthlyAmt,
-			AdjMonthlyAmt: *monthlyAmt,
-			SourceAmount:  row.Amount,
+			AnnualAmt:     *annualRounded,
+			AdjAnnualAmt:  *annualRounded,
+			MonthlyAmt:    *monthlyRounded,
+			AdjMonthlyAmt: *monthlyRounded,
+			SourceAmount:  *row.Amount.Round(0),
 			ItemType:      string(row.ItemType),
 			CreatedYear:   state.CreatedYear,
 			CreatedMonth:  state.CreatedMonth,
@@ -443,18 +447,19 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, date
 		if state == nil {
 			continue
 		}
+		amount := state.Balance.Round(0)
 		responses = append(responses, IncomeResponse{
 			ID:              row.ID,
 			ParentID:        row.ParentID,
 			Name:            row.Name,
 			Category:        row.Category,
-			Amount:          *state.Balance,
-			AdjAmount:       *state.Balance,
+			Amount:          *amount,
+			AdjAmount:       *amount,
 			SourceFrequency: string(row.Frequency),
 			ItemType:        string(row.ItemType),
 			CreatedYear:     state.CreatedYear,
 			CreatedMonth:    state.CreatedMonth,
-			GrowthRate:      row.GrowthRate,
+			GrowthRate:      *row.GrowthRate.Round(0),
 		})
 	}
 	return responses
@@ -472,13 +477,14 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, dat
 		if state == nil {
 			continue
 		}
+		amount := state.Balance.Round(0)
 		responses = append(responses, ExpenseResponse{
 			ID:              row.ID,
 			ParentID:        row.ParentID,
 			Name:            row.Name,
 			Category:        row.Category,
-			Amount:          *state.Balance,
-			AdjAmount:       *state.Balance,
+			Amount:          *amount,
+			AdjAmount:       *amount,
 			SourceFrequency: string(row.Frequency),
 			ItemType:        string(row.ItemType),
 			CreatedYear:     state.CreatedYear,
@@ -516,10 +522,10 @@ func buildMonthDetailResponse(
 	netWorth, _ := totalAssets.Sub(liabilityTotal)
 
 	return MonthDetailResponse{
-		Year:                 baseYear + yearIndex,
-		Month:                month,
-		YearIndex:            yearIndex,
-		MonthIndex:           monthIndex,
+		Year:           baseYear + yearIndex,
+		Month:          month,
+		AllYearsIndex:  yearIndex,
+		AllMonthsIndex: monthIndex,
 		NonCashAssets:        nonCashAssets,
 		CashAssets:           cashAssets,
 		CPFAssets:            []CPFAssetResponse{},
@@ -527,9 +533,9 @@ func buildMonthDetailResponse(
 		Income:               incomes,
 		CPFContributions:     []CPFContributionResponse{},
 		Expenses:             expenses,
-		NetCash:              *cashAccumulator,
-		NetWorth:             *netWorth,
-		NetSavings:           *netSavings,
+		NetCash:              *cashAccumulator.Round(0),
+		NetWorth:             *netWorth.Round(0),
+		NetSavings:           *netSavings.Round(0),
 		AccumulatorAccountID: accumulatorID,
 	}
 }
@@ -538,33 +544,19 @@ func buildMonthDetailResponse(
 // Public Service Methods
 // =============================================================================
 
-// normalizeTimelineOptions applies defaults and validates timeline options
-func normalizeTimelineOptions(opts TimelineOptions) TimelineOptions {
-	const maxMonths = 420 // 35 years
-	if opts.RelativeEndMonth <= 0 || opts.RelativeEndMonth > maxMonths {
-		opts.RelativeEndMonth = maxMonths
-	}
-	if opts.RelativeStartMonth < 0 {
-		opts.RelativeStartMonth = 0
-	}
-	if opts.RelativeStartMonth > opts.RelativeEndMonth {
-		opts.RelativeStartMonth = opts.RelativeEndMonth
-	}
-	return opts
-}
-
-// ComputeFinancialSnapshot calculates monthly snapshots over the specified range
-// opts.RelativeStartMonth: 0-indexed start month relative to base year (inclusive)
-// opts.RelativeEndMonth: 0-indexed end month relative to base year (exclusive), 0 means 420 (35 years)
+// ComputeFinancialSnapshot calculates monthly snapshots over the specified date range
 func (s *Service) ComputeFinancialSnapshot(
 	ctx context.Context,
 	userID string,
 	opts TimelineOptions,
 ) (TimelineV2Response, error) {
-	opts = normalizeTimelineOptions(opts)
+	// Compute date range for DB filtering
+	startDate := time.Date(opts.StartYear, time.Month(opts.StartMonth), 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(opts.EndYear, time.Month(opts.EndMonth), 1, 0, 0, 0, 0, time.UTC)
 
-	// Use empty options to fetch all data
-	dateOpts := repo.DateRangeOptions{}
+	dateOpts := repo.DateRangeOptions{
+		ActiveBefore: &endDate,
+	}
 	paginationOpts := repo.PaginationParams{}
 
 	financialData, err := s.loadEffectiveRows(ctx, userID, dateOpts, paginationOpts)
@@ -572,7 +564,7 @@ func (s *Service) ComputeFinancialSnapshot(
 		return TimelineV2Response{}, fmt.Errorf("failed to load financial data: %w", err)
 	}
 
-	baseYear := time.Now().Year()
+	baseYear := opts.StartYear
 	registry := growth.NewRegistry()
 
 	// itemStates: detailed tracking per item (includes metadata like CreatedYear/CreatedMonth)
@@ -583,18 +575,19 @@ func (s *Service) ComputeFinancialSnapshot(
 	state := extractBalanceMap(itemStates)
 	cashAccumulator := decimal.Zero()
 
-	// Pre-allocate for the requested range
-	resultMonths := make([]MonthDetailResponse, 0, opts.RelativeEndMonth-opts.RelativeStartMonth)
+	// Calculate total months in range
+	totalMonths := (opts.EndYear-opts.StartYear)*12 + (opts.EndMonth - opts.StartMonth + 1)
+	resultMonths := make([]MonthDetailResponse, 0, totalMonths)
 
-	// Process each month up to RelativeEndMonth (need to compute all months for correct state)
-	for monthIdx := 0; monthIdx < opts.RelativeEndMonth; monthIdx++ {
-		currentDate := time.Date(baseYear, time.January, 1, 0, 0, 0, 0, time.UTC).AddDate(0, monthIdx, 0)
+	// Process each month from start to end
+	for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
+		currentDate := startDate.AddDate(0, monthIdx, 0)
 
 		growthCtx := &GrowthContext{
 			Registry:    registry,
 			State:       state,
 			Month:       monthIdx + 1,
-			MonthOfYear: (monthIdx % 12) + 1,
+			MonthOfYear: int(currentDate.Month()),
 			Date:        currentDate,
 		}
 
@@ -611,12 +604,10 @@ func (s *Service) ComputeFinancialSnapshot(
 		applyGrowth(financialData.CashAssets, growthCtx, growth.StrategyMonthlyCompound)
 		applyGrowth(financialData.Liabilities, growthCtx, growth.StrategyMonthlyCompound)
 
-		// Only include months within the requested range
-		if monthIdx >= opts.RelativeStartMonth {
-			syncStateToItemStates(state, itemStates)
-			monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, financialData, itemStates, cashAccumulator, netCashFlow)
-			resultMonths = append(resultMonths, monthResponse)
-		}
+		// Build response for this month
+		syncStateToItemStates(state, itemStates)
+		monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, financialData, itemStates, cashAccumulator, netCashFlow)
+		resultMonths = append(resultMonths, monthResponse)
 	}
 
 	return TimelineV2Response{Months: resultMonths}, nil

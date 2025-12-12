@@ -496,7 +496,7 @@ const docTemplate = `{
                         "AuthToken": []
                     }
                 ],
-                "description": "Returns detailed monthly snapshots with all financial items, balances, and summaries. Month indices are relative to the base year (current year). For example, relativeStartMonth=0 is January of current year, relativeStartMonth=12 is January of next year. The range is half-open: [relativeStartMonth, relativeEndMonth).",
+                "description": "Returns detailed monthly snapshots with all financial items, balances, and summaries. startYear and startMonth are required. If endYear/endMonth are not provided, returns only the single month specified by startYear/startMonth.",
                 "produces": [
                     "application/json"
                 ],
@@ -506,21 +506,37 @@ const docTemplate = `{
                 "summary": "Get monthly financial snapshots (v2)",
                 "parameters": [
                     {
-                        "maximum": 419,
-                        "minimum": 0,
+                        "maximum": 2100,
+                        "minimum": 2000,
                         "type": "integer",
-                        "default": 0,
-                        "description": "Start month index relative to base year (0-indexed, inclusive). 0 = January of current year, 12 = January of next year.",
-                        "name": "relativeStartMonth",
+                        "description": "Start year (inclusive, required)",
+                        "name": "startYear",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "maximum": 12,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Start month (1-12, inclusive, required)",
+                        "name": "startMonth",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "maximum": 2100,
+                        "minimum": 2000,
+                        "type": "integer",
+                        "description": "End year (inclusive). Defaults to startYear if not provided.",
+                        "name": "endYear",
                         "in": "query"
                     },
                     {
-                        "maximum": 420,
-                        "minimum": 0,
+                        "maximum": 12,
+                        "minimum": 1,
                         "type": "integer",
-                        "default": 420,
-                        "description": "End month index relative to base year (0-indexed, exclusive). Must be \u003e= relativeStartMonth. 0 or omitted = 420 (35 years). Max 420.",
-                        "name": "relativeEndMonth",
+                        "description": "End month (1-12, inclusive). Defaults to startMonth if not provided.",
+                        "name": "endMonth",
                         "in": "query"
                     }
                 ],
@@ -1520,6 +1536,12 @@ const docTemplate = `{
                 "accumulatorAccountId": {
                     "type": "string"
                 },
+                "allMonthsIndex": {
+                    "type": "integer"
+                },
+                "allYearsIndex": {
+                    "type": "integer"
+                },
                 "cashAssets": {
                     "type": "array",
                     "items": {
@@ -1559,9 +1581,6 @@ const docTemplate = `{
                 "month": {
                     "type": "integer"
                 },
-                "monthIndex": {
-                    "type": "integer"
-                },
                 "netCash": {
                     "type": "number"
                 },
@@ -1578,9 +1597,6 @@ const docTemplate = `{
                     }
                 },
                 "year": {
-                    "type": "integer"
-                },
-                "yearIndex": {
                     "type": "integer"
                 }
             }
@@ -1649,10 +1665,10 @@ const docTemplate = `{
         "financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary": {
             "type": "object",
             "properties": {
-                "month": {
+                "allMonthsIndex": {
                     "type": "integer"
                 },
-                "monthIndex": {
+                "month": {
                     "type": "integer"
                 },
                 "netWorth": {
@@ -1674,13 +1690,13 @@ const docTemplate = `{
         "financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary": {
             "type": "object",
             "properties": {
+                "allYearsIndex": {
+                    "type": "integer"
+                },
                 "netWorth": {
                     "type": "number"
                 },
                 "year": {
-                    "type": "integer"
-                },
-                "yearIndex": {
                     "type": "integer"
                 }
             }

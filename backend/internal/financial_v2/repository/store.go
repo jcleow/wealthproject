@@ -204,13 +204,31 @@ func (s *Store) ListNonCashAssets(
 	args := []any{userID}
 	argIdx := 2 // i.e start 2
 
-	// Add dynamic date range filtering / pagination
+	// Add dynamic date range filtering
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
-	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	if dateRangeSubQuery != "" {
+		query += " AND " + dateRangeSubQuery
+		if dateRangeOpts.ActiveAfter != nil {
+			args = append(args, *dateRangeOpts.ActiveAfter)
+		}
+		if dateRangeOpts.ActiveBefore != nil {
+			args = append(args, *dateRangeOpts.ActiveBefore)
+		}
+	}
 
-	query += dateRangeSubQuery
-	query += paginationSubQuery
 	query += ` ORDER BY parent_id, start_date`
+
+	// Add pagination
+	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	if paginationSubQuery != "" {
+		query += " " + paginationSubQuery
+		if pagination.Limit != nil {
+			args = append(args, *pagination.Limit)
+		}
+		if pagination.Offset != nil {
+			args = append(args, *pagination.Offset)
+		}
+	}
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {

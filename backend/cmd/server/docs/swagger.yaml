@@ -656,6 +656,10 @@ definitions:
     properties:
       accumulatorAccountId:
         type: string
+      allMonthsIndex:
+        type: integer
+      allYearsIndex:
+        type: integer
       cashAssets:
         items:
           $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse'
@@ -682,8 +686,6 @@ definitions:
         type: array
       month:
         type: integer
-      monthIndex:
-        type: integer
       netCash:
         type: number
       netSavings:
@@ -695,8 +697,6 @@ definitions:
           $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse'
         type: array
       year:
-        type: integer
-      yearIndex:
         type: integer
     type: object
   financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse:
@@ -741,9 +741,9 @@ definitions:
     type: object
   financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary:
     properties:
-      month:
+      allMonthsIndex:
         type: integer
-      monthIndex:
+      month:
         type: integer
       netWorth:
         type: number
@@ -757,11 +757,11 @@ definitions:
     type: object
   financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary:
     properties:
+      allYearsIndex:
+        type: integer
       netWorth:
         type: number
       year:
-        type: integer
-      yearIndex:
         type: integer
     type: object
   financial-chat-system_backend_internal_llm.ChatMessage:
@@ -1193,26 +1193,35 @@ paths:
       - Timeline V2
   /v2/financial/timeline/snapshot:
     get:
-      description: 'Returns detailed monthly snapshots with all financial items, balances,
-        and summaries. Month indices are relative to the base year (current year).
-        For example, relativeStartMonth=0 is January of current year, relativeStartMonth=12
-        is January of next year. The range is half-open: [relativeStartMonth, relativeEndMonth).'
+      description: Returns detailed monthly snapshots with all financial items, balances,
+        and summaries. startYear and startMonth are required. If endYear/endMonth
+        are not provided, returns only the single month specified by startYear/startMonth.
       parameters:
-      - default: 0
-        description: Start month index relative to base year (0-indexed, inclusive).
-          0 = January of current year, 12 = January of next year.
+      - description: Start year (inclusive, required)
         in: query
-        maximum: 419
-        minimum: 0
-        name: relativeStartMonth
+        maximum: 2100
+        minimum: 2000
+        name: startYear
+        required: true
         type: integer
-      - default: 420
-        description: End month index relative to base year (0-indexed, exclusive).
-          Must be >= relativeStartMonth. 0 or omitted = 420 (35 years). Max 420.
+      - description: Start month (1-12, inclusive, required)
         in: query
-        maximum: 420
-        minimum: 0
-        name: relativeEndMonth
+        maximum: 12
+        minimum: 1
+        name: startMonth
+        required: true
+        type: integer
+      - description: End year (inclusive). Defaults to startYear if not provided.
+        in: query
+        maximum: 2100
+        minimum: 2000
+        name: endYear
+        type: integer
+      - description: End month (1-12, inclusive). Defaults to startMonth if not provided.
+        in: query
+        maximum: 12
+        minimum: 1
+        name: endMonth
         type: integer
       produces:
       - application/json
