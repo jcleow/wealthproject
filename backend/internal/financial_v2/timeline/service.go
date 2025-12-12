@@ -645,24 +645,27 @@ func buildCPFContributionResponses(rows []FinancialDataRow, itemStates ItemState
 			continue
 		}
 
-		// Skip if no employee contribution
-		if contribution.EmployeeContribution.IsZero() {
+		// Skip if no contribution at all
+		if contribution.TotalContribution.IsZero() {
 			continue
 		}
 
-		amount := contribution.EmployeeContribution.Round(0)
 		responses = append(responses, CPFContributionResponse{
-			ID:              row.ID + "-cpf",
-			ParentID:        row.ID,
-			Name:            "CPF Employee Contribution - " + row.Name,
-			Category:        row.Category,
-			Amount:          *amount,
-			AdjAmount:       *amount,
-			SourceFrequency: string(row.Frequency),
-			ItemType:        "cpf_contribution",
-			CreatedYear:     state.CreatedYear,
-			CreatedMonth:    state.CreatedMonth,
-			GrowthRate:      *row.GrowthRate.Round(0),
+			ID:                   row.ID + "-cpf",
+			ParentID:             row.ID,
+			Name:                 "CPF Contribution - " + row.Name,
+			Category:             row.Category,
+			EmployeeContribution: *contribution.EmployeeContribution.Round(0),
+			EmployerContribution: *contribution.EmployerContribution.Round(0),
+			TotalContribution:    *contribution.TotalContribution.Round(0),
+			SourceFrequency:      string(row.Frequency),
+			ItemType:             "cpf_contribution",
+			CreatedYear:          state.CreatedYear,
+			CreatedMonth:         state.CreatedMonth,
+			AllocationOA:         *contribution.AllocationOA.Round(0),
+			AllocationSA:         *contribution.AllocationSA.Round(0),
+			AllocationMA:         *contribution.AllocationMA.Round(0),
+			AllocationRA:         *contribution.AllocationRA.Round(0),
 		})
 	}
 	return responses

@@ -64,8 +64,9 @@ type Store interface {
 
 // TimelineOptions configures the date range for timeline queries
 type TimelineOptions struct {
-	StartDate time.Time // Start date (inclusive)
-	EndDate   time.Time // End date (inclusive)
+	StartDate    time.Time // Start date (inclusive)
+	EndDate      time.Time // End date (inclusive)
+	InitialState bool      // If true, return base annualized amounts without date filtering
 }
 
 // ========== Timeline V2 Response Types ==========
@@ -179,17 +180,21 @@ type IncomeResponse struct {
 
 // CPFContributionResponse represents a CPF contribution in the timeline response
 type CPFContributionResponse struct {
-	ID              string          `json:"id"`
-	ParentID        string          `json:"parentId"`
-	Name            string          `json:"name"`
-	Category        string          `json:"category"`
-	Amount          decimal.Decimal `json:"amount"`
-	AdjAmount       decimal.Decimal `json:"adjAmount"`
-	SourceFrequency string          `json:"sourceFrequency"`
-	ItemType        string          `json:"itemType"`
-	CreatedYear     int             `json:"createdYear"`
-	CreatedMonth    int             `json:"createdMonth"`
-	GrowthRate      decimal.Decimal `json:"growthRate"`
+	ID                   string          `json:"id"`
+	ParentID             string          `json:"parentId"`
+	Name                 string          `json:"name"`
+	Category             string          `json:"category"`
+	EmployeeContribution decimal.Decimal `json:"employeeContribution"`
+	EmployerContribution decimal.Decimal `json:"employerContribution"`
+	TotalContribution    decimal.Decimal `json:"totalContribution"`
+	SourceFrequency      string          `json:"sourceFrequency"`
+	ItemType             string          `json:"itemType"`
+	CreatedYear          int             `json:"createdYear"`
+	CreatedMonth         int             `json:"createdMonth"`
+	AllocationOA         decimal.Decimal `json:"allocationOa"`
+	AllocationSA         decimal.Decimal `json:"allocationSa"`
+	AllocationMA         decimal.Decimal `json:"allocationMa"`
+	AllocationRA         decimal.Decimal `json:"allocationRa"`
 }
 
 // ExpenseResponse represents an expense in the timeline response
