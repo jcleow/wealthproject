@@ -1,15 +1,20 @@
-import type { TimelineEditRequest, TimelineResponse } from '@/types/timeline'
+import type { TimelineEditRequest, TimelineResponse, TimelineV2Response } from '@/types/timeline'
 
-function getApiBaseUrl() {
-  // Use relative path - requests go through Next.js BFF at /api/v1/*
+function getApiBaseUrl(version: 'v1' | 'v2' = 'v1') {
+  // Use relative path - requests go through Next.js BFF at /api/v1/* or /api/v2/*
   // which handles auth and proxies to the Go backend
-  return '/api/v1'
+  return `/api/${version}`
 }
 
-const API_BASE = getApiBaseUrl()
+const API_BASE = getApiBaseUrl('v1')
+const API_BASE_V2 = getApiBaseUrl('v2')
 
-async function jsonRequest<T>(path: string, options: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+async function jsonRequest<T>(
+  path: string,
+  options: RequestInit,
+  baseUrl: string = API_BASE
+): Promise<T> {
+  const res = await fetch(`${baseUrl}${path}`, {
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -60,5 +65,26 @@ export const timelineApi = {
       method: 'PUT',
       body: JSON.stringify(payload),
     })
+  },
+
+  /**
+   * Get V2 timeline snapshot for a date range
+   * @param startDate - Start date in DD-MM-YYYY format
+   * @param endDate - End date in DD-MM-YYYY format (optional, defaults to startDate)
+   */
+  async getTimelineV2Snapshot(options: {
+    startDate: string
+    endDate?: string
+  }): Promise<TimelineV2Response> {
+    const params = new URLSearchParams()
+    params.set('startDate', options.startDate)
+    if (options.endDate) {
+      params.set('endDate', options.endDate)
+    }
+    return jsonRequest<TimelineV2Response>(
+      `/financial/timeline/snapshot?${params.toString()}`,
+      { method: 'GET' },
+      API_BASE_V2
+    )
   },
 }

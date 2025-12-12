@@ -119,3 +119,130 @@ export interface TimelineEditRequest {
   edits: TimelineEdit[]
   note?: string
 }
+
+// ========== Timeline V2 Types ==========
+
+/** V2 Response for monthly snapshot endpoint */
+export interface TimelineV2Response {
+  months: MonthDetailResponseV2[]
+}
+
+/** Single month detail in V2 response (decimal values come as strings from backend) */
+export interface MonthDetailResponseV2 {
+  year: number
+  month: number
+  allYearsIndex: number
+  allMonthsIndex: number
+  nonCashAssets: NonCashAssetResponseV2[]
+  cashAssets: CashAssetResponseV2[]
+  cpfAssets: CPFAssetResponseV2[]
+  liabilities: LiabilityResponseV2[]
+  income: IncomeResponseV2[]
+  cpfContributions: CPFContributionResponseV2[]
+  expenses: ExpenseResponseV2[]
+  netCash: string
+  netWorth: string
+  netSavings: string
+  accumulatorAccountId: string
+}
+
+/** Non-cash asset in V2 response (decimal values come as strings from backend) */
+export interface NonCashAssetResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  balance: string
+  adjBalance: string
+  itemType: string
+  startDate: string
+  createdYear: number
+  createdMonth: number
+}
+
+/** Cash asset in V2 response (decimal values come as strings from backend) */
+export interface CashAssetResponseV2 {
+  itemId: string
+  name: string
+  category: string
+  balance: string
+  adjBalance: string
+  itemType: string
+  createdYear: number
+  createdMonth: number
+  isAccumulator: boolean
+}
+
+/** CPF asset in V2 response (decimal values come as strings from backend) */
+export interface CPFAssetResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  balance: string
+  adjBalance: string
+  itemType: string
+  startDate: string
+  createdYear: number
+  createdMonth: number
+}
+
+/** Liability in V2 response (decimal values come as strings from backend) */
+export interface LiabilityResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  annualAmt: string
+  adjAnnualAmt: string
+  monthlyAmt: string
+  adjMonthlyAmt: string
+  sourceAmount: string
+  itemType: string
+  createdYear: number
+  createdMonth: number
+}
+
+/** Income in V2 response (decimal values come as strings from backend) */
+export interface IncomeResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  amount: string
+  adjAmount: string
+  sourceFrequency: string
+  itemType: string
+  createdYear: number
+  createdMonth: number
+  growthRate: string
+}
+
+/** CPF contribution in V2 response (decimal values come as strings from backend) */
+export interface CPFContributionResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  amount: string
+  adjAmount: string
+  sourceFrequency: string
+  itemType: string
+  createdYear: number
+  createdMonth: number
+  growthRate: string
+}
+
+/** Expense in V2 response (decimal values come as strings from backend) */
+export interface ExpenseResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  amount: string
+  adjAmount: string
+  sourceFrequency: string
+  itemType: string
+  createdYear: number
+  createdMonth: number
+}

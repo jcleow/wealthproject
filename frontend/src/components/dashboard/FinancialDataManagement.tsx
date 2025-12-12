@@ -21,7 +21,158 @@ import { FinancialFormModal } from '../modals/FinancialFormModal'
 import { CashAccountFormModal } from '../modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { financialApi } from '@/services/financialApi'
-import type { TimelineYear, TimelineMonth, TimeResolution, TimelineEditRequest, TimelineEdit, TimelineFrequency, TimelineItem, TimelineEventImpact } from '@/types/timeline'
+import type {
+  TimelineYear,
+  TimelineMonth,
+  TimeResolution,
+  TimelineEditRequest,
+  TimelineEdit,
+  TimelineFrequency,
+  TimelineItem,
+  TimelineEventImpact,
+  MonthDetailResponseV2,
+  NonCashAssetResponseV2,
+  CashAssetResponseV2,
+  CPFAssetResponseV2,
+  LiabilityResponseV2,
+  IncomeResponseV2,
+  CPFContributionResponseV2,
+  ExpenseResponseV2,
+} from '@/types/timeline'
+
+// ========== V2 to TimelineItem Converters ==========
+// Note: V2 backend returns decimal values as strings, so we parse them here
+
+/** Parse decimal string from V2 backend to number */
+function parseDecimal(value: string | undefined): number {
+  if (!value) return 0
+  const parsed = parseFloat(value)
+  return isNaN(parsed) ? 0 : parsed
+}
+
+function nonCashAssetV2ToTimelineItem(item: NonCashAssetResponseV2): TimelineItem {
+  const balance = parseDecimal(item.balance)
+  const adjBalance = parseDecimal(item.adjBalance)
+  return {
+    itemId: item.id,
+    parentId: item.parentId,
+    name: item.name,
+    category: item.category,
+    amountAnnual: balance,
+    adjAnnualAmt: adjBalance,
+    amountMonthly: balance,
+    adjMonthlyAmt: adjBalance,
+    itemType: 'asset',
+    createdYear: item.createdYear,
+    createdMonth: item.createdMonth,
+  }
+}
+
+function cashAssetV2ToTimelineItem(item: CashAssetResponseV2): TimelineItem {
+  const balance = parseDecimal(item.balance)
+  const adjBalance = parseDecimal(item.adjBalance)
+  return {
+    itemId: item.itemId,
+    name: item.name,
+    category: item.category,
+    amountAnnual: balance,
+    adjAnnualAmt: adjBalance,
+    amountMonthly: balance,
+    adjMonthlyAmt: adjBalance,
+    itemType: 'cash_account',
+    createdYear: item.createdYear,
+    createdMonth: item.createdMonth,
+    isAccumulator: item.isAccumulator,
+  }
+}
+
+function cpfAssetV2ToTimelineItem(item: CPFAssetResponseV2): TimelineItem {
+  const balance = parseDecimal(item.balance)
+  const adjBalance = parseDecimal(item.adjBalance)
+  return {
+    itemId: item.id,
+    parentId: item.parentId,
+    name: item.name,
+    category: item.category,
+    amountAnnual: balance,
+    adjAnnualAmt: adjBalance,
+    amountMonthly: balance,
+    adjMonthlyAmt: adjBalance,
+    itemType: 'asset',
+    createdYear: item.createdYear,
+    createdMonth: item.createdMonth,
+  }
+}
+
+function liabilityV2ToTimelineItem(item: LiabilityResponseV2): TimelineItem {
+  return {
+    itemId: item.id,
+    parentId: item.parentId,
+    name: item.name,
+    category: item.category,
+    amountAnnual: parseDecimal(item.annualAmt),
+    adjAnnualAmt: parseDecimal(item.adjAnnualAmt),
+    amountMonthly: parseDecimal(item.monthlyAmt),
+    adjMonthlyAmt: parseDecimal(item.adjMonthlyAmt),
+    sourceAmount: parseDecimal(item.sourceAmount),
+    itemType: 'liability',
+    createdYear: item.createdYear,
+    createdMonth: item.createdMonth,
+  }
+}
+
+function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
+  return {
+    itemId: item.id,
+    parentId: item.parentId,
+    name: item.name,
+    category: item.category,
+    amountAnnual: parseDecimal(item.amount),
+    adjAnnualAmt: parseDecimal(item.adjAmount),
+    amountMonthly: parseDecimal(item.amount),
+    adjMonthlyAmt: parseDecimal(item.adjAmount),
+    sourceFrequency: item.sourceFrequency as TimelineFrequency,
+    itemType: 'income',
+    createdYear: item.createdYear,
+    createdMonth: item.createdMonth,
+    growthRate: parseDecimal(item.growthRate),
+  }
+}
+
+function cpfContributionV2ToTimelineItem(item: CPFContributionResponseV2): TimelineItem {
+  return {
+    itemId: item.id,
+    parentId: item.parentId,
+    name: item.name,
+    category: item.category,
+    amountAnnual: parseDecimal(item.amount),
+    adjAnnualAmt: parseDecimal(item.adjAmount),
+    amountMonthly: parseDecimal(item.amount),
+    adjMonthlyAmt: parseDecimal(item.adjAmount),
+    sourceFrequency: item.sourceFrequency as TimelineFrequency,
+    itemType: 'income',
+    createdYear: item.createdYear,
+    createdMonth: item.createdMonth,
+    growthRate: parseDecimal(item.growthRate),
+  }
+}
+
+function expenseV2ToTimelineItem(item: ExpenseResponseV2): TimelineItem {
+  return {
+    itemId: item.id,
+    parentId: item.parentId,
+    name: item.name,
+    category: item.category,
+    amountAnnual: parseDecimal(item.amount),
+    adjAnnualAmt: parseDecimal(item.adjAmount),
+    amountMonthly: parseDecimal(item.amount),
+    adjMonthlyAmt: parseDecimal(item.adjAmount),
+    sourceFrequency: item.sourceFrequency as TimelineFrequency,
+    itemType: 'expense',
+    createdYear: item.createdYear,
+    createdMonth: item.createdMonth,
+  }
+}
 import { formatCurrency } from '@/lib/format'
 import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 
@@ -141,6 +292,8 @@ export interface FinancialDataManagementProps {
   onSelectMonth?: (month: number | null) => void
   timelineYear?: TimelineYear
   timelineMonth?: TimelineMonth
+  /** V2 month data - when provided, used for card display instead of V1 data */
+  timelineMonthV2?: MonthDetailResponseV2
   timelineYears?: TimelineYear[]
   resolution?: TimeResolution
   zoomLevel?: ZoomLevel
@@ -155,43 +308,76 @@ export function FinancialDataManagement({
   onSelectMonth,
   timelineYear,
   timelineMonth,
+  timelineMonthV2,
   timelineYears,
   resolution,
   isTimelineLoading = false,
   onSaveTimelineEdits,
 }: FinancialDataManagementProps) {
+  // V2 data is available when the feature flag is enabled and data is loaded
+  const hasV2Data = !!timelineMonthV2
   const usingTimeline = true
   const [viewMode, setViewMode] = useState<'annualized' | 'monthly'>('annualized')
 
   // Determine if we should show monthly data
   const showMonthlyData = viewMode === 'monthly' && resolution === 'monthly' && timelineMonth
 
-  // Use monthly data if a month is selected, otherwise use yearly data
-  const timelineAssets = useMemo(() =>
-    showMonthlyData ? (timelineMonth?.assets ?? []) : (timelineYear?.assets ?? []),
-    [showMonthlyData, timelineMonth?.assets, timelineYear?.assets]
-  )
-  const timelineCashAccounts = useMemo(() =>
-    showMonthlyData ? (timelineMonth?.cashAccounts ?? []) : (timelineYear?.cashAccounts ?? []),
-    [showMonthlyData, timelineMonth?.cashAccounts, timelineYear?.cashAccounts]
-  )
-  // Merge assets and cash accounts for display - cash accounts appear as assets
+  // ========== V2 Data Extraction (when available) ==========
+  // V2 provides more detailed breakdown including CPF accounts
+
+  // Assets: V2 separates into nonCashAssets + cashAssets, V1 has assets + cashAccounts
   const yearAssets = useMemo(() => {
-    const result = [...timelineAssets, ...timelineCashAccounts]
-    return result
-  }, [timelineAssets, timelineCashAccounts])
-  const yearLiabilities = useMemo(() =>
-    showMonthlyData ? (timelineMonth?.liabilities ?? []) : (timelineYear?.liabilities ?? []),
-    [showMonthlyData, timelineMonth?.liabilities, timelineYear?.liabilities]
-  )
-  const yearIncomes = useMemo(() =>
-    showMonthlyData ? (timelineMonth?.income ?? []) : (timelineYear?.income ?? []),
-    [showMonthlyData, timelineMonth?.income, timelineYear?.income]
-  )
-  const yearExpenses = useMemo(() =>
-    showMonthlyData ? (timelineMonth?.expenses ?? []) : (timelineYear?.expenses ?? []),
-    [showMonthlyData, timelineMonth?.expenses, timelineYear?.expenses]
-  )
+    if (hasV2Data && timelineMonthV2) {
+      // V2: Convert and combine nonCashAssets + cashAssets
+      const nonCashItems = timelineMonthV2.nonCashAssets.map(nonCashAssetV2ToTimelineItem)
+      const cashItems = timelineMonthV2.cashAssets.map(cashAssetV2ToTimelineItem)
+      return [...nonCashItems, ...cashItems]
+    }
+    // V1 fallback
+    const timelineAssets = showMonthlyData ? (timelineMonth?.assets ?? []) : (timelineYear?.assets ?? [])
+    const timelineCashAccounts = showMonthlyData ? (timelineMonth?.cashAccounts ?? []) : (timelineYear?.cashAccounts ?? [])
+    return [...timelineAssets, ...timelineCashAccounts]
+  }, [hasV2Data, timelineMonthV2, showMonthlyData, timelineMonth, timelineYear])
+
+  // CPF Assets (V2 only) - displayed as sub-section in Assets card
+  const cpfAssets = useMemo(() => {
+    if (hasV2Data && timelineMonthV2) {
+      return timelineMonthV2.cpfAssets.map(cpfAssetV2ToTimelineItem)
+    }
+    return []
+  }, [hasV2Data, timelineMonthV2])
+
+  // Liabilities
+  const yearLiabilities = useMemo(() => {
+    if (hasV2Data && timelineMonthV2) {
+      return timelineMonthV2.liabilities.map(liabilityV2ToTimelineItem)
+    }
+    return showMonthlyData ? (timelineMonth?.liabilities ?? []) : (timelineYear?.liabilities ?? [])
+  }, [hasV2Data, timelineMonthV2, showMonthlyData, timelineMonth, timelineYear])
+
+  // Income
+  const yearIncomes = useMemo(() => {
+    if (hasV2Data && timelineMonthV2) {
+      return timelineMonthV2.income.map(incomeV2ToTimelineItem)
+    }
+    return showMonthlyData ? (timelineMonth?.income ?? []) : (timelineYear?.income ?? [])
+  }, [hasV2Data, timelineMonthV2, showMonthlyData, timelineMonth, timelineYear])
+
+  // CPF Contributions (V2 only) - displayed as sub-section in Income card
+  const cpfContributions = useMemo(() => {
+    if (hasV2Data && timelineMonthV2) {
+      return timelineMonthV2.cpfContributions.map(cpfContributionV2ToTimelineItem)
+    }
+    return []
+  }, [hasV2Data, timelineMonthV2])
+
+  // Expenses
+  const yearExpenses = useMemo(() => {
+    if (hasV2Data && timelineMonthV2) {
+      return timelineMonthV2.expenses.map(expenseV2ToTimelineItem)
+    }
+    return showMonthlyData ? (timelineMonth?.expenses ?? []) : (timelineYear?.expenses ?? [])
+  }, [hasV2Data, timelineMonthV2, showMonthlyData, timelineMonth, timelineYear])
 
   const {
     addAsset,
@@ -1143,6 +1329,49 @@ export function FinancialDataManagement({
                               </div>
                             )
                           })}
+
+                          {/* CPF Sub-section for Assets (V2 only) */}
+                          {key === 'asset' && cpfAssets.length > 0 && (
+                            <div className="mt-3 border-t border-white/[0.06] pt-3">
+                              <div className="mb-2 flex items-center gap-2 px-2">
+                                <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">CPF Accounts</span>
+                                <span className="text-[10px] text-slate-600">({formatCurrency(cpfAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0))})</span>
+                              </div>
+                              {cpfAssets.map((item, index) => (
+                                <div
+                                  key={item.itemId || `cpf-asset-${index}`}
+                                  className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
+                                >
+                                  <span className="truncate text-sm text-slate-300">{item.name}</span>
+                                  <span className="text-sm font-medium text-slate-200">
+                                    {formatCurrency(getDisplayAmount(item))}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* CPF Contributions Sub-section for Income (V2 only) */}
+                          {key === 'income' && cpfContributions.length > 0 && (
+                            <div className="mt-3 border-t border-white/[0.06] pt-3">
+                              <div className="mb-2 flex items-center gap-2 px-2">
+                                <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">CPF Contributions</span>
+                                <span className="text-[10px] text-slate-600">({formatCurrency(cpfContributions.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0))})</span>
+                              </div>
+                              {cpfContributions.map((item, index) => (
+                                <div
+                                  key={item.itemId || `cpf-contrib-${index}`}
+                                  className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
+                                >
+                                  <span className="truncate text-sm text-slate-300">{item.name}</span>
+                                  <span className="text-sm font-medium text-slate-200">
+                                    {formatCurrency(getDisplayAmount(item))}
+                                    {showMonthlyData && <span className="ml-1 text-xs text-slate-400">/mo</span>}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           </>
                         ) : (
                           <div className="flex flex-1 flex-col items-center justify-center gap-1 py-6 text-center">
