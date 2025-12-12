@@ -15,6 +15,9 @@ import (
 )
 
 // CPFHandler serves CPF-related endpoints.
+//
+// TODO: Migrate API request/response types from float64 to string-serialized decimals
+// for consistency with other financial endpoints and to avoid precision loss at JSON boundary.
 type CPFHandler struct {
 	accountRepo *account.Repository
 }
