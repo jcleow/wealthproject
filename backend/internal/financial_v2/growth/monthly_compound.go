@@ -15,13 +15,18 @@ func (m *MonthlyCompoundStrategy) Name() string {
 }
 
 // Apply calculates monthly compound growth.
-// Growth is applied every month from the start (month 1 onwards).
+// Growth is applied in arrears - no growth in month 1, starts from month 2.
 func (m *MonthlyCompoundStrategy) Apply(
 	currentAmount *decimal.Decimal,
 	params Params,
 	currentMonth int,
 	monthOfYear int,
 ) *decimal.Decimal {
+	// No growth in first month (compounding in arrears)
+	if currentMonth <= 1 {
+		return currentAmount
+	}
+
 	// Calculate monthly growth rate from annual rate
 	// monthlyRate = (1 + annualRate/100)^(1/12)
 	// We use decimal arithmetic for precision

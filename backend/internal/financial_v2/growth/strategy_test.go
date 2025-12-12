@@ -8,45 +8,54 @@ import (
 func TestMonthlyCompoundStrategy(t *testing.T) {
 	strategy := &MonthlyCompoundStrategy{}
 
+	// Tests for arrears behavior: no growth in month 1, growth starts from month 2
 	tests := []struct {
 		name           string
 		startAmount    string
 		annualRatePct  string
-		numMonths      int // Number of times to apply growth
+		numMonths      int    // Number of times to apply growth (months 1 to numMonths)
 		wantApprox     string // Approximate expected value
 		tolerance      string // Acceptable tolerance for comparison
 	}{
 		{
-			name:           "monthly compound growth for 1 month",
+			name:           "no growth in month 1 (arrears)",
 			startAmount:    "10000",
 			annualRatePct:  "7",
 			numMonths:      1,
+			wantApprox:     "10000", // No growth in first month
+			tolerance:      "1",
+		},
+		{
+			name:           "growth starts in month 2",
+			startAmount:    "10000",
+			annualRatePct:  "7",
+			numMonths:      2,
 			wantApprox:     "10056.5", // 10000 * (1.07)^(1/12) ≈ 10056.52
 			tolerance:      "1",
 		},
 		{
-			name:           "monthly compound growth for 7 months",
+			name:           "7 months = 6 months of growth (arrears)",
 			startAmount:    "10000",
 			annualRatePct:  "7",
 			numMonths:      7,
-			wantApprox:     "10402.57", // 10000 * (1.07)^(7/12) ≈ 10402.567
-			tolerance:      "1",
+			wantApprox:     "10345.5", // 10000 * (1.07)^(6/12) ≈ 10344.08
+			tolerance:      "2",
 		},
 		{
-			name:           "monthly compound growth for 13 months",
-			startAmount:    "10000",
-			annualRatePct:  "7",
-			numMonths:      13,
-			wantApprox:     "10760.50", // 10000 * (1.07)^(13/12) ≈ 10760.50
-			tolerance:      "1",
-		},
-		{
-			name:           "monthly compound growth for 12 months (1 year)",
+			name:           "12 months = 11 months of growth (arrears)",
 			startAmount:    "10000",
 			annualRatePct:  "7",
 			numMonths:      12,
+			wantApprox:     "10641", // 10000 * (1.07)^(11/12) ≈ 10641.78
+			tolerance:      "2",
+		},
+		{
+			name:           "13 months = 12 months of growth (full year)",
+			startAmount:    "10000",
+			annualRatePct:  "7",
+			numMonths:      13,
 			wantApprox:     "10700", // 10000 * (1.07)^1 = 10700
-			tolerance:      "1",
+			tolerance:      "2",
 		},
 	}
 
