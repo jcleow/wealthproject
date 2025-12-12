@@ -25,7 +25,7 @@ func TestProcessOrdinaryWage_CitizenUnder55(t *testing.T) {
 		t.Fatalf("failed to create processor: %v", err)
 	}
 
-	state := NewState(cpfAccount)
+	state := NewCPFBalances(cpfAccount)
 	grossAmount := decimal.MustFromString("8000")
 	date := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
 
@@ -88,7 +88,7 @@ func TestProcessOrdinaryWage_AtCeiling(t *testing.T) {
 		t.Fatalf("failed to create processor: %v", err)
 	}
 
-	state := NewState(cpfAccount)
+	state := NewCPFBalances(cpfAccount)
 	grossAmount := decimal.MustFromString("7400") // At ceiling
 	date := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
 
@@ -126,7 +126,7 @@ func TestProcessOrdinaryWage_AboveCeiling(t *testing.T) {
 		t.Fatalf("failed to create processor: %v", err)
 	}
 
-	state := NewState(cpfAccount)
+	state := NewCPFBalances(cpfAccount)
 	grossAmount := decimal.MustFromString("10000") // Above ceiling
 	date := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
 
@@ -172,7 +172,7 @@ func TestProcessAdditionalWage_Bonus(t *testing.T) {
 		t.Fatalf("failed to create processor: %v", err)
 	}
 
-	state := NewState(cpfAccount)
+	state := NewCPFBalances(cpfAccount)
 
 	// Simulate 6 months of salary at $7,000/month
 	monthlySalary := decimal.MustFromString("7000")
@@ -230,7 +230,7 @@ func TestYTDReset_AtYearBoundary(t *testing.T) {
 		t.Fatalf("failed to create processor: %v", err)
 	}
 
-	state := NewState(cpfAccount)
+	state := NewCPFBalances(cpfAccount)
 
 	// Process some wages in 2025
 	salary := decimal.MustFromString("7000")
@@ -243,7 +243,7 @@ func TestYTDReset_AtYearBoundary(t *testing.T) {
 	}
 
 	// Reset for new year
-	processor.ResetYTDState(state)
+	processor.ResetYTDBalances(state)
 
 	// YTD should be zero
 	if !state.YTDOrdinaryWages.IsZero() {
@@ -256,7 +256,7 @@ func TestYTDReset_AtYearBoundary(t *testing.T) {
 	t.Log("YTD reset successful")
 }
 
-func TestAddContributionToState(t *testing.T) {
+func TestAddContributionToBalances(t *testing.T) {
 	// Test that contributions are added to accumulated balances
 	cpfAccount := &account.CPFAccount{
 		DateOfBirth:     time.Date(1990, 1, 15, 0, 0, 0, 0, time.UTC),
@@ -272,7 +272,7 @@ func TestAddContributionToState(t *testing.T) {
 		t.Fatalf("failed to create processor: %v", err)
 	}
 
-	state := NewState(cpfAccount)
+	state := NewCPFBalances(cpfAccount)
 	initialTotal := state.TotalBalance()
 
 	// Process a wage
@@ -285,7 +285,7 @@ func TestAddContributionToState(t *testing.T) {
 	}
 
 	// Add contribution to state
-	processor.AddContributionToState(result, state)
+	processor.AddContributionToBalances(result, state)
 
 	// Total balance should increase by total contribution
 	newTotal := state.TotalBalance()
@@ -318,7 +318,7 @@ func TestAccumulation_MultipleMonths(t *testing.T) {
 		t.Fatalf("failed to create processor: %v", err)
 	}
 
-	state := NewState(cpfAccount)
+	state := NewCPFBalances(cpfAccount)
 	salary := decimal.MustFromString("8000")
 
 	// Process 3 months
@@ -328,7 +328,7 @@ func TestAccumulation_MultipleMonths(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to process month %d: %v", month, err)
 		}
-		processor.AddContributionToState(result, state)
+		processor.AddContributionToBalances(result, state)
 
 		t.Logf("Month %d: Total CPF Balance = %s", month, state.TotalBalance().String())
 	}
@@ -343,9 +343,9 @@ func TestAccumulation_MultipleMonths(t *testing.T) {
 	}
 }
 
-func TestNewState_NilAccount(t *testing.T) {
+func TestNewCPFBalances_NilAccount(t *testing.T) {
 	// Test creating state with nil account (no CPF account exists)
-	state := NewState(nil)
+	state := NewCPFBalances(nil)
 
 	if !state.AccumulatedOA.IsZero() {
 		t.Errorf("OA should be zero for nil account, got %s", state.AccumulatedOA.String())
@@ -377,7 +377,7 @@ func TestAllocation_Under35(t *testing.T) {
 		t.Fatalf("failed to create processor: %v", err)
 	}
 
-	state := NewState(cpfAccount)
+	state := NewCPFBalances(cpfAccount)
 	salary := decimal.MustFromString("5000")
 	date := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
 

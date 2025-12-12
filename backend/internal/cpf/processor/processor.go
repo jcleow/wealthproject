@@ -26,9 +26,9 @@ type Processor struct {
 	configs    map[int]*config.CPFConfiguration // Config by year
 }
 
-// State tracks year-to-date wages and accumulated CPF balances across months.
+// CPFBalances tracks year-to-date wages and accumulated CPF balances across months.
 // This should be maintained across the timeline loop and reset at year boundaries.
-type State struct {
+type CPFBalances struct {
 	YTDOrdinaryWages *decimal.Decimal // Year-to-date capped OW (for AW ceiling calc)
 	YTDAWSWages      *decimal.Decimal // Year-to-date AW received
 	AccumulatedOA    *decimal.Decimal // Running OA balance
@@ -70,10 +70,10 @@ func NewProcessor(cpfAccount *account.CPFAccount) (*Processor, error) {
 	}, nil
 }
 
-// NewState creates an initial State from a CPF account's current balances.
-func NewState(cpfAccount *account.CPFAccount) *State {
+// NewCPFBalances creates an initial CPFBalances from a CPF account's current balances.
+func NewCPFBalances(cpfAccount *account.CPFAccount) *CPFBalances {
 	if cpfAccount == nil {
-		return &State{
+		return &CPFBalances{
 			YTDOrdinaryWages: decimal.Zero(),
 			YTDAWSWages:      decimal.Zero(),
 			AccumulatedOA:    decimal.Zero(),
@@ -89,7 +89,7 @@ func NewState(cpfAccount *account.CPFAccount) *State {
 	ma := cpfAccount.MABalance
 	ra := cpfAccount.RABalance
 
-	return &State{
+	return &CPFBalances{
 		YTDOrdinaryWages: decimal.Zero(),
 		YTDAWSWages:      decimal.Zero(),
 		AccumulatedOA:    &oa,
@@ -99,18 +99,18 @@ func NewState(cpfAccount *account.CPFAccount) *State {
 	}
 }
 
-// ResetYTDState resets the year-to-date wage tracking at year boundaries.
+// ResetYTDBalances resets the year-to-date wage tracking at year boundaries.
 // Call this when transitioning to a new year in the timeline.
-func (p *Processor) ResetYTDState(state *State) {
-	state.YTDOrdinaryWages = decimal.Zero()
-	state.YTDAWSWages = decimal.Zero()
+func (p *Processor) ResetYTDBalances(balances *CPFBalances) {
+	balances.YTDOrdinaryWages = decimal.Zero()
+	balances.YTDAWSWages = decimal.Zero()
 }
 
 // ProcessOrdinaryWage calculates CPF for ordinary wages (monthly salary).
-// Updates YTD tracking in state and returns the contribution result.
+// Updates YTD tracking in balances and returns the contribution result.
 func (p *Processor) ProcessOrdinaryWage(
 	grossAmount *decimal.Decimal,
-	state *State,
+	balances *CPFBalances,
 	date time.Time,
 ) (*ContributionResult, error) {
 	cfg, err := p.getConfigForDate(date)
@@ -122,22 +122,20 @@ func (p *Processor) ProcessOrdinaryWage(
 	age := p.cpfAccount.AgeAtDate(date)
 	residency := p.cpfAccount.ResidencyStatus
 
-	// Calculate contribution
-	grossFloat, _ := grossAmount.Float64()
-	result := calculator.CalculateOW(grossFloat, age, residency)
+	// Calculate contribution (now uses decimal directly)
+	result := calculator.CalculateOW(grossAmount, age, residency)
 
 	// Update YTD ordinary wages (capped amount)
-	cappedWage := decimal.MustFromFloat64(result.CappedWage)
-	state.YTDOrdinaryWages, _ = state.YTDOrdinaryWages.Add(cappedWage)
+	balances.YTDOrdinaryWages, _ = balances.YTDOrdinaryWages.Add(result.CappedWage)
 
-	return p.buildResult(grossAmount, &result, CPFWageTypeOW), nil
+	return buildResult(&result, CPFWageTypeOW), nil
 }
 
 // ProcessAdditionalWage calculates CPF for additional wages (bonus, commission).
-// Uses YTD tracking from state to calculate the AW ceiling.
+// Uses YTD tracking from balances to calculate the AW ceiling.
 func (p *Processor) ProcessAdditionalWage(
 	grossAmount *decimal.Decimal,
-	state *State,
+	balances *CPFBalances,
 	date time.Time,
 ) (*ContributionResult, error) {
 	cfg, err := p.getConfigForDate(date)
@@ -149,27 +147,22 @@ func (p *Processor) ProcessAdditionalWage(
 	age := p.cpfAccount.AgeAtDate(date)
 	residency := p.cpfAccount.ResidencyStatus
 
-	// Get YTD values for AW ceiling calculation
-	ytdOW, _ := state.YTDOrdinaryWages.Float64()
-	ytdAW, _ := state.YTDAWSWages.Float64()
-	grossFloat, _ := grossAmount.Float64()
-
-	// Calculate contribution with YTD context
-	result := calculator.CalculateAW(grossFloat, age, residency, ytdOW, ytdAW)
+	// Calculate contribution with YTD context (now uses decimal directly)
+	result := calculator.CalculateAW(grossAmount, age, residency, balances.YTDOrdinaryWages, balances.YTDAWSWages)
 
 	// Update YTD additional wages
-	state.YTDAWSWages, _ = state.YTDAWSWages.Add(decimal.MustFromFloat64(result.CappedWage))
+	balances.YTDAWSWages, _ = balances.YTDAWSWages.Add(result.CappedWage)
 
-	return p.buildResult(grossAmount, &result, CPFWageTypeAW), nil
+	return buildResult(&result, CPFWageTypeAW), nil
 }
 
-// AddContributionToState adds the contribution allocations to the accumulated balances.
+// AddContributionToBalances adds the contribution allocations to the accumulated balances.
 // Call this after processing each income to update the running CPF balances.
-func (p *Processor) AddContributionToState(result *ContributionResult, state *State) {
-	state.AccumulatedOA, _ = state.AccumulatedOA.Add(result.AllocationOA)
-	state.AccumulatedSA, _ = state.AccumulatedSA.Add(result.AllocationSA)
-	state.AccumulatedMA, _ = state.AccumulatedMA.Add(result.AllocationMA)
-	state.AccumulatedRA, _ = state.AccumulatedRA.Add(result.AllocationRA)
+func (p *Processor) AddContributionToBalances(result *ContributionResult, balances *CPFBalances) {
+	balances.AccumulatedOA, _ = balances.AccumulatedOA.Add(result.AllocationOA)
+	balances.AccumulatedSA, _ = balances.AccumulatedSA.Add(result.AllocationSA)
+	balances.AccumulatedMA, _ = balances.AccumulatedMA.Add(result.AllocationMA)
+	balances.AccumulatedRA, _ = balances.AccumulatedRA.Add(result.AllocationRA)
 }
 
 // GetAccount returns the underlying CPF account.
@@ -189,28 +182,28 @@ func (p *Processor) getConfigForDate(date time.Time) (*config.CPFConfiguration, 
 }
 
 // buildResult converts the calculator result to our ContributionResult type.
-func (p *Processor) buildResult(grossAmount *decimal.Decimal, result *contribution.ContributionResult, cpfWageType CPFWageType) *ContributionResult {
+func buildResult(result *contribution.ContributionResult, cpfWageType CPFWageType) *ContributionResult {
 	return &ContributionResult{
-		GrossAmount:          grossAmount,
-		CappedAmount:         decimal.MustFromFloat64(result.CappedWage),
-		EmployeeContribution: decimal.MustFromFloat64(result.EmployeeContribution),
-		EmployerContribution: decimal.MustFromFloat64(result.EmployerContribution),
-		TotalContribution:    decimal.MustFromFloat64(result.TotalContribution),
-		NetTakeHomePay:       decimal.MustFromFloat64(result.TakeHomePay),
-		AllocationOA:         decimal.MustFromFloat64(result.Allocation.OA),
-		AllocationSA:         decimal.MustFromFloat64(result.Allocation.SA),
-		AllocationMA:         decimal.MustFromFloat64(result.Allocation.MA),
-		AllocationRA:         decimal.MustFromFloat64(result.Allocation.RA),
+		GrossAmount:          result.GrossWage,
+		CappedAmount:         result.CappedWage,
+		EmployeeContribution: result.EmployeeContribution,
+		EmployerContribution: result.EmployerContribution,
+		TotalContribution:    result.TotalContribution,
+		NetTakeHomePay:       result.TakeHomePay,
+		AllocationOA:         result.Allocation.OA,
+		AllocationSA:         result.Allocation.SA,
+		AllocationMA:         result.Allocation.MA,
+		AllocationRA:         result.Allocation.RA,
 		CPFWageType:          cpfWageType,
 	}
 }
 
-// TotalBalance returns the total accumulated CPF balance from state.
-func (s *State) TotalBalance() *decimal.Decimal {
+// TotalBalance returns the total accumulated CPF balance.
+func (b *CPFBalances) TotalBalance() *decimal.Decimal {
 	total := decimal.Zero()
-	total, _ = total.Add(s.AccumulatedOA)
-	total, _ = total.Add(s.AccumulatedSA)
-	total, _ = total.Add(s.AccumulatedMA)
-	total, _ = total.Add(s.AccumulatedRA)
+	total, _ = total.Add(b.AccumulatedOA)
+	total, _ = total.Add(b.AccumulatedSA)
+	total, _ = total.Add(b.AccumulatedMA)
+	total, _ = total.Add(b.AccumulatedRA)
 	return total
 }

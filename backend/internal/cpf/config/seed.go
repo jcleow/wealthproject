@@ -2,7 +2,14 @@ package config
 
 import (
 	"time"
+
+	"financial-chat-system/backend/internal/decimal"
 )
+
+// d is a helper to create decimal from string
+func d(s string) decimal.Decimal {
+	return *decimal.MustFromString(s)
+}
 
 // Config2024 returns the CPF configuration for 2024
 func Config2024() CPFConfiguration {
@@ -24,47 +31,47 @@ func Config2024() CPFConfiguration {
 			BHS: 68500,
 
 			InterestRates: InterestRates{
-				OA:                        0.025,
-				SA:                        0.04,
-				MA:                        0.04,
-				RA:                        0.04,
-				Extra1PctFirst60k:         0.01,
-				Extra2PctFirst30kAbove55:  0.02,
-				Extra1PctNext30kAbove55:   0.01,
+				OA:                       d("0.025"),
+				SA:                       d("0.04"),
+				MA:                       d("0.04"),
+				RA:                       d("0.04"),
+				Extra1PctFirst60k:        d("0.01"),
+				Extra2PctFirst30kAbove55: d("0.02"),
+				Extra1PctNext30kAbove55:  d("0.01"),
 			},
 
 			ContributionRates: ContributionRateTable{
 				CitizenAndPR3Plus: AgeBasedContributionRates{
-					UpTo55:      RatePair{Employee: 0.20, Employer: 0.17},
-					Above55To60: RatePair{Employee: 0.15, Employer: 0.145},
-					Above60To65: RatePair{Employee: 0.095, Employer: 0.11},
-					Above65To70: RatePair{Employee: 0.075, Employer: 0.09},
-					Above70:     RatePair{Employee: 0.05, Employer: 0.075},
+					UpTo55:      RatePair{Employee: d("0.20"), Employer: d("0.17")},
+					Above55To60: RatePair{Employee: d("0.15"), Employer: d("0.145")},
+					Above60To65: RatePair{Employee: d("0.095"), Employer: d("0.11")},
+					Above65To70: RatePair{Employee: d("0.075"), Employer: d("0.09")},
+					Above70:     RatePair{Employee: d("0.05"), Employer: d("0.075")},
 				},
 				PRYear1: AgeBasedContributionRates{
-					UpTo55:      RatePair{Employee: 0.05, Employer: 0.04},
-					Above55To60: RatePair{Employee: 0.05, Employer: 0.04},
-					Above60To65: RatePair{Employee: 0.05, Employer: 0.04},
-					Above65To70: RatePair{Employee: 0.05, Employer: 0.04},
-					Above70:     RatePair{Employee: 0.05, Employer: 0.04},
+					UpTo55:      RatePair{Employee: d("0.05"), Employer: d("0.04")},
+					Above55To60: RatePair{Employee: d("0.05"), Employer: d("0.04")},
+					Above60To65: RatePair{Employee: d("0.05"), Employer: d("0.04")},
+					Above65To70: RatePair{Employee: d("0.05"), Employer: d("0.04")},
+					Above70:     RatePair{Employee: d("0.05"), Employer: d("0.04")},
 				},
 				PRYear2: AgeBasedContributionRates{
-					UpTo55:      RatePair{Employee: 0.15, Employer: 0.09},
-					Above55To60: RatePair{Employee: 0.125, Employer: 0.09},
-					Above60To65: RatePair{Employee: 0.075, Employer: 0.085},
-					Above65To70: RatePair{Employee: 0.05, Employer: 0.065},
-					Above70:     RatePair{Employee: 0.05, Employer: 0.065},
+					UpTo55:      RatePair{Employee: d("0.15"), Employer: d("0.09")},
+					Above55To60: RatePair{Employee: d("0.125"), Employer: d("0.09")},
+					Above60To65: RatePair{Employee: d("0.075"), Employer: d("0.085")},
+					Above65To70: RatePair{Employee: d("0.05"), Employer: d("0.065")},
+					Above70:     RatePair{Employee: d("0.05"), Employer: d("0.065")},
 				},
 			},
 
 			AllocationRates: AllocationRateTable{
-				UpTo35:      AllocationRates{OA: 0.6217, SA: 0.1621, MA: 0.2162},
-				Above35To45: AllocationRates{OA: 0.5676, SA: 0.1892, MA: 0.2432},
-				Above45To50: AllocationRates{OA: 0.5135, SA: 0.2162, MA: 0.2703},
-				Above50To55: AllocationRates{OA: 0.4054, SA: 0.3108, MA: 0.2838},
-				Above55To60: AllocationRates{OA: 0.4068, SA: 0.1186, MA: 0.3559, RA: 0.1186},
-				Above60To65: AllocationRates{OA: 0.1707, SA: 0.1220, MA: 0.5122, RA: 0.1951},
-				Above65:     AllocationRates{OA: 0.0800, SA: 0.0800, MA: 0.5200, RA: 0.3200},
+				UpTo35:      AllocationRates{OA: d("0.6217"), SA: d("0.1621"), MA: d("0.2162"), RA: d("0")},
+				Above35To45: AllocationRates{OA: d("0.5676"), SA: d("0.1892"), MA: d("0.2432"), RA: d("0")},
+				Above45To50: AllocationRates{OA: d("0.5135"), SA: d("0.2162"), MA: d("0.2703"), RA: d("0")},
+				Above50To55: AllocationRates{OA: d("0.4054"), SA: d("0.3108"), MA: d("0.2838"), RA: d("0")},
+				Above55To60: AllocationRates{OA: d("0.4068"), SA: d("0.1186"), MA: d("0.3559"), RA: d("0.1186")},
+				Above60To65: AllocationRates{OA: d("0.1707"), SA: d("0.1220"), MA: d("0.5122"), RA: d("0.1951")},
+				Above65:     AllocationRates{OA: d("0.0800"), SA: d("0.0800"), MA: d("0.5200"), RA: d("0.3200")},
 			},
 		},
 	}
@@ -92,47 +99,47 @@ func Config2025() CPFConfiguration {
 			BHS: 71500, // Updated for 2025
 
 			InterestRates: InterestRates{
-				OA:                        0.025,
-				SA:                        0.04,
-				MA:                        0.04,
-				RA:                        0.04,
-				Extra1PctFirst60k:         0.01,
-				Extra2PctFirst30kAbove55:  0.02,
-				Extra1PctNext30kAbove55:   0.01,
+				OA:                       d("0.025"),
+				SA:                       d("0.04"),
+				MA:                       d("0.04"),
+				RA:                       d("0.04"),
+				Extra1PctFirst60k:        d("0.01"),
+				Extra2PctFirst30kAbove55: d("0.02"),
+				Extra1PctNext30kAbove55:  d("0.01"),
 			},
 
 			ContributionRates: ContributionRateTable{
 				CitizenAndPR3Plus: AgeBasedContributionRates{
-					UpTo55:      RatePair{Employee: 0.20, Employer: 0.17},
-					Above55To60: RatePair{Employee: 0.15, Employer: 0.145},
-					Above60To65: RatePair{Employee: 0.095, Employer: 0.11},
-					Above65To70: RatePair{Employee: 0.075, Employer: 0.09},
-					Above70:     RatePair{Employee: 0.05, Employer: 0.075},
+					UpTo55:      RatePair{Employee: d("0.20"), Employer: d("0.17")},
+					Above55To60: RatePair{Employee: d("0.15"), Employer: d("0.145")},
+					Above60To65: RatePair{Employee: d("0.095"), Employer: d("0.11")},
+					Above65To70: RatePair{Employee: d("0.075"), Employer: d("0.09")},
+					Above70:     RatePair{Employee: d("0.05"), Employer: d("0.075")},
 				},
 				PRYear1: AgeBasedContributionRates{
-					UpTo55:      RatePair{Employee: 0.05, Employer: 0.04},
-					Above55To60: RatePair{Employee: 0.05, Employer: 0.04},
-					Above60To65: RatePair{Employee: 0.05, Employer: 0.04},
-					Above65To70: RatePair{Employee: 0.05, Employer: 0.04},
-					Above70:     RatePair{Employee: 0.05, Employer: 0.04},
+					UpTo55:      RatePair{Employee: d("0.05"), Employer: d("0.04")},
+					Above55To60: RatePair{Employee: d("0.05"), Employer: d("0.04")},
+					Above60To65: RatePair{Employee: d("0.05"), Employer: d("0.04")},
+					Above65To70: RatePair{Employee: d("0.05"), Employer: d("0.04")},
+					Above70:     RatePair{Employee: d("0.05"), Employer: d("0.04")},
 				},
 				PRYear2: AgeBasedContributionRates{
-					UpTo55:      RatePair{Employee: 0.15, Employer: 0.09},
-					Above55To60: RatePair{Employee: 0.125, Employer: 0.09},
-					Above60To65: RatePair{Employee: 0.075, Employer: 0.085},
-					Above65To70: RatePair{Employee: 0.05, Employer: 0.065},
-					Above70:     RatePair{Employee: 0.05, Employer: 0.065},
+					UpTo55:      RatePair{Employee: d("0.15"), Employer: d("0.09")},
+					Above55To60: RatePair{Employee: d("0.125"), Employer: d("0.09")},
+					Above60To65: RatePair{Employee: d("0.075"), Employer: d("0.085")},
+					Above65To70: RatePair{Employee: d("0.05"), Employer: d("0.065")},
+					Above70:     RatePair{Employee: d("0.05"), Employer: d("0.065")},
 				},
 			},
 
 			AllocationRates: AllocationRateTable{
-				UpTo35:      AllocationRates{OA: 0.6217, SA: 0.1621, MA: 0.2162},
-				Above35To45: AllocationRates{OA: 0.5676, SA: 0.1892, MA: 0.2432},
-				Above45To50: AllocationRates{OA: 0.5135, SA: 0.2162, MA: 0.2703},
-				Above50To55: AllocationRates{OA: 0.4054, SA: 0.3108, MA: 0.2838},
-				Above55To60: AllocationRates{OA: 0.4068, SA: 0.1186, MA: 0.3559, RA: 0.1186},
-				Above60To65: AllocationRates{OA: 0.1707, SA: 0.1220, MA: 0.5122, RA: 0.1951},
-				Above65:     AllocationRates{OA: 0.0800, SA: 0.0800, MA: 0.5200, RA: 0.3200},
+				UpTo35:      AllocationRates{OA: d("0.6217"), SA: d("0.1621"), MA: d("0.2162"), RA: d("0")},
+				Above35To45: AllocationRates{OA: d("0.5676"), SA: d("0.1892"), MA: d("0.2432"), RA: d("0")},
+				Above45To50: AllocationRates{OA: d("0.5135"), SA: d("0.2162"), MA: d("0.2703"), RA: d("0")},
+				Above50To55: AllocationRates{OA: d("0.4054"), SA: d("0.3108"), MA: d("0.2838"), RA: d("0")},
+				Above55To60: AllocationRates{OA: d("0.4068"), SA: d("0.1186"), MA: d("0.3559"), RA: d("0.1186")},
+				Above60To65: AllocationRates{OA: d("0.1707"), SA: d("0.1220"), MA: d("0.5122"), RA: d("0.1951")},
+				Above65:     AllocationRates{OA: d("0.0800"), SA: d("0.0800"), MA: d("0.5200"), RA: d("0.3200")},
 			},
 		},
 	}

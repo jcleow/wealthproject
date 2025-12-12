@@ -3,6 +3,8 @@ package config
 import (
 	"testing"
 	"time"
+
+	"financial-chat-system/backend/internal/decimal"
 )
 
 func TestConfig2024(t *testing.T) {
@@ -90,66 +92,79 @@ func TestConfig2025(t *testing.T) {
 func TestConfigInterestRates(t *testing.T) {
 	cfg := Config2025()
 
+	expected025 := decimal.MustFromString("0.025")
+	expected04 := decimal.MustFromString("0.04")
+	expected01 := decimal.MustFromString("0.01")
+	expected02 := decimal.MustFromString("0.02")
+
 	// Verify base interest rates
-	if cfg.Config.InterestRates.OA != 0.025 {
-		t.Errorf("Expected OA rate 2.5%%, got %.2f%%", cfg.Config.InterestRates.OA*100)
+	if cfg.Config.InterestRates.OA.Cmp(expected025) != 0 {
+		t.Errorf("Expected OA rate 2.5%%, got %s", cfg.Config.InterestRates.OA.String())
 	}
-	if cfg.Config.InterestRates.SA != 0.04 {
-		t.Errorf("Expected SA rate 4%%, got %.2f%%", cfg.Config.InterestRates.SA*100)
+	if cfg.Config.InterestRates.SA.Cmp(expected04) != 0 {
+		t.Errorf("Expected SA rate 4%%, got %s", cfg.Config.InterestRates.SA.String())
 	}
-	if cfg.Config.InterestRates.MA != 0.04 {
-		t.Errorf("Expected MA rate 4%%, got %.2f%%", cfg.Config.InterestRates.MA*100)
+	if cfg.Config.InterestRates.MA.Cmp(expected04) != 0 {
+		t.Errorf("Expected MA rate 4%%, got %s", cfg.Config.InterestRates.MA.String())
 	}
-	if cfg.Config.InterestRates.RA != 0.04 {
-		t.Errorf("Expected RA rate 4%%, got %.2f%%", cfg.Config.InterestRates.RA*100)
+	if cfg.Config.InterestRates.RA.Cmp(expected04) != 0 {
+		t.Errorf("Expected RA rate 4%%, got %s", cfg.Config.InterestRates.RA.String())
 	}
 
 	// Verify extra interest rates
-	if cfg.Config.InterestRates.Extra1PctFirst60k != 0.01 {
-		t.Errorf("Expected extra 1%% for first $60k, got %.2f%%", cfg.Config.InterestRates.Extra1PctFirst60k*100)
+	if cfg.Config.InterestRates.Extra1PctFirst60k.Cmp(expected01) != 0 {
+		t.Errorf("Expected extra 1%% for first $60k, got %s", cfg.Config.InterestRates.Extra1PctFirst60k.String())
 	}
-	if cfg.Config.InterestRates.Extra2PctFirst30kAbove55 != 0.02 {
-		t.Errorf("Expected extra 2%% for first $30k (55+), got %.2f%%", cfg.Config.InterestRates.Extra2PctFirst30kAbove55*100)
+	if cfg.Config.InterestRates.Extra2PctFirst30kAbove55.Cmp(expected02) != 0 {
+		t.Errorf("Expected extra 2%% for first $30k (55+), got %s", cfg.Config.InterestRates.Extra2PctFirst30kAbove55.String())
 	}
 }
 
 func TestConfigContributionRates(t *testing.T) {
 	cfg := Config2025()
 
+	expected020 := decimal.MustFromString("0.20")
+	expected017 := decimal.MustFromString("0.17")
+	expected037 := decimal.MustFromString("0.37")
+	expected005 := decimal.MustFromString("0.05")
+	expected004 := decimal.MustFromString("0.04")
+	expected015 := decimal.MustFromString("0.15")
+	expected009 := decimal.MustFromString("0.09")
+
 	// Verify citizen/PR3+ under 55 rates
 	citizen := cfg.Config.ContributionRates.CitizenAndPR3Plus.UpTo55
-	if citizen.Employee != 0.20 {
-		t.Errorf("Expected citizen employee rate 20%%, got %.2f%%", citizen.Employee*100)
+	if citizen.Employee.Cmp(expected020) != 0 {
+		t.Errorf("Expected citizen employee rate 20%%, got %s", citizen.Employee.String())
 	}
-	if citizen.Employer != 0.17 {
-		t.Errorf("Expected citizen employer rate 17%%, got %.2f%%", citizen.Employer*100)
+	if citizen.Employer.Cmp(expected017) != 0 {
+		t.Errorf("Expected citizen employer rate 17%%, got %s", citizen.Employer.String())
 	}
-	if citizen.Total() != 0.37 {
-		t.Errorf("Expected total rate 37%%, got %.2f%%", citizen.Total()*100)
+	if citizen.Total().Cmp(expected037) != 0 {
+		t.Errorf("Expected total rate 37%%, got %s", citizen.Total().String())
 	}
 
 	// Verify PR Year 1 rates (same for all ages)
 	pr1 := cfg.Config.ContributionRates.PRYear1.UpTo55
-	if pr1.Employee != 0.05 {
-		t.Errorf("Expected PR Year 1 employee rate 5%%, got %.2f%%", pr1.Employee*100)
+	if pr1.Employee.Cmp(expected005) != 0 {
+		t.Errorf("Expected PR Year 1 employee rate 5%%, got %s", pr1.Employee.String())
 	}
-	if pr1.Employer != 0.04 {
-		t.Errorf("Expected PR Year 1 employer rate 4%%, got %.2f%%", pr1.Employer*100)
+	if pr1.Employer.Cmp(expected004) != 0 {
+		t.Errorf("Expected PR Year 1 employer rate 4%%, got %s", pr1.Employer.String())
 	}
 
 	// Verify PR Year 1 is same across age bands
 	pr1_56 := cfg.Config.ContributionRates.PRYear1.Above55To60
-	if pr1_56.Employee != pr1.Employee || pr1_56.Employer != pr1.Employer {
+	if pr1_56.Employee.Cmp(&pr1.Employee) != 0 || pr1_56.Employer.Cmp(&pr1.Employer) != 0 {
 		t.Errorf("Expected PR Year 1 rates to be same across age bands")
 	}
 
 	// Verify PR Year 2 rates
 	pr2 := cfg.Config.ContributionRates.PRYear2.UpTo55
-	if pr2.Employee != 0.15 {
-		t.Errorf("Expected PR Year 2 employee rate 15%%, got %.2f%%", pr2.Employee*100)
+	if pr2.Employee.Cmp(expected015) != 0 {
+		t.Errorf("Expected PR Year 2 employee rate 15%%, got %s", pr2.Employee.String())
 	}
-	if pr2.Employer != 0.09 {
-		t.Errorf("Expected PR Year 2 employer rate 9%%, got %.2f%%", pr2.Employer*100)
+	if pr2.Employer.Cmp(expected009) != 0 {
+		t.Errorf("Expected PR Year 2 employer rate 9%%, got %s", pr2.Employer.String())
 	}
 }
 
@@ -158,33 +173,42 @@ func TestConfigAllocationRates(t *testing.T) {
 
 	// Verify allocation for under 35
 	alloc := cfg.Config.AllocationRates.UpTo35
-	sum := alloc.OA + alloc.SA + alloc.MA + alloc.RA
-	if sum < 0.999 || sum > 1.001 {
-		t.Errorf("Allocation rates for ≤35 should sum to 1, got %.4f", sum)
+	sum := decimal.Zero()
+	sum, _ = sum.Add(&alloc.OA)
+	sum, _ = sum.Add(&alloc.SA)
+	sum, _ = sum.Add(&alloc.MA)
+	sum, _ = sum.Add(&alloc.RA)
+
+	one := decimal.MustFromString("1")
+	tolerance := decimal.MustFromString("0.001")
+	diff, _ := sum.Sub(one)
+	if diff.Abs().Cmp(tolerance) > 0 {
+		t.Errorf("Allocation rates for ≤35 should sum to 1, got %s", sum.String())
 	}
 
 	// OA should be highest for young workers
-	if alloc.OA <= alloc.SA || alloc.OA <= alloc.MA {
-		t.Errorf("Expected OA to be highest allocation for ≤35, got OA=%.4f, SA=%.4f, MA=%.4f",
-			alloc.OA, alloc.SA, alloc.MA)
+	if alloc.OA.Cmp(&alloc.SA) <= 0 || alloc.OA.Cmp(&alloc.MA) <= 0 {
+		t.Errorf("Expected OA to be highest allocation for ≤35, got OA=%s, SA=%s, MA=%s",
+			alloc.OA.String(), alloc.SA.String(), alloc.MA.String())
 	}
 
 	// RA should be 0 for under 55
-	if alloc.RA != 0 {
-		t.Errorf("Expected RA allocation 0 for ≤35, got %.4f", alloc.RA)
+	zero := decimal.MustFromString("0")
+	if alloc.RA.Cmp(zero) != 0 {
+		t.Errorf("Expected RA allocation 0 for ≤35, got %s", alloc.RA.String())
 	}
 
 	// Verify RA starts after 55
 	alloc55 := cfg.Config.AllocationRates.Above55To60
-	if alloc55.RA == 0 {
+	if alloc55.RA.Cmp(zero) == 0 {
 		t.Errorf("Expected non-zero RA allocation for 55-60")
 	}
 
 	// Verify MA increases with age (healthcare needs)
 	alloc65 := cfg.Config.AllocationRates.Above65
-	if alloc65.MA <= alloc.MA {
-		t.Errorf("Expected MA to increase with age, got MA(≤35)=%.4f, MA(>65)=%.4f",
-			alloc.MA, alloc65.MA)
+	if alloc65.MA.Cmp(&alloc.MA) <= 0 {
+		t.Errorf("Expected MA to increase with age, got MA(≤35)=%s, MA(>65)=%s",
+			alloc.MA.String(), alloc65.MA.String())
 	}
 }
 

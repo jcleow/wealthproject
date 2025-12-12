@@ -3,7 +3,11 @@
 // Reference: https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay
 package config
 
-import "time"
+import (
+	"time"
+
+	"financial-chat-system/backend/internal/decimal"
+)
 
 // ResidencyStatus represents the CPF residency status for contribution rate lookup.
 // PR contribution rates are graduated over the first 3 years of obtaining PR status.
@@ -60,15 +64,15 @@ type RetirementSums struct {
 
 // InterestRates contains all interest rate configurations
 type InterestRates struct {
-	OA float64 `json:"oa"` // Ordinary Account base rate (typically 2.5%)
-	SA float64 `json:"sa"` // Special Account base rate (typically 4%)
-	MA float64 `json:"ma"` // MediSave Account base rate (typically 4%)
-	RA float64 `json:"ra"` // Retirement Account base rate (typically 4%)
+	OA decimal.Decimal `json:"oa"` // Ordinary Account base rate (typically 2.5%)
+	SA decimal.Decimal `json:"sa"` // Special Account base rate (typically 4%)
+	MA decimal.Decimal `json:"ma"` // MediSave Account base rate (typically 4%)
+	RA decimal.Decimal `json:"ra"` // Retirement Account base rate (typically 4%)
 
 	// Extra interest rates
-	Extra1PctFirst60k        float64 `json:"extra1PctFirst60k"`        // Extra 1% on first $60k (below 55)
-	Extra2PctFirst30kAbove55 float64 `json:"extra2PctFirst30kAbove55"` // Extra 2% on first $30k (55+)
-	Extra1PctNext30kAbove55  float64 `json:"extra1PctNext30kAbove55"`  // Extra 1% on next $30k (55+)
+	Extra1PctFirst60k        decimal.Decimal `json:"extra1PctFirst60k"`        // Extra 1% on first $60k (below 55)
+	Extra2PctFirst30kAbove55 decimal.Decimal `json:"extra2PctFirst30kAbove55"` // Extra 2% on first $30k (55+)
+	Extra1PctNext30kAbove55  decimal.Decimal `json:"extra1PctNext30kAbove55"`  // Extra 1% on next $30k (55+)
 }
 
 // ContributionRateTable contains contribution rates for all residency statuses
@@ -91,13 +95,14 @@ type AgeBasedContributionRates struct {
 
 // RatePair contains employee and employer contribution rates
 type RatePair struct {
-	Employee float64 `json:"employee"` // Employee contribution rate (decimal)
-	Employer float64 `json:"employer"` // Employer contribution rate (decimal)
+	Employee decimal.Decimal `json:"employee"` // Employee contribution rate (decimal)
+	Employer decimal.Decimal `json:"employer"` // Employer contribution rate (decimal)
 }
 
 // Total returns the total contribution rate (employee + employer)
-func (r RatePair) Total() float64 {
-	return r.Employee + r.Employer
+func (r RatePair) Total() *decimal.Decimal {
+	total, _ := r.Employee.Add(&r.Employer)
+	return total
 }
 
 // AllocationRateTable contains allocation rates for each age band
@@ -113,10 +118,10 @@ type AllocationRateTable struct {
 
 // AllocationRates contains the allocation percentages to each account
 type AllocationRates struct {
-	OA float64 `json:"oa"` // Ordinary Account allocation (decimal)
-	SA float64 `json:"sa"` // Special Account allocation (decimal)
-	MA float64 `json:"ma"` // MediSave Account allocation (decimal)
-	RA float64 `json:"ra"` // Retirement Account allocation (decimal, only for 55+)
+	OA decimal.Decimal `json:"oa"` // Ordinary Account allocation (decimal)
+	SA decimal.Decimal `json:"sa"` // Special Account allocation (decimal)
+	MA decimal.Decimal `json:"ma"` // MediSave Account allocation (decimal)
+	RA decimal.Decimal `json:"ra"` // Retirement Account allocation (decimal, only for 55+)
 }
 
 // AgeBand represents an age range for rate lookup

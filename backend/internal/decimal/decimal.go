@@ -155,6 +155,13 @@ func (d *Decimal) Cmp(other *Decimal) int {
 	return d.Decimal.Cmp(&other.Decimal)
 }
 
+// Abs returns the absolute value of the decimal
+func (d *Decimal) Abs() *Decimal {
+	result := &Decimal{}
+	result.Decimal.Abs(&d.Decimal)
+	return result
+}
+
 // String returns the string representation
 func (d *Decimal) String() string {
 	return d.Decimal.Text('f')
@@ -246,4 +253,10 @@ func (d *Decimal) ToBasisPoints() int64 {
 		return 0
 	}
 	return bps
+}
+
+// ToFloat64 converts the decimal to a float64 (may lose precision for very large values)
+func (d *Decimal) ToFloat64() float64 {
+	f, _ := d.Decimal.Float64()
+	return f
 }

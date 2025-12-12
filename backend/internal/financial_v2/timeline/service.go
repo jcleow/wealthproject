@@ -248,10 +248,10 @@ func (s *Service) loadEffectiveRows(
 // Helper Functions (used by ComputeFinancialSnapshot)
 // =============================================================================
 
-// CPFContext holds CPF processor and state for timeline calculations
+// CPFContext holds CPF processor and balances for timeline calculations
 type CPFContext struct {
 	Processor *cpfProcessor.Processor
-	State     *cpfProcessor.State
+	Balances  *cpfProcessor.CPFBalances
 }
 
 // NewCPFContext creates a CPF context from an account, returns nil if no account
@@ -260,8 +260,8 @@ func NewCPFContext(cpfAccount *account.CPFAccount) *CPFContext {
 		return nil
 	}
 	proc, _ := cpfProcessor.NewProcessor(cpfAccount)
-	state := cpfProcessor.NewState(cpfAccount)
-	return &CPFContext{Processor: proc, State: state}
+	balances := cpfProcessor.NewCPFBalances(cpfAccount)
+	return &CPFContext{Processor: proc, Balances: balances}
 }
 
 // ResetYTDIfNewYear resets YTD tracking at year boundaries
@@ -270,7 +270,7 @@ func (c *CPFContext) ResetYTDIfNewYear(date time.Time, monthIdx int) {
 		return
 	}
 	if date.Month() == 1 {
-		c.Processor.ResetYTDState(c.State)
+		c.Processor.ResetYTDBalances(c.Balances)
 	}
 }
 
@@ -295,14 +295,14 @@ func (c *CPFContext) ProcessIncomes(
 
 		var result *cpfProcessor.ContributionResult
 		if income.CPFWageType == cpfProcessor.CPFWageTypeOW {
-			result, _ = c.Processor.ProcessOrdinaryWage(state[income.ID], c.State, date)
+			result, _ = c.Processor.ProcessOrdinaryWage(state[income.ID], c.Balances, date)
 		} else {
-			result, _ = c.Processor.ProcessAdditionalWage(state[income.ID], c.State, date)
+			result, _ = c.Processor.ProcessAdditionalWage(state[income.ID], c.Balances, date)
 		}
 
 		if result != nil {
 			contributions[income.ID] = result
-			c.Processor.AddContributionToState(result, c.State)
+			c.Processor.AddContributionToBalances(result, c.Balances)
 			totalEmployeeCPF, _ = totalEmployeeCPF.Add(result.EmployeeContribution)
 		}
 	}
