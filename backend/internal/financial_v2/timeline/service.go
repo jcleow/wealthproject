@@ -618,6 +618,48 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, dat
 	return responses
 }
 
+// buildCPFContributionResponses builds CPF contribution line items from active incomes
+func buildCPFContributionResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time, cpfContributions map[string]*cpfProcessor.ContributionResult) []CPFContributionResponse {
+	responses := make([]CPFContributionResponse, 0)
+
+	for _, row := range rows {
+		if !isActiveInMonth(row, date) {
+			continue
+		}
+		state := itemStates[row.ID]
+		if state == nil {
+			continue
+		}
+
+		// Only create CPF contribution response if there's a contribution for this income
+		contribution, ok := cpfContributions[row.ID]
+		if !ok || contribution == nil {
+			continue
+		}
+
+		// Skip if no employee contribution
+		if contribution.EmployeeContribution.IsZero() {
+			continue
+		}
+
+		amount := contribution.EmployeeContribution.Round(0)
+		responses = append(responses, CPFContributionResponse{
+			ID:              row.ID + "-cpf",
+			ParentID:        row.ID,
+			Name:            "CPF Employee Contribution - " + row.Name,
+			Category:        row.Category,
+			Amount:          *amount,
+			AdjAmount:       *amount,
+			SourceFrequency: string(row.Frequency),
+			ItemType:        "cpf_contribution",
+			CreatedYear:     state.CreatedYear,
+			CreatedMonth:    state.CreatedMonth,
+			GrowthRate:      *row.GrowthRate.Round(0),
+		})
+	}
+	return responses
+}
+
 // buildCPFAssetResponses builds CPF asset responses from accumulated balances
 func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int) []CPFAssetResponse {
 	if cpfCtx == nil || cpfCtx.Balances == nil {
@@ -698,6 +740,7 @@ func buildMonthDetailResponse(
 	liabilities, liabilityTotal := buildLiabilityResponses(data.Liabilities, itemStates, date)
 	incomes := buildIncomeResponses(data.Incomes, itemStates, date, cpfContributions)
 	expenses := buildExpenseResponses(data.Expenses, itemStates, date)
+	cpfContributionResponses := buildCPFContributionResponses(data.Incomes, itemStates, date, cpfContributions)
 
 	// Build CPF assets from accumulated balances
 	cpfAssets := buildCPFAssetResponses(cpfCtx, yearIndex, month)
@@ -724,7 +767,7 @@ func buildMonthDetailResponse(
 		CPFAssets:            cpfAssets,
 		Liabilities:          liabilities,
 		Income:               incomes,
-		CPFContributions:     []CPFContributionResponse{},
+		CPFContributions:     cpfContributionResponses,
 		Expenses:             expenses,
 		NetCash:              *cashAccumulator.Round(0),
 		NetWorth:             *netWorth.Round(0),
@@ -754,6 +797,14 @@ func (s *Service) ComputeFinancialSnapshot(
 	sgData, err := s.loadEffectiveRows(ctx, userID, dateOpts, paginationOpts)
 	if err != nil {
 		return TimelineV2Response{}, fmt.Errorf("failed to load financial data: %w", err)
+	}
+
+	// DEBUG: Print loaded data
+	fmt.Printf("[DEBUG] Loaded %d incomes for userID=%s, dateRange=%v to %v\n",
+		len(sgData.Rows.Incomes), userID, opts.StartDate, opts.EndDate)
+	for _, inc := range sgData.Rows.Incomes {
+		fmt.Printf("[DEBUG]   Income: id=%s, name=%s, start=%v, end=%v, cpf=%v\n",
+			inc.ID, inc.Name, inc.StartDate, inc.EndDate, inc.CPFApplicable)
 	}
 
 	baseYear := opts.StartDate.Year()
