@@ -35,7 +35,7 @@ type FormState = {
   itemType: TimelineItemType
   category: string
   amount: string
-  frequency: TimelineFrequency
+  frequency?: TimelineFrequency // Only used for income/expense
   note: string
 }
 
@@ -45,7 +45,7 @@ const defaultState: FormState = {
   itemType: 'asset',
   category: '',
   amount: '',
-  frequency: 'annual',
+  frequency: undefined, // Only set for income/expense
   note: '',
 }
 
@@ -81,21 +81,27 @@ export function TimelineEditDrawer({
     if (!itemId) return
     const match = existingItems.find((item) => (item as any).itemId === itemId || (item as any).item_id === itemId)
     if (match) {
+      const itemType = (match as any).itemType ?? (match as any).item_type
+      const isFlow = itemType === 'income' || itemType === 'expense'
       setForm({
         itemId: (match as any).itemId ?? (match as any).item_id,
         name: match.name,
-        itemType: (match as any).itemType ?? (match as any).item_type,
+        itemType,
         category: match.category,
         amount: ((match as any).sourceAmount ?? (match as any).source_amount ?? (match as any).amountAnnual ?? (match as any).amount_annual ?? 0).toString(),
-        frequency: (match as any).sourceFrequency ?? (match as any).source_frequency ?? 'annual',
+        // Only set frequency for income/expense (flows)
+        frequency: isFlow ? ((match as any).sourceFrequency ?? (match as any).source_frequency ?? 'annual') : undefined,
         note: '',
       })
     }
   }
 
-  const annualizedAmount =
-    Number.parseFloat(form.amount || '0') *
-    (frequencyMultiplier[form.frequency] ?? 1)
+  // For income/expense, calculate annualized amount from frequency
+  // For assets/liabilities, amount is the balance (no annualization)
+  const isFlow = form.itemType === 'income' || form.itemType === 'expense'
+  const annualizedAmount = isFlow
+    ? Number.parseFloat(form.amount || '0') * (frequencyMultiplier[form.frequency ?? 'annual'] ?? 1)
+    : Number.parseFloat(form.amount || '0')
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -112,6 +118,9 @@ export function TimelineEditDrawer({
       return
     }
 
+    // Only include frequency for income/expense
+    const isFlowType = form.itemType === 'income' || form.itemType === 'expense'
+
     const payload: TimelineEditRequest = {
       year,
       edits: [
@@ -121,7 +130,7 @@ export function TimelineEditDrawer({
           itemType: form.itemType,
           category: form.category.trim() || 'other',
           amount,
-          frequency: form.frequency,
+          ...(isFlowType && { frequency: form.frequency ?? 'annual' }),
         },
       ],
       note: form.note.trim() || undefined,
@@ -185,9 +194,16 @@ export function TimelineEditDrawer({
               <select
                 className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
                 value={form.itemType}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, itemType: event.target.value as TimelineItemType }))
-                }
+                onChange={(event) => {
+                  const newType = event.target.value as TimelineItemType
+                  const newIsFlow = newType === 'income' || newType === 'expense'
+                  setForm((prev) => ({
+                    ...prev,
+                    itemType: newType,
+                    // Set frequency for flows, clear for assets/liabilities
+                    frequency: newIsFlow ? (prev.frequency ?? 'annual') : undefined,
+                  }))
+                }}
               >
                 <option value="asset">Asset</option>
                 <option value="liability">Liability</option>
@@ -210,29 +226,34 @@ export function TimelineEditDrawer({
                 }
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm text-gray-300">Frequency</label>
-              <select
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
-                value={form.frequency}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    frequency: event.target.value as TimelineFrequency,
-                  }))
-                }
-              >
-                {Object.entries(frequencyLabel).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Frequency only applies to income/expense - assets/liabilities are point-in-time balances */}
+            {isFlow && (
+              <div className="space-y-2">
+                <label className="text-sm text-gray-300">Frequency</label>
+                <select
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+                  value={form.frequency ?? 'annual'}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      frequency: event.target.value as TimelineFrequency,
+                    }))
+                  }
+                >
+                  {Object.entries(frequencyLabel).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm text-gray-300">Amount ({frequencyLabel[form.frequency]})</label>
+            <label className="text-sm text-gray-300">
+              {isFlow ? `Amount (${frequencyLabel[form.frequency ?? 'annual']})` : 'Balance'}
+            </label>
             <input
               type="number"
               min="0"
@@ -242,9 +263,11 @@ export function TimelineEditDrawer({
               value={form.amount}
               onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
             />
-            <p className="text-xs text-blue-100">
-              Annualized: <span className="font-semibold">{annualizedAmount.toLocaleString()}</span>
-            </p>
+            {isFlow && (
+              <p className="text-xs text-blue-100">
+                Annualized: <span className="font-semibold">{annualizedAmount.toLocaleString()}</span>
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

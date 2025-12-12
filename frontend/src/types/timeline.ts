@@ -109,9 +109,9 @@ export interface TimelineEdit {
   itemId?: string
   name?: string
   itemType: TimelineItemType
-  category: string
+  category?: string
   amount: number
-  frequency: TimelineFrequency
+  frequency?: TimelineFrequency // Only required for income/expense
 }
 
 export interface TimelineEditRequest {

@@ -384,11 +384,13 @@ export function FinancialDataManagement({
       // When using timeline, delete via timeline edit (set amount to 0)
       if (usingTimeline && onSaveTimelineEdits && selectedYear > 0) {
         // For timeline items in year > 0, create a deletion edit
+        const isFlow = category === 'income' || category === 'expense'
         const edit: TimelineEdit = {
           itemId: id,
           itemType: category,
           amount: 0, // Amount of 0 signals deletion in timeline
-          frequency: 'annual',
+          // Only include frequency for income/expense
+          ...(isFlow && { frequency: 'annual' as const }),
         }
 
         const request: TimelineEditRequest = {
@@ -472,11 +474,9 @@ export function FinancialDataManagement({
         }
       })()
 
-      // Extract category and frequency based on payload type
+      // Extract category based on payload type
       const category = payload.type !== 'cpf' ? payload.category : ''
-      const frequency = payload.type === 'income' || payload.type === 'expense'
-        ? mapFrequency(payload.frequency)
-        : 'annual'
+      const isFlow = payload.type === 'income' || payload.type === 'expense'
 
       const edit: TimelineEdit = {
         itemId: itemId || undefined,
@@ -484,7 +484,8 @@ export function FinancialDataManagement({
         itemType: payload.type === 'cpf' ? 'asset' : payload.type,
         category,
         amount,
-        frequency,
+        // Only include frequency for income/expense - assets/liabilities don't have frequency
+        ...(isFlow && { frequency: mapFrequency(payload.frequency) }),
       }
 
       const request: TimelineEditRequest = {

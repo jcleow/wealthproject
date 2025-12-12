@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	defaultTotalYears            = 31  // years 0..30 inclusive (fallback)
-	defaultVersion               = "v1"
+	defaultTotalYears             = 31 // years 0..30 inclusive (fallback)
+	defaultVersion                = "v1"
 	defaultCashInterestRateAnnual = 1.5 // Default annual interest rate for cash accounts (%)
 )
 
@@ -101,21 +101,22 @@ func (s *Service) InitializeUserFinancialData(ctx context.Context, userID string
 // - SelectedIDs: limit scenarios to specific IDs (empty = all scenarios)
 //
 // Example usage:
-//   // Basic timeline with user's preferred resolution
-//   resp, err := service.GetTimeline(ctx, TimelineOptions{})
 //
-//   // Monthly timeline
-//   resp, err := service.GetTimeline(ctx, TimelineOptions{Resolution: "monthly"})
+//	// Basic timeline with user's preferred resolution
+//	resp, err := service.GetTimeline(ctx, TimelineOptions{})
 //
-//   // Timeline with scenarios
-//   resp, err := service.GetTimeline(ctx, TimelineOptions{IncludeScenarios: true})
+//	// Monthly timeline
+//	resp, err := service.GetTimeline(ctx, TimelineOptions{Resolution: "monthly"})
 //
-//   // Monthly timeline with specific scenarios
-//   resp, err := service.GetTimeline(ctx, TimelineOptions{
-//       Resolution: "monthly",
-//       IncludeScenarios: true,
-//       SelectedIDs: []string{"retirement-scenario-1"},
-//   })
+//	// Timeline with scenarios
+//	resp, err := service.GetTimeline(ctx, TimelineOptions{IncludeScenarios: true})
+//
+//	// Monthly timeline with specific scenarios
+//	resp, err := service.GetTimeline(ctx, TimelineOptions{
+//	    Resolution: "monthly",
+//	    IncludeScenarios: true,
+//	    SelectedIDs: []string{"retirement-scenario-1"},
+//	})
 func (s *Service) GetTimeline(ctx context.Context, opts TimelineOptions) (TimelineResponse, error) {
 	userID := getUserIDFromContext(ctx)
 	if userID == "" {
@@ -446,7 +447,6 @@ func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit E
 			Category:         category,
 			CurrentValue:     edit.Amount,
 			AnnualGrowthRate: 0,
-			Frequency:        string(edit.Frequency),
 			StartYear:        absoluteStartYear,
 		})
 		return err
@@ -458,7 +458,6 @@ func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit E
 			CurrentBalance:  edit.Amount,
 			InterestRateAPR: 0,
 			MinimumPayment:  0,
-			Frequency:       string(edit.Frequency),
 			StartYear:       absoluteStartYear,
 		})
 		return err
@@ -494,7 +493,7 @@ type itemState struct {
 	growthRate float64 // Per-item growth rate (percentage)
 }
 
-type effectiveRow struct {
+type FinancialDataRow struct {
 	ID         string
 	ParentID   string
 	Name       string
@@ -516,7 +515,7 @@ func (s *Service) buildTimeline(ctx context.Context, userID string, resolution s
 		growthCfg    []repository.GrowthConfig
 		accumulator  repository.CashAccount
 		cashAccounts []repository.CashAccount
-		rows         []effectiveRow
+		rows         []FinancialDataRow
 	)
 
 	// Launch 5 goroutines in parallel - all are pure reads with no dependencies
@@ -584,7 +583,7 @@ func (s *Service) computeMonthlyTimeline(
 	growthCfg []repository.GrowthConfig,
 	accumulator repository.CashAccount,
 	cashAccounts []repository.CashAccount,
-	rows []effectiveRow,
+	rows []FinancialDataRow,
 ) (TimelineResponse, error) {
 	// Calculate total months from user settings
 	totalYears := defaultTotalYears
@@ -599,7 +598,7 @@ func (s *Service) computeMonthlyTimeline(
 	baseYear := time.Now().Year()
 
 	// Group rows by start year and month for efficient lookup
-	rowsByYearMonth := map[string][]effectiveRow{}
+	rowsByYearMonth := map[string][]FinancialDataRow{}
 	for _, r := range rows {
 		relativeYear := r.StartYear - baseYear
 		startMonth := 1 // Default to January if not specified
@@ -1075,8 +1074,8 @@ func sumCashAccountBalances(items []TimelineItem) float64 {
 	return total
 }
 
-func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]effectiveRow, error) {
-	rows := []effectiveRow{}
+func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]FinancialDataRow, error) {
+	rows := []FinancialDataRow{}
 	baseYear := time.Now().Year()
 
 	assets, err := s.store.ListAllAssets(ctx, userID, repository.DateRangeOptions{})
@@ -1089,13 +1088,13 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]effec
 		if startYear == 0 {
 			startYear = baseYear
 		}
-		rows = append(rows, effectiveRow{
+		rows = append(rows, FinancialDataRow{
 			ID:         a.ID,
 			ParentID:   coalesceString(a.ParentID, a.ID),
 			Name:       a.Name,
 			Category:   a.Category,
 			Amount:     a.CurrentValue,
-			Frequency:  normalizeFreq(a.Frequency),
+			Frequency:  FrequencyAnnual, // Assets are point-in-time balances, no frequency concept
 			StartYear:  startYear,
 			EndYear:    repository.IntPtrToNullInt32(a.EndYear),
 			ItemType:   ItemTypeAsset,
@@ -1113,13 +1112,13 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]effec
 		if startYear == 0 {
 			startYear = baseYear
 		}
-		rows = append(rows, effectiveRow{
+		rows = append(rows, FinancialDataRow{
 			ID:         li.ID,
 			ParentID:   coalesceString(li.ParentID, li.ID),
 			Name:       li.Name,
 			Category:   li.Category,
 			Amount:     li.CurrentBalance,
-			Frequency:  normalizeFreq(li.Frequency),
+			Frequency:  FrequencyAnnual, // Liabilities are point-in-time balances, no frequency concept
 			StartYear:  startYear,
 			EndYear:    repository.IntPtrToNullInt32(li.EndYear),
 			ItemType:   ItemTypeLiability,
@@ -1137,7 +1136,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]effec
 		if startYear == 0 {
 			startYear = baseYear
 		}
-		rows = append(rows, effectiveRow{
+		rows = append(rows, FinancialDataRow{
 			ID:         it.ID,
 			ParentID:   coalesceString(it.ParentID, it.ID),
 			Name:       it.Source,
@@ -1161,7 +1160,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]effec
 		if startYear == 0 {
 			startYear = baseYear
 		}
-		rows = append(rows, effectiveRow{
+		rows = append(rows, FinancialDataRow{
 			ID:         it.ID,
 			ParentID:   coalesceString(it.ParentID, it.ID),
 			Name:       it.Payee,

@@ -45,7 +45,6 @@ type Asset struct {
 	Category         string                 `json:"category"`
 	CurrentValue     float64                `json:"currentValue"`
 	AnnualGrowthRate float64                `json:"annualGrowthRate"`
-	Frequency        string                 `json:"frequency"`
 	StartDate        time.Time              `json:"startDate"`           // Precise start date (day-level)
 	EndDate          *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
 	StartYear        int                    `json:"startYear"`           // Legacy: for migration period
@@ -67,7 +66,6 @@ type Liability struct {
 	CurrentBalance  float64                `json:"currentBalance"`
 	InterestRateAPR float64                `json:"interestRateApr"`
 	MinimumPayment  float64                `json:"minimumPayment"`
-	Frequency       string                 `json:"frequency"`
 	StartDate       time.Time              `json:"startDate"`           // Precise start date (day-level)
 	EndDate         *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
 	StartYear       int                    `json:"startYear"`           // Legacy: for migration period
@@ -246,7 +244,6 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 			       category,
 			       current_value,
 			       annual_growth_rate,
-			       COALESCE(frequency, 'annual') as frequency,
 			       start_date,
 			       end_date,
 			       COALESCE(notes, '') as notes,
@@ -263,7 +260,6 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 			       category,
 			       current_value,
 			       annual_growth_rate,
-			       COALESCE(frequency, 'annual') as frequency,
 			       start_date,
 			       end_date,
 			       COALESCE(notes, '') as notes,
@@ -282,7 +278,7 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 	for rows.Next() {
 		var a Asset
 		var endDate sql.NullTime
-		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartDate, &endDate, &a.Notes, &a.UpdatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &endDate, &a.Notes, &a.UpdatedAt); err != nil {
 			return PaginatedResult[Asset]{}, err
 		}
 		if endDate.Valid {
@@ -328,7 +324,6 @@ func (s *Store) ListAllAssets(ctx context.Context, userID string, opts DateRange
 		       category,
 		       current_value,
 		       annual_growth_rate,
-		       COALESCE(frequency, 'annual') as frequency,
 		       start_date,
 		       end_date,
 		       COALESCE(notes, '') as notes,
@@ -363,7 +358,7 @@ func (s *Store) ListAllAssets(ctx context.Context, userID string, opts DateRange
 	for rows.Next() {
 		var a Asset
 		var endDate sql.NullTime
-		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartDate, &endDate, &a.Notes, &a.UpdatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &endDate, &a.Notes, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if endDate.Valid {
@@ -397,7 +392,6 @@ func (s *Store) GetAsset(ctx context.Context, userID, id string) (Asset, error) 
 		       category,
 		       current_value,
 		       annual_growth_rate,
-		       COALESCE(frequency, 'annual') as frequency,
 		       start_date,
 		       end_date,
 		       COALESCE(notes, '') as notes,
@@ -406,7 +400,7 @@ func (s *Store) GetAsset(ctx context.Context, userID, id string) (Asset, error) 
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var a Asset
 	var endDate sql.NullTime
-	if err := row.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.Frequency, &a.StartDate, &endDate, &a.Notes, &a.UpdatedAt); err != nil {
+	if err := row.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &endDate, &a.Notes, &a.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Asset{}, ErrNotFound
 		}
@@ -458,23 +452,22 @@ func (s *Store) CreateAsset(ctx context.Context, userID string, a Asset) (Asset,
 	}
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, frequency, start_date, end_date, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, COALESCE($7,'annual'), $8, $9, NULLIF($10, ''))
+		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, start_date, end_date, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, NULLIF($9, ''))
 		ON CONFLICT ON CONSTRAINT finance_assets_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
 		    current_value=EXCLUDED.current_value,
 		    annual_growth_rate=EXCLUDED.annual_growth_rate,
-		    frequency=EXCLUDED.frequency,
 		    end_date=EXCLUDED.end_date,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), start_date, end_date, COALESCE(notes, ''), updated_at`,
-		userID, nullIfEmpty(a.ParentID), a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, a.Frequency, startDate, endDate, a.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
+		userID, nullIfEmpty(a.ParentID), a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, startDate, endDate, a.Notes)
 
 	var created Asset
 	var endDateVal sql.NullTime
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentValue, &created.AnnualGrowthRate, &created.Frequency, &created.StartDate, &endDateVal, &created.Notes, &created.UpdatedAt); err != nil {
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentValue, &created.AnnualGrowthRate, &created.StartDate, &endDateVal, &created.Notes, &created.UpdatedAt); err != nil {
 		return Asset{}, err
 	}
 	if endDateVal.Valid {
@@ -524,18 +517,17 @@ func (s *Store) UpdateAsset(ctx context.Context, userID string, a Asset) (Asset,
 		    category=$4,
 		    current_value=$5,
 		    annual_growth_rate=$6,
-		    frequency=COALESCE($7, frequency),
-		    start_date=COALESCE($8, start_date),
-		    end_date=$9,
-		    notes=NULLIF($10, ''),
+		    start_date=COALESCE($7, start_date),
+		    end_date=$8,
+		    notes=NULLIF($9, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, COALESCE(frequency,'annual'), start_date, end_date, COALESCE(notes, ''), updated_at`,
-		userID, a.ID, a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, nullIfEmpty(a.Frequency), startDate, endDate, a.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
+		userID, a.ID, a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, startDate, endDate, a.Notes)
 
 	var updated Asset
 	var endDateVal sql.NullTime
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentValue, &updated.AnnualGrowthRate, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Notes, &updated.UpdatedAt); err != nil {
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentValue, &updated.AnnualGrowthRate, &updated.StartDate, &endDateVal, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Asset{}, ErrNotFound
 		}
@@ -642,7 +634,6 @@ func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination P
 			       current_balance,
 			       interest_rate_apr,
 			       minimum_payment,
-			       COALESCE(frequency, 'annual') as frequency,
 			       start_date,
 			       end_date,
 			       COALESCE(notes, '') as notes,
@@ -660,7 +651,6 @@ func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination P
 			       current_balance,
 			       interest_rate_apr,
 			       minimum_payment,
-			       COALESCE(frequency, 'annual') as frequency,
 			       start_date,
 			       end_date,
 			       COALESCE(notes, '') as notes,
@@ -679,7 +669,7 @@ func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination P
 	for rows.Next() {
 		var li Liability
 		var endDate sql.NullTime
-		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartDate, &endDate, &li.Notes, &li.UpdatedAt); err != nil {
+		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.StartDate, &endDate, &li.Notes, &li.UpdatedAt); err != nil {
 			return PaginatedResult[Liability]{}, err
 		}
 		if endDate.Valid {
@@ -726,7 +716,6 @@ func (s *Store) ListAllLiabilities(ctx context.Context, userID string, opts Date
 		       current_balance,
 		       interest_rate_apr,
 		       minimum_payment,
-		       COALESCE(frequency, 'annual') as frequency,
 		       start_date,
 		       end_date,
 		       COALESCE(notes, '') as notes,
@@ -761,7 +750,7 @@ func (s *Store) ListAllLiabilities(ctx context.Context, userID string, opts Date
 	for rows.Next() {
 		var li Liability
 		var endDate sql.NullTime
-		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartDate, &endDate, &li.Notes, &li.UpdatedAt); err != nil {
+		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.StartDate, &endDate, &li.Notes, &li.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if endDate.Valid {
@@ -796,7 +785,6 @@ func (s *Store) GetLiability(ctx context.Context, userID, id string) (Liability,
 		       current_balance,
 		       interest_rate_apr,
 		       minimum_payment,
-		       COALESCE(frequency, 'annual') as frequency,
 		       start_date,
 		       end_date,
 		       COALESCE(notes, '') as notes,
@@ -805,7 +793,7 @@ func (s *Store) GetLiability(ctx context.Context, userID, id string) (Liability,
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var li Liability
 	var endDate sql.NullTime
-	if err := row.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.Frequency, &li.StartDate, &endDate, &li.Notes, &li.UpdatedAt); err != nil {
+	if err := row.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.StartDate, &endDate, &li.Notes, &li.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Liability{}, ErrNotFound
 		}
@@ -856,24 +844,23 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 	}
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, frequency, start_date, end_date, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, COALESCE($8,'annual'), $9, $10, NULLIF($11, ''))
+		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''))
 		ON CONFLICT ON CONSTRAINT finance_liabilities_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
 		    current_balance=EXCLUDED.current_balance,
 		    interest_rate_apr=EXCLUDED.interest_rate_apr,
 		    minimum_payment=EXCLUDED.minimum_payment,
-		    frequency=EXCLUDED.frequency,
 		    end_date=EXCLUDED.end_date,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), start_date, end_date, COALESCE(notes, ''), updated_at`,
-		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, li.Frequency, startDate, endDate, li.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, COALESCE(notes, ''), updated_at`,
+		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, endDate, li.Notes)
 
 	var created Liability
 	var endDateVal sql.NullTime
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.Frequency, &created.StartDate, &endDateVal, &created.Notes, &created.UpdatedAt); err != nil {
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.StartDate, &endDateVal, &created.Notes, &created.UpdatedAt); err != nil {
 		return Liability{}, err
 	}
 	if endDateVal.Valid {
@@ -924,18 +911,17 @@ func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability
 		    current_balance=$5,
 		    interest_rate_apr=$6,
 		    minimum_payment=$7,
-		    frequency=COALESCE($8, frequency),
-		    start_date=COALESCE($9, start_date),
-		    end_date=$10,
-		    notes=NULLIF($11, ''),
+		    start_date=COALESCE($8, start_date),
+		    end_date=$9,
+		    notes=NULLIF($10, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, COALESCE(frequency,'annual'), start_date, end_date, COALESCE(notes, ''), updated_at`,
-		userID, li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, nullIfEmpty(li.Frequency), startDate, endDate, li.Notes)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, COALESCE(notes, ''), updated_at`,
+		userID, li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, endDate, li.Notes)
 
 	var updated Liability
 	var endDateVal sql.NullTime
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentBalance, &updated.InterestRateAPR, &updated.MinimumPayment, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Notes, &updated.UpdatedAt); err != nil {
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentBalance, &updated.InterestRateAPR, &updated.MinimumPayment, &updated.StartDate, &endDateVal, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Liability{}, ErrNotFound
 		}
