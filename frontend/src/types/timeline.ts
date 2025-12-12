@@ -6,7 +6,7 @@ export type TimelineFrequency =
   | 'quarterly'
   | 'semiannual'
 
-export type TimelineItemType = 'asset' | 'liability' | 'income' | 'expense' | 'cash_account'
+export type TimelineItemType = 'asset' | 'liability' | 'income' | 'expense' | 'cash_account' | 'cpf_contribution'
 
 /** Event impact attached to a timeline item */
 export interface TimelineEventImpact {
@@ -224,13 +224,17 @@ export interface CPFContributionResponseV2 {
   parentId: string
   name: string
   category: string
-  amount: string
-  adjAmount: string
+  employeeContribution: string
+  employerContribution: string
+  totalContribution: string
   sourceFrequency: string
   itemType: string
   createdYear: number
   createdMonth: number
-  growthRate: string
+  allocationOa: string
+  allocationSa: string
+  allocationMa: string
+  allocationRa: string
 }
 
 /** Expense in V2 response (decimal values come as strings from backend) */

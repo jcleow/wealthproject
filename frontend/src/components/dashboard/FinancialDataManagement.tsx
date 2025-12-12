@@ -140,20 +140,21 @@ function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
 }
 
 function cpfContributionV2ToTimelineItem(item: CPFContributionResponseV2): TimelineItem {
+  const totalContrib = parseDecimal(item.totalContribution)
   return {
     itemId: item.id,
     parentId: item.parentId,
     name: item.name,
     category: item.category,
-    amountAnnual: parseDecimal(item.amount),
-    adjAnnualAmt: parseDecimal(item.adjAmount),
-    amountMonthly: parseDecimal(item.amount),
-    adjMonthlyAmt: parseDecimal(item.adjAmount),
+    amountAnnual: totalContrib,
+    adjAnnualAmt: totalContrib,
+    amountMonthly: totalContrib,
+    adjMonthlyAmt: totalContrib,
     sourceFrequency: item.sourceFrequency as TimelineFrequency,
-    itemType: 'income',
+    itemType: 'cpf_contribution',
     createdYear: item.createdYear,
     createdMonth: item.createdMonth,
-    growthRate: parseDecimal(item.growthRate),
+    growthRate: 0,
   }
 }
 
