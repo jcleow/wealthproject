@@ -29,6 +29,7 @@ func SetupV2Router(mainRouter *mux.Router, deps V2Dependencies) *mux.Router {
 	v2Router.Use(middleware.RequestID)
 	v2Router.Use(middleware.Logging)
 	v2Router.Use(middleware.Authenticate)
+	v2Router.Use(middleware.RequireAuth)
 
 	// Handle CORS preflight for all API routes
 	v2Router.PathPrefix("/").Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

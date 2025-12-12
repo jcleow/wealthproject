@@ -198,8 +198,7 @@ func (s *Store) ListNonCashAssets(
 		COALESCE(notes, '') as notes,
 		updated_at
 	FROM finance_assets
-	WHERE user_id = $1
-	ORDER BY parent_id, start_date	
+	WHERE user_id = $1	
 	`
 
 	args := []any{userID}
@@ -216,6 +215,7 @@ func (s *Store) ListNonCashAssets(
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query for non cash assets")
+		fmt.Printf(query, "=== query\n ===")
 		return PaginatedResult[NonCashAsset]{
 			Data:   []NonCashAsset{},
 			Count:  0,
