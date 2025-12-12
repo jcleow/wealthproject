@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/common"
+	"financial-chat-system/backend/internal/cpf/account"
+	cpfProcessor "financial-chat-system/backend/internal/cpf/processor"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/growth"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
@@ -33,6 +35,9 @@ type FinancialDataRow struct {
 	ItemType      FinancialDataType
 	GrowthRate    decimal.Decimal // Per-item growth rate (percentage)
 	IsAccumulator bool            // For cash accounts - identifies the accumulator account
+	// CPF-related fields (for incomes)
+	CPFApplicable bool                  // Whether CPF contributions apply to this income
+	CPFWageType   cpfProcessor.WageType // WageTypeOW (Ordinary Wages) or WageTypeAW (Additional Wages)
 }
 
 // EffectiveRows holds all financial data organized by type
@@ -131,16 +136,18 @@ func transformIncomes(incomes []repo.Income) []FinancialDataRow {
 	rows := make([]FinancialDataRow, 0, len(incomes))
 	for _, i := range incomes {
 		rows = append(rows, FinancialDataRow{
-			ID:         i.ID,
-			ParentID:   i.ParentID,
-			Name:       i.Source, // Income uses "Source" as name
-			Category:   i.Category,
-			Amount:     i.Amount,
-			Frequency:  Frequency(i.Frequency), // Keep actual frequency
-			StartDate:  i.StartDate,
-			EndDate:    i.EndDate,
-			ItemType:   FinIncome,
-			GrowthRate: i.GrowthRate,
+			ID:            i.ID,
+			ParentID:      i.ParentID,
+			Name:          i.Source, // Income uses "Source" as name
+			Category:      i.Category,
+			Amount:        i.Amount,
+			Frequency:     Frequency(i.Frequency), // Keep actual frequency
+			StartDate:     i.StartDate,
+			EndDate:       i.EndDate,
+			ItemType:      FinIncome,
+			GrowthRate:    i.GrowthRate,
+			CPFApplicable: i.CPFApplicable,
+			CPFWageType:   cpfProcessor.WageType(i.CPFWageType),
 		})
 	}
 	return rows
@@ -175,13 +182,14 @@ func (s *Service) loadEffectiveRows(
 	userID string,
 	dateOpts repo.DateRangeOptions,
 	paginationOpts repo.PaginationParams,
-) (EffectiveRows, error) {
+) (EffectiveRows, *account.CPFAccount, error) {
 	var (
 		nonCashAssets repo.PaginatedResult[repo.NonCashAsset]
 		cashAssets    repo.PaginatedResult[repo.CashAsset]
 		liabilities   repo.PaginatedResult[repo.Liability]
 		incomes       repo.PaginatedResult[repo.Income]
 		expenses      repo.PaginatedResult[repo.Expense]
+		cpfAccount    *repo.CPFAccount
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -216,8 +224,14 @@ func (s *Service) loadEffectiveRows(
 		return err
 	})
 
+	g.Go(func() error {
+		var err error
+		cpfAccount, err = s.store.GetCPFAccount(gctx, userID)
+		return err
+	})
+
 	if err := g.Wait(); err != nil {
-		return EffectiveRows{}, err
+		return EffectiveRows{}, nil, err
 	}
 
 	// Transform repository types to FinancialDataRow
@@ -227,12 +241,96 @@ func (s *Service) loadEffectiveRows(
 		Liabilities:   transformLiabilities(liabilities.Data),
 		Incomes:       transformIncomes(incomes.Data),
 		Expenses:      transformExpenses(expenses.Data),
-	}, nil
+	}, mapToCPFAccount(cpfAccount), nil
 }
 
 // =============================================================================
 // Helper Functions (used by ComputeFinancialSnapshot)
 // =============================================================================
+
+// CPFContext holds CPF processor and state for timeline calculations
+type CPFContext struct {
+	Processor *cpfProcessor.Processor
+	State     *cpfProcessor.State
+}
+
+// NewCPFContext creates a CPF context from an account, returns nil if no account
+func NewCPFContext(cpfAccount *account.CPFAccount) *CPFContext {
+	if cpfAccount == nil {
+		return nil
+	}
+	proc, _ := cpfProcessor.NewProcessor(cpfAccount)
+	state := cpfProcessor.NewState(cpfAccount)
+	return &CPFContext{Processor: proc, State: state}
+}
+
+// ResetYTDIfNewYear resets YTD tracking at year boundaries
+func (c *CPFContext) ResetYTDIfNewYear(date time.Time, monthIdx int) {
+	if c == nil || monthIdx == 0 {
+		return
+	}
+	if date.Month() == 1 {
+		c.Processor.ResetYTDState(c.State)
+	}
+}
+
+// ProcessIncomes calculates CPF contributions for all applicable incomes
+// Returns total employee CPF deduction and map of income ID -> contribution result
+func (c *CPFContext) ProcessIncomes(
+	incomes []FinancialDataRow,
+	state map[string]*decimal.Decimal,
+	date time.Time,
+) (*decimal.Decimal, map[string]*cpfProcessor.ContributionResult) {
+	totalEmployeeCPF := decimal.Zero()
+	contributions := make(map[string]*cpfProcessor.ContributionResult)
+
+	if c == nil {
+		return totalEmployeeCPF, contributions
+	}
+
+	for _, income := range incomes {
+		if !isActiveInMonth(income, date) || !income.CPFApplicable {
+			continue
+		}
+
+		var result *cpfProcessor.ContributionResult
+		if income.CPFWageType == cpfProcessor.WageTypeOW {
+			result, _ = c.Processor.ProcessOrdinaryWage(state[income.ID], c.State, date)
+		} else {
+			result, _ = c.Processor.ProcessAdditionalWage(state[income.ID], c.State, date)
+		}
+
+		if result != nil {
+			contributions[income.ID] = result
+			c.Processor.AddContributionToState(result, c.State)
+			totalEmployeeCPF, _ = totalEmployeeCPF.Add(result.EmployeeContribution)
+		}
+	}
+
+	return totalEmployeeCPF, contributions
+}
+
+// mapToCPFAccount converts repository CPFAccount to cpf/account.CPFAccount
+func mapToCPFAccount(r *repo.CPFAccount) *account.CPFAccount {
+	if r == nil {
+		return nil
+	}
+	return &account.CPFAccount{
+		ID:               r.ID,
+		UserID:           r.UserID,
+		OABalance:        r.OABalance,
+		SABalance:        r.SABalance,
+		MABalance:        r.MABalance,
+		RABalance:        r.RABalance,
+		OAUsedForHousing: r.OAUsedForHousing,
+		HousingStartDate: r.HousingStartDate,
+		DateOfBirth:      r.DateOfBirth,
+		ResidencyStatus:  account.ResidencyStatus(r.ResidencyStatus),
+		PRGrantDate:      r.PRGrantDate,
+		CreatedAt:        r.CreatedAt,
+		UpdatedAt:        r.UpdatedAt,
+	}
+}
 
 // isActiveInMonth checks if a financial row is active on the given date
 func isActiveInMonth(row FinancialDataRow, date time.Time) bool {
@@ -437,8 +535,8 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 	return responses, total
 }
 
-// buildIncomeResponses builds responses for incomes
-func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) []IncomeResponse {
+// buildIncomeResponses builds responses for incomes with CPF breakdown
+func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time, cpfContributions map[string]*cpfProcessor.ContributionResult) []IncomeResponse {
 	responses := make([]IncomeResponse, 0)
 
 	for _, row := range rows {
@@ -450,7 +548,7 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, date
 			continue
 		}
 		amount := state.Balance.Round(0)
-		responses = append(responses, IncomeResponse{
+		resp := IncomeResponse{
 			ID:              row.ID,
 			ParentID:        row.ParentID,
 			Name:            row.Name,
@@ -462,7 +560,22 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, date
 			CreatedYear:     state.CreatedYear,
 			CreatedMonth:    state.CreatedMonth,
 			GrowthRate:      *row.GrowthRate.Round(0),
-		})
+			CPFApplicable:   row.CPFApplicable,
+		}
+
+		// Populate CPF breakdown if available
+		if contribution, ok := cpfContributions[row.ID]; ok && contribution != nil {
+			resp.EmployeeCPF = *contribution.EmployeeContribution.Round(0)
+			resp.EmployerCPF = *contribution.EmployerContribution.Round(0)
+			resp.TotalCPF = *contribution.TotalContribution.Round(0)
+			resp.NetTakeHomePay = *contribution.NetTakeHomePay.Round(0)
+			resp.AllocationOA = *contribution.AllocationOA.Round(0)
+			resp.AllocationSA = *contribution.AllocationSA.Round(0)
+			resp.AllocationMA = *contribution.AllocationMA.Round(0)
+			resp.AllocationRA = *contribution.AllocationRA.Round(0)
+		}
+
+		responses = append(responses, resp)
 	}
 	return responses
 }
@@ -505,6 +618,7 @@ func buildMonthDetailResponse(
 	itemStates ItemStateMap,
 	cashAccumulator *decimal.Decimal,
 	netSavings *decimal.Decimal,
+	cpfContributions map[string]*cpfProcessor.ContributionResult,
 ) MonthDetailResponse {
 	yearIndex := date.Year() - baseYear
 	month := int(date.Month())
@@ -513,7 +627,7 @@ func buildMonthDetailResponse(
 	nonCashAssets, nonCashTotal := buildNonCashAssetResponses(data.NonCashAssets, itemStates, date)
 	cashAssets, cashTotal, accumulatorID := buildCashAssetResponses(data.CashAssets, itemStates, date)
 	liabilities, liabilityTotal := buildLiabilityResponses(data.Liabilities, itemStates, date)
-	incomes := buildIncomeResponses(data.Incomes, itemStates, date)
+	incomes := buildIncomeResponses(data.Incomes, itemStates, date, cpfContributions)
 	expenses := buildExpenseResponses(data.Expenses, itemStates, date)
 
 	// Calculate totals
@@ -560,13 +674,14 @@ func (s *Service) ComputeFinancialSnapshot(
 	}
 	paginationOpts := repo.PaginationParams{}
 
-	financialData, err := s.loadEffectiveRows(ctx, userID, dateOpts, paginationOpts)
+	financialData, cpfAccount, err := s.loadEffectiveRows(ctx, userID, dateOpts, paginationOpts)
 	if err != nil {
 		return TimelineV2Response{}, fmt.Errorf("failed to load financial data: %w", err)
 	}
 
 	baseYear := opts.StartDate.Year()
 	registry := growth.NewRegistry()
+	cpfCtx := NewCPFContext(cpfAccount)
 
 	// itemStates: detailed tracking per item (includes metadata like CreatedYear/CreatedMonth)
 	itemStates := initializeItemStates(financialData, baseYear)
@@ -584,6 +699,9 @@ func (s *Service) ComputeFinancialSnapshot(
 	for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
 		currentDate := opts.StartDate.AddDate(0, monthIdx, 0)
 
+		// Reset CPF YTD at year boundaries
+		cpfCtx.ResetYTDIfNewYear(currentDate, monthIdx)
+
 		growthCtx := &GrowthContext{
 			Registry:    registry,
 			State:       state,
@@ -592,22 +710,24 @@ func (s *Service) ComputeFinancialSnapshot(
 			Date:        currentDate,
 		}
 
-		// Apply growth to incomes and expenses (annual step - grows once per year)
+		// Apply growth (strategies handle arrears logic internally)
 		applyGrowth(financialData.Incomes, growthCtx, growth.StrategyAnnualStep)
 		applyGrowth(financialData.Expenses, growthCtx, growth.StrategyAnnualStep)
-
-		// Calculate net cash flow and update accumulator
-		netCashFlow := calculateNetCashFlow(financialData, state, currentDate)
-		cashAccumulator, _ = cashAccumulator.Add(netCashFlow)
-
-		// Apply growth to assets and liabilities (monthly compound)
 		applyGrowth(financialData.NonCashAssets, growthCtx, growth.StrategyMonthlyCompound)
 		applyGrowth(financialData.CashAssets, growthCtx, growth.StrategyMonthlyCompound)
 		applyGrowth(financialData.Liabilities, growthCtx, growth.StrategyMonthlyCompound)
 
+		// Process CPF contributions for applicable incomes
+		employeeCPF, cpfContributions := cpfCtx.ProcessIncomes(financialData.Incomes, state, currentDate)
+
+		// Calculate net cash flow (deduct employee CPF) and update accumulator
+		netCashFlow := calculateNetCashFlow(financialData, state, currentDate)
+		netCashFlow, _ = netCashFlow.Sub(employeeCPF)
+		cashAccumulator, _ = cashAccumulator.Add(netCashFlow)
+
 		// Build response for this month
 		syncStateToItemStates(state, itemStates)
-		monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, financialData, itemStates, cashAccumulator, netCashFlow)
+		monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, financialData, itemStates, cashAccumulator, netCashFlow, cpfContributions)
 		resultMonths = append(resultMonths, monthResponse)
 	}
 

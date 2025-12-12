@@ -132,6 +132,10 @@ type Income struct {
 	GrowthStrategy string                 `json:"growthStrategy"`
 	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
 	UpdatedAt      time.Time              `json:"updatedAt"`
+	// CPF-related fields
+	IncomeType    string `json:"incomeType"`    // 'salary', 'bonus', 'commission', 'rental', 'dividend', 'freelance', 'other'
+	CPFApplicable bool   `json:"cpfApplicable"` // Whether CPF contributions apply to this income
+	CPFWageType   string `json:"cpfWageType"`   // 'ow' (Ordinary Wages) or 'aw' (Additional Wages)
 }
 
 // Expense represents a persisted expense record.
@@ -499,7 +503,10 @@ func (s *Store) ListIncomes(
 		growth_rate,
 		COALESCE(notes, '') as notes,
 		COALESCE(growth_strategy, '') as growth_strategy,
-		updated_at
+		updated_at,
+		COALESCE(income_type, 'other') as income_type,
+		COALESCE(cpf_applicable, false) as cpf_applicable,
+		COALESCE(cpf_wage_type, '') as cpf_wage_type
 	FROM finance_incomes
 	WHERE user_id = $1`
 
@@ -549,6 +556,7 @@ func (s *Store) ListIncomes(
 			&i.ID, &i.ParentID, &i.Source, &i.Amount, &i.Frequency,
 			&i.StartDate, &endDate, &i.Category, &i.GrowthRate,
 			&i.Notes, &i.GrowthStrategy, &i.UpdatedAt,
+			&i.IncomeType, &i.CPFApplicable, &i.CPFWageType,
 		)
 		if err != nil {
 			return PaginatedResult[Income]{}, err

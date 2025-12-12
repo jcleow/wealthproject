@@ -164,6 +164,17 @@ type IncomeResponse struct {
 	CreatedYear     int             `json:"createdYear"`
 	CreatedMonth    int             `json:"createdMonth"`
 	GrowthRate      decimal.Decimal `json:"growthRate"`
+	// CPF breakdown (populated when CPFApplicable is true)
+	CPFApplicable  bool            `json:"cpfApplicable"`
+	EmployeeCPF    decimal.Decimal `json:"employeeCpf"`
+	EmployerCPF    decimal.Decimal `json:"employerCpf"`
+	TotalCPF       decimal.Decimal `json:"totalCpf"`
+	NetTakeHomePay decimal.Decimal `json:"netTakeHomePay"`
+	// CPF allocation breakdown
+	AllocationOA decimal.Decimal `json:"allocationOa"`
+	AllocationSA decimal.Decimal `json:"allocationSa"`
+	AllocationMA decimal.Decimal `json:"allocationMa"`
+	AllocationRA decimal.Decimal `json:"allocationRa"`
 }
 
 // CPFContributionResponse represents a CPF contribution in the timeline response

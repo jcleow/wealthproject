@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/cpf/config"
+	"financial-chat-system/backend/internal/decimal"
 )
 
 func TestCPFAccount_Age(t *testing.T) {
@@ -105,27 +106,27 @@ func TestCPFAccount_AgeAtDate(t *testing.T) {
 func TestCPFAccount_TotalBalance(t *testing.T) {
 	tests := []struct {
 		name     string
-		oa       float64
-		sa       float64
-		ma       float64
-		ra       float64
-		expected float64
+		oa       int64
+		sa       int64
+		ma       int64
+		ra       int64
+		expected int64
 	}{
 		{
 			name:     "All accounts have balance",
-			oa:       100000.00,
-			sa:       50000.00,
-			ma:       30000.00,
-			ra:       20000.00,
-			expected: 200000.00,
+			oa:       100000,
+			sa:       50000,
+			ma:       30000,
+			ra:       20000,
+			expected: 200000,
 		},
 		{
 			name:     "Only OA and SA (under 55)",
-			oa:       50000.00,
-			sa:       20000.00,
-			ma:       10000.00,
+			oa:       50000,
+			sa:       20000,
+			ma:       10000,
 			ra:       0,
-			expected: 80000.00,
+			expected: 80000,
 		},
 		{
 			name:     "Zero balances",
@@ -140,14 +141,15 @@ func TestCPFAccount_TotalBalance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			acc := &CPFAccount{
-				OABalance: tt.oa,
-				SABalance: tt.sa,
-				MABalance: tt.ma,
-				RABalance: tt.ra,
+				OABalance: *decimal.NewFromInt64(tt.oa, 0),
+				SABalance: *decimal.NewFromInt64(tt.sa, 0),
+				MABalance: *decimal.NewFromInt64(tt.ma, 0),
+				RABalance: *decimal.NewFromInt64(tt.ra, 0),
 			}
 			total := acc.TotalBalance()
-			if total != tt.expected {
-				t.Errorf("Expected total balance $%.2f, got $%.2f", tt.expected, total)
+			expected := decimal.NewFromInt64(tt.expected, 0)
+			if total.Cmp(expected) != 0 {
+				t.Errorf("Expected total balance %s, got %s", expected.String(), total.String())
 			}
 		})
 	}
@@ -224,13 +226,14 @@ func TestCPFAccount_PRGrantDate(t *testing.T) {
 func TestCPFAccount_HousingTracking(t *testing.T) {
 	housingStart := time.Date(2020, 3, 1, 0, 0, 0, 0, time.UTC)
 	acc := &CPFAccount{
-		OABalance:        50000.00,
-		OAUsedForHousing: 30000.00,
+		OABalance:        *decimal.MustFromString("50000.50"),
+		OAUsedForHousing: *decimal.MustFromString("30000.25"),
 		HousingStartDate: &housingStart,
 	}
 
-	if acc.OAUsedForHousing != 30000.00 {
-		t.Errorf("Expected $30,000 used for housing, got $%.2f", acc.OAUsedForHousing)
+	expected := decimal.MustFromString("30000.25")
+	if acc.OAUsedForHousing.Cmp(expected) != 0 {
+		t.Errorf("Expected $30,000.25 used for housing, got %s", acc.OAUsedForHousing.String())
 	}
 	if acc.HousingStartDate == nil {
 		t.Fatal("Expected housing start date to be set")
