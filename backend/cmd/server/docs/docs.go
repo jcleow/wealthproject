@@ -23,8 +23,105 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v2/financial/timeline/chart": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns the simplified financial timeline chart with net worth projections",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Timeline V2"
+                ],
+                "summary": "Get financial timeline chart (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "yearly",
+                        "description": "Resolution (yearly or monthly)",
+                        "name": "resolution",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/timeline_v2.TimelineAnnualChartResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v2/financial/timeline/snapshot": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns monthly snapshots with net worth, assets, liabilities, and cash balance",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Timeline V2"
+                ],
+                "summary": "Get monthly financial snapshots (v2)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/timeline_v2.MonthlySnapshot"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/chat": {
             "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Process a chat message and generate AI response with financial tool calls",
                 "consumes": [
                     "application/json"
@@ -73,6 +170,14 @@ const docTemplate = `{
         },
         "/financial/actions/dispatch": {
             "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Execute approved financial actions from a chat session",
                 "consumes": [
                     "application/json"
@@ -128,6 +233,14 @@ const docTemplate = `{
         },
         "/financial/timeline": {
             "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Returns the full financial timeline with optional resolution and scenario filtering",
                 "produces": [
                     "application/json"
@@ -182,6 +295,14 @@ const docTemplate = `{
         },
         "/financial/timeline/{year}": {
             "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Upserts financial data edits for a given year",
                 "consumes": [
                     "application/json"
@@ -250,7 +371,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_cmd_server_handlers.HealthResponse"
+                            "$ref": "#/definitions/handlers.HealthResponse"
                         }
                     }
                 }
@@ -258,6 +379,14 @@ const docTemplate = `{
         },
         "/scenario-events": {
             "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "List all scenario events or create a new one",
                 "consumes": [
                     "application/json"
@@ -312,6 +441,14 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "List all scenario events or create a new one",
                 "consumes": [
                     "application/json"
@@ -389,27 +526,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "financial-chat-system_backend_cmd_server_handlers.HealthResponse": {
-            "type": "object",
-            "properties": {
-                "services": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "status": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                },
-                "uptime": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                }
-            }
-        },
         "financial.ImpactEstimate": {
             "type": "object",
             "properties": {
@@ -608,6 +724,27 @@ const docTemplate = `{
                 },
                 "total_execution_time_ms": {
                     "type": "integer"
+                }
+            }
+        },
+        "handlers.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "services": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "uptime": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
                 }
             }
         },
@@ -1306,6 +1443,83 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "timeline_v2.MonthlySnapshot": {
+            "type": "object",
+            "properties": {
+                "cashBalance": {
+                    "type": "number"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "month": {
+                    "type": "integer"
+                },
+                "netWorth": {
+                    "type": "number"
+                },
+                "totalAssets": {
+                    "type": "number"
+                },
+                "totalLiabilities": {
+                    "type": "number"
+                }
+            }
+        },
+        "timeline_v2.TimelineAnnualChartResponse": {
+            "type": "object",
+            "properties": {
+                "months": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.TimelineMonthlySummary"
+                    }
+                },
+                "resolution": {
+                    "type": "string"
+                },
+                "scenarioIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "years": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.TimelineYearlySummary"
+                    }
+                }
+            }
+        },
+        "timeline_v2.TimelineMonthlySummary": {
+            "type": "object",
+            "properties": {
+                "month": {
+                    "type": "integer"
+                },
+                "monthIndex": {
+                    "type": "integer"
+                },
+                "netWorth": {
+                    "type": "number"
+                }
+            }
+        },
+        "timeline_v2.TimelineYearlySummary": {
+            "type": "object",
+            "properties": {
+                "netWorth": {
+                    "type": "number"
+                },
+                "year": {
+                    "type": "integer"
+                },
+                "yearIndex": {
                     "type": "integer"
                 }
             }

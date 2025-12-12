@@ -1,19 +1,5 @@
 basePath: /api/v1
 definitions:
-  financial-chat-system_backend_cmd_server_handlers.HealthResponse:
-    properties:
-      services:
-        additionalProperties: true
-        type: object
-      status:
-        type: string
-      timestamp:
-        type: string
-      uptime:
-        type: string
-      version:
-        type: string
-    type: object
   financial.ImpactEstimate:
     properties:
       description:
@@ -146,6 +132,20 @@ definitions:
         type: integer
       total_execution_time_ms:
         type: integer
+    type: object
+  handlers.HealthResponse:
+    properties:
+      services:
+        additionalProperties: true
+        type: object
+      status:
+        type: string
+      timestamp:
+        type: string
+      uptime:
+        type: string
+      version:
+        type: string
     type: object
   handlers.SelectedAction:
     properties:
@@ -626,6 +626,56 @@ definitions:
       year:
         type: integer
     type: object
+  timeline_v2.MonthlySnapshot:
+    properties:
+      cashBalance:
+        type: number
+      date:
+        type: string
+      month:
+        type: integer
+      netWorth:
+        type: number
+      totalAssets:
+        type: number
+      totalLiabilities:
+        type: number
+    type: object
+  timeline_v2.TimelineAnnualChartResponse:
+    properties:
+      months:
+        items:
+          $ref: '#/definitions/timeline_v2.TimelineMonthlySummary'
+        type: array
+      resolution:
+        type: string
+      scenarioIds:
+        items:
+          type: string
+        type: array
+      years:
+        items:
+          $ref: '#/definitions/timeline_v2.TimelineYearlySummary'
+        type: array
+    type: object
+  timeline_v2.TimelineMonthlySummary:
+    properties:
+      month:
+        type: integer
+      monthIndex:
+        type: integer
+      netWorth:
+        type: number
+    type: object
+  timeline_v2.TimelineYearlySummary:
+    properties:
+      netWorth:
+        type: number
+      year:
+        type: integer
+      yearIndex:
+        type: integer
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -639,6 +689,63 @@ info:
   title: Financial Chat System API
   version: "1.0"
 paths:
+  /api/v2/financial/timeline/chart:
+    get:
+      description: Returns the simplified financial timeline chart with net worth
+        projections
+      parameters:
+      - default: yearly
+        description: Resolution (yearly or monthly)
+        in: query
+        name: resolution
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/timeline_v2.TimelineAnnualChartResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Get financial timeline chart (v2)
+      tags:
+      - Timeline V2
+  /api/v2/financial/timeline/snapshot:
+    get:
+      description: Returns monthly snapshots with net worth, assets, liabilities,
+        and cash balance
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/timeline_v2.MonthlySnapshot'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Get monthly financial snapshots (v2)
+      tags:
+      - Timeline V2
   /chat:
     post:
       consumes:
@@ -669,6 +776,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Send a chat message
       tags:
       - Chat
@@ -706,6 +816,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Execute financial actions
       tags:
       - Actions
@@ -743,6 +856,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Get financial timeline
       tags:
       - Timeline
@@ -781,6 +897,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: Update financial data for a specific year
       tags:
       - Timeline
@@ -793,7 +912,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_cmd_server_handlers.HealthResponse'
+            $ref: '#/definitions/handlers.HealthResponse'
       summary: Health check
       tags:
       - Health
@@ -831,6 +950,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: List or create scenario events
       tags:
       - Scenario Events
@@ -867,6 +989,9 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
       summary: List or create scenario events
       tags:
       - Scenario Events
