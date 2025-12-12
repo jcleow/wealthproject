@@ -602,3 +602,62 @@ func (s *Store) ListExpenses(
 		Offset: pagination.Offset,
 	}, nil
 }
+
+// GetCPFAccount retrieves the CPF account for a user (one per user)
+func (s *Store) GetCPFAccount(
+	ctx context.Context,
+	userID string,
+) (*CPFAccount, error) {
+	query := `
+	SELECT
+		id,
+		user_id,
+		oa_balance,
+		sa_balance,
+		ma_balance,
+		ra_balance,
+		oa_used_for_housing,
+		housing_start_date,
+		date_of_birth,
+		residency_status,
+		pr_grant_date,
+		created_at,
+		updated_at
+	FROM cpf_accounts
+	WHERE user_id = $1`
+
+	var cpf CPFAccount
+	var housingStartDate sql.NullTime
+	var prGrantDate sql.NullTime
+
+	err := s.db.QueryRowContext(ctx, query, userID).Scan(
+		&cpf.ID,
+		&cpf.UserID,
+		&cpf.OABalance,
+		&cpf.SABalance,
+		&cpf.MABalance,
+		&cpf.RABalance,
+		&cpf.OAUsedForHousing,
+		&housingStartDate,
+		&cpf.DateOfBirth,
+		&cpf.ResidencyStatus,
+		&prGrantDate,
+		&cpf.CreatedAt,
+		&cpf.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil // No CPF account found for user
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query CPF account: %w", err)
+	}
+
+	if housingStartDate.Valid {
+		cpf.HousingStartDate = &housingStartDate.Time
+	}
+	if prGrantDate.Valid {
+		cpf.PRGrantDate = &prGrantDate.Time
+	}
+
+	return &cpf, nil
+}

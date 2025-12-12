@@ -1,47 +1,6 @@
 basePath: /api
 definitions:
-  financial.ImpactEstimate:
-    properties:
-      description:
-        type: string
-      monthly_change:
-        type: number
-      net_worth_change:
-        type: number
-    type: object
-  financial.ProposedAction:
-    properties:
-      call_id:
-        type: string
-      dependencies:
-        items:
-          type: string
-        type: array
-      estimated_impact:
-        $ref: '#/definitions/financial.ImpactEstimate'
-      friendly_description:
-        type: string
-      parameters:
-        additionalProperties: true
-        type: object
-      tool_name:
-        type: string
-      warnings:
-        items:
-          $ref: '#/definitions/financial.Warning'
-        type: array
-    type: object
-  financial.Warning:
-    properties:
-      message:
-        type: string
-      severity:
-        description: '"low", "medium", "high"'
-        type: string
-      type:
-        type: string
-    type: object
-  handlers.ChatRequest:
+  cmd_server_handlers.ChatRequest:
     properties:
       chat_id:
         type: string
@@ -54,7 +13,7 @@ definitions:
     - message
     - session_id
     type: object
-  handlers.ChatResponse:
+  cmd_server_handlers.ChatResponse:
     properties:
       actions_executed:
         type: integer
@@ -64,22 +23,22 @@ definitions:
         type: string
       conversation_flow:
         items:
-          $ref: '#/definitions/session.ConversationStep'
+          $ref: '#/definitions/financial-chat-system_backend_internal_session.ConversationStep'
         type: array
       message_id:
         type: string
       proposed_actions:
         items:
-          $ref: '#/definitions/financial.ProposedAction'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial.ProposedAction'
         type: array
       requires_approval:
         type: boolean
     type: object
-  handlers.DispatchRequest:
+  cmd_server_handlers.DispatchRequest:
     properties:
       selected_actions:
         items:
-          $ref: '#/definitions/handlers.SelectedAction'
+          $ref: '#/definitions/cmd_server_handlers.SelectedAction'
         type: array
       session_id:
         type: string
@@ -87,20 +46,20 @@ definitions:
     - selected_actions
     - session_id
     type: object
-  handlers.DispatchResponse:
+  cmd_server_handlers.DispatchResponse:
     properties:
       api_version:
         type: string
       results:
         items:
-          $ref: '#/definitions/handlers.ExecutionResult'
+          $ref: '#/definitions/cmd_server_handlers.ExecutionResult'
         type: array
       summary:
-        $ref: '#/definitions/handlers.ExecutionSummary'
+        $ref: '#/definitions/cmd_server_handlers.ExecutionSummary'
       updated_session_state:
-        $ref: '#/definitions/session.SessionState'
+        $ref: '#/definitions/financial-chat-system_backend_internal_session.SessionState'
     type: object
-  handlers.ExecutionResult:
+  cmd_server_handlers.ExecutionResult:
     properties:
       call_id:
         type: string
@@ -117,7 +76,7 @@ definitions:
       tool_name:
         type: string
     type: object
-  handlers.ExecutionSummary:
+  cmd_server_handlers.ExecutionSummary:
     properties:
       failed:
         type: integer
@@ -133,7 +92,7 @@ definitions:
       total_execution_time_ms:
         type: integer
     type: object
-  handlers.HealthResponse:
+  cmd_server_handlers.HealthResponse:
     properties:
       services:
         additionalProperties: true
@@ -147,7 +106,7 @@ definitions:
       version:
         type: string
     type: object
-  handlers.SelectedAction:
+  cmd_server_handlers.SelectedAction:
     properties:
       approved:
         type: boolean
@@ -159,7 +118,7 @@ definitions:
     required:
     - call_id
     type: object
-  handlers.scenarioEventInput:
+  cmd_server_handlers.scenarioEventInput:
     properties:
       description:
         type: string
@@ -175,7 +134,7 @@ definitions:
         type: string
       impacts:
         items:
-          $ref: '#/definitions/handlers.scenarioImpactInput'
+          $ref: '#/definitions/cmd_server_handlers.scenarioImpactInput'
         type: array
       is_included:
         type: boolean
@@ -196,7 +155,7 @@ definitions:
           type: string
         type: array
     type: object
-  handlers.scenarioImpactInput:
+  cmd_server_handlers.scenarioImpactInput:
     properties:
       amount:
         type: integer
@@ -227,49 +186,48 @@ definitions:
       targetType:
         type: string
     type: object
-  llm.ChatMessage:
+  financial-chat-system_backend_internal_financial.ImpactEstimate:
     properties:
-      content:
-        description: Message content
+      description:
         type: string
-      name:
-        description: Optional name for tool messages
+      monthly_change:
+        type: number
+      net_worth_change:
+        type: number
+    type: object
+  financial-chat-system_backend_internal_financial.ProposedAction:
+    properties:
+      call_id:
         type: string
-      role:
-        description: '"user", "assistant", "system", "tool"'
-        type: string
-      tool_call_id:
-        description: ID of tool call this message responds to
-        type: string
-      tool_calls:
-        description: Tool calls in this message
+      dependencies:
         items:
-          $ref: '#/definitions/llm.ToolCall'
+          type: string
+        type: array
+      estimated_impact:
+        $ref: '#/definitions/financial-chat-system_backend_internal_financial.ImpactEstimate'
+      friendly_description:
+        type: string
+      parameters:
+        additionalProperties: true
+        type: object
+      tool_name:
+        type: string
+      warnings:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial.Warning'
         type: array
     type: object
-  llm.FunctionCall:
+  financial-chat-system_backend_internal_financial.Warning:
     properties:
-      arguments:
-        description: JSON string of function arguments
+      message:
         type: string
-      name:
-        description: Function name (e.g., "create_asset")
-        type: string
-    type: object
-  llm.ToolCall:
-    properties:
-      function:
-        allOf:
-        - $ref: '#/definitions/llm.FunctionCall'
-        description: Function details
-      id:
-        description: Unique identifier for this tool call
+      severity:
+        description: '"low", "medium", "high"'
         type: string
       type:
-        description: Always "function" for function calls
         type: string
     type: object
-  repository.ScenarioEvent:
+  financial-chat-system_backend_internal_financial_repository.ScenarioEvent:
     properties:
       createdAt:
         type: string
@@ -283,7 +241,7 @@ definitions:
         type: string
       impacts:
         items:
-          $ref: '#/definitions/repository.ScenarioImpact'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioImpact'
         type: array
       isIncluded:
         type: boolean
@@ -302,7 +260,7 @@ definitions:
       userID:
         type: string
     type: object
-  repository.ScenarioImpact:
+  financial-chat-system_backend_internal_financial_repository.ScenarioImpact:
     properties:
       amount:
         format: int64
@@ -330,83 +288,7 @@ definitions:
       targetType:
         type: string
     type: object
-  session.ConversationStep:
-    properties:
-      content:
-        type: string
-      result:
-        additionalProperties: true
-        type: object
-      step_id:
-        type: string
-      timestamp:
-        type: string
-      tool_calls:
-        items:
-          type: string
-        type: array
-      tool_name:
-        type: string
-      type:
-        description: '"user_message", "llm_response", "tool_execution"'
-        type: string
-    type: object
-  session.PendingToolCall:
-    properties:
-      call_id:
-        type: string
-      created_at:
-        type: string
-      dependencies:
-        items:
-          type: string
-        type: array
-      friendly_description:
-        type: string
-      parameters:
-        additionalProperties: true
-        type: object
-      preview:
-        type: string
-      tool_name:
-        type: string
-    type: object
-  session.SessionState:
-    properties:
-      chat_id:
-        type: string
-      conversation_flow:
-        items:
-          $ref: '#/definitions/session.ConversationStep'
-        type: array
-      created_at:
-        type: string
-      last_asset_id:
-        type: string
-      last_liability_id:
-        type: string
-      last_property_plan_id:
-        type: string
-      messages:
-        items:
-          $ref: '#/definitions/llm.ChatMessage'
-        type: array
-      metadata:
-        additionalProperties:
-          type: string
-        type: object
-      pending_actions:
-        items:
-          $ref: '#/definitions/session.PendingToolCall'
-        type: array
-      session_id:
-        type: string
-      updated_at:
-        type: string
-      user_id:
-        type: string
-    type: object
-  timeline.EventImpactSummary:
+  financial-chat-system_backend_internal_financial_timeline.EventImpactSummary:
     properties:
       amountAnnual:
         description: annualized
@@ -423,14 +305,14 @@ definitions:
       notes:
         type: string
     type: object
-  timeline.GrowthApplied:
+  financial-chat-system_backend_internal_financial_timeline.GrowthApplied:
     properties:
       annualRatePct:
         type: number
       category:
         type: string
     type: object
-  timeline.ItemType:
+  financial-chat-system_backend_internal_financial_timeline.ItemType:
     enum:
     - asset
     - liability
@@ -444,7 +326,7 @@ definitions:
     - ItemTypeIncome
     - ItemTypeExpense
     - ItemTypeCashAccount
-  timeline.TimelineItem:
+  financial-chat-system_backend_internal_financial_timeline.TimelineItem:
     properties:
       adjAnnualAmt:
         type: number
@@ -465,7 +347,7 @@ definitions:
         type: integer
       eventImpacts:
         items:
-          $ref: '#/definitions/timeline.EventImpactSummary'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.EventImpactSummary'
         type: array
       growthRate:
         description: GrowthRate is the per-item annual growth rate (percentage)
@@ -479,7 +361,7 @@ definitions:
           (parent_id if present, else row id).
         type: string
       itemType:
-        $ref: '#/definitions/timeline.ItemType'
+        $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.ItemType'
       name:
         type: string
       parentId:
@@ -494,7 +376,7 @@ definitions:
       sourceFrequency:
         type: string
     type: object
-  timeline.TimelineMonth:
+  financial-chat-system_backend_internal_financial_timeline.TimelineMonth:
     properties:
       accumulatedCashEnd:
         type: number
@@ -504,31 +386,31 @@ definitions:
         type: string
       assets:
         items:
-          $ref: '#/definitions/timeline.TimelineItem'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
         type: array
       cashAccounts:
         items:
-          $ref: '#/definitions/timeline.TimelineItem'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
         type: array
       expenses:
         items:
-          $ref: '#/definitions/timeline.TimelineItem'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
         type: array
       growthApplied:
         items:
-          $ref: '#/definitions/timeline.GrowthApplied'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied'
         type: array
       hasOverrides:
         type: boolean
       income:
         items:
-          $ref: '#/definitions/timeline.TimelineItem'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
         type: array
       interestEarned:
         type: number
       liabilities:
         items:
-          $ref: '#/definitions/timeline.TimelineItem'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
         type: array
       month:
         description: Month number (1-12)
@@ -551,11 +433,11 @@ definitions:
         description: 0-based year index
         type: integer
     type: object
-  timeline.TimelineResponse:
+  financial-chat-system_backend_internal_financial_timeline.TimelineResponse:
     properties:
       months:
         items:
-          $ref: '#/definitions/timeline.TimelineMonth'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineMonth'
         type: array
       resolution:
         description: '"yearly" or "monthly"'
@@ -570,10 +452,10 @@ definitions:
         type: string
       years:
         items:
-          $ref: '#/definitions/timeline.TimelineYear'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineYear'
         type: array
     type: object
-  timeline.TimelineYear:
+  financial-chat-system_backend_internal_financial_timeline.TimelineYear:
     properties:
       accumulatedCashEnd:
         description: Cash balance at end of year (after interest)
@@ -589,33 +471,33 @@ definitions:
         type: number
       assets:
         items:
-          $ref: '#/definitions/timeline.TimelineItem'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
         type: array
       cashAccounts:
         description: Cash accounts from cash_accounts table
         items:
-          $ref: '#/definitions/timeline.TimelineItem'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
         type: array
       expenses:
         items:
-          $ref: '#/definitions/timeline.TimelineItem'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
         type: array
       growthApplied:
         items:
-          $ref: '#/definitions/timeline.GrowthApplied'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied'
         type: array
       hasOverrides:
         type: boolean
       income:
         items:
-          $ref: '#/definitions/timeline.TimelineItem'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
         type: array
       interestEarned:
         description: Interest earned this year on accumulator
         type: number
       liabilities:
         items:
-          $ref: '#/definitions/timeline.TimelineItem'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
         type: array
       netCash:
         description: Income - Expenses (annual net savings)
@@ -626,26 +508,225 @@ definitions:
       year:
         type: integer
     type: object
-  timeline_v2.MonthlySnapshot:
+  financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse:
     properties:
-      cashBalance:
+      adjBalance:
         type: number
-      date:
+      balance:
+        type: number
+      category:
         type: string
-      month:
+      createdMonth:
         type: integer
-      netWorth:
+      createdYear:
+        type: integer
+      id:
+        type: string
+      itemType:
+        type: string
+      name:
+        type: string
+      parentId:
+        type: string
+      startDate:
+        type: string
+    type: object
+  financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse:
+    properties:
+      adjAmount:
         type: number
-      totalAssets:
+      amount:
         type: number
-      totalLiabilities:
+      category:
+        type: string
+      createdMonth:
+        type: integer
+      createdYear:
+        type: integer
+      growthRate:
+        type: number
+      id:
+        type: string
+      itemType:
+        type: string
+      name:
+        type: string
+      parentId:
+        type: string
+      sourceFrequency:
+        type: string
+    type: object
+  financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse:
+    properties:
+      adjBalance:
+        type: number
+      balance:
+        type: number
+      category:
+        type: string
+      createdMonth:
+        type: integer
+      createdYear:
+        type: integer
+      isAccumulator:
+        type: boolean
+      itemId:
+        type: string
+      itemType:
+        type: string
+      name:
+        type: string
+    type: object
+  financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse:
+    properties:
+      adjAmount:
+        type: number
+      amount:
+        type: number
+      category:
+        type: string
+      createdMonth:
+        type: integer
+      createdYear:
+        type: integer
+      id:
+        type: string
+      itemType:
+        type: string
+      name:
+        type: string
+      parentId:
+        type: string
+      sourceFrequency:
+        type: string
+    type: object
+  financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse:
+    properties:
+      adjAmount:
+        type: number
+      amount:
+        type: number
+      category:
+        type: string
+      createdMonth:
+        type: integer
+      createdYear:
+        type: integer
+      growthRate:
+        type: number
+      id:
+        type: string
+      itemType:
+        type: string
+      name:
+        type: string
+      parentId:
+        type: string
+      sourceFrequency:
+        type: string
+    type: object
+  financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse:
+    properties:
+      adjAnnualAmt:
+        type: number
+      adjMonthlyAmt:
+        type: number
+      annualAmt:
+        type: number
+      category:
+        type: string
+      createdMonth:
+        type: integer
+      createdYear:
+        type: integer
+      id:
+        type: string
+      itemType:
+        type: string
+      monthlyAmt:
+        type: number
+      name:
+        type: string
+      parentId:
+        type: string
+      sourceAmount:
         type: number
     type: object
-  timeline_v2.TimelineAnnualChartResponse:
+  financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse:
+    properties:
+      accumulatorAccountId:
+        type: string
+      cashAssets:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse'
+        type: array
+      cpfAssets:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse'
+        type: array
+      cpfContributions:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse'
+        type: array
+      expenses:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse'
+        type: array
+      income:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse'
+        type: array
+      liabilities:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse'
+        type: array
+      month:
+        type: integer
+      monthIndex:
+        type: integer
+      netCash:
+        type: number
+      netSavings:
+        type: number
+      netWorth:
+        type: number
+      nonCashAssets:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse'
+        type: array
+      year:
+        type: integer
+      yearIndex:
+        type: integer
+    type: object
+  financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse:
+    properties:
+      adjBalance:
+        type: number
+      balance:
+        type: number
+      category:
+        type: string
+      createdMonth:
+        type: integer
+      createdYear:
+        type: integer
+      id:
+        type: string
+      itemType:
+        type: string
+      name:
+        type: string
+      parentId:
+        type: string
+      startDate:
+        type: string
+    type: object
+  financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse:
     properties:
       months:
         items:
-          $ref: '#/definitions/timeline_v2.TimelineMonthlySummary'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary'
         type: array
       resolution:
         type: string
@@ -655,10 +736,10 @@ definitions:
         type: array
       years:
         items:
-          $ref: '#/definitions/timeline_v2.TimelineYearlySummary'
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary'
         type: array
     type: object
-  timeline_v2.TimelineMonthlySummary:
+  financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary:
     properties:
       month:
         type: integer
@@ -667,7 +748,14 @@ definitions:
       netWorth:
         type: number
     type: object
-  timeline_v2.TimelineYearlySummary:
+  financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response:
+    properties:
+      months:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse'
+        type: array
+    type: object
+  financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary:
     properties:
       netWorth:
         type: number
@@ -675,6 +763,124 @@ definitions:
         type: integer
       yearIndex:
         type: integer
+    type: object
+  financial-chat-system_backend_internal_llm.ChatMessage:
+    properties:
+      content:
+        description: Message content
+        type: string
+      name:
+        description: Optional name for tool messages
+        type: string
+      role:
+        description: '"user", "assistant", "system", "tool"'
+        type: string
+      tool_call_id:
+        description: ID of tool call this message responds to
+        type: string
+      tool_calls:
+        description: Tool calls in this message
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_llm.ToolCall'
+        type: array
+    type: object
+  financial-chat-system_backend_internal_llm.FunctionCall:
+    properties:
+      arguments:
+        description: JSON string of function arguments
+        type: string
+      name:
+        description: Function name (e.g., "create_asset")
+        type: string
+    type: object
+  financial-chat-system_backend_internal_llm.ToolCall:
+    properties:
+      function:
+        allOf:
+        - $ref: '#/definitions/financial-chat-system_backend_internal_llm.FunctionCall'
+        description: Function details
+      id:
+        description: Unique identifier for this tool call
+        type: string
+      type:
+        description: Always "function" for function calls
+        type: string
+    type: object
+  financial-chat-system_backend_internal_session.ConversationStep:
+    properties:
+      content:
+        type: string
+      result:
+        additionalProperties: true
+        type: object
+      step_id:
+        type: string
+      timestamp:
+        type: string
+      tool_calls:
+        items:
+          type: string
+        type: array
+      tool_name:
+        type: string
+      type:
+        description: '"user_message", "llm_response", "tool_execution"'
+        type: string
+    type: object
+  financial-chat-system_backend_internal_session.PendingToolCall:
+    properties:
+      call_id:
+        type: string
+      created_at:
+        type: string
+      dependencies:
+        items:
+          type: string
+        type: array
+      friendly_description:
+        type: string
+      parameters:
+        additionalProperties: true
+        type: object
+      preview:
+        type: string
+      tool_name:
+        type: string
+    type: object
+  financial-chat-system_backend_internal_session.SessionState:
+    properties:
+      chat_id:
+        type: string
+      conversation_flow:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_session.ConversationStep'
+        type: array
+      created_at:
+        type: string
+      last_asset_id:
+        type: string
+      last_liability_id:
+        type: string
+      last_property_plan_id:
+        type: string
+      messages:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_llm.ChatMessage'
+        type: array
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      pending_actions:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_session.PendingToolCall'
+        type: array
+      session_id:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
     type: object
 host: localhost:8080
 info:
@@ -701,14 +907,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/handlers.ChatRequest'
+          $ref: '#/definitions/cmd_server_handlers.ChatRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.ChatResponse'
+            $ref: '#/definitions/cmd_server_handlers.ChatResponse'
         "400":
           description: Bad Request
           schema:
@@ -736,14 +942,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/handlers.DispatchRequest'
+          $ref: '#/definitions/cmd_server_handlers.DispatchRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.DispatchResponse'
+            $ref: '#/definitions/cmd_server_handlers.DispatchResponse'
         "400":
           description: Bad Request
           schema:
@@ -788,7 +994,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/timeline.TimelineResponse'
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse'
         "400":
           description: Bad Request
           schema:
@@ -829,7 +1035,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/timeline.TimelineResponse'
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse'
         "400":
           description: Bad Request
           schema:
@@ -855,7 +1061,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handlers.HealthResponse'
+            $ref: '#/definitions/cmd_server_handlers.HealthResponse'
       summary: Health check
       tags:
       - Health
@@ -869,7 +1075,7 @@ paths:
         in: body
         name: body
         schema:
-          $ref: '#/definitions/handlers.scenarioEventInput'
+          $ref: '#/definitions/cmd_server_handlers.scenarioEventInput'
       produces:
       - application/json
       responses:
@@ -877,12 +1083,12 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/repository.ScenarioEvent'
+              $ref: '#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent'
             type: array
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/repository.ScenarioEvent'
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent'
         "400":
           description: Bad Request
           schema:
@@ -908,7 +1114,7 @@ paths:
         in: body
         name: body
         schema:
-          $ref: '#/definitions/handlers.scenarioEventInput'
+          $ref: '#/definitions/cmd_server_handlers.scenarioEventInput'
       produces:
       - application/json
       responses:
@@ -916,12 +1122,12 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/repository.ScenarioEvent'
+              $ref: '#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent'
             type: array
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/repository.ScenarioEvent'
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent'
         "400":
           description: Bad Request
           schema:
@@ -968,7 +1174,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/timeline_v2.TimelineAnnualChartResponse'
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse'
         "400":
           description: Bad Request
           schema:
@@ -987,17 +1193,39 @@ paths:
       - Timeline V2
   /v2/financial/timeline/snapshot:
     get:
-      description: Returns monthly snapshots with net worth, assets, liabilities,
-        and cash balance
+      description: 'Returns detailed monthly snapshots with all financial items, balances,
+        and summaries. Month indices are relative to the base year (current year).
+        For example, relativeStartMonth=0 is January of current year, relativeStartMonth=12
+        is January of next year. The range is half-open: [relativeStartMonth, relativeEndMonth).'
+      parameters:
+      - default: 0
+        description: Start month index relative to base year (0-indexed, inclusive).
+          0 = January of current year, 12 = January of next year.
+        in: query
+        maximum: 419
+        minimum: 0
+        name: relativeStartMonth
+        type: integer
+      - default: 420
+        description: End month index relative to base year (0-indexed, exclusive).
+          Must be >= relativeStartMonth. 0 or omitted = 420 (35 years). Max 420.
+        in: query
+        maximum: 420
+        minimum: 0
+        name: relativeEndMonth
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/timeline_v2.MonthlySnapshot'
-            type: array
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal Server Error
           schema:

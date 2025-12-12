@@ -2,6 +2,28 @@ package growth
 
 import "financial-chat-system/backend/internal/decimal"
 
+// =============================================================================
+// Strategy Name Constants
+// =============================================================================
+
+const (
+	// StrategyAnnualStep applies growth once per year (in January)
+	StrategyAnnualStep = "annual_step"
+
+	// StrategyMonthlyCompound applies compound growth every month
+	StrategyMonthlyCompound = "monthly_compound"
+
+	// StrategyContinuousCompound applies continuous compounding
+	StrategyContinuousCompound = "continuous_compound"
+
+	// StrategyLinear applies simple linear growth
+	StrategyLinear = "linear"
+)
+
+// =============================================================================
+// Strategy Interface & Types
+// =============================================================================
+
 // Strategy defines how to apply growth to a financial amount.
 // Each strategy encapsulates both the growth calculation logic AND when to apply it.
 type Strategy interface {

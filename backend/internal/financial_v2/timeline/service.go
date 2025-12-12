@@ -11,47 +11,26 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// =============================================================================
+// Types
+// =============================================================================
+
 type Service struct {
 	store Store
 }
 
-// NewService creates a new timeline service
-func NewService(store Store) *Service {
-	return &Service{store: store}
-}
-
-// GetTimeline generates a timeline chart response for the given user and resolution
-func (s *Service) GetTimeline(
-	ctx context.Context,
-	userID string,
-	resolution string,
-) (TimelineAnnualChartResponse, error) {
-	// TODO: Implement timeline calculation logic
-	// This is a stub - you need to implement:
-	// 1. Call loadEffectiveRows to get all financial data
-	// 2. Determine time range (start to end)
-	// 3. Calculate net worth for each year/month
-	// 4. Return TimelineAnnualChartResponse
-
-	return TimelineAnnualChartResponse{
-		Resolution:  resolution,
-		Years:       []TimelineYearlySummary{},
-		Months:      []TimelineMonthlySummary{},
-		ScenarioIds: []string{},
-	}, nil
-}
-
 type FinancialDataRow struct {
-	ID         string
-	ParentID   string
-	Name       string
-	Category   string
-	Amount     decimal.Decimal
-	Frequency  Frequency
-	StartDate  time.Time
-	EndDate    *time.Time
-	ItemType   FinancialDataType
-	GrowthRate decimal.Decimal // Per-item growth rate (percentage)
+	ID            string
+	ParentID      string
+	Name          string
+	Category      string
+	Amount        decimal.Decimal
+	Frequency     Frequency
+	StartDate     time.Time
+	EndDate       *time.Time
+	ItemType      FinancialDataType
+	GrowthRate    decimal.Decimal // Per-item growth rate (percentage)
+	IsAccumulator bool            // For cash accounts - identifies the accumulator account
 }
 
 // EffectiveRows holds all financial data organized by type
@@ -63,6 +42,30 @@ type EffectiveRows struct {
 	Expenses      []FinancialDataRow
 }
 
+// ItemState tracks the current computed state of a financial item
+type ItemState struct {
+	Row          FinancialDataRow
+	Balance      *decimal.Decimal // Current computed balance/amount
+	CreatedYear  int              // Year index when item was created (relative to base year)
+	CreatedMonth int              // Month when item was created (1-12)
+}
+
+// ItemStateMap maps item IDs to their computed state
+type ItemStateMap map[string]*ItemState
+
+// =============================================================================
+// Constructor
+// =============================================================================
+
+// NewService creates a new timeline service
+func NewService(store Store) *Service {
+	return &Service{store: store}
+}
+
+// =============================================================================
+// Transform Functions (used by loadEffectiveRows)
+// =============================================================================
+
 // transformNonCashAssets converts repository.NonCashAsset to FinancialDataRow
 func transformNonCashAssets(assets []repo.NonCashAsset) []FinancialDataRow {
 	rows := make([]FinancialDataRow, 0, len(assets))
@@ -73,7 +76,6 @@ func transformNonCashAssets(assets []repo.NonCashAsset) []FinancialDataRow {
 			Name:       a.Name,
 			Category:   a.Category,
 			Amount:     a.CurrentValue,
-			Frequency:  FrequencyAnnual, // Assets don't have frequency
 			StartDate:  a.StartDate,
 			EndDate:    a.EndDate,
 			ItemType:   FinNonCashAsset,
@@ -88,16 +90,16 @@ func transformCashAssets(assets []repo.CashAsset) []FinancialDataRow {
 	rows := make([]FinancialDataRow, 0, len(assets))
 	for _, a := range assets {
 		rows = append(rows, FinancialDataRow{
-			ID:         a.ID,
-			ParentID:   a.ID, // Cash accounts use ID as ParentID
-			Name:       a.Name,
-			Category:   a.AccountType,
-			Amount:     a.Balance,
-			Frequency:  FrequencyAnnual,
-			StartDate:  a.StartDate,
-			EndDate:    a.EndDate,
-			ItemType:   FinCashAsset,
-			GrowthRate: a.InterestRate,
+			ID:            a.ID,
+			ParentID:      a.ID, // Cash accounts use ID as ParentID
+			Name:          a.Name,
+			Category:      a.AccountType,
+			Amount:        a.Balance,
+			StartDate:     a.StartDate,
+			EndDate:       a.EndDate,
+			ItemType:      FinCashAsset,
+			GrowthRate:    a.InterestRate,
+			IsAccumulator: a.IsAccumulator,
 		})
 	}
 	return rows
@@ -113,7 +115,6 @@ func transformLiabilities(liabilities []repo.Liability) []FinancialDataRow {
 			Name:       l.Name,
 			Category:   l.Category,
 			Amount:     l.CurrentBalance,
-			Frequency:  FrequencyAnnual,
 			StartDate:  l.StartDate,
 			EndDate:    l.EndDate,
 			ItemType:   FinLiabilities,
@@ -162,6 +163,10 @@ func transformExpenses(expenses []repo.Expense) []FinancialDataRow {
 	}
 	return rows
 }
+
+// =============================================================================
+// Data Loading (used by ComputeFinancialSnapshot)
+// =============================================================================
 
 func (s *Service) loadEffectiveRows(
 	ctx context.Context,
@@ -223,64 +228,24 @@ func (s *Service) loadEffectiveRows(
 	}, nil
 }
 
-// ComputeFinancialSnapshot calculates monthly snapshots over 420 months (35 years)
-func (s *Service) ComputeFinancialSnapshot(
-	ctx context.Context,
-	userID string,
-) ([]MonthlySnapshot, error) {
-	// Use empty options to fetch all data
-	dateOpts := repo.DateRangeOptions{}
-	paginationOpts := repo.PaginationParams{}
+// =============================================================================
+// Helper Functions (used by ComputeFinancialSnapshot)
+// =============================================================================
 
-	financialData, err := s.loadEffectiveRows(ctx, userID, dateOpts, paginationOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load financial data: %w", err)
+// isActiveInMonth checks if a financial row is active on the given date
+func isActiveInMonth(row FinancialDataRow, date time.Time) bool {
+	if date.Before(row.StartDate) {
+		return false
 	}
-
-	baseYear := time.Now().Year()
-	totalMonths := 420 // 35 years
-
-	registry := growth.NewRegistry()
-
-	// Initialize state for each row
-	state := initializeState(financialData)
-	cashAccumulator := decimal.Zero()
-	snapshots := make([]MonthlySnapshot, 0, totalMonths)
-
-	// Process each month
-	for month := 1; month <= totalMonths; month++ {
-		monthOfYear := ((month - 1) % 12) + 1
-		currentDate := time.Date(baseYear, time.January, 1, 0, 0, 0, 0, time.UTC).AddDate(0, month-1, 0)
-
-		/*
-		* review: I think we should make registry a singleton, it repeats too much
-		* Also we should implement constants for the different growth types
-		 */
-
-		// Apply growth to incomes and expenses
-		applyGrowth(financialData.Incomes, state, registry, "annual_step", month, monthOfYear, currentDate)
-		applyGrowth(financialData.Expenses, state, registry, "annual_step", month, monthOfYear, currentDate)
-
-		// Calculate net cash flow and update accumulator
-		netCashFlow := calculateNetCashFlow(financialData, state, currentDate)
-		cashAccumulator, _ = cashAccumulator.Add(netCashFlow)
-
-		// Apply growth to assets and liabilities
-		applyGrowth(financialData.NonCashAssets, state, registry, "monthly_compound", month, monthOfYear, currentDate)
-		applyGrowth(financialData.CashAssets, state, registry, "monthly_compound", month, monthOfYear, currentDate)
-		applyGrowth(financialData.Liabilities, state, registry, "monthly_compound", month, monthOfYear, currentDate)
-
-		// Calculate snapshot
-		snapshot := calculateSnapshot(month, currentDate, financialData, state, cashAccumulator)
-		snapshots = append(snapshots, snapshot)
+	if row.EndDate != nil && date.After(*row.EndDate) {
+		return false
 	}
-
-	return snapshots, nil
+	return true
 }
 
-// initializeState creates initial state map for all financial rows
-func initializeState(data EffectiveRows) map[string]*decimal.Decimal {
-	state := make(map[string]*decimal.Decimal)
+// initializeItemStates creates ItemStateMap with CreatedYear/CreatedMonth for all financial rows
+func initializeItemStates(data EffectiveRows, baseYear int) ItemStateMap {
+	states := make(ItemStateMap)
 
 	allRows := [][]FinancialDataRow{
 		data.NonCashAssets,
@@ -293,29 +258,54 @@ func initializeState(data EffectiveRows) map[string]*decimal.Decimal {
 	for _, rows := range allRows {
 		for _, row := range rows {
 			amount := row.Amount
-			state[row.ID] = &amount
+			states[row.ID] = &ItemState{
+				Row:          row,
+				Balance:      &amount,
+				CreatedYear:  row.StartDate.Year() - baseYear,
+				CreatedMonth: int(row.StartDate.Month()),
+			}
 		}
 	}
 
+	return states
+}
+
+// extractBalanceMap extracts a simple ID->Balance map from ItemStateMap for growth calculations
+func extractBalanceMap(itemStates ItemStateMap) map[string]*decimal.Decimal {
+	state := make(map[string]*decimal.Decimal)
+	for id, itemState := range itemStates {
+		state[id] = itemState.Balance
+	}
 	return state
 }
 
+// syncStateToItemStates syncs the balance values from state map back to ItemStateMap
+func syncStateToItemStates(state map[string]*decimal.Decimal, itemStates ItemStateMap) {
+	for id, balance := range state {
+		if itemState, exists := itemStates[id]; exists {
+			itemState.Balance = balance
+		}
+	}
+}
+
+// GrowthContext bundles parameters needed for growth calculations in a month
+type GrowthContext struct {
+	Registry    *growth.Registry
+	State       map[string]*decimal.Decimal // itemID -> running balance (mutated as growth is applied)
+	Month       int                         // 1-indexed absolute month (1-420)
+	MonthOfYear int                         // 1-12
+	Date        time.Time                   // Current date for active check
+}
+
 // applyGrowth applies growth strategy to active rows
-func applyGrowth(
-	rows []FinancialDataRow,
-	state map[string]*decimal.Decimal,
-	registry *growth.Registry,
-	strategyName string,
-	month, monthOfYear int,
-	currentDate time.Time,
-) {
-	strategy, _ := registry.Get(strategyName)
+func applyGrowth(rows []FinancialDataRow, ctx *GrowthContext, strategyName string) {
+	strategy, _ := ctx.Registry.Get(strategyName)
 	for _, row := range rows {
-		if !isActiveInMonth(row, currentDate) {
+		if !isActiveInMonth(row, ctx.Date) {
 			continue
 		}
 		params := growth.Params{AnnualRatePct: &row.GrowthRate}
-		state[row.ID] = strategy.Apply(state[row.ID], params, month, monthOfYear)
+		ctx.State[row.ID] = strategy.Apply(ctx.State[row.ID], params, ctx.Month, ctx.MonthOfYear)
 	}
 }
 
@@ -344,66 +334,311 @@ func calculateNetCashFlow(
 	return netFlow
 }
 
-// calculateSnapshot creates a snapshot for the current month
-func calculateSnapshot(
-	month int,
+// buildNonCashAssetResponses builds responses for non-cash assets and returns total value
+func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) ([]NonCashAssetResponse, *decimal.Decimal) {
+	responses := make([]NonCashAssetResponse, 0)
+	total := decimal.Zero()
+
+	for _, row := range rows {
+		if !isActiveInMonth(row, date) {
+			continue
+		}
+		state := itemStates[row.ID]
+		if state == nil {
+			continue
+		}
+		total, _ = total.Add(state.Balance)
+		responses = append(responses, NonCashAssetResponse{
+			ID:           row.ID,
+			ParentID:     row.ParentID,
+			Name:         row.Name,
+			Category:     row.Category,
+			Balance:      *state.Balance,
+			AdjBalance:   *state.Balance,
+			ItemType:     string(row.ItemType),
+			StartDate:    row.StartDate.Format("2006-01-02"),
+			CreatedYear:  state.CreatedYear,
+			CreatedMonth: state.CreatedMonth,
+		})
+	}
+	return responses, total
+}
+
+// buildCashAssetResponses builds responses for cash assets and returns total value and accumulator ID
+func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) ([]CashAssetResponse, *decimal.Decimal, string) {
+	responses := make([]CashAssetResponse, 0)
+	total := decimal.Zero()
+	var accumulatorID string
+
+	for _, row := range rows {
+		if !isActiveInMonth(row, date) {
+			continue
+		}
+		state := itemStates[row.ID]
+		if state == nil {
+			continue
+		}
+		total, _ = total.Add(state.Balance)
+		if row.IsAccumulator {
+			accumulatorID = row.ID
+		}
+		responses = append(responses, CashAssetResponse{
+			ItemID:        row.ID,
+			Name:          row.Name,
+			Category:      row.Category,
+			Balance:       *state.Balance,
+			AdjBalance:    *state.Balance,
+			ItemType:      string(row.ItemType),
+			CreatedYear:   state.CreatedYear,
+			CreatedMonth:  state.CreatedMonth,
+			IsAccumulator: row.IsAccumulator,
+		})
+	}
+	return responses, total, accumulatorID
+}
+
+// buildLiabilityResponses builds responses for liabilities and returns total value
+func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) ([]LiabilityResponse, *decimal.Decimal) {
+	responses := make([]LiabilityResponse, 0)
+	total := decimal.Zero()
+
+	for _, row := range rows {
+		if !isActiveInMonth(row, date) {
+			continue
+		}
+		state := itemStates[row.ID]
+		if state == nil {
+			continue
+		}
+		total, _ = total.Add(state.Balance)
+		twelve := decimal.NewFromInt64(12, 0)
+		monthlyAmt, _ := state.Balance.Div(twelve)
+		responses = append(responses, LiabilityResponse{
+			ID:            row.ID,
+			ParentID:      row.ParentID,
+			Name:          row.Name,
+			Category:      row.Category,
+			AnnualAmt:     *state.Balance,
+			AdjAnnualAmt:  *state.Balance,
+			MonthlyAmt:    *monthlyAmt,
+			AdjMonthlyAmt: *monthlyAmt,
+			SourceAmount:  row.Amount,
+			ItemType:      string(row.ItemType),
+			CreatedYear:   state.CreatedYear,
+			CreatedMonth:  state.CreatedMonth,
+		})
+	}
+	return responses, total
+}
+
+// buildIncomeResponses builds responses for incomes
+func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) []IncomeResponse {
+	responses := make([]IncomeResponse, 0)
+
+	for _, row := range rows {
+		if !isActiveInMonth(row, date) {
+			continue
+		}
+		state := itemStates[row.ID]
+		if state == nil {
+			continue
+		}
+		responses = append(responses, IncomeResponse{
+			ID:              row.ID,
+			ParentID:        row.ParentID,
+			Name:            row.Name,
+			Category:        row.Category,
+			Amount:          *state.Balance,
+			AdjAmount:       *state.Balance,
+			SourceFrequency: string(row.Frequency),
+			ItemType:        string(row.ItemType),
+			CreatedYear:     state.CreatedYear,
+			CreatedMonth:    state.CreatedMonth,
+			GrowthRate:      row.GrowthRate,
+		})
+	}
+	return responses
+}
+
+// buildExpenseResponses builds responses for expenses
+func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) []ExpenseResponse {
+	responses := make([]ExpenseResponse, 0)
+
+	for _, row := range rows {
+		if !isActiveInMonth(row, date) {
+			continue
+		}
+		state := itemStates[row.ID]
+		if state == nil {
+			continue
+		}
+		responses = append(responses, ExpenseResponse{
+			ID:              row.ID,
+			ParentID:        row.ParentID,
+			Name:            row.Name,
+			Category:        row.Category,
+			Amount:          *state.Balance,
+			AdjAmount:       *state.Balance,
+			SourceFrequency: string(row.Frequency),
+			ItemType:        string(row.ItemType),
+			CreatedYear:     state.CreatedYear,
+			CreatedMonth:    state.CreatedMonth,
+		})
+	}
+	return responses
+}
+
+// buildMonthDetailResponse creates a detailed response for a single month
+func buildMonthDetailResponse(
+	monthIndex int,
 	date time.Time,
+	baseYear int,
 	data EffectiveRows,
-	state map[string]*decimal.Decimal,
+	itemStates ItemStateMap,
 	cashAccumulator *decimal.Decimal,
-) MonthlySnapshot {
+	netSavings *decimal.Decimal,
+) MonthDetailResponse {
+	yearIndex := monthIndex / 12
+	month := ((monthIndex) % 12) + 1
+
+	// Build all item responses
+	nonCashAssets, nonCashTotal := buildNonCashAssetResponses(data.NonCashAssets, itemStates, date)
+	cashAssets, cashTotal, accumulatorID := buildCashAssetResponses(data.CashAssets, itemStates, date)
+	liabilities, liabilityTotal := buildLiabilityResponses(data.Liabilities, itemStates, date)
+	incomes := buildIncomeResponses(data.Incomes, itemStates, date)
+	expenses := buildExpenseResponses(data.Expenses, itemStates, date)
+
+	// Calculate totals
 	totalAssets := decimal.Zero()
-	totalLiabilities := decimal.Zero()
-
-	for _, row := range data.NonCashAssets {
-		if isActiveInMonth(row, date) {
-			totalAssets, _ = totalAssets.Add(state[row.ID])
-		}
-	}
-
-	for _, row := range data.CashAssets {
-		if isActiveInMonth(row, date) {
-			totalAssets, _ = totalAssets.Add(state[row.ID])
-		}
-	}
-
+	totalAssets, _ = totalAssets.Add(nonCashTotal)
+	totalAssets, _ = totalAssets.Add(cashTotal)
 	totalAssets, _ = totalAssets.Add(cashAccumulator)
+	netWorth, _ := totalAssets.Sub(liabilityTotal)
 
-	for _, row := range data.Liabilities {
-		if isActiveInMonth(row, date) {
-			totalLiabilities, _ = totalLiabilities.Add(state[row.ID])
+	return MonthDetailResponse{
+		Year:                 baseYear + yearIndex,
+		Month:                month,
+		YearIndex:            yearIndex,
+		MonthIndex:           monthIndex,
+		NonCashAssets:        nonCashAssets,
+		CashAssets:           cashAssets,
+		CPFAssets:            []CPFAssetResponse{},
+		Liabilities:          liabilities,
+		Income:               incomes,
+		CPFContributions:     []CPFContributionResponse{},
+		Expenses:             expenses,
+		NetCash:              *cashAccumulator,
+		NetWorth:             *netWorth,
+		NetSavings:           *netSavings,
+		AccumulatorAccountID: accumulatorID,
+	}
+}
+
+// =============================================================================
+// Public Service Methods
+// =============================================================================
+
+// normalizeTimelineOptions applies defaults and validates timeline options
+func normalizeTimelineOptions(opts TimelineOptions) TimelineOptions {
+	const maxMonths = 420 // 35 years
+	if opts.RelativeEndMonth <= 0 || opts.RelativeEndMonth > maxMonths {
+		opts.RelativeEndMonth = maxMonths
+	}
+	if opts.RelativeStartMonth < 0 {
+		opts.RelativeStartMonth = 0
+	}
+	if opts.RelativeStartMonth > opts.RelativeEndMonth {
+		opts.RelativeStartMonth = opts.RelativeEndMonth
+	}
+	return opts
+}
+
+// ComputeFinancialSnapshot calculates monthly snapshots over the specified range
+// opts.RelativeStartMonth: 0-indexed start month relative to base year (inclusive)
+// opts.RelativeEndMonth: 0-indexed end month relative to base year (exclusive), 0 means 420 (35 years)
+func (s *Service) ComputeFinancialSnapshot(
+	ctx context.Context,
+	userID string,
+	opts TimelineOptions,
+) (TimelineV2Response, error) {
+	opts = normalizeTimelineOptions(opts)
+
+	// Use empty options to fetch all data
+	dateOpts := repo.DateRangeOptions{}
+	paginationOpts := repo.PaginationParams{}
+
+	financialData, err := s.loadEffectiveRows(ctx, userID, dateOpts, paginationOpts)
+	if err != nil {
+		return TimelineV2Response{}, fmt.Errorf("failed to load financial data: %w", err)
+	}
+
+	baseYear := time.Now().Year()
+	registry := growth.NewRegistry()
+
+	// itemStates: detailed tracking per item (includes metadata like CreatedYear/CreatedMonth)
+	itemStates := initializeItemStates(financialData, baseYear)
+
+	// state: map of itemID -> current balance, mutated each month as growth is applied.
+	// This is the "running balance" for each financial item that compounds over time.
+	state := extractBalanceMap(itemStates)
+	cashAccumulator := decimal.Zero()
+
+	// Pre-allocate for the requested range
+	resultMonths := make([]MonthDetailResponse, 0, opts.RelativeEndMonth-opts.RelativeStartMonth)
+
+	// Process each month up to RelativeEndMonth (need to compute all months for correct state)
+	for monthIdx := 0; monthIdx < opts.RelativeEndMonth; monthIdx++ {
+		currentDate := time.Date(baseYear, time.January, 1, 0, 0, 0, 0, time.UTC).AddDate(0, monthIdx, 0)
+
+		growthCtx := &GrowthContext{
+			Registry:    registry,
+			State:       state,
+			Month:       monthIdx + 1,
+			MonthOfYear: (monthIdx % 12) + 1,
+			Date:        currentDate,
+		}
+
+		// Apply growth to incomes and expenses (annual step - grows once per year)
+		applyGrowth(financialData.Incomes, growthCtx, growth.StrategyAnnualStep)
+		applyGrowth(financialData.Expenses, growthCtx, growth.StrategyAnnualStep)
+
+		// Calculate net cash flow and update accumulator
+		netCashFlow := calculateNetCashFlow(financialData, state, currentDate)
+		cashAccumulator, _ = cashAccumulator.Add(netCashFlow)
+
+		// Apply growth to assets and liabilities (monthly compound)
+		applyGrowth(financialData.NonCashAssets, growthCtx, growth.StrategyMonthlyCompound)
+		applyGrowth(financialData.CashAssets, growthCtx, growth.StrategyMonthlyCompound)
+		applyGrowth(financialData.Liabilities, growthCtx, growth.StrategyMonthlyCompound)
+
+		// Only include months within the requested range
+		if monthIdx >= opts.RelativeStartMonth {
+			syncStateToItemStates(state, itemStates)
+			monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, financialData, itemStates, cashAccumulator, netCashFlow)
+			resultMonths = append(resultMonths, monthResponse)
 		}
 	}
 
-	netWorth, _ := totalAssets.Sub(totalLiabilities)
-
-	return MonthlySnapshot{
-		Month:            month,
-		Date:             date,
-		NetWorth:         netWorth,
-		TotalAssets:      totalAssets,
-		TotalLiabilities: totalLiabilities,
-		CashBalance:      cashAccumulator,
-	}
+	return TimelineV2Response{Months: resultMonths}, nil
 }
 
-// isActiveInMonth checks if a financial row is active on the given date
-func isActiveInMonth(row FinancialDataRow, date time.Time) bool {
-	if date.Before(row.StartDate) {
-		return false
-	}
-	if row.EndDate != nil && date.After(*row.EndDate) {
-		return false
-	}
-	return true
-}
+// GetTimeline generates a timeline chart response for the given user and resolution
+func (s *Service) GetTimeline(
+	ctx context.Context,
+	userID string,
+	resolution string,
+) (TimelineAnnualChartResponse, error) {
+	// TODO: Implement timeline calculation logic
+	// This is a stub - you need to implement:
+	// 1. Call loadEffectiveRows to get all financial data
+	// 2. Determine time range (start to end)
+	// 3. Calculate net worth for each year/month
+	// 4. Return TimelineAnnualChartResponse
 
-// MonthlySnapshot represents financial state at a point in time
-type MonthlySnapshot struct {
-	Month            int
-	Date             time.Time
-	NetWorth         *decimal.Decimal
-	TotalAssets      *decimal.Decimal
-	TotalLiabilities *decimal.Decimal
-	CashBalance      *decimal.Decimal
+	return TimelineAnnualChartResponse{
+		Resolution:  resolution,
+		Years:       []TimelineYearlySummary{},
+		Months:      []TimelineMonthlySummary{},
+		ScenarioIds: []string{},
+	}, nil
 }
