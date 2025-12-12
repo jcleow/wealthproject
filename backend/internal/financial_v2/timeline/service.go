@@ -341,12 +341,20 @@ func mapToCPFAccount(r *repo.CPFAccount) *account.CPFAccount {
 	}
 }
 
-// isActiveInMonth checks if a financial row is active on the given date
+// isActiveInMonth checks if a financial row is active during the given month.
+// An item is active if it started on or before the last day of that month,
+// and hasn't ended before the first day of that month.
 func isActiveInMonth(row FinancialDataRow, date time.Time) bool {
-	if date.Before(row.StartDate) {
+	// Get the last day of the month
+	year, month, _ := date.Date()
+	lastDayOfMonth := time.Date(year, month+1, 0, 23, 59, 59, 0, date.Location())
+
+	// Item must start on or before the last day of this month
+	if row.StartDate.After(lastDayOfMonth) {
 		return false
 	}
-	if row.EndDate != nil && date.After(*row.EndDate) {
+	// If item has an end date, it must not have ended before the first day of this month
+	if row.EndDate != nil && row.EndDate.Before(date) {
 		return false
 	}
 	return true
