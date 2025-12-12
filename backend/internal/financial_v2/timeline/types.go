@@ -3,7 +3,7 @@ package timeline_v2
 import (
 	"context"
 	"financial-chat-system/backend/internal/decimal"
-	"financial-chat-system/backend/internal/financial/repository"
+	"financial-chat-system/backend/internal/financial_v2/repository"
 )
 
 type FinancialDataType string
@@ -50,9 +50,9 @@ const (
 )
 
 type Store interface {
-	ListNonCashAssets(context.Context, string, repository.DateRangeOptions) ([]repository.Asset, error)
-	ListCashAssets(context.Context, string, repository.DateRangeOptions) ([]repository.Asset, error)
-	ListLiabilities(context.Context, string, repository.DateRangeOptions) ([]repository.Asset, error)
-	ListIncomes(context.Context, string, repository.DateRangeOptions) ([]repository.Asset, error)
-	ListExpenses(context.Context, string, repository.DateRangeOptions) ([]repository.Asset, error)
+	ListNonCashAssets(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.NonCashAsset], error)
+	ListCashAssets(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.CashAsset], error)
+	ListLiabilities(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Liability], error)
+	ListIncomes(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Income], error)
+	ListExpenses(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Expense], error)
 }
