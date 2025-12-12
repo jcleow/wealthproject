@@ -140,9 +140,12 @@ export interface MonthDetailResponseV2 {
   income: IncomeResponseV2[]
   cpfContributions: CPFContributionResponseV2[]
   expenses: ExpenseResponseV2[]
-  netCash: string
+  // Savings breakdown
+  netSavings: string      // income - expenses (monthly)
+  netCash: string         // income - expenses - employee CPF (monthly)
+  netInvestments: string  // employee CPF contribution (monthly)
+  // Other totals
   netWorth: string
-  netSavings: string
   accumulatorAccountId: string
 }
 

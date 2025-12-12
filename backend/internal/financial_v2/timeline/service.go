@@ -426,12 +426,16 @@ func applyGrowth(rows []FinancialDataRow, ctx *GrowthContext, strategyName strin
 	}
 }
 
-// calculateNetCashFlow computes income minus expenses for active rows
+// calculateNetCashFlow computes net savings and net cash flow for active rows.
+// Returns:
+//   - netSavings: income - expenses (independent of CPF)
+//   - netCashFlow: income - expenses - employeeCPF (actual cash impact)
 func calculateNetCashFlow(
 	data EffectiveRows,
 	state map[string]*decimal.Decimal,
 	currentDate time.Time,
-) *decimal.Decimal {
+	employeeCPF *decimal.Decimal,
+) (netSavings *decimal.Decimal, netCashFlow *decimal.Decimal) {
 	income := decimal.Zero()
 	expense := decimal.Zero()
 
@@ -447,8 +451,9 @@ func calculateNetCashFlow(
 		}
 	}
 
-	netFlow, _ := income.Sub(expense)
-	return netFlow
+	netSavings, _ = income.Sub(expense)
+	netCashFlow, _ = netSavings.Sub(employeeCPF)
+	return netSavings, netCashFlow
 }
 
 // buildNonCashAssetResponses builds responses for non-cash assets and returns total value
@@ -739,6 +744,8 @@ func buildMonthDetailResponse(
 	itemStates ItemStateMap,
 	cashAccumulator *decimal.Decimal,
 	netSavings *decimal.Decimal,
+	netCashFlow *decimal.Decimal,
+	employeeCPF *decimal.Decimal,
 	cpfContributions map[string]*cpfProcessor.ContributionResult,
 	cpfCtx *CPFContext,
 ) MonthDetailResponse {
@@ -780,9 +787,10 @@ func buildMonthDetailResponse(
 		Income:               incomes,
 		CPFContributions:     cpfContributionResponses,
 		Expenses:             expenses,
-		NetCash:              *cashAccumulator.Round(0),
-		NetWorth:             *netWorth.Round(0),
 		NetSavings:           *netSavings.Round(0),
+		NetCash:              *netCashFlow.Round(0),
+		NetInvestments:       *employeeCPF.Round(0),
+		NetWorth:             *netWorth.Round(0),
 		AccumulatorAccountID: accumulatorID,
 	}
 }
@@ -859,14 +867,13 @@ func (s *Service) ComputeFinancialSnapshot(
 		// Process CPF contributions for applicable incomes
 		employeeCPF, cpfContributions := cpfCtx.ProcessIncomes(sgData.Rows.Incomes, state, currentDate)
 
-		// Calculate net cash flow (deduct employee CPF) and update accumulator
-		netCashFlow := calculateNetCashFlow(sgData.Rows, state, currentDate)
-		netCashFlow, _ = netCashFlow.Sub(employeeCPF)
+		// Calculate net savings and net cash flow
+		netSavings, netCashFlow := calculateNetCashFlow(sgData.Rows, state, currentDate, employeeCPF)
 		cashAccumulator, _ = cashAccumulator.Add(netCashFlow)
 
 		// Build response for this month
 		syncStateToItemStates(state, itemStates)
-		monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, sgData.Rows, itemStates, cashAccumulator, netCashFlow, cpfContributions, cpfCtx)
+		monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, sgData.Rows, itemStates, cashAccumulator, netSavings, netCashFlow, employeeCPF, cpfContributions, cpfCtx)
 		resultMonths = append(resultMonths, monthResponse)
 	}
 

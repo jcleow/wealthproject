@@ -1399,9 +1399,27 @@ export function FinancialDataManagement({
                   </div>
                   <div className="h-2 w-2 rounded-full bg-emerald-400" />
                 </div>
-                <p className="mt-3 text-2xl font-light tracking-tight text-slate-100">
-                  {formatCurrency(getAnnualSavingsForYear())}
+                <p className="mt-2 text-2xl font-light tracking-tight text-slate-100">
+                  {formatCurrency(hasV2Data && timelineMonthV2 ? parseDecimal(timelineMonthV2.netSavings) : getAnnualSavingsForYear())}
                 </p>
+                {hasV2Data && timelineMonthV2 && (
+                  <div className="mt-3 space-y-1.5 border-t border-white/[0.06] pt-3">
+                    <div className="flex items-center justify-between pl-3">
+                      <span className="text-sm text-slate-400">Net Cash</span>
+                      <span className="font-mono text-sm text-slate-300">
+                        {formatCurrency(parseDecimal(timelineMonthV2.netCash))}
+                      </span>
+                    </div>
+                    {parseDecimal(timelineMonthV2.netInvestments) > 0 && (
+                      <div className="flex items-center justify-between pl-3">
+                        <span className="text-sm text-slate-400">Net Investments</span>
+                        <span className="font-mono text-sm text-slate-300">
+                          {formatCurrency(parseDecimal(timelineMonthV2.netInvestments))}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

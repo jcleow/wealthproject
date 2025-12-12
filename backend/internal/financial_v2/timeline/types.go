@@ -89,9 +89,12 @@ type MonthDetailResponse struct {
 	Income               []IncomeResponse         `json:"income"`
 	CPFContributions     []CPFContributionResponse `json:"cpfContributions"`
 	Expenses             []ExpenseResponse        `json:"expenses"`
-	NetCash              decimal.Decimal          `json:"netCash"`
+	// Savings breakdown
+	NetSavings           decimal.Decimal          `json:"netSavings"`      // income - expenses (monthly)
+	NetCash              decimal.Decimal          `json:"netCash"`         // income - expenses - employee CPF (monthly)
+	NetInvestments       decimal.Decimal          `json:"netInvestments"`  // employee CPF contribution (monthly)
+	// Other totals
 	NetWorth             decimal.Decimal          `json:"netWorth"`
-	NetSavings           decimal.Decimal          `json:"netSavings"`
 	AccumulatorAccountID string                   `json:"accumulatorAccountId"`
 }
 
