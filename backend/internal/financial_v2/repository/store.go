@@ -4,11 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
+	"runtime"
 	"strings"
 	"time"
 
 	"financial-chat-system/backend/internal/decimal"
 )
+
+// DebugSQL enables SQL query logging when set to true
+var DebugSQL = true
 
 type Store struct {
 	db *sql.DB
@@ -17,6 +22,33 @@ type Store struct {
 // NewStore creates a new repository Store
 func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
+}
+
+// logQuery prints the SQL query and args if DebugSQL is enabled
+func logQuery(query string, args []any) {
+	if !DebugSQL {
+		return
+	}
+	pc, _, _, _ := runtime.Caller(1)
+	funcName := runtime.FuncForPC(pc).Name()
+
+	// Substitute placeholders with actual values
+	substituted := query
+	for i, arg := range args {
+		placeholder := fmt.Sprintf("$%d", i+1)
+		var value string
+		switch v := arg.(type) {
+		case string:
+			value = fmt.Sprintf("'%s'", v)
+		case time.Time:
+			value = fmt.Sprintf("'%s'", v.Format("02-01-2006"))
+		default:
+			value = fmt.Sprintf("%v", v)
+		}
+		substituted = strings.Replace(substituted, placeholder, value, 1)
+	}
+
+	log.Printf("[SQL] %s\n%s\n", funcName, substituted)
 }
 
 // PaginationParams holds pagination parameters for list queries.
@@ -137,20 +169,19 @@ type CPFAccount struct {
 }
 
 type DateRangeOptions struct {
-	ActiveAfter  *time.Time // Item must be active after this date (start_date <= this, end_date >= this or NULL)
-	ActiveBefore *time.Time // Item must start before this date (start_date <= this)
+	StartDate *time.Time // Filter items where start_date >= this
+	EndDate   *time.Time // Filter items where start_date <= this
 }
 
 func addDateRangeFilterQuery(opts DateRangeOptions, argIdx int) (string, int) {
-	// Add optional date range filtering
 	dateRangeSubquery := []string{}
 
-	if opts.ActiveAfter != nil {
-		dateRangeSubquery = append(dateRangeSubquery, fmt.Sprintf(` (end_date IS NULL OR end_date >= $%d) `, argIdx))
+	if opts.StartDate != nil {
+		dateRangeSubquery = append(dateRangeSubquery, fmt.Sprintf(`start_date >= $%d`, argIdx))
 		argIdx++
 	}
-	if opts.ActiveBefore != nil {
-		dateRangeSubquery = append(dateRangeSubquery, fmt.Sprintf(` start_date <= $%d `, argIdx))
+	if opts.EndDate != nil {
+		dateRangeSubquery = append(dateRangeSubquery, fmt.Sprintf(`start_date < $%d`, argIdx))
 		argIdx++
 	}
 
@@ -208,11 +239,11 @@ func (s *Store) ListNonCashAssets(
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.ActiveAfter != nil {
-			args = append(args, *dateRangeOpts.ActiveAfter)
+		if dateRangeOpts.StartDate != nil {
+			args = append(args, *dateRangeOpts.StartDate)
 		}
-		if dateRangeOpts.ActiveBefore != nil {
-			args = append(args, *dateRangeOpts.ActiveBefore)
+		if dateRangeOpts.EndDate != nil {
+			args = append(args, *dateRangeOpts.EndDate)
 		}
 	}
 
@@ -230,6 +261,7 @@ func (s *Store) ListNonCashAssets(
 		}
 	}
 
+	logQuery(query, args)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query for non cash assets")
@@ -300,11 +332,11 @@ func (s *Store) ListCashAssets(
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.ActiveAfter != nil {
-			args = append(args, *dateRangeOpts.ActiveAfter)
+		if dateRangeOpts.StartDate != nil {
+			args = append(args, *dateRangeOpts.StartDate)
 		}
-		if dateRangeOpts.ActiveBefore != nil {
-			args = append(args, *dateRangeOpts.ActiveBefore)
+		if dateRangeOpts.EndDate != nil {
+			args = append(args, *dateRangeOpts.EndDate)
 		}
 	}
 
@@ -322,6 +354,7 @@ func (s *Store) ListCashAssets(
 		}
 	}
 
+	logQuery(query, args)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query cash assets: %v\n", err)
@@ -388,11 +421,11 @@ func (s *Store) ListLiabilities(
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.ActiveAfter != nil {
-			args = append(args, *dateRangeOpts.ActiveAfter)
+		if dateRangeOpts.StartDate != nil {
+			args = append(args, *dateRangeOpts.StartDate)
 		}
-		if dateRangeOpts.ActiveBefore != nil {
-			args = append(args, *dateRangeOpts.ActiveBefore)
+		if dateRangeOpts.EndDate != nil {
+			args = append(args, *dateRangeOpts.EndDate)
 		}
 	}
 
@@ -410,6 +443,7 @@ func (s *Store) ListLiabilities(
 		}
 	}
 
+	logQuery(query, args)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query liabilities: %v\n", err)
@@ -476,11 +510,11 @@ func (s *Store) ListIncomes(
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.ActiveAfter != nil {
-			args = append(args, *dateRangeOpts.ActiveAfter)
+		if dateRangeOpts.StartDate != nil {
+			args = append(args, *dateRangeOpts.StartDate)
 		}
-		if dateRangeOpts.ActiveBefore != nil {
-			args = append(args, *dateRangeOpts.ActiveBefore)
+		if dateRangeOpts.EndDate != nil {
+			args = append(args, *dateRangeOpts.EndDate)
 		}
 	}
 
@@ -498,6 +532,7 @@ func (s *Store) ListIncomes(
 		}
 	}
 
+	logQuery(query, args)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query incomes: %v\n", err)
@@ -563,11 +598,11 @@ func (s *Store) ListExpenses(
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.ActiveAfter != nil {
-			args = append(args, *dateRangeOpts.ActiveAfter)
+		if dateRangeOpts.StartDate != nil {
+			args = append(args, *dateRangeOpts.StartDate)
 		}
-		if dateRangeOpts.ActiveBefore != nil {
-			args = append(args, *dateRangeOpts.ActiveBefore)
+		if dateRangeOpts.EndDate != nil {
+			args = append(args, *dateRangeOpts.EndDate)
 		}
 	}
 
@@ -585,6 +620,7 @@ func (s *Store) ListExpenses(
 		}
 	}
 
+	logQuery(query, args)
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query expenses: %v\n", err)

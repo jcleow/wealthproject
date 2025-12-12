@@ -496,7 +496,7 @@ const docTemplate = `{
                         "AuthToken": []
                     }
                 ],
-                "description": "Returns detailed monthly snapshots with all financial items, balances, and summaries. startYear and startMonth are required. If endYear/endMonth are not provided, returns only the single month specified by startYear/startMonth.",
+                "description": "Returns detailed monthly snapshots with all financial items, balances, and summaries. startDate is required (DD-MM-YYYY format). If endDate is not provided, returns only items matching startDate.",
                 "produces": [
                     "application/json"
                 ],
@@ -506,37 +506,16 @@ const docTemplate = `{
                 "summary": "Get monthly financial snapshots (v2)",
                 "parameters": [
                     {
-                        "maximum": 2100,
-                        "minimum": 2000,
-                        "type": "integer",
-                        "description": "Start year (inclusive, required)",
-                        "name": "startYear",
+                        "type": "string",
+                        "description": "Start date (DD-MM-YYYY, required)",
+                        "name": "startDate",
                         "in": "query",
                         "required": true
                     },
                     {
-                        "maximum": 12,
-                        "minimum": 1,
-                        "type": "integer",
-                        "description": "Start month (1-12, inclusive, required)",
-                        "name": "startMonth",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "maximum": 2100,
-                        "minimum": 2000,
-                        "type": "integer",
-                        "description": "End year (inclusive). Defaults to startYear if not provided.",
-                        "name": "endYear",
-                        "in": "query"
-                    },
-                    {
-                        "maximum": 12,
-                        "minimum": 1,
-                        "type": "integer",
-                        "description": "End month (1-12, inclusive). Defaults to startMonth if not provided.",
-                        "name": "endMonth",
+                        "type": "string",
+                        "description": "End date (DD-MM-YYYY). Defaults to startDate if not provided.",
+                        "name": "endDate",
                         "in": "query"
                     }
                 ],

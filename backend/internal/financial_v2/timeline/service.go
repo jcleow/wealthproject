@@ -2,11 +2,13 @@ package timeline_v2
 
 import (
 	"context"
+	"fmt"
+	"time"
+
+	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/growth"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
-	"fmt"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -504,8 +506,8 @@ func buildMonthDetailResponse(
 	cashAccumulator *decimal.Decimal,
 	netSavings *decimal.Decimal,
 ) MonthDetailResponse {
-	yearIndex := monthIndex / 12
-	month := ((monthIndex) % 12) + 1
+	yearIndex := date.Year() - baseYear
+	month := int(date.Month())
 
 	// Build all item responses
 	nonCashAssets, nonCashTotal := buildNonCashAssetResponses(data.NonCashAssets, itemStates, date)
@@ -550,12 +552,11 @@ func (s *Service) ComputeFinancialSnapshot(
 	userID string,
 	opts TimelineOptions,
 ) (TimelineV2Response, error) {
-	// Compute date range for DB filtering
-	startDate := time.Date(opts.StartYear, time.Month(opts.StartMonth), 1, 0, 0, 0, 0, time.UTC)
-	endDate := time.Date(opts.EndYear, time.Month(opts.EndMonth), 1, 0, 0, 0, 0, time.UTC)
-
+	// Add 1 month to endDate for exclusive upper bound (start_date < endDate + 1 month)
+	endDateExclusive := opts.EndDate.AddDate(0, 1, 0)
 	dateOpts := repo.DateRangeOptions{
-		ActiveBefore: &endDate,
+		StartDate: &opts.StartDate,
+		EndDate:   &endDateExclusive,
 	}
 	paginationOpts := repo.PaginationParams{}
 
@@ -564,7 +565,7 @@ func (s *Service) ComputeFinancialSnapshot(
 		return TimelineV2Response{}, fmt.Errorf("failed to load financial data: %w", err)
 	}
 
-	baseYear := opts.StartYear
+	baseYear := opts.StartDate.Year()
 	registry := growth.NewRegistry()
 
 	// itemStates: detailed tracking per item (includes metadata like CreatedYear/CreatedMonth)
@@ -576,12 +577,12 @@ func (s *Service) ComputeFinancialSnapshot(
 	cashAccumulator := decimal.Zero()
 
 	// Calculate total months in range
-	totalMonths := (opts.EndYear-opts.StartYear)*12 + (opts.EndMonth - opts.StartMonth + 1)
+	totalMonths := common.MonthsBetween(opts.StartDate, opts.EndDate)
 	resultMonths := make([]MonthDetailResponse, 0, totalMonths)
 
 	// Process each month from start to end
 	for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
-		currentDate := startDate.AddDate(0, monthIdx, 0)
+		currentDate := opts.StartDate.AddDate(0, monthIdx, 0)
 
 		growthCtx := &GrowthContext{
 			Registry:    registry,

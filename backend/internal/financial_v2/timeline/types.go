@@ -2,6 +2,8 @@ package timeline_v2
 
 import (
 	"context"
+	"time"
+
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/repository"
 )
@@ -60,12 +62,10 @@ type Store interface {
 
 // ========== Timeline V2 Options ==========
 
-// TimelineOptions configures which months to return in the timeline response
+// TimelineOptions configures the date range for timeline queries
 type TimelineOptions struct {
-	StartYear  int // Start year (inclusive), e.g., 2025
-	StartMonth int // Start month (1-12, inclusive), e.g., 1 for January
-	EndYear    int // End year (inclusive), e.g., 2060
-	EndMonth   int // End month (1-12, inclusive), e.g., 12 for December
+	StartDate time.Time // Start date (inclusive)
+	EndDate   time.Time // End date (inclusive)
 }
 
 // ========== Timeline V2 Response Types ==========

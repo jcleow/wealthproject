@@ -3,9 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
 	timeline_v2 "financial-chat-system/backend/internal/financial_v2/timeline"
 	"financial-chat-system/backend/internal/middleware"
@@ -60,13 +58,11 @@ func (h *TimelineV2Handler) HandleGetTimelineChart(w http.ResponseWriter, r *htt
 
 // HandleGetSnapshot returns monthly financial snapshots with optional range filtering
 // @Summary Get monthly financial snapshots (v2)
-// @Description Returns detailed monthly snapshots with all financial items, balances, and summaries. startYear and startMonth are required. If endYear/endMonth are not provided, returns only the single month specified by startYear/startMonth.
+// @Description Returns detailed monthly snapshots with all financial items, balances, and summaries. startDate is required (DD-MM-YYYY format). If endDate is not provided, returns only items matching startDate.
 // @Tags Timeline V2
 // @Produce json
-// @Param startYear query int true "Start year (inclusive, required)" minimum(2000) maximum(2100)
-// @Param startMonth query int true "Start month (1-12, inclusive, required)" minimum(1) maximum(12)
-// @Param endYear query int false "End year (inclusive). Defaults to startYear if not provided." minimum(2000) maximum(2100)
-// @Param endMonth query int false "End month (1-12, inclusive). Defaults to startMonth if not provided." minimum(1) maximum(12)
+// @Param startDate query string true "Start date (DD-MM-YYYY, required)"
+// @Param endDate query string false "End date (DD-MM-YYYY). Defaults to startDate if not provided."
 // @Success 200 {object} timeline_v2.TimelineV2Response
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
@@ -76,64 +72,29 @@ func (h *TimelineV2Handler) HandleGetTimelineChart(w http.ResponseWriter, r *htt
 func (h *TimelineV2Handler) HandleGetSnapshot(w http.ResponseWriter, r *http.Request) {
 	userCtx := middleware.GetUserContext(r.Context())
 
-	var opts timeline_v2.TimelineOptions
-
-	// Parse required startYear
-	startYearStr := r.URL.Query().Get("startYear")
-	if startYearStr == "" {
-		badRequest(w, errors.New("startYear is required"))
-		return
-	}
-	startYear, err := strconv.Atoi(startYearStr)
+	// Parse required startDate
+	startDate, err := queryDate(r, "startDate")
 	if err != nil {
-		badRequest(w, errors.New("startYear must be a valid integer"))
+		badRequest(w, err)
 		return
 	}
-	opts.StartYear = startYear
 
-	// Parse required startMonth
-	startMonthStr := r.URL.Query().Get("startMonth")
-	if startMonthStr == "" {
-		badRequest(w, errors.New("startMonth is required"))
+	// Parse optional endDate (defaults to startDate)
+	endDate, err := queryDateOpt(r, "endDate", startDate)
+	if err != nil {
+		badRequest(w, err)
 		return
-	}
-	startMonth, err := strconv.Atoi(startMonthStr)
-	if err != nil || startMonth < 1 || startMonth > 12 {
-		badRequest(w, errors.New("startMonth must be an integer between 1 and 12"))
-		return
-	}
-	opts.StartMonth = startMonth
-
-	// Default endYear/endMonth to startYear/startMonth (single month)
-	opts.EndYear = opts.StartYear
-	opts.EndMonth = opts.StartMonth
-
-	// Parse optional endYear
-	if v := r.URL.Query().Get("endYear"); v != "" {
-		val, err := strconv.Atoi(v)
-		if err != nil {
-			badRequest(w, errors.New("endYear must be a valid integer"))
-			return
-		}
-		opts.EndYear = val
-	}
-
-	// Parse optional endMonth
-	if v := r.URL.Query().Get("endMonth"); v != "" {
-		val, err := strconv.Atoi(v)
-		if err != nil || val < 1 || val > 12 {
-			badRequest(w, errors.New("endMonth must be an integer between 1 and 12"))
-			return
-		}
-		opts.EndMonth = val
 	}
 
 	// Validate: end must be >= start
-	startDate := time.Date(opts.StartYear, time.Month(opts.StartMonth), 1, 0, 0, 0, 0, time.UTC)
-	endDate := time.Date(opts.EndYear, time.Month(opts.EndMonth), 1, 0, 0, 0, 0, time.UTC)
 	if endDate.Before(startDate) {
-		badRequest(w, errors.New("end date must be after or equal to start date"))
+		badRequest(w, errors.New("endDate must be after or equal to startDate"))
 		return
+	}
+
+	opts := timeline_v2.TimelineOptions{
+		StartDate: startDate,
+		EndDate:   endDate,
 	}
 
 	// Call service to compute financial snapshot

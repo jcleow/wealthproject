@@ -1194,35 +1194,18 @@ paths:
   /v2/financial/timeline/snapshot:
     get:
       description: Returns detailed monthly snapshots with all financial items, balances,
-        and summaries. startYear and startMonth are required. If endYear/endMonth
-        are not provided, returns only the single month specified by startYear/startMonth.
+        and summaries. startDate is required (DD-MM-YYYY format). If endDate is not
+        provided, returns only items matching startDate.
       parameters:
-      - description: Start year (inclusive, required)
+      - description: Start date (DD-MM-YYYY, required)
         in: query
-        maximum: 2100
-        minimum: 2000
-        name: startYear
+        name: startDate
         required: true
-        type: integer
-      - description: Start month (1-12, inclusive, required)
+        type: string
+      - description: End date (DD-MM-YYYY). Defaults to startDate if not provided.
         in: query
-        maximum: 12
-        minimum: 1
-        name: startMonth
-        required: true
-        type: integer
-      - description: End year (inclusive). Defaults to startYear if not provided.
-        in: query
-        maximum: 2100
-        minimum: 2000
-        name: endYear
-        type: integer
-      - description: End month (1-12, inclusive). Defaults to startMonth if not provided.
-        in: query
-        maximum: 12
-        minimum: 1
-        name: endMonth
-        type: integer
+        name: endDate
+        type: string
       produces:
       - application/json
       responses:
