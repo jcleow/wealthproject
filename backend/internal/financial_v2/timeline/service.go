@@ -618,6 +618,65 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, dat
 	return responses
 }
 
+// buildCPFAssetResponses builds CPF asset responses from accumulated balances
+func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int) []CPFAssetResponse {
+	if cpfCtx == nil || cpfCtx.Balances == nil {
+		return []CPFAssetResponse{}
+	}
+
+	balances := cpfCtx.Balances
+	return []CPFAssetResponse{
+		{
+			ID:           "cpf-oa",
+			ParentID:     "cpf",
+			Name:         "CPF Ordinary Account",
+			Category:     "cpf",
+			Balance:      *balances.AccumulatedOA.Round(0),
+			AdjBalance:   *balances.AccumulatedOA.Round(0),
+			ItemType:     "cpf_account",
+			StartDate:    "",
+			CreatedYear:  yearIndex,
+			CreatedMonth: month,
+		},
+		{
+			ID:           "cpf-sa",
+			ParentID:     "cpf",
+			Name:         "CPF Special Account",
+			Category:     "cpf",
+			Balance:      *balances.AccumulatedSA.Round(0),
+			AdjBalance:   *balances.AccumulatedSA.Round(0),
+			ItemType:     "cpf_account",
+			StartDate:    "",
+			CreatedYear:  yearIndex,
+			CreatedMonth: month,
+		},
+		{
+			ID:           "cpf-ma",
+			ParentID:     "cpf",
+			Name:         "CPF MediSave Account",
+			Category:     "cpf",
+			Balance:      *balances.AccumulatedMA.Round(0),
+			AdjBalance:   *balances.AccumulatedMA.Round(0),
+			ItemType:     "cpf_account",
+			StartDate:    "",
+			CreatedYear:  yearIndex,
+			CreatedMonth: month,
+		},
+		{
+			ID:           "cpf-ra",
+			ParentID:     "cpf",
+			Name:         "CPF Retirement Account",
+			Category:     "cpf",
+			Balance:      *balances.AccumulatedRA.Round(0),
+			AdjBalance:   *balances.AccumulatedRA.Round(0),
+			ItemType:     "cpf_account",
+			StartDate:    "",
+			CreatedYear:  yearIndex,
+			CreatedMonth: month,
+		},
+	}
+}
+
 // buildMonthDetailResponse creates a detailed response for a single month
 func buildMonthDetailResponse(
 	monthIndex int,
@@ -628,6 +687,7 @@ func buildMonthDetailResponse(
 	cashAccumulator *decimal.Decimal,
 	netSavings *decimal.Decimal,
 	cpfContributions map[string]*cpfProcessor.ContributionResult,
+	cpfCtx *CPFContext,
 ) MonthDetailResponse {
 	yearIndex := date.Year() - baseYear
 	month := int(date.Month())
@@ -639,11 +699,19 @@ func buildMonthDetailResponse(
 	incomes := buildIncomeResponses(data.Incomes, itemStates, date, cpfContributions)
 	expenses := buildExpenseResponses(data.Expenses, itemStates, date)
 
+	// Build CPF assets from accumulated balances
+	cpfAssets := buildCPFAssetResponses(cpfCtx, yearIndex, month)
+	cpfTotal := decimal.Zero()
+	for _, asset := range cpfAssets {
+		cpfTotal, _ = cpfTotal.Add(&asset.Balance)
+	}
+
 	// Calculate totals
 	totalAssets := decimal.Zero()
 	totalAssets, _ = totalAssets.Add(nonCashTotal)
 	totalAssets, _ = totalAssets.Add(cashTotal)
 	totalAssets, _ = totalAssets.Add(cashAccumulator)
+	totalAssets, _ = totalAssets.Add(cpfTotal)
 	netWorth, _ := totalAssets.Sub(liabilityTotal)
 
 	return MonthDetailResponse{
@@ -653,7 +721,7 @@ func buildMonthDetailResponse(
 		AllMonthsIndex: monthIndex,
 		NonCashAssets:        nonCashAssets,
 		CashAssets:           cashAssets,
-		CPFAssets:            []CPFAssetResponse{},
+		CPFAssets:            cpfAssets,
 		Liabilities:          liabilities,
 		Income:               incomes,
 		CPFContributions:     []CPFContributionResponse{},
@@ -736,7 +804,7 @@ func (s *Service) ComputeFinancialSnapshot(
 
 		// Build response for this month
 		syncStateToItemStates(state, itemStates)
-		monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, sgData.Rows, itemStates, cashAccumulator, netCashFlow, cpfContributions)
+		monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, sgData.Rows, itemStates, cashAccumulator, netCashFlow, cpfContributions, cpfCtx)
 		resultMonths = append(resultMonths, monthResponse)
 	}
 
