@@ -20,7 +20,7 @@ import type { FinancialDataType, FinancialFormValues } from '../modals/Financial
 import { FinancialFormModal } from '../modals/FinancialFormModal'
 import { CashAccountFormModal } from '../modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
-import { financialApi } from '@/services/financialApi'
+import { financialApi } from '@/api/financial'
 import type {
   TimelineYear,
   TimelineMonth,
@@ -278,6 +278,8 @@ export interface FinancialDataManagementProps {
   /** V2 month data - when provided, used for card display instead of V1 data */
   timelineMonthV2?: MonthDetailResponseV2
   timelineYears?: TimelineYear[]
+  anchorYear?: number | null
+  anchorMonth?: number | null
   resolution?: TimeResolution
   zoomLevel?: ZoomLevel
   isTimelineLoading?: boolean
@@ -293,6 +295,8 @@ export function FinancialDataManagement({
   timelineMonth,
   timelineMonthV2,
   timelineYears,
+  anchorYear,
+  anchorMonth,
   resolution,
   isTimelineLoading = false,
   onSaveTimelineEdits,
@@ -834,11 +838,11 @@ export function FinancialDataManagement({
 
     // Convert index to absolute year
     // Try to use timelineYears first, otherwise calculate from base year
+    const baseYear = anchorYear ?? new Date().getFullYear()
     if (timelineYears && timelineYears[clamped]) {
       onSelectYear?.(timelineYears[clamped].year)
     } else {
       // Calculate absolute year from index (base year + index)
-      const baseYear = new Date().getFullYear()
       onSelectYear?.(baseYear + clamped)
     }
   }
@@ -873,8 +877,9 @@ export function FinancialDataManagement({
                   className="w-24 rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
                   value={(() => {
                     // Calculate year index from selected year
-                    const baseYear = new Date().getFullYear()
-                    const yearIndex = selectedYear - baseYear
+                    const baseYear = anchorYear ?? new Date().getFullYear()
+                    const effectiveYear = selectedYear >= 1900 ? selectedYear : baseYear + (selectedYear ?? 0)
+                    const yearIndex = effectiveYear - baseYear
                     return Math.max(0, Math.min(30, yearIndex))
                   })()}
                   disabled={isTimelineLoading}
@@ -910,24 +915,14 @@ export function FinancialDataManagement({
                   </div>
 
                   {viewMode === 'monthly' && (() => {
-                    const baseYear = new Date().getFullYear()
-                    const isYearZero = selectedYear === baseYear
+                    const baseYear = anchorYear ?? new Date().getFullYear()
+                    const effectiveYear = selectedYear >= 1900 ? selectedYear : baseYear + (selectedYear ?? 0)
+                    const minMonthForYear = effectiveYear === baseYear ? anchorMonth ?? 1 : 1
+                    const safeMonth = Math.max(selectedMonth ?? minMonthForYear, minMonthForYear)
+                    const monthOptions = effectiveYear === baseYear
+                      ? Array.from({ length: 12 - (minMonthForYear - 1) }, (_, idx) => minMonthForYear + idx)
+                      : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
-                    if (isYearZero) {
-                      // Year 0 is baseline - no month selection
-                      return (
-                        <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
-                          <label className="hidden text-gray-400 sm:block">
-                            Month
-                          </label>
-                          <span className="px-2 py-1 text-sm text-gray-400">
-                            N/A
-                          </span>
-                        </div>
-                      )
-                    }
-
-                    // Year 1+ - show month selector
                     return (
                       <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
                         <label className="hidden text-gray-400 sm:block" htmlFor="month-selector">
@@ -936,25 +931,23 @@ export function FinancialDataManagement({
                         <select
                           id="month-selector"
                           className="rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
-                          value={selectedMonth ?? 1}
+                          value={safeMonth}
                           disabled={isTimelineLoading}
                           onChange={(event) => {
                             const month = Number(event.target.value)
-                            onSelectMonth?.(month)
+                            const clamped = Math.max(month, minMonthForYear)
+                            onSelectMonth?.(clamped)
                           }}
                         >
-                          <option value={1}>January</option>
-                          <option value={2}>February</option>
-                          <option value={3}>March</option>
-                          <option value={4}>April</option>
-                          <option value={5}>May</option>
-                          <option value={6}>June</option>
-                          <option value={7}>July</option>
-                          <option value={8}>August</option>
-                          <option value={9}>September</option>
-                          <option value={10}>October</option>
-                          <option value={11}>November</option>
-                          <option value={12}>December</option>
+                          {monthOptions.map((monthNumber) => (
+                            <option
+                              key={monthNumber}
+                              value={monthNumber}
+                              disabled={effectiveYear === baseYear && monthNumber < minMonthForYear}
+                            >
+                              {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][monthNumber - 1]}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     )

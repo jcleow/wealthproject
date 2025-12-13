@@ -3,7 +3,7 @@ import { Settings, TrendingUp, User } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Modal } from '@/components/ui/Modal'
-import { financialApi } from '@/services/financialApi'
+import { growthApi, settingsApi } from '@/api/financial'
 import type { GrowthConfig, UserSettings, YearDisplayFormat } from '@/types/financial'
 import { GrowthConfigCategoryLabels } from '@/types/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
@@ -36,19 +36,19 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // Queries
   const { data: configs, isLoading: isLoadingConfigs } = useQuery({
     queryKey: QUERY_KEYS.financial.growth,
-    queryFn: () => financialApi.getGrowthConfigs(),
+    queryFn: () => growthApi.getGrowthConfigs(),
     enabled: isOpen,
   })
 
   const { data: settings, isLoading: isLoadingSettings } = useQuery({
     queryKey: QUERY_KEYS.settings.user,
-    queryFn: () => financialApi.getUserSettings(),
+    queryFn: () => settingsApi.getUserSettings(),
     enabled: isOpen,
   })
 
   // Mutations
   const updateGrowthMutation = useMutation({
-    mutationFn: (configs: GrowthConfig[]) => financialApi.updateGrowthConfigs(configs),
+    mutationFn: (configs: GrowthConfig[]) => growthApi.updateGrowthConfigs(configs),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.growth })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
@@ -58,7 +58,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   })
 
   const updateSettingsMutation = useMutation({
-    mutationFn: (settings: UserSettings) => financialApi.updateUserSettings(settings),
+    mutationFn: (settings: UserSettings) => settingsApi.updateUserSettings(settings),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings.user })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })

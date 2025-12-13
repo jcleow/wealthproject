@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi } from '@/services/financialApi'
+import { financialApi } from '@/api/financial'
 import type { Income, Expense } from '@/types/financial'
 import type { CPFAccountCreatePayload } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi } from '@/services/financialApi'
+import { assetsApi } from '@/api/financial'
 import type { Asset } from '@/types/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
@@ -9,7 +9,7 @@ export function useAssetsQuery() {
   return useQuery({
     queryKey: ASSETS_QUERY_KEY,
     queryFn: async () => {
-      const result = await financialApi.listAssets({ limit: -1 })
+      const result = await assetsApi.listAssets({ limit: -1 })
       return result.data
     },
     staleTime: 30_000, // Consider fresh for 30 seconds
@@ -22,7 +22,7 @@ export function useCreateAssetMutation() {
 
   return useMutation({
     mutationFn: (asset: Omit<Asset, 'id' | 'updatedAt'>) =>
-      financialApi.createAsset(asset),
+      assetsApi.createAsset(asset),
     onSuccess: (newAsset) => {
       // Update the assets cache
       queryClient.setQueryData<Asset[]>(ASSETS_QUERY_KEY, (old) =>
@@ -40,7 +40,7 @@ export function useUpdateAssetMutation() {
 
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Asset> }) =>
-      financialApi.updateAsset(id, updates),
+      assetsApi.updateAsset(id, updates),
     onSuccess: (updatedAsset) => {
       // Update the assets cache
       queryClient.setQueryData<Asset[]>(ASSETS_QUERY_KEY, (old) =>
@@ -57,7 +57,7 @@ export function useDeleteAssetMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => financialApi.deleteAsset(id),
+    mutationFn: (id: string) => assetsApi.deleteAsset(id),
     onSuccess: (_, deletedId) => {
       // Update the assets cache
       queryClient.setQueryData<Asset[]>(ASSETS_QUERY_KEY, (old) =>

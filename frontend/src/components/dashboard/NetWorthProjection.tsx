@@ -15,7 +15,7 @@ import { Plus, Mouse, Hand } from 'lucide-react'
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
-import { financialApi } from '@/services/financialApi'
+import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import ScenarioMarker from './ScenarioMarker'
 import { ZoomControls, type ZoomLevel } from '@/components/timeline/ZoomControls'
@@ -74,7 +74,7 @@ export function NetWorthProjection({
   // Fetch user settings for year display format
   const { data: userSettings } = useQuery({
     queryKey: QUERY_KEYS.settings.user,
-    queryFn: () => financialApi.getUserSettings(),
+    queryFn: () => settingsApi.getUserSettings(),
     staleTime: 5 * 60 * 1000,
   })
 

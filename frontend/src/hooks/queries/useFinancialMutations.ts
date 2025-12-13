@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi } from '@/services/financialApi'
+import { financialApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export { useLoadSampleDataMutation } from './useLoadSampleDataMutation'
@@ -31,4 +31,3 @@ export function useDeleteAllFinancialDataMutation() {
     },
   })
 }
-

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { Modal } from '@/components/ui/Modal'
-import { financialApi } from '@/services/financialApi'
+import { assetsApi } from '@/api/financial'
 
 type CPFFields = {
   ordinaryAccount: string
@@ -50,21 +50,21 @@ export function CpfBalanceModal({ isOpen, onClose, onSuccess }: CpfBalanceModalP
 
   const createCpfAssets = async () => {
     await Promise.all([
-      financialApi.createAsset({
+      assetsApi.createAsset({
         name: 'CPF Ordinary Account',
         category: 'retirement',
         currentValue: Number.parseFloat(values.ordinaryAccount),
         annualGrowthRate: 0.025,
         notes: 'CPF OA - Can be used for housing, insurance, investments',
       }),
-      financialApi.createAsset({
+      assetsApi.createAsset({
         name: 'CPF Special Account',
         category: 'retirement',
         currentValue: Number.parseFloat(values.specialAccount),
         annualGrowthRate: 0.04,
         notes: 'CPF SA - For retirement and approved investments only',
       }),
-      financialApi.createAsset({
+      assetsApi.createAsset({
         name: 'CPF Medisave Account',
         category: 'retirement',
         currentValue: Number.parseFloat(values.medisaveAccount),

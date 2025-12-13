@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi } from '@/services/financialApi'
+import { incomesApi } from '@/api/financial'
 import type { Income } from '@/types/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
@@ -9,7 +9,7 @@ export function useIncomesQuery() {
   return useQuery({
     queryKey: INCOMES_QUERY_KEY,
     queryFn: async () => {
-      const result = await financialApi.listIncomes({ limit: -1 })
+      const result = await incomesApi.listIncomes({ limit: -1 })
       return result.data
     },
     staleTime: 30_000,
@@ -22,7 +22,7 @@ export function useCreateIncomeMutation() {
 
   return useMutation({
     mutationFn: (income: Omit<Income, 'id' | 'updatedAt'>) =>
-      financialApi.createIncome(income),
+      incomesApi.createIncome(income),
     onSuccess: (newIncome) => {
       queryClient.setQueryData<Income[]>(INCOMES_QUERY_KEY, (old) =>
         old ? [...old, newIncome] : [newIncome]
@@ -38,7 +38,7 @@ export function useUpdateIncomeMutation() {
 
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Income> }) =>
-      financialApi.updateIncome(id, updates),
+      incomesApi.updateIncome(id, updates),
     onSuccess: (updatedIncome) => {
       queryClient.setQueryData<Income[]>(INCOMES_QUERY_KEY, (old) =>
         old?.map((income) => income.id === updatedIncome.id ? updatedIncome : income) ?? []
@@ -53,7 +53,7 @@ export function useDeleteIncomeMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => financialApi.deleteIncome(id),
+    mutationFn: (id: string) => incomesApi.deleteIncome(id),
     onSuccess: (_, deletedId) => {
       queryClient.setQueryData<Income[]>(INCOMES_QUERY_KEY, (old) =>
         old?.filter((income) => income.id !== deletedId) ?? []
