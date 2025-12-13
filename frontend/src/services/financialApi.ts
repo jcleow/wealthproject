@@ -61,10 +61,8 @@ const toAsset = (item: any): Asset => ({
   category: item.category ?? item.Category,
   currentValue: item.current_value ?? item.currentValue ?? item.CurrentValue,
   annualGrowthRate: item.annual_growth_rate ?? item.annualGrowthRate ?? item.AnnualGrowthRate,
-  startYear: item.start_year ?? item.startYear ?? item.StartYear,
-  startMonth: item.start_month ?? item.startMonth ?? item.StartMonth,
-  endYear: item.end_year ?? item.endYear ?? item.EndYear,
-  endMonth: item.end_month ?? item.endMonth ?? item.EndMonth,
+  startDate: item.start_date ?? item.startDate ?? item.StartDate,
+  endDate: item.end_date ?? item.endDate ?? item.EndDate,
   notes: item.notes ?? item.Notes ?? '',
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
   parentId: item.parent_id ?? item.parentId ?? item.ParentID,
@@ -77,10 +75,8 @@ const toLiability = (item: any): Liability => ({
   currentBalance: item.current_balance ?? item.currentBalance ?? item.CurrentBalance,
   interestRateApr: item.interest_rate_apr ?? item.interestRateApr ?? item.InterestRateAPR ?? item.InterestRateApr,
   minimumPayment: item.minimum_payment ?? item.minimumPayment ?? item.MinimumPayment,
-  startYear: item.start_year ?? item.startYear ?? item.StartYear,
-  startMonth: item.start_month ?? item.startMonth ?? item.StartMonth,
-  endYear: item.end_year ?? item.endYear ?? item.EndYear,
-  endMonth: item.end_month ?? item.endMonth ?? item.EndMonth,
+  startDate: item.start_date ?? item.startDate ?? item.StartDate,
+  endDate: item.end_date ?? item.endDate ?? item.EndDate,
   notes: item.notes ?? item.Notes ?? '',
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
   parentId: item.parent_id ?? item.parentId ?? item.ParentID,
@@ -192,10 +188,8 @@ export const financialApi = {
       annualGrowthRate: payload.annualGrowthRate,
       notes: payload.notes,
     }
-    if (payload.startYear !== undefined) body.startYear = payload.startYear
-    if (payload.startMonth !== undefined) body.startMonth = payload.startMonth
-    if (payload.endYear !== undefined) body.endYear = payload.endYear
-    if (payload.endMonth !== undefined) body.endMonth = payload.endMonth
+    if (payload.startDate !== undefined) body.startDate = payload.startDate
+    if (payload.endDate !== undefined) body.endDate = payload.endDate
     const data = await jsonRequest<any>(`${API_BASE}/assets`, { method: 'POST', body: JSON.stringify(body) })
     return toAsset(data)
   },
@@ -206,6 +200,8 @@ export const financialApi = {
       currentValue: payload.currentValue,
       annualGrowthRate: payload.annualGrowthRate,
       notes: payload.notes,
+      startDate: payload.startDate,
+      endDate: payload.endDate,
     }
     const data = await jsonRequest<any>(`${API_BASE}/assets/${id}`, { method: 'PUT', body: JSON.stringify(body) })
     return toAsset(data)
@@ -272,10 +268,8 @@ export const financialApi = {
       minimumPayment: payload.minimumPayment,
       notes: payload.notes,
     }
-    if (payload.startYear !== undefined) body.startYear = payload.startYear
-    if (payload.startMonth !== undefined) body.startMonth = payload.startMonth
-    if (payload.endYear !== undefined) body.endYear = payload.endYear
-    if (payload.endMonth !== undefined) body.endMonth = payload.endMonth
+    if (payload.startDate !== undefined) body.startDate = payload.startDate
+    if (payload.endDate !== undefined) body.endDate = payload.endDate
     const data = await jsonRequest<any>(`${API_BASE}/liabilities`, { method: 'POST', body: JSON.stringify(body) })
     return toLiability(data)
   },
@@ -287,6 +281,8 @@ export const financialApi = {
       interestRateApr: payload.interestRateApr,
       minimumPayment: payload.minimumPayment,
       notes: payload.notes,
+      startDate: payload.startDate,
+      endDate: payload.endDate,
     }
     const data = await jsonRequest<any>(`${API_BASE}/liabilities/${id}`, { method: 'PUT', body: JSON.stringify(body) })
     return toLiability(data)
@@ -313,23 +309,17 @@ export const financialApi = {
       hasMore: data?.hasMore ?? false,
     }
   },
-  async createIncome(payload: Omit<Income, 'id' | 'updatedAt'> & { startYear?: number; endYear?: number }): Promise<Income> {
-    const startDate = payload.startDate ?? new Date().toISOString()
-    const body: Record<string, unknown> = {
+  async createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): Promise<Income> {
+    const body: Record<string, any> = {
       source: payload.source,
       amount: payload.amount,
       frequency: payload.frequency,
-      startDate,
+      startDate: payload.startDate ?? new Date().toISOString(),
       category: payload.category,
       growthRate: payload.growthRate ?? 3.0,
       notes: payload.notes,
     }
-    if (payload.startYear !== undefined) {
-      body.startYear = payload.startYear
-    }
-    if (payload.endYear !== undefined) {
-      body.endYear = payload.endYear
-    }
+    if (payload.endDate !== undefined) body.endDate = payload.endDate
     const data = await jsonRequest<any>(`${API_BASE}/cashflow/incomes`, { method: 'POST', body: JSON.stringify(body) })
     return toIncome(data)
   },
@@ -339,6 +329,7 @@ export const financialApi = {
       amount: payload.amount,
       frequency: payload.frequency,
       startDate: payload.startDate,
+      endDate: payload.endDate,
       category: payload.category,
       growthRate: payload.growthRate,
       notes: payload.notes,
@@ -364,28 +355,30 @@ export const financialApi = {
       hasMore: data?.hasMore ?? false,
     }
   },
-  async createExpense(payload: Omit<Expense, 'id' | 'updatedAt'> & { startYear?: number; endYear?: number }): Promise<Expense> {
-    const body = {
+  async createExpense(payload: Omit<Expense, 'id' | 'updatedAt'>): Promise<Expense> {
+    const body: Record<string, any> = {
       payee: payload.payee,
       amount: payload.amount,
       frequency: payload.frequency,
       category: payload.category,
       growthRate: payload.growthRate ?? 2.0,
       notes: payload.notes,
-      ...(payload.startYear !== undefined && { startYear: payload.startYear }),
-      ...(payload.endYear !== undefined && { endYear: payload.endYear }),
     }
+    if (payload.startDate !== undefined) body.startDate = payload.startDate
+    if (payload.endDate !== undefined) body.endDate = payload.endDate
     const data = await jsonRequest<Expense>(`${API_BASE}/cashflow/expenses`, { method: 'POST', body: JSON.stringify(body) })
     return toExpense(data)
   },
   async updateExpense(id: string, payload: Partial<Expense>): Promise<Expense> {
-    const body = {
+    const body: Record<string, any> = {
       payee: payload.payee,
       amount: payload.amount,
       frequency: payload.frequency,
       category: payload.category,
       growthRate: payload.growthRate,
       notes: payload.notes,
+      startDate: payload.startDate,
+      endDate: payload.endDate,
     }
     const data = await jsonRequest<Expense>(`${API_BASE}/cashflow/expenses/${id}`, { method: 'PUT', body: JSON.stringify(body) })
     return toExpense(data)

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -11,20 +10,18 @@ import (
 )
 
 // incomeInput is the JSON-friendly input struct for income creation/update.
-// It uses *int for nullable year fields since sql.NullInt32 doesn't unmarshal from JSON numbers.
 type incomeInput struct {
-	ID             string     `json:"id"`
-	ParentID       string     `json:"parentId"`
-	Source         string     `json:"source"`
-	Amount         float64    `json:"amount"`
-	Frequency      string     `json:"frequency"`
-	StartDate      *time.Time `json:"startDate"`
-	StartYear      *int       `json:"startYear"`
-	EndYear        *int       `json:"endYear"`
-	Category       string     `json:"category"`
-	GrowthRate     *float64   `json:"growthRate"`
-	GrowthStrategy string     `json:"growthStrategy"`
-	Notes          string     `json:"notes"`
+	ID             string   `json:"id"`
+	ParentID       string   `json:"parentId"`
+	Source         string   `json:"source"`
+	Amount         float64  `json:"amount"`
+	Frequency      string   `json:"frequency"`
+	StartDate      *string  `json:"startDate"`
+	EndDate        *string  `json:"endDate"`
+	Category       string   `json:"category"`
+	GrowthRate     *float64 `json:"growthRate"`
+	GrowthStrategy string   `json:"growthStrategy"`
+	Notes          string   `json:"notes"`
 }
 
 func (i incomeInput) toIncome() repository.Income {
@@ -39,15 +36,16 @@ func (i incomeInput) toIncome() repository.Income {
 		Notes:          i.Notes,
 	}
 	if i.StartDate != nil {
-		inc.StartDate = *i.StartDate
+		if t, err := time.Parse(time.RFC3339, *i.StartDate); err == nil {
+			inc.StartDate = t
+		}
 	} else {
 		inc.StartDate = time.Now()
 	}
-	if i.StartYear != nil {
-		inc.StartYear = *i.StartYear
-	}
-	if i.EndYear != nil {
-		inc.EndYear = sql.NullInt32{Int32: int32(*i.EndYear), Valid: true}
+	if i.EndDate != nil {
+		if t, err := time.Parse(time.RFC3339, *i.EndDate); err == nil {
+			inc.EndDate = &t
+		}
 	}
 	if i.GrowthRate != nil {
 		inc.GrowthRate = *i.GrowthRate

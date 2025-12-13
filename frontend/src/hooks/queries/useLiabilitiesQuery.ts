@@ -11,7 +11,7 @@ export function useLiabilitiesQuery() {
     queryFn: async () => {
       const result = await financialApi.listLiabilities({ limit: -1 })
       console.log('[DEBUG] Liabilities loaded:', result.data.length, 'items')
-      console.log('[DEBUG] Liability startYear values:', result.data.map(l => ({ name: l.name, startYear: l.startYear })))
+      console.log('[DEBUG] Liability startDate values:', result.data.map(l => ({ name: l.name, startDate: l.startDate })))
       return result.data
     },
     staleTime: 30_000,

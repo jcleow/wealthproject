@@ -773,3 +773,225 @@ func TestCashAccumulation_ScenarioExpenseReduction(t *testing.T) {
 	require.InDelta(t, 0.0, sumAdjusted(year1.Expenses), 1)
 	require.InDelta(t, 120000.0, year1.AnnualNetSavings, 1) // All income saved
 }
+
+// =============================================================================
+// One-Time Frequency Tests
+// =============================================================================
+
+func TestAnnualize_OneTime(t *testing.T) {
+	t.Parallel()
+	// One-time frequency should not multiply the amount
+	actual, err := Annualize(50000, FrequencyOneTime)
+	require.NoError(t, err)
+	require.InDelta(t, 50000.0, actual, 1e-9, "one_time amount should not be multiplied")
+}
+
+func TestConvertToMonthly_OneTime(t *testing.T) {
+	t.Parallel()
+	// One-time frequency returns the full amount (it occurs once in that month)
+	actual, err := ConvertToMonthly(50000, FrequencyOneTime)
+	require.NoError(t, err)
+	require.InDelta(t, 50000.0, actual, 1e-9, "one_time should return full amount for the month it occurs")
+}
+
+func TestNormalizeFreq_OneTimeVariations(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		input    string
+		expected Frequency
+	}{
+		{"one_time", FrequencyOneTime},
+		{"ONE_TIME", FrequencyOneTime},
+		{"onetime", FrequencyOneTime},
+		{"one-time", FrequencyOneTime},
+		{"once", FrequencyOneTime},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.input, func(t *testing.T) {
+			t.Parallel()
+			actual := normalizeFreq(tc.input)
+			require.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
+func TestOneTimeExpense_OnlyAppearsInStartYear(t *testing.T) {
+	ctx := testContext()
+	store := newStubStore()
+	baseYear := time.Now().Year()
+
+	// One-time expense of $50k (e.g., wedding) in year 2
+	expenseID := uuid.NewString()
+	store.expenses = []repository.Expense{
+		{
+			ID:        expenseID,
+			ParentID:  expenseID,
+			Payee:     "Wedding",
+			Amount:    50000,
+			Frequency: "one_time",
+			Category:  "other",
+			StartDate: time.Date(baseYear+2, 6, 1, 0, 0, 0, 0, time.UTC), // June of year 2
+		},
+	}
+
+	svc := NewService(store)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{})
+	require.NoError(t, err)
+
+	// Year 0: No expense
+	year0 := resp.Years[0]
+	require.Empty(t, year0.Expenses, "Year 0 should have no expenses")
+
+	// Year 1: No expense
+	year1 := resp.Years[1]
+	require.Empty(t, year1.Expenses, "Year 1 should have no expenses")
+
+	// Year 2: Expense appears (one-time $50k)
+	year2 := resp.Years[2]
+	require.Len(t, year2.Expenses, 1, "Year 2 should have the one-time expense")
+	require.Equal(t, "Wedding", year2.Expenses[0].Name)
+	require.InDelta(t, 50000.0, year2.Expenses[0].AmountAnnual, 1e-6)
+
+	// Year 3: No expense (one-time should not recur!)
+	year3 := resp.Years[3]
+	require.Empty(t, year3.Expenses, "Year 3 should have no expenses - one_time must not recur")
+
+	// Year 4: Still no expense
+	year4 := resp.Years[4]
+	require.Empty(t, year4.Expenses, "Year 4 should have no expenses - one_time must not recur")
+}
+
+func TestOneTimeExpense_WithEndDate_DoubleProtection(t *testing.T) {
+	// Test that both frequency=one_time AND endDate provide protection
+	// This ensures two layers of defense against recurring one-time expenses
+	ctx := testContext()
+	store := newStubStore()
+	baseYear := time.Now().Year()
+
+	// One-time expense with both frequency=one_time AND endDate set
+	expenseID := uuid.NewString()
+	endDate := time.Date(baseYear+2, 6, 30, 23, 59, 59, 0, time.UTC)
+	store.expenses = []repository.Expense{
+		{
+			ID:        expenseID,
+			ParentID:  expenseID,
+			Payee:     "Renovation",
+			Amount:    50000,
+			Frequency: "one_time",
+			Category:  "other",
+			StartDate: time.Date(baseYear+2, 6, 1, 0, 0, 0, 0, time.UTC),
+			EndDate:   &endDate, // Second layer of protection
+		},
+	}
+
+	svc := NewService(store)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{})
+	require.NoError(t, err)
+
+	// Year 2: Expense appears
+	year2 := resp.Years[2]
+	require.Len(t, year2.Expenses, 1, "Year 2 should have the one-time expense")
+	require.InDelta(t, 50000.0, year2.Expenses[0].AmountAnnual, 1e-6)
+
+	// Year 3+: No expense (protected by BOTH frequency AND endDate)
+	for i := 3; i <= 5; i++ {
+		yearN := resp.Years[i]
+		require.Empty(t, yearN.Expenses, "Year %d should have no expenses - double protection", i)
+	}
+}
+
+func TestOneTimeIncome_OnlyAppearsInStartYear(t *testing.T) {
+	ctx := testContext()
+	store := newStubStore()
+	baseYear := time.Now().Year()
+
+	// One-time income of $11k (e.g., baby bonus) in year 3
+	incomeID := uuid.NewString()
+	store.incomes = []repository.Income{
+		{
+			ID:        incomeID,
+			ParentID:  incomeID,
+			Source:    "Baby Bonus",
+			Amount:    11000,
+			Frequency: "one_time",
+			Category:  "other",
+			StartDate: time.Date(baseYear+3, 4, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	svc := NewService(store)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{})
+	require.NoError(t, err)
+
+	// Years 0-2: No income
+	for i := 0; i <= 2; i++ {
+		require.Empty(t, resp.Years[i].Income, "Year %d should have no income", i)
+	}
+
+	// Year 3: Income appears
+	year3 := resp.Years[3]
+	require.Len(t, year3.Income, 1, "Year 3 should have the one-time income")
+	require.Equal(t, "Baby Bonus", year3.Income[0].Name)
+	require.InDelta(t, 11000.0, year3.Income[0].AmountAnnual, 1e-6)
+
+	// Year 4+: No income (one-time should not recur)
+	for i := 4; i <= 6; i++ {
+		require.Empty(t, resp.Years[i].Income, "Year %d should have no income - one_time must not recur", i)
+	}
+}
+
+func TestOneTimeExpense_CashAccumulationCorrect(t *testing.T) {
+	// Test that one-time expenses only deduct from cash once
+	ctx := testContext()
+	store := newStubStore()
+	baseYear := time.Now().Year()
+
+	// Steady income of $10k/month = $120k/year
+	incomeID := uuid.NewString()
+	store.incomes = []repository.Income{
+		{
+			ID:        incomeID,
+			ParentID:  incomeID,
+			Source:    "Salary",
+			Amount:    10000,
+			Frequency: "monthly",
+			Category:  "employment",
+		},
+	}
+
+	// One-time expense of $50k in year 1
+	expenseID := uuid.NewString()
+	store.expenses = []repository.Expense{
+		{
+			ID:        expenseID,
+			ParentID:  expenseID,
+			Payee:     "Wedding",
+			Amount:    50000,
+			Frequency: "one_time",
+			Category:  "other",
+			StartDate: time.Date(baseYear+1, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	svc := NewService(store)
+	resp, err := svc.GetTimeline(ctx, TimelineOptions{})
+	require.NoError(t, err)
+
+	// Year 0: Net savings = $120k (no expenses in year 0)
+	year0 := resp.Years[0]
+	require.InDelta(t, 120000.0, year0.AnnualNetSavings, 1e-6)
+
+	// Year 1: Net savings = $120k - $50k = $70k (one-time expense deducted)
+	year1 := resp.Years[1]
+	require.InDelta(t, 70000.0, year1.AnnualNetSavings, 1e-6, "Year 1 should deduct the one-time expense")
+
+	// Year 2: Net savings = $120k (one-time expense NOT deducted again!)
+	year2 := resp.Years[2]
+	require.InDelta(t, 120000.0, year2.AnnualNetSavings, 1e-6, "Year 2 should NOT deduct the one-time expense again")
+
+	// Year 3: Net savings = $120k (one-time expense NOT deducted again!)
+	year3 := resp.Years[3]
+	require.InDelta(t, 120000.0, year3.AnnualNetSavings, 1e-6, "Year 3 should NOT deduct the one-time expense again")
+}

@@ -40,30 +40,6 @@ export function useLoadSampleDataMutation() {
           notes: 'Main savings account with salary crediting',
         },
         {
-          name: 'CPF Ordinary Account',
-          category: 'Retirement',
-          currentValue: 85000,
-          annualGrowthRate: 2.5,
-          startDate: todayIso,
-          notes: '10 years of contributions, can be used for housing',
-        },
-        {
-          name: 'CPF Special Account',
-          category: 'Retirement',
-          currentValue: 45000,
-          annualGrowthRate: 4.0,
-          startDate: todayIso,
-          notes: 'Cannot touch until 55, higher interest rate',
-        },
-        {
-          name: 'CPF Medisave',
-          category: 'Retirement',
-          currentValue: 32000,
-          annualGrowthRate: 4.0,
-          startDate: todayIso,
-          notes: 'Medical expenses and insurance premiums',
-        },
-        {
           name: 'Syfe Core Growth Portfolio',
           category: 'Investment',
           currentValue: 35000,
@@ -485,11 +461,16 @@ export function useLoadSampleDataMutation() {
             const startMonth = impact.startMonth ?? event.occursOn
             // Use the impact amount (must be positive for income/expense schemas)
             const impactAmount = Math.abs(impact.amount ?? 1)
-            // Calculate the absolute calendar year from startMonth
-            const startYear = startMonth ? new Date(startMonth).getFullYear() : new Date().getFullYear()
-            // Extract month (1-12) from startMonth
-            const startMonthNum = startMonth ? new Date(startMonth).getMonth() + 1 : 1
             const isOneTime = impact.cadence === 'one_time'
+            const startDateIso = startMonth ? new Date(startMonth).toISOString() : new Date().toISOString()
+            // For one-time items, set endDate to end of same month so they only appear once
+            const endDateIso = isOneTime ? (() => {
+              const d = startMonth ? new Date(startMonth) : new Date()
+              // Set to last day of the month
+              d.setMonth(d.getMonth() + 1, 0)
+              d.setHours(23, 59, 59, 999)
+              return d.toISOString()
+            })() : undefined
 
             if (impact.targetType === 'asset') {
               const newAsset = await financialApi.createAsset({
@@ -498,10 +479,8 @@ export function useLoadSampleDataMutation() {
                 currentValue: impactAmount,
                 annualGrowthRate: 3.0,
                 notes: `Created by scenario: ${event.name}`,
-                startYear,
-                startMonth: startMonthNum,
-                endYear: isOneTime ? startYear : undefined,
-                endMonth: isOneTime ? startMonthNum : undefined,
+                startDate: startDateIso,
+                endDate: endDateIso,
               })
               targetId = newAsset.id
             } else if (impact.targetType === 'liability') {
@@ -512,10 +491,8 @@ export function useLoadSampleDataMutation() {
                 interestRateApr: 3.0,
                 minimumPayment: 0,
                 notes: `Created by scenario: ${event.name}`,
-                startYear,
-                startMonth: startMonthNum,
-                endYear: isOneTime ? startYear : undefined,
-                endMonth: isOneTime ? startMonthNum : undefined,
+                startDate: startDateIso,
+                endDate: endDateIso,
               })
               targetId = newLiability.id
             } else if (impact.targetType === 'income') {
@@ -523,15 +500,13 @@ export function useLoadSampleDataMutation() {
                 source: impact.notes || `${event.name} - Income`,
                 category: 'Other',
                 amount: impactAmount,
-                frequency: isOneTime ? 'yearly' : 'monthly',
-                startDate: startMonth ? new Date(startMonth).toISOString() : new Date().toISOString(),
+                // Use 'one_time' frequency for one-time items (backend handles this specially)
+                // endDate provides a second layer of protection against recurrence
+                frequency: isOneTime ? 'one_time' : 'monthly',
+                startDate: startDateIso,
+                endDate: endDateIso,
                 growthRate: 0,
                 notes: `Created by scenario: ${event.name}`,
-                startYear,
-                startMonth: startMonthNum,
-                // For one-time items, set endYear = startYear so they only appear in one year
-                endYear: isOneTime ? startYear : undefined,
-                endMonth: isOneTime ? startMonthNum : undefined,
               })
               targetId = newIncome.id
             } else if (impact.targetType === 'expense') {
@@ -539,14 +514,13 @@ export function useLoadSampleDataMutation() {
                 payee: impact.notes || `${event.name} - Expense`,
                 category: 'Other',
                 amount: impactAmount,
-                frequency: isOneTime ? 'yearly' : 'monthly',
+                // Use 'one_time' frequency for one-time items (backend handles this specially)
+                // endDate provides a second layer of protection against recurrence
+                frequency: isOneTime ? 'one_time' : 'monthly',
+                startDate: startDateIso,
+                endDate: endDateIso,
                 growthRate: 0,
                 notes: `Created by scenario: ${event.name}`,
-                startYear,
-                startMonth: startMonthNum,
-                // For one-time items, set endYear = startYear so they only appear in one year
-                endYear: isOneTime ? startYear : undefined,
-                endMonth: isOneTime ? startMonthNum : undefined,
               })
               targetId = newExpense.id
             }

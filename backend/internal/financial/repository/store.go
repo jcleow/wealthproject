@@ -45,12 +45,8 @@ type Asset struct {
 	Category         string                 `json:"category"`
 	CurrentValue     float64                `json:"currentValue"`
 	AnnualGrowthRate float64                `json:"annualGrowthRate"`
-	StartDate        time.Time              `json:"startDate"`           // Precise start date (day-level)
-	EndDate          *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
-	StartYear        int                    `json:"startYear"`           // Legacy: for migration period
-	StartMonth       *int                   `json:"startMonth,omitempty"` // Legacy: for migration period
-	EndYear          *int                   `json:"endYear,omitempty"`    // Legacy: for migration period
-	EndMonth         *int                   `json:"endMonth,omitempty"`   // Legacy: for migration period
+	StartDate        time.Time              `json:"startDate"`
+	EndDate          *time.Time             `json:"endDate,omitempty"`
 	Notes            string                 `json:"notes"`
 	GrowthStrategy   string                 `json:"growthStrategy"`
 	GrowthMetadata   map[string]interface{} `json:"growthMetadata,omitempty"`
@@ -66,12 +62,8 @@ type Liability struct {
 	CurrentBalance  float64                `json:"currentBalance"`
 	InterestRateAPR float64                `json:"interestRateApr"`
 	MinimumPayment  float64                `json:"minimumPayment"`
-	StartDate       time.Time              `json:"startDate"`           // Precise start date (day-level)
-	EndDate         *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
-	StartYear       int                    `json:"startYear"`           // Legacy: for migration period
-	StartMonth      *int                   `json:"startMonth,omitempty"` // Legacy: for migration period
-	EndYear         *int                   `json:"endYear,omitempty"`    // Legacy: for migration period
-	EndMonth        *int                   `json:"endMonth,omitempty"`   // Legacy: for migration period
+	StartDate       time.Time              `json:"startDate"`
+	EndDate         *time.Time             `json:"endDate,omitempty"`
 	Notes           string                 `json:"notes"`
 	GrowthStrategy  string                 `json:"growthStrategy"`
 	GrowthMetadata  map[string]interface{} `json:"growthMetadata,omitempty"`
@@ -106,10 +98,8 @@ type Income struct {
 	Source         string                 `json:"source"`
 	Amount         float64                `json:"amount"`
 	Frequency      string                 `json:"frequency"`
-	StartDate      time.Time              `json:"startDate"`           // Precise start date (day-level) - now required
-	EndDate        *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
-	StartYear      int                    `json:"startYear"`           // Legacy: for migration period
-	EndYear        sql.NullInt32          `json:"endYear"`             // Legacy: for migration period
+	StartDate      time.Time              `json:"startDate"`
+	EndDate        *time.Time             `json:"endDate,omitempty"`
 	Category       string                 `json:"category"`
 	GrowthRate     float64                `json:"growthRate"`
 	Notes          string                 `json:"notes"`
@@ -125,10 +115,8 @@ type Expense struct {
 	Payee          string                 `json:"payee"`
 	Amount         float64                `json:"amount"`
 	Frequency      string                 `json:"frequency"`
-	StartDate      time.Time              `json:"startDate"`           // Precise start date (day-level)
-	EndDate        *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
-	StartYear      int                    `json:"startYear"`           // Legacy: for migration period
-	EndYear        sql.NullInt32          `json:"endYear"`             // Legacy: for migration period
+	StartDate      time.Time              `json:"startDate"`
+	EndDate        *time.Time             `json:"endDate,omitempty"`
 	Category       string                 `json:"category"`
 	GrowthRate     float64                `json:"growthRate"`
 	Notes          string                 `json:"notes"`
@@ -285,17 +273,6 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 			a.EndDate = &endDate.Time
 		}
 
-		// Populate legacy year/month fields from dates for backward compatibility
-		a.StartYear = a.StartDate.Year()
-		month := int(a.StartDate.Month())
-		a.StartMonth = &month
-		if a.EndDate != nil {
-			endYear := a.EndDate.Year()
-			a.EndYear = &endYear
-			endMonth := int(a.EndDate.Month())
-			a.EndMonth = &endMonth
-		}
-
 		assets = append(assets, a)
 	}
 	if assets == nil {
@@ -365,17 +342,6 @@ func (s *Store) ListAllAssets(ctx context.Context, userID string, opts DateRange
 			a.EndDate = &endDate.Time
 		}
 
-		// Populate legacy year/month fields from dates for backward compatibility
-		a.StartYear = a.StartDate.Year()
-		month := int(a.StartDate.Month())
-		a.StartMonth = &month
-		if a.EndDate != nil {
-			endYear := a.EndDate.Year()
-			a.EndYear = &endYear
-			endMonth := int(a.EndDate.Month())
-			a.EndMonth = &endMonth
-		}
-
 		assets = append(assets, a)
 	}
 	if assets == nil {
@@ -410,46 +376,15 @@ func (s *Store) GetAsset(ctx context.Context, userID, id string) (Asset, error) 
 		a.EndDate = &endDate.Time
 	}
 
-	// Populate legacy year/month fields from dates for backward compatibility
-	a.StartYear = a.StartDate.Year()
-	month := int(a.StartDate.Month())
-	a.StartMonth = &month
-	if a.EndDate != nil {
-		endYear := a.EndDate.Year()
-		a.EndYear = &endYear
-		endMonth := int(a.EndDate.Month())
-		a.EndMonth = &endMonth
-	}
-
 	return a, nil
 }
 
 func (s *Store) CreateAsset(ctx context.Context, userID string, a Asset) (Asset, error) {
-	// Compute startDate from StartDate field or from legacy StartYear/StartMonth
 	startDate := a.StartDate
-	if startDate.IsZero() && a.StartYear > 0 {
-		month := 1
-		if a.StartMonth != nil {
-			month = *a.StartMonth
-		}
-		startDate = time.Date(a.StartYear, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-	} else if startDate.IsZero() {
+	if startDate.IsZero() {
 		startDate = time.Now().UTC()
 	}
-
-	// Compute endDate from EndDate field or from legacy EndYear/EndMonth
-	var endDate *time.Time
-	if a.EndDate != nil {
-		endDate = a.EndDate
-	} else if a.EndYear != nil {
-		month := 12
-		if a.EndMonth != nil {
-			month = *a.EndMonth
-		}
-		// Last day of the end month
-		lastDay := time.Date(*a.EndYear, time.Month(month)+1, 0, 23, 59, 59, 0, time.UTC)
-		endDate = &lastDay
-	}
+	endDate := a.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, start_date, end_date, notes)
@@ -474,42 +409,12 @@ func (s *Store) CreateAsset(ctx context.Context, userID string, a Asset) (Asset,
 		created.EndDate = &endDateVal.Time
 	}
 
-	// Populate legacy year/month fields from dates for backward compatibility
-	created.StartYear = created.StartDate.Year()
-	month := int(created.StartDate.Month())
-	created.StartMonth = &month
-	if created.EndDate != nil {
-		endYear := created.EndDate.Year()
-		created.EndYear = &endYear
-		endMonth := int(created.EndDate.Month())
-		created.EndMonth = &endMonth
-	}
-
 	return created, nil
 }
 
 func (s *Store) UpdateAsset(ctx context.Context, userID string, a Asset) (Asset, error) {
-	// Compute dates from StartDate field or from legacy StartYear/StartMonth
 	startDate := a.StartDate
-	if startDate.IsZero() && a.StartYear > 0 {
-		month := 1
-		if a.StartMonth != nil {
-			month = *a.StartMonth
-		}
-		startDate = time.Date(a.StartYear, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-	}
-
-	var endDate *time.Time
-	if a.EndDate != nil {
-		endDate = a.EndDate
-	} else if a.EndYear != nil {
-		month := 12
-		if a.EndMonth != nil {
-			month = *a.EndMonth
-		}
-		lastDay := time.Date(*a.EndYear, time.Month(month)+1, 0, 23, 59, 59, 0, time.UTC)
-		endDate = &lastDay
-	}
+	endDate := a.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_assets
@@ -535,17 +440,6 @@ func (s *Store) UpdateAsset(ctx context.Context, userID string, a Asset) (Asset,
 	}
 	if endDateVal.Valid {
 		updated.EndDate = &endDateVal.Time
-	}
-
-	// Populate legacy year/month fields from dates for backward compatibility
-	updated.StartYear = updated.StartDate.Year()
-	month := int(updated.StartDate.Month())
-	updated.StartMonth = &month
-	if updated.EndDate != nil {
-		endYear := updated.EndDate.Year()
-		updated.EndYear = &endYear
-		endMonth := int(updated.EndDate.Month())
-		updated.EndMonth = &endMonth
 	}
 
 	return updated, nil
@@ -676,17 +570,6 @@ func (s *Store) ListLiabilities(ctx context.Context, userID string, pagination P
 			li.EndDate = &endDate.Time
 		}
 
-		// Populate legacy year/month fields from dates for backward compatibility
-		li.StartYear = li.StartDate.Year()
-		month := int(li.StartDate.Month())
-		li.StartMonth = &month
-		if li.EndDate != nil {
-			endYear := li.EndDate.Year()
-			li.EndYear = &endYear
-			endMonth := int(li.EndDate.Month())
-			li.EndMonth = &endMonth
-		}
-
 		items = append(items, li)
 	}
 	if items == nil {
@@ -757,17 +640,6 @@ func (s *Store) ListAllLiabilities(ctx context.Context, userID string, opts Date
 			li.EndDate = &endDate.Time
 		}
 
-		// Populate legacy year/month fields from dates for backward compatibility
-		li.StartYear = li.StartDate.Year()
-		month := int(li.StartDate.Month())
-		li.StartMonth = &month
-		if li.EndDate != nil {
-			endYear := li.EndDate.Year()
-			li.EndYear = &endYear
-			endMonth := int(li.EndDate.Month())
-			li.EndMonth = &endMonth
-		}
-
 		items = append(items, li)
 	}
 	if items == nil {
@@ -803,45 +675,15 @@ func (s *Store) GetLiability(ctx context.Context, userID, id string) (Liability,
 		li.EndDate = &endDate.Time
 	}
 
-	// Populate legacy year/month fields from dates for backward compatibility
-	li.StartYear = li.StartDate.Year()
-	month := int(li.StartDate.Month())
-	li.StartMonth = &month
-	if li.EndDate != nil {
-		endYear := li.EndDate.Year()
-		li.EndYear = &endYear
-		endMonth := int(li.EndDate.Month())
-		li.EndMonth = &endMonth
-	}
-
 	return li, nil
 }
 
 func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability) (Liability, error) {
-	// Compute startDate from StartDate field or from legacy StartYear/StartMonth
 	startDate := li.StartDate
-	if startDate.IsZero() && li.StartYear > 0 {
-		month := 1
-		if li.StartMonth != nil {
-			month = *li.StartMonth
-		}
-		startDate = time.Date(li.StartYear, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-	} else if startDate.IsZero() {
+	if startDate.IsZero() {
 		startDate = time.Now().UTC()
 	}
-
-	// Compute endDate from EndDate field or from legacy EndYear/EndMonth
-	var endDate *time.Time
-	if li.EndDate != nil {
-		endDate = li.EndDate
-	} else if li.EndYear != nil {
-		month := 12
-		if li.EndMonth != nil {
-			month = *li.EndMonth
-		}
-		lastDay := time.Date(*li.EndYear, time.Month(month)+1, 0, 23, 59, 59, 0, time.UTC)
-		endDate = &lastDay
-	}
+	endDate := li.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes)
@@ -867,42 +709,12 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 		created.EndDate = &endDateVal.Time
 	}
 
-	// Populate legacy year/month fields from dates for backward compatibility
-	created.StartYear = created.StartDate.Year()
-	month := int(created.StartDate.Month())
-	created.StartMonth = &month
-	if created.EndDate != nil {
-		endYear := created.EndDate.Year()
-		created.EndYear = &endYear
-		endMonth := int(created.EndDate.Month())
-		created.EndMonth = &endMonth
-	}
-
 	return created, nil
 }
 
 func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability) (Liability, error) {
-	// Compute dates from StartDate field or from legacy StartYear/StartMonth
 	startDate := li.StartDate
-	if startDate.IsZero() && li.StartYear > 0 {
-		month := 1
-		if li.StartMonth != nil {
-			month = *li.StartMonth
-		}
-		startDate = time.Date(li.StartYear, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-	}
-
-	var endDate *time.Time
-	if li.EndDate != nil {
-		endDate = li.EndDate
-	} else if li.EndYear != nil {
-		month := 12
-		if li.EndMonth != nil {
-			month = *li.EndMonth
-		}
-		lastDay := time.Date(*li.EndYear, time.Month(month)+1, 0, 23, 59, 59, 0, time.UTC)
-		endDate = &lastDay
-	}
+	endDate := li.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_liabilities
@@ -929,17 +741,6 @@ func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability
 	}
 	if endDateVal.Valid {
 		updated.EndDate = &endDateVal.Time
-	}
-
-	// Populate legacy year/month fields from dates for backward compatibility
-	updated.StartYear = updated.StartDate.Year()
-	month := int(updated.StartDate.Month())
-	updated.StartMonth = &month
-	if updated.EndDate != nil {
-		endYear := updated.EndDate.Year()
-		updated.EndYear = &endYear
-		endMonth := int(updated.EndDate.Month())
-		updated.EndMonth = &endMonth
 	}
 
 	return updated, nil
@@ -1173,12 +974,6 @@ func (s *Store) ListIncomes(ctx context.Context, userID string, pagination Pagin
 			it.EndDate = &endDate.Time
 		}
 
-		// Populate legacy year fields from dates for backward compatibility
-		it.StartYear = it.StartDate.Year()
-		if it.EndDate != nil {
-			it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
-		}
-
 		items = append(items, it)
 	}
 	if items == nil {
@@ -1249,12 +1044,6 @@ func (s *Store) ListAllIncomes(ctx context.Context, userID string, opts DateRang
 			it.EndDate = &endDate.Time
 		}
 
-		// Populate legacy year fields from dates for backward compatibility
-		it.StartYear = it.StartDate.Year()
-		if it.EndDate != nil {
-			it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
-		}
-
 		items = append(items, it)
 	}
 	if items == nil {
@@ -1290,32 +1079,15 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (Income, error
 		it.EndDate = &endDate.Time
 	}
 
-	// Populate legacy year fields from dates for backward compatibility
-	it.StartYear = it.StartDate.Year()
-	if it.EndDate != nil {
-		it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
-	}
-
 	return it, nil
 }
 
 func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Income, error) {
-	// Compute startDate from StartDate field or from legacy StartYear
 	startDate := it.StartDate
-	if startDate.IsZero() && it.StartYear > 0 {
-		startDate = time.Date(it.StartYear, 1, 1, 0, 0, 0, 0, time.UTC)
-	} else if startDate.IsZero() {
+	if startDate.IsZero() {
 		startDate = time.Now().UTC()
 	}
-
-	// Compute endDate from EndDate field or from legacy EndYear
-	var endDate *time.Time
-	if it.EndDate != nil {
-		endDate = it.EndDate
-	} else if it.EndYear.Valid {
-		lastDay := time.Date(int(it.EndYear.Int32), 12, 31, 23, 59, 59, 0, time.UTC)
-		endDate = &lastDay
-	}
+	endDate := it.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes)
@@ -1342,29 +1114,12 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 		created.EndDate = &endDateVal.Time
 	}
 
-	// Populate legacy year fields from dates for backward compatibility
-	created.StartYear = created.StartDate.Year()
-	if created.EndDate != nil {
-		created.EndYear = sql.NullInt32{Int32: int32(created.EndDate.Year()), Valid: true}
-	}
-
 	return created, nil
 }
 
 func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Income, error) {
-	// Compute dates from StartDate field or from legacy StartYear
 	startDate := it.StartDate
-	if startDate.IsZero() && it.StartYear > 0 {
-		startDate = time.Date(it.StartYear, 1, 1, 0, 0, 0, 0, time.UTC)
-	}
-
-	var endDate *time.Time
-	if it.EndDate != nil {
-		endDate = it.EndDate
-	} else if it.EndYear.Valid {
-		lastDay := time.Date(int(it.EndYear.Int32), 12, 31, 23, 59, 59, 0, time.UTC)
-		endDate = &lastDay
-	}
+	endDate := it.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_incomes
@@ -1392,12 +1147,6 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Inc
 	}
 	if endDateVal.Valid {
 		updated.EndDate = &endDateVal.Time
-	}
-
-	// Populate legacy year fields from dates for backward compatibility
-	updated.StartYear = updated.StartDate.Year()
-	if updated.EndDate != nil {
-		updated.EndYear = sql.NullInt32{Int32: int32(updated.EndDate.Year()), Valid: true}
 	}
 
 	return updated, nil
@@ -1490,12 +1239,6 @@ func (s *Store) ListExpenses(ctx context.Context, userID string, pagination Pagi
 			it.EndDate = &endDate.Time
 		}
 
-		// Populate legacy year fields from dates for backward compatibility
-		it.StartYear = it.StartDate.Year()
-		if it.EndDate != nil {
-			it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
-		}
-
 		items = append(items, it)
 	}
 	if items == nil {
@@ -1566,12 +1309,6 @@ func (s *Store) ListAllExpenses(ctx context.Context, userID string, opts DateRan
 			it.EndDate = &endDate.Time
 		}
 
-		// Populate legacy year fields from dates for backward compatibility
-		it.StartYear = it.StartDate.Year()
-		if it.EndDate != nil {
-			it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
-		}
-
 		items = append(items, it)
 	}
 	if items == nil {
@@ -1607,32 +1344,15 @@ func (s *Store) GetExpense(ctx context.Context, userID, id string) (Expense, err
 		it.EndDate = &endDate.Time
 	}
 
-	// Populate legacy year fields from dates for backward compatibility
-	it.StartYear = it.StartDate.Year()
-	if it.EndDate != nil {
-		it.EndYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
-	}
-
 	return it, nil
 }
 
 func (s *Store) CreateExpense(ctx context.Context, userID string, it Expense) (Expense, error) {
-	// Compute startDate from StartDate field or from legacy StartYear
 	startDate := it.StartDate
-	if startDate.IsZero() && it.StartYear > 0 {
-		startDate = time.Date(it.StartYear, 1, 1, 0, 0, 0, 0, time.UTC)
-	} else if startDate.IsZero() {
+	if startDate.IsZero() {
 		startDate = time.Now().UTC()
 	}
-
-	// Compute endDate from EndDate field or from legacy EndYear
-	var endDate *time.Time
-	if it.EndDate != nil {
-		endDate = it.EndDate
-	} else if it.EndYear.Valid {
-		lastDay := time.Date(int(it.EndYear.Int32), 12, 31, 23, 59, 59, 0, time.UTC)
-		endDate = &lastDay
-	}
+	endDate := it.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes)
@@ -1659,29 +1379,12 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, it Expense) (E
 		created.EndDate = &endDateVal.Time
 	}
 
-	// Populate legacy year fields from dates for backward compatibility
-	created.StartYear = created.StartDate.Year()
-	if created.EndDate != nil {
-		created.EndYear = sql.NullInt32{Int32: int32(created.EndDate.Year()), Valid: true}
-	}
-
 	return created, nil
 }
 
 func (s *Store) UpdateExpense(ctx context.Context, userID string, it Expense) (Expense, error) {
-	// Compute dates from StartDate field or from legacy StartYear
 	startDate := it.StartDate
-	if startDate.IsZero() && it.StartYear > 0 {
-		startDate = time.Date(it.StartYear, 1, 1, 0, 0, 0, 0, time.UTC)
-	}
-
-	var endDate *time.Time
-	if it.EndDate != nil {
-		endDate = it.EndDate
-	} else if it.EndYear.Valid {
-		lastDay := time.Date(int(it.EndYear.Int32), 12, 31, 23, 59, 59, 0, time.UTC)
-		endDate = &lastDay
-	}
+	endDate := it.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_expenses
@@ -1709,12 +1412,6 @@ func (s *Store) UpdateExpense(ctx context.Context, userID string, it Expense) (E
 	}
 	if endDateVal.Valid {
 		updated.EndDate = &endDateVal.Time
-	}
-
-	// Populate legacy year fields from dates for backward compatibility
-	updated.StartYear = updated.StartDate.Year()
-	if updated.EndDate != nil {
-		updated.EndYear = sql.NullInt32{Int32: int32(updated.EndDate.Year()), Valid: true}
 	}
 
 	return updated, nil

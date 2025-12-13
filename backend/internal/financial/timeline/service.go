@@ -447,7 +447,7 @@ func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit E
 			Category:         category,
 			CurrentValue:     edit.Amount,
 			AnnualGrowthRate: 0,
-			StartYear:        absoluteStartYear,
+			StartDate:        time.Date(absoluteStartYear, 1, 1, 0, 0, 0, 0, time.UTC),
 		})
 		return err
 	case ItemTypeLiability:
@@ -458,18 +458,16 @@ func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit E
 			CurrentBalance:  edit.Amount,
 			InterestRateAPR: 0,
 			MinimumPayment:  0,
-			StartYear:       absoluteStartYear,
+			StartDate:       time.Date(absoluteStartYear, 1, 1, 0, 0, 0, 0, time.UTC),
 		})
 		return err
 	case ItemTypeIncome:
-		now := time.Now()
 		_, err := s.store.CreateIncome(ctx, userID, repository.Income{
 			ParentID:  parentID,
 			Source:    name,
 			Amount:    edit.Amount,
 			Frequency: string(edit.Frequency),
-			StartDate: now,
-			StartYear: absoluteStartYear,
+			StartDate: time.Date(absoluteStartYear, 1, 1, 0, 0, 0, 0, time.UTC),
 		})
 		return err
 	case ItemTypeExpense:
@@ -478,7 +476,7 @@ func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit E
 			Payee:     name,
 			Amount:    edit.Amount,
 			Frequency: string(edit.Frequency),
-			StartYear: absoluteStartYear,
+			StartDate: time.Date(absoluteStartYear, 1, 1, 0, 0, 0, 0, time.UTC),
 		})
 		return err
 	default:
@@ -490,7 +488,10 @@ type itemState struct {
 	item       TimelineItem
 	amount     float64
 	endYear    *int
-	growthRate float64 // Per-item growth rate (percentage)
+	growthRate float64   // Per-item growth rate (percentage)
+	frequency  Frequency // Track frequency for one_time handling
+	startMonth int       // Month when item was created (for one_time expiry)
+	startYear  int       // Year when item was created (relative, for one_time expiry)
 }
 
 type FinancialDataRow struct {
@@ -629,6 +630,18 @@ func (s *Service) computeMonthlyTimeline(
 			}
 		}
 
+		// Expire one-time items after their start month (they only occur once)
+		// This is a second layer of protection - endDate should also prevent recurrence
+		for id, st := range state {
+			if st.frequency == FrequencyOneTime {
+				// One-time items only appear in their start month
+				// Remove them after that month is processed
+				if year > st.startYear || (year == st.startYear && month > st.startMonth) {
+					delete(state, id)
+				}
+			}
+		}
+
 		// Apply growth (only after first full year - month 12 onwards)
 		if monthIdx >= 12 {
 			for id, st := range state {
@@ -725,6 +738,9 @@ func (s *Service) computeMonthlyTimeline(
 				amount:     monthly, // Store monthly amount for growth calculations
 				endYear:    endYearPtr,
 				growthRate: r.GrowthRate,
+				frequency:  r.Frequency,
+				startMonth: month,
+				startYear:  year,
 			}
 		}
 
@@ -1083,10 +1099,15 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 		return nil, err
 	}
 	for _, a := range assets {
-		// Default StartYear to current year if not set (0 or empty)
-		startYear := a.StartYear
-		if startYear == 0 {
+		// Convert StartDate to year, default to baseYear if not set
+		startYear := a.StartDate.Year()
+		if startYear == 0 || a.StartDate.IsZero() {
 			startYear = baseYear
+		}
+		// Convert EndDate to NullInt32
+		var endYear sql.NullInt32
+		if a.EndDate != nil {
+			endYear = sql.NullInt32{Int32: int32(a.EndDate.Year()), Valid: true}
 		}
 		rows = append(rows, FinancialDataRow{
 			ID:         a.ID,
@@ -1096,7 +1117,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 			Amount:     a.CurrentValue,
 			Frequency:  FrequencyAnnual, // Assets are point-in-time balances, no frequency concept
 			StartYear:  startYear,
-			EndYear:    repository.IntPtrToNullInt32(a.EndYear),
+			EndYear:    endYear,
 			ItemType:   ItemTypeAsset,
 			GrowthRate: a.AnnualGrowthRate,
 		})
@@ -1107,10 +1128,15 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 		return nil, err
 	}
 	for _, li := range liabilities {
-		// Default StartYear to current year if not set (0 or empty)
-		startYear := li.StartYear
-		if startYear == 0 {
+		// Convert StartDate to year, default to baseYear if not set
+		startYear := li.StartDate.Year()
+		if startYear == 0 || li.StartDate.IsZero() {
 			startYear = baseYear
+		}
+		// Convert EndDate to NullInt32
+		var endYear sql.NullInt32
+		if li.EndDate != nil {
+			endYear = sql.NullInt32{Int32: int32(li.EndDate.Year()), Valid: true}
 		}
 		rows = append(rows, FinancialDataRow{
 			ID:         li.ID,
@@ -1120,7 +1146,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 			Amount:     li.CurrentBalance,
 			Frequency:  FrequencyAnnual, // Liabilities are point-in-time balances, no frequency concept
 			StartYear:  startYear,
-			EndYear:    repository.IntPtrToNullInt32(li.EndYear),
+			EndYear:    endYear,
 			ItemType:   ItemTypeLiability,
 			GrowthRate: 0, // Use category default (-3%) - liabilities decrease as you pay them down
 		})
@@ -1131,10 +1157,15 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 		return nil, err
 	}
 	for _, it := range incomes {
-		// Default StartYear to current year if not set (0 or empty)
-		startYear := it.StartYear
-		if startYear == 0 {
+		// Convert StartDate to year, default to baseYear if not set
+		startYear := it.StartDate.Year()
+		if startYear == 0 || it.StartDate.IsZero() {
 			startYear = baseYear
+		}
+		// Convert EndDate to NullInt32
+		var endYear sql.NullInt32
+		if it.EndDate != nil {
+			endYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
 		}
 		rows = append(rows, FinancialDataRow{
 			ID:         it.ID,
@@ -1144,7 +1175,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 			Amount:     it.Amount,
 			Frequency:  normalizeFreq(it.Frequency),
 			StartYear:  startYear,
-			EndYear:    it.EndYear,
+			EndYear:    endYear,
 			ItemType:   ItemTypeIncome,
 			GrowthRate: it.GrowthRate,
 		})
@@ -1155,10 +1186,15 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 		return nil, err
 	}
 	for _, it := range expenses {
-		// Default StartYear to current year if not set (0 or empty)
-		startYear := it.StartYear
-		if startYear == 0 {
+		// Convert StartDate to year, default to baseYear if not set
+		startYear := it.StartDate.Year()
+		if startYear == 0 || it.StartDate.IsZero() {
 			startYear = baseYear
+		}
+		// Convert EndDate to NullInt32
+		var endYear sql.NullInt32
+		if it.EndDate != nil {
+			endYear = sql.NullInt32{Int32: int32(it.EndDate.Year()), Valid: true}
 		}
 		rows = append(rows, FinancialDataRow{
 			ID:         it.ID,
@@ -1168,7 +1204,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 			Amount:     it.Amount,
 			Frequency:  normalizeFreq(it.Frequency),
 			StartYear:  startYear,
-			EndYear:    it.EndYear,
+			EndYear:    endYear,
 			ItemType:   ItemTypeExpense,
 			GrowthRate: it.GrowthRate,
 		})
@@ -1353,6 +1389,13 @@ func normalizeFreq(freq string) Frequency {
 	f := Frequency(strings.ToLower(strings.TrimSpace(freq)))
 	if _, ok := freqFactors[f]; ok {
 		return f
+	}
+	// Handle common variations
+	switch f {
+	case "onetime", "one-time", "once":
+		return FrequencyOneTime
+	case "yearly":
+		return FrequencyAnnual
 	}
 	return FrequencyAnnual
 }
