@@ -80,24 +80,24 @@ type TimelineV2Response struct {
 
 // MonthDetailResponse represents a single month in the timeline
 type MonthDetailResponse struct {
-	Year           int                      `json:"year"`
-	Month          int                      `json:"month"`
-	AllYearsIndex  int                      `json:"allYearsIndex"`
-	AllMonthsIndex int                      `json:"allMonthsIndex"`
-	NonCashAssets        []NonCashAssetResponse   `json:"nonCashAssets"`
-	CashAssets           []CashAssetResponse      `json:"cashAssets"`
-	CPFAssets            []CPFAssetResponse       `json:"cpfAssets"`
-	Liabilities          []LiabilityResponse      `json:"liabilities"`
-	Income               []IncomeResponse         `json:"income"`
-	CPFContributions     []CPFContributionResponse `json:"cpfContributions"`
-	Expenses             []ExpenseResponse        `json:"expenses"`
+	Year             int                       `json:"year"`
+	Month            int                       `json:"month"`
+	AllYearsIndex    int                       `json:"allYearsIndex"`
+	AllMonthsIndex   int                       `json:"allMonthsIndex"`
+	NonCashAssets    []NonCashAssetResponse    `json:"nonCashAssets"`
+	CashAssets       []CashAssetResponse       `json:"cashAssets"`
+	CPFAssets        []CPFAssetResponse        `json:"cpfAssets"`
+	Liabilities      []LiabilityResponse       `json:"liabilities"`
+	Income           []IncomeResponse          `json:"income"`
+	CPFContributions []CPFContributionResponse `json:"cpfContributions"`
+	Expenses         []ExpenseResponse         `json:"expenses"`
 	// Savings breakdown
-	NetSavings           decimal.Decimal          `json:"netSavings"`      // income - expenses (monthly)
-	NetCash              decimal.Decimal          `json:"netCash"`         // income - expenses - employee CPF (monthly)
-	NetInvestments       decimal.Decimal          `json:"netInvestments"`  // employee CPF contribution (monthly)
+	NetSavings     decimal.Decimal `json:"netSavings"`     // income - expenses (monthly)
+	NetCash        decimal.Decimal `json:"netCash"`        // income - expenses - employee CPF (monthly)
+	NetInvestments decimal.Decimal `json:"netInvestments"` // employee CPF contribution (monthly)
 	// Other totals
-	NetWorth             decimal.Decimal          `json:"netWorth"`
-	AccumulatorAccountID string                   `json:"accumulatorAccountId"`
+	NetWorth             decimal.Decimal `json:"netWorth"`
+	AccumulatorAccountID string          `json:"accumulatorAccountId"`
 }
 
 // NonCashAssetResponse represents a non-cash asset in the timeline response
@@ -168,12 +168,10 @@ type IncomeResponse struct {
 	StartYear       int             `json:"startYear"`
 	StartMonth      int             `json:"startMonth"`
 	GrowthRate      decimal.Decimal `json:"growthRate"`
-	// CPF breakdown (populated when CPFApplicable is true)
-	CPFApplicable  bool            `json:"cpfApplicable"`
-	EmployeeCPF    decimal.Decimal `json:"employeeCpf"`
-	EmployerCPF    decimal.Decimal `json:"employerCpf"`
-	TotalCPF       decimal.Decimal `json:"totalCpf"`
-	NetTakeHomePay decimal.Decimal `json:"netTakeHomePay"`
+	EmployeeCPF     decimal.Decimal `json:"employeeCpf"`
+	EmployerCPF     decimal.Decimal `json:"employerCpf"`
+	TotalCPF        decimal.Decimal `json:"totalCpf"`
+	NetTakeHomePay  decimal.Decimal `json:"netTakeHomePay"`
 	// CPF allocation breakdown
 	AllocationOA decimal.Decimal `json:"allocationOa"`
 	AllocationSA decimal.Decimal `json:"allocationSa"`

@@ -67,31 +67,29 @@ type FinancialConstraintParams struct {
 
 // IncomeParams represents the inputs to create an income.
 type IncomeParams struct {
-	Source        string  `json:"source"`
-	Amount        float64 `json:"amount"`
-	Frequency     string  `json:"frequency"`
-	StartDate     string  `json:"startDate,omitempty"`
-	Category      string  `json:"category,omitempty"`
-	Notes         string  `json:"notes,omitempty"`
-	IncomeType    string  `json:"incomeType,omitempty"`    // salary, bonus, commission, rental, dividend, freelance, other
-	WageType      string  `json:"wageType,omitempty"`      // ow (Ordinary Wages), aw (Additional Wages), null
-	CPFApplicable *bool   `json:"cpfApplicable,omitempty"` // Whether CPF contributions apply
+	Source     string  `json:"source"`
+	Amount     float64 `json:"amount"`
+	Frequency  string  `json:"frequency"`
+	StartDate  string  `json:"startDate,omitempty"`
+	Category   string  `json:"category,omitempty"`
+	Notes      string  `json:"notes,omitempty"`
+	IncomeType string  `json:"incomeType,omitempty"` // salary, bonus, commission, rental, dividend, freelance, other
+	WageType   string  `json:"wageType,omitempty"`   // ow (Ordinary Wages), aw (Additional Wages), null
 }
 
 // UpdateIncomeParams represents the inputs to update an income.
 type UpdateIncomeParams struct {
-	IncomeID      string   `json:"incomeId,omitempty"`
-	LastIncomeID  string   `json:"lastIncomeId,omitempty"`
-	IncomeName    string   `json:"incomeName,omitempty"`
-	Source        string   `json:"source,omitempty"`
-	Amount        *float64 `json:"amount,omitempty"`
-	Frequency     string   `json:"frequency,omitempty"`
-	StartDate     string   `json:"startDate,omitempty"`
-	Category      string   `json:"category,omitempty"`
-	Notes         string   `json:"notes,omitempty"`
-	IncomeType    string   `json:"incomeType,omitempty"`    // salary, bonus, commission, rental, dividend, freelance, other
-	WageType      string   `json:"wageType,omitempty"`      // ow (Ordinary Wages), aw (Additional Wages), null
-	CPFApplicable *bool    `json:"cpfApplicable,omitempty"` // Whether CPF contributions apply
+	IncomeID     string   `json:"incomeId,omitempty"`
+	LastIncomeID string   `json:"lastIncomeId,omitempty"`
+	IncomeName   string   `json:"incomeName,omitempty"`
+	Source       string   `json:"source,omitempty"`
+	Amount       *float64 `json:"amount,omitempty"`
+	Frequency    string   `json:"frequency,omitempty"`
+	StartDate    string   `json:"startDate,omitempty"`
+	Category     string   `json:"category,omitempty"`
+	Notes        string   `json:"notes,omitempty"`
+	IncomeType   string   `json:"incomeType,omitempty"` // salary, bonus, commission, rental, dividend, freelance, other
+	WageType     string   `json:"wageType,omitempty"`   // ow (Ordinary Wages), aw (Additional Wages), null
 }
 
 // ExpenseParams represents the inputs to create an expense.
@@ -185,13 +183,13 @@ type IdentifyNetWorthLeversParams struct {
 
 // FinancialContext represents the user's complete financial snapshot for AI context
 type FinancialContext struct {
-	NetWorth    float64               `json:"netWorth"`
-	Assets      []ContextItem         `json:"assets"`
-	Liabilities []ContextItem         `json:"liabilities"`
-	Income      []ContextItem         `json:"income"`
-	Expenses    []ContextItem         `json:"expenses"`
-	Scenarios   []ContextScenario     `json:"scenarios"`
-	Summary     FinancialSummary      `json:"summary"`
+	NetWorth    float64           `json:"netWorth"`
+	Assets      []ContextItem     `json:"assets"`
+	Liabilities []ContextItem     `json:"liabilities"`
+	Income      []ContextItem     `json:"income"`
+	Expenses    []ContextItem     `json:"expenses"`
+	Scenarios   []ContextScenario `json:"scenarios"`
+	Summary     FinancialSummary  `json:"summary"`
 }
 
 // ContextItem represents a single financial item for AI context
@@ -251,14 +249,14 @@ type StopFinancialItemParams struct {
 
 // StartFinancialItemParams represents the inputs to create a new financial item in a scenario.
 type StartFinancialItemParams struct {
-	Name         string   `json:"name"`
-	Description  string   `json:"description,omitempty"`
-	TargetYear   int      `json:"targetYear"`
-	TargetType   string   `json:"targetType"`
-	ImpactValue  float64  `json:"impactValue"`
-	ItemName     string   `json:"itemName,omitempty"`     // Name for the created item
-	ItemCategory string   `json:"itemCategory,omitempty"` // Category for the created item
-	IsIncluded   *bool    `json:"isIncluded,omitempty"`
+	Name         string  `json:"name"`
+	Description  string  `json:"description,omitempty"`
+	TargetYear   int     `json:"targetYear"`
+	TargetType   string  `json:"targetType"`
+	ImpactValue  float64 `json:"impactValue"`
+	ItemName     string  `json:"itemName,omitempty"`     // Name for the created item
+	ItemCategory string  `json:"itemCategory,omitempty"` // Category for the created item
+	IsIncluded   *bool   `json:"isIncluded,omitempty"`
 }
 
 // ModifyFinancialItemParams represents the inputs to modify an existing financial item's value in a scenario.

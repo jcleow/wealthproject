@@ -1,0 +1,146 @@
+// monthly view on the timeline
+{
+	"months": [
+		{
+			"year": 2025,
+			"month": -1,
+			"yearIndex": 0,
+			"monthIndex": 0,
+			"nonCashAssets": [
+				{				
+				"id": "23afa0ea-f71d-490e-85d1-9b61d60d9770", //rename - no more rowID
+				"parentId": "6f1cd274-4540-4aad-b0d3-bc3d8c0c1f7a",
+				"name": "House",
+				"category": "Property",
+				"balance": 85000,
+				"adjBalance": 85000,				
+				"itemType": "asset",
+				"startDate": "2025-01-01", // new
+				"createdYear": 0,
+				"createdMonth": 1,
+				"monthlyGrowthRate": 2.5, // new
+				}
+			],
+			"cashAssets": [
+                {
+                    "itemId": "f7f134cf-626f-4d6e-9b90-d022b884133f",
+                    "name": "Cash",
+                    "category": "cash",
+					"balance": 85000,
+					"adjBalance": 85000,                    			
+                    "itemType": "cash_account",
+                    "createdYear": 0,
+					"createdMonth": 0,
+                    "isAccumulator": true
+                }
+            ],
+			"cpfAssets": [
+				{				
+				"id": "23afa0ea-f71d-490e-85d1-9b61d60d9770", //rename - no more rowID
+				"parentId": "6f1cd274-4540-4aad-b0d3-bc3d8c0c1f7a",
+				"name": "CPF Ordinary Account",
+				"category": "Retirement",
+				"balance": 85000,
+				"adjBalance": 85000,  
+				"itemType": "asset",
+				"startDate": "2025-01-01", // new
+				"createdYear": 0,
+				"createdMonth": 1,
+				"monthlyGrowthRate": 2.5, // new
+				},
+				{				
+					"id": "23afa0ea-f71d-490e-85d1-9b61d60d9770", //rename - no more rowID
+					"parentId": "6f1cd274-4540-4aad-b0d3-bc3d8c0c1f7a",
+					"name": "CPF Special Account",
+					"category": "Retirement",
+					"balance": 85000,
+					"adjBalance": 85000,  
+					"itemType": "asset",
+					"startDate": "2025-01-01", // new
+					"createdYear": 0,
+					"createdMonth": 1,
+					"monthlyGrowthRate": 2.5, // new
+				},
+				{				
+					"id": "23afa0ea-f71d-490e-85d1-9b61d60d9770", //rename - no more rowID
+					"parentId": "6f1cd274-4540-4aad-b0d3-bc3d8c0c1f7a",
+					"name": "CPF Medisave",
+					"category": "Retirement",
+					"balance": 85000,
+					"adjBalance": 85000,
+					"itemType": "asset",
+					"startDate": "2025-01-01", // new
+					"createdYear": 0,
+					"createdMonth": 1,
+					"monthlyGrowthRate": 2.5, // new
+				}
+			],
+			"liabilities": [
+				{                    
+                    "id": "fdbc4650-caed-47d6-aa6e-47e8a9a033e1",
+                    "parentId": "bd5d1595-e231-42b5-b423-900c9e565814",
+                    "name": "Credit Card",
+                    "category": "Credit Card",
+                    "annualAmt": 800,
+                    "adjAnnualAmt": 800,
+                    "monthlyAmt": 800,
+                    "adjMonthlyAmt": 800,
+                    "sourceAmount": 800,
+                    "itemType": "liability",
+                    "createdYear": 0,
+                    "createdMonth": 1
+                }
+			],
+			"income": [
+                {                    
+                    "id": "b3fc1bc2-0ae1-42b8-a611-22e8118f7e97",
+                    "parentId": "39a0e583-6093-4a29-ae88-b89ff8242b7a",
+                    "name": "Software Engineer Salary",
+                    "category": "Employment",
+					"amount": 85000,
+					"adjAmount": 85000,
+                    "sourceFrequency": "monthly",
+                    "itemType": "income",
+                    "createdYear": 0,
+                    "createdMonth": 1,
+                    "growthRate": 4
+                }
+            ],
+			"cpfContributions":[
+				{                    
+                    "id": "b3fc1bc2-0ae1-42b8-a611-22e8118f7e97",
+                    "parentId": "39a0e583-6093-4a29-ae88-b89ff8242b7a",
+                    "name": "CPF Employee Contribution",
+                    "category": "Employment",
+					"amount": 85000,
+					"adjAmount": 85000,
+                    "sourceFrequency": "monthly",
+                    "itemType": "income",
+                    "createdYear": 0,
+                    "createdMonth": 1,
+                    "growthRate": 4
+                }
+
+			],
+			"expenses": [
+                {                    
+                    "id": "b3fc1bc2-0ae1-42b8-a611-22e8118f7e97",
+                    "parentId": "39a0e583-6093-4a29-ae88-b89ff8242b7a",
+                    "name": "Rent (Room)",
+                    "category": "Employment",
+					"amount": 85000,
+					"adjAmount": 85000,
+                    "sourceFrequency": "monthly",
+                    "itemType": "expense",
+                    "createdYear": 0,
+                    "createdMonth": 1,					
+                    "monthlyGrowthRate": 0 //new					
+                }
+            ],
+			"netCash": 36500,
+			"netWorth": 252000,
+			"netSavings": 30400,
+			"accumulatorAccountId": "f7f134cf-626f-4d6e-9b90-d022b884133f"
+		}
+	]
+}

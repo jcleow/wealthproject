@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ type incomeInput struct {
 	GrowthRate     *float64 `json:"growthRate"`
 	GrowthStrategy string   `json:"growthStrategy"`
 	Notes          string   `json:"notes"`
+	CPFWageType    string   `json:"cpfWageType"`
 }
 
 func (i incomeInput) toIncome() repository.Income {
@@ -35,6 +37,7 @@ func (i incomeInput) toIncome() repository.Income {
 		GrowthStrategy: i.GrowthStrategy,
 		Notes:          i.Notes,
 	}
+	inc.CPFWageType = strings.ToLower(strings.TrimSpace(i.CPFWageType))
 	if i.StartDate != nil {
 		if t, err := time.Parse(time.RFC3339, *i.StartDate); err == nil {
 			inc.StartDate = t
@@ -51,6 +54,14 @@ func (i incomeInput) toIncome() repository.Income {
 		inc.GrowthRate = *i.GrowthRate
 	}
 	return inc
+}
+
+func (i *incomeInput) normalizeCPFFields() (string, error) {
+	cpfWageType := strings.ToLower(strings.TrimSpace(i.CPFWageType))
+	if cpfWageType != "" && cpfWageType != "ow" && cpfWageType != "aw" {
+		return cpfWageType, fmt.Errorf("cpfWageType must be 'ow' or 'aw'")
+	}
+	return cpfWageType, nil
 }
 
 // IncomeHandler serves income CRUD endpoints.
@@ -138,6 +149,12 @@ func (h *IncomeHandler) create(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, err)
 		return
 	}
+	cpfWageType, err := input.normalizeCPFFields()
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+	input.CPFWageType = cpfWageType
 	if input.Source == "" || input.Amount == 0 || input.Frequency == "" || input.Category == "" {
 		badRequest(w, errMissingFields("source, amount, frequency, category"))
 		return
@@ -160,6 +177,12 @@ func (h *IncomeHandler) update(w http.ResponseWriter, r *http.Request, id string
 		badRequest(w, err)
 		return
 	}
+	cpfWageType, err := input.normalizeCPFFields()
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+	input.CPFWageType = cpfWageType
 	input.ID = id
 	updated, err := h.store.UpdateIncome(r.Context(), userID, input.toIncome())
 	if err != nil {

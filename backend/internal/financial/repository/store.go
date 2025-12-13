@@ -105,6 +105,7 @@ type Income struct {
 	Notes          string                 `json:"notes"`
 	GrowthStrategy string                 `json:"growthStrategy"`
 	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
+	CPFWageType    string                 `json:"cpfWageType"`
 	UpdatedAt      time.Time              `json:"updatedAt"`
 }
 
@@ -133,11 +134,11 @@ type PaginationParams struct {
 
 // PaginatedResult holds paginated list results with metadata.
 type PaginatedResult[T any] struct {
-	Data       []T `json:"data"`
-	Total      int `json:"total"`
-	Limit      int `json:"limit"`
-	Offset     int `json:"offset"`
-	HasMore    bool `json:"hasMore"`
+	Data    []T  `json:"data"`
+	Total   int  `json:"total"`
+	Limit   int  `json:"limit"`
+	Offset  int  `json:"offset"`
+	HasMore bool `json:"hasMore"`
 }
 
 // DefaultPagination returns default pagination params (20 items, no offset).
@@ -1006,6 +1007,7 @@ func (s *Store) ListAllIncomes(ctx context.Context, userID string, opts DateRang
 		       category,
 		       COALESCE(growth_rate, 3.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
+		       COALESCE(cpf_wage_type, '') as cpf_wage_type,
 		       updated_at
 		FROM finance_incomes
 		WHERE user_id = $1`
@@ -1037,7 +1039,7 @@ func (s *Store) ListAllIncomes(ctx context.Context, userID string, opts DateRang
 	for rows.Next() {
 		var it Income
 		var endDate sql.NullTime
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.CPFWageType, &it.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if endDate.Valid {
@@ -1064,12 +1066,13 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (Income, error
 		       category,
 		       COALESCE(growth_rate, 3.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
+		       COALESCE(cpf_wage_type, '') as cpf_wage_type,
 		       updated_at
 		FROM finance_incomes
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var it Income
 	var endDate sql.NullTime
-	if err := row.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
+	if err := row.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.CPFWageType, &it.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Income{}, ErrNotFound
 		}
@@ -1090,8 +1093,8 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 	endDate := it.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, COALESCE($9, 3.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''))
+		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, cpf_wage_type, cpf_applicable)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, COALESCE($9, 3.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''), NULLIF($12, ''), (NULLIF($12, '') IS NOT NULL))
 		ON CONFLICT ON CONSTRAINT finance_incomes_parent_start_date_key DO UPDATE
 		SET source=EXCLUDED.source,
 		    amount=EXCLUDED.amount,
@@ -1101,13 +1104,29 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 		    growth_rate=EXCLUDED.growth_rate,
 		    growth_strategy=EXCLUDED.growth_strategy,
 		    notes=EXCLUDED.notes,
+		    cpf_wage_type=EXCLUDED.cpf_wage_type,
+		    cpf_applicable=EXCLUDED.cpf_applicable,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), updated_at`,
-		userID, nullIfEmpty(it.ParentID), it.Source, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes)
+		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at`,
+		userID, nullIfEmpty(it.ParentID), it.Source, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.CPFWageType)
 
 	var created Income
 	var endDateVal sql.NullTime
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Source, &created.Amount, &created.Frequency, &created.StartDate, &endDateVal, &created.Category, &created.GrowthRate, &created.GrowthStrategy, &created.Notes, &created.UpdatedAt); err != nil {
+	if err := row.Scan(
+		&created.ID,
+		&created.ParentID,
+		&created.Source,
+		&created.Amount,
+		&created.Frequency,
+		&created.StartDate,
+		&endDateVal,
+		&created.Category,
+		&created.GrowthRate,
+		&created.GrowthStrategy,
+		&created.Notes,
+		&created.CPFWageType,
+		&created.UpdatedAt,
+	); err != nil {
 		return Income{}, err
 	}
 	if endDateVal.Valid {
@@ -1132,14 +1151,16 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Inc
 		    growth_rate=COALESCE($9, growth_rate, 3.0),
 		    growth_strategy=COALESCE(NULLIF($10, ''), growth_strategy, 'annual_step'),
 		    notes=NULLIF($11, ''),
+		    cpf_wage_type=NULLIF($12, ''),
+		    cpf_applicable=(NULLIF($12, '') IS NOT NULL),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), updated_at`,
-		userID, it.ID, it.Source, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes)
+		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at`,
+		userID, it.ID, it.Source, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.CPFWageType)
 
 	var updated Income
 	var endDateVal sql.NullTime
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Source, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.UpdatedAt); err != nil {
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Source, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.CPFWageType, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Income{}, ErrNotFound
 		}

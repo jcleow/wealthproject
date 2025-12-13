@@ -36,8 +36,7 @@ type FinancialDataRow struct {
 	GrowthRate    decimal.Decimal // Per-item growth rate (percentage)
 	IsAccumulator bool            // For cash accounts - identifies the accumulator account
 	// CPF-related fields (for incomes)
-	CPFApplicable bool                     // Whether CPF contributions apply to this income
-	CPFWageType   cpfProcessor.CPFWageType // CPFWageTypeOW (Ordinary Wages) or CPFWageTypeAW (Additional Wages)
+	CPFWageType cpfProcessor.CPFWageType // CPFWageTypeOW (Ordinary Wages) or CPFWageTypeAW (Additional Wages)
 }
 
 // EffectiveRows holds all financial data organized by type
@@ -142,18 +141,17 @@ func transformIncomes(incomes []repo.Income) []FinancialDataRow {
 	rows := make([]FinancialDataRow, 0, len(incomes))
 	for _, i := range incomes {
 		rows = append(rows, FinancialDataRow{
-			ID:            i.ID,
-			ParentID:      i.ParentID,
-			Name:          i.Source, // Income uses "Source" as name
-			Category:      i.Category,
-			Amount:        i.Amount,
-			Frequency:     Frequency(i.Frequency), // Keep actual frequency
-			StartDate:     i.StartDate,
-			EndDate:       i.EndDate,
-			ItemType:      FinIncome,
-			GrowthRate:    i.GrowthRate,
-			CPFApplicable: i.CPFApplicable,
-			CPFWageType:   cpfProcessor.CPFWageType(i.CPFWageType),
+			ID:          i.ID,
+			ParentID:    i.ParentID,
+			Name:        i.Source, // Income uses "Source" as name
+			Category:    i.Category,
+			Amount:      i.Amount,
+			Frequency:   Frequency(i.Frequency), // Keep actual frequency
+			StartDate:   i.StartDate,
+			EndDate:     i.EndDate,
+			ItemType:    FinIncome,
+			GrowthRate:  i.GrowthRate,
+			CPFWageType: cpfProcessor.CPFWageType(i.CPFWageType),
 		})
 	}
 	return rows
@@ -298,19 +296,26 @@ func (c *CPFContext) ProcessIncomes(
 	}
 
 	for _, income := range incomes {
-		if !isActiveInMonth(income, date) || !income.CPFApplicable {
+		if !isActiveInMonth(income, date) || income.CPFWageType == "" {
 			continue
 		}
 
 		// Convert income to monthly amount for CPF calculation
 		// CPF processor expects monthly wage, but income may be stored in different frequencies
 		monthlyWage := common.ToMonthlyAmount(state[income.ID], income.Frequency)
+		if monthlyWage == nil || monthlyWage.IsZero() {
+			continue
+		}
 
 		var result *cpfProcessor.ContributionResult
-		if income.CPFWageType == cpfProcessor.CPFWageTypeOW {
+		switch income.CPFWageType {
+		case cpfProcessor.CPFWageTypeOW:
 			result, _ = c.Processor.ProcessOrdinaryWage(monthlyWage, c.Balances, date)
-		} else {
+		case cpfProcessor.CPFWageTypeAW:
 			result, _ = c.Processor.ProcessAdditionalWage(monthlyWage, c.Balances, date)
+		default:
+			// Unknown wage type: skip CPF for this income to avoid over-crediting cash
+			continue
 		}
 
 		if result != nil {
@@ -602,10 +607,9 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, date
 			AdjAmount:       *amount,
 			SourceFrequency: string(row.Frequency),
 			ItemType:        string(row.ItemType),
-			StartYear:     state.StartYear,
-			StartMonth:    state.StartMonth,
+			StartYear:       state.StartYear,
+			StartMonth:      state.StartMonth,
 			GrowthRate:      *row.GrowthRate.Round(0),
-			CPFApplicable:   row.CPFApplicable,
 		}
 
 		// Populate CPF breakdown if available
@@ -649,8 +653,8 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, dat
 			AdjAmount:       *amount,
 			SourceFrequency: string(row.Frequency),
 			ItemType:        string(row.ItemType),
-			StartYear:     state.StartYear,
-			StartMonth:    state.StartMonth,
+			StartYear:       state.StartYear,
+			StartMonth:      state.StartMonth,
 		})
 	}
 	return responses
@@ -690,8 +694,8 @@ func buildCPFContributionResponses(rows []FinancialDataRow, itemStates ItemState
 			TotalContribution:    *contribution.TotalContribution.Round(0),
 			SourceFrequency:      string(row.Frequency),
 			ItemType:             "cpf_contribution",
-			StartYear:          state.StartYear,
-			StartMonth:         state.StartMonth,
+			StartYear:            state.StartYear,
+			StartMonth:           state.StartMonth,
 			AllocationOA:         *contribution.AllocationOA.Round(0),
 			AllocationSA:         *contribution.AllocationSA.Round(0),
 			AllocationMA:         *contribution.AllocationMA.Round(0),
@@ -710,50 +714,50 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int) []CPFA
 	balances := cpfCtx.Balances
 	return []CPFAssetResponse{
 		{
-			ID:           "cpf-oa",
-			ParentID:     "cpf",
-			Name:         "CPF Ordinary Account",
-			Category:     "cpf",
-			Balance:      *balances.AccumulatedOA.Round(0),
-			AdjBalance:   *balances.AccumulatedOA.Round(0),
-			ItemType:     "cpf_account",
-			StartDate:    "",
+			ID:         "cpf-oa",
+			ParentID:   "cpf",
+			Name:       "CPF Ordinary Account",
+			Category:   "cpf",
+			Balance:    *balances.AccumulatedOA.Round(0),
+			AdjBalance: *balances.AccumulatedOA.Round(0),
+			ItemType:   "cpf_account",
+			StartDate:  "",
 			StartYear:  yearIndex,
 			StartMonth: month,
 		},
 		{
-			ID:           "cpf-sa",
-			ParentID:     "cpf",
-			Name:         "CPF Special Account",
-			Category:     "cpf",
-			Balance:      *balances.AccumulatedSA.Round(0),
-			AdjBalance:   *balances.AccumulatedSA.Round(0),
-			ItemType:     "cpf_account",
-			StartDate:    "",
+			ID:         "cpf-sa",
+			ParentID:   "cpf",
+			Name:       "CPF Special Account",
+			Category:   "cpf",
+			Balance:    *balances.AccumulatedSA.Round(0),
+			AdjBalance: *balances.AccumulatedSA.Round(0),
+			ItemType:   "cpf_account",
+			StartDate:  "",
 			StartYear:  yearIndex,
 			StartMonth: month,
 		},
 		{
-			ID:           "cpf-ma",
-			ParentID:     "cpf",
-			Name:         "CPF MediSave Account",
-			Category:     "cpf",
-			Balance:      *balances.AccumulatedMA.Round(0),
-			AdjBalance:   *balances.AccumulatedMA.Round(0),
-			ItemType:     "cpf_account",
-			StartDate:    "",
+			ID:         "cpf-ma",
+			ParentID:   "cpf",
+			Name:       "CPF MediSave Account",
+			Category:   "cpf",
+			Balance:    *balances.AccumulatedMA.Round(0),
+			AdjBalance: *balances.AccumulatedMA.Round(0),
+			ItemType:   "cpf_account",
+			StartDate:  "",
 			StartYear:  yearIndex,
 			StartMonth: month,
 		},
 		{
-			ID:           "cpf-ra",
-			ParentID:     "cpf",
-			Name:         "CPF Retirement Account",
-			Category:     "cpf",
-			Balance:      *balances.AccumulatedRA.Round(0),
-			AdjBalance:   *balances.AccumulatedRA.Round(0),
-			ItemType:     "cpf_account",
-			StartDate:    "",
+			ID:         "cpf-ra",
+			ParentID:   "cpf",
+			Name:       "CPF Retirement Account",
+			Category:   "cpf",
+			Balance:    *balances.AccumulatedRA.Round(0),
+			AdjBalance: *balances.AccumulatedRA.Round(0),
+			ItemType:   "cpf_account",
+			StartDate:  "",
 			StartYear:  yearIndex,
 			StartMonth: month,
 		},
@@ -797,10 +801,10 @@ func buildMonthDetailResponse(
 	netWorth := totalAssets.Sub(liabilityTotal)
 
 	return MonthDetailResponse{
-		Year:           baseYear + yearIndex,
-		Month:          month,
-		AllYearsIndex:  yearIndex,
-		AllMonthsIndex: monthIndex,
+		Year:                 baseYear + yearIndex,
+		Month:                month,
+		AllYearsIndex:        yearIndex,
+		AllMonthsIndex:       monthIndex,
 		NonCashAssets:        nonCashAssets,
 		CashAssets:           cashAssets,
 		CPFAssets:            cpfAssets,
