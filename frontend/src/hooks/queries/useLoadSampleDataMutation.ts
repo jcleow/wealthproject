@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/services/financialApi'
 import type { Income, Expense } from '@/types/financial'
+import type { CPFAccountCreatePayload } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
@@ -26,6 +27,28 @@ export function useLoadSampleDataMutation() {
         financialApi.deleteAllCashAccounts(),
         financialApi.deleteAllScenarioEvents(),
       ])
+
+      // Ensure CPF profile exists so timeline v2 can show CPF assets and contributions
+      const sampleCPFAccount: CPFAccountCreatePayload = {
+        oaBalance: 85000,
+        saBalance: 45000,
+        maBalance: 32000,
+        raBalance: 0,
+        oaUsedForHousing: 0,
+        dateOfBirth: '1993-01-01',
+        residencyStatus: 'citizen',
+      }
+
+      try {
+        const existingCPF = await financialApi.getCPFAccount()
+        if (existingCPF) {
+          await financialApi.updateCPFAccount(sampleCPFAccount)
+        } else {
+          await financialApi.createCPFAccount(sampleCPFAccount)
+        }
+      } catch (error) {
+        console.error('[loadSampleData] Failed to upsert CPF account', error)
+      }
 
       // Sample data for a 32-year-old Singaporean professional
       // Planning: marriage, BTO flat, car, retirement by 60
