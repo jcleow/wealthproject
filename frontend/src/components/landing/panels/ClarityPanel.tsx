@@ -15,57 +15,130 @@ export function ClarityPanel() {
     if (!container) return
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      container.querySelectorAll('.clarity-title, .clarity-subtitle, .demo-container').forEach((el) =>
-        el.classList.remove('opacity-0')
-      )
+      container.querySelectorAll('[data-animate]').forEach((el) => {
+        ;(el as HTMLElement).style.opacity = '1'
+        ;(el as HTMLElement).style.transform = 'none'
+      })
       return
     }
 
-    const title = container.querySelector('.clarity-title')
-    const subtitle = container.querySelector('.clarity-subtitle')
-    const demo = container.querySelector('.demo-container')
+    const ctx = gsap.context(() => {
+      // Title animation
+      gsap.fromTo(
+        '.clarity-header',
+        { opacity: 0, y: 40 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.8,
+          scrollTrigger: {
+            trigger: container,
+            start: 'top 70%',
+            toggleActions: 'play none none reverse',
+          },
+        }
+      )
 
-    gsap.set([title, subtitle], { opacity: 0, y: 30 })
-    gsap.set(demo, { opacity: 0, y: 40 })
+      // Demo widget with scale entrance
+      gsap.fromTo(
+        '.clarity-demo',
+        { opacity: 0, y: 60, scale: 0.98 },
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 1,
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: '.clarity-demo',
+            start: 'top 75%',
+            toggleActions: 'play none none reverse',
+          },
+        }
+      )
 
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: container,
-        start: 'top 70%',
-        end: 'bottom 30%',
-        toggleActions: 'play none none reverse',
-      },
-    })
+      // Footer text
+      gsap.fromTo(
+        '.clarity-footer',
+        { opacity: 0 },
+        {
+          opacity: 1,
+          duration: 0.6,
+          scrollTrigger: {
+            trigger: '.clarity-footer',
+            start: 'top 90%',
+            toggleActions: 'play none none reverse',
+          },
+        }
+      )
+    }, container)
 
-    tl.to(title, { opacity: 1, y: 0, duration: 0.6 })
-    tl.to(subtitle, { opacity: 1, y: 0, duration: 0.5 }, '-=0.3')
-    tl.to(demo, { opacity: 1, y: 0, duration: 0.8 }, '-=0.2')
-
-    return () => {
-      tl.kill()
-    }
+    return () => ctx.revert()
   }, [])
 
   return (
     <div
       ref={containerRef}
-      className="landing-panel relative flex min-h-screen flex-col items-center justify-center px-4 py-20"
+      className="landing-panel relative flex min-h-screen flex-col items-center justify-center px-6 py-24"
     >
-      <h2 className="clarity-title mb-4 text-center text-2xl font-semibold text-white opacity-0 md:text-4xl">
-        See your future, clearly
-      </h2>
-      <p className="clarity-subtitle mb-12 max-w-lg text-center text-slate-500 opacity-0">
-        Toggle scenarios on and off. Watch your net worth projection update
-        instantly.
-      </p>
-
-      <div className="demo-container w-full max-w-2xl opacity-0">
-        <ScenarioDemoWidget />
+      {/* Section header */}
+      <div className="clarity-header mb-16 max-w-3xl text-center opacity-0" data-animate>
+        <div className="mb-6 flex items-center justify-center gap-4">
+          <div className="landing-rule w-12" />
+          <span
+            className="landing-body text-xs font-medium uppercase tracking-[0.25em]"
+            style={{ color: 'var(--landing-gold)' }}
+          >
+            The Solution
+          </span>
+          <div className="landing-rule w-12" />
+        </div>
+        <h2
+          className="landing-display text-4xl md:text-5xl lg:text-6xl"
+          style={{ color: 'var(--landing-text-primary)' }}
+        >
+          See your future,
+          <br />
+          <span className="landing-display-italic landing-gold-text">clearly</span>
+        </h2>
+        <p
+          className="landing-body mx-auto mt-6 max-w-lg text-base"
+          style={{ color: 'var(--landing-text-muted)' }}
+        >
+          Toggle scenarios on and off. Watch your net worth projection update
+          instantly.
+        </p>
       </div>
 
-      <p className="mt-8 text-center text-sm text-slate-600">
-        What takes hours in spreadsheets, Assetra does in seconds.
-      </p>
+      {/* Demo widget container */}
+      <div
+        className="clarity-demo w-full max-w-2xl rounded-2xl border p-1 opacity-0"
+        style={{
+          borderColor: 'var(--landing-border-accent)',
+          background: 'linear-gradient(180deg, rgba(201, 169, 98, 0.05) 0%, transparent 100%)',
+        }}
+        data-animate
+      >
+        <div
+          className="rounded-xl"
+          style={{ background: 'var(--landing-surface)' }}
+        >
+          <ScenarioDemoWidget />
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="clarity-footer mt-12 text-center opacity-0" data-animate>
+        <p
+          className="landing-body text-sm"
+          style={{ color: 'var(--landing-text-muted)' }}
+        >
+          What takes hours in spreadsheets,
+        </p>
+        <p className="landing-display-italic mt-1 text-lg" style={{ color: 'var(--landing-gold)' }}>
+          Assetra does in seconds.
+        </p>
+      </div>
     </div>
   )
 }

@@ -40,7 +40,8 @@ export function LandingPage() {
   return (
     <div
       ref={containerRef}
-      className="landing-wrapper relative min-h-screen overflow-x-hidden bg-[#050914]"
+      className="landing-wrapper landing-grain relative min-h-screen overflow-x-hidden"
+      style={{ background: 'var(--landing-bg)' }}
     >
       {/* Flow Field Background - the Loki timeline effect */}
       {!prefersReducedMotion && (
@@ -49,14 +50,28 @@ export function LandingPage() {
         </div>
       )}
 
-      {/* Gradient overlay for text readability */}
+      {/* Gradient overlays for depth and text readability */}
       <div className="pointer-events-none fixed inset-0 z-[1]">
+        {/* Central vignette */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse at center, transparent 0%, rgba(5, 9, 20, 0.4) 50%, rgba(5, 9, 20, 0.8) 100%)',
+              'radial-gradient(ellipse at center, transparent 0%, rgba(7, 11, 20, 0.5) 50%, rgba(7, 11, 20, 0.9) 100%)',
           }}
+        />
+        {/* Top gradient for header area */}
+        <div
+          className="absolute inset-x-0 top-0 h-40"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(7, 11, 20, 0.8) 0%, transparent 100%)',
+          }}
+        />
+        {/* Subtle gold ambient glow */}
+        <div
+          className="absolute bottom-0 left-1/2 h-[600px] w-[800px] -translate-x-1/2 translate-y-1/2 rounded-full opacity-[0.03] blur-3xl"
+          style={{ background: 'var(--landing-gold)' }}
         />
       </div>
 

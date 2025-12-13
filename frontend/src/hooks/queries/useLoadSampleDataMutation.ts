@@ -95,6 +95,7 @@ export function useLoadSampleDataMutation() {
           startDate: todayIso,
           growthRate: 4.0,
           cpfApplicable: true,
+          cpfWageType: "aw",
           notes: 'Mid-senior role at tech company, 10 years experience',
         },
         // {

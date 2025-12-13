@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -141,7 +143,68 @@
   stroke: none !important;
 }
 
+/* Landing page design tokens */
+.landing-wrapper {
+  --landing-bg: #070B14;
+  --landing-surface: #0C1119;
+  --landing-surface-elevated: #111820;
+  --landing-border: rgba(255, 255, 255, 0.06);
+  --landing-border-accent: rgba(201, 169, 98, 0.3);
+  --landing-gold: #C9A962;
+  --landing-gold-light: #E5D4A8;
+  --landing-gold-muted: rgba(201, 169, 98, 0.15);
+  --landing-text-primary: #F8F6F1;
+  --landing-text-secondary: #9CA3AF;
+  --landing-text-muted: #5B6370;
+  --landing-emerald: #10B981;
+  --landing-rose: #F43F5E;
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+}
+
 /* Landing page animations */
+@keyframes landing-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes landing-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes landing-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes landing-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes landing-pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes landing-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
 @keyframes particle-float {
   0%,
   100% {
@@ -158,6 +221,108 @@
   75% {
     transform: translateY(-10px) translateX(3px) scale(0.9);
   }
+}
+
+/* Landing typography utilities */
+.landing-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.landing-display-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.landing-body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.6;
+}
+
+/* Grain texture overlay */
+.landing-grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  z-index: 1000;
+}
+
+/* Gold gradient text */
+.landing-gold-text {
+  background: linear-gradient(135deg, var(--landing-gold) 0%, var(--landing-gold-light) 50%, var(--landing-gold) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animated gold shimmer */
+.landing-gold-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--landing-gold) 0%,
+    var(--landing-gold-light) 25%,
+    var(--landing-gold) 50%,
+    var(--landing-gold-light) 75%,
+    var(--landing-gold) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: landing-shimmer 4s linear infinite;
+}
+
+/* Luxury card styling */
+.landing-card {
+  background: linear-gradient(
+    180deg,
+    rgba(17, 24, 32, 0.8) 0%,
+    rgba(12, 17, 25, 0.9) 100%
+  );
+  border: 1px solid var(--landing-border);
+  backdrop-filter: blur(20px);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.landing-card:hover {
+  border-color: var(--landing-border-accent);
+  transform: translateY(-2px);
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.3),
+    0 0 60px rgba(201, 169, 98, 0.05);
+}
+
+/* Fine rule lines */
+.landing-rule {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--landing-border) 20%,
+    var(--landing-border) 80%,
+    transparent 100%
+  );
+}
+
+.landing-rule-gold {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--landing-gold-muted) 20%,
+    var(--landing-gold) 50%,
+    var(--landing-gold-muted) 80%,
+    transparent 100%
+  );
 }
 
 /* Smooth scroll for mobile fallback */
