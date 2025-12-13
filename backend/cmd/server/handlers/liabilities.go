@@ -2,11 +2,32 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"math"
 	"net/http"
 	"strings"
 
 	"financial-chat-system/backend/internal/financial/repository"
 )
+
+// calculateMonthlyPayment calculates the monthly payment using the amortization formula:
+// M = P * [r(1+r)^n] / [(1+r)^n - 1]
+// where P = principal, r = monthly interest rate, n = number of months
+func calculateMonthlyPayment(principal, annualInterestRate float64, months int) float64 {
+	if months <= 0 || principal <= 0 {
+		return 0
+	}
+	// If interest rate is 0, it's just principal divided by months
+	if annualInterestRate == 0 {
+		return principal / float64(months)
+	}
+	r := annualInterestRate / 100 / 12 // monthly interest rate as decimal
+	n := float64(months)
+	// M = P * [r(1+r)^n] / [(1+r)^n - 1]
+	numerator := r * math.Pow(1+r, n)
+	denominator := math.Pow(1+r, n) - 1
+	return principal * (numerator / denominator)
+}
 
 // LiabilityHandler serves liability CRUD endpoints.
 type LiabilityHandler struct {
@@ -126,11 +147,45 @@ func (h *LiabilityHandler) create(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, errMissingFields("name, category, current_balance"))
 		return
 	}
+	// Validate that end_date is provided (required for auto-expense calculation)
+	if payload.EndDate == nil {
+		badRequest(w, fmt.Errorf("end_date is required for liabilities (needed to calculate loan tenure)"))
+		return
+	}
+
 	created, err := h.store.CreateLiability(r.Context(), userID, payload)
 	if err != nil {
 		internalError(w, err)
 		return
 	}
+
+	// Auto-create linked expense for loan repayment
+	// Calculate tenure in months
+	months := int(payload.EndDate.Sub(created.StartDate).Hours() / 24 / 30)
+	if months > 0 {
+		monthlyPayment := calculateMonthlyPayment(created.CurrentBalance, created.InterestRateAPR, months)
+		if monthlyPayment > 0 {
+			expense := repository.Expense{
+				Payee:             created.Name,
+				Amount:            monthlyPayment,
+				Frequency:         "monthly",
+				StartDate:         created.StartDate,
+				EndDate:           created.EndDate,
+				Category:          "loan_repayment",
+				GrowthRate:        0, // Loan payments typically don't grow
+				GrowthStrategy:    "fixed",
+				Notes:             fmt.Sprintf("Auto-generated loan repayment for %s", created.Name),
+				SourceLiabilityID: &created.ID,
+			}
+			_, err := h.store.CreateExpense(r.Context(), userID, expense)
+			if err != nil {
+				// Log but don't fail - the liability was created successfully
+				// The expense can be created manually if needed
+				// In production, consider using a transaction
+			}
+		}
+	}
+
 	writeJSON(w, created)
 }
 

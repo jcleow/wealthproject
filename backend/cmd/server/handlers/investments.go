@@ -135,6 +135,10 @@ func (h *InvestmentHandler) delete(w http.ResponseWriter, r *http.Request, id st
 	if !ok {
 		return
 	}
+
+	// Cascade delete: remove linked incomes first (polymorphic FK, must be done in app layer)
+	_ = h.store.DeleteIncomesBySource(r.Context(), userID, "investment", id)
+
 	if err := h.store.DeleteInvestment(r.Context(), userID, id); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)

@@ -165,6 +165,9 @@ func (h *CashAccountHandler) delete(w http.ResponseWriter, r *http.Request, id s
 		return
 	}
 
+	// Cascade delete: remove linked incomes first (polymorphic FK, must be done in app layer)
+	_ = h.store.DeleteIncomesBySource(r.Context(), userID, "cash_account", id)
+
 	if err := h.store.DeleteCashAccount(r.Context(), userID, id); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
