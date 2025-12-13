@@ -289,6 +289,19 @@ When generating or modifying Go code, follow these principles:
 - Maintain clean naming, meaningful types, and small readable functions.
 - Avoid trivial flags/columns that can be computed on the fly — prefer computed values over storing redundant state (e.g., don't store `HasCashDeficit` when it can be derived from `AccumulatedCashEnd < 0`).
 
+### Function Length & Organization
+- **Functions should not exceed 30 lines** — if longer, extract logic into helper functions
+- **Place helper functions ABOVE the functions that use them** in the same file
+- Each function should do one thing well
+- Use clear section headers to organize files:
+  ```go
+  // =============================================================================
+  // Section Name (e.g., Types, Helpers, Public Methods)
+  // =============================================================================
+  ```
+- Name helper functions descriptively (e.g., `buildNonCashAssetResponses`, `annualToMonthlyRate`)
+- Helper functions should be private (lowercase) unless needed externally
+
 ### Interface Design Principles
 - **Interfaces are for CONSUMERS, not CREATORS**: Return concrete types from functions; let consumers define interfaces they need
 - **Avoid factory patterns**: Factory patterns from Java/C# have no place in Go; they create brittle code due to misuse of Go interface types
