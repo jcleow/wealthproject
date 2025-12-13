@@ -12,6 +12,7 @@ export const QUERY_KEYS = {
   financial: {
     all: ['financial'] as const,
     assets: ['financial', 'assets'] as const,
+    investments: ['financial', 'investments'] as const,
     liabilities: ['financial', 'liabilities'] as const,
     incomes: ['financial', 'incomes'] as const,
     expenses: ['financial', 'expenses'] as const,

@@ -21,6 +21,7 @@ export function useLoadSampleDataMutation() {
       // First clear all data
       await Promise.all([
         financialApi.deleteAllAssets(),
+        financialApi.deleteAllInvestments(),
         financialApi.deleteAllLiabilities(),
         financialApi.deleteAllIncomes(),
         financialApi.deleteAllExpenses(),
@@ -53,6 +54,8 @@ export function useLoadSampleDataMutation() {
       // Sample data for a 32-year-old Singaporean professional
       // Planning: marriage, BTO flat, car, retirement by 60
       const todayIso = new Date().toISOString()
+
+      // Non-investment assets (Bank Accounts stay in assets table)
       const sampleAssets = [
         {
           name: 'DBS Multiplier Account',
@@ -62,6 +65,18 @@ export function useLoadSampleDataMutation() {
           startDate: todayIso,
           notes: 'Main savings account with salary crediting',
         },
+        {
+          name: 'Emergency Fund',
+          category: 'Bank Account',
+          currentValue: 18000,
+          annualGrowthRate: 2.0,
+          startDate: todayIso,
+          notes: '6 months expenses in high-yield savings',
+        },
+      ]
+
+      // Investments go to the finance_investments table
+      const sampleInvestments = [
         {
           name: 'Syfe Core Growth Portfolio',
           category: 'Investment',
@@ -77,14 +92,6 @@ export function useLoadSampleDataMutation() {
           annualGrowthRate: 3.0,
           startDate: todayIso,
           notes: 'Safe haven, 10-year average yield',
-        },
-        {
-          name: 'Emergency Fund',
-          category: 'Bank Account',
-          currentValue: 18000,
-          annualGrowthRate: 2.0,
-          startDate: todayIso,
-          notes: '6 months expenses in high-yield savings',
         },
       ]
 
@@ -459,8 +466,9 @@ export function useLoadSampleDataMutation() {
         },
       ]
 
-      const [assets, liabilities, incomes, expenses] = await Promise.all([
+      const [assets, investments, liabilities, incomes, expenses] = await Promise.all([
         Promise.all(sampleAssets.map(asset => financialApi.createAsset(asset))),
+        Promise.all(sampleInvestments.map(investment => financialApi.createInvestment(investment))),
         Promise.all(sampleLiabilities.map(liability => financialApi.createLiability(liability))),
         Promise.all(sampleIncomes.map(income => financialApi.createIncome(income))),
         Promise.all(sampleExpenses.map(expense => financialApi.createExpense(expense))),
@@ -587,11 +595,12 @@ export function useLoadSampleDataMutation() {
         scenarioEvents.push(createdEvent)
       }
 
-      return { assets, liabilities, incomes, expenses, scenarioEvents }
+      return { assets, investments, liabilities, incomes, expenses, scenarioEvents }
     },
     onSuccess: (data) => {
       // Update all caches with the new data - this immediately updates the UI
       queryClient.setQueryData(QUERY_KEYS.financial.assets, data.assets)
+      queryClient.setQueryData(QUERY_KEYS.financial.investments, data.investments)
       queryClient.setQueryData(QUERY_KEYS.financial.liabilities, data.liabilities)
       queryClient.setQueryData(QUERY_KEYS.financial.incomes, data.incomes)
       queryClient.setQueryData(QUERY_KEYS.financial.expenses, data.expenses)

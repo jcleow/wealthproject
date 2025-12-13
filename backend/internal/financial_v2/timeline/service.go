@@ -43,6 +43,7 @@ type FinancialDataRow struct {
 // EffectiveRows holds all financial data organized by type
 type EffectiveRows struct {
 	NonCashAssets []FinancialDataRow
+	Investments   []FinancialDataRow
 	CashAssets    []FinancialDataRow
 	Liabilities   []FinancialDataRow
 	Incomes       []FinancialDataRow
@@ -115,24 +116,6 @@ func transformInvestments(investments []repo.Investment) []FinancialDataRow {
 		})
 	}
 	return rows
-}
-
-func combineNonCashAndInvestments(nonCash, investments []FinancialDataRow) []FinancialDataRow {
-	combined := make([]FinancialDataRow, 0, len(nonCash)+len(investments))
-	combined = append(combined, nonCash...)
-	combined = append(combined, investments...)
-
-	sort.Slice(combined, func(i, j int) bool {
-		if combined[i].StartDate.Equal(combined[j].StartDate) {
-			if combined[i].ParentID == combined[j].ParentID {
-				return combined[i].ID < combined[j].ID
-			}
-			return combined[i].ParentID < combined[j].ParentID
-		}
-		return combined[i].StartDate.Before(combined[j].StartDate)
-	})
-
-	return combined
 }
 
 // transformCashAssets converts repository.CashAsset to FinancialDataRow
@@ -284,13 +267,10 @@ func (s *Service) loadEffectiveRows(
 	}
 
 	// Transform repository types to FinancialDataRow
-	combinedNonCash := combineNonCashAndInvestments(
-		transformNonCashAssets(nonCashAssets.Data),
-		transformInvestments(investments.Data),
-	)
 	return SGFinancialDataRows{
 		Rows: EffectiveRows{
-			NonCashAssets: combinedNonCash,
+			NonCashAssets: transformNonCashAssets(nonCashAssets.Data),
+			Investments:   transformInvestments(investments.Data),
 			CashAssets:    transformCashAssets(cashAssets.Data),
 			Liabilities:   transformLiabilities(liabilities.Data),
 			Incomes:       transformIncomes(incomes.Data),
@@ -410,6 +390,7 @@ func earliestStartDateFromRows(rows EffectiveRows) (time.Time, bool) {
 
 	sources := [][]FinancialDataRow{
 		rows.NonCashAssets,
+		rows.Investments,
 		rows.CashAssets,
 		rows.Liabilities,
 		rows.Incomes,
@@ -484,6 +465,7 @@ func initializeItemStates(data EffectiveRows, baseYear int) ItemStateMap {
 
 	allRows := [][]FinancialDataRow{
 		data.NonCashAssets,
+		data.Investments,
 		data.CashAssets,
 		data.Liabilities,
 		data.Incomes,
@@ -553,6 +535,7 @@ func applyAllGrowth(data EffectiveRows, ctx *GrowthContext) {
 	applyGrowth(data.Expenses, ctx, growth.StrategyAnnualStep)
 	// Assets/Liabilities use monthly compound growth
 	applyGrowth(data.NonCashAssets, ctx, growth.StrategyMonthlyCompound)
+	applyGrowth(data.Investments, ctx, growth.StrategyMonthlyCompound)
 	applyGrowth(data.CashAssets, ctx, growth.StrategyMonthlyCompound)
 	applyGrowth(data.Liabilities, ctx, growth.StrategyMonthlyCompound)
 }
@@ -605,6 +588,37 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 		total = total.Add(state.Balance)
 		balance := state.Balance.Round(0)
 		responses = append(responses, NonCashAssetResponse{
+			ID:         row.ID,
+			ParentID:   row.ParentID,
+			Name:       row.Name,
+			Category:   row.Category,
+			Balance:    *balance,
+			AdjBalance: *balance,
+			ItemType:   string(row.ItemType),
+			StartDate:  row.StartDate.Format("2006-01-02"),
+			StartYear:  state.StartYear,
+			StartMonth: state.StartMonth,
+		})
+	}
+	return responses, total
+}
+
+// buildInvestmentResponses builds responses for investments and returns total value
+func buildInvestmentResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) ([]InvestmentResponse, *decimal.Decimal) {
+	responses := make([]InvestmentResponse, 0)
+	total := decimal.Zero()
+
+	for _, row := range rows {
+		if !isActiveInMonth(row, date) {
+			continue
+		}
+		state := itemStates[row.ID]
+		if state == nil {
+			continue
+		}
+		total = total.Add(state.Balance)
+		balance := state.Balance.Round(0)
+		responses = append(responses, InvestmentResponse{
 			ID:         row.ID,
 			ParentID:   row.ParentID,
 			Name:       row.Name,
@@ -892,6 +906,7 @@ func buildMonthDetailResponse(
 
 	// Build all item responses
 	nonCashAssets, nonCashTotal := buildNonCashAssetResponses(data.NonCashAssets, itemStates, date)
+	investments, investmentTotal := buildInvestmentResponses(data.Investments, itemStates, date)
 	cashAssets, cashTotal, accumulatorID := buildCashAssetResponses(data.CashAssets, itemStates, date, cashAccumulator)
 	liabilities, liabilityTotal := buildLiabilityResponses(data.Liabilities, itemStates, date)
 	incomes := buildIncomeResponses(data.Incomes, itemStates, date, cpfContributions)
@@ -906,7 +921,7 @@ func buildMonthDetailResponse(
 	}
 
 	// Calculate totals
-	totalAssets := decimal.Zero().Add(nonCashTotal).Add(cashTotal).Add(cashAccumulator).Add(cpfTotal)
+	totalAssets := decimal.Zero().Add(nonCashTotal).Add(investmentTotal).Add(cashTotal).Add(cashAccumulator).Add(cpfTotal)
 	netWorth := totalAssets.Sub(liabilityTotal)
 
 	return MonthDetailResponse{
@@ -915,6 +930,7 @@ func buildMonthDetailResponse(
 		AllYearsIndex:        yearIndex,
 		AllMonthsIndex:       monthIndex,
 		NonCashAssets:        nonCashAssets,
+		Investments:          investments,
 		CashAssets:           cashAssets,
 		CPFAssets:            cpfAssets,
 		Liabilities:          liabilities,

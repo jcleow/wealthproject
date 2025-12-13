@@ -87,6 +87,7 @@ type MonthDetailResponse struct {
 	AllYearsIndex    int                       `json:"allYearsIndex"`
 	AllMonthsIndex   int                       `json:"allMonthsIndex"`
 	NonCashAssets    []NonCashAssetResponse    `json:"nonCashAssets"`
+	Investments      []InvestmentResponse      `json:"investments"`
 	CashAssets       []CashAssetResponse       `json:"cashAssets"`
 	CPFAssets        []CPFAssetResponse        `json:"cpfAssets"`
 	Liabilities      []LiabilityResponse       `json:"liabilities"`
@@ -104,6 +105,20 @@ type MonthDetailResponse struct {
 
 // NonCashAssetResponse represents a non-cash asset in the timeline response
 type NonCashAssetResponse struct {
+	ID         string          `json:"id"`
+	ParentID   string          `json:"parentId"`
+	Name       string          `json:"name"`
+	Category   string          `json:"category"`
+	Balance    decimal.Decimal `json:"balance"`
+	AdjBalance decimal.Decimal `json:"adjBalance"`
+	ItemType   string          `json:"itemType"`
+	StartDate  string          `json:"startDate"`
+	StartYear  int             `json:"startYear"`
+	StartMonth int             `json:"startMonth"`
+}
+
+// InvestmentResponse keeps investments separate from non-cash assets
+type InvestmentResponse struct {
 	ID         string          `json:"id"`
 	ParentID   string          `json:"parentId"`
 	Name       string          `json:"name"`
