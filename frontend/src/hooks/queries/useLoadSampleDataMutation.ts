@@ -29,7 +29,9 @@ export function useLoadSampleDataMutation() {
 
       // Sample data for a 32-year-old Singaporean professional
       // Planning: marriage, BTO flat, car, retirement by 60
-      const currentYear = new Date().getFullYear()
+      const today = new Date()
+      const currentYear = today.getFullYear()
+      const currentMonth = today.getMonth() + 1 // 1-12
       const sampleAssets = [
         {
           name: 'DBS Multiplier Account',
@@ -37,6 +39,7 @@ export function useLoadSampleDataMutation() {
           currentValue: 25000,
           annualGrowthRate: 2.5,
           startYear: currentYear,
+          startMonth: currentMonth,
           notes: 'Main savings account with salary crediting',
         },
         {
@@ -45,6 +48,7 @@ export function useLoadSampleDataMutation() {
           currentValue: 85000,
           annualGrowthRate: 2.5,
           startYear: currentYear,
+          startMonth: currentMonth,
           notes: '10 years of contributions, can be used for housing',
         },
         {
@@ -53,6 +57,7 @@ export function useLoadSampleDataMutation() {
           currentValue: 45000,
           annualGrowthRate: 4.0,
           startYear: currentYear,
+          startMonth: currentMonth,
           notes: 'Cannot touch until 55, higher interest rate',
         },
         {
@@ -61,6 +66,7 @@ export function useLoadSampleDataMutation() {
           currentValue: 32000,
           annualGrowthRate: 4.0,
           startYear: currentYear,
+          startMonth: currentMonth,
           notes: 'Medical expenses and insurance premiums',
         },
         {
@@ -69,6 +75,7 @@ export function useLoadSampleDataMutation() {
           currentValue: 35000,
           annualGrowthRate: 6.0,
           startYear: currentYear,
+          startMonth: currentMonth,
           notes: 'Global ETF robo-advisor, monthly DCA $500',
         },
         {
@@ -77,6 +84,7 @@ export function useLoadSampleDataMutation() {
           currentValue: 20000,
           annualGrowthRate: 3.0,
           startYear: currentYear,
+          startMonth: currentMonth,
           notes: 'Safe haven, 10-year average yield',
         },
         {
@@ -85,6 +93,7 @@ export function useLoadSampleDataMutation() {
           currentValue: 18000,
           annualGrowthRate: 2.0,
           startYear: currentYear,
+          startMonth: currentMonth,
           notes: '6 months expenses in high-yield savings',
         },
       ]
@@ -97,6 +106,7 @@ export function useLoadSampleDataMutation() {
           interestRateApr: 4.5,
           minimumPayment: 250,
           startYear: currentYear,
+          startMonth: currentMonth,
           notes: 'Remaining balance from university, 3 years left',
         },
         {
@@ -106,11 +116,12 @@ export function useLoadSampleDataMutation() {
           interestRateApr: 26,
           minimumPayment: 50,
           startYear: currentYear,
+          startMonth: currentMonth,
           notes: 'Paid in full monthly, revolving for cashback',
         },
       ]
 
-      const nowIso = new Date().toISOString()
+      const nowIso = today.toISOString()
       const sampleIncomes: Array<Omit<Income, 'id' | 'updatedAt'>> = [
         {
           source: 'Software Engineer Salary',
@@ -119,6 +130,7 @@ export function useLoadSampleDataMutation() {
           frequency: 'monthly',
           startDate: nowIso,
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 4.0,
           notes: 'Mid-senior role at tech company, 10 years experience',
         },
@@ -151,6 +163,7 @@ export function useLoadSampleDataMutation() {
           amount: 500,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 2.0,
           notes: 'Monthly contribution to parents',
         },
@@ -160,6 +173,7 @@ export function useLoadSampleDataMutation() {
           amount: 1200,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 3.0,
           notes: 'Master bedroom in shared HDB, Toa Payoh',
         },
@@ -169,6 +183,7 @@ export function useLoadSampleDataMutation() {
           amount: 600,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 3.0,
           notes: 'Mix of cooking and hawker center meals',
         },
@@ -178,6 +193,7 @@ export function useLoadSampleDataMutation() {
           amount: 400,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 2.0,
           notes: 'Restaurants, dates, gatherings with friends',
         },
@@ -187,6 +203,7 @@ export function useLoadSampleDataMutation() {
           amount: 120,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 2.0,
           notes: 'MRT and bus, monthly concession',
         },
@@ -196,6 +213,7 @@ export function useLoadSampleDataMutation() {
           amount: 100,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 3.0,
           notes: 'Late nights and rainy days',
         },
@@ -205,6 +223,7 @@ export function useLoadSampleDataMutation() {
           amount: 45,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 0,
           notes: 'Circles.Life SIM-only plan',
         },
@@ -214,6 +233,7 @@ export function useLoadSampleDataMutation() {
           amount: 50,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 2.0,
           notes: 'Netflix, Spotify, iCloud',
         },
@@ -223,6 +243,7 @@ export function useLoadSampleDataMutation() {
           amount: 150,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 0,
           notes: 'NTUC Income term life, $500k coverage',
         },
@@ -232,6 +253,7 @@ export function useLoadSampleDataMutation() {
           amount: 80,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 5.0,
           notes: 'Integrated Shield Plan rider, paid from Medisave + cash',
         },
@@ -241,6 +263,7 @@ export function useLoadSampleDataMutation() {
           amount: 100,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 2.0,
           notes: 'ActiveSG + occasional ClassPass',
         },
@@ -250,6 +273,7 @@ export function useLoadSampleDataMutation() {
           amount: 80,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 2.0,
           notes: 'Haircut, toiletries, etc',
         },
@@ -259,6 +283,7 @@ export function useLoadSampleDataMutation() {
           amount: 200,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 2.0,
           notes: 'Clothes, gadgets, movies',
         },
@@ -268,6 +293,7 @@ export function useLoadSampleDataMutation() {
           amount: 500,
           frequency: 'monthly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 3.0,
           notes: 'Monthly DCA to Syfe portfolio',
         },
@@ -277,6 +303,7 @@ export function useLoadSampleDataMutation() {
           amount: 4000,
           frequency: 'yearly',
           startYear: currentYear,
+          startMonth: currentMonth,
           growthRate: 3.0,
           notes: '1-2 overseas trips per year (Japan, Thailand, etc)',
         },
