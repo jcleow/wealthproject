@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/repository"
 )
@@ -40,15 +41,16 @@ type TimelineAnnualChartResponse struct {
 	ScenarioIds []string                 `json:"scenarioIds"`
 }
 
-type Frequency string
+// Frequency is an alias to common.Frequency for backward compatibility
+type Frequency = common.Frequency
 
 const (
-	FrequencyAnnual     Frequency = "annual"
-	FrequencyMonthly    Frequency = "monthly"
-	FrequencyWeekly     Frequency = "weekly"
-	FrequencyBiweekly   Frequency = "biweekly"
-	FrequencyQuarterly  Frequency = "quarterly"
-	FrequencySemiannual Frequency = "semiannual"
+	FrequencyAnnual     = common.FrequencyAnnual
+	FrequencyMonthly    = common.FrequencyMonthly
+	FrequencyWeekly     = common.FrequencyWeekly
+	FrequencyBiweekly   = common.FrequencyBiweekly
+	FrequencyQuarterly  = common.FrequencyQuarterly
+	FrequencySemiannual = common.FrequencySemiannual
 )
 
 type Store interface {
