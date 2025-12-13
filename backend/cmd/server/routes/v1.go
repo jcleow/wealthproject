@@ -18,16 +18,16 @@ import (
 
 // V1Dependencies holds all dependencies needed to create v1 handlers
 type V1Dependencies struct {
-	LLMManager         *llm.ClientManager
-	PreviewService     *financial.ActionPreviewService
-	SessionStore       *session.Store
-	FinancialClient    *financial.Client
-	UsageRepo          *usage.Repository
-	DefaultModel       string
-	DefaultMaxTokens   int
-	TimelineService    *timeline.Service
-	FinStore           *finRepo.Store
-	CPFAccountRepo     *account.Repository
+	LLMManager       *llm.ClientManager
+	PreviewService   *financial.ActionPreviewService
+	SessionStore     *session.Store
+	FinancialClient  *financial.Client
+	UsageRepo        *usage.Repository
+	DefaultModel     string
+	DefaultMaxTokens int
+	TimelineService  *timeline.Service
+	FinStore         *finRepo.Store
+	CPFAccountRepo   *account.Repository
 }
 
 // SetupV1Router creates and configures the v1 API router with all middleware and routes
@@ -80,6 +80,7 @@ func RegisterV1Routes(router *mux.Router, deps V1Dependencies) {
 
 	// Financial CRUD endpoints (using RegisterRoutes pattern)
 	assetHandler := handlers.NewAssetHandler(deps.FinStore)
+	investmentHandler := handlers.NewInvestmentHandler(deps.FinStore)
 	liabilityHandler := handlers.NewLiabilityHandler(deps.FinStore)
 	incomeHandler := handlers.NewIncomeHandler(deps.FinStore)
 	expenseHandler := handlers.NewExpenseHandler(deps.FinStore)
@@ -90,6 +91,7 @@ func RegisterV1Routes(router *mux.Router, deps V1Dependencies) {
 	cpfHandler := handlers.NewCPFHandler(deps.CPFAccountRepo)
 
 	router.PathPrefix("/assets").Handler(handlerToHTTPMux("/api/v1", assetHandler.RegisterRoutes))
+	router.PathPrefix("/investments").Handler(handlerToHTTPMux("/api/v1", investmentHandler.RegisterRoutes))
 	router.PathPrefix("/liabilities").Handler(handlerToHTTPMux("/api/v1", liabilityHandler.RegisterRoutes))
 	router.PathPrefix("/cashflow/incomes").Handler(handlerToHTTPMux("/api/v1", incomeHandler.RegisterRoutes))
 	router.PathPrefix("/cashflow/expenses").Handler(handlerToHTTPMux("/api/v1", expenseHandler.RegisterRoutes))

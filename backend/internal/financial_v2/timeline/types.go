@@ -15,6 +15,7 @@ type FinancialDataType string
 const (
 	FinNonCashAsset FinancialDataType = "nonCashAsset"
 	FinCashAsset    FinancialDataType = "cashAsset"
+	FinInvestment   FinancialDataType = "investment"
 	FinLiabilities  FinancialDataType = "liabilities"
 	FinIncome       FinancialDataType = "income"
 	FinExpense      FinancialDataType = "expense"
@@ -55,6 +56,7 @@ const (
 
 type Store interface {
 	ListNonCashAssets(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.NonCashAsset], error)
+	ListInvestments(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Investment], error)
 	ListCashAssets(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.CashAsset], error)
 	ListLiabilities(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Liability], error)
 	ListIncomes(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Income], error)

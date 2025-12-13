@@ -1364,7 +1364,7 @@ export function FinancialDataManagement({
                                   <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
                                     <span className="truncate text-sm text-slate-300">Employer Contribution - {item.name.replace('CPF Contribution - ', '')}</span>
                                     <span className="font-mono text-sm text-slate-300">
-                                      ({formatCurrency(parseDecimal(item.employerContribution))})
+                                      {formatCurrency(parseDecimal(item.employerContribution))}
                                       <span className="ml-1 text-xs text-slate-400">/mo</span>
                                     </span>
                                   </div>

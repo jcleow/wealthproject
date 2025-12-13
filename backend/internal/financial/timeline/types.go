@@ -43,8 +43,8 @@ type TimelineItem struct {
 	Category        string               `json:"category"`
 	AmountAnnual    float64              `json:"amountAnnual"`
 	AdjustedAnnual  float64              `json:"adjAnnualAmt"`
-	AmountMonthly   float64              `json:"amountMonthly,omitempty"`   // Monthly amount (when resolution is monthly)
-	AdjustedMonthly float64              `json:"adjMonthlyAmt,omitempty"`   // Adjusted monthly amount
+	AmountMonthly   float64              `json:"amountMonthly,omitempty"` // Monthly amount (when resolution is monthly)
+	AdjustedMonthly float64              `json:"adjMonthlyAmt,omitempty"` // Adjusted monthly amount
 	EventImpacts    []EventImpactSummary `json:"eventImpacts,omitempty"`
 	SourceAmount    *float64             `json:"sourceAmount,omitempty"`
 	SourceFrequency string               `json:"sourceFrequency,omitempty"`
@@ -67,12 +67,12 @@ type GrowthApplied struct {
 type TimelineYear struct {
 	Year          int             `json:"year"`
 	Assets        []TimelineItem  `json:"assets"`
-	CashAccounts  []TimelineItem  `json:"cashAccounts"`  // Cash accounts from cash_accounts table
+	CashAccounts  []TimelineItem  `json:"cashAccounts"` // Cash accounts from finance_cash_accounts table
 	Liabilities   []TimelineItem  `json:"liabilities"`
 	Income        []TimelineItem  `json:"income"`
 	Expenses      []TimelineItem  `json:"expenses"`
-	NetCash       float64         `json:"netCash"`       // Income - Expenses (annual net savings)
-	NetWorth      float64         `json:"netWorth"`      // Assets + CashAccounts - Liabilities
+	NetCash       float64         `json:"netCash"`  // Income - Expenses (annual net savings)
+	NetWorth      float64         `json:"netWorth"` // Assets + CashAccounts - Liabilities
 	HasOverrides  bool            `json:"hasOverrides"`
 	GrowthApplied []GrowthApplied `json:"growthApplied"`
 
@@ -86,16 +86,16 @@ type TimelineYear struct {
 
 // TimelineMonth is a single month's view of the projection (for monthly resolution).
 type TimelineMonth struct {
-	Year          int             `json:"year"`          // Calendar year (e.g., 2025)
-	Month         int             `json:"month"`         // Month number (1-12)
-	YearIndex     int             `json:"yearIndex"`     // 0-based year index
-	MonthIndex    int             `json:"monthIndex"`    // 0-based global month index
+	Year          int             `json:"year"`       // Calendar year (e.g., 2025)
+	Month         int             `json:"month"`      // Month number (1-12)
+	YearIndex     int             `json:"yearIndex"`  // 0-based year index
+	MonthIndex    int             `json:"monthIndex"` // 0-based global month index
 	Assets        []TimelineItem  `json:"assets"`
 	CashAccounts  []TimelineItem  `json:"cashAccounts"`
 	Liabilities   []TimelineItem  `json:"liabilities"`
 	Income        []TimelineItem  `json:"income"`
 	Expenses      []TimelineItem  `json:"expenses"`
-	NetCash       float64         `json:"netCash"`       // Monthly net savings
+	NetCash       float64         `json:"netCash"` // Monthly net savings
 	NetWorth      float64         `json:"netWorth"`
 	HasOverrides  bool            `json:"hasOverrides"`
 	GrowthApplied []GrowthApplied `json:"growthApplied"`
@@ -110,7 +110,7 @@ type TimelineMonth struct {
 
 // TimelineResponse is the API shape returned to the client.
 type TimelineResponse struct {
-	Resolution string          `json:"resolution"`               // "yearly" or "monthly"
+	Resolution string          `json:"resolution"` // "yearly" or "monthly"
 	Years      []TimelineYear  `json:"years,omitempty"`
 	Months     []TimelineMonth `json:"months,omitempty"`
 	Version    string          `json:"version"`

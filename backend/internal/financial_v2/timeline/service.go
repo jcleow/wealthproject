@@ -98,6 +98,43 @@ func transformNonCashAssets(assets []repo.NonCashAsset) []FinancialDataRow {
 	return rows
 }
 
+// transformInvestments converts repository.Investment to FinancialDataRow
+func transformInvestments(investments []repo.Investment) []FinancialDataRow {
+	rows := make([]FinancialDataRow, 0, len(investments))
+	for _, inv := range investments {
+		rows = append(rows, FinancialDataRow{
+			ID:         inv.ID,
+			ParentID:   inv.ParentID,
+			Name:       inv.Name,
+			Category:   inv.Category,
+			Amount:     inv.CurrentValue,
+			StartDate:  inv.StartDate,
+			EndDate:    inv.EndDate,
+			ItemType:   FinInvestment,
+			GrowthRate: inv.AnnualGrowthRate,
+		})
+	}
+	return rows
+}
+
+func combineNonCashAndInvestments(nonCash, investments []FinancialDataRow) []FinancialDataRow {
+	combined := make([]FinancialDataRow, 0, len(nonCash)+len(investments))
+	combined = append(combined, nonCash...)
+	combined = append(combined, investments...)
+
+	sort.Slice(combined, func(i, j int) bool {
+		if combined[i].StartDate.Equal(combined[j].StartDate) {
+			if combined[i].ParentID == combined[j].ParentID {
+				return combined[i].ID < combined[j].ID
+			}
+			return combined[i].ParentID < combined[j].ParentID
+		}
+		return combined[i].StartDate.Before(combined[j].StartDate)
+	})
+
+	return combined
+}
+
 // transformCashAssets converts repository.CashAsset to FinancialDataRow
 func transformCashAssets(assets []repo.CashAsset) []FinancialDataRow {
 	rows := make([]FinancialDataRow, 0, len(assets))
@@ -190,6 +227,7 @@ func (s *Service) loadEffectiveRows(
 ) (SGFinancialDataRows, error) {
 	var (
 		nonCashAssets repo.PaginatedResult[repo.NonCashAsset]
+		investments   repo.PaginatedResult[repo.Investment]
 		cashAssets    repo.PaginatedResult[repo.CashAsset]
 		liabilities   repo.PaginatedResult[repo.Liability]
 		incomes       repo.PaginatedResult[repo.Income]
@@ -202,6 +240,12 @@ func (s *Service) loadEffectiveRows(
 	g.Go(func() error {
 		var err error
 		nonCashAssets, err = s.store.ListNonCashAssets(gctx, userID, dateOpts, paginationOpts)
+		return err
+	})
+
+	g.Go(func() error {
+		var err error
+		investments, err = s.store.ListInvestments(gctx, userID, dateOpts, paginationOpts)
 		return err
 	})
 
@@ -240,9 +284,13 @@ func (s *Service) loadEffectiveRows(
 	}
 
 	// Transform repository types to FinancialDataRow
+	combinedNonCash := combineNonCashAndInvestments(
+		transformNonCashAssets(nonCashAssets.Data),
+		transformInvestments(investments.Data),
+	)
 	return SGFinancialDataRows{
 		Rows: EffectiveRows{
-			NonCashAssets: transformNonCashAssets(nonCashAssets.Data),
+			NonCashAssets: combinedNonCash,
 			CashAssets:    transformCashAssets(cashAssets.Data),
 			Liabilities:   transformLiabilities(liabilities.Data),
 			Incomes:       transformIncomes(incomes.Data),

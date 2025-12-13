@@ -82,6 +82,22 @@ type NonCashAsset struct {
 	UpdatedAt        time.Time              `json:"updatedAt"`
 }
 
+// Investment mirrors NonCashAsset but lives in finance_investments
+type Investment struct {
+	ID               string                 `json:"id"`
+	ParentID         string                 `json:"parentId"`
+	Name             string                 `json:"name"`
+	Category         string                 `json:"category"`
+	CurrentValue     decimal.Decimal        `json:"currentValue"`
+	AnnualGrowthRate decimal.Decimal        `json:"annualGrowthRate"`
+	StartDate        time.Time              `json:"startDate"`         // Precise start date (day-level)
+	EndDate          *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
+	Notes            string                 `json:"notes"`
+	GrowthStrategy   string                 `json:"growthStrategy"`
+	GrowthMetadata   map[string]interface{} `json:"growthMetadata,omitempty"`
+	UpdatedAt        time.Time              `json:"updatedAt"`
+}
+
 type CashAsset struct {
 	ID             string                 `json:"id"`
 	UserID         string                 `json:"userId"`
@@ -304,6 +320,92 @@ func (s *Store) ListNonCashAssets(
 	}, nil
 }
 
+func (s *Store) ListInvestments(
+	ctx context.Context,
+	userID string,
+	dateRangeOpts DateRangeOptions,
+	pagination PaginationParams,
+) (PaginatedResult[Investment], error) {
+	query := `
+	SELECT id,
+		COALESCE(parent_id, id) as parent_id,
+		name,
+		category,
+		current_value,
+		annual_growth_rate,
+		start_date,
+		end_date,
+		COALESCE(notes, '') as notes,
+		updated_at
+	FROM finance_investments
+	WHERE user_id = $1	
+	`
+
+	args := []any{userID}
+	argIdx := 2
+
+	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
+	if dateRangeSubQuery != "" {
+		query += " AND " + dateRangeSubQuery
+		if dateRangeOpts.StartDate != nil {
+			args = append(args, *dateRangeOpts.StartDate)
+		}
+		if dateRangeOpts.EndDate != nil {
+			args = append(args, *dateRangeOpts.EndDate)
+		}
+	}
+
+	query += ` ORDER BY parent_id, start_date`
+
+	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	if paginationSubQuery != "" {
+		query += " " + paginationSubQuery
+		if pagination.Limit != nil {
+			args = append(args, *pagination.Limit)
+		}
+		if pagination.Offset != nil {
+			args = append(args, *pagination.Offset)
+		}
+	}
+
+	logQuery(query, args)
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		fmt.Printf("Failed to query investments")
+		return PaginatedResult[Investment]{
+			Data:   []Investment{},
+			Count:  0,
+			Limit:  nil,
+			Offset: nil,
+		}, err
+	}
+	defer rows.Close()
+
+	investments := []Investment{}
+	for rows.Next() {
+		var inv Investment
+		var endDate sql.NullTime
+
+		err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.AnnualGrowthRate, &inv.StartDate, &endDate, &inv.Notes, &inv.UpdatedAt)
+		if err != nil {
+			return PaginatedResult[Investment]{}, err
+		}
+
+		if endDate.Valid {
+			inv.EndDate = &endDate.Time
+		}
+
+		investments = append(investments, inv)
+	}
+
+	return PaginatedResult[Investment]{
+		Data:   investments,
+		Count:  len(investments),
+		Limit:  pagination.Limit,
+		Offset: pagination.Offset,
+	}, nil
+}
+
 func (s *Store) ListCashAssets(
 	ctx context.Context,
 	userID string,
@@ -322,11 +424,11 @@ func (s *Store) ListCashAssets(
 		start_date,
 		end_date,
 		COALESCE(notes, '') as notes,
-		COALESCE(growth_strategy, '') as growth_strategy,
-		created_at,
-		updated_at
-	FROM cash_accounts
-	WHERE user_id = $1`
+	COALESCE(growth_strategy, '') as growth_strategy,
+	created_at,
+	updated_at
+FROM finance_cash_accounts
+WHERE user_id = $1`
 
 	args := []any{userID}
 	argIdx := 2

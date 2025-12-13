@@ -12,6 +12,7 @@ import (
 // mockStore implements the Store interface for testing
 type mockStore struct {
 	nonCashAssets []repo.NonCashAsset
+	investments   []repo.Investment
 	cashAssets    []repo.CashAsset
 	liabilities   []repo.Liability
 	incomes       []repo.Income
@@ -20,6 +21,10 @@ type mockStore struct {
 
 func (m *mockStore) ListNonCashAssets(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.NonCashAsset], error) {
 	return repo.PaginatedResult[repo.NonCashAsset]{Data: m.nonCashAssets, Count: len(m.nonCashAssets)}, nil
+}
+
+func (m *mockStore) ListInvestments(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.Investment], error) {
+	return repo.PaginatedResult[repo.Investment]{Data: m.investments, Count: len(m.investments)}, nil
 }
 
 func (m *mockStore) ListCashAssets(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.CashAsset], error) {

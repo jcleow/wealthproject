@@ -53,6 +53,9 @@ type Asset struct {
 	UpdatedAt        time.Time              `json:"updatedAt"`
 }
 
+// Investment shares the same shape as Asset but uses finance_investments table
+type Investment = Asset
+
 // Liability represents a persisted liability record.
 type Liability struct {
 	ID              string                 `json:"id"`
@@ -458,6 +461,260 @@ func (s *Store) DeleteAsset(ctx context.Context, userID, id string) error {
 			WHERE a.user_id=$1
 		)
 		DELETE FROM finance_assets WHERE id IN (SELECT id FROM descendants)
+	`, userID, id)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil || affected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ----- Investment operations -----
+
+func (s *Store) ListInvestments(ctx context.Context, userID string, pagination PaginationParams) (PaginatedResult[Investment], error) {
+	p := NormalizePagination(pagination)
+
+	var total int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM finance_investments WHERE user_id = $1`, userID).Scan(&total); err != nil {
+		return PaginatedResult[Investment]{}, err
+	}
+
+	var rows *sql.Rows
+	var err error
+	if p.IsUnlimited() {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id,
+			       COALESCE(parent_id, id) as parent_id,
+			       name,
+			       category,
+			       current_value,
+			       annual_growth_rate,
+			       start_date,
+			       end_date,
+			       COALESCE(notes, '') as notes,
+			       updated_at
+			FROM finance_investments
+			WHERE user_id = $1
+			ORDER BY parent_id, start_date
+			OFFSET $2`, userID, p.Offset)
+	} else {
+		rows, err = s.db.QueryContext(ctx, `
+			SELECT id,
+			       COALESCE(parent_id, id) as parent_id,
+			       name,
+			       category,
+			       current_value,
+			       annual_growth_rate,
+			       start_date,
+			       end_date,
+			       COALESCE(notes, '') as notes,
+			       updated_at
+			FROM finance_investments
+			WHERE user_id = $1
+			ORDER BY parent_id, start_date
+			LIMIT $2 OFFSET $3`, userID, p.Limit, p.Offset)
+	}
+	if err != nil {
+		return PaginatedResult[Investment]{}, err
+	}
+	defer rows.Close()
+
+	var investments []Investment
+	for rows.Next() {
+		var inv Investment
+		var endDate sql.NullTime
+		if err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.AnnualGrowthRate, &inv.StartDate, &endDate, &inv.Notes, &inv.UpdatedAt); err != nil {
+			return PaginatedResult[Investment]{}, err
+		}
+		if endDate.Valid {
+			inv.EndDate = &endDate.Time
+		}
+		investments = append(investments, inv)
+	}
+	if investments == nil {
+		investments = []Investment{}
+	}
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[Investment]{}, err
+	}
+
+	return PaginatedResult[Investment]{
+		Data:    investments,
+		Total:   total,
+		Limit:   p.Limit,
+		Offset:  p.Offset,
+		HasMore: !p.IsUnlimited() && p.Offset+len(investments) < total,
+	}, nil
+}
+
+func (s *Store) ListAllInvestments(ctx context.Context, userID string, opts DateRangeOptions) ([]Investment, error) {
+	query := `
+		SELECT id,
+		       COALESCE(parent_id, id) as parent_id,
+		       name,
+		       category,
+		       current_value,
+		       annual_growth_rate,
+		       start_date,
+		       end_date,
+		       COALESCE(notes, '') as notes,
+		       updated_at
+		FROM finance_investments
+		WHERE user_id = $1`
+
+	args := []interface{}{userID}
+	argIdx := 2
+
+	if opts.ActiveAfter != nil {
+		query += ` AND (end_date IS NULL OR end_date >= $` + fmt.Sprintf("%d", argIdx) + `)`
+		args = append(args, *opts.ActiveAfter)
+		argIdx++
+	}
+	if opts.ActiveBefore != nil {
+		query += ` AND start_date <= $` + fmt.Sprintf("%d", argIdx)
+		args = append(args, *opts.ActiveBefore)
+		argIdx++
+	}
+
+	query += ` ORDER BY parent_id, start_date`
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var investments []Investment
+	for rows.Next() {
+		var inv Investment
+		var endDate sql.NullTime
+		if err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.AnnualGrowthRate, &inv.StartDate, &endDate, &inv.Notes, &inv.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if endDate.Valid {
+			inv.EndDate = &endDate.Time
+		}
+
+		investments = append(investments, inv)
+	}
+	if investments == nil {
+		investments = []Investment{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return investments, nil
+}
+
+func (s *Store) GetInvestment(ctx context.Context, userID, id string) (Investment, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id,
+		       COALESCE(parent_id, id) as parent_id,
+		       name,
+		       category,
+		       current_value,
+		       annual_growth_rate,
+		       start_date,
+		       end_date,
+		       COALESCE(notes, '') as notes,
+		       updated_at
+		FROM finance_investments
+		WHERE user_id = $1 AND id = $2`, userID, id)
+	var inv Investment
+	var endDate sql.NullTime
+	if err := row.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.AnnualGrowthRate, &inv.StartDate, &endDate, &inv.Notes, &inv.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Investment{}, ErrNotFound
+		}
+		return Investment{}, err
+	}
+	if endDate.Valid {
+		inv.EndDate = &endDate.Time
+	}
+
+	return inv, nil
+}
+
+func (s *Store) CreateInvestment(ctx context.Context, userID string, inv Investment) (Investment, error) {
+	startDate := inv.StartDate
+	if startDate.IsZero() {
+		startDate = time.Now().UTC()
+	}
+	endDate := inv.EndDate
+
+	row := s.db.QueryRowContext(ctx, `
+		INSERT INTO finance_investments (user_id, parent_id, name, category, current_value, annual_growth_rate, start_date, end_date, notes)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, NULLIF($9, ''))
+		ON CONFLICT ON CONSTRAINT finance_investments_parent_start_date_key DO UPDATE
+		SET name=EXCLUDED.name,
+		    category=EXCLUDED.category,
+		    current_value=EXCLUDED.current_value,
+		    annual_growth_rate=EXCLUDED.annual_growth_rate,
+		    end_date=EXCLUDED.end_date,
+		    notes=EXCLUDED.notes,
+		    updated_at=NOW()
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
+		userID, nullIfEmpty(inv.ParentID), inv.Name, inv.Category, inv.CurrentValue, inv.AnnualGrowthRate, startDate, endDate, inv.Notes)
+
+	var created Investment
+	var endDateVal sql.NullTime
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentValue, &created.AnnualGrowthRate, &created.StartDate, &endDateVal, &created.Notes, &created.UpdatedAt); err != nil {
+		return Investment{}, err
+	}
+	if endDateVal.Valid {
+		created.EndDate = &endDateVal.Time
+	}
+
+	return created, nil
+}
+
+func (s *Store) UpdateInvestment(ctx context.Context, userID string, inv Investment) (Investment, error) {
+	startDate := inv.StartDate
+	endDate := inv.EndDate
+
+	row := s.db.QueryRowContext(ctx, `
+		UPDATE finance_investments
+		SET name=$3,
+		    category=$4,
+		    current_value=$5,
+		    annual_growth_rate=$6,
+		    start_date=COALESCE($7, start_date),
+		    end_date=$8,
+		    notes=NULLIF($9, ''),
+		    updated_at=NOW()
+		WHERE user_id=$1 AND id=$2
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
+		userID, inv.ID, inv.Name, inv.Category, inv.CurrentValue, inv.AnnualGrowthRate, startDate, endDate, inv.Notes)
+
+	var updated Investment
+	var endDateVal sql.NullTime
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentValue, &updated.AnnualGrowthRate, &updated.StartDate, &endDateVal, &updated.Notes, &updated.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Investment{}, ErrNotFound
+		}
+		return Investment{}, err
+	}
+	if endDateVal.Valid {
+		updated.EndDate = &endDateVal.Time
+	}
+
+	return updated, nil
+}
+
+func (s *Store) DeleteInvestment(ctx context.Context, userID, id string) error {
+	result, err := s.db.ExecContext(ctx, `
+		WITH RECURSIVE descendants AS (
+			SELECT id FROM finance_investments WHERE user_id=$1 AND id=$2
+			UNION ALL
+			SELECT i.id FROM finance_investments i
+			INNER JOIN descendants d ON i.parent_id = d.id
+			WHERE i.user_id=$1
+		)
+		DELETE FROM finance_investments WHERE id IN (SELECT id FROM descendants)
 	`, userID, id)
 	if err != nil {
 		return err
