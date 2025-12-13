@@ -355,6 +355,15 @@ export function FinancialDataManagement({
     return []
   }, [hasV2Data, timelineMonthV2])
 
+  // Investments (V2 only) - netInvestments is monthly in V2 response
+  const monthlyInvestments = useMemo(() => {
+    if (hasV2Data && timelineMonthV2) {
+      return parseDecimal(timelineMonthV2.netInvestments)
+    }
+    return 0
+  }, [hasV2Data, timelineMonthV2])
+  const hasInvestmentsSection = hasV2Data && timelineMonthV2?.netInvestments !== undefined
+
   // Expenses
   const yearExpenses = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
@@ -1361,6 +1370,26 @@ export function FinancialDataManagement({
                                   </div>
                                 </div>
                               ))}
+                            </div>
+                          )}
+
+                          {/* Investments Sub-section (V2 only) */}
+                          {key === 'income' && hasInvestmentsSection && (
+                            <div className="mt-3 border-t border-white/[0.06] pt-3">
+                              <div className="mb-2 flex items-center gap-2 px-2">
+                                <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Investments</span>
+                                <span className="text-[10px] text-slate-600">
+                                  ({formatCurrency(showMonthlyData ? monthlyInvestments : monthlyInvestments * 12)})
+                                  <span className="ml-1 text-[10px] text-slate-500">{showMonthlyData ? '/mo' : '/yr'}</span>
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
+                                <span className="truncate text-sm text-slate-300">Allocated to investments</span>
+                                <span className="font-mono text-sm text-slate-300">
+                                  {formatCurrency(showMonthlyData ? monthlyInvestments : monthlyInvestments * 12)}
+                                  <span className="ml-1 text-xs text-slate-400">{showMonthlyData ? '/mo' : '/yr'}</span>
+                                </span>
+                              </div>
                             </div>
                           )}
                           </>
