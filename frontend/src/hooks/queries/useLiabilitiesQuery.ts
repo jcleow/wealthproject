@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi } from '@/services/financialApi'
+import { liabilitiesApi } from '@/api/financial'
 import type { Liability } from '@/types/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
@@ -9,7 +9,7 @@ export function useLiabilitiesQuery() {
   return useQuery({
     queryKey: LIABILITIES_QUERY_KEY,
     queryFn: async () => {
-      const result = await financialApi.listLiabilities({ limit: -1 })
+      const result = await liabilitiesApi.listLiabilities({ limit: -1 })
       console.log('[DEBUG] Liabilities loaded:', result.data.length, 'items')
       console.log('[DEBUG] Liability startDate values:', result.data.map(l => ({ name: l.name, startDate: l.startDate })))
       return result.data
@@ -24,7 +24,7 @@ export function useCreateLiabilityMutation() {
 
   return useMutation({
     mutationFn: (liability: Omit<Liability, 'id' | 'updatedAt'>) =>
-      financialApi.createLiability(liability),
+      liabilitiesApi.createLiability(liability),
     onSuccess: (newLiability) => {
       queryClient.setQueryData<Liability[]>(LIABILITIES_QUERY_KEY, (old) =>
         old ? [...old, newLiability] : [newLiability]
@@ -40,7 +40,7 @@ export function useUpdateLiabilityMutation() {
 
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Liability> }) =>
-      financialApi.updateLiability(id, updates),
+      liabilitiesApi.updateLiability(id, updates),
     onSuccess: (updatedLiability) => {
       queryClient.setQueryData<Liability[]>(LIABILITIES_QUERY_KEY, (old) =>
         old?.map((liability) => liability.id === updatedLiability.id ? updatedLiability : liability) ?? []
@@ -55,7 +55,7 @@ export function useDeleteLiabilityMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => financialApi.deleteLiability(id),
+    mutationFn: (id: string) => liabilitiesApi.deleteLiability(id),
     onSuccess: (_, deletedId) => {
       queryClient.setQueryData<Liability[]>(LIABILITIES_QUERY_KEY, (old) =>
         old?.filter((liability) => liability.id !== deletedId) ?? []

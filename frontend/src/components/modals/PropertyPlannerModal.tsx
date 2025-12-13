@@ -18,7 +18,7 @@ import { Calendar, Loader2, Percent, PiggyBank, TrendingDown, X } from 'lucide-r
 import { Modal } from '@/components/ui/Modal'
 import type { MortgageInputs, PropertyPlannerType } from '@/types/property'
 import type { Asset, Liability } from '@/types/financial'
-import { financialApi } from '@/services/financialApi'
+import { assetsApi, liabilitiesApi, expensesApi, propertyApi } from '@/api/financial'
 import { Input } from '@/components/ui/input'
 import { calculateMortgage, formatCurrency, formatPercentage } from '@/utils/mortgage-calculations'
 import type { PropertyScenarioRecord } from '@/types/property'
@@ -138,7 +138,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
       if (!prefill?.scenarioId || !isOpen) return
       setIsPrefilling(true)
       try {
-        const scenario = await financialApi.getPropertyScenario(prefill.scenarioId)
+        const scenario = await propertyApi.getPropertyScenario(prefill.scenarioId)
         setScenarioId(scenario.id)
         setPrefillScenario(scenario)
         setInputs((prev) => ({
@@ -188,8 +188,8 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
     const loadFinancial = async () => {
       try {
         const [assetsResult, liabilitiesResult] = await Promise.all([
-          financialApi.listAssets({ limit: -1 }),
-          financialApi.listLiabilities({ limit: -1 })
+          assetsApi.listAssets({ limit: -1 }),
+          liabilitiesApi.listLiabilities({ limit: -1 })
         ])
         const assetList = assetsResult.data
         const liabilityList = liabilitiesResult.data
@@ -304,7 +304,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
       let liabilityId = selectedLiabilityId
 
       if (!assetId) {
-        const created = await financialApi.createAsset({
+        const created = await assetsApi.createAsset({
           name: assetInput.trim(),
           category: 'property',
           currentValue: inputs.loanAmount || 0,
@@ -316,7 +316,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
         setSelectedAssetId(assetId)
       }
       if (!liabilityId) {
-        const createdLoan = await financialApi.createLiability({
+        const createdLoan = await liabilitiesApi.createLiability({
           name: liabilityInput.trim(),
           category: 'property',
           currentBalance: inputs.loanAmount || 0,
@@ -341,11 +341,11 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
         }
       }
       if (assetRecord && assetRecord.category !== 'property') {
-        const updated = await financialApi.convertAssetToProperty(assetId)
+        const updated = await assetsApi.convertAssetToProperty(assetId)
         setAssets((prev) => prev.map((a) => (a.id === assetId ? updated : a)))
       }
       if (liabilityRecord && liabilityRecord.category !== 'property') {
-        const updatedLi = await financialApi.convertLiabilityToProperty(liabilityId)
+        const updatedLi = await liabilitiesApi.convertLiabilityToProperty(liabilityId)
         setLiabilities((prev) => prev.map((l) => (l.id === liabilityId ? updatedLi : l)))
       }
       const headline = locationDraft || assetInput || 'Property scenario'
@@ -353,7 +353,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
         inputs.propertyPrice > inputs.loanAmount && inputs.loanAmount > 0
           ? inputs.propertyPrice - inputs.loanAmount
           : Math.max(0, inputs.propertyPrice * 0.2)
-      const scenario = await financialApi.createPropertyScenario({
+      const scenario = await propertyApi.createPropertyScenario({
         propertyType: selectedType,
         headline,
         subheadline: '',
@@ -422,12 +422,12 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
     try {
       setIsLinking(true)
       // Update asset and liability with current inputs
-      await financialApi.convertAssetToProperty(selectedAssetId)
-      await financialApi.convertLiabilityToProperty(selectedLiabilityId)
+      await assetsApi.convertAssetToProperty(selectedAssetId)
+      await liabilitiesApi.convertLiabilityToProperty(selectedLiabilityId)
       const assetRef = assets.find((a) => a.id === selectedAssetId)
       const liabilityRef = liabilities.find((l) => l.id === selectedLiabilityId)
       if (assetRef) {
-        await financialApi.updateAsset(selectedAssetId, {
+        await assetsApi.updateAsset(selectedAssetId, {
           name: assetRef.name,
           category: 'property',
           currentValue: inputs.propertyPrice,
@@ -436,7 +436,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
         } as any)
       }
       if (liabilityRef) {
-        await financialApi.updateLiability(selectedLiabilityId, {
+        await liabilitiesApi.updateLiability(selectedLiabilityId, {
           name: liabilityRef.name,
           category: 'property',
           currentBalance: inputs.loanAmount,
@@ -448,7 +448,7 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
 
       // Upsert mortgage expense tied to liability (by category + liability id in notes)
       try {
-        const expensesResult = await financialApi.listExpenses({ limit: -1 })
+        const expensesResult = await expensesApi.listExpenses({ limit: -1 })
         const existing = expensesResult.data.find(
           (ex) => ex.category === 'housing_mortgage' && ex.notes?.includes(selectedLiabilityId)
         )
@@ -460,9 +460,9 @@ export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlann
           notes: `liability:${selectedLiabilityId}`,
         }
         if (existing?.id) {
-          await financialApi.updateExpense(existing.id, payload)
+          await expensesApi.updateExpense(existing.id, payload)
         } else {
-          await financialApi.createExpense(payload)
+          await expensesApi.createExpense(payload)
         }
       } catch (expenseError) {
         console.warn('Unable to upsert mortgage expense', expenseError)

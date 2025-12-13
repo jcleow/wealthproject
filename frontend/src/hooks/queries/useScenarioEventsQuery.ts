@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi } from '@/services/financialApi'
+import { scenarioEventsApi } from '@/api/financial'
 import type { ScenarioEvent } from '@/types/scenario'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
@@ -8,7 +8,7 @@ export const SCENARIO_EVENTS_QUERY_KEY = QUERY_KEYS.financial.scenarioEvents
 export function useScenarioEventsQuery() {
   return useQuery({
     queryKey: SCENARIO_EVENTS_QUERY_KEY,
-    queryFn: financialApi.listScenarioEvents,
+    queryFn: scenarioEventsApi.listScenarioEvents,
     staleTime: 30_000,
     cacheTime: 5 * 60 * 1000,
   })
@@ -17,7 +17,7 @@ export function useScenarioEventsQuery() {
 export function useScenarioEventQuery(id: string | undefined) {
   return useQuery({
     queryKey: [...SCENARIO_EVENTS_QUERY_KEY, id],
-    queryFn: () => financialApi.getScenarioEvent(id!),
+    queryFn: () => scenarioEventsApi.getScenarioEvent(id!),
     enabled: !!id,
     staleTime: 30_000,
   })
@@ -27,7 +27,7 @@ export function useCreateScenarioEventMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (event: ScenarioEvent) => financialApi.createScenarioEvent(event),
+    mutationFn: (event: ScenarioEvent) => scenarioEventsApi.createScenarioEvent(event),
     onSuccess: (newEvent) => {
       // Update cache
       queryClient.setQueryData<ScenarioEvent[]>(SCENARIO_EVENTS_QUERY_KEY, (old) =>
@@ -44,7 +44,7 @@ export function useUpdateScenarioEventMutation() {
 
   return useMutation({
     mutationFn: ({ id, event }: { id: string; event: ScenarioEvent }) =>
-      financialApi.updateScenarioEvent(id, event),
+      scenarioEventsApi.updateScenarioEvent(id, event),
     onSuccess: (updatedEvent, variables) => {
       // Update list cache
       queryClient.setQueryData<ScenarioEvent[]>(SCENARIO_EVENTS_QUERY_KEY, (old) =>
@@ -62,7 +62,7 @@ export function useDeleteScenarioEventMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => financialApi.deleteScenarioEvent(id),
+    mutationFn: (id: string) => scenarioEventsApi.deleteScenarioEvent(id),
     onSuccess: (_, deletedId) => {
       // Update cache
       queryClient.setQueryData<ScenarioEvent[]>(SCENARIO_EVENTS_QUERY_KEY, (old) =>

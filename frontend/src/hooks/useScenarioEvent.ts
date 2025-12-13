@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { financialApi } from '@/services/financialApi'
+import { financialApi } from '@/api/financial'
 import type { ScenarioEvent } from '@/types/scenario'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 

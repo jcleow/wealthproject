@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi } from '@/services/financialApi'
+import { expensesApi } from '@/api/financial'
 import type { Expense } from '@/types/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
@@ -9,7 +9,7 @@ export function useExpensesQuery() {
   return useQuery({
     queryKey: EXPENSES_QUERY_KEY,
     queryFn: async () => {
-      const result = await financialApi.listExpenses({ limit: -1 })
+      const result = await expensesApi.listExpenses({ limit: -1 })
       return result.data
     },
     staleTime: 30_000,
@@ -22,7 +22,7 @@ export function useCreateExpenseMutation() {
 
   return useMutation({
     mutationFn: (expense: Omit<Expense, 'id' | 'updatedAt'>) =>
-      financialApi.createExpense(expense),
+      expensesApi.createExpense(expense),
     onSuccess: (newExpense) => {
       queryClient.setQueryData<Expense[]>(EXPENSES_QUERY_KEY, (old) =>
         old ? [...old, newExpense] : [newExpense]
@@ -38,7 +38,7 @@ export function useUpdateExpenseMutation() {
 
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Expense> }) =>
-      financialApi.updateExpense(id, updates),
+      expensesApi.updateExpense(id, updates),
     onSuccess: (updatedExpense) => {
       queryClient.setQueryData<Expense[]>(EXPENSES_QUERY_KEY, (old) =>
         old?.map((expense) => expense.id === updatedExpense.id ? updatedExpense : expense) ?? []
@@ -53,7 +53,7 @@ export function useDeleteExpenseMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => financialApi.deleteExpense(id),
+    mutationFn: (id: string) => expensesApi.deleteExpense(id),
     onSuccess: (_, deletedId) => {
       queryClient.setQueryData<Expense[]>(EXPENSES_QUERY_KEY, (old) =>
         old?.filter((expense) => expense.id !== deletedId) ?? []

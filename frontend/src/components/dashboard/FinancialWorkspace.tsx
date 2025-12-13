@@ -3,7 +3,7 @@ import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
-import { financialApi } from '@/services/financialApi'
+import { assetsApi, liabilitiesApi, propertyApi } from '@/api/financial'
 import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
@@ -55,7 +55,7 @@ export function FinancialWorkspace({
 
     if (scenarioId) {
       try {
-        await financialApi.deletePropertyScenario(scenarioId)
+        await propertyApi.deletePropertyScenario(scenarioId)
       } catch (error) {
         console.warn('Unable to delete property scenario', error)
       }
@@ -84,13 +84,13 @@ export function FinancialWorkspace({
 
   const seedPropertyScenario = async () => {
     try {
-      const assetsResult = await financialApi.listAssets({ limit: -1 })
-      const liabilitiesResult = await financialApi.listLiabilities({ limit: -1 })
+      const assetsResult = await assetsApi.listAssets({ limit: -1 })
+      const liabilitiesResult = await liabilitiesApi.listLiabilities({ limit: -1 })
       const propertyAsset = assetsResult.data.find((a) => a.name === 'Sample Condo') ?? assetsResult.data.find((a) => a.category === 'property')
       const propertyLiability = liabilitiesResult.data.find((l) => l.name === 'Sample Condo Mortgage') ?? liabilitiesResult.data.find((l) => l.category === 'property')
       if (!propertyAsset || !propertyLiability) return null
 
-      const scenario = await financialApi.createPropertyScenario({
+      const scenario = await propertyApi.createPropertyScenario({
         propertyType: 'condo',
         headline: propertyAsset.name || 'Property scenario',
         propertyPrice: Math.max(1, propertyAsset.currentValue || 750000),
