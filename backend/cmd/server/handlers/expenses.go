@@ -1,25 +1,24 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
 )
 
 // expenseInput is the JSON-friendly input struct for expense creation/update.
-// It uses *int for nullable year fields since sql.NullInt32 doesn't unmarshal from JSON numbers.
 type expenseInput struct {
 	ID             string   `json:"id"`
 	ParentID       string   `json:"parentId"`
 	Payee          string   `json:"payee"`
 	Amount         float64  `json:"amount"`
 	Frequency      string   `json:"frequency"`
-	StartYear      *int     `json:"startYear"`
-	EndYear        *int     `json:"endYear"`
+	StartDate      *string  `json:"startDate"`
+	EndDate        *string  `json:"endDate"`
 	Category       string   `json:"category"`
 	GrowthRate     *float64 `json:"growthRate"`
 	GrowthStrategy string   `json:"growthStrategy"`
@@ -37,11 +36,15 @@ func (e expenseInput) toExpense() repository.Expense {
 		GrowthStrategy: e.GrowthStrategy,
 		Notes:          e.Notes,
 	}
-	if e.StartYear != nil {
-		exp.StartYear = *e.StartYear
+	if e.StartDate != nil {
+		if t, err := time.Parse(time.RFC3339, *e.StartDate); err == nil {
+			exp.StartDate = t
+		}
 	}
-	if e.EndYear != nil {
-		exp.EndYear = sql.NullInt32{Int32: int32(*e.EndYear), Valid: true}
+	if e.EndDate != nil {
+		if t, err := time.Parse(time.RFC3339, *e.EndDate); err == nil {
+			exp.EndDate = &t
+		}
 	}
 	if e.GrowthRate != nil {
 		exp.GrowthRate = *e.GrowthRate

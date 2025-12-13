@@ -189,7 +189,7 @@ export function ScenarioEventModal({
   const formatAmount = (amount: number, frequency?: string) => {
     const formatted = new Intl.NumberFormat('en-US').format(amount)
     if (!frequency) return `$${formatted}`
-    const freqLabel = frequency === 'monthly' ? '/mo' : frequency === 'yearly' ? '/yr' : frequency === 'weekly' ? '/wk' : ''
+    const freqLabel = frequency === 'monthly' ? '/mo' : frequency === 'annual' ? '/yr' : frequency === 'weekly' ? '/wk' : ''
     return `$${formatted}${freqLabel}`
   }
 

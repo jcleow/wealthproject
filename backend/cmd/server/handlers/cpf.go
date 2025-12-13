@@ -11,9 +11,13 @@ import (
 	"financial-chat-system/backend/internal/cpf/account"
 	"financial-chat-system/backend/internal/cpf/config"
 	"financial-chat-system/backend/internal/cpf/contribution"
+	"financial-chat-system/backend/internal/decimal"
 )
 
 // CPFHandler serves CPF-related endpoints.
+//
+// TODO: Migrate API request/response types from float64 to string-serialized decimals
+// for consistency with other financial endpoints and to avoid precision loss at JSON boundary.
 type CPFHandler struct {
 	accountRepo *account.Repository
 }
@@ -68,11 +72,11 @@ func accountToResponse(acc *account.CPFAccount) cpfAccountResponse {
 	resp := cpfAccountResponse{
 		ID:               acc.ID,
 		UserID:           acc.UserID,
-		OABalance:        acc.OABalance,
-		SABalance:        acc.SABalance,
-		MABalance:        acc.MABalance,
-		RABalance:        acc.RABalance,
-		OAUsedForHousing: acc.OAUsedForHousing,
+		OABalance:        acc.OABalance.ToFloat64(),
+		SABalance:        acc.SABalance.ToFloat64(),
+		MABalance:        acc.MABalance.ToFloat64(),
+		RABalance:        acc.RABalance.ToFloat64(),
+		OAUsedForHousing: acc.OAUsedForHousing.ToFloat64(),
 		DateOfBirth:      acc.DateOfBirth.Format("2006-01-02"),
 		ResidencyStatus:  string(acc.ResidencyStatus),
 		CreatedAt:        acc.CreatedAt.Format(time.RFC3339),
@@ -155,19 +159,19 @@ func (h *CPFHandler) createAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.OABalance != nil {
-		acc.OABalance = *req.OABalance
+		acc.OABalance = *decimal.MustFromFloat64(*req.OABalance)
 	}
 	if req.SABalance != nil {
-		acc.SABalance = *req.SABalance
+		acc.SABalance = *decimal.MustFromFloat64(*req.SABalance)
 	}
 	if req.MABalance != nil {
-		acc.MABalance = *req.MABalance
+		acc.MABalance = *decimal.MustFromFloat64(*req.MABalance)
 	}
 	if req.RABalance != nil {
-		acc.RABalance = *req.RABalance
+		acc.RABalance = *decimal.MustFromFloat64(*req.RABalance)
 	}
 	if req.OAUsedForHousing != nil {
-		acc.OAUsedForHousing = *req.OAUsedForHousing
+		acc.OAUsedForHousing = *decimal.MustFromFloat64(*req.OAUsedForHousing)
 	}
 	if req.HousingStartDate != nil && *req.HousingStartDate != "" {
 		t, err := time.Parse(time.RFC3339, *req.HousingStartDate)
@@ -232,19 +236,19 @@ func (h *CPFHandler) updateAccount(w http.ResponseWriter, r *http.Request) {
 
 	// Apply updates
 	if req.OABalance != nil {
-		existing.OABalance = *req.OABalance
+		existing.OABalance = *decimal.MustFromFloat64(*req.OABalance)
 	}
 	if req.SABalance != nil {
-		existing.SABalance = *req.SABalance
+		existing.SABalance = *decimal.MustFromFloat64(*req.SABalance)
 	}
 	if req.MABalance != nil {
-		existing.MABalance = *req.MABalance
+		existing.MABalance = *decimal.MustFromFloat64(*req.MABalance)
 	}
 	if req.RABalance != nil {
-		existing.RABalance = *req.RABalance
+		existing.RABalance = *decimal.MustFromFloat64(*req.RABalance)
 	}
 	if req.OAUsedForHousing != nil {
-		existing.OAUsedForHousing = *req.OAUsedForHousing
+		existing.OAUsedForHousing = *decimal.MustFromFloat64(*req.OAUsedForHousing)
 	}
 	if req.HousingStartDate != nil {
 		if *req.HousingStartDate == "" {
@@ -418,13 +422,14 @@ func (h *CPFHandler) handleContributionPreview(w http.ResponseWriter, r *http.Re
 
 	// Calculate contribution
 	calc := contribution.NewCalculator(&cfg.Config)
+	grossWageDecimal := decimal.MustFromFloat64(grossWage)
 
 	var result contribution.ContributionResult
 	if cpfWageType == "aw" {
 		// For AW, we need YTD values (default to 0 for preview)
-		result = calc.CalculateAW(grossWage, age, residency, 0, 0)
+		result = calc.CalculateAW(grossWageDecimal, age, residency, decimal.Zero(), decimal.Zero())
 	} else {
-		result = calc.CalculateOW(grossWage, age, residency)
+		result = calc.CalculateOW(grossWageDecimal, age, residency)
 	}
 
 	writeJSON(w, contributionToResponse(result))
@@ -457,21 +462,21 @@ type ratesResponse struct {
 
 func contributionToResponse(result contribution.ContributionResult) contributionPreviewResponse {
 	return contributionPreviewResponse{
-		GrossWage:            result.GrossWage,
-		CappedWage:           result.CappedWage,
-		EmployeeContribution: result.EmployeeContribution,
-		EmployerContribution: result.EmployerContribution,
-		TotalContribution:    result.TotalContribution,
-		TakeHomePay:          result.TakeHomePay,
+		GrossWage:            result.GrossWage.ToFloat64(),
+		CappedWage:           result.CappedWage.ToFloat64(),
+		EmployeeContribution: result.EmployeeContribution.ToFloat64(),
+		EmployerContribution: result.EmployerContribution.ToFloat64(),
+		TotalContribution:    result.TotalContribution.ToFloat64(),
+		TakeHomePay:          result.TakeHomePay.ToFloat64(),
 		Allocation: allocationResponse{
-			OA: result.Allocation.OA,
-			SA: result.Allocation.SA,
-			MA: result.Allocation.MA,
-			RA: result.Allocation.RA,
+			OA: result.Allocation.OA.ToFloat64(),
+			SA: result.Allocation.SA.ToFloat64(),
+			MA: result.Allocation.MA.ToFloat64(),
+			RA: result.Allocation.RA.ToFloat64(),
 		},
 		RatesApplied: ratesResponse{
-			Employee:        result.RatesApplied.Employee,
-			Employer:        result.RatesApplied.Employer,
+			Employee:        result.RatesApplied.Employee.ToFloat64(),
+			Employer:        result.RatesApplied.Employer.ToFloat64(),
 			AgeGroup:        result.RatesApplied.AgeGroup,
 			ResidencyStatus: string(result.RatesApplied.ResidencyStatus),
 		},

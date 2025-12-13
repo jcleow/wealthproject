@@ -28,6 +28,7 @@ const (
 	FrequencyBiweekly   Frequency = "biweekly"
 	FrequencyQuarterly  Frequency = "quarterly"
 	FrequencySemiannual Frequency = "semiannual"
+	FrequencyOneTime    Frequency = "one_time" // Occurs exactly once, does not recur
 )
 
 // TimelineItem represents an item at a given year with metadata for UI rendering.
@@ -48,8 +49,8 @@ type TimelineItem struct {
 	SourceAmount    *float64             `json:"sourceAmount,omitempty"`
 	SourceFrequency string               `json:"sourceFrequency,omitempty"`
 	ItemType        ItemType             `json:"itemType"`
-	CreatedYear     int                  `json:"createdYear"`
-	CreatedMonth    int                  `json:"createdMonth,omitempty"` // Month when created (1-12)
+	StartYear       int                  `json:"startYear"`
+	StartMonth      int                  `json:"startMonth,omitempty"` // Month when item started (1-12)
 	// GrowthRate is the per-item annual growth rate (percentage)
 	GrowthRate float64 `json:"growthRate,omitempty"`
 	// IsAccumulator indicates this is the designated cash account receiving net savings (cash accounts only)
@@ -193,6 +194,7 @@ var freqFactors = map[Frequency]float64{
 	FrequencyBiweekly:   26,
 	FrequencyQuarterly:  4,
 	FrequencySemiannual: 2,
+	FrequencyOneTime:    1, // One-time: amount is the total, occurs once
 }
 
 var (
@@ -209,6 +211,7 @@ func Annualize(amount float64, freq Frequency) (float64, error) {
 }
 
 // ConvertToMonthly converts a value with a given frequency into a monthly amount.
+// For one_time frequency, returns the full amount (it occurs once in a specific month).
 func ConvertToMonthly(amount float64, freq Frequency) (float64, error) {
 	switch freq {
 	case FrequencyAnnual:
@@ -223,6 +226,8 @@ func ConvertToMonthly(amount float64, freq Frequency) (float64, error) {
 		return amount * 4 / 12, nil
 	case FrequencySemiannual:
 		return amount * 2 / 12, nil
+	case FrequencyOneTime:
+		return amount, nil // Full amount in the month it occurs
 	default:
 		return 0, errUnsupportedFrequency
 	}

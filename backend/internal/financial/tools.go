@@ -333,7 +333,7 @@ func (r *FinancialToolRegistry) registerTools() {
 					},
 					"frequency": {
 						Type:        "string",
-						Description: "Income frequency (weekly, biweekly, monthly, quarterly, yearly).",
+						Description: "Income frequency (weekly, biweekly, monthly, quarterly, annual).",
 						Required:    true,
 					},
 					"startDate": {
@@ -458,7 +458,7 @@ func (r *FinancialToolRegistry) registerTools() {
 					},
 					"frequency": {
 						Type:        "string",
-						Description: "Expense frequency (weekly, biweekly, monthly, quarterly, yearly).",
+						Description: "Expense frequency (weekly, biweekly, monthly, quarterly, annual).",
 						Required:    true,
 					},
 					"category": {

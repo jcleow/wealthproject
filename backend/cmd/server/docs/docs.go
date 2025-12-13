@@ -23,8 +23,16 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/chat": {
+        "/v1/chat": {
             "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Process a chat message and generate AI response with financial tool calls",
                 "consumes": [
                     "application/json"
@@ -43,7 +51,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.ChatRequest"
+                            "$ref": "#/definitions/cmd_server_handlers.ChatRequest"
                         }
                     }
                 ],
@@ -51,7 +59,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.ChatResponse"
+                            "$ref": "#/definitions/cmd_server_handlers.ChatResponse"
                         }
                     },
                     "400": {
@@ -71,8 +79,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/financial/actions/dispatch": {
+        "/v1/financial/actions/dispatch": {
             "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Execute approved financial actions from a chat session",
                 "consumes": [
                     "application/json"
@@ -91,7 +107,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handlers.DispatchRequest"
+                            "$ref": "#/definitions/cmd_server_handlers.DispatchRequest"
                         }
                     }
                 ],
@@ -99,7 +115,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.DispatchResponse"
+                            "$ref": "#/definitions/cmd_server_handlers.DispatchResponse"
                         }
                     },
                     "400": {
@@ -126,8 +142,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/financial/timeline": {
+        "/v1/financial/timeline": {
             "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Returns the full financial timeline with optional resolution and scenario filtering",
                 "produces": [
                     "application/json"
@@ -160,7 +184,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/timeline.TimelineResponse"
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse"
                         }
                     },
                     "400": {
@@ -180,8 +204,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/financial/timeline/{year}": {
+        "/v1/financial/timeline/{year}": {
             "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "Upserts financial data edits for a given year",
                 "consumes": [
                     "application/json"
@@ -216,7 +248,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/timeline.TimelineResponse"
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse"
                         }
                     },
                     "400": {
@@ -236,7 +268,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/health": {
+        "/v1/health": {
             "get": {
                 "description": "Get the health status of the application",
                 "produces": [
@@ -250,14 +282,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_cmd_server_handlers.HealthResponse"
+                            "$ref": "#/definitions/cmd_server_handlers.HealthResponse"
                         }
                     }
                 }
             }
         },
-        "/scenario-events": {
+        "/v1/scenario-events": {
             "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "List all scenario events or create a new one",
                 "consumes": [
                     "application/json"
@@ -275,7 +315,7 @@ const docTemplate = `{
                         "name": "body",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/handlers.scenarioEventInput"
+                            "$ref": "#/definitions/cmd_server_handlers.scenarioEventInput"
                         }
                     }
                 ],
@@ -285,14 +325,14 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/repository.ScenarioEvent"
+                                "$ref": "#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent"
                             }
                         }
                     },
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/repository.ScenarioEvent"
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent"
                         }
                     },
                     "400": {
@@ -312,6 +352,14 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
                 "description": "List all scenario events or create a new one",
                 "consumes": [
                     "application/json"
@@ -329,7 +377,7 @@ const docTemplate = `{
                         "name": "body",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/handlers.scenarioEventInput"
+                            "$ref": "#/definitions/cmd_server_handlers.scenarioEventInput"
                         }
                     }
                 ],
@@ -339,14 +387,14 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/repository.ScenarioEvent"
+                                "$ref": "#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent"
                             }
                         }
                     },
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/repository.ScenarioEvent"
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent"
                         }
                     },
                     "400": {
@@ -366,7 +414,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/tools": {
+        "/v1/tools": {
             "get": {
                 "description": "Returns a list of all available financial tools and their metadata",
                 "produces": [
@@ -386,93 +434,118 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v2/financial/timeline/chart": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns the simplified financial timeline chart with net worth projections",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Timeline V2"
+                ],
+                "summary": "Get financial timeline chart (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "yearly",
+                        "description": "Resolution (yearly or monthly)",
+                        "name": "resolution",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/financial/timeline/snapshot": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns detailed monthly snapshots with all financial items, balances, and summaries. startDate is required (DD-MM-YYYY format). If endDate is not provided, returns only items matching startDate.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Timeline V2"
+                ],
+                "summary": "Get monthly financial snapshots (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date (DD-MM-YYYY, required)",
+                        "name": "startDate",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date (DD-MM-YYYY). Defaults to startDate if not provided.",
+                        "name": "endDate",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
-        "financial-chat-system_backend_cmd_server_handlers.HealthResponse": {
-            "type": "object",
-            "properties": {
-                "services": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "status": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                },
-                "uptime": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial.ImpactEstimate": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "monthly_change": {
-                    "type": "number"
-                },
-                "net_worth_change": {
-                    "type": "number"
-                }
-            }
-        },
-        "financial.ProposedAction": {
-            "type": "object",
-            "properties": {
-                "call_id": {
-                    "type": "string"
-                },
-                "dependencies": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "estimated_impact": {
-                    "$ref": "#/definitions/financial.ImpactEstimate"
-                },
-                "friendly_description": {
-                    "type": "string"
-                },
-                "parameters": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "tool_name": {
-                    "type": "string"
-                },
-                "warnings": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial.Warning"
-                    }
-                }
-            }
-        },
-        "financial.Warning": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string"
-                },
-                "severity": {
-                    "description": "\"low\", \"medium\", \"high\"",
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.ChatRequest": {
+        "cmd_server_handlers.ChatRequest": {
             "type": "object",
             "required": [
                 "chat_id",
@@ -491,7 +564,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.ChatResponse": {
+        "cmd_server_handlers.ChatResponse": {
             "type": "object",
             "properties": {
                 "actions_executed": {
@@ -506,7 +579,7 @@ const docTemplate = `{
                 "conversation_flow": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/session.ConversationStep"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_session.ConversationStep"
                     }
                 },
                 "message_id": {
@@ -515,7 +588,7 @@ const docTemplate = `{
                 "proposed_actions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial.ProposedAction"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial.ProposedAction"
                     }
                 },
                 "requires_approval": {
@@ -523,7 +596,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.DispatchRequest": {
+        "cmd_server_handlers.DispatchRequest": {
             "type": "object",
             "required": [
                 "selected_actions",
@@ -533,7 +606,7 @@ const docTemplate = `{
                 "selected_actions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/handlers.SelectedAction"
+                        "$ref": "#/definitions/cmd_server_handlers.SelectedAction"
                     }
                 },
                 "session_id": {
@@ -541,7 +614,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.DispatchResponse": {
+        "cmd_server_handlers.DispatchResponse": {
             "type": "object",
             "properties": {
                 "api_version": {
@@ -550,18 +623,18 @@ const docTemplate = `{
                 "results": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/handlers.ExecutionResult"
+                        "$ref": "#/definitions/cmd_server_handlers.ExecutionResult"
                     }
                 },
                 "summary": {
-                    "$ref": "#/definitions/handlers.ExecutionSummary"
+                    "$ref": "#/definitions/cmd_server_handlers.ExecutionSummary"
                 },
                 "updated_session_state": {
-                    "$ref": "#/definitions/session.SessionState"
+                    "$ref": "#/definitions/financial-chat-system_backend_internal_session.SessionState"
                 }
             }
         },
-        "handlers.ExecutionResult": {
+        "cmd_server_handlers.ExecutionResult": {
             "type": "object",
             "properties": {
                 "call_id": {
@@ -587,7 +660,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.ExecutionSummary": {
+        "cmd_server_handlers.ExecutionSummary": {
             "type": "object",
             "properties": {
                 "failed": {
@@ -611,7 +684,28 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.SelectedAction": {
+        "cmd_server_handlers.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "services": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "uptime": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "cmd_server_handlers.SelectedAction": {
             "type": "object",
             "required": [
                 "call_id"
@@ -629,7 +723,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.scenarioEventInput": {
+        "cmd_server_handlers.scenarioEventInput": {
             "type": "object",
             "properties": {
                 "description": {
@@ -653,7 +747,7 @@ const docTemplate = `{
                 "impacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/handlers.scenarioImpactInput"
+                        "$ref": "#/definitions/cmd_server_handlers.scenarioImpactInput"
                     }
                 },
                 "isIncluded": {
@@ -685,7 +779,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.scenarioImpactInput": {
+        "cmd_server_handlers.scenarioImpactInput": {
             "type": "object",
             "properties": {
                 "amount": {
@@ -732,69 +826,69 @@ const docTemplate = `{
                 }
             }
         },
-        "llm.ChatMessage": {
+        "financial-chat-system_backend_internal_financial.ImpactEstimate": {
             "type": "object",
             "properties": {
-                "content": {
-                    "description": "Message content",
+                "description": {
                     "type": "string"
                 },
-                "name": {
-                    "description": "Optional name for tool messages",
+                "monthly_change": {
+                    "type": "number"
+                },
+                "net_worth_change": {
+                    "type": "number"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial.ProposedAction": {
+            "type": "object",
+            "properties": {
+                "call_id": {
                     "type": "string"
                 },
-                "role": {
-                    "description": "\"user\", \"assistant\", \"system\", \"tool\"",
-                    "type": "string"
-                },
-                "tool_call_id": {
-                    "description": "ID of tool call this message responds to",
-                    "type": "string"
-                },
-                "tool_calls": {
-                    "description": "Tool calls in this message",
+                "dependencies": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/llm.ToolCall"
+                        "type": "string"
+                    }
+                },
+                "estimated_impact": {
+                    "$ref": "#/definitions/financial-chat-system_backend_internal_financial.ImpactEstimate"
+                },
+                "friendly_description": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "tool_name": {
+                    "type": "string"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial.Warning"
                     }
                 }
             }
         },
-        "llm.FunctionCall": {
+        "financial-chat-system_backend_internal_financial.Warning": {
             "type": "object",
             "properties": {
-                "arguments": {
-                    "description": "JSON string of function arguments",
+                "message": {
                     "type": "string"
                 },
-                "name": {
-                    "description": "Function name (e.g., \"create_asset\")",
-                    "type": "string"
-                }
-            }
-        },
-        "llm.ToolCall": {
-            "type": "object",
-            "properties": {
-                "function": {
-                    "description": "Function details",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/llm.FunctionCall"
-                        }
-                    ]
-                },
-                "id": {
-                    "description": "Unique identifier for this tool call",
+                "severity": {
+                    "description": "\"low\", \"medium\", \"high\"",
                     "type": "string"
                 },
                 "type": {
-                    "description": "Always \"function\" for function calls",
                     "type": "string"
                 }
             }
         },
-        "repository.ScenarioEvent": {
+        "financial-chat-system_backend_internal_financial_repository.ScenarioEvent": {
             "type": "object",
             "properties": {
                 "createdAt": {
@@ -815,7 +909,7 @@ const docTemplate = `{
                 "impacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/repository.ScenarioImpact"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioImpact"
                     }
                 },
                 "isIncluded": {
@@ -844,7 +938,7 @@ const docTemplate = `{
                 }
             }
         },
-        "repository.ScenarioImpact": {
+        "financial-chat-system_backend_internal_financial_repository.ScenarioImpact": {
             "type": "object",
             "properties": {
                 "amount": {
@@ -886,121 +980,7 @@ const docTemplate = `{
                 }
             }
         },
-        "session.ConversationStep": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "result": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "step_id": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                },
-                "tool_calls": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "tool_name": {
-                    "type": "string"
-                },
-                "type": {
-                    "description": "\"user_message\", \"llm_response\", \"tool_execution\"",
-                    "type": "string"
-                }
-            }
-        },
-        "session.PendingToolCall": {
-            "type": "object",
-            "properties": {
-                "call_id": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "dependencies": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "friendly_description": {
-                    "type": "string"
-                },
-                "parameters": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "preview": {
-                    "type": "string"
-                },
-                "tool_name": {
-                    "type": "string"
-                }
-            }
-        },
-        "session.SessionState": {
-            "type": "object",
-            "properties": {
-                "chat_id": {
-                    "type": "string"
-                },
-                "conversation_flow": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/session.ConversationStep"
-                    }
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "last_asset_id": {
-                    "type": "string"
-                },
-                "last_liability_id": {
-                    "type": "string"
-                },
-                "last_property_plan_id": {
-                    "type": "string"
-                },
-                "messages": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/llm.ChatMessage"
-                    }
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "pending_actions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/session.PendingToolCall"
-                    }
-                },
-                "session_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "timeline.EventImpactSummary": {
+        "financial-chat-system_backend_internal_financial_timeline.EventImpactSummary": {
             "type": "object",
             "properties": {
                 "amountAnnual": {
@@ -1025,7 +1005,7 @@ const docTemplate = `{
                 }
             }
         },
-        "timeline.GrowthApplied": {
+        "financial-chat-system_backend_internal_financial_timeline.GrowthApplied": {
             "type": "object",
             "properties": {
                 "annualRatePct": {
@@ -1036,7 +1016,7 @@ const docTemplate = `{
                 }
             }
         },
-        "timeline.ItemType": {
+        "financial-chat-system_backend_internal_financial_timeline.ItemType": {
             "type": "string",
             "enum": [
                 "asset",
@@ -1053,7 +1033,7 @@ const docTemplate = `{
                 "ItemTypeCashAccount"
             ]
         },
-        "timeline.TimelineItem": {
+        "financial-chat-system_backend_internal_financial_timeline.TimelineItem": {
             "type": "object",
             "properties": {
                 "adjAnnualAmt": {
@@ -1083,7 +1063,7 @@ const docTemplate = `{
                 "eventImpacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.EventImpactSummary"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.EventImpactSummary"
                     }
                 },
                 "growthRate": {
@@ -1099,7 +1079,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "itemType": {
-                    "$ref": "#/definitions/timeline.ItemType"
+                    "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.ItemType"
                 },
                 "name": {
                     "type": "string"
@@ -1120,7 +1100,7 @@ const docTemplate = `{
                 }
             }
         },
-        "timeline.TimelineMonth": {
+        "financial-chat-system_backend_internal_financial_timeline.TimelineMonth": {
             "type": "object",
             "properties": {
                 "accumulatedCashEnd": {
@@ -1135,25 +1115,25 @@ const docTemplate = `{
                 "assets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineItem"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
                     }
                 },
                 "cashAccounts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineItem"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
                     }
                 },
                 "expenses": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineItem"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
                     }
                 },
                 "growthApplied": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.GrowthApplied"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied"
                     }
                 },
                 "hasOverrides": {
@@ -1162,7 +1142,7 @@ const docTemplate = `{
                 "income": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineItem"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
                     }
                 },
                 "interestEarned": {
@@ -1171,7 +1151,7 @@ const docTemplate = `{
                 "liabilities": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineItem"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
                     }
                 },
                 "month": {
@@ -1203,13 +1183,13 @@ const docTemplate = `{
                 }
             }
         },
-        "timeline.TimelineResponse": {
+        "financial-chat-system_backend_internal_financial_timeline.TimelineResponse": {
             "type": "object",
             "properties": {
                 "months": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineMonth"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineMonth"
                     }
                 },
                 "resolution": {
@@ -1229,12 +1209,12 @@ const docTemplate = `{
                 "years": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineYear"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineYear"
                     }
                 }
             }
         },
-        "timeline.TimelineYear": {
+        "financial-chat-system_backend_internal_financial_timeline.TimelineYear": {
             "type": "object",
             "properties": {
                 "accumulatedCashEnd": {
@@ -1256,26 +1236,26 @@ const docTemplate = `{
                 "assets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineItem"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
                     }
                 },
                 "cashAccounts": {
                     "description": "Cash accounts from cash_accounts table",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineItem"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
                     }
                 },
                 "expenses": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineItem"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
                     }
                 },
                 "growthApplied": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.GrowthApplied"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied"
                     }
                 },
                 "hasOverrides": {
@@ -1284,7 +1264,7 @@ const docTemplate = `{
                 "income": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineItem"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
                     }
                 },
                 "interestEarned": {
@@ -1294,7 +1274,7 @@ const docTemplate = `{
                 "liabilities": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/timeline.TimelineItem"
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
                     }
                 },
                 "netCash": {
@@ -1307,6 +1287,572 @@ const docTemplate = `{
                 },
                 "year": {
                     "type": "integer"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse": {
+            "type": "object",
+            "properties": {
+                "adjBalance": {
+                    "type": "number"
+                },
+                "balance": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "createdMonth": {
+                    "type": "integer"
+                },
+                "createdYear": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "itemType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse": {
+            "type": "object",
+            "properties": {
+                "adjAmount": {
+                    "type": "number"
+                },
+                "amount": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "createdMonth": {
+                    "type": "integer"
+                },
+                "createdYear": {
+                    "type": "integer"
+                },
+                "growthRate": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "itemType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "sourceFrequency": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse": {
+            "type": "object",
+            "properties": {
+                "adjBalance": {
+                    "type": "number"
+                },
+                "balance": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "createdMonth": {
+                    "type": "integer"
+                },
+                "createdYear": {
+                    "type": "integer"
+                },
+                "isAccumulator": {
+                    "type": "boolean"
+                },
+                "itemId": {
+                    "type": "string"
+                },
+                "itemType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse": {
+            "type": "object",
+            "properties": {
+                "adjAmount": {
+                    "type": "number"
+                },
+                "amount": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "createdMonth": {
+                    "type": "integer"
+                },
+                "createdYear": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "itemType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "sourceFrequency": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse": {
+            "type": "object",
+            "properties": {
+                "adjAmount": {
+                    "type": "number"
+                },
+                "amount": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "createdMonth": {
+                    "type": "integer"
+                },
+                "createdYear": {
+                    "type": "integer"
+                },
+                "growthRate": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "itemType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "sourceFrequency": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse": {
+            "type": "object",
+            "properties": {
+                "adjAnnualAmt": {
+                    "type": "number"
+                },
+                "adjMonthlyAmt": {
+                    "type": "number"
+                },
+                "annualAmt": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "createdMonth": {
+                    "type": "integer"
+                },
+                "createdYear": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "itemType": {
+                    "type": "string"
+                },
+                "monthlyAmt": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "sourceAmount": {
+                    "type": "number"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse": {
+            "type": "object",
+            "properties": {
+                "accumulatorAccountId": {
+                    "type": "string"
+                },
+                "allMonthsIndex": {
+                    "type": "integer"
+                },
+                "allYearsIndex": {
+                    "type": "integer"
+                },
+                "cashAssets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse"
+                    }
+                },
+                "cpfAssets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse"
+                    }
+                },
+                "cpfContributions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse"
+                    }
+                },
+                "expenses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse"
+                    }
+                },
+                "income": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse"
+                    }
+                },
+                "liabilities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse"
+                    }
+                },
+                "month": {
+                    "type": "integer"
+                },
+                "netCash": {
+                    "type": "number"
+                },
+                "netSavings": {
+                    "type": "number"
+                },
+                "netWorth": {
+                    "type": "number"
+                },
+                "nonCashAssets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse"
+                    }
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse": {
+            "type": "object",
+            "properties": {
+                "adjBalance": {
+                    "type": "number"
+                },
+                "balance": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "createdMonth": {
+                    "type": "integer"
+                },
+                "createdYear": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "itemType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse": {
+            "type": "object",
+            "properties": {
+                "months": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary"
+                    }
+                },
+                "resolution": {
+                    "type": "string"
+                },
+                "scenarioIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "years": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary"
+                    }
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary": {
+            "type": "object",
+            "properties": {
+                "allMonthsIndex": {
+                    "type": "integer"
+                },
+                "month": {
+                    "type": "integer"
+                },
+                "netWorth": {
+                    "type": "number"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response": {
+            "type": "object",
+            "properties": {
+                "months": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse"
+                    }
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary": {
+            "type": "object",
+            "properties": {
+                "allYearsIndex": {
+                    "type": "integer"
+                },
+                "netWorth": {
+                    "type": "number"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_llm.ChatMessage": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Message content",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Optional name for tool messages",
+                    "type": "string"
+                },
+                "role": {
+                    "description": "\"user\", \"assistant\", \"system\", \"tool\"",
+                    "type": "string"
+                },
+                "tool_call_id": {
+                    "description": "ID of tool call this message responds to",
+                    "type": "string"
+                },
+                "tool_calls": {
+                    "description": "Tool calls in this message",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_llm.ToolCall"
+                    }
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_llm.FunctionCall": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "description": "JSON string of function arguments",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Function name (e.g., \"create_asset\")",
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_llm.ToolCall": {
+            "type": "object",
+            "properties": {
+                "function": {
+                    "description": "Function details",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_llm.FunctionCall"
+                        }
+                    ]
+                },
+                "id": {
+                    "description": "Unique identifier for this tool call",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Always \"function\" for function calls",
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_session.ConversationStep": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "step_id": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "tool_calls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tool_name": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"user_message\", \"llm_response\", \"tool_execution\"",
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_session.PendingToolCall": {
+            "type": "object",
+            "properties": {
+                "call_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "dependencies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "friendly_description": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "preview": {
+                    "type": "string"
+                },
+                "tool_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_session.SessionState": {
+            "type": "object",
+            "properties": {
+                "chat_id": {
+                    "type": "string"
+                },
+                "conversation_flow": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_session.ConversationStep"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "last_asset_id": {
+                    "type": "string"
+                },
+                "last_liability_id": {
+                    "type": "string"
+                },
+                "last_property_plan_id": {
+                    "type": "string"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_llm.ChatMessage"
+                    }
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "pending_actions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_session.PendingToolCall"
+                    }
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
                 }
             }
         }
@@ -1331,7 +1877,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:8080",
-	BasePath:         "/api/v1",
+	BasePath:         "/api",
 	Schemes:          []string{"http", "https"},
 	Title:            "Financial Chat System API",
 	Description:      "API for managing financial data, chat interactions, and scenario planning",

@@ -14,6 +14,7 @@ func NewVersionMiddleware() *VersionMiddleware {
 	return &VersionMiddleware{
 		supportedVersions: map[string]bool{
 			"v1": true,
+			"v2": true,
 		},
 		deprecatedVersions: map[string]string{
 			// "v1": "Version v1 will be deprecated on 2024-07-01. Please upgrade to v2.",

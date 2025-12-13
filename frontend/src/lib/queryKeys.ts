@@ -18,6 +18,7 @@ export const QUERY_KEYS = {
     cashAccounts: ['financial', 'cash-accounts'] as const,
     scenarioEvents: ['financial', 'scenario-events'] as const,
     timeline: ['financial', 'timeline'] as const,
+    timelineV2: ['financial', 'timeline', 'v2'] as const,
     propertyLinks: ['financial', 'property-links'] as const,
     propertyScenarios: ['financial', 'property-scenarios'] as const,
     netWorth: ['financial', 'net-worth'] as const,

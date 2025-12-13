@@ -329,7 +329,6 @@ export function FinancialFormModal({
       case 'asset': {
         const asset = data as Asset
         const amt = (asset as any).amountAnnual ?? (asset as any).amount_annual ?? asset.currentValue ?? 0
-        const freq = (asset as any).sourceFrequency ?? (asset as any).source_frequency ?? 'annual'
         // Use item's growth rate if set, otherwise fall back to user's growth config for this category
         const itemRate = asset.annualGrowthRate
         const effectiveRate = itemRate && itemRate !== 0
@@ -338,7 +337,7 @@ export function FinancialFormModal({
         setFormData({
           name: toSafeText(asset.name),
           amount: formatNumberInput(roundToDollar(amt)),
-          frequency: freq,
+          frequency: 'monthly', // Assets don't use frequency - default placeholder
           category: asset.category,
           annualGrowthRate: effectiveRate.toString(),
           interestRateApr: '4.5',
@@ -351,7 +350,6 @@ export function FinancialFormModal({
       case 'liability': {
         const liability = data as Liability
         const amt = (liability as any).amountAnnual ?? (liability as any).amount_annual ?? liability.currentBalance ?? 0
-        const freq = (liability as any).sourceFrequency ?? (liability as any).source_frequency ?? 'annual'
         // Liabilities use interestRateApr, fall back to absolute value of liability_debt config
         const itemRate = liability.interestRateApr
         const effectiveRate = itemRate && itemRate !== 0
@@ -360,7 +358,7 @@ export function FinancialFormModal({
         setFormData({
           name: toSafeText(liability.name),
           amount: formatNumberInput(roundToDollar(amt)),
-          frequency: freq,
+          frequency: 'monthly', // Liabilities don't use frequency - placeholder only
           category: liability.category,
           annualGrowthRate: '7.0',
           interestRateApr: effectiveRate.toString(),
@@ -779,7 +777,7 @@ export function FinancialFormModal({
                       <option value="biweekly">Bi-weekly</option>
                       <option value="monthly">Monthly</option>
                       <option value="quarterly">Quarterly</option>
-                      <option value="yearly">Yearly</option>
+                      <option value="annual">Annual</option>
                     </select>
                   </div>
                 )}

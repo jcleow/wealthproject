@@ -29,46 +29,22 @@ export function useLoadSampleDataMutation() {
 
       // Sample data for a 32-year-old Singaporean professional
       // Planning: marriage, BTO flat, car, retirement by 60
-      const currentYear = new Date().getFullYear()
+      const todayIso = new Date().toISOString()
       const sampleAssets = [
         {
           name: 'DBS Multiplier Account',
           category: 'Bank Account',
           currentValue: 25000,
           annualGrowthRate: 2.5,
-          startYear: currentYear,
+          startDate: todayIso,
           notes: 'Main savings account with salary crediting',
-        },
-        {
-          name: 'CPF Ordinary Account',
-          category: 'Retirement',
-          currentValue: 85000,
-          annualGrowthRate: 2.5,
-          startYear: currentYear,
-          notes: '10 years of contributions, can be used for housing',
-        },
-        {
-          name: 'CPF Special Account',
-          category: 'Retirement',
-          currentValue: 45000,
-          annualGrowthRate: 4.0,
-          startYear: currentYear,
-          notes: 'Cannot touch until 55, higher interest rate',
-        },
-        {
-          name: 'CPF Medisave',
-          category: 'Retirement',
-          currentValue: 32000,
-          annualGrowthRate: 4.0,
-          startYear: currentYear,
-          notes: 'Medical expenses and insurance premiums',
         },
         {
           name: 'Syfe Core Growth Portfolio',
           category: 'Investment',
           currentValue: 35000,
           annualGrowthRate: 6.0,
-          startYear: currentYear,
+          startDate: todayIso,
           notes: 'Global ETF robo-advisor, monthly DCA $500',
         },
         {
@@ -76,7 +52,7 @@ export function useLoadSampleDataMutation() {
           category: 'Investment',
           currentValue: 20000,
           annualGrowthRate: 3.0,
-          startYear: currentYear,
+          startDate: todayIso,
           notes: 'Safe haven, 10-year average yield',
         },
         {
@@ -84,7 +60,7 @@ export function useLoadSampleDataMutation() {
           category: 'Bank Account',
           currentValue: 18000,
           annualGrowthRate: 2.0,
-          startYear: currentYear,
+          startDate: todayIso,
           notes: '6 months expenses in high-yield savings',
         },
       ]
@@ -96,7 +72,7 @@ export function useLoadSampleDataMutation() {
           currentBalance: 8000,
           interestRateApr: 4.5,
           minimumPayment: 250,
-          startYear: currentYear,
+          startDate: todayIso,
           notes: 'Remaining balance from university, 3 years left',
         },
         {
@@ -105,21 +81,20 @@ export function useLoadSampleDataMutation() {
           currentBalance: 800,
           interestRateApr: 26,
           minimumPayment: 50,
-          startYear: currentYear,
+          startDate: todayIso,
           notes: 'Paid in full monthly, revolving for cashback',
         },
       ]
 
-      const nowIso = new Date().toISOString()
       const sampleIncomes: Array<Omit<Income, 'id' | 'updatedAt'>> = [
         {
           source: 'Software Engineer Salary',
           category: 'Employment',
           amount: 7500,
           frequency: 'monthly',
-          startDate: nowIso,
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 4.0,
+          cpfWageType: "ow", // Ordinary wages for monthly salary to compute CPF correctly
           notes: 'Mid-senior role at tech company, 10 years experience',
         },
         // {
@@ -150,7 +125,7 @@ export function useLoadSampleDataMutation() {
           category: 'Family',
           amount: 500,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 2.0,
           notes: 'Monthly contribution to parents',
         },
@@ -159,7 +134,7 @@ export function useLoadSampleDataMutation() {
           category: 'Housing',
           amount: 1200,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 3.0,
           notes: 'Master bedroom in shared HDB, Toa Payoh',
         },
@@ -168,7 +143,7 @@ export function useLoadSampleDataMutation() {
           category: 'Food',
           amount: 600,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 3.0,
           notes: 'Mix of cooking and hawker center meals',
         },
@@ -177,7 +152,7 @@ export function useLoadSampleDataMutation() {
           category: 'Food',
           amount: 400,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 2.0,
           notes: 'Restaurants, dates, gatherings with friends',
         },
@@ -186,7 +161,7 @@ export function useLoadSampleDataMutation() {
           category: 'Transport',
           amount: 120,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 2.0,
           notes: 'MRT and bus, monthly concession',
         },
@@ -195,7 +170,7 @@ export function useLoadSampleDataMutation() {
           category: 'Transport',
           amount: 100,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 3.0,
           notes: 'Late nights and rainy days',
         },
@@ -204,7 +179,7 @@ export function useLoadSampleDataMutation() {
           category: 'Bills',
           amount: 45,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 0,
           notes: 'Circles.Life SIM-only plan',
         },
@@ -213,7 +188,7 @@ export function useLoadSampleDataMutation() {
           category: 'Bills',
           amount: 50,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 2.0,
           notes: 'Netflix, Spotify, iCloud',
         },
@@ -222,7 +197,7 @@ export function useLoadSampleDataMutation() {
           category: 'Insurance',
           amount: 150,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 0,
           notes: 'NTUC Income term life, $500k coverage',
         },
@@ -231,7 +206,7 @@ export function useLoadSampleDataMutation() {
           category: 'Insurance',
           amount: 80,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 5.0,
           notes: 'Integrated Shield Plan rider, paid from Medisave + cash',
         },
@@ -240,7 +215,7 @@ export function useLoadSampleDataMutation() {
           category: 'Health',
           amount: 100,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 2.0,
           notes: 'ActiveSG + occasional ClassPass',
         },
@@ -249,7 +224,7 @@ export function useLoadSampleDataMutation() {
           category: 'Personal',
           amount: 80,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 2.0,
           notes: 'Haircut, toiletries, etc',
         },
@@ -258,7 +233,7 @@ export function useLoadSampleDataMutation() {
           category: 'Personal',
           amount: 200,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 2.0,
           notes: 'Clothes, gadgets, movies',
         },
@@ -267,7 +242,7 @@ export function useLoadSampleDataMutation() {
           category: 'Savings',
           amount: 500,
           frequency: 'monthly',
-          startYear: currentYear,
+          startDate: todayIso,
           growthRate: 3.0,
           notes: 'Monthly DCA to Syfe portfolio',
         },
@@ -275,8 +250,8 @@ export function useLoadSampleDataMutation() {
           payee: 'Annual Travel Fund',
           category: 'Travel',
           amount: 4000,
-          frequency: 'yearly',
-          startYear: currentYear,
+          frequency: 'annual',
+          startDate: todayIso,
           growthRate: 3.0,
           notes: '1-2 overseas trips per year (Japan, Thailand, etc)',
         },
@@ -487,11 +462,16 @@ export function useLoadSampleDataMutation() {
             const startMonth = impact.startMonth ?? event.occursOn
             // Use the impact amount (must be positive for income/expense schemas)
             const impactAmount = Math.abs(impact.amount ?? 1)
-            // Calculate the absolute calendar year from startMonth
-            const startYear = startMonth ? new Date(startMonth).getFullYear() : new Date().getFullYear()
-            // Extract month (1-12) from startMonth
-            const startMonthNum = startMonth ? new Date(startMonth).getMonth() + 1 : 1
             const isOneTime = impact.cadence === 'one_time'
+            const startDateIso = startMonth ? new Date(startMonth).toISOString() : new Date().toISOString()
+            // For one-time items, set endDate to end of same month so they only appear once
+            const endDateIso = isOneTime ? (() => {
+              const d = startMonth ? new Date(startMonth) : new Date()
+              // Set to last day of the month
+              d.setMonth(d.getMonth() + 1, 0)
+              d.setHours(23, 59, 59, 999)
+              return d.toISOString()
+            })() : undefined
 
             if (impact.targetType === 'asset') {
               const newAsset = await financialApi.createAsset({
@@ -500,10 +480,8 @@ export function useLoadSampleDataMutation() {
                 currentValue: impactAmount,
                 annualGrowthRate: 3.0,
                 notes: `Created by scenario: ${event.name}`,
-                startYear,
-                startMonth: startMonthNum,
-                endYear: isOneTime ? startYear : undefined,
-                endMonth: isOneTime ? startMonthNum : undefined,
+                startDate: startDateIso,
+                endDate: endDateIso,
               })
               targetId = newAsset.id
             } else if (impact.targetType === 'liability') {
@@ -514,10 +492,8 @@ export function useLoadSampleDataMutation() {
                 interestRateApr: 3.0,
                 minimumPayment: 0,
                 notes: `Created by scenario: ${event.name}`,
-                startYear,
-                startMonth: startMonthNum,
-                endYear: isOneTime ? startYear : undefined,
-                endMonth: isOneTime ? startMonthNum : undefined,
+                startDate: startDateIso,
+                endDate: endDateIso,
               })
               targetId = newLiability.id
             } else if (impact.targetType === 'income') {
@@ -525,15 +501,13 @@ export function useLoadSampleDataMutation() {
                 source: impact.notes || `${event.name} - Income`,
                 category: 'Other',
                 amount: impactAmount,
-                frequency: isOneTime ? 'yearly' : 'monthly',
-                startDate: startMonth ? new Date(startMonth).toISOString() : new Date().toISOString(),
+                // Use 'one_time' frequency for one-time items (backend handles this specially)
+                // endDate provides a second layer of protection against recurrence
+                frequency: isOneTime ? 'one_time' : 'monthly',
+                startDate: startDateIso,
+                endDate: endDateIso,
                 growthRate: 0,
                 notes: `Created by scenario: ${event.name}`,
-                startYear,
-                startMonth: startMonthNum,
-                // For one-time items, set endYear = startYear so they only appear in one year
-                endYear: isOneTime ? startYear : undefined,
-                endMonth: isOneTime ? startMonthNum : undefined,
               })
               targetId = newIncome.id
             } else if (impact.targetType === 'expense') {
@@ -541,14 +515,13 @@ export function useLoadSampleDataMutation() {
                 payee: impact.notes || `${event.name} - Expense`,
                 category: 'Other',
                 amount: impactAmount,
-                frequency: isOneTime ? 'yearly' : 'monthly',
+                // Use 'one_time' frequency for one-time items (backend handles this specially)
+                // endDate provides a second layer of protection against recurrence
+                frequency: isOneTime ? 'one_time' : 'monthly',
+                startDate: startDateIso,
+                endDate: endDateIso,
                 growthRate: 0,
                 notes: `Created by scenario: ${event.name}`,
-                startYear,
-                startMonth: startMonthNum,
-                // For one-time items, set endYear = startYear so they only appear in one year
-                endYear: isOneTime ? startYear : undefined,
-                endMonth: isOneTime ? startMonthNum : undefined,
               })
               targetId = newExpense.id
             }

@@ -7,10 +7,38 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 gsap.registerPlugin(ScrollTrigger)
 
 const scenarios = [
-  { icon: '👶', label: 'Have Children', impact: '$800K swing', color: '#ec4899' },
-  { icon: '🏠', label: 'Buy Property', impact: '$1.2M swing', color: '#3b82f6' },
-  { icon: '🧭', label: 'Career Break', impact: '$350K swing', color: '#f97316' },
-  { icon: '💼', label: 'Switch to Tech', impact: '$1.1M swing', color: '#22c55e' },
+  {
+    icon: '👶',
+    label: 'Have Children',
+    impact: '$800K',
+    direction: 'swing',
+    color: '#EC4899',
+    description: 'Education, childcare, activities',
+  },
+  {
+    icon: '🏠',
+    label: 'Buy Property',
+    impact: '$1.2M',
+    direction: 'swing',
+    color: '#3B82F6',
+    description: 'Appreciation vs opportunity cost',
+  },
+  {
+    icon: '🧭',
+    label: 'Career Break',
+    impact: '$350K',
+    direction: 'swing',
+    color: '#F97316',
+    description: 'Lost income + career momentum',
+  },
+  {
+    icon: '💼',
+    label: 'Switch to Tech',
+    impact: '$1.1M',
+    direction: 'swing',
+    color: '#10B981',
+    description: 'Higher earning potential',
+  },
 ]
 
 export function MultipleFuturesPanel() {
@@ -21,69 +49,179 @@ export function MultipleFuturesPanel() {
     if (!container) return
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      container.querySelectorAll('.future-item').forEach((el) => el.classList.remove('opacity-0'))
+      container.querySelectorAll('[data-animate]').forEach((el) => {
+        ;(el as HTMLElement).style.opacity = '1'
+        ;(el as HTMLElement).style.transform = 'none'
+      })
       return
     }
 
-    const items = container.querySelectorAll('.future-item')
+    const ctx = gsap.context(() => {
+      // Title animation
+      gsap.fromTo(
+        '.futures-title',
+        { opacity: 0, y: 40 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.8,
+          scrollTrigger: {
+            trigger: container,
+            start: 'top 75%',
+            toggleActions: 'play none none reverse',
+          },
+        }
+      )
 
-    gsap.set(items, { opacity: 0, x: -20 })
+      // Staggered grid items with kinetic entrance
+      gsap.fromTo(
+        '.futures-item',
+        { opacity: 0, y: 60, scale: 0.95 },
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.8,
+          stagger: 0.15,
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: '.futures-grid',
+            start: 'top 70%',
+            toggleActions: 'play none none reverse',
+          },
+        }
+      )
 
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: container,
-        start: 'top 70%',
-        end: 'bottom 30%',
-        toggleActions: 'play none none reverse',
-      },
-    })
+      // Footer text
+      gsap.fromTo(
+        '.futures-footer',
+        { opacity: 0 },
+        {
+          opacity: 1,
+          duration: 0.6,
+          scrollTrigger: {
+            trigger: '.futures-footer',
+            start: 'top 90%',
+            toggleActions: 'play none none reverse',
+          },
+        }
+      )
+    }, container)
 
-    tl.to(items, {
-      opacity: 1,
-      x: 0,
-      duration: 0.5,
-      stagger: 0.1,
-      ease: 'power2.out',
-    })
-
-    return () => {
-      tl.kill()
-    }
+    return () => ctx.revert()
   }, [])
 
   return (
     <div
       ref={containerRef}
-      className="landing-panel relative flex min-h-screen flex-col items-center justify-center px-4 py-20"
+      className="landing-panel relative flex min-h-screen flex-col items-center justify-center px-6 py-24"
     >
-      <h2 className="mb-4 text-center text-2xl font-semibold text-white md:text-4xl">
-        Life doesn&apos;t stop there
-      </h2>
-      <p className="mb-16 max-w-lg text-center text-slate-500">
-        Each decision branches into more. Kids, property, career shifts — each
-        move reshapes the entire arc.
-      </p>
+      {/* Section header */}
+      <div className="futures-title mb-20 max-w-3xl text-center opacity-0" data-animate>
+        <span
+          className="landing-body mb-4 block text-xs font-medium uppercase tracking-[0.25em]"
+          style={{ color: 'var(--landing-gold)' }}
+        >
+          Compounding Complexity
+        </span>
+        <h2
+          className="landing-display text-4xl md:text-5xl lg:text-6xl"
+          style={{ color: 'var(--landing-text-primary)' }}
+        >
+          Life doesn&apos;t stop
+          <br />
+          <span className="landing-display-italic" style={{ color: 'var(--landing-text-secondary)' }}>
+            at one decision
+          </span>
+        </h2>
+        <p
+          className="landing-body mx-auto mt-6 max-w-lg text-base"
+          style={{ color: 'var(--landing-text-muted)' }}
+        >
+          Each choice branches into more. Kids, property, career shifts—each move
+          reshapes the entire arc.
+        </p>
+      </div>
 
-      <div className="grid w-full max-w-2xl gap-4 md:grid-cols-2">
-        {scenarios.map((s) => (
+      {/* Kinetic grid */}
+      <div className="futures-grid grid w-full max-w-4xl gap-4 md:grid-cols-2">
+        {scenarios.map((s, index) => (
           <div
             key={s.label}
-            className="future-item flex items-center gap-4 rounded-lg border border-white/5 bg-white/[0.02] p-4"
+            className="futures-item group relative overflow-hidden rounded-xl border border-[var(--landing-border)] p-6 opacity-0 transition-all duration-500 hover:border-[var(--landing-border-accent)]"
+            style={{
+              background: 'linear-gradient(180deg, rgba(17, 24, 32, 0.6) 0%, rgba(12, 17, 25, 0.8) 100%)',
+              transform: index % 2 === 1 ? 'translateY(20px)' : 'translateY(0)',
+            }}
+            data-animate
           >
-            <span className="text-2xl">{s.icon}</span>
-            <div className="flex-1">
-              <p className="text-sm text-slate-400">{s.label}</p>
-              <p className="text-lg font-semibold" style={{ color: s.color }}>
-                {s.impact}
-              </p>
+            {/* Hover glow */}
+            <div
+              className="absolute -right-12 -top-12 h-24 w-24 rounded-full opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-30"
+              style={{ background: s.color }}
+            />
+
+            <div className="relative z-10 flex items-start gap-5">
+              {/* Icon */}
+              <div
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-2xl transition-transform duration-300 group-hover:scale-110"
+                style={{ background: `${s.color}15` }}
+              >
+                {s.icon}
+              </div>
+
+              {/* Content */}
+              <div className="flex-1">
+                <div className="mb-1 flex items-baseline justify-between">
+                  <h3
+                    className="landing-body text-sm font-medium"
+                    style={{ color: 'var(--landing-text-secondary)' }}
+                  >
+                    {s.label}
+                  </h3>
+                  <span
+                    className="landing-body text-xs uppercase tracking-wider"
+                    style={{ color: 'var(--landing-text-muted)' }}
+                  >
+                    {s.direction}
+                  </span>
+                </div>
+
+                <p
+                  className="landing-display text-3xl"
+                  style={{ color: s.color }}
+                >
+                  {s.impact}
+                </p>
+
+                <p
+                  className="landing-body mt-2 text-xs"
+                  style={{ color: 'var(--landing-text-muted)' }}
+                >
+                  {s.description}
+                </p>
+              </div>
             </div>
+
+            {/* Decorative line */}
+            <div
+              className="absolute bottom-0 left-0 h-px w-0 transition-all duration-500 group-hover:w-full"
+              style={{ background: `linear-gradient(90deg, transparent, ${s.color}, transparent)` }}
+            />
           </div>
         ))}
       </div>
 
-      <p className="mt-12 text-center text-slate-600">
-        And that&apos;s just the start...
-      </p>
+      {/* Footer */}
+      <div className="futures-footer mt-16 text-center opacity-0" data-animate>
+        <div className="landing-rule mx-auto mb-6 w-24" />
+        <p
+          className="landing-display-italic text-xl"
+          style={{ color: 'var(--landing-text-secondary)' }}
+        >
+          And that&apos;s just the beginning...
+        </p>
+      </div>
     </div>
   )
 }

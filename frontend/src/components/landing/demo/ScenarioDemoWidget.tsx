@@ -10,8 +10,6 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { cn } from '@/lib/utils'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 
 interface DemoScenario {
   id: string
@@ -36,7 +34,7 @@ const initialScenarios: DemoScenario[] = [
     id: 'car',
     label: 'Buy a Car',
     icon: '🚗',
-    color: '#f97316',
+    color: '#F97316',
     enabled: false,
     impacts: [
       { year: 5, netWorthDelta: -120000 },
@@ -49,7 +47,7 @@ const initialScenarios: DemoScenario[] = [
     id: 'kids',
     label: 'Have Children',
     icon: '👶',
-    color: '#ec4899',
+    color: '#EC4899',
     enabled: false,
     impacts: [
       { year: 5, netWorthDelta: -150000 },
@@ -62,7 +60,7 @@ const initialScenarios: DemoScenario[] = [
     id: 'property',
     label: 'Buy Property',
     icon: '🏠',
-    color: '#3b82f6',
+    color: '#3B82F6',
     enabled: false,
     impacts: [
       { year: 5, netWorthDelta: 50000 },
@@ -75,7 +73,7 @@ const initialScenarios: DemoScenario[] = [
     id: 'sidehustle',
     label: 'Side Hustle',
     icon: '💼',
-    color: '#22c55e',
+    color: '#10B981',
     enabled: false,
     impacts: [
       { year: 5, netWorthDelta: 80000 },
@@ -145,9 +143,23 @@ interface CustomTooltipProps {
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (active && payload && payload.length) {
     return (
-      <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur-sm">
-        <p className="text-xs text-slate-400">Year {label}</p>
-        <p className="text-lg font-semibold text-white">
+      <div
+        className="rounded-lg border px-4 py-3 shadow-xl backdrop-blur-md"
+        style={{
+          background: 'rgba(12, 17, 25, 0.95)',
+          borderColor: 'var(--landing-border)',
+        }}
+      >
+        <p
+          className="landing-body text-xs uppercase tracking-wider"
+          style={{ color: 'var(--landing-text-muted)' }}
+        >
+          Year {label}
+        </p>
+        <p
+          className="landing-display mt-1 text-xl"
+          style={{ color: 'var(--landing-gold)' }}
+        >
           {formatCurrency(payload[0].value)}
         </p>
       </div>
@@ -191,117 +203,134 @@ export function ScenarioDemoWidget() {
   const year20Value = projection.find((p) => p.year === 20)?.netWorth || 0
 
   return (
-    <Card className="border-white/10 bg-[#0c1322]">
-      <CardContent className="p-6">
-        {/* Scenario Toggles */}
-        <div className="mb-6 flex flex-wrap justify-center gap-2">
-          {scenarios.map((scenario) => (
-            <Button
-              key={scenario.id}
-              variant={scenario.enabled ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => toggleScenario(scenario.id)}
-              className={cn(
-                'gap-2 transition-all',
-                scenario.enabled && 'ring-2 ring-offset-2 ring-offset-[#0c1322]'
-              )}
-              style={{
-                borderColor: scenario.enabled ? scenario.color : undefined,
-                backgroundColor: scenario.enabled ? `${scenario.color}20` : undefined,
-                color: scenario.enabled ? scenario.color : undefined,
-              }}
-            >
-              <span>{scenario.icon}</span>
-              <span>{scenario.label}</span>
-            </Button>
-          ))}
-        </div>
+    <div className="p-6">
+      {/* Scenario Toggles */}
+      <div className="mb-8 flex flex-wrap justify-center gap-3">
+        {scenarios.map((scenario) => (
+          <button
+            key={scenario.id}
+            onClick={() => toggleScenario(scenario.id)}
+            className={cn(
+              'landing-body flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-all duration-300',
+              scenario.enabled
+                ? 'scale-[1.02]'
+                : 'hover:border-[var(--landing-border-accent)]'
+            )}
+            style={{
+              borderColor: scenario.enabled ? scenario.color : 'var(--landing-border)',
+              backgroundColor: scenario.enabled ? `${scenario.color}15` : 'transparent',
+              color: scenario.enabled ? scenario.color : 'var(--landing-text-secondary)',
+            }}
+          >
+            <span>{scenario.icon}</span>
+            <span>{scenario.label}</span>
+          </button>
+        ))}
+      </div>
 
-        {/* Interactive Chart */}
-        <div className="h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={projection}
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4f81ff" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#4f81ff" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="year"
-                stroke="#aeb6c9"
-                tickFormatter={(v) => `Y${v}`}
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="#aeb6c9"
-                tickFormatter={(v) => formatCurrency(v)}
-                fontSize={11}
-                width={55}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Area
-                type="monotone"
-                dataKey="netWorth"
-                stroke="#7db0ff"
-                fill="url(#netWorthGradient)"
-                strokeWidth={2}
-                animationDuration={500}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Summary Stats */}
-        <div className="mt-6 grid grid-cols-2 gap-4">
-          <div className="rounded-lg bg-white/5 p-4 text-center">
-            <p className="text-xs uppercase tracking-wide text-slate-500">
-              Year 10
-            </p>
-            <AnimatedNumber
-              value={year10Value}
-              className="text-xl font-semibold text-white"
+      {/* Interactive Chart */}
+      <div className="h-56">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={projection}
+            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+          >
+            <defs>
+              <linearGradient id="netWorthGradientDemo" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#C9A962" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#C9A962" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="year"
+              stroke="var(--landing-text-muted)"
+              tickFormatter={(v) => `Y${v}`}
+              fontSize={11}
+              tickLine={false}
+              axisLine={false}
+              fontFamily="var(--font-body)"
             />
-          </div>
-          <div className="rounded-lg bg-white/5 p-4 text-center">
-            <p className="text-xs uppercase tracking-wide text-slate-500">
-              Year 20
-            </p>
-            <AnimatedNumber
-              value={year20Value}
-              className="text-xl font-semibold text-white"
+            <YAxis
+              stroke="var(--landing-text-muted)"
+              tickFormatter={(v) => formatCurrency(v)}
+              fontSize={11}
+              width={55}
+              tickLine={false}
+              axisLine={false}
+              fontFamily="var(--font-body)"
             />
-          </div>
-        </div>
+            <Tooltip content={<CustomTooltip />} />
+            <Area
+              type="monotone"
+              dataKey="netWorth"
+              stroke="#C9A962"
+              fill="url(#netWorthGradientDemo)"
+              strokeWidth={2}
+              animationDuration={500}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
 
-        {/* Active scenarios indicator */}
-        {scenarios.some((s) => s.enabled) && (
-          <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs text-slate-500">
-            <span>Active:</span>
-            {scenarios
-              .filter((s) => s.enabled)
-              .map((s) => (
-                <span
-                  key={s.id}
-                  className="rounded px-1.5 py-0.5"
-                  style={{
-                    backgroundColor: `${s.color}15`,
-                    color: s.color,
-                  }}
-                >
-                  {s.icon} {s.label}
-                </span>
-              ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {/* Summary Stats */}
+      <div className="mt-8 grid grid-cols-2 gap-4">
+        <div
+          className="rounded-xl p-5 text-center"
+          style={{ background: 'rgba(255, 255, 255, 0.03)' }}
+        >
+          <p
+            className="landing-body text-xs font-medium uppercase tracking-wider"
+            style={{ color: 'var(--landing-text-muted)' }}
+          >
+            Year 10
+          </p>
+          <AnimatedNumber
+            value={year10Value}
+            className="landing-display mt-2 block text-2xl"
+            style={{ color: 'var(--landing-text-primary)' } as React.CSSProperties}
+          />
+        </div>
+        <div
+          className="rounded-xl p-5 text-center"
+          style={{ background: 'rgba(255, 255, 255, 0.03)' }}
+        >
+          <p
+            className="landing-body text-xs font-medium uppercase tracking-wider"
+            style={{ color: 'var(--landing-text-muted)' }}
+          >
+            Year 20
+          </p>
+          <AnimatedNumber
+            value={year20Value}
+            className="landing-display mt-2 block text-2xl"
+            style={{ color: 'var(--landing-gold)' } as React.CSSProperties}
+          />
+        </div>
+      </div>
+
+      {/* Active scenarios indicator */}
+      {scenarios.some((s) => s.enabled) && (
+        <div
+          className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs"
+          style={{ color: 'var(--landing-text-muted)' }}
+        >
+          <span className="landing-body">Active:</span>
+          {scenarios
+            .filter((s) => s.enabled)
+            .map((s) => (
+              <span
+                key={s.id}
+                className="landing-body rounded-full px-2 py-0.5"
+                style={{
+                  backgroundColor: `${s.color}15`,
+                  color: s.color,
+                }}
+              >
+                {s.icon} {s.label}
+              </span>
+            ))}
+        </div>
+      )}
+    </div>
   )
 }

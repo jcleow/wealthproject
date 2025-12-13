@@ -19,7 +19,8 @@ export const frequencyEnum = z.enum([
   "biweekly",
   "monthly",
   "quarterly",
-  "yearly",
+  "annual",
+  "one_time", // One-time occurrence, does not recur
 ])
 
 export type Frequency = z.infer<typeof frequencyEnum>
@@ -39,10 +40,8 @@ export const assetSchema = z.object({
   category: z.string().min(1),
   currentValue: z.number(),
   annualGrowthRate: z.number(),
-  startYear: z.number().optional(),
-  startMonth: z.number().optional(),
-  endYear: z.number().optional(),
-  endMonth: z.number().optional(),
+  startDate: isoDateTime.optional(),
+  endDate: isoDateTime.optional(),
   notes: optionalNotes,
   updatedAt: isoDateTime,
   parentId: z.string().optional(),
@@ -57,10 +56,8 @@ export const liabilitySchema = z.object({
   currentBalance: z.number(),
   interestRateApr: z.number(),
   minimumPayment: z.number(),
-  startYear: z.number().optional(),
-  startMonth: z.number().optional(),
-  endYear: z.number().optional(),
-  endMonth: z.number().optional(),
+  startDate: isoDateTime.optional(),
+  endDate: isoDateTime.optional(),
   notes: optionalNotes,
   updatedAt: isoDateTime,
   parentId: z.string().optional(),
@@ -100,10 +97,7 @@ export const incomeSchema = z.object({
   amount: z.number().positive(),
   frequency: frequencyEnum,
   startDate: isoDateTime,
-  startYear: z.number().optional(),
-  startMonth: z.number().optional(),
-  endYear: z.number().optional(),
-  endMonth: z.number().optional(),
+  endDate: isoDateTime.optional(),
   category: z.string().min(1),
   growthRate: z.number().optional(),
   notes: optionalNotes,
@@ -111,7 +105,6 @@ export const incomeSchema = z.object({
   // CPF-related fields
   incomeType: incomeTypeEnum.optional(),
   cpfWageType: cpfWageTypeEnum.optional().nullable(),
-  cpfApplicable: z.boolean().optional(),
 })
 
 export type Income = z.infer<typeof incomeSchema>
@@ -122,10 +115,8 @@ export const expenseSchema = z.object({
   payee: z.string().min(1),
   amount: z.number().positive(),
   frequency: frequencyEnum,
-  startYear: z.number().optional(),
-  startMonth: z.number().optional(),
-  endYear: z.number().optional(),
-  endMonth: z.number().optional(),
+  startDate: isoDateTime.optional(),
+  endDate: isoDateTime.optional(),
   category: z.string().min(1),
   growthRate: z.number().optional(),
   notes: optionalNotes,

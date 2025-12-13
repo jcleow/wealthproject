@@ -2,8 +2,26 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { timelineApi } from '@/services/timelineApi'
-import type { TimelineEditRequest, TimelineResponse, TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
+import type {
+  TimelineEditRequest,
+  TimelineResponse,
+  TimelineYear,
+  TimelineMonth,
+  TimeResolution,
+  TimelineV2Response,
+  MonthDetailResponseV2,
+} from '@/types/timeline'
 import { QUERY_KEYS } from '@/lib/queryKeys'
+import { useTimelineV2 } from '@/lib/featureFlags'
+
+/**
+ * Format a date as DD-MM-YYYY for V2 API
+ */
+function formatDateForV2(year: number, month: number): string {
+  const day = '01'
+  const monthStr = month.toString().padStart(2, '0')
+  return `${day}-${monthStr}-${year}`
+}
 
 export interface UseTimelineOptions {
   /** Override resolution (defaults to user's saved preference) */
@@ -28,6 +46,49 @@ export function useTimeline(options?: UseTimelineOptions) {
   })
 
   const resolution = timelineQuery.data?.resolution || 'yearly'
+
+  // Calculate date range for V2 query based on V1 data
+  const v2DateRange = useMemo(() => {
+    if (!timelineQuery.data) return null
+
+    if (resolution === 'monthly' && timelineQuery.data.months?.length) {
+      const months = timelineQuery.data.months
+      const firstMonth = months[0]
+      const lastMonth = months[months.length - 1]
+      return {
+        startDate: formatDateForV2(firstMonth.year, firstMonth.month),
+        endDate: formatDateForV2(lastMonth.year, lastMonth.month),
+      }
+    } else if (resolution === 'yearly' && timelineQuery.data.years?.length) {
+      const years = timelineQuery.data.years
+      const firstYear = years[0].year
+      const lastYear = years[years.length - 1].year
+      return {
+        startDate: formatDateForV2(firstYear, 1),
+        endDate: formatDateForV2(lastYear, 12),
+      }
+    }
+    return null
+  }, [timelineQuery.data, resolution])
+
+  // V2 snapshot query - only enabled when feature flag is on and we have V1 data
+  const timelineV2Query = useQuery<TimelineV2Response>({
+    queryKey: [
+      'financial',
+      'timeline',
+      'v2',
+      v2DateRange?.startDate ?? '',
+      v2DateRange?.endDate ?? '',
+    ],
+    queryFn: () =>
+      timelineApi.getTimelineV2Snapshot({
+        startDate: v2DateRange!.startDate,
+        endDate: v2DateRange!.endDate,
+      }),
+    enabled: useTimelineV2 && !!v2DateRange,
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
+  })
 
   useEffect(() => {
     if (!timelineQuery.data) return
@@ -106,6 +167,16 @@ export function useTimeline(options?: UseTimelineOptions) {
     )
   }, [timelineQuery.data, resolution, selectedYearValue, selectedMonthValue])
 
+  // V2 selected month data - only when V2 feature flag is enabled
+  const selectedMonthDataV2: MonthDetailResponseV2 | undefined = useMemo(() => {
+    if (!useTimelineV2 || !timelineV2Query.data) return undefined
+    const baseYear = new Date().getFullYear()
+    const searchYear = selectedYearValue >= 1900 ? selectedYearValue : baseYear + selectedYearValue
+    return timelineV2Query.data.months?.find(
+      (m) => m.year === searchYear && m.month === selectedMonthValue
+    )
+  }, [timelineV2Query.data, selectedYearValue, selectedMonthValue])
+
   const overrideYears = useMemo(() => {
     const years = new Set<number>()
     if (resolution === 'yearly') {
@@ -129,6 +200,12 @@ export function useTimeline(options?: UseTimelineOptions) {
         data
       )
       setSelectedYear(variables.year)
+      // Also invalidate V2 query if enabled
+      if (useTimelineV2) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timelineV2 }).catch(() => {
+          // ignore cache errors
+        })
+      }
     },
   })
 
@@ -137,6 +214,12 @@ export function useTimeline(options?: UseTimelineOptions) {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline }).catch(() => {
         // ignore cache errors
       })
+      // Also invalidate V2 if enabled
+      if (useTimelineV2) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timelineV2 }).catch(() => {
+          // ignore cache errors
+        })
+      }
     }
     if (typeof window !== 'undefined') {
       window.addEventListener('financial-data-refresh', handler)
@@ -153,16 +236,21 @@ export function useTimeline(options?: UseTimelineOptions) {
 
   return {
     timelineQuery,
+    timelineV2Query,
     resolution,
     selectedYear: selectedYearValue,
     selectedMonth: selectedMonthValue,
     selectedYearData,
     selectedMonthData,
+    /** V2 month data - only available when NEXT_PUBLIC_USE_TIMELINE_V2=true */
+    selectedMonthDataV2,
     setSelectedYear,
     setSelectedMonth,
     years,
     overrideYears,
     saveEdits,
     saving: upsertMutation.isPending,
+    /** Whether the V2 feature flag is enabled */
+    isV2Enabled: useTimelineV2,
   }
 }

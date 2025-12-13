@@ -1371,6 +1371,357 @@ After full implementation, we should achieve:
 
 ---
 
+## Phase 6: Timeline Integration with Dynamic CPF Calculation
+
+### Overview
+
+Integrate CPF contributions into the timeline service (`financial_v2/timeline`) with dynamic calculation. Rather than pre-calculating and storing CPF results on income records, this approach calculates CPF contributions on-the-fly during timeline computation. This allows for:
+
+1. **Dynamic calculation** - CPF calculated at runtime based on current rates and user age at each month
+2. **YTD wage tracking** - Accurate AW ceiling calculations across multiple income sources
+3. **Accumulated balances** - CPF accounts (OA/SA/MA/RA) grow month-by-month in timeline
+4. **Gross with deduction display** - Income cards show gross amount minus employee CPF
+
+### Data Flow
+
+```
+Income (cpfApplicable=true)
+    │
+    ▼
+┌─────────────────────────────────────┐
+│ CPF Processor                       │
+│ - Get age from DOB at current date  │
+│ - Get residency status              │
+│ - Call calculator.CalculateOW()     │
+│ - Track YTD wages for ceiling       │
+└─────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────┐
+│ Result                              │
+│ - Employee contribution → deduct    │
+│ - Employer contribution             │
+│ - Allocation (OA/SA/MA/RA)         │
+└─────────────────────────────────────┘
+    │
+    ├──► Employee CPF deducted from NetCashFlow
+    │
+    └──► Total allocation added to CPF balances
+```
+
+---
+
+### Ticket 6.1: Create CPF Processor Module
+
+**Type**: Backend
+**Priority**: P0-Critical
+**Effort**: Medium (4h)
+**Dependencies**: Existing CPF calculator (internal/cpf/contribution)
+**Status**: ✅ COMPLETED
+
+**Description**:
+Create a dedicated processor module that wraps the existing CPF contribution calculator and tracks state across timeline months. This module handles:
+- YTD wage tracking for AW ceiling calculations
+- Age calculation at each month
+- State accumulation (OA/SA/MA/RA balances)
+
+**Files Created**:
+- `backend/internal/cpf/processor/processor.go`
+- `backend/internal/cpf/processor/processor_test.go`
+
+**Module Structure**:
+```go
+package processor
+
+// Processor handles CPF contribution calculations for timeline processing.
+type Processor struct {
+    cpfAccount *account.CPFAccount
+    configs    map[int]*config.CPFConfiguration // Config by year
+}
+
+// State tracks year-to-date wages and accumulated CPF balances across months.
+type State struct {
+    YTDOrdinaryWages *decimal.Decimal // Year-to-date capped OW
+    YTDAWSWages      *decimal.Decimal // Year-to-date AW received
+    AccumulatedOA    *decimal.Decimal // Running OA balance
+    AccumulatedSA    *decimal.Decimal // Running SA balance
+    AccumulatedMA    *decimal.Decimal // Running MA balance
+    AccumulatedRA    *decimal.Decimal // Running RA balance
+}
+
+// ContributionResult contains the CPF calculation result for a single income.
+type ContributionResult struct {
+    GrossAmount          *decimal.Decimal
+    CappedAmount         *decimal.Decimal // After wage ceiling applied
+    EmployeeContribution *decimal.Decimal
+    EmployerContribution *decimal.Decimal
+    TotalContribution    *decimal.Decimal
+    NetTakeHomePay       *decimal.Decimal
+    AllocationOA         *decimal.Decimal
+    AllocationSA         *decimal.Decimal
+    AllocationMA         *decimal.Decimal
+    AllocationRA         *decimal.Decimal
+    WageType             WageType // "ow" or "aw"
+}
+
+// Key functions:
+func NewProcessor(cpfAccount *account.CPFAccount) (*Processor, error)
+func (p *Processor) ProcessOrdinaryWage(gross *decimal.Decimal, state *State, date time.Time) (*ContributionResult, error)
+func (p *Processor) ProcessAdditionalWage(gross *decimal.Decimal, state *State, date time.Time) (*ContributionResult, error)
+func (p *Processor) ResetYTDState(state *State) // Call at year boundary
+func (p *Processor) AddContributionToState(result *ContributionResult, state *State)
+func NewState(cpfAccount *account.CPFAccount) *State
+func (s *State) TotalBalance() *decimal.Decimal
+```
+
+**Acceptance Criteria**:
+- [x] Processor wraps existing calculator
+- [x] YTD wage tracking works correctly
+- [x] Handles OW and AW wage types
+- [x] Year boundary reset clears YTD state
+- [x] State accumulation tracks CPF balances
+- [x] Unit tests pass (9 test cases)
+
+---
+
+### Ticket 6.2: Add CPF Fields to Income Struct in Repository
+
+**Type**: Backend
+**Priority**: P0-Critical
+**Effort**: Small (1h)
+**Dependencies**: Ticket 6.1
+**Status**: 🔲 TODO
+
+**Description**:
+Update the Income struct in `financial_v2/repository/store.go` to include CPF-related fields:
+
+```go
+type Income struct {
+    // ... existing fields ...
+    CPFApplicable bool   `json:"cpfApplicable"` // Subject to CPF deductions
+    CPFWageType   string `json:"cpfWageType"`   // "ow" or "aw"
+}
+```
+
+**Files to Modify**:
+- `backend/internal/financial_v2/repository/store.go` - Add fields to Income struct
+- `backend/internal/financial_v2/repository/store.go` - Update SQL queries in ListIncomes
+
+**Acceptance Criteria**:
+- [ ] Income struct includes CPFApplicable and CPFWageType fields
+- [ ] ListIncomes query includes new columns
+- [ ] Existing tests continue to pass
+
+---
+
+### Ticket 6.3: Integrate CPF Processor into Timeline Service
+
+**Type**: Backend
+**Priority**: P0-Critical
+**Effort**: Large (6-8h)
+**Dependencies**: Ticket 6.1, Ticket 6.2
+**Status**: 🔲 TODO
+
+**Description**:
+Modify the timeline service (`ComputeFinancialSnapshot`) to:
+1. Initialize CPF processor if user has CPF account
+2. Process CPF for applicable incomes each month
+3. Deduct employee CPF from net cash flow
+4. Accumulate CPF balances in state
+5. Include CPF data in month detail response
+
+**Files to Modify**:
+- `backend/internal/financial_v2/timeline/service.go`
+
+**Implementation Changes**:
+
+**a) Add CPF fields to FinancialDataRow:**
+```go
+type FinancialDataRow struct {
+    // ... existing fields ...
+    CPFApplicable bool
+    CPFWageType   string
+}
+```
+
+**b) Update loadEffectiveRows to fetch CPF account:**
+```go
+func (s *Service) loadEffectiveRows(...) (EffectiveRows, *account.CPFAccount, error)
+```
+
+**c) Modify ComputeFinancialSnapshot main loop:**
+```go
+// Initialize CPF processor if account exists
+var cpfProcessor *processor.Processor
+var cpfState *processor.State
+if cpfAccount != nil {
+    cpfProcessor, _ = processor.NewProcessor(cpfAccount)
+    cpfState = processor.NewState(cpfAccount)
+}
+
+for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
+    // Reset YTD at January
+    if currentDate.Month() == 1 && cpfProcessor != nil {
+        cpfProcessor.ResetYTDState(cpfState)
+    }
+
+    // Apply growth (existing)
+    applyGrowth(...)
+
+    // NEW: Process CPF for applicable incomes
+    var totalEmployeeCPF *decimal.Decimal
+    cpfContributions := make([]processor.ContributionResult, 0)
+
+    for _, income := range activeIncomes {
+        if income.CPFApplicable {
+            var result *processor.ContributionResult
+            if income.CPFWageType == "ow" {
+                result, _ = cpfProcessor.ProcessOrdinaryWage(income.Amount, cpfState, currentDate)
+            } else {
+                result, _ = cpfProcessor.ProcessAdditionalWage(income.Amount, cpfState, currentDate)
+            }
+            cpfContributions = append(cpfContributions, *result)
+            cpfProcessor.AddContributionToState(result, cpfState)
+            totalEmployeeCPF, _ = totalEmployeeCPF.Add(result.EmployeeContribution)
+        }
+    }
+
+    // Modify net cash flow to deduct employee CPF
+    netCashFlow, _ = netCashFlow.Sub(totalEmployeeCPF)
+}
+```
+
+**d) Update calculateNetCashFlow to accept CPF deductions:**
+```go
+func calculateNetCashFlow(data, state, date, cpfDeductions *decimal.Decimal) *decimal.Decimal
+```
+
+**e) Update buildMonthDetailResponse to include CPF data:**
+```go
+func buildMonthDetailResponse(..., cpfContributions []processor.ContributionResult, cpfBalances *processor.State) MonthDetailResponse
+```
+
+**Acceptance Criteria**:
+- [ ] CPF processor initialized when CPF account exists
+- [ ] YTD resets at year boundaries
+- [ ] Employee CPF deducted from net cash flow
+- [ ] CPF balances accumulate correctly
+- [ ] CPF data included in response
+- [ ] Integration tests verify full flow
+
+---
+
+### Ticket 6.4: Update Response Types for Income Cards
+
+**Type**: Backend
+**Priority**: P1-High
+**Effort**: Small (2h)
+**Dependencies**: Ticket 6.3
+**Status**: 🔲 TODO
+
+**Description**:
+Update the timeline response types to include CPF breakdown on income cards.
+
+**Files to Modify**:
+- `backend/internal/financial_v2/timeline/types.go`
+
+**Enhanced IncomeResponse:**
+```go
+type IncomeResponse struct {
+    // ... existing fields ...
+    CPFApplicable bool             `json:"cpfApplicable"`
+    GrossAmount   *decimal.Decimal `json:"grossAmount,omitempty"`
+    EmployeeCPF   *decimal.Decimal `json:"employeeCpf,omitempty"`
+    EmployerCPF   *decimal.Decimal `json:"employerCpf,omitempty"`
+    NetTakeHome   *decimal.Decimal `json:"netTakeHome,omitempty"`
+}
+```
+
+**Enhanced CPFContributionResponse:**
+```go
+type CPFContributionResponse struct {
+    IncomeID             string          `json:"incomeId"`
+    IncomeName           string          `json:"incomeName"`
+    GrossWage            decimal.Decimal `json:"grossWage"`
+    EmployeeContribution decimal.Decimal `json:"employeeContribution"`
+    EmployerContribution decimal.Decimal `json:"employerContribution"`
+    TotalContribution    decimal.Decimal `json:"totalContribution"`
+    WageType             string          `json:"wageType"`
+    AllocationOA         decimal.Decimal `json:"allocationOa"`
+    AllocationSA         decimal.Decimal `json:"allocationSa"`
+    AllocationMA         decimal.Decimal `json:"allocationMa"`
+    AllocationRA         decimal.Decimal `json:"allocationRa"`
+}
+```
+
+**Enhanced CPFAssetResponse:**
+```go
+type CPFAssetResponse struct {
+    AccountType string          `json:"accountType"` // "OA", "SA", "MA", "RA"
+    Balance     decimal.Decimal `json:"balance"`
+}
+```
+
+**Response Example:**
+```json
+{
+  "incomes": [{
+    "id": "inc-123",
+    "name": "Monthly Salary",
+    "amount": 8000,
+    "cpfApplicable": true,
+    "grossAmount": 8000,
+    "employeeCpf": 1480,
+    "employerCpf": 1258,
+    "netTakeHome": 6520
+  }],
+  "cpfContributions": [{
+    "incomeId": "inc-123",
+    "incomeName": "Monthly Salary",
+    "grossWage": 8000,
+    "employeeContribution": 1480,
+    "employerContribution": 1258,
+    "totalContribution": 2738,
+    "wageType": "ow",
+    "allocationOa": 1700.5,
+    "allocationSa": 443.7,
+    "allocationMa": 593.8,
+    "allocationRa": 0
+  }],
+  "cpfAssets": [
+    {"accountType": "OA", "balance": 51700.50},
+    {"accountType": "SA", "balance": 20443.70},
+    {"accountType": "MA", "balance": 15593.80},
+    {"accountType": "RA", "balance": 0}
+  ]
+}
+```
+
+**Acceptance Criteria**:
+- [ ] IncomeResponse includes CPF fields
+- [ ] CPFContributionResponse captures full breakdown
+- [ ] CPFAssetResponse shows accumulated balances
+- [ ] JSON serialization works correctly
+- [ ] Frontend can consume new response format
+
+---
+
+### Test Scenarios for Timeline CPF Integration
+
+| Test | Description |
+|------|-------------|
+| `TestCPF_TimelineIntegration_Under55_Citizen` | Standard rates, verify deductions over 12 months |
+| `TestCPF_TimelineIntegration_AtCeiling` | Income at $7,400 OW ceiling |
+| `TestCPF_TimelineIntegration_AboveCeiling` | Income capped at ceiling |
+| `TestCPF_TimelineIntegration_YTDReset` | YTD resets in January across year boundary |
+| `TestCPF_TimelineIntegration_MixedIncomes` | Some incomes with CPF, some without |
+| `TestCPF_TimelineIntegration_Accumulation` | CPF balances grow correctly over months |
+| `TestCPF_TimelineIntegration_NoCPFAccount` | Graceful handling if no CPF account |
+| `TestCPF_TimelineIntegration_NetCashFlow` | Employee CPF deducted from cash flow |
+| `TestCPF_TimelineIntegration_BonusAW` | Additional wages use AW ceiling calculation |
+
+---
+
 ## Future Enhancements (Post-MVP)
 
 1. **Housing Integration**

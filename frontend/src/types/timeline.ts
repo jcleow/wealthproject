@@ -6,7 +6,7 @@ export type TimelineFrequency =
   | 'quarterly'
   | 'semiannual'
 
-export type TimelineItemType = 'asset' | 'liability' | 'income' | 'expense' | 'cash_account'
+export type TimelineItemType = 'asset' | 'liability' | 'income' | 'expense' | 'cash_account' | 'cpf_contribution'
 
 /** Event impact attached to a timeline item */
 export interface TimelineEventImpact {
@@ -32,9 +32,9 @@ export interface TimelineItem {
   sourceAmount?: number
   sourceFrequency?: TimelineFrequency
   itemType: TimelineItemType
-  createdYear: number
-  /** Month when item was created (1-12), used with createdYear */
-  createdMonth?: number
+  startYear: number
+  /** Month when item started (1-12), used with startYear */
+  startMonth?: number
   /** Per-item annual growth rate (percentage) */
   growthRate?: number
   /** Scenario event impacts applied to this item */
@@ -109,13 +109,145 @@ export interface TimelineEdit {
   itemId?: string
   name?: string
   itemType: TimelineItemType
-  category: string
+  category?: string
   amount: number
-  frequency: TimelineFrequency
+  frequency?: TimelineFrequency // Only required for income/expense
 }
 
 export interface TimelineEditRequest {
   year: number
   edits: TimelineEdit[]
   note?: string
+}
+
+// ========== Timeline V2 Types ==========
+
+/** V2 Response for monthly snapshot endpoint */
+export interface TimelineV2Response {
+  months: MonthDetailResponseV2[]
+}
+
+/** Single month detail in V2 response (decimal values come as strings from backend) */
+export interface MonthDetailResponseV2 {
+  year: number
+  month: number
+  allYearsIndex: number
+  allMonthsIndex: number
+  nonCashAssets: NonCashAssetResponseV2[]
+  cashAssets: CashAssetResponseV2[]
+  cpfAssets: CPFAssetResponseV2[]
+  liabilities: LiabilityResponseV2[]
+  income: IncomeResponseV2[]
+  cpfContributions: CPFContributionResponseV2[]
+  expenses: ExpenseResponseV2[]
+  // Savings breakdown
+  netSavings: string      // income - expenses (monthly)
+  netCash: string         // income - expenses - employee CPF (monthly)
+  netInvestments: string  // employee CPF contribution (monthly)
+  // Other totals
+  netWorth: string
+  accumulatorAccountId: string
+}
+
+/** Non-cash asset in V2 response (decimal values come as strings from backend) */
+export interface NonCashAssetResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  balance: string
+  adjBalance: string
+  itemType: string
+  startDate: string
+  startYear: number
+  startMonth: number
+}
+
+/** Cash asset in V2 response (decimal values come as strings from backend) */
+export interface CashAssetResponseV2 {
+  itemId: string
+  name: string
+  category: string
+  balance: string
+  adjBalance: string
+  itemType: string
+  startYear: number
+  startMonth: number
+  isAccumulator: boolean
+}
+
+/** CPF asset in V2 response (decimal values come as strings from backend) */
+export interface CPFAssetResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  balance: string
+  adjBalance: string
+  itemType: string
+  startDate: string
+  startYear: number
+  startMonth: number
+}
+
+/** Liability in V2 response (decimal values come as strings from backend) */
+export interface LiabilityResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  balance: string
+  adjBalance: string
+  sourceAmount: string
+  itemType: string
+  startYear: number
+  startMonth: number
+}
+
+/** Income in V2 response (decimal values come as strings from backend) */
+export interface IncomeResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  amount: string
+  adjAmount: string
+  sourceFrequency: string
+  itemType: string
+  startYear: number
+  startMonth: number
+  growthRate: string
+}
+
+/** CPF contribution in V2 response (decimal values come as strings from backend) */
+export interface CPFContributionResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  employeeContribution: string
+  employerContribution: string
+  totalContribution: string
+  sourceFrequency: string
+  itemType: string
+  startYear: number
+  startMonth: number
+  allocationOa: string
+  allocationSa: string
+  allocationMa: string
+  allocationRa: string
+}
+
+/** Expense in V2 response (decimal values come as strings from backend) */
+export interface ExpenseResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  amount: string
+  adjAmount: string
+  sourceFrequency: string
+  itemType: string
+  startYear: number
+  startMonth: number
 }

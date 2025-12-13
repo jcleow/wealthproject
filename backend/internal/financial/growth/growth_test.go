@@ -160,7 +160,7 @@ func TestAnnualStepStrategy(t *testing.T) {
 				CurrentValue: baseAmount,
 				Rate:         rate,
 				PeriodIndex:  tt.yearIndex,
-				Frequency:    "yearly",
+				Frequency:    "annual",
 			})
 			if err != nil {
 				t.Fatalf("unexpected error at year %d: %v", tt.yearIndex, err)
@@ -355,19 +355,13 @@ func TestStrategyInterface(t *testing.T) {
 
 // almostEqualDecimal checks if two decimals are equal within a tolerance
 func almostEqualDecimal(a, b, tolerance *decimal.Decimal) bool {
-	diff, err := a.Sub(b)
-	if err != nil {
-		return false
-	}
+	diff := a.Sub(b)
 
 	// Get absolute value by checking if negative and negating if so
 	absDiff := diff
 	if diff.IsNegative() {
 		zero := decimal.Zero()
-		absDiff, err = zero.Sub(diff)
-		if err != nil {
-			return false
-		}
+		absDiff = zero.Sub(diff)
 	}
 
 	return absDiff.Cmp(tolerance) < 0

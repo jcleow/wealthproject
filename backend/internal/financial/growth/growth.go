@@ -18,7 +18,7 @@ type Params struct {
 	CurrentValue *decimal.Decimal
 	Rate         *decimal.Decimal // Percentage rate (e.g., 3.0 for 3%)
 	PeriodIndex  int              // Month or year index (0-based)
-	Frequency    string           // "monthly" or "yearly"
+	Frequency    string           // "monthly" or "annual"
 	Metadata     map[string]interface{}
 }
 
@@ -48,16 +48,10 @@ func (s CompoundMonthlyStrategy) Calculate(params Params) (*decimal.Decimal, err
 	oneOverTwelve := decimal.MustFromString("0.083333333333") // 1/12
 
 	// Convert rate from percentage: Rate / 100
-	rateDecimal, err := params.Rate.Div(hundred)
-	if err != nil {
-		return nil, err
-	}
+	rateDecimal := params.Rate.Div(hundred)
 
 	// 1 + rate
-	onePlusRate, err := one.Add(rateDecimal)
-	if err != nil {
-		return nil, err
-	}
+	onePlusRate := one.Add(rateDecimal)
 
 	// (1 + rate)^(1/12)
 	monthlyMultiplier, err := onePlusRate.Pow(oneOverTwelve)
@@ -66,10 +60,7 @@ func (s CompoundMonthlyStrategy) Calculate(params Params) (*decimal.Decimal, err
 	}
 
 	// CurrentValue * monthlyMultiplier
-	result, err := params.CurrentValue.Mul(monthlyMultiplier)
-	if err != nil {
-		return nil, err
-	}
+	result := params.CurrentValue.Mul(monthlyMultiplier)
 
 	return result, nil
 }
@@ -92,16 +83,10 @@ func (s AnnualStepStrategy) Calculate(params Params) (*decimal.Decimal, error) {
 	hundred := decimal.MustFromString("100")
 
 	// Convert rate from percentage: Rate / 100
-	rateDecimal, err := params.Rate.Div(hundred)
-	if err != nil {
-		return nil, err
-	}
+	rateDecimal := params.Rate.Div(hundred)
 
 	// 1 + rate
-	onePlusRate, err := one.Add(rateDecimal)
-	if err != nil {
-		return nil, err
-	}
+	onePlusRate := one.Add(rateDecimal)
 
 	var yearIndex int
 	if params.Frequency == "monthly" {
@@ -120,10 +105,7 @@ func (s AnnualStepStrategy) Calculate(params Params) (*decimal.Decimal, error) {
 	}
 
 	// CurrentValue * multiplier
-	result, err := params.CurrentValue.Mul(multiplier)
-	if err != nil {
-		return nil, err
-	}
+	result := params.CurrentValue.Mul(multiplier)
 
 	return result, nil
 }
