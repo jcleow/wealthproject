@@ -15,15 +15,15 @@ func (l *LinearGrowthStrategy) Name() string {
 }
 
 // Apply calculates linear monthly growth.
-// Growth is applied every month after the first year, adding the same absolute amount each time.
+// Growth is applied every month in arrears, adding the same absolute amount each time.
 func (l *LinearGrowthStrategy) Apply(
 	currentAmount *decimal.Decimal,
 	params Params,
 	currentMonth int,
 	monthOfYear int,
 ) *decimal.Decimal {
-	// No growth during the first year (months 1-12)
-	if currentMonth <= 12 {
+	// No growth in first month (in arrears)
+	if currentMonth <= 1 {
 		return currentAmount
 	}
 
@@ -32,16 +32,14 @@ func (l *LinearGrowthStrategy) Apply(
 	twelve := decimal.MustFromFloat64(12)
 
 	// rate/100
-	rateDecimal, _ := params.AnnualRatePct.Div(hundred)
+	rateDecimal := params.AnnualRatePct.Div(hundred)
 
 	// amount * rate/100
-	annualGrowth, _ := currentAmount.Mul(rateDecimal)
+	annualGrowth := currentAmount.Mul(rateDecimal)
 
 	// (amount * rate/100) / 12
-	monthlyIncrement, _ := annualGrowth.Div(twelve)
+	monthlyIncrement := annualGrowth.Div(twelve)
 
 	// amount + monthlyIncrement
-	result, _ := currentAmount.Add(monthlyIncrement)
-
-	return result
+	return currentAmount.Add(monthlyIncrement)
 }

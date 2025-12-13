@@ -13,7 +13,7 @@ import (
 )
 
 // DebugSQL enables SQL query logging when set to true
-var DebugSQL = true
+var DebugSQL = false
 
 type Store struct {
 	db *sql.DB

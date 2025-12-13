@@ -230,14 +230,10 @@ func TestCalculateOW_Allocation(t *testing.T) {
 
 	// Allocation rates for ≤35: OA 62.17%, SA 16.21%, MA 21.62%
 	// Due to rounding adjustments, allocations should sum to total
-	allocSum := decimal.Zero()
-	allocSum, _ = allocSum.Add(result.Allocation.OA)
-	allocSum, _ = allocSum.Add(result.Allocation.SA)
-	allocSum, _ = allocSum.Add(result.Allocation.MA)
-	allocSum, _ = allocSum.Add(result.Allocation.RA)
+	allocSum := decimal.Zero().Add(result.Allocation.OA).Add(result.Allocation.SA).Add(result.Allocation.MA).Add(result.Allocation.RA)
 
 	// Allow for small differences
-	diff, _ := total.Sub(allocSum)
+	diff := total.Sub(allocSum)
 	tolerance := decimal.MustFromString("0.01")
 	if diff.Abs().Cmp(tolerance) > 0 {
 		t.Errorf("Expected allocations to sum to %s, got %s (diff: %s)", total.String(), allocSum.String(), diff.String())

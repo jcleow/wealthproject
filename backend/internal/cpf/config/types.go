@@ -101,8 +101,7 @@ type RatePair struct {
 
 // Total returns the total contribution rate (employee + employer)
 func (r RatePair) Total() *decimal.Decimal {
-	total, _ := r.Employee.Add(&r.Employer)
-	return total
+	return r.Employee.Add(&r.Employer)
 }
 
 // AllocationRateTable contains allocation rates for each age band

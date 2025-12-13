@@ -215,13 +215,9 @@ func TestAllocationRates_SumToOne(t *testing.T) {
 
 	for _, age := range ages {
 		rates := cfg.GetAllocationRates(age)
-		sum := decimal.Zero()
-		sum, _ = sum.Add(&rates.OA)
-		sum, _ = sum.Add(&rates.SA)
-		sum, _ = sum.Add(&rates.MA)
-		sum, _ = sum.Add(&rates.RA)
+		sum := decimal.Zero().Add(&rates.OA).Add(&rates.SA).Add(&rates.MA).Add(&rates.RA)
 
-		diff, _ := sum.Sub(one)
+		diff := sum.Sub(one)
 		if diff.Abs().Cmp(tolerance) > 0 {
 			t.Errorf("Age %d: allocation rates sum to %s, expected ~1.0", age, sum.String())
 		}

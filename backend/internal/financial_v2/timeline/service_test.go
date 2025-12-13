@@ -421,27 +421,23 @@ func TestComputeFinancialSnapshot_CashAccumulator(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Net savings per month = 5000 - 2000 = 3000
-	// Month 1: accumulated = 3000
-	// Month 2: accumulated = 6000
-	// Month 3: accumulated = 9000
-
+	// Net cash flow per month = 5000 - 2000 = 3000 (constant each month)
+	// NetCash is the monthly cash flow, not accumulated
 	month1Cash := result.Months[0].NetCash
 	month2Cash := result.Months[1].NetCash
 	month3Cash := result.Months[2].NetCash
 
-	expected1 := decimal.MustFromString("3000")
-	expected2 := decimal.MustFromString("6000")
-	expected3 := decimal.MustFromString("9000")
+	// Each month should have the same net cash flow (monthly, not accumulated)
+	expectedMonthly := decimal.MustFromString("3000")
 
-	if month1Cash.Cmp(expected1) != 0 {
-		t.Errorf("month 1: expected net cash %s, got %s", expected1.String(), month1Cash.String())
+	if month1Cash.Cmp(expectedMonthly) != 0 {
+		t.Errorf("month 1: expected net cash %s, got %s", expectedMonthly.String(), month1Cash.String())
 	}
-	if month2Cash.Cmp(expected2) != 0 {
-		t.Errorf("month 2: expected net cash %s, got %s", expected2.String(), month2Cash.String())
+	if month2Cash.Cmp(expectedMonthly) != 0 {
+		t.Errorf("month 2: expected net cash %s, got %s", expectedMonthly.String(), month2Cash.String())
 	}
-	if month3Cash.Cmp(expected3) != 0 {
-		t.Errorf("month 3: expected net cash %s, got %s", expected3.String(), month3Cash.String())
+	if month3Cash.Cmp(expectedMonthly) != 0 {
+		t.Errorf("month 3: expected net cash %s, got %s", expectedMonthly.String(), month3Cash.String())
 	}
 
 	t.Logf("Month 1 net cash: %s", month1Cash.String())

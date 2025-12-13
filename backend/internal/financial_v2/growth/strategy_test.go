@@ -85,7 +85,7 @@ func TestMonthlyCompoundStrategy(t *testing.T) {
 			// Check that result is within tolerance of expected
 			expected := decimal.MustFromString(tt.wantApprox)
 			tolerance := decimal.MustFromString(tt.tolerance)
-			diff, _ := result.Sub(expected)
+			diff := result.Sub(expected)
 
 			// Check absolute difference is within tolerance (-tolerance <= diff <= tolerance)
 			negTolerance := decimal.MustFromString("-" + tt.tolerance)
@@ -163,19 +163,19 @@ func TestLinearGrowthStrategy(t *testing.T) {
 		wantGrowth    bool
 	}{
 		{
-			name:          "no growth in first year",
+			name:          "no growth in month 1 (arrears)",
 			amount:        "10000",
 			annualRatePct: "6",
-			currentMonth:  7, // Month 7 = July of year 0
-			monthOfYear:   7, // July
+			currentMonth:  1, // Month 1 = January of year 0
+			monthOfYear:   1, // January
 			wantGrowth:    false,
 		},
 		{
-			name:          "linear growth after first year",
+			name:          "linear growth starts in month 2",
 			amount:        "10000",
 			annualRatePct: "6",
-			currentMonth:  13, // Month 13 = January of year 1
-			monthOfYear:   1,  // January
+			currentMonth:  2, // Month 2 = February of year 0
+			monthOfYear:   2, // February
 			wantGrowth:    true,
 		},
 	}

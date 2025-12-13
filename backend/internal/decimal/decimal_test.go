@@ -16,8 +16,8 @@ func TestNewFromInt64(t *testing.T) {
 
 func TestFromCents(t *testing.T) {
 	d := FromCents(10050)
-	if d.String() != "100.5" {
-		t.Errorf("expected 100.5, got %s", d.String())
+	if d.String() != "100.50" {
+		t.Errorf("expected 100.50, got %s", d.String())
 	}
 }
 
@@ -32,8 +32,8 @@ func TestToCents(t *testing.T) {
 func TestFromBasisPoints(t *testing.T) {
 	// 300 basis points = 3% = 0.03
 	d := FromBasisPoints(300)
-	if d.String() != "0.03" {
-		t.Errorf("expected 0.03, got %s", d.String())
+	if d.String() != "0.0300" {
+		t.Errorf("expected 0.0300, got %s", d.String())
 	}
 }
 
@@ -48,10 +48,7 @@ func TestToBasisPoints(t *testing.T) {
 func TestAdd(t *testing.T) {
 	a := MustFromString("100.50")
 	b := MustFromString("25.25")
-	result, err := a.Add(b)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	result := a.Add(b)
 	if result.String() != "125.75" {
 		t.Errorf("expected 125.75, got %s", result.String())
 	}
@@ -60,10 +57,7 @@ func TestAdd(t *testing.T) {
 func TestSub(t *testing.T) {
 	a := MustFromString("100.50")
 	b := MustFromString("25.25")
-	result, err := a.Sub(b)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	result := a.Sub(b)
 	if result.String() != "75.25" {
 		t.Errorf("expected 75.25, got %s", result.String())
 	}
@@ -72,23 +66,17 @@ func TestSub(t *testing.T) {
 func TestMul(t *testing.T) {
 	a := MustFromString("100.50")
 	b := MustFromString("1.03")
-	result, err := a.Mul(b)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	result := a.Mul(b)
 	// 100.50 * 1.03 = 103.515
-	if result.String() != "103.515" {
-		t.Errorf("expected 103.515, got %s", result.String())
+	if result.String() != "103.5150" {
+		t.Errorf("expected 103.5150, got %s", result.String())
 	}
 }
 
 func TestDiv(t *testing.T) {
 	a := MustFromString("100.00")
 	b := MustFromString("3.00")
-	result, err := a.Div(b)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	result := a.Div(b)
 	// Should give us 33.333... with proper precision
 	if result.Round(2).String() != "33.33" {
 		t.Errorf("expected 33.33, got %s", result.Round(2).String())
@@ -103,8 +91,8 @@ func TestPow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// (1.03)^(1/12) ≈ 1.00246627
-	expected := "1.00246"
+	// (1.03)^(1/12) ≈ 1.00247 (rounded to 5 decimal places)
+	expected := "1.00247"
 	if result.Round(5).String() != expected {
 		t.Errorf("expected %s, got %s", expected, result.Round(5).String())
 	}
@@ -126,10 +114,7 @@ func TestCompoundGrowth(t *testing.T) {
 	// Apply monthly growth 12 times
 	amount := principal
 	for i := 0; i < 12; i++ {
-		amount, err = amount.Mul(monthlyMultiplier)
-		if err != nil {
-			t.Fatalf("failed to apply monthly growth: %v", err)
-		}
+		amount = amount.Mul(monthlyMultiplier)
 	}
 
 	// After 12 months, should be close to $103
@@ -145,7 +130,7 @@ func TestJSONMarshal(t *testing.T) {
 		t.Fatalf("failed to marshal: %v", err)
 	}
 
-	expected := `"100.5"`
+	expected := `"100.50"`
 	if string(data) != expected {
 		t.Errorf("expected %s, got %s", expected, string(data))
 	}
@@ -159,8 +144,8 @@ func TestJSONUnmarshal(t *testing.T) {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
-	if d.String() != "100.5" {
-		t.Errorf("expected 100.5, got %s", d.String())
+	if d.String() != "100.50" {
+		t.Errorf("expected 100.50, got %s", d.String())
 	}
 }
 

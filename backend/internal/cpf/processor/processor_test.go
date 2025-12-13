@@ -289,7 +289,7 @@ func TestAddContributionToBalances(t *testing.T) {
 
 	// Total balance should increase by total contribution
 	newTotal := state.TotalBalance()
-	expectedTotal, _ := initialTotal.Add(result.TotalContribution)
+	expectedTotal := initialTotal.Add(result.TotalContribution)
 
 	if newTotal.Cmp(expectedTotal) != 0 {
 		t.Errorf("total balance: expected %s, got %s",
@@ -394,11 +394,7 @@ func TestAllocation_Under35(t *testing.T) {
 	}
 
 	// Check that allocations sum to total
-	allocSum := decimal.Zero()
-	allocSum, _ = allocSum.Add(result.AllocationOA)
-	allocSum, _ = allocSum.Add(result.AllocationSA)
-	allocSum, _ = allocSum.Add(result.AllocationMA)
-	allocSum, _ = allocSum.Add(result.AllocationRA)
+	allocSum := decimal.Zero().Add(result.AllocationOA).Add(result.AllocationSA).Add(result.AllocationMA).Add(result.AllocationRA)
 
 	if allocSum.Cmp(result.TotalContribution) != 0 {
 		t.Errorf("allocation sum (%s) != total contribution (%s)",

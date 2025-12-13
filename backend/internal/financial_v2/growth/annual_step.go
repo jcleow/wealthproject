@@ -33,13 +33,11 @@ func (a *AnnualStepStrategy) Apply(
 	hundred := decimal.MustFromFloat64(100)
 
 	// rate/100
-	rateDecimal, _ := params.AnnualRatePct.Div(hundred)
+	rateDecimal := params.AnnualRatePct.Div(hundred)
 
 	// 1 + rate/100
-	onePlusRate, _ := one.Add(rateDecimal)
+	onePlusRate := one.Add(rateDecimal)
 
 	// amount * (1 + rate/100)
-	result, _ := currentAmount.Mul(onePlusRate)
-
-	return result
+	return currentAmount.Mul(onePlusRate)
 }

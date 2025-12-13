@@ -38,12 +38,7 @@ type CPFAccount struct {
 
 // TotalBalance returns the total CPF balance.
 func (a *CPFAccount) TotalBalance() *decimal.Decimal {
-	total := decimal.Zero()
-	total, _ = total.Add(&a.OABalance)
-	total, _ = total.Add(&a.SABalance)
-	total, _ = total.Add(&a.MABalance)
-	total, _ = total.Add(&a.RABalance)
-	return total
+	return decimal.Zero().Add(&a.OABalance).Add(&a.SABalance).Add(&a.MABalance).Add(&a.RABalance)
 }
 
 // Age returns the current age based on date of birth.

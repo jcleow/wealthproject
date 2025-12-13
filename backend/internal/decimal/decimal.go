@@ -98,32 +98,39 @@ func One() *Decimal {
 	return &Decimal{Decimal: *apd.New(1, 0)}
 }
 
-// Add performs addition with the MoneyContext
-func (d *Decimal) Add(other *Decimal) (*Decimal, error) {
+// Add performs addition with the MoneyContext.
+// Errors are only possible for extreme overflow values that won't occur in financial calculations.
+func (d *Decimal) Add(other *Decimal) *Decimal {
 	result := &Decimal{}
-	_, err := MoneyContext.Add(&result.Decimal, &d.Decimal, &other.Decimal)
-	return result, err
+	MoneyContext.Add(&result.Decimal, &d.Decimal, &other.Decimal)
+	return result
 }
 
-// Sub performs subtraction with the MoneyContext
-func (d *Decimal) Sub(other *Decimal) (*Decimal, error) {
+// Sub performs subtraction with the MoneyContext.
+// Errors are only possible for extreme overflow values that won't occur in financial calculations.
+func (d *Decimal) Sub(other *Decimal) *Decimal {
 	result := &Decimal{}
-	_, err := MoneyContext.Sub(&result.Decimal, &d.Decimal, &other.Decimal)
-	return result, err
+	MoneyContext.Sub(&result.Decimal, &d.Decimal, &other.Decimal)
+	return result
 }
 
-// Mul performs multiplication with the MoneyContext
-func (d *Decimal) Mul(other *Decimal) (*Decimal, error) {
+// Mul performs multiplication with the MoneyContext.
+// Errors are only possible for extreme overflow values that won't occur in financial calculations.
+func (d *Decimal) Mul(other *Decimal) *Decimal {
 	result := &Decimal{}
-	_, err := MoneyContext.Mul(&result.Decimal, &d.Decimal, &other.Decimal)
-	return result, err
+	MoneyContext.Mul(&result.Decimal, &d.Decimal, &other.Decimal)
+	return result
 }
 
-// Div performs division with the MoneyContext
-func (d *Decimal) Div(other *Decimal) (*Decimal, error) {
+// Div performs division with the MoneyContext.
+// Panics on division by zero. Other errors are only possible for extreme values.
+func (d *Decimal) Div(other *Decimal) *Decimal {
+	if other.IsZero() {
+		panic("decimal: division by zero")
+	}
 	result := &Decimal{}
-	_, err := MoneyContext.Quo(&result.Decimal, &d.Decimal, &other.Decimal)
-	return result, err
+	MoneyContext.Quo(&result.Decimal, &d.Decimal, &other.Decimal)
+	return result
 }
 
 // Pow performs exponentiation (supports fractional exponents)

@@ -74,8 +74,7 @@ func (c *Calculator) CalculateOW(grossWage *decimal.Decimal, age int, residency 
 func (c *Calculator) CalculateAW(grossWage *decimal.Decimal, age int, residency config.ResidencyStatus, ytdOW *decimal.Decimal, ytdAW *decimal.Decimal) ContributionResult {
 	// For AW, the ceiling is: Annual Ceiling - YTD OW - YTD AW
 	annualCeiling := decimal.NewFromInt64(c.config.AnnualCeiling, 0)
-	awCeiling, _ := annualCeiling.Sub(ytdOW)
-	awCeiling, _ = awCeiling.Sub(ytdAW)
+	awCeiling := annualCeiling.Sub(ytdOW).Sub(ytdAW)
 
 	if awCeiling.IsNegative() {
 		awCeiling = decimal.Zero()
@@ -104,40 +103,24 @@ func (c *Calculator) calculate(grossWage *decimal.Decimal, age int, residency co
 	}
 
 	// Calculate contributions
-	employeeContrib, _ := cappedWage.Mul(&rates.Employee)
-	employeeContrib = roundToNearestCent(employeeContrib)
-
-	employerContrib, _ := cappedWage.Mul(&rates.Employer)
-	employerContrib = roundToNearestCent(employerContrib)
-
-	totalContrib, _ := employeeContrib.Add(employerContrib)
+	employeeContrib := roundToNearestCent(cappedWage.Mul(&rates.Employee))
+	employerContrib := roundToNearestCent(cappedWage.Mul(&rates.Employer))
+	totalContrib := employeeContrib.Add(employerContrib)
 
 	// Calculate allocation to each account
-	allocOA, _ := totalContrib.Mul(&allocation.OA)
-	allocOA = roundToNearestCent(allocOA)
-
-	allocSA, _ := totalContrib.Mul(&allocation.SA)
-	allocSA = roundToNearestCent(allocSA)
-
-	allocMA, _ := totalContrib.Mul(&allocation.MA)
-	allocMA = roundToNearestCent(allocMA)
-
-	allocRA, _ := totalContrib.Mul(&allocation.RA)
-	allocRA = roundToNearestCent(allocRA)
+	allocOA := roundToNearestCent(totalContrib.Mul(&allocation.OA))
+	allocSA := roundToNearestCent(totalContrib.Mul(&allocation.SA))
+	allocMA := roundToNearestCent(totalContrib.Mul(&allocation.MA))
+	allocRA := roundToNearestCent(totalContrib.Mul(&allocation.RA))
 
 	// Adjust for rounding errors - ensure allocations sum to total
-	allocSum := decimal.Zero()
-	allocSum, _ = allocSum.Add(allocOA)
-	allocSum, _ = allocSum.Add(allocSA)
-	allocSum, _ = allocSum.Add(allocMA)
-	allocSum, _ = allocSum.Add(allocRA)
-
-	if diff, _ := totalContrib.Sub(allocSum); !diff.IsZero() {
+	allocSum := decimal.Zero().Add(allocOA).Add(allocSA).Add(allocMA).Add(allocRA)
+	if diff := totalContrib.Sub(allocSum); !diff.IsZero() {
 		// Add/subtract the difference from OA (largest account for most ages)
-		allocOA, _ = allocOA.Add(diff)
+		allocOA = allocOA.Add(diff)
 	}
 
-	takeHomePay, _ := grossWage.Sub(employeeContrib)
+	takeHomePay := grossWage.Sub(employeeContrib)
 
 	return ContributionResult{
 		GrossWage:            grossWage,
@@ -194,16 +177,16 @@ func (c *Calculator) CalculateAnnualFromMonthly(monthlySalary *decimal.Decimal, 
 
 	for i := 0; i < months; i++ {
 		monthResult := c.CalculateOW(monthlySalary, age, residency)
-		totalResult.GrossWage, _ = totalResult.GrossWage.Add(monthResult.GrossWage)
-		totalResult.CappedWage, _ = totalResult.CappedWage.Add(monthResult.CappedWage)
-		totalResult.EmployeeContribution, _ = totalResult.EmployeeContribution.Add(monthResult.EmployeeContribution)
-		totalResult.EmployerContribution, _ = totalResult.EmployerContribution.Add(monthResult.EmployerContribution)
-		totalResult.TotalContribution, _ = totalResult.TotalContribution.Add(monthResult.TotalContribution)
-		totalResult.TakeHomePay, _ = totalResult.TakeHomePay.Add(monthResult.TakeHomePay)
-		totalResult.Allocation.OA, _ = totalResult.Allocation.OA.Add(monthResult.Allocation.OA)
-		totalResult.Allocation.SA, _ = totalResult.Allocation.SA.Add(monthResult.Allocation.SA)
-		totalResult.Allocation.MA, _ = totalResult.Allocation.MA.Add(monthResult.Allocation.MA)
-		totalResult.Allocation.RA, _ = totalResult.Allocation.RA.Add(monthResult.Allocation.RA)
+		totalResult.GrossWage = totalResult.GrossWage.Add(monthResult.GrossWage)
+		totalResult.CappedWage = totalResult.CappedWage.Add(monthResult.CappedWage)
+		totalResult.EmployeeContribution = totalResult.EmployeeContribution.Add(monthResult.EmployeeContribution)
+		totalResult.EmployerContribution = totalResult.EmployerContribution.Add(monthResult.EmployerContribution)
+		totalResult.TotalContribution = totalResult.TotalContribution.Add(monthResult.TotalContribution)
+		totalResult.TakeHomePay = totalResult.TakeHomePay.Add(monthResult.TakeHomePay)
+		totalResult.Allocation.OA = totalResult.Allocation.OA.Add(monthResult.Allocation.OA)
+		totalResult.Allocation.SA = totalResult.Allocation.SA.Add(monthResult.Allocation.SA)
+		totalResult.Allocation.MA = totalResult.Allocation.MA.Add(monthResult.Allocation.MA)
+		totalResult.Allocation.RA = totalResult.Allocation.RA.Add(monthResult.Allocation.RA)
 	}
 
 	return totalResult
@@ -217,24 +200,23 @@ func (c *Calculator) CalculateAnnualWithBonus(monthlySalary *decimal.Decimal, an
 	// Calculate AW (bonus) with YTD wages
 	owCeiling := decimal.NewFromInt64(c.config.OWCeiling, 0)
 	twelve := decimal.NewFromInt64(12, 0)
-	maxYtdOW, _ := owCeiling.Mul(twelve)
-
-	monthlySalaryTimes12, _ := monthlySalary.Mul(twelve)
+	maxYtdOW := owCeiling.Mul(twelve)
+	monthlySalaryTimes12 := monthlySalary.Mul(twelve)
 	ytdOW := minDecimal(monthlySalaryTimes12, maxYtdOW)
 
 	awResult := c.CalculateAW(annualBonus, age, residency, ytdOW, decimal.Zero())
 
 	// Combine results
-	grossWage, _ := owResult.GrossWage.Add(awResult.GrossWage)
-	cappedWage, _ := owResult.CappedWage.Add(awResult.CappedWage)
-	employeeContrib, _ := owResult.EmployeeContribution.Add(awResult.EmployeeContribution)
-	employerContrib, _ := owResult.EmployerContribution.Add(awResult.EmployerContribution)
-	totalContrib, _ := owResult.TotalContribution.Add(awResult.TotalContribution)
-	takeHomePay, _ := owResult.TakeHomePay.Add(awResult.TakeHomePay)
-	allocOA, _ := owResult.Allocation.OA.Add(awResult.Allocation.OA)
-	allocSA, _ := owResult.Allocation.SA.Add(awResult.Allocation.SA)
-	allocMA, _ := owResult.Allocation.MA.Add(awResult.Allocation.MA)
-	allocRA, _ := owResult.Allocation.RA.Add(awResult.Allocation.RA)
+	grossWage := owResult.GrossWage.Add(awResult.GrossWage)
+	cappedWage := owResult.CappedWage.Add(awResult.CappedWage)
+	employeeContrib := owResult.EmployeeContribution.Add(awResult.EmployeeContribution)
+	employerContrib := owResult.EmployerContribution.Add(awResult.EmployerContribution)
+	totalContrib := owResult.TotalContribution.Add(awResult.TotalContribution)
+	takeHomePay := owResult.TakeHomePay.Add(awResult.TakeHomePay)
+	allocOA := owResult.Allocation.OA.Add(awResult.Allocation.OA)
+	allocSA := owResult.Allocation.SA.Add(awResult.Allocation.SA)
+	allocMA := owResult.Allocation.MA.Add(awResult.Allocation.MA)
+	allocRA := owResult.Allocation.RA.Add(awResult.Allocation.RA)
 
 	return ContributionResult{
 		GrossWage:            grossWage,

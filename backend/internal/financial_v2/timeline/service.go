@@ -312,7 +312,7 @@ func (c *CPFContext) ProcessIncomes(
 		if result != nil {
 			contributions[income.ID] = result
 			c.Processor.AddContributionToBalances(result, c.Balances)
-			totalEmployeeCPF, _ = totalEmployeeCPF.Add(result.EmployeeContribution)
+			totalEmployeeCPF = totalEmployeeCPF.Add(result.EmployeeContribution)
 		}
 	}
 
@@ -442,19 +442,19 @@ func calculateNetCashFlow(
 	for _, row := range data.Incomes {
 		if isActiveInMonth(row, currentDate) {
 			monthlyAmt := common.ToMonthlyAmount(state[row.ID], row.Frequency)
-			income, _ = income.Add(monthlyAmt)
+			income = income.Add(monthlyAmt)
 		}
 	}
 
 	for _, row := range data.Expenses {
 		if isActiveInMonth(row, currentDate) {
 			monthlyAmt := common.ToMonthlyAmount(state[row.ID], row.Frequency)
-			expense, _ = expense.Add(monthlyAmt)
+			expense = expense.Add(monthlyAmt)
 		}
 	}
 
-	netSavings, _ = income.Sub(expense)
-	netCashFlow, _ = netSavings.Sub(employeeCPF)
+	netSavings = income.Sub(expense)
+	netCashFlow = netSavings.Sub(employeeCPF)
 	return netSavings, netCashFlow
 }
 
@@ -471,7 +471,7 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 		if state == nil {
 			continue
 		}
-		total, _ = total.Add(state.Balance)
+		total = total.Add(state.Balance)
 		balance := state.Balance.Round(0)
 		responses = append(responses, NonCashAssetResponse{
 			ID:           row.ID,
@@ -504,14 +504,14 @@ func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 		if state == nil {
 			continue
 		}
-		total, _ = total.Add(state.Balance)
+		total = total.Add(state.Balance)
 		if row.IsAccumulator {
 			accumulatorID = row.ID
 		}
 		balance := state.Balance
 		// Add accumulated cash to the accumulator account
 		if row.IsAccumulator && cashAccumulator != nil {
-			balance, _ = balance.Add(cashAccumulator)
+			balance = balance.Add(cashAccumulator)
 		}
 		balanceRounded := balance.Round(0)
 		responses = append(responses, CashAssetResponse{
@@ -542,9 +542,9 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 		if state == nil {
 			continue
 		}
-		total, _ = total.Add(state.Balance)
+		total = total.Add(state.Balance)
 		twelve := decimal.NewFromInt64(12, 0)
-		monthlyAmt, _ := state.Balance.Div(twelve)
+		monthlyAmt := state.Balance.Div(twelve)
 		annualRounded := state.Balance.Round(0)
 		monthlyRounded := monthlyAmt.Round(0)
 		responses = append(responses, LiabilityResponse{
@@ -772,16 +772,12 @@ func buildMonthDetailResponse(
 	cpfAssets := buildCPFAssetResponses(cpfCtx, yearIndex, month)
 	cpfTotal := decimal.Zero()
 	for _, asset := range cpfAssets {
-		cpfTotal, _ = cpfTotal.Add(&asset.Balance)
+		cpfTotal = cpfTotal.Add(&asset.Balance)
 	}
 
 	// Calculate totals
-	totalAssets := decimal.Zero()
-	totalAssets, _ = totalAssets.Add(nonCashTotal)
-	totalAssets, _ = totalAssets.Add(cashTotal)
-	totalAssets, _ = totalAssets.Add(cashAccumulator)
-	totalAssets, _ = totalAssets.Add(cpfTotal)
-	netWorth, _ := totalAssets.Sub(liabilityTotal)
+	totalAssets := decimal.Zero().Add(nonCashTotal).Add(cashTotal).Add(cashAccumulator).Add(cpfTotal)
+	netWorth := totalAssets.Sub(liabilityTotal)
 
 	return MonthDetailResponse{
 		Year:           baseYear + yearIndex,
@@ -824,14 +820,6 @@ func (s *Service) ComputeFinancialSnapshot(
 	sgData, err := s.loadEffectiveRows(ctx, userID, dateOpts, paginationOpts)
 	if err != nil {
 		return TimelineV2Response{}, fmt.Errorf("failed to load financial data: %w", err)
-	}
-
-	// DEBUG: Print loaded data
-	fmt.Printf("[DEBUG] Loaded %d incomes for userID=%s, dateRange=%v to %v\n",
-		len(sgData.Rows.Incomes), userID, opts.StartDate, opts.EndDate)
-	for _, inc := range sgData.Rows.Incomes {
-		fmt.Printf("[DEBUG]   Income: id=%s, name=%s, start=%v, end=%v, cpf=%v\n",
-			inc.ID, inc.Name, inc.StartDate, inc.EndDate, inc.CPFApplicable)
 	}
 
 	baseYear := opts.StartDate.Year()
@@ -877,7 +865,7 @@ func (s *Service) ComputeFinancialSnapshot(
 
 		// Calculate net savings and net cash flow
 		netSavings, netCashFlow := calculateNetCashFlow(sgData.Rows, state, currentDate, employeeCPF)
-		cashAccumulator, _ = cashAccumulator.Add(netCashFlow)
+		cashAccumulator = cashAccumulator.Add(netCashFlow)
 
 		// Build response for this month
 		syncStateToItemStates(state, itemStates)

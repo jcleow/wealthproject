@@ -102,6 +102,11 @@ func NewCPFBalances(cpfAccount *account.CPFAccount) *CPFBalances {
 // ResetYtdAWCeiling resets the year-to-date wage tracking at year boundaries.
 // This affects the AW ceiling calculation: AW Ceiling = $102,000 - YTD OW - YTD AW.
 // Call this when transitioning to a new year in the timeline.
+//
+// Why this is needed: CPF has an Annual Wage Ceiling (currently $102,000) that caps
+// the total wages subject to CPF in a calendar year. This ceiling applies across
+// all employers and wage types. When a new year begins, the YTD tracking must reset
+// to zero so the ceiling calculation starts fresh for the new calendar year.
 func (p *Processor) ResetYtdAWCeiling(balances *CPFBalances) {
 	balances.YTDOrdinaryWages = decimal.Zero()
 	balances.YTDAWSWages = decimal.Zero()
@@ -127,7 +132,7 @@ func (p *Processor) ProcessOrdinaryWage(
 	result := calculator.CalculateOW(grossAmount, age, residency)
 
 	// Update YTD ordinary wages (capped amount)
-	balances.YTDOrdinaryWages, _ = balances.YTDOrdinaryWages.Add(result.CappedWage)
+	balances.YTDOrdinaryWages = balances.YTDOrdinaryWages.Add(result.CappedWage)
 
 	return buildResult(&result, CPFWageTypeOW), nil
 }
@@ -152,7 +157,7 @@ func (p *Processor) ProcessAdditionalWage(
 	result := calculator.CalculateAW(grossAmount, age, residency, balances.YTDOrdinaryWages, balances.YTDAWSWages)
 
 	// Update YTD additional wages
-	balances.YTDAWSWages, _ = balances.YTDAWSWages.Add(result.CappedWage)
+	balances.YTDAWSWages = balances.YTDAWSWages.Add(result.CappedWage)
 
 	return buildResult(&result, CPFWageTypeAW), nil
 }
@@ -160,10 +165,10 @@ func (p *Processor) ProcessAdditionalWage(
 // AddContributionToBalances adds the contribution allocations to the accumulated balances.
 // Call this after processing each income to update the running CPF balances.
 func (p *Processor) AddContributionToBalances(result *ContributionResult, balances *CPFBalances) {
-	balances.AccumulatedOA, _ = balances.AccumulatedOA.Add(result.AllocationOA)
-	balances.AccumulatedSA, _ = balances.AccumulatedSA.Add(result.AllocationSA)
-	balances.AccumulatedMA, _ = balances.AccumulatedMA.Add(result.AllocationMA)
-	balances.AccumulatedRA, _ = balances.AccumulatedRA.Add(result.AllocationRA)
+	balances.AccumulatedOA = balances.AccumulatedOA.Add(result.AllocationOA)
+	balances.AccumulatedSA = balances.AccumulatedSA.Add(result.AllocationSA)
+	balances.AccumulatedMA = balances.AccumulatedMA.Add(result.AllocationMA)
+	balances.AccumulatedRA = balances.AccumulatedRA.Add(result.AllocationRA)
 }
 
 // GetAccount returns the underlying CPF account.
@@ -201,10 +206,5 @@ func buildResult(result *contribution.ContributionResult, cpfWageType CPFWageTyp
 
 // TotalBalance returns the total accumulated CPF balance.
 func (b *CPFBalances) TotalBalance() *decimal.Decimal {
-	total := decimal.Zero()
-	total, _ = total.Add(b.AccumulatedOA)
-	total, _ = total.Add(b.AccumulatedSA)
-	total, _ = total.Add(b.AccumulatedMA)
-	total, _ = total.Add(b.AccumulatedRA)
-	return total
+	return decimal.Zero().Add(b.AccumulatedOA).Add(b.AccumulatedSA).Add(b.AccumulatedMA).Add(b.AccumulatedRA)
 }

@@ -173,15 +173,11 @@ func TestConfigAllocationRates(t *testing.T) {
 
 	// Verify allocation for under 35
 	alloc := cfg.Config.AllocationRates.UpTo35
-	sum := decimal.Zero()
-	sum, _ = sum.Add(&alloc.OA)
-	sum, _ = sum.Add(&alloc.SA)
-	sum, _ = sum.Add(&alloc.MA)
-	sum, _ = sum.Add(&alloc.RA)
+	sum := decimal.Zero().Add(&alloc.OA).Add(&alloc.SA).Add(&alloc.MA).Add(&alloc.RA)
 
 	one := decimal.MustFromString("1")
 	tolerance := decimal.MustFromString("0.001")
-	diff, _ := sum.Sub(one)
+	diff := sum.Sub(one)
 	if diff.Abs().Cmp(tolerance) > 0 {
 		t.Errorf("Allocation rates for ≤35 should sum to 1, got %s", sum.String())
 	}

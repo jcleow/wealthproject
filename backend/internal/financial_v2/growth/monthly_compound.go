@@ -35,16 +35,14 @@ func (m *MonthlyCompoundStrategy) Apply(
 	oneOver12 := decimal.MustFromFloat64(1.0 / 12.0)
 
 	// rate/100
-	rateDecimal, _ := params.AnnualRatePct.Div(hundred)
+	rateDecimal := params.AnnualRatePct.Div(hundred)
 
 	// 1 + rate/100
-	onePlusRate, _ := one.Add(rateDecimal)
+	onePlusRate := one.Add(rateDecimal)
 
 	// (1 + rate/100)^(1/12)
 	growthFactor, _ := onePlusRate.Pow(oneOver12)
 
 	// amount * growthFactor
-	result, _ := currentAmount.Mul(growthFactor)
-
-	return result
+	return currentAmount.Mul(growthFactor)
 }

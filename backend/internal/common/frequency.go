@@ -13,29 +13,25 @@ const (
 	FrequencySemiannual Frequency = "semiannual"
 )
 
-// ToMonthlyAmount converts an amount to monthly based on frequency
+// ToMonthlyAmount converts an amount to monthly based on frequency.
+// Uses exact calculations: weekly = amount * 52 / 12, biweekly = amount * 26 / 12
 func ToMonthlyAmount(amount *decimal.Decimal, freq Frequency) *decimal.Decimal {
 	if amount == nil {
 		return decimal.Zero()
 	}
 	switch freq {
 	case FrequencyAnnual:
-		result, _ := amount.Div(decimal.NewFromInt64(12, 0))
-		return result
+		return amount.Div(decimal.NewFromInt64(12, 0))
 	case FrequencyQuarterly:
-		result, _ := amount.Div(decimal.NewFromInt64(3, 0))
-		return result
+		return amount.Div(decimal.NewFromInt64(3, 0))
 	case FrequencySemiannual:
-		result, _ := amount.Div(decimal.NewFromInt64(6, 0))
-		return result
+		return amount.Div(decimal.NewFromInt64(6, 0))
 	case FrequencyWeekly:
-		// ~4.33 weeks per month
-		result, _ := amount.Mul(decimal.MustFromFloat64(4.33))
-		return result
+		// Exact: amount * 52 / 12
+		return amount.Mul(decimal.NewFromInt64(52, 0)).Div(decimal.NewFromInt64(12, 0))
 	case FrequencyBiweekly:
-		// ~2.17 bi-weeks per month
-		result, _ := amount.Mul(decimal.MustFromFloat64(2.17))
-		return result
+		// Exact: amount * 26 / 12
+		return amount.Mul(decimal.NewFromInt64(26, 0)).Div(decimal.NewFromInt64(12, 0))
 	case FrequencyMonthly:
 		fallthrough
 	default:
