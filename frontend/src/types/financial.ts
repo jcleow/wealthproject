@@ -105,7 +105,6 @@ export const incomeSchema = z.object({
   // CPF-related fields
   incomeType: incomeTypeEnum.optional(),
   cpfWageType: cpfWageTypeEnum.optional().nullable(),
-  cpfApplicable: z.boolean().optional(),
 })
 
 export type Income = z.infer<typeof incomeSchema>

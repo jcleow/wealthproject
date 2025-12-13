@@ -96,7 +96,6 @@ const toIncome = (item: any): Income => ({
   // CPF-related fields
   incomeType: item.income_type ?? item.incomeType ?? item.IncomeType,
   cpfWageType: item.cpf_wage_type ?? item.cpfWageType ?? item.CpfWageType,
-  cpfApplicable: item.cpf_applicable ?? item.cpfApplicable ?? item.CPFApplicable,
 })
 
 const toExpense = (item: any): Expense => ({
@@ -319,6 +318,7 @@ export const financialApi = {
       growthRate: payload.growthRate ?? 3.0,
       notes: payload.notes,
     }
+    if (payload.cpfWageType !== undefined) body.cpfWageType = payload.cpfWageType
     if (payload.endDate !== undefined) body.endDate = payload.endDate
     const data = await jsonRequest<any>(`${API_BASE}/cashflow/incomes`, { method: 'POST', body: JSON.stringify(body) })
     return toIncome(data)
@@ -334,6 +334,7 @@ export const financialApi = {
       growthRate: payload.growthRate,
       notes: payload.notes,
     }
+    if (payload.cpfWageType !== undefined) body.cpfWageType = payload.cpfWageType
     const data = await jsonRequest<any>(`${API_BASE}/cashflow/incomes/${id}`, { method: 'PUT', body: JSON.stringify(body) })
     return toIncome(data)
   },

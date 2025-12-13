@@ -94,8 +94,7 @@ export function useLoadSampleDataMutation() {
           frequency: 'monthly',
           startDate: todayIso,
           growthRate: 4.0,
-          cpfApplicable: true,
-          cpfWageType: "aw",
+          cpfWageType: "ow", // Ordinary wages for monthly salary to compute CPF correctly
           notes: 'Mid-senior role at tech company, 10 years experience',
         },
         // {
