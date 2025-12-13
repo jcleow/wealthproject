@@ -1093,8 +1093,8 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 	endDate := it.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, cpf_wage_type, cpf_applicable)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, COALESCE($9, 3.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''), NULLIF($12, ''), (NULLIF($12, '') IS NOT NULL))
+		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, cpf_wage_type)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, COALESCE($9, 3.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''), NULLIF($12, ''))
 		ON CONFLICT ON CONSTRAINT finance_incomes_parent_start_date_key DO UPDATE
 		SET source=EXCLUDED.source,
 		    amount=EXCLUDED.amount,
@@ -1105,7 +1105,6 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 		    growth_strategy=EXCLUDED.growth_strategy,
 		    notes=EXCLUDED.notes,
 		    cpf_wage_type=EXCLUDED.cpf_wage_type,
-		    cpf_applicable=EXCLUDED.cpf_applicable,
 		    updated_at=NOW()
 		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at`,
 		userID, nullIfEmpty(it.ParentID), it.Source, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.CPFWageType)
@@ -1152,7 +1151,6 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Inc
 		    growth_strategy=COALESCE(NULLIF($10, ''), growth_strategy, 'annual_step'),
 		    notes=NULLIF($11, ''),
 		    cpf_wage_type=NULLIF($12, ''),
-		    cpf_applicable=(NULLIF($12, '') IS NOT NULL),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
 		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at`,
