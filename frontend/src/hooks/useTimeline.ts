@@ -90,18 +90,43 @@ export function useTimeline(options?: UseTimelineOptions) {
     retry: 1,
   })
 
+  const earliestMonth = useMemo(() => {
+    // Months are already sorted by startDate from the backend; the first entry is the earliest.
+    const v2First = timelineV2Query.data?.months?.[0]
+    if (v2First) return { year: v2First.year, month: v2First.month }
+    const v1First = timelineQuery.data?.months?.[0]
+    if (v1First) return { year: v1First.year, month: v1First.month }
+    return null
+  }, [timelineV2Query.data?.months, timelineQuery.data?.months])
+
   useEffect(() => {
     if (!timelineQuery.data) return
     if (selectedYear !== null) return
 
     // Initialize based on resolution
     if (resolution === 'monthly' && timelineQuery.data.months?.[0]) {
-      setSelectedYear(timelineQuery.data.months[0].year)
-      setSelectedMonth(timelineQuery.data.months[0].month)
+      const initialYear = earliestMonth?.year ?? timelineQuery.data.months[0].year
+      const initialMonth = earliestMonth?.month ?? timelineQuery.data.months[0].month
+      setSelectedYear(initialYear)
+      setSelectedMonth(initialMonth)
     } else if (resolution === 'yearly' && timelineQuery.data.years?.[0]) {
       setSelectedYear(timelineQuery.data.years[0].year)
     }
-  }, [selectedYear, timelineQuery.data, resolution])
+  }, [selectedYear, timelineQuery.data, resolution, earliestMonth])
+
+  useEffect(() => {
+    if (!earliestMonth) return
+    const baseYear = earliestMonth.year
+    if (selectedYear === null) return
+    const effectiveYear = selectedYear >= 1900 ? selectedYear : baseYear + selectedYear
+    const isBeforeAnchor =
+      effectiveYear < earliestMonth.year ||
+      (effectiveYear === earliestMonth.year && (selectedMonth ?? 1) < earliestMonth.month)
+    if (isBeforeAnchor) {
+      setSelectedYear(earliestMonth.year)
+      setSelectedMonth(earliestMonth.month)
+    }
+  }, [earliestMonth, selectedYear, selectedMonth])
 
   // Extract years for navigation (works for both resolutions)
   const years = useMemo(() => {
@@ -252,5 +277,7 @@ export function useTimeline(options?: UseTimelineOptions) {
     saving: upsertMutation.isPending,
     /** Whether the V2 feature flag is enabled */
     isV2Enabled: useTimelineV2,
+    anchorYear: earliestMonth?.year ?? null,
+    anchorMonth: earliestMonth?.month ?? null,
   }
 }

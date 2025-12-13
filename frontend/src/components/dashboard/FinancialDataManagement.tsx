@@ -839,11 +839,18 @@ export function FinancialDataManagement({
     // Convert index to absolute year
     // Try to use timelineYears first, otherwise calculate from base year
     const baseYear = anchorYear ?? new Date().getFullYear()
-    if (timelineYears && timelineYears[clamped]) {
-      onSelectYear?.(timelineYears[clamped].year)
-    } else {
-      // Calculate absolute year from index (base year + index)
-      onSelectYear?.(baseYear + clamped)
+    const targetYear =
+      timelineYears && timelineYears[clamped]
+        ? timelineYears[clamped].year
+        : baseYear + clamped
+
+    onSelectYear?.(targetYear)
+
+    // If navigating back to the anchor year, clamp the month selection to the anchor month.
+    if (anchorYear && anchorMonth && targetYear === anchorYear) {
+      if ((selectedMonth ?? 1) < anchorMonth) {
+        onSelectMonth?.(anchorMonth)
+      }
     }
   }
 

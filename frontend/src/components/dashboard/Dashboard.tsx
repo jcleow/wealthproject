@@ -133,6 +133,8 @@ export function Dashboard() {
                     timelineMonth={timeline.selectedMonthData}
                     timelineMonthV2={timeline.selectedMonthDataV2}
                     timelineYears={timeline.timelineQuery.data?.years}
+                    anchorYear={timeline.anchorYear}
+                    anchorMonth={timeline.anchorMonth}
                     resolution={timeline.resolution}
                     zoomLevel={zoomLevel}
                     isTimelineLoading={timeline.timelineQuery.isLoading}

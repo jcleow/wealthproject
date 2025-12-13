@@ -3,6 +3,7 @@ package timeline_v2
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"financial-chat-system/backend/internal/common"
@@ -348,6 +349,66 @@ func mapToCPFAccount(r *repo.CPFAccount) *account.CPFAccount {
 		CreatedAt:        r.CreatedAt,
 		UpdatedAt:        r.UpdatedAt,
 	}
+}
+
+// earliestStartDateFromRows returns the earliest start date across all financial rows.
+func earliestStartDateFromRows(rows EffectiveRows) (time.Time, bool) {
+	firstDate := func(items []FinancialDataRow) (time.Time, bool) {
+		if len(items) == 0 || items[0].StartDate.IsZero() {
+			return time.Time{}, false
+		}
+		return items[0].StartDate, true
+	}
+
+	sources := [][]FinancialDataRow{
+		rows.NonCashAssets,
+		rows.CashAssets,
+		rows.Liabilities,
+		rows.Incomes,
+		rows.Expenses,
+	}
+
+	candidates := make([]time.Time, 0, len(sources))
+	for _, src := range sources {
+		if d, ok := firstDate(src); ok {
+			candidates = append(candidates, d)
+		}
+	}
+
+	if len(candidates) == 0 {
+		return time.Time{}, false
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].Before(candidates[j])
+	})
+	return candidates[0], true
+}
+
+// normalizeToMonthStart returns the first day of the month in UTC for a given date.
+func normalizeToMonthStart(date time.Time) time.Time {
+	if date.IsZero() {
+		return date
+	}
+	d := date.UTC()
+	return time.Date(d.Year(), d.Month(), 1, 0, 0, 0, 0, time.UTC)
+}
+
+// buildAnchorRange returns normalized start/end dates based on requested opts and earliest data.
+func buildAnchorRange(opts TimelineOptions, rows EffectiveRows) (time.Time, time.Time) {
+	start := normalizeToMonthStart(opts.StartDate)
+	if earliest, ok := earliestStartDateFromRows(rows); ok {
+		start = normalizeToMonthStart(earliest)
+	}
+	if start.IsZero() {
+		start = normalizeToMonthStart(time.Now())
+	}
+
+	end := normalizeToMonthStart(opts.EndDate)
+	if end.IsZero() || end.Before(start) {
+		end = start
+	}
+	return start, end
 }
 
 // isActiveInMonth checks if a financial row is active during the given month.
@@ -880,22 +941,27 @@ func (s *Service) ComputeFinancialSnapshot(
 		return TimelineV2Response{}, err
 	}
 
+	anchorStart, anchorEnd := buildAnchorRange(opts, sgData.Rows)
+
+	startMonthIndex := (int(anchorStart.Month()) - 1)
+
 	mctx := &MonthlyContext{
 		Data:            sgData.Rows,
-		ItemStates:      initializeItemStates(sgData.Rows, opts.StartDate.Year()),
+		ItemStates:      initializeItemStates(sgData.Rows, anchorStart.Year()),
 		Registry:        growth.NewRegistry(),
 		CPFCtx:          NewCPFContext(sgData.CPFAccount),
-		BaseYear:        opts.StartDate.Year(),
+		BaseYear:        anchorStart.Year(),
 		CashAccumulator: decimal.Zero(),
 	}
 	mctx.State = extractBalanceMap(mctx.ItemStates)
 
-	totalMonths := common.MonthsBetween(opts.StartDate, opts.EndDate)
+	totalMonths := common.MonthsBetween(anchorStart, anchorEnd)
 	resultMonths := make([]MonthDetailResponse, 0, totalMonths)
 
 	for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
-		currentDate := opts.StartDate.AddDate(0, monthIdx, 0)
-		resultMonths = append(resultMonths, processMonth(mctx, monthIdx, currentDate))
+		currentDate := anchorStart.AddDate(0, monthIdx, 0)
+		globalMonthIdx := startMonthIndex + monthIdx
+		resultMonths = append(resultMonths, processMonth(mctx, globalMonthIdx, currentDate))
 	}
 
 	return TimelineV2Response{Months: resultMonths}, nil
