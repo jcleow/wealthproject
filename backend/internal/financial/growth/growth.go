@@ -18,7 +18,7 @@ type Params struct {
 	CurrentValue *decimal.Decimal
 	Rate         *decimal.Decimal // Percentage rate (e.g., 3.0 for 3%)
 	PeriodIndex  int              // Month or year index (0-based)
-	Frequency    string           // "monthly" or "yearly"
+	Frequency    string           // "monthly" or "annual"
 	Metadata     map[string]interface{}
 }
 

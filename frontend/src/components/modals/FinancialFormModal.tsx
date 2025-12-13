@@ -777,7 +777,7 @@ export function FinancialFormModal({
                       <option value="biweekly">Bi-weekly</option>
                       <option value="monthly">Monthly</option>
                       <option value="quarterly">Quarterly</option>
-                      <option value="yearly">Yearly</option>
+                      <option value="annual">Annual</option>
                     </select>
                   </div>
                 )}

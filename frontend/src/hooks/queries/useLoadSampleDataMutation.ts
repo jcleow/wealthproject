@@ -94,6 +94,7 @@ export function useLoadSampleDataMutation() {
           frequency: 'monthly',
           startDate: todayIso,
           growthRate: 4.0,
+          cpfApplicable: true,
           notes: 'Mid-senior role at tech company, 10 years experience',
         },
         // {
@@ -249,7 +250,7 @@ export function useLoadSampleDataMutation() {
           payee: 'Annual Travel Fund',
           category: 'Travel',
           amount: 4000,
-          frequency: 'yearly',
+          frequency: 'annual',
           startDate: todayIso,
           growthRate: 3.0,
           notes: '1-2 overseas trips per year (Japan, Thailand, etc)',

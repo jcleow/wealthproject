@@ -62,8 +62,8 @@ function nonCashAssetV2ToTimelineItem(item: NonCashAssetResponseV2): TimelineIte
     amountMonthly: balance,
     adjMonthlyAmt: adjBalance,
     itemType: 'asset',
-    createdYear: item.createdYear,
-    createdMonth: item.createdMonth,
+    startYear: item.startYear,
+    startMonth: item.startMonth,
   }
 }
 
@@ -79,8 +79,8 @@ function cashAssetV2ToTimelineItem(item: CashAssetResponseV2): TimelineItem {
     amountMonthly: balance,
     adjMonthlyAmt: adjBalance,
     itemType: 'cash_account',
-    createdYear: item.createdYear,
-    createdMonth: item.createdMonth,
+    startYear: item.startYear,
+    startMonth: item.startMonth,
     isAccumulator: item.isAccumulator,
   }
 }
@@ -98,25 +98,27 @@ function cpfAssetV2ToTimelineItem(item: CPFAssetResponseV2): TimelineItem {
     amountMonthly: balance,
     adjMonthlyAmt: adjBalance,
     itemType: 'asset',
-    createdYear: item.createdYear,
-    createdMonth: item.createdMonth,
+    startYear: item.startYear,
+    startMonth: item.startMonth,
   }
 }
 
 function liabilityV2ToTimelineItem(item: LiabilityResponseV2): TimelineItem {
+  const balance = parseDecimal(item.balance)
+  const adjBalance = parseDecimal(item.adjBalance)
   return {
     itemId: item.id,
     parentId: item.parentId,
     name: item.name,
     category: item.category,
-    amountAnnual: parseDecimal(item.annualAmt),
-    adjAnnualAmt: parseDecimal(item.adjAnnualAmt),
-    amountMonthly: parseDecimal(item.monthlyAmt),
-    adjMonthlyAmt: parseDecimal(item.adjMonthlyAmt),
+    amountAnnual: balance,
+    adjAnnualAmt: adjBalance,
+    amountMonthly: balance,
+    adjMonthlyAmt: adjBalance,
     sourceAmount: parseDecimal(item.sourceAmount),
     itemType: 'liability',
-    createdYear: item.createdYear,
-    createdMonth: item.createdMonth,
+    startYear: item.startYear,
+    startMonth: item.startMonth,
   }
 }
 
@@ -132,8 +134,8 @@ function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
     adjMonthlyAmt: parseDecimal(item.adjAmount),
     sourceFrequency: item.sourceFrequency as TimelineFrequency,
     itemType: 'income',
-    createdYear: item.createdYear,
-    createdMonth: item.createdMonth,
+    startYear: item.startYear,
+    startMonth: item.startMonth,
     growthRate: parseDecimal(item.growthRate),
   }
 }
@@ -150,8 +152,8 @@ function expenseV2ToTimelineItem(item: ExpenseResponseV2): TimelineItem {
     adjMonthlyAmt: parseDecimal(item.adjAmount),
     sourceFrequency: item.sourceFrequency as TimelineFrequency,
     itemType: 'expense',
-    createdYear: item.createdYear,
-    createdMonth: item.createdMonth,
+    startYear: item.startYear,
+    startMonth: item.startMonth,
   }
 }
 import { formatCurrency } from '@/lib/format'
@@ -600,7 +602,6 @@ export function FinancialDataManagement({
 
     if (usingTimeline && onSaveTimelineEdits) {
       const mapFrequency = (freq: string | undefined): TimelineFrequency => {
-        if (freq === 'yearly') return 'annual'
         if (freq === 'monthly' || freq === 'weekly' || freq === 'biweekly' || freq === 'quarterly' || freq === 'semiannual' || freq === 'annual') {
           return freq
         }

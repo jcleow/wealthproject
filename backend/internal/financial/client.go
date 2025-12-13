@@ -1446,7 +1446,7 @@ func annualToMonthly(amount float64, frequency string) float64 {
 	switch strings.ToLower(frequency) {
 	case "monthly":
 		return amount
-	case "annual", "yearly":
+	case "annual":
 		return amount / 12
 	case "weekly":
 		return amount * 52 / 12
@@ -1463,7 +1463,7 @@ func toAnnual(amount float64, frequency string) float64 {
 	switch strings.ToLower(frequency) {
 	case "monthly":
 		return amount * 12
-	case "annual", "yearly":
+	case "annual":
 		return amount
 	case "weekly":
 		return amount * 52

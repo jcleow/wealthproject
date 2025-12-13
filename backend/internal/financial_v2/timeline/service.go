@@ -57,10 +57,10 @@ type SGFinancialDataRows struct {
 
 // ItemState tracks the current computed state of a financial item
 type ItemState struct {
-	Row          FinancialDataRow
-	Balance      *decimal.Decimal // Current computed balance/amount
-	CreatedYear  int              // Year index when item was created (relative to base year)
-	CreatedMonth int              // Month when item was created (1-12)
+	Row        FinancialDataRow
+	Balance    *decimal.Decimal // Current computed balance/amount
+	StartYear  int              // Year index when item was created (relative to base year)
+	StartMonth int              // Month when item was created (1-12)
 }
 
 // ItemStateMap maps item IDs to their computed state
@@ -360,7 +360,7 @@ func isActiveInMonth(row FinancialDataRow, date time.Time) bool {
 	return true
 }
 
-// initializeItemStates creates ItemStateMap with CreatedYear/CreatedMonth for all financial rows
+// initializeItemStates creates ItemStateMap with StartYear/StartMonth for all financial rows
 func initializeItemStates(data EffectiveRows, baseYear int) ItemStateMap {
 	states := make(ItemStateMap)
 
@@ -376,10 +376,10 @@ func initializeItemStates(data EffectiveRows, baseYear int) ItemStateMap {
 		for _, row := range rows {
 			amount := row.Amount
 			states[row.ID] = &ItemState{
-				Row:          row,
-				Balance:      &amount,
-				CreatedYear:  row.StartDate.Year() - baseYear,
-				CreatedMonth: int(row.StartDate.Month()),
+				Row:        row,
+				Balance:    &amount,
+				StartYear:  row.StartDate.Year() - baseYear,
+				StartMonth: int(row.StartDate.Month()),
 			}
 		}
 	}
@@ -421,8 +421,10 @@ func applyGrowth(rows []FinancialDataRow, ctx *GrowthContext, strategyName strin
 		if !isActiveInMonth(row, ctx.Date) {
 			continue
 		}
+		// Calculate item's age in months (how long since it started)
+		itemAge := common.MonthsBetween(row.StartDate, ctx.Date)
 		params := growth.Params{AnnualRatePct: &row.GrowthRate}
-		ctx.State[row.ID] = strategy.Apply(ctx.State[row.ID], params, ctx.Month, ctx.MonthOfYear)
+		ctx.State[row.ID] = strategy.Apply(ctx.State[row.ID], params, itemAge, ctx.MonthOfYear)
 	}
 }
 
@@ -474,16 +476,16 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 		total = total.Add(state.Balance)
 		balance := state.Balance.Round(0)
 		responses = append(responses, NonCashAssetResponse{
-			ID:           row.ID,
-			ParentID:     row.ParentID,
-			Name:         row.Name,
-			Category:     row.Category,
-			Balance:      *balance,
-			AdjBalance:   *balance,
-			ItemType:     string(row.ItemType),
-			StartDate:    row.StartDate.Format("2006-01-02"),
-			CreatedYear:  state.CreatedYear,
-			CreatedMonth: state.CreatedMonth,
+			ID:         row.ID,
+			ParentID:   row.ParentID,
+			Name:       row.Name,
+			Category:   row.Category,
+			Balance:    *balance,
+			AdjBalance: *balance,
+			ItemType:   string(row.ItemType),
+			StartDate:  row.StartDate.Format("2006-01-02"),
+			StartYear:  state.StartYear,
+			StartMonth: state.StartMonth,
 		})
 	}
 	return responses, total
@@ -521,8 +523,8 @@ func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 			Balance:       *balanceRounded,
 			AdjBalance:    *balanceRounded,
 			ItemType:      string(row.ItemType),
-			CreatedYear:   state.CreatedYear,
-			CreatedMonth:  state.CreatedMonth,
+			StartYear:     state.StartYear,
+			StartMonth:    state.StartMonth,
 			IsAccumulator: row.IsAccumulator,
 		})
 	}
@@ -543,23 +545,19 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 			continue
 		}
 		total = total.Add(state.Balance)
-		twelve := decimal.NewFromInt64(12, 0)
-		monthlyAmt := state.Balance.Div(twelve)
-		annualRounded := state.Balance.Round(0)
-		monthlyRounded := monthlyAmt.Round(0)
+		// Liabilities are point-in-time balances, not flows - no division needed
+		balance := state.Balance.Round(0)
 		responses = append(responses, LiabilityResponse{
-			ID:            row.ID,
-			ParentID:      row.ParentID,
-			Name:          row.Name,
-			Category:      row.Category,
-			AnnualAmt:     *annualRounded,
-			AdjAnnualAmt:  *annualRounded,
-			MonthlyAmt:    *monthlyRounded,
-			AdjMonthlyAmt: *monthlyRounded,
-			SourceAmount:  *row.Amount.Round(0),
-			ItemType:      string(row.ItemType),
-			CreatedYear:   state.CreatedYear,
-			CreatedMonth:  state.CreatedMonth,
+			ID:           row.ID,
+			ParentID:     row.ParentID,
+			Name:         row.Name,
+			Category:     row.Category,
+			Balance:      *balance,
+			AdjBalance:   *balance,
+			SourceAmount: *row.Amount.Round(0),
+			ItemType:     string(row.ItemType),
+			StartYear:    state.StartYear,
+			StartMonth:   state.StartMonth,
 		})
 	}
 	return responses, total
@@ -577,7 +575,9 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, date
 		if state == nil {
 			continue
 		}
-		amount := state.Balance.Round(0)
+		// Convert to monthly amount for display
+		monthlyAmt := common.ToMonthlyAmount(state.Balance, row.Frequency)
+		amount := monthlyAmt.Round(0)
 		resp := IncomeResponse{
 			ID:              row.ID,
 			ParentID:        row.ParentID,
@@ -587,8 +587,8 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, date
 			AdjAmount:       *amount,
 			SourceFrequency: string(row.Frequency),
 			ItemType:        string(row.ItemType),
-			CreatedYear:     state.CreatedYear,
-			CreatedMonth:    state.CreatedMonth,
+			StartYear:     state.StartYear,
+			StartMonth:    state.StartMonth,
 			GrowthRate:      *row.GrowthRate.Round(0),
 			CPFApplicable:   row.CPFApplicable,
 		}
@@ -622,7 +622,9 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, dat
 		if state == nil {
 			continue
 		}
-		amount := state.Balance.Round(0)
+		// Convert to monthly amount for display
+		monthlyAmt := common.ToMonthlyAmount(state.Balance, row.Frequency)
+		amount := monthlyAmt.Round(0)
 		responses = append(responses, ExpenseResponse{
 			ID:              row.ID,
 			ParentID:        row.ParentID,
@@ -632,8 +634,8 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, dat
 			AdjAmount:       *amount,
 			SourceFrequency: string(row.Frequency),
 			ItemType:        string(row.ItemType),
-			CreatedYear:     state.CreatedYear,
-			CreatedMonth:    state.CreatedMonth,
+			StartYear:     state.StartYear,
+			StartMonth:    state.StartMonth,
 		})
 	}
 	return responses
@@ -673,8 +675,8 @@ func buildCPFContributionResponses(rows []FinancialDataRow, itemStates ItemState
 			TotalContribution:    *contribution.TotalContribution.Round(0),
 			SourceFrequency:      string(row.Frequency),
 			ItemType:             "cpf_contribution",
-			CreatedYear:          state.CreatedYear,
-			CreatedMonth:         state.CreatedMonth,
+			StartYear:          state.StartYear,
+			StartMonth:         state.StartMonth,
 			AllocationOA:         *contribution.AllocationOA.Round(0),
 			AllocationSA:         *contribution.AllocationSA.Round(0),
 			AllocationMA:         *contribution.AllocationMA.Round(0),
@@ -701,8 +703,8 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int) []CPFA
 			AdjBalance:   *balances.AccumulatedOA.Round(0),
 			ItemType:     "cpf_account",
 			StartDate:    "",
-			CreatedYear:  yearIndex,
-			CreatedMonth: month,
+			StartYear:  yearIndex,
+			StartMonth: month,
 		},
 		{
 			ID:           "cpf-sa",
@@ -713,8 +715,8 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int) []CPFA
 			AdjBalance:   *balances.AccumulatedSA.Round(0),
 			ItemType:     "cpf_account",
 			StartDate:    "",
-			CreatedYear:  yearIndex,
-			CreatedMonth: month,
+			StartYear:  yearIndex,
+			StartMonth: month,
 		},
 		{
 			ID:           "cpf-ma",
@@ -725,8 +727,8 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int) []CPFA
 			AdjBalance:   *balances.AccumulatedMA.Round(0),
 			ItemType:     "cpf_account",
 			StartDate:    "",
-			CreatedYear:  yearIndex,
-			CreatedMonth: month,
+			StartYear:  yearIndex,
+			StartMonth: month,
 		},
 		{
 			ID:           "cpf-ra",
@@ -737,8 +739,8 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int) []CPFA
 			AdjBalance:   *balances.AccumulatedRA.Round(0),
 			ItemType:     "cpf_account",
 			StartDate:    "",
-			CreatedYear:  yearIndex,
-			CreatedMonth: month,
+			StartYear:  yearIndex,
+			StartMonth: month,
 		},
 	}
 }
@@ -826,7 +828,7 @@ func (s *Service) ComputeFinancialSnapshot(
 	registry := growth.NewRegistry()
 	cpfCtx := NewCPFContext(sgData.CPFAccount)
 
-	// itemStates: detailed tracking per item (includes metadata like CreatedYear/CreatedMonth)
+	// itemStates: detailed tracking per item (includes metadata like StartYear/StartMonth)
 	itemStates := initializeItemStates(sgData.Rows, baseYear)
 
 	// state: map of itemID -> current balance, mutated each month as growth is applied.

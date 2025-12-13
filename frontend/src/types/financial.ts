@@ -19,7 +19,7 @@ export const frequencyEnum = z.enum([
   "biweekly",
   "monthly",
   "quarterly",
-  "yearly",
+  "annual",
   "one_time", // One-time occurrence, does not recur
 ])
 

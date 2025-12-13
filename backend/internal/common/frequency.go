@@ -20,7 +20,7 @@ func ToMonthlyAmount(amount *decimal.Decimal, freq Frequency) *decimal.Decimal {
 		return decimal.Zero()
 	}
 	switch freq {
-	case FrequencyAnnual:
+	case FrequencyAnnual, "yearly": // Handle legacy "yearly" data
 		return amount.Div(decimal.NewFromInt64(12, 0))
 	case FrequencyQuarterly:
 		return amount.Div(decimal.NewFromInt64(3, 0))

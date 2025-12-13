@@ -110,7 +110,7 @@ func (a *AccountPOC) ApplyAnnualGrowth(years int) error {
 			CurrentValue: a.Balance,
 			Rate:         a.GrowthRatePct,
 			PeriodIndex:  i,
-			Frequency:    "yearly",
+			Frequency:    "annual",
 		})
 		if err != nil {
 			return fmt.Errorf("failed to apply growth: %w", err)

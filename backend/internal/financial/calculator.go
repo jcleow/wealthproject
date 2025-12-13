@@ -211,7 +211,7 @@ func normalizeToMonthly(amount float64, frequency string) float64 {
 		return amount * 26 / 12
 	case "quarterly":
 		return amount / 3
-	case "yearly", "annual", "annually":
+	case "annual", "annually":
 		return amount / 12
 	default: // monthly or unknown
 		return amount

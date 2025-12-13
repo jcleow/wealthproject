@@ -160,7 +160,7 @@ func TestAnnualStepStrategy(t *testing.T) {
 				CurrentValue: baseAmount,
 				Rate:         rate,
 				PeriodIndex:  tt.yearIndex,
-				Frequency:    "yearly",
+				Frequency:    "annual",
 			})
 			if err != nil {
 				t.Fatalf("unexpected error at year %d: %v", tt.yearIndex, err)

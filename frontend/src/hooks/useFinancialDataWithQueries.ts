@@ -86,7 +86,7 @@ export function useFinancialData() {
     return incomes.reduce((sum, income) => {
       const monthlyAmount = income.frequency === 'monthly'
         ? income.amount
-        : income.frequency === 'yearly'
+        : income.frequency === 'annual'
         ? income.amount / 12
         : income.frequency === 'weekly'
         ? income.amount * 52 / 12
@@ -101,7 +101,7 @@ export function useFinancialData() {
     return expenses.reduce((sum, expense) => {
       const monthlyAmount = expense.frequency === 'monthly'
         ? expense.amount
-        : expense.frequency === 'yearly'
+        : expense.frequency === 'annual'
         ? expense.amount / 12
         : expense.frequency === 'weekly'
         ? expense.amount * 52 / 12

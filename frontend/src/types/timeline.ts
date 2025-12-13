@@ -32,9 +32,9 @@ export interface TimelineItem {
   sourceAmount?: number
   sourceFrequency?: TimelineFrequency
   itemType: TimelineItemType
-  createdYear: number
-  /** Month when item was created (1-12), used with createdYear */
-  createdMonth?: number
+  startYear: number
+  /** Month when item started (1-12), used with startYear */
+  startMonth?: number
   /** Per-item annual growth rate (percentage) */
   growthRate?: number
   /** Scenario event impacts applied to this item */
@@ -159,8 +159,8 @@ export interface NonCashAssetResponseV2 {
   adjBalance: string
   itemType: string
   startDate: string
-  createdYear: number
-  createdMonth: number
+  startYear: number
+  startMonth: number
 }
 
 /** Cash asset in V2 response (decimal values come as strings from backend) */
@@ -171,8 +171,8 @@ export interface CashAssetResponseV2 {
   balance: string
   adjBalance: string
   itemType: string
-  createdYear: number
-  createdMonth: number
+  startYear: number
+  startMonth: number
   isAccumulator: boolean
 }
 
@@ -186,8 +186,8 @@ export interface CPFAssetResponseV2 {
   adjBalance: string
   itemType: string
   startDate: string
-  createdYear: number
-  createdMonth: number
+  startYear: number
+  startMonth: number
 }
 
 /** Liability in V2 response (decimal values come as strings from backend) */
@@ -196,14 +196,12 @@ export interface LiabilityResponseV2 {
   parentId: string
   name: string
   category: string
-  annualAmt: string
-  adjAnnualAmt: string
-  monthlyAmt: string
-  adjMonthlyAmt: string
+  balance: string
+  adjBalance: string
   sourceAmount: string
   itemType: string
-  createdYear: number
-  createdMonth: number
+  startYear: number
+  startMonth: number
 }
 
 /** Income in V2 response (decimal values come as strings from backend) */
@@ -216,8 +214,8 @@ export interface IncomeResponseV2 {
   adjAmount: string
   sourceFrequency: string
   itemType: string
-  createdYear: number
-  createdMonth: number
+  startYear: number
+  startMonth: number
   growthRate: string
 }
 
@@ -232,8 +230,8 @@ export interface CPFContributionResponseV2 {
   totalContribution: string
   sourceFrequency: string
   itemType: string
-  createdYear: number
-  createdMonth: number
+  startYear: number
+  startMonth: number
   allocationOa: string
   allocationSa: string
   allocationMa: string
@@ -250,6 +248,6 @@ export interface ExpenseResponseV2 {
   adjAmount: string
   sourceFrequency: string
   itemType: string
-  createdYear: number
-  createdMonth: number
+  startYear: number
+  startMonth: number
 }
