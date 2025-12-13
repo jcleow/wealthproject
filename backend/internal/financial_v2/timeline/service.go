@@ -302,11 +302,15 @@ func (c *CPFContext) ProcessIncomes(
 			continue
 		}
 
+		// Convert income to monthly amount for CPF calculation
+		// CPF processor expects monthly wage, but income may be stored in different frequencies
+		monthlyWage := common.ToMonthlyAmount(state[income.ID], income.Frequency)
+
 		var result *cpfProcessor.ContributionResult
 		if income.CPFWageType == cpfProcessor.CPFWageTypeOW {
-			result, _ = c.Processor.ProcessOrdinaryWage(state[income.ID], c.Balances, date)
+			result, _ = c.Processor.ProcessOrdinaryWage(monthlyWage, c.Balances, date)
 		} else {
-			result, _ = c.Processor.ProcessAdditionalWage(state[income.ID], c.Balances, date)
+			result, _ = c.Processor.ProcessAdditionalWage(monthlyWage, c.Balances, date)
 		}
 
 		if result != nil {
@@ -426,6 +430,17 @@ func applyGrowth(rows []FinancialDataRow, ctx *GrowthContext, strategyName strin
 		params := growth.Params{AnnualRatePct: &row.GrowthRate}
 		ctx.State[row.ID] = strategy.Apply(ctx.State[row.ID], params, itemAge, ctx.MonthOfYear)
 	}
+}
+
+// applyAllGrowth applies the appropriate growth strategies to all financial data types
+func applyAllGrowth(data EffectiveRows, ctx *GrowthContext) {
+	// Income/Expenses use annual step growth (raises happen yearly)
+	applyGrowth(data.Incomes, ctx, growth.StrategyAnnualStep)
+	applyGrowth(data.Expenses, ctx, growth.StrategyAnnualStep)
+	// Assets/Liabilities use monthly compound growth
+	applyGrowth(data.NonCashAssets, ctx, growth.StrategyMonthlyCompound)
+	applyGrowth(data.CashAssets, ctx, growth.StrategyMonthlyCompound)
+	applyGrowth(data.Liabilities, ctx, growth.StrategyMonthlyCompound)
 }
 
 // calculateNetCashFlow computes net savings and net cash flow for active rows.
@@ -802,6 +817,51 @@ func buildMonthDetailResponse(
 }
 
 // =============================================================================
+// Monthly Processing
+// =============================================================================
+
+// MonthlyContext holds all state needed to process a single month
+type MonthlyContext struct {
+	Data            EffectiveRows
+	ItemStates      ItemStateMap
+	State           map[string]*decimal.Decimal
+	Registry        *growth.Registry
+	CPFCtx          *CPFContext
+	BaseYear        int
+	CashAccumulator *decimal.Decimal
+}
+
+// processMonth handles all calculations for a single month and returns the response
+func processMonth(mctx *MonthlyContext, monthIdx int, currentDate time.Time) MonthDetailResponse {
+	// Reset CPF YTD at year boundaries
+	mctx.CPFCtx.ResetYTDIfNewYear(currentDate, monthIdx)
+
+	// Apply growth to all financial items
+	growthCtx := &GrowthContext{
+		Registry:    mctx.Registry,
+		State:       mctx.State,
+		Month:       monthIdx + 1,
+		MonthOfYear: int(currentDate.Month()),
+		Date:        currentDate,
+	}
+	applyAllGrowth(mctx.Data, growthCtx)
+
+	// Process CPF contributions
+	employeeCPF, cpfContributions := mctx.CPFCtx.ProcessIncomes(mctx.Data.Incomes, mctx.State, currentDate)
+
+	// Calculate cash flow
+	netSavings, netCashFlow := calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF)
+	mctx.CashAccumulator = mctx.CashAccumulator.Add(netCashFlow)
+
+	// Sync state and build response
+	syncStateToItemStates(mctx.State, mctx.ItemStates)
+	return buildMonthDetailResponse(
+		monthIdx, currentDate, mctx.BaseYear, mctx.Data, mctx.ItemStates,
+		mctx.CashAccumulator, netSavings, netCashFlow, employeeCPF, cpfContributions, mctx.CPFCtx,
+	)
+}
+
+// =============================================================================
 // Public Service Methods
 // =============================================================================
 
@@ -811,71 +871,44 @@ func (s *Service) ComputeFinancialSnapshot(
 	userID string,
 	opts TimelineOptions,
 ) (TimelineV2Response, error) {
-	// Add 1 month to endDate for exclusive upper bound (start_date < endDate + 1 month)
+	sgData, err := s.loadFinancialData(ctx, userID, opts)
+	if err != nil {
+		return TimelineV2Response{}, err
+	}
+
+	mctx := &MonthlyContext{
+		Data:            sgData.Rows,
+		ItemStates:      initializeItemStates(sgData.Rows, opts.StartDate.Year()),
+		Registry:        growth.NewRegistry(),
+		CPFCtx:          NewCPFContext(sgData.CPFAccount),
+		BaseYear:        opts.StartDate.Year(),
+		CashAccumulator: decimal.Zero(),
+	}
+	mctx.State = extractBalanceMap(mctx.ItemStates)
+
+	totalMonths := common.MonthsBetween(opts.StartDate, opts.EndDate)
+	resultMonths := make([]MonthDetailResponse, 0, totalMonths)
+
+	for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
+		currentDate := opts.StartDate.AddDate(0, monthIdx, 0)
+		resultMonths = append(resultMonths, processMonth(mctx, monthIdx, currentDate))
+	}
+
+	return TimelineV2Response{Months: resultMonths}, nil
+}
+
+// loadFinancialData loads all financial data for the given user and date range
+func (s *Service) loadFinancialData(ctx context.Context, userID string, opts TimelineOptions) (SGFinancialDataRows, error) {
 	endDateExclusive := opts.EndDate.AddDate(0, 1, 0)
 	dateOpts := repo.DateRangeOptions{
 		StartDate: &opts.StartDate,
 		EndDate:   &endDateExclusive,
 	}
-	paginationOpts := repo.PaginationParams{}
-
-	sgData, err := s.loadEffectiveRows(ctx, userID, dateOpts, paginationOpts)
+	sgData, err := s.loadEffectiveRows(ctx, userID, dateOpts, repo.PaginationParams{})
 	if err != nil {
-		return TimelineV2Response{}, fmt.Errorf("failed to load financial data: %w", err)
+		return SGFinancialDataRows{}, fmt.Errorf("failed to load financial data: %w", err)
 	}
-
-	baseYear := opts.StartDate.Year()
-	registry := growth.NewRegistry()
-	cpfCtx := NewCPFContext(sgData.CPFAccount)
-
-	// itemStates: detailed tracking per item (includes metadata like StartYear/StartMonth)
-	itemStates := initializeItemStates(sgData.Rows, baseYear)
-
-	// state: map of itemID -> current balance, mutated each month as growth is applied.
-	// This is the "running balance" for each financial item that compounds over time.
-	state := extractBalanceMap(itemStates)
-	cashAccumulator := decimal.Zero()
-
-	// Calculate total months in range
-	totalMonths := common.MonthsBetween(opts.StartDate, opts.EndDate)
-	resultMonths := make([]MonthDetailResponse, 0, totalMonths)
-
-	// Process each month from start to end
-	for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
-		currentDate := opts.StartDate.AddDate(0, monthIdx, 0)
-
-		// Reset CPF YTD at year boundaries
-		cpfCtx.ResetYTDIfNewYear(currentDate, monthIdx)
-
-		growthCtx := &GrowthContext{
-			Registry:    registry,
-			State:       state,
-			Month:       monthIdx + 1,
-			MonthOfYear: int(currentDate.Month()),
-			Date:        currentDate,
-		}
-
-		// Apply growth (strategies handle arrears logic internally)
-		applyGrowth(sgData.Rows.Incomes, growthCtx, growth.StrategyAnnualStep)
-		applyGrowth(sgData.Rows.Expenses, growthCtx, growth.StrategyAnnualStep)
-		applyGrowth(sgData.Rows.NonCashAssets, growthCtx, growth.StrategyMonthlyCompound)
-		applyGrowth(sgData.Rows.CashAssets, growthCtx, growth.StrategyMonthlyCompound)
-		applyGrowth(sgData.Rows.Liabilities, growthCtx, growth.StrategyMonthlyCompound)
-
-		// Process CPF contributions for applicable incomes
-		employeeCPF, cpfContributions := cpfCtx.ProcessIncomes(sgData.Rows.Incomes, state, currentDate)
-
-		// Calculate net savings and net cash flow
-		netSavings, netCashFlow := calculateNetCashFlow(sgData.Rows, state, currentDate, employeeCPF)
-		cashAccumulator = cashAccumulator.Add(netCashFlow)
-
-		// Build response for this month
-		syncStateToItemStates(state, itemStates)
-		monthResponse := buildMonthDetailResponse(monthIdx, currentDate, baseYear, sgData.Rows, itemStates, cashAccumulator, netSavings, netCashFlow, employeeCPF, cpfContributions, cpfCtx)
-		resultMonths = append(resultMonths, monthResponse)
-	}
-
-	return TimelineV2Response{Months: resultMonths}, nil
+	return sgData, nil
 }
 
 // GetTimeline generates a timeline chart response for the given user and resolution

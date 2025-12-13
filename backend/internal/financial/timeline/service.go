@@ -714,8 +714,8 @@ func (s *Service) computeMonthlyTimeline(
 				endYearPtr = &val
 			}
 
-			// Convert absolute StartYear to relative year for CreatedYear
-			relativeCreatedYear := r.StartYear - baseYear
+			// Convert absolute StartYear to relative year for StartYear
+			relativeStartYear := r.StartYear - baseYear
 
 			state[r.ParentID] = itemState{
 				item: TimelineItem{
@@ -731,8 +731,8 @@ func (s *Service) computeMonthlyTimeline(
 					SourceAmount:    &r.Amount,
 					SourceFrequency: string(r.Frequency),
 					ItemType:        r.ItemType,
-					CreatedYear:     relativeCreatedYear,
-					CreatedMonth:    month,
+					StartYear:       relativeStartYear,
+					StartMonth:      month,
 					GrowthRate:      r.GrowthRate,
 				},
 				amount:     monthly, // Store monthly amount for growth calculations
@@ -940,10 +940,10 @@ func segregateItemsMonthly(state map[string]itemState, year, month int) struct {
 	for _, st := range state {
 		item := st.item
 		// Check if item has started
-		if item.CreatedYear > year {
+		if item.StartYear > year {
 			continue
 		}
-		if item.CreatedYear == year && item.CreatedMonth > month {
+		if item.StartYear == year && item.StartMonth > month {
 			continue
 		}
 
@@ -1322,7 +1322,7 @@ func segregateItems(state map[string]itemState, year int) struct {
 
 	for _, st := range state {
 		item := st.item
-		if item.CreatedYear > year {
+		if item.StartYear > year {
 			continue
 		}
 		switch item.ItemType {

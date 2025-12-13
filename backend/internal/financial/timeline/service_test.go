@@ -75,7 +75,7 @@ func TestProjection_NewItemPersistsForward(t *testing.T) {
 	year2 := resp.Years[2]
 	require.Equal(t, 1, countItems(year2.Income))
 	require.Equal(t, 6000.0, year2.Income[0].AmountAnnual)
-	require.Equal(t, 2, year2.Income[0].CreatedYear)
+	require.Equal(t, 2, year2.Income[0].StartYear)
 	require.True(t, year2.HasOverrides)
 
 	year3 := resp.Years[3]

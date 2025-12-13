@@ -49,8 +49,8 @@ type TimelineItem struct {
 	SourceAmount    *float64             `json:"sourceAmount,omitempty"`
 	SourceFrequency string               `json:"sourceFrequency,omitempty"`
 	ItemType        ItemType             `json:"itemType"`
-	CreatedYear     int                  `json:"createdYear"`
-	CreatedMonth    int                  `json:"createdMonth,omitempty"` // Month when created (1-12)
+	StartYear       int                  `json:"startYear"`
+	StartMonth      int                  `json:"startMonth,omitempty"` // Month when item started (1-12)
 	// GrowthRate is the per-item annual growth rate (percentage)
 	GrowthRate float64 `json:"growthRate,omitempty"`
 	// IsAccumulator indicates this is the designated cash account receiving net savings (cash accounts only)
