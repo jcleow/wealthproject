@@ -670,13 +670,11 @@ func applyLinkedExpensePayments(
 			continue
 		}
 
-		// Principal = payment - interest (but not negative)
+		// Principal = payment - interest
+		// If payment < interest, principal is negative (balance grows by unpaid interest)
 		principalPortion := monthlyPayment.Sub(interestPortion)
-		if principalPortion.Cmp(decimal.Zero()) < 0 {
-			principalPortion = decimal.Zero()
-		}
 
-		// Reduce liability balance by principal paid
+		// Update balance: subtract principal (negative principal = balance grows)
 		newBalance := currentBalance.Sub(principalPortion)
 		if newBalance.Cmp(decimal.Zero()) < 0 {
 			newBalance = decimal.Zero()
