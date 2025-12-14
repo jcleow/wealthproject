@@ -82,60 +82,6 @@ func NewService(store Store) *Service {
 	return &Service{store: store}
 }
 
-// buildLiabilitySchedules precomputes remaining balances per month for fixed-term liabilities.
-// Open-ended liabilities (no end date) are skipped.
-func buildLiabilitySchedules(rows []FinancialDataRow) map[string][]decimal.Decimal {
-	schedules := make(map[string][]decimal.Decimal)
-
-	for _, row := range rows {
-		if row.ItemType != FinLiabilities || row.EndDate == nil || row.Amount.IsZero() {
-			continue
-		}
-
-		months := common.MonthsBetween(row.StartDate, *row.EndDate)
-		if months <= 0 {
-			continue
-		}
-
-		balance := row.Amount
-		apr := row.InterestRate
-		minPay := row.MinimumPay
-		strategy := repayment.GetStrategy(repayment.StandardAmortization)
-
-		remainingBalances := make([]decimal.Decimal, 0, months)
-		for m := 0; m < months; m++ {
-			result, err := strategy.Calculate(repayment.Params{
-				CurrentBalance:  &balance,
-				InterestRateAPR: &apr,
-				MinimumPayment:  &minPay,
-				PeriodIndex:     m,
-				TotalPeriods:    months,
-			})
-			if err != nil || result == nil || result.RemainingBalance == nil {
-				// Abort schedule if calculation fails
-				break
-			}
-
-			remainingBalances = append(remainingBalances, *result.RemainingBalance)
-			balance = *result.RemainingBalance
-
-			if result.IsPayoff {
-				// Fill remaining months with zero balance to keep indexing aligned
-				for fill := m + 1; fill < months; fill++ {
-					remainingBalances = append(remainingBalances, decimal.Zero())
-				}
-				break
-			}
-		}
-
-		if len(remainingBalances) > 0 {
-			schedules[row.ID] = remainingBalances
-		}
-	}
-
-	return schedules
-}
-
 // =============================================================================
 // Transform Functions (used by loadEffectiveRows)
 // =============================================================================
@@ -633,6 +579,41 @@ func applyLiabilitySchedules(rows []FinancialDataRow, ctx *GrowthContext, schedu
 		value := schedule[offset]
 		ctx.State[row.ID] = &value
 	}
+}
+
+// buildLiabilitySchedules precomputes remaining balances per month for fixed-term liabilities.
+// Open-ended liabilities (no end date) are skipped.
+func buildLiabilitySchedules(rows []FinancialDataRow) map[string][]decimal.Decimal {
+	schedules := make(map[string][]decimal.Decimal)
+
+	for _, row := range rows {
+		if row.ItemType != FinLiabilities || row.EndDate == nil || row.Amount.IsZero() {
+			continue
+		}
+
+		months := common.MonthsBetween(row.StartDate, *row.EndDate)
+		if months <= 0 {
+			continue
+		}
+
+		balance := row.Amount
+		apr := row.InterestRate
+		minPay := row.MinimumPay
+		strategy := repayment.GetStrategy(repayment.StandardAmortization)
+
+		schedule, err := repayment.BuildSchedule(strategy, repayment.Params{
+			CurrentBalance:  &balance,
+			InterestRateAPR: &apr,
+			MinimumPayment:  &minPay,
+		}, months)
+		if err != nil || len(schedule) == 0 {
+			continue
+		}
+
+		schedules[row.ID] = schedule
+	}
+
+	return schedules
 }
 
 // calcCashAllocation computes net savings and net cash flow for active rows.
