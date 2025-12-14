@@ -844,6 +844,99 @@ type IncomeAllocation struct {
 // ErrNotFound indicates a record was not found
 var ErrNotFound = fmt.Errorf("not found")
 
+// CreateLiability creates a new liability and auto-creates a linked expense if minimum payment is set.
+func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability) (Liability, error) {
+	startDate := li.StartDate
+	if startDate.IsZero() {
+		startDate = time.Now().UTC()
+	}
+
+	// Default repayment strategy
+	repaymentStrategy := li.RepaymentStrategy
+	if repaymentStrategy == "" {
+		repaymentStrategy = "standard_amortization"
+	}
+
+	row := s.db.QueryRowContext(ctx, `
+		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes, repayment_strategy)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11)
+		ON CONFLICT ON CONSTRAINT finance_liabilities_parent_start_date_key DO UPDATE
+		SET name=EXCLUDED.name,
+		    category=EXCLUDED.category,
+		    current_balance=EXCLUDED.current_balance,
+		    interest_rate_apr=EXCLUDED.interest_rate_apr,
+		    minimum_payment=EXCLUDED.minimum_payment,
+		    end_date=EXCLUDED.end_date,
+		    notes=EXCLUDED.notes,
+		    repayment_strategy=EXCLUDED.repayment_strategy,
+		    updated_at=NOW()
+		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, COALESCE(notes, ''), COALESCE(repayment_strategy, 'standard_amortization'), updated_at`,
+		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, li.EndDate, li.Notes, repaymentStrategy)
+
+	var created Liability
+	var endDateVal sql.NullTime
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.StartDate, &endDateVal, &created.Notes, &created.RepaymentStrategy, &created.UpdatedAt); err != nil {
+		return Liability{}, err
+	}
+	if endDateVal.Valid {
+		created.EndDate = &endDateVal.Time
+	}
+
+	// Auto-create linked expense for liability repayment if minimum payment is set
+	zero := decimal.Zero()
+	if created.MinimumPayment.Cmp(zero) > 0 {
+		_, _ = s.CreateExpense(ctx, userID, Expense{
+			Payee:             created.Name,
+			Amount:            created.MinimumPayment,
+			Frequency:         "monthly",
+			StartDate:         created.StartDate,
+			EndDate:           created.EndDate,
+			Category:          "Debt Payment",
+			GrowthRate:        *zero,
+			SourceLiabilityID: &created.ID,
+		})
+	}
+
+	return created, nil
+}
+
+// CreateExpense creates a new expense record.
+func (s *Store) CreateExpense(ctx context.Context, userID string, exp Expense) (Expense, error) {
+	startDate := exp.StartDate
+	if startDate.IsZero() {
+		startDate = time.Now().UTC()
+	}
+
+	row := s.db.QueryRowContext(ctx, `
+		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, notes, source_liability_id)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11)
+		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(notes, ''), updated_at, source_liability_id`,
+		userID, nullIfEmpty(exp.ParentID), exp.Payee, exp.Amount, exp.Frequency, startDate, exp.EndDate, exp.Category, exp.GrowthRate, exp.Notes, exp.SourceLiabilityID)
+
+	var created Expense
+	var endDateVal sql.NullTime
+	var sourceLiabilityID sql.NullString
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency, &created.StartDate, &endDateVal, &created.Category, &created.GrowthRate, &created.Notes, &created.UpdatedAt, &sourceLiabilityID); err != nil {
+		return Expense{}, err
+	}
+	if endDateVal.Valid {
+		created.EndDate = &endDateVal.Time
+	}
+	if sourceLiabilityID.Valid {
+		created.SourceLiabilityID = &sourceLiabilityID.String
+	}
+
+	return created, nil
+}
+
+// nullIfEmpty returns nil if the string is empty, otherwise returns a pointer to the string
+func nullIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 // ListIncomeAllocations returns all allocations for an income.
 // Uses LEFT JOIN to verify income ownership and fetch allocations in a single query.
 func (s *Store) ListIncomeAllocations(

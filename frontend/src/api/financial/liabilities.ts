@@ -22,7 +22,8 @@ export async function createLiability(payload: Omit<Liability, 'id' | 'updatedAt
   if (payload.startDate !== undefined) body.startDate = payload.startDate
   if (payload.endDate !== undefined) body.endDate = payload.endDate
 
-  const data = await apiClient.post<any>('/liabilities', body)
+  // Use v2 endpoint which auto-creates linked expense for debt repayment
+  const data = await apiClient.post<any>('/liabilities', body, { baseUrl: '/api/v2' })
   return toLiability(data)
 }
 
