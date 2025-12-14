@@ -24,6 +24,7 @@ import { categoryConfig } from './config'
 import {
   parseDecimal,
   nonCashAssetV2ToTimelineItem,
+  investmentV2ToTimelineItem,
   cashAssetV2ToTimelineItem,
   cpfAssetV2ToTimelineItem,
   liabilityV2ToTimelineItem,
@@ -88,8 +89,9 @@ export function FinancialDataManagement({
   const yearAssets = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
       const nonCashItems = timelineMonthV2.nonCashAssets.map(nonCashAssetV2ToTimelineItem)
+      const investmentItems = (timelineMonthV2.investments ?? []).map(investmentV2ToTimelineItem)
       const cashItems = timelineMonthV2.cashAssets.map(cashAssetV2ToTimelineItem)
-      return [...nonCashItems, ...cashItems]
+      return [...nonCashItems, ...investmentItems, ...cashItems]
     }
     const timelineAssets = showMonthlyData ? (timelineMonth?.assets ?? []) : (timelineYear?.assets ?? [])
     const timelineCashAccounts = showMonthlyData ? (timelineMonth?.cashAccounts ?? []) : (timelineYear?.cashAccounts ?? [])

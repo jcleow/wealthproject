@@ -134,6 +134,7 @@ export interface MonthDetailResponseV2 {
   allYearsIndex: number
   allMonthsIndex: number
   nonCashAssets: NonCashAssetResponseV2[]
+  investments: InvestmentResponseV2[]
   cashAssets: CashAssetResponseV2[]
   cpfAssets: CPFAssetResponseV2[]
   liabilities: LiabilityResponseV2[]
@@ -151,6 +152,20 @@ export interface MonthDetailResponseV2 {
 
 /** Non-cash asset in V2 response (decimal values come as strings from backend) */
 export interface NonCashAssetResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  balance: string
+  adjBalance: string
+  itemType: string
+  startDate: string
+  startYear: number
+  startMonth: number
+}
+
+/** Investment in V2 response (decimal values come as strings from backend) */
+export interface InvestmentResponseV2 {
   id: string
   parentId: string
   name: string

@@ -2,6 +2,7 @@ import type {
   TimelineItem,
   TimelineFrequency,
   NonCashAssetResponseV2,
+  InvestmentResponseV2,
   CashAssetResponseV2,
   CPFAssetResponseV2,
   LiabilityResponseV2,
@@ -17,6 +18,24 @@ export function parseDecimal(value: string | undefined): number {
 }
 
 export function nonCashAssetV2ToTimelineItem(item: NonCashAssetResponseV2): TimelineItem {
+  const balance = parseDecimal(item.balance)
+  const adjBalance = parseDecimal(item.adjBalance)
+  return {
+    itemId: item.id,
+    parentId: item.parentId,
+    name: item.name,
+    category: item.category,
+    amountAnnual: balance,
+    adjAnnualAmt: adjBalance,
+    amountMonthly: balance,
+    adjMonthlyAmt: adjBalance,
+    itemType: 'asset',
+    startYear: item.startYear,
+    startMonth: item.startMonth,
+  }
+}
+
+export function investmentV2ToTimelineItem(item: InvestmentResponseV2): TimelineItem {
   const balance = parseDecimal(item.balance)
   const adjBalance = parseDecimal(item.adjBalance)
   return {
