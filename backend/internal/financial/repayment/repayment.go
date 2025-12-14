@@ -1,6 +1,8 @@
 package repayment
 
 import (
+	"time"
+
 	"financial-chat-system/backend/internal/decimal"
 )
 
@@ -22,14 +24,11 @@ type Params struct {
 	PeriodIndex     int              // Month index (0-based from loan start)
 	TotalPeriods    int              // Total loan term in months
 
-	// Strategy-specific parameters (preferred over Metadata)
-	InterestOnlyMonths int              // For InterestOnly strategy: number of interest-only months
+	// Strategy-specific parameters
+	InterestOnlyMonths int              // For InterestOnly strategy: number of interest-only months (0 = always interest-only)
 	MinPaymentPct      *decimal.Decimal // For MinimumPayment strategy: percentage of balance (e.g., 2 for 2%)
 	MinPaymentFloor    *decimal.Decimal // For MinimumPayment strategy: minimum dollar floor (e.g., 25)
 	ExtraPayment       *decimal.Decimal // For ExtraPayment strategy: additional monthly principal payment
-
-	// Deprecated: use typed fields above instead
-	Metadata map[string]interface{}
 }
 
 // Result contains the repayment calculation output
@@ -133,8 +132,9 @@ func (s StandardAmortizationStrategy) Calculate(params Params) (*Result, error) 
 	}, nil
 }
 
-// InterestOnlyStrategy pays only interest for specified period, then amortizes
-// Use Params.InterestOnlyMonths to specify the interest-only period
+// InterestOnlyStrategy pays only interest, with optional transition to amortization.
+// If InterestOnlyMonths is 0, stays interest-only forever.
+// If InterestOnlyMonths > 0, switches to amortization after that period.
 type InterestOnlyStrategy struct{}
 
 func NewInterestOnly() InterestOnlyStrategy {
@@ -149,17 +149,16 @@ func (s InterestOnlyStrategy) Calculate(params Params) (*Result, error) {
 	hundred := decimal.MustFromString("100")
 	twelve := decimal.MustFromString("12")
 
-	// Get interest-only period from params (default 12 months)
-	interestOnlyMonths := params.InterestOnlyMonths
-	if interestOnlyMonths == 0 {
-		interestOnlyMonths = 12
-	}
-
 	// Calculate monthly interest rate
 	monthlyRate := params.InterestRateAPR.Div(hundred).Div(twelve)
 
-	if params.PeriodIndex < interestOnlyMonths {
-		// Interest-only period: pay only interest, principal unchanged (round to 2 decimal places)
+	// If InterestOnlyMonths is 0, stay interest-only forever
+	// If InterestOnlyMonths > 0, check if we're still in the interest-only period
+	alwaysInterestOnly := params.InterestOnlyMonths == 0
+	inInterestOnlyPeriod := params.PeriodIndex < params.InterestOnlyMonths
+
+	if alwaysInterestOnly || inInterestOnlyPeriod {
+		// Interest-only: pay only interest, principal unchanged
 		interestPortion := params.CurrentBalance.Mul(monthlyRate).Round(2)
 
 		return &Result{
@@ -171,7 +170,7 @@ func (s InterestOnlyStrategy) Calculate(params Params) (*Result, error) {
 	}
 
 	// After interest-only period: switch to standard amortization
-	remainingPeriods := params.TotalPeriods - interestOnlyMonths
+	remainingPeriods := params.TotalPeriods - params.InterestOnlyMonths
 	if remainingPeriods <= 0 {
 		remainingPeriods = 1 // At least 1 period to pay off
 	}
@@ -182,7 +181,7 @@ func (s InterestOnlyStrategy) Calculate(params Params) (*Result, error) {
 		CurrentBalance:  params.CurrentBalance,
 		InterestRateAPR: params.InterestRateAPR,
 		MinimumPayment:  params.MinimumPayment,
-		PeriodIndex:     params.PeriodIndex - interestOnlyMonths,
+		PeriodIndex:     params.PeriodIndex - params.InterestOnlyMonths,
 		TotalPeriods:    remainingPeriods,
 	})
 }
@@ -379,15 +378,20 @@ func GetStrategy(strategyType StrategyType) Strategy {
 	}
 }
 
-// LiabilityMonthParams contains all parameters needed for processing a liability for one month
+// LiabilityMonthParams contains all parameters needed for processing a liability for one month.
+// The repayment module owns all logic for calculating payments - callers just provide raw data.
 type LiabilityMonthParams struct {
+	// Liability configuration
 	CurrentBalance    *decimal.Decimal // Outstanding principal
 	InterestRateAPR   *decimal.Decimal // Annual interest rate (percentage)
 	RepaymentStrategy string           // Strategy type from database
 	MinimumPayment    *decimal.Decimal // Minimum payment field from liability
-	RemainingMonths   int              // Months until end date (0 or negative if past/no end date)
-	HasEndDate        bool             // Whether liability has a fixed term
-	LinkedExpenseAmt  *decimal.Decimal // Monthly amount from linked expense (nil if no linked expense)
+	EndDate           *int64           // Unix timestamp of end date (nil if open-ended)
+	CurrentDate       int64            // Unix timestamp of current month being processed
+
+	// Linked expense (optional) - repayment module will calculate monthly amount
+	LinkedExpenseAmount    *decimal.Decimal // Raw expense amount (nil if no linked expense)
+	LinkedExpenseFrequency string           // Expense frequency (monthly, yearly, etc.)
 }
 
 // LiabilityMonthResult contains the result of processing a liability for one month
@@ -398,7 +402,7 @@ type LiabilityMonthResult struct {
 }
 
 // ProcessLiabilityMonth processes a liability for one month using the appropriate strategy.
-// This encapsulates all strategy selection and configuration logic.
+// This encapsulates ALL payment calculation logic - callers just provide raw liability data.
 func ProcessLiabilityMonth(p LiabilityMonthParams) (*LiabilityMonthResult, error) {
 	// Validate inputs
 	if p.CurrentBalance == nil || p.CurrentBalance.Cmp(decimal.Zero()) <= 0 {
@@ -409,13 +413,25 @@ func ProcessLiabilityMonth(p LiabilityMonthParams) (*LiabilityMonthResult, error
 		}, nil
 	}
 
-	// For fixed-term liabilities past their end date, skip processing
-	if p.HasEndDate && p.RemainingMonths <= 0 {
-		return &LiabilityMonthResult{
-			NewBalance:     p.CurrentBalance,
-			MonthlyPayment: decimal.Zero(),
-			Skipped:        true,
-		}, nil
+	// Calculate remaining months for fixed-term liabilities
+	hasEndDate := p.EndDate != nil
+	remainingMonths := 0
+	if hasEndDate {
+		remainingMonths = monthsBetweenTimestamps(p.CurrentDate, *p.EndDate)
+		if remainingMonths <= 0 {
+			// Past end date - balance carries over unchanged
+			return &LiabilityMonthResult{
+				NewBalance:     p.CurrentBalance,
+				MonthlyPayment: decimal.Zero(),
+				Skipped:        true,
+			}, nil
+		}
+	}
+
+	// Calculate linked expense monthly amount
+	var linkedExpenseMonthly *decimal.Decimal
+	if p.LinkedExpenseAmount != nil {
+		linkedExpenseMonthly = toMonthlyAmount(p.LinkedExpenseAmount, p.LinkedExpenseFrequency)
 	}
 
 	// Build base params
@@ -431,31 +447,31 @@ func ProcessLiabilityMonth(p LiabilityMonthParams) (*LiabilityMonthResult, error
 	}
 
 	// For fixed-term liabilities, set remaining term for amortization
-	if p.HasEndDate && p.RemainingMonths > 0 {
-		params.TotalPeriods = p.RemainingMonths
+	if hasEndDate && remainingMonths > 0 {
+		params.TotalPeriods = remainingMonths
 		params.PeriodIndex = 0 // Always treat as first period for reamortization
 	}
 
-	// Configure strategy-specific params
+	// Configure strategy-specific params based on strategy type
 	switch strategyType {
 	case InterestOnly:
-		params.InterestOnlyMonths = 9999 // Effectively always interest-only
+		// InterestOnlyMonths = 0 means always interest-only (no transition to amortization)
 
 	case MinimumPayment:
 		params.MinPaymentPct = p.MinimumPayment // Interpret as percentage
 
 	case FixedPayment:
-		if p.LinkedExpenseAmt != nil {
-			params.MinimumPayment = p.LinkedExpenseAmt
+		if linkedExpenseMonthly != nil {
+			params.MinimumPayment = linkedExpenseMonthly
 		} else {
 			params.MinimumPayment = p.MinimumPayment
 		}
 
 	case StandardAmortization:
 		// For open-ended liabilities with standard_amortization, fall back to fixed payment
-		if !p.HasEndDate {
-			if p.LinkedExpenseAmt != nil {
-				params.MinimumPayment = p.LinkedExpenseAmt
+		if !hasEndDate {
+			if linkedExpenseMonthly != nil {
+				params.MinimumPayment = linkedExpenseMonthly
 			} else {
 				params.MinimumPayment = decimal.Zero()
 			}
@@ -463,7 +479,7 @@ func ProcessLiabilityMonth(p LiabilityMonthParams) (*LiabilityMonthResult, error
 		}
 	}
 
-	// Calculate
+	// Calculate using the appropriate strategy
 	strategy := GetStrategy(strategyType)
 	result, err := strategy.Calculate(params)
 	if err != nil {
@@ -475,4 +491,41 @@ func ProcessLiabilityMonth(p LiabilityMonthParams) (*LiabilityMonthResult, error
 		MonthlyPayment: result.MonthlyPayment,
 		Skipped:        false,
 	}, nil
+}
+
+// monthsBetweenTimestamps calculates months between two unix timestamps (inclusive)
+func monthsBetweenTimestamps(startUnix, endUnix int64) int {
+	start := time.Unix(startUnix, 0).UTC()
+	end := time.Unix(endUnix, 0).UTC()
+	years := end.Year() - start.Year()
+	months := int(end.Month()) - int(start.Month())
+	return years*12 + months + 1
+}
+
+// toMonthlyAmount converts an amount to monthly based on frequency
+func toMonthlyAmount(amount *decimal.Decimal, frequency string) *decimal.Decimal {
+	if amount == nil {
+		return decimal.Zero()
+	}
+
+	switch frequency {
+	case "monthly":
+		return amount
+	case "yearly", "annually":
+		twelve := decimal.MustFromString("12")
+		return amount.Div(twelve)
+	case "quarterly":
+		three := decimal.MustFromString("3")
+		return amount.Div(three)
+	case "weekly":
+		// ~4.33 weeks per month
+		weeksPerMonth := decimal.MustFromString("4.33")
+		return amount.Mul(weeksPerMonth)
+	case "fortnightly", "biweekly":
+		// ~2.17 fortnights per month
+		fortnightsPerMonth := decimal.MustFromString("2.17")
+		return amount.Mul(fortnightsPerMonth)
+	default:
+		return amount // Assume monthly if unknown
+	}
 }

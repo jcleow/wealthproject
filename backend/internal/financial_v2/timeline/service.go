@@ -563,6 +563,11 @@ func applyAllGrowth(data EffectiveRows, ctx *GrowthContext) {
 	// NOTE: Liabilities handled separately by processLiabilityMonth
 }
 
+// isLiabilityFullyRepaid checks if a liability has been fully repaid (balance <= 0)
+func isLiabilityFullyRepaid(liabilityState *ItemState) bool {
+	return liabilityState != nil && liabilityState.Balance.Cmp(decimal.Zero()) <= 0
+}
+
 // buildLinkedExpensesByLiability creates a map of liability ID -> linked expense row.
 // Used for open-ended liabilities that are paid down by expense payments.
 func buildLinkedExpensesByLiability(expenses []FinancialDataRow) map[string]FinancialDataRow {
@@ -576,10 +581,9 @@ func buildLinkedExpensesByLiability(expenses []FinancialDataRow) map[string]Fina
 }
 
 // processLiabilityMonth processes all liabilities for the current month.
-// Delegates payment calculation to the repayment module for a unified approach:
-//   - Fixed-term liabilities (with EndDate): Use standard amortization with remaining term
-//   - Open-ended with linked expense: Use fixed payment from expense amount
-//   - Open-ended without payment: Interest only (balance grows)
+// Delegates ALL payment calculation logic to the repayment module:
+//   - Service passes raw data (unix timestamps, expense amount + frequency)
+//   - Repayment module calculates remaining months, converts to monthly amounts
 //
 // This function handles reamortization: if a payment override changes the balance,
 // subsequent months will recalculate payments based on the new balance.
@@ -600,33 +604,33 @@ func processLiabilityMonth(
 			continue
 		}
 
-		// Get linked expense amount if available
-		var linkedExpenseAmt *decimal.Decimal
+		// Build params with raw data - repayment module handles all calculations
+		params := repayment.LiabilityMonthParams{
+			CurrentBalance:    state[liability.ID],
+			InterestRateAPR:   &liability.InterestRate,
+			RepaymentStrategy: liability.RepaymentStrategy,
+			MinimumPayment:    &liability.MinimumPay,
+			CurrentDate:       currentDate.Unix(),
+		}
+
+		// Pass end date as unix timestamp (nil if open-ended)
+		if liability.EndDate != nil {
+			endDateUnix := liability.EndDate.Unix()
+			params.EndDate = &endDateUnix
+		}
+
+		// Pass linked expense raw amount and frequency (repayment module converts to monthly)
 		if expense, hasLinked := linkedExpenses[liability.ID]; hasLinked && isActiveInMonth(expense, currentDate) {
 			expenseAmount := state[expense.ID]
 			if expenseAmount == nil {
 				expenseAmount = &expense.Amount
 			}
-			linkedExpenseAmt = common.ToMonthlyAmount(expenseAmount, expense.Frequency)
-		}
-
-		// Calculate remaining months for fixed-term liabilities
-		remainingMonths := 0
-		if liability.EndDate != nil {
-			remainingMonths = common.MonthsBetween(currentDate, *liability.EndDate)
+			params.LinkedExpenseAmount = expenseAmount
+			params.LinkedExpenseFrequency = string(expense.Frequency)
 		}
 
 		// Delegate to repayment module
-		result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
-			CurrentBalance:    state[liability.ID],
-			InterestRateAPR:   &liability.InterestRate,
-			RepaymentStrategy: liability.RepaymentStrategy,
-			MinimumPayment:    &liability.MinimumPay,
-			RemainingMonths:   remainingMonths,
-			HasEndDate:        liability.EndDate != nil,
-			LinkedExpenseAmt:  linkedExpenseAmt,
-		})
-
+		result, err := repayment.ProcessLiabilityMonth(params)
 		if err != nil || result.Skipped {
 			continue
 		}
@@ -859,8 +863,8 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 			continue
 		}
 
-		// Only include liabilities with outstanding balance (hide fully repaid ones)
-		if state.Balance.Cmp(decimal.Zero()) <= 0 {
+		// Hide fully repaid liabilities
+		if isLiabilityFullyRepaid(state) {
 			continue
 		}
 		total = total.Add(state.Balance)
@@ -942,12 +946,9 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, dat
 			continue
 		}
 
-		// If this is a linked expense (debt payment), hide it if the liability is fully repaid
-		if row.SourceLiabilityID != nil {
-			liabilityState := itemStates[*row.SourceLiabilityID]
-			if liabilityState != nil && liabilityState.Balance.Cmp(decimal.Zero()) <= 0 {
-				continue // Liability fully repaid, hide the linked expense
-			}
+		// Hide linked expenses when their liability is fully repaid
+		if row.SourceLiabilityID != nil && isLiabilityFullyRepaid(itemStates[*row.SourceLiabilityID]) {
+			continue
 		}
 
 		// Convert to monthly amount for display

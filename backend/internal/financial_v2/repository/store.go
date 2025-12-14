@@ -68,88 +68,82 @@ type PaginatedResult[T any] struct {
 // Structs for Domain entities
 
 type NonCashAsset struct {
-	ID               string                 `json:"id"`
-	ParentID         string                 `json:"parentId"`
-	Name             string                 `json:"name"`
-	Category         string                 `json:"category"`
-	CurrentValue     decimal.Decimal        `json:"currentValue"`
-	AnnualGrowthRate decimal.Decimal        `json:"annualGrowthRate"`
-	StartDate        time.Time              `json:"startDate"`         // Precise start date (day-level)
-	EndDate          *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
-	Notes            string                 `json:"notes"`
-	GrowthStrategy   string                 `json:"growthStrategy"`
-	GrowthMetadata   map[string]interface{} `json:"growthMetadata,omitempty"`
-	UpdatedAt        time.Time              `json:"updatedAt"`
+	ID               string          `json:"id"`
+	ParentID         string          `json:"parentId"`
+	Name             string          `json:"name"`
+	Category         string          `json:"category"`
+	CurrentValue     decimal.Decimal `json:"currentValue"`
+	AnnualGrowthRate decimal.Decimal `json:"annualGrowthRate"`
+	StartDate        time.Time       `json:"startDate"`         // Precise start date (day-level)
+	EndDate          *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
+	Notes            string          `json:"notes"`
+	GrowthStrategy   string          `json:"growthStrategy"`
+	UpdatedAt        time.Time       `json:"updatedAt"`
 }
 
 // Investment mirrors NonCashAsset but lives in finance_investments
 type Investment struct {
-	ID               string                 `json:"id"`
-	ParentID         string                 `json:"parentId"`
-	Name             string                 `json:"name"`
-	Category         string                 `json:"category"`
-	CurrentValue     decimal.Decimal        `json:"currentValue"`
-	AnnualGrowthRate decimal.Decimal        `json:"annualGrowthRate"`
-	StartDate        time.Time              `json:"startDate"`         // Precise start date (day-level)
-	EndDate          *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
-	Notes            string                 `json:"notes"`
-	GrowthStrategy   string                 `json:"growthStrategy"`
-	GrowthMetadata   map[string]interface{} `json:"growthMetadata,omitempty"`
-	UpdatedAt        time.Time              `json:"updatedAt"`
+	ID               string          `json:"id"`
+	ParentID         string          `json:"parentId"`
+	Name             string          `json:"name"`
+	Category         string          `json:"category"`
+	CurrentValue     decimal.Decimal `json:"currentValue"`
+	AnnualGrowthRate decimal.Decimal `json:"annualGrowthRate"`
+	StartDate        time.Time       `json:"startDate"`         // Precise start date (day-level)
+	EndDate          *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
+	Notes            string          `json:"notes"`
+	GrowthStrategy   string          `json:"growthStrategy"`
+	UpdatedAt        time.Time       `json:"updatedAt"`
 }
 
 type CashAsset struct {
-	ID             string                 `json:"id"`
-	UserID         string                 `json:"userId"`
-	Name           string                 `json:"name"`
-	Balance        decimal.Decimal        `json:"balance"`
-	InterestRate   decimal.Decimal        `json:"interestRate"`
-	BankName       string                 `json:"bankName,omitempty"`
-	AccountType    string                 `json:"accountType,omitempty"` // 'checking', 'savings', 'money_market'
-	IsAccumulator  bool                   `json:"isAccumulator"`
-	StartDate      time.Time              `json:"startDate"`         // Precise start date (day-level)
-	EndDate        *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
-	Notes          string                 `json:"notes,omitempty"`
-	GrowthStrategy string                 `json:"growthStrategy"`
-	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
-	CreatedAt      time.Time              `json:"createdAt"`
-	UpdatedAt      time.Time              `json:"updatedAt"`
+	ID             string          `json:"id"`
+	UserID         string          `json:"userId"`
+	Name           string          `json:"name"`
+	Balance        decimal.Decimal `json:"balance"`
+	InterestRate   decimal.Decimal `json:"interestRate"`
+	BankName       string          `json:"bankName,omitempty"`
+	AccountType    string          `json:"accountType,omitempty"` // 'checking', 'savings', 'money_market'
+	IsAccumulator  bool            `json:"isAccumulator"`
+	StartDate      time.Time       `json:"startDate"`         // Precise start date (day-level)
+	EndDate        *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
+	Notes          string          `json:"notes,omitempty"`
+	GrowthStrategy string          `json:"growthStrategy"`
+	CreatedAt      time.Time       `json:"createdAt"`
+	UpdatedAt      time.Time       `json:"updatedAt"`
 }
 
 // Liability represents a persisted liability record.
 type Liability struct {
-	ID                string                 `json:"id"`
-	ParentID          string                 `json:"parentId"`
-	Name              string                 `json:"name"`
-	Category          string                 `json:"category"`
-	CurrentBalance    decimal.Decimal        `json:"currentBalance"`
-	InterestRateAPR   decimal.Decimal        `json:"interestRateApr"`
-	MinimumPayment    decimal.Decimal        `json:"minimumPayment"`
-	StartDate         time.Time              `json:"startDate"`         // Precise start date (day-level)
-	EndDate           *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
-	Notes             string                 `json:"notes"`
-	GrowthStrategy    string                 `json:"growthStrategy"`
-	GrowthMetadata    map[string]interface{} `json:"growthMetadata,omitempty"`
-	RepaymentStrategy string                 `json:"repaymentStrategy"`
-	RepaymentMetadata map[string]interface{} `json:"repaymentMetadata,omitempty"`
-	UpdatedAt         time.Time              `json:"updatedAt"`
+	ID                string          `json:"id"`
+	ParentID          string          `json:"parentId"`
+	Name              string          `json:"name"`
+	Category          string          `json:"category"`
+	CurrentBalance    decimal.Decimal `json:"currentBalance"`
+	InterestRateAPR   decimal.Decimal `json:"interestRateApr"`
+	MinimumPayment    decimal.Decimal `json:"minimumPayment"`
+	StartDate         time.Time       `json:"startDate"`         // Precise start date (day-level)
+	EndDate           *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
+	Notes             string          `json:"notes"`
+	GrowthStrategy    string          `json:"growthStrategy"`
+	RepaymentStrategy string          `json:"repaymentStrategy"`
+	UpdatedAt         time.Time       `json:"updatedAt"`
 }
 
 // Income represents a persisted income record.
 type Income struct {
-	ID             string                 `json:"id"`
-	ParentID       string                 `json:"parentId"`
-	Source         string                 `json:"source"`
-	Amount         decimal.Decimal        `json:"amount"`
-	Frequency      string                 `json:"frequency"`
-	StartDate      time.Time              `json:"startDate"`         // Precise start date (day-level) - now required
-	EndDate        *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
-	Category       string                 `json:"category"`
-	GrowthRate     decimal.Decimal        `json:"growthRate"`
-	Notes          string                 `json:"notes"`
-	GrowthStrategy string                 `json:"growthStrategy"`
-	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
-	UpdatedAt      time.Time              `json:"updatedAt"`
+	ID             string          `json:"id"`
+	ParentID       string          `json:"parentId"`
+	Source         string          `json:"source"`
+	Amount         decimal.Decimal `json:"amount"`
+	Frequency      string          `json:"frequency"`
+	StartDate      time.Time       `json:"startDate"`         // Precise start date (day-level) - now required
+	EndDate        *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
+	Category       string          `json:"category"`
+	GrowthRate     decimal.Decimal `json:"growthRate"`
+	Notes          string          `json:"notes"`
+	GrowthStrategy string          `json:"growthStrategy"`
+	UpdatedAt      time.Time       `json:"updatedAt"`
 	// CPF-related fields
 	IncomeType  string `json:"incomeType"`  // 'salary', 'bonus', 'commission', 'rental', 'dividend', 'freelance', 'other'
 	CPFWageType string `json:"cpfWageType"` // 'ow' (Ordinary Wages) or 'aw' (Additional Wages)
@@ -157,20 +151,19 @@ type Income struct {
 
 // Expense represents a persisted expense record.
 type Expense struct {
-	ID                string                 `json:"id"`
-	ParentID          string                 `json:"parentId"`
-	Payee             string                 `json:"payee"`
-	Amount            decimal.Decimal        `json:"amount"`
-	Frequency         string                 `json:"frequency"`
-	StartDate         time.Time              `json:"startDate"`         // Precise start date (day-level)
-	EndDate           *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
-	Category          string                 `json:"category"`
-	GrowthRate        decimal.Decimal        `json:"growthRate"`
-	Notes             string                 `json:"notes"`
-	GrowthStrategy    string                 `json:"growthStrategy"`
-	GrowthMetadata    map[string]interface{} `json:"growthMetadata,omitempty"`
-	UpdatedAt         time.Time              `json:"updatedAt"`
-	SourceLiabilityID *string                `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
+	ID                string          `json:"id"`
+	ParentID          string          `json:"parentId"`
+	Payee             string          `json:"payee"`
+	Amount            decimal.Decimal `json:"amount"`
+	Frequency         string          `json:"frequency"`
+	StartDate         time.Time       `json:"startDate"`         // Precise start date (day-level)
+	EndDate           *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
+	Category          string          `json:"category"`
+	GrowthRate        decimal.Decimal `json:"growthRate"`
+	Notes             string          `json:"notes"`
+	GrowthStrategy    string          `json:"growthStrategy"`
+	UpdatedAt         time.Time       `json:"updatedAt"`
+	SourceLiabilityID *string         `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
 }
 
 // CPFAccount represents a user's CPF account with balances and profile data.

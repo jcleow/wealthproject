@@ -1267,7 +1267,6 @@ func (s *Service) generateRepaymentExpense(li repository.Liability, startYear in
 		MinimumPayment:  decimal.MustFromFloat64(li.MinimumPayment),
 		PeriodIndex:     0,
 		TotalPeriods:    months,
-		Metadata:        li.RepaymentMetadata,
 	})
 	if err != nil || result.MonthlyPayment.IsZero() {
 		return nil

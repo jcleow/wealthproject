@@ -2,6 +2,7 @@ package repayment_test
 
 import (
 	"testing"
+	"time"
 
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial/repayment"
@@ -471,12 +472,16 @@ func almostEqualDecimal(a, b, tolerance *decimal.Decimal) bool {
 
 func TestProcessLiabilityMonth_FixedTermAmortization(t *testing.T) {
 	// Fixed-term loan with 12 months remaining
+	// Current date: Jan 2025, End date: Dec 2025 (12 months)
+	currentDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+	endDate := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC).Unix()
+
 	result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
 		CurrentBalance:    decimal.MustFromFloat64(10000),
 		InterestRateAPR:   decimal.MustFromFloat64(12), // 12% APR = 1% monthly
 		RepaymentStrategy: "standard_amortization",
-		HasEndDate:        true,
-		RemainingMonths:   12,
+		EndDate:           &endDate,
+		CurrentDate:       currentDate,
 	})
 
 	if err != nil {
@@ -495,13 +500,17 @@ func TestProcessLiabilityMonth_FixedTermAmortization(t *testing.T) {
 
 func TestProcessLiabilityMonth_OpenEndedWithLinkedExpense(t *testing.T) {
 	// Open-ended liability with linked expense (credit card with fixed payment)
-	linkedExpense := decimal.MustFromFloat64(500)
+	currentDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+	linkedExpenseAmount := decimal.MustFromFloat64(500)
+
 	result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
-		CurrentBalance:    decimal.MustFromFloat64(10000),
-		InterestRateAPR:   decimal.MustFromFloat64(24), // 24% APR = 2% monthly
-		RepaymentStrategy: "standard_amortization",
-		HasEndDate:        false,
-		LinkedExpenseAmt:  linkedExpense,
+		CurrentBalance:         decimal.MustFromFloat64(10000),
+		InterestRateAPR:        decimal.MustFromFloat64(24), // 24% APR = 2% monthly
+		RepaymentStrategy:      "standard_amortization",
+		CurrentDate:            currentDate,
+		LinkedExpenseAmount:    linkedExpenseAmount,
+		LinkedExpenseFrequency: "monthly",
+		// No EndDate = open-ended
 	})
 
 	if err != nil {
@@ -511,19 +520,23 @@ func TestProcessLiabilityMonth_OpenEndedWithLinkedExpense(t *testing.T) {
 		t.Error("expected processing, got skipped")
 	}
 	// Payment should be the linked expense amount
-	if result.MonthlyPayment.Cmp(linkedExpense) != 0 {
-		t.Errorf("expected payment %s, got %s", linkedExpense.String(), result.MonthlyPayment.String())
+	if result.MonthlyPayment.Cmp(linkedExpenseAmount) != 0 {
+		t.Errorf("expected payment %s, got %s", linkedExpenseAmount.String(), result.MonthlyPayment.String())
 	}
 }
 
 func TestProcessLiabilityMonth_PastEndDate(t *testing.T) {
 	// Liability past its end date should be skipped
+	// Current date: Feb 2025, End date: Jan 2025 (past)
+	currentDate := time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC).Unix()
+	endDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+
 	result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
 		CurrentBalance:    decimal.MustFromFloat64(5000),
 		InterestRateAPR:   decimal.MustFromFloat64(12),
 		RepaymentStrategy: "standard_amortization",
-		HasEndDate:        true,
-		RemainingMonths:   0, // Past end date
+		EndDate:           &endDate,
+		CurrentDate:       currentDate,
 	})
 
 	if err != nil {
@@ -540,12 +553,15 @@ func TestProcessLiabilityMonth_PastEndDate(t *testing.T) {
 
 func TestProcessLiabilityMonth_ZeroBalance(t *testing.T) {
 	// Zero balance should be skipped
+	currentDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+	endDate := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC).Unix()
+
 	result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
 		CurrentBalance:    decimal.Zero(),
 		InterestRateAPR:   decimal.MustFromFloat64(12),
 		RepaymentStrategy: "standard_amortization",
-		HasEndDate:        true,
-		RemainingMonths:   12,
+		EndDate:           &endDate,
+		CurrentDate:       currentDate,
 	})
 
 	if err != nil {
@@ -557,12 +573,15 @@ func TestProcessLiabilityMonth_ZeroBalance(t *testing.T) {
 }
 
 func TestProcessLiabilityMonth_InterestOnly(t *testing.T) {
-	// Interest-only strategy
+	// Interest-only strategy (open-ended)
+	currentDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
+
 	result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
 		CurrentBalance:    decimal.MustFromFloat64(10000),
 		InterestRateAPR:   decimal.MustFromFloat64(12), // 12% APR = 1% monthly = $100 interest
 		RepaymentStrategy: "interest_only",
-		HasEndDate:        false,
+		CurrentDate:       currentDate,
+		// No EndDate = open-ended
 	})
 
 	if err != nil {

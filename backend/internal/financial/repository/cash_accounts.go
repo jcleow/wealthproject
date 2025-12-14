@@ -10,23 +10,22 @@ import (
 
 // CashAccount represents a persisted cash/liquid account record.
 type CashAccount struct {
-	ID             string                 `json:"id"`
-	UserID         string                 `json:"userId"`
-	Name           string                 `json:"name"`
-	Balance        float64                `json:"balance"`
-	InterestRate   float64                `json:"interestRate"`
-	BankName       string                 `json:"bankName,omitempty"`
-	AccountType    string                 `json:"accountType,omitempty"` // checking, savings, money_market
-	IsAccumulator  bool                   `json:"isAccumulator"`
-	StartDate      time.Time              `json:"startDate"`         // Precise start date (day-level)
-	EndDate        *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
-	StartYear      int                    `json:"startYear"`         // Legacy: for migration period
-	EndYear        sql.NullInt32          `json:"endYear,omitempty"` // Legacy: for migration period
-	Notes          string                 `json:"notes,omitempty"`
-	GrowthStrategy string                 `json:"growthStrategy"`
-	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
-	CreatedAt      time.Time              `json:"createdAt"`
-	UpdatedAt      time.Time              `json:"updatedAt"`
+	ID             string        `json:"id"`
+	UserID         string        `json:"userId"`
+	Name           string        `json:"name"`
+	Balance        float64       `json:"balance"`
+	InterestRate   float64       `json:"interestRate"`
+	BankName       string        `json:"bankName,omitempty"`
+	AccountType    string        `json:"accountType,omitempty"` // checking, savings, money_market
+	IsAccumulator  bool          `json:"isAccumulator"`
+	StartDate      time.Time     `json:"startDate"`         // Precise start date (day-level)
+	EndDate        *time.Time    `json:"endDate,omitempty"` // NULL means ongoing
+	StartYear      int           `json:"startYear"`         // Legacy: for migration period
+	EndYear        sql.NullInt32 `json:"endYear,omitempty"` // Legacy: for migration period
+	Notes          string        `json:"notes,omitempty"`
+	GrowthStrategy string        `json:"growthStrategy"`
+	CreatedAt      time.Time     `json:"createdAt"`
+	UpdatedAt      time.Time     `json:"updatedAt"`
 }
 
 // ----- CashAccount operations -----
