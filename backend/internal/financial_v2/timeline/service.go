@@ -649,6 +649,12 @@ func processLiabilityMonth(
 		result, err := strategy.Calculate(params)
 		if err == nil && result.RemainingBalance != nil {
 			state[liability.ID] = result.RemainingBalance
+
+			// Update linked expense state with the calculated payment amount
+			// This ensures the expense shows the correct payment in the timeline
+			if expense, hasLinked := linkedExpenses[liability.ID]; hasLinked {
+				state[expense.ID] = result.MonthlyPayment
+			}
 		}
 	}
 }
