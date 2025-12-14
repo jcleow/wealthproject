@@ -549,17 +549,18 @@ func applyAllGrowth(data EffectiveRows, ctx *GrowthContext) {
 	applyGrowth(data.Liabilities, ctx, growth.StrategyMonthlyCompound)
 }
 
-// calculateNetCashFlow computes net savings and net cash flow for active rows.
+// calcCashAllocation computes net savings and net cash flow for active rows.
 // Returns:
 //   - netSavings: income - expenses (independent of CPF)
 //   - netCashFlow: income - expenses - employeeCPF - investmentAllocations (actual cash impact)
 //   - netInvestments: total amount allocated to investments this month
-func calculateNetCashFlow(
+func calcCashAllocation(
 	data EffectiveRows,
 	state map[string]*decimal.Decimal,
 	currentDate time.Time,
 	employeeCPF *decimal.Decimal,
 	incomeAllocations []repo.IncomeAllocation,
+	applyAllocations bool,
 ) (netSavings *decimal.Decimal, netCashFlow *decimal.Decimal, netInvestments *decimal.Decimal) {
 	income := decimal.Zero()
 	expense := decimal.Zero()
@@ -581,10 +582,15 @@ func calculateNetCashFlow(
 	netSavings = income.Sub(expense)
 
 	// Apply investment allocations - adds allocation amounts to investment balances
-	netInvestments = applyInvestmentAllocations(data.Incomes, incomeAllocations, state, currentDate)
+	netInvestments = applyInvestmentAllocations(data.Incomes, incomeAllocations, state, currentDate, applyAllocations)
 
-	// Deduct both CPF and investment allocations from net cash flow
-	netCashFlow = netSavings.Sub(employeeCPF).Sub(netInvestments)
+	// Deduct CPF and (optionally) investment allocations from net cash flow
+	cashAfterCPF := netSavings.Sub(employeeCPF)
+	if applyAllocations {
+		netCashFlow = cashAfterCPF.Sub(netInvestments)
+	} else {
+		netCashFlow = cashAfterCPF
+	}
 
 	return netSavings, netCashFlow, netInvestments
 }
@@ -597,6 +603,7 @@ func applyInvestmentAllocations(
 	allocations []repo.IncomeAllocation,
 	state map[string]*decimal.Decimal,
 	currentDate time.Time,
+	applyToBalances bool,
 ) *decimal.Decimal {
 	total := decimal.Zero()
 
@@ -636,7 +643,7 @@ func applyInvestmentAllocations(
 			}
 
 			// Add to the target investment balance
-			if alloc.TargetInvestmentID != nil {
+			if applyToBalances && alloc.TargetInvestmentID != nil {
 				investmentID := *alloc.TargetInvestmentID
 				if currentBalance, exists := state[investmentID]; exists && currentBalance != nil {
 					state[investmentID] = currentBalance.Add(allocAmount)
@@ -1040,8 +1047,7 @@ type MonthlyContext struct {
 }
 
 // processMonth handles all calculations for a single month and returns the response
-// isAnchorMonth indicates if this is the first month (anchor month) where we show starting balances
-// without applying cash flow accumulation or investment allocation side effects
+// isAnchorMonth indicates if this is the first month (anchor month) where investment allocations should not mutate balances
 func processMonth(mctx *MonthlyContext, calendarMonthIdx int, currentDate time.Time, isAnchorMonth bool) MonthDetailResponse {
 	// Reset CPF YTD at year boundaries
 	mctx.CPFCtx.ResetYTDIfNewYear(currentDate, calendarMonthIdx)
@@ -1059,18 +1065,20 @@ func processMonth(mctx *MonthlyContext, calendarMonthIdx int, currentDate time.T
 	// Process CPF contributions
 	employeeCPF, cpfContributions := mctx.CPFCtx.ProcessIncomes(mctx.Data.Incomes, mctx.State, currentDate)
 
-	// Calculate cash flow
-	// In anchor month, pass empty allocations to prevent adding to investment balances
+	// Calculate cash flow; investment allocations are computed every month but only mutate balances after the anchor month
 	var netSavings, netCashFlow, netInvestments *decimal.Decimal
-	if isAnchorMonth {
-		// Don't apply investment allocations in anchor month
-		netSavings, netCashFlow, netInvestments = calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF, nil)
-	} else {
-		netSavings, netCashFlow, netInvestments = calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF, mctx.IncomeAllocations)
-	}
+	applyAllocations := !isAnchorMonth
+	netSavings, netCashFlow, netInvestments = calcCashAllocation(
+		mctx.Data,
+		mctx.State,
+		currentDate,
+		employeeCPF,
+		mctx.IncomeAllocations,
+		applyAllocations,
+	)
 
-	// Accumulate cash flow (skip in anchor month - starting balances only)
-	if !isAnchorMonth {
+	// Accumulate cash flow (anchor month included; allocations only mutate balances after anchor)
+	if applyAllocations {
 		mctx.CashAccumulator = mctx.CashAccumulator.Add(netCashFlow)
 	}
 

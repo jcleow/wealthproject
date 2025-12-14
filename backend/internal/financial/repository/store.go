@@ -939,15 +939,15 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 		repaymentStrategy = "standard_amortization"
 	}
 
-	// Serialize repayment metadata to JSON
-	var repaymentMetadataJSON []byte
+	// Serialize repayment metadata to JSON (nil map -> NULL, not empty string)
+	var repaymentMetadata interface{}
 	if li.RepaymentMetadata != nil {
-		repaymentMetadataJSON, _ = json.Marshal(li.RepaymentMetadata)
+		repaymentMetadata = encodeJSON(li.RepaymentMetadata)
 	}
 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes, repayment_strategy, repayment_metadata)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11, $12)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11, $12::jsonb)
 		ON CONFLICT ON CONSTRAINT finance_liabilities_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
@@ -960,7 +960,7 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 		    repayment_metadata=EXCLUDED.repayment_metadata,
 		    updated_at=NOW()
 		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, COALESCE(notes, ''), COALESCE(repayment_strategy, 'standard_amortization'), repayment_metadata, updated_at`,
-		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, endDate, li.Notes, repaymentStrategy, repaymentMetadataJSON)
+		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, endDate, li.Notes, repaymentStrategy, repaymentMetadata)
 
 	var created Liability
 	var endDateVal sql.NullTime
@@ -983,9 +983,9 @@ func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability
 	endDate := li.EndDate
 
 	// Serialize repayment metadata to JSON
-	var repaymentMetadataJSON []byte
+	var repaymentMetadata interface{}
 	if li.RepaymentMetadata != nil {
-		repaymentMetadataJSON, _ = json.Marshal(li.RepaymentMetadata)
+		repaymentMetadata = encodeJSON(li.RepaymentMetadata)
 	}
 
 	row := s.db.QueryRowContext(ctx, `
@@ -999,11 +999,11 @@ func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability
 		    end_date=$9,
 		    notes=NULLIF($10, ''),
 		    repayment_strategy=COALESCE(NULLIF($11, ''), repayment_strategy, 'standard_amortization'),
-		    repayment_metadata=COALESCE($12, repayment_metadata),
+		    repayment_metadata=COALESCE($12::jsonb, repayment_metadata),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
 		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, COALESCE(notes, ''), COALESCE(repayment_strategy, 'standard_amortization'), repayment_metadata, updated_at`,
-		userID, li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, endDate, li.Notes, li.RepaymentStrategy, repaymentMetadataJSON)
+		userID, li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, endDate, li.Notes, li.RepaymentStrategy, repaymentMetadata)
 
 	var updated Liability
 	var endDateVal sql.NullTime

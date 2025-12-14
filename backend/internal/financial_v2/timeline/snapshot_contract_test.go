@@ -356,12 +356,11 @@ func TestSnapshotContract_AllItemTypesReturned(t *testing.T) {
 			t.Errorf("expected net savings %s, got %s", expectedNetSavings.String(), month.NetSavings.String())
 		}
 
-		// Net worth includes net cash flow
+		// Net worth for anchor month does NOT add net cash to balances
 		// Total assets: 500000 + 50000 + 100000 + 50000 + 25000 + 5000 = 730000
 		// Total liabilities: 350000 + 30000 = 380000
-		// Net cash: 7700 (income - expenses)
-		// Net worth: 730000 - 380000 + 7700 = 357700
-		expectedNetWorth := decimal.MustFromString("357700")
+		// Net worth: 730000 - 380000 = 350000
+		expectedNetWorth := decimal.MustFromString("350000")
 		if month.NetWorth.Cmp(expectedNetWorth) != 0 {
 			t.Errorf("expected net worth %s, got %s", expectedNetWorth.String(), month.NetWorth.String())
 		}

@@ -69,6 +69,75 @@ func TestCreateLiability_WithoutEndDate(t *testing.T) {
 	require.Nil(t, response.EndDate)
 }
 
+func TestCreateLiability_RepaymentMetadataNil(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	store := repository.NewStore(db)
+	handler := NewLiabilityHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	startDate, err := time.Parse(time.RFC3339, "2025-12-14T03:19:12.118Z")
+	require.NoError(t, err)
+
+	liabilityRows := sqlmock.NewRows([]string{
+		"id", "parent_id", "name", "category", "current_balance",
+		"interest_rate_apr", "minimum_payment", "start_date", "end_date",
+		"notes", "repayment_strategy", "repayment_metadata", "updated_at",
+	}).AddRow(
+		"liability-cc", "liability-cc", "Credit Card", "Credit Card", 800.0,
+		26.0, 50.0, startDate, nil,
+		"Paid in full monthly, revolving for cashback", "standard_amortization", nil, startDate,
+	)
+
+	mock.ExpectQuery(`INSERT INTO finance_liabilities`).
+		WithArgs(
+			"test-user",
+			nil, // parent_id
+			"Credit Card",
+			"Credit Card",
+			800.0,
+			26.0,
+			50.0,
+			startDate,
+			nil, // end_date
+			"Paid in full monthly, revolving for cashback",
+			"standard_amortization",
+			nil, // repayment_metadata should be NULL when omitted
+		).
+		WillReturnRows(liabilityRows)
+
+	payload := map[string]interface{}{
+		"name":            "Credit Card",
+		"category":        "Credit Card",
+		"currentBalance":  800.0,
+		"interestRateApr": 26.0,
+		"minimumPayment":  50.0,
+		"notes":           "Paid in full monthly, revolving for cashback",
+		"startDate":       "2025-12-14T03:19:12.118Z",
+	}
+	body, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/liabilities", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	ctx := middleware.WithUserContext(req.Context(), middleware.UserContext{UserID: "test-user"})
+	req = req.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+
+	var response repository.Liability
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.Equal(t, "liability-cc", response.ID)
+	require.Nil(t, response.RepaymentMetadata)
+}
+
 func TestCreateLiability_WithEndDate(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

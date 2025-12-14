@@ -9,6 +9,10 @@ import (
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
 
+func strPtr(value string) *string {
+	return &value
+}
+
 // mockStore implements the Store interface for testing
 type mockStore struct {
 	nonCashAssets []repo.NonCashAsset
@@ -17,6 +21,7 @@ type mockStore struct {
 	liabilities   []repo.Liability
 	incomes       []repo.Income
 	expenses      []repo.Expense
+	incomeAllocs  []repo.IncomeAllocation
 }
 
 func (m *mockStore) ListNonCashAssets(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.NonCashAsset], error) {
@@ -48,7 +53,7 @@ func (m *mockStore) GetCPFAccount(ctx context.Context, userID string) (*repo.CPF
 }
 
 func (m *mockStore) ListAllIncomeAllocations(ctx context.Context, userID string) ([]repo.IncomeAllocation, error) {
-	return nil, nil
+	return m.incomeAllocs, nil
 }
 
 func TestComputeFinancialSnapshot_SingleMonth_NoGrowth(t *testing.T) {
@@ -259,6 +264,80 @@ func TestComputeFinancialSnapshot_NetCashFlow(t *testing.T) {
 	netCash := result.Months[0].NetCash
 	if netCash.Cmp(expected) != 0 {
 		t.Errorf("expected net cash %s, got %s", expected.String(), netCash.String())
+	}
+}
+
+func TestComputeFinancialSnapshot_AnchorMonthAllocationsReportedOnly(t *testing.T) {
+	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	store := &mockStore{
+		investments: []repo.Investment{
+			{
+				ID:               "inv-1",
+				ParentID:         "inv-1",
+				Name:             "ETF",
+				Category:         "Equities",
+				CurrentValue:     *decimal.MustFromString("10000"),
+				AnnualGrowthRate: *decimal.MustFromString("0"),
+				StartDate:        startDate,
+			},
+		},
+		incomes: []repo.Income{
+			{
+				ID:         "income-1",
+				ParentID:   "income-1",
+				Source:     "Salary",
+				Amount:     *decimal.MustFromString("5000"),
+				Frequency:  "monthly",
+				StartDate:  startDate,
+				Category:   "Employment",
+				GrowthRate: *decimal.MustFromString("0"),
+			},
+		},
+		incomeAllocs: []repo.IncomeAllocation{
+			{
+				ID:                 "alloc-1",
+				IncomeID:           "income-1",
+				TargetInvestmentID: strPtr("inv-1"),
+				AllocationType:     "percentage",
+				AllocationValue:    *decimal.MustFromString("10"), // 10% of income
+			},
+		},
+	}
+
+	service := NewService(store)
+	opts := TimelineOptions{
+		StartDate: startDate,
+		EndDate:   startDate, // Anchor month only
+	}
+
+	result, err := service.ComputeFinancialSnapshot(context.Background(), "user-1", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Months) != 1 {
+		t.Fatalf("expected 1 month, got %d", len(result.Months))
+	}
+
+	month := result.Months[0]
+	expectedAlloc := decimal.MustFromString("500") // 10% of 5000 income
+	if month.NetInvestments.Cmp(expectedAlloc) != 0 {
+		t.Fatalf("expected net investments %s, got %s", expectedAlloc.String(), month.NetInvestments.String())
+	}
+
+	// Investment balance should not be incremented in anchor month
+	if len(month.Investments) != 1 {
+		t.Fatalf("expected 1 investment, got %d", len(month.Investments))
+	}
+	if month.Investments[0].Balance.Cmp(decimal.MustFromString("10000")) != 0 {
+		t.Fatalf("anchor month should not apply allocations to balances; expected 10000, got %s", month.Investments[0].Balance.String())
+	}
+
+	// Net cash reflects the allocation deduction
+	expectedNetCash := decimal.MustFromString("5000")
+	if month.NetCash.Cmp(expectedNetCash) != 0 {
+		t.Fatalf("expected net cash %s, got %s", expectedNetCash.String(), month.NetCash.String())
 	}
 }
 
