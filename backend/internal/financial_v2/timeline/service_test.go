@@ -831,3 +831,70 @@ func TestComputeFinancialSnapshot_LiabilityGrowsWhenPaymentLessThanInterest(t *t
 			expectedMonth2Min.String(), expectedMonth2Max.String(), month2Balance.String())
 	}
 }
+
+// TestComputeFinancialSnapshot_FixedTermLiabilityPastEndDate verifies that
+// when a fixed-term liability passes its end date with an outstanding balance,
+// the balance carries over unchanged (doesn't become zero).
+func TestComputeFinancialSnapshot_FixedTermLiabilityPastEndDate(t *testing.T) {
+	// Loan term ends in Jan 2024 (month 1, the anchor month)
+	// In months 2+, the loan is past its end date but balance should carry over unchanged
+	startDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	loanEndDate := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC) // Loan term ends mid-Jan (anchor month)
+	timelineEndDate := time.Date(2024, 4, 30, 0, 0, 0, 0, time.UTC)
+	liabilityID := "liability-past-term"
+
+	store := &mockStore{
+		liabilities: []repo.Liability{
+			{
+				ID:              liabilityID,
+				ParentID:        liabilityID,
+				Name:            "Past Term Loan",
+				Category:        "Loan",
+				CurrentBalance:  *decimal.MustFromString("5000"), // $5,000 still owed
+				InterestRateAPR: *decimal.MustFromString("12"),   // 12% APR
+				MinimumPayment:  *decimal.MustFromString("500"),
+				StartDate:       startDate,
+				EndDate:         &loanEndDate, // Loan term ends in anchor month
+			},
+		},
+	}
+
+	service := NewService(store)
+	opts := TimelineOptions{
+		StartDate: startDate,
+		EndDate:   timelineEndDate,
+	}
+
+	result, err := service.ComputeFinancialSnapshot(context.Background(), "user-1", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Months) != 4 {
+		t.Fatalf("expected 4 months, got %d", len(result.Months))
+	}
+
+	// All months should have the liability with the same balance (carries over unchanged)
+	// Month 1: anchor month, no mutations, balance = 5000
+	// Month 2+: past end date, balance carries over unchanged (no payments processed, but debt doesn't disappear)
+	expectedBalance := decimal.MustFromString("5000")
+
+	for i, month := range result.Months {
+		if len(month.Liabilities) != 1 {
+			t.Fatalf("month %d: expected 1 liability, got %d", i+1, len(month.Liabilities))
+		}
+		balance := month.Liabilities[0].Balance
+		t.Logf("Month %d: Liability Balance = %s", i+1, balance.String())
+
+		// Balance should NOT be zero - user still owes money
+		if balance.IsZero() {
+			t.Errorf("month %d: balance should not be zero - outstanding debt should carry over", i+1)
+		}
+
+		// Balance should remain unchanged at $5000 (no payments processed past end date)
+		if balance.Cmp(expectedBalance) != 0 {
+			t.Errorf("month %d: expected balance %s, got %s (balance should carry over unchanged past end date)",
+				i+1, expectedBalance.String(), balance.String())
+		}
+	}
+}

@@ -108,14 +108,17 @@ func (s StandardAmortizationStrategy) Calculate(params Params) (*Result, error) 
 		monthlyPayment = params.CurrentBalance.Mul(numerator).Div(denominator)
 	}
 
-	// Calculate interest portion for this period: balance * monthly_rate
-	interestPortion := params.CurrentBalance.Mul(monthlyRate)
+	// Round monthly payment to 2 decimal places
+	monthlyPayment = monthlyPayment.Round(2)
+
+	// Calculate interest portion for this period: balance * monthly_rate (round to 2 decimal places)
+	interestPortion := params.CurrentBalance.Mul(monthlyRate).Round(2)
 
 	// Principal portion = payment - interest
-	principalPortion := monthlyPayment.Sub(interestPortion)
+	principalPortion := monthlyPayment.Sub(interestPortion).Round(2)
 
 	// Remaining balance = current balance - principal paid
-	remainingBalance := params.CurrentBalance.Sub(principalPortion)
+	remainingBalance := params.CurrentBalance.Sub(principalPortion).Round(2)
 
 	// Clamp to zero if paid off
 	if remainingBalance.Cmp(decimal.Zero()) <= 0 {
@@ -156,8 +159,8 @@ func (s InterestOnlyStrategy) Calculate(params Params) (*Result, error) {
 	monthlyRate := params.InterestRateAPR.Div(hundred).Div(twelve)
 
 	if params.PeriodIndex < interestOnlyMonths {
-		// Interest-only period: pay only interest, principal unchanged
-		interestPortion := params.CurrentBalance.Mul(monthlyRate)
+		// Interest-only period: pay only interest, principal unchanged (round to 2 decimal places)
+		interestPortion := params.CurrentBalance.Mul(monthlyRate).Round(2)
 
 		return &Result{
 			MonthlyPayment:   interestPortion,
@@ -211,12 +214,12 @@ func (s MinimumPaymentStrategy) Calculate(params Params) (*Result, error) {
 		minPaymentFloor = params.MinPaymentFloor
 	}
 
-	// Calculate monthly interest
+	// Calculate monthly interest (round to 2 decimal places)
 	monthlyRate := params.InterestRateAPR.Div(hundred).Div(twelve)
-	interestPortion := params.CurrentBalance.Mul(monthlyRate)
+	interestPortion := params.CurrentBalance.Mul(monthlyRate).Round(2)
 
 	// Calculate minimum payment: max(balance * pct%, floor, interest + $1)
-	pctPayment := params.CurrentBalance.Mul(minPaymentPct).Div(hundred)
+	pctPayment := params.CurrentBalance.Mul(minPaymentPct).Div(hundred).Round(2)
 	interestPlusOne := interestPortion.Add(decimal.One())
 
 	// Use the largest of the three
@@ -233,14 +236,17 @@ func (s MinimumPaymentStrategy) Calculate(params Params) (*Result, error) {
 		monthlyPayment = params.CurrentBalance.Add(interestPortion)
 	}
 
+	// Round payment to 2 decimal places
+	monthlyPayment = monthlyPayment.Round(2)
+
 	// Principal = payment - interest
-	principalPortion := monthlyPayment.Sub(interestPortion)
+	principalPortion := monthlyPayment.Sub(interestPortion).Round(2)
 	if principalPortion.Cmp(decimal.Zero()) < 0 {
 		principalPortion = decimal.Zero()
 	}
 
 	// Remaining balance
-	remainingBalance := params.CurrentBalance.Sub(principalPortion)
+	remainingBalance := params.CurrentBalance.Sub(principalPortion).Round(2)
 	if remainingBalance.Cmp(decimal.Zero()) <= 0 {
 		remainingBalance = decimal.Zero()
 	}
@@ -281,17 +287,17 @@ func (s ExtraPaymentStrategy) Calculate(params Params) (*Result, error) {
 	extraPaymentDecimal := params.ExtraPayment
 
 	// Add extra payment to monthly payment (all goes to principal)
-	totalPayment := baseResult.MonthlyPayment.Add(extraPaymentDecimal)
-	totalPrincipal := baseResult.PrincipalPortion.Add(extraPaymentDecimal)
+	totalPayment := baseResult.MonthlyPayment.Add(extraPaymentDecimal).Round(2)
+	totalPrincipal := baseResult.PrincipalPortion.Add(extraPaymentDecimal).Round(2)
 
 	// Calculate new remaining balance
-	remainingBalance := params.CurrentBalance.Sub(totalPrincipal)
+	remainingBalance := params.CurrentBalance.Sub(totalPrincipal).Round(2)
 	if remainingBalance.Cmp(decimal.Zero()) <= 0 {
 		remainingBalance = decimal.Zero()
 		// Adjust payment if overpaying
-		overpayment := totalPrincipal.Sub(params.CurrentBalance)
+		overpayment := totalPrincipal.Sub(params.CurrentBalance).Round(2)
 		if overpayment.Cmp(decimal.Zero()) > 0 {
-			totalPayment = totalPayment.Sub(overpayment)
+			totalPayment = totalPayment.Sub(overpayment).Round(2)
 			totalPrincipal = params.CurrentBalance
 		}
 	}
@@ -325,8 +331,8 @@ func (s FixedPaymentStrategy) Calculate(params Params) (*Result, error) {
 	// Calculate monthly interest rate: r = APR / 100 / 12
 	monthlyRate := params.InterestRateAPR.Div(hundred).Div(twelve)
 
-	// Calculate interest on current balance
-	interestPortion := params.CurrentBalance.Mul(monthlyRate)
+	// Calculate interest on current balance (round to 2 decimal places)
+	interestPortion := params.CurrentBalance.Mul(monthlyRate).Round(2)
 
 	// Use MinimumPayment as the fixed payment amount
 	payment := params.MinimumPayment
@@ -335,11 +341,11 @@ func (s FixedPaymentStrategy) Calculate(params Params) (*Result, error) {
 	}
 
 	// Principal = payment - interest (can be negative if payment < interest)
-	principalPortion := payment.Sub(interestPortion)
+	principalPortion := payment.Sub(interestPortion).Round(2)
 
 	// New balance = current balance - principal
 	// If principal is negative, balance increases
-	remainingBalance := params.CurrentBalance.Sub(principalPortion)
+	remainingBalance := params.CurrentBalance.Sub(principalPortion).Round(2)
 
 	// Clamp to zero (can't have negative debt)
 	if remainingBalance.Cmp(decimal.Zero()) < 0 {
@@ -347,7 +353,7 @@ func (s FixedPaymentStrategy) Calculate(params Params) (*Result, error) {
 	}
 
 	return &Result{
-		MonthlyPayment:   payment,
+		MonthlyPayment:   payment.Round(2),
 		PrincipalPortion: principalPortion,
 		InterestPortion:  interestPortion,
 		RemainingBalance: remainingBalance,

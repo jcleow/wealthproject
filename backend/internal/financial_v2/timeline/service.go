@@ -614,8 +614,7 @@ func processLiabilityMonth(
 			// Fixed-term: use standard amortization with remaining term (reamortization)
 			remainingMonths := common.MonthsBetween(currentDate, *liability.EndDate)
 			if remainingMonths <= 0 {
-				// Past end date - balance should be zero
-				state[liability.ID] = decimal.Zero()
+				// Past end date - balance carries over unchanged (user may still owe)
 				continue
 			}
 			params.TotalPeriods = remainingMonths
@@ -861,16 +860,21 @@ func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 }
 
 // buildLiabilityResponses builds responses for liabilities and returns total value
+// Unlike other items, liabilities with outstanding balance are included even past their end date
+// (debt doesn't disappear just because the loan term ended)
 func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) ([]LiabilityResponse, *decimal.Decimal) {
 	responses := make([]LiabilityResponse, 0)
 	total := decimal.Zero()
 
 	for _, row := range rows {
-		if !isActiveInMonth(row, date) {
-			continue
-		}
 		state := itemStates[row.ID]
 		if state == nil {
+			continue
+		}
+
+		// Include if: (1) actively within loan term, OR (2) has outstanding balance past end date
+		hasOutstandingBalance := state.Balance.Cmp(decimal.Zero()) > 0
+		if !isActiveInMonth(row, date) && !hasOutstandingBalance {
 			continue
 		}
 		total = total.Add(state.Balance)
