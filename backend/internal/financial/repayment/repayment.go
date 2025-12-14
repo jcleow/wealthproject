@@ -11,6 +11,7 @@ const (
 	InterestOnly         StrategyType = "interest_only"
 	MinimumPayment       StrategyType = "minimum_payment"
 	ExtraPayment         StrategyType = "extra_payment"
+	FixedPayment         StrategyType = "fixed_payment"
 )
 
 // Params contains all parameters needed for repayment calculation
@@ -303,6 +304,56 @@ func (s ExtraPaymentStrategy) Calculate(params Params) (*Result, error) {
 	}, nil
 }
 
+// FixedPaymentStrategy applies a fixed payment amount (typically from a linked expense).
+// Interest accrues on the balance, then the fixed payment is applied.
+// If payment < interest, balance grows (negative principal).
+// Used for: Open-ended liabilities with linked expenses (e.g., credit cards with fixed monthly payments)
+type FixedPaymentStrategy struct{}
+
+func NewFixedPayment() FixedPaymentStrategy {
+	return FixedPaymentStrategy{}
+}
+
+func (s FixedPaymentStrategy) Type() StrategyType {
+	return FixedPayment
+}
+
+func (s FixedPaymentStrategy) Calculate(params Params) (*Result, error) {
+	hundred := decimal.MustFromString("100")
+	twelve := decimal.MustFromString("12")
+
+	// Calculate monthly interest rate: r = APR / 100 / 12
+	monthlyRate := params.InterestRateAPR.Div(hundred).Div(twelve)
+
+	// Calculate interest on current balance
+	interestPortion := params.CurrentBalance.Mul(monthlyRate)
+
+	// Use MinimumPayment as the fixed payment amount
+	payment := params.MinimumPayment
+	if payment == nil {
+		payment = decimal.Zero()
+	}
+
+	// Principal = payment - interest (can be negative if payment < interest)
+	principalPortion := payment.Sub(interestPortion)
+
+	// New balance = current balance - principal
+	// If principal is negative, balance increases
+	remainingBalance := params.CurrentBalance.Sub(principalPortion)
+
+	// Clamp to zero (can't have negative debt)
+	if remainingBalance.Cmp(decimal.Zero()) < 0 {
+		remainingBalance = decimal.Zero()
+	}
+
+	return &Result{
+		MonthlyPayment:   payment,
+		PrincipalPortion: principalPortion,
+		InterestPortion:  interestPortion,
+		RemainingBalance: remainingBalance,
+	}, nil
+}
+
 // GetStrategy returns the appropriate strategy for the given type
 func GetStrategy(strategyType StrategyType) Strategy {
 	switch strategyType {
@@ -314,6 +365,8 @@ func GetStrategy(strategyType StrategyType) Strategy {
 		return NewMinimumPayment()
 	case ExtraPayment:
 		return NewExtraPayment()
+	case FixedPayment:
+		return NewFixedPayment()
 	default:
 		// Default to standard amortization
 		return NewStandardAmortization()

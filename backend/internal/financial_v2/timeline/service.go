@@ -60,8 +60,6 @@ type SGFinancialDataRows struct {
 	Rows              EffectiveRows
 	CPFAccount        *account.CPFAccount
 	IncomeAllocations []repo.IncomeAllocation
-	// Precomputed liability amortization schedules (per month remaining balance)
-	LiabilitySchedules map[string][]decimal.Decimal
 	// Map of liability ID -> linked expense (for open-ended liabilities paid by expenses)
 	LinkedExpensesByLiability map[string]FinancialDataRow
 }
@@ -550,7 +548,8 @@ func applyGrowth(rows []FinancialDataRow, ctx *GrowthContext, strategyName strin
 }
 
 // applyAllGrowth applies the appropriate growth strategies to all financial data types
-func applyAllGrowth(data EffectiveRows, ctx *GrowthContext, linkedExpenses map[string]FinancialDataRow) {
+// NOTE: Liabilities are handled separately by processLiabilityMonth
+func applyAllGrowth(data EffectiveRows, ctx *GrowthContext) {
 	// Income/Expenses use annual step growth (raises happen yearly)
 	applyGrowth(data.Incomes, ctx, growth.StrategyAnnualStep)
 	applyGrowth(data.Expenses, ctx, growth.StrategyAnnualStep)
@@ -558,51 +557,7 @@ func applyAllGrowth(data EffectiveRows, ctx *GrowthContext, linkedExpenses map[s
 	applyGrowth(data.NonCashAssets, ctx, growth.StrategyMonthlyCompound)
 	applyGrowth(data.Investments, ctx, growth.StrategyMonthlyCompound)
 	applyGrowth(data.CashAssets, ctx, growth.StrategyMonthlyCompound)
-	// Liabilities: only apply growth to those without linked expenses
-	// (linked expenses handle interest in the payment calculation)
-	applyGrowthExcluding(data.Liabilities, ctx, growth.StrategyMonthlyCompound, linkedExpenses)
-}
-
-// applyGrowthExcluding applies growth to rows except those in the exclude map
-func applyGrowthExcluding(rows []FinancialDataRow, ctx *GrowthContext, strategyName string, exclude map[string]FinancialDataRow) {
-	strategy, _ := ctx.Registry.Get(strategyName)
-	for _, row := range rows {
-		// Skip items in the exclude map (keyed by ID)
-		if _, excluded := exclude[row.ID]; excluded {
-			continue
-		}
-		if !isActiveInMonth(row, ctx.Date) {
-			continue
-		}
-		itemAge := common.MonthsBetween(row.StartDate, ctx.Date)
-		params := growth.Params{AnnualRatePct: &row.GrowthRate}
-		ctx.State[row.ID] = strategy.Apply(ctx.State[row.ID], params, itemAge, ctx.MonthOfYear)
-	}
-}
-
-// applyLiabilitySchedules overrides liability balances with precomputed amortization schedules (if available).
-func applyLiabilitySchedules(rows []FinancialDataRow, ctx *GrowthContext, schedules map[string][]decimal.Decimal) {
-	if len(schedules) == 0 {
-		return
-	}
-
-	for _, row := range rows {
-		schedule, ok := schedules[row.ID]
-		if !ok {
-			continue
-		}
-		if !isActiveInMonth(row, ctx.Date) {
-			continue
-		}
-
-		offset := common.MonthsBetween(row.StartDate, ctx.Date) - 1
-		if offset < 0 || offset >= len(schedule) {
-			continue
-		}
-
-		value := schedule[offset]
-		ctx.State[row.ID] = &value
-	}
+	// NOTE: Liabilities handled separately by processLiabilityMonth
 }
 
 // buildLinkedExpensesByLiability creates a map of liability ID -> linked expense row.
@@ -617,107 +572,86 @@ func buildLinkedExpensesByLiability(expenses []FinancialDataRow) map[string]Fina
 	return result
 }
 
-// applyLinkedExpensePayments applies expense payments to reduce open-ended liability balances.
-// This is used for liabilities WITHOUT end dates that have linked expenses.
-// For each such liability, calculates: interest = balance * monthly_rate, principal = payment - interest.
-func applyLinkedExpensePayments(
+// processLiabilityMonth processes all liabilities for the current month.
+// Delegates payment calculation to the repayment module for a unified approach:
+//   - Fixed-term liabilities (with EndDate): Use standard amortization with remaining term
+//   - Open-ended with linked expense: Use fixed payment from expense amount
+//   - Open-ended without payment: Interest only (balance grows)
+//
+// This function handles reamortization: if a payment override changes the balance,
+// subsequent months will recalculate payments based on the new balance.
+func processLiabilityMonth(
 	liabilities []FinancialDataRow,
 	linkedExpenses map[string]FinancialDataRow,
-	schedules map[string][]decimal.Decimal,
 	state map[string]*decimal.Decimal,
 	currentDate time.Time,
+	isAnchorMonth bool,
 ) {
-	hundred := decimal.MustFromString("100")
-	twelve := decimal.MustFromString("12")
-
 	for _, liability := range liabilities {
-		// Skip liabilities that have precomputed schedules (they're handled by applyLiabilitySchedules)
-		if _, hasSchedule := schedules[liability.ID]; hasSchedule {
-			continue
-		}
-
 		if !isActiveInMonth(liability, currentDate) {
 			continue
 		}
 
-		expense, hasLinked := linkedExpenses[liability.ID]
-		if !hasLinked {
-			continue
-		}
-
-		// Check if the expense is active this month
-		if !isActiveInMonth(expense, currentDate) {
-			continue
-		}
-
-		// Get current liability balance
 		currentBalance := state[liability.ID]
-		if currentBalance == nil || currentBalance.IsZero() || currentBalance.Cmp(decimal.Zero()) <= 0 {
+		if currentBalance == nil || currentBalance.Cmp(decimal.Zero()) <= 0 {
 			continue
 		}
 
-		// Calculate monthly interest: balance * (APR / 100 / 12)
-		monthlyRate := liability.InterestRate.Div(hundred).Div(twelve)
-		interestPortion := currentBalance.Mul(monthlyRate)
-
-		// Get monthly expense payment amount
-		expenseBalance := state[expense.ID]
-		if expenseBalance == nil {
-			expenseBalance = &expense.Amount
-		}
-		monthlyPayment := common.ToMonthlyAmount(expenseBalance, expense.Frequency)
-		if monthlyPayment == nil || monthlyPayment.IsZero() {
+		// Skip mutations in anchor month (report starting balance only)
+		if isAnchorMonth {
 			continue
 		}
 
-		// Principal = payment - interest
-		// If payment < interest, principal is negative (balance grows by unpaid interest)
-		principalPortion := monthlyPayment.Sub(interestPortion)
-
-		// Update balance: subtract principal (negative principal = balance grows)
-		newBalance := currentBalance.Sub(principalPortion)
-		if newBalance.Cmp(decimal.Zero()) < 0 {
-			newBalance = decimal.Zero()
+		// Build repayment params
+		params := repayment.Params{
+			CurrentBalance:  currentBalance,
+			InterestRateAPR: &liability.InterestRate,
 		}
 
-		state[liability.ID] = newBalance
+		// Determine strategy and additional params based on liability type
+		var strategy repayment.Strategy
+		if liability.EndDate != nil {
+			// Fixed-term: use standard amortization with remaining term (reamortization)
+			remainingMonths := common.MonthsBetween(currentDate, *liability.EndDate)
+			if remainingMonths <= 0 {
+				// Past end date - balance should be zero
+				state[liability.ID] = decimal.Zero()
+				continue
+			}
+			params.TotalPeriods = remainingMonths
+			params.PeriodIndex = 0 // Always treat as first period of remaining term for reamortization
+			strategy = repayment.NewStandardAmortization()
+		} else if expense, hasLinked := linkedExpenses[liability.ID]; hasLinked {
+			// Open-ended with linked expense: use the expense amount as fixed payment
+			if !isActiveInMonth(expense, currentDate) {
+				// Expense not active - no payment this month, but interest still accrues
+				params.MinimumPayment = decimal.Zero()
+			} else {
+				// Get expense amount (possibly grown)
+				expenseAmount := state[expense.ID]
+				if expenseAmount == nil {
+					expenseAmount = &expense.Amount
+				}
+				monthlyPayment := common.ToMonthlyAmount(expenseAmount, expense.Frequency)
+				if monthlyPayment == nil {
+					monthlyPayment = decimal.Zero()
+				}
+				params.MinimumPayment = monthlyPayment
+			}
+			strategy = repayment.NewFixedPayment()
+		} else {
+			// Open-ended without payment: interest only (balance grows)
+			// Use FixedPayment with zero payment to accrue interest
+			params.MinimumPayment = decimal.Zero()
+			strategy = repayment.NewFixedPayment()
+		}
+
+		// Calculate and apply
+		result, err := strategy.Calculate(params)
+		if err == nil && result.RemainingBalance != nil {
+			state[liability.ID] = result.RemainingBalance
+		}
 	}
-}
-
-// buildLiabilitySchedules precomputes remaining balances per month for fixed-term liabilities.
-// Open-ended liabilities (no end date) are skipped - they use linked expense payments instead.
-// The repayment module calculates the amortization schedule based on the liability's terms.
-func buildLiabilitySchedules(rows []FinancialDataRow) map[string][]decimal.Decimal {
-	schedules := make(map[string][]decimal.Decimal)
-
-	for _, row := range rows {
-		if row.ItemType != FinLiabilities || row.EndDate == nil || row.Amount.IsZero() {
-			continue
-		}
-
-		months := common.MonthsBetween(row.StartDate, *row.EndDate)
-		if months <= 0 {
-			continue
-		}
-
-		balance := row.Amount
-		apr := row.InterestRate
-		minPay := row.MinimumPay
-		strategy := repayment.GetStrategy(repayment.StandardAmortization)
-
-		schedule, err := repayment.BuildSchedule(strategy, repayment.Params{
-			CurrentBalance:  &balance,
-			InterestRateAPR: &apr,
-			MinimumPayment:  &minPay,
-		}, months)
-		if err != nil || len(schedule) == 0 {
-			continue
-		}
-
-		schedules[row.ID] = schedule
-	}
-
-	return schedules
 }
 
 // calcCashAllocation computes net savings and net cash flow for active rows.
@@ -1211,7 +1145,6 @@ type MonthlyContext struct {
 	BaseYear                  int
 	CashAccumulator           *decimal.Decimal
 	IncomeAllocations         []repo.IncomeAllocation
-	LiabilitySchedules        map[string][]decimal.Decimal
 	LinkedExpensesByLiability map[string]FinancialDataRow
 }
 
@@ -1221,7 +1154,7 @@ func processMonth(mctx *MonthlyContext, calendarMonthIdx int, currentDate time.T
 	// Reset CPF YTD at year boundaries
 	mctx.CPFCtx.ResetYTDIfNewYear(currentDate, calendarMonthIdx)
 
-	// Apply growth to all financial items
+	// Apply growth to all financial items (excluding liabilities)
 	growthCtx := &GrowthContext{
 		Registry:    mctx.Registry,
 		State:       mctx.State,
@@ -1229,14 +1162,16 @@ func processMonth(mctx *MonthlyContext, calendarMonthIdx int, currentDate time.T
 		MonthOfYear: int(currentDate.Month()),
 		Date:        currentDate,
 	}
-	applyAllGrowth(mctx.Data, growthCtx, mctx.LinkedExpensesByLiability)
-	applyLiabilitySchedules(mctx.Data.Liabilities, growthCtx, mctx.LiabilitySchedules)
+	applyAllGrowth(mctx.Data, growthCtx)
 
-	// Apply linked expense payments for open-ended liabilities (those without precomputed schedules)
-	// Skip anchor month - liability payments start from month 2 (like investment allocations)
-	if !isAnchorMonth {
-		applyLinkedExpensePayments(mctx.Data.Liabilities, mctx.LinkedExpensesByLiability, mctx.LiabilitySchedules, mctx.State, currentDate)
-	}
+	// Process all liabilities using unified function (handles both fixed-term and open-ended)
+	processLiabilityMonth(
+		mctx.Data.Liabilities,
+		mctx.LinkedExpensesByLiability,
+		mctx.State,
+		currentDate,
+		isAnchorMonth,
+	)
 
 	// Process CPF contributions
 	employeeCPF, cpfContributions := mctx.CPFCtx.ProcessIncomes(mctx.Data.Incomes, mctx.State, currentDate)
@@ -1282,7 +1217,6 @@ func (s *Service) ComputeFinancialSnapshot(
 	}
 
 	anchorStart, anchorEnd := buildAnchorRange(opts, sgData.Rows)
-	liabilitySchedules := buildLiabilitySchedules(sgData.Rows.Liabilities)
 	linkedExpenses := buildLinkedExpensesByLiability(sgData.Rows.Expenses)
 
 	startMonthIndex := (int(anchorStart.Month()) - 1)
@@ -1295,7 +1229,6 @@ func (s *Service) ComputeFinancialSnapshot(
 		BaseYear:                  anchorStart.Year(),
 		CashAccumulator:           decimal.Zero(),
 		IncomeAllocations:         sgData.IncomeAllocations,
-		LiabilitySchedules:        liabilitySchedules,
 		LinkedExpensesByLiability: linkedExpenses,
 	}
 	mctx.State = extractBalanceMap(mctx.ItemStates)

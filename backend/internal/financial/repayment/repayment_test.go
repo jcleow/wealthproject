@@ -267,6 +267,140 @@ func TestExtraPayment_ZeroExtra(t *testing.T) {
 	}
 }
 
+func TestFixedPayment_PaymentGreaterThanInterest(t *testing.T) {
+	// $10,000 balance at 12% APR with $500 fixed payment
+	// Monthly interest = 10000 * 0.12 / 12 = $100
+	// Principal = 500 - 100 = $400
+	// New balance = 10000 - 400 = $9600
+	strategy := repayment.NewFixedPayment()
+	result, err := strategy.Calculate(repayment.Params{
+		CurrentBalance:  decimal.MustFromFloat64(10000),
+		InterestRateAPR: decimal.MustFromFloat64(12.0),
+		MinimumPayment:  decimal.MustFromFloat64(500),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	tolerance := decimal.MustFromString("0.01")
+
+	// Payment should be exactly $500
+	expectedPayment := decimal.MustFromFloat64(500)
+	if !almostEqualDecimal(result.MonthlyPayment, expectedPayment, tolerance) {
+		t.Errorf("expected payment %s, got %s", expectedPayment.String(), result.MonthlyPayment.String())
+	}
+
+	// Interest should be $100
+	expectedInterest := decimal.MustFromFloat64(100)
+	if !almostEqualDecimal(result.InterestPortion, expectedInterest, tolerance) {
+		t.Errorf("expected interest %s, got %s", expectedInterest.String(), result.InterestPortion.String())
+	}
+
+	// Principal should be $400
+	expectedPrincipal := decimal.MustFromFloat64(400)
+	if !almostEqualDecimal(result.PrincipalPortion, expectedPrincipal, tolerance) {
+		t.Errorf("expected principal %s, got %s", expectedPrincipal.String(), result.PrincipalPortion.String())
+	}
+
+	// Remaining balance should be $9600
+	expectedBalance := decimal.MustFromFloat64(9600)
+	if !almostEqualDecimal(result.RemainingBalance, expectedBalance, tolerance) {
+		t.Errorf("expected remaining balance %s, got %s", expectedBalance.String(), result.RemainingBalance.String())
+	}
+}
+
+func TestFixedPayment_PaymentLessThanInterest(t *testing.T) {
+	// $10,000 balance at 36% APR with $100 fixed payment
+	// Monthly interest = 10000 * 0.36 / 12 = $300
+	// Principal = 100 - 300 = -$200 (negative - balance grows)
+	// New balance = 10000 - (-200) = $10200
+	strategy := repayment.NewFixedPayment()
+	result, err := strategy.Calculate(repayment.Params{
+		CurrentBalance:  decimal.MustFromFloat64(10000),
+		InterestRateAPR: decimal.MustFromFloat64(36.0),
+		MinimumPayment:  decimal.MustFromFloat64(100),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	tolerance := decimal.MustFromString("0.01")
+
+	// Payment should be exactly $100
+	expectedPayment := decimal.MustFromFloat64(100)
+	if !almostEqualDecimal(result.MonthlyPayment, expectedPayment, tolerance) {
+		t.Errorf("expected payment %s, got %s", expectedPayment.String(), result.MonthlyPayment.String())
+	}
+
+	// Interest should be $300
+	expectedInterest := decimal.MustFromFloat64(300)
+	if !almostEqualDecimal(result.InterestPortion, expectedInterest, tolerance) {
+		t.Errorf("expected interest %s, got %s", expectedInterest.String(), result.InterestPortion.String())
+	}
+
+	// Principal should be -$200 (negative)
+	expectedPrincipal := decimal.MustFromFloat64(-200)
+	if !almostEqualDecimal(result.PrincipalPortion, expectedPrincipal, tolerance) {
+		t.Errorf("expected principal %s, got %s", expectedPrincipal.String(), result.PrincipalPortion.String())
+	}
+
+	// Remaining balance should be $10200 (increased by unpaid interest)
+	expectedBalance := decimal.MustFromFloat64(10200)
+	if !almostEqualDecimal(result.RemainingBalance, expectedBalance, tolerance) {
+		t.Errorf("expected remaining balance %s, got %s", expectedBalance.String(), result.RemainingBalance.String())
+	}
+}
+
+func TestFixedPayment_ZeroPayment(t *testing.T) {
+	// $10,000 balance at 12% APR with $0 payment
+	// Monthly interest = 10000 * 0.12 / 12 = $100
+	// Principal = 0 - 100 = -$100
+	// New balance = 10000 - (-100) = $10100
+	strategy := repayment.NewFixedPayment()
+	result, err := strategy.Calculate(repayment.Params{
+		CurrentBalance:  decimal.MustFromFloat64(10000),
+		InterestRateAPR: decimal.MustFromFloat64(12.0),
+		MinimumPayment:  decimal.Zero(),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	tolerance := decimal.MustFromString("0.01")
+
+	// Payment should be $0
+	if !result.MonthlyPayment.IsZero() {
+		t.Errorf("expected zero payment, got %s", result.MonthlyPayment.String())
+	}
+
+	// Remaining balance should be $10100 (interest accrued)
+	expectedBalance := decimal.MustFromFloat64(10100)
+	if !almostEqualDecimal(result.RemainingBalance, expectedBalance, tolerance) {
+		t.Errorf("expected remaining balance %s, got %s", expectedBalance.String(), result.RemainingBalance.String())
+	}
+}
+
+func TestFixedPayment_Payoff(t *testing.T) {
+	// $100 balance at 12% APR with $500 payment (more than balance + interest)
+	// Monthly interest = 100 * 0.12 / 12 = $1
+	// Principal = 500 - 1 = $499
+	// New balance = 100 - 499 = -399, clamped to 0
+	strategy := repayment.NewFixedPayment()
+	result, err := strategy.Calculate(repayment.Params{
+		CurrentBalance:  decimal.MustFromFloat64(100),
+		InterestRateAPR: decimal.MustFromFloat64(12.0),
+		MinimumPayment:  decimal.MustFromFloat64(500),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Remaining balance should be 0 (paid off)
+	if !result.RemainingBalance.IsZero() {
+		t.Errorf("expected zero balance after payoff, got %s", result.RemainingBalance.String())
+	}
+}
+
 func TestGetStrategy(t *testing.T) {
 	tests := []struct {
 		strategyType repayment.StrategyType
@@ -276,6 +410,7 @@ func TestGetStrategy(t *testing.T) {
 		{repayment.InterestOnly, repayment.InterestOnly},
 		{repayment.MinimumPayment, repayment.MinimumPayment},
 		{repayment.ExtraPayment, repayment.ExtraPayment},
+		{repayment.FixedPayment, repayment.FixedPayment},
 		{"unknown", repayment.StandardAmortization}, // Default fallback
 	}
 
@@ -302,6 +437,9 @@ func TestStrategyTypes(t *testing.T) {
 	if repayment.NewExtraPayment().Type() != repayment.ExtraPayment {
 		t.Error("ExtraPaymentStrategy type mismatch")
 	}
+	if repayment.NewFixedPayment().Type() != repayment.FixedPayment {
+		t.Error("FixedPaymentStrategy type mismatch")
+	}
 }
 
 func TestStrategyInterface(t *testing.T) {
@@ -310,6 +448,7 @@ func TestStrategyInterface(t *testing.T) {
 	var _ repayment.Strategy = repayment.NewInterestOnly()
 	var _ repayment.Strategy = repayment.NewMinimumPayment()
 	var _ repayment.Strategy = repayment.NewExtraPayment()
+	var _ repayment.Strategy = repayment.NewFixedPayment()
 }
 
 // almostEqualDecimal checks if two decimals are equal within a tolerance
