@@ -64,7 +64,7 @@ function SavingsCard({ annualSavings, hasV2Data, timelineMonthV2 }: SavingsCardP
       <div className="flex items-center justify-between">
         <div>
           <h4 className="text-sm font-medium text-slate-200">Savings</h4>
-          <p className="text-xs text-slate-500">Income minus expenses</p>
+          <p className="text-xs text-slate-500">Income minus CPF minus expenses</p>
         </div>
         <div className="h-2 w-2 rounded-full bg-emerald-400" />
       </div>
