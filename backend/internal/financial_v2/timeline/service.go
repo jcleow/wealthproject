@@ -552,13 +552,15 @@ func applyAllGrowth(data EffectiveRows, ctx *GrowthContext) {
 // calculateNetCashFlow computes net savings and net cash flow for active rows.
 // Returns:
 //   - netSavings: income - expenses (independent of CPF)
-//   - netCashFlow: income - expenses - employeeCPF (actual cash impact)
+//   - netCashFlow: income - expenses - employeeCPF - investmentAllocations (actual cash impact)
+//   - netInvestments: total amount allocated to investments this month
 func calculateNetCashFlow(
 	data EffectiveRows,
 	state map[string]*decimal.Decimal,
 	currentDate time.Time,
 	employeeCPF *decimal.Decimal,
-) (netSavings *decimal.Decimal, netCashFlow *decimal.Decimal) {
+	incomeAllocations []repo.IncomeAllocation,
+) (netSavings *decimal.Decimal, netCashFlow *decimal.Decimal, netInvestments *decimal.Decimal) {
 	income := decimal.Zero()
 	expense := decimal.Zero()
 
@@ -577,8 +579,14 @@ func calculateNetCashFlow(
 	}
 
 	netSavings = income.Sub(expense)
-	netCashFlow = netSavings.Sub(employeeCPF)
-	return netSavings, netCashFlow
+
+	// Apply investment allocations - adds allocation amounts to investment balances
+	netInvestments = applyInvestmentAllocations(data.Incomes, incomeAllocations, state, currentDate)
+
+	// Deduct both CPF and investment allocations from net cash flow
+	netCashFlow = netSavings.Sub(employeeCPF).Sub(netInvestments)
+
+	return netSavings, netCashFlow, netInvestments
 }
 
 // applyInvestmentAllocations adds the monthly allocation amounts to investment balances.
@@ -1049,12 +1057,8 @@ func processMonth(mctx *MonthlyContext, monthIdx int, currentDate time.Time) Mon
 	// Process CPF contributions
 	employeeCPF, cpfContributions := mctx.CPFCtx.ProcessIncomes(mctx.Data.Incomes, mctx.State, currentDate)
 
-	// Apply investment allocations - adds allocation amounts to investment balances and returns total
-	netInvestments := applyInvestmentAllocations(mctx.Data.Incomes, mctx.IncomeAllocations, mctx.State, currentDate)
-
 	// Calculate cash flow (deduct both CPF and investment allocations)
-	netSavings, netCashFlow := calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF)
-	netCashFlow = netCashFlow.Sub(netInvestments) // Deduct investment allocations from cash
+	netSavings, netCashFlow, netInvestments := calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF, mctx.IncomeAllocations)
 	mctx.CashAccumulator = mctx.CashAccumulator.Add(netCashFlow)
 
 	// Sync state and build response
