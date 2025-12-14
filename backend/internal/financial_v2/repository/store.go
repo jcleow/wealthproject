@@ -843,51 +843,69 @@ type IncomeAllocation struct {
 var ErrNotFound = fmt.Errorf("not found")
 
 // ListIncomeAllocations returns all allocations for an income.
+// Uses LEFT JOIN to verify income ownership and fetch allocations in a single query.
 func (s *Store) ListIncomeAllocations(
 	ctx context.Context,
 	userID string,
 	incomeID string,
 ) ([]IncomeAllocation, error) {
-	// First verify the income belongs to the user
-	var exists bool
-	err := s.db.QueryRowContext(ctx,
-		`SELECT EXISTS(SELECT 1 FROM finance_incomes WHERE id = $1 AND user_id = $2)`,
-		incomeID, userID,
-	).Scan(&exists)
-	if err != nil {
-		return nil, fmt.Errorf("failed to verify income ownership: %w", err)
-	}
-	if !exists {
-		return nil, ErrNotFound
-	}
-
 	query := `
-	SELECT id, income_id, target_cash_account_id, target_investment_id, allocation_type, allocation_value, created_at
-	FROM income_allocations
-	WHERE income_id = $1
-	ORDER BY created_at`
+	SELECT
+		fi.id,
+		ia.id,
+		ia.target_cash_account_id,
+		ia.target_investment_id,
+		ia.allocation_type,
+		ia.allocation_value,
+		ia.created_at
+	FROM finance_incomes fi
+	LEFT JOIN income_allocations ia ON ia.income_id = fi.id
+	WHERE fi.id = $1 AND fi.user_id = $2
+	ORDER BY ia.created_at`
 
-	logQuery(query, []any{incomeID})
-	rows, err := s.db.QueryContext(ctx, query, incomeID)
+	logQuery(query, []any{incomeID, userID})
+	rows, err := s.db.QueryContext(ctx, query, incomeID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query income allocations: %w", err)
 	}
 	defer rows.Close()
 
 	allocations := []IncomeAllocation{}
+	foundIncome := false
+
 	for rows.Next() {
-		var a IncomeAllocation
-		var targetCashAccountID, targetInvestmentID sql.NullString
+		foundIncome = true
+
+		var incomeIDResult string
+		var id, targetCashAccountID, targetInvestmentID, allocationType sql.NullString
+		var allocationValue decimal.Decimal
+		var createdAt sql.NullTime
 
 		err := rows.Scan(
-			&a.ID, &a.IncomeID,
-			&targetCashAccountID, &targetInvestmentID,
-			&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
+			&incomeIDResult,
+			&id,
+			&targetCashAccountID,
+			&targetInvestmentID,
+			&allocationType,
+			&allocationValue,
+			&createdAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan income allocation: %w", err)
 		}
 
+		// Skip if no allocation (LEFT JOIN produced NULL row)
+		if !id.Valid {
+			continue
+		}
+
+		a := IncomeAllocation{
+			ID:              id.String,
+			IncomeID:        incomeID,
+			AllocationType:  allocationType.String,
+			AllocationValue: allocationValue,
+			CreatedAt:       createdAt.Time,
+		}
 		if targetCashAccountID.Valid {
 			a.TargetCashAccountID = &targetCashAccountID.String
 		}
@@ -896,6 +914,10 @@ func (s *Store) ListIncomeAllocations(
 		}
 
 		allocations = append(allocations, a)
+	}
+
+	if !foundIncome {
+		return nil, ErrNotFound
 	}
 
 	return allocations, nil
