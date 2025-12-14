@@ -34,6 +34,7 @@ import {
 import { getItemId } from './utils'
 import { Header } from './components/Header'
 import { CategoryCard } from './components/CategoryCard'
+import { ResizableCard } from './components/ResizableCard'
 import { SummaryCards } from './components/SummaryCards'
 
 export type { FinancialDataManagementProps }
@@ -554,10 +555,10 @@ export function FinancialDataManagement({
 
         <div className="flex-1 overflow-auto px-6 py-6">
           <div className="flex h-full flex-col gap-6">
-            <div className="grid flex-1 content-stretch gap-4 auto-rows-[1fr] lg:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-2">
               {(Object.keys(categoryConfig) as FinancialCategory[]).map((key) => (
+                <ResizableCard key={key} id={key}>
                 <CategoryCard
-                  key={key}
                   category={key}
                   data={getDataForCategory(key)}
                   sortDirection={sortDirections[key]}
@@ -597,6 +598,7 @@ export function FinancialDataManagement({
                   hasInvestmentsSection={key === 'income' ? hasInvestmentsSection : false}
                   monthlyInvestments={key === 'income' ? monthlyInvestments : 0}
                 />
+                </ResizableCard>
               ))}
             </div>
 

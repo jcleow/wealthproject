@@ -128,7 +128,7 @@ export function CategoryCard({
   }
 
   return (
-    <div className="flex w-full min-w-0 max-h-[350px] flex-col overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/60 transition-all hover:border-white/[0.15]">
+    <div className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/60 transition-all hover:border-white/[0.15]">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-2.5">
         <div className="flex items-center gap-2.5">
