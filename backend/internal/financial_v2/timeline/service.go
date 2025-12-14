@@ -962,16 +962,17 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, dat
 		}
 
 		responses = append(responses, ExpenseResponse{
-			ID:              row.ID,
-			ParentID:        row.ParentID,
-			Name:            name,
-			Category:        row.Category,
-			Amount:          *amount,
-			AdjAmount:       *amount,
-			SourceFrequency: string(row.Frequency),
-			ItemType:        string(row.ItemType),
-			StartYear:       state.StartYear,
-			StartMonth:      state.StartMonth,
+			ID:                row.ID,
+			ParentID:          row.ParentID,
+			Name:              name,
+			Category:          row.Category,
+			Amount:            *amount,
+			AdjAmount:         *amount,
+			SourceFrequency:   string(row.Frequency),
+			ItemType:          string(row.ItemType),
+			StartYear:         state.StartYear,
+			StartMonth:        state.StartMonth,
+			SourceLiabilityID: row.SourceLiabilityID,
 		})
 	}
 	return responses

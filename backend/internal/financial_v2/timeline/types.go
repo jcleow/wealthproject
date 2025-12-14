@@ -218,14 +218,15 @@ type CPFContributionResponse struct {
 
 // ExpenseResponse represents an expense in the timeline response
 type ExpenseResponse struct {
-	ID              string          `json:"id"`
-	ParentID        string          `json:"parentId"`
-	Name            string          `json:"name"`
-	Category        string          `json:"category"`
-	Amount          decimal.Decimal `json:"amount"`
-	AdjAmount       decimal.Decimal `json:"adjAmount"`
-	SourceFrequency string          `json:"sourceFrequency"`
-	ItemType        string          `json:"itemType"`
-	StartYear       int             `json:"startYear"`
-	StartMonth      int             `json:"startMonth"`
+	ID                string          `json:"id"`
+	ParentID          string          `json:"parentId"`
+	Name              string          `json:"name"`
+	Category          string          `json:"category"`
+	Amount            decimal.Decimal `json:"amount"`
+	AdjAmount         decimal.Decimal `json:"adjAmount"`
+	SourceFrequency   string          `json:"sourceFrequency"`
+	ItemType          string          `json:"itemType"`
+	StartYear         int             `json:"startYear"`
+	StartMonth        int             `json:"startMonth"`
+	SourceLiabilityID *string         `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
 }

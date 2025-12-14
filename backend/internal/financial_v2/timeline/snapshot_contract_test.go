@@ -765,6 +765,107 @@ func TestSnapshotContract_AccumulatorAccountIDSet(t *testing.T) {
 	}
 }
 
+// TestSnapshotContract_LinkedExpensesIncludeSourceLiabilityID verifies that expenses
+// linked to liabilities include the SourceLiabilityID field in the response.
+// This is a critical contract test - the frontend needs this field to properly
+// display debt repayment relationships.
+func TestSnapshotContract_LinkedExpensesIncludeSourceLiabilityID(t *testing.T) {
+	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	liabilityID := "credit-card-debt"
+
+	store := &fullMockStore{
+		liabilities: []repo.Liability{
+			{
+				ID:              liabilityID,
+				ParentID:        liabilityID,
+				Name:            "Credit Card",
+				Category:        "Credit Card Debt",
+				CurrentBalance:  *decimal.MustFromString("5000"),
+				InterestRateAPR: *decimal.MustFromString("18"),
+				MinimumPayment:  *decimal.MustFromString("100"),
+				StartDate:       startDate,
+			},
+		},
+		expenses: []repo.Expense{
+			{
+				ID:                "cc-payment",
+				ParentID:          "cc-payment",
+				Payee:             "Credit Card",
+				Amount:            *decimal.MustFromString("300"),
+				Frequency:         "monthly",
+				StartDate:         startDate,
+				Category:          "Debt Payment",
+				GrowthRate:        *decimal.MustFromString("0"),
+				SourceLiabilityID: &liabilityID, // Linked to liability
+			},
+			{
+				ID:        "groceries",
+				ParentID:  "groceries",
+				Payee:     "Groceries",
+				Amount:    *decimal.MustFromString("500"),
+				Frequency: "monthly",
+				StartDate: startDate,
+				Category:  "Food",
+			},
+		},
+	}
+
+	service := NewService(store)
+	opts := TimelineOptions{
+		StartDate: startDate,
+		EndDate:   startDate,
+	}
+
+	result, err := service.ComputeFinancialSnapshot(context.Background(), "user-1", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	month := result.Months[0]
+
+	if len(month.Expenses) != 2 {
+		t.Fatalf("expected 2 expenses, got %d", len(month.Expenses))
+	}
+
+	// Find the linked expense
+	var linkedExpense, regularExpense *ExpenseResponse
+	for i := range month.Expenses {
+		exp := &month.Expenses[i]
+		if exp.ID == "cc-payment" {
+			linkedExpense = exp
+		} else if exp.ID == "groceries" {
+			regularExpense = exp
+		}
+	}
+
+	// CRITICAL: Linked expense must have SourceLiabilityID
+	if linkedExpense == nil {
+		t.Fatal("CRITICAL: linked expense 'cc-payment' not found in response")
+	}
+	if linkedExpense.SourceLiabilityID == nil {
+		t.Error("CRITICAL: linked expense must have SourceLiabilityID field populated")
+	} else if *linkedExpense.SourceLiabilityID != liabilityID {
+		t.Errorf("linked expense: expected SourceLiabilityID '%s', got '%s'",
+			liabilityID, *linkedExpense.SourceLiabilityID)
+	}
+
+	// Linked expense name should have " Repayment" suffix
+	if linkedExpense.Name != "Credit Card Repayment" {
+		t.Errorf("linked expense: expected name 'Credit Card Repayment', got '%s'", linkedExpense.Name)
+	}
+
+	// Regular expense should NOT have SourceLiabilityID
+	if regularExpense == nil {
+		t.Fatal("regular expense 'groceries' not found in response")
+	}
+	if regularExpense.SourceLiabilityID != nil {
+		t.Error("regular expense should not have SourceLiabilityID set")
+	}
+	if regularExpense.Name != "Groceries" {
+		t.Errorf("regular expense: expected name 'Groceries', got '%s'", regularExpense.Name)
+	}
+}
+
 // TestSnapshotContract_MultipleMonths_AllItemsConsistent verifies that items
 // appear consistently across multiple months when they're active
 func TestSnapshotContract_MultipleMonths_AllItemsConsistent(t *testing.T) {

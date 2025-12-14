@@ -735,6 +735,22 @@ func TestComputeFinancialSnapshot_OpenEndedLiabilityWithLinkedExpense(t *testing
 		t.Errorf("month 2: expected balance between %s and %s, got %s",
 			expectedMonth2Min.String(), expectedMonth2Max.String(), month2Balance.String())
 	}
+
+	// Verify linked expense includes SourceLiabilityID in response
+	for _, month := range result.Months {
+		if len(month.Expenses) != 1 {
+			t.Fatalf("expected 1 expense, got %d", len(month.Expenses))
+		}
+		expense := month.Expenses[0]
+		if expense.SourceLiabilityID == nil {
+			t.Errorf("expense should have SourceLiabilityID set")
+		} else if *expense.SourceLiabilityID != liabilityID {
+			t.Errorf("expense SourceLiabilityID = %s, want %s", *expense.SourceLiabilityID, liabilityID)
+		}
+		if expense.Name != "Credit Card Payment Repayment" {
+			t.Errorf("expense name = %s, want 'Credit Card Payment Repayment'", expense.Name)
+		}
+	}
 }
 
 // TestComputeFinancialSnapshot_LiabilityGrowsWhenPaymentLessThanInterest verifies that
