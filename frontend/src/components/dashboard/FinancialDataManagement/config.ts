@@ -1,0 +1,49 @@
+import { Wallet, TrendingUp, CreditCard, Activity } from 'lucide-react'
+import type { FinancialCategory, CategoryConfig } from './types'
+
+export const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
+  asset: {
+    title: 'Assets',
+    emptyDescription: 'No assets added yet',
+    icon: Wallet,
+    accent: 'bg-emerald-500',
+    gradientBg: 'bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/20',
+    textColor: 'text-emerald-400',
+    progressColor: 'bg-emerald-500',
+    singular: 'asset',
+    plural: 'assets',
+  },
+  income: {
+    title: 'Annual Income',
+    emptyDescription: 'No income added yet',
+    icon: TrendingUp,
+    accent: 'bg-blue-500',
+    gradientBg: 'bg-gradient-to-br from-blue-500/20 to-blue-500/5 border-blue-500/20',
+    textColor: 'text-blue-400',
+    progressColor: 'bg-blue-500',
+    singular: 'income',
+    plural: 'income',
+  },
+  liability: {
+    title: 'Liabilities',
+    emptyDescription: 'No liabilities added yet',
+    icon: CreditCard,
+    accent: 'bg-rose-500',
+    gradientBg: 'bg-gradient-to-br from-rose-500/20 to-rose-500/5 border-rose-500/20',
+    textColor: 'text-rose-400',
+    progressColor: 'bg-rose-500',
+    singular: 'liability',
+    plural: 'liabilities',
+  },
+  expense: {
+    title: 'Annual Expenses',
+    emptyDescription: 'No expenses added yet',
+    icon: Activity,
+    accent: 'bg-amber-500',
+    gradientBg: 'bg-gradient-to-br from-amber-500/20 to-amber-500/5 border-amber-500/20',
+    textColor: 'text-amber-400',
+    progressColor: 'bg-amber-500',
+    singular: 'expense',
+    plural: 'expenses',
+  },
+}
