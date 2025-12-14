@@ -619,7 +619,7 @@ func buildLiabilitySchedules(rows []FinancialDataRow) map[string][]decimal.Decim
 // calcCashAllocation computes net savings and net cash flow for active rows.
 // Returns:
 //   - netSavings: income - employeeCPF - expenses
-//   - netCashFlow: income - employeeCPF - expenses - investmentAllocations (actual cash impact)
+//   - netCashFlow: income - employeeCPF - expenses - investmentAllocations (always net of investments for display)
 //   - netInvestments: total amount allocated to investments this month
 func calcCashAllocation(
 	data EffectiveRows,
@@ -648,16 +648,12 @@ func calcCashAllocation(
 
 	netSavings = income.Sub(employeeCPF).Sub(expense)
 
-	// Apply investment allocations - adds allocation amounts to investment balances
+	// Apply investment allocations - adds allocation amounts to investment balances (only when applyAllocations is true)
 	netInvestments = applyInvestmentAllocations(data.Incomes, incomeAllocations, state, currentDate, applyAllocations)
 
-	// Deduct (optionally) investment allocations from net cash flow
-	// netSavings already has CPF deducted, so netCashFlow = netSavings - investments
-	if applyAllocations {
-		netCashFlow = netSavings.Sub(netInvestments)
-	} else {
-		netCashFlow = netSavings
-	}
+	// Always compute netCashFlow = netSavings - investments for display purposes
+	// applyAllocations only controls whether investment balances are mutated, not the cash flow calculation
+	netCashFlow = netSavings.Sub(netInvestments)
 
 	return netSavings, netCashFlow, netInvestments
 }
@@ -1103,14 +1099,15 @@ func buildMonthDetailResponse(
 
 // MonthlyContext holds all state needed to process a single month
 type MonthlyContext struct {
-	Data              EffectiveRows
-	ItemStates        ItemStateMap
-	State             map[string]*decimal.Decimal
-	Registry          *growth.Registry
-	CPFCtx            *CPFContext
-	BaseYear          int
-	CashAccumulator   *decimal.Decimal
-	IncomeAllocations []repo.IncomeAllocation
+	Data               EffectiveRows
+	ItemStates         ItemStateMap
+	State              map[string]*decimal.Decimal
+	Registry           *growth.Registry
+	CPFCtx             *CPFContext
+	BaseYear           int
+	CashAccumulator    *decimal.Decimal
+	IncomeAllocations  []repo.IncomeAllocation
+	LiabilitySchedules map[string][]decimal.Decimal
 }
 
 // processMonth handles all calculations for a single month and returns the response
