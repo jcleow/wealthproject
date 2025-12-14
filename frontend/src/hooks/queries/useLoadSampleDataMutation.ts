@@ -269,15 +269,6 @@ export function useLoadSampleDataMutation() {
           notes: 'Clothes, gadgets, movies',
         },
         {
-          payee: 'Investment Contribution',
-          category: 'Savings',
-          amount: 500,
-          frequency: 'monthly',
-          startDate: todayIso,
-          growthRate: 3.0,
-          notes: 'Monthly DCA to Syfe portfolio',
-        },
-        {
           payee: 'Annual Travel Fund',
           category: 'Travel',
           amount: 4000,
@@ -531,7 +522,7 @@ export function useLoadSampleDataMutation() {
             if (impact.targetType === 'asset') {
               const newAsset = await financialApi.createAsset({
                 name: impact.notes || `${event.name} - Asset`,
-                category: 'Investment',
+                category: 'other_asset',
                 currentValue: impactAmount,
                 annualGrowthRate: 3.0,
                 notes: `Created by scenario: ${event.name}`,
