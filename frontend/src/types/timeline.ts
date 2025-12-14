@@ -82,7 +82,7 @@ export interface TimelineMonth {
   liabilities: TimelineItem[]
   income: TimelineItem[]
   expenses: TimelineItem[]
-  /** Monthly net savings (income - expenses) */
+  /** Monthly net cash (income - CPF - expenses) */
   netCash: number
   netWorth: number
   hasOverrides: boolean
@@ -142,8 +142,8 @@ export interface MonthDetailResponseV2 {
   cpfContributions: CPFContributionResponseV2[]
   expenses: ExpenseResponseV2[]
   // Savings breakdown
-  netSavings: string      // income - expenses (monthly)
-  netCash: string         // income - expenses - employee CPF (monthly)
+  netSavings: string      // income - employee CPF - expenses (monthly)
+  netCash: string         // income - employee CPF - expenses - investments (monthly)
   netInvestments: string  // employee CPF contribution (monthly)
   // Other totals
   netWorth: string
