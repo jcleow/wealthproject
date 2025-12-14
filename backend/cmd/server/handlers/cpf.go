@@ -47,6 +47,8 @@ func (h *CPFHandler) handleAccount(w http.ResponseWriter, r *http.Request) {
 		h.createAccount(w, r)
 	case http.MethodPut:
 		h.updateAccount(w, r)
+	case http.MethodDelete:
+		h.deleteAccount(w, r)
 	default:
 		methodNotAllowed(w)
 	}
@@ -290,6 +292,25 @@ func (h *CPFHandler) updateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, accountToResponse(updated))
+}
+
+func (h *CPFHandler) deleteAccount(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	err := h.accountRepo.Delete(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, account.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "CPF account not found")
+			return
+		}
+		internalError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ===============================

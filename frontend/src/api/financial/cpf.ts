@@ -50,6 +50,10 @@ export async function updateCPFAccount(payload: CPFAccountUpdatePayload): Promis
   return toCPFAccount(data)
 }
 
+export async function deleteCPFAccount(): Promise<void> {
+  await apiClient.delete('/cpf/account')
+}
+
 export async function getCPFConfig(params?: { year?: number; date?: string }): Promise<CPFConfiguration> {
   const searchParams = new URLSearchParams()
   if (params?.year) searchParams.set('year', params.year.toString())
@@ -84,6 +88,7 @@ export const cpfApi = {
   getCPFAccount,
   createCPFAccount,
   updateCPFAccount,
+  deleteCPFAccount,
   getCPFConfig,
   listCPFConfigYears,
   getCPFContributionPreview,

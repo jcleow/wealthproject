@@ -18,7 +18,7 @@ export function useLoadSampleDataMutation() {
 
   return useMutation({
     mutationFn: async () => {
-      // First clear all data
+      // First clear all data including CPF
       await Promise.all([
         financialApi.deleteAllAssets(),
         financialApi.deleteAllInvestments(),
@@ -27,6 +27,7 @@ export function useLoadSampleDataMutation() {
         financialApi.deleteAllExpenses(),
         financialApi.deleteAllCashAccounts(),
         financialApi.deleteAllScenarioEvents(),
+        financialApi.deleteCPFAccount().catch(() => {}), // Ignore if no CPF account exists
       ])
 
       // Ensure CPF profile exists so timeline v2 can show CPF assets and contributions
