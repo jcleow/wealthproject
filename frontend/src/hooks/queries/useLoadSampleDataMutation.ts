@@ -491,6 +491,8 @@ export function useLoadSampleDataMutation() {
 
       // Build lookup maps for linking delta/override impacts to existing items
       const incomeBySource = new Map(incomes.map(inc => [inc.source, inc.id]))
+      const expensesResult = await financialApi.listExpenses()
+      const expenses = expensesResult.data
 
       // Create scenario events with properly linked impacts
       // For 'start' impacts: create new financial items and link them
@@ -609,8 +611,6 @@ export function useLoadSampleDataMutation() {
         } as ScenarioEvent)
         scenarioEvents.push(createdEvent)
       }
-
-      const expensesResult = await financialApi.listExpenses({ limit: -1 })
 
       return { assets, investments, liabilities, incomes, expenses: expensesResult.data, scenarioEvents }
     },
