@@ -860,8 +860,7 @@ func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 }
 
 // buildLiabilityResponses builds responses for liabilities and returns total value
-// Unlike other items, liabilities with outstanding balance are included even past their end date
-// (debt doesn't disappear just because the loan term ended)
+// Only includes liabilities with outstanding balance (fully repaid liabilities are hidden)
 func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) ([]LiabilityResponse, *decimal.Decimal) {
 	responses := make([]LiabilityResponse, 0)
 	total := decimal.Zero()
@@ -872,9 +871,8 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, d
 			continue
 		}
 
-		// Include if: (1) actively within loan term, OR (2) has outstanding balance past end date
-		hasOutstandingBalance := state.Balance.Cmp(decimal.Zero()) > 0
-		if !isActiveInMonth(row, date) && !hasOutstandingBalance {
+		// Only include liabilities with outstanding balance (hide fully repaid ones)
+		if state.Balance.Cmp(decimal.Zero()) <= 0 {
 			continue
 		}
 		total = total.Add(state.Balance)
@@ -943,6 +941,7 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, date
 }
 
 // buildExpenseResponses builds responses for expenses
+// Linked expenses (debt payments) are hidden once their liability is fully repaid
 func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) []ExpenseResponse {
 	responses := make([]ExpenseResponse, 0)
 
@@ -954,6 +953,15 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, dat
 		if state == nil {
 			continue
 		}
+
+		// If this is a linked expense (debt payment), hide it if the liability is fully repaid
+		if row.SourceLiabilityID != nil {
+			liabilityState := itemStates[*row.SourceLiabilityID]
+			if liabilityState != nil && liabilityState.Balance.Cmp(decimal.Zero()) <= 0 {
+				continue // Liability fully repaid, hide the linked expense
+			}
+		}
+
 		// Convert to monthly amount for display
 		monthlyAmt := common.ToMonthlyAmount(state.Balance, row.Frequency)
 		amount := monthlyAmt.Round(0)
