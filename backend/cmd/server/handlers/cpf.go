@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -14,15 +15,23 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 )
 
+// cpfAccountStore defines the interface for CPF account persistence.
+type cpfAccountStore interface {
+	Get(ctx context.Context, userID string) (*account.CPFAccount, error)
+	Upsert(ctx context.Context, acc *account.CPFAccount) (*account.CPFAccount, error)
+	Update(ctx context.Context, userID string, acc *account.CPFAccount) (*account.CPFAccount, error)
+	Delete(ctx context.Context, userID string) error
+}
+
 // CPFHandler serves CPF-related endpoints.
 //
 // TODO: Migrate API request/response types from float64 to string-serialized decimals
 // for consistency with other financial endpoints and to avoid precision loss at JSON boundary.
 type CPFHandler struct {
-	accountRepo *account.Repository
+	accountRepo cpfAccountStore
 }
 
-func NewCPFHandler(accountRepo *account.Repository) *CPFHandler {
+func NewCPFHandler(accountRepo cpfAccountStore) *CPFHandler {
 	return &CPFHandler{
 		accountRepo: accountRepo,
 	}
