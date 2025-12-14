@@ -378,3 +378,101 @@ func GetStrategy(strategyType StrategyType) Strategy {
 		return NewStandardAmortization()
 	}
 }
+
+// LiabilityMonthParams contains all parameters needed for processing a liability for one month
+type LiabilityMonthParams struct {
+	CurrentBalance    *decimal.Decimal // Outstanding principal
+	InterestRateAPR   *decimal.Decimal // Annual interest rate (percentage)
+	RepaymentStrategy string           // Strategy type from database
+	MinimumPayment    *decimal.Decimal // Minimum payment field from liability
+	RemainingMonths   int              // Months until end date (0 or negative if past/no end date)
+	HasEndDate        bool             // Whether liability has a fixed term
+	LinkedExpenseAmt  *decimal.Decimal // Monthly amount from linked expense (nil if no linked expense)
+}
+
+// LiabilityMonthResult contains the result of processing a liability for one month
+type LiabilityMonthResult struct {
+	NewBalance     *decimal.Decimal // Balance after this month's payment
+	MonthlyPayment *decimal.Decimal // Payment amount for this month
+	Skipped        bool             // True if processing was skipped (e.g., past end date)
+}
+
+// ProcessLiabilityMonth processes a liability for one month using the appropriate strategy.
+// This encapsulates all strategy selection and configuration logic.
+func ProcessLiabilityMonth(p LiabilityMonthParams) (*LiabilityMonthResult, error) {
+	// Validate inputs
+	if p.CurrentBalance == nil || p.CurrentBalance.Cmp(decimal.Zero()) <= 0 {
+		return &LiabilityMonthResult{
+			NewBalance:     p.CurrentBalance,
+			MonthlyPayment: decimal.Zero(),
+			Skipped:        true,
+		}, nil
+	}
+
+	// For fixed-term liabilities past their end date, skip processing
+	if p.HasEndDate && p.RemainingMonths <= 0 {
+		return &LiabilityMonthResult{
+			NewBalance:     p.CurrentBalance,
+			MonthlyPayment: decimal.Zero(),
+			Skipped:        true,
+		}, nil
+	}
+
+	// Build base params
+	params := Params{
+		CurrentBalance:  p.CurrentBalance,
+		InterestRateAPR: p.InterestRateAPR,
+	}
+
+	// Get strategy type (default to standard_amortization)
+	strategyType := StrategyType(p.RepaymentStrategy)
+	if p.RepaymentStrategy == "" {
+		strategyType = StandardAmortization
+	}
+
+	// For fixed-term liabilities, set remaining term for amortization
+	if p.HasEndDate && p.RemainingMonths > 0 {
+		params.TotalPeriods = p.RemainingMonths
+		params.PeriodIndex = 0 // Always treat as first period for reamortization
+	}
+
+	// Configure strategy-specific params
+	switch strategyType {
+	case InterestOnly:
+		params.InterestOnlyMonths = 9999 // Effectively always interest-only
+
+	case MinimumPayment:
+		params.MinPaymentPct = p.MinimumPayment // Interpret as percentage
+
+	case FixedPayment:
+		if p.LinkedExpenseAmt != nil {
+			params.MinimumPayment = p.LinkedExpenseAmt
+		} else {
+			params.MinimumPayment = p.MinimumPayment
+		}
+
+	case StandardAmortization:
+		// For open-ended liabilities with standard_amortization, fall back to fixed payment
+		if !p.HasEndDate {
+			if p.LinkedExpenseAmt != nil {
+				params.MinimumPayment = p.LinkedExpenseAmt
+			} else {
+				params.MinimumPayment = decimal.Zero()
+			}
+			strategyType = FixedPayment
+		}
+	}
+
+	// Calculate
+	strategy := GetStrategy(strategyType)
+	result, err := strategy.Calculate(params)
+	if err != nil {
+		return nil, err
+	}
+
+	return &LiabilityMonthResult{
+		NewBalance:     result.RemainingBalance,
+		MonthlyPayment: result.MonthlyPayment,
+		Skipped:        false,
+	}, nil
+}

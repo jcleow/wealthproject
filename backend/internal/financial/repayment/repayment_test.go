@@ -464,3 +464,121 @@ func almostEqualDecimal(a, b, tolerance *decimal.Decimal) bool {
 
 	return absDiff.Cmp(tolerance) < 0
 }
+
+// =============================================================================
+// ProcessLiabilityMonth Tests
+// =============================================================================
+
+func TestProcessLiabilityMonth_FixedTermAmortization(t *testing.T) {
+	// Fixed-term loan with 12 months remaining
+	result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
+		CurrentBalance:    decimal.MustFromFloat64(10000),
+		InterestRateAPR:   decimal.MustFromFloat64(12), // 12% APR = 1% monthly
+		RepaymentStrategy: "standard_amortization",
+		HasEndDate:        true,
+		RemainingMonths:   12,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Skipped {
+		t.Error("expected processing, got skipped")
+	}
+	if result.NewBalance.Cmp(decimal.MustFromFloat64(10000)) >= 0 {
+		t.Errorf("expected balance to decrease, got %s", result.NewBalance.String())
+	}
+	if result.MonthlyPayment.Cmp(decimal.Zero()) <= 0 {
+		t.Errorf("expected positive payment, got %s", result.MonthlyPayment.String())
+	}
+}
+
+func TestProcessLiabilityMonth_OpenEndedWithLinkedExpense(t *testing.T) {
+	// Open-ended liability with linked expense (credit card with fixed payment)
+	linkedExpense := decimal.MustFromFloat64(500)
+	result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
+		CurrentBalance:    decimal.MustFromFloat64(10000),
+		InterestRateAPR:   decimal.MustFromFloat64(24), // 24% APR = 2% monthly
+		RepaymentStrategy: "standard_amortization",
+		HasEndDate:        false,
+		LinkedExpenseAmt:  linkedExpense,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Skipped {
+		t.Error("expected processing, got skipped")
+	}
+	// Payment should be the linked expense amount
+	if result.MonthlyPayment.Cmp(linkedExpense) != 0 {
+		t.Errorf("expected payment %s, got %s", linkedExpense.String(), result.MonthlyPayment.String())
+	}
+}
+
+func TestProcessLiabilityMonth_PastEndDate(t *testing.T) {
+	// Liability past its end date should be skipped
+	result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
+		CurrentBalance:    decimal.MustFromFloat64(5000),
+		InterestRateAPR:   decimal.MustFromFloat64(12),
+		RepaymentStrategy: "standard_amortization",
+		HasEndDate:        true,
+		RemainingMonths:   0, // Past end date
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Skipped {
+		t.Error("expected skipped for past end date")
+	}
+	// Balance should remain unchanged
+	if result.NewBalance.Cmp(decimal.MustFromFloat64(5000)) != 0 {
+		t.Errorf("expected balance unchanged at 5000, got %s", result.NewBalance.String())
+	}
+}
+
+func TestProcessLiabilityMonth_ZeroBalance(t *testing.T) {
+	// Zero balance should be skipped
+	result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
+		CurrentBalance:    decimal.Zero(),
+		InterestRateAPR:   decimal.MustFromFloat64(12),
+		RepaymentStrategy: "standard_amortization",
+		HasEndDate:        true,
+		RemainingMonths:   12,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Skipped {
+		t.Error("expected skipped for zero balance")
+	}
+}
+
+func TestProcessLiabilityMonth_InterestOnly(t *testing.T) {
+	// Interest-only strategy
+	result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
+		CurrentBalance:    decimal.MustFromFloat64(10000),
+		InterestRateAPR:   decimal.MustFromFloat64(12), // 12% APR = 1% monthly = $100 interest
+		RepaymentStrategy: "interest_only",
+		HasEndDate:        false,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Skipped {
+		t.Error("expected processing, got skipped")
+	}
+	// Balance should remain unchanged (interest-only)
+	if result.NewBalance.Cmp(decimal.MustFromFloat64(10000)) != 0 {
+		t.Errorf("expected balance unchanged at 10000, got %s", result.NewBalance.String())
+	}
+	// Payment should be interest only (~$100)
+	expectedPayment := decimal.MustFromFloat64(100)
+	tolerance := decimal.MustFromString("1")
+	if !almostEqualDecimal(result.MonthlyPayment, expectedPayment, tolerance) {
+		t.Errorf("expected payment ~%s, got %s", expectedPayment.String(), result.MonthlyPayment.String())
+	}
+}

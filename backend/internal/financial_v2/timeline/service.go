@@ -595,108 +595,48 @@ func processLiabilityMonth(
 			continue
 		}
 
-		currentBalance := state[liability.ID]
-		if currentBalance == nil || currentBalance.Cmp(decimal.Zero()) <= 0 {
-			continue
-		}
-
 		// Skip mutations in anchor month (report starting balance only)
 		if isAnchorMonth {
 			continue
 		}
 
-		// Build repayment params
-		params := repayment.Params{
-			CurrentBalance:  currentBalance,
-			InterestRateAPR: &liability.InterestRate,
+		// Get linked expense amount if available
+		var linkedExpenseAmt *decimal.Decimal
+		if expense, hasLinked := linkedExpenses[liability.ID]; hasLinked && isActiveInMonth(expense, currentDate) {
+			expenseAmount := state[expense.ID]
+			if expenseAmount == nil {
+				expenseAmount = &expense.Amount
+			}
+			linkedExpenseAmt = common.ToMonthlyAmount(expenseAmount, expense.Frequency)
 		}
 
-		// Get repayment strategy from database (default to standard_amortization)
-		strategyType := repayment.StrategyType(liability.RepaymentStrategy)
-		if liability.RepaymentStrategy == "" {
-			strategyType = repayment.StandardAmortization
-		}
-
-		// For fixed-term liabilities, check remaining term
+		// Calculate remaining months for fixed-term liabilities
+		remainingMonths := 0
 		if liability.EndDate != nil {
-			remainingMonths := common.MonthsBetween(currentDate, *liability.EndDate)
-			if remainingMonths <= 0 {
-				// Past end date - balance carries over unchanged (user may still owe)
-				continue
-			}
-			params.TotalPeriods = remainingMonths
-			params.PeriodIndex = 0 // Always treat as first period of remaining term for reamortization
+			remainingMonths = common.MonthsBetween(currentDate, *liability.EndDate)
 		}
 
-		// Configure strategy-specific params
-		switch strategyType {
-		case repayment.InterestOnly:
-			// Interest-only: use the InterestOnlyMonths from metadata or default
-			params.InterestOnlyMonths = 9999 // Effectively always interest-only unless overridden
+		// Delegate to repayment module
+		result, err := repayment.ProcessLiabilityMonth(repayment.LiabilityMonthParams{
+			CurrentBalance:    state[liability.ID],
+			InterestRateAPR:   &liability.InterestRate,
+			RepaymentStrategy: liability.RepaymentStrategy,
+			MinimumPayment:    &liability.MinimumPay,
+			RemainingMonths:   remainingMonths,
+			HasEndDate:        liability.EndDate != nil,
+			LinkedExpenseAmt:  linkedExpenseAmt,
+		})
 
-		case repayment.MinimumPayment:
-			// Minimum payment: use percentage of balance
-			params.MinPaymentPct = &liability.MinimumPay // Interpret as percentage if set
-
-		case repayment.FixedPayment:
-			// Fixed payment: use linked expense amount if available
-			if expense, hasLinked := linkedExpenses[liability.ID]; hasLinked {
-				if !isActiveInMonth(expense, currentDate) {
-					params.MinimumPayment = decimal.Zero()
-				} else {
-					expenseAmount := state[expense.ID]
-					if expenseAmount == nil {
-						expenseAmount = &expense.Amount
-					}
-					monthlyPayment := common.ToMonthlyAmount(expenseAmount, expense.Frequency)
-					if monthlyPayment == nil {
-						monthlyPayment = decimal.Zero()
-					}
-					params.MinimumPayment = monthlyPayment
-				}
-			} else {
-				params.MinimumPayment = &liability.MinimumPay
-			}
-
-		case repayment.StandardAmortization:
-			// Standard amortization uses TotalPeriods set above for fixed-term
-			// For open-ended (no end date), fall back to fixed payment with linked expense
-			if liability.EndDate == nil {
-				if expense, hasLinked := linkedExpenses[liability.ID]; hasLinked {
-					if !isActiveInMonth(expense, currentDate) {
-						params.MinimumPayment = decimal.Zero()
-					} else {
-						expenseAmount := state[expense.ID]
-						if expenseAmount == nil {
-							expenseAmount = &expense.Amount
-						}
-						monthlyPayment := common.ToMonthlyAmount(expenseAmount, expense.Frequency)
-						if monthlyPayment == nil {
-							monthlyPayment = decimal.Zero()
-						}
-						params.MinimumPayment = monthlyPayment
-					}
-					strategyType = repayment.FixedPayment
-				} else {
-					// Open-ended without payment: interest only (balance grows)
-					params.MinimumPayment = decimal.Zero()
-					strategyType = repayment.FixedPayment
-				}
-			}
+		if err != nil || result.Skipped {
+			continue
 		}
 
-		strategy := repayment.GetStrategy(strategyType)
+		// Update state
+		state[liability.ID] = result.NewBalance
 
-		// Calculate and apply
-		result, err := strategy.Calculate(params)
-		if err == nil && result.RemainingBalance != nil {
-			state[liability.ID] = result.RemainingBalance
-
-			// Update linked expense state with the calculated payment amount
-			// This ensures the expense shows the correct payment in the timeline
-			if expense, hasLinked := linkedExpenses[liability.ID]; hasLinked {
-				state[expense.ID] = result.MonthlyPayment
-			}
+		// Update linked expense state with the calculated payment amount
+		if expense, hasLinked := linkedExpenses[liability.ID]; hasLinked {
+			state[expense.ID] = result.MonthlyPayment
 		}
 	}
 }
