@@ -2,6 +2,9 @@
 - backend/financial is deprecated unless working on maintenance issues.
 - All new changes should be made in backend/financial_v2
 
+### Testing
+- After relevant changes on the backend, please ensure to add or update tests
+
 ### Safety and permissions
 
 Allowed without prompt:
