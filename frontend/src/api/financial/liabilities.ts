@@ -10,12 +10,13 @@ export async function listLiabilities(params?: PaginationParams): Promise<Pagina
 }
 
 export async function createLiability(payload: Omit<Liability, 'id' | 'updatedAt'>): Promise<Liability> {
+  // V2 endpoint expects decimal fields as strings
   const body: Record<string, unknown> = {
     name: payload.name,
     category: payload.category,
-    currentBalance: payload.currentBalance,
-    interestRateApr: payload.interestRateApr,
-    minimumPayment: payload.minimumPayment,
+    currentBalance: String(payload.currentBalance),
+    interestRateApr: String(payload.interestRateApr),
+    minimumPayment: String(payload.minimumPayment ?? 0),
     notes: payload.notes,
   }
 
