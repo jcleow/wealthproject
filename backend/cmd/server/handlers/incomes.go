@@ -10,6 +10,12 @@ import (
 	"financial-chat-system/backend/internal/financial/repository"
 )
 
+// Allocation type constants
+const (
+	AllocationTypePercentage = "percentage"
+	AllocationTypeFixed      = "fixed"
+)
+
 // incomeInput is the JSON-friendly input struct for income creation/update.
 type incomeInput struct {
 	ID             string   `json:"id"`
@@ -310,8 +316,8 @@ func (h *IncomeHandler) createAllocation(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Validate allocation type
-	if input.AllocationType != "percentage" && input.AllocationType != "fixed" {
-		badRequest(w, fmt.Errorf("allocationType must be 'percentage' or 'fixed'"))
+	if input.AllocationType != AllocationTypePercentage && input.AllocationType != AllocationTypeFixed {
+		badRequest(w, fmt.Errorf("allocationType must be '%s' or '%s'", AllocationTypePercentage, AllocationTypeFixed))
 		return
 	}
 
@@ -320,7 +326,7 @@ func (h *IncomeHandler) createAllocation(w http.ResponseWriter, r *http.Request,
 		badRequest(w, fmt.Errorf("allocationValue must be positive"))
 		return
 	}
-	if input.AllocationType == "percentage" && input.AllocationValue > 100 {
+	if input.AllocationType == AllocationTypePercentage && input.AllocationValue > 100 {
 		badRequest(w, fmt.Errorf("percentage allocationValue must be between 0 and 100"))
 		return
 	}
@@ -383,8 +389,8 @@ func (h *IncomeHandler) updateAllocation(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Validate allocation type
-	if input.AllocationType != "percentage" && input.AllocationType != "fixed" {
-		badRequest(w, fmt.Errorf("allocationType must be 'percentage' or 'fixed'"))
+	if input.AllocationType != AllocationTypePercentage && input.AllocationType != AllocationTypeFixed {
+		badRequest(w, fmt.Errorf("allocationType must be '%s' or '%s'", AllocationTypePercentage, AllocationTypeFixed))
 		return
 	}
 
@@ -393,7 +399,7 @@ func (h *IncomeHandler) updateAllocation(w http.ResponseWriter, r *http.Request,
 		badRequest(w, fmt.Errorf("allocationValue must be positive"))
 		return
 	}
-	if input.AllocationType == "percentage" && input.AllocationValue > 100 {
+	if input.AllocationType == AllocationTypePercentage && input.AllocationValue > 100 {
 		badRequest(w, fmt.Errorf("percentage allocationValue must be between 0 and 100"))
 		return
 	}

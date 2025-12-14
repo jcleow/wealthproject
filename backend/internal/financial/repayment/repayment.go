@@ -15,12 +15,20 @@ const (
 
 // Params contains all parameters needed for repayment calculation
 type Params struct {
-	CurrentBalance  *decimal.Decimal       // Outstanding principal
-	InterestRateAPR *decimal.Decimal       // Annual interest rate (percentage, e.g., 4.5 for 4.5%)
-	MinimumPayment  *decimal.Decimal       // Minimum payment amount (for revolving debt)
-	PeriodIndex     int                    // Month index (0-based from loan start)
-	TotalPeriods    int                    // Total loan term in months
-	Metadata        map[string]interface{} // Strategy-specific config
+	CurrentBalance  *decimal.Decimal // Outstanding principal
+	InterestRateAPR *decimal.Decimal // Annual interest rate (percentage, e.g., 4.5 for 4.5%)
+	MinimumPayment  *decimal.Decimal // Minimum payment amount (for revolving debt)
+	PeriodIndex     int              // Month index (0-based from loan start)
+	TotalPeriods    int              // Total loan term in months
+
+	// Strategy-specific parameters (preferred over Metadata)
+	InterestOnlyMonths int              // For InterestOnly strategy: number of interest-only months
+	MinPaymentPct      *decimal.Decimal // For MinimumPayment strategy: percentage of balance (e.g., 2 for 2%)
+	MinPaymentFloor    *decimal.Decimal // For MinimumPayment strategy: minimum dollar floor (e.g., 25)
+	ExtraPayment       *decimal.Decimal // For ExtraPayment strategy: additional monthly principal payment
+
+	// Deprecated: use typed fields above instead
+	Metadata map[string]interface{}
 }
 
 // Result contains the repayment calculation output
@@ -28,8 +36,7 @@ type Result struct {
 	MonthlyPayment   *decimal.Decimal // Total payment this month
 	PrincipalPortion *decimal.Decimal // Principal paid
 	InterestPortion  *decimal.Decimal // Interest paid
-	RemainingBalance *decimal.Decimal // Balance after payment
-	IsPayoff         bool             // True if loan is fully paid
+	RemainingBalance *decimal.Decimal // Balance after payment (check IsZero() for payoff)
 }
 
 // Strategy is the interface that all repayment strategies implement
@@ -60,7 +67,6 @@ func (s StandardAmortizationStrategy) Calculate(params Params) (*Result, error) 
 			PrincipalPortion: decimal.Zero(),
 			InterestPortion:  decimal.Zero(),
 			RemainingBalance: params.CurrentBalance,
-			IsPayoff:         false,
 		}, nil
 	}
 
@@ -110,10 +116,8 @@ func (s StandardAmortizationStrategy) Calculate(params Params) (*Result, error) 
 	// Remaining balance = current balance - principal paid
 	remainingBalance := params.CurrentBalance.Sub(principalPortion)
 
-	// Check if this is the final payment
-	isPayoff := remainingBalance.Cmp(decimal.Zero()) <= 0
-
-	if isPayoff {
+	// Clamp to zero if paid off
+	if remainingBalance.Cmp(decimal.Zero()) <= 0 {
 		remainingBalance = decimal.Zero()
 	}
 
@@ -122,12 +126,11 @@ func (s StandardAmortizationStrategy) Calculate(params Params) (*Result, error) 
 		PrincipalPortion: principalPortion,
 		InterestPortion:  interestPortion,
 		RemainingBalance: remainingBalance,
-		IsPayoff:         isPayoff,
 	}, nil
 }
 
 // InterestOnlyStrategy pays only interest for specified period, then amortizes
-// Metadata expected: {"interest_only_months": 24}
+// Use Params.InterestOnlyMonths to specify the interest-only period
 type InterestOnlyStrategy struct{}
 
 func NewInterestOnly() InterestOnlyStrategy {
@@ -142,12 +145,10 @@ func (s InterestOnlyStrategy) Calculate(params Params) (*Result, error) {
 	hundred := decimal.MustFromString("100")
 	twelve := decimal.MustFromString("12")
 
-	// Get interest-only period from metadata (default 12 months)
-	interestOnlyMonths := 12
-	if val, ok := params.Metadata["interest_only_months"].(float64); ok {
-		interestOnlyMonths = int(val)
-	} else if val, ok := params.Metadata["interest_only_months"].(int); ok {
-		interestOnlyMonths = val
+	// Get interest-only period from params (default 12 months)
+	interestOnlyMonths := params.InterestOnlyMonths
+	if interestOnlyMonths == 0 {
+		interestOnlyMonths = 12
 	}
 
 	// Calculate monthly interest rate
@@ -162,7 +163,6 @@ func (s InterestOnlyStrategy) Calculate(params Params) (*Result, error) {
 			PrincipalPortion: decimal.Zero(),
 			InterestPortion:  interestPortion,
 			RemainingBalance: params.CurrentBalance,
-			IsPayoff:         false,
 		}, nil
 	}
 
@@ -180,12 +180,11 @@ func (s InterestOnlyStrategy) Calculate(params Params) (*Result, error) {
 		MinimumPayment:  params.MinimumPayment,
 		PeriodIndex:     params.PeriodIndex - interestOnlyMonths,
 		TotalPeriods:    remainingPeriods,
-		Metadata:        params.Metadata,
 	})
 }
 
 // MinimumPaymentStrategy for revolving debt (credit cards)
-// Metadata expected: {"min_payment_pct": 2.0, "min_payment_floor": 25.0}
+// Use Params.MinPaymentPct and Params.MinPaymentFloor for configuration
 type MinimumPaymentStrategy struct{}
 
 func NewMinimumPayment() MinimumPaymentStrategy {
@@ -200,15 +199,15 @@ func (s MinimumPaymentStrategy) Calculate(params Params) (*Result, error) {
 	hundred := decimal.MustFromString("100")
 	twelve := decimal.MustFromString("12")
 
-	// Get min payment parameters from metadata
-	minPaymentPct := 2.0 // Default 2% of balance
-	minPaymentFloor := 25.0
+	// Get min payment parameters from params (defaults: 2%, $25 floor)
+	minPaymentPct := decimal.MustFromFloat64(2.0)
+	minPaymentFloor := decimal.MustFromFloat64(25.0)
 
-	if val, ok := params.Metadata["min_payment_pct"].(float64); ok {
-		minPaymentPct = val
+	if params.MinPaymentPct != nil {
+		minPaymentPct = params.MinPaymentPct
 	}
-	if val, ok := params.Metadata["min_payment_floor"].(float64); ok {
-		minPaymentFloor = val
+	if params.MinPaymentFloor != nil {
+		minPaymentFloor = params.MinPaymentFloor
 	}
 
 	// Calculate monthly interest
@@ -216,14 +215,13 @@ func (s MinimumPaymentStrategy) Calculate(params Params) (*Result, error) {
 	interestPortion := params.CurrentBalance.Mul(monthlyRate)
 
 	// Calculate minimum payment: max(balance * pct%, floor, interest + $1)
-	pctPayment := params.CurrentBalance.Mul(decimal.MustFromFloat64(minPaymentPct / 100))
-	floorPayment := decimal.MustFromFloat64(minPaymentFloor)
+	pctPayment := params.CurrentBalance.Mul(minPaymentPct).Div(hundred)
 	interestPlusOne := interestPortion.Add(decimal.One())
 
 	// Use the largest of the three
 	monthlyPayment := pctPayment
-	if floorPayment.Cmp(monthlyPayment) > 0 {
-		monthlyPayment = floorPayment
+	if minPaymentFloor.Cmp(monthlyPayment) > 0 {
+		monthlyPayment = minPaymentFloor
 	}
 	if interestPlusOne.Cmp(monthlyPayment) > 0 {
 		monthlyPayment = interestPlusOne
@@ -242,8 +240,7 @@ func (s MinimumPaymentStrategy) Calculate(params Params) (*Result, error) {
 
 	// Remaining balance
 	remainingBalance := params.CurrentBalance.Sub(principalPortion)
-	isPayoff := remainingBalance.Cmp(decimal.Zero()) <= 0
-	if isPayoff {
+	if remainingBalance.Cmp(decimal.Zero()) <= 0 {
 		remainingBalance = decimal.Zero()
 	}
 
@@ -252,12 +249,11 @@ func (s MinimumPaymentStrategy) Calculate(params Params) (*Result, error) {
 		PrincipalPortion: principalPortion,
 		InterestPortion:  interestPortion,
 		RemainingBalance: remainingBalance,
-		IsPayoff:         isPayoff,
 	}, nil
 }
 
 // ExtraPaymentStrategy applies additional principal payments on top of standard amortization
-// Metadata expected: {"extra_payment": 500.0}
+// Use Params.ExtraPayment to specify the additional monthly principal payment
 type ExtraPaymentStrategy struct{}
 
 func NewExtraPayment() ExtraPaymentStrategy {
@@ -276,17 +272,12 @@ func (s ExtraPaymentStrategy) Calculate(params Params) (*Result, error) {
 		return nil, err
 	}
 
-	// Get extra payment from metadata (default 0)
-	extraPayment := 0.0
-	if val, ok := params.Metadata["extra_payment"].(float64); ok {
-		extraPayment = val
-	}
-
-	if extraPayment <= 0 {
+	// Get extra payment from params (default 0)
+	if params.ExtraPayment == nil || params.ExtraPayment.Cmp(decimal.Zero()) <= 0 {
 		return baseResult, nil
 	}
 
-	extraPaymentDecimal := decimal.MustFromFloat64(extraPayment)
+	extraPaymentDecimal := params.ExtraPayment
 
 	// Add extra payment to monthly payment (all goes to principal)
 	totalPayment := baseResult.MonthlyPayment.Add(extraPaymentDecimal)
@@ -294,8 +285,7 @@ func (s ExtraPaymentStrategy) Calculate(params Params) (*Result, error) {
 
 	// Calculate new remaining balance
 	remainingBalance := params.CurrentBalance.Sub(totalPrincipal)
-	isPayoff := remainingBalance.Cmp(decimal.Zero()) <= 0
-	if isPayoff {
+	if remainingBalance.Cmp(decimal.Zero()) <= 0 {
 		remainingBalance = decimal.Zero()
 		// Adjust payment if overpaying
 		overpayment := totalPrincipal.Sub(params.CurrentBalance)
@@ -310,7 +300,6 @@ func (s ExtraPaymentStrategy) Calculate(params Params) (*Result, error) {
 		PrincipalPortion: totalPrincipal,
 		InterestPortion:  baseResult.InterestPortion,
 		RemainingBalance: remainingBalance,
-		IsPayoff:         isPayoff,
 	}, nil
 }
 

@@ -32,7 +32,7 @@ func BuildSchedule(strategy Strategy, params Params, totalPeriods int) ([]decima
 		schedule[i] = *result.RemainingBalance
 		balance = result.RemainingBalance
 
-		if result.IsPayoff {
+		if result.RemainingBalance.IsZero() {
 			for fill := i + 1; fill < totalPeriods; fill++ {
 				schedule[fill] = *decimal.Zero()
 			}

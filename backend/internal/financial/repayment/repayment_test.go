@@ -100,13 +100,11 @@ func TestInterestOnly_DuringInterestOnlyPeriod(t *testing.T) {
 	// Interest-only payment = 300000 * 0.05 / 12 = $1,250
 	strategy := repayment.NewInterestOnly()
 	result, err := strategy.Calculate(repayment.Params{
-		CurrentBalance:  decimal.MustFromFloat64(300000),
-		InterestRateAPR: decimal.MustFromFloat64(5.0),
-		PeriodIndex:     10, // Still in interest-only period
-		TotalPeriods:    360,
-		Metadata: map[string]interface{}{
-			"interest_only_months": float64(24),
-		},
+		CurrentBalance:     decimal.MustFromFloat64(300000),
+		InterestRateAPR:    decimal.MustFromFloat64(5.0),
+		PeriodIndex:        10, // Still in interest-only period
+		TotalPeriods:       360,
+		InterestOnlyMonths: 24,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -134,13 +132,11 @@ func TestInterestOnly_AfterInterestOnlyPeriod(t *testing.T) {
 	// After interest-only period, should switch to amortization
 	strategy := repayment.NewInterestOnly()
 	result, err := strategy.Calculate(repayment.Params{
-		CurrentBalance:  decimal.MustFromFloat64(300000),
-		InterestRateAPR: decimal.MustFromFloat64(5.0),
-		PeriodIndex:     30, // After 24-month interest-only period
-		TotalPeriods:    360,
-		Metadata: map[string]interface{}{
-			"interest_only_months": float64(24),
-		},
+		CurrentBalance:     decimal.MustFromFloat64(300000),
+		InterestRateAPR:    decimal.MustFromFloat64(5.0),
+		PeriodIndex:        30, // After 24-month interest-only period
+		TotalPeriods:       360,
+		InterestOnlyMonths: 24,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -165,10 +161,8 @@ func TestMinimumPayment_CreditCard(t *testing.T) {
 	result, err := strategy.Calculate(repayment.Params{
 		CurrentBalance:  decimal.MustFromFloat64(5000),
 		InterestRateAPR: decimal.MustFromFloat64(20.0),
-		Metadata: map[string]interface{}{
-			"min_payment_pct":   2.0,
-			"min_payment_floor": 25.0,
-		},
+		MinPaymentPct:   decimal.MustFromFloat64(2.0),
+		MinPaymentFloor: decimal.MustFromFloat64(25.0),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -187,10 +181,8 @@ func TestMinimumPayment_SmallBalance(t *testing.T) {
 	result, err := strategy.Calculate(repayment.Params{
 		CurrentBalance:  decimal.MustFromFloat64(20),
 		InterestRateAPR: decimal.MustFromFloat64(20.0),
-		Metadata: map[string]interface{}{
-			"min_payment_pct":   2.0,
-			"min_payment_floor": 25.0,
-		},
+		MinPaymentPct:   decimal.MustFromFloat64(2.0),
+		MinPaymentFloor: decimal.MustFromFloat64(25.0),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -202,7 +194,7 @@ func TestMinimumPayment_SmallBalance(t *testing.T) {
 		t.Errorf("expected payment <= balance for small balance, got %s", result.MonthlyPayment.String())
 	}
 
-	if !result.IsPayoff {
+	if !result.RemainingBalance.IsZero() {
 		t.Error("expected payoff for small balance")
 	}
 }
@@ -214,9 +206,7 @@ func TestExtraPayment_AddsToStandardPayment(t *testing.T) {
 		CurrentBalance:  decimal.MustFromFloat64(200000),
 		InterestRateAPR: decimal.MustFromFloat64(4.0),
 		TotalPeriods:    360,
-		Metadata: map[string]interface{}{
-			"extra_payment": 500.0,
-		},
+		ExtraPayment:    decimal.MustFromFloat64(500.0),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -258,9 +248,7 @@ func TestExtraPayment_ZeroExtra(t *testing.T) {
 		CurrentBalance:  decimal.MustFromFloat64(100000),
 		InterestRateAPR: decimal.MustFromFloat64(5.0),
 		TotalPeriods:    240,
-		Metadata: map[string]interface{}{
-			"extra_payment": 0.0,
-		},
+		ExtraPayment:    decimal.MustFromFloat64(0.0),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

@@ -30,7 +30,7 @@ func buildExpected(strategy Strategy, params Params, months int) ([]decimal.Deci
 		}
 		expected = append(expected, *result.RemainingBalance)
 		balance = result.RemainingBalance
-		if result.IsPayoff {
+		if result.RemainingBalance.IsZero() {
 			for fill := i + 1; fill < months; fill++ {
 				expected = append(expected, *decimal.Zero())
 			}
@@ -83,12 +83,10 @@ func TestBuildSchedule_InterestOnlyThenAmortize(t *testing.T) {
 	totalMonths := 24
 
 	params := Params{
-		CurrentBalance:  balance,
-		InterestRateAPR: rate,
-		MinimumPayment:  minPay,
-		Metadata: map[string]interface{}{
-			"interest_only_months": 12,
-		},
+		CurrentBalance:     balance,
+		InterestRateAPR:    rate,
+		MinimumPayment:     minPay,
+		InterestOnlyMonths: 12,
 	}
 
 	scheduleParams := params
@@ -132,10 +130,8 @@ func TestBuildSchedule_MinimumPayment(t *testing.T) {
 		CurrentBalance:  balance,
 		InterestRateAPR: rate,
 		MinimumPayment:  minPay,
-		Metadata: map[string]interface{}{
-			"min_payment_pct":  3.0,  // 3% of balance
-			"min_payment_floor": 50., // $50 floor
-		},
+		MinPaymentPct:   decimal.MustFromFloat64(3.0),  // 3% of balance
+		MinPaymentFloor: decimal.MustFromFloat64(50.0), // $50 floor
 	}
 
 	scheduleParams := params
@@ -164,15 +160,12 @@ func TestBuildSchedule_ExtraPayment(t *testing.T) {
 	rate := decimal.MustFromFloat64(4.0)
 	minPay := decimal.MustFromFloat64(0)
 	totalMonths := 24
-	extra := 100.0
 
 	params := Params{
 		CurrentBalance:  balance,
 		InterestRateAPR: rate,
 		MinimumPayment:  minPay,
-		Metadata: map[string]interface{}{
-			"extra_payment": extra,
-		},
+		ExtraPayment:    decimal.MustFromFloat64(100.0),
 	}
 
 	scheduleParams := params
