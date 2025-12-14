@@ -118,19 +118,21 @@ type CashAsset struct {
 
 // Liability represents a persisted liability record.
 type Liability struct {
-	ID              string                 `json:"id"`
-	ParentID        string                 `json:"parentId"`
-	Name            string                 `json:"name"`
-	Category        string                 `json:"category"`
-	CurrentBalance  decimal.Decimal        `json:"currentBalance"`
-	InterestRateAPR decimal.Decimal        `json:"interestRateApr"`
-	MinimumPayment  decimal.Decimal        `json:"minimumPayment"`
-	StartDate       time.Time              `json:"startDate"`         // Precise start date (day-level)
-	EndDate         *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
-	Notes           string                 `json:"notes"`
-	GrowthStrategy  string                 `json:"growthStrategy"`
-	GrowthMetadata  map[string]interface{} `json:"growthMetadata,omitempty"`
-	UpdatedAt       time.Time              `json:"updatedAt"`
+	ID                string                 `json:"id"`
+	ParentID          string                 `json:"parentId"`
+	Name              string                 `json:"name"`
+	Category          string                 `json:"category"`
+	CurrentBalance    decimal.Decimal        `json:"currentBalance"`
+	InterestRateAPR   decimal.Decimal        `json:"interestRateApr"`
+	MinimumPayment    decimal.Decimal        `json:"minimumPayment"`
+	StartDate         time.Time              `json:"startDate"`         // Precise start date (day-level)
+	EndDate           *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
+	Notes             string                 `json:"notes"`
+	GrowthStrategy    string                 `json:"growthStrategy"`
+	GrowthMetadata    map[string]interface{} `json:"growthMetadata,omitempty"`
+	RepaymentStrategy string                 `json:"repaymentStrategy"`
+	RepaymentMetadata map[string]interface{} `json:"repaymentMetadata,omitempty"`
+	UpdatedAt         time.Time              `json:"updatedAt"`
 }
 
 // Income represents a persisted income record.
@@ -516,6 +518,7 @@ func (s *Store) ListLiabilities(
 		end_date,
 		COALESCE(notes, '') as notes,
 		COALESCE(growth_strategy, '') as growth_strategy,
+		COALESCE(repayment_strategy, 'standard_amortization') as repayment_strategy,
 		updated_at
 	FROM finance_liabilities
 	WHERE user_id = $1`
@@ -566,7 +569,7 @@ func (s *Store) ListLiabilities(
 			&l.ID, &l.ParentID, &l.Name, &l.Category,
 			&l.CurrentBalance, &l.InterestRateAPR, &l.MinimumPayment,
 			&l.StartDate, &endDate, &l.Notes, &l.GrowthStrategy,
-			&l.UpdatedAt,
+			&l.RepaymentStrategy, &l.UpdatedAt,
 		)
 		if err != nil {
 			return PaginatedResult[Liability]{}, err
