@@ -47,6 +47,10 @@ func (m *mockStore) GetCPFAccount(ctx context.Context, userID string) (*repo.CPF
 	return nil, nil
 }
 
+func (m *mockStore) ListAllIncomeAllocations(ctx context.Context, userID string) ([]repo.IncomeAllocation, error) {
+	return nil, nil
+}
+
 func TestComputeFinancialSnapshot_SingleMonth_NoGrowth(t *testing.T) {
 	// Test that month 1 has no growth (arrears)
 	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -316,25 +320,21 @@ func TestComputeFinancialSnapshot_NetWorth(t *testing.T) {
 	}
 }
 
-func TestComputeFinancialSnapshot_ItemNotActiveUntilStartDate(t *testing.T) {
-	// Test that items are not included before their start date
-	// Note: Arrears is based on TIMELINE month (not per-item creation).
-	// So an item starting in month 2 of the query will have growth applied
-	// because the timeline is already past month 1.
+func TestComputeFinancialSnapshot_GrowthOverTime(t *testing.T) {
+	// Test that assets grow over multiple months
 	queryStart := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
-	queryEnd := time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC)
-	assetStart := time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC) // Asset starts in month 2
+	queryEnd := time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC) // 3 months
 
 	store := &mockStore{
 		nonCashAssets: []repo.NonCashAsset{
 			{
 				ID:               "asset-1",
 				ParentID:         "asset-1",
-				Name:             "Delayed Investment",
+				Name:             "Investment",
 				Category:         "Investment",
 				CurrentValue:     *decimal.MustFromString("10000"),
 				AnnualGrowthRate: *decimal.MustFromString("7"),
-				StartDate:        assetStart,
+				StartDate:        queryStart,
 			},
 		},
 	}
@@ -350,36 +350,34 @@ func TestComputeFinancialSnapshot_ItemNotActiveUntilStartDate(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Month 1: asset should not appear (before start date)
-	if len(result.Months[0].NonCashAssets) != 0 {
-		t.Errorf("month 1: expected 0 assets (before start date), got %d", len(result.Months[0].NonCashAssets))
+	if len(result.Months) != 3 {
+		t.Fatalf("expected 3 months, got %d", len(result.Months))
 	}
 
-	// Month 2: asset appears and growth is applied (timeline month 2 > 1)
-	if len(result.Months[1].NonCashAssets) != 1 {
-		t.Fatalf("month 2: expected 1 asset, got %d", len(result.Months[1].NonCashAssets))
+	// Month 1: no growth (arrears)
+	if len(result.Months[0].NonCashAssets) != 1 {
+		t.Fatalf("month 1: expected 1 asset, got %d", len(result.Months[0].NonCashAssets))
+	}
+	month1Balance := result.Months[0].NonCashAssets[0].Balance
+	expected := decimal.MustFromString("10000")
+	if month1Balance.Cmp(expected) != 0 {
+		t.Errorf("month 1: expected balance %s (no growth), got %s", expected.String(), month1Balance.String())
 	}
 
+	// Month 2: first growth
 	month2Balance := result.Months[1].NonCashAssets[0].Balance
-	initialValue := decimal.MustFromString("10000")
-
-	// Growth is applied because timeline is in month 2 (past arrears period)
-	if month2Balance.Cmp(initialValue) <= 0 {
-		t.Errorf("month 2: expected growth applied (timeline month 2), got %s", month2Balance.String())
+	if month2Balance.Cmp(&month1Balance) <= 0 {
+		t.Errorf("month 2: expected growth from month 1, got %s", month2Balance.String())
 	}
 
-	// Month 3: asset should have more growth
-	if len(result.Months[2].NonCashAssets) != 1 {
-		t.Fatalf("month 3: expected 1 asset, got %d", len(result.Months[2].NonCashAssets))
-	}
-
+	// Month 3: more growth
 	month3Balance := result.Months[2].NonCashAssets[0].Balance
 	if month3Balance.Cmp(&month2Balance) <= 0 {
 		t.Errorf("month 3: expected more growth than month 2, got %s", month3Balance.String())
 	}
 
-	t.Logf("Month 1: %d assets", len(result.Months[0].NonCashAssets))
-	t.Logf("Month 2: balance %s (growth applied - timeline month 2)", month2Balance.String())
+	t.Logf("Month 1: balance %s", month1Balance.String())
+	t.Logf("Month 2: balance %s", month2Balance.String())
 	t.Logf("Month 3: balance %s", month3Balance.String())
 }
 
