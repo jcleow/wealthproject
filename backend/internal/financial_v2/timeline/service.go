@@ -967,7 +967,7 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int) []CPFA
 
 // buildMonthDetailResponse creates a detailed response for a single month
 func buildMonthDetailResponse(
-	monthIndex int,
+	calendarMonthIdx int,
 	date time.Time,
 	baseYear int,
 	data EffectiveRows,
@@ -1006,7 +1006,7 @@ func buildMonthDetailResponse(
 		Year:                 baseYear + yearIndex,
 		Month:                month,
 		AllYearsIndex:        yearIndex,
-		AllMonthsIndex:       monthIndex,
+		AllMonthsIndex:       calendarMonthIdx,
 		NonCashAssets:        nonCashAssets,
 		Investments:          investments,
 		CashAssets:           cashAssets,
@@ -1040,15 +1040,17 @@ type MonthlyContext struct {
 }
 
 // processMonth handles all calculations for a single month and returns the response
-func processMonth(mctx *MonthlyContext, monthIdx int, currentDate time.Time) MonthDetailResponse {
+// isAnchorMonth indicates if this is the first month (anchor month) where we show starting balances
+// without applying cash flow accumulation or investment allocation side effects
+func processMonth(mctx *MonthlyContext, calendarMonthIdx int, currentDate time.Time, isAnchorMonth bool) MonthDetailResponse {
 	// Reset CPF YTD at year boundaries
-	mctx.CPFCtx.ResetYTDIfNewYear(currentDate, monthIdx)
+	mctx.CPFCtx.ResetYTDIfNewYear(currentDate, calendarMonthIdx)
 
 	// Apply growth to all financial items
 	growthCtx := &GrowthContext{
 		Registry:    mctx.Registry,
 		State:       mctx.State,
-		Month:       monthIdx + 1,
+		Month:       calendarMonthIdx + 1,
 		MonthOfYear: int(currentDate.Month()),
 		Date:        currentDate,
 	}
@@ -1057,14 +1059,25 @@ func processMonth(mctx *MonthlyContext, monthIdx int, currentDate time.Time) Mon
 	// Process CPF contributions
 	employeeCPF, cpfContributions := mctx.CPFCtx.ProcessIncomes(mctx.Data.Incomes, mctx.State, currentDate)
 
-	// Calculate cash flow (deduct both CPF and investment allocations)
-	netSavings, netCashFlow, netInvestments := calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF, mctx.IncomeAllocations)
-	mctx.CashAccumulator = mctx.CashAccumulator.Add(netCashFlow)
+	// Calculate cash flow
+	// In anchor month, pass empty allocations to prevent adding to investment balances
+	var netSavings, netCashFlow, netInvestments *decimal.Decimal
+	if isAnchorMonth {
+		// Don't apply investment allocations in anchor month
+		netSavings, netCashFlow, netInvestments = calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF, nil)
+	} else {
+		netSavings, netCashFlow, netInvestments = calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF, mctx.IncomeAllocations)
+	}
+
+	// Accumulate cash flow (skip in anchor month - starting balances only)
+	if !isAnchorMonth {
+		mctx.CashAccumulator = mctx.CashAccumulator.Add(netCashFlow)
+	}
 
 	// Sync state and build response
 	syncStateToItemStates(mctx.State, mctx.ItemStates)
 	return buildMonthDetailResponse(
-		monthIdx, currentDate, mctx.BaseYear, mctx.Data, mctx.ItemStates,
+		calendarMonthIdx, currentDate, mctx.BaseYear, mctx.Data, mctx.ItemStates,
 		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFCtx,
 	)
 }
@@ -1104,8 +1117,9 @@ func (s *Service) ComputeFinancialSnapshot(
 
 	for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
 		currentDate := anchorStart.AddDate(0, monthIdx, 0)
-		globalMonthIdx := startMonthIndex + monthIdx
-		resultMonths = append(resultMonths, processMonth(mctx, globalMonthIdx, currentDate))
+		calendarMonthIdx := startMonthIndex + monthIdx
+		isAnchorMonth := monthIdx == 0
+		resultMonths = append(resultMonths, processMonth(mctx, calendarMonthIdx, currentDate, isAnchorMonth))
 	}
 
 	return TimelineV2Response{Months: resultMonths}, nil
