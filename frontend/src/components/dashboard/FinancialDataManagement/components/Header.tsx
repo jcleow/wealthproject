@@ -43,11 +43,13 @@ export function Header({
 
     onSelectYear?.(targetYear)
 
-    // If navigating back to the anchor year, clamp the month selection to the anchor month.
+    // Always switch to the earliest available month when changing years
     if (anchorYear && anchorMonth && targetYear === anchorYear) {
-      if ((selectedMonth ?? 1) < anchorMonth) {
-        onSelectMonth?.(anchorMonth)
-      }
+      // For anchor year, earliest month is the anchor month
+      onSelectMonth?.(anchorMonth)
+    } else {
+      // For other years, earliest month is January
+      onSelectMonth?.(1)
     }
   }
 
