@@ -10,6 +10,7 @@ import (
 	"financial-chat-system/backend/internal/cpf/account"
 	cpfProcessor "financial-chat-system/backend/internal/cpf/processor"
 	"financial-chat-system/backend/internal/decimal"
+	"financial-chat-system/backend/internal/financial/repayment"
 	"financial-chat-system/backend/internal/financial_v2/growth"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 
@@ -35,14 +36,19 @@ type FinancialDataRow struct {
 	EndDate       *time.Time
 	ItemType      FinancialDataType
 	GrowthRate    decimal.Decimal // Per-item growth rate (percentage)
+	InterestRate  decimal.Decimal // APR for liabilities
+	MinimumPay    decimal.Decimal // Minimum payment for liabilities
 	IsAccumulator bool            // For cash accounts - identifies the accumulator account
 	// CPF-related fields (for incomes)
 	CPFWageType cpfProcessor.CPFWageType // CPFWageTypeOW (Ordinary Wages) or CPFWageTypeAW (Additional Wages)
+	// Expense-liability linkage
+	SourceLiabilityID *string // For expenses - link to liability this expense pays down
 }
 
 // EffectiveRows holds all financial data organized by type
 type EffectiveRows struct {
 	NonCashAssets []FinancialDataRow
+	Investments   []FinancialDataRow
 	CashAssets    []FinancialDataRow
 	Liabilities   []FinancialDataRow
 	Incomes       []FinancialDataRow
@@ -51,8 +57,13 @@ type EffectiveRows struct {
 
 // SGFinancialDataRows wraps financial data with Singapore-specific CPF account
 type SGFinancialDataRows struct {
-	Rows       EffectiveRows
-	CPFAccount *account.CPFAccount
+	Rows              EffectiveRows
+	CPFAccount        *account.CPFAccount
+	IncomeAllocations []repo.IncomeAllocation
+	// Precomputed liability amortization schedules (per month remaining balance)
+	LiabilitySchedules map[string][]decimal.Decimal
+	// Map of liability ID -> linked expense (for open-ended liabilities paid by expenses)
+	LinkedExpensesByLiability map[string]FinancialDataRow
 }
 
 // ItemState tracks the current computed state of a financial item
@@ -98,6 +109,25 @@ func transformNonCashAssets(assets []repo.NonCashAsset) []FinancialDataRow {
 	return rows
 }
 
+// transformInvestments converts repository.Investment to FinancialDataRow
+func transformInvestments(investments []repo.Investment) []FinancialDataRow {
+	rows := make([]FinancialDataRow, 0, len(investments))
+	for _, inv := range investments {
+		rows = append(rows, FinancialDataRow{
+			ID:         inv.ID,
+			ParentID:   inv.ParentID,
+			Name:       inv.Name,
+			Category:   inv.Category,
+			Amount:     inv.CurrentValue,
+			StartDate:  inv.StartDate,
+			EndDate:    inv.EndDate,
+			ItemType:   FinInvestment,
+			GrowthRate: inv.AnnualGrowthRate,
+		})
+	}
+	return rows
+}
+
 // transformCashAssets converts repository.CashAsset to FinancialDataRow
 func transformCashAssets(assets []repo.CashAsset) []FinancialDataRow {
 	rows := make([]FinancialDataRow, 0, len(assets))
@@ -123,15 +153,17 @@ func transformLiabilities(liabilities []repo.Liability) []FinancialDataRow {
 	rows := make([]FinancialDataRow, 0, len(liabilities))
 	for _, l := range liabilities {
 		rows = append(rows, FinancialDataRow{
-			ID:         l.ID,
-			ParentID:   l.ParentID,
-			Name:       l.Name,
-			Category:   l.Category,
-			Amount:     l.CurrentBalance,
-			StartDate:  l.StartDate,
-			EndDate:    l.EndDate,
-			ItemType:   FinLiabilities,
-			GrowthRate: l.InterestRateAPR,
+			ID:           l.ID,
+			ParentID:     l.ParentID,
+			Name:         l.Name,
+			Category:     l.Category,
+			Amount:       l.CurrentBalance,
+			StartDate:    l.StartDate,
+			EndDate:      l.EndDate,
+			ItemType:     FinLiabilities,
+			GrowthRate:   l.InterestRateAPR,
+			InterestRate: l.InterestRateAPR,
+			MinimumPay:   l.MinimumPayment,
 		})
 	}
 	return rows
@@ -163,16 +195,17 @@ func transformExpenses(expenses []repo.Expense) []FinancialDataRow {
 	rows := make([]FinancialDataRow, 0, len(expenses))
 	for _, e := range expenses {
 		rows = append(rows, FinancialDataRow{
-			ID:         e.ID,
-			ParentID:   e.ParentID,
-			Name:       e.Payee, // Expense uses "Payee" as name
-			Category:   e.Category,
-			Amount:     e.Amount,
-			Frequency:  Frequency(e.Frequency), // Keep actual frequency
-			StartDate:  e.StartDate,
-			EndDate:    e.EndDate,
-			ItemType:   FinExpense,
-			GrowthRate: e.GrowthRate,
+			ID:                e.ID,
+			ParentID:          e.ParentID,
+			Name:              e.Payee, // Expense uses "Payee" as name
+			Category:          e.Category,
+			Amount:            e.Amount,
+			Frequency:         Frequency(e.Frequency), // Keep actual frequency
+			StartDate:         e.StartDate,
+			EndDate:           e.EndDate,
+			ItemType:          FinExpense,
+			GrowthRate:        e.GrowthRate,
+			SourceLiabilityID: e.SourceLiabilityID,
 		})
 	}
 	return rows
@@ -189,12 +222,14 @@ func (s *Service) loadEffectiveRows(
 	paginationOpts repo.PaginationParams,
 ) (SGFinancialDataRows, error) {
 	var (
-		nonCashAssets repo.PaginatedResult[repo.NonCashAsset]
-		cashAssets    repo.PaginatedResult[repo.CashAsset]
-		liabilities   repo.PaginatedResult[repo.Liability]
-		incomes       repo.PaginatedResult[repo.Income]
-		expenses      repo.PaginatedResult[repo.Expense]
-		cpfAccount    *repo.CPFAccount
+		nonCashAssets     repo.PaginatedResult[repo.NonCashAsset]
+		investments       repo.PaginatedResult[repo.Investment]
+		cashAssets        repo.PaginatedResult[repo.CashAsset]
+		liabilities       repo.PaginatedResult[repo.Liability]
+		incomes           repo.PaginatedResult[repo.Income]
+		expenses          repo.PaginatedResult[repo.Expense]
+		cpfAccount        *repo.CPFAccount
+		incomeAllocations []repo.IncomeAllocation
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -202,6 +237,12 @@ func (s *Service) loadEffectiveRows(
 	g.Go(func() error {
 		var err error
 		nonCashAssets, err = s.store.ListNonCashAssets(gctx, userID, dateOpts, paginationOpts)
+		return err
+	})
+
+	g.Go(func() error {
+		var err error
+		investments, err = s.store.ListInvestments(gctx, userID, dateOpts, paginationOpts)
 		return err
 	})
 
@@ -235,6 +276,12 @@ func (s *Service) loadEffectiveRows(
 		return err
 	})
 
+	g.Go(func() error {
+		var err error
+		incomeAllocations, err = s.store.ListAllIncomeAllocations(gctx, userID)
+		return err
+	})
+
 	if err := g.Wait(); err != nil {
 		return SGFinancialDataRows{}, err
 	}
@@ -243,12 +290,14 @@ func (s *Service) loadEffectiveRows(
 	return SGFinancialDataRows{
 		Rows: EffectiveRows{
 			NonCashAssets: transformNonCashAssets(nonCashAssets.Data),
+			Investments:   transformInvestments(investments.Data),
 			CashAssets:    transformCashAssets(cashAssets.Data),
 			Liabilities:   transformLiabilities(liabilities.Data),
 			Incomes:       transformIncomes(incomes.Data),
 			Expenses:      transformExpenses(expenses.Data),
 		},
-		CPFAccount: mapToCPFAccount(cpfAccount),
+		CPFAccount:        mapToCPFAccount(cpfAccount),
+		IncomeAllocations: incomeAllocations,
 	}, nil
 }
 
@@ -362,6 +411,7 @@ func earliestStartDateFromRows(rows EffectiveRows) (time.Time, bool) {
 
 	sources := [][]FinancialDataRow{
 		rows.NonCashAssets,
+		rows.Investments,
 		rows.CashAssets,
 		rows.Liabilities,
 		rows.Incomes,
@@ -436,6 +486,7 @@ func initializeItemStates(data EffectiveRows, baseYear int) ItemStateMap {
 
 	allRows := [][]FinancialDataRow{
 		data.NonCashAssets,
+		data.Investments,
 		data.CashAssets,
 		data.Liabilities,
 		data.Incomes,
@@ -499,26 +550,191 @@ func applyGrowth(rows []FinancialDataRow, ctx *GrowthContext, strategyName strin
 }
 
 // applyAllGrowth applies the appropriate growth strategies to all financial data types
-func applyAllGrowth(data EffectiveRows, ctx *GrowthContext) {
+func applyAllGrowth(data EffectiveRows, ctx *GrowthContext, linkedExpenses map[string]FinancialDataRow) {
 	// Income/Expenses use annual step growth (raises happen yearly)
 	applyGrowth(data.Incomes, ctx, growth.StrategyAnnualStep)
 	applyGrowth(data.Expenses, ctx, growth.StrategyAnnualStep)
-	// Assets/Liabilities use monthly compound growth
+	// Assets use monthly compound growth
 	applyGrowth(data.NonCashAssets, ctx, growth.StrategyMonthlyCompound)
+	applyGrowth(data.Investments, ctx, growth.StrategyMonthlyCompound)
 	applyGrowth(data.CashAssets, ctx, growth.StrategyMonthlyCompound)
-	applyGrowth(data.Liabilities, ctx, growth.StrategyMonthlyCompound)
+	// Liabilities: only apply growth to those without linked expenses
+	// (linked expenses handle interest in the payment calculation)
+	applyGrowthExcluding(data.Liabilities, ctx, growth.StrategyMonthlyCompound, linkedExpenses)
 }
 
-// calculateNetCashFlow computes net savings and net cash flow for active rows.
+// applyGrowthExcluding applies growth to rows except those in the exclude map
+func applyGrowthExcluding(rows []FinancialDataRow, ctx *GrowthContext, strategyName string, exclude map[string]FinancialDataRow) {
+	strategy, _ := ctx.Registry.Get(strategyName)
+	for _, row := range rows {
+		// Skip items in the exclude map (keyed by ID)
+		if _, excluded := exclude[row.ID]; excluded {
+			continue
+		}
+		if !isActiveInMonth(row, ctx.Date) {
+			continue
+		}
+		itemAge := common.MonthsBetween(row.StartDate, ctx.Date)
+		params := growth.Params{AnnualRatePct: &row.GrowthRate}
+		ctx.State[row.ID] = strategy.Apply(ctx.State[row.ID], params, itemAge, ctx.MonthOfYear)
+	}
+}
+
+// applyLiabilitySchedules overrides liability balances with precomputed amortization schedules (if available).
+func applyLiabilitySchedules(rows []FinancialDataRow, ctx *GrowthContext, schedules map[string][]decimal.Decimal) {
+	if len(schedules) == 0 {
+		return
+	}
+
+	for _, row := range rows {
+		schedule, ok := schedules[row.ID]
+		if !ok {
+			continue
+		}
+		if !isActiveInMonth(row, ctx.Date) {
+			continue
+		}
+
+		offset := common.MonthsBetween(row.StartDate, ctx.Date) - 1
+		if offset < 0 || offset >= len(schedule) {
+			continue
+		}
+
+		value := schedule[offset]
+		ctx.State[row.ID] = &value
+	}
+}
+
+// buildLinkedExpensesByLiability creates a map of liability ID -> linked expense row.
+// Used for open-ended liabilities that are paid down by expense payments.
+func buildLinkedExpensesByLiability(expenses []FinancialDataRow) map[string]FinancialDataRow {
+	result := make(map[string]FinancialDataRow)
+	for _, exp := range expenses {
+		if exp.SourceLiabilityID != nil {
+			result[*exp.SourceLiabilityID] = exp
+		}
+	}
+	return result
+}
+
+// applyLinkedExpensePayments applies expense payments to reduce open-ended liability balances.
+// This is used for liabilities WITHOUT end dates that have linked expenses.
+// For each such liability, calculates: interest = balance * monthly_rate, principal = payment - interest.
+func applyLinkedExpensePayments(
+	liabilities []FinancialDataRow,
+	linkedExpenses map[string]FinancialDataRow,
+	schedules map[string][]decimal.Decimal,
+	state map[string]*decimal.Decimal,
+	currentDate time.Time,
+) {
+	hundred := decimal.MustFromString("100")
+	twelve := decimal.MustFromString("12")
+
+	for _, liability := range liabilities {
+		// Skip liabilities that have precomputed schedules (they're handled by applyLiabilitySchedules)
+		if _, hasSchedule := schedules[liability.ID]; hasSchedule {
+			continue
+		}
+
+		if !isActiveInMonth(liability, currentDate) {
+			continue
+		}
+
+		expense, hasLinked := linkedExpenses[liability.ID]
+		if !hasLinked {
+			continue
+		}
+
+		// Check if the expense is active this month
+		if !isActiveInMonth(expense, currentDate) {
+			continue
+		}
+
+		// Get current liability balance
+		currentBalance := state[liability.ID]
+		if currentBalance == nil || currentBalance.IsZero() || currentBalance.Cmp(decimal.Zero()) <= 0 {
+			continue
+		}
+
+		// Calculate monthly interest: balance * (APR / 100 / 12)
+		monthlyRate := liability.InterestRate.Div(hundred).Div(twelve)
+		interestPortion := currentBalance.Mul(monthlyRate)
+
+		// Get monthly expense payment amount
+		expenseBalance := state[expense.ID]
+		if expenseBalance == nil {
+			expenseBalance = &expense.Amount
+		}
+		monthlyPayment := common.ToMonthlyAmount(expenseBalance, expense.Frequency)
+		if monthlyPayment == nil || monthlyPayment.IsZero() {
+			continue
+		}
+
+		// Principal = payment - interest (but not negative)
+		principalPortion := monthlyPayment.Sub(interestPortion)
+		if principalPortion.Cmp(decimal.Zero()) < 0 {
+			principalPortion = decimal.Zero()
+		}
+
+		// Reduce liability balance by principal paid
+		newBalance := currentBalance.Sub(principalPortion)
+		if newBalance.Cmp(decimal.Zero()) < 0 {
+			newBalance = decimal.Zero()
+		}
+
+		state[liability.ID] = newBalance
+	}
+}
+
+// buildLiabilitySchedules precomputes remaining balances per month for fixed-term liabilities.
+// Open-ended liabilities (no end date) are skipped - they use linked expense payments instead.
+// The repayment module calculates the amortization schedule based on the liability's terms.
+func buildLiabilitySchedules(rows []FinancialDataRow) map[string][]decimal.Decimal {
+	schedules := make(map[string][]decimal.Decimal)
+
+	for _, row := range rows {
+		if row.ItemType != FinLiabilities || row.EndDate == nil || row.Amount.IsZero() {
+			continue
+		}
+
+		months := common.MonthsBetween(row.StartDate, *row.EndDate)
+		if months <= 0 {
+			continue
+		}
+
+		balance := row.Amount
+		apr := row.InterestRate
+		minPay := row.MinimumPay
+		strategy := repayment.GetStrategy(repayment.StandardAmortization)
+
+		schedule, err := repayment.BuildSchedule(strategy, repayment.Params{
+			CurrentBalance:  &balance,
+			InterestRateAPR: &apr,
+			MinimumPayment:  &minPay,
+		}, months)
+		if err != nil || len(schedule) == 0 {
+			continue
+		}
+
+		schedules[row.ID] = schedule
+	}
+
+	return schedules
+}
+
+// calcCashAllocation computes net savings and net cash flow for active rows.
 // Returns:
-//   - netSavings: income - expenses (independent of CPF)
-//   - netCashFlow: income - expenses - employeeCPF (actual cash impact)
-func calculateNetCashFlow(
+//   - netSavings: income - employeeCPF - expenses
+//   - netCashFlow: income - employeeCPF - expenses - investmentAllocations (always net of investments for display)
+//   - netInvestments: total amount allocated to investments this month
+func calcCashAllocation(
 	data EffectiveRows,
 	state map[string]*decimal.Decimal,
 	currentDate time.Time,
 	employeeCPF *decimal.Decimal,
-) (netSavings *decimal.Decimal, netCashFlow *decimal.Decimal) {
+	incomeAllocations []repo.IncomeAllocation,
+	applyAllocations bool,
+) (netSavings *decimal.Decimal, netCashFlow *decimal.Decimal, netInvestments *decimal.Decimal) {
 	income := decimal.Zero()
 	expense := decimal.Zero()
 
@@ -536,9 +752,78 @@ func calculateNetCashFlow(
 		}
 	}
 
-	netSavings = income.Sub(expense)
-	netCashFlow = netSavings.Sub(employeeCPF)
-	return netSavings, netCashFlow
+	netSavings = income.Sub(employeeCPF).Sub(expense)
+
+	// Apply investment allocations - adds allocation amounts to investment balances (only when applyAllocations is true)
+	netInvestments = applyInvestmentAllocations(data.Incomes, incomeAllocations, state, currentDate, applyAllocations)
+
+	// Always compute netCashFlow = netSavings - investments for display purposes
+	// applyAllocations only controls whether investment balances are mutated, not the cash flow calculation
+	netCashFlow = netSavings.Sub(netInvestments)
+
+	return netSavings, netCashFlow, netInvestments
+}
+
+// applyInvestmentAllocations adds the monthly allocation amounts to investment balances.
+// This function modifies the state map to increase investment balances based on income allocations.
+// Returns the total amount allocated to investments this month.
+func applyInvestmentAllocations(
+	incomes []FinancialDataRow,
+	allocations []repo.IncomeAllocation,
+	state map[string]*decimal.Decimal,
+	currentDate time.Time,
+	applyToBalances bool,
+) *decimal.Decimal {
+	total := decimal.Zero()
+
+	// Build a map of income ID -> allocations targeting investments
+	incomeAllocMap := make(map[string][]repo.IncomeAllocation)
+	for _, alloc := range allocations {
+		if alloc.TargetInvestmentID != nil {
+			incomeAllocMap[alloc.IncomeID] = append(incomeAllocMap[alloc.IncomeID], alloc)
+		}
+	}
+
+	for _, income := range incomes {
+		if !isActiveInMonth(income, currentDate) {
+			continue
+		}
+
+		allocs, hasAllocs := incomeAllocMap[income.ID]
+		if !hasAllocs {
+			continue
+		}
+
+		// Get the monthly income amount
+		monthlyIncome := common.ToMonthlyAmount(state[income.ID], income.Frequency)
+		if monthlyIncome == nil || monthlyIncome.IsZero() {
+			continue
+		}
+
+		for _, alloc := range allocs {
+			var allocAmount *decimal.Decimal
+			if alloc.AllocationType == "fixed" {
+				allocAmount = &alloc.AllocationValue
+			} else {
+				// Percentage: (monthlyIncome * percentage) / 100
+				hundred := decimal.NewFromInt64(100, 0)
+				pct := alloc.AllocationValue.Div(hundred)
+				allocAmount = monthlyIncome.Mul(pct)
+			}
+
+			// Add to the target investment balance
+			if applyToBalances && alloc.TargetInvestmentID != nil {
+				investmentID := *alloc.TargetInvestmentID
+				if currentBalance, exists := state[investmentID]; exists && currentBalance != nil {
+					state[investmentID] = currentBalance.Add(allocAmount)
+				}
+			}
+
+			total = total.Add(allocAmount)
+		}
+	}
+
+	return total
 }
 
 // buildNonCashAssetResponses builds responses for non-cash assets and returns total value
@@ -557,6 +842,37 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 		total = total.Add(state.Balance)
 		balance := state.Balance.Round(0)
 		responses = append(responses, NonCashAssetResponse{
+			ID:         row.ID,
+			ParentID:   row.ParentID,
+			Name:       row.Name,
+			Category:   row.Category,
+			Balance:    *balance,
+			AdjBalance: *balance,
+			ItemType:   string(row.ItemType),
+			StartDate:  row.StartDate.Format("2006-01-02"),
+			StartYear:  state.StartYear,
+			StartMonth: state.StartMonth,
+		})
+	}
+	return responses, total
+}
+
+// buildInvestmentResponses builds responses for investments and returns total value
+func buildInvestmentResponses(rows []FinancialDataRow, itemStates ItemStateMap, date time.Time) ([]InvestmentResponse, *decimal.Decimal) {
+	responses := make([]InvestmentResponse, 0)
+	total := decimal.Zero()
+
+	for _, row := range rows {
+		if !isActiveInMonth(row, date) {
+			continue
+		}
+		state := itemStates[row.ID]
+		if state == nil {
+			continue
+		}
+		total = total.Add(state.Balance)
+		balance := state.Balance.Round(0)
+		responses = append(responses, InvestmentResponse{
 			ID:         row.ID,
 			ParentID:   row.ParentID,
 			Name:       row.Name,
@@ -827,7 +1143,7 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int) []CPFA
 
 // buildMonthDetailResponse creates a detailed response for a single month
 func buildMonthDetailResponse(
-	monthIndex int,
+	calendarMonthIdx int,
 	date time.Time,
 	baseYear int,
 	data EffectiveRows,
@@ -835,7 +1151,7 @@ func buildMonthDetailResponse(
 	cashAccumulator *decimal.Decimal,
 	netSavings *decimal.Decimal,
 	netCashFlow *decimal.Decimal,
-	employeeCPF *decimal.Decimal,
+	netInvestments *decimal.Decimal,
 	cpfContributions map[string]*cpfProcessor.ContributionResult,
 	cpfCtx *CPFContext,
 ) MonthDetailResponse {
@@ -844,6 +1160,7 @@ func buildMonthDetailResponse(
 
 	// Build all item responses
 	nonCashAssets, nonCashTotal := buildNonCashAssetResponses(data.NonCashAssets, itemStates, date)
+	investments, investmentTotal := buildInvestmentResponses(data.Investments, itemStates, date)
 	cashAssets, cashTotal, accumulatorID := buildCashAssetResponses(data.CashAssets, itemStates, date, cashAccumulator)
 	liabilities, liabilityTotal := buildLiabilityResponses(data.Liabilities, itemStates, date)
 	incomes := buildIncomeResponses(data.Incomes, itemStates, date, cpfContributions)
@@ -858,15 +1175,16 @@ func buildMonthDetailResponse(
 	}
 
 	// Calculate totals
-	totalAssets := decimal.Zero().Add(nonCashTotal).Add(cashTotal).Add(cashAccumulator).Add(cpfTotal)
+	totalAssets := decimal.Zero().Add(nonCashTotal).Add(investmentTotal).Add(cashTotal).Add(cashAccumulator).Add(cpfTotal)
 	netWorth := totalAssets.Sub(liabilityTotal)
 
 	return MonthDetailResponse{
 		Year:                 baseYear + yearIndex,
 		Month:                month,
 		AllYearsIndex:        yearIndex,
-		AllMonthsIndex:       monthIndex,
+		AllMonthsIndex:       calendarMonthIdx,
 		NonCashAssets:        nonCashAssets,
+		Investments:          investments,
 		CashAssets:           cashAssets,
 		CPFAssets:            cpfAssets,
 		Liabilities:          liabilities,
@@ -875,7 +1193,7 @@ func buildMonthDetailResponse(
 		Expenses:             expenses,
 		NetSavings:           *netSavings.Round(0),
 		NetCash:              *netCashFlow.Round(0),
-		NetInvestments:       *employeeCPF.Round(0),
+		NetInvestments:       *netInvestments.Round(0),
 		NetWorth:             *netWorth.Round(0),
 		AccumulatorAccountID: accumulatorID,
 	}
@@ -887,42 +1205,66 @@ func buildMonthDetailResponse(
 
 // MonthlyContext holds all state needed to process a single month
 type MonthlyContext struct {
-	Data            EffectiveRows
-	ItemStates      ItemStateMap
-	State           map[string]*decimal.Decimal
-	Registry        *growth.Registry
-	CPFCtx          *CPFContext
-	BaseYear        int
-	CashAccumulator *decimal.Decimal
+	Data                      EffectiveRows
+	ItemStates                ItemStateMap
+	State                     map[string]*decimal.Decimal
+	Registry                  *growth.Registry
+	CPFCtx                    *CPFContext
+	BaseYear                  int
+	CashAccumulator           *decimal.Decimal
+	IncomeAllocations         []repo.IncomeAllocation
+	LiabilitySchedules        map[string][]decimal.Decimal
+	LinkedExpensesByLiability map[string]FinancialDataRow
 }
 
 // processMonth handles all calculations for a single month and returns the response
-func processMonth(mctx *MonthlyContext, monthIdx int, currentDate time.Time) MonthDetailResponse {
+// isAnchorMonth indicates if this is the first month (anchor month) where investment allocations should not mutate balances
+func processMonth(mctx *MonthlyContext, calendarMonthIdx int, currentDate time.Time, isAnchorMonth bool) MonthDetailResponse {
 	// Reset CPF YTD at year boundaries
-	mctx.CPFCtx.ResetYTDIfNewYear(currentDate, monthIdx)
+	mctx.CPFCtx.ResetYTDIfNewYear(currentDate, calendarMonthIdx)
 
 	// Apply growth to all financial items
 	growthCtx := &GrowthContext{
 		Registry:    mctx.Registry,
 		State:       mctx.State,
-		Month:       monthIdx + 1,
+		Month:       calendarMonthIdx + 1,
 		MonthOfYear: int(currentDate.Month()),
 		Date:        currentDate,
 	}
-	applyAllGrowth(mctx.Data, growthCtx)
+	applyAllGrowth(mctx.Data, growthCtx, mctx.LinkedExpensesByLiability)
+	applyLiabilitySchedules(mctx.Data.Liabilities, growthCtx, mctx.LiabilitySchedules)
+
+	// Apply linked expense payments for open-ended liabilities (those without precomputed schedules)
+	// Skip anchor month - liability payments start from month 2 (like investment allocations)
+	if !isAnchorMonth {
+		applyLinkedExpensePayments(mctx.Data.Liabilities, mctx.LinkedExpensesByLiability, mctx.LiabilitySchedules, mctx.State, currentDate)
+	}
 
 	// Process CPF contributions
 	employeeCPF, cpfContributions := mctx.CPFCtx.ProcessIncomes(mctx.Data.Incomes, mctx.State, currentDate)
 
-	// Calculate cash flow
-	netSavings, netCashFlow := calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF)
-	mctx.CashAccumulator = mctx.CashAccumulator.Add(netCashFlow)
+	// Calculate cash flow; investment allocations are computed every month but only mutate balances after the anchor month
+	var netSavings, netCashFlow, netInvestments *decimal.Decimal
+	applyAllocations := !isAnchorMonth
+	netSavings, netCashFlow, netInvestments = calcCashAllocation(
+		mctx.Data,
+		mctx.State,
+		currentDate,
+		employeeCPF,
+		mctx.IncomeAllocations,
+		applyAllocations,
+	)
+
+	// Accumulate cash flow (anchor month included; allocations only mutate balances after anchor)
+	if applyAllocations {
+		mctx.CashAccumulator = mctx.CashAccumulator.Add(netCashFlow)
+	}
 
 	// Sync state and build response
 	syncStateToItemStates(mctx.State, mctx.ItemStates)
 	return buildMonthDetailResponse(
-		monthIdx, currentDate, mctx.BaseYear, mctx.Data, mctx.ItemStates,
-		mctx.CashAccumulator, netSavings, netCashFlow, employeeCPF, cpfContributions, mctx.CPFCtx,
+		calendarMonthIdx, currentDate, mctx.BaseYear, mctx.Data, mctx.ItemStates,
+		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFCtx,
 	)
 }
 
@@ -942,16 +1284,21 @@ func (s *Service) ComputeFinancialSnapshot(
 	}
 
 	anchorStart, anchorEnd := buildAnchorRange(opts, sgData.Rows)
+	liabilitySchedules := buildLiabilitySchedules(sgData.Rows.Liabilities)
+	linkedExpenses := buildLinkedExpensesByLiability(sgData.Rows.Expenses)
 
 	startMonthIndex := (int(anchorStart.Month()) - 1)
 
 	mctx := &MonthlyContext{
-		Data:            sgData.Rows,
-		ItemStates:      initializeItemStates(sgData.Rows, anchorStart.Year()),
-		Registry:        growth.NewRegistry(),
-		CPFCtx:          NewCPFContext(sgData.CPFAccount),
-		BaseYear:        anchorStart.Year(),
-		CashAccumulator: decimal.Zero(),
+		Data:                      sgData.Rows,
+		ItemStates:                initializeItemStates(sgData.Rows, anchorStart.Year()),
+		Registry:                  growth.NewRegistry(),
+		CPFCtx:                    NewCPFContext(sgData.CPFAccount),
+		BaseYear:                  anchorStart.Year(),
+		CashAccumulator:           decimal.Zero(),
+		IncomeAllocations:         sgData.IncomeAllocations,
+		LiabilitySchedules:        liabilitySchedules,
+		LinkedExpensesByLiability: linkedExpenses,
 	}
 	mctx.State = extractBalanceMap(mctx.ItemStates)
 
@@ -960,8 +1307,9 @@ func (s *Service) ComputeFinancialSnapshot(
 
 	for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
 		currentDate := anchorStart.AddDate(0, monthIdx, 0)
-		globalMonthIdx := startMonthIndex + monthIdx
-		resultMonths = append(resultMonths, processMonth(mctx, globalMonthIdx, currentDate))
+		calendarMonthIdx := startMonthIndex + monthIdx
+		isAnchorMonth := monthIdx == 0
+		resultMonths = append(resultMonths, processMonth(mctx, calendarMonthIdx, currentDate, isAnchorMonth))
 	}
 
 	return TimelineV2Response{Months: resultMonths}, nil

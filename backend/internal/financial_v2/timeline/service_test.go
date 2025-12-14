@@ -9,17 +9,27 @@ import (
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
 
+func strPtr(value string) *string {
+	return &value
+}
+
 // mockStore implements the Store interface for testing
 type mockStore struct {
 	nonCashAssets []repo.NonCashAsset
+	investments   []repo.Investment
 	cashAssets    []repo.CashAsset
 	liabilities   []repo.Liability
 	incomes       []repo.Income
 	expenses      []repo.Expense
+	incomeAllocs  []repo.IncomeAllocation
 }
 
 func (m *mockStore) ListNonCashAssets(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.NonCashAsset], error) {
 	return repo.PaginatedResult[repo.NonCashAsset]{Data: m.nonCashAssets, Count: len(m.nonCashAssets)}, nil
+}
+
+func (m *mockStore) ListInvestments(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.Investment], error) {
+	return repo.PaginatedResult[repo.Investment]{Data: m.investments, Count: len(m.investments)}, nil
 }
 
 func (m *mockStore) ListCashAssets(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.CashAsset], error) {
@@ -40,6 +50,10 @@ func (m *mockStore) ListExpenses(ctx context.Context, userID string, dateOpts re
 
 func (m *mockStore) GetCPFAccount(ctx context.Context, userID string) (*repo.CPFAccount, error) {
 	return nil, nil
+}
+
+func (m *mockStore) ListAllIncomeAllocations(ctx context.Context, userID string) ([]repo.IncomeAllocation, error) {
+	return m.incomeAllocs, nil
 }
 
 func TestComputeFinancialSnapshot_SingleMonth_NoGrowth(t *testing.T) {
@@ -253,6 +267,81 @@ func TestComputeFinancialSnapshot_NetCashFlow(t *testing.T) {
 	}
 }
 
+func TestComputeFinancialSnapshot_AnchorMonthAllocationsReportedOnly(t *testing.T) {
+	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	store := &mockStore{
+		investments: []repo.Investment{
+			{
+				ID:               "inv-1",
+				ParentID:         "inv-1",
+				Name:             "ETF",
+				Category:         "Equities",
+				CurrentValue:     *decimal.MustFromString("10000"),
+				AnnualGrowthRate: *decimal.MustFromString("0"),
+				StartDate:        startDate,
+			},
+		},
+		incomes: []repo.Income{
+			{
+				ID:         "income-1",
+				ParentID:   "income-1",
+				Source:     "Salary",
+				Amount:     *decimal.MustFromString("5000"),
+				Frequency:  "monthly",
+				StartDate:  startDate,
+				Category:   "Employment",
+				GrowthRate: *decimal.MustFromString("0"),
+			},
+		},
+		incomeAllocs: []repo.IncomeAllocation{
+			{
+				ID:                 "alloc-1",
+				IncomeID:           "income-1",
+				TargetInvestmentID: strPtr("inv-1"),
+				AllocationType:     "percentage",
+				AllocationValue:    *decimal.MustFromString("10"), // 10% of income
+			},
+		},
+	}
+
+	service := NewService(store)
+	opts := TimelineOptions{
+		StartDate: startDate,
+		EndDate:   startDate, // Anchor month only
+	}
+
+	result, err := service.ComputeFinancialSnapshot(context.Background(), "user-1", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Months) != 1 {
+		t.Fatalf("expected 1 month, got %d", len(result.Months))
+	}
+
+	month := result.Months[0]
+	expectedAlloc := decimal.MustFromString("500") // 10% of 5000 income
+	if month.NetInvestments.Cmp(expectedAlloc) != 0 {
+		t.Fatalf("expected net investments %s, got %s", expectedAlloc.String(), month.NetInvestments.String())
+	}
+
+	// Investment balance should not be incremented in anchor month
+	if len(month.Investments) != 1 {
+		t.Fatalf("expected 1 investment, got %d", len(month.Investments))
+	}
+	if month.Investments[0].Balance.Cmp(decimal.MustFromString("10000")) != 0 {
+		t.Fatalf("anchor month should not apply allocations to balances; expected 10000, got %s", month.Investments[0].Balance.String())
+	}
+
+	// Net cash should always be net of investments, even on anchor month
+	// NetCash = NetSavings - NetInvestments = 5000 - 500 = 4500
+	expectedNetCash := decimal.MustFromString("4500")
+	if month.NetCash.Cmp(expectedNetCash) != 0 {
+		t.Fatalf("expected net cash %s (net of investments), got %s", expectedNetCash.String(), month.NetCash.String())
+	}
+}
+
 func TestComputeFinancialSnapshot_NetWorth(t *testing.T) {
 	// Test net worth = assets - liabilities
 	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -311,25 +400,21 @@ func TestComputeFinancialSnapshot_NetWorth(t *testing.T) {
 	}
 }
 
-func TestComputeFinancialSnapshot_ItemNotActiveUntilStartDate(t *testing.T) {
-	// Test that items are not included before their start date
-	// Note: Arrears is based on TIMELINE month (not per-item creation).
-	// So an item starting in month 2 of the query will have growth applied
-	// because the timeline is already past month 1.
+func TestComputeFinancialSnapshot_GrowthOverTime(t *testing.T) {
+	// Test that assets grow over multiple months
 	queryStart := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
-	queryEnd := time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC)
-	assetStart := time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC) // Asset starts in month 2
+	queryEnd := time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC) // 3 months
 
 	store := &mockStore{
 		nonCashAssets: []repo.NonCashAsset{
 			{
 				ID:               "asset-1",
 				ParentID:         "asset-1",
-				Name:             "Delayed Investment",
+				Name:             "Investment",
 				Category:         "Investment",
 				CurrentValue:     *decimal.MustFromString("10000"),
 				AnnualGrowthRate: *decimal.MustFromString("7"),
-				StartDate:        assetStart,
+				StartDate:        queryStart,
 			},
 		},
 	}
@@ -345,36 +430,34 @@ func TestComputeFinancialSnapshot_ItemNotActiveUntilStartDate(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Month 1: asset should not appear (before start date)
-	if len(result.Months[0].NonCashAssets) != 0 {
-		t.Errorf("month 1: expected 0 assets (before start date), got %d", len(result.Months[0].NonCashAssets))
+	if len(result.Months) != 3 {
+		t.Fatalf("expected 3 months, got %d", len(result.Months))
 	}
 
-	// Month 2: asset appears and growth is applied (timeline month 2 > 1)
-	if len(result.Months[1].NonCashAssets) != 1 {
-		t.Fatalf("month 2: expected 1 asset, got %d", len(result.Months[1].NonCashAssets))
+	// Month 1: no growth (arrears)
+	if len(result.Months[0].NonCashAssets) != 1 {
+		t.Fatalf("month 1: expected 1 asset, got %d", len(result.Months[0].NonCashAssets))
+	}
+	month1Balance := result.Months[0].NonCashAssets[0].Balance
+	expected := decimal.MustFromString("10000")
+	if month1Balance.Cmp(expected) != 0 {
+		t.Errorf("month 1: expected balance %s (no growth), got %s", expected.String(), month1Balance.String())
 	}
 
+	// Month 2: first growth
 	month2Balance := result.Months[1].NonCashAssets[0].Balance
-	initialValue := decimal.MustFromString("10000")
-
-	// Growth is applied because timeline is in month 2 (past arrears period)
-	if month2Balance.Cmp(initialValue) <= 0 {
-		t.Errorf("month 2: expected growth applied (timeline month 2), got %s", month2Balance.String())
+	if month2Balance.Cmp(&month1Balance) <= 0 {
+		t.Errorf("month 2: expected growth from month 1, got %s", month2Balance.String())
 	}
 
-	// Month 3: asset should have more growth
-	if len(result.Months[2].NonCashAssets) != 1 {
-		t.Fatalf("month 3: expected 1 asset, got %d", len(result.Months[2].NonCashAssets))
-	}
-
+	// Month 3: more growth
 	month3Balance := result.Months[2].NonCashAssets[0].Balance
 	if month3Balance.Cmp(&month2Balance) <= 0 {
 		t.Errorf("month 3: expected more growth than month 2, got %s", month3Balance.String())
 	}
 
-	t.Logf("Month 1: %d assets", len(result.Months[0].NonCashAssets))
-	t.Logf("Month 2: balance %s (growth applied - timeline month 2)", month2Balance.String())
+	t.Logf("Month 1: balance %s", month1Balance.String())
+	t.Logf("Month 2: balance %s", month2Balance.String())
 	t.Logf("Month 3: balance %s", month3Balance.String())
 }
 
@@ -443,4 +526,213 @@ func TestComputeFinancialSnapshot_CashAccumulator(t *testing.T) {
 	t.Logf("Month 1 net cash: %s", month1Cash.String())
 	t.Logf("Month 2 net cash: %s", month2Cash.String())
 	t.Logf("Month 3 net cash: %s", month3Cash.String())
+}
+
+func TestComputeFinancialSnapshot_NetCashAlwaysNetOfInvestments(t *testing.T) {
+	// Test that NetCash is always net of investments, regardless of whether it's anchor month
+	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC) // 3 months
+
+	store := &mockStore{
+		investments: []repo.Investment{
+			{
+				ID:               "inv-1",
+				ParentID:         "inv-1",
+				Name:             "ETF",
+				Category:         "Equities",
+				CurrentValue:     *decimal.MustFromString("10000"),
+				AnnualGrowthRate: *decimal.MustFromString("0"),
+				StartDate:        startDate,
+			},
+		},
+		incomes: []repo.Income{
+			{
+				ID:         "income-1",
+				ParentID:   "income-1",
+				Source:     "Salary",
+				Amount:     *decimal.MustFromString("5000"),
+				Frequency:  "monthly",
+				StartDate:  startDate,
+				Category:   "Employment",
+				GrowthRate: *decimal.MustFromString("0"),
+			},
+		},
+		expenses: []repo.Expense{
+			{
+				ID:         "expense-1",
+				ParentID:   "expense-1",
+				Payee:      "Rent",
+				Amount:     *decimal.MustFromString("1000"),
+				Frequency:  "monthly",
+				StartDate:  startDate,
+				Category:   "Housing",
+				GrowthRate: *decimal.MustFromString("0"),
+			},
+		},
+		incomeAllocs: []repo.IncomeAllocation{
+			{
+				ID:                 "alloc-1",
+				IncomeID:           "income-1",
+				TargetInvestmentID: strPtr("inv-1"),
+				AllocationType:     "fixed",
+				AllocationValue:    *decimal.MustFromString("500"), // Fixed $500/month
+			},
+		},
+	}
+
+	service := NewService(store)
+	opts := TimelineOptions{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	result, err := service.ComputeFinancialSnapshot(context.Background(), "user-1", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Months) != 3 {
+		t.Fatalf("expected 3 months, got %d", len(result.Months))
+	}
+
+	// NetSavings = Income - Expenses = 5000 - 1000 = 4000
+	// NetInvestments = 500 (fixed allocation)
+	// NetCash = NetSavings - NetInvestments = 4000 - 500 = 3500
+	expectedNetSavings := decimal.MustFromString("4000")
+	expectedNetInvestments := decimal.MustFromString("500")
+	expectedNetCash := decimal.MustFromString("3500")
+
+	for i, month := range result.Months {
+		if month.NetSavings.Cmp(expectedNetSavings) != 0 {
+			t.Errorf("month %d: expected net savings %s, got %s", i+1, expectedNetSavings.String(), month.NetSavings.String())
+		}
+		if month.NetInvestments.Cmp(expectedNetInvestments) != 0 {
+			t.Errorf("month %d: expected net investments %s, got %s", i+1, expectedNetInvestments.String(), month.NetInvestments.String())
+		}
+		if month.NetCash.Cmp(expectedNetCash) != 0 {
+			t.Errorf("month %d: expected net cash %s (net of investments), got %s", i+1, expectedNetCash.String(), month.NetCash.String())
+		}
+	}
+
+	// Investment balance should only increase after the anchor month
+	// Month 1 (anchor): 10000 (no allocation applied to balance)
+	// Month 2: 10000 + 500 = 10500
+	// Month 3: 10500 + 500 = 11000
+	expectedBalances := []string{"10000", "10500", "11000"}
+	for i, month := range result.Months {
+		if len(month.Investments) != 1 {
+			t.Fatalf("month %d: expected 1 investment, got %d", i+1, len(month.Investments))
+		}
+		expected := decimal.MustFromString(expectedBalances[i])
+		if month.Investments[0].Balance.Cmp(expected) != 0 {
+			t.Errorf("month %d: expected investment balance %s, got %s", i+1, expected.String(), month.Investments[0].Balance.String())
+		}
+	}
+
+	t.Logf("Month 1: NetSavings=%s, NetInvestments=%s, NetCash=%s, InvestmentBalance=%s",
+		result.Months[0].NetSavings.String(), result.Months[0].NetInvestments.String(),
+		result.Months[0].NetCash.String(), result.Months[0].Investments[0].Balance.String())
+	t.Logf("Month 2: NetSavings=%s, NetInvestments=%s, NetCash=%s, InvestmentBalance=%s",
+		result.Months[1].NetSavings.String(), result.Months[1].NetInvestments.String(),
+		result.Months[1].NetCash.String(), result.Months[1].Investments[0].Balance.String())
+	t.Logf("Month 3: NetSavings=%s, NetInvestments=%s, NetCash=%s, InvestmentBalance=%s",
+		result.Months[2].NetSavings.String(), result.Months[2].NetInvestments.String(),
+		result.Months[2].NetCash.String(), result.Months[2].Investments[0].Balance.String())
+}
+
+func TestComputeFinancialSnapshot_OpenEndedLiabilityWithLinkedExpense(t *testing.T) {
+	// Test that open-ended liabilities (no end date) with linked expenses
+	// have their balance decrease month-over-month based on expense payments
+	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC) // 3 months
+
+	liabilityID := "liability-1"
+
+	store := &mockStore{
+		liabilities: []repo.Liability{
+			{
+				ID:              liabilityID,
+				ParentID:        liabilityID,
+				Name:            "Credit Card",
+				Category:        "Debt",
+				CurrentBalance:  *decimal.MustFromString("10000"), // $10,000 balance
+				InterestRateAPR: *decimal.MustFromString("18"),    // 18% APR
+				MinimumPayment:  *decimal.MustFromString("200"),
+				StartDate:       startDate,
+				EndDate:         nil, // Open-ended (no end date)
+			},
+		},
+		expenses: []repo.Expense{
+			{
+				ID:                "expense-1",
+				ParentID:          "expense-1",
+				Payee:             "Credit Card Payment",
+				Amount:            *decimal.MustFromString("500"), // $500/month payment
+				Frequency:         "monthly",
+				StartDate:         startDate,
+				Category:          "Debt Payment",
+				GrowthRate:        *decimal.MustFromString("0"),
+				SourceLiabilityID: &liabilityID, // Linked to liability
+			},
+		},
+	}
+
+	service := NewService(store)
+	opts := TimelineOptions{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	result, err := service.ComputeFinancialSnapshot(context.Background(), "user-1", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Months) != 3 {
+		t.Fatalf("expected 3 months, got %d", len(result.Months))
+	}
+
+	// Verify liability balance decreases each month
+	// Month 1: Balance = 10000 (anchor month, no change)
+	// Month 2: Interest = 10000 * (18/100/12) = 150, Principal = 500 - 150 = 350, Balance = 10000 - 350 = 9650
+	// Month 3: Interest = 9650 * 0.015 = 144.75, Principal = 500 - 144.75 = 355.25, Balance = 9650 - 355.25 = 9294.75
+
+	for i, month := range result.Months {
+		if len(month.Liabilities) != 1 {
+			t.Fatalf("month %d: expected 1 liability, got %d", i+1, len(month.Liabilities))
+		}
+		t.Logf("Month %d: Liability Balance = %s", i+1, month.Liabilities[0].Balance.String())
+	}
+
+	// Verify balance decreases month-over-month
+	month1Balance := result.Months[0].Liabilities[0].Balance
+	month2Balance := result.Months[1].Liabilities[0].Balance
+	month3Balance := result.Months[2].Liabilities[0].Balance
+
+	// Month 1 should be the starting balance (10000)
+	expectedMonth1 := decimal.MustFromString("10000")
+	if month1Balance.Cmp(expectedMonth1) != 0 {
+		t.Errorf("month 1: expected balance %s, got %s", expectedMonth1.String(), month1Balance.String())
+	}
+
+	// Month 2 should be less than month 1
+	if month2Balance.Cmp(&month1Balance) >= 0 {
+		t.Errorf("month 2 balance (%s) should be less than month 1 balance (%s)",
+			month2Balance.String(), month1Balance.String())
+	}
+
+	// Month 3 should be less than month 2
+	if month3Balance.Cmp(&month2Balance) >= 0 {
+		t.Errorf("month 3 balance (%s) should be less than month 2 balance (%s)",
+			month3Balance.String(), month2Balance.String())
+	}
+
+	// Verify approximate values
+	// Month 2: ~9650
+	expectedMonth2Min := decimal.MustFromString("9640")
+	expectedMonth2Max := decimal.MustFromString("9660")
+	if month2Balance.Cmp(expectedMonth2Min) < 0 || month2Balance.Cmp(expectedMonth2Max) > 0 {
+		t.Errorf("month 2: expected balance between %s and %s, got %s",
+			expectedMonth2Min.String(), expectedMonth2Max.String(), month2Balance.String())
+	}
 }

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"testing"
 	"time"
@@ -10,12 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateFinancialRowsUpsertByParentAndYear(t *testing.T) {
+func TestCreateFinancialRowsUpsertByParentAndStartDate(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
 	cases := []struct {
-		name    string
+		name  string
+		setup func(sqlmock.Sqlmock)
+
 		pattern string
 		columns []string
 		values  []driver.Value
@@ -24,10 +27,10 @@ func TestCreateFinancialRowsUpsertByParentAndYear(t *testing.T) {
 	}{
 		{
 			name:    "asset",
-			pattern: `(?s)INSERT INTO finance_assets .*ON CONFLICT \(parent_id, start_year\) DO UPDATE`,
-			columns: []string{"id", "parent_id", "name", "category", "current_value", "annual_growth_rate", "frequency", "start_year", "end_year", "notes", "updated_at"},
-			values:  []driver.Value{"row-asset", "asset-parent", "Cash", "asset_cash", 2000.0, 0.0, "annual", 0, nil, "", now},
-			args:    10,
+			pattern: `(?s)INSERT INTO finance_assets .*ON CONFLICT ON CONSTRAINT finance_assets_parent_start_date_key DO UPDATE`,
+			columns: []string{"id", "parent_id", "name", "category", "current_value", "annual_growth_rate", "start_date", "end_date", "notes", "updated_at"},
+			values:  []driver.Value{"row-asset", "asset-parent", "Cash", "asset_cash", 2000.0, 0.0, now, nil, "", now},
+			args:    9,
 			call: func(ctx context.Context, s *Store) error {
 				_, err := s.CreateAsset(ctx, "test-user", Asset{
 					ParentID:         "asset-parent",
@@ -35,18 +38,42 @@ func TestCreateFinancialRowsUpsertByParentAndYear(t *testing.T) {
 					Category:         "asset_cash",
 					CurrentValue:     2000,
 					AnnualGrowthRate: 0,
-					Frequency:        "annual",
-					StartYear:        0,
+					StartDate:        now,
 				})
 				return err
 			},
 		},
 		{
-			name:    "liability",
-			pattern: `(?s)INSERT INTO finance_liabilities .*ON CONFLICT \(parent_id, start_year\) DO UPDATE`,
-			columns: []string{"id", "parent_id", "name", "category", "current_balance", "interest_rate_apr", "minimum_payment", "frequency", "start_year", "end_year", "notes", "updated_at"},
-			values:  []driver.Value{"row-liability", "liability-parent", "Card", "debt", 1500.0, 19.99, 50.0, "monthly", 0, nil, "", now},
-			args:    11,
+			name: "liability",
+			setup: func(mock sqlmock.Sqlmock) {
+				expenseRows := sqlmock.NewRows([]string{"id", "parent_id", "payee", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id"}).
+					AddRow("row-expense", "expense-parent", "Card", 50.0, "monthly", now, nil, "Debt Payment", 0.0, "annual_step", "Auto-generated payment for Card", now, "row-liability")
+
+				mock.ExpectQuery(`(?s)SELECT .*FROM finance_expenses`).
+					WithArgs("test-user", "row-liability").
+					WillReturnError(sql.ErrNoRows)
+
+				mock.ExpectQuery(`(?s)INSERT INTO finance_expenses .*ON CONFLICT ON CONSTRAINT finance_expenses_parent_start_date_key DO UPDATE`).
+					WithArgs(
+						"test-user",
+						sqlmock.AnyArg(), // parent_id
+						"Card",
+						50.0,
+						"monthly",
+						sqlmock.AnyArg(), // start_date
+						nil,              // end_date
+						"Debt Payment",
+						0.0,           // growth_rate
+						"annual_step", // growth_strategy
+						"Auto-generated payment for Card",
+						"row-liability",
+					).
+					WillReturnRows(expenseRows)
+			},
+			pattern: `(?s)INSERT INTO finance_liabilities .*ON CONFLICT ON CONSTRAINT finance_liabilities_parent_start_date_key DO UPDATE`,
+			columns: []string{"id", "parent_id", "name", "category", "current_balance", "interest_rate_apr", "minimum_payment", "start_date", "end_date", "notes", "repayment_strategy", "repayment_metadata", "updated_at"},
+			values:  []driver.Value{"row-liability", "liability-parent", "Card", "debt", 1500.0, 19.99, 50.0, now, nil, "", "standard_amortization", nil, now},
+			args:    12, // user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes, repayment_strategy, repayment_metadata
 			call: func(ctx context.Context, s *Store) error {
 				_, err := s.CreateLiability(ctx, "test-user", Liability{
 					ParentID:        "liability-parent",
@@ -55,25 +82,23 @@ func TestCreateFinancialRowsUpsertByParentAndYear(t *testing.T) {
 					CurrentBalance:  1500,
 					InterestRateAPR: 19.99,
 					MinimumPayment:  50,
-					Frequency:       "monthly",
-					StartYear:       0,
+					StartDate:       now,
 				})
 				return err
 			},
 		},
 		{
 			name:    "income",
-			pattern: `(?s)INSERT INTO finance_incomes .*ON CONFLICT \(parent_id, start_year\) DO UPDATE`,
-			columns: []string{"id", "parent_id", "source", "amount", "frequency", "start_year", "end_year", "start_date", "category", "growth_rate", "notes", "updated_at"},
-			values:  []driver.Value{"row-income", "income-parent", "Salary", 8000.0, "monthly", 0, nil, now, "employment", 3.0, "", now},
-			args:    11,
+			pattern: `(?s)INSERT INTO finance_incomes .*ON CONFLICT ON CONSTRAINT finance_incomes_parent_start_date_key DO UPDATE`,
+			columns: []string{"id", "parent_id", "source", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "cpf_wage_type", "updated_at", "source_type", "source_id"},
+			values:  []driver.Value{"row-income", "income-parent", "Salary", 8000.0, "monthly", now, nil, "employment", 3.0, "annual_step", "", "", now, nil, nil},
+			args:    14, // user_id, parent_id, source, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, cpf_wage_type, source_type, source_id
 			call: func(ctx context.Context, s *Store) error {
 				_, err := s.CreateIncome(ctx, "test-user", Income{
 					ParentID:  "income-parent",
 					Source:    "Salary",
 					Amount:    8000,
 					Frequency: "monthly",
-					StartYear: 0,
 					StartDate: now,
 					Category:  "employment",
 				})
@@ -82,17 +107,17 @@ func TestCreateFinancialRowsUpsertByParentAndYear(t *testing.T) {
 		},
 		{
 			name:    "expense",
-			pattern: `(?s)INSERT INTO finance_expenses .*ON CONFLICT \(parent_id, start_year\) DO UPDATE`,
-			columns: []string{"id", "parent_id", "payee", "amount", "frequency", "start_year", "end_year", "category", "growth_rate", "notes", "updated_at"},
-			values:  []driver.Value{"row-expense", "expense-parent", "Rent", 2500.0, "monthly", 0, nil, "housing", 2.0, "", now},
-			args:    10,
+			pattern: `(?s)INSERT INTO finance_expenses .*ON CONFLICT ON CONSTRAINT finance_expenses_parent_start_date_key DO UPDATE`,
+			columns: []string{"id", "parent_id", "payee", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id"},
+			values:  []driver.Value{"row-expense", "expense-parent", "Rent", 2500.0, "monthly", now, nil, "housing", 2.0, "annual_step", "", now, nil},
+			args:    12, // user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, source_liability_id
 			call: func(ctx context.Context, s *Store) error {
 				_, err := s.CreateExpense(ctx, "test-user", Expense{
 					ParentID:  "expense-parent",
 					Payee:     "Rent",
 					Amount:    2500,
 					Frequency: "monthly",
-					StartYear: 0,
+					StartDate: now,
 					Category:  "housing",
 				})
 				return err
@@ -120,6 +145,10 @@ func TestCreateFinancialRowsUpsertByParentAndYear(t *testing.T) {
 			mock.ExpectQuery(tc.pattern).
 				WithArgs(args...).
 				WillReturnRows(rows)
+
+			if tc.setup != nil {
+				tc.setup(mock)
+			}
 
 			err = tc.call(context.Background(), store)
 			require.NoError(t, err)

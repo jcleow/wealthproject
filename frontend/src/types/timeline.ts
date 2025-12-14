@@ -82,7 +82,7 @@ export interface TimelineMonth {
   liabilities: TimelineItem[]
   income: TimelineItem[]
   expenses: TimelineItem[]
-  /** Monthly net savings (income - expenses) */
+  /** Monthly net cash (income - CPF - expenses) */
   netCash: number
   netWorth: number
   hasOverrides: boolean
@@ -134,6 +134,7 @@ export interface MonthDetailResponseV2 {
   allYearsIndex: number
   allMonthsIndex: number
   nonCashAssets: NonCashAssetResponseV2[]
+  investments: InvestmentResponseV2[]
   cashAssets: CashAssetResponseV2[]
   cpfAssets: CPFAssetResponseV2[]
   liabilities: LiabilityResponseV2[]
@@ -141,8 +142,8 @@ export interface MonthDetailResponseV2 {
   cpfContributions: CPFContributionResponseV2[]
   expenses: ExpenseResponseV2[]
   // Savings breakdown
-  netSavings: string      // income - expenses (monthly)
-  netCash: string         // income - expenses - employee CPF (monthly)
+  netSavings: string      // income - employee CPF - expenses (monthly)
+  netCash: string         // income - employee CPF - expenses - investments (monthly)
   netInvestments: string  // employee CPF contribution (monthly)
   // Other totals
   netWorth: string
@@ -151,6 +152,20 @@ export interface MonthDetailResponseV2 {
 
 /** Non-cash asset in V2 response (decimal values come as strings from backend) */
 export interface NonCashAssetResponseV2 {
+  id: string
+  parentId: string
+  name: string
+  category: string
+  balance: string
+  adjBalance: string
+  itemType: string
+  startDate: string
+  startYear: number
+  startMonth: number
+}
+
+/** Investment in V2 response (decimal values come as strings from backend) */
+export interface InvestmentResponseV2 {
   id: string
   parentId: string
   name: string

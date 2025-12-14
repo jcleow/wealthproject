@@ -126,11 +126,13 @@ func (h *LiabilityHandler) create(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, errMissingFields("name, category, current_balance"))
 		return
 	}
+
 	created, err := h.store.CreateLiability(r.Context(), userID, payload)
 	if err != nil {
 		internalError(w, err)
 		return
 	}
+
 	writeJSON(w, created)
 }
 

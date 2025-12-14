@@ -1,4 +1,5 @@
 export * as assetsApi from './assets'
+export * as investmentsApi from './investments'
 export * as liabilitiesApi from './liabilities'
 export * as incomesApi from './incomes'
 export * as expensesApi from './expenses'
@@ -11,6 +12,7 @@ export * as settingsApi from './settings'
 export * as cpfApi from './cpf'
 
 import * as assets from './assets'
+import * as investments from './investments'
 import * as liabilities from './liabilities'
 import * as incomes from './incomes'
 import * as expenses from './expenses'
@@ -24,6 +26,7 @@ import * as cpf from './cpf'
 
 export const financialApi = {
   ...assets,
+  ...investments,
   ...liabilities,
   ...incomes,
   ...expenses,

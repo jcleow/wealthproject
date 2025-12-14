@@ -15,6 +15,7 @@ type FinancialDataType string
 const (
 	FinNonCashAsset FinancialDataType = "nonCashAsset"
 	FinCashAsset    FinancialDataType = "cashAsset"
+	FinInvestment   FinancialDataType = "investment"
 	FinLiabilities  FinancialDataType = "liabilities"
 	FinIncome       FinancialDataType = "income"
 	FinExpense      FinancialDataType = "expense"
@@ -55,11 +56,13 @@ const (
 
 type Store interface {
 	ListNonCashAssets(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.NonCashAsset], error)
+	ListInvestments(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Investment], error)
 	ListCashAssets(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.CashAsset], error)
 	ListLiabilities(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Liability], error)
 	ListIncomes(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Income], error)
 	ListExpenses(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Expense], error)
 	GetCPFAccount(context.Context, string) (*repository.CPFAccount, error)
+	ListAllIncomeAllocations(context.Context, string) ([]repository.IncomeAllocation, error)
 }
 
 // ========== Timeline V2 Options ==========
@@ -85,6 +88,7 @@ type MonthDetailResponse struct {
 	AllYearsIndex    int                       `json:"allYearsIndex"`
 	AllMonthsIndex   int                       `json:"allMonthsIndex"`
 	NonCashAssets    []NonCashAssetResponse    `json:"nonCashAssets"`
+	Investments      []InvestmentResponse      `json:"investments"`
 	CashAssets       []CashAssetResponse       `json:"cashAssets"`
 	CPFAssets        []CPFAssetResponse        `json:"cpfAssets"`
 	Liabilities      []LiabilityResponse       `json:"liabilities"`
@@ -92,8 +96,8 @@ type MonthDetailResponse struct {
 	CPFContributions []CPFContributionResponse `json:"cpfContributions"`
 	Expenses         []ExpenseResponse         `json:"expenses"`
 	// Savings breakdown
-	NetSavings     decimal.Decimal `json:"netSavings"`     // income - expenses (monthly)
-	NetCash        decimal.Decimal `json:"netCash"`        // income - expenses - employee CPF (monthly)
+	NetSavings     decimal.Decimal `json:"netSavings"`     // income - employee CPF - expenses (monthly)
+	NetCash        decimal.Decimal `json:"netCash"`        // income - employee CPF - expenses - investments (monthly)
 	NetInvestments decimal.Decimal `json:"netInvestments"` // employee CPF contribution (monthly)
 	// Other totals
 	NetWorth             decimal.Decimal `json:"netWorth"`
@@ -102,6 +106,20 @@ type MonthDetailResponse struct {
 
 // NonCashAssetResponse represents a non-cash asset in the timeline response
 type NonCashAssetResponse struct {
+	ID         string          `json:"id"`
+	ParentID   string          `json:"parentId"`
+	Name       string          `json:"name"`
+	Category   string          `json:"category"`
+	Balance    decimal.Decimal `json:"balance"`
+	AdjBalance decimal.Decimal `json:"adjBalance"`
+	ItemType   string          `json:"itemType"`
+	StartDate  string          `json:"startDate"`
+	StartYear  int             `json:"startYear"`
+	StartMonth int             `json:"startMonth"`
+}
+
+// InvestmentResponse keeps investments separate from non-cash assets
+type InvestmentResponse struct {
 	ID         string          `json:"id"`
 	ParentID   string          `json:"parentId"`
 	Name       string          `json:"name"`

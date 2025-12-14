@@ -18,10 +18,10 @@ type CashAccount struct {
 	BankName       string                 `json:"bankName,omitempty"`
 	AccountType    string                 `json:"accountType,omitempty"` // checking, savings, money_market
 	IsAccumulator  bool                   `json:"isAccumulator"`
-	StartDate      time.Time              `json:"startDate"`           // Precise start date (day-level)
-	EndDate        *time.Time             `json:"endDate,omitempty"`   // NULL means ongoing
-	StartYear      int                    `json:"startYear"`           // Legacy: for migration period
-	EndYear        sql.NullInt32          `json:"endYear,omitempty"`   // Legacy: for migration period
+	StartDate      time.Time              `json:"startDate"`         // Precise start date (day-level)
+	EndDate        *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
+	StartYear      int                    `json:"startYear"`         // Legacy: for migration period
+	EndYear        sql.NullInt32          `json:"endYear,omitempty"` // Legacy: for migration period
 	Notes          string                 `json:"notes,omitempty"`
 	GrowthStrategy string                 `json:"growthStrategy"`
 	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
@@ -43,7 +43,7 @@ func (s *Store) ListCashAccounts(ctx context.Context, userID string, opts DateRa
 		       end_date,
 		       COALESCE(notes, '') as notes,
 		       created_at, updated_at
-		FROM cash_accounts
+		FROM finance_cash_accounts
 		WHERE user_id = $1`
 
 	args := []interface{}{userID}
@@ -101,7 +101,7 @@ func (s *Store) GetCashAccount(ctx context.Context, userID, id string) (CashAcco
 		       is_accumulator, start_date, end_date,
 		       COALESCE(notes, '') as notes,
 		       created_at, updated_at
-		FROM cash_accounts
+		FROM finance_cash_accounts
 		WHERE user_id = $1 AND id = $2`, userID, id)
 
 	var acc CashAccount
@@ -132,7 +132,7 @@ func (s *Store) GetAccumulatorAccount(ctx context.Context, userID string) (CashA
 		       is_accumulator, start_date, end_date,
 		       COALESCE(notes, '') as notes,
 		       created_at, updated_at
-		FROM cash_accounts
+		FROM finance_cash_accounts
 		WHERE user_id = $1 AND is_accumulator = true
 		LIMIT 1`, userID)
 
@@ -167,7 +167,7 @@ func (s *Store) CreateCashAccount(ctx context.Context, acc CashAccount) (CashAcc
 	endDate := acc.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO cash_accounts (user_id, name, balance, interest_rate, bank_name, account_type, is_accumulator, start_date, end_date, notes)
+		INSERT INTO finance_cash_accounts (user_id, name, balance, interest_rate, bank_name, account_type, is_accumulator, start_date, end_date, notes)
 		VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, $8, $9, NULLIF($10, ''))
 		RETURNING id, user_id, name, balance, interest_rate,
 		          COALESCE(bank_name, '') as bank_name,
@@ -198,7 +198,7 @@ func (s *Store) CreateCashAccount(ctx context.Context, acc CashAccount) (CashAcc
 // UpdateCashAccount updates an existing cash account.
 func (s *Store) UpdateCashAccount(ctx context.Context, acc CashAccount) (CashAccount, error) {
 	row := s.db.QueryRowContext(ctx, `
-		UPDATE cash_accounts
+		UPDATE finance_cash_accounts
 		SET name = $3,
 		    balance = $4,
 		    interest_rate = $5,
@@ -241,7 +241,7 @@ func (s *Store) UpdateCashAccount(ctx context.Context, acc CashAccount) (CashAcc
 
 // DeleteCashAccount deletes a cash account by ID.
 func (s *Store) DeleteCashAccount(ctx context.Context, userID, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM cash_accounts WHERE user_id = $1 AND id = $2`, userID, id)
+	result, err := s.db.ExecContext(ctx, `DELETE FROM finance_cash_accounts WHERE user_id = $1 AND id = $2`, userID, id)
 	if err != nil {
 		return err
 	}
@@ -262,7 +262,7 @@ func (s *Store) SetAccumulatorAccount(ctx context.Context, userID, accountID str
 
 	// Clear existing accumulator
 	_, err = tx.ExecContext(ctx, `
-		UPDATE cash_accounts
+		UPDATE finance_cash_accounts
 		SET is_accumulator = false, updated_at = NOW()
 		WHERE user_id = $1 AND is_accumulator = true`, userID)
 	if err != nil {
@@ -271,7 +271,7 @@ func (s *Store) SetAccumulatorAccount(ctx context.Context, userID, accountID str
 
 	// Set new accumulator
 	result, err := tx.ExecContext(ctx, `
-		UPDATE cash_accounts
+		UPDATE finance_cash_accounts
 		SET is_accumulator = true, updated_at = NOW()
 		WHERE user_id = $1 AND id = $2`, userID, accountID)
 	if err != nil {

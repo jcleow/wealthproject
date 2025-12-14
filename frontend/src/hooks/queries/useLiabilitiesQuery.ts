@@ -31,6 +31,8 @@ export function useCreateLiabilityMutation() {
       )
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.expenses })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
     },
   })
 }
@@ -47,6 +49,8 @@ export function useUpdateLiabilityMutation() {
       )
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.expenses })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
     },
   })
 }
@@ -62,6 +66,8 @@ export function useDeleteLiabilityMutation() {
       )
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.expenses })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
     },
   })
 }

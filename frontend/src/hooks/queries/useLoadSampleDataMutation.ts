@@ -18,14 +18,16 @@ export function useLoadSampleDataMutation() {
 
   return useMutation({
     mutationFn: async () => {
-      // First clear all data
+      // First clear all data including CPF
       await Promise.all([
         financialApi.deleteAllAssets(),
+        financialApi.deleteAllInvestments(),
         financialApi.deleteAllLiabilities(),
         financialApi.deleteAllIncomes(),
         financialApi.deleteAllExpenses(),
         financialApi.deleteAllCashAccounts(),
         financialApi.deleteAllScenarioEvents(),
+        financialApi.deleteCPFAccount().catch(() => {}), // Ignore if no CPF account exists
       ])
 
       // Ensure CPF profile exists so timeline v2 can show CPF assets and contributions
@@ -53,6 +55,8 @@ export function useLoadSampleDataMutation() {
       // Sample data for a 32-year-old Singaporean professional
       // Planning: marriage, BTO flat, car, retirement by 60
       const todayIso = new Date().toISOString()
+
+      // Non-investment assets (Bank Accounts stay in assets table)
       const sampleAssets = [
         {
           name: 'DBS Multiplier Account',
@@ -62,6 +66,18 @@ export function useLoadSampleDataMutation() {
           startDate: todayIso,
           notes: 'Main savings account with salary crediting',
         },
+        {
+          name: 'Emergency Fund',
+          category: 'Bank Account',
+          currentValue: 18000,
+          annualGrowthRate: 2.0,
+          startDate: todayIso,
+          notes: '6 months expenses in high-yield savings',
+        },
+      ]
+
+      // Investments go to the finance_investments table
+      const sampleInvestments = [
         {
           name: 'Syfe Core Growth Portfolio',
           category: 'Investment',
@@ -77,14 +93,6 @@ export function useLoadSampleDataMutation() {
           annualGrowthRate: 3.0,
           startDate: todayIso,
           notes: 'Safe haven, 10-year average yield',
-        },
-        {
-          name: 'Emergency Fund',
-          category: 'Bank Account',
-          currentValue: 18000,
-          annualGrowthRate: 2.0,
-          startDate: todayIso,
-          notes: '6 months expenses in high-yield savings',
         },
       ]
 
@@ -259,15 +267,6 @@ export function useLoadSampleDataMutation() {
           startDate: todayIso,
           growthRate: 2.0,
           notes: 'Clothes, gadgets, movies',
-        },
-        {
-          payee: 'Investment Contribution',
-          category: 'Savings',
-          amount: 500,
-          frequency: 'monthly',
-          startDate: todayIso,
-          growthRate: 3.0,
-          notes: 'Monthly DCA to Syfe portfolio',
         },
         {
           payee: 'Annual Travel Fund',
@@ -459,15 +458,41 @@ export function useLoadSampleDataMutation() {
         },
       ]
 
-      const [assets, liabilities, incomes, expenses] = await Promise.all([
+      const [assets, investments, liabilities, incomes, _createdExpenses] = await Promise.all([
         Promise.all(sampleAssets.map(asset => financialApi.createAsset(asset))),
+        Promise.all(sampleInvestments.map(investment => financialApi.createInvestment(investment))),
         Promise.all(sampleLiabilities.map(liability => financialApi.createLiability(liability))),
         Promise.all(sampleIncomes.map(income => financialApi.createIncome(income))),
         Promise.all(sampleExpenses.map(expense => financialApi.createExpense(expense))),
       ])
 
+      // Create income allocations for investment contributions
+      // Allocate from salary income to both investment accounts
+      const salaryIncome = incomes.find(inc => inc.source === 'Software Engineer Salary')
+      const syfeInvestment = investments.find(inv => inv.name.includes('Syfe'))
+      const ssbInvestment = investments.find(inv => inv.name.includes('Singapore Savings'))
+
+      if (salaryIncome && syfeInvestment && ssbInvestment) {
+        await Promise.all([
+          // $300/month to Syfe Core Growth Portfolio
+          financialApi.createIncomeAllocation(salaryIncome.id, {
+            targetInvestmentId: syfeInvestment.id,
+            allocationType: 'fixed',
+            allocationValue: 300,
+          }),
+          // $200/month to Singapore Savings Bonds
+          financialApi.createIncomeAllocation(salaryIncome.id, {
+            targetInvestmentId: ssbInvestment.id,
+            allocationType: 'fixed',
+            allocationValue: 200,
+          }),
+        ])
+      }
+
       // Build lookup maps for linking delta/override impacts to existing items
       const incomeBySource = new Map(incomes.map(inc => [inc.source, inc.id]))
+      const expensesResult = await financialApi.listExpenses()
+      const expenses = expensesResult.data
 
       // Create scenario events with properly linked impacts
       // For 'start' impacts: create new financial items and link them
@@ -499,7 +524,7 @@ export function useLoadSampleDataMutation() {
             if (impact.targetType === 'asset') {
               const newAsset = await financialApi.createAsset({
                 name: impact.notes || `${event.name} - Asset`,
-                category: 'Investment',
+                category: 'other_asset',
                 currentValue: impactAmount,
                 annualGrowthRate: 3.0,
                 notes: `Created by scenario: ${event.name}`,
@@ -587,11 +612,12 @@ export function useLoadSampleDataMutation() {
         scenarioEvents.push(createdEvent)
       }
 
-      return { assets, liabilities, incomes, expenses, scenarioEvents }
+      return { assets, investments, liabilities, incomes, expenses: expensesResult.data, scenarioEvents }
     },
     onSuccess: (data) => {
       // Update all caches with the new data - this immediately updates the UI
       queryClient.setQueryData(QUERY_KEYS.financial.assets, data.assets)
+      queryClient.setQueryData(QUERY_KEYS.financial.investments, data.investments)
       queryClient.setQueryData(QUERY_KEYS.financial.liabilities, data.liabilities)
       queryClient.setQueryData(QUERY_KEYS.financial.incomes, data.incomes)
       queryClient.setQueryData(QUERY_KEYS.financial.expenses, data.expenses)

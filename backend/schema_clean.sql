@@ -2,11 +2,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -28,11 +29,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -54,11 +56,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -80,11 +83,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -106,11 +110,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -132,11 +137,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -158,11 +164,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -184,11 +191,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -210,11 +218,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -236,11 +245,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -262,11 +272,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -288,11 +299,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -314,11 +326,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -340,11 +353,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -366,11 +380,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -392,11 +407,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -418,11 +434,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -444,11 +461,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -470,11 +488,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -496,11 +515,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -522,11 +542,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user
@@ -548,11 +569,12 @@
                       List of relations
  Schema |          Name          |   Type   |     Owner      
 --------+------------------------+----------+----------------
- public | cash_accounts          | table    | financial_user
+ public | finance_cash_accounts          | table    | financial_user
  public | chat_sessions          | table    | financial_user
  public | conversation_history   | table    | financial_user
  public | cpf_accounts           | table    | financial_user
  public | finance_assets         | table    | financial_user
+ public | finance_investments    | table    | financial_user
  public | finance_expenses       | table    | financial_user
  public | finance_incomes        | table    | financial_user
  public | finance_liabilities    | table    | financial_user

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -14,15 +15,23 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 )
 
+// cpfAccountStore defines the interface for CPF account persistence.
+type cpfAccountStore interface {
+	Get(ctx context.Context, userID string) (*account.CPFAccount, error)
+	Upsert(ctx context.Context, acc *account.CPFAccount) (*account.CPFAccount, error)
+	Update(ctx context.Context, userID string, acc *account.CPFAccount) (*account.CPFAccount, error)
+	Delete(ctx context.Context, userID string) error
+}
+
 // CPFHandler serves CPF-related endpoints.
 //
 // TODO: Migrate API request/response types from float64 to string-serialized decimals
 // for consistency with other financial endpoints and to avoid precision loss at JSON boundary.
 type CPFHandler struct {
-	accountRepo *account.Repository
+	accountRepo cpfAccountStore
 }
 
-func NewCPFHandler(accountRepo *account.Repository) *CPFHandler {
+func NewCPFHandler(accountRepo cpfAccountStore) *CPFHandler {
 	return &CPFHandler{
 		accountRepo: accountRepo,
 	}
@@ -47,6 +56,8 @@ func (h *CPFHandler) handleAccount(w http.ResponseWriter, r *http.Request) {
 		h.createAccount(w, r)
 	case http.MethodPut:
 		h.updateAccount(w, r)
+	case http.MethodDelete:
+		h.deleteAccount(w, r)
 	default:
 		methodNotAllowed(w)
 	}
@@ -290,6 +301,25 @@ func (h *CPFHandler) updateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, accountToResponse(updated))
+}
+
+func (h *CPFHandler) deleteAccount(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	err := h.accountRepo.Delete(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, account.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "CPF account not found")
+			return
+		}
+		internalError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ===============================

@@ -56,12 +56,12 @@ SELECT
 FROM finance_expenses;
 
 SELECT
-    'cash_accounts' as table_name,
+    'finance_cash_accounts' as table_name,
     COUNT(*) as total_rows,
     COUNT(CASE WHEN start_date IS NOT NULL THEN 1 END) as rows_with_start_date,
     COUNT(CASE WHEN start_year IS NOT NULL AND start_date IS NOT NULL
                AND EXTRACT(YEAR FROM start_date) != start_year THEN 1 END) as year_mismatches
-FROM cash_accounts;
+FROM finance_cash_accounts;
 
 \echo ''
 
@@ -97,9 +97,9 @@ FROM finance_expenses
 WHERE start_date IS NOT NULL
 UNION
 SELECT DISTINCT
-    'cash_accounts',
+    'finance_cash_accounts',
     EXTRACT(TIMEZONE FROM start_date)
-FROM cash_accounts
+FROM finance_cash_accounts
 WHERE start_date IS NOT NULL;
 
 \echo ''
@@ -123,7 +123,7 @@ FROM (
     UNION ALL
     SELECT 1 FROM finance_expenses WHERE start_year IS NOT NULL AND start_date IS NULL
     UNION ALL
-    SELECT 1 FROM cash_accounts WHERE start_year IS NOT NULL AND start_date IS NULL
+    SELECT 1 FROM finance_cash_accounts WHERE start_year IS NOT NULL AND start_date IS NULL
 ) missing;
 
 \echo ''
@@ -201,8 +201,8 @@ WHERE schemaname = 'public'
   AND (
     indexname LIKE 'idx_finance_%_dates'
     OR indexname LIKE 'idx_finance_%_start_date'
-    OR indexname LIKE 'idx_cash_accounts_dates'
-    OR indexname LIKE 'idx_cash_accounts_start_date'
+    OR indexname LIKE 'idx_finance_cash_accounts_dates'
+    OR indexname LIKE 'idx_finance_cash_accounts_start_date'
     OR indexname LIKE '%_parent_start_date_idx'
   )
 ORDER BY tablename, indexname;

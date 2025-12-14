@@ -1,4 +1,4 @@
-import { apiClient } from '../client'
+import { ApiError, apiClient } from '../client'
 import { buildPaginatedPath } from './helpers'
 import { normalizePaginatedResponse, toExpense } from './transformers'
 import type { Expense, PaginatedResponse, PaginationParams } from '@/types/financial'
@@ -42,12 +42,19 @@ export async function updateExpense(id: string, payload: Partial<Expense>): Prom
 }
 
 export async function deleteExpense(id: string): Promise<void> {
-  await apiClient.delete<void>(`/cashflow/expenses/${id}`)
+  try {
+    await apiClient.delete<void>(`/cashflow/expenses/${id}`)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return
+    }
+    throw error
+  }
 }
 
 export async function deleteAllExpenses(): Promise<void> {
   const result = await listExpenses({ limit: -1 })
-  await Promise.all(result.data.map((expense) => deleteExpense(expense.id)))
+  await Promise.allSettled(result.data.map((expense) => deleteExpense(expense.id)))
 }
 
 export const expensesApi = {

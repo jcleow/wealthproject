@@ -13,6 +13,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"financial-chat-system/backend/internal/decimal"
+	"financial-chat-system/backend/internal/financial/repayment"
 	"financial-chat-system/backend/internal/financial/repository"
 	"financial-chat-system/backend/internal/financial/scenario"
 	"financial-chat-system/backend/internal/middleware"
@@ -1094,6 +1096,17 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 	rows := []FinancialDataRow{}
 	baseYear := time.Now().Year()
 
+	expenses, err := s.store.ListAllExpenses(ctx, userID, repository.DateRangeOptions{})
+	if err != nil {
+		return nil, err
+	}
+	expenseByLiability := map[string]struct{}{}
+	for _, exp := range expenses {
+		if exp.SourceLiabilityID != nil {
+			expenseByLiability[*exp.SourceLiabilityID] = struct{}{}
+		}
+	}
+
 	assets, err := s.store.ListAllAssets(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return nil, err
@@ -1150,6 +1163,17 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 			ItemType:   ItemTypeLiability,
 			GrowthRate: 0, // Use category default (-3%) - liabilities decrease as you pay them down
 		})
+
+		// Generate computed repayment expense for liabilities with end_date
+		if li.EndDate != nil && li.CurrentBalance > 0 {
+			if _, hasLinkedExpense := expenseByLiability[li.ID]; hasLinkedExpense {
+				continue
+			}
+			repaymentRow := s.generateRepaymentExpense(li, startYear, endYear)
+			if repaymentRow != nil {
+				rows = append(rows, *repaymentRow)
+			}
+		}
 	}
 
 	incomes, err := s.store.ListAllIncomes(ctx, userID, repository.DateRangeOptions{})
@@ -1181,10 +1205,6 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 		})
 	}
 
-	expenses, err := s.store.ListAllExpenses(ctx, userID, repository.DateRangeOptions{})
-	if err != nil {
-		return nil, err
-	}
 	for _, it := range expenses {
 		// Convert StartDate to year, default to baseYear if not set
 		startYear := it.StartDate.Year()
@@ -1218,6 +1238,58 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 	})
 
 	return rows, nil
+}
+
+// generateRepaymentExpense creates a synthetic expense row for a liability's monthly payment.
+// This is computed on-the-fly using the repayment module (no stored expense record).
+func (s *Service) generateRepaymentExpense(li repository.Liability, startYear int, endYear sql.NullInt32) *FinancialDataRow {
+	if li.EndDate == nil || li.CurrentBalance <= 0 {
+		return nil
+	}
+
+	// Calculate total months between start and end
+	months := int(li.EndDate.Sub(li.StartDate).Hours() / 24 / 30)
+	if months <= 0 {
+		return nil
+	}
+
+	// Get repayment strategy
+	strategyType := repayment.StrategyType(li.RepaymentStrategy)
+	if li.RepaymentStrategy == "" {
+		strategyType = repayment.StandardAmortization
+	}
+	strategy := repayment.GetStrategy(strategyType)
+
+	// Calculate monthly payment using the repayment module
+	result, err := strategy.Calculate(repayment.Params{
+		CurrentBalance:  decimal.MustFromFloat64(li.CurrentBalance),
+		InterestRateAPR: decimal.MustFromFloat64(li.InterestRateAPR),
+		MinimumPayment:  decimal.MustFromFloat64(li.MinimumPayment),
+		PeriodIndex:     0,
+		TotalPeriods:    months,
+		Metadata:        li.RepaymentMetadata,
+	})
+	if err != nil || result.MonthlyPayment.IsZero() {
+		return nil
+	}
+
+	monthlyPayment := result.MonthlyPayment.ToFloat64()
+	if monthlyPayment <= 0 {
+		return nil
+	}
+
+	return &FinancialDataRow{
+		ID:         li.ID + "-payment",
+		ParentID:   li.ID + "-payment",
+		Name:       li.Name + " Payment",
+		Category:   "loan_repayment",
+		Amount:     monthlyPayment,
+		Frequency:  FrequencyMonthly,
+		StartYear:  startYear,
+		EndYear:    endYear,
+		ItemType:   ItemTypeExpense,
+		GrowthRate: 0, // Loan payments don't grow (fixed strategy)
+	}
 }
 
 // GetGrowthConfig returns the current growth configuration.

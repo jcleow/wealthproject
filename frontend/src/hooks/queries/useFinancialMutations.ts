@@ -11,11 +11,13 @@ export function useDeleteAllFinancialDataMutation() {
     mutationFn: async () => {
       await Promise.all([
         financialApi.deleteAllAssets(),
+        financialApi.deleteAllInvestments(),
         financialApi.deleteAllLiabilities(),
         financialApi.deleteAllIncomes(),
         financialApi.deleteAllExpenses(),
         financialApi.deleteAllCashAccounts(),
         financialApi.deleteAllScenarioEvents(),
+        financialApi.deleteCPFAccount().catch(() => {}), // Ignore if no CPF account exists
       ])
     },
     onSuccess: () => {

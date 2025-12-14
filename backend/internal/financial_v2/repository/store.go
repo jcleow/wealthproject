@@ -82,6 +82,22 @@ type NonCashAsset struct {
 	UpdatedAt        time.Time              `json:"updatedAt"`
 }
 
+// Investment mirrors NonCashAsset but lives in finance_investments
+type Investment struct {
+	ID               string                 `json:"id"`
+	ParentID         string                 `json:"parentId"`
+	Name             string                 `json:"name"`
+	Category         string                 `json:"category"`
+	CurrentValue     decimal.Decimal        `json:"currentValue"`
+	AnnualGrowthRate decimal.Decimal        `json:"annualGrowthRate"`
+	StartDate        time.Time              `json:"startDate"`         // Precise start date (day-level)
+	EndDate          *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
+	Notes            string                 `json:"notes"`
+	GrowthStrategy   string                 `json:"growthStrategy"`
+	GrowthMetadata   map[string]interface{} `json:"growthMetadata,omitempty"`
+	UpdatedAt        time.Time              `json:"updatedAt"`
+}
+
 type CashAsset struct {
 	ID             string                 `json:"id"`
 	UserID         string                 `json:"userId"`
@@ -139,19 +155,20 @@ type Income struct {
 
 // Expense represents a persisted expense record.
 type Expense struct {
-	ID             string                 `json:"id"`
-	ParentID       string                 `json:"parentId"`
-	Payee          string                 `json:"payee"`
-	Amount         decimal.Decimal        `json:"amount"`
-	Frequency      string                 `json:"frequency"`
-	StartDate      time.Time              `json:"startDate"`         // Precise start date (day-level)
-	EndDate        *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
-	Category       string                 `json:"category"`
-	GrowthRate     decimal.Decimal        `json:"growthRate"`
-	Notes          string                 `json:"notes"`
-	GrowthStrategy string                 `json:"growthStrategy"`
-	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
-	UpdatedAt      time.Time              `json:"updatedAt"`
+	ID                string                 `json:"id"`
+	ParentID          string                 `json:"parentId"`
+	Payee             string                 `json:"payee"`
+	Amount            decimal.Decimal        `json:"amount"`
+	Frequency         string                 `json:"frequency"`
+	StartDate         time.Time              `json:"startDate"`         // Precise start date (day-level)
+	EndDate           *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
+	Category          string                 `json:"category"`
+	GrowthRate        decimal.Decimal        `json:"growthRate"`
+	Notes             string                 `json:"notes"`
+	GrowthStrategy    string                 `json:"growthStrategy"`
+	GrowthMetadata    map[string]interface{} `json:"growthMetadata,omitempty"`
+	UpdatedAt         time.Time              `json:"updatedAt"`
+	SourceLiabilityID *string                `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
 }
 
 // CPFAccount represents a user's CPF account with balances and profile data.
@@ -304,6 +321,92 @@ func (s *Store) ListNonCashAssets(
 	}, nil
 }
 
+func (s *Store) ListInvestments(
+	ctx context.Context,
+	userID string,
+	dateRangeOpts DateRangeOptions,
+	pagination PaginationParams,
+) (PaginatedResult[Investment], error) {
+	query := `
+	SELECT id,
+		COALESCE(parent_id, id) as parent_id,
+		name,
+		category,
+		current_value,
+		annual_growth_rate,
+		start_date,
+		end_date,
+		COALESCE(notes, '') as notes,
+		updated_at
+	FROM finance_investments
+	WHERE user_id = $1	
+	`
+
+	args := []any{userID}
+	argIdx := 2
+
+	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
+	if dateRangeSubQuery != "" {
+		query += " AND " + dateRangeSubQuery
+		if dateRangeOpts.StartDate != nil {
+			args = append(args, *dateRangeOpts.StartDate)
+		}
+		if dateRangeOpts.EndDate != nil {
+			args = append(args, *dateRangeOpts.EndDate)
+		}
+	}
+
+	query += ` ORDER BY parent_id, start_date`
+
+	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	if paginationSubQuery != "" {
+		query += " " + paginationSubQuery
+		if pagination.Limit != nil {
+			args = append(args, *pagination.Limit)
+		}
+		if pagination.Offset != nil {
+			args = append(args, *pagination.Offset)
+		}
+	}
+
+	logQuery(query, args)
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		fmt.Printf("Failed to query investments")
+		return PaginatedResult[Investment]{
+			Data:   []Investment{},
+			Count:  0,
+			Limit:  nil,
+			Offset: nil,
+		}, err
+	}
+	defer rows.Close()
+
+	investments := []Investment{}
+	for rows.Next() {
+		var inv Investment
+		var endDate sql.NullTime
+
+		err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.AnnualGrowthRate, &inv.StartDate, &endDate, &inv.Notes, &inv.UpdatedAt)
+		if err != nil {
+			return PaginatedResult[Investment]{}, err
+		}
+
+		if endDate.Valid {
+			inv.EndDate = &endDate.Time
+		}
+
+		investments = append(investments, inv)
+	}
+
+	return PaginatedResult[Investment]{
+		Data:   investments,
+		Count:  len(investments),
+		Limit:  pagination.Limit,
+		Offset: pagination.Offset,
+	}, nil
+}
+
 func (s *Store) ListCashAssets(
 	ctx context.Context,
 	userID string,
@@ -322,11 +425,11 @@ func (s *Store) ListCashAssets(
 		start_date,
 		end_date,
 		COALESCE(notes, '') as notes,
-		COALESCE(growth_strategy, '') as growth_strategy,
-		created_at,
-		updated_at
-	FROM cash_accounts
-	WHERE user_id = $1`
+	COALESCE(growth_strategy, '') as growth_strategy,
+	created_at,
+	updated_at
+FROM finance_cash_accounts
+WHERE user_id = $1`
 
 	args := []any{userID}
 	argIdx := 2
@@ -593,7 +696,8 @@ func (s *Store) ListExpenses(
 		growth_rate,
 		COALESCE(notes, '') as notes,
 		COALESCE(growth_strategy, '') as growth_strategy,
-		updated_at
+		updated_at,
+		source_liability_id
 	FROM finance_expenses
 	WHERE user_id = $1`
 
@@ -638,11 +742,12 @@ func (s *Store) ListExpenses(
 	for rows.Next() {
 		var e Expense
 		var endDate sql.NullTime
+		var sourceLiabilityID sql.NullString
 
 		err := rows.Scan(
 			&e.ID, &e.ParentID, &e.Payee, &e.Amount, &e.Frequency,
 			&e.StartDate, &endDate, &e.Category, &e.GrowthRate,
-			&e.Notes, &e.GrowthStrategy, &e.UpdatedAt,
+			&e.Notes, &e.GrowthStrategy, &e.UpdatedAt, &sourceLiabilityID,
 		)
 		if err != nil {
 			return PaginatedResult[Expense]{}, err
@@ -650,6 +755,9 @@ func (s *Store) ListExpenses(
 
 		if endDate.Valid {
 			e.EndDate = &endDate.Time
+		}
+		if sourceLiabilityID.Valid {
+			e.SourceLiabilityID = &sourceLiabilityID.String
 		}
 
 		expenses = append(expenses, e)
@@ -720,4 +828,326 @@ func (s *Store) GetCPFAccount(
 	}
 
 	return &cpf, nil
+}
+
+// ----- IncomeAllocation operations -----
+
+// IncomeAllocation represents a destination allocation for an income.
+// Income can be distributed to multiple cash_accounts or investments.
+// Uses separate nullable FK columns for proper referential integrity.
+type IncomeAllocation struct {
+	ID                  string          `json:"id"`
+	IncomeID            string          `json:"incomeId"`
+	TargetCashAccountID *string         `json:"targetCashAccountId,omitempty"`
+	TargetInvestmentID  *string         `json:"targetInvestmentId,omitempty"`
+	AllocationType      string          `json:"allocationType"`  // 'percentage' or 'fixed'
+	AllocationValue     decimal.Decimal `json:"allocationValue"` // percentage (0-100) or fixed amount
+	CreatedAt           time.Time       `json:"createdAt"`
+}
+
+// ErrNotFound indicates a record was not found
+var ErrNotFound = fmt.Errorf("not found")
+
+// ListIncomeAllocations returns all allocations for an income.
+// Uses LEFT JOIN to verify income ownership and fetch allocations in a single query.
+func (s *Store) ListIncomeAllocations(
+	ctx context.Context,
+	userID string,
+	incomeID string,
+) ([]IncomeAllocation, error) {
+	query := `
+	SELECT
+		fi.id,
+		ia.id,
+		ia.target_cash_account_id,
+		ia.target_investment_id,
+		ia.allocation_type,
+		ia.allocation_value,
+		ia.created_at
+	FROM finance_incomes fi
+	LEFT JOIN income_allocations ia ON ia.income_id = fi.id
+	WHERE fi.id = $1 AND fi.user_id = $2
+	ORDER BY ia.created_at`
+
+	logQuery(query, []any{incomeID, userID})
+	rows, err := s.db.QueryContext(ctx, query, incomeID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query income allocations: %w", err)
+	}
+	defer rows.Close()
+
+	allocations := []IncomeAllocation{}
+	foundIncome := false
+
+	for rows.Next() {
+		foundIncome = true
+
+		var incomeIDResult string
+		var id, targetCashAccountID, targetInvestmentID, allocationType sql.NullString
+		var allocationValue decimal.Decimal
+		var createdAt sql.NullTime
+
+		err := rows.Scan(
+			&incomeIDResult,
+			&id,
+			&targetCashAccountID,
+			&targetInvestmentID,
+			&allocationType,
+			&allocationValue,
+			&createdAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan income allocation: %w", err)
+		}
+
+		// Skip if no allocation (LEFT JOIN produced NULL row)
+		if !id.Valid {
+			continue
+		}
+
+		a := IncomeAllocation{
+			ID:              id.String,
+			IncomeID:        incomeID,
+			AllocationType:  allocationType.String,
+			AllocationValue: allocationValue,
+			CreatedAt:       createdAt.Time,
+		}
+		if targetCashAccountID.Valid {
+			a.TargetCashAccountID = &targetCashAccountID.String
+		}
+		if targetInvestmentID.Valid {
+			a.TargetInvestmentID = &targetInvestmentID.String
+		}
+
+		allocations = append(allocations, a)
+	}
+
+	if !foundIncome {
+		return nil, ErrNotFound
+	}
+
+	return allocations, nil
+}
+
+// ListAllIncomeAllocations returns all allocations for all of a user's incomes.
+// Used by timeline service to calculate total investment allocations.
+func (s *Store) ListAllIncomeAllocations(
+	ctx context.Context,
+	userID string,
+) ([]IncomeAllocation, error) {
+	query := `
+	SELECT
+		ia.id,
+		ia.income_id,
+		ia.target_cash_account_id,
+		ia.target_investment_id,
+		ia.allocation_type,
+		ia.allocation_value,
+		ia.created_at
+	FROM income_allocations ia
+	INNER JOIN finance_incomes fi ON fi.id = ia.income_id
+	WHERE fi.user_id = $1
+	ORDER BY ia.income_id, ia.created_at`
+
+	logQuery(query, []any{userID})
+	rows, err := s.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query all income allocations: %w", err)
+	}
+	defer rows.Close()
+
+	allocations := []IncomeAllocation{}
+	for rows.Next() {
+		var a IncomeAllocation
+		var targetCashAccountID, targetInvestmentID sql.NullString
+
+		err := rows.Scan(
+			&a.ID, &a.IncomeID,
+			&targetCashAccountID, &targetInvestmentID,
+			&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan income allocation: %w", err)
+		}
+
+		if targetCashAccountID.Valid {
+			a.TargetCashAccountID = &targetCashAccountID.String
+		}
+		if targetInvestmentID.Valid {
+			a.TargetInvestmentID = &targetInvestmentID.String
+		}
+
+		allocations = append(allocations, a)
+	}
+
+	return allocations, nil
+}
+
+// GetIncomeAllocation returns a single allocation by ID.
+func (s *Store) GetIncomeAllocation(
+	ctx context.Context,
+	userID string,
+	allocationID string,
+) (*IncomeAllocation, error) {
+	query := `
+	SELECT ia.id, ia.income_id, ia.target_cash_account_id, ia.target_investment_id,
+	       ia.allocation_type, ia.allocation_value, ia.created_at
+	FROM income_allocations ia
+	INNER JOIN finance_incomes fi ON fi.id = ia.income_id AND fi.user_id = $1
+	WHERE ia.id = $2`
+
+	var a IncomeAllocation
+	var targetCashAccountID, targetInvestmentID sql.NullString
+
+	err := s.db.QueryRowContext(ctx, query, userID, allocationID).Scan(
+		&a.ID, &a.IncomeID,
+		&targetCashAccountID, &targetInvestmentID,
+		&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get income allocation: %w", err)
+	}
+
+	if targetCashAccountID.Valid {
+		a.TargetCashAccountID = &targetCashAccountID.String
+	}
+	if targetInvestmentID.Valid {
+		a.TargetInvestmentID = &targetInvestmentID.String
+	}
+
+	return &a, nil
+}
+
+// CreateIncomeAllocation creates a new allocation for an income.
+func (s *Store) CreateIncomeAllocation(
+	ctx context.Context,
+	userID string,
+	allocation IncomeAllocation,
+) (*IncomeAllocation, error) {
+	// Verify the income belongs to the user
+	var exists bool
+	err := s.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM finance_incomes WHERE id = $1 AND user_id = $2)`,
+		allocation.IncomeID, userID,
+	).Scan(&exists)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify income ownership: %w", err)
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	query := `
+	INSERT INTO income_allocations (income_id, target_cash_account_id, target_investment_id, allocation_type, allocation_value)
+	VALUES ($1, $2, $3, $4, $5)
+	RETURNING id, income_id, target_cash_account_id, target_investment_id, allocation_type, allocation_value, created_at`
+
+	var created IncomeAllocation
+	var targetCashAccountID, targetInvestmentID sql.NullString
+
+	err = s.db.QueryRowContext(ctx, query,
+		allocation.IncomeID,
+		allocation.TargetCashAccountID,
+		allocation.TargetInvestmentID,
+		allocation.AllocationType,
+		allocation.AllocationValue,
+	).Scan(
+		&created.ID, &created.IncomeID,
+		&targetCashAccountID, &targetInvestmentID,
+		&created.AllocationType, &created.AllocationValue, &created.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create income allocation: %w", err)
+	}
+
+	if targetCashAccountID.Valid {
+		created.TargetCashAccountID = &targetCashAccountID.String
+	}
+	if targetInvestmentID.Valid {
+		created.TargetInvestmentID = &targetInvestmentID.String
+	}
+
+	return &created, nil
+}
+
+// UpdateIncomeAllocation updates an existing allocation.
+func (s *Store) UpdateIncomeAllocation(
+	ctx context.Context,
+	userID string,
+	allocation IncomeAllocation,
+) (*IncomeAllocation, error) {
+	query := `
+	UPDATE income_allocations ia
+	SET target_cash_account_id = $3,
+	    target_investment_id = $4,
+	    allocation_type = $5,
+	    allocation_value = $6
+	FROM finance_incomes fi
+	WHERE ia.id = $2
+	  AND ia.income_id = fi.id
+	  AND fi.user_id = $1
+	RETURNING ia.id, ia.income_id, ia.target_cash_account_id, ia.target_investment_id,
+	          ia.allocation_type, ia.allocation_value, ia.created_at`
+
+	var updated IncomeAllocation
+	var targetCashAccountID, targetInvestmentID sql.NullString
+
+	err := s.db.QueryRowContext(ctx, query,
+		userID, allocation.ID,
+		allocation.TargetCashAccountID,
+		allocation.TargetInvestmentID,
+		allocation.AllocationType,
+		allocation.AllocationValue,
+	).Scan(
+		&updated.ID, &updated.IncomeID,
+		&targetCashAccountID, &targetInvestmentID,
+		&updated.AllocationType, &updated.AllocationValue, &updated.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to update income allocation: %w", err)
+	}
+
+	if targetCashAccountID.Valid {
+		updated.TargetCashAccountID = &targetCashAccountID.String
+	}
+	if targetInvestmentID.Valid {
+		updated.TargetInvestmentID = &targetInvestmentID.String
+	}
+
+	return &updated, nil
+}
+
+// DeleteIncomeAllocation deletes an allocation by ID.
+func (s *Store) DeleteIncomeAllocation(
+	ctx context.Context,
+	userID string,
+	allocationID string,
+) error {
+	query := `
+	DELETE FROM income_allocations ia
+	USING finance_incomes fi
+	WHERE ia.id = $2
+	  AND ia.income_id = fi.id
+	  AND fi.user_id = $1`
+
+	result, err := s.db.ExecContext(ctx, query, userID, allocationID)
+	if err != nil {
+		return fmt.Errorf("failed to delete income allocation: %w", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
 }

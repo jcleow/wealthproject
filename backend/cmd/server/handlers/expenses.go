@@ -23,18 +23,21 @@ type expenseInput struct {
 	GrowthRate     *float64 `json:"growthRate"`
 	GrowthStrategy string   `json:"growthStrategy"`
 	Notes          string   `json:"notes"`
+	// Source relationship to liability (e.g., loan payment)
+	SourceLiabilityID *string `json:"sourceLiabilityId,omitempty"`
 }
 
 func (e expenseInput) toExpense() repository.Expense {
 	exp := repository.Expense{
-		ID:             e.ID,
-		ParentID:       e.ParentID,
-		Payee:          e.Payee,
-		Amount:         e.Amount,
-		Frequency:      e.Frequency,
-		Category:       e.Category,
-		GrowthStrategy: e.GrowthStrategy,
-		Notes:          e.Notes,
+		ID:                e.ID,
+		ParentID:          e.ParentID,
+		Payee:             e.Payee,
+		Amount:            e.Amount,
+		Frequency:         e.Frequency,
+		Category:          e.Category,
+		GrowthStrategy:    e.GrowthStrategy,
+		Notes:             e.Notes,
+		SourceLiabilityID: e.SourceLiabilityID,
 	}
 	if e.StartDate != nil {
 		if t, err := time.Parse(time.RFC3339, *e.StartDate); err == nil {
