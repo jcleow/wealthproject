@@ -1049,12 +1049,13 @@ func processMonth(mctx *MonthlyContext, monthIdx int, currentDate time.Time) Mon
 	// Process CPF contributions
 	employeeCPF, cpfContributions := mctx.CPFCtx.ProcessIncomes(mctx.Data.Incomes, mctx.State, currentDate)
 
-	// Calculate cash flow
-	netSavings, netCashFlow := calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF)
-	mctx.CashAccumulator = mctx.CashAccumulator.Add(netCashFlow)
-
 	// Apply investment allocations - adds allocation amounts to investment balances and returns total
 	netInvestments := applyInvestmentAllocations(mctx.Data.Incomes, mctx.IncomeAllocations, mctx.State, currentDate)
+
+	// Calculate cash flow (deduct both CPF and investment allocations)
+	netSavings, netCashFlow := calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF)
+	netCashFlow = netCashFlow.Sub(netInvestments) // Deduct investment allocations from cash
+	mctx.CashAccumulator = mctx.CashAccumulator.Add(netCashFlow)
 
 	// Sync state and build response
 	syncStateToItemStates(mctx.State, mctx.ItemStates)
