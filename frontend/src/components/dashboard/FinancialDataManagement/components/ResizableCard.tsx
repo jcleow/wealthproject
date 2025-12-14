@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, type ReactNode } from 'react'
+import { useState, useCallback, useEffect, type ReactNode } from 'react'
 import { ResizableBox, type ResizeCallbackData } from 'react-resizable'
 import 'react-resizable/css/styles.css'
 
@@ -35,7 +35,17 @@ function setStoredHeight(id: string, height: number) {
 }
 
 export function ResizableCard({ id, children }: ResizableCardProps) {
-  const [height, setHeight] = useState(() => getStoredHeights()[id] ?? DEFAULT_HEIGHT)
+  // Initialize with default to match server render, then sync with localStorage
+  const [height, setHeight] = useState(DEFAULT_HEIGHT)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    const storedHeight = getStoredHeights()[id]
+    if (storedHeight) {
+      setHeight(storedHeight)
+    }
+    setMounted(true)
+  }, [id])
 
   const handleResizeStop = useCallback(
     (_e: React.SyntheticEvent, data: ResizeCallbackData) => {
@@ -48,10 +58,10 @@ export function ResizableCard({ id, children }: ResizableCardProps) {
   return (
     <ResizableBox
       height={height}
-      width={Infinity}
+      width={10000}
       axis="y"
-      minConstraints={[Infinity, MIN_HEIGHT]}
-      maxConstraints={[Infinity, MAX_HEIGHT]}
+      minConstraints={[10000, MIN_HEIGHT]}
+      maxConstraints={[10000, MAX_HEIGHT]}
       onResizeStop={handleResizeStop}
       resizeHandles={['s']}
       handle={
@@ -59,6 +69,7 @@ export function ResizableCard({ id, children }: ResizableCardProps) {
           <div className="h-1 w-12 rounded-full bg-white/20" />
         </div>
       }
+      className={mounted ? '!w-full' : '!w-full transition-none'}
     >
       <div className="group/card relative h-full">{children}</div>
     </ResizableBox>
