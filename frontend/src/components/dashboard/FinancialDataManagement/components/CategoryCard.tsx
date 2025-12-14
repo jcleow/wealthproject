@@ -39,10 +39,12 @@ interface CategoryCardProps {
   liabilityLinks: Record<string, PropertyLinkRecord[]>
   firstLink: PropertyLinkRecord | null
   onOpenPropertyPlanner?: (link: PropertyLinkRecord) => void
+  // Investments (V2 assets)
+  investmentAssets?: TimelineItem[]
   // CPF specific (V2)
   cpfAssets?: TimelineItem[]
   cpfContributionsRaw?: CPFContributionResponseV2[]
-  // Investments (V2)
+  // Investments income (V2)
   hasInvestmentsSection?: boolean
   monthlyInvestments?: number
 }
@@ -74,6 +76,7 @@ export function CategoryCard({
   liabilityLinks,
   firstLink,
   onOpenPropertyPlanner,
+  investmentAssets = [],
   cpfAssets = [],
   cpfContributionsRaw = [],
   hasInvestmentsSection = false,
@@ -83,10 +86,11 @@ export function CategoryCard({
   const sortedData = sortItems(data, sortDirection, summarizeAmount)
   const hasData = sortedData.length > 0
 
-  // Calculate category total, including CPF assets for the asset category
+  // Calculate category total, including investments and CPF assets for the asset category
   const baseTotal = sortedData.reduce((sum, item) => sum + summarizeAmount(item), 0)
+  const investmentAssetsTotal = category === 'asset' ? investmentAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0) : 0
   const cpfAssetsTotal = category === 'asset' ? cpfAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0) : 0
-  const categoryTotal = baseTotal + cpfAssetsTotal
+  const categoryTotal = baseTotal + investmentAssetsTotal + cpfAssetsTotal
 
   // Mock trend (you may want to calculate real trends)
   const mockTrend = category === 'asset' ? 12.5 : category === 'income' ? 5.2 : category === 'liability' ? -2.1 : 1.2
@@ -211,6 +215,11 @@ export function CategoryCard({
               )
             })}
 
+            {/* Investments Sub-section for Assets (V2 only) */}
+            {category === 'asset' && investmentAssets.length > 0 && (
+              <InvestmentsAssetsSection investmentAssets={investmentAssets} getDisplayAmount={getDisplayAmount} />
+            )}
+
             {/* CPF Sub-section for Assets (V2 only) */}
             {category === 'asset' && cpfAssets.length > 0 && (
               <CPFAssetsSection cpfAssets={cpfAssets} getDisplayAmount={getDisplayAmount} />
@@ -243,6 +252,35 @@ export function CategoryCard({
 }
 
 // Sub-components for V2 sections
+
+interface InvestmentsAssetsSectionProps {
+  investmentAssets: TimelineItem[]
+  getDisplayAmount: (item: TimelineItem) => number
+}
+
+function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount }: InvestmentsAssetsSectionProps) {
+  const total = investmentAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0)
+
+  return (
+    <div className="mt-3 border-t border-white/[0.06] pt-3">
+      <div className="mb-2 flex items-center gap-2 px-2">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Investments</span>
+        <span className="text-[10px] text-slate-600">({formatCurrency(total)})</span>
+      </div>
+      {investmentAssets.map((item, index) => (
+        <div
+          key={item.itemId || `investment-asset-${index}`}
+          className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
+        >
+          <span className="truncate text-sm text-slate-300">{item.name}</span>
+          <span className="text-sm font-medium text-slate-200">
+            {formatCurrency(getDisplayAmount(item))}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 interface CPFAssetsSectionProps {
   cpfAssets: TimelineItem[]

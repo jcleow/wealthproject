@@ -89,14 +89,20 @@ export function FinancialDataManagement({
   const yearAssets = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
       const nonCashItems = timelineMonthV2.nonCashAssets.map(nonCashAssetV2ToTimelineItem)
-      const investmentItems = (timelineMonthV2.investments ?? []).map(investmentV2ToTimelineItem)
       const cashItems = timelineMonthV2.cashAssets.map(cashAssetV2ToTimelineItem)
-      return [...nonCashItems, ...investmentItems, ...cashItems]
+      return [...nonCashItems, ...cashItems]
     }
     const timelineAssets = showMonthlyData ? (timelineMonth?.assets ?? []) : (timelineYear?.assets ?? [])
     const timelineCashAccounts = showMonthlyData ? (timelineMonth?.cashAccounts ?? []) : (timelineYear?.cashAccounts ?? [])
     return [...timelineAssets, ...timelineCashAccounts]
   }, [hasV2Data, timelineMonthV2, showMonthlyData, timelineMonth, timelineYear])
+
+  const investmentAssets = useMemo(() => {
+    if (hasV2Data && timelineMonthV2) {
+      return (timelineMonthV2.investments ?? []).map(investmentV2ToTimelineItem)
+    }
+    return []
+  }, [hasV2Data, timelineMonthV2])
 
   const cpfAssets = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
@@ -585,6 +591,7 @@ export function FinancialDataManagement({
                   liabilityLinks={liabilityLinks}
                   firstLink={firstLink}
                   onOpenPropertyPlanner={openPlannerFromLink}
+                  investmentAssets={key === 'asset' ? investmentAssets : undefined}
                   cpfAssets={key === 'asset' ? cpfAssets : undefined}
                   cpfContributionsRaw={key === 'income' ? cpfContributionsRaw : undefined}
                   hasInvestmentsSection={key === 'income' ? hasInvestmentsSection : false}
