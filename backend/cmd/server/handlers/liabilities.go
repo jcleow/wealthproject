@@ -2,32 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
-	"math"
 	"net/http"
 	"strings"
 
 	"financial-chat-system/backend/internal/financial/repository"
 )
-
-// calculateMonthlyPayment calculates the monthly payment using the amortization formula:
-// M = P * [r(1+r)^n] / [(1+r)^n - 1]
-// where P = principal, r = monthly interest rate, n = number of months
-func calculateMonthlyPayment(principal, annualInterestRate float64, months int) float64 {
-	if months <= 0 || principal <= 0 {
-		return 0
-	}
-	// If interest rate is 0, it's just principal divided by months
-	if annualInterestRate == 0 {
-		return principal / float64(months)
-	}
-	r := annualInterestRate / 100 / 12 // monthly interest rate as decimal
-	n := float64(months)
-	// M = P * [r(1+r)^n] / [(1+r)^n - 1]
-	numerator := r * math.Pow(1+r, n)
-	denominator := math.Pow(1+r, n) - 1
-	return principal * (numerator / denominator)
-}
 
 // LiabilityHandler serves liability CRUD endpoints.
 type LiabilityHandler struct {
@@ -154,28 +133,8 @@ func (h *LiabilityHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auto-create linked expense for loan repayment (only if end_date is provided)
-	if created.EndDate != nil {
-		months := int(created.EndDate.Sub(created.StartDate).Hours() / 24 / 30)
-		if months > 0 {
-			monthlyPayment := calculateMonthlyPayment(created.CurrentBalance, created.InterestRateAPR, months)
-			if monthlyPayment > 0 {
-				expense := repository.Expense{
-					Payee:             created.Name,
-					Amount:            monthlyPayment,
-					Frequency:         "monthly",
-					StartDate:         created.StartDate,
-					EndDate:           created.EndDate,
-					Category:          "loan_repayment",
-					GrowthRate:        0, // Loan payments typically don't grow
-					GrowthStrategy:    "fixed",
-					Notes:             fmt.Sprintf("Auto-generated loan repayment for %s", created.Name),
-					SourceLiabilityID: &created.ID,
-				}
-				_, _ = h.store.CreateExpense(r.Context(), userID, expense)
-			}
-		}
-	}
+	// Note: Repayment expenses are now computed on-the-fly in the timeline service
+	// using the repayment module. No stored expense record is created.
 
 	writeJSON(w, created)
 }
