@@ -965,10 +965,17 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, dat
 		// Convert to monthly amount for display
 		monthlyAmt := common.ToMonthlyAmount(state.Balance, row.Frequency)
 		amount := monthlyAmt.Round(0)
+
+		// Append "Repayment" to linked expense names for clarity
+		name := row.Name
+		if row.SourceLiabilityID != nil {
+			name = row.Name + " Repayment"
+		}
+
 		responses = append(responses, ExpenseResponse{
 			ID:              row.ID,
 			ParentID:        row.ParentID,
-			Name:            row.Name,
+			Name:            name,
 			Category:        row.Category,
 			Amount:          *amount,
 			AdjAmount:       *amount,
