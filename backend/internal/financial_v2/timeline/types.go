@@ -62,6 +62,7 @@ type Store interface {
 	ListIncomes(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Income], error)
 	ListExpenses(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Expense], error)
 	GetCPFAccount(context.Context, string) (*repository.CPFAccount, error)
+	ListAllIncomeAllocations(context.Context, string) ([]repository.IncomeAllocation, error)
 }
 
 // ========== Timeline V2 Options ==========

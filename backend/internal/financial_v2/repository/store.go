@@ -923,6 +923,60 @@ func (s *Store) ListIncomeAllocations(
 	return allocations, nil
 }
 
+// ListAllIncomeAllocations returns all allocations for all of a user's incomes.
+// Used by timeline service to calculate total investment allocations.
+func (s *Store) ListAllIncomeAllocations(
+	ctx context.Context,
+	userID string,
+) ([]IncomeAllocation, error) {
+	query := `
+	SELECT
+		ia.id,
+		ia.income_id,
+		ia.target_cash_account_id,
+		ia.target_investment_id,
+		ia.allocation_type,
+		ia.allocation_value,
+		ia.created_at
+	FROM income_allocations ia
+	INNER JOIN finance_incomes fi ON fi.id = ia.income_id
+	WHERE fi.user_id = $1
+	ORDER BY ia.income_id, ia.created_at`
+
+	logQuery(query, []any{userID})
+	rows, err := s.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query all income allocations: %w", err)
+	}
+	defer rows.Close()
+
+	allocations := []IncomeAllocation{}
+	for rows.Next() {
+		var a IncomeAllocation
+		var targetCashAccountID, targetInvestmentID sql.NullString
+
+		err := rows.Scan(
+			&a.ID, &a.IncomeID,
+			&targetCashAccountID, &targetInvestmentID,
+			&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan income allocation: %w", err)
+		}
+
+		if targetCashAccountID.Valid {
+			a.TargetCashAccountID = &targetCashAccountID.String
+		}
+		if targetInvestmentID.Valid {
+			a.TargetInvestmentID = &targetInvestmentID.String
+		}
+
+		allocations = append(allocations, a)
+	}
+
+	return allocations, nil
+}
+
 // GetIncomeAllocation returns a single allocation by ID.
 func (s *Store) GetIncomeAllocation(
 	ctx context.Context,

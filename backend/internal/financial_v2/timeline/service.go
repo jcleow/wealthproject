@@ -52,8 +52,9 @@ type EffectiveRows struct {
 
 // SGFinancialDataRows wraps financial data with Singapore-specific CPF account
 type SGFinancialDataRows struct {
-	Rows       EffectiveRows
-	CPFAccount *account.CPFAccount
+	Rows              EffectiveRows
+	CPFAccount        *account.CPFAccount
+	IncomeAllocations []repo.IncomeAllocation
 }
 
 // ItemState tracks the current computed state of a financial item
@@ -209,13 +210,14 @@ func (s *Service) loadEffectiveRows(
 	paginationOpts repo.PaginationParams,
 ) (SGFinancialDataRows, error) {
 	var (
-		nonCashAssets repo.PaginatedResult[repo.NonCashAsset]
-		investments   repo.PaginatedResult[repo.Investment]
-		cashAssets    repo.PaginatedResult[repo.CashAsset]
-		liabilities   repo.PaginatedResult[repo.Liability]
-		incomes       repo.PaginatedResult[repo.Income]
-		expenses      repo.PaginatedResult[repo.Expense]
-		cpfAccount    *repo.CPFAccount
+		nonCashAssets     repo.PaginatedResult[repo.NonCashAsset]
+		investments       repo.PaginatedResult[repo.Investment]
+		cashAssets        repo.PaginatedResult[repo.CashAsset]
+		liabilities       repo.PaginatedResult[repo.Liability]
+		incomes           repo.PaginatedResult[repo.Income]
+		expenses          repo.PaginatedResult[repo.Expense]
+		cpfAccount        *repo.CPFAccount
+		incomeAllocations []repo.IncomeAllocation
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -262,6 +264,12 @@ func (s *Service) loadEffectiveRows(
 		return err
 	})
 
+	g.Go(func() error {
+		var err error
+		incomeAllocations, err = s.store.ListAllIncomeAllocations(gctx, userID)
+		return err
+	})
+
 	if err := g.Wait(); err != nil {
 		return SGFinancialDataRows{}, err
 	}
@@ -276,7 +284,8 @@ func (s *Service) loadEffectiveRows(
 			Incomes:       transformIncomes(incomes.Data),
 			Expenses:      transformExpenses(expenses.Data),
 		},
-		CPFAccount: mapToCPFAccount(cpfAccount),
+		CPFAccount:        mapToCPFAccount(cpfAccount),
+		IncomeAllocations: incomeAllocations,
 	}, nil
 }
 
@@ -570,6 +579,67 @@ func calculateNetCashFlow(
 	netSavings = income.Sub(expense)
 	netCashFlow = netSavings.Sub(employeeCPF)
 	return netSavings, netCashFlow
+}
+
+// applyInvestmentAllocations adds the monthly allocation amounts to investment balances.
+// This function modifies the state map to increase investment balances based on income allocations.
+// Returns the total amount allocated to investments this month.
+func applyInvestmentAllocations(
+	incomes []FinancialDataRow,
+	allocations []repo.IncomeAllocation,
+	state map[string]*decimal.Decimal,
+	currentDate time.Time,
+) *decimal.Decimal {
+	total := decimal.Zero()
+
+	// Build a map of income ID -> allocations targeting investments
+	incomeAllocMap := make(map[string][]repo.IncomeAllocation)
+	for _, alloc := range allocations {
+		if alloc.TargetInvestmentID != nil {
+			incomeAllocMap[alloc.IncomeID] = append(incomeAllocMap[alloc.IncomeID], alloc)
+		}
+	}
+
+	for _, income := range incomes {
+		if !isActiveInMonth(income, currentDate) {
+			continue
+		}
+
+		allocs, hasAllocs := incomeAllocMap[income.ID]
+		if !hasAllocs {
+			continue
+		}
+
+		// Get the monthly income amount
+		monthlyIncome := common.ToMonthlyAmount(state[income.ID], income.Frequency)
+		if monthlyIncome == nil || monthlyIncome.IsZero() {
+			continue
+		}
+
+		for _, alloc := range allocs {
+			var allocAmount *decimal.Decimal
+			if alloc.AllocationType == "fixed" {
+				allocAmount = &alloc.AllocationValue
+			} else {
+				// Percentage: (monthlyIncome * percentage) / 100
+				hundred := decimal.NewFromInt64(100, 0)
+				pct := alloc.AllocationValue.Div(hundred)
+				allocAmount = monthlyIncome.Mul(pct)
+			}
+
+			// Add to the target investment balance
+			if alloc.TargetInvestmentID != nil {
+				investmentID := *alloc.TargetInvestmentID
+				if currentBalance, exists := state[investmentID]; exists && currentBalance != nil {
+					state[investmentID] = currentBalance.Add(allocAmount)
+				}
+			}
+
+			total = total.Add(allocAmount)
+		}
+	}
+
+	return total
 }
 
 // buildNonCashAssetResponses builds responses for non-cash assets and returns total value
@@ -897,7 +967,7 @@ func buildMonthDetailResponse(
 	cashAccumulator *decimal.Decimal,
 	netSavings *decimal.Decimal,
 	netCashFlow *decimal.Decimal,
-	employeeCPF *decimal.Decimal,
+	netInvestments *decimal.Decimal,
 	cpfContributions map[string]*cpfProcessor.ContributionResult,
 	cpfCtx *CPFContext,
 ) MonthDetailResponse {
@@ -939,7 +1009,7 @@ func buildMonthDetailResponse(
 		Expenses:             expenses,
 		NetSavings:           *netSavings.Round(0),
 		NetCash:              *netCashFlow.Round(0),
-		NetInvestments:       *employeeCPF.Round(0),
+		NetInvestments:       *netInvestments.Round(0),
 		NetWorth:             *netWorth.Round(0),
 		AccumulatorAccountID: accumulatorID,
 	}
@@ -951,13 +1021,14 @@ func buildMonthDetailResponse(
 
 // MonthlyContext holds all state needed to process a single month
 type MonthlyContext struct {
-	Data            EffectiveRows
-	ItemStates      ItemStateMap
-	State           map[string]*decimal.Decimal
-	Registry        *growth.Registry
-	CPFCtx          *CPFContext
-	BaseYear        int
-	CashAccumulator *decimal.Decimal
+	Data              EffectiveRows
+	ItemStates        ItemStateMap
+	State             map[string]*decimal.Decimal
+	Registry          *growth.Registry
+	CPFCtx            *CPFContext
+	BaseYear          int
+	CashAccumulator   *decimal.Decimal
+	IncomeAllocations []repo.IncomeAllocation
 }
 
 // processMonth handles all calculations for a single month and returns the response
@@ -982,11 +1053,14 @@ func processMonth(mctx *MonthlyContext, monthIdx int, currentDate time.Time) Mon
 	netSavings, netCashFlow := calculateNetCashFlow(mctx.Data, mctx.State, currentDate, employeeCPF)
 	mctx.CashAccumulator = mctx.CashAccumulator.Add(netCashFlow)
 
+	// Apply investment allocations - adds allocation amounts to investment balances and returns total
+	netInvestments := applyInvestmentAllocations(mctx.Data.Incomes, mctx.IncomeAllocations, mctx.State, currentDate)
+
 	// Sync state and build response
 	syncStateToItemStates(mctx.State, mctx.ItemStates)
 	return buildMonthDetailResponse(
 		monthIdx, currentDate, mctx.BaseYear, mctx.Data, mctx.ItemStates,
-		mctx.CashAccumulator, netSavings, netCashFlow, employeeCPF, cpfContributions, mctx.CPFCtx,
+		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFCtx,
 	)
 }
 
@@ -1010,12 +1084,13 @@ func (s *Service) ComputeFinancialSnapshot(
 	startMonthIndex := (int(anchorStart.Month()) - 1)
 
 	mctx := &MonthlyContext{
-		Data:            sgData.Rows,
-		ItemStates:      initializeItemStates(sgData.Rows, anchorStart.Year()),
-		Registry:        growth.NewRegistry(),
-		CPFCtx:          NewCPFContext(sgData.CPFAccount),
-		BaseYear:        anchorStart.Year(),
-		CashAccumulator: decimal.Zero(),
+		Data:              sgData.Rows,
+		ItemStates:        initializeItemStates(sgData.Rows, anchorStart.Year()),
+		Registry:          growth.NewRegistry(),
+		CPFCtx:            NewCPFContext(sgData.CPFAccount),
+		BaseYear:          anchorStart.Year(),
+		CashAccumulator:   decimal.Zero(),
+		IncomeAllocations: sgData.IncomeAllocations,
 	}
 	mctx.State = extractBalanceMap(mctx.ItemStates)
 

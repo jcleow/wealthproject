@@ -3,6 +3,24 @@ import { buildPaginatedPath } from './helpers'
 import { normalizePaginatedResponse, toIncome } from './transformers'
 import type { Income, PaginatedResponse, PaginationParams } from '@/types/financial'
 
+// Income Allocation Types
+export interface IncomeAllocation {
+  id: string
+  incomeId: string
+  targetCashAccountId?: string
+  targetInvestmentId?: string
+  allocationType: 'percentage' | 'fixed'
+  allocationValue: number
+  createdAt: string
+}
+
+export interface CreateIncomeAllocationPayload {
+  targetCashAccountId?: string
+  targetInvestmentId?: string
+  allocationType: 'percentage' | 'fixed'
+  allocationValue: number
+}
+
 export async function listIncomes(params?: PaginationParams): Promise<PaginatedResponse<Income>> {
   const path = buildPaginatedPath('/cashflow/incomes', params)
   const data = await apiClient.get<any>(path)
@@ -53,10 +71,34 @@ export async function deleteAllIncomes(): Promise<void> {
   await Promise.all(result.data.map((income) => deleteIncome(income.id)))
 }
 
+// Income Allocation API Methods
+export async function listIncomeAllocations(incomeId: string): Promise<IncomeAllocation[]> {
+  const data = await apiClient.get<IncomeAllocation[]>(`/cashflow/incomes/${incomeId}/allocations`)
+  return data
+}
+
+export async function createIncomeAllocation(
+  incomeId: string,
+  payload: CreateIncomeAllocationPayload
+): Promise<IncomeAllocation> {
+  const data = await apiClient.post<IncomeAllocation>(
+    `/cashflow/incomes/${incomeId}/allocations`,
+    payload
+  )
+  return data
+}
+
+export async function deleteIncomeAllocation(incomeId: string, allocationId: string): Promise<void> {
+  await apiClient.delete<void>(`/cashflow/incomes/${incomeId}/allocations/${allocationId}`)
+}
+
 export const incomesApi = {
   listIncomes,
   createIncome,
   updateIncome,
   deleteIncome,
   deleteAllIncomes,
+  listIncomeAllocations,
+  createIncomeAllocation,
+  deleteIncomeAllocation,
 }

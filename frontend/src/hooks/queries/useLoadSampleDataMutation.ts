@@ -475,6 +475,29 @@ export function useLoadSampleDataMutation() {
         Promise.all(sampleExpenses.map(expense => financialApi.createExpense(expense))),
       ])
 
+      // Create income allocations for investment contributions
+      // Allocate from salary income to both investment accounts
+      const salaryIncome = incomes.find(inc => inc.source === 'Software Engineer Salary')
+      const syfeInvestment = investments.find(inv => inv.name.includes('Syfe'))
+      const ssbInvestment = investments.find(inv => inv.name.includes('Singapore Savings'))
+
+      if (salaryIncome && syfeInvestment && ssbInvestment) {
+        await Promise.all([
+          // $300/month to Syfe Core Growth Portfolio
+          financialApi.createIncomeAllocation(salaryIncome.id, {
+            targetInvestmentId: syfeInvestment.id,
+            allocationType: 'fixed',
+            allocationValue: 300,
+          }),
+          // $200/month to Singapore Savings Bonds
+          financialApi.createIncomeAllocation(salaryIncome.id, {
+            targetInvestmentId: ssbInvestment.id,
+            allocationType: 'fixed',
+            allocationValue: 200,
+          }),
+        ])
+      }
+
       // Build lookup maps for linking delta/override impacts to existing items
       const incomeBySource = new Map(incomes.map(inc => [inc.source, inc.id]))
 
