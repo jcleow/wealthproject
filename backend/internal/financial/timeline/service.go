@@ -1096,6 +1096,17 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 	rows := []FinancialDataRow{}
 	baseYear := time.Now().Year()
 
+	expenses, err := s.store.ListAllExpenses(ctx, userID, repository.DateRangeOptions{})
+	if err != nil {
+		return nil, err
+	}
+	expenseByLiability := map[string]struct{}{}
+	for _, exp := range expenses {
+		if exp.SourceLiabilityID != nil {
+			expenseByLiability[*exp.SourceLiabilityID] = struct{}{}
+		}
+	}
+
 	assets, err := s.store.ListAllAssets(ctx, userID, repository.DateRangeOptions{})
 	if err != nil {
 		return nil, err
@@ -1155,6 +1166,9 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 
 		// Generate computed repayment expense for liabilities with end_date
 		if li.EndDate != nil && li.CurrentBalance > 0 {
+			if _, hasLinkedExpense := expenseByLiability[li.ID]; hasLinkedExpense {
+				continue
+			}
 			repaymentRow := s.generateRepaymentExpense(li, startYear, endYear)
 			if repaymentRow != nil {
 				rows = append(rows, *repaymentRow)
@@ -1191,10 +1205,6 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 		})
 	}
 
-	expenses, err := s.store.ListAllExpenses(ctx, userID, repository.DateRangeOptions{})
-	if err != nil {
-		return nil, err
-	}
 	for _, it := range expenses {
 		// Convert StartDate to year, default to baseYear if not set
 		startYear := it.StartDate.Year()

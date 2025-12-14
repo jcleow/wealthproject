@@ -458,7 +458,7 @@ export function useLoadSampleDataMutation() {
         },
       ]
 
-      const [assets, investments, liabilities, incomes, expenses] = await Promise.all([
+      const [assets, investments, liabilities, incomes, _createdExpenses] = await Promise.all([
         Promise.all(sampleAssets.map(asset => financialApi.createAsset(asset))),
         Promise.all(sampleInvestments.map(investment => financialApi.createInvestment(investment))),
         Promise.all(sampleLiabilities.map(liability => financialApi.createLiability(liability))),
@@ -610,7 +610,9 @@ export function useLoadSampleDataMutation() {
         scenarioEvents.push(createdEvent)
       }
 
-      return { assets, investments, liabilities, incomes, expenses, scenarioEvents }
+      const expensesResult = await financialApi.listExpenses({ limit: -1 })
+
+      return { assets, investments, liabilities, incomes, expenses: expensesResult.data, scenarioEvents }
     },
     onSuccess: (data) => {
       // Update all caches with the new data - this immediately updates the UI

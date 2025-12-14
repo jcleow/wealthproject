@@ -37,6 +37,14 @@ func IntPtrToNullInt32(i *int) sql.NullInt32 {
 	return sql.NullInt32{Int32: int32(*i), Valid: true}
 }
 
+func monthStartUTC(t time.Time) time.Time {
+	if t.IsZero() {
+		t = time.Now().UTC()
+	}
+	year, month, _ := t.Date()
+	return time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+}
+
 // Asset represents a persisted asset record.
 type Asset struct {
 	ID               string                 `json:"id"`
@@ -926,6 +934,95 @@ func (s *Store) GetLiability(ctx context.Context, userID, id string) (Liability,
 	return li, nil
 }
 
+func (s *Store) findExpenseBySourceLiability(ctx context.Context, userID, liabilityID string) (Expense, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id,
+		       COALESCE(parent_id, id) AS parent_id,
+		       payee,
+		       amount,
+		       frequency,
+		       start_date,
+		       end_date,
+		       category,
+		       COALESCE(growth_rate, 2.0) AS growth_rate,
+		       COALESCE(growth_strategy, 'annual_step'),
+		       COALESCE(notes, '') AS notes,
+		       updated_at,
+		       source_liability_id
+		FROM finance_expenses
+		WHERE user_id = $1 AND source_liability_id = $2
+		ORDER BY start_date ASC
+		LIMIT 1`, userID, liabilityID)
+
+	var exp Expense
+	var endDate sql.NullTime
+	var sourceLiabilityID sql.NullString
+	var growthStrategy sql.NullString
+	if err := row.Scan(&exp.ID, &exp.ParentID, &exp.Payee, &exp.Amount, &exp.Frequency, &exp.StartDate, &endDate, &exp.Category, &exp.GrowthRate, &growthStrategy, &exp.Notes, &exp.UpdatedAt, &sourceLiabilityID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Expense{}, ErrNotFound
+		}
+		return Expense{}, err
+	}
+	if endDate.Valid {
+		exp.EndDate = &endDate.Time
+	}
+	if sourceLiabilityID.Valid {
+		exp.SourceLiabilityID = &sourceLiabilityID.String
+	}
+	if growthStrategy.Valid {
+		exp.GrowthStrategy = growthStrategy.String
+	} else {
+		exp.GrowthStrategy = "annual_step"
+	}
+
+	return exp, nil
+}
+
+func (s *Store) ensureLiabilityExpense(ctx context.Context, userID string, li Liability) error {
+	if li.ID == "" {
+		return fmt.Errorf("liability ID required to create repayment expense")
+	}
+
+	startDate := monthStartUTC(li.StartDate)
+	endDate := li.EndDate
+	note := fmt.Sprintf("Auto-generated payment for %s", li.Name)
+	category := "Debt Payment"
+
+	linkedExpense, err := s.findExpenseBySourceLiability(ctx, userID, li.ID)
+	if err != nil && err != ErrNotFound {
+		return err
+	}
+
+	growthStrategy := "annual_step"
+	if linkedExpense.GrowthStrategy != "" {
+		growthStrategy = linkedExpense.GrowthStrategy
+	}
+
+	expensePayload := Expense{
+		Payee:             li.Name,
+		Amount:            li.MinimumPayment,
+		Frequency:         "monthly",
+		StartDate:         startDate,
+		EndDate:           endDate,
+		Category:          category,
+		GrowthRate:        0,
+		GrowthStrategy:    growthStrategy,
+		Notes:             note,
+		SourceLiabilityID: &li.ID,
+	}
+
+	if err == ErrNotFound {
+		_, createErr := s.CreateExpense(ctx, userID, expensePayload)
+		return createErr
+	}
+
+	expensePayload.ID = linkedExpense.ID
+	expensePayload.ParentID = linkedExpense.ParentID
+	_, updateErr := s.UpdateExpense(ctx, userID, expensePayload)
+	return updateErr
+}
+
 func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability) (Liability, error) {
 	startDate := li.StartDate
 	if startDate.IsZero() {
@@ -975,6 +1072,10 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 		_ = json.Unmarshal(returnedMetadataJSON, &created.RepaymentMetadata)
 	}
 
+	if err := s.ensureLiabilityExpense(ctx, userID, created); err != nil {
+		return Liability{}, err
+	}
+
 	return created, nil
 }
 
@@ -1019,6 +1120,10 @@ func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability
 	}
 	if len(returnedMetadataJSON) > 0 {
 		_ = json.Unmarshal(returnedMetadataJSON, &updated.RepaymentMetadata)
+	}
+
+	if err := s.ensureLiabilityExpense(ctx, userID, updated); err != nil {
+		return Liability{}, err
 	}
 
 	return updated, nil
@@ -2008,13 +2113,13 @@ func (s *Store) ListAllPropertyLinks(ctx context.Context, userID string, paginat
 // Income can be distributed to multiple cash_accounts or investments.
 // Uses separate nullable FK columns for proper referential integrity.
 type IncomeAllocation struct {
-	ID                    string    `json:"id"`
-	IncomeID              string    `json:"incomeId"`
-	TargetCashAccountID   *string   `json:"targetCashAccountId,omitempty"`
-	TargetInvestmentID    *string   `json:"targetInvestmentId,omitempty"`
-	AllocationType        string    `json:"allocationType"`  // 'percentage' or 'fixed'
-	AllocationValue       float64   `json:"allocationValue"` // percentage (0-100) or fixed amount
-	CreatedAt             time.Time `json:"createdAt"`
+	ID                  string    `json:"id"`
+	IncomeID            string    `json:"incomeId"`
+	TargetCashAccountID *string   `json:"targetCashAccountId,omitempty"`
+	TargetInvestmentID  *string   `json:"targetInvestmentId,omitempty"`
+	AllocationType      string    `json:"allocationType"`  // 'percentage' or 'fixed'
+	AllocationValue     float64   `json:"allocationValue"` // percentage (0-100) or fixed amount
+	CreatedAt           time.Time `json:"createdAt"`
 }
 
 // ListIncomeAllocations returns all allocations for an income.

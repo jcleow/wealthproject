@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +26,8 @@ func TestCreateLiability_WithoutEndDate(t *testing.T) {
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 
-	now := time.Now()
+	startDate := time.Date(2025, time.January, 15, 10, 0, 0, 0, time.UTC)
+	monthStart := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 	// Create liability without end_date (revolving debt like credit card)
 	liabilityRows := sqlmock.NewRows([]string{
@@ -34,12 +36,56 @@ func TestCreateLiability_WithoutEndDate(t *testing.T) {
 		"notes", "repayment_strategy", "repayment_metadata", "updated_at",
 	}).AddRow(
 		"liability-1", "liability-1", "Credit Card", "debt", 5000.0,
-		19.99, 100.0, now, nil, // end_date is NULL
-		"", "standard_amortization", nil, now,
+		19.99, 100.0, startDate, nil, // end_date is NULL
+		"", "standard_amortization", nil, startDate,
 	)
 
 	mock.ExpectQuery(`INSERT INTO finance_liabilities`).
+		WithArgs(
+			"test-user",
+			nil, // parent_id
+			"Credit Card",
+			"debt",
+			5000.0,
+			19.99,
+			100.0,
+			startDate,
+			nil, // end_date
+			"",  // notes
+			"standard_amortization",
+			nil, // repayment_metadata
+		).
 		WillReturnRows(liabilityRows)
+
+	mock.ExpectQuery(`(?s)SELECT .*FROM finance_expenses`).
+		WithArgs(
+			"test-user",
+			"liability-1",
+		).
+		WillReturnError(sql.ErrNoRows)
+
+	expenseRows := sqlmock.NewRows([]string{
+		"id", "parent_id", "payee", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
+	}).AddRow(
+		"expense-1", "expense-1", "Credit Card", 100.0, "monthly", monthStart, nil, "Debt Payment", 0.0, "annual_step", "Auto-generated payment for Credit Card", startDate, "liability-1",
+	)
+
+	mock.ExpectQuery(`INSERT INTO finance_expenses`).
+		WithArgs(
+			"test-user",
+			nil, // parent_id
+			"Credit Card",
+			100.0,
+			"monthly",
+			monthStart,
+			nil, // end_date
+			"Debt Payment",
+			0.0, // growth_rate
+			"annual_step",
+			"Auto-generated payment for Credit Card",
+			"liability-1",
+		).
+		WillReturnRows(expenseRows)
 
 	payload := map[string]interface{}{
 		"name":            "Credit Card",
@@ -47,6 +93,7 @@ func TestCreateLiability_WithoutEndDate(t *testing.T) {
 		"currentBalance":  5000.0,
 		"interestRateApr": 19.99,
 		"minimumPayment":  100.0,
+		"startDate":       startDate.Format(time.RFC3339),
 	}
 	body, _ := json.Marshal(payload)
 
@@ -81,6 +128,7 @@ func TestCreateLiability_RepaymentMetadataNil(t *testing.T) {
 
 	startDate, err := time.Parse(time.RFC3339, "2025-12-14T03:19:12.118Z")
 	require.NoError(t, err)
+	monthStart := time.Date(2025, time.December, 1, 0, 0, 0, 0, time.UTC)
 
 	liabilityRows := sqlmock.NewRows([]string{
 		"id", "parent_id", "name", "category", "current_balance",
@@ -108,6 +156,36 @@ func TestCreateLiability_RepaymentMetadataNil(t *testing.T) {
 			nil, // repayment_metadata should be NULL when omitted
 		).
 		WillReturnRows(liabilityRows)
+
+	mock.ExpectQuery(`(?s)SELECT .*FROM finance_expenses`).
+		WithArgs(
+			"test-user",
+			"liability-cc",
+		).
+		WillReturnError(sql.ErrNoRows)
+
+	expenseRows := sqlmock.NewRows([]string{
+		"id", "parent_id", "payee", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
+	}).AddRow(
+		"expense-cc", "expense-cc", "Credit Card", 50.0, "monthly", monthStart, nil, "Debt Payment", 0.0, "annual_step", "Auto-generated payment for Credit Card", startDate, "liability-cc",
+	)
+
+	mock.ExpectQuery(`INSERT INTO finance_expenses`).
+		WithArgs(
+			"test-user",
+			nil, // parent_id
+			"Credit Card",
+			50.0,
+			"monthly",
+			monthStart,
+			nil, // end_date
+			"Debt Payment",
+			0.0, // growth_rate
+			"annual_step",
+			"Auto-generated payment for Credit Card",
+			"liability-cc",
+		).
+		WillReturnRows(expenseRows)
 
 	payload := map[string]interface{}{
 		"name":            "Credit Card",
@@ -150,9 +228,9 @@ func TestCreateLiability_WithEndDate(t *testing.T) {
 
 	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC) // 5 years = 60 months
+	monthStart := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 	// Create liability with end_date (mortgage or fixed-term loan)
-	// Note: No auto-expense creation expected - repayments are computed on-the-fly
 	liabilityRows := sqlmock.NewRows([]string{
 		"id", "parent_id", "name", "category", "current_balance",
 		"interest_rate_apr", "minimum_payment", "start_date", "end_date",
@@ -164,9 +242,51 @@ func TestCreateLiability_WithEndDate(t *testing.T) {
 	)
 
 	mock.ExpectQuery(`INSERT INTO finance_liabilities`).
+		WithArgs(
+			"test-user",
+			nil, // parent_id
+			"Car Loan",
+			"debt",
+			30000.0,
+			5.0,
+			500.0,
+			startDate,
+			endDate,
+			"", // notes
+			"standard_amortization",
+			nil, // repayment_metadata
+		).
 		WillReturnRows(liabilityRows)
 
-	// No expense creation expected - repayments are computed on-the-fly in timeline service
+	mock.ExpectQuery(`(?s)SELECT .*FROM finance_expenses`).
+		WithArgs(
+			"test-user",
+			"liability-2",
+		).
+		WillReturnError(sql.ErrNoRows)
+
+	expenseRows := sqlmock.NewRows([]string{
+		"id", "parent_id", "payee", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
+	}).AddRow(
+		"expense-2", "expense-2", "Car Loan", 500.0, "monthly", monthStart, endDate, "Debt Payment", 0.0, "annual_step", "Auto-generated payment for Car Loan", startDate, "liability-2",
+	)
+
+	mock.ExpectQuery(`INSERT INTO finance_expenses`).
+		WithArgs(
+			"test-user",
+			nil, // parent_id
+			"Car Loan",
+			500.0,
+			"monthly",
+			monthStart,
+			endDate,
+			"Debt Payment",
+			0.0, // growth_rate
+			"annual_step",
+			"Auto-generated payment for Car Loan",
+			"liability-2",
+		).
+		WillReturnRows(expenseRows)
 
 	payload := map[string]interface{}{
 		"name":            "Car Loan",
@@ -210,6 +330,7 @@ func TestCreateLiability_WithRepaymentStrategy(t *testing.T) {
 
 	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2055, 1, 1, 0, 0, 0, 0, time.UTC) // 30 years
+	monthStart := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 	// Create liability with custom repayment strategy
 	metadataJSON := []byte(`{"extra_payment": 500}`)
@@ -224,7 +345,51 @@ func TestCreateLiability_WithRepaymentStrategy(t *testing.T) {
 	)
 
 	mock.ExpectQuery(`INSERT INTO finance_liabilities`).
+		WithArgs(
+			"test-user",
+			nil, // parent_id
+			"Home Mortgage",
+			"mortgage_home",
+			400000.0,
+			4.5,
+			2000.0,
+			startDate,
+			endDate,
+			"", // notes
+			"extra_payment",
+			sqlmock.AnyArg(), // repayment_metadata serialized JSON
+		).
 		WillReturnRows(liabilityRows)
+
+	mock.ExpectQuery(`(?s)SELECT .*FROM finance_expenses`).
+		WithArgs(
+			"test-user",
+			"liability-3",
+		).
+		WillReturnError(sql.ErrNoRows)
+
+	expenseRows := sqlmock.NewRows([]string{
+		"id", "parent_id", "payee", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
+	}).AddRow(
+		"expense-3", "expense-3", "Home Mortgage", 2000.0, "monthly", monthStart, endDate, "Debt Payment", 0.0, "annual_step", "Auto-generated payment for Home Mortgage", startDate, "liability-3",
+	)
+
+	mock.ExpectQuery(`INSERT INTO finance_expenses`).
+		WithArgs(
+			"test-user",
+			nil, // parent_id
+			"Home Mortgage",
+			2000.0,
+			"monthly",
+			monthStart,
+			endDate,
+			"Debt Payment",
+			0.0, // growth_rate
+			"annual_step",
+			"Auto-generated payment for Home Mortgage",
+			"liability-3",
+		).
+		WillReturnRows(expenseRows)
 
 	payload := map[string]interface{}{
 		"name":              "Home Mortgage",

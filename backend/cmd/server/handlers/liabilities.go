@@ -133,9 +133,6 @@ func (h *LiabilityHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Note: Repayment expenses are now computed on-the-fly in the timeline service
-	// using the repayment module. No stored expense record is created.
-
 	writeJSON(w, created)
 }
 

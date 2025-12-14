@@ -369,6 +369,63 @@ func TestCashAccumulation_NetWorthIncludesCash(t *testing.T) {
 	require.InDelta(t, expectedNetWorth, year0.NetWorth, 1e-6)
 }
 
+func TestLoadEffectiveRows_SkipsSyntheticRepaymentWhenLinkedExpenseExists(t *testing.T) {
+	t.Parallel()
+
+	ctx := testContext()
+	store := newStubStore()
+
+	endDate := time.Date(2030, time.January, 1, 0, 0, 0, 0, time.UTC)
+	startDate := time.Date(2025, time.January, 15, 0, 0, 0, 0, time.UTC)
+
+	liabilityID := uuid.NewString()
+	store.liabilities = []repository.Liability{
+		{
+			ID:              liabilityID,
+			ParentID:        liabilityID,
+			Name:            "Auto Loan",
+			Category:        "debt",
+			CurrentBalance:  10000,
+			InterestRateAPR: 4.0,
+			MinimumPayment:  300,
+			StartDate:       startDate,
+			EndDate:         &endDate,
+		},
+	}
+
+	store.expenses = []repository.Expense{
+		{
+			ID:                uuid.NewString(),
+			ParentID:          uuid.NewString(),
+			Payee:             "Auto Loan",
+			Amount:            300,
+			Frequency:         "monthly",
+			StartDate:         time.Date(startDate.Year(), startDate.Month(), 1, 0, 0, 0, 0, time.UTC),
+			EndDate:           &endDate,
+			Category:          "Debt Payment",
+			GrowthRate:        0,
+			SourceLiabilityID: &liabilityID,
+		},
+	}
+
+	svc := NewService(store)
+	rows, err := svc.loadEffectiveRows(ctx, testUserID)
+	require.NoError(t, err)
+
+	var expenseCount, liabilityCount int
+	for _, row := range rows {
+		switch row.ItemType {
+		case ItemTypeExpense:
+			expenseCount++
+		case ItemTypeLiability:
+			liabilityCount++
+		}
+	}
+
+	require.Equal(t, 1, liabilityCount, "liability row should be included")
+	require.Equal(t, 1, expenseCount, "should not add synthetic repayment when expense is linked to liability")
+}
+
 // ---- helpers ----
 
 type stubStore struct {
@@ -579,11 +636,11 @@ func countItems(items []TimelineItem) int {
 
 // mockScenarioApplier simulates the scenario.Service for testing
 type mockScenarioApplier struct {
-	overrideAmount float64  // The override amount to apply
-	overrideMonth  int      // Month when override starts (1-12)
-	overrideYear   int      // Calendar year when override starts
-	targetType     string   // Type of item to override (income, expense, etc.)
-	targetID       string   // ID of item to override
+	overrideAmount float64 // The override amount to apply
+	overrideMonth  int     // Month when override starts (1-12)
+	overrideYear   int     // Calendar year when override starts
+	targetType     string  // Type of item to override (income, expense, etc.)
+	targetID       string  // ID of item to override
 }
 
 func (m *mockScenarioApplier) Apply(ctx context.Context, req scenario.ApplyRequest) ([]scenario.Row, error) {
