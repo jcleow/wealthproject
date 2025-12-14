@@ -639,3 +639,100 @@ func TestComputeFinancialSnapshot_NetCashAlwaysNetOfInvestments(t *testing.T) {
 		result.Months[2].NetSavings.String(), result.Months[2].NetInvestments.String(),
 		result.Months[2].NetCash.String(), result.Months[2].Investments[0].Balance.String())
 }
+
+func TestComputeFinancialSnapshot_OpenEndedLiabilityWithLinkedExpense(t *testing.T) {
+	// Test that open-ended liabilities (no end date) with linked expenses
+	// have their balance decrease month-over-month based on expense payments
+	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC) // 3 months
+
+	liabilityID := "liability-1"
+
+	store := &mockStore{
+		liabilities: []repo.Liability{
+			{
+				ID:              liabilityID,
+				ParentID:        liabilityID,
+				Name:            "Credit Card",
+				Category:        "Debt",
+				CurrentBalance:  *decimal.MustFromString("10000"), // $10,000 balance
+				InterestRateAPR: *decimal.MustFromString("18"),    // 18% APR
+				MinimumPayment:  *decimal.MustFromString("200"),
+				StartDate:       startDate,
+				EndDate:         nil, // Open-ended (no end date)
+			},
+		},
+		expenses: []repo.Expense{
+			{
+				ID:                "expense-1",
+				ParentID:          "expense-1",
+				Payee:             "Credit Card Payment",
+				Amount:            *decimal.MustFromString("500"), // $500/month payment
+				Frequency:         "monthly",
+				StartDate:         startDate,
+				Category:          "Debt Payment",
+				GrowthRate:        *decimal.MustFromString("0"),
+				SourceLiabilityID: &liabilityID, // Linked to liability
+			},
+		},
+	}
+
+	service := NewService(store)
+	opts := TimelineOptions{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	result, err := service.ComputeFinancialSnapshot(context.Background(), "user-1", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Months) != 3 {
+		t.Fatalf("expected 3 months, got %d", len(result.Months))
+	}
+
+	// Verify liability balance decreases each month
+	// Month 1: Balance = 10000 (anchor month, no change)
+	// Month 2: Interest = 10000 * (18/100/12) = 150, Principal = 500 - 150 = 350, Balance = 10000 - 350 = 9650
+	// Month 3: Interest = 9650 * 0.015 = 144.75, Principal = 500 - 144.75 = 355.25, Balance = 9650 - 355.25 = 9294.75
+
+	for i, month := range result.Months {
+		if len(month.Liabilities) != 1 {
+			t.Fatalf("month %d: expected 1 liability, got %d", i+1, len(month.Liabilities))
+		}
+		t.Logf("Month %d: Liability Balance = %s", i+1, month.Liabilities[0].Balance.String())
+	}
+
+	// Verify balance decreases month-over-month
+	month1Balance := result.Months[0].Liabilities[0].Balance
+	month2Balance := result.Months[1].Liabilities[0].Balance
+	month3Balance := result.Months[2].Liabilities[0].Balance
+
+	// Month 1 should be the starting balance (10000)
+	expectedMonth1 := decimal.MustFromString("10000")
+	if month1Balance.Cmp(expectedMonth1) != 0 {
+		t.Errorf("month 1: expected balance %s, got %s", expectedMonth1.String(), month1Balance.String())
+	}
+
+	// Month 2 should be less than month 1
+	if month2Balance.Cmp(&month1Balance) >= 0 {
+		t.Errorf("month 2 balance (%s) should be less than month 1 balance (%s)",
+			month2Balance.String(), month1Balance.String())
+	}
+
+	// Month 3 should be less than month 2
+	if month3Balance.Cmp(&month2Balance) >= 0 {
+		t.Errorf("month 3 balance (%s) should be less than month 2 balance (%s)",
+			month3Balance.String(), month2Balance.String())
+	}
+
+	// Verify approximate values
+	// Month 2: ~9650
+	expectedMonth2Min := decimal.MustFromString("9640")
+	expectedMonth2Max := decimal.MustFromString("9660")
+	if month2Balance.Cmp(expectedMonth2Min) < 0 || month2Balance.Cmp(expectedMonth2Max) > 0 {
+		t.Errorf("month 2: expected balance between %s and %s, got %s",
+			expectedMonth2Min.String(), expectedMonth2Max.String(), month2Balance.String())
+	}
+}

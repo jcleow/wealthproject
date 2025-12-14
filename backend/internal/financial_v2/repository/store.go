@@ -155,19 +155,20 @@ type Income struct {
 
 // Expense represents a persisted expense record.
 type Expense struct {
-	ID             string                 `json:"id"`
-	ParentID       string                 `json:"parentId"`
-	Payee          string                 `json:"payee"`
-	Amount         decimal.Decimal        `json:"amount"`
-	Frequency      string                 `json:"frequency"`
-	StartDate      time.Time              `json:"startDate"`         // Precise start date (day-level)
-	EndDate        *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
-	Category       string                 `json:"category"`
-	GrowthRate     decimal.Decimal        `json:"growthRate"`
-	Notes          string                 `json:"notes"`
-	GrowthStrategy string                 `json:"growthStrategy"`
-	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
-	UpdatedAt      time.Time              `json:"updatedAt"`
+	ID                string                 `json:"id"`
+	ParentID          string                 `json:"parentId"`
+	Payee             string                 `json:"payee"`
+	Amount            decimal.Decimal        `json:"amount"`
+	Frequency         string                 `json:"frequency"`
+	StartDate         time.Time              `json:"startDate"`         // Precise start date (day-level)
+	EndDate           *time.Time             `json:"endDate,omitempty"` // NULL means ongoing
+	Category          string                 `json:"category"`
+	GrowthRate        decimal.Decimal        `json:"growthRate"`
+	Notes             string                 `json:"notes"`
+	GrowthStrategy    string                 `json:"growthStrategy"`
+	GrowthMetadata    map[string]interface{} `json:"growthMetadata,omitempty"`
+	UpdatedAt         time.Time              `json:"updatedAt"`
+	SourceLiabilityID *string                `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
 }
 
 // CPFAccount represents a user's CPF account with balances and profile data.
@@ -695,7 +696,8 @@ func (s *Store) ListExpenses(
 		growth_rate,
 		COALESCE(notes, '') as notes,
 		COALESCE(growth_strategy, '') as growth_strategy,
-		updated_at
+		updated_at,
+		source_liability_id
 	FROM finance_expenses
 	WHERE user_id = $1`
 
@@ -740,11 +742,12 @@ func (s *Store) ListExpenses(
 	for rows.Next() {
 		var e Expense
 		var endDate sql.NullTime
+		var sourceLiabilityID sql.NullString
 
 		err := rows.Scan(
 			&e.ID, &e.ParentID, &e.Payee, &e.Amount, &e.Frequency,
 			&e.StartDate, &endDate, &e.Category, &e.GrowthRate,
-			&e.Notes, &e.GrowthStrategy, &e.UpdatedAt,
+			&e.Notes, &e.GrowthStrategy, &e.UpdatedAt, &sourceLiabilityID,
 		)
 		if err != nil {
 			return PaginatedResult[Expense]{}, err
@@ -752,6 +755,9 @@ func (s *Store) ListExpenses(
 
 		if endDate.Valid {
 			e.EndDate = &endDate.Time
+		}
+		if sourceLiabilityID.Valid {
+			e.SourceLiabilityID = &sourceLiabilityID.String
 		}
 
 		expenses = append(expenses, e)

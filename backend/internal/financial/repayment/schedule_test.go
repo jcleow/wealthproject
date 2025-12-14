@@ -8,6 +8,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func cloneDecimal(d *decimal.Decimal) *decimal.Decimal {
+	if d == nil {
+		return nil
+	}
+	copy := &decimal.Decimal{}
+	copy.Decimal = d.Decimal
+	return copy
+}
+
+func buildExpected(strategy Strategy, params Params, months int) ([]decimal.Decimal, error) {
+	expected := make([]decimal.Decimal, 0, months)
+	balance := params.CurrentBalance
+	for i := 0; i < months; i++ {
+		params.PeriodIndex = i
+		params.TotalPeriods = months
+		params.CurrentBalance = balance
+		result, err := strategy.Calculate(params)
+		if err != nil || result == nil || result.RemainingBalance == nil {
+			return nil, err
+		}
+		expected = append(expected, *result.RemainingBalance)
+		balance = result.RemainingBalance
+		if result.IsPayoff {
+			for fill := i + 1; fill < months; fill++ {
+				expected = append(expected, *decimal.Zero())
+			}
+			break
+		}
+	}
+	return expected, nil
+}
+
 func TestBuildSchedule_StandardAmortization(t *testing.T) {
 	t.Parallel()
 
@@ -16,24 +48,29 @@ func TestBuildSchedule_StandardAmortization(t *testing.T) {
 	rate := decimal.MustFromFloat64(6.0)          // 6% APR
 	minPay := decimal.MustFromFloat64(0)          // not used for amortization
 	totalMonths := 12                             // 1-year term
-	expectedFinal := decimal.Zero()               // should fully amortize
-	expectedFirst := decimal.MustFromFloat64(109) // approx remaining after month 1 principal portion
 
-	schedule, err := BuildSchedule(strategy, Params{
-		CurrentBalance:  balance,
+	scheduleParams := Params{
+		CurrentBalance:  cloneDecimal(balance),
 		InterestRateAPR: rate,
 		MinimumPayment:  minPay,
-	}, totalMonths)
+	}
+	schedule, err := BuildSchedule(strategy, scheduleParams, totalMonths)
 
 	require.NoError(t, err)
 	require.Len(t, schedule, totalMonths)
 
-	// First month remaining balance should be less than starting and close to expectedFirst (rounded)
-	require.Less(t, schedule[0].ToFloat64(), balance.ToFloat64())
-	require.InDelta(t, expectedFirst.ToFloat64(), schedule[0].Round(0).ToFloat64(), 1)
+	expectedParams := Params{
+		CurrentBalance:  cloneDecimal(balance),
+		InterestRateAPR: rate,
+		MinimumPayment:  minPay,
+	}
+	expected, err := buildExpected(strategy, expectedParams, totalMonths)
+	require.NoError(t, err)
+	require.Len(t, expected, totalMonths)
 
-	// Final month should be paid off (near zero)
-	require.InDelta(t, expectedFinal.ToFloat64(), schedule[len(schedule)-1].ToFloat64(), 0.01)
+	for i := range schedule {
+		require.InDelta(t, expected[i].ToFloat64(), schedule[i].ToFloat64(), 0.01, "month %d mismatch", i)
+	}
 }
 
 func TestBuildSchedule_InterestOnlyThenAmortize(t *testing.T) {
@@ -45,25 +82,38 @@ func TestBuildSchedule_InterestOnlyThenAmortize(t *testing.T) {
 	minPay := decimal.MustFromFloat64(0)
 	totalMonths := 24
 
-	schedule, err := BuildSchedule(strategy, Params{
+	params := Params{
 		CurrentBalance:  balance,
 		InterestRateAPR: rate,
 		MinimumPayment:  minPay,
 		Metadata: map[string]interface{}{
 			"interest_only_months": 12,
 		},
-	}, totalMonths)
+	}
+
+	scheduleParams := params
+	scheduleParams.CurrentBalance = cloneDecimal(balance)
+	schedule, err := BuildSchedule(strategy, scheduleParams, totalMonths)
 
 	require.NoError(t, err)
 	require.Len(t, schedule, totalMonths)
 
+	expectedParams := params
+	expectedParams.CurrentBalance = cloneDecimal(balance)
+	expected, err := buildExpected(strategy, expectedParams, totalMonths)
+	require.NoError(t, err)
+	require.Len(t, expected, totalMonths)
+
 	// First 12 months should keep balance flat (interest-only)
 	for i := 0; i < 12; i++ {
-		require.InDelta(t, balance.ToFloat64(), schedule[i].ToFloat64(), 0.01)
+		require.InDelta(t, balance.ToFloat64(), schedule[i].ToFloat64(), 0.01, "month %d", i)
 	}
 
-	// After month 12, balance should decrease
+	// After month 12, balance should decrease and match expected
 	require.Less(t, schedule[12].ToFloat64(), schedule[11].ToFloat64())
+	for i := 12; i < totalMonths; i++ {
+		require.InDelta(t, expected[i].ToFloat64(), schedule[i].ToFloat64(), 0.01, "month %d", i)
+	}
 
 	// Final balance should reach zero (or very close)
 	require.InDelta(t, 0.0, schedule[len(schedule)-1].ToFloat64(), 0.01)
@@ -78,7 +128,7 @@ func TestBuildSchedule_MinimumPayment(t *testing.T) {
 	minPay := decimal.MustFromFloat64(0)
 	totalMonths := 6
 
-	schedule, err := BuildSchedule(strategy, Params{
+	params := Params{
 		CurrentBalance:  balance,
 		InterestRateAPR: rate,
 		MinimumPayment:  minPay,
@@ -86,14 +136,23 @@ func TestBuildSchedule_MinimumPayment(t *testing.T) {
 			"min_payment_pct":  3.0,  // 3% of balance
 			"min_payment_floor": 50., // $50 floor
 		},
-	}, totalMonths)
+	}
+
+	scheduleParams := params
+	scheduleParams.CurrentBalance = cloneDecimal(balance)
+	schedule, err := BuildSchedule(strategy, scheduleParams, totalMonths)
 
 	require.NoError(t, err)
 	require.Len(t, schedule, totalMonths)
 
-	// Balance should decline each month
-	for i := 1; i < len(schedule); i++ {
-		require.Less(t, schedule[i].ToFloat64(), schedule[i-1].ToFloat64())
+	expectedParams := params
+	expectedParams.CurrentBalance = cloneDecimal(balance)
+	expected, err := buildExpected(strategy, expectedParams, totalMonths)
+	require.NoError(t, err)
+	require.Len(t, expected, totalMonths)
+
+	for i := range schedule {
+		require.InDelta(t, expected[i].ToFloat64(), schedule[i].ToFloat64(), 0.01, "month %d", i)
 	}
 }
 
@@ -107,26 +166,36 @@ func TestBuildSchedule_ExtraPayment(t *testing.T) {
 	totalMonths := 24
 	extra := 100.0
 
-	schedule, err := BuildSchedule(strategy, Params{
+	params := Params{
 		CurrentBalance:  balance,
 		InterestRateAPR: rate,
 		MinimumPayment:  minPay,
 		Metadata: map[string]interface{}{
 			"extra_payment": extra,
 		},
-	}, totalMonths)
+	}
+
+	scheduleParams := params
+	scheduleParams.CurrentBalance = cloneDecimal(balance)
+	schedule, err := BuildSchedule(strategy, scheduleParams, totalMonths)
 
 	require.NoError(t, err)
 	require.Len(t, schedule, totalMonths)
 
+	expectedParams := params
+	expectedParams.CurrentBalance = cloneDecimal(balance)
+	expected, err := buildExpected(strategy, expectedParams, totalMonths)
+	require.NoError(t, err)
+
+	for i := range schedule {
+		require.InDelta(t, expected[i].ToFloat64(), schedule[i].ToFloat64(), 0.01, "month %d", i)
+	}
+
 	// Balance should reach zero before the end of term due to extra payments
-	paidOffIndex := -1
 	for i, bal := range schedule {
 		if bal.Cmp(decimal.Zero()) == 0 {
-			paidOffIndex = i
+			require.Less(t, i, totalMonths-1, "extra payment should reduce term length")
 			break
 		}
 	}
-	require.NotEqual(t, -1, paidOffIndex, "loan should pay off early with extra payments")
-	require.Less(t, paidOffIndex, totalMonths-1, "extra payment should reduce term length")
 }

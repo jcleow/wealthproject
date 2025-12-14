@@ -52,7 +52,9 @@ func (s StandardAmortizationStrategy) Type() StrategyType {
 }
 
 func (s StandardAmortizationStrategy) Calculate(params Params) (*Result, error) {
-	if params.TotalPeriods <= 0 || params.CurrentBalance.IsZero() {
+	// Calculate remaining periods (how many months left to pay)
+	remainingPeriods := params.TotalPeriods - params.PeriodIndex
+	if remainingPeriods <= 0 || params.CurrentBalance.IsZero() {
 		return &Result{
 			MonthlyPayment:   decimal.Zero(),
 			PrincipalPortion: decimal.Zero(),
@@ -73,11 +75,12 @@ func (s StandardAmortizationStrategy) Calculate(params Params) (*Result, error) 
 
 	if params.InterestRateAPR.IsZero() {
 		// Zero interest: simple division
-		totalPeriods := decimal.NewFromInt64(int64(params.TotalPeriods), 0)
-		monthlyPayment = params.CurrentBalance.Div(totalPeriods)
+		periods := decimal.NewFromInt64(int64(remainingPeriods), 0)
+		monthlyPayment = params.CurrentBalance.Div(periods)
 	} else {
 		// M = P * [r(1+r)^n] / [(1+r)^n - 1]
-		n := decimal.NewFromInt64(int64(params.TotalPeriods), 0)
+		// n = remaining periods, not total periods
+		n := decimal.NewFromInt64(int64(remainingPeriods), 0)
 
 		// (1 + r)
 		onePlusR := one.Add(monthlyRate)
