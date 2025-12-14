@@ -95,19 +95,41 @@ func (h *IncomeHandler) handleCollection(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *IncomeHandler) handleItem(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/cashflow/incomes/")
-	if id == "" {
+	path := strings.TrimPrefix(r.URL.Path, "/cashflow/incomes/")
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) == 0 || parts[0] == "" {
+		notFound(w)
+		return
+	}
+	incomeID := parts[0]
+
+	// Check for nested allocations routes: /cashflow/incomes/:id/allocations[/:allocId]
+	if len(parts) >= 2 && parts[1] == "allocations" {
+		if len(parts) == 2 {
+			// /cashflow/incomes/:id/allocations
+			h.handleAllocationsCollection(w, r, incomeID)
+		} else if len(parts) == 3 {
+			// /cashflow/incomes/:id/allocations/:allocId
+			h.handleAllocationItem(w, r, incomeID, parts[2])
+		} else {
+			notFound(w)
+		}
+		return
+	}
+
+	// Standard income item operations
+	if len(parts) != 1 {
 		notFound(w)
 		return
 	}
 
 	switch r.Method {
 	case http.MethodGet:
-		h.get(w, r, id)
+		h.get(w, r, incomeID)
 	case http.MethodPut:
-		h.update(w, r, id)
+		h.update(w, r, incomeID)
 	case http.MethodDelete:
-		h.delete(w, r, id)
+		h.delete(w, r, incomeID)
 	default:
 		methodNotAllowed(w)
 	}
@@ -207,6 +229,201 @@ func (h *IncomeHandler) delete(w http.ResponseWriter, r *http.Request, id string
 		return
 	}
 	if err := h.store.DeleteIncome(r.Context(), userID, id); err != nil {
+		if err == repository.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ----- Income Allocation handlers -----
+
+// allocationInput is the JSON-friendly input struct for allocation creation/update.
+type allocationInput struct {
+	TargetCashAccountID *string  `json:"targetCashAccountId,omitempty"`
+	TargetInvestmentID  *string  `json:"targetInvestmentId,omitempty"`
+	AllocationType      string   `json:"allocationType"` // 'percentage' or 'fixed'
+	AllocationValue     float64  `json:"allocationValue"`
+}
+
+func (h *IncomeHandler) handleAllocationsCollection(w http.ResponseWriter, r *http.Request, incomeID string) {
+	switch r.Method {
+	case http.MethodGet:
+		h.listAllocations(w, r, incomeID)
+	case http.MethodPost:
+		h.createAllocation(w, r, incomeID)
+	default:
+		methodNotAllowed(w)
+	}
+}
+
+func (h *IncomeHandler) handleAllocationItem(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
+	switch r.Method {
+	case http.MethodGet:
+		h.getAllocation(w, r, allocID)
+	case http.MethodPut:
+		h.updateAllocation(w, r, allocID)
+	case http.MethodDelete:
+		h.deleteAllocation(w, r, allocID)
+	default:
+		methodNotAllowed(w)
+	}
+}
+
+func (h *IncomeHandler) listAllocations(w http.ResponseWriter, r *http.Request, incomeID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	allocations, err := h.store.ListIncomeAllocations(r.Context(), userID, incomeID)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, allocations)
+}
+
+func (h *IncomeHandler) createAllocation(w http.ResponseWriter, r *http.Request, incomeID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	var input allocationInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	// Validate: exactly one target must be set
+	hasCashAccount := input.TargetCashAccountID != nil && *input.TargetCashAccountID != ""
+	hasInvestment := input.TargetInvestmentID != nil && *input.TargetInvestmentID != ""
+	if hasCashAccount == hasInvestment {
+		badRequest(w, fmt.Errorf("exactly one of targetCashAccountId or targetInvestmentId must be provided"))
+		return
+	}
+
+	// Validate allocation type
+	if input.AllocationType != "percentage" && input.AllocationType != "fixed" {
+		badRequest(w, fmt.Errorf("allocationType must be 'percentage' or 'fixed'"))
+		return
+	}
+
+	// Validate allocation value
+	if input.AllocationValue <= 0 {
+		badRequest(w, fmt.Errorf("allocationValue must be positive"))
+		return
+	}
+	if input.AllocationType == "percentage" && input.AllocationValue > 100 {
+		badRequest(w, fmt.Errorf("percentage allocationValue must be between 0 and 100"))
+		return
+	}
+
+	allocation := repository.IncomeAllocation{
+		IncomeID:            incomeID,
+		TargetCashAccountID: input.TargetCashAccountID,
+		TargetInvestmentID:  input.TargetInvestmentID,
+		AllocationType:      input.AllocationType,
+		AllocationValue:     input.AllocationValue,
+	}
+
+	created, err := h.store.CreateIncomeAllocation(r.Context(), userID, allocation)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, created)
+}
+
+func (h *IncomeHandler) getAllocation(w http.ResponseWriter, r *http.Request, allocID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	allocation, err := h.store.GetIncomeAllocation(r.Context(), userID, allocID)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, allocation)
+}
+
+func (h *IncomeHandler) updateAllocation(w http.ResponseWriter, r *http.Request, allocID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	var input allocationInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	// Validate: exactly one target must be set
+	hasCashAccount := input.TargetCashAccountID != nil && *input.TargetCashAccountID != ""
+	hasInvestment := input.TargetInvestmentID != nil && *input.TargetInvestmentID != ""
+	if hasCashAccount == hasInvestment {
+		badRequest(w, fmt.Errorf("exactly one of targetCashAccountId or targetInvestmentId must be provided"))
+		return
+	}
+
+	// Validate allocation type
+	if input.AllocationType != "percentage" && input.AllocationType != "fixed" {
+		badRequest(w, fmt.Errorf("allocationType must be 'percentage' or 'fixed'"))
+		return
+	}
+
+	// Validate allocation value
+	if input.AllocationValue <= 0 {
+		badRequest(w, fmt.Errorf("allocationValue must be positive"))
+		return
+	}
+	if input.AllocationType == "percentage" && input.AllocationValue > 100 {
+		badRequest(w, fmt.Errorf("percentage allocationValue must be between 0 and 100"))
+		return
+	}
+
+	allocation := repository.IncomeAllocation{
+		ID:                  allocID,
+		TargetCashAccountID: input.TargetCashAccountID,
+		TargetInvestmentID:  input.TargetInvestmentID,
+		AllocationType:      input.AllocationType,
+		AllocationValue:     input.AllocationValue,
+	}
+
+	updated, err := h.store.UpdateIncomeAllocation(r.Context(), userID, allocation)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, updated)
+}
+
+func (h *IncomeHandler) deleteAllocation(w http.ResponseWriter, r *http.Request, allocID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.store.DeleteIncomeAllocation(r.Context(), userID, allocID); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return

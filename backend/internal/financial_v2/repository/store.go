@@ -823,3 +823,249 @@ func (s *Store) GetCPFAccount(
 
 	return &cpf, nil
 }
+
+// ----- IncomeAllocation operations -----
+
+// IncomeAllocation represents a destination allocation for an income.
+// Income can be distributed to multiple cash_accounts or investments.
+// Uses separate nullable FK columns for proper referential integrity.
+type IncomeAllocation struct {
+	ID                  string          `json:"id"`
+	IncomeID            string          `json:"incomeId"`
+	TargetCashAccountID *string         `json:"targetCashAccountId,omitempty"`
+	TargetInvestmentID  *string         `json:"targetInvestmentId,omitempty"`
+	AllocationType      string          `json:"allocationType"`  // 'percentage' or 'fixed'
+	AllocationValue     decimal.Decimal `json:"allocationValue"` // percentage (0-100) or fixed amount
+	CreatedAt           time.Time       `json:"createdAt"`
+}
+
+// ErrNotFound indicates a record was not found
+var ErrNotFound = fmt.Errorf("not found")
+
+// ListIncomeAllocations returns all allocations for an income.
+func (s *Store) ListIncomeAllocations(
+	ctx context.Context,
+	userID string,
+	incomeID string,
+) ([]IncomeAllocation, error) {
+	// First verify the income belongs to the user
+	var exists bool
+	err := s.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM finance_incomes WHERE id = $1 AND user_id = $2)`,
+		incomeID, userID,
+	).Scan(&exists)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify income ownership: %w", err)
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	query := `
+	SELECT id, income_id, target_cash_account_id, target_investment_id, allocation_type, allocation_value, created_at
+	FROM income_allocations
+	WHERE income_id = $1
+	ORDER BY created_at`
+
+	logQuery(query, []any{incomeID})
+	rows, err := s.db.QueryContext(ctx, query, incomeID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query income allocations: %w", err)
+	}
+	defer rows.Close()
+
+	allocations := []IncomeAllocation{}
+	for rows.Next() {
+		var a IncomeAllocation
+		var targetCashAccountID, targetInvestmentID sql.NullString
+
+		err := rows.Scan(
+			&a.ID, &a.IncomeID,
+			&targetCashAccountID, &targetInvestmentID,
+			&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan income allocation: %w", err)
+		}
+
+		if targetCashAccountID.Valid {
+			a.TargetCashAccountID = &targetCashAccountID.String
+		}
+		if targetInvestmentID.Valid {
+			a.TargetInvestmentID = &targetInvestmentID.String
+		}
+
+		allocations = append(allocations, a)
+	}
+
+	return allocations, nil
+}
+
+// GetIncomeAllocation returns a single allocation by ID.
+func (s *Store) GetIncomeAllocation(
+	ctx context.Context,
+	userID string,
+	allocationID string,
+) (*IncomeAllocation, error) {
+	query := `
+	SELECT ia.id, ia.income_id, ia.target_cash_account_id, ia.target_investment_id,
+	       ia.allocation_type, ia.allocation_value, ia.created_at
+	FROM income_allocations ia
+	INNER JOIN finance_incomes fi ON fi.id = ia.income_id AND fi.user_id = $1
+	WHERE ia.id = $2`
+
+	var a IncomeAllocation
+	var targetCashAccountID, targetInvestmentID sql.NullString
+
+	err := s.db.QueryRowContext(ctx, query, userID, allocationID).Scan(
+		&a.ID, &a.IncomeID,
+		&targetCashAccountID, &targetInvestmentID,
+		&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get income allocation: %w", err)
+	}
+
+	if targetCashAccountID.Valid {
+		a.TargetCashAccountID = &targetCashAccountID.String
+	}
+	if targetInvestmentID.Valid {
+		a.TargetInvestmentID = &targetInvestmentID.String
+	}
+
+	return &a, nil
+}
+
+// CreateIncomeAllocation creates a new allocation for an income.
+func (s *Store) CreateIncomeAllocation(
+	ctx context.Context,
+	userID string,
+	allocation IncomeAllocation,
+) (*IncomeAllocation, error) {
+	// Verify the income belongs to the user
+	var exists bool
+	err := s.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM finance_incomes WHERE id = $1 AND user_id = $2)`,
+		allocation.IncomeID, userID,
+	).Scan(&exists)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify income ownership: %w", err)
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	query := `
+	INSERT INTO income_allocations (income_id, target_cash_account_id, target_investment_id, allocation_type, allocation_value)
+	VALUES ($1, $2, $3, $4, $5)
+	RETURNING id, income_id, target_cash_account_id, target_investment_id, allocation_type, allocation_value, created_at`
+
+	var created IncomeAllocation
+	var targetCashAccountID, targetInvestmentID sql.NullString
+
+	err = s.db.QueryRowContext(ctx, query,
+		allocation.IncomeID,
+		allocation.TargetCashAccountID,
+		allocation.TargetInvestmentID,
+		allocation.AllocationType,
+		allocation.AllocationValue,
+	).Scan(
+		&created.ID, &created.IncomeID,
+		&targetCashAccountID, &targetInvestmentID,
+		&created.AllocationType, &created.AllocationValue, &created.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create income allocation: %w", err)
+	}
+
+	if targetCashAccountID.Valid {
+		created.TargetCashAccountID = &targetCashAccountID.String
+	}
+	if targetInvestmentID.Valid {
+		created.TargetInvestmentID = &targetInvestmentID.String
+	}
+
+	return &created, nil
+}
+
+// UpdateIncomeAllocation updates an existing allocation.
+func (s *Store) UpdateIncomeAllocation(
+	ctx context.Context,
+	userID string,
+	allocation IncomeAllocation,
+) (*IncomeAllocation, error) {
+	query := `
+	UPDATE income_allocations ia
+	SET target_cash_account_id = $3,
+	    target_investment_id = $4,
+	    allocation_type = $5,
+	    allocation_value = $6
+	FROM finance_incomes fi
+	WHERE ia.id = $2
+	  AND ia.income_id = fi.id
+	  AND fi.user_id = $1
+	RETURNING ia.id, ia.income_id, ia.target_cash_account_id, ia.target_investment_id,
+	          ia.allocation_type, ia.allocation_value, ia.created_at`
+
+	var updated IncomeAllocation
+	var targetCashAccountID, targetInvestmentID sql.NullString
+
+	err := s.db.QueryRowContext(ctx, query,
+		userID, allocation.ID,
+		allocation.TargetCashAccountID,
+		allocation.TargetInvestmentID,
+		allocation.AllocationType,
+		allocation.AllocationValue,
+	).Scan(
+		&updated.ID, &updated.IncomeID,
+		&targetCashAccountID, &targetInvestmentID,
+		&updated.AllocationType, &updated.AllocationValue, &updated.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to update income allocation: %w", err)
+	}
+
+	if targetCashAccountID.Valid {
+		updated.TargetCashAccountID = &targetCashAccountID.String
+	}
+	if targetInvestmentID.Valid {
+		updated.TargetInvestmentID = &targetInvestmentID.String
+	}
+
+	return &updated, nil
+}
+
+// DeleteIncomeAllocation deletes an allocation by ID.
+func (s *Store) DeleteIncomeAllocation(
+	ctx context.Context,
+	userID string,
+	allocationID string,
+) error {
+	query := `
+	DELETE FROM income_allocations ia
+	USING finance_incomes fi
+	WHERE ia.id = $2
+	  AND ia.income_id = fi.id
+	  AND fi.user_id = $1`
+
+	result, err := s.db.ExecContext(ctx, query, userID, allocationID)
+	if err != nil {
+		return fmt.Errorf("failed to delete income allocation: %w", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
