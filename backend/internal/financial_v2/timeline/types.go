@@ -7,6 +7,7 @@ import (
 	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/repository"
+	"financial-chat-system/backend/internal/financial_v2/scenario"
 )
 
 type FinancialDataType string
@@ -67,6 +68,14 @@ type Store interface {
 	GetExcludedScenarioTargetIDs(context.Context, string) (repository.ExcludedTargets, error)
 	// ListIncludedScenarioEvents returns scenario events where is_included=true with their impacts
 	ListIncludedScenarioEvents(context.Context, string) ([]repository.ScenarioEvent, error)
+}
+
+// ScenarioStore provides scenario-specific operations
+type ScenarioStore interface {
+	// GetExcludedTargetIDs returns IDs of financial items created by excluded scenarios
+	GetExcludedTargetIDs(context.Context, string) (scenario.ExcludedTargets, error)
+	// ListIncludedEvents returns scenario events where is_included=true with their impacts
+	ListIncludedEvents(context.Context, string) ([]scenario.Event, error)
 }
 
 // ========== Timeline V2 Options ==========
