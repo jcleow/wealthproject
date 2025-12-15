@@ -631,7 +631,7 @@ func processLiabilityMonth(
 
 		// Delegate to repayment module
 		result, err := repayment.ProcessLiabilityMonth(params)
-		if err != nil || result.Skipped {
+		if err != nil || result.MonthlyPayment.IsZero() {
 			continue
 		}
 

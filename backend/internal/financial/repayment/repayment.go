@@ -398,7 +398,6 @@ type LiabilityMonthParams struct {
 type LiabilityMonthResult struct {
 	NewBalance     *decimal.Decimal // Balance after this month's payment
 	MonthlyPayment *decimal.Decimal // Payment amount for this month
-	Skipped        bool             // True if processing was skipped (e.g., past end date)
 }
 
 // ProcessLiabilityMonth processes a liability for one month using the appropriate strategy.
@@ -409,7 +408,6 @@ func ProcessLiabilityMonth(p LiabilityMonthParams) (*LiabilityMonthResult, error
 		return &LiabilityMonthResult{
 			NewBalance:     p.CurrentBalance,
 			MonthlyPayment: decimal.Zero(),
-			Skipped:        true,
 		}, nil
 	}
 
@@ -423,7 +421,6 @@ func ProcessLiabilityMonth(p LiabilityMonthParams) (*LiabilityMonthResult, error
 			return &LiabilityMonthResult{
 				NewBalance:     p.CurrentBalance,
 				MonthlyPayment: decimal.Zero(),
-				Skipped:        true,
 			}, nil
 		}
 	}
@@ -489,7 +486,6 @@ func ProcessLiabilityMonth(p LiabilityMonthParams) (*LiabilityMonthResult, error
 	return &LiabilityMonthResult{
 		NewBalance:     result.RemainingBalance,
 		MonthlyPayment: result.MonthlyPayment,
-		Skipped:        false,
 	}, nil
 }
 

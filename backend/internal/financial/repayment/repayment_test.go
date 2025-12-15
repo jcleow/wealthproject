@@ -465,9 +465,6 @@ func TestProcessLiabilityMonth_FixedTermAmortization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Skipped {
-		t.Error("expected processing, got skipped")
-	}
 	if result.NewBalance.Cmp(decimal.MustFromString("10000")) >= 0 {
 		t.Errorf("expected balance to decrease, got %s", result.NewBalance.String())
 	}
@@ -494,9 +491,6 @@ func TestProcessLiabilityMonth_OpenEndedWithLinkedExpense(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Skipped {
-		t.Error("expected processing, got skipped")
-	}
 	// Payment should be the linked expense amount
 	if result.MonthlyPayment.Cmp(linkedExpenseAmount) != 0 {
 		t.Errorf("expected payment %s, got %s", linkedExpenseAmount.String(), result.MonthlyPayment.String())
@@ -504,7 +498,7 @@ func TestProcessLiabilityMonth_OpenEndedWithLinkedExpense(t *testing.T) {
 }
 
 func TestProcessLiabilityMonth_PastEndDate(t *testing.T) {
-	// Liability past its end date should be skipped
+	// Liability past its end date should return zero payment
 	// Current date: Feb 2025, End date: Jan 2025 (past)
 	currentDate := time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC).Unix()
 	endDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
@@ -520,8 +514,8 @@ func TestProcessLiabilityMonth_PastEndDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !result.Skipped {
-		t.Error("expected skipped for past end date")
+	if !result.MonthlyPayment.IsZero() {
+		t.Errorf("expected zero payment for past end date, got %s", result.MonthlyPayment.String())
 	}
 	// Balance should remain unchanged
 	if result.NewBalance.Cmp(decimal.MustFromString("5000")) != 0 {
@@ -530,7 +524,7 @@ func TestProcessLiabilityMonth_PastEndDate(t *testing.T) {
 }
 
 func TestProcessLiabilityMonth_ZeroBalance(t *testing.T) {
-	// Zero balance should be skipped
+	// Zero balance should return zero payment
 	currentDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
 	endDate := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC).Unix()
 
@@ -545,8 +539,8 @@ func TestProcessLiabilityMonth_ZeroBalance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !result.Skipped {
-		t.Error("expected skipped for zero balance")
+	if !result.MonthlyPayment.IsZero() {
+		t.Errorf("expected zero payment for zero balance, got %s", result.MonthlyPayment.String())
 	}
 }
 
@@ -564,9 +558,6 @@ func TestProcessLiabilityMonth_InterestOnly(t *testing.T) {
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Skipped {
-		t.Error("expected processing, got skipped")
 	}
 	// Balance should remain unchanged (interest-only)
 	if result.NewBalance.Cmp(decimal.MustFromString("10000")) != 0 {
