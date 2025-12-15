@@ -622,7 +622,7 @@ export function FinancialDataManagement({
         <div className="flex-1 overflow-auto px-6 py-6">
           <div className="flex h-full flex-col gap-6">
             <div className="grid gap-4 lg:grid-cols-2">
-              {(Object.keys(categoryConfig) as FinancialCategory[]).map((key) => (
+              {(Object.keys(categoryConfig) as FinancialCategory[]).filter((key) => key !== 'investment').map((key) => (
                 <ResizableCard key={key} id={key}>
                 <CategoryCard
                   category={key}
