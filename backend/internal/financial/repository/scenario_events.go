@@ -370,11 +370,30 @@ func (s *Store) ListScenarioImpacts(ctx context.Context, eventID string) ([]Scen
 
 func insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, impacts []ScenarioImpact) error {
 	for _, imp := range impacts {
+		// Map target_type + target_id to typed FK columns for V2 compatibility
+		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID interface{}
+		switch imp.TargetType {
+		case "asset":
+			targetAssetID = imp.TargetID
+		case "liability":
+			targetLiabilityID = imp.TargetID
+		case "income":
+			targetIncomeID = imp.TargetID
+		case "expense":
+			targetExpenseID = imp.TargetID
+		case "cash_account":
+			targetCashAccountID = imp.TargetID
+		case "investment":
+			targetInvestmentID = imp.TargetID
+		}
+
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO scenario_event_impacts
-			(event_id, target_type, target_id, impact_kind, amount, currency, cadence, start_month, end_month, notes)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-			eventID, imp.TargetType, imp.TargetID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartMonth, imp.EndMonth, imp.Notes); err != nil {
+			(event_id, target_type, target_id, impact_kind, amount, currency, cadence, start_month, end_month, notes,
+			 target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+			eventID, imp.TargetType, imp.TargetID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartMonth, imp.EndMonth, imp.Notes,
+			targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID); err != nil {
 			return err
 		}
 	}
