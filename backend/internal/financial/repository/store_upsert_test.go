@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"testing"
 	"time"
@@ -44,36 +43,11 @@ func TestCreateFinancialRowsUpsertByParentAndStartDate(t *testing.T) {
 			},
 		},
 		{
-			name: "liability",
-			setup: func(mock sqlmock.Sqlmock) {
-				expenseRows := sqlmock.NewRows([]string{"id", "parent_id", "payee", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id"}).
-					AddRow("row-expense", "expense-parent", "Card", 50.0, "monthly", now, nil, "Debt Payment", 0.0, "annual_step", "Auto-generated payment for Card", now, "row-liability")
-
-				mock.ExpectQuery(`(?s)SELECT .*FROM finance_expenses`).
-					WithArgs("test-user", "row-liability").
-					WillReturnError(sql.ErrNoRows)
-
-				mock.ExpectQuery(`(?s)INSERT INTO finance_expenses .*ON CONFLICT ON CONSTRAINT finance_expenses_parent_start_date_key DO UPDATE`).
-					WithArgs(
-						"test-user",
-						sqlmock.AnyArg(), // parent_id
-						"Card",
-						50.0,
-						"monthly",
-						sqlmock.AnyArg(), // start_date
-						nil,              // end_date
-						"Debt Payment",
-						0.0,           // growth_rate
-						"annual_step", // growth_strategy
-						"Auto-generated payment for Card",
-						"row-liability",
-					).
-					WillReturnRows(expenseRows)
-			},
+			name:    "liability",
 			pattern: `(?s)INSERT INTO finance_liabilities .*ON CONFLICT ON CONSTRAINT finance_liabilities_parent_start_date_key DO UPDATE`,
-			columns: []string{"id", "parent_id", "name", "category", "current_balance", "interest_rate_apr", "minimum_payment", "start_date", "end_date", "notes", "repayment_strategy", "repayment_metadata", "updated_at"},
-			values:  []driver.Value{"row-liability", "liability-parent", "Card", "debt", 1500.0, 19.99, 50.0, now, nil, "", "standard_amortization", nil, now},
-			args:    12, // user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes, repayment_strategy, repayment_metadata
+			columns: []string{"id", "parent_id", "name", "category", "current_balance", "interest_rate_apr", "minimum_payment", "start_date", "end_date", "notes", "repayment_strategy", "updated_at"},
+			values:  []driver.Value{"row-liability", "liability-parent", "Card", "debt", 1500.0, 19.99, 50.0, now, nil, "", "standard_amortization", now},
+			args:    11, // user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes, repayment_strategy
 			call: func(ctx context.Context, s *Store) error {
 				_, err := s.CreateLiability(ctx, "test-user", Liability{
 					ParentID:        "liability-parent",

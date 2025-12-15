@@ -59,8 +59,8 @@ func (s CompoundMonthlyStrategy) Calculate(params Params) (*decimal.Decimal, err
 		return nil, err
 	}
 
-	// CurrentValue * monthlyMultiplier
-	result := params.CurrentValue.Mul(monthlyMultiplier)
+	// CurrentValue * monthlyMultiplier (rounded to cents)
+	result := params.CurrentValue.Mul(monthlyMultiplier).Round(2)
 
 	return result, nil
 }
@@ -104,8 +104,8 @@ func (s AnnualStepStrategy) Calculate(params Params) (*decimal.Decimal, error) {
 		return nil, err
 	}
 
-	// CurrentValue * multiplier
-	result := params.CurrentValue.Mul(multiplier)
+	// CurrentValue * multiplier (rounded to cents)
+	result := params.CurrentValue.Mul(multiplier).Round(2)
 
 	return result, nil
 }

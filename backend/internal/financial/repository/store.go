@@ -40,18 +40,17 @@ func IntPtrToNullInt32(i *int) sql.NullInt32 {
 
 // Asset represents a persisted asset record.
 type Asset struct {
-	ID               string                 `json:"id"`
-	ParentID         string                 `json:"parentId"`
-	Name             string                 `json:"name"`
-	Category         string                 `json:"category"`
-	CurrentValue     float64                `json:"currentValue"`
-	AnnualGrowthRate float64                `json:"annualGrowthRate"`
-	StartDate        time.Time              `json:"startDate"`
-	EndDate          *time.Time             `json:"endDate,omitempty"`
-	Notes            string                 `json:"notes"`
-	GrowthStrategy   string                 `json:"growthStrategy"`
-	GrowthMetadata   map[string]interface{} `json:"growthMetadata,omitempty"`
-	UpdatedAt        time.Time              `json:"updatedAt"`
+	ID               string     `json:"id"`
+	ParentID         string     `json:"parentId"`
+	Name             string     `json:"name"`
+	Category         string     `json:"category"`
+	CurrentValue     float64    `json:"currentValue"`
+	AnnualGrowthRate float64    `json:"annualGrowthRate"`
+	StartDate        time.Time  `json:"startDate"`
+	EndDate          *time.Time `json:"endDate,omitempty"`
+	Notes            string     `json:"notes"`
+	GrowthStrategy   string     `json:"growthStrategy"`
+	UpdatedAt        time.Time  `json:"updatedAt"`
 }
 
 // Investment shares the same shape as Asset but uses finance_investments table
@@ -59,21 +58,19 @@ type Investment = Asset
 
 // Liability represents a persisted liability record.
 type Liability struct {
-	ID                string                 `json:"id"`
-	ParentID          string                 `json:"parentId"`
-	Name              string                 `json:"name"`
-	Category          string                 `json:"category"`
-	CurrentBalance    float64                `json:"currentBalance"`
-	InterestRateAPR   float64                `json:"interestRateApr"`
-	MinimumPayment    float64                `json:"minimumPayment"`
-	StartDate         time.Time              `json:"startDate"`
-	EndDate           *time.Time             `json:"endDate,omitempty"`
-	Notes             string                 `json:"notes"`
-	GrowthStrategy    string                 `json:"growthStrategy"`
-	GrowthMetadata    map[string]interface{} `json:"growthMetadata,omitempty"`
-	RepaymentStrategy string                 `json:"repaymentStrategy"`
-	RepaymentMetadata map[string]interface{} `json:"repaymentMetadata,omitempty"`
-	UpdatedAt         time.Time              `json:"updatedAt"`
+	ID                string     `json:"id"`
+	ParentID          string     `json:"parentId"`
+	Name              string     `json:"name"`
+	Category          string     `json:"category"`
+	CurrentBalance    float64    `json:"currentBalance"`
+	InterestRateAPR   float64    `json:"interestRateApr"`
+	MinimumPayment    float64    `json:"minimumPayment"`
+	StartDate         time.Time  `json:"startDate"`
+	EndDate           *time.Time `json:"endDate,omitempty"`
+	Notes             string     `json:"notes"`
+	GrowthStrategy    string     `json:"growthStrategy"`
+	RepaymentStrategy string     `json:"repaymentStrategy"`
+	UpdatedAt         time.Time  `json:"updatedAt"`
 }
 
 // PropertyScenario represents a persisted property scenario record.
@@ -99,20 +96,19 @@ type PropertyScenario struct {
 
 // Income represents a persisted income record.
 type Income struct {
-	ID             string                 `json:"id"`
-	ParentID       string                 `json:"parentId"`
-	Source         string                 `json:"source"`
-	Amount         float64                `json:"amount"`
-	Frequency      string                 `json:"frequency"`
-	StartDate      time.Time              `json:"startDate"`
-	EndDate        *time.Time             `json:"endDate,omitempty"`
-	Category       string                 `json:"category"`
-	GrowthRate     float64                `json:"growthRate"`
-	Notes          string                 `json:"notes"`
-	GrowthStrategy string                 `json:"growthStrategy"`
-	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
-	CPFWageType    string                 `json:"cpfWageType"`
-	UpdatedAt      time.Time              `json:"updatedAt"`
+	ID             string     `json:"id"`
+	ParentID       string     `json:"parentId"`
+	Source         string     `json:"source"`
+	Amount         float64    `json:"amount"`
+	Frequency      string     `json:"frequency"`
+	StartDate      time.Time  `json:"startDate"`
+	EndDate        *time.Time `json:"endDate,omitempty"`
+	Category       string     `json:"category"`
+	GrowthRate     float64    `json:"growthRate"`
+	Notes          string     `json:"notes"`
+	GrowthStrategy string     `json:"growthStrategy"`
+	CPFWageType    string     `json:"cpfWageType"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
 	// Source relationship (polymorphic: 'investment' or 'cash_account')
 	SourceType *string `json:"sourceType,omitempty"`
 	SourceID   *string `json:"sourceId,omitempty"`
@@ -120,19 +116,18 @@ type Income struct {
 
 // Expense represents a persisted expense record.
 type Expense struct {
-	ID             string                 `json:"id"`
-	ParentID       string                 `json:"parentId"`
-	Payee          string                 `json:"payee"`
-	Amount         float64                `json:"amount"`
-	Frequency      string                 `json:"frequency"`
-	StartDate      time.Time              `json:"startDate"`
-	EndDate        *time.Time             `json:"endDate,omitempty"`
-	Category       string                 `json:"category"`
-	GrowthRate     float64                `json:"growthRate"`
-	Notes          string                 `json:"notes"`
-	GrowthStrategy string                 `json:"growthStrategy"`
-	GrowthMetadata map[string]interface{} `json:"growthMetadata,omitempty"`
-	UpdatedAt      time.Time              `json:"updatedAt"`
+	ID             string     `json:"id"`
+	ParentID       string     `json:"parentId"`
+	Payee          string     `json:"payee"`
+	Amount         float64    `json:"amount"`
+	Frequency      string     `json:"frequency"`
+	StartDate      time.Time  `json:"startDate"`
+	EndDate        *time.Time `json:"endDate,omitempty"`
+	Category       string     `json:"category"`
+	GrowthRate     float64    `json:"growthRate"`
+	Notes          string     `json:"notes"`
+	GrowthStrategy string     `json:"growthStrategy"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
 	// Source relationship to liability (e.g., loan payment)
 	SourceLiabilityID *string `json:"sourceLiabilityId,omitempty"`
 }
@@ -840,7 +835,6 @@ func (s *Store) ListAllLiabilities(ctx context.Context, userID string, opts Date
 		       end_date,
 		       COALESCE(notes, '') as notes,
 		       COALESCE(repayment_strategy, 'standard_amortization') as repayment_strategy,
-		       repayment_metadata,
 		       updated_at
 		FROM finance_liabilities
 		WHERE user_id = $1`
@@ -872,17 +866,12 @@ func (s *Store) ListAllLiabilities(ctx context.Context, userID string, opts Date
 	for rows.Next() {
 		var li Liability
 		var endDate sql.NullTime
-		var repaymentMetadataJSON []byte
-		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.StartDate, &endDate, &li.Notes, &li.RepaymentStrategy, &repaymentMetadataJSON, &li.UpdatedAt); err != nil {
+		if err := rows.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.StartDate, &endDate, &li.Notes, &li.RepaymentStrategy, &li.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if endDate.Valid {
 			li.EndDate = &endDate.Time
 		}
-		if len(repaymentMetadataJSON) > 0 {
-			_ = json.Unmarshal(repaymentMetadataJSON, &li.RepaymentMetadata)
-		}
-
 		items = append(items, li)
 	}
 	if items == nil {
@@ -904,14 +893,12 @@ func (s *Store) GetLiability(ctx context.Context, userID, id string) (Liability,
 		       end_date,
 		       COALESCE(notes, '') as notes,
 		       COALESCE(repayment_strategy, 'standard_amortization') as repayment_strategy,
-		       repayment_metadata,
 		       updated_at
 		FROM finance_liabilities
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var li Liability
 	var endDate sql.NullTime
-	var repaymentMetadataJSON []byte
-	if err := row.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.StartDate, &endDate, &li.Notes, &li.RepaymentStrategy, &repaymentMetadataJSON, &li.UpdatedAt); err != nil {
+	if err := row.Scan(&li.ID, &li.ParentID, &li.Name, &li.Category, &li.CurrentBalance, &li.InterestRateAPR, &li.MinimumPayment, &li.StartDate, &endDate, &li.Notes, &li.RepaymentStrategy, &li.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Liability{}, ErrNotFound
 		}
@@ -920,10 +907,6 @@ func (s *Store) GetLiability(ctx context.Context, userID, id string) (Liability,
 	if endDate.Valid {
 		li.EndDate = &endDate.Time
 	}
-	if len(repaymentMetadataJSON) > 0 {
-		_ = json.Unmarshal(repaymentMetadataJSON, &li.RepaymentMetadata)
-	}
-
 	return li, nil
 }
 
@@ -940,15 +923,9 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 		repaymentStrategy = "standard_amortization"
 	}
 
-	// Serialize repayment metadata to JSON (nil map -> NULL, not empty string)
-	var repaymentMetadata interface{}
-	if li.RepaymentMetadata != nil {
-		repaymentMetadata = encodeJSON(li.RepaymentMetadata)
-	}
-
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes, repayment_strategy, repayment_metadata)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11, $12::jsonb)
+		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes, repayment_strategy)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11)
 		ON CONFLICT ON CONSTRAINT finance_liabilities_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
@@ -958,36 +935,24 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 		    end_date=EXCLUDED.end_date,
 		    notes=EXCLUDED.notes,
 		    repayment_strategy=EXCLUDED.repayment_strategy,
-		    repayment_metadata=EXCLUDED.repayment_metadata,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, COALESCE(notes, ''), COALESCE(repayment_strategy, 'standard_amortization'), repayment_metadata, updated_at`,
-		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, endDate, li.Notes, repaymentStrategy, repaymentMetadata)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, COALESCE(notes, ''), COALESCE(repayment_strategy, 'standard_amortization'), updated_at`,
+		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, endDate, li.Notes, repaymentStrategy)
 
 	var created Liability
 	var endDateVal sql.NullTime
-	var returnedMetadataJSON []byte
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.StartDate, &endDateVal, &created.Notes, &created.RepaymentStrategy, &returnedMetadataJSON, &created.UpdatedAt); err != nil {
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.StartDate, &endDateVal, &created.Notes, &created.RepaymentStrategy, &created.UpdatedAt); err != nil {
 		return Liability{}, err
 	}
 	if endDateVal.Valid {
 		created.EndDate = &endDateVal.Time
 	}
-	if len(returnedMetadataJSON) > 0 {
-		_ = json.Unmarshal(returnedMetadataJSON, &created.RepaymentMetadata)
-	}
-
 	return created, nil
 }
 
 func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability) (Liability, error) {
 	startDate := li.StartDate
 	endDate := li.EndDate
-
-	// Serialize repayment metadata to JSON
-	var repaymentMetadata interface{}
-	if li.RepaymentMetadata != nil {
-		repaymentMetadata = encodeJSON(li.RepaymentMetadata)
-	}
 
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_liabilities
@@ -1000,16 +965,14 @@ func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability
 		    end_date=$9,
 		    notes=NULLIF($10, ''),
 		    repayment_strategy=COALESCE(NULLIF($11, ''), repayment_strategy, 'standard_amortization'),
-		    repayment_metadata=COALESCE($12::jsonb, repayment_metadata),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, COALESCE(notes, ''), COALESCE(repayment_strategy, 'standard_amortization'), repayment_metadata, updated_at`,
-		userID, li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, endDate, li.Notes, li.RepaymentStrategy, repaymentMetadata)
+		RETURNING id, COALESCE(parent_id,id), name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, COALESCE(notes, ''), COALESCE(repayment_strategy, 'standard_amortization'), updated_at`,
+		userID, li.ID, li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, endDate, li.Notes, li.RepaymentStrategy)
 
 	var updated Liability
 	var endDateVal sql.NullTime
-	var returnedMetadataJSON []byte
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentBalance, &updated.InterestRateAPR, &updated.MinimumPayment, &updated.StartDate, &endDateVal, &updated.Notes, &updated.RepaymentStrategy, &returnedMetadataJSON, &updated.UpdatedAt); err != nil {
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentBalance, &updated.InterestRateAPR, &updated.MinimumPayment, &updated.StartDate, &endDateVal, &updated.Notes, &updated.RepaymentStrategy, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Liability{}, ErrNotFound
 		}
@@ -1018,10 +981,6 @@ func (s *Store) UpdateLiability(ctx context.Context, userID string, li Liability
 	if endDateVal.Valid {
 		updated.EndDate = &endDateVal.Time
 	}
-	if len(returnedMetadataJSON) > 0 {
-		_ = json.Unmarshal(returnedMetadataJSON, &updated.RepaymentMetadata)
-	}
-
 	return updated, nil
 }
 

@@ -10,19 +10,21 @@ export async function listLiabilities(params?: PaginationParams): Promise<Pagina
 }
 
 export async function createLiability(payload: Omit<Liability, 'id' | 'updatedAt'>): Promise<Liability> {
+  // V2 endpoint expects decimal fields as strings
   const body: Record<string, unknown> = {
     name: payload.name,
     category: payload.category,
-    currentBalance: payload.currentBalance,
-    interestRateApr: payload.interestRateApr,
-    minimumPayment: payload.minimumPayment,
+    currentBalance: String(payload.currentBalance),
+    interestRateApr: String(payload.interestRateApr),
+    minimumPayment: String(payload.minimumPayment ?? 0),
     notes: payload.notes,
   }
 
   if (payload.startDate !== undefined) body.startDate = payload.startDate
   if (payload.endDate !== undefined) body.endDate = payload.endDate
 
-  const data = await apiClient.post<any>('/liabilities', body)
+  // Use v2 endpoint which auto-creates linked expense for debt repayment
+  const data = await apiClient.post<any>('/liabilities', body, { baseUrl: '/api/v2' })
   return toLiability(data)
 }
 
