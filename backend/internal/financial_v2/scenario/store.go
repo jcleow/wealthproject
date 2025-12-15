@@ -158,18 +158,19 @@ func (s *Store) List(ctx context.Context, userID string, filters Filters) ([]Eve
 		return nil, 0, err
 	}
 
-	// Single JOIN query: paginate events via subquery, then join impacts
+	// Single JOIN query using CTE: paginate events first, then join impacts
 	query := fmt.Sprintf(`
-		SELECT
-			e.id, e.user_id, e.name, e.description, e.occurs_on, e.display_icon, e.display_color, e.tags, e.scenario_id, e.is_included, e.created_at, e.updated_at,
-			i.id, i.impact_kind, i.amount, i.currency, i.cadence, i.start_month, i.end_month, i.notes, i.created_at,
-			i.target_asset_id, i.target_liability_id, i.target_income_id, i.target_expense_id, i.target_cash_account_id, i.target_investment_id
-		FROM (
+		WITH paginated_events AS (
 			SELECT * FROM scenario_events
 			WHERE %s
 			ORDER BY occurs_on ASC, created_at DESC
 			LIMIT $%d OFFSET $%d
-		) e
+		)
+		SELECT
+			e.id, e.user_id, e.name, e.description, e.occurs_on, e.display_icon, e.display_color, e.tags, e.scenario_id, e.is_included, e.created_at, e.updated_at,
+			i.id, i.impact_kind, i.amount, i.currency, i.cadence, i.start_month, i.end_month, i.notes, i.created_at,
+			i.target_asset_id, i.target_liability_id, i.target_income_id, i.target_expense_id, i.target_cash_account_id, i.target_investment_id
+		FROM paginated_events e
 		LEFT JOIN scenario_event_impacts i ON i.event_id = e.id
 		ORDER BY e.occurs_on ASC, e.created_at DESC, i.start_month ASC NULLS LAST, i.created_at ASC`,
 		whereClause, len(args)+1, len(args)+2)

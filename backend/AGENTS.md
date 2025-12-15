@@ -63,6 +63,29 @@ Key tables:
 3. Return pointers for single-item queries
 4. Use proper error wrapping with `fmt.Errorf`
 
+### SQL Style
+
+1. **Use CTEs over nested subqueries** - CTEs (`WITH` clauses) are more readable
+   ```sql
+   -- Good: CTE
+   WITH paginated_events AS (
+       SELECT * FROM scenario_events
+       WHERE user_id = $1
+       LIMIT $2 OFFSET $3
+   )
+   SELECT e.*, i.*
+   FROM paginated_events e
+   LEFT JOIN scenario_event_impacts i ON i.event_id = e.id
+
+   -- Avoid: Nested subquery
+   SELECT e.*, i.*
+   FROM (SELECT * FROM scenario_events WHERE user_id = $1 LIMIT $2 OFFSET $3) e
+   LEFT JOIN scenario_event_impacts i ON i.event_id = e.id
+   ```
+
+2. **Avoid N+1 queries** - Use JOINs or batch queries instead of looping
+3. **Use pgx directly** - `financial_v2` uses `pgxpool`, not `database/sql`
+
 ### Database Migrations
 
 Migrations are in `backend/migrations/` with naming convention:

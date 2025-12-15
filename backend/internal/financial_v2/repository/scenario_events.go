@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
 	"github.com/jackc/pgx/v5"
 )
@@ -82,6 +84,7 @@ func (s *Store) GetScenarioEventV2(ctx context.Context, userID, eventID string) 
 }
 
 // ListScenarioEventsV2 returns paginated events for a user with typed FK impacts.
+// Uses a single JOIN query to fetch events and impacts together (eliminates N+1).
 func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters ScenarioFilters) ([]ScenarioEvent, int, error) {
 	limit := filters.Limit
 	if limit <= 0 || limit > 100 {
@@ -120,12 +123,22 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 		return nil, 0, err
 	}
 
+	// Single JOIN query using CTE: paginate events first, then join impacts
 	query := fmt.Sprintf(`
-		SELECT id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at
-		FROM scenario_events
-		WHERE %s
-		ORDER BY occurs_on ASC, created_at DESC
-		LIMIT $%d OFFSET $%d`, whereClause, len(args)+1, len(args)+2)
+		WITH paginated_events AS (
+			SELECT * FROM scenario_events
+			WHERE %s
+			ORDER BY occurs_on ASC, created_at DESC
+			LIMIT $%d OFFSET $%d
+		)
+		SELECT
+			e.id, e.user_id, e.name, e.description, e.occurs_on, e.display_icon, e.display_color, e.tags, e.scenario_id, e.is_included, e.created_at, e.updated_at,
+			i.id, i.impact_kind, i.amount, i.currency, i.cadence, i.start_date, i.end_date, i.notes, i.created_at,
+			i.target_asset_id, i.target_liability_id, i.target_income_id, i.target_expense_id, i.target_cash_account_id, i.target_investment_id
+		FROM paginated_events e
+		LEFT JOIN scenario_event_impacts i ON i.event_id = e.id
+		ORDER BY e.occurs_on ASC, e.created_at DESC, i.start_date ASC NULLS LAST, i.created_at ASC`,
+		whereClause, len(args)+1, len(args)+2)
 
 	rows, err := s.pool.Query(ctx, query, append(args, limit, offset)...)
 	if err != nil {
@@ -133,21 +146,54 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 	}
 	defer rows.Close()
 
-	var events []ScenarioEvent
+	// Group results by event ID preserving order
+	eventMap := make(map[string]*ScenarioEvent)
+	var eventOrder []string
+
 	for rows.Next() {
 		var ev ScenarioEvent
 		var tagsJSON []byte
-		if err := rows.Scan(&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &ev.ScenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt); err != nil {
+
+		// Impact fields (nullable due to LEFT JOIN)
+		var impID, impKind, impCurrency, impCadence, impNotes *string
+		var impAmount *int64
+		var impStartDate, impEndDate, impCreatedAt *time.Time
+		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID *string
+
+		if err := rows.Scan(
+			&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &ev.ScenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt,
+			&impID, &impKind, &impAmount, &impCurrency, &impCadence, &impStartDate, &impEndDate, &impNotes, &impCreatedAt,
+			&targetAssetID, &targetLiabilityID, &targetIncomeID, &targetExpenseID, &targetCashAccountID, &targetInvestmentID,
+		); err != nil {
 			return nil, 0, err
 		}
-		ev.Tags = decodeStringArray(tagsJSON)
-		ev.Impacts, _ = s.ListScenarioImpactsV2(ctx, ev.ID)
-		events = append(events, ev)
+
+		// Get or create event entry
+		existing, seen := eventMap[ev.ID]
+		if !seen {
+			ev.Tags = decodeStringArray(tagsJSON)
+			ev.Impacts = []ScenarioImpact{}
+			eventMap[ev.ID] = &ev
+			eventOrder = append(eventOrder, ev.ID)
+			existing = &ev
+		}
+
+		// Add impact if present (LEFT JOIN may produce NULL impact rows)
+		if impID != nil {
+			existing.Impacts = append(existing.Impacts, scanImpactPgx(
+				ev.ID, impID, impKind, impAmount, impCurrency, impCadence,
+				impStartDate, impEndDate, impNotes, impCreatedAt,
+				targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID,
+			))
+		}
 	}
 
-	if events == nil {
-		events = []ScenarioEvent{}
+	// Build result slice preserving order
+	events := make([]ScenarioEvent, 0, len(eventOrder))
+	for _, id := range eventOrder {
+		events = append(events, *eventMap[id])
 	}
+
 	return events, total, nil
 }
 
@@ -351,4 +397,52 @@ func decodeStringArray(b []byte) []string {
 		arr = []string{}
 	}
 	return arr
+}
+
+// scanImpactPgx constructs a ScenarioImpact from nullable pointer scan results (pgx style).
+func scanImpactPgx(
+	eventID string,
+	impID, impKind *string,
+	impAmount *int64,
+	impCurrency, impCadence *string,
+	impStartDate, impEndDate *time.Time,
+	impNotes *string,
+	impCreatedAt *time.Time,
+	targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID *string,
+) ScenarioImpact {
+	imp := ScenarioImpact{
+		EventID:             eventID,
+		EndDate:             impEndDate,
+		TargetAssetID:       targetAssetID,
+		TargetLiabilityID:   targetLiabilityID,
+		TargetIncomeID:      targetIncomeID,
+		TargetExpenseID:     targetExpenseID,
+		TargetCashAccountID: targetCashAccountID,
+		TargetInvestmentID:  targetInvestmentID,
+	}
+	if impID != nil {
+		imp.ID = *impID
+	}
+	if impKind != nil {
+		imp.ImpactKind = *impKind
+	}
+	if impAmount != nil {
+		imp.Amount = *impAmount
+	}
+	if impCurrency != nil {
+		imp.Currency = *impCurrency
+	}
+	if impCadence != nil {
+		imp.Cadence = common.Frequency(*impCadence)
+	}
+	if impNotes != nil {
+		imp.Notes = *impNotes
+	}
+	if impStartDate != nil {
+		imp.StartDate = *impStartDate
+	}
+	if impCreatedAt != nil {
+		imp.CreatedAt = *impCreatedAt
+	}
+	return imp
 }
