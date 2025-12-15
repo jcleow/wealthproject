@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"financial-chat-system/backend/internal/common"
 )
@@ -418,13 +417,13 @@ func (s *Store) insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, i
 		if startDate.Valid {
 			imp.StartDate = startDate.Time
 		}
-		imp.EndDate = nullTimePtr(endDate)
-		imp.TargetAssetID = nullStringPtr(targetAssetID)
-		imp.TargetLiabilityID = nullStringPtr(targetLiabilityID)
-		imp.TargetIncomeID = nullStringPtr(targetIncomeID)
-		imp.TargetExpenseID = nullStringPtr(targetExpenseID)
-		imp.TargetCashAccountID = nullStringPtr(targetCashAccountID)
-		imp.TargetInvestmentID = nullStringPtr(targetInvestmentID)
+		imp.EndDate = common.NullTimePtr(endDate)
+		imp.TargetAssetID = common.NullStringPtr(targetAssetID)
+		imp.TargetLiabilityID = common.NullStringPtr(targetLiabilityID)
+		imp.TargetIncomeID = common.NullStringPtr(targetIncomeID)
+		imp.TargetExpenseID = common.NullStringPtr(targetExpenseID)
+		imp.TargetCashAccountID = common.NullStringPtr(targetCashAccountID)
+		imp.TargetInvestmentID = common.NullStringPtr(targetInvestmentID)
 		result = append(result, imp)
 	}
 
@@ -543,13 +542,13 @@ func scanImpact(
 		Currency:            impCurrency.String,
 		Cadence:             common.Frequency(impCadence.String),
 		Notes:               impNotes.String,
-		EndDate:             nullTimePtr(impEndDate),
-		TargetAssetID:       nullStringPtr(targetAssetID),
-		TargetLiabilityID:   nullStringPtr(targetLiabilityID),
-		TargetIncomeID:      nullStringPtr(targetIncomeID),
-		TargetExpenseID:     nullStringPtr(targetExpenseID),
-		TargetCashAccountID: nullStringPtr(targetCashAccountID),
-		TargetInvestmentID:  nullStringPtr(targetInvestmentID),
+		EndDate:             common.NullTimePtr(impEndDate),
+		TargetAssetID:       common.NullStringPtr(targetAssetID),
+		TargetLiabilityID:   common.NullStringPtr(targetLiabilityID),
+		TargetIncomeID:      common.NullStringPtr(targetIncomeID),
+		TargetExpenseID:     common.NullStringPtr(targetExpenseID),
+		TargetCashAccountID: common.NullStringPtr(targetCashAccountID),
+		TargetInvestmentID:  common.NullStringPtr(targetInvestmentID),
 	}
 	if impStartDate.Valid {
 		imp.StartDate = impStartDate.Time
