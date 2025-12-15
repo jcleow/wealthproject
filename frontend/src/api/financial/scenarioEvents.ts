@@ -1,7 +1,7 @@
 import { apiClient } from '../client'
 import { normalizeImpact, normalizeScenarioEvent, normalizeScenarioEventList } from './transformers'
 import type { ScenarioEvent } from '@/types/scenario'
-import { scenarioEventFromDto, scenarioEventToDto } from '@/types/scenario'
+import { scenarioEventFromDto, scenarioEventToDto, scenarioImpactToDto } from '@/types/scenario'
 
 export async function listScenarioEvents(): Promise<ScenarioEvent[]> {
   const data = await apiClient.get<any>('/scenario-events')
@@ -39,12 +39,12 @@ export async function createScenarioEvent(payload: ScenarioEvent): Promise<Scena
     id: data.id ?? data.ID,
     name: data.name ?? data.Name ?? payload.name,
     description: data.description ?? data.Description ?? payload.description,
-    occurs_on: data.occurs_on ?? data.OccursOn ?? data.occursOn ?? payload.occursOn,
-    display_icon: data.display_icon ?? data.DisplayIcon ?? payload.displayIcon,
-    display_color: data.display_color ?? data.DisplayColor ?? payload.displayColor ?? '',
+    occursOn: data.occursOn ?? data.occurs_on ?? data.OccursOn ?? payload.occursOn,
+    displayIcon: data.displayIcon ?? data.display_icon ?? data.DisplayIcon ?? payload.displayIcon,
+    displayColor: data.displayColor ?? data.display_color ?? data.DisplayColor ?? payload.displayColor ?? '',
     tags: data.tags ?? data.Tags ?? payload.tags ?? [],
-    scenario_id: data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? data.scenarioId ?? payload.scenarioId,
-    is_included: data.is_included ?? data.IsIncluded ?? data.isIncluded ?? payload.isIncluded ?? true,
+    scenarioId: data.scenarioId ?? data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? payload.scenarioId,
+    isIncluded: data.isIncluded ?? data.is_included ?? data.IsIncluded ?? payload.isIncluded ?? true,
     impacts,
   })
 }
@@ -75,12 +75,12 @@ export async function updateScenarioEvent(id: string, payload: ScenarioEvent): P
     id: data.id ?? data.ID ?? id,
     name: data.name ?? data.Name ?? payload.name,
     description: data.description ?? data.Description ?? payload.description,
-    occurs_on: data.occurs_on ?? data.OccursOn ?? data.occursOn ?? payload.occursOn,
-    display_icon: data.display_icon ?? data.DisplayIcon ?? payload.displayIcon,
-    display_color: data.display_color ?? data.DisplayColor ?? payload.displayColor ?? '',
+    occursOn: data.occursOn ?? data.occurs_on ?? data.OccursOn ?? payload.occursOn,
+    displayIcon: data.displayIcon ?? data.display_icon ?? data.DisplayIcon ?? payload.displayIcon,
+    displayColor: data.displayColor ?? data.display_color ?? data.DisplayColor ?? payload.displayColor ?? '',
     tags: data.tags ?? data.Tags ?? payload.tags ?? [],
-    scenario_id: data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? data.scenarioId ?? payload.scenarioId,
-    is_included: data.is_included ?? data.IsIncluded ?? data.isIncluded ?? payload.isIncluded ?? true,
+    scenarioId: data.scenarioId ?? data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? payload.scenarioId,
+    isIncluded: data.isIncluded ?? data.is_included ?? data.IsIncluded ?? payload.isIncluded ?? true,
     impacts,
   })
 }

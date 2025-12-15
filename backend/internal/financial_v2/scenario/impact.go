@@ -54,7 +54,7 @@ func ApplyImpactsToItem(
 
 	// First pass: check for stop impacts
 	for _, impact := range impacts {
-		if impact.ImpactKind == "stop" && ImpactAppliesToMonth(impact, currentDate) {
+		if impact.ImpactKind == ImpactKindStop && ImpactAppliesToMonth(impact, currentDate) {
 			return decimal.Zero()
 		}
 	}
@@ -65,7 +65,7 @@ func ApplyImpactsToItem(
 
 	for i := range impacts {
 		impact := &impacts[i]
-		if impact.ImpactKind != "override" {
+		if impact.ImpactKind != ImpactKindOverride {
 			continue
 		}
 		if !ImpactAppliesToMonth(*impact, currentDate) {

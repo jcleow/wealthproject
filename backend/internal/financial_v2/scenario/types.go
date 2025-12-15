@@ -8,6 +8,14 @@ import (
 // ErrNotFound indicates a scenario record was not found
 var ErrNotFound = errors.New("scenario not found")
 
+// ImpactKind constants
+const (
+	ImpactKindStart    = "start"
+	ImpactKindStop     = "stop"
+	ImpactKindDelta    = "delta"
+	ImpactKindOverride = "override"
+)
+
 // Event represents a scenario event with typed FK impacts.
 type Event struct {
 	ID           string

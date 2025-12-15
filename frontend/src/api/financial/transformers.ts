@@ -198,19 +198,19 @@ export const toCPFContributionPreview = (item: any): CPFContributionPreview => (
 // =============================================================================
 
 export const normalizeImpact = (impact: any): ScenarioImpactDto => ({
-  target_type: impact.target_type ?? impact.TargetType ?? impact.targetType ?? 'asset',
-  target_id: impact.target_id ?? impact.TargetID ?? impact.targetId ?? undefined,
-  impact_kind: impact.impact_kind ?? impact.ImpactKind ?? impact.impactKind ?? 'delta',
+  targetType: impact.targetType ?? impact.target_type ?? impact.TargetType ?? 'asset',
+  targetId: impact.targetId ?? impact.target_id ?? impact.TargetID ?? undefined,
+  impactKind: impact.impactKind ?? impact.impact_kind ?? impact.ImpactKind ?? 'delta',
   amount: Number(impact.amount ?? impact.Amount ?? 0),
   currency: impact.currency ?? impact.Currency ?? 'SGD',
   cadence: impact.cadence ?? impact.Cadence ?? 'monthly',
-  start_month: (impact.start_month ?? impact.StartMonth ?? impact.startMonth ?? '').slice(0, 7),
-  end_month: impact.end_month
-    ? impact.end_month.slice(0, 7)
-    : impact.EndMonth
-      ? impact.EndMonth.slice(0, 7)
-      : impact.endMonth
-        ? impact.endMonth.slice(0, 7)
+  startDate: (impact.startDate ?? impact.start_date ?? impact.StartDate ?? impact.start_month ?? impact.startMonth ?? '').slice(0, 10),
+  endDate: impact.endDate
+    ? impact.endDate.slice(0, 10)
+    : impact.end_date
+      ? impact.end_date.slice(0, 10)
+      : impact.EndDate
+        ? impact.EndDate.slice(0, 10)
         : undefined,
   notes: impact.notes ?? impact.Notes ?? '',
 })
@@ -223,12 +223,12 @@ export const normalizeScenarioEvent = (data: any): ScenarioEvent => {
     id: data.id ?? data.ID ?? '',
     name: data.name ?? data.Name ?? '',
     description: data.description ?? data.Description ?? '',
-    occurs_on: data.occurs_on ?? data.occursOn ?? data.OccursOn ?? '',
-    display_icon: data.display_icon ?? data.displayIcon ?? data.DisplayIcon ?? '',
-    display_color: data.display_color ?? data.displayColor ?? data.DisplayColor ?? '',
+    occursOn: data.occursOn ?? data.occurs_on ?? data.OccursOn ?? '',
+    displayIcon: data.displayIcon ?? data.display_icon ?? data.DisplayIcon ?? '',
+    displayColor: data.displayColor ?? data.display_color ?? data.DisplayColor ?? '',
     tags: data.tags ?? data.Tags ?? [],
-    scenario_id: data.scenario_id ?? data.scenarioId ?? data.ScenarioID ?? data.ScenarioId ?? undefined,
-    is_included: data.is_included ?? data.isIncluded ?? data.IsIncluded ?? true,
+    scenarioId: data.scenarioId ?? data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? undefined,
+    isIncluded: data.isIncluded ?? data.is_included ?? data.IsIncluded ?? true,
     impacts,
   })
 }
