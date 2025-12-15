@@ -53,107 +53,56 @@ func (h *ScenarioEventHandler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/scenario-events/", h.handleItem)
 }
 
-// Input structs that tolerate both camelCase (preferred) and legacy snake_case.
 type scenarioImpactInput struct {
-	TargetType      string  `json:"targetType"`
-	TargetTypeSnake string  `json:"target_type"`
-	TargetID        *string `json:"targetId"`
-	TargetIDSnake   *string `json:"target_id"`
-	ImpactKind      string  `json:"impactKind"`
-	ImpactKindSnake string  `json:"impact_kind"`
-	Amount          int64   `json:"amount"`
-	Currency        string  `json:"currency"`
-	Cadence         string  `json:"cadence"`
-	StartDate       string  `json:"startDate"`
-	StartDateSnake  string  `json:"start_date"`
-	EndDate         *string `json:"endDate"`
-	EndDateSnake    *string `json:"end_date"`
-	Notes           *string `json:"notes"`
+	TargetType string  `json:"targetType"`
+	TargetID   *string `json:"targetId"`
+	ImpactKind string  `json:"impactKind"`
+	Amount     int64   `json:"amount"`
+	Currency   string  `json:"currency"`
+	Cadence    string  `json:"cadence"`
+	StartDate  string  `json:"startDate"`
+	EndDate    *string `json:"endDate"`
+	Notes      *string `json:"notes"`
 }
 
 type scenarioEventInput struct {
-	ID                string                `json:"id"`
-	Name              string                `json:"name"`
-	Description       *string               `json:"description"`
-	OccursOn          string                `json:"occursOn"`
-	OccursOnSnake     string                `json:"occurs_on"`
-	DisplayIcon       string                `json:"displayIcon"`
-	DisplayIconSnake  string                `json:"display_icon"`
-	DisplayColor      string                `json:"displayColor"`
-	DisplayColorSnake string                `json:"display_color"`
-	Tags              []string              `json:"tags"`
-	ScenarioID        *string               `json:"scenarioId"`
-	ScenarioIDSnake   *string               `json:"scenario_id"`
-	IsIncluded        *bool                 `json:"isIncluded"`
-	IsIncludedSnake   *bool                 `json:"is_included"`
-	Impacts           []scenarioImpactInput `json:"impacts"`
+	ID           string                `json:"id"`
+	Name         string                `json:"name"`
+	Description  *string               `json:"description"`
+	OccursOn     string                `json:"occursOn"`
+	DisplayIcon  string                `json:"displayIcon"`
+	DisplayColor string                `json:"displayColor"`
+	Tags         []string              `json:"tags"`
+	ScenarioID   *string               `json:"scenarioId"`
+	IsIncluded   *bool                 `json:"isIncluded"`
+	Impacts      []scenarioImpactInput `json:"impacts"`
 }
 
-func normalizeImpactInput(in scenarioImpactInput) scenarioImpactDTO {
-	targetType := in.TargetType
-	if targetType == "" {
-		targetType = in.TargetTypeSnake
-	}
-	impactKind := in.ImpactKind
-	if impactKind == "" {
-		impactKind = in.ImpactKindSnake
-	}
-	start := in.StartDate
-	if start == "" {
-		start = in.StartDateSnake
-	}
-	end := in.EndDate
-	if end == nil && in.EndDateSnake != nil {
-		end = in.EndDateSnake
-	}
-	targetID := in.TargetID
-	if targetID == nil && in.TargetIDSnake != nil {
-		targetID = in.TargetIDSnake
-	}
+func toImpactDTO(in scenarioImpactInput) scenarioImpactDTO {
 	return scenarioImpactDTO{
-		TargetType: targetType,
-		TargetID:   targetID,
-		ImpactKind: impactKind,
+		TargetType: in.TargetType,
+		TargetID:   in.TargetID,
+		ImpactKind: in.ImpactKind,
 		Amount:     in.Amount,
 		Currency:   in.Currency,
 		Cadence:    in.Cadence,
-		StartDate:  start,
-		EndDate:    end,
+		StartDate:  in.StartDate,
+		EndDate:    in.EndDate,
 		Notes:      in.Notes,
 	}
 }
 
-func normalizeEventInput(in scenarioEventInput) scenarioEventDTO {
-	occursOn := in.OccursOn
-	if occursOn == "" {
-		occursOn = in.OccursOnSnake
-	}
-	displayIcon := in.DisplayIcon
-	if displayIcon == "" {
-		displayIcon = in.DisplayIconSnake
-	}
-	displayColor := in.DisplayColor
-	if displayColor == "" {
-		displayColor = in.DisplayColorSnake
-	}
-	scenarioID := in.ScenarioID
-	if scenarioID == nil && in.ScenarioIDSnake != nil {
-		scenarioID = in.ScenarioIDSnake
-	}
-	isIncluded := false
+func toEventDTO(in scenarioEventInput) scenarioEventDTO {
+	isIncluded := true
 	if in.IsIncluded != nil {
 		isIncluded = *in.IsIncluded
-	} else if in.IsIncludedSnake != nil {
-		isIncluded = *in.IsIncludedSnake
-	} else {
-		isIncluded = true
 	}
 
 	var impacts []scenarioImpactDTO
 	if len(in.Impacts) > 0 {
 		impacts = make([]scenarioImpactDTO, 0, len(in.Impacts))
 		for _, imp := range in.Impacts {
-			impacts = append(impacts, normalizeImpactInput(imp))
+			impacts = append(impacts, toImpactDTO(imp))
 		}
 	}
 
@@ -161,11 +110,11 @@ func normalizeEventInput(in scenarioEventInput) scenarioEventDTO {
 		ID:           in.ID,
 		Name:         in.Name,
 		Description:  in.Description,
-		OccursOn:     occursOn,
-		DisplayIcon:  displayIcon,
-		DisplayColor: displayColor,
+		OccursOn:     in.OccursOn,
+		DisplayIcon:  in.DisplayIcon,
+		DisplayColor: in.DisplayColor,
 		Tags:         in.Tags,
-		ScenarioID:   scenarioID,
+		ScenarioID:   in.ScenarioID,
 		IsIncluded:   isIncluded,
 		Impacts:      impacts,
 	}
@@ -225,7 +174,7 @@ func (h *ScenarioEventHandler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dto := normalizeEventInput(payload)
+	dto := toEventDTO(payload)
 	ev, err := buildScenarioEvent(userCtx.UserID, dto)
 	if err != nil {
 		badRequest(w, err)
@@ -340,7 +289,7 @@ func (h *ScenarioEventHandler) update(w http.ResponseWriter, r *http.Request, id
 		badRequest(w, err)
 		return
 	}
-	dto := normalizeEventInput(payload)
+	dto := toEventDTO(payload)
 	ev, err := buildScenarioEvent(userCtx.UserID, dto)
 	if err != nil {
 		badRequest(w, err)
@@ -386,8 +335,7 @@ func (h *ScenarioEventHandler) toggle(w http.ResponseWriter, r *http.Request, id
 		return
 	}
 	var payload struct {
-		IsIncluded      *bool `json:"isIncluded"`
-		IsIncludedSnake *bool `json:"is_included"`
+		IsIncluded *bool `json:"isIncluded"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
@@ -396,8 +344,6 @@ func (h *ScenarioEventHandler) toggle(w http.ResponseWriter, r *http.Request, id
 	val := true
 	if payload.IsIncluded != nil {
 		val = *payload.IsIncluded
-	} else if payload.IsIncludedSnake != nil {
-		val = *payload.IsIncludedSnake
 	}
 	if err := h.store.ToggleScenarioIncluded(r.Context(), userCtx.UserID, id, val); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
