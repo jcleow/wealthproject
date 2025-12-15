@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	"financial-chat-system/backend/internal/common"
 )
 
 // Validation errors
@@ -82,10 +84,15 @@ func NormalizeImpactKind(kind string) (string, error) {
 	return normalized, nil
 }
 
-// NormalizeCadence normalizes and validates a cadence string
-func NormalizeCadence(cadence string) (string, error) {
-	normalized := strings.ToLower(strings.TrimSpace(cadence))
-	if !inSet(normalized, ValidCadences) {
+// normalizeFrequency lowercases and trims a Frequency value
+func normalizeFrequency(f common.Frequency) common.Frequency {
+	return common.Frequency(strings.ToLower(strings.TrimSpace(string(f))))
+}
+
+// NormalizeCadence normalizes and validates a cadence value
+func NormalizeCadence(cadence common.Frequency) (common.Frequency, error) {
+	normalized := normalizeFrequency(cadence)
+	if !inSet(string(normalized), ValidCadences) {
 		return "", ErrInvalidCadence
 	}
 	return normalized, nil

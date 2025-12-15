@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
+
+	"financial-chat-system/backend/internal/common"
 )
 
 // Store provides scenario event persistence operations
@@ -20,6 +23,7 @@ func NewStore(db *sql.DB) *Store {
 }
 
 // Create inserts a scenario event and its impacts using typed FK columns.
+// Uses batch INSERT and returns impacts from RETURNING clause (no extra query).
 func (s *Store) Create(ctx context.Context, ev Event) (Event, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -42,42 +46,80 @@ func (s *Store) Create(ctx context.Context, ev Event) (Event, error) {
 	}
 	created.Tags = decodeStringArray(tagsBytes)
 
-	if len(ev.Impacts) > 0 {
-		if err := s.insertImpacts(ctx, tx, created.ID, ev.Impacts); err != nil {
-			return Event{}, err
-		}
+	// Batch insert returns created impacts with IDs (no extra query needed)
+	created.Impacts, err = s.insertImpacts(ctx, tx, created.ID, ev.Impacts)
+	if err != nil {
+		return Event{}, err
 	}
 
 	if err := tx.Commit(); err != nil {
 		return Event{}, err
 	}
 
-	if len(ev.Impacts) > 0 {
-		created.Impacts, _ = s.ListImpacts(ctx, created.ID)
-	}
 	return created, nil
 }
 
 // Get fetches a scenario by ID for a user with typed FK impacts.
+// Uses a single JOIN query instead of 2 queries.
 func (s *Store) Get(ctx context.Context, userID, eventID string) (Event, error) {
-	row := s.db.QueryRowContext(ctx, `
-		SELECT id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at
-		FROM scenario_events
-		WHERE id = $1 AND user_id = $2`, eventID, userID)
-	var ev Event
-	var tagsJSON []byte
-	if err := row.Scan(&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &ev.ScenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return Event{}, ErrNotFound
-		}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT
+			e.id, e.user_id, e.name, e.description, e.occurs_on, e.display_icon, e.display_color, e.tags, e.scenario_id, e.is_included, e.created_at, e.updated_at,
+			i.id, i.impact_kind, i.amount, i.currency, i.cadence, i.start_month, i.end_month, i.notes, i.created_at,
+			i.target_asset_id, i.target_liability_id, i.target_income_id, i.target_expense_id, i.target_cash_account_id, i.target_investment_id
+		FROM scenario_events e
+		LEFT JOIN scenario_event_impacts i ON i.event_id = e.id
+		WHERE e.id = $1 AND e.user_id = $2
+		ORDER BY i.start_month ASC NULLS LAST, i.created_at ASC`, eventID, userID)
+	if err != nil {
 		return Event{}, err
 	}
-	ev.Tags = decodeStringArray(tagsJSON)
-	ev.Impacts, _ = s.ListImpacts(ctx, ev.ID)
-	return ev, nil
+	defer rows.Close()
+
+	var ev *Event
+	for rows.Next() {
+		var row Event
+		var tagsJSON []byte
+
+		// Impact fields (nullable due to LEFT JOIN)
+		var impID, impKind, impCurrency, impCadence, impNotes sql.NullString
+		var impAmount sql.NullInt64
+		var impStartDate, impEndDate sql.NullTime
+		var impCreatedAt sql.NullTime
+		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID sql.NullString
+
+		if err := rows.Scan(
+			&row.ID, &row.UserID, &row.Name, &row.Description, &row.OccursOn, &row.DisplayIcon, &row.DisplayColor, &tagsJSON, &row.ScenarioID, &row.IsIncluded, &row.CreatedAt, &row.UpdatedAt,
+			&impID, &impKind, &impAmount, &impCurrency, &impCadence, &impStartDate, &impEndDate, &impNotes, &impCreatedAt,
+			&targetAssetID, &targetLiabilityID, &targetIncomeID, &targetExpenseID, &targetCashAccountID, &targetInvestmentID,
+		); err != nil {
+			return Event{}, err
+		}
+
+		if ev == nil {
+			row.Tags = decodeStringArray(tagsJSON)
+			row.Impacts = []Impact{}
+			ev = &row
+		}
+
+		// Add impact if present (LEFT JOIN may produce NULL impact rows)
+		if impID.Valid {
+			ev.Impacts = append(ev.Impacts, scanImpact(
+				ev.ID, impID, impKind, impAmount, impCurrency, impCadence,
+				impStartDate, impEndDate, impNotes, impCreatedAt,
+				targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID,
+			))
+		}
+	}
+
+	if ev == nil {
+		return Event{}, ErrNotFound
+	}
+	return *ev, rows.Err()
 }
 
 // List returns paginated events for a user with typed FK impacts.
+// Uses a single JOIN query instead of N+1 queries.
 func (s *Store) List(ctx context.Context, userID string, filters Filters) ([]Event, int, error) {
 	limit := filters.Limit
 	if limit <= 0 || limit > 100 {
@@ -116,12 +158,21 @@ func (s *Store) List(ctx context.Context, userID string, filters Filters) ([]Eve
 		return nil, 0, err
 	}
 
+	// Single JOIN query: paginate events via subquery, then join impacts
 	query := fmt.Sprintf(`
-		SELECT id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at
-		FROM scenario_events
-		WHERE %s
-		ORDER BY occurs_on ASC, created_at DESC
-		LIMIT $%d OFFSET $%d`, whereClause, len(args)+1, len(args)+2)
+		SELECT
+			e.id, e.user_id, e.name, e.description, e.occurs_on, e.display_icon, e.display_color, e.tags, e.scenario_id, e.is_included, e.created_at, e.updated_at,
+			i.id, i.impact_kind, i.amount, i.currency, i.cadence, i.start_month, i.end_month, i.notes, i.created_at,
+			i.target_asset_id, i.target_liability_id, i.target_income_id, i.target_expense_id, i.target_cash_account_id, i.target_investment_id
+		FROM (
+			SELECT * FROM scenario_events
+			WHERE %s
+			ORDER BY occurs_on ASC, created_at DESC
+			LIMIT $%d OFFSET $%d
+		) e
+		LEFT JOIN scenario_event_impacts i ON i.event_id = e.id
+		ORDER BY e.occurs_on ASC, e.created_at DESC, i.start_month ASC NULLS LAST, i.created_at ASC`,
+		whereClause, len(args)+1, len(args)+2)
 
 	rows, err := s.db.QueryContext(ctx, query, append(args, limit, offset)...)
 	if err != nil {
@@ -129,25 +180,60 @@ func (s *Store) List(ctx context.Context, userID string, filters Filters) ([]Eve
 	}
 	defer rows.Close()
 
-	var events []Event
+	// Group results by event ID preserving order
+	eventMap := make(map[string]*Event)
+	var eventOrder []string
+
 	for rows.Next() {
 		var ev Event
 		var tagsJSON []byte
-		if err := rows.Scan(&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &ev.ScenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt); err != nil {
+
+		// Impact fields (nullable due to LEFT JOIN)
+		var impID, impKind, impCurrency, impCadence, impNotes sql.NullString
+		var impAmount sql.NullInt64
+		var impStartDate, impEndDate sql.NullTime
+		var impCreatedAt sql.NullTime
+		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID sql.NullString
+
+		if err := rows.Scan(
+			&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &ev.ScenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt,
+			&impID, &impKind, &impAmount, &impCurrency, &impCadence, &impStartDate, &impEndDate, &impNotes, &impCreatedAt,
+			&targetAssetID, &targetLiabilityID, &targetIncomeID, &targetExpenseID, &targetCashAccountID, &targetInvestmentID,
+		); err != nil {
 			return nil, 0, err
 		}
-		ev.Tags = decodeStringArray(tagsJSON)
-		ev.Impacts, _ = s.ListImpacts(ctx, ev.ID)
-		events = append(events, ev)
+
+		// Get or create event entry
+		existing, seen := eventMap[ev.ID]
+		if !seen {
+			ev.Tags = decodeStringArray(tagsJSON)
+			ev.Impacts = []Impact{}
+			eventMap[ev.ID] = &ev
+			eventOrder = append(eventOrder, ev.ID)
+			existing = &ev
+		}
+
+		// Add impact if present (LEFT JOIN may produce NULL impact rows)
+		if impID.Valid {
+			existing.Impacts = append(existing.Impacts, scanImpact(
+				ev.ID, impID, impKind, impAmount, impCurrency, impCadence,
+				impStartDate, impEndDate, impNotes, impCreatedAt,
+				targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID,
+			))
+		}
 	}
 
-	if events == nil {
-		events = []Event{}
+	// Build result slice preserving order
+	events := make([]Event, 0, len(eventOrder))
+	for _, id := range eventOrder {
+		events = append(events, *eventMap[id])
 	}
+
 	return events, total, nil
 }
 
 // Update replaces metadata and impacts using typed FK columns.
+// Uses batch INSERT and returns impacts from RETURNING clause (no extra query).
 func (s *Store) Update(ctx context.Context, ev Event) (Event, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -176,15 +262,17 @@ func (s *Store) Update(ctx context.Context, ev Event) (Event, error) {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM scenario_event_impacts WHERE event_id=$1`, ev.ID); err != nil {
 		return Event{}, err
 	}
-	if len(ev.Impacts) > 0 {
-		if err := s.insertImpacts(ctx, tx, ev.ID, ev.Impacts); err != nil {
-			return Event{}, err
-		}
+
+	// Batch insert returns created impacts with IDs (no extra query needed)
+	updated.Impacts, err = s.insertImpacts(ctx, tx, ev.ID, ev.Impacts)
+	if err != nil {
+		return Event{}, err
 	}
+
 	if err := tx.Commit(); err != nil {
 		return Event{}, err
 	}
-	updated.Impacts, _ = s.ListImpacts(ctx, updated.ID)
+
 	return updated, nil
 }
 
@@ -280,21 +368,73 @@ func (s *Store) ListImpacts(ctx context.Context, eventID string) ([]Impact, erro
 	return impacts, rows.Err()
 }
 
-// insertImpacts inserts impacts using typed FK columns.
-func (s *Store) insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, impacts []Impact) error {
-	for _, imp := range impacts {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO scenario_event_impacts
-			(event_id, impact_kind, amount, currency, cadence, start_date, end_date, notes,
-			 target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+// insertImpacts inserts impacts using typed FK columns with a single batch INSERT.
+func (s *Store) insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, impacts []Impact) ([]Impact, error) {
+	if len(impacts) == 0 {
+		return []Impact{}, nil
+	}
+
+	// Build batch INSERT with RETURNING to get generated IDs and timestamps
+	const colsPerRow = 14
+	var valueStrings []string
+	args := make([]any, 0, len(impacts)*colsPerRow)
+
+	for i, imp := range impacts {
+		base := i * colsPerRow
+		valueStrings = append(valueStrings, fmt.Sprintf(
+			"($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)",
+			base+1, base+2, base+3, base+4, base+5, base+6, base+7,
+			base+8, base+9, base+10, base+11, base+12, base+13, base+14,
+		))
+		args = append(args,
 			eventID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartDate, imp.EndDate, imp.Notes,
 			imp.TargetAssetID, imp.TargetLiabilityID, imp.TargetIncomeID, imp.TargetExpenseID, imp.TargetCashAccountID, imp.TargetInvestmentID,
-		); err != nil {
-			return err
-		}
+		)
 	}
-	return nil
+
+	query := fmt.Sprintf(`
+		INSERT INTO scenario_event_impacts
+		(event_id, impact_kind, amount, currency, cadence, start_date, end_date, notes,
+		 target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id)
+		VALUES %s
+		RETURNING id, event_id, impact_kind, amount, currency, cadence, start_date, end_date, notes, created_at,
+		          target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id`,
+		strings.Join(valueStrings, ","))
+
+	rows, err := tx.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []Impact
+	for rows.Next() {
+		var imp Impact
+		var startDate, endDate sql.NullTime
+		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID sql.NullString
+
+		if err := rows.Scan(
+			&imp.ID, &imp.EventID, &imp.ImpactKind, &imp.Amount, &imp.Currency, &imp.Cadence,
+			&startDate, &endDate, &imp.Notes, &imp.CreatedAt,
+			&targetAssetID, &targetLiabilityID, &targetIncomeID, &targetExpenseID, &targetCashAccountID, &targetInvestmentID,
+		); err != nil {
+			return nil, err
+		}
+
+		if startDate.Valid {
+			imp.StartDate = startDate.Time
+		}
+		imp.EndDate = nullTimePtr(endDate)
+		imp.TargetAssetID = nullStringPtr(targetAssetID)
+		imp.TargetLiabilityID = nullStringPtr(targetLiabilityID)
+		imp.TargetIncomeID = nullStringPtr(targetIncomeID)
+		imp.TargetExpenseID = nullStringPtr(targetExpenseID)
+		imp.TargetCashAccountID = nullStringPtr(targetCashAccountID)
+		imp.TargetInvestmentID = nullStringPtr(targetInvestmentID)
+		result = append(result, imp)
+	}
+
+	return result, rows.Err()
 }
 
 // GetExcludedTargetIDs returns IDs of financial items created by excluded scenarios.
@@ -378,4 +518,56 @@ func decodeStringArray(b []byte) []string {
 		arr = []string{}
 	}
 	return arr
+}
+
+// nullStringPtr converts sql.NullString to *string.
+func nullStringPtr(ns sql.NullString) *string {
+	if ns.Valid {
+		return &ns.String
+	}
+	return nil
+}
+
+// nullTimePtr converts sql.NullTime to *time.Time.
+func nullTimePtr(nt sql.NullTime) *time.Time {
+	if nt.Valid {
+		return &nt.Time
+	}
+	return nil
+}
+
+// scanImpact constructs an Impact from nullable scan results.
+func scanImpact(
+	eventID string,
+	impID, impKind sql.NullString,
+	impAmount sql.NullInt64,
+	impCurrency, impCadence sql.NullString,
+	impStartDate, impEndDate sql.NullTime,
+	impNotes sql.NullString,
+	impCreatedAt sql.NullTime,
+	targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID sql.NullString,
+) Impact {
+	imp := Impact{
+		ID:                  impID.String,
+		EventID:             eventID,
+		ImpactKind:          impKind.String,
+		Amount:              impAmount.Int64,
+		Currency:            impCurrency.String,
+		Cadence:             common.Frequency(impCadence.String),
+		Notes:               impNotes.String,
+		EndDate:             nullTimePtr(impEndDate),
+		TargetAssetID:       nullStringPtr(targetAssetID),
+		TargetLiabilityID:   nullStringPtr(targetLiabilityID),
+		TargetIncomeID:      nullStringPtr(targetIncomeID),
+		TargetExpenseID:     nullStringPtr(targetExpenseID),
+		TargetCashAccountID: nullStringPtr(targetCashAccountID),
+		TargetInvestmentID:  nullStringPtr(targetInvestmentID),
+	}
+	if impStartDate.Valid {
+		imp.StartDate = impStartDate.Time
+	}
+	if impCreatedAt.Valid {
+		imp.CreatedAt = impCreatedAt.Time
+	}
+	return imp
 }

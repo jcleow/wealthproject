@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"financial-chat-system/backend/internal/common"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
 	"financial-chat-system/backend/internal/middleware"
@@ -27,13 +28,13 @@ func NewScenarioEventV2Handler(store *repo.Store) *ScenarioEventV2Handler {
 // --- V2 DTOs with typed target fields ---
 
 type scenarioImpactV2DTO struct {
-	ImpactKind string  `json:"impactKind"`
-	Amount     int64   `json:"amount"`
-	Currency   string  `json:"currency"`
-	Cadence    string  `json:"cadence"`
-	StartDate  string  `json:"startDate"`
-	EndDate    *string `json:"endDate,omitempty"`
-	Notes      *string `json:"notes,omitempty"`
+	ImpactKind string           `json:"impactKind"`
+	Amount     int64            `json:"amount"`
+	Currency   string           `json:"currency"`
+	Cadence    common.Frequency `json:"cadence"`
+	StartDate  string           `json:"startDate"`
+	EndDate    *string          `json:"endDate,omitempty"`
+	Notes      *string          `json:"notes,omitempty"`
 
 	// Typed target IDs (only one should be set per impact)
 	TargetAssetID       *string `json:"targetAssetId,omitempty"`
