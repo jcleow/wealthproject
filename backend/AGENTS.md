@@ -63,6 +63,47 @@ Key tables:
 3. Return pointers for single-item queries
 4. Use proper error wrapping with `fmt.Errorf`
 
+### Type Safety
+
+**Never use raw strings for known value sets** - Always codify as union types (TypeScript) or string constants (Go):
+
+```typescript
+// Bad: raw string type
+interface Response {
+  itemType: string
+  frequency: string
+}
+
+// Good: union types
+type ItemType = 'asset' | 'liability' | 'income' | 'expense'
+type Frequency = 'monthly' | 'annual' | 'weekly'
+
+interface Response {
+  itemType: ItemType
+  frequency: Frequency
+}
+```
+
+```go
+// Bad: raw string
+type Response struct {
+    ItemType string `json:"itemType"`
+}
+
+// Good: typed constant
+type ItemType string
+const (
+    ItemTypeAsset     ItemType = "asset"
+    ItemTypeLiability ItemType = "liability"
+)
+
+type Response struct {
+    ItemType ItemType `json:"itemType"`
+}
+```
+
+This ensures compile-time type checking and IDE autocompletion.
+
 ### SQL Style
 
 1. **Use CTEs over nested subqueries** - CTEs (`WITH` clauses) are more readable

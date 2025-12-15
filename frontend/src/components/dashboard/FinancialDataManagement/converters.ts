@@ -1,6 +1,5 @@
 import type {
   TimelineItem,
-  TimelineFrequency,
   NonCashAssetResponseV2,
   InvestmentResponseV2,
   CashAssetResponseV2,
@@ -29,7 +28,7 @@ export function nonCashAssetV2ToTimelineItem(item: NonCashAssetResponseV2): Time
     adjAnnualAmt: adjBalance,
     amountMonthly: balance,
     adjMonthlyAmt: adjBalance,
-    itemType: 'asset',
+    itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
   }
@@ -47,7 +46,7 @@ export function investmentV2ToTimelineItem(item: InvestmentResponseV2): Timeline
     adjAnnualAmt: adjBalance,
     amountMonthly: balance,
     adjMonthlyAmt: adjBalance,
-    itemType: 'asset',
+    itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
   }
@@ -64,7 +63,7 @@ export function cashAssetV2ToTimelineItem(item: CashAssetResponseV2): TimelineIt
     adjAnnualAmt: adjBalance,
     amountMonthly: balance,
     adjMonthlyAmt: adjBalance,
-    itemType: 'cash_account',
+    itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
     isAccumulator: item.isAccumulator,
@@ -83,7 +82,7 @@ export function cpfAssetV2ToTimelineItem(item: CPFAssetResponseV2): TimelineItem
     adjAnnualAmt: adjBalance,
     amountMonthly: balance,
     adjMonthlyAmt: adjBalance,
-    itemType: 'asset',
+    itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
   }
@@ -102,7 +101,7 @@ export function liabilityV2ToTimelineItem(item: LiabilityResponseV2): TimelineIt
     amountMonthly: balance,
     adjMonthlyAmt: adjBalance,
     sourceAmount: parseDecimal(item.sourceAmount),
-    itemType: 'liability',
+    itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
   }
@@ -118,8 +117,8 @@ export function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
     adjAnnualAmt: parseDecimal(item.adjAmount),
     amountMonthly: parseDecimal(item.amount),
     adjMonthlyAmt: parseDecimal(item.adjAmount),
-    sourceFrequency: item.sourceFrequency as TimelineFrequency,
-    itemType: 'income',
+    sourceFrequency: item.sourceFrequency,
+    itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
     growthRate: parseDecimal(item.growthRate),
@@ -136,9 +135,10 @@ export function expenseV2ToTimelineItem(item: ExpenseResponseV2): TimelineItem {
     adjAnnualAmt: parseDecimal(item.adjAmount),
     amountMonthly: parseDecimal(item.amount),
     adjMonthlyAmt: parseDecimal(item.adjAmount),
-    sourceFrequency: item.sourceFrequency as TimelineFrequency,
-    itemType: 'expense',
+    sourceFrequency: item.sourceFrequency,
+    itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
+    sourceLiabilityId: item.sourceLiabilityId,
   }
 }

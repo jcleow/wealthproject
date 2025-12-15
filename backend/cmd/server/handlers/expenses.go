@@ -105,7 +105,7 @@ func (h *ExpenseHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pagination := parsePagination(r)
-	result, err := h.store.ListExpenses(r.Context(), userID, pagination)
+	result, err := h.store.ListExpensesGrouped(r.Context(), userID, pagination)
 	if err != nil {
 		internalError(w, err)
 		return
