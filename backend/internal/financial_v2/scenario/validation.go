@@ -20,8 +20,8 @@ var (
 	ErrInvalidTargetCount    = errors.New("exactly one target ID must be set per impact")
 )
 
-// ValidCadences lists all valid cadence values
-var ValidCadences = []string{"one_time", "weekly", "bi_weekly", "monthly", "quarterly", "semi_annual", "annual"}
+// ValidCadences lists all valid cadence values (derived from common.AllFrequencies)
+var ValidCadences = frequenciesToStrings(common.AllFrequencies)
 
 // ValidImpactKinds lists all valid impact kind values
 var ValidImpactKinds = []string{ImpactKindDelta, ImpactKindOverride, ImpactKindStart, ImpactKindStop}
@@ -129,4 +129,12 @@ func inSet(value string, allowed []string) bool {
 		}
 	}
 	return false
+}
+
+func frequenciesToStrings(freqs []common.Frequency) []string {
+	result := make([]string, len(freqs))
+	for i, f := range freqs {
+		result[i] = string(f)
+	}
+	return result
 }

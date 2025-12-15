@@ -666,7 +666,7 @@ func processLiabilityMonth(
 				expenseAmount = &expense.Amount
 			}
 			params.LinkedExpenseAmount = expenseAmount
-			params.LinkedExpenseFrequency = string(expense.Frequency)
+			params.LinkedExpenseFrequency = common.Frequency(expense.Frequency)
 		}
 
 		// Delegate to repayment module

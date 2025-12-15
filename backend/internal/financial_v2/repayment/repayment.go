@@ -3,6 +3,7 @@ package repayment
 import (
 	"time"
 
+	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/decimal"
 )
 
@@ -391,7 +392,7 @@ type LiabilityMonthParams struct {
 
 	// Linked expense (optional) - repayment module will calculate monthly amount
 	LinkedExpenseAmount    *decimal.Decimal // Raw expense amount (nil if no linked expense)
-	LinkedExpenseFrequency string           // Expense frequency (monthly, yearly, etc.)
+	LinkedExpenseFrequency common.Frequency // Expense frequency
 }
 
 // LiabilityMonthResult contains the result of processing a liability for one month
@@ -499,29 +500,9 @@ func monthsBetweenTimestamps(startUnix, endUnix int64) int {
 }
 
 // toMonthlyAmount converts an amount to monthly based on frequency
-func toMonthlyAmount(amount *decimal.Decimal, frequency string) *decimal.Decimal {
+func toMonthlyAmount(amount *decimal.Decimal, frequency common.Frequency) *decimal.Decimal {
 	if amount == nil {
 		return decimal.Zero()
 	}
-
-	switch frequency {
-	case "monthly":
-		return amount
-	case "yearly", "annually":
-		twelve := decimal.MustFromString("12")
-		return amount.Div(twelve)
-	case "quarterly":
-		three := decimal.MustFromString("3")
-		return amount.Div(three)
-	case "weekly":
-		// ~4.33 weeks per month
-		weeksPerMonth := decimal.MustFromString("4.33")
-		return amount.Mul(weeksPerMonth)
-	case "fortnightly", "biweekly":
-		// ~2.17 fortnights per month
-		fortnightsPerMonth := decimal.MustFromString("2.17")
-		return amount.Mul(fortnightsPerMonth)
-	default:
-		return amount // Assume monthly if unknown
-	}
+	return common.ToMonthlyAmount(amount, frequency)
 }

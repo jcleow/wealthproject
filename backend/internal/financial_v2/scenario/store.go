@@ -375,17 +375,11 @@ func (s *Store) insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, i
 	}
 
 	// Build batch INSERT with RETURNING to get generated IDs and timestamps
-	const colsPerRow = 14
 	var valueStrings []string
-	args := make([]any, 0, len(impacts)*colsPerRow)
+	var args []any
 
-	for i, imp := range impacts {
-		base := i * colsPerRow
-		valueStrings = append(valueStrings, fmt.Sprintf(
-			"($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)",
-			base+1, base+2, base+3, base+4, base+5, base+6, base+7,
-			base+8, base+9, base+10, base+11, base+12, base+13, base+14,
-		))
+	for _, imp := range impacts {
+		valueStrings = append(valueStrings, placeholders(len(args), 14))
 		args = append(args,
 			eventID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartDate, imp.EndDate, imp.Notes,
 			imp.TargetAssetID, imp.TargetLiabilityID, imp.TargetIncomeID, imp.TargetExpenseID, imp.TargetCashAccountID, imp.TargetInvestmentID,
@@ -520,20 +514,14 @@ func decodeStringArray(b []byte) []string {
 	return arr
 }
 
-// nullStringPtr converts sql.NullString to *string.
-func nullStringPtr(ns sql.NullString) *string {
-	if ns.Valid {
-		return &ns.String
+// placeholders generates a SQL placeholder string like "($1,$2,$3)" for batch inserts.
+// offset is the current arg count, n is the number of placeholders needed.
+func placeholders(offset, n int) string {
+	p := make([]string, n)
+	for i := range p {
+		p[i] = fmt.Sprintf("$%d", offset+i+1)
 	}
-	return nil
-}
-
-// nullTimePtr converts sql.NullTime to *time.Time.
-func nullTimePtr(nt sql.NullTime) *time.Time {
-	if nt.Valid {
-		return &nt.Time
-	}
-	return nil
+	return "(" + strings.Join(p, ",") + ")"
 }
 
 // scanImpact constructs an Impact from nullable scan results.

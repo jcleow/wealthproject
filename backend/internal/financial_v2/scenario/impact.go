@@ -124,7 +124,7 @@ func ImpactAppliesToMonth(impact Impact, currentDate time.Time) bool {
 	}
 
 	// Handle one_time cadence: only applies in the start month
-	if impact.Cadence == "one_time" {
+	if impact.Cadence == common.FrequencyOneTime {
 		return currentMonth.Equal(impactStart)
 	}
 
@@ -151,21 +151,19 @@ func ConvertImpactAmount(impact *Impact, itemInfo ItemInfo) *decimal.Decimal {
 }
 
 // NormalizeToMonthly converts an amount from any cadence to monthly equivalent
-func NormalizeToMonthly(amount *decimal.Decimal, cadence string) *decimal.Decimal {
+func NormalizeToMonthly(amount *decimal.Decimal, cadence common.Frequency) *decimal.Decimal {
 	switch cadence {
-	case "annual":
+	case common.FrequencyAnnual:
 		return amount.Div(decimal.NewFromInt64(12, 0))
-	case "quarterly":
+	case common.FrequencyQuarterly:
 		return amount.Div(decimal.NewFromInt64(3, 0))
-	case "semi_annual":
+	case common.FrequencySemiannual:
 		return amount.Div(decimal.NewFromInt64(6, 0))
-	case "bi_weekly":
-		// ~2.17 bi-weekly periods per month
+	case common.FrequencyBiweekly:
 		return amount.Mul(decimal.NewFromInt64(26, 0)).Div(decimal.NewFromInt64(12, 0))
-	case "weekly":
-		// ~4.33 weeks per month
+	case common.FrequencyWeekly:
 		return amount.Mul(decimal.NewFromInt64(52, 0)).Div(decimal.NewFromInt64(12, 0))
-	case "monthly", "one_time":
+	case common.FrequencyMonthly, common.FrequencyOneTime:
 		return amount
 	default:
 		return amount

@@ -3,6 +3,8 @@ package scenario
 import (
 	"errors"
 	"time"
+
+	"financial-chat-system/backend/internal/common"
 )
 
 // ErrNotFound indicates a scenario record was not found
@@ -41,7 +43,7 @@ type Impact struct {
 	ImpactKind string
 	Amount     int64
 	Currency   string
-	Cadence    string
+	Cadence    common.Frequency
 	StartDate  time.Time
 	EndDate    *time.Time
 	Notes      string
