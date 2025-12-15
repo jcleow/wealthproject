@@ -522,6 +522,7 @@ export function useLoadSampleDataMutation() {
             })() : undefined
 
             if (impact.targetType === 'asset') {
+              // Assets persist indefinitely - don't set endDate even for one-time
               const newAsset = await financialApi.createAsset({
                 name: impact.notes || `${event.name} - Asset`,
                 category: 'other_asset',
@@ -529,10 +530,11 @@ export function useLoadSampleDataMutation() {
                 annualGrowthRate: 3.0,
                 notes: `Created by scenario: ${event.name}`,
                 startDate: startDateIso,
-                endDate: endDateIso,
+                // No endDate - assets persist (e.g., property doesn't disappear)
               })
               targetId = newAsset.id
             } else if (impact.targetType === 'liability') {
+              // Liabilities persist until paid off - don't set endDate for one-time
               const newLiability = await financialApi.createLiability({
                 name: impact.notes || `${event.name} - Liability`,
                 category: 'Loan',
@@ -541,7 +543,7 @@ export function useLoadSampleDataMutation() {
                 minimumPayment: 0,
                 notes: `Created by scenario: ${event.name}`,
                 startDate: startDateIso,
-                endDate: endDateIso,
+                // No endDate - liabilities persist until paid off
               })
               targetId = newLiability.id
             } else if (impact.targetType === 'income') {
