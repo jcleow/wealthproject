@@ -12,6 +12,8 @@ import {
   useCreateInvestmentMutation,
   useUpdateInvestmentMutation,
   useDeleteInvestmentMutation,
+  useAllIncomeAllocationsQuery,
+  useDeleteIncomeAllocationMutation,
 } from '@/hooks/queries'
 import type { TimelineItem, TimelineEditRequest, TimelineEdit, TimelineFrequency } from '@/types/timeline'
 import type { PropertyLinkRecord } from '@/types/property'
@@ -19,7 +21,9 @@ import type { FinancialFormValues } from '@/components/modals/FinancialFormModal
 import { FinancialFormModal } from '@/components/modals/FinancialFormModal'
 import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal'
+import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal'
 import { financialApi } from '@/api/financial'
+import type { IncomeAllocation } from '@/api/financial/incomes'
 
 // Local imports
 import type { FinancialDataManagementProps, FinancialCategory, ModalState, CashAccountModalState, EditableFinancialItem } from './types'
@@ -91,6 +95,8 @@ export function FinancialDataManagement({
   const createInvestmentMutation = useCreateInvestmentMutation()
   const updateInvestmentMutation = useUpdateInvestmentMutation()
   const deleteInvestmentMutation = useDeleteInvestmentMutation()
+  const { data: allAllocations = [] } = useAllIncomeAllocationsQuery()
+  const deleteAllocationMutation = useDeleteIncomeAllocationMutation()
 
   // ========== V2 Data Extraction ==========
   const yearAssets = useMemo(() => {
@@ -147,6 +153,11 @@ export function FinancialDataManagement({
   }, [hasV2Data, timelineMonthV2])
   const hasInvestmentsSection = hasV2Data && timelineMonthV2?.netInvestments !== undefined
 
+  // Filter allocations for those targeting investments
+  const investmentAllocations = useMemo(() => {
+    return allAllocations.filter((a) => a.targetInvestmentId)
+  }, [allAllocations])
+
   const yearExpenses = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
       return timelineMonthV2.expenses.map(expenseV2ToTimelineItem)
@@ -178,6 +189,12 @@ export function FinancialDataManagement({
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
   const [prefill, setPrefill] = useState<{ scenarioId?: string; assetId?: string; liabilityId?: string } | null>(null)
+  const [allocationModalState, setAllocationModalState] = useState<{
+    isOpen: boolean
+    incomeId: string
+    incomeName: string
+    incomeAmount: number
+  }>({ isOpen: false, incomeId: '', incomeName: '', incomeAmount: 0 })
 
   // ========== Computed values ==========
   const mergedLinks = useMemo(() => {
@@ -542,6 +559,46 @@ export function FinancialDataManagement({
     setIsPropertyPlannerOpen(true)
   }
 
+  const handleManageAllocations = (item: TimelineItem) => {
+    const id = getItemId(item)
+    if (!id) return
+    const name = 'source' in item ? (item as any).source : item.name ?? 'Income'
+    const amount = item.amountAnnual ?? (item.amountMonthly ?? 0) * 12
+    setAllocationModalState({
+      isOpen: true,
+      incomeId: id,
+      incomeName: name,
+      incomeAmount: amount,
+    })
+  }
+
+  // Open allocation modal for the income that has this allocation
+  const handleEditAllocation = (allocation: IncomeAllocation) => {
+    const income = yearIncomes.find((i) => getItemId(i) === allocation.incomeId)
+    if (!income) return
+    const name = 'source' in income ? (income as any).source : income.name ?? 'Income'
+    const amount = income.amountAnnual ?? (income.amountMonthly ?? 0) * 12
+    setAllocationModalState({
+      isOpen: true,
+      incomeId: allocation.incomeId,
+      incomeName: name,
+      incomeAmount: amount,
+    })
+  }
+
+  // Delete an allocation directly
+  const handleDeleteAllocation = async (allocation: IncomeAllocation) => {
+    if (!confirm('Are you sure you want to delete this allocation?')) return
+    try {
+      await deleteAllocationMutation.mutateAsync({
+        incomeId: allocation.incomeId,
+        allocationId: allocation.id,
+      })
+    } catch (error) {
+      console.error('Failed to delete allocation:', error)
+    }
+  }
+
   // ========== Investment Handlers ==========
   const handleAddInvestment = () => {
     setModalState({
@@ -670,6 +727,10 @@ export function FinancialDataManagement({
                   onAddInvestment={key === 'asset' ? handleAddInvestment : undefined}
                   onEditInvestment={key === 'asset' ? handleEditInvestment : undefined}
                   onDeleteInvestment={key === 'asset' ? handleDeleteInvestment : undefined}
+                  onManageAllocations={key === 'income' ? handleManageAllocations : undefined}
+                  investmentAllocations={key === 'income' ? investmentAllocations : undefined}
+                  onEditAllocation={key === 'income' ? handleEditAllocation : undefined}
+                  onDeleteAllocation={key === 'income' ? handleDeleteAllocation : undefined}
                 />
                 </ResizableCard>
               ))}
@@ -724,6 +785,13 @@ export function FinancialDataManagement({
         onDelete={async (id) => {
           await deleteCashAccountMutation.mutateAsync(id)
         }}
+      />
+      <IncomeAllocationModal
+        isOpen={allocationModalState.isOpen}
+        onClose={() => setAllocationModalState((prev) => ({ ...prev, isOpen: false }))}
+        incomeId={allocationModalState.incomeId}
+        incomeName={allocationModalState.incomeName}
+        incomeAmount={allocationModalState.incomeAmount}
       />
     </>
   )

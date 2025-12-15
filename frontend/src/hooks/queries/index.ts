@@ -25,6 +25,15 @@ export {
   INCOMES_QUERY_KEY,
 } from './useIncomesQuery'
 
+// Income allocation queries and mutations
+export {
+  useAllIncomeAllocationsQuery,
+  useIncomeAllocationsQuery,
+  useCreateIncomeAllocationMutation,
+  useUpdateIncomeAllocationMutation,
+  useDeleteIncomeAllocationMutation,
+} from './useIncomeAllocationsQuery'
+
 // Expense queries and mutations
 export {
   useExpensesQuery,

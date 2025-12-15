@@ -13,8 +13,6 @@ import type { ScenarioEvent, ScenarioImpactDto } from '@/types/scenario'
 import { scenarioEventFromDto } from '@/types/scenario'
 import type {
   CPFAccount,
-  CPFAccountCreatePayload,
-  CPFAccountUpdatePayload,
   CPFConfiguration,
   CPFContributionPreview,
 } from '@/types/cpf'

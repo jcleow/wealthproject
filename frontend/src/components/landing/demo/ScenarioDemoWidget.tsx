@@ -103,9 +103,10 @@ function formatCurrency(value: number): string {
 interface AnimatedNumberProps {
   value: number
   className?: string
+  style?: React.CSSProperties
 }
 
-function AnimatedNumber({ value, className }: AnimatedNumberProps) {
+function AnimatedNumber({ value, className, style }: AnimatedNumberProps) {
   const [displayValue, setDisplayValue] = useState(value)
   const prevValueRef = useRef(value)
 
@@ -131,7 +132,7 @@ function AnimatedNumber({ value, className }: AnimatedNumberProps) {
     return () => clearInterval(interval)
   }, [value])
 
-  return <span className={className}>{formatCurrency(displayValue)}</span>
+  return <span className={className} style={style}>{formatCurrency(displayValue)}</span>
 }
 
 interface CustomTooltipProps {

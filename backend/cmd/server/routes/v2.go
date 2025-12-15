@@ -74,4 +74,29 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		id := vars["id"]
 		scenarioHandler.HandleToggle(w, r, id)
 	}).Methods("PATCH")
+
+	// Income allocations v2 endpoints
+	allocHandler := handlers.NewIncomeAllocationV2Handler(deps.FinStore)
+	router.HandleFunc("/income-allocations", allocHandler.HandleListAll).Methods("GET")
+	router.HandleFunc("/incomes/{incomeId}/allocations", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		incomeID := vars["incomeId"]
+		switch r.Method {
+		case "GET":
+			allocHandler.HandleListByIncome(w, r, incomeID)
+		case "POST":
+			allocHandler.HandleCreate(w, r, incomeID)
+		}
+	}).Methods("GET", "POST")
+	router.HandleFunc("/incomes/{incomeId}/allocations/{allocId}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		incomeID := vars["incomeId"]
+		allocID := vars["allocId"]
+		switch r.Method {
+		case "PUT":
+			allocHandler.HandleUpdate(w, r, incomeID, allocID)
+		case "DELETE":
+			allocHandler.HandleDelete(w, r, incomeID, allocID)
+		}
+	}).Methods("PUT", "DELETE")
 }

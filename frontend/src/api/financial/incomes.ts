@@ -72,8 +72,15 @@ export async function deleteAllIncomes(): Promise<void> {
 }
 
 // Income Allocation API Methods
+
+// List all allocations for the user (v2 API)
+export async function listAllIncomeAllocations(): Promise<IncomeAllocation[]> {
+  const data = await apiClient.get<IncomeAllocation[]>('/income-allocations', undefined, { baseUrl: '/api/v2' })
+  return data
+}
+
 export async function listIncomeAllocations(incomeId: string): Promise<IncomeAllocation[]> {
-  const data = await apiClient.get<IncomeAllocation[]>(`/cashflow/incomes/${incomeId}/allocations`)
+  const data = await apiClient.get<IncomeAllocation[]>(`/incomes/${incomeId}/allocations`, undefined, { baseUrl: '/api/v2' })
   return data
 }
 
@@ -82,14 +89,28 @@ export async function createIncomeAllocation(
   payload: CreateIncomeAllocationPayload
 ): Promise<IncomeAllocation> {
   const data = await apiClient.post<IncomeAllocation>(
-    `/cashflow/incomes/${incomeId}/allocations`,
-    payload
+    `/incomes/${incomeId}/allocations`,
+    payload,
+    { baseUrl: '/api/v2' }
+  )
+  return data
+}
+
+export async function updateIncomeAllocation(
+  incomeId: string,
+  allocationId: string,
+  payload: CreateIncomeAllocationPayload
+): Promise<IncomeAllocation> {
+  const data = await apiClient.put<IncomeAllocation>(
+    `/incomes/${incomeId}/allocations/${allocationId}`,
+    payload,
+    { baseUrl: '/api/v2' }
   )
   return data
 }
 
 export async function deleteIncomeAllocation(incomeId: string, allocationId: string): Promise<void> {
-  await apiClient.delete<void>(`/cashflow/incomes/${incomeId}/allocations/${allocationId}`)
+  await apiClient.delete<void>(`/incomes/${incomeId}/allocations/${allocationId}`, { baseUrl: '/api/v2' })
 }
 
 export const incomesApi = {
@@ -98,7 +119,9 @@ export const incomesApi = {
   updateIncome,
   deleteIncome,
   deleteAllIncomes,
+  listAllIncomeAllocations,
   listIncomeAllocations,
   createIncomeAllocation,
+  updateIncomeAllocation,
   deleteIncomeAllocation,
 }

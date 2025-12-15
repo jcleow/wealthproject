@@ -15,6 +15,7 @@ export const QUERY_KEYS = {
     investments: ['financial', 'investments'] as const,
     liabilities: ['financial', 'liabilities'] as const,
     incomes: ['financial', 'incomes'] as const,
+    incomeAllocations: ['financial', 'income-allocations'] as const,
     expenses: ['financial', 'expenses'] as const,
     cashAccounts: ['financial', 'cash-accounts'] as const,
     scenarioEvents: ['financial', 'scenario-events'] as const,
