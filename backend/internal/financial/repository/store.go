@@ -132,6 +132,16 @@ type Expense struct {
 	SourceLiabilityID *string `json:"sourceLiabilityId,omitempty"`
 }
 
+// GroupedExpenses returns expenses split into regular expenses and debt repayments.
+type GroupedExpenses struct {
+	RegularExpenses []Expense `json:"regularExpenses"`
+	DebtRepayments  []Expense `json:"debtRepayments"`
+	Total           int       `json:"total"`
+	Limit           int       `json:"limit"`
+	Offset          int       `json:"offset"`
+	HasMore         bool      `json:"hasMore"`
+}
+
 // PaginationParams holds pagination parameters for list queries.
 type PaginationParams struct {
 	Limit  int
@@ -1544,6 +1554,40 @@ func (s *Store) ListExpenses(ctx context.Context, userID string, pagination Pagi
 		Limit:   p.Limit,
 		Offset:  p.Offset,
 		HasMore: !p.IsUnlimited() && p.Offset+len(items) < total,
+	}, nil
+}
+
+// ListExpensesGrouped returns expenses split into regular expenses and debt repayments.
+func (s *Store) ListExpensesGrouped(ctx context.Context, userID string, pagination PaginationParams) (GroupedExpenses, error) {
+	result, err := s.ListExpenses(ctx, userID, pagination)
+	if err != nil {
+		return GroupedExpenses{}, err
+	}
+
+	var regularExpenses, debtRepayments []Expense
+	for _, exp := range result.Data {
+		if exp.SourceLiabilityID != nil {
+			debtRepayments = append(debtRepayments, exp)
+		} else {
+			regularExpenses = append(regularExpenses, exp)
+		}
+	}
+
+	// Ensure empty slices instead of nil for JSON marshaling
+	if regularExpenses == nil {
+		regularExpenses = []Expense{}
+	}
+	if debtRepayments == nil {
+		debtRepayments = []Expense{}
+	}
+
+	return GroupedExpenses{
+		RegularExpenses: regularExpenses,
+		DebtRepayments:  debtRepayments,
+		Total:           result.Total,
+		Limit:           result.Limit,
+		Offset:          result.Offset,
+		HasMore:         result.HasMore,
 	}, nil
 }
 

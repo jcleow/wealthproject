@@ -69,7 +69,7 @@ describe('investmentV2ToTimelineItem', () => {
     expect(result.adjAnnualAmt).toBe(52500)
     expect(result.amountMonthly).toBe(50000)
     expect(result.adjMonthlyAmt).toBe(52500)
-    expect(result.itemType).toBe('asset') // Investments are displayed as assets
+    expect(result.itemType).toBe('investment')
     expect(result.startYear).toBe(2025)
     expect(result.startMonth).toBe(1)
   })
@@ -104,7 +104,7 @@ describe('nonCashAssetV2ToTimelineItem', () => {
       category: 'real_estate',
       balance: '500000.0000',
       adjBalance: '515000.0000',
-      itemType: 'non_cash_asset',
+      itemType: 'nonCashAsset',
       startDate: '2020-01-01',
       startYear: 2020,
       startMonth: 1,
@@ -118,7 +118,7 @@ describe('nonCashAssetV2ToTimelineItem', () => {
     expect(result.category).toBe('real_estate')
     expect(result.amountAnnual).toBe(500000)
     expect(result.adjAnnualAmt).toBe(515000)
-    expect(result.itemType).toBe('asset')
+    expect(result.itemType).toBe('nonCashAsset')
   })
 })
 
@@ -130,7 +130,7 @@ describe('cashAssetV2ToTimelineItem', () => {
       category: 'savings',
       balance: '10000.0000',
       adjBalance: '10200.0000',
-      itemType: 'cash_account',
+      itemType: 'cashAsset',
       startYear: 2025,
       startMonth: 1,
       isAccumulator: true,
@@ -143,7 +143,7 @@ describe('cashAssetV2ToTimelineItem', () => {
     expect(result.category).toBe('savings')
     expect(result.amountAnnual).toBe(10000)
     expect(result.adjAnnualAmt).toBe(10200)
-    expect(result.itemType).toBe('cash_account')
+    expect(result.itemType).toBe('cashAsset')
     expect(result.isAccumulator).toBe(true)
   })
 })
@@ -157,7 +157,7 @@ describe('cpfAssetV2ToTimelineItem', () => {
       category: 'cpf_oa',
       balance: '50000.0000',
       adjBalance: '51250.0000',
-      itemType: 'cpf',
+      itemType: 'cpf_account',
       startDate: '2025-01-01',
       startYear: 2025,
       startMonth: 1,
@@ -171,7 +171,7 @@ describe('cpfAssetV2ToTimelineItem', () => {
     expect(result.category).toBe('cpf_oa')
     expect(result.amountAnnual).toBe(50000)
     expect(result.adjAnnualAmt).toBe(51250)
-    expect(result.itemType).toBe('asset')
+    expect(result.itemType).toBe('cpf_account')
   })
 })
 
@@ -185,7 +185,7 @@ describe('liabilityV2ToTimelineItem', () => {
       balance: '350000.0000',
       adjBalance: '345000.0000',
       sourceAmount: '400000.0000',
-      itemType: 'liability',
+      itemType: 'liabilities',
       startYear: 2020,
       startMonth: 6,
     }
@@ -199,7 +199,7 @@ describe('liabilityV2ToTimelineItem', () => {
     expect(result.amountAnnual).toBe(350000)
     expect(result.adjAnnualAmt).toBe(345000)
     expect(result.sourceAmount).toBe(400000)
-    expect(result.itemType).toBe('liability')
+    expect(result.itemType).toBe('liabilities')
   })
 })
 

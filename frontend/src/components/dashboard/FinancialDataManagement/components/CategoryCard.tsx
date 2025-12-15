@@ -91,8 +91,20 @@ export function CategoryCard({
   onDeleteInvestment,
 }: CategoryCardProps) {
   const config = categoryConfig[category]
-  const sortedData = sortItems(data, sortDirection, summarizeAmount)
-  const hasData = sortedData.length > 0
+
+  // For expenses, split into regular expenses and debt repayments
+  const { regularData, debtRepayments } = (() => {
+    if (category === 'expense') {
+      const regular = data.filter(item => !item.sourceLiabilityId)
+      const debts = data.filter(item => !!item.sourceLiabilityId)
+      return { regularData: regular, debtRepayments: debts }
+    }
+    return { regularData: data, debtRepayments: [] }
+  })()
+
+  const sortedData = sortItems(regularData, sortDirection, summarizeAmount)
+  const sortedDebtRepayments = sortItems(debtRepayments, sortDirection, summarizeAmount)
+  const hasData = sortedData.length > 0 || sortedDebtRepayments.length > 0
 
   // State for asset type dropdown
   const [showAssetMenu, setShowAssetMenu] = useState(false)
@@ -111,11 +123,12 @@ export function CategoryCard({
     }
   }, [showAssetMenu])
 
-  // Calculate category total, including investments and CPF assets for the asset category
+  // Calculate category total, including investments, CPF assets, and debt repayments
   const baseTotal = sortedData.reduce((sum, item) => sum + summarizeAmount(item), 0)
+  const debtRepaymentsTotal = sortedDebtRepayments.reduce((sum, item) => sum + summarizeAmount(item), 0)
   const investmentAssetsTotal = category === 'asset' ? investmentAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0) : 0
   const cpfAssetsTotal = category === 'asset' ? cpfAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0) : 0
-  const categoryTotal = baseTotal + investmentAssetsTotal + cpfAssetsTotal
+  const categoryTotal = baseTotal + debtRepaymentsTotal + investmentAssetsTotal + cpfAssetsTotal
 
   // Mock trend (you may want to calculate real trends)
   const mockTrend = category === 'asset' ? 12.5 : category === 'income' ? 5.2 : category === 'liability' ? -2.1 : 1.2
@@ -307,6 +320,15 @@ export function CategoryCard({
                 showMonthlyData={showMonthlyData}
               />
             )}
+
+            {/* Debt Repayments Sub-section for Expenses */}
+            {category === 'expense' && sortedDebtRepayments.length > 0 && (
+              <DebtRepaymentsSection
+                debtRepayments={sortedDebtRepayments}
+                getDisplayAmount={getDisplayAmount}
+                showMonthlyData={showMonthlyData}
+              />
+            )}
           </>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-1 py-6 text-center">
@@ -466,6 +488,40 @@ function InvestmentsSection({ monthlyInvestments, showMonthlyData }: Investments
           <span className="ml-1 text-xs text-slate-400">{showMonthlyData ? '/mo' : '/yr'}</span>
         </span>
       </div>
+    </div>
+  )
+}
+
+interface DebtRepaymentsSectionProps {
+  debtRepayments: TimelineItem[]
+  getDisplayAmount: (item: TimelineItem) => number
+  showMonthlyData: boolean
+}
+
+function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyData }: DebtRepaymentsSectionProps) {
+  const total = debtRepayments.reduce((sum, item) => sum + getDisplayAmount(item), 0)
+
+  return (
+    <div className="mt-3 border-t border-white/[0.06] pt-3">
+      <div className="mb-2 flex items-center gap-2 px-2">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Debt Repayments</span>
+        <span className="text-[10px] text-slate-600">
+          ({formatCurrency(total)})
+          {showMonthlyData && <span className="ml-1 text-[10px] text-slate-500">/mo</span>}
+        </span>
+      </div>
+      {debtRepayments.map((item, index) => (
+        <div
+          key={item.itemId || `debt-repayment-${index}`}
+          className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
+        >
+          <span className="truncate text-sm text-slate-300">{item.name}</span>
+          <span className="text-sm font-medium text-slate-200">
+            {formatCurrency(getDisplayAmount(item))}
+            {showMonthlyData && <span className="ml-1 text-xs text-slate-400">/mo</span>}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }

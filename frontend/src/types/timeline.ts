@@ -6,7 +6,22 @@ export type TimelineFrequency =
   | 'quarterly'
   | 'semiannual'
 
-export type TimelineItemType = 'asset' | 'liability' | 'income' | 'expense' | 'cash_account' | 'cpf_contribution'
+// Backend sends: nonCashAsset, cashAsset, investment, liabilities, income, expense, cpf_contribution, cpf_account
+// Frontend also uses normalized values: asset, liability, cash_account for UI logic
+export type TimelineItemType =
+  // Backend values
+  | 'nonCashAsset'
+  | 'cashAsset'
+  | 'investment'
+  | 'liabilities'
+  | 'income'
+  | 'expense'
+  | 'cpf_contribution'
+  | 'cpf_account'
+  // Normalized values used in UI logic
+  | 'asset'
+  | 'liability'
+  | 'cash_account'
 
 /** Event impact attached to a timeline item */
 export interface TimelineEventImpact {
@@ -41,6 +56,8 @@ export interface TimelineItem {
   eventImpacts?: TimelineEventImpact[]
   /** Indicates this is the designated cash account receiving net savings (cash accounts only) */
   isAccumulator?: boolean
+  /** Link to liability this expense pays down (expenses only - identifies debt repayments) */
+  sourceLiabilityId?: string
 }
 
 export interface GrowthApplied {
@@ -158,7 +175,7 @@ export interface NonCashAssetResponseV2 {
   category: string
   balance: string
   adjBalance: string
-  itemType: string
+  itemType: TimelineItemType
   startDate: string
   startYear: number
   startMonth: number
@@ -172,7 +189,7 @@ export interface InvestmentResponseV2 {
   category: string
   balance: string
   adjBalance: string
-  itemType: string
+  itemType: TimelineItemType
   startDate: string
   startYear: number
   startMonth: number
@@ -185,7 +202,7 @@ export interface CashAssetResponseV2 {
   category: string
   balance: string
   adjBalance: string
-  itemType: string
+  itemType: TimelineItemType
   startYear: number
   startMonth: number
   isAccumulator: boolean
@@ -199,7 +216,7 @@ export interface CPFAssetResponseV2 {
   category: string
   balance: string
   adjBalance: string
-  itemType: string
+  itemType: TimelineItemType
   startDate: string
   startYear: number
   startMonth: number
@@ -214,7 +231,7 @@ export interface LiabilityResponseV2 {
   balance: string
   adjBalance: string
   sourceAmount: string
-  itemType: string
+  itemType: TimelineItemType
   startYear: number
   startMonth: number
 }
@@ -227,8 +244,8 @@ export interface IncomeResponseV2 {
   category: string
   amount: string
   adjAmount: string
-  sourceFrequency: string
-  itemType: string
+  sourceFrequency: TimelineFrequency
+  itemType: TimelineItemType
   startYear: number
   startMonth: number
   growthRate: string
@@ -243,8 +260,8 @@ export interface CPFContributionResponseV2 {
   employeeContribution: string
   employerContribution: string
   totalContribution: string
-  sourceFrequency: string
-  itemType: string
+  sourceFrequency: TimelineFrequency
+  itemType: TimelineItemType
   startYear: number
   startMonth: number
   allocationOa: string
@@ -261,8 +278,10 @@ export interface ExpenseResponseV2 {
   category: string
   amount: string
   adjAmount: string
-  sourceFrequency: string
-  itemType: string
+  sourceFrequency: TimelineFrequency
+  itemType: TimelineItemType
   startYear: number
   startMonth: number
+  /** Link to liability this expense pays down (debt repayment) */
+  sourceLiabilityId?: string
 }
