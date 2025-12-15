@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"runtime"
@@ -10,18 +9,21 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/decimal"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // DebugSQL enables SQL query logging when set to true
 var DebugSQL = false
 
 type Store struct {
-	db *sql.DB
+	pool *pgxpool.Pool
 }
 
-// NewStore creates a new repository Store
-func NewStore(db *sql.DB) *Store {
-	return &Store{db: db}
+// NewStore creates a new repository Store with pgxpool
+func NewStore(pool *pgxpool.Pool) *Store {
+	return &Store{pool: pool}
 }
 
 // logQuery prints the SQL query and args if DebugSQL is enabled
@@ -244,7 +246,7 @@ func (s *Store) ListNonCashAssets(
 		COALESCE(notes, '') as notes,
 		updated_at
 	FROM finance_assets
-	WHERE user_id = $1	
+	WHERE user_id = $1
 	`
 
 	args := []any{userID}
@@ -277,7 +279,7 @@ func (s *Store) ListNonCashAssets(
 	}
 
 	logQuery(query, args)
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query for non cash assets")
 		fmt.Printf(query, "=== query\n ===")
@@ -288,23 +290,16 @@ func (s *Store) ListNonCashAssets(
 			Offset: nil,
 		}, err
 	}
-
 	defer rows.Close()
 
 	nonCashAssets := []NonCashAsset{}
 	for rows.Next() {
 		var a NonCashAsset
-		var endDate sql.NullTime
-
-		err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &endDate, &a.Notes, &a.UpdatedAt)
+		// pgx can scan NULL directly into *time.Time
+		err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.Notes, &a.UpdatedAt)
 		if err != nil {
 			return PaginatedResult[NonCashAsset]{}, err
 		}
-
-		if endDate.Valid {
-			a.EndDate = &endDate.Time
-		}
-
 		nonCashAssets = append(nonCashAssets, a)
 	}
 
@@ -334,7 +329,7 @@ func (s *Store) ListInvestments(
 		COALESCE(notes, '') as notes,
 		updated_at
 	FROM finance_investments
-	WHERE user_id = $1	
+	WHERE user_id = $1
 	`
 
 	args := []any{userID}
@@ -365,7 +360,7 @@ func (s *Store) ListInvestments(
 	}
 
 	logQuery(query, args)
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query investments")
 		return PaginatedResult[Investment]{
@@ -380,17 +375,10 @@ func (s *Store) ListInvestments(
 	investments := []Investment{}
 	for rows.Next() {
 		var inv Investment
-		var endDate sql.NullTime
-
-		err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.AnnualGrowthRate, &inv.StartDate, &endDate, &inv.Notes, &inv.UpdatedAt)
+		err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.AnnualGrowthRate, &inv.StartDate, &inv.EndDate, &inv.Notes, &inv.UpdatedAt)
 		if err != nil {
 			return PaginatedResult[Investment]{}, err
 		}
-
-		if endDate.Valid {
-			inv.EndDate = &endDate.Time
-		}
-
 		investments = append(investments, inv)
 	}
 
@@ -420,11 +408,11 @@ func (s *Store) ListCashAssets(
 		start_date,
 		end_date,
 		COALESCE(notes, '') as notes,
-	COALESCE(growth_strategy, '') as growth_strategy,
-	created_at,
-	updated_at
-FROM finance_cash_accounts
-WHERE user_id = $1`
+		COALESCE(growth_strategy, '') as growth_strategy,
+		created_at,
+		updated_at
+	FROM finance_cash_accounts
+	WHERE user_id = $1`
 
 	args := []any{userID}
 	argIdx := 2
@@ -456,7 +444,7 @@ WHERE user_id = $1`
 	}
 
 	logQuery(query, args)
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query cash assets: %v\n", err)
 		return PaginatedResult[CashAsset]{}, err
@@ -466,22 +454,15 @@ WHERE user_id = $1`
 	cashAssets := []CashAsset{}
 	for rows.Next() {
 		var a CashAsset
-		var endDate sql.NullTime
-
 		err := rows.Scan(
 			&a.ID, &a.UserID, &a.Name, &a.Balance, &a.InterestRate,
 			&a.BankName, &a.AccountType, &a.IsAccumulator,
-			&a.StartDate, &endDate, &a.Notes, &a.GrowthStrategy,
+			&a.StartDate, &a.EndDate, &a.Notes, &a.GrowthStrategy,
 			&a.CreatedAt, &a.UpdatedAt,
 		)
 		if err != nil {
 			return PaginatedResult[CashAsset]{}, err
 		}
-
-		if endDate.Valid {
-			a.EndDate = &endDate.Time
-		}
-
 		cashAssets = append(cashAssets, a)
 	}
 
@@ -546,7 +527,7 @@ func (s *Store) ListLiabilities(
 	}
 
 	logQuery(query, args)
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query liabilities: %v\n", err)
 		return PaginatedResult[Liability]{}, err
@@ -556,22 +537,15 @@ func (s *Store) ListLiabilities(
 	liabilities := []Liability{}
 	for rows.Next() {
 		var l Liability
-		var endDate sql.NullTime
-
 		err := rows.Scan(
 			&l.ID, &l.ParentID, &l.Name, &l.Category,
 			&l.CurrentBalance, &l.InterestRateAPR, &l.MinimumPayment,
-			&l.StartDate, &endDate, &l.Notes, &l.GrowthStrategy,
+			&l.StartDate, &l.EndDate, &l.Notes, &l.GrowthStrategy,
 			&l.RepaymentStrategy, &l.UpdatedAt,
 		)
 		if err != nil {
 			return PaginatedResult[Liability]{}, err
 		}
-
-		if endDate.Valid {
-			l.EndDate = &endDate.Time
-		}
-
 		liabilities = append(liabilities, l)
 	}
 
@@ -637,7 +611,7 @@ func (s *Store) ListIncomes(
 	}
 
 	logQuery(query, args)
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query incomes: %v\n", err)
 		return PaginatedResult[Income]{}, err
@@ -647,22 +621,15 @@ func (s *Store) ListIncomes(
 	incomes := []Income{}
 	for rows.Next() {
 		var i Income
-		var endDate sql.NullTime
-
 		err := rows.Scan(
 			&i.ID, &i.ParentID, &i.Source, &i.Amount, &i.Frequency,
-			&i.StartDate, &endDate, &i.Category, &i.GrowthRate,
+			&i.StartDate, &i.EndDate, &i.Category, &i.GrowthRate,
 			&i.Notes, &i.GrowthStrategy, &i.UpdatedAt,
 			&i.IncomeType, &i.CPFWageType,
 		)
 		if err != nil {
 			return PaginatedResult[Income]{}, err
 		}
-
-		if endDate.Valid {
-			i.EndDate = &endDate.Time
-		}
-
 		incomes = append(incomes, i)
 	}
 
@@ -727,7 +694,7 @@ func (s *Store) ListExpenses(
 	}
 
 	logQuery(query, args)
-	rows, err := s.db.QueryContext(ctx, query, args...)
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		fmt.Printf("Failed to query expenses: %v\n", err)
 		return PaginatedResult[Expense]{}, err
@@ -737,25 +704,14 @@ func (s *Store) ListExpenses(
 	expenses := []Expense{}
 	for rows.Next() {
 		var e Expense
-		var endDate sql.NullTime
-		var sourceLiabilityID sql.NullString
-
 		err := rows.Scan(
 			&e.ID, &e.ParentID, &e.Payee, &e.Amount, &e.Frequency,
-			&e.StartDate, &endDate, &e.Category, &e.GrowthRate,
-			&e.Notes, &e.GrowthStrategy, &e.UpdatedAt, &sourceLiabilityID,
+			&e.StartDate, &e.EndDate, &e.Category, &e.GrowthRate,
+			&e.Notes, &e.GrowthStrategy, &e.UpdatedAt, &e.SourceLiabilityID,
 		)
 		if err != nil {
 			return PaginatedResult[Expense]{}, err
 		}
-
-		if endDate.Valid {
-			e.EndDate = &endDate.Time
-		}
-		if sourceLiabilityID.Valid {
-			e.SourceLiabilityID = &sourceLiabilityID.String
-		}
-
 		expenses = append(expenses, e)
 	}
 
@@ -791,10 +747,7 @@ func (s *Store) GetCPFAccount(
 	WHERE user_id = $1`
 
 	var cpf CPFAccount
-	var housingStartDate sql.NullTime
-	var prGrantDate sql.NullTime
-
-	err := s.db.QueryRowContext(ctx, query, userID).Scan(
+	err := s.pool.QueryRow(ctx, query, userID).Scan(
 		&cpf.ID,
 		&cpf.UserID,
 		&cpf.OABalance,
@@ -802,25 +755,18 @@ func (s *Store) GetCPFAccount(
 		&cpf.MABalance,
 		&cpf.RABalance,
 		&cpf.OAUsedForHousing,
-		&housingStartDate,
+		&cpf.HousingStartDate,
 		&cpf.DateOfBirth,
 		&cpf.ResidencyStatus,
-		&prGrantDate,
+		&cpf.PRGrantDate,
 		&cpf.CreatedAt,
 		&cpf.UpdatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return nil, nil // No CPF account found for user
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query CPF account: %w", err)
-	}
-
-	if housingStartDate.Valid {
-		cpf.HousingStartDate = &housingStartDate.Time
-	}
-	if prGrantDate.Valid {
-		cpf.PRGrantDate = &prGrantDate.Time
 	}
 
 	return &cpf, nil
@@ -857,7 +803,7 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 		repaymentStrategy = "standard_amortization"
 	}
 
-	row := s.db.QueryRowContext(ctx, `
+	row := s.pool.QueryRow(ctx, `
 		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes, repayment_strategy)
 		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11)
 		ON CONFLICT ON CONSTRAINT finance_liabilities_parent_start_date_key DO UPDATE
@@ -874,12 +820,8 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 		userID, nullIfEmpty(li.ParentID), li.Name, li.Category, li.CurrentBalance, li.InterestRateAPR, li.MinimumPayment, startDate, li.EndDate, li.Notes, repaymentStrategy)
 
 	var created Liability
-	var endDateVal sql.NullTime
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.StartDate, &endDateVal, &created.Notes, &created.RepaymentStrategy, &created.UpdatedAt); err != nil {
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentBalance, &created.InterestRateAPR, &created.MinimumPayment, &created.StartDate, &created.EndDate, &created.Notes, &created.RepaymentStrategy, &created.UpdatedAt); err != nil {
 		return Liability{}, err
-	}
-	if endDateVal.Valid {
-		created.EndDate = &endDateVal.Time
 	}
 
 	// Auto-create linked expense for liability repayment if minimum payment is set
@@ -907,23 +849,15 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, exp Expense) (
 		startDate = time.Now().UTC()
 	}
 
-	row := s.db.QueryRowContext(ctx, `
+	row := s.pool.QueryRow(ctx, `
 		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, notes, source_liability_id)
 		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11)
 		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(notes, ''), updated_at, source_liability_id`,
 		userID, nullIfEmpty(exp.ParentID), exp.Payee, exp.Amount, exp.Frequency, startDate, exp.EndDate, exp.Category, exp.GrowthRate, exp.Notes, exp.SourceLiabilityID)
 
 	var created Expense
-	var endDateVal sql.NullTime
-	var sourceLiabilityID sql.NullString
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency, &created.StartDate, &endDateVal, &created.Category, &created.GrowthRate, &created.Notes, &created.UpdatedAt, &sourceLiabilityID); err != nil {
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency, &created.StartDate, &created.EndDate, &created.Category, &created.GrowthRate, &created.Notes, &created.UpdatedAt, &created.SourceLiabilityID); err != nil {
 		return Expense{}, err
-	}
-	if endDateVal.Valid {
-		created.EndDate = &endDateVal.Time
-	}
-	if sourceLiabilityID.Valid {
-		created.SourceLiabilityID = &sourceLiabilityID.String
 	}
 
 	return created, nil
@@ -959,7 +893,7 @@ func (s *Store) ListIncomeAllocations(
 	ORDER BY ia.created_at`
 
 	logQuery(query, []any{incomeID, userID})
-	rows, err := s.db.QueryContext(ctx, query, incomeID, userID)
+	rows, err := s.pool.Query(ctx, query, incomeID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query income allocations: %w", err)
 	}
@@ -972,9 +906,9 @@ func (s *Store) ListIncomeAllocations(
 		foundIncome = true
 
 		var incomeIDResult string
-		var id, targetCashAccountID, targetInvestmentID, allocationType sql.NullString
+		var id, targetCashAccountID, targetInvestmentID, allocationType *string
 		var allocationValue decimal.Decimal
-		var createdAt sql.NullTime
+		var createdAt *time.Time
 
 		err := rows.Scan(
 			&incomeIDResult,
@@ -990,22 +924,22 @@ func (s *Store) ListIncomeAllocations(
 		}
 
 		// Skip if no allocation (LEFT JOIN produced NULL row)
-		if !id.Valid {
+		if id == nil {
 			continue
 		}
 
 		a := IncomeAllocation{
-			ID:              id.String,
-			IncomeID:        incomeID,
-			AllocationType:  allocationType.String,
-			AllocationValue: allocationValue,
-			CreatedAt:       createdAt.Time,
+			ID:                  *id,
+			IncomeID:            incomeID,
+			TargetCashAccountID: targetCashAccountID,
+			TargetInvestmentID:  targetInvestmentID,
+			AllocationValue:     allocationValue,
 		}
-		if targetCashAccountID.Valid {
-			a.TargetCashAccountID = &targetCashAccountID.String
+		if allocationType != nil {
+			a.AllocationType = *allocationType
 		}
-		if targetInvestmentID.Valid {
-			a.TargetInvestmentID = &targetInvestmentID.String
+		if createdAt != nil {
+			a.CreatedAt = *createdAt
 		}
 
 		allocations = append(allocations, a)
@@ -1039,7 +973,7 @@ func (s *Store) ListAllIncomeAllocations(
 	ORDER BY ia.income_id, ia.created_at`
 
 	logQuery(query, []any{userID})
-	rows, err := s.db.QueryContext(ctx, query, userID)
+	rows, err := s.pool.Query(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query all income allocations: %w", err)
 	}
@@ -1048,24 +982,14 @@ func (s *Store) ListAllIncomeAllocations(
 	allocations := []IncomeAllocation{}
 	for rows.Next() {
 		var a IncomeAllocation
-		var targetCashAccountID, targetInvestmentID sql.NullString
-
 		err := rows.Scan(
 			&a.ID, &a.IncomeID,
-			&targetCashAccountID, &targetInvestmentID,
+			&a.TargetCashAccountID, &a.TargetInvestmentID,
 			&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan income allocation: %w", err)
 		}
-
-		if targetCashAccountID.Valid {
-			a.TargetCashAccountID = &targetCashAccountID.String
-		}
-		if targetInvestmentID.Valid {
-			a.TargetInvestmentID = &targetInvestmentID.String
-		}
-
 		allocations = append(allocations, a)
 	}
 
@@ -1086,25 +1010,17 @@ func (s *Store) GetIncomeAllocation(
 	WHERE ia.id = $2`
 
 	var a IncomeAllocation
-	var targetCashAccountID, targetInvestmentID sql.NullString
-
-	err := s.db.QueryRowContext(ctx, query, userID, allocationID).Scan(
+	// pgx scans NULL directly into *string
+	err := s.pool.QueryRow(ctx, query, userID, allocationID).Scan(
 		&a.ID, &a.IncomeID,
-		&targetCashAccountID, &targetInvestmentID,
+		&a.TargetCashAccountID, &a.TargetInvestmentID,
 		&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get income allocation: %w", err)
-	}
-
-	if targetCashAccountID.Valid {
-		a.TargetCashAccountID = &targetCashAccountID.String
-	}
-	if targetInvestmentID.Valid {
-		a.TargetInvestmentID = &targetInvestmentID.String
 	}
 
 	return &a, nil
@@ -1118,7 +1034,7 @@ func (s *Store) CreateIncomeAllocation(
 ) (*IncomeAllocation, error) {
 	// Verify the income belongs to the user
 	var exists bool
-	err := s.db.QueryRowContext(ctx,
+	err := s.pool.QueryRow(ctx,
 		`SELECT EXISTS(SELECT 1 FROM finance_incomes WHERE id = $1 AND user_id = $2)`,
 		allocation.IncomeID, userID,
 	).Scan(&exists)
@@ -1135,9 +1051,8 @@ func (s *Store) CreateIncomeAllocation(
 	RETURNING id, income_id, target_cash_account_id, target_investment_id, allocation_type, allocation_value, created_at`
 
 	var created IncomeAllocation
-	var targetCashAccountID, targetInvestmentID sql.NullString
-
-	err = s.db.QueryRowContext(ctx, query,
+	// pgx scans NULL directly into *string
+	err = s.pool.QueryRow(ctx, query,
 		allocation.IncomeID,
 		allocation.TargetCashAccountID,
 		allocation.TargetInvestmentID,
@@ -1145,18 +1060,11 @@ func (s *Store) CreateIncomeAllocation(
 		allocation.AllocationValue,
 	).Scan(
 		&created.ID, &created.IncomeID,
-		&targetCashAccountID, &targetInvestmentID,
+		&created.TargetCashAccountID, &created.TargetInvestmentID,
 		&created.AllocationType, &created.AllocationValue, &created.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create income allocation: %w", err)
-	}
-
-	if targetCashAccountID.Valid {
-		created.TargetCashAccountID = &targetCashAccountID.String
-	}
-	if targetInvestmentID.Valid {
-		created.TargetInvestmentID = &targetInvestmentID.String
 	}
 
 	return &created, nil
@@ -1182,9 +1090,8 @@ func (s *Store) UpdateIncomeAllocation(
 	          ia.allocation_type, ia.allocation_value, ia.created_at`
 
 	var updated IncomeAllocation
-	var targetCashAccountID, targetInvestmentID sql.NullString
-
-	err := s.db.QueryRowContext(ctx, query,
+	// pgx scans NULL directly into *string
+	err := s.pool.QueryRow(ctx, query,
 		userID, allocation.ID,
 		allocation.TargetCashAccountID,
 		allocation.TargetInvestmentID,
@@ -1192,21 +1099,14 @@ func (s *Store) UpdateIncomeAllocation(
 		allocation.AllocationValue,
 	).Scan(
 		&updated.ID, &updated.IncomeID,
-		&targetCashAccountID, &targetInvestmentID,
+		&updated.TargetCashAccountID, &updated.TargetInvestmentID,
 		&updated.AllocationType, &updated.AllocationValue, &updated.CreatedAt,
 	)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to update income allocation: %w", err)
-	}
-
-	if targetCashAccountID.Valid {
-		updated.TargetCashAccountID = &targetCashAccountID.String
-	}
-	if targetInvestmentID.Valid {
-		updated.TargetInvestmentID = &targetInvestmentID.String
 	}
 
 	return &updated, nil
@@ -1225,16 +1125,12 @@ func (s *Store) DeleteIncomeAllocation(
 	  AND ia.income_id = fi.id
 	  AND fi.user_id = $1`
 
-	result, err := s.db.ExecContext(ctx, query, userID, allocationID)
+	tag, err := s.pool.Exec(ctx, query, userID, allocationID)
 	if err != nil {
 		return fmt.Errorf("failed to delete income allocation: %w", err)
 	}
 
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	if affected == 0 {
+	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
 

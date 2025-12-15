@@ -2,37 +2,39 @@ package scenario
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"financial-chat-system/backend/internal/common"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Store provides scenario event persistence operations
 type Store struct {
-	db *sql.DB
+	pool *pgxpool.Pool
 }
 
 // NewStore creates a new scenario Store
-func NewStore(db *sql.DB) *Store {
-	return &Store{db: db}
+func NewStore(pool *pgxpool.Pool) *Store {
+	return &Store{pool: pool}
 }
 
 // Create inserts a scenario event and its impacts using typed FK columns.
 // Uses batch INSERT and returns impacts from RETURNING clause (no extra query).
 func (s *Store) Create(ctx context.Context, ev Event) (Event, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Event{}, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	tagsJSON, _ := json.Marshal(ev.Tags)
 
-	row := tx.QueryRowContext(ctx, `
+	row := tx.QueryRow(ctx, `
 		INSERT INTO scenario_events (user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, true))
 		RETURNING id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at`,
@@ -51,7 +53,7 @@ func (s *Store) Create(ctx context.Context, ev Event) (Event, error) {
 		return Event{}, err
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return Event{}, err
 	}
 
@@ -61,7 +63,7 @@ func (s *Store) Create(ctx context.Context, ev Event) (Event, error) {
 // Get fetches a scenario by ID for a user with typed FK impacts.
 // Uses a single JOIN query instead of 2 queries.
 func (s *Store) Get(ctx context.Context, userID, eventID string) (Event, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.pool.Query(ctx, `
 		SELECT
 			e.id, e.user_id, e.name, e.description, e.occurs_on, e.display_icon, e.display_color, e.tags, e.scenario_id, e.is_included, e.created_at, e.updated_at,
 			i.id, i.impact_kind, i.amount, i.currency, i.cadence, i.start_month, i.end_month, i.notes, i.created_at,
@@ -80,12 +82,11 @@ func (s *Store) Get(ctx context.Context, userID, eventID string) (Event, error) 
 		var row Event
 		var tagsJSON []byte
 
-		// Impact fields (nullable due to LEFT JOIN)
-		var impID, impKind, impCurrency, impCadence, impNotes sql.NullString
-		var impAmount sql.NullInt64
-		var impStartDate, impEndDate sql.NullTime
-		var impCreatedAt sql.NullTime
-		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID sql.NullString
+		// Impact fields (nullable due to LEFT JOIN) - pgx scans directly into pointers
+		var impID, impKind, impCurrency, impCadence, impNotes *string
+		var impAmount *int64
+		var impStartDate, impEndDate, impCreatedAt *time.Time
+		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID *string
 
 		if err := rows.Scan(
 			&row.ID, &row.UserID, &row.Name, &row.Description, &row.OccursOn, &row.DisplayIcon, &row.DisplayColor, &tagsJSON, &row.ScenarioID, &row.IsIncluded, &row.CreatedAt, &row.UpdatedAt,
@@ -102,8 +103,8 @@ func (s *Store) Get(ctx context.Context, userID, eventID string) (Event, error) 
 		}
 
 		// Add impact if present (LEFT JOIN may produce NULL impact rows)
-		if impID.Valid {
-			ev.Impacts = append(ev.Impacts, scanImpact(
+		if impID != nil {
+			ev.Impacts = append(ev.Impacts, scanImpactPgx(
 				ev.ID, impID, impKind, impAmount, impCurrency, impCadence,
 				impStartDate, impEndDate, impNotes, impCreatedAt,
 				targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID,
@@ -130,7 +131,7 @@ func (s *Store) List(ctx context.Context, userID string, filters Filters) ([]Eve
 	}
 
 	where := []string{"user_id = $1"}
-	args := []interface{}{userID}
+	args := []any{userID}
 
 	if filters.IncludedOnly != nil {
 		where = append(where, fmt.Sprintf("is_included = $%d", len(args)+1))
@@ -153,7 +154,7 @@ func (s *Store) List(ctx context.Context, userID string, filters Filters) ([]Eve
 
 	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM scenario_events WHERE %s`, whereClause)
 	var total int
-	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -173,7 +174,7 @@ func (s *Store) List(ctx context.Context, userID string, filters Filters) ([]Eve
 		ORDER BY e.occurs_on ASC, e.created_at DESC, i.start_month ASC NULLS LAST, i.created_at ASC`,
 		whereClause, len(args)+1, len(args)+2)
 
-	rows, err := s.db.QueryContext(ctx, query, append(args, limit, offset)...)
+	rows, err := s.pool.Query(ctx, query, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -187,12 +188,11 @@ func (s *Store) List(ctx context.Context, userID string, filters Filters) ([]Eve
 		var ev Event
 		var tagsJSON []byte
 
-		// Impact fields (nullable due to LEFT JOIN)
-		var impID, impKind, impCurrency, impCadence, impNotes sql.NullString
-		var impAmount sql.NullInt64
-		var impStartDate, impEndDate sql.NullTime
-		var impCreatedAt sql.NullTime
-		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID sql.NullString
+		// Impact fields (nullable due to LEFT JOIN) - pgx scans directly into pointers
+		var impID, impKind, impCurrency, impCadence, impNotes *string
+		var impAmount *int64
+		var impStartDate, impEndDate, impCreatedAt *time.Time
+		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID *string
 
 		if err := rows.Scan(
 			&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &ev.ScenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt,
@@ -213,8 +213,8 @@ func (s *Store) List(ctx context.Context, userID string, filters Filters) ([]Eve
 		}
 
 		// Add impact if present (LEFT JOIN may produce NULL impact rows)
-		if impID.Valid {
-			existing.Impacts = append(existing.Impacts, scanImpact(
+		if impID != nil {
+			existing.Impacts = append(existing.Impacts, scanImpactPgx(
 				ev.ID, impID, impKind, impAmount, impCurrency, impCadence,
 				impStartDate, impEndDate, impNotes, impCreatedAt,
 				targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID,
@@ -234,15 +234,15 @@ func (s *Store) List(ctx context.Context, userID string, filters Filters) ([]Eve
 // Update replaces metadata and impacts using typed FK columns.
 // Uses batch INSERT and returns impacts from RETURNING clause (no extra query).
 func (s *Store) Update(ctx context.Context, ev Event) (Event, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Event{}, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	tagsJSON, _ := json.Marshal(ev.Tags)
 
-	row := tx.QueryRowContext(ctx, `
+	row := tx.QueryRow(ctx, `
 		UPDATE scenario_events
 		SET name=$2, description=$3, occurs_on=$4, display_icon=$5, display_color=$6, tags=$7, scenario_id=$8, is_included=$9, updated_at=NOW()
 		WHERE id=$1 AND user_id=$10
@@ -251,14 +251,14 @@ func (s *Store) Update(ctx context.Context, ev Event) (Event, error) {
 	var updated Event
 	var tagsBytes []byte
 	if err := row.Scan(&updated.ID, &updated.UserID, &updated.Name, &updated.Description, &updated.OccursOn, &updated.DisplayIcon, &updated.DisplayColor, &tagsBytes, &updated.ScenarioID, &updated.IsIncluded, &updated.CreatedAt, &updated.UpdatedAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return Event{}, ErrNotFound
 		}
 		return Event{}, err
 	}
 	updated.Tags = decodeStringArray(tagsBytes)
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM scenario_event_impacts WHERE event_id=$1`, ev.ID); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM scenario_event_impacts WHERE event_id=$1`, ev.ID); err != nil {
 		return Event{}, err
 	}
 
@@ -268,7 +268,7 @@ func (s *Store) Update(ctx context.Context, ev Event) (Event, error) {
 		return Event{}, err
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return Event{}, err
 	}
 
@@ -277,12 +277,11 @@ func (s *Store) Update(ctx context.Context, ev Event) (Event, error) {
 
 // Delete removes an event for a user.
 func (s *Store) Delete(ctx context.Context, userID, eventID string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM scenario_events WHERE id=$1 AND user_id=$2`, eventID, userID)
+	tag, err := s.pool.Exec(ctx, `DELETE FROM scenario_events WHERE id=$1 AND user_id=$2`, eventID, userID)
 	if err != nil {
 		return err
 	}
-	affected, err := result.RowsAffected()
-	if err != nil || affected == 0 {
+	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
 	return nil
@@ -290,15 +289,14 @@ func (s *Store) Delete(ctx context.Context, userID, eventID string) error {
 
 // ToggleIncluded updates inclusion flag.
 func (s *Store) ToggleIncluded(ctx context.Context, userID, eventID string, included bool) error {
-	result, err := s.db.ExecContext(ctx, `
+	tag, err := s.pool.Exec(ctx, `
 		UPDATE scenario_events
 		SET is_included=$3, updated_at=NOW()
 		WHERE id=$1 AND user_id=$2`, eventID, userID, included)
 	if err != nil {
 		return err
 	}
-	affected, err := result.RowsAffected()
-	if err != nil || affected == 0 {
+	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
 	return nil
@@ -306,7 +304,7 @@ func (s *Store) ToggleIncluded(ctx context.Context, userID, eventID string, incl
 
 // ListImpacts lists impacts for an event using typed FK columns.
 func (s *Store) ListImpacts(ctx context.Context, eventID string) ([]Impact, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.pool.Query(ctx, `
 		SELECT id, event_id, impact_kind, amount, currency, cadence, start_month, end_month, notes, created_at,
 		       target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id
 		FROM scenario_event_impacts
@@ -320,43 +318,13 @@ func (s *Store) ListImpacts(ctx context.Context, eventID string) ([]Impact, erro
 	var impacts []Impact
 	for rows.Next() {
 		var imp Impact
-		var startDate sql.NullTime
-		var endDate sql.NullTime
-		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID sql.NullString
-
+		// pgx scans NULL directly into pointer fields
 		if err := rows.Scan(
 			&imp.ID, &imp.EventID, &imp.ImpactKind, &imp.Amount, &imp.Currency, &imp.Cadence,
-			&startDate, &endDate, &imp.Notes, &imp.CreatedAt,
-			&targetAssetID, &targetLiabilityID, &targetIncomeID, &targetExpenseID, &targetCashAccountID, &targetInvestmentID,
+			&imp.StartDate, &imp.EndDate, &imp.Notes, &imp.CreatedAt,
+			&imp.TargetAssetID, &imp.TargetLiabilityID, &imp.TargetIncomeID, &imp.TargetExpenseID, &imp.TargetCashAccountID, &imp.TargetInvestmentID,
 		); err != nil {
 			return nil, err
-		}
-
-		if !startDate.Valid {
-			return nil, fmt.Errorf("impact %s has NULL start_date (database constraint violation)", imp.ID)
-		}
-		imp.StartDate = startDate.Time
-
-		if endDate.Valid {
-			imp.EndDate = &endDate.Time
-		}
-		if targetAssetID.Valid {
-			imp.TargetAssetID = &targetAssetID.String
-		}
-		if targetLiabilityID.Valid {
-			imp.TargetLiabilityID = &targetLiabilityID.String
-		}
-		if targetIncomeID.Valid {
-			imp.TargetIncomeID = &targetIncomeID.String
-		}
-		if targetExpenseID.Valid {
-			imp.TargetExpenseID = &targetExpenseID.String
-		}
-		if targetCashAccountID.Valid {
-			imp.TargetCashAccountID = &targetCashAccountID.String
-		}
-		if targetInvestmentID.Valid {
-			imp.TargetInvestmentID = &targetInvestmentID.String
 		}
 
 		impacts = append(impacts, imp)
@@ -368,7 +336,7 @@ func (s *Store) ListImpacts(ctx context.Context, eventID string) ([]Impact, erro
 }
 
 // insertImpacts inserts impacts using typed FK columns with a single batch INSERT.
-func (s *Store) insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, impacts []Impact) ([]Impact, error) {
+func (s *Store) insertImpacts(ctx context.Context, tx pgx.Tx, eventID string, impacts []Impact) ([]Impact, error) {
 	if len(impacts) == 0 {
 		return []Impact{}, nil
 	}
@@ -395,7 +363,7 @@ func (s *Store) insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, i
 		          target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id`,
 		strings.Join(valueStrings, ","))
 
-	rows, err := tx.QueryContext(ctx, query, args...)
+	rows, err := tx.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -404,27 +372,14 @@ func (s *Store) insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, i
 	var result []Impact
 	for rows.Next() {
 		var imp Impact
-		var startDate, endDate sql.NullTime
-		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID sql.NullString
-
+		// pgx scans NULL directly into pointer fields
 		if err := rows.Scan(
 			&imp.ID, &imp.EventID, &imp.ImpactKind, &imp.Amount, &imp.Currency, &imp.Cadence,
-			&startDate, &endDate, &imp.Notes, &imp.CreatedAt,
-			&targetAssetID, &targetLiabilityID, &targetIncomeID, &targetExpenseID, &targetCashAccountID, &targetInvestmentID,
+			&imp.StartDate, &imp.EndDate, &imp.Notes, &imp.CreatedAt,
+			&imp.TargetAssetID, &imp.TargetLiabilityID, &imp.TargetIncomeID, &imp.TargetExpenseID, &imp.TargetCashAccountID, &imp.TargetInvestmentID,
 		); err != nil {
 			return nil, err
 		}
-
-		if startDate.Valid {
-			imp.StartDate = startDate.Time
-		}
-		imp.EndDate = common.NullTimePtr(endDate)
-		imp.TargetAssetID = common.NullStringPtr(targetAssetID)
-		imp.TargetLiabilityID = common.NullStringPtr(targetLiabilityID)
-		imp.TargetIncomeID = common.NullStringPtr(targetIncomeID)
-		imp.TargetExpenseID = common.NullStringPtr(targetExpenseID)
-		imp.TargetCashAccountID = common.NullStringPtr(targetCashAccountID)
-		imp.TargetInvestmentID = common.NullStringPtr(targetInvestmentID)
 		result = append(result, imp)
 	}
 
@@ -448,7 +403,7 @@ func (s *Store) GetExcludedTargetIDs(ctx context.Context, userID string) (Exclud
 		  AND se.is_included = false
 		  AND sei.impact_kind = 'start'`
 
-	rows, err := s.db.QueryContext(ctx, query, userID)
+	rows, err := s.pool.Query(ctx, query, userID)
 	if err != nil {
 		return ExcludedTargets{}, err
 	}
@@ -464,27 +419,28 @@ func (s *Store) GetExcludedTargetIDs(ctx context.Context, userID string) (Exclud
 	}
 
 	for rows.Next() {
-		var assetID, liabilityID, incomeID, expenseID, cashAccountID, investmentID sql.NullString
+		// pgx scans NULL directly into *string
+		var assetID, liabilityID, incomeID, expenseID, cashAccountID, investmentID *string
 		if err := rows.Scan(&assetID, &liabilityID, &incomeID, &expenseID, &cashAccountID, &investmentID); err != nil {
 			return ExcludedTargets{}, err
 		}
-		if assetID.Valid {
-			result.AssetIDs[assetID.String] = struct{}{}
+		if assetID != nil {
+			result.AssetIDs[*assetID] = struct{}{}
 		}
-		if liabilityID.Valid {
-			result.LiabilityIDs[liabilityID.String] = struct{}{}
+		if liabilityID != nil {
+			result.LiabilityIDs[*liabilityID] = struct{}{}
 		}
-		if incomeID.Valid {
-			result.IncomeIDs[incomeID.String] = struct{}{}
+		if incomeID != nil {
+			result.IncomeIDs[*incomeID] = struct{}{}
 		}
-		if expenseID.Valid {
-			result.ExpenseIDs[expenseID.String] = struct{}{}
+		if expenseID != nil {
+			result.ExpenseIDs[*expenseID] = struct{}{}
 		}
-		if cashAccountID.Valid {
-			result.CashAccountIDs[cashAccountID.String] = struct{}{}
+		if cashAccountID != nil {
+			result.CashAccountIDs[*cashAccountID] = struct{}{}
 		}
-		if investmentID.Valid {
-			result.InvestmentIDs[investmentID.String] = struct{}{}
+		if investmentID != nil {
+			result.InvestmentIDs[*investmentID] = struct{}{}
 		}
 	}
 
@@ -524,38 +480,50 @@ func placeholders(offset, n int) string {
 	return "(" + strings.Join(p, ",") + ")"
 }
 
-// scanImpact constructs an Impact from nullable scan results.
-func scanImpact(
+// scanImpactPgx constructs an Impact from nullable pointer scan results (pgx style).
+func scanImpactPgx(
 	eventID string,
-	impID, impKind sql.NullString,
-	impAmount sql.NullInt64,
-	impCurrency, impCadence sql.NullString,
-	impStartDate, impEndDate sql.NullTime,
-	impNotes sql.NullString,
-	impCreatedAt sql.NullTime,
-	targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID sql.NullString,
+	impID, impKind *string,
+	impAmount *int64,
+	impCurrency, impCadence *string,
+	impStartDate, impEndDate *time.Time,
+	impNotes *string,
+	impCreatedAt *time.Time,
+	targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID *string,
 ) Impact {
 	imp := Impact{
-		ID:                  impID.String,
 		EventID:             eventID,
-		ImpactKind:          impKind.String,
-		Amount:              impAmount.Int64,
-		Currency:            impCurrency.String,
-		Cadence:             common.Frequency(impCadence.String),
-		Notes:               impNotes.String,
-		EndDate:             common.NullTimePtr(impEndDate),
-		TargetAssetID:       common.NullStringPtr(targetAssetID),
-		TargetLiabilityID:   common.NullStringPtr(targetLiabilityID),
-		TargetIncomeID:      common.NullStringPtr(targetIncomeID),
-		TargetExpenseID:     common.NullStringPtr(targetExpenseID),
-		TargetCashAccountID: common.NullStringPtr(targetCashAccountID),
-		TargetInvestmentID:  common.NullStringPtr(targetInvestmentID),
+		EndDate:             impEndDate,
+		TargetAssetID:       targetAssetID,
+		TargetLiabilityID:   targetLiabilityID,
+		TargetIncomeID:      targetIncomeID,
+		TargetExpenseID:     targetExpenseID,
+		TargetCashAccountID: targetCashAccountID,
+		TargetInvestmentID:  targetInvestmentID,
 	}
-	if impStartDate.Valid {
-		imp.StartDate = impStartDate.Time
+	if impID != nil {
+		imp.ID = *impID
 	}
-	if impCreatedAt.Valid {
-		imp.CreatedAt = impCreatedAt.Time
+	if impKind != nil {
+		imp.ImpactKind = *impKind
+	}
+	if impAmount != nil {
+		imp.Amount = *impAmount
+	}
+	if impCurrency != nil {
+		imp.Currency = *impCurrency
+	}
+	if impCadence != nil {
+		imp.Cadence = common.Frequency(*impCadence)
+	}
+	if impNotes != nil {
+		imp.Notes = *impNotes
+	}
+	if impStartDate != nil {
+		imp.StartDate = *impStartDate
+	}
+	if impCreatedAt != nil {
+		imp.CreatedAt = *impCreatedAt
 	}
 	return imp
 }
