@@ -378,11 +378,12 @@ func (s *Store) insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, i
 	var args []any
 
 	for _, imp := range impacts {
-		valueStrings = append(valueStrings, placeholders(len(args), 14))
+		offset := len(args)
 		args = append(args,
 			eventID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartDate, imp.EndDate, imp.Notes,
 			imp.TargetAssetID, imp.TargetLiabilityID, imp.TargetIncomeID, imp.TargetExpenseID, imp.TargetCashAccountID, imp.TargetInvestmentID,
 		)
+		valueStrings = append(valueStrings, placeholders(offset, len(args)-offset))
 	}
 
 	query := fmt.Sprintf(`
