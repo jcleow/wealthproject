@@ -63,6 +63,8 @@ type Store interface {
 	ListExpenses(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Expense], error)
 	GetCPFAccount(context.Context, string) (*repository.CPFAccount, error)
 	ListAllIncomeAllocations(context.Context, string) ([]repository.IncomeAllocation, error)
+	// GetExcludedScenarioTargetIDs returns IDs of financial items created by excluded scenarios
+	GetExcludedScenarioTargetIDs(context.Context, string) (repository.ExcludedTargets, error)
 }
 
 // ========== Timeline V2 Options ==========

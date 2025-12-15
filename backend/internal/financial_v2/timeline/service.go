@@ -87,132 +87,6 @@ func NewService(store Store) *Service {
 }
 
 // =============================================================================
-// Transform Functions (used by loadEffectiveRows)
-// =============================================================================
-
-// transformNonCashAssets converts repository.NonCashAsset to FinancialDataRow
-func transformNonCashAssets(assets []repo.NonCashAsset) []FinancialDataRow {
-	rows := make([]FinancialDataRow, 0, len(assets))
-	for _, a := range assets {
-		rows = append(rows, FinancialDataRow{
-			ID:         a.ID,
-			ParentID:   a.ParentID, // Already coalesced in SQL
-			Name:       a.Name,
-			Category:   a.Category,
-			Amount:     a.CurrentValue,
-			StartDate:  a.StartDate,
-			EndDate:    a.EndDate,
-			ItemType:   FinNonCashAsset,
-			GrowthRate: a.AnnualGrowthRate,
-		})
-	}
-	return rows
-}
-
-// transformInvestments converts repository.Investment to FinancialDataRow
-func transformInvestments(investments []repo.Investment) []FinancialDataRow {
-	rows := make([]FinancialDataRow, 0, len(investments))
-	for _, inv := range investments {
-		rows = append(rows, FinancialDataRow{
-			ID:         inv.ID,
-			ParentID:   inv.ParentID,
-			Name:       inv.Name,
-			Category:   inv.Category,
-			Amount:     inv.CurrentValue,
-			StartDate:  inv.StartDate,
-			EndDate:    inv.EndDate,
-			ItemType:   FinInvestment,
-			GrowthRate: inv.AnnualGrowthRate,
-		})
-	}
-	return rows
-}
-
-// transformCashAssets converts repository.CashAsset to FinancialDataRow
-func transformCashAssets(assets []repo.CashAsset) []FinancialDataRow {
-	rows := make([]FinancialDataRow, 0, len(assets))
-	for _, a := range assets {
-		rows = append(rows, FinancialDataRow{
-			ID:            a.ID,
-			ParentID:      a.ID, // Cash accounts use ID as ParentID
-			Name:          a.Name,
-			Category:      a.AccountType,
-			Amount:        a.Balance,
-			StartDate:     a.StartDate,
-			EndDate:       a.EndDate,
-			ItemType:      FinCashAsset,
-			GrowthRate:    a.InterestRate,
-			IsAccumulator: a.IsAccumulator,
-		})
-	}
-	return rows
-}
-
-// transformLiabilities converts repository.Liability to FinancialDataRow
-func transformLiabilities(liabilities []repo.Liability) []FinancialDataRow {
-	rows := make([]FinancialDataRow, 0, len(liabilities))
-	for _, l := range liabilities {
-		rows = append(rows, FinancialDataRow{
-			ID:                l.ID,
-			ParentID:          l.ParentID,
-			Name:              l.Name,
-			Category:          l.Category,
-			Amount:            l.CurrentBalance,
-			StartDate:         l.StartDate,
-			EndDate:           l.EndDate,
-			ItemType:          FinLiabilities,
-			GrowthRate:        l.InterestRateAPR,
-			InterestRate:      l.InterestRateAPR,
-			MinimumPay:        l.MinimumPayment,
-			RepaymentStrategy: l.RepaymentStrategy,
-		})
-	}
-	return rows
-}
-
-// transformIncomes converts repository.Income to FinancialDataRow
-func transformIncomes(incomes []repo.Income) []FinancialDataRow {
-	rows := make([]FinancialDataRow, 0, len(incomes))
-	for _, i := range incomes {
-		rows = append(rows, FinancialDataRow{
-			ID:          i.ID,
-			ParentID:    i.ParentID,
-			Name:        i.Source, // Income uses "Source" as name
-			Category:    i.Category,
-			Amount:      i.Amount,
-			Frequency:   Frequency(i.Frequency), // Keep actual frequency
-			StartDate:   i.StartDate,
-			EndDate:     i.EndDate,
-			ItemType:    FinIncome,
-			GrowthRate:  i.GrowthRate,
-			CPFWageType: cpfProcessor.CPFWageType(i.CPFWageType),
-		})
-	}
-	return rows
-}
-
-// transformExpenses converts repository.Expense to FinancialDataRow
-func transformExpenses(expenses []repo.Expense) []FinancialDataRow {
-	rows := make([]FinancialDataRow, 0, len(expenses))
-	for _, e := range expenses {
-		rows = append(rows, FinancialDataRow{
-			ID:                e.ID,
-			ParentID:          e.ParentID,
-			Name:              e.Payee, // Expense uses "Payee" as name
-			Category:          e.Category,
-			Amount:            e.Amount,
-			Frequency:         Frequency(e.Frequency), // Keep actual frequency
-			StartDate:         e.StartDate,
-			EndDate:           e.EndDate,
-			ItemType:          FinExpense,
-			GrowthRate:        e.GrowthRate,
-			SourceLiabilityID: e.SourceLiabilityID,
-		})
-	}
-	return rows
-}
-
-// =============================================================================
 // Data Loading (used by ComputeFinancialSnapshot)
 // =============================================================================
 
@@ -231,6 +105,7 @@ func (s *Service) loadEffectiveRows(
 		expenses          repo.PaginatedResult[repo.Expense]
 		cpfAccount        *repo.CPFAccount
 		incomeAllocations []repo.IncomeAllocation
+		excludedTargets   repo.ExcludedTargets
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -283,23 +158,114 @@ func (s *Service) loadEffectiveRows(
 		return err
 	})
 
+	g.Go(func() error {
+		var err error
+		excludedTargets, err = s.store.GetExcludedScenarioTargetIDs(gctx, userID)
+		return err
+	})
+
 	if err := g.Wait(); err != nil {
 		return SGFinancialDataRows{}, err
 	}
 
 	// Transform repository types to FinancialDataRow
+	// Filter out items from excluded scenarios
 	return SGFinancialDataRows{
 		Rows: EffectiveRows{
-			NonCashAssets: transformNonCashAssets(nonCashAssets.Data),
-			Investments:   transformInvestments(investments.Data),
-			CashAssets:    transformCashAssets(cashAssets.Data),
-			Liabilities:   transformLiabilities(liabilities.Data),
-			Incomes:       transformIncomes(incomes.Data),
-			Expenses:      transformExpenses(expenses.Data),
+			NonCashAssets: filterExcludedAssets(transformNonCashAssets(nonCashAssets.Data), excludedTargets.AssetIDs),
+			Investments:   filterExcludedInvestments(transformInvestments(investments.Data), excludedTargets.InvestmentIDs),
+			CashAssets:    filterExcludedCashAssets(transformCashAssets(cashAssets.Data), excludedTargets.CashAccountIDs),
+			Liabilities:   filterExcludedLiabilities(transformLiabilities(liabilities.Data), excludedTargets.LiabilityIDs),
+			Incomes:       filterExcludedIncomes(transformIncomes(incomes.Data), excludedTargets.IncomeIDs),
+			Expenses:      filterExcludedExpenses(transformExpenses(expenses.Data), excludedTargets.ExpenseIDs),
 		},
 		CPFAccount:        mapToCPFAccount(cpfAccount),
 		IncomeAllocations: incomeAllocations,
 	}, nil
+}
+
+// filterExcludedAssets removes assets that are targets of excluded scenarios
+func filterExcludedAssets(rows []FinancialDataRow, excludedIDs map[string]struct{}) []FinancialDataRow {
+	if len(excludedIDs) == 0 {
+		return rows
+	}
+	filtered := make([]FinancialDataRow, 0, len(rows))
+	for _, row := range rows {
+		if _, excluded := excludedIDs[row.ID]; !excluded {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
+// filterExcludedInvestments removes investments that are targets of excluded scenarios
+func filterExcludedInvestments(rows []FinancialDataRow, excludedIDs map[string]struct{}) []FinancialDataRow {
+	if len(excludedIDs) == 0 {
+		return rows
+	}
+	filtered := make([]FinancialDataRow, 0, len(rows))
+	for _, row := range rows {
+		if _, excluded := excludedIDs[row.ID]; !excluded {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
+// filterExcludedCashAssets removes cash assets that are targets of excluded scenarios
+func filterExcludedCashAssets(rows []FinancialDataRow, excludedIDs map[string]struct{}) []FinancialDataRow {
+	if len(excludedIDs) == 0 {
+		return rows
+	}
+	filtered := make([]FinancialDataRow, 0, len(rows))
+	for _, row := range rows {
+		if _, excluded := excludedIDs[row.ID]; !excluded {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
+// filterExcludedLiabilities removes liabilities that are targets of excluded scenarios
+func filterExcludedLiabilities(rows []FinancialDataRow, excludedIDs map[string]struct{}) []FinancialDataRow {
+	if len(excludedIDs) == 0 {
+		return rows
+	}
+	filtered := make([]FinancialDataRow, 0, len(rows))
+	for _, row := range rows {
+		if _, excluded := excludedIDs[row.ID]; !excluded {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
+// filterExcludedIncomes removes incomes that are targets of excluded scenarios
+func filterExcludedIncomes(rows []FinancialDataRow, excludedIDs map[string]struct{}) []FinancialDataRow {
+	if len(excludedIDs) == 0 {
+		return rows
+	}
+	filtered := make([]FinancialDataRow, 0, len(rows))
+	for _, row := range rows {
+		if _, excluded := excludedIDs[row.ID]; !excluded {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
+// filterExcludedExpenses removes expenses that are targets of excluded scenarios
+func filterExcludedExpenses(rows []FinancialDataRow, excludedIDs map[string]struct{}) []FinancialDataRow {
+	if len(excludedIDs) == 0 {
+		return rows
+	}
+	filtered := make([]FinancialDataRow, 0, len(rows))
+	for _, row := range rows {
+		if _, excluded := excludedIDs[row.ID]; !excluded {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
 }
 
 // =============================================================================
@@ -1024,13 +990,15 @@ func buildCPFContributionResponses(rows []FinancialDataRow, itemStates ItemState
 }
 
 // buildCPFAssetResponses builds CPF asset responses from accumulated balances
-func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int) []CPFAssetResponse {
+// The RA (Retirement Account) is only included if the user is 55+ at the given date
+// or if the RA balance is non-zero.
+func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int, date time.Time) []CPFAssetResponse {
 	if cpfCtx == nil || cpfCtx.Balances == nil {
 		return []CPFAssetResponse{}
 	}
 
 	balances := cpfCtx.Balances
-	return []CPFAssetResponse{
+	responses := []CPFAssetResponse{
 		{
 			ID:         "cpf-oa",
 			ParentID:   "cpf",
@@ -1067,19 +1035,33 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int) []CPFA
 			StartYear:  yearIndex,
 			StartMonth: month,
 		},
-		{
+	}
+
+	// Only include RA if user is 55+ at this date or has a non-zero RA balance
+	raBalance := balances.AccumulatedRA.Round(0)
+	showRA := !raBalance.IsZero()
+	if !showRA && cpfCtx.Processor != nil {
+		if acc := cpfCtx.Processor.GetAccount(); acc != nil {
+			showRA = acc.AgeAtDate(date) >= 55
+		}
+	}
+
+	if showRA {
+		responses = append(responses, CPFAssetResponse{
 			ID:         "cpf-ra",
 			ParentID:   "cpf",
 			Name:       "CPF Retirement Account",
 			Category:   "cpf",
-			Balance:    *balances.AccumulatedRA.Round(0),
-			AdjBalance: *balances.AccumulatedRA.Round(0),
+			Balance:    *raBalance,
+			AdjBalance: *raBalance,
 			ItemType:   "cpf_account",
 			StartDate:  "",
 			StartYear:  yearIndex,
 			StartMonth: month,
-		},
+		})
 	}
+
+	return responses
 }
 
 // buildMonthDetailResponse creates a detailed response for a single month
@@ -1109,7 +1091,7 @@ func buildMonthDetailResponse(
 	cpfContributionResponses := buildCPFContributionResponses(data.Incomes, itemStates, date, cpfContributions)
 
 	// Build CPF assets from accumulated balances
-	cpfAssets := buildCPFAssetResponses(cpfCtx, yearIndex, month)
+	cpfAssets := buildCPFAssetResponses(cpfCtx, yearIndex, month, date)
 	cpfTotal := decimal.Zero()
 	for _, asset := range cpfAssets {
 		cpfTotal = cpfTotal.Add(&asset.Balance)
