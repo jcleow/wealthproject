@@ -22,6 +22,7 @@ interface IncomeAllocationModalProps {
   incomeId: string
   incomeName: string
   incomeAmount: number // annual amount for context
+  initialEditAllocationId?: string // If provided, auto-select this allocation for editing
 }
 
 export function IncomeAllocationModal({
@@ -30,6 +31,7 @@ export function IncomeAllocationModal({
   incomeId,
   incomeName,
   incomeAmount,
+  initialEditAllocationId,
 }: IncomeAllocationModalProps) {
   const { data: allocations = [], isLoading: allocationsLoading } = useIncomeAllocationsQuery(incomeId)
   const { data: cashAccounts = [] } = useCashAccountsQuery()
@@ -41,6 +43,7 @@ export function IncomeAllocationModal({
 
   const [editingAllocation, setEditingAllocation] = useState<IncomeAllocation | null>(null)
   const [isAddingNew, setIsAddingNew] = useState(false)
+  const [hasAutoSelected, setHasAutoSelected] = useState(false)
 
   // Form state
   const [targetType, setTargetType] = useState<TargetType>('investment')
@@ -60,8 +63,20 @@ export function IncomeAllocationModal({
   useEffect(() => {
     if (!isOpen) {
       resetForm()
+      setHasAutoSelected(false)
     }
   }, [isOpen])
+
+  // Auto-select the allocation for editing when initialEditAllocationId is provided
+  useEffect(() => {
+    if (isOpen && initialEditAllocationId && allocations.length > 0 && !hasAutoSelected) {
+      const targetAllocation = allocations.find((a) => a.id === initialEditAllocationId)
+      if (targetAllocation) {
+        setEditingAllocation(targetAllocation)
+        setHasAutoSelected(true)
+      }
+    }
+  }, [isOpen, initialEditAllocationId, allocations, hasAutoSelected])
 
   useEffect(() => {
     if (editingAllocation) {
@@ -129,6 +144,11 @@ export function IncomeAllocationModal({
     return formatCurrency(allocation.allocationValue)
   }
 
+  // When editing a specific allocation (from Investments section), only show that allocation
+  const displayAllocations = initialEditAllocationId
+    ? allocations.filter((a) => a.id === initialEditAllocationId)
+    : allocations
+
   const totalPercentageAllocated = allocations
     .filter((a) => a.allocationType === 'percentage')
     .reduce((sum, a) => sum + a.allocationValue, 0)
@@ -139,6 +159,7 @@ export function IncomeAllocationModal({
 
   const isFormValid = targetId && allocationValue && parseFloat(allocationValue) > 0
   const isSaving = createMutation.isPending || updateMutation.isPending
+  const isEditingSingleAllocation = !!initialEditAllocationId
 
   return (
     <Modal
@@ -165,32 +186,34 @@ export function IncomeAllocationModal({
       </div>
 
       <div className="p-5">
-        {/* Summary */}
-        <div className="mb-4 rounded-lg bg-gray-800/50 p-3 text-sm">
-          <div className="flex justify-between text-gray-300">
-            <span>Percentage allocated:</span>
-            <span className={totalPercentageAllocated > 100 ? 'text-rose-400' : ''}>
-              {totalPercentageAllocated}%
-            </span>
-          </div>
-          {totalFixedAllocated > 0 && (
+        {/* Summary - hide when editing a single allocation */}
+        {!isEditingSingleAllocation && (
+          <div className="mb-4 rounded-lg bg-gray-800/50 p-3 text-sm">
             <div className="flex justify-between text-gray-300">
-              <span>Fixed allocated:</span>
-              <span>{formatCurrency(totalFixedAllocated)}/year</span>
+              <span>Percentage allocated:</span>
+              <span className={totalPercentageAllocated > 100 ? 'text-rose-400' : ''}>
+                {totalPercentageAllocated}%
+              </span>
             </div>
-          )}
-        </div>
+            {totalFixedAllocated > 0 && (
+              <div className="flex justify-between text-gray-300">
+                <span>Fixed allocated:</span>
+                <span>{formatCurrency(totalFixedAllocated)}/year</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Existing allocations */}
         {allocationsLoading ? (
           <div className="py-8 text-center text-gray-400">Loading allocations...</div>
-        ) : allocations.length === 0 && !isAddingNew ? (
+        ) : displayAllocations.length === 0 && !isAddingNew ? (
           <div className="py-8 text-center text-gray-400">
             No allocations configured. Add one to direct income to investments or cash accounts.
           </div>
         ) : (
           <div className="mb-4 space-y-2">
-            {allocations.map((allocation) => (
+            {displayAllocations.map((allocation) => (
               <div
                 key={allocation.id}
                 className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${
@@ -357,8 +380,8 @@ export function IncomeAllocationModal({
           </div>
         )}
 
-        {/* Add button */}
-        {!isAddingNew && !editingAllocation && (
+        {/* Add button - hide when editing a single allocation */}
+        {!isAddingNew && !editingAllocation && !isEditingSingleAllocation && (
           <button
             onClick={() => setIsAddingNew(true)}
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-600 px-4 py-3 text-sm text-gray-400 transition hover:border-gray-500 hover:text-white"

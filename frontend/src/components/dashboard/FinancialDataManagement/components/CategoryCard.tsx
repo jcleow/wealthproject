@@ -57,6 +57,7 @@ interface CategoryCardProps {
   onManageAllocations?: (item: TimelineItem) => void
   // Investment allocations data (for Income card)
   investmentAllocations?: IncomeAllocation[]
+  investments?: TimelineItem[]  // For resolving investment names in allocations
   onEditAllocation?: (allocation: IncomeAllocation) => void
   onDeleteAllocation?: (allocation: IncomeAllocation) => void
 }
@@ -98,6 +99,7 @@ export function CategoryCard({
   onDeleteInvestment,
   onManageAllocations,
   investmentAllocations = [],
+  investments = [],
   onEditAllocation,
   onDeleteAllocation,
 }: CategoryCardProps) {
@@ -331,7 +333,7 @@ export function CategoryCard({
                 monthlyInvestments={monthlyInvestments}
                 showMonthlyData={showMonthlyData}
                 allocations={investmentAllocations}
-                incomes={data}
+                investments={investments}
                 onEditAllocation={onEditAllocation}
                 onDeleteAllocation={onDeleteAllocation}
               />
@@ -486,7 +488,7 @@ interface InvestmentsSectionProps {
   monthlyInvestments: number
   showMonthlyData: boolean
   allocations: IncomeAllocation[]
-  incomes: TimelineItem[]
+  investments: TimelineItem[]
   onEditAllocation?: (allocation: IncomeAllocation) => void
   onDeleteAllocation?: (allocation: IncomeAllocation) => void
 }
@@ -495,17 +497,17 @@ function InvestmentsSection({
   monthlyInvestments,
   showMonthlyData,
   allocations,
-  incomes,
+  investments,
   onEditAllocation,
   onDeleteAllocation,
 }: InvestmentsSectionProps) {
   // Filter for investment allocations only
   const investmentAllocations = allocations.filter((a) => a.targetInvestmentId)
 
-  // Helper to get income name
-  const getIncomeName = (incomeId: string): string => {
-    const income = incomes.find((i) => getItemId(i) === incomeId)
-    return income?.name ?? 'Unknown Income'
+  // Helper to get investment name by ID
+  const getInvestmentName = (investmentId: string): string => {
+    const investment = investments.find((i) => getItemId(i) === investmentId)
+    return investment?.name ?? 'Unknown Investment'
   }
 
   // Format allocation value
@@ -533,7 +535,7 @@ function InvestmentsSection({
             className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
           >
             <div className="min-w-0 flex-1">
-              <span className="truncate text-sm text-slate-300">{getIncomeName(allocation.incomeId)}</span>
+              <span className="truncate text-sm text-slate-300">{getInvestmentName(allocation.targetInvestmentId!)}</span>
             </div>
             <span className="text-sm font-medium text-slate-200 transition-opacity group-hover/item:opacity-0">
               {formatAllocationValue(allocation)}

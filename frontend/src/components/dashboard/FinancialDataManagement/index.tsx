@@ -194,6 +194,7 @@ export function FinancialDataManagement({
     incomeId: string
     incomeName: string
     incomeAmount: number
+    initialEditAllocationId?: string
   }>({ isOpen: false, incomeId: '', incomeName: '', incomeAmount: 0 })
 
   // ========== Computed values ==========
@@ -583,6 +584,7 @@ export function FinancialDataManagement({
       incomeId: allocation.incomeId,
       incomeName: name,
       incomeAmount: amount,
+      initialEditAllocationId: allocation.id,
     })
   }
 
@@ -729,6 +731,7 @@ export function FinancialDataManagement({
                   onDeleteInvestment={key === 'asset' ? handleDeleteInvestment : undefined}
                   onManageAllocations={key === 'income' ? handleManageAllocations : undefined}
                   investmentAllocations={key === 'income' ? investmentAllocations : undefined}
+                  investments={key === 'income' ? investmentAssets : undefined}
                   onEditAllocation={key === 'income' ? handleEditAllocation : undefined}
                   onDeleteAllocation={key === 'income' ? handleDeleteAllocation : undefined}
                 />
@@ -788,10 +791,11 @@ export function FinancialDataManagement({
       />
       <IncomeAllocationModal
         isOpen={allocationModalState.isOpen}
-        onClose={() => setAllocationModalState((prev) => ({ ...prev, isOpen: false }))}
+        onClose={() => setAllocationModalState((prev) => ({ ...prev, isOpen: false, initialEditAllocationId: undefined }))}
         incomeId={allocationModalState.incomeId}
         incomeName={allocationModalState.incomeName}
         incomeAmount={allocationModalState.incomeAmount}
+        initialEditAllocationId={allocationModalState.initialEditAllocationId}
       />
     </>
   )
