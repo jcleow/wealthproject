@@ -25,6 +25,7 @@ import (
 	_ "financial-chat-system/backend/cmd/server/docs"
 
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -65,7 +66,7 @@ func main() {
 	log.Printf("CONFIG: PRIMARY_LLM=%s GEMINI_MODEL=%s OPENAI_MODEL=%s ANTHROPIC_MODEL=%s",
 		cfg.PrimaryLLM, cfg.GeminiModel, cfg.OpenAIModel, cfg.AnthropicModel)
 
-	// Initialize database
+	// Initialize database (sql.DB for legacy packages)
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
@@ -78,9 +79,21 @@ func main() {
 	}
 	log.Printf("Migrations completed")
 
+	// Initialize pgxpool for financial_v2 package
+	ctx := context.Background()
+	pool, err := database.ConnectPgx(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal("Failed to connect to database with pgx:", err)
+	}
+	defer pool.Close()
+	log.Printf("pgxpool initialized for financial_v2")
+
+	// Suppress unused variable warning during transition
+	_ = pgxpool.Pool{}
+
 	// Initialize repositories
 	finStore := finRepo.NewStore(db)
-	finStoreV2 := finRepoV2.NewStore(db)
+	finStoreV2 := finRepoV2.NewStore(pool)
 	cpfAccountRepo := account.NewRepository(db)
 	usageRepo := usage.NewRepository(db, cfg.UsageTrackingEnabled)
 

@@ -2,13 +2,13 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"financial-chat-system/backend/internal/financial_v2/scenario"
+	"github.com/jackc/pgx/v5"
 )
 
 // Type aliases for scenario types - allows repository to use scenario types
@@ -25,15 +25,15 @@ var ErrScenarioNotFound = scenario.ErrNotFound
 
 // CreateScenarioEvent inserts a scenario event and its impacts using typed FK columns.
 func (s *Store) CreateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (ScenarioEvent, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return ScenarioEvent{}, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	tagsJSON, _ := json.Marshal(ev.Tags)
 
-	row := tx.QueryRowContext(ctx, `
+	row := tx.QueryRow(ctx, `
 		INSERT INTO scenario_events (user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, true))
 		RETURNING id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at`,
@@ -52,7 +52,7 @@ func (s *Store) CreateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return ScenarioEvent{}, err
 	}
 
@@ -64,14 +64,14 @@ func (s *Store) CreateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 
 // GetScenarioEventV2 fetches a scenario by ID for a user with typed FK impacts.
 func (s *Store) GetScenarioEventV2(ctx context.Context, userID, eventID string) (ScenarioEvent, error) {
-	row := s.db.QueryRowContext(ctx, `
+	row := s.pool.QueryRow(ctx, `
 		SELECT id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at
 		FROM scenario_events
 		WHERE id = $1 AND user_id = $2`, eventID, userID)
 	var ev ScenarioEvent
 	var tagsJSON []byte
 	if err := row.Scan(&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &ev.ScenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ScenarioEvent{}, ErrScenarioNotFound
 		}
 		return ScenarioEvent{}, err
@@ -93,7 +93,7 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 	}
 
 	where := []string{"user_id = $1"}
-	args := []interface{}{userID}
+	args := []any{userID}
 
 	if filters.IncludedOnly != nil {
 		where = append(where, fmt.Sprintf("is_included = $%d", len(args)+1))
@@ -116,7 +116,7 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 
 	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM scenario_events WHERE %s`, whereClause)
 	var total int
-	if err := s.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -127,7 +127,7 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 		ORDER BY occurs_on ASC, created_at DESC
 		LIMIT $%d OFFSET $%d`, whereClause, len(args)+1, len(args)+2)
 
-	rows, err := s.db.QueryContext(ctx, query, append(args, limit, offset)...)
+	rows, err := s.pool.Query(ctx, query, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -153,15 +153,15 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 
 // UpdateScenarioEventV2 replaces metadata and impacts using typed FK columns.
 func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (ScenarioEvent, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return ScenarioEvent{}, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback(ctx)
 
 	tagsJSON, _ := json.Marshal(ev.Tags)
 
-	row := tx.QueryRowContext(ctx, `
+	row := tx.QueryRow(ctx, `
 		UPDATE scenario_events
 		SET name=$2, description=$3, occurs_on=$4, display_icon=$5, display_color=$6, tags=$7, scenario_id=$8, is_included=$9, updated_at=NOW()
 		WHERE id=$1 AND user_id=$10
@@ -170,14 +170,14 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	var updated ScenarioEvent
 	var tagsBytes []byte
 	if err := row.Scan(&updated.ID, &updated.UserID, &updated.Name, &updated.Description, &updated.OccursOn, &updated.DisplayIcon, &updated.DisplayColor, &tagsBytes, &updated.ScenarioID, &updated.IsIncluded, &updated.CreatedAt, &updated.UpdatedAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ScenarioEvent{}, ErrScenarioNotFound
 		}
 		return ScenarioEvent{}, err
 	}
 	updated.Tags = decodeStringArray(tagsBytes)
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM scenario_event_impacts WHERE event_id=$1`, ev.ID); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM scenario_event_impacts WHERE event_id=$1`, ev.ID); err != nil {
 		return ScenarioEvent{}, err
 	}
 	if len(ev.Impacts) > 0 {
@@ -185,7 +185,7 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 			return ScenarioEvent{}, err
 		}
 	}
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return ScenarioEvent{}, err
 	}
 	updated.Impacts, _ = s.ListScenarioImpactsV2(ctx, updated.ID)
@@ -194,12 +194,11 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 
 // DeleteScenarioEventV2 removes an event for a user.
 func (s *Store) DeleteScenarioEventV2(ctx context.Context, userID, eventID string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM scenario_events WHERE id=$1 AND user_id=$2`, eventID, userID)
+	tag, err := s.pool.Exec(ctx, `DELETE FROM scenario_events WHERE id=$1 AND user_id=$2`, eventID, userID)
 	if err != nil {
 		return err
 	}
-	affected, err := result.RowsAffected()
-	if err != nil || affected == 0 {
+	if tag.RowsAffected() == 0 {
 		return ErrScenarioNotFound
 	}
 	return nil
@@ -207,15 +206,14 @@ func (s *Store) DeleteScenarioEventV2(ctx context.Context, userID, eventID strin
 
 // ToggleScenarioIncludedV2 updates inclusion flag.
 func (s *Store) ToggleScenarioIncludedV2(ctx context.Context, userID, eventID string, included bool) error {
-	result, err := s.db.ExecContext(ctx, `
+	tag, err := s.pool.Exec(ctx, `
 		UPDATE scenario_events
 		SET is_included=$3, updated_at=NOW()
 		WHERE id=$1 AND user_id=$2`, eventID, userID, included)
 	if err != nil {
 		return err
 	}
-	affected, err := result.RowsAffected()
-	if err != nil || affected == 0 {
+	if tag.RowsAffected() == 0 {
 		return ErrScenarioNotFound
 	}
 	return nil
@@ -223,7 +221,7 @@ func (s *Store) ToggleScenarioIncludedV2(ctx context.Context, userID, eventID st
 
 // ListScenarioImpactsV2 lists impacts for an event using typed FK columns.
 func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]ScenarioImpact, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.pool.Query(ctx, `
 		SELECT id, event_id, impact_kind, amount, currency, cadence, start_date, end_date, notes, created_at,
 		       target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id
 		FROM scenario_event_impacts
@@ -237,43 +235,13 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 	var impacts []ScenarioImpact
 	for rows.Next() {
 		var imp ScenarioImpact
-		var startDate sql.NullTime
-		var endDate sql.NullTime
-		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID sql.NullString
-
+		// pgx scans NULL directly into pointer fields
 		if err := rows.Scan(
 			&imp.ID, &imp.EventID, &imp.ImpactKind, &imp.Amount, &imp.Currency, &imp.Cadence,
-			&startDate, &endDate, &imp.Notes, &imp.CreatedAt,
-			&targetAssetID, &targetLiabilityID, &targetIncomeID, &targetExpenseID, &targetCashAccountID, &targetInvestmentID,
+			&imp.StartDate, &imp.EndDate, &imp.Notes, &imp.CreatedAt,
+			&imp.TargetAssetID, &imp.TargetLiabilityID, &imp.TargetIncomeID, &imp.TargetExpenseID, &imp.TargetCashAccountID, &imp.TargetInvestmentID,
 		); err != nil {
 			return nil, err
-		}
-
-		if !startDate.Valid {
-			return nil, fmt.Errorf("impact %s has NULL start_date (database constraint violation)", imp.ID)
-		}
-		imp.StartDate = startDate.Time
-
-		if endDate.Valid {
-			imp.EndDate = &endDate.Time
-		}
-		if targetAssetID.Valid {
-			imp.TargetAssetID = &targetAssetID.String
-		}
-		if targetLiabilityID.Valid {
-			imp.TargetLiabilityID = &targetLiabilityID.String
-		}
-		if targetIncomeID.Valid {
-			imp.TargetIncomeID = &targetIncomeID.String
-		}
-		if targetExpenseID.Valid {
-			imp.TargetExpenseID = &targetExpenseID.String
-		}
-		if targetCashAccountID.Valid {
-			imp.TargetCashAccountID = &targetCashAccountID.String
-		}
-		if targetInvestmentID.Valid {
-			imp.TargetInvestmentID = &targetInvestmentID.String
 		}
 
 		impacts = append(impacts, imp)
@@ -285,9 +253,9 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 }
 
 // insertImpactsV2 inserts impacts using typed FK columns.
-func (s *Store) insertImpactsV2(ctx context.Context, tx *sql.Tx, eventID string, impacts []ScenarioImpact) error {
+func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, eventID string, impacts []ScenarioImpact) error {
 	for _, imp := range impacts {
-		if _, err := tx.ExecContext(ctx, `
+		if _, err := tx.Exec(ctx, `
 			INSERT INTO scenario_event_impacts
 			(event_id, impact_kind, amount, currency, cadence, start_date, end_date, notes,
 			 target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id)
@@ -318,7 +286,7 @@ func (s *Store) GetExcludedScenarioTargetIDs(ctx context.Context, userID string)
 		  AND se.is_included = false
 		  AND sei.impact_kind = 'start'`
 
-	rows, err := s.db.QueryContext(ctx, query, userID)
+	rows, err := s.pool.Query(ctx, query, userID)
 	if err != nil {
 		return ExcludedTargets{}, err
 	}
@@ -334,27 +302,28 @@ func (s *Store) GetExcludedScenarioTargetIDs(ctx context.Context, userID string)
 	}
 
 	for rows.Next() {
-		var assetID, liabilityID, incomeID, expenseID, cashAccountID, investmentID sql.NullString
+		// pgx scans NULL directly into *string
+		var assetID, liabilityID, incomeID, expenseID, cashAccountID, investmentID *string
 		if err := rows.Scan(&assetID, &liabilityID, &incomeID, &expenseID, &cashAccountID, &investmentID); err != nil {
 			return ExcludedTargets{}, err
 		}
-		if assetID.Valid {
-			result.AssetIDs[assetID.String] = struct{}{}
+		if assetID != nil {
+			result.AssetIDs[*assetID] = struct{}{}
 		}
-		if liabilityID.Valid {
-			result.LiabilityIDs[liabilityID.String] = struct{}{}
+		if liabilityID != nil {
+			result.LiabilityIDs[*liabilityID] = struct{}{}
 		}
-		if incomeID.Valid {
-			result.IncomeIDs[incomeID.String] = struct{}{}
+		if incomeID != nil {
+			result.IncomeIDs[*incomeID] = struct{}{}
 		}
-		if expenseID.Valid {
-			result.ExpenseIDs[expenseID.String] = struct{}{}
+		if expenseID != nil {
+			result.ExpenseIDs[*expenseID] = struct{}{}
 		}
-		if cashAccountID.Valid {
-			result.CashAccountIDs[cashAccountID.String] = struct{}{}
+		if cashAccountID != nil {
+			result.CashAccountIDs[*cashAccountID] = struct{}{}
 		}
-		if investmentID.Valid {
-			result.InvestmentIDs[investmentID.String] = struct{}{}
+		if investmentID != nil {
+			result.InvestmentIDs[*investmentID] = struct{}{}
 		}
 	}
 
