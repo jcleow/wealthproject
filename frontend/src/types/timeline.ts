@@ -158,6 +158,7 @@ export interface MonthDetailResponseV2 {
   income: IncomeResponseV2[]
   cpfContributions: CPFContributionResponseV2[]
   expenses: ExpenseResponseV2[]
+  incomeAllocations: IncomeAllocationResponseV2[]
   // Savings breakdown
   netSavings: string      // income - employee CPF - expenses (monthly)
   netCash: string         // income - employee CPF - expenses - investments (monthly)
@@ -165,6 +166,19 @@ export interface MonthDetailResponseV2 {
   // Other totals
   netWorth: string
   accumulatorAccountId: string
+}
+
+/** Income allocation in V2 response - filtered by month */
+export interface IncomeAllocationResponseV2 {
+  id: string
+  incomeId: string
+  parentId: string
+  startDate: string
+  endDate?: string
+  targetCashAccountId?: string
+  targetInvestmentId?: string
+  allocationType: 'percentage' | 'fixed'
+  allocationValue: string // decimal as string
 }
 
 /** Non-cash asset in V2 response (decimal values come as strings from backend) */

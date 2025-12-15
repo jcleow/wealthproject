@@ -12,6 +12,7 @@ export function useAssetsQuery() {
       const result = await assetsApi.listAssets({ limit: -1 })
       return result.data
     },
+    enabled: false, // V2 timeline provides this data - no need to fetch separately
     staleTime: 30_000, // Consider fresh for 30 seconds
     cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   })

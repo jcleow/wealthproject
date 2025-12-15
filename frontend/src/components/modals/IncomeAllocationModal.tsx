@@ -35,7 +35,7 @@ export function IncomeAllocationModal({
 }: IncomeAllocationModalProps) {
   const { data: allocations = [], isLoading: allocationsLoading } = useIncomeAllocationsQuery(incomeId)
   const { data: cashAccounts = [] } = useCashAccountsQuery()
-  const { data: investments = [] } = useInvestmentsQuery()
+  const { data: investments = [] } = useInvestmentsQuery({ enabled: isOpen })
 
   const createMutation = useCreateIncomeAllocationMutation()
   const updateMutation = useUpdateIncomeAllocationMutation()
@@ -50,15 +50,25 @@ export function IncomeAllocationModal({
   const [targetId, setTargetId] = useState('')
   const [allocationType, setAllocationType] = useState<AllocationType>('percentage')
   const [allocationValue, setAllocationValue] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
 
   const resetForm = () => {
     setTargetType('investment')
     setTargetId('')
     setAllocationType('percentage')
     setAllocationValue('')
+    setSearchTerm('')
     setEditingAllocation(null)
     setIsAddingNew(false)
   }
+
+  // Filter options based on search term
+  const filteredInvestments = investments.filter((inv) =>
+    inv.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+  const filteredCashAccounts = cashAccounts.filter((ca) =>
+    ca.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   useEffect(() => {
     if (!isOpen) {
@@ -289,6 +299,7 @@ export function IncomeAllocationModal({
                   onClick={() => {
                     setTargetType('investment')
                     setTargetId('')
+                    setSearchTerm('')
                   }}
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm transition ${
                     targetType === 'investment'
@@ -303,6 +314,7 @@ export function IncomeAllocationModal({
                   onClick={() => {
                     setTargetType('cash_account')
                     setTargetId('')
+                    setSearchTerm('')
                   }}
                   className={`flex-1 rounded-lg border px-3 py-2 text-sm transition ${
                     targetType === 'cash_account'
@@ -320,6 +332,13 @@ export function IncomeAllocationModal({
               <label className="mb-1.5 block text-sm font-medium text-gray-300">
                 {targetType === 'investment' ? 'Investment' : 'Cash Account'}
               </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={`Search ${targetType === 'investment' ? 'investments' : 'cash accounts'}...`}
+                className="mb-2 w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+              />
               <select
                 value={targetId}
                 onChange={(e) => setTargetId(e.target.value)}
@@ -327,12 +346,12 @@ export function IncomeAllocationModal({
               >
                 <option value="">Select {targetType === 'investment' ? 'an investment' : 'a cash account'}</option>
                 {targetType === 'investment'
-                  ? investments.map((inv) => (
+                  ? filteredInvestments.map((inv) => (
                       <option key={inv.id} value={inv.id}>
                         {inv.name} ({formatCurrency(inv.currentValue)})
                       </option>
                     ))
-                  : cashAccounts.map((ca) => (
+                  : filteredCashAccounts.map((ca) => (
                       <option key={ca.id} value={ca.id}>
                         {ca.name} ({formatCurrency(ca.balance)})
                       </option>

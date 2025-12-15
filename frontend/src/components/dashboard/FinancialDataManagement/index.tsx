@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import {
@@ -12,8 +12,8 @@ import {
   useCreateInvestmentMutation,
   useUpdateInvestmentMutation,
   useDeleteInvestmentMutation,
-  useAllIncomeAllocationsQuery,
   useDeleteIncomeAllocationMutation,
+  useStopIncomeAllocationMutation,
 } from '@/hooks/queries'
 import type { TimelineItem, TimelineEditRequest, TimelineEdit, TimelineFrequency } from '@/types/timeline'
 import type { PropertyLinkRecord } from '@/types/property'
@@ -22,7 +22,7 @@ import { FinancialFormModal } from '@/components/modals/FinancialFormModal'
 import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal'
 import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal'
-import { financialApi } from '@/api/financial'
+// import { financialApi } from '@/api/financial'
 import type { IncomeAllocation } from '@/api/financial/incomes'
 
 // Local imports
@@ -38,7 +38,7 @@ import {
   incomeV2ToTimelineItem,
   expenseV2ToTimelineItem,
 } from './converters'
-import { getItemId } from './utils'
+import { getItemId, calculateAllocationEndDate } from './utils'
 import { Header } from './components/Header'
 import { CategoryCard } from './components/CategoryCard'
 import { ResizableCard } from './components/ResizableCard'
@@ -95,8 +95,27 @@ export function FinancialDataManagement({
   const createInvestmentMutation = useCreateInvestmentMutation()
   const updateInvestmentMutation = useUpdateInvestmentMutation()
   const deleteInvestmentMutation = useDeleteInvestmentMutation()
-  const { data: allAllocations = [] } = useAllIncomeAllocationsQuery()
+  // Get investment allocations from snapshot (filtered by month) instead of direct API
+  const investmentAllocations = useMemo(() => {
+    if (!timelineMonthV2?.incomeAllocations) return []
+    // Filter for investment allocations only and convert to expected format
+    return timelineMonthV2.incomeAllocations
+      .filter(alloc => alloc.targetInvestmentId)
+      .map(alloc => ({
+        id: alloc.id,
+        incomeId: alloc.incomeId,
+        parentId: alloc.parentId,
+        startDate: alloc.startDate,
+        endDate: alloc.endDate,
+        targetCashAccountId: alloc.targetCashAccountId,
+        targetInvestmentId: alloc.targetInvestmentId,
+        allocationType: alloc.allocationType,
+        allocationValue: Number(alloc.allocationValue),
+        createdAt: '', // Not needed for display
+      }))
+  }, [timelineMonthV2?.incomeAllocations])
   const deleteAllocationMutation = useDeleteIncomeAllocationMutation()
+  const stopAllocationMutation = useStopIncomeAllocationMutation()
 
   // ========== V2 Data Extraction ==========
   const yearAssets = useMemo(() => {
@@ -153,10 +172,6 @@ export function FinancialDataManagement({
   }, [hasV2Data, timelineMonthV2])
   const hasInvestmentsSection = hasV2Data && timelineMonthV2?.netInvestments !== undefined
 
-  // Filter allocations for those targeting investments
-  const investmentAllocations = useMemo(() => {
-    return allAllocations.filter((a) => a.targetInvestmentId)
-  }, [allAllocations])
 
   const yearExpenses = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
@@ -176,8 +191,8 @@ export function FinancialDataManagement({
     mode: 'create',
   })
   const [activeAnnualizationId, setActiveAnnualizationId] = useState<string | null>(null)
-  const [assetLinks, setAssetLinks] = useState<Record<string, PropertyLinkRecord[]>>({})
-  const [liabilityLinks, setLiabilityLinks] = useState<Record<string, PropertyLinkRecord[]>>({})
+  const [assetLinks] = useState<Record<string, PropertyLinkRecord[]>>({})
+  const [liabilityLinks] = useState<Record<string, PropertyLinkRecord[]>>({})
   const [sortDirections, setSortDirections] = useState<Record<FinancialCategory, 'asc' | 'desc'>>({
     asset: 'desc',
     income: 'desc',
@@ -273,6 +288,9 @@ export function FinancialDataManagement({
   const formatYearLabel = (year: number) => (year === 0 ? 'BASE' : `Year ${year}`)
 
   // ========== Effects ==========
+  // Property links effect disabled - not currently used
+  // If property links are needed, uncomment this effect
+  /*
   useEffect(() => {
     const fetchLinks = async () => {
       try {
@@ -331,6 +349,7 @@ export function FinancialDataManagement({
       setLiabilityLinks({})
     }
   }, [yearAssets, yearLiabilities])
+  */
 
   // ========== Handlers ==========
   const handleAddItem = (category: FinancialCategory) => {
@@ -588,16 +607,39 @@ export function FinancialDataManagement({
     })
   }
 
-  // Delete an allocation directly
+  // Delete or stop an allocation
+  // At base (selectedYear=0, selectedMonth=0): delete the allocation entirely
+  // At future month: stop the allocation by setting end_date to last day of previous month
   const handleDeleteAllocation = async (allocation: IncomeAllocation) => {
-    if (!confirm('Are you sure you want to delete this allocation?')) return
-    try {
-      await deleteAllocationMutation.mutateAsync({
-        incomeId: allocation.incomeId,
-        allocationId: allocation.id,
-      })
-    } catch (error) {
-      console.error('Failed to delete allocation:', error)
+    const isFutureMonth = selectedYear > 0 || (selectedMonth !== undefined && selectedMonth > 0)
+
+    if (isFutureMonth) {
+      // Stop allocation at this future point - set end_date to last day of previous month
+      if (!confirm('This will stop the allocation from this month onwards. The allocation will remain active for previous months. Continue?')) return
+
+      // Calculate end_date as last day of previous month using utility function
+      const endDate = calculateAllocationEndDate(selectedYear, selectedMonth ?? 0, anchorYear)
+
+      try {
+        await stopAllocationMutation.mutateAsync({
+          incomeId: allocation.incomeId,
+          allocationId: allocation.id,
+          endDate,
+        })
+      } catch (error) {
+        console.error('Failed to stop allocation:', error)
+      }
+    } else {
+      // At base - delete the allocation entirely
+      if (!confirm('Are you sure you want to delete this allocation?')) return
+      try {
+        await deleteAllocationMutation.mutateAsync({
+          incomeId: allocation.incomeId,
+          allocationId: allocation.id,
+        })
+      } catch (error) {
+        console.error('Failed to delete allocation:', error)
+      }
     }
   }
 

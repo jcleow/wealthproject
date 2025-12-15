@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"financial-chat-system/backend/internal/decimal"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
@@ -22,6 +23,9 @@ func NewIncomeAllocationV2Handler(store *repo.Store) *IncomeAllocationV2Handler 
 type incomeAllocationV2DTO struct {
 	ID                  string  `json:"id"`
 	IncomeID            string  `json:"incomeId"`
+	ParentID            string  `json:"parentId"`
+	StartDate           string  `json:"startDate"`
+	EndDate             *string `json:"endDate,omitempty"`
 	TargetCashAccountID *string `json:"targetCashAccountId,omitempty"`
 	TargetInvestmentID  *string `json:"targetInvestmentId,omitempty"`
 	AllocationType      string  `json:"allocationType"`
@@ -30,23 +34,34 @@ type incomeAllocationV2DTO struct {
 }
 
 func toIncomeAllocationV2DTO(a repo.IncomeAllocation) incomeAllocationV2DTO {
-	return incomeAllocationV2DTO{
+	dto := incomeAllocationV2DTO{
 		ID:                  a.ID,
 		IncomeID:            a.IncomeID,
+		ParentID:            a.ParentID,
+		StartDate:           a.StartDate.Format("2006-01-02T15:04:05Z07:00"),
 		TargetCashAccountID: a.TargetCashAccountID,
 		TargetInvestmentID:  a.TargetInvestmentID,
 		AllocationType:      a.AllocationType,
 		AllocationValue:     a.AllocationValue.ToFloat64(),
 		CreatedAt:           a.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
+	if a.EndDate != nil {
+		endDateStr := a.EndDate.Format("2006-01-02T15:04:05Z07:00")
+		dto.EndDate = &endDateStr
+	}
+	return dto
 }
 
 // HandleListAll handles GET /income-allocations - list all allocations for the user.
+// Query params:
+//   - targetType: "investment" or "cash_account" to filter by target type
 func (h *IncomeAllocationV2Handler) HandleListAll(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
 		return
 	}
+
+	targetType := r.URL.Query().Get("targetType")
 
 	allocations, err := h.store.ListAllIncomeAllocations(r.Context(), userID)
 	if err != nil {
@@ -54,9 +69,17 @@ func (h *IncomeAllocationV2Handler) HandleListAll(w http.ResponseWriter, r *http
 		return
 	}
 
-	dtos := make([]incomeAllocationV2DTO, len(allocations))
-	for i, a := range allocations {
-		dtos[i] = toIncomeAllocationV2DTO(a)
+	dtos := make([]incomeAllocationV2DTO, 0, len(allocations))
+	for _, a := range allocations {
+		// Filter by target type if specified
+		if targetType == "investment" && a.TargetInvestmentID == nil {
+			continue
+		}
+		if targetType == "cash_account" && a.TargetCashAccountID == nil {
+			continue
+		}
+
+		dtos = append(dtos, toIncomeAllocationV2DTO(a))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -217,4 +240,48 @@ func (h *IncomeAllocationV2Handler) HandleDelete(w http.ResponseWriter, r *http.
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// stopAllocationDTO is the JSON input for stopping an allocation at a future date.
+type stopAllocationDTO struct {
+	EndDate string `json:"endDate"` // ISO 8601 format (e.g., "2031-03-31T23:59:59Z")
+}
+
+// HandleStop handles POST /incomes/{incomeId}/allocations/{allocId}/stop - set end_date.
+// This "stops" an allocation at a future point without deleting the original record.
+func (h *IncomeAllocationV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var input stopAllocationDTO
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+
+	if input.EndDate == "" {
+		writeError(w, http.StatusBadRequest, "bad_request", "endDate is required")
+		return
+	}
+
+	endDate, err := time.Parse(time.RFC3339, input.EndDate)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "endDate must be in ISO 8601 format (e.g., 2031-03-31T23:59:59Z)")
+		return
+	}
+
+	updated, err := h.store.SetIncomeAllocationEndDate(r.Context(), userID, allocID, endDate)
+	if err != nil {
+		if err == repo.ErrNotFound {
+			writeError(w, http.StatusNotFound, "not_found", "allocation not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(toIncomeAllocationV2DTO(*updated))
 }

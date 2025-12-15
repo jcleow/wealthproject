@@ -106,9 +106,10 @@ type MonthDetailResponse struct {
 	CashAssets       []CashAssetResponse       `json:"cashAssets"`
 	CPFAssets        []CPFAssetResponse        `json:"cpfAssets"`
 	Liabilities      []LiabilityResponse       `json:"liabilities"`
-	Income           []IncomeResponse          `json:"income"`
-	CPFContributions []CPFContributionResponse `json:"cpfContributions"`
-	Expenses         []ExpenseResponse         `json:"expenses"`
+	Income            []IncomeResponse           `json:"income"`
+	CPFContributions  []CPFContributionResponse  `json:"cpfContributions"`
+	Expenses          []ExpenseResponse          `json:"expenses"`
+	IncomeAllocations []IncomeAllocationResponse `json:"incomeAllocations"`
 	// Savings breakdown
 	NetSavings     decimal.Decimal `json:"netSavings"`     // income - employee CPF - expenses (monthly)
 	NetCash        decimal.Decimal `json:"netCash"`        // income - employee CPF - expenses - investments (monthly)
@@ -243,4 +244,17 @@ type ExpenseResponse struct {
 	StartYear         int             `json:"startYear"`
 	StartMonth        int             `json:"startMonth"`
 	SourceLiabilityID *string         `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
+}
+
+// IncomeAllocationResponse represents an income allocation in the timeline response
+type IncomeAllocationResponse struct {
+	ID                  string          `json:"id"`
+	IncomeID            string          `json:"incomeId"`
+	ParentID            string          `json:"parentId"`
+	StartDate           string          `json:"startDate"`
+	EndDate             *string         `json:"endDate,omitempty"`
+	TargetCashAccountID *string         `json:"targetCashAccountId,omitempty"`
+	TargetInvestmentID  *string         `json:"targetInvestmentId,omitempty"`
+	AllocationType      string          `json:"allocationType"`
+	AllocationValue     decimal.Decimal `json:"allocationValue"`
 }

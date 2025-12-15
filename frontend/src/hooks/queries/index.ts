@@ -32,6 +32,7 @@ export {
   useCreateIncomeAllocationMutation,
   useUpdateIncomeAllocationMutation,
   useDeleteIncomeAllocationMutation,
+  useStopIncomeAllocationMutation,
 } from './useIncomeAllocationsQuery'
 
 // Expense queries and mutations

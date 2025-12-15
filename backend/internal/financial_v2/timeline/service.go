@@ -727,6 +727,25 @@ func calcCashAllocation(
 	return netSavings, netCashFlow, netInvestments
 }
 
+// isAllocationActiveInMonth checks if an income allocation is active during the given month.
+// An allocation is active if it started on or before the last day of that month,
+// and hasn't ended before the first day of that month.
+func isAllocationActiveInMonth(alloc repo.IncomeAllocation, date time.Time) bool {
+	// Get the last day of the month
+	year, month, _ := date.Date()
+	lastDayOfMonth := time.Date(year, month+1, 0, 23, 59, 59, 0, date.Location())
+
+	// Allocation must start on or before the last day of this month
+	if alloc.StartDate.After(lastDayOfMonth) {
+		return false
+	}
+	// If allocation has an end date, it must not have ended before the first day of this month
+	if alloc.EndDate != nil && alloc.EndDate.Before(date) {
+		return false
+	}
+	return true
+}
+
 // applyInvestmentAllocations adds the monthly allocation amounts to investment balances.
 // This function modifies the state map to increase investment balances based on income allocations.
 // Returns the total amount allocated to investments this month.
@@ -739,10 +758,10 @@ func applyInvestmentAllocations(
 ) *decimal.Decimal {
 	total := decimal.Zero()
 
-	// Build a map of income ID -> allocations targeting investments
+	// Build a map of income ID -> allocations targeting investments (filtered by date)
 	incomeAllocMap := make(map[string][]repo.IncomeAllocation)
 	for _, alloc := range allocations {
-		if alloc.TargetInvestmentID != nil {
+		if alloc.TargetInvestmentID != nil && isAllocationActiveInMonth(alloc, currentDate) {
 			incomeAllocMap[alloc.IncomeID] = append(incomeAllocMap[alloc.IncomeID], alloc)
 		}
 	}
@@ -1181,6 +1200,32 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int, date t
 	return responses
 }
 
+// buildIncomeAllocationResponses builds responses for active income allocations
+func buildIncomeAllocationResponses(allocations []repo.IncomeAllocation, date time.Time) []IncomeAllocationResponse {
+	responses := make([]IncomeAllocationResponse, 0)
+	for _, alloc := range allocations {
+		if !isAllocationActiveInMonth(alloc, date) {
+			continue
+		}
+		resp := IncomeAllocationResponse{
+			ID:                  alloc.ID,
+			IncomeID:            alloc.IncomeID,
+			ParentID:            alloc.ParentID,
+			StartDate:           alloc.StartDate.Format("2006-01-02T15:04:05Z07:00"),
+			TargetCashAccountID: alloc.TargetCashAccountID,
+			TargetInvestmentID:  alloc.TargetInvestmentID,
+			AllocationType:      alloc.AllocationType,
+			AllocationValue:     alloc.AllocationValue,
+		}
+		if alloc.EndDate != nil {
+			endDateStr := alloc.EndDate.Format("2006-01-02T15:04:05Z07:00")
+			resp.EndDate = &endDateStr
+		}
+		responses = append(responses, resp)
+	}
+	return responses
+}
+
 // buildMonthDetailResponse creates a detailed response for a single month
 func buildMonthDetailResponse(
 	calendarMonthIdx int,
@@ -1195,6 +1240,7 @@ func buildMonthDetailResponse(
 	netInvestments *decimal.Decimal,
 	cpfContributions map[string]*cpfProcessor.ContributionResult,
 	cpfCtx *CPFContext,
+	incomeAllocations []repo.IncomeAllocation,
 ) MonthDetailResponse {
 	yearIndex := date.Year() - baseYear
 	month := int(date.Month())
@@ -1207,6 +1253,7 @@ func buildMonthDetailResponse(
 	incomes := buildIncomeResponses(data.Incomes, itemStates, adjustedState, date, cpfContributions)
 	expenses := buildExpenseResponses(data.Expenses, itemStates, adjustedState, date)
 	cpfContributionResponses := buildCPFContributionResponses(data.Incomes, itemStates, date, cpfContributions)
+	incomeAllocationResponses := buildIncomeAllocationResponses(incomeAllocations, date)
 
 	// Build CPF assets from accumulated balances
 	cpfAssets := buildCPFAssetResponses(cpfCtx, yearIndex, month, date)
@@ -1232,6 +1279,7 @@ func buildMonthDetailResponse(
 		Income:               incomes,
 		CPFContributions:     cpfContributionResponses,
 		Expenses:             expenses,
+		IncomeAllocations:    incomeAllocationResponses,
 		NetSavings:           *netSavings.Round(0),
 		NetCash:              *netCashFlow.Round(0),
 		NetInvestments:       *netInvestments.Round(0),
@@ -1321,6 +1369,7 @@ func processMonth(mctx *MonthlyContext, calendarMonthIdx int, currentDate time.T
 		calendarMonthIdx, currentDate, mctx.BaseYear, mctx.Data, mctx.ItemStates,
 		mctx.AdjustedState, // Pass adjusted state for adjBalance/adjAmount
 		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFCtx,
+		mctx.IncomeAllocations,
 	)
 }
 

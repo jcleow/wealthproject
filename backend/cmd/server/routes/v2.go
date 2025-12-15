@@ -99,4 +99,10 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 			allocHandler.HandleDelete(w, r, incomeID, allocID)
 		}
 	}).Methods("PUT", "DELETE")
+	router.HandleFunc("/incomes/{incomeId}/allocations/{allocId}/stop", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		incomeID := vars["incomeId"]
+		allocID := vars["allocId"]
+		allocHandler.HandleStop(w, r, incomeID, allocID)
+	}).Methods("POST")
 }
