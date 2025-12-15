@@ -108,7 +108,7 @@ func ApplyImpactsToItem(
 func ImpactAppliesToMonth(impact Impact, currentDate time.Time) bool {
 	// Normalize to first of month for comparison
 	currentMonth := normalizeToMonthStart(currentDate)
-	impactStart := normalizeToMonthStart(impact.StartMonth)
+	impactStart := normalizeToMonthStart(impact.StartDate)
 
 	// Impact must have started on or before current month
 	if currentMonth.Before(impactStart) {
@@ -116,8 +116,8 @@ func ImpactAppliesToMonth(impact Impact, currentDate time.Time) bool {
 	}
 
 	// If impact has end date, current month must be on or before end
-	if impact.EndMonth != nil {
-		impactEnd := normalizeToMonthStart(*impact.EndMonth)
+	if impact.EndDate != nil {
+		impactEnd := normalizeToMonthStart(*impact.EndDate)
 		if currentMonth.After(impactEnd) {
 			return false
 		}

@@ -34,8 +34,8 @@ type Impact struct {
 	Amount     int64
 	Currency   string
 	Cadence    string
-	StartMonth time.Time
-	EndMonth   *time.Time
+	StartDate  time.Time
+	EndDate    *time.Time
 	Notes      string
 	CreatedAt  time.Time
 

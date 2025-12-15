@@ -64,10 +64,10 @@ type scenarioImpactInput struct {
 	Amount          int64   `json:"amount"`
 	Currency        string  `json:"currency"`
 	Cadence         string  `json:"cadence"`
-	StartMonth      string  `json:"startMonth"`
-	StartMonthSnake string  `json:"start_month"`
-	EndMonth        *string `json:"endMonth"`
-	EndMonthSnake   *string `json:"end_month"`
+	StartDate       string  `json:"startDate"`
+	StartDateSnake  string  `json:"start_date"`
+	EndDate         *string `json:"endDate"`
+	EndDateSnake    *string `json:"end_date"`
 	Notes           *string `json:"notes"`
 }
 
@@ -98,13 +98,13 @@ func normalizeImpactInput(in scenarioImpactInput) scenarioImpactDTO {
 	if impactKind == "" {
 		impactKind = in.ImpactKindSnake
 	}
-	start := in.StartMonth
+	start := in.StartDate
 	if start == "" {
-		start = in.StartMonthSnake
+		start = in.StartDateSnake
 	}
-	end := in.EndMonth
-	if end == nil && in.EndMonthSnake != nil {
-		end = in.EndMonthSnake
+	end := in.EndDate
+	if end == nil && in.EndDateSnake != nil {
+		end = in.EndDateSnake
 	}
 	targetID := in.TargetID
 	if targetID == nil && in.TargetIDSnake != nil {
@@ -117,8 +117,8 @@ func normalizeImpactInput(in scenarioImpactInput) scenarioImpactDTO {
 		Amount:     in.Amount,
 		Currency:   in.Currency,
 		Cadence:    in.Cadence,
-		StartMonth: start,
-		EndMonth:   end,
+		StartDate:  start,
+		EndDate:    end,
 		Notes:      in.Notes,
 	}
 }

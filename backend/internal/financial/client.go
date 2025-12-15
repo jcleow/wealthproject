@@ -1628,7 +1628,7 @@ func (c *Client) CreateScenarioEvent(ctx context.Context, params CreateScenarioE
 			ImpactKind: params.ImpactType,
 			Currency:   "SGD",
 			Cadence:    "one_time",
-			StartMonth: occursOn,
+			StartDate:  occursOn,
 		}
 
 		// For "start" impacts, we need to create the financial item first

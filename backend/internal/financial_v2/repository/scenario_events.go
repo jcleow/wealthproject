@@ -7,101 +7,21 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
+
+	"financial-chat-system/backend/internal/financial_v2/scenario"
 )
 
-// ErrNotFound indicates a record was not found
-var ErrScenarioNotFound = errors.New("scenario not found")
+// Type aliases for scenario types - allows repository to use scenario types
+// while maintaining backward compatibility with existing code using repo.ScenarioEvent etc.
+type (
+	ScenarioEvent   = scenario.Event
+	ScenarioImpact  = scenario.Impact
+	ScenarioFilters = scenario.Filters
+	ExcludedTargets = scenario.ExcludedTargets
+)
 
-// ScenarioEvent represents a scenario event with typed FK impacts.
-type ScenarioEvent struct {
-	ID           string
-	UserID       string
-	Name         string
-	Description  string
-	OccursOn     time.Time
-	DisplayIcon  string
-	DisplayColor *string
-	Tags         []string
-	ScenarioID   *string
-	IsIncluded   bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	Impacts      []ScenarioImpact
-}
-
-// ScenarioImpact represents a financial impact with typed FK columns.
-// Only one of the target FK fields will be non-nil per impact.
-type ScenarioImpact struct {
-	ID         string
-	EventID    string
-	ImpactKind string
-	Amount     int64
-	Currency   string
-	Cadence    string
-	StartMonth time.Time
-	EndMonth   *time.Time
-	Notes      string
-	CreatedAt  time.Time
-
-	// Typed FK columns (only one is non-nil per row)
-	TargetAssetID       *string
-	TargetLiabilityID   *string
-	TargetIncomeID      *string
-	TargetExpenseID     *string
-	TargetCashAccountID *string
-	TargetInvestmentID  *string
-}
-
-// TargetType returns the type of target this impact references.
-func (s *ScenarioImpact) TargetType() string {
-	switch {
-	case s.TargetAssetID != nil:
-		return "asset"
-	case s.TargetLiabilityID != nil:
-		return "liability"
-	case s.TargetIncomeID != nil:
-		return "income"
-	case s.TargetExpenseID != nil:
-		return "expense"
-	case s.TargetCashAccountID != nil:
-		return "cash"
-	case s.TargetInvestmentID != nil:
-		return "investment"
-	default:
-		return ""
-	}
-}
-
-// TargetID returns the target ID regardless of type.
-func (s *ScenarioImpact) TargetID() *string {
-	switch {
-	case s.TargetAssetID != nil:
-		return s.TargetAssetID
-	case s.TargetLiabilityID != nil:
-		return s.TargetLiabilityID
-	case s.TargetIncomeID != nil:
-		return s.TargetIncomeID
-	case s.TargetExpenseID != nil:
-		return s.TargetExpenseID
-	case s.TargetCashAccountID != nil:
-		return s.TargetCashAccountID
-	case s.TargetInvestmentID != nil:
-		return s.TargetInvestmentID
-	default:
-		return nil
-	}
-}
-
-// ScenarioFilters controls list queries.
-type ScenarioFilters struct {
-	IncludedOnly *bool
-	Tags         []string
-	Year         *int
-	Search       string
-	Limit        int
-	Offset       int
-}
+// ErrScenarioNotFound is an alias for scenario.ErrNotFound
+var ErrScenarioNotFound = scenario.ErrNotFound
 
 // CreateScenarioEvent inserts a scenario event and its impacts using typed FK columns.
 func (s *Store) CreateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (ScenarioEvent, error) {
@@ -304,11 +224,11 @@ func (s *Store) ToggleScenarioIncludedV2(ctx context.Context, userID, eventID st
 // ListScenarioImpactsV2 lists impacts for an event using typed FK columns.
 func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]ScenarioImpact, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, event_id, impact_kind, amount, currency, cadence, start_month, end_month, notes, created_at,
+		SELECT id, event_id, impact_kind, amount, currency, cadence, start_date, end_date, notes, created_at,
 		       target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id
 		FROM scenario_event_impacts
 		WHERE event_id = $1
-		ORDER BY start_month ASC NULLS LAST, created_at ASC`, eventID)
+		ORDER BY start_date ASC NULLS LAST, created_at ASC`, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -317,25 +237,25 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 	var impacts []ScenarioImpact
 	for rows.Next() {
 		var imp ScenarioImpact
-		var startMonth sql.NullTime
-		var endMonth sql.NullTime
+		var startDate sql.NullTime
+		var endDate sql.NullTime
 		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID sql.NullString
 
 		if err := rows.Scan(
 			&imp.ID, &imp.EventID, &imp.ImpactKind, &imp.Amount, &imp.Currency, &imp.Cadence,
-			&startMonth, &endMonth, &imp.Notes, &imp.CreatedAt,
+			&startDate, &endDate, &imp.Notes, &imp.CreatedAt,
 			&targetAssetID, &targetLiabilityID, &targetIncomeID, &targetExpenseID, &targetCashAccountID, &targetInvestmentID,
 		); err != nil {
 			return nil, err
 		}
 
-		if !startMonth.Valid {
-			return nil, fmt.Errorf("impact %s has NULL start_month (database constraint violation)", imp.ID)
+		if !startDate.Valid {
+			return nil, fmt.Errorf("impact %s has NULL start_date (database constraint violation)", imp.ID)
 		}
-		imp.StartMonth = startMonth.Time
+		imp.StartDate = startDate.Time
 
-		if endMonth.Valid {
-			imp.EndMonth = &endMonth.Time
+		if endDate.Valid {
+			imp.EndDate = &endDate.Time
 		}
 		if targetAssetID.Valid {
 			imp.TargetAssetID = &targetAssetID.String
@@ -369,10 +289,10 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx *sql.Tx, eventID string,
 	for _, imp := range impacts {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO scenario_event_impacts
-			(event_id, impact_kind, amount, currency, cadence, start_month, end_month, notes,
+			(event_id, impact_kind, amount, currency, cadence, start_date, end_date, notes,
 			 target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id)
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-			eventID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartMonth, imp.EndMonth, imp.Notes,
+			eventID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartDate, imp.EndDate, imp.Notes,
 			imp.TargetAssetID, imp.TargetLiabilityID, imp.TargetIncomeID, imp.TargetExpenseID, imp.TargetCashAccountID, imp.TargetInvestmentID,
 		); err != nil {
 			return err
@@ -450,16 +370,6 @@ func (s *Store) ListIncludedScenarioEvents(ctx context.Context, userID string) (
 		Limit:        1000, // High limit to get all included scenarios
 	})
 	return events, err
-}
-
-// ExcludedTargets holds IDs of financial items from excluded scenarios.
-type ExcludedTargets struct {
-	AssetIDs       map[string]struct{}
-	LiabilityIDs   map[string]struct{}
-	IncomeIDs      map[string]struct{}
-	ExpenseIDs     map[string]struct{}
-	CashAccountIDs map[string]struct{}
-	InvestmentIDs  map[string]struct{}
 }
 
 func decodeStringArray(b []byte) []string {

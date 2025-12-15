@@ -30,8 +30,8 @@ type scenarioImpactV2DTO struct {
 	Amount     int64   `json:"amount"`
 	Currency   string  `json:"currency"`
 	Cadence    string  `json:"cadence"`
-	StartMonth string  `json:"startMonth"`
-	EndMonth   *string `json:"endMonth,omitempty"`
+	StartDate  string  `json:"startDate"`
+	EndDate    *string `json:"endDate,omitempty"`
 	Notes      *string `json:"notes,omitempty"`
 
 	// Typed target IDs (only one should be set per impact)
@@ -61,8 +61,8 @@ type scenarioEventV2DTO struct {
 
 func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 	var end *string
-	if imp.EndMonth != nil {
-		val := imp.EndMonth.Format(time.DateOnly)
+	if imp.EndDate != nil {
+		val := imp.EndDate.Format(time.DateOnly)
 		end = &val
 	}
 	var notes *string
@@ -75,8 +75,8 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		Amount:              imp.Amount,
 		Currency:            imp.Currency,
 		Cadence:             imp.Cadence,
-		StartMonth:          imp.StartMonth.Format(time.DateOnly),
-		EndMonth:            end,
+		StartDate:           imp.StartDate.Format(time.DateOnly),
+		EndDate:             end,
 		Notes:               notes,
 		TargetAssetID:       imp.TargetAssetID,
 		TargetLiabilityID:   imp.TargetLiabilityID,
@@ -445,18 +445,18 @@ func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, e
 			return nil, errors.New("invalid cadence")
 		}
 
-		if strings.TrimSpace(in.StartMonth) == "" {
-			return nil, errors.New("startMonth is required for impact")
+		if strings.TrimSpace(in.StartDate) == "" {
+			return nil, errors.New("startDate is required for impact")
 		}
-		start, err := parseMonthStart(in.StartMonth)
+		start, err := parseMonthStart(in.StartDate)
 		if err != nil {
-			return nil, errors.New("invalid startMonth; expected YYYY-MM or month-start timestamp")
+			return nil, errors.New("invalid startDate; expected YYYY-MM or month-start timestamp")
 		}
 		var end *time.Time
-		if strings.TrimSpace(ptrOrEmpty(in.EndMonth)) != "" {
-			val, err := parseMonthStart(ptrOrEmpty(in.EndMonth))
+		if strings.TrimSpace(ptrOrEmpty(in.EndDate)) != "" {
+			val, err := parseMonthStart(ptrOrEmpty(in.EndDate))
 			if err != nil {
-				return nil, errors.New("invalid endMonth; expected YYYY-MM or month-start timestamp")
+				return nil, errors.New("invalid endDate; expected YYYY-MM or month-start timestamp")
 			}
 			end = &val
 		}
@@ -490,8 +490,8 @@ func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, e
 			Amount:              in.Amount,
 			Currency:            strings.ToUpper(strings.TrimSpace(in.Currency)),
 			Cadence:             cad,
-			StartMonth:          start,
-			EndMonth:            end,
+			StartDate:           start,
+			EndDate:             end,
 			Notes:               strings.TrimSpace(ptrOrEmpty(in.Notes)),
 			TargetAssetID:       nonEmptyPtr(in.TargetAssetID),
 			TargetLiabilityID:   nonEmptyPtr(in.TargetLiabilityID),
