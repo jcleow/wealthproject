@@ -90,7 +90,7 @@ func ApplyImpactsToItem(
 	// Third pass: apply all delta impacts (cumulative)
 	for i := range impacts {
 		impact := &impacts[i]
-		if impact.ImpactKind != "delta" {
+		if impact.ImpactKind != ImpactKindDelta {
 			continue
 		}
 		if !ImpactAppliesToMonth(*impact, currentDate) {
