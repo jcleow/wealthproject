@@ -1096,6 +1096,11 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, a
 	total := decimal.Zero()
 
 	for _, row := range rows {
+		// Only include liabilities that have started
+		if !isActiveInMonth(row, date) {
+			continue
+		}
+
 		state := itemStates[row.ID]
 		if state == nil {
 			continue
