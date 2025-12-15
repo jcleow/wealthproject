@@ -38,9 +38,12 @@ export async function updateInvestment(id: string, payload: Partial<Investment>)
     currentValue: payload.currentValue,
     annualGrowthRate: payload.annualGrowthRate,
     notes: payload.notes,
-    startDate: payload.startDate,
-    endDate: payload.endDate,
   }
+
+  // Only include dates if explicitly provided (not undefined)
+  // This prevents Go from receiving zero-time values
+  if (payload.startDate !== undefined) body.startDate = payload.startDate
+  if (payload.endDate !== undefined) body.endDate = payload.endDate
 
   const data = await apiClient.put<any>(`/investments/${id}`, body)
   return toInvestment(data)

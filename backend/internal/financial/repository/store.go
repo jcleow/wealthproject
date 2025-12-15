@@ -663,7 +663,11 @@ func (s *Store) CreateInvestment(ctx context.Context, userID string, inv Investm
 }
 
 func (s *Store) UpdateInvestment(ctx context.Context, userID string, inv Investment) (Investment, error) {
-	startDate := inv.StartDate
+	// Use nil for zero times so COALESCE preserves existing values
+	var startDate interface{} = inv.StartDate
+	if inv.StartDate.IsZero() {
+		startDate = nil
+	}
 	endDate := inv.EndDate
 
 	row := s.db.QueryRowContext(ctx, `

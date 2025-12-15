@@ -1,4 +1,5 @@
-import { Plus, ArrowDownWideNarrow, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Plus, ArrowDownWideNarrow, ArrowUpRight, ArrowDownRight, Pencil, Trash2, Wallet, BarChart3 } from 'lucide-react'
 import type { TimelineItem, CPFContributionResponseV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CashAccount } from '@/types/financial'
@@ -47,6 +48,10 @@ interface CategoryCardProps {
   // Investments income (V2)
   hasInvestmentsSection?: boolean
   monthlyInvestments?: number
+  // Investment CRUD callbacks
+  onAddInvestment?: () => void
+  onEditInvestment?: (item: TimelineItem) => void
+  onDeleteInvestment?: (id: string) => void
 }
 
 export function CategoryCard({
@@ -81,10 +86,30 @@ export function CategoryCard({
   cpfContributionsRaw = [],
   hasInvestmentsSection = false,
   monthlyInvestments = 0,
+  onAddInvestment,
+  onEditInvestment,
+  onDeleteInvestment,
 }: CategoryCardProps) {
   const config = categoryConfig[category]
   const sortedData = sortItems(data, sortDirection, summarizeAmount)
   const hasData = sortedData.length > 0
+
+  // State for asset type dropdown
+  const [showAssetMenu, setShowAssetMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowAssetMenu(false)
+      }
+    }
+    if (showAssetMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showAssetMenu])
 
   // Calculate category total, including investments and CPF assets for the asset category
   const baseTotal = sortedData.reduce((sum, item) => sum + summarizeAmount(item), 0)
@@ -148,14 +173,54 @@ export function CategoryCard({
               className={`h-4 w-4 ${sortDirection === 'desc' ? '' : 'rotate-180'}`}
             />
           </button>
-          <button
-            onClick={onAddItem}
-            className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
-            type="button"
-            title="Add Item"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          {/* For assets, show dropdown; for others, direct add */}
+          {category === 'asset' && onAddInvestment ? (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowAssetMenu(!showAssetMenu)}
+                className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+                type="button"
+                title="Add Item"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+              {showAssetMenu && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border border-white/10 bg-[#151515] py-1 shadow-xl">
+                  <button
+                    onClick={() => {
+                      onAddItem()
+                      setShowAssetMenu(false)
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-white/5"
+                    type="button"
+                  >
+                    <Wallet className="h-4 w-4 text-emerald-400" />
+                    Asset
+                  </button>
+                  <button
+                    onClick={() => {
+                      onAddInvestment()
+                      setShowAssetMenu(false)
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-white/5"
+                    type="button"
+                  >
+                    <BarChart3 className="h-4 w-4 text-purple-400" />
+                    Investment
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={onAddItem}
+              className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+              type="button"
+              title="Add Item"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -217,7 +282,12 @@ export function CategoryCard({
 
             {/* Investments Sub-section for Assets (V2 only) */}
             {category === 'asset' && investmentAssets.length > 0 && (
-              <InvestmentsAssetsSection investmentAssets={investmentAssets} getDisplayAmount={getDisplayAmount} />
+              <InvestmentsAssetsSection
+                investmentAssets={investmentAssets}
+                getDisplayAmount={getDisplayAmount}
+                onEdit={onEditInvestment}
+                onDelete={onDeleteInvestment}
+              />
             )}
 
             {/* CPF Sub-section for Assets (V2 only) */}
@@ -256,9 +326,11 @@ export function CategoryCard({
 interface InvestmentsAssetsSectionProps {
   investmentAssets: TimelineItem[]
   getDisplayAmount: (item: TimelineItem) => number
+  onEdit?: (item: TimelineItem) => void
+  onDelete?: (id: string) => void
 }
 
-function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount }: InvestmentsAssetsSectionProps) {
+function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, onDelete }: InvestmentsAssetsSectionProps) {
   const total = investmentAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0)
 
   return (
@@ -267,17 +339,43 @@ function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount }: Invest
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Investments</span>
         <span className="text-[10px] text-slate-600">({formatCurrency(total)})</span>
       </div>
-      {investmentAssets.map((item, index) => (
-        <div
-          key={item.itemId || `investment-asset-${index}`}
-          className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
-        >
-          <span className="truncate text-sm text-slate-300">{item.name}</span>
-          <span className="text-sm font-medium text-slate-200">
-            {formatCurrency(getDisplayAmount(item))}
-          </span>
-        </div>
-      ))}
+      {investmentAssets.map((item, index) => {
+        const itemId = item.itemId || `investment-asset-${index}`
+        return (
+          <div
+            key={itemId}
+            className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
+          >
+            <span className="truncate text-sm text-slate-300">{item.name}</span>
+            <span className="text-sm font-medium text-slate-200 transition-opacity group-hover/item:opacity-0">
+              {formatCurrency(getDisplayAmount(item))}
+            </span>
+            {/* Edit/Delete buttons - absolutely positioned, visible on hover */}
+            <div className="pointer-events-none absolute right-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:pointer-events-auto group-hover/item:opacity-100">
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(item)}
+                  className="rounded p-1 text-slate-500 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                  type="button"
+                  title="Edit"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+              {onDelete && item.itemId && (
+                <button
+                  onClick={() => onDelete(item.itemId!)}
+                  className="rounded p-1 text-slate-500 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                  type="button"
+                  title="Delete"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

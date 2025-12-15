@@ -12,6 +12,8 @@ export interface UseTimelineV2QueryOptions {
   endDate?: string
   /** Whether the query should execute */
   enabled?: boolean
+  /** If true, apply scenario impacts to adjBalance/adjAmount (default: true) */
+  includeScenarios?: boolean
 }
 
 /**
@@ -19,12 +21,12 @@ export interface UseTimelineV2QueryOptions {
  * Returns detailed monthly financial data including CPF breakdown.
  */
 export function useTimelineV2Query(options: UseTimelineV2QueryOptions) {
-  const { startDate, endDate, enabled = true } = options
+  const { startDate, endDate, enabled = true, includeScenarios = true } = options
 
   return useQuery<TimelineV2Response>({
-    queryKey: ['financial', 'timeline', 'v2', startDate, endDate ?? startDate],
+    queryKey: ['financial', 'timeline', 'v2', startDate, endDate ?? startDate, { includeScenarios }],
     queryFn: async (): Promise<TimelineV2Response> =>
-      timelineApi.getTimelineV2Snapshot({ startDate, endDate }),
+      timelineApi.getTimelineV2Snapshot({ startDate, endDate, includeScenarios }),
     enabled: enabled && !!startDate,
     staleTime: 30_000, // Consider fresh for 30 seconds
     cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes

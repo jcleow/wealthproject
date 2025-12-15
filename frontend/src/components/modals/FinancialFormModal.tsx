@@ -65,7 +65,17 @@ const incomeCategoryOptions = [
   { value: 'other_income', label: 'Other income' },
 ]
 
-export type FinancialDataType = 'asset' | 'income' | 'liability' | 'expense'
+const investmentCategoryOptions = [
+  { value: 'stocks_portfolio', label: 'Stocks / Equities' },
+  { value: 'bonds_investment', label: 'Bonds / Fixed Income' },
+  { value: 'mutual_funds', label: 'Mutual Funds' },
+  { value: 'etf', label: 'ETFs' },
+  { value: 'reit', label: 'REITs' },
+  { value: 'cryptocurrency', label: 'Cryptocurrency' },
+  { value: 'other_investment', label: 'Other Investment' },
+]
+
+export type FinancialDataType = 'asset' | 'income' | 'liability' | 'expense' | 'investment'
 
 type FormState = {
   name: string
@@ -127,6 +137,17 @@ type ExpenseFormValues = {
   updatedAt?: string
 }
 
+type InvestmentFormValues = {
+  type: 'investment'
+  id?: string
+  name: string
+  category: string
+  currentValue: number
+  annualGrowthRate: number
+  notes?: string | null
+  updatedAt?: string
+}
+
 type CpfAssetEntry = {
   name: string
   category: string
@@ -145,6 +166,7 @@ export type FinancialFormValues =
   | LiabilityFormValues
   | IncomeFormValues
   | ExpenseFormValues
+  | InvestmentFormValues
   | CpfFormValues
 
 /** Timeline item shape for when editing from timeline view */
@@ -188,6 +210,7 @@ const buildDefaultFormState = (type: FinancialDataType, growthConfigs?: GrowthCo
     liability: MORTGAGE_CATEGORY,
     expense: MORTGAGE_EXPENSE_CATEGORY,
     income: incomeCategoryOptions[0]?.value ?? '',
+    investment: investmentCategoryOptions[0]?.value ?? '',
   }
 
   const defaultCategory = defaults[type] ?? ''
@@ -291,6 +314,8 @@ export function FinancialFormModal({
         return 'assets'
       case 'liability':
         return 'liabilities'
+      case 'investment':
+        return 'investments'
       default:
         return type
     }
@@ -458,6 +483,27 @@ export function FinancialFormModal({
         })
         break
       }
+      case 'investment': {
+        // Investment uses same shape as Asset
+        const investment = data as Asset
+        const amt = (investment as any).amountAnnual ?? (investment as any).amount_annual ?? investment.currentValue ?? 0
+        const itemRate = investment.annualGrowthRate
+        const effectiveRate = itemRate && itemRate !== 0
+          ? itemRate
+          : getRateForCategory('asset', investment.category, growthConfigs)
+        setFormData({
+          name: toSafeText(investment.name),
+          amount: formatNumberInput(roundToDollar(amt)),
+          frequency: 'monthly', // Investments don't use frequency
+          category: investment.category,
+          annualGrowthRate: effectiveRate.toString(),
+          interestRateApr: '4.5',
+          minimumPayment: '',
+          growthRate: '6.0',
+          notes: investment.notes ?? '',
+        })
+        break
+      }
     }
   }, [data, isOpen, type, growthConfigs])
 
@@ -471,6 +517,8 @@ export function FinancialFormModal({
         return expenseCategoryOptions
       case 'income':
         return incomeCategoryOptions
+      case 'investment':
+        return investmentCategoryOptions
       default:
         return []
     }
@@ -620,6 +668,18 @@ export function FinancialFormModal({
           ...shared,
         }
       }
+      case 'investment': {
+        const investment = data as Asset | undefined
+        return {
+          type,
+          id: investment?.id,
+          name: formData.name.trim(),
+          category: formData.category.trim() || 'other_investment',
+          currentValue: toNumeric(formData.amount),
+          annualGrowthRate: Number.parseFloat(formData.annualGrowthRate) || 6.0,
+          ...shared,
+        }
+      }
     }
   }
 
@@ -632,7 +692,9 @@ export function FinancialFormModal({
           ? 'Expense'
           : normalizedCategory === 'assets'
             ? 'Asset'
-            : 'Liability'
+            : normalizedCategory === 'investments'
+              ? 'Investment'
+              : 'Liability'
     return `${action} ${categoryTitle}`
   }
 
@@ -643,7 +705,9 @@ export function FinancialFormModal({
         ? '💰'
         : normalizedCategory === 'assets'
           ? '📈'
-          : '💳'
+          : normalizedCategory === 'investments'
+            ? '📊'
+            : '💳'
   }
 
   const nameLabel =
@@ -734,7 +798,7 @@ export function FinancialFormModal({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-300">
-                    {normalizedCategory === 'assets'
+                    {normalizedCategory === 'assets' || normalizedCategory === 'investments'
                       ? 'Current Value'
                       : normalizedCategory === 'liabilities'
                         ? 'Balance'
@@ -782,7 +846,7 @@ export function FinancialFormModal({
                   </div>
                 )}
 
-                {normalizedCategory === 'assets' && (
+                {(normalizedCategory === 'assets' || normalizedCategory === 'investments') && (
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-300">
                       Annual Growth Rate (%)

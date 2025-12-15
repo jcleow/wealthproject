@@ -1,4 +1,4 @@
-import { Wallet, TrendingUp, CreditCard, Activity } from 'lucide-react'
+import { Wallet, TrendingUp, CreditCard, Activity, BarChart3 } from 'lucide-react'
 import type { FinancialCategory, CategoryConfig } from './types'
 
 export const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
@@ -45,5 +45,16 @@ export const categoryConfig: Record<FinancialCategory, CategoryConfig> = {
     progressColor: 'bg-amber-500',
     singular: 'expense',
     plural: 'expenses',
+  },
+  investment: {
+    title: 'Investments',
+    emptyDescription: 'No investments added yet',
+    icon: BarChart3,
+    accent: 'bg-purple-500',
+    gradientBg: 'bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-purple-500/20',
+    textColor: 'text-purple-400',
+    progressColor: 'bg-purple-500',
+    singular: 'investment',
+    plural: 'investments',
   },
 }

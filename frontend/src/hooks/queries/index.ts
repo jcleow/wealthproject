@@ -34,6 +34,15 @@ export {
   EXPENSES_QUERY_KEY,
 } from './useExpensesQuery'
 
+// Investment queries and mutations
+export {
+  useInvestmentsQuery,
+  useCreateInvestmentMutation,
+  useUpdateInvestmentMutation,
+  useDeleteInvestmentMutation,
+  INVESTMENTS_QUERY_KEY,
+} from './useInvestmentsQuery'
+
 // Cash account queries and mutations
 export {
   useCashAccountsQuery,
