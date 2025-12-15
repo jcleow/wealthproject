@@ -441,6 +441,17 @@ func (s *Store) GetExcludedScenarioTargetIDs(ctx context.Context, userID string)
 	return result, rows.Err()
 }
 
+// ListIncludedScenarioEvents returns all included (is_included=true) scenario events
+// with their impacts for the given user. Used by timeline service for impact application.
+func (s *Store) ListIncludedScenarioEvents(ctx context.Context, userID string) ([]ScenarioEvent, error) {
+	included := true
+	events, _, err := s.ListScenarioEventsV2(ctx, userID, ScenarioFilters{
+		IncludedOnly: &included,
+		Limit:        1000, // High limit to get all included scenarios
+	})
+	return events, err
+}
+
 // ExcludedTargets holds IDs of financial items from excluded scenarios.
 type ExcludedTargets struct {
 	AssetIDs       map[string]struct{}

@@ -79,11 +79,13 @@ export function useTimeline(options?: UseTimelineOptions) {
       'v2',
       v2DateRange?.startDate ?? '',
       v2DateRange?.endDate ?? '',
+      { includeScenarios: true },
     ],
     queryFn: () =>
       timelineApi.getTimelineV2Snapshot({
         startDate: v2DateRange!.startDate,
         endDate: v2DateRange!.endDate,
+        includeScenarios: true,
       }),
     enabled: useTimelineV2 && !!v2DateRange,
     staleTime: 1000 * 60 * 5,

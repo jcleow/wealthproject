@@ -53,6 +53,14 @@ func (m *fullMockStore) ListAllIncomeAllocations(ctx context.Context, userID str
 	return m.incomeAllocations, nil
 }
 
+func (m *fullMockStore) GetExcludedScenarioTargetIDs(ctx context.Context, userID string) (repo.ExcludedTargets, error) {
+	return repo.ExcludedTargets{}, nil
+}
+
+func (m *fullMockStore) ListIncludedScenarioEvents(ctx context.Context, userID string) ([]repo.ScenarioEvent, error) {
+	return nil, nil
+}
+
 // TestSnapshotContract_AllItemTypesReturned verifies that all financial item types
 // are correctly included in the snapshot response when present in the store.
 // This is a critical contract test to prevent regressions when modifying the service/store layer.

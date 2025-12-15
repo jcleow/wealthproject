@@ -65,15 +65,18 @@ type Store interface {
 	ListAllIncomeAllocations(context.Context, string) ([]repository.IncomeAllocation, error)
 	// GetExcludedScenarioTargetIDs returns IDs of financial items created by excluded scenarios
 	GetExcludedScenarioTargetIDs(context.Context, string) (repository.ExcludedTargets, error)
+	// ListIncludedScenarioEvents returns scenario events where is_included=true with their impacts
+	ListIncludedScenarioEvents(context.Context, string) ([]repository.ScenarioEvent, error)
 }
 
 // ========== Timeline V2 Options ==========
 
 // TimelineOptions configures the date range for timeline queries
 type TimelineOptions struct {
-	StartDate    time.Time // Start date (inclusive)
-	EndDate      time.Time // End date (inclusive)
-	InitialState bool      // If true, return base annualized amounts without date filtering
+	StartDate        time.Time // Start date (inclusive)
+	EndDate          time.Time // End date (inclusive)
+	InitialState     bool      // If true, return base annualized amounts without date filtering
+	IncludeScenarios bool      // If true, apply scenario impacts to adjBalance/adjAmount
 }
 
 // ========== Timeline V2 Response Types ==========
