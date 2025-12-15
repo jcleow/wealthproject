@@ -49,6 +49,7 @@ export function investmentV2ToTimelineItem(item: InvestmentResponseV2): Timeline
     itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
+    growthRate: parseDecimal(item.growthRate),
   }
 }
 

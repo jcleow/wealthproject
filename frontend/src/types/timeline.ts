@@ -203,6 +203,7 @@ export interface InvestmentResponseV2 {
   category: string
   balance: string
   adjBalance: string
+  growthRate: string
   itemType: TimelineItemType
   startDate: string
   startYear: number

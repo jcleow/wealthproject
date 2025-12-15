@@ -141,6 +141,7 @@ type InvestmentResponse struct {
 	Category   string          `json:"category"`
 	Balance    decimal.Decimal `json:"balance"`
 	AdjBalance decimal.Decimal `json:"adjBalance"`
+	GrowthRate decimal.Decimal `json:"growthRate"`
 	ItemType   string          `json:"itemType"`
 	StartDate  string          `json:"startDate"`
 	StartYear  int             `json:"startYear"`

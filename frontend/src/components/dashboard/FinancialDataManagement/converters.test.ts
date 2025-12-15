@@ -53,6 +53,7 @@ describe('investmentV2ToTimelineItem', () => {
       category: 'equity',
       balance: '50000.0000',
       adjBalance: '52500.0000',
+      growthRate: '5.0000',
       itemType: 'investment',
       startDate: '2025-01-01',
       startYear: 2025,
@@ -72,6 +73,7 @@ describe('investmentV2ToTimelineItem', () => {
     expect(result.itemType).toBe('investment')
     expect(result.startYear).toBe(2025)
     expect(result.startMonth).toBe(1)
+    expect(result.growthRate).toBe(5)
   })
 
   it('handles zero balance investment', () => {
@@ -82,6 +84,7 @@ describe('investmentV2ToTimelineItem', () => {
       category: 'bonds',
       balance: '0',
       adjBalance: '0',
+      growthRate: '0',
       itemType: 'investment',
       startDate: '2025-06-01',
       startYear: 2025,
