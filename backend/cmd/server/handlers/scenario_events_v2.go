@@ -10,6 +10,7 @@ import (
 	"time"
 
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
+	"financial-chat-system/backend/internal/financial_v2/scenario"
 	"financial-chat-system/backend/internal/middleware"
 )
 
@@ -396,7 +397,7 @@ func buildScenarioEventV2(userID string, dto scenarioEventV2DTO) (repo.ScenarioE
 	if strings.TrimSpace(dto.Name) == "" || strings.TrimSpace(dto.DisplayIcon) == "" || strings.TrimSpace(dto.OccursOn) == "" {
 		return repo.ScenarioEvent{}, errMissingFields("name, occursOn, displayIcon")
 	}
-	occursOn, err := parseDateOrMonth(dto.OccursOn)
+	occursOn, err := scenario.ParseDateOrMonth(dto.OccursOn)
 	if err != nil {
 		return repo.ScenarioEvent{}, errors.New("invalid occursOn; expected YYYY-MM-DD or YYYY-MM")
 	}
@@ -411,7 +412,7 @@ func buildScenarioEventV2(userID string, dto scenarioEventV2DTO) (repo.ScenarioE
 	ev := repo.ScenarioEvent{
 		UserID:      userID,
 		Name:        strings.TrimSpace(dto.Name),
-		Description: strings.TrimSpace(ptrOrEmpty(dto.Description)),
+		Description: strings.TrimSpace(scenario.PtrOrEmpty(dto.Description)),
 		OccursOn:    occursOn,
 		DisplayIcon: strings.TrimSpace(dto.DisplayIcon),
 		DisplayColor: func() *string {
@@ -436,27 +437,27 @@ func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, e
 	var impacts []repo.ScenarioImpact
 
 	for _, in := range reqs {
-		ik := strings.ToLower(strings.TrimSpace(in.ImpactKind))
-		if !inSet(ik, []string{"delta", "override", "start", "stop"}) {
-			return nil, errors.New("invalid impactKind")
+		ik, err := scenario.NormalizeImpactKind(in.ImpactKind)
+		if err != nil {
+			return nil, err
 		}
-		cad := strings.ToLower(strings.TrimSpace(in.Cadence))
-		if !inSet(cad, []string{"one_time", "weekly", "bi_weekly", "monthly", "quarterly", "semi_annual", "annual"}) {
-			return nil, errors.New("invalid cadence")
+		cad, err := scenario.NormalizeCadence(in.Cadence)
+		if err != nil {
+			return nil, err
 		}
 
 		if strings.TrimSpace(in.StartDate) == "" {
-			return nil, errors.New("startDate is required for impact")
+			return nil, scenario.ErrMissingStartDate
 		}
-		start, err := parseMonthStart(in.StartDate)
+		start, err := scenario.ParseMonthStart(in.StartDate)
 		if err != nil {
-			return nil, errors.New("invalid startDate; expected YYYY-MM or month-start timestamp")
+			return nil, scenario.ErrInvalidStartDate
 		}
 		var end *time.Time
-		if strings.TrimSpace(ptrOrEmpty(in.EndDate)) != "" {
-			val, err := parseMonthStart(ptrOrEmpty(in.EndDate))
+		if strings.TrimSpace(scenario.PtrOrEmpty(in.EndDate)) != "" {
+			val, err := scenario.ParseMonthStart(scenario.PtrOrEmpty(in.EndDate))
 			if err != nil {
-				return nil, errors.New("invalid endDate; expected YYYY-MM or month-start timestamp")
+				return nil, scenario.ErrInvalidEndDate
 			}
 			end = &val
 		}
@@ -482,7 +483,7 @@ func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, e
 			targetCount++
 		}
 		if targetCount != 1 {
-			return nil, errors.New("exactly one target ID must be set per impact")
+			return nil, scenario.ErrInvalidTargetCount
 		}
 
 		impact := repo.ScenarioImpact{
@@ -492,24 +493,17 @@ func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, e
 			Cadence:             cad,
 			StartDate:           start,
 			EndDate:             end,
-			Notes:               strings.TrimSpace(ptrOrEmpty(in.Notes)),
-			TargetAssetID:       nonEmptyPtr(in.TargetAssetID),
-			TargetLiabilityID:   nonEmptyPtr(in.TargetLiabilityID),
-			TargetIncomeID:      nonEmptyPtr(in.TargetIncomeID),
-			TargetExpenseID:     nonEmptyPtr(in.TargetExpenseID),
-			TargetCashAccountID: nonEmptyPtr(in.TargetCashAccountID),
-			TargetInvestmentID:  nonEmptyPtr(in.TargetInvestmentID),
+			Notes:               strings.TrimSpace(scenario.PtrOrEmpty(in.Notes)),
+			TargetAssetID:       scenario.NonEmptyPtr(in.TargetAssetID),
+			TargetLiabilityID:   scenario.NonEmptyPtr(in.TargetLiabilityID),
+			TargetIncomeID:      scenario.NonEmptyPtr(in.TargetIncomeID),
+			TargetExpenseID:     scenario.NonEmptyPtr(in.TargetExpenseID),
+			TargetCashAccountID: scenario.NonEmptyPtr(in.TargetCashAccountID),
+			TargetInvestmentID:  scenario.NonEmptyPtr(in.TargetInvestmentID),
 		}
 
 		impacts = append(impacts, impact)
 	}
 
 	return impacts, nil
-}
-
-func nonEmptyPtr(s *string) *string {
-	if s == nil || strings.TrimSpace(*s) == "" {
-		return nil
-	}
-	return s
 }
