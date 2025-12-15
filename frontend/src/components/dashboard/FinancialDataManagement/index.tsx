@@ -229,9 +229,13 @@ export function FinancialDataManagement({
   }, [showMonthlyData])
 
   const getNetWorthForYear = useCallback(() => {
+    // Prefer V2 data which includes investments, CPF, and cash in the calculation
+    if (hasV2Data && timelineMonthV2?.netWorth !== undefined) {
+      return Math.round(parseDecimal(timelineMonthV2.netWorth))
+    }
     if (timelineYear?.netWorth !== undefined) return Math.round(timelineYear.netWorth)
     return 0
-  }, [timelineYear])
+  }, [hasV2Data, timelineMonthV2, timelineYear])
 
   const getAnnualSavingsForYear = useCallback(() => {
     const totalIncome = yearIncomes.reduce((sum, it) => sum + (summarizeAmount(it) ?? 0), 0)
