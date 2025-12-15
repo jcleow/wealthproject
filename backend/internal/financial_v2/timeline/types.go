@@ -7,6 +7,7 @@ import (
 	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/repository"
+	"financial-chat-system/backend/internal/financial_v2/scenario"
 )
 
 type FinancialDataType string
@@ -63,15 +64,28 @@ type Store interface {
 	ListExpenses(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Expense], error)
 	GetCPFAccount(context.Context, string) (*repository.CPFAccount, error)
 	ListAllIncomeAllocations(context.Context, string) ([]repository.IncomeAllocation, error)
+	// GetExcludedScenarioTargetIDs returns IDs of financial items created by excluded scenarios
+	GetExcludedScenarioTargetIDs(context.Context, string) (repository.ExcludedTargets, error)
+	// ListIncludedScenarioEvents returns scenario events where is_included=true with their impacts
+	ListIncludedScenarioEvents(context.Context, string) ([]repository.ScenarioEvent, error)
+}
+
+// ScenarioStore provides scenario-specific operations
+type ScenarioStore interface {
+	// GetExcludedTargetIDs returns IDs of financial items created by excluded scenarios
+	GetExcludedTargetIDs(context.Context, string) (scenario.ExcludedTargets, error)
+	// ListIncludedEvents returns scenario events where is_included=true with their impacts
+	ListIncludedEvents(context.Context, string) ([]scenario.Event, error)
 }
 
 // ========== Timeline V2 Options ==========
 
 // TimelineOptions configures the date range for timeline queries
 type TimelineOptions struct {
-	StartDate    time.Time // Start date (inclusive)
-	EndDate      time.Time // End date (inclusive)
-	InitialState bool      // If true, return base annualized amounts without date filtering
+	StartDate        time.Time // Start date (inclusive)
+	EndDate          time.Time // End date (inclusive)
+	InitialState     bool      // If true, return base annualized amounts without date filtering
+	IncludeScenarios bool      // If true, apply scenario impacts to adjBalance/adjAmount
 }
 
 // ========== Timeline V2 Response Types ==========

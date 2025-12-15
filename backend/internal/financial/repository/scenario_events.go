@@ -11,7 +11,7 @@ import (
 )
 
 // listScenarioEventsWithImpactsQuery returns paginated events and their impacts in one round-trip.
-// Ordering: events by occurs_on ASC, created_at DESC; impacts by start_month ASC NULLS LAST, created_at ASC.
+// Ordering: events by occurs_on ASC, created_at DESC; impacts by start_date ASC NULLS LAST, created_at ASC.
 const listScenarioEventsWithImpactsQuery = `
 WITH filtered_events AS (
 	SELECT id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at
@@ -21,10 +21,10 @@ WITH filtered_events AS (
 	LIMIT $%d OFFSET $%d
 )
 SELECT fe.id, fe.user_id, fe.name, fe.description, fe.occurs_on, fe.display_icon, fe.display_color, fe.tags, fe.scenario_id, fe.is_included, fe.created_at, fe.updated_at,
-       imp.id, imp.event_id, imp.target_type, imp.target_id, imp.impact_kind, imp.amount, imp.currency, imp.cadence, imp.start_month, imp.end_month, imp.notes, imp.created_at
+       imp.id, imp.event_id, imp.target_type, imp.target_id, imp.impact_kind, imp.amount, imp.currency, imp.cadence, imp.start_date, imp.end_date, imp.notes, imp.created_at
 FROM filtered_events fe
 LEFT JOIN scenario_event_impacts imp ON imp.event_id = fe.id
-ORDER BY fe.occurs_on ASC, fe.created_at DESC, imp.start_month ASC NULLS LAST, imp.created_at ASC`
+ORDER BY fe.occurs_on ASC, fe.created_at DESC, imp.start_date ASC NULLS LAST, imp.created_at ASC`
 
 // ScenarioEvent represents a scenario event with impacts.
 type ScenarioEvent struct {
@@ -53,8 +53,8 @@ type ScenarioImpact struct {
 	Amount     int64
 	Currency   string
 	Cadence    string
-	StartMonth time.Time
-	EndMonth   *time.Time
+	StartDate time.Time
+	EndDate   *time.Time
 	Notes      string
 	CreatedAt  time.Time
 }
@@ -191,14 +191,14 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 		var impAmount sql.NullInt64
 		var impCurrency sql.NullString
 		var impCadence sql.NullString
-		var impStartMonth sql.NullTime
-		var impEndMonth sql.NullTime
+		var impStartDate sql.NullTime
+		var impEndDate sql.NullTime
 		var impNotes sql.NullString
 		var impCreatedAt sql.NullTime
 
 		if err := rows.Scan(
 			&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &scenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt,
-			&impID, &impEventID, &impTargetType, &impTargetID, &impImpactKind, &impAmount, &impCurrency, &impCadence, &impStartMonth, &impEndMonth, &impNotes, &impCreatedAt,
+			&impID, &impEventID, &impTargetType, &impTargetID, &impImpactKind, &impAmount, &impCurrency, &impCadence, &impStartDate, &impEndDate, &impNotes, &impCreatedAt,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -217,8 +217,8 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 
 		if impID.Valid {
 			// StartMonth is required by database schema (NOT NULL constraint)
-			if !impStartMonth.Valid {
-				return nil, 0, fmt.Errorf("impact %s has NULL start_month (database constraint violation)", impID.String)
+			if !impStartDate.Valid {
+				return nil, 0, fmt.Errorf("impact %s has NULL start_date (database constraint violation)", impID.String)
 			}
 
 			imp := ScenarioImpact{
@@ -229,7 +229,7 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 				Amount:     impAmount.Int64,
 				Currency:   impCurrency.String,
 				Cadence:    impCadence.String,
-				StartMonth: impStartMonth.Time, // Safe to access since we checked Valid above
+				StartDate:  impStartDate.Time, // Safe to access since we checked Valid above
 				Notes:      impNotes.String,
 			}
 			if impTargetID.Valid {
@@ -238,8 +238,8 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 			if impEventID.Valid {
 				imp.EventID = impEventID.String
 			}
-			if impEndMonth.Valid {
-				imp.EndMonth = &impEndMonth.Time
+			if impEndDate.Valid {
+				imp.EndDate = &impEndDate.Time
 			}
 			if impCreatedAt.Valid {
 				imp.CreatedAt = impCreatedAt.Time
@@ -330,10 +330,10 @@ func (s *Store) ToggleScenarioIncluded(ctx context.Context, userID, eventID stri
 // ListScenarioImpacts lists impacts for an event.
 func (s *Store) ListScenarioImpacts(ctx context.Context, eventID string) ([]ScenarioImpact, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, event_id, target_type, target_id, impact_kind, amount, currency, cadence, start_month, end_month, notes, created_at
+		SELECT id, event_id, target_type, target_id, impact_kind, amount, currency, cadence, start_date, end_date, notes, created_at
 		FROM scenario_event_impacts
 		WHERE event_id = $1
-		ORDER BY start_month ASC NULLS LAST, created_at ASC`, eventID)
+		ORDER BY start_date ASC NULLS LAST, created_at ASC`, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -350,15 +350,15 @@ func (s *Store) ListScenarioImpacts(ctx context.Context, eventID string) ([]Scen
 
 		// StartMonth is required by database schema (NOT NULL constraint)
 		if !startMonth.Valid {
-			return nil, fmt.Errorf("impact %s has NULL start_month (database constraint violation)", imp.ID)
+			return nil, fmt.Errorf("impact %s has NULL start_date (database constraint violation)", imp.ID)
 		}
-		imp.StartMonth = startMonth.Time
+		imp.StartDate = startMonth.Time
 
 		if targetID.Valid {
 			imp.TargetID = &targetID.String
 		}
 		if endMonth.Valid {
-			imp.EndMonth = &endMonth.Time
+			imp.EndDate = &endMonth.Time
 		}
 		impacts = append(impacts, imp)
 	}
@@ -370,11 +370,30 @@ func (s *Store) ListScenarioImpacts(ctx context.Context, eventID string) ([]Scen
 
 func insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, impacts []ScenarioImpact) error {
 	for _, imp := range impacts {
+		// Map target_type + target_id to typed FK columns for V2 compatibility
+		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID interface{}
+		switch imp.TargetType {
+		case "asset":
+			targetAssetID = imp.TargetID
+		case "liability":
+			targetLiabilityID = imp.TargetID
+		case "income":
+			targetIncomeID = imp.TargetID
+		case "expense":
+			targetExpenseID = imp.TargetID
+		case "cash_account":
+			targetCashAccountID = imp.TargetID
+		case "investment":
+			targetInvestmentID = imp.TargetID
+		}
+
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO scenario_event_impacts
-			(event_id, target_type, target_id, impact_kind, amount, currency, cadence, start_month, end_month, notes)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-			eventID, imp.TargetType, imp.TargetID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartMonth, imp.EndMonth, imp.Notes); err != nil {
+			(event_id, target_type, target_id, impact_kind, amount, currency, cadence, start_date, end_date, notes,
+			 target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+			eventID, imp.TargetType, imp.TargetID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartDate, imp.EndDate, imp.Notes,
+			targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID); err != nil {
 			return err
 		}
 	}

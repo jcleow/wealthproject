@@ -63,6 +63,7 @@ func (h *TimelineV2Handler) HandleGetTimelineChart(w http.ResponseWriter, r *htt
 // @Produce json
 // @Param startDate query string true "Start date (DD-MM-YYYY, required)"
 // @Param endDate query string false "End date (DD-MM-YYYY). Defaults to startDate if not provided."
+// @Param includeScenarios query bool false "Include scenario impacts in adjBalance/adjAmount (default: false)"
 // @Success 200 {object} timeline_v2.TimelineV2Response
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
@@ -92,9 +93,13 @@ func (h *TimelineV2Handler) HandleGetSnapshot(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Parse optional includeScenarios flag
+	includeScenarios := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("includeScenarios"))) == "true"
+
 	opts := timeline_v2.TimelineOptions{
-		StartDate: startDate,
-		EndDate:   endDate,
+		StartDate:        startDate,
+		EndDate:          endDate,
+		IncludeScenarios: includeScenarios,
 	}
 
 	// Call service to compute financial snapshot

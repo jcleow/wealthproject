@@ -71,15 +71,20 @@ export const timelineApi = {
    * Get V2 timeline snapshot for a date range
    * @param startDate - Start date in DD-MM-YYYY format
    * @param endDate - End date in DD-MM-YYYY format (optional, defaults to startDate)
+   * @param includeScenarios - If true, apply scenario impacts to adjBalance/adjAmount
    */
   async getTimelineV2Snapshot(options: {
     startDate: string
     endDate?: string
+    includeScenarios?: boolean
   }): Promise<TimelineV2Response> {
     const params = new URLSearchParams()
     params.set('startDate', options.startDate)
     if (options.endDate) {
       params.set('endDate', options.endDate)
+    }
+    if (options.includeScenarios) {
+      params.set('includeScenarios', 'true')
     }
     return jsonRequest<TimelineV2Response>(
       `/financial/timeline/snapshot?${params.toString()}`,

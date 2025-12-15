@@ -1,8 +1,8 @@
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { TimelineItem } from '@/types/timeline'
-import type { ScenarioEvent, ScenarioTargetType } from '@/types/scenario'
-import type { AppliedImpact } from './types'
+import type { ScenarioEvent } from '@/types/scenario'
+import type { AppliedImpact, FinancialCategory } from './types'
 import { formatCurrency } from '@/lib/format'
 
 // Icon lookup for scenario icons
@@ -25,7 +25,7 @@ export function getIconByName(name: string): LucideIcon | undefined {
 /** Helper to find scenario impacts for a financial item */
 export function getAppliedImpacts(
   item: TimelineItem,
-  _itemType: ScenarioTargetType,
+  _itemType: FinancialCategory,
   scenarioEvents: ScenarioEvent[]
 ): AppliedImpact[] {
   const applied = item.eventImpacts

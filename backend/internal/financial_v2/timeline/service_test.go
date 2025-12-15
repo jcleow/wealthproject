@@ -56,6 +56,14 @@ func (m *mockStore) ListAllIncomeAllocations(ctx context.Context, userID string)
 	return m.incomeAllocs, nil
 }
 
+func (m *mockStore) GetExcludedScenarioTargetIDs(ctx context.Context, userID string) (repo.ExcludedTargets, error) {
+	return repo.ExcludedTargets{}, nil
+}
+
+func (m *mockStore) ListIncludedScenarioEvents(ctx context.Context, userID string) ([]repo.ScenarioEvent, error) {
+	return nil, nil
+}
+
 func TestComputeFinancialSnapshot_SingleMonth_NoGrowth(t *testing.T) {
 	// Test that month 1 has no growth (arrears)
 	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)

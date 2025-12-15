@@ -52,4 +52,26 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	// Liability v2 endpoints (with auto-linked expense creation)
 	liabilityHandler := handlers.NewLiabilityV2Handler(deps.FinStore)
 	router.HandleFunc("/liabilities", liabilityHandler.HandleCreate).Methods("POST")
+
+	// Scenario events v2 endpoints (with typed FK columns)
+	scenarioHandler := handlers.NewScenarioEventV2Handler(deps.FinStore)
+	router.HandleFunc("/scenario-events", scenarioHandler.HandleList).Methods("GET")
+	router.HandleFunc("/scenario-events", scenarioHandler.HandleCreate).Methods("POST")
+	router.HandleFunc("/scenario-events/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "GET":
+			scenarioHandler.HandleGet(w, r, id)
+		case "PUT":
+			scenarioHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			scenarioHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("GET", "PUT", "DELETE")
+	router.HandleFunc("/scenario-events/{id}/toggle", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		scenarioHandler.HandleToggle(w, r, id)
+	}).Methods("PATCH")
 }

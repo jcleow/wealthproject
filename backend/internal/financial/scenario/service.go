@@ -105,23 +105,23 @@ func (s *Service) Apply(ctx context.Context, req ApplyRequest) ([]Row, error) {
 			k := key{t: imp.TargetType, id: *imp.TargetID}
 			switch imp.ImpactKind {
 			case "start":
-				startStops[k] = startStopInfo{isStop: false, month: imp.StartMonth}
+				startStops[k] = startStopInfo{isStop: false, month: imp.StartDate}
 			case "stop":
-				startStops[k] = startStopInfo{isStop: true, month: imp.StartMonth}
+				startStops[k] = startStopInfo{isStop: true, month: imp.StartDate}
 			case "override":
 				win, ok := overrides[k]
 				if !ok || ev.UpdatedAt.After(win.updatedAt) {
 					overrides[k] = overrideChoice{
 						amount:    annualize(imp),
 						updatedAt: ev.UpdatedAt,
-						month:     imp.StartMonth,
+						month:     imp.StartDate,
 					}
 				}
 				impactRefs[k] = append(impactRefs[k], imp)
 			case "delta":
 				existing := deltas[k]
 				existing.amount += annualizeWithProration(imp, calendarYear)
-				existing.month = imp.StartMonth
+				existing.month = imp.StartDate
 				deltas[k] = existing
 				impactRefs[k] = append(impactRefs[k], imp)
 			}
@@ -183,11 +183,11 @@ type overrideChoice struct {
 }
 
 func appliesToYear(imp repository.ScenarioImpact, calendarYear int) bool {
-	startYear := imp.StartMonth.Year()
+	startYear := imp.StartDate.Year()
 	if calendarYear < startYear {
 		return false
 	}
-	if imp.EndMonth != nil && calendarYear > imp.EndMonth.Year() {
+	if imp.EndDate != nil && calendarYear > imp.EndDate.Year() {
 		return false
 	}
 	if imp.Cadence == "one_time" && startYear != calendarYear {
@@ -227,7 +227,7 @@ func annualize(imp repository.ScenarioImpact) float64 {
 // For impacts that start mid-year, only the remaining months are counted.
 func annualizeWithProration(imp repository.ScenarioImpact, calendarYear int) float64 {
 	base := annualize(imp)
-	proration := calculateStartProration(imp.StartMonth, calendarYear)
+	proration := calculateStartProration(imp.StartDate, calendarYear)
 	return base * proration
 }
 

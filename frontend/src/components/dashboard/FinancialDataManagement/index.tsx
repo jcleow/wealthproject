@@ -9,6 +9,9 @@ import {
   useUpdateCashAccountMutation,
   useDeleteCashAccountMutation,
   useSetAccumulatorMutation,
+  useCreateInvestmentMutation,
+  useUpdateInvestmentMutation,
+  useDeleteInvestmentMutation,
 } from '@/hooks/queries'
 import type { TimelineItem, TimelineEditRequest, TimelineEdit, TimelineFrequency } from '@/types/timeline'
 import type { PropertyLinkRecord } from '@/types/property'
@@ -57,7 +60,7 @@ export function FinancialDataManagement({
   // V2 data is available when the feature flag is enabled and data is loaded
   const hasV2Data = !!timelineMonthV2
   const usingTimeline = true
-  const [viewMode, setViewMode] = useState<'annualized' | 'monthly'>('annualized')
+  const [viewMode, setViewMode] = useState<'annualized' | 'monthly'>('monthly')
 
   // Determine if we should show monthly data
   const showMonthlyData = viewMode === 'monthly' && resolution === 'monthly' && timelineMonth
@@ -85,6 +88,9 @@ export function FinancialDataManagement({
   const updateCashAccountMutation = useUpdateCashAccountMutation()
   const deleteCashAccountMutation = useDeleteCashAccountMutation()
   const setAccumulatorMutation = useSetAccumulatorMutation()
+  const createInvestmentMutation = useCreateInvestmentMutation()
+  const updateInvestmentMutation = useUpdateInvestmentMutation()
+  const deleteInvestmentMutation = useDeleteInvestmentMutation()
 
   // ========== V2 Data Extraction ==========
   const yearAssets = useMemo(() => {
@@ -166,6 +172,7 @@ export function FinancialDataManagement({
     income: 'desc',
     liability: 'desc',
     expense: 'desc',
+    investment: 'desc',
   })
   const [expandedScenarioItems, setExpandedScenarioItems] = useState<Set<string>>(new Set())
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
@@ -222,9 +229,13 @@ export function FinancialDataManagement({
   }, [showMonthlyData])
 
   const getNetWorthForYear = useCallback(() => {
+    // Prefer V2 data which includes investments, CPF, and cash in the calculation
+    if (hasV2Data && timelineMonthV2?.netWorth !== undefined) {
+      return Math.round(parseDecimal(timelineMonthV2.netWorth))
+    }
     if (timelineYear?.netWorth !== undefined) return Math.round(timelineYear.netWorth)
     return 0
-  }, [timelineYear])
+  }, [hasV2Data, timelineMonthV2, timelineYear])
 
   const getAnnualSavingsForYear = useCallback(() => {
     const totalIncome = yearIncomes.reduce((sum, it) => sum + (summarizeAmount(it) ?? 0), 0)
@@ -330,7 +341,8 @@ export function FinancialDataManagement({
 
   const handleDeleteItem = async (category: FinancialCategory, id: string) => {
     try {
-      if (usingTimeline && onSaveTimelineEdits && selectedYear > 0) {
+      // Investments are handled separately from timeline edits
+      if (category !== 'investment' && usingTimeline && onSaveTimelineEdits && selectedYear > 0) {
         const isFlow = category === 'income' || category === 'expense'
         const edit: TimelineEdit = {
           itemId: id,
@@ -360,6 +372,9 @@ export function FinancialDataManagement({
         case 'expense':
           await deleteExpense(id)
           break
+        case 'investment':
+          await deleteInvestmentMutation.mutateAsync(id)
+          break
       }
       await refresh()
     } catch (error) {
@@ -374,7 +389,8 @@ export function FinancialDataManagement({
   const handleModalSave = async (payload: FinancialFormValues, mode: 'create' | 'edit') => {
     const timestamp = ('updatedAt' in payload ? payload.updatedAt : null) ?? new Date().toISOString()
 
-    if (usingTimeline && onSaveTimelineEdits) {
+    // Investments are handled separately from timeline edits
+    if (payload.type !== 'investment' && usingTimeline && onSaveTimelineEdits) {
       const mapFrequency = (freq: string | undefined): TimelineFrequency => {
         if (freq === 'monthly' || freq === 'weekly' || freq === 'biweekly' || freq === 'quarterly' || freq === 'semiannual' || freq === 'annual') {
           return freq
@@ -495,6 +511,18 @@ export function FinancialDataManagement({
         }
         break
       }
+      case 'investment': {
+        const { type: _type, id: _id, updatedAt: _updatedAt, ...values } = payload
+        if (mode === 'edit' && modalState.data) {
+          const targetId = getItemId(modalState.data)
+          if (!targetId) throw new Error('Unable to update investment: missing item id')
+          await updateInvestmentMutation.mutateAsync({ id: targetId, updates: { ...values, updatedAt: timestamp } })
+        } else {
+          await createInvestmentMutation.mutateAsync(values)
+        }
+        await refresh()
+        break
+      }
     }
 
     handleModalClose()
@@ -514,6 +542,44 @@ export function FinancialDataManagement({
     setIsPropertyPlannerOpen(true)
   }
 
+  // ========== Investment Handlers ==========
+  const handleAddInvestment = () => {
+    setModalState({
+      isOpen: true,
+      type: 'investment',
+      mode: 'create',
+      data: undefined,
+    })
+  }
+
+  const handleEditInvestment = (item: TimelineItem) => {
+    // Convert TimelineItem to investment-like shape for the modal
+    // Use the non-adjusted balance as currentValue (original value before growth applied)
+    const investmentData = {
+      id: item.itemId,
+      name: item.name,
+      category: item.category || 'stocks_portfolio',
+      // Use amountMonthly (original balance) not adjMonthlyAmt (after growth)
+      currentValue: item.amountMonthly ?? item.adjMonthlyAmt ?? 0,
+      annualGrowthRate: 7.0, // Default growth rate - backend will preserve actual value
+      notes: '',
+    }
+    setModalState({
+      isOpen: true,
+      type: 'investment',
+      mode: 'edit',
+      data: investmentData as any,
+    })
+  }
+
+  const handleDeleteInvestment = async (id: string) => {
+    try {
+      await deleteInvestmentMutation.mutateAsync(id)
+    } catch (error) {
+      console.error('Failed to delete investment:', error)
+    }
+  }
+
   const getDataForCategory = (category: FinancialCategory): TimelineItem[] => {
     switch (category) {
       case 'asset':
@@ -524,6 +590,10 @@ export function FinancialDataManagement({
         return yearLiabilities
       case 'expense':
         return yearExpenses
+      case 'investment':
+        return investmentAssets
+      default:
+        return []
     }
   }
 
@@ -556,7 +626,7 @@ export function FinancialDataManagement({
         <div className="flex-1 overflow-auto px-6 py-6">
           <div className="flex h-full flex-col gap-6">
             <div className="grid gap-4 lg:grid-cols-2">
-              {(Object.keys(categoryConfig) as FinancialCategory[]).map((key) => (
+              {(Object.keys(categoryConfig) as FinancialCategory[]).filter((key) => key !== 'investment').map((key) => (
                 <ResizableCard key={key} id={key}>
                 <CategoryCard
                   category={key}
@@ -597,6 +667,9 @@ export function FinancialDataManagement({
                   cpfContributionsRaw={key === 'income' ? cpfContributionsRaw : undefined}
                   hasInvestmentsSection={key === 'income' ? hasInvestmentsSection : false}
                   monthlyInvestments={key === 'income' ? monthlyInvestments : 0}
+                  onAddInvestment={key === 'asset' ? handleAddInvestment : undefined}
+                  onEditInvestment={key === 'asset' ? handleEditInvestment : undefined}
+                  onDeleteInvestment={key === 'asset' ? handleDeleteInvestment : undefined}
                 />
                 </ResizableCard>
               ))}
