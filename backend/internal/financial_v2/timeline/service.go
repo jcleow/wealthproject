@@ -10,7 +10,7 @@ import (
 	"financial-chat-system/backend/internal/cpf/account"
 	cpfProcessor "financial-chat-system/backend/internal/cpf/processor"
 	"financial-chat-system/backend/internal/decimal"
-	"financial-chat-system/backend/internal/financial/repayment"
+	"financial-chat-system/backend/internal/financial_v2/repayment"
 	"financial-chat-system/backend/internal/financial_v2/growth"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 
