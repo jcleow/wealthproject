@@ -354,9 +354,12 @@ export function FinancialFormModal({
         }
       case 'expense': {
         const sourceLiabilityId = (data as any)?.sourceLiabilityId
-        const updateMode = applyFromThisMonthOnly ? UPDATE_MODE_VERSIONED : UPDATE_MODE_IN_PLACE
+        // Debt repayments always use in-place updates
+        const isDebtRepaymentExpense = !!sourceLiabilityId
+        const shouldUseVersioning = mode === 'edit' && isFutureMonth && !isDebtRepaymentExpense && applyFromThisMonthOnly
+        const updateMode = shouldUseVersioning ? UPDATE_MODE_VERSIONED : UPDATE_MODE_IN_PLACE
         const versionStartDate =
-          applyFromThisMonthOnly &&
+          shouldUseVersioning &&
           anchorYear &&
           selectedYear !== undefined &&
           selectedMonth !== undefined
@@ -372,7 +375,7 @@ export function FinancialFormModal({
           category: formData.category.trim() || 'other',
           growthRate: Number.parseFloat(formData.growthRate) || 2.0,
           ...(sourceLiabilityId && { sourceLiabilityId }),
-          ...(mode === 'edit' && isFutureMonth && { updateMode }),
+          ...(mode === 'edit' && isFutureMonth && !isDebtRepaymentExpense && { updateMode }),
           ...(versionStartDate && { startDate: versionStartDate }),
           ...shared,
         }
@@ -724,8 +727,8 @@ export function FinancialFormModal({
                 />
               </div>
 
-              {/* Update scope selector for expenses at future months */}
-              {type === 'expense' && mode === 'edit' && isFutureMonth && (
+              {/* Update scope selector for expenses at future months (not for debt repayments) */}
+              {type === 'expense' && mode === 'edit' && isFutureMonth && !isDebtRepayment && (
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-200">Apply changes to</label>
                   <div className="flex rounded-lg bg-white/[0.03] p-1">
