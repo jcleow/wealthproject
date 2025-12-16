@@ -8,13 +8,8 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/decimal"
+	"financial-chat-system/backend/internal/financial_v2/expense"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
-)
-
-// Update mode constants for expense versioning
-const (
-	UpdateModeInPlace   = "in_place"
-	UpdateModeVersioned = "versioned"
 )
 
 // expenseInput is the JSON-friendly input struct for expense creation/update.
@@ -71,11 +66,15 @@ func (e expenseInput) toExpense() repo.Expense {
 
 // ExpenseHandler serves expense CRUD endpoints.
 type ExpenseHandler struct {
-	store *repo.Store
+	store   *repo.Store
+	service *expense.Service
 }
 
 func NewExpenseHandler(store *repo.Store) *ExpenseHandler {
-	return &ExpenseHandler{store: store}
+	return &ExpenseHandler{
+		store:   store,
+		service: expense.NewService(store),
+	}
 }
 
 func (h *ExpenseHandler) RegisterRoutes(router *http.ServeMux) {
@@ -194,90 +193,45 @@ func (h *ExpenseHandler) update(w http.ResponseWriter, r *http.Request, id strin
 		badRequest(w, err)
 		return
 	}
-	input.ID = id
 
-	// Check if this is a versioned update
-	if input.UpdateMode == UpdateModeVersioned && input.StartDate != nil {
-		// Versioned update: stop current expense and create new version
-		startDate, err := time.Parse(time.RFC3339, *input.StartDate)
+	// Parse startDate if provided
+	var startDate *time.Time
+	if input.StartDate != nil {
+		t, err := time.Parse(time.RFC3339, *input.StartDate)
 		if err != nil {
 			badRequest(w, err)
 			return
 		}
-
-		// 1. Get the current expense to copy fields
-		current, err := h.store.GetExpense(r.Context(), userID, id)
-		if err != nil {
-			if err == repo.ErrNotFound {
-				notFound(w)
-				return
-			}
-			internalError(w, err)
-			return
-		}
-
-		// 2. Set end_date on current expense (day before new startDate)
-		endDate := startDate.AddDate(0, 0, -1)
-		_, err = h.store.StopExpense(r.Context(), userID, id, endDate)
-		if err != nil {
-			internalError(w, err)
-			return
-		}
-
-		// 3. Check if version with this startDate already exists (upsert)
-		existing, _ := h.store.FindExpenseByParentAndStartDate(r.Context(), userID, id, startDate)
-		if existing != nil {
-			// Update existing version
-			existing.Payee = input.Payee
-			existing.Amount = *decimal.MustFromFloat64(input.Amount)
-			existing.Frequency = input.Frequency
-			existing.Category = input.Category
-			existing.Notes = input.Notes
-			if input.GrowthRate != nil {
-				existing.GrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
-			}
-			existing.GrowthStrategy = input.GrowthStrategy
-			existing.SourceLiabilityID = input.SourceLiabilityID
-			updated, err := h.store.UpdateExpense(r.Context(), userID, *existing)
-			if err != nil {
-				internalError(w, err)
-				return
-			}
-			writeJSON(w, updated)
-			return
-		}
-
-		// 4. Create new version
-		newExp := input.toExpense()
-		newExp.ID = "" // Let DB generate new ID
-		newExp.ParentID = id
-		newExp.StartDate = startDate
-		// Preserve source liability ID from current if not provided
-		if newExp.SourceLiabilityID == nil && current.SourceLiabilityID != nil {
-			newExp.SourceLiabilityID = current.SourceLiabilityID
-		}
-
-		created, err := h.store.CreateExpense(r.Context(), userID, newExp)
-		if err != nil {
-			log.Printf("CreateExpense (versioned) error: %v", err)
-			internalError(w, err)
-			return
-		}
-		writeJSON(w, created)
-		return
+		startDate = &t
 	}
 
-	// In-place update (default)
-	updated, err := h.store.UpdateExpense(r.Context(), userID, input.toExpense())
+	// Build service input
+	serviceInput := expense.UpdateInput{
+		ID:                id,
+		Payee:             input.Payee,
+		Amount:            input.Amount,
+		Frequency:         input.Frequency,
+		Category:          input.Category,
+		Notes:             input.Notes,
+		GrowthRate:        input.GrowthRate,
+		GrowthStrategy:    input.GrowthStrategy,
+		SourceLiabilityID: input.SourceLiabilityID,
+		StartDate:         startDate,
+		UpdateMode:        input.UpdateMode,
+	}
+
+	// Delegate to service layer
+	result, err := h.service.Update(r.Context(), userID, id, serviceInput)
 	if err != nil {
 		if err == repo.ErrNotFound {
 			notFound(w)
 			return
 		}
+		log.Printf("expense.Update error: %v", err)
 		internalError(w, err)
 		return
 	}
-	writeJSON(w, updated)
+	writeJSON(w, result)
 }
 
 func (h *ExpenseHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
