@@ -49,6 +49,10 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	router.HandleFunc("/financial/timeline/chart", timelineHandler.HandleGetTimelineChart).Methods("GET")
 	router.HandleFunc("/financial/timeline/snapshot", timelineHandler.HandleGetSnapshot).Methods("GET")
 
+	// Expense v2 endpoints (bulk operations)
+	expenseHandler := handlers.NewExpenseV2Handler(deps.FinStore)
+	router.HandleFunc("/cashflow/expenses", expenseHandler.HandleDeleteAll).Methods("DELETE")
+
 	// Liability v2 endpoints (with auto-linked expense creation)
 	liabilityHandler := handlers.NewLiabilityV2Handler(deps.FinStore)
 	router.HandleFunc("/liabilities", liabilityHandler.HandleCreate).Methods("POST")

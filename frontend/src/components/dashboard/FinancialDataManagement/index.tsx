@@ -20,6 +20,8 @@ import type { TimelineItem, TimelineEditRequest, TimelineEdit, TimelineFrequency
 import type { PropertyLinkRecord } from '@/types/property'
 import type { FinancialFormValues } from '@/components/modals/FinancialFormModal'
 import { FinancialFormModal } from '@/components/modals/FinancialFormModal'
+import { DeleteConfirmationModal } from '@/components/modals/FinancialFormModal/DeleteConfirmationModal'
+import { calculateStopEndDate } from '@/components/modals/FinancialFormModal/helpers'
 import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal'
 import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal'
@@ -213,6 +215,12 @@ export function FinancialDataManagement({
     incomeAmount: number
     initialEditAllocationId?: string
   }>({ isOpen: false, incomeId: '', incomeName: '', incomeAmount: 0 })
+  const [debtRepaymentDeleteState, setDebtRepaymentDeleteState] = useState<{
+    isOpen: boolean
+    item: TimelineItem | null
+    deleteMode: 'stop' | 'delete'
+    isDeleting: boolean
+  }>({ isOpen: false, item: null, deleteMode: 'stop', isDeleting: false })
 
   // ========== Computed values ==========
   const mergedLinks = useMemo(() => {
@@ -383,10 +391,20 @@ export function FinancialDataManagement({
     try {
       // Investments are handled separately from timeline edits
       if (category !== 'investment' && usingTimeline && onSaveTimelineEdits && selectedYear > 0) {
+        // Look up the original item to get its name for the timeline edit
+        const dataSource = category === 'asset' ? yearAssets
+          : category === 'liability' ? yearLiabilities
+          : category === 'income' ? yearIncomes
+          : category === 'expense' ? yearExpenses
+          : []
+        const item = dataSource.find((i) => getItemId(i) === id)
+        const itemName = item?.name ?? ''
+
         const isFlow = category === 'income' || category === 'expense'
         const edit: TimelineEdit = {
           itemId: id,
           itemType: category,
+          name: itemName,
           amount: 0,
           ...(isFlow && { frequency: 'annual' as const }),
         }
@@ -669,12 +687,68 @@ export function FinancialDataManagement({
   }
 
   // ========== Debt Repayment Delete Handler ==========
+  // Determine if we're in a future month (not anchor)
+  const isFutureMonth = selectedYear > 0 || (selectedMonth !== undefined && selectedMonth > 1)
+
   const handleDeleteDebtRepayment = async (item: TimelineItem) => {
+    // At future months, show confirmation modal with versioning options
+    if (isFutureMonth) {
+      setDebtRepaymentDeleteState({
+        isOpen: true,
+        item,
+        deleteMode: 'stop',
+        isDeleting: false,
+      })
+      return
+    }
+
+    // At anchor month, do a simple hard delete
     if (!confirm('Are you sure you want to delete this debt repayment?')) return
     try {
       await deleteExpense(item.itemId)
     } catch (error) {
       console.error('Failed to delete debt repayment:', error)
+    }
+  }
+
+  const handleConfirmDebtRepaymentDelete = async () => {
+    const { item, deleteMode } = debtRepaymentDeleteState
+    console.log('[handleConfirmDebtRepaymentDelete] Starting:', {
+      item,
+      deleteMode,
+      anchorYear,
+      selectedYear,
+      selectedMonth,
+      effectiveMonth: selectedMonth ?? 1,
+    })
+    if (!item?.itemId) {
+      console.log('[handleConfirmDebtRepaymentDelete] No itemId, returning')
+      return
+    }
+
+    setDebtRepaymentDeleteState(prev => ({ ...prev, isDeleting: true }))
+    try {
+      // Default selectedMonth to 1 if undefined (anchor month)
+      const effectiveMonth = selectedMonth ?? 1
+      if (deleteMode === 'stop' && anchorYear != null && selectedYear !== undefined) {
+        // Stop the expense from this month onwards
+        const endDate = calculateStopEndDate(anchorYear, selectedYear, effectiveMonth)
+        console.log('[handleConfirmDebtRepaymentDelete] Calling stopExpense:', {
+          id: item.itemId,
+          endDate,
+        })
+        await stopExpenseMutation.mutateAsync({ id: item.itemId, endDate })
+        console.log('[handleConfirmDebtRepaymentDelete] stopExpense succeeded')
+      } else {
+        // Hard delete from all months
+        console.log('[handleConfirmDebtRepaymentDelete] Calling deleteExpense:', item.itemId)
+        await deleteExpense(item.itemId)
+        console.log('[handleConfirmDebtRepaymentDelete] deleteExpense succeeded')
+      }
+      setDebtRepaymentDeleteState({ isOpen: false, item: null, deleteMode: 'stop', isDeleting: false })
+    } catch (error) {
+      console.error('[handleConfirmDebtRepaymentDelete] Failed:', error)
+      setDebtRepaymentDeleteState(prev => ({ ...prev, isDeleting: false }))
     }
   }
 
@@ -837,7 +911,7 @@ export function FinancialDataManagement({
         selectedYear={selectedYear}
         selectedMonth={selectedMonth}
         selectedYearLabel={formatYearLabel(selectedYear)}
-        anchorYear={anchorYear}
+        anchorYear={anchorYear ?? undefined}
         onDelete={
           modalState.mode === 'edit' && getItemId(modalState.data) ? handleModalDelete : undefined
         }
@@ -881,6 +955,16 @@ export function FinancialDataManagement({
         incomeName={allocationModalState.incomeName}
         incomeAmount={allocationModalState.incomeAmount}
         initialEditAllocationId={allocationModalState.initialEditAllocationId}
+      />
+      <DeleteConfirmationModal
+        isOpen={debtRepaymentDeleteState.isOpen}
+        onCancel={() => setDebtRepaymentDeleteState({ isOpen: false, item: null, deleteMode: 'stop', isDeleting: false })}
+        onConfirm={handleConfirmDebtRepaymentDelete}
+        isDeleting={debtRepaymentDeleteState.isDeleting}
+        deleteMode={debtRepaymentDeleteState.deleteMode}
+        onDeleteModeChange={(mode) => setDebtRepaymentDeleteState(prev => ({ ...prev, deleteMode: mode }))}
+        selectedYearLabel={formatYearLabel(selectedYear)}
+        selectedYear={selectedYear}
       />
     </>
   )
