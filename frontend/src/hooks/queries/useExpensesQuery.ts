@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { expensesApi } from '@/api/financial'
 import type { Expense } from '@/types/financial'
+import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export const EXPENSES_QUERY_KEY = QUERY_KEYS.financial.expenses
@@ -42,7 +43,7 @@ export function useUpdateExpenseMutation() {
       id: string
       updates: Partial<Expense> & {
         sourceLiabilityId?: string
-        updateMode?: 'in_place' | 'versioned'
+        updateMode?: UpdateMode
       }
     }) => expensesApi.updateExpense(id, updates),
     onSuccess: () => {

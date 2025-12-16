@@ -8,12 +8,14 @@ import { formatCurrency } from '@/lib/format'
 import { growthApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
-import type {
-  FormState,
-  FinancialFormValues,
-  FinancialFormModalProps,
-  CpfFields,
-  CpfAssetEntry,
+import {
+  UPDATE_MODE_IN_PLACE,
+  UPDATE_MODE_VERSIONED,
+  type FormState,
+  type FinancialFormValues,
+  type FinancialFormModalProps,
+  type CpfFields,
+  type CpfAssetEntry,
 } from './types'
 import {
   MORTGAGE_CATEGORY,
@@ -352,7 +354,7 @@ export function FinancialFormModal({
         }
       case 'expense': {
         const sourceLiabilityId = (data as any)?.sourceLiabilityId
-        const updateMode = applyFromThisMonthOnly ? 'versioned' : 'in_place'
+        const updateMode = applyFromThisMonthOnly ? UPDATE_MODE_VERSIONED : UPDATE_MODE_IN_PLACE
         const versionStartDate =
           applyFromThisMonthOnly &&
           anchorYear &&

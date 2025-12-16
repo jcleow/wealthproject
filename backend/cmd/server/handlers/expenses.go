@@ -10,6 +10,12 @@ import (
 	"financial-chat-system/backend/internal/financial/repository"
 )
 
+// Update mode constants for expense versioning
+const (
+	UpdateModeInPlace   = "in_place"
+	UpdateModeVersioned = "versioned"
+)
+
 // expenseInput is the JSON-friendly input struct for expense creation/update.
 type expenseInput struct {
 	ID             string   `json:"id"`
@@ -25,7 +31,7 @@ type expenseInput struct {
 	Notes          string   `json:"notes"`
 	// Source relationship to liability (e.g., loan payment)
 	SourceLiabilityID *string `json:"sourceLiabilityId,omitempty"`
-	// UpdateMode: "in_place" (default) or "versioned"
+	// UpdateMode: UpdateModeInPlace (default) or UpdateModeVersioned
 	UpdateMode string `json:"updateMode,omitempty"`
 }
 
@@ -185,7 +191,7 @@ func (h *ExpenseHandler) update(w http.ResponseWriter, r *http.Request, id strin
 	input.ID = id
 
 	// Check if this is a versioned update
-	if input.UpdateMode == "versioned" && input.StartDate != nil {
+	if input.UpdateMode == UpdateModeVersioned && input.StartDate != nil {
 		// Versioned update: stop current expense and create new version
 		startDate, err := time.Parse(time.RFC3339, *input.StartDate)
 		if err != nil {

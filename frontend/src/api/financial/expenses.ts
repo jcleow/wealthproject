@@ -2,6 +2,7 @@ import { ApiError, apiClient } from '../client'
 import { buildPaginatedPath } from './helpers'
 import { toExpense } from './transformers'
 import type { Expense, PaginatedResponse, PaginationParams } from '@/types/financial'
+import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 
 export async function listExpenses(params?: PaginationParams): Promise<PaginatedResponse<Expense>> {
   const path = buildPaginatedPath('/cashflow/expenses', params)
@@ -44,7 +45,7 @@ export async function updateExpense(
   id: string,
   payload: Partial<Expense> & {
     sourceLiabilityId?: string
-    updateMode?: 'in_place' | 'versioned'
+    updateMode?: UpdateMode
   }
 ): Promise<Expense> {
   const body: Record<string, unknown> = {

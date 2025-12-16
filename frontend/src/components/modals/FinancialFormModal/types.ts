@@ -1,5 +1,10 @@
 import type { Asset, Expense, Frequency, Income, Liability } from '@/types/financial'
 
+// Update mode constants for expense versioning
+export const UPDATE_MODE_IN_PLACE = 'in_place' as const
+export const UPDATE_MODE_VERSIONED = 'versioned' as const
+export type UpdateMode = typeof UPDATE_MODE_IN_PLACE | typeof UPDATE_MODE_VERSIONED
+
 export type FinancialDataType = 'asset' | 'income' | 'liability' | 'expense' | 'investment'
 
 export type FormState = {
@@ -61,7 +66,7 @@ export type ExpenseFormValues = {
   notes?: string | null
   updatedAt?: string
   sourceLiabilityId?: string
-  updateMode?: 'in_place' | 'versioned'
+  updateMode?: UpdateMode
   startDate?: string
 }
 
