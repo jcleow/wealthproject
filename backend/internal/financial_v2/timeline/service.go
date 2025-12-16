@@ -211,21 +211,21 @@ func (s *Service) loadEffectiveRows(
 // =============================================================================
 
 // applyScenarioImpacts applies all applicable scenario impacts for the current month.
-// Populates mctx.AdjustedState with values that include scenario modifications.
+// Populates mctx.EventAdjustedState with values that include scenario modifications.
 // Called AFTER growth is applied but BEFORE building responses.
 func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time) {
 	if mctx.ScenarioImpacts == nil {
 		// No scenarios - adjusted state stays nil (response builders will use base State)
-		mctx.AdjustedState = nil
+		mctx.EventAdjustedState = nil
 		return
 	}
 
 	// Initialize adjusted state as copy of current state
-	mctx.AdjustedState = make(map[string]*decimal.Decimal)
+	mctx.EventAdjustedState = make(map[string]*decimal.Decimal)
 	for id, balance := range mctx.State {
 		if balance != nil {
 			balanceCopy := *balance
-			mctx.AdjustedState[id] = &balanceCopy
+			mctx.EventAdjustedState[id] = &balanceCopy
 		}
 	}
 
@@ -254,7 +254,7 @@ func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time) {
 			itemInfo,
 			mctx.ScenarioImpacts.EventsByID,
 		)
-		mctx.AdjustedState[itemID] = adjustedValue
+		mctx.EventAdjustedState[itemID] = adjustedValue
 	}
 }
 
@@ -519,6 +519,15 @@ func isActiveInMonth(row FinancialDataRow, date time.Time) bool {
 		return false
 	}
 	return true
+}
+
+// hasStartedByMonth checks if an item has started on or before the given month.
+// Unlike isActiveInMonth, this ignores end dates - useful for liabilities where
+// the end date represents the loan term, not when the debt disappears.
+func hasStartedByMonth(row FinancialDataRow, date time.Time) bool {
+	year, month, _ := date.Date()
+	lastDayOfMonth := time.Date(year, month+1, 0, 23, 59, 59, 0, date.Location())
+	return !row.StartDate.After(lastDayOfMonth)
 }
 
 // initializeItemStates creates ItemStateMap with StartYear/StartMonth for all financial rows
@@ -809,7 +818,7 @@ func applyInvestmentAllocations(
 }
 
 // buildNonCashAssetResponses builds responses for non-cash assets and returns total value
-func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, adjustedState map[string]*decimal.Decimal, date time.Time) ([]NonCashAssetResponse, *decimal.Decimal) {
+func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, eventAdjustedState map[string]*decimal.Decimal, date time.Time) ([]NonCashAssetResponse, *decimal.Decimal) {
 	responses := make([]NonCashAssetResponse, 0)
 	total := decimal.Zero()
 
@@ -825,7 +834,7 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 		balance := state.Balance.Round(0)
 		// Use adjusted value if available, otherwise use base value
 		adjBalance := balance
-		if adjusted, ok := adjustedState[row.ID]; ok && adjusted != nil {
+		if adjusted, ok := eventAdjustedState[row.ID]; ok && adjusted != nil {
 			adjBalance = adjusted.Round(0)
 		}
 		responses = append(responses, NonCashAssetResponse{
@@ -845,7 +854,7 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 }
 
 // buildInvestmentResponses builds responses for investments and returns total value
-func buildInvestmentResponses(rows []FinancialDataRow, itemStates ItemStateMap, adjustedState map[string]*decimal.Decimal, date time.Time) ([]InvestmentResponse, *decimal.Decimal) {
+func buildInvestmentResponses(rows []FinancialDataRow, itemStates ItemStateMap, eventAdjustedState map[string]*decimal.Decimal, date time.Time) ([]InvestmentResponse, *decimal.Decimal) {
 	responses := make([]InvestmentResponse, 0)
 	total := decimal.Zero()
 
@@ -861,7 +870,7 @@ func buildInvestmentResponses(rows []FinancialDataRow, itemStates ItemStateMap, 
 		balance := state.Balance.Round(0)
 		// Use adjusted value if available, otherwise use base value
 		adjBalance := balance
-		if adjusted, ok := adjustedState[row.ID]; ok && adjusted != nil {
+		if adjusted, ok := eventAdjustedState[row.ID]; ok && adjusted != nil {
 			adjBalance = adjusted.Round(0)
 		}
 		responses = append(responses, InvestmentResponse{
@@ -883,7 +892,7 @@ func buildInvestmentResponses(rows []FinancialDataRow, itemStates ItemStateMap, 
 
 // buildCashAssetResponses builds responses for cash assets and returns total value and accumulator ID
 // cashAccumulator is added to the accumulator account's balance
-func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, adjustedState map[string]*decimal.Decimal, date time.Time, cashAccumulator *decimal.Decimal) ([]CashAssetResponse, *decimal.Decimal, string) {
+func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, eventAdjustedState map[string]*decimal.Decimal, date time.Time, cashAccumulator *decimal.Decimal) ([]CashAssetResponse, *decimal.Decimal, string) {
 	responses := make([]CashAssetResponse, 0)
 	total := decimal.Zero()
 	var accumulatorID string
@@ -908,7 +917,7 @@ func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, a
 		balanceRounded := balance.Round(0)
 		// Use adjusted value if available, otherwise use base value
 		adjBalance := balanceRounded
-		if adjusted, ok := adjustedState[row.ID]; ok && adjusted != nil {
+		if adjusted, ok := eventAdjustedState[row.ID]; ok && adjusted != nil {
 			adjBalance = adjusted.Round(0)
 			// For accumulator, also add the cash accumulator
 			if row.IsAccumulator && cashAccumulator != nil {
@@ -932,13 +941,15 @@ func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, a
 
 // buildLiabilityResponses builds responses for liabilities and returns total value
 // Only includes liabilities with outstanding balance (fully repaid liabilities are hidden)
-func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, adjustedState map[string]*decimal.Decimal, date time.Time) ([]LiabilityResponse, *decimal.Decimal) {
+func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, eventAdjustedState map[string]*decimal.Decimal, date time.Time) ([]LiabilityResponse, *decimal.Decimal) {
 	responses := make([]LiabilityResponse, 0)
 	total := decimal.Zero()
 
 	for _, row := range rows {
-		// Only include liabilities that have started
-		if !isActiveInMonth(row, date) {
+		// For liabilities, only check if it has started (not end date).
+		// A liability's end date is its loan term, but the debt persists if there's an outstanding balance.
+		// Fully repaid liabilities are filtered out separately below.
+		if !hasStartedByMonth(row, date) {
 			continue
 		}
 
@@ -956,7 +967,7 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, a
 		balance := state.Balance.Round(0)
 		// Use adjusted value if available, otherwise use base value
 		adjBalance := balance
-		if adjusted, ok := adjustedState[row.ID]; ok && adjusted != nil {
+		if adjusted, ok := eventAdjustedState[row.ID]; ok && adjusted != nil {
 			adjBalance = adjusted.Round(0)
 		}
 		responses = append(responses, LiabilityResponse{
@@ -976,7 +987,7 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, a
 }
 
 // buildIncomeResponses builds responses for incomes with CPF breakdown
-func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, adjustedState map[string]*decimal.Decimal, date time.Time, cpfContributions map[string]*cpfProcessor.ContributionResult) []IncomeResponse {
+func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, eventAdjustedState map[string]*decimal.Decimal, date time.Time, cpfContributions map[string]*cpfProcessor.ContributionResult) []IncomeResponse {
 	responses := make([]IncomeResponse, 0)
 
 	for _, row := range rows {
@@ -993,7 +1004,7 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, adju
 		// Use adjusted value if available, otherwise use base value
 		// Adjusted state is already in source frequency, so convert to monthly
 		adjAmount := amount
-		if adjusted, ok := adjustedState[row.ID]; ok && adjusted != nil {
+		if adjusted, ok := eventAdjustedState[row.ID]; ok && adjusted != nil {
 			adjMonthly := common.ToMonthlyAmount(adjusted, row.Frequency)
 			adjAmount = adjMonthly.Round(0)
 		}
@@ -1030,7 +1041,7 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, adju
 
 // buildExpenseResponses builds responses for expenses
 // Linked expenses (debt payments) are hidden once their liability is fully repaid
-func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, adjustedState map[string]*decimal.Decimal, date time.Time) []ExpenseResponse {
+func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, eventAdjustedState map[string]*decimal.Decimal, date time.Time) []ExpenseResponse {
 	responses := make([]ExpenseResponse, 0)
 
 	for _, row := range rows {
@@ -1053,7 +1064,7 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, adj
 		// Use adjusted value if available, otherwise use base value
 		// Adjusted state is already in source frequency, so convert to monthly
 		adjAmount := amount
-		if adjusted, ok := adjustedState[row.ID]; ok && adjusted != nil {
+		if adjusted, ok := eventAdjustedState[row.ID]; ok && adjusted != nil {
 			adjMonthly := common.ToMonthlyAmount(adjusted, row.Frequency)
 			adjAmount = adjMonthly.Round(0)
 		}
@@ -1234,7 +1245,7 @@ func buildMonthDetailResponse(
 	baseYear int,
 	data EffectiveRows,
 	itemStates ItemStateMap,
-	adjustedState map[string]*decimal.Decimal, // nil if scenarios disabled, otherwise adjusted values
+	eventAdjustedState map[string]*decimal.Decimal, // nil if scenarios disabled, otherwise adjusted values
 	cashAccumulator *decimal.Decimal,
 	netSavings *decimal.Decimal,
 	netCashFlow *decimal.Decimal,
@@ -1247,12 +1258,12 @@ func buildMonthDetailResponse(
 	month := int(date.Month())
 
 	// Build all item responses
-	nonCashAssets, nonCashTotal := buildNonCashAssetResponses(data.NonCashAssets, itemStates, adjustedState, date)
-	investments, investmentTotal := buildInvestmentResponses(data.Investments, itemStates, adjustedState, date)
-	cashAssets, cashTotal, accumulatorID := buildCashAssetResponses(data.CashAssets, itemStates, adjustedState, date, cashAccumulator)
-	liabilities, liabilityTotal := buildLiabilityResponses(data.Liabilities, itemStates, adjustedState, date)
-	incomes := buildIncomeResponses(data.Incomes, itemStates, adjustedState, date, cpfContributions)
-	expenses := buildExpenseResponses(data.Expenses, itemStates, adjustedState, date)
+	nonCashAssets, nonCashTotal := buildNonCashAssetResponses(data.NonCashAssets, itemStates, eventAdjustedState, date)
+	investments, investmentTotal := buildInvestmentResponses(data.Investments, itemStates, eventAdjustedState, date)
+	cashAssets, cashTotal, accumulatorID := buildCashAssetResponses(data.CashAssets, itemStates, eventAdjustedState, date, cashAccumulator)
+	liabilities, liabilityTotal := buildLiabilityResponses(data.Liabilities, itemStates, eventAdjustedState, date)
+	incomes := buildIncomeResponses(data.Incomes, itemStates, eventAdjustedState, date, cpfContributions)
+	expenses := buildExpenseResponses(data.Expenses, itemStates, eventAdjustedState, date)
 	cpfContributionResponses := buildCPFContributionResponses(data.Incomes, itemStates, date, cpfContributions)
 	incomeAllocationResponses := buildIncomeAllocationResponses(incomeAllocations, date)
 
@@ -1293,20 +1304,45 @@ func buildMonthDetailResponse(
 // Monthly Processing
 // =============================================================================
 
-// MonthlyContext holds all state needed to process a single month
+// MonthlyContext holds all state needed to process a single month.
+//
+// # State vs EventAdjustedState
+//
+// There are two state maps used during timeline calculation:
+//
+//   - State: The base financial state that PERSISTS across months. Contains original values
+//     plus growth and income allocations. This is the "real" timeline without any scenario events.
+//
+//   - EventAdjustedState: A TEMPORARY copy of State, recreated fresh each month. Contains State
+//     plus scenario event impacts (e.g., "what if salary increases by 20%"). Only exists when
+//     scenarios are active (otherwise nil).
+//
+// Example with $300/month allocation to investment:
+//
+//	| Month | State (base)              | EventAdjustedState (with scenario)     |
+//	|-------|---------------------------|----------------------------------------|
+//	| Jan   | 35,000 + 300 = 35,300     | 35,300 + scenario impact               |
+//	| Feb   | 35,300 + 300 = 35,600     | 35,600 + scenario impact               |
+//	| Mar   | 35,600 + 300 = 35,900     | 35,900 + scenario impact               |
+//
+// In the API response:
+//   - `balance` comes from State (via ItemStates)
+//   - `adjBalance` comes from EventAdjustedState
+//
+// Income allocations must be applied to BOTH states so they persist across months.
 type MonthlyContext struct {
 	Data                      EffectiveRows
 	ItemStates                ItemStateMap
-	State                     map[string]*decimal.Decimal
+	State                     map[string]*decimal.Decimal // Base state - persists across months
 	Registry                  *growth.Registry
 	CPFCtx                    *CPFContext
 	BaseYear                  int
 	CashAccumulator           *decimal.Decimal
 	IncomeAllocations         []repo.IncomeAllocation
 	LinkedExpensesByLiability map[string]FinancialDataRow
-	// Scenario impact support
-	ScenarioImpacts *scenario.ImpactContext     // Pre-indexed impacts (nil if scenarios disabled)
-	AdjustedState   map[string]*decimal.Decimal // Values after scenario impacts applied
+	// Scenario event support
+	ScenarioImpacts    *scenario.ImpactContext     // Pre-indexed impacts (nil if scenarios disabled)
+	EventAdjustedState map[string]*decimal.Decimal // Temporary state with scenario impacts (recreated each month)
 }
 
 // processMonth handles all calculations for a single month and returns the response
@@ -1340,8 +1376,8 @@ func processMonth(mctx *MonthlyContext, calendarMonthIdx int, currentDate time.T
 	// Determine which state to use for CPF and cash calculations
 	// Use adjusted state if scenarios are active, otherwise use base state
 	stateForCalcs := mctx.State
-	if mctx.AdjustedState != nil {
-		stateForCalcs = mctx.AdjustedState
+	if mctx.EventAdjustedState != nil {
+		stateForCalcs = mctx.EventAdjustedState
 	}
 
 	// Process CPF contributions (using adjusted income values if scenarios are active)
@@ -1359,9 +1395,9 @@ func processMonth(mctx *MonthlyContext, calendarMonthIdx int, currentDate time.T
 		applyAllocations,
 	)
 
-	// If scenarios are active (AdjustedState != State), also apply allocations to base State
-	// so they persist across months. AdjustedState already has this month's allocations.
-	if applyAllocations && mctx.AdjustedState != nil {
+	// If scenarios are active (EventAdjustedState != State), also apply allocations to base State
+	// so they persist across months. EventAdjustedState already has this month's allocations.
+	if applyAllocations && mctx.EventAdjustedState != nil {
 		applyInvestmentAllocations(mctx.Data.Incomes, mctx.IncomeAllocations, mctx.State, currentDate, true)
 	}
 
@@ -1374,7 +1410,7 @@ func processMonth(mctx *MonthlyContext, calendarMonthIdx int, currentDate time.T
 	syncStateToItemStates(mctx.State, mctx.ItemStates)
 	return buildMonthDetailResponse(
 		calendarMonthIdx, currentDate, mctx.BaseYear, mctx.Data, mctx.ItemStates,
-		mctx.AdjustedState, // Pass adjusted state for adjBalance/adjAmount
+		mctx.EventAdjustedState, // Pass adjusted state for adjBalance/adjAmount
 		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFCtx,
 		mctx.IncomeAllocations,
 	)
