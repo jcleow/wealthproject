@@ -734,8 +734,8 @@ export function FinancialFormModal({
                       onClick={() => setApplyFromThisMonthOnly(true)}
                       className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
                         applyFromThisMonthOnly
-                          ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
-                          : 'text-gray-400 hover:text-gray-200'
+                          ? 'bg-white/10 text-white shadow-sm'
+                          : 'text-gray-500 hover:text-gray-300'
                       }`}
                     >
                       This month onwards
@@ -745,11 +745,11 @@ export function FinancialFormModal({
                       onClick={() => setApplyFromThisMonthOnly(false)}
                       className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
                         !applyFromThisMonthOnly
-                          ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
-                          : 'text-gray-400 hover:text-gray-200'
+                          ? 'bg-white/10 text-white shadow-sm'
+                          : 'text-gray-500 hover:text-gray-300'
                       }`}
                     >
-                      All months
+                      From the start
                     </button>
                   </div>
                 </div>
