@@ -139,6 +139,7 @@ func main() {
 		DefaultMaxTokens: llmCfg.DefaultMaxTokens,
 		TimelineService:  timelineService,
 		FinStore:         finStore,
+		FinStoreV2:       finStoreV2,
 		CPFAccountRepo:   cpfAccountRepo,
 	})
 

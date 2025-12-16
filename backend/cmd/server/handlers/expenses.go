@@ -7,7 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"financial-chat-system/backend/internal/financial/repository"
+	"financial-chat-system/backend/internal/decimal"
+	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
 
 // Update mode constants for expense versioning
@@ -40,12 +41,12 @@ type stopInput struct {
 	EndDate string `json:"endDate"`
 }
 
-func (e expenseInput) toExpense() repository.Expense {
-	exp := repository.Expense{
+func (e expenseInput) toExpense() repo.Expense {
+	exp := repo.Expense{
 		ID:                e.ID,
 		ParentID:          e.ParentID,
 		Payee:             e.Payee,
-		Amount:            e.Amount,
+		Amount:            *decimal.MustFromFloat64(e.Amount),
 		Frequency:         e.Frequency,
 		Category:          e.Category,
 		GrowthStrategy:    e.GrowthStrategy,
@@ -63,17 +64,17 @@ func (e expenseInput) toExpense() repository.Expense {
 		}
 	}
 	if e.GrowthRate != nil {
-		exp.GrowthRate = *e.GrowthRate
+		exp.GrowthRate = *decimal.MustFromFloat64(*e.GrowthRate)
 	}
 	return exp
 }
 
 // ExpenseHandler serves expense CRUD endpoints.
 type ExpenseHandler struct {
-	store *repository.Store
+	store *repo.Store
 }
 
-func NewExpenseHandler(store *repository.Store) *ExpenseHandler {
+func NewExpenseHandler(store *repo.Store) *ExpenseHandler {
 	return &ExpenseHandler{store: store}
 }
 
@@ -129,7 +130,12 @@ func (h *ExpenseHandler) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pagination := parsePagination(r)
+	v1Pagination := parsePagination(r)
+	// Convert v1 pagination to v2 pagination (v2 uses pointers)
+	pagination := repo.PaginationParams{
+		Limit:  &v1Pagination.Limit,
+		Offset: &v1Pagination.Offset,
+	}
 	result, err := h.store.ListExpensesGrouped(r.Context(), userID, pagination)
 	if err != nil {
 		internalError(w, err)
@@ -145,7 +151,7 @@ func (h *ExpenseHandler) get(w http.ResponseWriter, r *http.Request, id string) 
 	}
 	item, err := h.store.GetExpense(r.Context(), userID, id)
 	if err != nil {
-		if err == repository.ErrNotFound {
+		if err == repo.ErrNotFound {
 			notFound(w)
 			return
 		}
@@ -202,7 +208,7 @@ func (h *ExpenseHandler) update(w http.ResponseWriter, r *http.Request, id strin
 		// 1. Get the current expense to copy fields
 		current, err := h.store.GetExpense(r.Context(), userID, id)
 		if err != nil {
-			if err == repository.ErrNotFound {
+			if err == repo.ErrNotFound {
 				notFound(w)
 				return
 			}
@@ -223,12 +229,12 @@ func (h *ExpenseHandler) update(w http.ResponseWriter, r *http.Request, id strin
 		if existing != nil {
 			// Update existing version
 			existing.Payee = input.Payee
-			existing.Amount = input.Amount
+			existing.Amount = *decimal.MustFromFloat64(input.Amount)
 			existing.Frequency = input.Frequency
 			existing.Category = input.Category
 			existing.Notes = input.Notes
 			if input.GrowthRate != nil {
-				existing.GrowthRate = *input.GrowthRate
+				existing.GrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
 			}
 			existing.GrowthStrategy = input.GrowthStrategy
 			existing.SourceLiabilityID = input.SourceLiabilityID
@@ -264,7 +270,7 @@ func (h *ExpenseHandler) update(w http.ResponseWriter, r *http.Request, id strin
 	// In-place update (default)
 	updated, err := h.store.UpdateExpense(r.Context(), userID, input.toExpense())
 	if err != nil {
-		if err == repository.ErrNotFound {
+		if err == repo.ErrNotFound {
 			notFound(w)
 			return
 		}
@@ -280,7 +286,7 @@ func (h *ExpenseHandler) delete(w http.ResponseWriter, r *http.Request, id strin
 		return
 	}
 	if err := h.store.DeleteExpense(r.Context(), userID, id); err != nil {
-		if err == repository.ErrNotFound {
+		if err == repo.ErrNotFound {
 			notFound(w)
 			return
 		}
@@ -312,7 +318,7 @@ func (h *ExpenseHandler) stop(w http.ResponseWriter, r *http.Request, id string)
 	}
 	updated, err := h.store.StopExpense(r.Context(), userID, id, endDate)
 	if err != nil {
-		if err == repository.ErrNotFound {
+		if err == repo.ErrNotFound {
 			notFound(w)
 			return
 		}

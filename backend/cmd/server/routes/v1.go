@@ -8,6 +8,7 @@ import (
 	"financial-chat-system/backend/internal/financial"
 	finRepo "financial-chat-system/backend/internal/financial/repository"
 	"financial-chat-system/backend/internal/financial/timeline"
+	finRepoV2 "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/llm"
 	"financial-chat-system/backend/internal/middleware"
 	"financial-chat-system/backend/internal/session"
@@ -27,6 +28,7 @@ type V1Dependencies struct {
 	DefaultMaxTokens int
 	TimelineService  *timeline.Service
 	FinStore         *finRepo.Store
+	FinStoreV2       *finRepoV2.Store // V2 store for migrated handlers
 	CPFAccountRepo   *account.Repository
 }
 
@@ -83,7 +85,7 @@ func RegisterV1Routes(router *mux.Router, deps V1Dependencies) {
 	investmentHandler := handlers.NewInvestmentHandler(deps.FinStore)
 	liabilityHandler := handlers.NewLiabilityHandler(deps.FinStore)
 	incomeHandler := handlers.NewIncomeHandler(deps.FinStore)
-	expenseHandler := handlers.NewExpenseHandler(deps.FinStore)
+	expenseHandler := handlers.NewExpenseHandler(deps.FinStoreV2) // Uses V2 store
 	propertyHandler := handlers.NewPropertyScenarioHandler(deps.FinStore)
 	propertyLinkHandler := handlers.NewPropertyLinkHandler(deps.FinStore)
 	scenarioHandler := handlers.NewScenarioEventHandler(deps.FinStore)

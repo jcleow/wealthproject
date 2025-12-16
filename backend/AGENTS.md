@@ -1,14 +1,30 @@
 # Codebase Notes for AI Agents
 
+## ⚠️ CRITICAL: Use financial_v2 Store, Not financial (v1)
+
+**DO NOT use `internal/financial/repository/store.go` (v1 Store).**
+
+The v1 Store is **DEPRECATED**. All new development and handler migrations MUST use the v2 Store:
+- Import: `finRepoV2 "financial-chat-system/backend/internal/financial_v2/repository"`
+- The v2 Store uses `decimal.Decimal` for monetary values (not `float64`)
+- v2 methods return pointers for single-item queries (`*Type` instead of `Type`)
+
+When migrating handlers from v1 to v2:
+1. Change import from `internal/financial/repository` to `internal/financial_v2/repository`
+2. Update handler constructor to accept `*finRepoV2.Store`
+3. Convert float64 inputs to `decimal.Decimal` using `decimal.MustFromFloat64()`
+4. Handle pointer returns appropriately
+
 ## Repository Structure
 
 ### Deprecated vs Active Code
 
 | Path | Status | Notes |
 |------|--------|-------|
-| `internal/financial/repository/store.go` | **DEPRECATED** | v1 repository - do not add new features here |
+| `internal/financial/repository/store.go` | **DEPRECATED** | v1 repository - DO NOT USE for new features |
 | `internal/financial_v2/repository/store.go` | **ACTIVE** | v2 repository - all new features go here |
-| `cmd/server/handlers/` | **ACTIVE** | HTTP handlers using v1 store (being migrated) |
+| `internal/financial_v2/repository/expense.go` | **ACTIVE** | Expense CRUD operations (v2) |
+| `cmd/server/handlers/` | **ACTIVE** | HTTP handlers (being migrated to v2 store) |
 
 ### Key Differences: v1 vs v2
 
