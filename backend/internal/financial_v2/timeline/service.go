@@ -1359,6 +1359,12 @@ func processMonth(mctx *MonthlyContext, calendarMonthIdx int, currentDate time.T
 		applyAllocations,
 	)
 
+	// If scenarios are active (AdjustedState != State), also apply allocations to base State
+	// so they persist across months. AdjustedState already has this month's allocations.
+	if applyAllocations && mctx.AdjustedState != nil {
+		applyInvestmentAllocations(mctx.Data.Incomes, mctx.IncomeAllocations, mctx.State, currentDate, true)
+	}
+
 	// Accumulate cash flow (anchor month included; allocations only mutate balances after anchor)
 	if applyAllocations {
 		mctx.CashAccumulator = mctx.CashAccumulator.Add(netCashFlow)
