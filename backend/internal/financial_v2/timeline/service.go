@@ -1240,7 +1240,7 @@ func buildIncomeAllocationResponses(allocations []repo.IncomeAllocation, date ti
 
 // buildMonthDetailResponse creates a detailed response for a single month
 func buildMonthDetailResponse(
-	globalMonthIdx int,
+	allMonthsIndex int,
 	date time.Time,
 	baseYear int,
 	data EffectiveRows,
@@ -1282,7 +1282,7 @@ func buildMonthDetailResponse(
 		Year:                 baseYear + yearIndex,
 		Month:                month,
 		AllYearsIndex:        yearIndex,
-		AllMonthsIndex:       globalMonthIdx,
+		AllMonthsIndex:       allMonthsIndex,
 		NonCashAssets:        nonCashAssets,
 		Investments:          investments,
 		CashAssets:           cashAssets,
@@ -1347,15 +1347,15 @@ type MonthlyContext struct {
 
 // processMonth handles all calculations for a single month and returns the response
 // isAnchorMonth indicates if this is the first month (anchor month) where investment allocations should not mutate balances
-func processMonth(mctx *MonthlyContext, globalMonthIdx int, currentDate time.Time, isAnchorMonth bool) MonthDetailResponse {
+func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Time, isAnchorMonth bool) MonthDetailResponse {
 	// Reset CPF YTD at year boundaries
-	mctx.CPFCtx.ResetYTDIfNewYear(currentDate, globalMonthIdx)
+	mctx.CPFCtx.ResetYTDIfNewYear(currentDate, allMonthsIndex)
 
 	// Apply growth to all financial items (excluding liabilities)
 	growthCtx := &GrowthContext{
 		Registry:    mctx.Registry,
 		State:       mctx.State,
-		Month:       globalMonthIdx + 1,
+		Month:       allMonthsIndex + 1,
 		MonthOfYear: int(currentDate.Month()),
 		Date:        currentDate,
 	}
@@ -1409,7 +1409,7 @@ func processMonth(mctx *MonthlyContext, globalMonthIdx int, currentDate time.Tim
 	// Sync state and build response
 	syncStateToItemStates(mctx.State, mctx.ItemStates)
 	return buildMonthDetailResponse(
-		globalMonthIdx, currentDate, mctx.BaseYear, mctx.Data, mctx.ItemStates,
+		allMonthsIndex, currentDate, mctx.BaseYear, mctx.Data, mctx.ItemStates,
 		mctx.EventAdjustedState, // Pass adjusted state for adjBalance/adjAmount
 		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFCtx,
 		mctx.IncomeAllocations,
@@ -1454,9 +1454,9 @@ func (s *Service) ComputeFinancialSnapshot(
 
 	for monthIdx := 0; monthIdx < totalMonths; monthIdx++ {
 		currentDate := anchorStart.AddDate(0, monthIdx, 0)
-		globalMonthIdx := startMonthIndex + monthIdx
+		allMonthsIndex := startMonthIndex + monthIdx
 		isAnchorMonth := monthIdx == 0
-		resultMonths = append(resultMonths, processMonth(mctx, globalMonthIdx, currentDate, isAnchorMonth))
+		resultMonths = append(resultMonths, processMonth(mctx, allMonthsIndex, currentDate, isAnchorMonth))
 	}
 
 	return TimelineV2Response{Months: resultMonths}, nil
