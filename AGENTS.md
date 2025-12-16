@@ -357,6 +357,43 @@ When generating or modifying Go code, follow these principles:
 - **Only expose immutable interfaces**: Public interfaces should NEVER change (like io.Reader, io.Writer) — if it might change, keep it internal
 - **Testing without factories**: Concrete return types are still testable — consumers can define minimal interfaces for mocking only what they need
 
+### Handler & Service Layer Separation
+- **Handlers should only handle HTTP concerns**: parsing request bodies, validating input, calling services, and writing responses
+- **Business logic belongs in the service layer**: all domain logic, orchestration of multiple repository calls, and complex operations should be in services under `internal/financial_v2/<domain>/`
+- **Services should be stateless**: inject dependencies (like `*repo.Store`) via constructor
+- **Keep handlers thin**: if a handler method exceeds ~20 lines of logic, move the business logic to a service
+
+Example:
+```go
+// BAD: Business logic in handler
+func (h *Handler) update(w http.ResponseWriter, r *http.Request, id string) {
+    // ... parsing ...
+    current, _ := h.store.GetItem(ctx, id)
+    h.store.StopItem(ctx, id, endDate)
+    existing, _ := h.store.FindByParent(ctx, id)
+    if existing != nil {
+        // update existing...
+    } else {
+        // create new version...
+    }
+}
+
+// GOOD: Handler delegates to service
+func (h *Handler) update(w http.ResponseWriter, r *http.Request, id string) {
+    // Parse input
+    var input updateInput
+    json.NewDecoder(r.Body).Decode(&input)
+
+    // Delegate to service
+    result, err := h.service.Update(ctx, userID, id, input.toServiceInput())
+    if err != nil {
+        handleError(w, err)
+        return
+    }
+    writeJSON(w, result)
+}
+```
+
 Example:
 ```go
 // BAD: Java-style factory pattern
