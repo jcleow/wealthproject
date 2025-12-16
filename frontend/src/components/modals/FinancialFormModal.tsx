@@ -488,7 +488,8 @@ export function FinancialFormModal({
         const investment = data as Asset
         const amt = (investment as any).amountAnnual ?? (investment as any).amount_annual ?? investment.currentValue ?? 0
         const itemRate = investment.annualGrowthRate
-        const effectiveRate = itemRate && itemRate !== 0
+        // Use item's rate if explicitly set (including 0), otherwise fall back to default
+        const effectiveRate = itemRate !== undefined && itemRate !== null
           ? itemRate
           : getRateForCategory('asset', investment.category, growthConfigs)
         setFormData({
@@ -670,13 +671,14 @@ export function FinancialFormModal({
       }
       case 'investment': {
         const investment = data as Asset | undefined
+        const parsedRate = Number.parseFloat(formData.annualGrowthRate)
         return {
           type,
           id: investment?.id,
           name: formData.name.trim(),
           category: formData.category.trim() || 'other_investment',
           currentValue: toNumeric(formData.amount),
-          annualGrowthRate: Number.parseFloat(formData.annualGrowthRate) || 6.0,
+          annualGrowthRate: Number.isNaN(parsedRate) ? 6.0 : parsedRate,
           ...shared,
         }
       }
