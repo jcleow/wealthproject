@@ -81,7 +81,7 @@ export function FinancialFormModal({
   const [pendingPayload, setPendingPayload] = useState<FinancialFormValues | null>(null)
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [deleteMode, setDeleteMode] = useState<'stop' | 'delete'>('stop')
-  const [applyFromThisMonthOnly, setApplyFromThisMonthOnly] = useState(false)
+  const [applyFromThisMonthOnly, setApplyFromThisMonthOnly] = useState(true)
 
   // Derived values
   const isFutureMonth = (selectedYear ?? 0) > 0 || (selectedMonth ?? 1) > 1
@@ -119,7 +119,7 @@ export function FinancialFormModal({
     setCpfErrors({})
     setShowMinPaymentWarning(false)
     setPendingPayload(null)
-    setApplyFromThisMonthOnly(false)
+    setApplyFromThisMonthOnly(true) // Default to "this month onwards" for versioned updates
     setShowDeleteConfirmation(false)
     setDeleteMode('stop')
 
@@ -724,25 +724,34 @@ export function FinancialFormModal({
                 />
               </div>
 
-              {/* Versioning checkbox for expenses at future months */}
+              {/* Update scope selector for expenses at future months */}
               {type === 'expense' && mode === 'edit' && isFutureMonth && (
-                <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-3">
-                  <label className="flex cursor-pointer items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={applyFromThisMonthOnly}
-                      onChange={(e) => setApplyFromThisMonthOnly(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-gray-800"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-gray-200">
-                        Apply from {selectedYearLabel ?? `Year ${selectedYear}`} onwards only
-                      </span>
-                      <p className="text-xs text-gray-400">
-                        If checked, previous months will keep the current value
-                      </p>
-                    </div>
-                  </label>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-200">Apply changes to</label>
+                  <div className="flex rounded-lg bg-white/[0.03] p-1">
+                    <button
+                      type="button"
+                      onClick={() => setApplyFromThisMonthOnly(true)}
+                      className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                        applyFromThisMonthOnly
+                          ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
+                          : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      This month onwards
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setApplyFromThisMonthOnly(false)}
+                      className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+                        !applyFromThisMonthOnly
+                          ? 'bg-emerald-500/20 text-emerald-400 shadow-sm'
+                          : 'text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      All months
+                    </button>
+                  </div>
                 </div>
               )}
             </>
