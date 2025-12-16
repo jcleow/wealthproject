@@ -546,7 +546,7 @@ function InvestmentsSection({
             <span className={`${numericStyles.base} transition-opacity group-hover/item:opacity-0`}>
               {formatAllocationValue(allocation)}
               {allocation.allocationType === 'fixed' && (
-                <span className="ml-1 text-xs text-slate-400">/yr</span>
+                <span className="ml-1 text-xs text-slate-400">/mo</span>
               )}
             </span>
             {/* Edit/Delete buttons - absolutely positioned, visible on hover */}
@@ -568,7 +568,7 @@ function InvestmentsSection({
                   type="button"
                   title="Delete"
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-3 w-3" />                  
                 </button>
               )}
             </div>
