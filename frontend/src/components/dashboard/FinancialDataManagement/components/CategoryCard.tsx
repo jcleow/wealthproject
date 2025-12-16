@@ -597,9 +597,24 @@ interface DebtRepaymentsSectionProps {
 
 function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyData, onEdit, onDelete }: DebtRepaymentsSectionProps) {
   const total = debtRepayments.reduce((sum, item) => sum + getDisplayAmount(item), 0)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
+
+  // Close on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sectionRef.current && !sectionRef.current.contains(event.target as Node)) {
+        setSelectedId(null)
+      }
+    }
+    if (selectedId) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [selectedId])
 
   return (
-    <div className="mt-3 border-t border-white/[0.06] pt-3">
+    <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
       <div className="mb-2 flex items-center gap-2 px-2">
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Debt Repayments</span>
         <span className="text-[10px] text-slate-600">
@@ -609,39 +624,49 @@ function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyDa
       </div>
       {debtRepayments.map((item, index) => {
         const itemId = item.itemId || `debt-repayment-${index}`
+        const isSelected = selectedId === itemId
         return (
           <div
             key={itemId}
-            className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
+            onClick={() => setSelectedId(isSelected ? null : itemId)}
+            className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
           >
             <span className="truncate text-sm text-slate-300">{item.name}</span>
-            <span className={`${numericStyles.base} transition-opacity group-hover/item:opacity-0`}>
+            <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
               {formatCurrency(getDisplayAmount(item))}
               {showMonthlyData && <span className="ml-1 text-xs text-slate-400">/mo</span>}
             </span>
-            {/* Edit/Delete buttons - absolutely positioned, visible on hover */}
-            <div className="pointer-events-none absolute right-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:pointer-events-auto group-hover/item:opacity-100">
-              {onEdit && (
-                <button
-                  onClick={() => onEdit(item)}
-                  className="rounded p-1 text-slate-500 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
-                  type="button"
-                  title="Edit"
-                >
-                  <Pencil className="h-3 w-3" />
-                </button>
-              )}
-              {onDelete && item.itemId && (
-                <button
-                  onClick={() => onDelete(item)}
-                  className="rounded p-1 text-slate-500 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
-                  type="button"
-                  title="Delete"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              )}
-            </div>
+            {/* Edit/Delete buttons - visible when selected */}
+            {isSelected && (
+              <div className="absolute right-2 flex items-center gap-0.5">
+                {onEdit && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEdit(item)
+                    }}
+                    className="rounded p-1 text-slate-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                    type="button"
+                    title="Edit"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+                {onDelete && item.itemId && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete(item)
+                    }}
+                    className="rounded p-1 text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                    type="button"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )
       })}
