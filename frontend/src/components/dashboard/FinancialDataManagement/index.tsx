@@ -618,7 +618,7 @@ export function FinancialDataManagement({
       if (!confirm('This will stop the allocation from this month onwards. The allocation will remain active for previous months. Continue?')) return
 
       // Calculate end_date as last day of previous month using utility function
-      const endDate = calculateAllocationEndDate(selectedYear, selectedMonth ?? 0, anchorYear)
+      const endDate = calculateAllocationEndDate(selectedYear, selectedMonth ?? 1, anchorYear)
 
       try {
         await stopAllocationMutation.mutateAsync({

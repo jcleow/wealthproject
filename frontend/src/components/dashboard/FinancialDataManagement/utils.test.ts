@@ -79,17 +79,17 @@ describe('calculateActualYear', () => {
 describe('calculateAllocationEndDate', () => {
   describe('basic functionality', () => {
     it('should return last day of previous month', () => {
-      // April (month 3) 2027 -> should return March 31, 2027
-      const result = calculateAllocationEndDate(2027, 3, 2025)
+      // April (month 4, 1-indexed) 2027 -> should return March 31, 2027
+      const result = calculateAllocationEndDate(2027, 4, 2025)
       const date = new Date(result)
       expect(date.getFullYear()).toBe(2027)
-      expect(date.getMonth()).toBe(2) // March (0-indexed)
+      expect(date.getMonth()).toBe(2) // March (0-indexed in JS Date)
       expect(date.getDate()).toBe(31)
     })
 
     it('should handle January (returns December of previous year)', () => {
-      // January (month 0) 2027 -> should return December 31, 2026
-      const result = calculateAllocationEndDate(2027, 0, 2025)
+      // January (month 1, 1-indexed) 2027 -> should return December 31, 2026
+      const result = calculateAllocationEndDate(2027, 1, 2025)
       const date = new Date(result)
       expect(date.getFullYear()).toBe(2026)
       expect(date.getMonth()).toBe(11) // December
@@ -97,8 +97,8 @@ describe('calculateAllocationEndDate', () => {
     })
 
     it('should handle February (returns January 31)', () => {
-      // February (month 1) 2027 -> should return January 31, 2027
-      const result = calculateAllocationEndDate(2027, 1, 2025)
+      // February (month 2, 1-indexed) 2027 -> should return January 31, 2027
+      const result = calculateAllocationEndDate(2027, 2, 2025)
       const date = new Date(result)
       expect(date.getFullYear()).toBe(2027)
       expect(date.getMonth()).toBe(0) // January
@@ -106,11 +106,20 @@ describe('calculateAllocationEndDate', () => {
     })
 
     it('should handle months with 30 days (returns 30th)', () => {
-      // May (month 4) 2027 -> should return April 30, 2027
-      const result = calculateAllocationEndDate(2027, 4, 2025)
+      // May (month 5, 1-indexed) 2027 -> should return April 30, 2027
+      const result = calculateAllocationEndDate(2027, 5, 2025)
       const date = new Date(result)
       expect(date.getFullYear()).toBe(2027)
       expect(date.getMonth()).toBe(3) // April
+      expect(date.getDate()).toBe(30)
+    })
+
+    it('should handle December (returns November 30)', () => {
+      // December (month 12, 1-indexed) 2026 -> should return November 30, 2026
+      const result = calculateAllocationEndDate(2026, 12, 2025)
+      const date = new Date(result)
+      expect(date.getFullYear()).toBe(2026)
+      expect(date.getMonth()).toBe(10) // November
       expect(date.getDate()).toBe(30)
     })
   })
@@ -118,8 +127,8 @@ describe('calculateAllocationEndDate', () => {
   describe('with offset selectedYear', () => {
     it('should correctly calculate year from offset', () => {
       // selectedYear=2 means year 2027 when anchorYear=2025
-      // April (month 3) -> should return March 31, 2027
-      const result = calculateAllocationEndDate(2, 3, 2025)
+      // April (month 4, 1-indexed) -> should return March 31, 2027
+      const result = calculateAllocationEndDate(2, 4, 2025)
       const date = new Date(result)
       expect(date.getFullYear()).toBe(2027)
       expect(date.getMonth()).toBe(2) // March
@@ -130,7 +139,7 @@ describe('calculateAllocationEndDate', () => {
   describe('regression test for bug #4051', () => {
     it('should NOT produce year 4051 in end date', () => {
       // The bug: Year 2 April with anchorYear 2025 produced 4051-03-31
-      const result = calculateAllocationEndDate(2026, 3, 2025)
+      const result = calculateAllocationEndDate(2026, 4, 2025)
       const date = new Date(result)
       expect(date.getFullYear()).toBe(2026)
       expect(date.getFullYear()).not.toBe(4051)
@@ -139,13 +148,13 @@ describe('calculateAllocationEndDate', () => {
     it('should produce correct date for "year 2 April" scenario', () => {
       // User scenario: "year 2 April" with anchor 2025
       // If selectedYear is passed as actual year (2027): should be March 31, 2027
-      const resultActualYear = calculateAllocationEndDate(2027, 3, 2025)
+      const resultActualYear = calculateAllocationEndDate(2027, 4, 2025)
       const dateActual = new Date(resultActualYear)
       expect(dateActual.getFullYear()).toBe(2027)
       expect(dateActual.getMonth()).toBe(2) // March
 
       // If selectedYear is passed as offset (2): should also be March 31, 2027
-      const resultOffset = calculateAllocationEndDate(2, 3, 2025)
+      const resultOffset = calculateAllocationEndDate(2, 4, 2025)
       const dateOffset = new Date(resultOffset)
       expect(dateOffset.getFullYear()).toBe(2027)
       expect(dateOffset.getMonth()).toBe(2) // March

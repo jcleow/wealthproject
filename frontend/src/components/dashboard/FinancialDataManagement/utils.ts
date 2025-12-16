@@ -78,7 +78,7 @@ export function calculateActualYear(selectedYear: number, anchorYear?: number | 
  * Returns the last day of the month BEFORE the specified month/year.
  *
  * @param selectedYear - Either an offset from anchorYear or an actual year
- * @param selectedMonth - Month index (0-11, where 0 = January)
+ * @param selectedMonth - Month (1-12, where 1 = January) - matches timeline data format
  * @param anchorYear - The base year (defaults to current year if not provided)
  * @returns ISO 8601 date string for the last day of the previous month
  */
@@ -88,8 +88,8 @@ export function calculateAllocationEndDate(
   anchorYear?: number | null
 ): string {
   const targetYear = calculateActualYear(selectedYear, anchorYear)
-  // Create date for first day of target month, then go back one day to get last day of previous month
-  const targetDate = new Date(targetYear, selectedMonth, 1)
+  // Convert 1-indexed month to 0-indexed for JavaScript Date, then go back one day
+  const targetDate = new Date(targetYear, selectedMonth - 1, 1)
   targetDate.setDate(0) // Goes to last day of previous month
   targetDate.setHours(23, 59, 59, 0)
   return targetDate.toISOString()
