@@ -7,7 +7,7 @@ import type { PropertyLinkRecord } from '@/types/property'
 import type { IncomeAllocation } from '@/api/financial/incomes'
 import { formatCurrency } from '@/lib/format'
 import { categoryConfig } from '../config'
-import { getAppliedImpacts, getItemId, sortItems } from '../utils'
+import { getAppliedImpacts, getItemId, sortItems, numericStyles } from '../utils'
 import { parseDecimal } from '../converters'
 import { LineItem } from './LineItem'
 import type { FinancialCategory } from '../types'
@@ -387,7 +387,7 @@ function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, 
             className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
           >
             <span className="truncate text-sm text-slate-300">{item.name}</span>
-            <span className="text-sm font-medium text-slate-200 transition-opacity group-hover/item:opacity-0">
+            <span className={`${numericStyles.medium} transition-opacity group-hover/item:opacity-0`}>
               {formatCurrency(getDisplayAmount(item))}
             </span>
             {/* Edit/Delete buttons - absolutely positioned, visible on hover */}
@@ -440,7 +440,7 @@ function CPFAssetsSection({ cpfAssets, getDisplayAmount }: CPFAssetsSectionProps
           className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
         >
           <span className="truncate text-sm text-slate-300">{item.name}</span>
-          <span className="text-sm font-medium text-slate-200">
+          <span className={numericStyles.medium}>
             {formatCurrency(getDisplayAmount(item))}
           </span>
         </div>
@@ -466,14 +466,14 @@ function CPFContributionsSection({ cpfContributionsRaw }: CPFContributionsSectio
         <div key={item.id || `cpf-contrib-${index}`}>
           <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
             <span className="truncate text-sm text-slate-300">Employee Contribution - {item.name.replace('CPF Contribution - ', '')}</span>
-            <span className="font-mono text-sm text-slate-300">
+            <span className={numericStyles.base}>
               ({formatCurrency(parseDecimal(item.employeeContribution))})
               <span className="ml-1 text-xs text-slate-400">/mo</span>
             </span>
           </div>
           <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
             <span className="truncate text-sm text-slate-300">Employer Contribution - {item.name.replace('CPF Contribution - ', '')}</span>
-            <span className="font-mono text-sm text-slate-300">
+            <span className={numericStyles.base}>
               {formatCurrency(parseDecimal(item.employerContribution))}
               <span className="ml-1 text-xs text-slate-400">/mo</span>
             </span>
@@ -537,7 +537,7 @@ function InvestmentsSection({
             <div className="min-w-0 flex-1">
               <span className="truncate text-sm text-slate-300">{getInvestmentName(allocation.targetInvestmentId!)}</span>
             </div>
-            <span className="text-sm font-medium text-slate-200 transition-opacity group-hover/item:opacity-0">
+            <span className={`${numericStyles.medium} transition-opacity group-hover/item:opacity-0`}>
               {formatAllocationValue(allocation)}
               {allocation.allocationType === 'fixed' && (
                 <span className="ml-1 text-xs text-slate-400">/yr</span>
@@ -571,7 +571,7 @@ function InvestmentsSection({
       ) : (
         <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
           <span className="truncate text-sm text-slate-300">Allocated to investments</span>
-          <span className="font-mono text-sm text-slate-300">
+          <span className={numericStyles.base}>
             {formatCurrency(showMonthlyData ? monthlyInvestments : monthlyInvestments * 12)}
             <span className="ml-1 text-xs text-slate-400">{showMonthlyData ? '/mo' : '/yr'}</span>
           </span>

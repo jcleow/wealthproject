@@ -4,7 +4,7 @@ import type { TimelineItem } from '@/types/timeline'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
 import { formatCurrency } from '@/lib/format'
-import { getIconByName, getItemId, getAnnualizationLabel } from '../utils'
+import { getIconByName, getItemId, getAnnualizationLabel, numericStyles } from '../utils'
 import type { AppliedImpact, FinancialCategory } from '../types'
 
 interface LineItemProps {
@@ -206,7 +206,7 @@ export function LineItem({
         {/* Right side: amount with hover actions */}
         <div className="flex items-center gap-1">
           {/* Value */}
-          <span className={`font-mono text-sm text-slate-300 transition-opacity ${isSelected ? 'opacity-0' : 'opacity-100'}`}>
+          <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : 'opacity-100'}`}>
             {formatCurrency(getDisplayAmount(item))}
             {showMonthlyData && (category === 'income' || category === 'expense') && (
               <span className="ml-1 text-xs text-slate-400">/mo</span>

@@ -5,6 +5,19 @@ import type { ScenarioEvent } from '@/types/scenario'
 import type { AppliedImpact, FinancialCategory } from './types'
 import { formatCurrency } from '@/lib/format'
 
+/**
+ * Common style classes for numeric/currency displays.
+ * Uses monospace font with tabular numbers for proper alignment.
+ */
+export const numericStyles = {
+  /** Standard numeric display - used for amounts in lists */
+  base: 'font-mono tabular-nums text-sm text-slate-300',
+  /** Slightly emphasized - used for row values */
+  medium: 'font-mono tabular-nums text-sm font-medium text-slate-200',
+  /** De-emphasized - used for secondary values */
+  muted: 'font-mono tabular-nums text-sm text-slate-400',
+} as const
+
 // Icon lookup for scenario icons
 export const iconLookup = Object.entries(LucideIcons).reduce<Record<string, LucideIcon>>((acc, [key, component]) => {
   if (key === 'default' || key === 'createLucideIcon') return acc
