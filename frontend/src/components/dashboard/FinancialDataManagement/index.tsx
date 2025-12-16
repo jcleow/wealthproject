@@ -21,7 +21,6 @@ import type { PropertyLinkRecord } from '@/types/property'
 import type { FinancialFormValues } from '@/components/modals/FinancialFormModal'
 import { FinancialFormModal } from '@/components/modals/FinancialFormModal'
 import { DeleteConfirmationModal } from '@/components/modals/FinancialFormModal/DeleteConfirmationModal'
-import { calculateStopEndDate } from '@/components/modals/FinancialFormModal/helpers'
 import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal'
 import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal'
@@ -690,7 +689,7 @@ export function FinancialDataManagement({
   // Determine if we're in a future month (not anchor)
   const isFutureMonth = selectedYear > 0 || (selectedMonth !== undefined && selectedMonth > 1)
 
-  const handleDeleteDebtRepayment = async (item: TimelineItem) => {
+  const handleDeleteDebtRepayment = (item: TimelineItem) => {
     // At future months, show confirmation modal with versioning options
     if (isFutureMonth) {
       setDebtRepaymentDeleteState({
@@ -704,50 +703,25 @@ export function FinancialDataManagement({
 
     // At anchor month, do a simple hard delete
     if (!confirm('Are you sure you want to delete this debt repayment?')) return
-    try {
-      await deleteExpense(item.itemId)
-    } catch (error) {
-      console.error('Failed to delete debt repayment:', error)
-    }
+    void deleteExpense(item.itemId)
   }
 
   const handleConfirmDebtRepaymentDelete = async () => {
     const { item, deleteMode } = debtRepaymentDeleteState
-    console.log('[handleConfirmDebtRepaymentDelete] Starting:', {
-      item,
-      deleteMode,
-      anchorYear,
-      selectedYear,
-      selectedMonth,
-      effectiveMonth: selectedMonth ?? 1,
-    })
-    if (!item?.itemId) {
-      console.log('[handleConfirmDebtRepaymentDelete] No itemId, returning')
-      return
-    }
+    if (!item?.itemId) return
 
     setDebtRepaymentDeleteState(prev => ({ ...prev, isDeleting: true }))
     try {
-      // Default selectedMonth to 1 if undefined (anchor month)
-      const effectiveMonth = selectedMonth ?? 1
-      if (deleteMode === 'stop' && anchorYear != null && selectedYear !== undefined) {
-        // Stop the expense from this month onwards
-        const endDate = calculateStopEndDate(anchorYear, selectedYear, effectiveMonth)
-        console.log('[handleConfirmDebtRepaymentDelete] Calling stopExpense:', {
-          id: item.itemId,
-          endDate,
-        })
+      if (deleteMode === 'stop' && selectedYear !== undefined) {
+        const effectiveMonth = selectedMonth ?? 1
+        const endDate = calculateAllocationEndDate(selectedYear, effectiveMonth, anchorYear)
         await stopExpenseMutation.mutateAsync({ id: item.itemId, endDate })
-        console.log('[handleConfirmDebtRepaymentDelete] stopExpense succeeded')
       } else {
-        // Hard delete from all months
-        console.log('[handleConfirmDebtRepaymentDelete] Calling deleteExpense:', item.itemId)
         await deleteExpense(item.itemId)
-        console.log('[handleConfirmDebtRepaymentDelete] deleteExpense succeeded')
       }
       setDebtRepaymentDeleteState({ isOpen: false, item: null, deleteMode: 'stop', isDeleting: false })
     } catch (error) {
-      console.error('[handleConfirmDebtRepaymentDelete] Failed:', error)
+      console.error('Failed to delete debt repayment:', error)
       setDebtRepaymentDeleteState(prev => ({ ...prev, isDeleting: false }))
     }
   }
@@ -965,6 +939,8 @@ export function FinancialDataManagement({
         onDeleteModeChange={(mode) => setDebtRepaymentDeleteState(prev => ({ ...prev, deleteMode: mode }))}
         selectedYearLabel={formatYearLabel(selectedYear)}
         selectedYear={selectedYear}
+        selectedMonth={selectedMonth}
+        anchorYear={anchorYear}
       />
     </>
   )

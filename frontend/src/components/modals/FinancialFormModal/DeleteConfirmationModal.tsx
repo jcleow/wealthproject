@@ -1,7 +1,13 @@
 import { Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
+import { calculateActualYear } from '@/components/dashboard/FinancialDataManagement/utils'
 
 type DeleteMode = 'stop' | 'delete'
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+]
 
 interface DeleteConfirmationModalProps {
   isOpen: boolean
@@ -12,6 +18,8 @@ interface DeleteConfirmationModalProps {
   onDeleteModeChange: (mode: DeleteMode) => void
   selectedYearLabel?: string
   selectedYear?: number
+  selectedMonth?: number
+  anchorYear?: number | null
 }
 
 export function DeleteConfirmationModal({
@@ -23,8 +31,19 @@ export function DeleteConfirmationModal({
   onDeleteModeChange,
   selectedYearLabel,
   selectedYear,
+  selectedMonth,
+  anchorYear,
 }: DeleteConfirmationModalProps) {
-  const yearDisplay = selectedYearLabel ?? `Year ${selectedYear}`
+  // Format as "March 2026" if we have month info, otherwise fall back to year label
+  const getDateDisplay = () => {
+    if (selectedMonth !== undefined && selectedYear !== undefined) {
+      const actualYear = calculateActualYear(selectedYear, anchorYear)
+      const monthName = MONTH_NAMES[selectedMonth - 1] // selectedMonth is 1-indexed
+      return `${monthName} ${actualYear}`
+    }
+    return selectedYearLabel ?? `Year ${selectedYear}`
+  }
+  const dateDisplay = getDateDisplay()
 
   return (
     <Modal
@@ -51,7 +70,7 @@ export function DeleteConfirmationModal({
               className="mt-1 h-4 w-4 border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-gray-800"
             />
             <div>
-              <span className="text-sm font-medium text-gray-200">Stop from {yearDisplay}</span>
+              <span className="text-sm font-medium text-gray-200">Stop from {dateDisplay}</span>
               <p className="text-xs text-gray-400">
                 The expense will continue until this month, then stop
               </p>
