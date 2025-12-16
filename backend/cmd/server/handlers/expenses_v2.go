@@ -34,15 +34,10 @@ func (h *ExpenseV2Handler) HandleDeleteAll(w http.ResponseWriter, r *http.Reques
 
 	userCtx := middleware.GetUserContext(r.Context())
 
-	deleted, err := h.store.DeleteAllExpenses(r.Context(), userCtx.UserID)
+	_, err := h.store.DeleteAllExpenses(r.Context(), userCtx.UserID)
 	if err != nil {
 		internalError(w, err)
 		return
-	}
-
-	// Log for debugging
-	if deleted > 0 {
-		// Could add structured logging here
 	}
 
 	w.WriteHeader(http.StatusNoContent)
