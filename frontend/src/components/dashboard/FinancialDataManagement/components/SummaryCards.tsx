@@ -1,7 +1,7 @@
 import { formatCurrency } from '@/lib/format'
+import { numericStyles } from '@/lib/utils'
 import type { MonthDetailResponseV2 } from '@/types/timeline'
 import { parseDecimal } from '../converters'
-import { numericStyles } from '../utils'
 
 interface SummaryCardsProps {
   netWorth: number

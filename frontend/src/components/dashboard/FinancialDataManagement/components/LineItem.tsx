@@ -4,7 +4,8 @@ import type { TimelineItem } from '@/types/timeline'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
 import { formatCurrency } from '@/lib/format'
-import { getIconByName, getItemId, getAnnualizationLabel, numericStyles } from '../utils'
+import { numericStyles } from '@/lib/utils'
+import { getIconByName, getItemId, getAnnualizationLabel } from '../utils'
 import type { AppliedImpact, FinancialCategory } from '../types'
 
 interface LineItemProps {
