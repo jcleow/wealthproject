@@ -11,18 +11,25 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // DebugSQL enables SQL query logging when set to true
 var DebugSQL = false
 
+type PgxPool interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 type Store struct {
-	pool *pgxpool.Pool
+	pool PgxPool
 }
 
 // NewStore creates a new repository Store with pgxpool
-func NewStore(pool *pgxpool.Pool) *Store {
+func NewStore(pool PgxPool) *Store {
 	return &Store{pool: pool}
 }
 
@@ -85,17 +92,17 @@ type NonCashAsset struct {
 
 // Investment mirrors NonCashAsset but lives in finance_investments
 type Investment struct {
-	ID               string          `json:"id"`
-	ParentID         string          `json:"parentId"`
-	Name             string          `json:"name"`
-	Category         string          `json:"category"`
-	CurrentValue     decimal.Decimal `json:"currentValue"`
-	AnnualGrowthRate decimal.Decimal `json:"annualGrowthRate"`
-	StartDate        time.Time       `json:"startDate"`         // Precise start date (day-level)
-	EndDate          *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
-	Notes            string          `json:"notes"`
-	GrowthStrategy   string          `json:"growthStrategy"`
-	UpdatedAt        time.Time       `json:"updatedAt"`
+	ID             string          `json:"id"`
+	ParentID       string          `json:"parentId"`
+	Name           string          `json:"name"`
+	Category       string          `json:"category"`
+	CurrentValue   decimal.Decimal `json:"currentValue"`
+	GrowthRate     decimal.Decimal `json:"growthRate"`
+	StartDate      time.Time       `json:"startDate"`         // Precise start date (day-level)
+	EndDate        *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
+	Notes          string          `json:"notes"`
+	GrowthStrategy string          `json:"growthStrategy"`
+	UpdatedAt      time.Time       `json:"updatedAt"`
 }
 
 type CashAsset struct {
@@ -319,16 +326,16 @@ func (s *Store) ListInvestments(
 ) (PaginatedResult[Investment], error) {
 	query := `
 	SELECT id,
-		COALESCE(parent_id, id) as parent_id,
-		name,
-		category,
-		current_value,
-		annual_growth_rate,
-		start_date,
-		end_date,
-		COALESCE(notes, '') as notes,
-		updated_at
-	FROM finance_investments
+	COALESCE(parent_id, id) as parent_id,
+	name,
+	category,
+	current_value,
+	growth_rate,
+	start_date,
+	end_date,
+	COALESCE(notes, '') as notes,
+	updated_at
+FROM finance_investments
 	WHERE user_id = $1
 	`
 
@@ -375,7 +382,7 @@ func (s *Store) ListInvestments(
 	investments := []Investment{}
 	for rows.Next() {
 		var inv Investment
-		err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.AnnualGrowthRate, &inv.StartDate, &inv.EndDate, &inv.Notes, &inv.UpdatedAt)
+		err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.GrowthRate, &inv.StartDate, &inv.EndDate, &inv.Notes, &inv.UpdatedAt)
 		if err != nil {
 			return PaginatedResult[Investment]{}, err
 		}
@@ -777,9 +784,13 @@ func (s *Store) GetCPFAccount(
 // IncomeAllocation represents a destination allocation for an income.
 // Income can be distributed to multiple cash_accounts or investments.
 // Uses separate nullable FK columns for proper referential integrity.
+// Supports versioning via parent_id + start_date/end_date for timeline-aware edits.
 type IncomeAllocation struct {
 	ID                  string          `json:"id"`
 	IncomeID            string          `json:"incomeId"`
+	ParentID            string          `json:"parentId"`          // Groups versions of same logical allocation
+	StartDate           time.Time       `json:"startDate"`         // When this version starts
+	EndDate             *time.Time      `json:"endDate,omitempty"` // When this version ends (NULL = ongoing)
 	TargetCashAccountID *string         `json:"targetCashAccountId,omitempty"`
 	TargetInvestmentID  *string         `json:"targetInvestmentId,omitempty"`
 	AllocationType      string          `json:"allocationType"`  // 'percentage' or 'fixed'
@@ -882,6 +893,9 @@ func (s *Store) ListIncomeAllocations(
 	SELECT
 		fi.id,
 		ia.id,
+		ia.parent_id,
+		ia.start_date,
+		ia.end_date,
 		ia.target_cash_account_id,
 		ia.target_investment_id,
 		ia.allocation_type,
@@ -890,7 +904,7 @@ func (s *Store) ListIncomeAllocations(
 	FROM finance_incomes fi
 	LEFT JOIN income_allocations ia ON ia.income_id = fi.id
 	WHERE fi.id = $1 AND fi.user_id = $2
-	ORDER BY ia.created_at`
+	ORDER BY ia.parent_id, ia.start_date`
 
 	logQuery(query, []any{incomeID, userID})
 	rows, err := s.pool.Query(ctx, query, incomeID, userID)
@@ -906,13 +920,18 @@ func (s *Store) ListIncomeAllocations(
 		foundIncome = true
 
 		var incomeIDResult string
-		var id, targetCashAccountID, targetInvestmentID, allocationType *string
+		var id, parentID, targetCashAccountID, targetInvestmentID, allocationType *string
+		var startDate *time.Time
+		var endDate *time.Time
 		var allocationValue decimal.Decimal
 		var createdAt *time.Time
 
 		err := rows.Scan(
 			&incomeIDResult,
 			&id,
+			&parentID,
+			&startDate,
+			&endDate,
 			&targetCashAccountID,
 			&targetInvestmentID,
 			&allocationType,
@@ -934,6 +953,13 @@ func (s *Store) ListIncomeAllocations(
 			TargetCashAccountID: targetCashAccountID,
 			TargetInvestmentID:  targetInvestmentID,
 			AllocationValue:     allocationValue,
+			EndDate:             endDate,
+		}
+		if parentID != nil {
+			a.ParentID = *parentID
+		}
+		if startDate != nil {
+			a.StartDate = *startDate
 		}
 		if allocationType != nil {
 			a.AllocationType = *allocationType
@@ -962,6 +988,9 @@ func (s *Store) ListAllIncomeAllocations(
 	SELECT
 		ia.id,
 		ia.income_id,
+		COALESCE(ia.parent_id, ia.id) as parent_id,
+		ia.start_date,
+		ia.end_date,
 		ia.target_cash_account_id,
 		ia.target_investment_id,
 		ia.allocation_type,
@@ -970,7 +999,7 @@ func (s *Store) ListAllIncomeAllocations(
 	FROM income_allocations ia
 	INNER JOIN finance_incomes fi ON fi.id = ia.income_id
 	WHERE fi.user_id = $1
-	ORDER BY ia.income_id, ia.created_at`
+	ORDER BY ia.parent_id, ia.start_date`
 
 	logQuery(query, []any{userID})
 	rows, err := s.pool.Query(ctx, query, userID)
@@ -983,7 +1012,7 @@ func (s *Store) ListAllIncomeAllocations(
 	for rows.Next() {
 		var a IncomeAllocation
 		err := rows.Scan(
-			&a.ID, &a.IncomeID,
+			&a.ID, &a.IncomeID, &a.ParentID, &a.StartDate, &a.EndDate,
 			&a.TargetCashAccountID, &a.TargetInvestmentID,
 			&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
 		)
@@ -1003,16 +1032,19 @@ func (s *Store) GetIncomeAllocation(
 	allocationID string,
 ) (*IncomeAllocation, error) {
 	query := `
-	SELECT ia.id, ia.income_id, ia.target_cash_account_id, ia.target_investment_id,
+	SELECT ia.id, ia.income_id, COALESCE(ia.parent_id, ia.id) as parent_id,
+	       ia.start_date, ia.end_date,
+	       ia.target_cash_account_id, ia.target_investment_id,
 	       ia.allocation_type, ia.allocation_value, ia.created_at
 	FROM income_allocations ia
 	INNER JOIN finance_incomes fi ON fi.id = ia.income_id AND fi.user_id = $1
 	WHERE ia.id = $2`
 
 	var a IncomeAllocation
-	// pgx scans NULL directly into *string
+	// pgx scans NULL directly into *string and *time.Time
 	err := s.pool.QueryRow(ctx, query, userID, allocationID).Scan(
-		&a.ID, &a.IncomeID,
+		&a.ID, &a.IncomeID, &a.ParentID,
+		&a.StartDate, &a.EndDate,
 		&a.TargetCashAccountID, &a.TargetInvestmentID,
 		&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
 	)
@@ -1027,6 +1059,8 @@ func (s *Store) GetIncomeAllocation(
 }
 
 // CreateIncomeAllocation creates a new allocation for an income.
+// If ParentID is empty, the new row's ID becomes its own parent (new logical allocation).
+// If ParentID is set, this creates a new version of an existing allocation (restart scenario).
 func (s *Store) CreateIncomeAllocation(
 	ctx context.Context,
 	userID string,
@@ -1045,21 +1079,31 @@ func (s *Store) CreateIncomeAllocation(
 		return nil, ErrNotFound
 	}
 
+	// Default start_date to 2025-01-01 if not provided
+	startDate := allocation.StartDate
+	if startDate.IsZero() {
+		startDate = time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+
 	query := `
-	INSERT INTO income_allocations (income_id, target_cash_account_id, target_investment_id, allocation_type, allocation_value)
-	VALUES ($1, $2, $3, $4, $5)
-	RETURNING id, income_id, target_cash_account_id, target_investment_id, allocation_type, allocation_value, created_at`
+	INSERT INTO income_allocations (income_id, parent_id, start_date, end_date, target_cash_account_id, target_investment_id, allocation_type, allocation_value)
+	VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8)
+	RETURNING id, income_id, COALESCE(parent_id, id), start_date, end_date, target_cash_account_id, target_investment_id, allocation_type, allocation_value, created_at`
 
 	var created IncomeAllocation
-	// pgx scans NULL directly into *string
+	// pgx scans NULL directly into *string and *time.Time
 	err = s.pool.QueryRow(ctx, query,
 		allocation.IncomeID,
+		nullIfEmpty(allocation.ParentID),
+		startDate,
+		allocation.EndDate,
 		allocation.TargetCashAccountID,
 		allocation.TargetInvestmentID,
 		allocation.AllocationType,
 		allocation.AllocationValue,
 	).Scan(
-		&created.ID, &created.IncomeID,
+		&created.ID, &created.IncomeID, &created.ParentID,
+		&created.StartDate, &created.EndDate,
 		&created.TargetCashAccountID, &created.TargetInvestmentID,
 		&created.AllocationType, &created.AllocationValue, &created.CreatedAt,
 	)
@@ -1086,11 +1130,12 @@ func (s *Store) UpdateIncomeAllocation(
 	WHERE ia.id = $2
 	  AND ia.income_id = fi.id
 	  AND fi.user_id = $1
-	RETURNING ia.id, ia.income_id, ia.target_cash_account_id, ia.target_investment_id,
+	RETURNING ia.id, ia.income_id, COALESCE(ia.parent_id, ia.id), ia.start_date, ia.end_date,
+	          ia.target_cash_account_id, ia.target_investment_id,
 	          ia.allocation_type, ia.allocation_value, ia.created_at`
 
 	var updated IncomeAllocation
-	// pgx scans NULL directly into *string
+	// pgx scans NULL directly into *string and *time.Time
 	err := s.pool.QueryRow(ctx, query,
 		userID, allocation.ID,
 		allocation.TargetCashAccountID,
@@ -1098,7 +1143,8 @@ func (s *Store) UpdateIncomeAllocation(
 		allocation.AllocationType,
 		allocation.AllocationValue,
 	).Scan(
-		&updated.ID, &updated.IncomeID,
+		&updated.ID, &updated.IncomeID, &updated.ParentID,
+		&updated.StartDate, &updated.EndDate,
 		&updated.TargetCashAccountID, &updated.TargetInvestmentID,
 		&updated.AllocationType, &updated.AllocationValue, &updated.CreatedAt,
 	)
@@ -1107,6 +1153,42 @@ func (s *Store) UpdateIncomeAllocation(
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to update income allocation: %w", err)
+	}
+
+	return &updated, nil
+}
+
+// SetIncomeAllocationEndDate sets the end_date for an allocation (stops it at a future point).
+// Used when "deleting" at a future time - preserves the original record with an end_date.
+func (s *Store) SetIncomeAllocationEndDate(
+	ctx context.Context,
+	userID string,
+	allocationID string,
+	endDate time.Time,
+) (*IncomeAllocation, error) {
+	query := `
+	UPDATE income_allocations ia
+	SET end_date = $3
+	FROM finance_incomes fi
+	WHERE ia.id = $2
+	  AND ia.income_id = fi.id
+	  AND fi.user_id = $1
+	RETURNING ia.id, ia.income_id, COALESCE(ia.parent_id, ia.id), ia.start_date, ia.end_date,
+	          ia.target_cash_account_id, ia.target_investment_id,
+	          ia.allocation_type, ia.allocation_value, ia.created_at`
+
+	var updated IncomeAllocation
+	err := s.pool.QueryRow(ctx, query, userID, allocationID, endDate).Scan(
+		&updated.ID, &updated.IncomeID, &updated.ParentID,
+		&updated.StartDate, &updated.EndDate,
+		&updated.TargetCashAccountID, &updated.TargetInvestmentID,
+		&updated.AllocationType, &updated.AllocationValue, &updated.CreatedAt,
+	)
+	if err == pgx.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to set income allocation end date: %w", err)
 	}
 
 	return &updated, nil

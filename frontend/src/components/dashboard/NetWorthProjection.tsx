@@ -799,7 +799,7 @@ export function NetWorthProjection({
               type="button"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add Scenario
+              Add Event
             </button>
           )}
         </div>

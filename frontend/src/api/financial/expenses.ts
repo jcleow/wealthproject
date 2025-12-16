@@ -1,12 +1,25 @@
 import { ApiError, apiClient } from '../client'
 import { buildPaginatedPath } from './helpers'
-import { normalizePaginatedResponse, toExpense } from './transformers'
+import { toExpense } from './transformers'
 import type { Expense, PaginatedResponse, PaginationParams } from '@/types/financial'
 
 export async function listExpenses(params?: PaginationParams): Promise<PaginatedResponse<Expense>> {
   const path = buildPaginatedPath('/cashflow/expenses', params)
-  const data = await apiClient.get<any>(path)
-  return normalizePaginatedResponse<Expense>(data, toExpense, params)
+  const raw = await apiClient.get<any>(path)
+
+  // Backend returns GroupedExpenses with RegularExpenses and DebtRepayments
+  // Combine them into a single data array for pagination
+  const regularExpenses = Array.isArray(raw?.regularExpenses) ? raw.regularExpenses : []
+  const debtRepayments = Array.isArray(raw?.debtRepayments) ? raw.debtRepayments : []
+  const items = [...regularExpenses, ...debtRepayments]
+
+  return {
+    data: items.map(toExpense),
+    total: raw?.total ?? items.length,
+    limit: raw?.limit ?? params?.limit ?? 20,
+    offset: raw?.offset ?? params?.offset ?? 0,
+    hasMore: raw?.hasMore ?? false,
+  }
 }
 
 export async function createExpense(payload: Omit<Expense, 'id' | 'updatedAt'>): Promise<Expense> {

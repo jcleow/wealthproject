@@ -7,6 +7,9 @@ import type { Income, PaginatedResponse, PaginationParams } from '@/types/financ
 export interface IncomeAllocation {
   id: string
   incomeId: string
+  parentId: string
+  startDate: string
+  endDate?: string
   targetCashAccountId?: string
   targetInvestmentId?: string
   allocationType: 'percentage' | 'fixed'
@@ -72,8 +75,30 @@ export async function deleteAllIncomes(): Promise<void> {
 }
 
 // Income Allocation API Methods
+
+export type AllocationTargetType = 'investment' | 'cash_account'
+
+export interface ListAllocationsParams {
+  targetType?: AllocationTargetType
+  asOf?: string // ISO 8601 date (e.g., "2031-04-01")
+}
+
+// List all allocations for the user (v2 API)
+// targetType: filter by 'investment' or 'cash_account', or undefined for all
+// asOf: filter allocations active as of this date (defaults to today on backend)
+export async function listAllIncomeAllocations(params?: ListAllocationsParams): Promise<IncomeAllocation[]> {
+  const searchParams = new URLSearchParams()
+  if (params?.targetType) searchParams.set('targetType', params.targetType)
+  if (params?.asOf) searchParams.set('asOf', params.asOf)
+
+  const queryString = searchParams.toString()
+  const path = queryString ? `/income-allocations?${queryString}` : '/income-allocations'
+  const data = await apiClient.get<IncomeAllocation[]>(path, undefined, { baseUrl: '/api/v2' })
+  return data
+}
+
 export async function listIncomeAllocations(incomeId: string): Promise<IncomeAllocation[]> {
-  const data = await apiClient.get<IncomeAllocation[]>(`/cashflow/incomes/${incomeId}/allocations`)
+  const data = await apiClient.get<IncomeAllocation[]>(`/incomes/${incomeId}/allocations`, undefined, { baseUrl: '/api/v2' })
   return data
 }
 
@@ -82,14 +107,42 @@ export async function createIncomeAllocation(
   payload: CreateIncomeAllocationPayload
 ): Promise<IncomeAllocation> {
   const data = await apiClient.post<IncomeAllocation>(
-    `/cashflow/incomes/${incomeId}/allocations`,
-    payload
+    `/incomes/${incomeId}/allocations`,
+    payload,
+    { baseUrl: '/api/v2' }
+  )
+  return data
+}
+
+export async function updateIncomeAllocation(
+  incomeId: string,
+  allocationId: string,
+  payload: CreateIncomeAllocationPayload
+): Promise<IncomeAllocation> {
+  const data = await apiClient.put<IncomeAllocation>(
+    `/incomes/${incomeId}/allocations/${allocationId}`,
+    payload,
+    { baseUrl: '/api/v2' }
   )
   return data
 }
 
 export async function deleteIncomeAllocation(incomeId: string, allocationId: string): Promise<void> {
-  await apiClient.delete<void>(`/cashflow/incomes/${incomeId}/allocations/${allocationId}`)
+  await apiClient.delete<void>(`/incomes/${incomeId}/allocations/${allocationId}`, { baseUrl: '/api/v2' })
+}
+
+// Stop an allocation at a future date (sets end_date instead of deleting)
+export async function stopIncomeAllocation(
+  incomeId: string,
+  allocationId: string,
+  endDate: string // ISO 8601 format (e.g., "2031-03-31T23:59:59Z")
+): Promise<IncomeAllocation> {
+  const data = await apiClient.post<IncomeAllocation>(
+    `/incomes/${incomeId}/allocations/${allocationId}/stop`,
+    { endDate },
+    { baseUrl: '/api/v2' }
+  )
+  return data
 }
 
 export const incomesApi = {
@@ -98,7 +151,10 @@ export const incomesApi = {
   updateIncome,
   deleteIncome,
   deleteAllIncomes,
+  listAllIncomeAllocations,
   listIncomeAllocations,
   createIncomeAllocation,
+  updateIncomeAllocation,
   deleteIncomeAllocation,
+  stopIncomeAllocation,
 }

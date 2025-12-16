@@ -58,3 +58,39 @@ export function sortItems(items: TimelineItem[], direction: 'asc' | 'desc', summ
     direction === 'desc' ? summarizeAmount(b) - summarizeAmount(a) : summarizeAmount(a) - summarizeAmount(b)
   )
 }
+
+/**
+ * Calculates the actual year from selectedYear which can be either:
+ * - An offset (0, 1, 2, etc.) when < 1900
+ * - An actual year (2025, 2026, etc.) when >= 1900
+ *
+ * @param selectedYear - Either an offset from anchorYear or an actual year
+ * @param anchorYear - The base year (defaults to current year if not provided)
+ * @returns The actual year
+ */
+export function calculateActualYear(selectedYear: number, anchorYear?: number | null): number {
+  const baseYear = anchorYear ?? new Date().getFullYear()
+  return selectedYear >= 1900 ? selectedYear : baseYear + selectedYear
+}
+
+/**
+ * Calculates the end date for stopping an allocation.
+ * Returns the last day of the month BEFORE the specified month/year.
+ *
+ * @param selectedYear - Either an offset from anchorYear or an actual year
+ * @param selectedMonth - Month (1-12, where 1 = January) - matches timeline data format
+ * @param anchorYear - The base year (defaults to current year if not provided)
+ * @returns ISO 8601 date string for the last day of the previous month
+ */
+export function calculateAllocationEndDate(
+  selectedYear: number,
+  selectedMonth: number,
+  anchorYear?: number | null
+): string {
+  const targetYear = calculateActualYear(selectedYear, anchorYear)
+  // Convert 1-indexed month to 0-indexed for JavaScript Date, then go back one day
+  const targetDate = new Date(targetYear, selectedMonth - 1, 1)
+  targetDate.setDate(0) // Goes to last day of previous month
+  targetDate.setHours(23, 59, 59, 0)
+  return targetDate.toISOString()
+}

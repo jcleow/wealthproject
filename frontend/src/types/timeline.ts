@@ -158,6 +158,7 @@ export interface MonthDetailResponseV2 {
   income: IncomeResponseV2[]
   cpfContributions: CPFContributionResponseV2[]
   expenses: ExpenseResponseV2[]
+  incomeAllocations: IncomeAllocationResponseV2[]
   // Savings breakdown
   netSavings: string      // income - employee CPF - expenses (monthly)
   netCash: string         // income - employee CPF - expenses - investments (monthly)
@@ -167,6 +168,19 @@ export interface MonthDetailResponseV2 {
   accumulatorAccountId: string
 }
 
+/** Income allocation in V2 response - filtered by month */
+export interface IncomeAllocationResponseV2 {
+  id: string
+  incomeId: string
+  parentId: string
+  startDate: string
+  endDate?: string
+  targetCashAccountId?: string
+  targetInvestmentId?: string
+  allocationType: 'percentage' | 'fixed'
+  allocationValue: string // decimal as string
+}
+
 /** Non-cash asset in V2 response (decimal values come as strings from backend) */
 export interface NonCashAssetResponseV2 {
   id: string
@@ -174,7 +188,7 @@ export interface NonCashAssetResponseV2 {
   name: string
   category: string
   balance: string
-  adjBalance: string
+  eventAdjBalance: string
   itemType: TimelineItemType
   startDate: string
   startYear: number
@@ -188,7 +202,8 @@ export interface InvestmentResponseV2 {
   name: string
   category: string
   balance: string
-  adjBalance: string
+  eventAdjBalance: string
+  growthRate: string
   itemType: TimelineItemType
   startDate: string
   startYear: number
@@ -201,7 +216,7 @@ export interface CashAssetResponseV2 {
   name: string
   category: string
   balance: string
-  adjBalance: string
+  eventAdjBalance: string
   itemType: TimelineItemType
   startYear: number
   startMonth: number
@@ -215,7 +230,7 @@ export interface CPFAssetResponseV2 {
   name: string
   category: string
   balance: string
-  adjBalance: string
+  eventAdjBalance: string
   itemType: TimelineItemType
   startDate: string
   startYear: number
@@ -229,7 +244,7 @@ export interface LiabilityResponseV2 {
   name: string
   category: string
   balance: string
-  adjBalance: string
+  eventAdjBalance: string
   sourceAmount: string
   itemType: TimelineItemType
   startYear: number
@@ -243,7 +258,7 @@ export interface IncomeResponseV2 {
   name: string
   category: string
   amount: string
-  adjAmount: string
+  eventAdjAmount: string
   sourceFrequency: TimelineFrequency
   itemType: TimelineItemType
   startYear: number
@@ -277,7 +292,7 @@ export interface ExpenseResponseV2 {
   name: string
   category: string
   amount: string
-  adjAmount: string
+  eventAdjAmount: string
   sourceFrequency: TimelineFrequency
   itemType: TimelineItemType
   startYear: number

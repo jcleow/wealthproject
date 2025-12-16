@@ -12,7 +12,7 @@ export interface UseTimelineV2QueryOptions {
   endDate?: string
   /** Whether the query should execute */
   enabled?: boolean
-  /** If true, apply scenario impacts to adjBalance/adjAmount (default: true) */
+  /** If true, apply scenario impacts to eventAdjBalance/eventAdjAmount (default: true) */
   includeScenarios?: boolean
 }
 

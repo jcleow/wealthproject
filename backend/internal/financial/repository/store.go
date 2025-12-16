@@ -502,12 +502,12 @@ func (s *Store) ListInvestments(ctx context.Context, userID string, pagination P
 		       name,
 		       category,
 		       current_value,
-		       annual_growth_rate,
+		       growth_rate,
 		       start_date,
 		       end_date,
 		       COALESCE(notes, '') as notes,
 		       updated_at
-		FROM finance_investments
+	FROM finance_investments
 		WHERE user_id = $1
 		ORDER BY parent_id, start_date`
 
@@ -557,12 +557,12 @@ func (s *Store) ListAllInvestments(ctx context.Context, userID string, opts Date
 		       name,
 		       category,
 		       current_value,
-		       annual_growth_rate,
+		       growth_rate,
 		       start_date,
 		       end_date,
 		       COALESCE(notes, '') as notes,
 		       updated_at
-		FROM finance_investments
+	FROM finance_investments
 		WHERE user_id = $1`
 
 	args := []interface{}{userID}
@@ -617,12 +617,12 @@ func (s *Store) GetInvestment(ctx context.Context, userID, id string) (Investmen
 		       name,
 		       category,
 		       current_value,
-		       annual_growth_rate,
+		       growth_rate,
 		       start_date,
 		       end_date,
 		       COALESCE(notes, '') as notes,
 		       updated_at
-		FROM finance_investments
+	FROM finance_investments
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var inv Investment
 	var endDate sql.NullTime
@@ -647,17 +647,17 @@ func (s *Store) CreateInvestment(ctx context.Context, userID string, inv Investm
 	endDate := inv.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_investments (user_id, parent_id, name, category, current_value, annual_growth_rate, start_date, end_date, notes)
+		INSERT INTO finance_investments (user_id, parent_id, name, category, current_value, growth_rate, start_date, end_date, notes)
 		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, NULLIF($9, ''))
 		ON CONFLICT ON CONSTRAINT finance_investments_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
 		    current_value=EXCLUDED.current_value,
-		    annual_growth_rate=EXCLUDED.annual_growth_rate,
+		    growth_rate=EXCLUDED.growth_rate,
 		    end_date=EXCLUDED.end_date,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
 		userID, nullIfEmpty(inv.ParentID), inv.Name, inv.Category, inv.CurrentValue, inv.AnnualGrowthRate, startDate, endDate, inv.Notes)
 
 	var created Investment
@@ -685,13 +685,13 @@ func (s *Store) UpdateInvestment(ctx context.Context, userID string, inv Investm
 		SET name=$3,
 		    category=$4,
 		    current_value=$5,
-		    annual_growth_rate=$6,
+		    growth_rate=$6,
 		    start_date=COALESCE($7, start_date),
 		    end_date=$8,
 		    notes=NULLIF($9, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
 		userID, inv.ID, inv.Name, inv.Category, inv.CurrentValue, inv.AnnualGrowthRate, startDate, endDate, inv.Notes)
 
 	var updated Investment

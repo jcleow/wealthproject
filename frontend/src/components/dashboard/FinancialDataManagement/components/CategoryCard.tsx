@@ -4,7 +4,9 @@ import type { TimelineItem, CPFContributionResponseV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
+import type { IncomeAllocation } from '@/api/financial/incomes'
 import { formatCurrency } from '@/lib/format'
+import { numericStyles } from '@/lib/utils'
 import { categoryConfig } from '../config'
 import { getAppliedImpacts, getItemId, sortItems } from '../utils'
 import { parseDecimal } from '../converters'
@@ -52,6 +54,13 @@ interface CategoryCardProps {
   onAddInvestment?: () => void
   onEditInvestment?: (item: TimelineItem) => void
   onDeleteInvestment?: (id: string) => void
+  // Income allocation callbacks
+  onManageAllocations?: (item: TimelineItem) => void
+  // Investment allocations data (for Income card)
+  investmentAllocations?: IncomeAllocation[]
+  investments?: TimelineItem[]  // For resolving investment names in allocations
+  onEditAllocation?: (allocation: IncomeAllocation) => void
+  onDeleteAllocation?: (allocation: IncomeAllocation) => void
 }
 
 export function CategoryCard({
@@ -89,6 +98,11 @@ export function CategoryCard({
   onAddInvestment,
   onEditInvestment,
   onDeleteInvestment,
+  onManageAllocations,
+  investmentAllocations = [],
+  investments = [],
+  onEditAllocation,
+  onDeleteAllocation,
 }: CategoryCardProps) {
   const config = categoryConfig[category]
 
@@ -279,6 +293,7 @@ export function CategoryCard({
                   onSetAccumulator={onSetAccumulator}
                   onOpenCashAccountEdit={onOpenCashAccountEdit}
                   onDeleteCashAccount={onDeleteCashAccount}
+                  onManageAllocations={category === 'income' ? onManageAllocations : undefined}
                   cashAccounts={cashAccounts}
                   scenarioImpacts={scenarioImpacts}
                   isExpanded={isExpanded}
@@ -318,6 +333,10 @@ export function CategoryCard({
               <InvestmentsSection
                 monthlyInvestments={monthlyInvestments}
                 showMonthlyData={showMonthlyData}
+                allocations={investmentAllocations}
+                investments={investments}
+                onEditAllocation={onEditAllocation}
+                onDeleteAllocation={onDeleteAllocation}
               />
             )}
 
@@ -369,7 +388,7 @@ function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, 
             className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
           >
             <span className="truncate text-sm text-slate-300">{item.name}</span>
-            <span className="text-sm font-medium text-slate-200 transition-opacity group-hover/item:opacity-0">
+            <span className={`${numericStyles.medium} transition-opacity group-hover/item:opacity-0`}>
               {formatCurrency(getDisplayAmount(item))}
             </span>
             {/* Edit/Delete buttons - absolutely positioned, visible on hover */}
@@ -422,7 +441,7 @@ function CPFAssetsSection({ cpfAssets, getDisplayAmount }: CPFAssetsSectionProps
           className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
         >
           <span className="truncate text-sm text-slate-300">{item.name}</span>
-          <span className="text-sm font-medium text-slate-200">
+          <span className={numericStyles.medium}>
             {formatCurrency(getDisplayAmount(item))}
           </span>
         </div>
@@ -448,14 +467,14 @@ function CPFContributionsSection({ cpfContributionsRaw }: CPFContributionsSectio
         <div key={item.id || `cpf-contrib-${index}`}>
           <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
             <span className="truncate text-sm text-slate-300">Employee Contribution - {item.name.replace('CPF Contribution - ', '')}</span>
-            <span className="font-mono text-sm text-slate-300">
+            <span className={numericStyles.base}>
               ({formatCurrency(parseDecimal(item.employeeContribution))})
               <span className="ml-1 text-xs text-slate-400">/mo</span>
             </span>
           </div>
           <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
             <span className="truncate text-sm text-slate-300">Employer Contribution - {item.name.replace('CPF Contribution - ', '')}</span>
-            <span className="font-mono text-sm text-slate-300">
+            <span className={numericStyles.base}>
               {formatCurrency(parseDecimal(item.employerContribution))}
               <span className="ml-1 text-xs text-slate-400">/mo</span>
             </span>
@@ -469,9 +488,37 @@ function CPFContributionsSection({ cpfContributionsRaw }: CPFContributionsSectio
 interface InvestmentsSectionProps {
   monthlyInvestments: number
   showMonthlyData: boolean
+  allocations: IncomeAllocation[]
+  investments: TimelineItem[]
+  onEditAllocation?: (allocation: IncomeAllocation) => void
+  onDeleteAllocation?: (allocation: IncomeAllocation) => void
 }
 
-function InvestmentsSection({ monthlyInvestments, showMonthlyData }: InvestmentsSectionProps) {
+function InvestmentsSection({
+  monthlyInvestments,
+  showMonthlyData,
+  allocations,
+  investments,
+  onEditAllocation,
+  onDeleteAllocation,
+}: InvestmentsSectionProps) {
+  // Filter for investment allocations only
+  const investmentAllocations = allocations.filter((a) => a.targetInvestmentId)
+
+  // Helper to get investment name by ID
+  const getInvestmentName = (investmentId: string): string => {
+    const investment = investments.find((i) => getItemId(i) === investmentId)
+    return investment?.name ?? 'Unknown Investment'
+  }
+
+  // Format allocation value
+  const formatAllocationValue = (allocation: IncomeAllocation): string => {
+    if (allocation.allocationType === 'percentage') {
+      return `${allocation.allocationValue}%`
+    }
+    return formatCurrency(allocation.allocationValue)
+  }
+
   return (
     <div className="mt-3 border-t border-white/[0.06] pt-3">
       <div className="mb-2 flex items-center gap-2 px-2">
@@ -481,13 +528,56 @@ function InvestmentsSection({ monthlyInvestments, showMonthlyData }: Investments
           <span className="ml-1 text-[10px] text-slate-500">{showMonthlyData ? '/mo' : '/yr'}</span>
         </span>
       </div>
-      <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
-        <span className="truncate text-sm text-slate-300">Allocated to investments</span>
-        <span className="font-mono text-sm text-slate-300">
-          {formatCurrency(showMonthlyData ? monthlyInvestments : monthlyInvestments * 12)}
-          <span className="ml-1 text-xs text-slate-400">{showMonthlyData ? '/mo' : '/yr'}</span>
-        </span>
-      </div>
+
+      {investmentAllocations.length > 0 ? (
+        investmentAllocations.map((allocation) => (
+          <div
+            key={allocation.id}
+            className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
+          >
+            <div className="min-w-0 flex-1">
+              <span className="truncate text-sm text-slate-300">{getInvestmentName(allocation.targetInvestmentId!)}</span>
+            </div>
+            <span className={`${numericStyles.medium} transition-opacity group-hover/item:opacity-0`}>
+              {formatAllocationValue(allocation)}
+              {allocation.allocationType === 'fixed' && (
+                <span className="ml-1 text-xs text-slate-400">/yr</span>
+              )}
+            </span>
+            {/* Edit/Delete buttons - absolutely positioned, visible on hover */}
+            <div className="pointer-events-none absolute right-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:pointer-events-auto group-hover/item:opacity-100">
+              {onEditAllocation && (
+                <button
+                  onClick={() => onEditAllocation(allocation)}
+                  className="rounded p-1 text-slate-500 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                  type="button"
+                  title="Edit"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+              {onDeleteAllocation && (
+                <button
+                  onClick={() => onDeleteAllocation(allocation)}
+                  className="rounded p-1 text-slate-500 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                  type="button"
+                  title="Delete"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
+          <span className="truncate text-sm text-slate-300">Allocated to investments</span>
+          <span className={numericStyles.base}>
+            {formatCurrency(showMonthlyData ? monthlyInvestments : monthlyInvestments * 12)}
+            <span className="ml-1 text-xs text-slate-400">{showMonthlyData ? '/mo' : '/yr'}</span>
+          </span>
+        </div>
+      )}
     </div>
   )
 }

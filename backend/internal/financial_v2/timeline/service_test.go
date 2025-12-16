@@ -281,13 +281,13 @@ func TestComputeFinancialSnapshot_AnchorMonthAllocationsReportedOnly(t *testing.
 	store := &mockStore{
 		investments: []repo.Investment{
 			{
-				ID:               "inv-1",
-				ParentID:         "inv-1",
-				Name:             "ETF",
-				Category:         "Equities",
-				CurrentValue:     *decimal.MustFromString("10000"),
-				AnnualGrowthRate: *decimal.MustFromString("0"),
-				StartDate:        startDate,
+				ID:           "inv-1",
+				ParentID:     "inv-1",
+				Name:         "ETF",
+				Category:     "Equities",
+				CurrentValue: *decimal.MustFromString("10000"),
+				GrowthRate:   *decimal.MustFromString("0"),
+				StartDate:    startDate,
 			},
 		},
 		incomes: []repo.Income{
@@ -544,13 +544,13 @@ func TestComputeFinancialSnapshot_NetCashAlwaysNetOfInvestments(t *testing.T) {
 	store := &mockStore{
 		investments: []repo.Investment{
 			{
-				ID:               "inv-1",
-				ParentID:         "inv-1",
-				Name:             "ETF",
-				Category:         "Equities",
-				CurrentValue:     *decimal.MustFromString("10000"),
-				AnnualGrowthRate: *decimal.MustFromString("0"),
-				StartDate:        startDate,
+				ID:           "inv-1",
+				ParentID:     "inv-1",
+				Name:         "ETF",
+				Category:     "Equities",
+				CurrentValue: *decimal.MustFromString("10000"),
+				GrowthRate:   *decimal.MustFromString("0"),
+				StartDate:    startDate,
 			},
 		},
 		incomes: []repo.Income{

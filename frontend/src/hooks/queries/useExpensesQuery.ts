@@ -12,6 +12,7 @@ export function useExpensesQuery() {
       const result = await expensesApi.listExpenses({ limit: -1 })
       return result.data
     },
+    enabled: false, // V2 timeline provides this data - no need to fetch separately
     staleTime: 30_000,
     cacheTime: 5 * 60 * 1000,
   })

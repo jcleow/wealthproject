@@ -10,10 +10,9 @@ export function useLiabilitiesQuery() {
     queryKey: LIABILITIES_QUERY_KEY,
     queryFn: async () => {
       const result = await liabilitiesApi.listLiabilities({ limit: -1 })
-      console.log('[DEBUG] Liabilities loaded:', result.data.length, 'items')
-      console.log('[DEBUG] Liability startDate values:', result.data.map(l => ({ name: l.name, startDate: l.startDate })))
       return result.data
     },
+    enabled: false, // V2 timeline provides this data - no need to fetch separately
     staleTime: 30_000,
     cacheTime: 5 * 60 * 1000,
   })

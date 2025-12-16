@@ -1,9 +1,10 @@
-import { Pencil, Trash2, Home, Info, ChevronRight, Star } from 'lucide-react'
+import { Pencil, Trash2, Home, Info, ChevronRight, Star, GitBranch } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import type { TimelineItem } from '@/types/timeline'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
 import { formatCurrency } from '@/lib/format'
+import { numericStyles } from '@/lib/utils'
 import { getIconByName, getItemId, getAnnualizationLabel } from '../utils'
 import type { AppliedImpact, FinancialCategory } from '../types'
 
@@ -18,6 +19,7 @@ interface LineItemProps {
   onSetAccumulator?: (id: string) => void
   onOpenCashAccountEdit?: (cashAccount: CashAccount) => void
   onDeleteCashAccount?: (id: string) => void
+  onManageAllocations?: (item: TimelineItem) => void
   cashAccounts: CashAccount[]
   scenarioImpacts: AppliedImpact[]
   isExpanded: boolean
@@ -41,6 +43,7 @@ export function LineItem({
   onSetAccumulator,
   onOpenCashAccountEdit,
   onDeleteCashAccount,
+  onManageAllocations,
   cashAccounts,
   scenarioImpacts,
   isExpanded,
@@ -204,7 +207,7 @@ export function LineItem({
         {/* Right side: amount with hover actions */}
         <div className="flex items-center gap-1">
           {/* Value */}
-          <span className={`font-mono text-sm text-slate-300 transition-opacity ${isSelected ? 'opacity-0' : 'opacity-100'}`}>
+          <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : 'opacity-100'}`}>
             {formatCurrency(getDisplayAmount(item))}
             {showMonthlyData && (category === 'income' || category === 'expense') && (
               <span className="ml-1 text-xs text-slate-400">/mo</span>
@@ -222,6 +225,20 @@ export function LineItem({
                 title="Set as accumulator"
               >
                 <Star className="h-3 w-3" />
+              </button>
+            )}
+            {/* Allocations button for income items */}
+            {category === 'income' && onManageAllocations && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onManageAllocations(item)
+                }}
+                className="rounded p-1 text-slate-500 transition-colors hover:bg-purple-500/20 hover:text-purple-300"
+                type="button"
+                title="Manage allocations"
+              >
+                <GitBranch className="h-3 w-3" />
               </button>
             )}
             <button

@@ -85,7 +85,7 @@ type TimelineOptions struct {
 	StartDate        time.Time // Start date (inclusive)
 	EndDate          time.Time // End date (inclusive)
 	InitialState     bool      // If true, return base annualized amounts without date filtering
-	IncludeScenarios bool      // If true, apply scenario impacts to adjBalance/adjAmount
+	IncludeScenarios bool      // If true, apply scenario impacts to eventAdjBalance/eventAdjAmount
 }
 
 // ========== Timeline V2 Response Types ==========
@@ -106,9 +106,10 @@ type MonthDetailResponse struct {
 	CashAssets       []CashAssetResponse       `json:"cashAssets"`
 	CPFAssets        []CPFAssetResponse        `json:"cpfAssets"`
 	Liabilities      []LiabilityResponse       `json:"liabilities"`
-	Income           []IncomeResponse          `json:"income"`
-	CPFContributions []CPFContributionResponse `json:"cpfContributions"`
-	Expenses         []ExpenseResponse         `json:"expenses"`
+	Income            []IncomeResponse           `json:"income"`
+	CPFContributions  []CPFContributionResponse  `json:"cpfContributions"`
+	Expenses          []ExpenseResponse          `json:"expenses"`
+	IncomeAllocations []IncomeAllocationResponse `json:"incomeAllocations"`
 	// Savings breakdown
 	NetSavings     decimal.Decimal `json:"netSavings"`     // income - employee CPF - expenses (monthly)
 	NetCash        decimal.Decimal `json:"netCash"`        // income - employee CPF - expenses - investments (monthly)
@@ -120,71 +121,72 @@ type MonthDetailResponse struct {
 
 // NonCashAssetResponse represents a non-cash asset in the timeline response
 type NonCashAssetResponse struct {
-	ID         string          `json:"id"`
-	ParentID   string          `json:"parentId"`
-	Name       string          `json:"name"`
-	Category   string          `json:"category"`
-	Balance    decimal.Decimal `json:"balance"`
-	AdjBalance decimal.Decimal `json:"adjBalance"`
-	ItemType   string          `json:"itemType"`
-	StartDate  string          `json:"startDate"`
-	StartYear  int             `json:"startYear"`
-	StartMonth int             `json:"startMonth"`
+	ID              string          `json:"id"`
+	ParentID        string          `json:"parentId"`
+	Name            string          `json:"name"`
+	Category        string          `json:"category"`
+	Balance         decimal.Decimal `json:"balance"`
+	EventAdjBalance decimal.Decimal `json:"eventAdjBalance"`
+	ItemType        string          `json:"itemType"`
+	StartDate       string          `json:"startDate"`
+	StartYear       int             `json:"startYear"`
+	StartMonth      int             `json:"startMonth"`
 }
 
 // InvestmentResponse keeps investments separate from non-cash assets
 type InvestmentResponse struct {
-	ID         string          `json:"id"`
-	ParentID   string          `json:"parentId"`
-	Name       string          `json:"name"`
-	Category   string          `json:"category"`
-	Balance    decimal.Decimal `json:"balance"`
-	AdjBalance decimal.Decimal `json:"adjBalance"`
-	ItemType   string          `json:"itemType"`
-	StartDate  string          `json:"startDate"`
-	StartYear  int             `json:"startYear"`
-	StartMonth int             `json:"startMonth"`
+	ID              string          `json:"id"`
+	ParentID        string          `json:"parentId"`
+	Name            string          `json:"name"`
+	Category        string          `json:"category"`
+	Balance         decimal.Decimal `json:"balance"`
+	EventAdjBalance decimal.Decimal `json:"eventAdjBalance"`
+	GrowthRate      decimal.Decimal `json:"growthRate"`
+	ItemType        string          `json:"itemType"`
+	StartDate       string          `json:"startDate"`
+	StartYear       int             `json:"startYear"`
+	StartMonth      int             `json:"startMonth"`
 }
 
 // CashAssetResponse represents a cash asset in the timeline response
 type CashAssetResponse struct {
-	ItemID        string          `json:"itemId"`
-	Name          string          `json:"name"`
-	Category      string          `json:"category"`
-	Balance       decimal.Decimal `json:"balance"`
-	AdjBalance    decimal.Decimal `json:"adjBalance"`
-	ItemType      string          `json:"itemType"`
-	StartYear     int             `json:"startYear"`
-	StartMonth    int             `json:"startMonth"`
-	IsAccumulator bool            `json:"isAccumulator"`
+	ItemID          string          `json:"itemId"`
+	Name            string          `json:"name"`
+	Category        string          `json:"category"`
+	Balance         decimal.Decimal `json:"balance"`
+	EventAdjBalance decimal.Decimal `json:"eventAdjBalance"`
+	ItemType        string          `json:"itemType"`
+	StartYear       int             `json:"startYear"`
+	StartMonth      int             `json:"startMonth"`
+	IsAccumulator   bool            `json:"isAccumulator"`
 }
 
 // CPFAssetResponse represents a CPF asset in the timeline response
 type CPFAssetResponse struct {
-	ID         string          `json:"id"`
-	ParentID   string          `json:"parentId"`
-	Name       string          `json:"name"`
-	Category   string          `json:"category"`
-	Balance    decimal.Decimal `json:"balance"`
-	AdjBalance decimal.Decimal `json:"adjBalance"`
-	ItemType   string          `json:"itemType"`
-	StartDate  string          `json:"startDate"`
-	StartYear  int             `json:"startYear"`
-	StartMonth int             `json:"startMonth"`
+	ID              string          `json:"id"`
+	ParentID        string          `json:"parentId"`
+	Name            string          `json:"name"`
+	Category        string          `json:"category"`
+	Balance         decimal.Decimal `json:"balance"`
+	EventAdjBalance decimal.Decimal `json:"eventAdjBalance"`
+	ItemType        string          `json:"itemType"`
+	StartDate       string          `json:"startDate"`
+	StartYear       int             `json:"startYear"`
+	StartMonth      int             `json:"startMonth"`
 }
 
 // LiabilityResponse represents a liability in the timeline response
 type LiabilityResponse struct {
-	ID           string          `json:"id"`
-	ParentID     string          `json:"parentId"`
-	Name         string          `json:"name"`
-	Category     string          `json:"category"`
-	Balance      decimal.Decimal `json:"balance"`    // Point-in-time balance
-	AdjBalance   decimal.Decimal `json:"adjBalance"` // Adjusted balance
-	SourceAmount decimal.Decimal `json:"sourceAmount"`
-	ItemType     string          `json:"itemType"`
-	StartYear    int             `json:"startYear"`
-	StartMonth   int             `json:"startMonth"`
+	ID              string          `json:"id"`
+	ParentID        string          `json:"parentId"`
+	Name            string          `json:"name"`
+	Category        string          `json:"category"`
+	Balance         decimal.Decimal `json:"balance"`         // Point-in-time balance
+	EventAdjBalance decimal.Decimal `json:"eventAdjBalance"` // Adjusted balance with scenario events
+	SourceAmount    decimal.Decimal `json:"sourceAmount"`
+	ItemType        string          `json:"itemType"`
+	StartYear       int             `json:"startYear"`
+	StartMonth      int             `json:"startMonth"`
 }
 
 // IncomeResponse represents an income entry in the timeline response
@@ -194,7 +196,7 @@ type IncomeResponse struct {
 	Name            string          `json:"name"`
 	Category        string          `json:"category"`
 	Amount          decimal.Decimal `json:"amount"`
-	AdjAmount       decimal.Decimal `json:"adjAmount"`
+	EventAdjAmount  decimal.Decimal `json:"eventAdjAmount"`
 	SourceFrequency string          `json:"sourceFrequency"`
 	ItemType        string          `json:"itemType"`
 	StartYear       int             `json:"startYear"`
@@ -237,10 +239,23 @@ type ExpenseResponse struct {
 	Name              string          `json:"name"`
 	Category          string          `json:"category"`
 	Amount            decimal.Decimal `json:"amount"`
-	AdjAmount         decimal.Decimal `json:"adjAmount"`
+	EventAdjAmount    decimal.Decimal `json:"eventAdjAmount"`
 	SourceFrequency   string          `json:"sourceFrequency"`
 	ItemType          string          `json:"itemType"`
 	StartYear         int             `json:"startYear"`
 	StartMonth        int             `json:"startMonth"`
 	SourceLiabilityID *string         `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
+}
+
+// IncomeAllocationResponse represents an income allocation in the timeline response
+type IncomeAllocationResponse struct {
+	ID                  string          `json:"id"`
+	IncomeID            string          `json:"incomeId"`
+	ParentID            string          `json:"parentId"`
+	StartDate           string          `json:"startDate"`
+	EndDate             *string         `json:"endDate,omitempty"`
+	TargetCashAccountID *string         `json:"targetCashAccountId,omitempty"`
+	TargetInvestmentID  *string         `json:"targetInvestmentId,omitempty"`
+	AllocationType      string          `json:"allocationType"`
+	AllocationValue     decimal.Decimal `json:"allocationValue"`
 }

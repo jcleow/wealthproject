@@ -1,4 +1,5 @@
 import { formatCurrency } from '@/lib/format'
+import { numericStyles } from '@/lib/utils'
 import type { MonthDetailResponseV2 } from '@/types/timeline'
 import { parseDecimal } from '../converters'
 
@@ -90,14 +91,14 @@ function SavingsBreakdown({ timelineMonthV2 }: SavingsBreakdownProps) {
     <div className="mt-3 space-y-1.5 border-t border-white/[0.06] pt-3">
       <div className="flex items-center justify-between pl-3">
         <span className="text-sm text-slate-400">Net Cash</span>
-        <span className="font-mono text-sm text-slate-300">
+        <span className={numericStyles.base}>
           {formatCurrency(netCash)}
         </span>
       </div>
       {netInvestments > 0 && (
         <div className="flex items-center justify-between pl-3">
           <span className="text-sm text-slate-400">Net Investments</span>
-          <span className="font-mono text-sm text-slate-300">
+          <span className={numericStyles.base}>
             {formatCurrency(netInvestments)}
           </span>
         </div>

@@ -71,7 +71,7 @@ export const timelineApi = {
    * Get V2 timeline snapshot for a date range
    * @param startDate - Start date in DD-MM-YYYY format
    * @param endDate - End date in DD-MM-YYYY format (optional, defaults to startDate)
-   * @param includeScenarios - If true, apply scenario impacts to adjBalance/adjAmount
+   * @param includeScenarios - If true, apply scenario impacts to eventAdjBalance/eventAdjAmount
    */
   async getTimelineV2Snapshot(options: {
     startDate: string
