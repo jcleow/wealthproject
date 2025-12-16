@@ -130,13 +130,14 @@ type EventImpactSummary struct {
 
 // EditRequest represents a user edit or new item creation for a given year.
 type EditRequest struct {
-	ItemID     *string   `json:"itemId,omitempty"`
-	Name       *string   `json:"name,omitempty"`
-	ItemType   ItemType  `json:"itemType"`
-	Category   string    `json:"category"`
-	Amount     float64   `json:"amount"`
-	Frequency  Frequency `json:"frequency"`
-	SourceYear int       `json:"-"`
+	ItemID            *string   `json:"itemId,omitempty"`
+	Name              *string   `json:"name,omitempty"`
+	ItemType          ItemType  `json:"itemType"`
+	Category          string    `json:"category"`
+	Amount            float64   `json:"amount"`
+	Frequency         Frequency `json:"frequency"`
+	SourceLiabilityID *string   `json:"sourceLiabilityId,omitempty"` // Link to liability for debt repayment expenses
+	SourceYear        int       `json:"-"`
 }
 
 // TimelineOptions specifies options for building a timeline.

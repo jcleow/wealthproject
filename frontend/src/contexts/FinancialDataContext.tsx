@@ -18,7 +18,7 @@ interface FinancialDataContextType {
   updateAsset: (id: string, updates: Partial<Asset>) => Promise<Asset>
   updateIncome: (id: string, updates: Partial<Income>) => Promise<Income>
   updateLiability: (id: string, updates: Partial<Liability>) => Promise<Liability>
-  updateExpense: (id: string, updates: Partial<Expense>) => Promise<Expense>
+  updateExpense: (id: string, updates: Partial<Expense> & { sourceLiabilityId?: string }) => Promise<Expense>
   deleteAsset: (id: string) => Promise<void>
   deleteIncome: (id: string) => Promise<void>
   deleteLiability: (id: string) => Promise<void>

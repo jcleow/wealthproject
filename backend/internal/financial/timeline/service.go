@@ -474,11 +474,12 @@ func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit E
 		return err
 	case ItemTypeExpense:
 		_, err := s.store.CreateExpense(ctx, userID, repository.Expense{
-			ParentID:  parentID,
-			Payee:     name,
-			Amount:    edit.Amount,
-			Frequency: string(edit.Frequency),
-			StartDate: time.Date(absoluteStartYear, 1, 1, 0, 0, 0, 0, time.UTC),
+			ParentID:          parentID,
+			Payee:             name,
+			Amount:            edit.Amount,
+			Frequency:         string(edit.Frequency),
+			StartDate:         time.Date(absoluteStartYear, 1, 1, 0, 0, 0, 0, time.UTC),
+			SourceLiabilityID: edit.SourceLiabilityID,
 		})
 		return err
 	default:

@@ -183,7 +183,7 @@ export function IncomeAllocationModal({
         <div>
           <h2 className="text-lg font-semibold text-white">Manage Allocations</h2>
           <p className="mt-0.5 text-sm text-gray-400">
-            {incomeName} ({formatCurrency(incomeAmount)}/year)
+            {incomeName} ({formatCurrency(incomeAmount)}/month)
           </p>
         </div>
         <button
@@ -208,7 +208,7 @@ export function IncomeAllocationModal({
             {totalFixedAllocated > 0 && (
               <div className="flex justify-between text-gray-300">
                 <span>Fixed allocated:</span>
-                <span>{formatCurrency(totalFixedAllocated)}/year</span>
+                <span>{formatCurrency(totalFixedAllocated)}/month</span>
               </div>
             )}
           </div>
@@ -243,7 +243,7 @@ export function IncomeAllocationModal({
                   </div>
                   <p className="mt-0.5 text-xs text-gray-400">
                     {formatAllocationValue(allocation)}
-                    {allocation.allocationType === 'fixed' && ' per year'}
+                    {allocation.allocationType === 'fixed' && ' per month'}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">

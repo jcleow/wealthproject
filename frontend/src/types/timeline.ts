@@ -129,6 +129,7 @@ export interface TimelineEdit {
   category?: string
   amount: number
   frequency?: TimelineFrequency // Only required for income/expense
+  sourceLiabilityId?: string // Only for debt repayment expenses
 }
 
 export interface TimelineEditRequest {
