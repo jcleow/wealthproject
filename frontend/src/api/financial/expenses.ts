@@ -22,7 +22,7 @@ export async function listExpenses(params?: PaginationParams): Promise<Paginated
   }
 }
 
-export async function createExpense(payload: Omit<Expense, 'id' | 'updatedAt'>): Promise<Expense> {
+export async function createExpense(payload: Omit<Expense, 'id' | 'updatedAt'> & { parentId?: string; sourceLiabilityId?: string }): Promise<Expense> {
   const body: Record<string, unknown> = {
     payee: payload.payee,
     amount: payload.amount,
@@ -33,12 +33,20 @@ export async function createExpense(payload: Omit<Expense, 'id' | 'updatedAt'>):
   }
   if (payload.startDate !== undefined) body.startDate = payload.startDate
   if (payload.endDate !== undefined) body.endDate = payload.endDate
+  if (payload.parentId !== undefined) body.parentId = payload.parentId
+  if (payload.sourceLiabilityId !== undefined) body.sourceLiabilityId = payload.sourceLiabilityId
 
   const data = await apiClient.post<any>('/cashflow/expenses', body)
   return toExpense(data)
 }
 
-export async function updateExpense(id: string, payload: Partial<Expense>): Promise<Expense> {
+export async function updateExpense(
+  id: string,
+  payload: Partial<Expense> & {
+    sourceLiabilityId?: string
+    updateMode?: 'in_place' | 'versioned'
+  }
+): Promise<Expense> {
   const body: Record<string, unknown> = {
     payee: payload.payee,
     amount: payload.amount,
@@ -49,8 +57,22 @@ export async function updateExpense(id: string, payload: Partial<Expense>): Prom
     startDate: payload.startDate,
     endDate: payload.endDate,
   }
+  // Preserve sourceLiabilityId for debt repayment expenses
+  if (payload.sourceLiabilityId !== undefined) {
+    body.sourceLiabilityId = payload.sourceLiabilityId
+  }
+  // Add updateMode for versioned updates
+  if (payload.updateMode !== undefined) {
+    body.updateMode = payload.updateMode
+  }
 
   const data = await apiClient.put<any>(`/cashflow/expenses/${id}`, body)
+  return toExpense(data)
+}
+
+// Stop an expense (soft delete) - sets end_date
+export async function stopExpense(id: string, endDate: string): Promise<Expense> {
+  const data = await apiClient.post<any>(`/cashflow/expenses/${id}/stop`, { endDate })
   return toExpense(data)
 }
 
@@ -74,6 +96,7 @@ export const expensesApi = {
   listExpenses,
   createExpense,
   updateExpense,
+  stopExpense,
   deleteExpense,
   deleteAllExpenses,
 }

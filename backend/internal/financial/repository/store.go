@@ -1793,6 +1793,63 @@ func (s *Store) DeleteExpense(ctx context.Context, userID, id string) error {
 	return nil
 }
 
+// FindExpenseByParentAndStartDate finds an expense version with the given parentID and startDate.
+// Used for upsert logic in versioned updates.
+func (s *Store) FindExpenseByParentAndStartDate(ctx context.Context, userID, parentID string, startDate time.Time) (*Expense, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id
+		FROM finance_expenses
+		WHERE user_id=$1 AND parent_id=$2 AND DATE(start_date)=DATE($3)`,
+		userID, parentID, startDate)
+
+	var exp Expense
+	var endDateVal sql.NullTime
+	var sourceLiabilityID sql.NullString
+	if err := row.Scan(&exp.ID, &exp.ParentID, &exp.Payee, &exp.Amount, &exp.Frequency, &exp.StartDate, &endDateVal, &exp.Category, &exp.GrowthRate, &exp.GrowthStrategy, &exp.Notes, &exp.UpdatedAt, &sourceLiabilityID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // Not found, but not an error
+		}
+		return nil, err
+	}
+	if endDateVal.Valid {
+		exp.EndDate = &endDateVal.Time
+	}
+	if sourceLiabilityID.Valid {
+		exp.SourceLiabilityID = &sourceLiabilityID.String
+	}
+
+	return &exp, nil
+}
+
+// StopExpense sets the end_date on an expense (soft delete).
+// Children are NOT affected.
+func (s *Store) StopExpense(ctx context.Context, userID, id string, endDate time.Time) (Expense, error) {
+	row := s.db.QueryRowContext(ctx, `
+		UPDATE finance_expenses
+		SET end_date=$3, updated_at=NOW()
+		WHERE user_id=$1 AND id=$2
+		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`,
+		userID, id, endDate)
+
+	var updated Expense
+	var endDateVal sql.NullTime
+	var sourceLiabilityID sql.NullString
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Payee, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.UpdatedAt, &sourceLiabilityID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Expense{}, ErrNotFound
+		}
+		return Expense{}, err
+	}
+	if endDateVal.Valid {
+		updated.EndDate = &endDateVal.Time
+	}
+	if sourceLiabilityID.Valid {
+		updated.SourceLiabilityID = &sourceLiabilityID.String
+	}
+
+	return updated, nil
+}
+
 // ----- Helpers -----
 
 // ErrNotFound indicates a missing record.

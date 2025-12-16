@@ -33,11 +33,11 @@ func TestCreateLiability_WithoutEndDate(t *testing.T) {
 	liabilityRows := sqlmock.NewRows([]string{
 		"id", "parent_id", "name", "category", "current_balance",
 		"interest_rate_apr", "minimum_payment", "start_date", "end_date",
-		"notes", "repayment_strategy", "repayment_metadata", "updated_at",
+		"notes", "repayment_strategy", "updated_at",
 	}).AddRow(
 		"liability-1", "liability-1", "Credit Card", "debt", 5000.0,
 		19.99, 100.0, startDate, nil, // end_date is NULL
-		"", "standard_amortization", nil, startDate,
+		"", "standard_amortization", startDate,
 	)
 
 	mock.ExpectQuery(`INSERT INTO finance_liabilities`).
@@ -53,7 +53,6 @@ func TestCreateLiability_WithoutEndDate(t *testing.T) {
 			nil, // end_date
 			"",  // notes
 			"standard_amortization",
-			nil, // repayment_metadata
 		).
 		WillReturnRows(liabilityRows)
 
@@ -116,7 +115,7 @@ func TestCreateLiability_WithoutEndDate(t *testing.T) {
 	require.Nil(t, response.EndDate)
 }
 
-func TestCreateLiability_RepaymentMetadataNil(t *testing.T) {
+func TestCreateLiability_WithNotes(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
@@ -133,11 +132,11 @@ func TestCreateLiability_RepaymentMetadataNil(t *testing.T) {
 	liabilityRows := sqlmock.NewRows([]string{
 		"id", "parent_id", "name", "category", "current_balance",
 		"interest_rate_apr", "minimum_payment", "start_date", "end_date",
-		"notes", "repayment_strategy", "repayment_metadata", "updated_at",
+		"notes", "repayment_strategy", "updated_at",
 	}).AddRow(
 		"liability-cc", "liability-cc", "Credit Card", "Credit Card", 800.0,
 		26.0, 50.0, startDate, nil,
-		"Paid in full monthly, revolving for cashback", "standard_amortization", nil, startDate,
+		"Paid in full monthly, revolving for cashback", "standard_amortization", startDate,
 	)
 
 	mock.ExpectQuery(`INSERT INTO finance_liabilities`).
@@ -153,7 +152,6 @@ func TestCreateLiability_RepaymentMetadataNil(t *testing.T) {
 			nil, // end_date
 			"Paid in full monthly, revolving for cashback",
 			"standard_amortization",
-			nil, // repayment_metadata should be NULL when omitted
 		).
 		WillReturnRows(liabilityRows)
 
@@ -213,7 +211,7 @@ func TestCreateLiability_RepaymentMetadataNil(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
 	require.Equal(t, "liability-cc", response.ID)
-	require.Nil(t, response.RepaymentMetadata)
+	require.Equal(t, "Paid in full monthly, revolving for cashback", response.Notes)
 }
 
 func TestCreateLiability_WithEndDate(t *testing.T) {
@@ -234,11 +232,11 @@ func TestCreateLiability_WithEndDate(t *testing.T) {
 	liabilityRows := sqlmock.NewRows([]string{
 		"id", "parent_id", "name", "category", "current_balance",
 		"interest_rate_apr", "minimum_payment", "start_date", "end_date",
-		"notes", "repayment_strategy", "repayment_metadata", "updated_at",
+		"notes", "repayment_strategy", "updated_at",
 	}).AddRow(
 		"liability-2", "liability-2", "Car Loan", "debt", 30000.0,
 		5.0, 500.0, startDate, endDate,
-		"", "standard_amortization", nil, startDate,
+		"", "standard_amortization", startDate,
 	)
 
 	mock.ExpectQuery(`INSERT INTO finance_liabilities`).
@@ -254,7 +252,6 @@ func TestCreateLiability_WithEndDate(t *testing.T) {
 			endDate,
 			"", // notes
 			"standard_amortization",
-			nil, // repayment_metadata
 		).
 		WillReturnRows(liabilityRows)
 
@@ -333,15 +330,14 @@ func TestCreateLiability_WithRepaymentStrategy(t *testing.T) {
 	monthStart := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 	// Create liability with custom repayment strategy
-	metadataJSON := []byte(`{"extra_payment": 500}`)
 	liabilityRows := sqlmock.NewRows([]string{
 		"id", "parent_id", "name", "category", "current_balance",
 		"interest_rate_apr", "minimum_payment", "start_date", "end_date",
-		"notes", "repayment_strategy", "repayment_metadata", "updated_at",
+		"notes", "repayment_strategy", "updated_at",
 	}).AddRow(
 		"liability-3", "liability-3", "Home Mortgage", "mortgage_home", 400000.0,
 		4.5, 2000.0, startDate, endDate,
-		"", "extra_payment", metadataJSON, startDate,
+		"", "extra_payment", startDate,
 	)
 
 	mock.ExpectQuery(`INSERT INTO finance_liabilities`).
@@ -357,7 +353,6 @@ func TestCreateLiability_WithRepaymentStrategy(t *testing.T) {
 			endDate,
 			"", // notes
 			"extra_payment",
-			sqlmock.AnyArg(), // repayment_metadata serialized JSON
 		).
 		WillReturnRows(liabilityRows)
 
@@ -400,9 +395,6 @@ func TestCreateLiability_WithRepaymentStrategy(t *testing.T) {
 		"startDate":         startDate.Format(time.RFC3339),
 		"endDate":           endDate.Format(time.RFC3339),
 		"repaymentStrategy": "extra_payment",
-		"repaymentMetadata": map[string]interface{}{
-			"extra_payment": 500,
-		},
 	}
 	body, _ := json.Marshal(payload)
 
@@ -423,5 +415,4 @@ func TestCreateLiability_WithRepaymentStrategy(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "liability-3", response.ID)
 	require.Equal(t, "extra_payment", response.RepaymentStrategy)
-	require.NotNil(t, response.RepaymentMetadata)
 }

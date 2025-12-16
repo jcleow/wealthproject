@@ -40,6 +40,7 @@ export {
   useExpensesQuery,
   useCreateExpenseMutation,
   useUpdateExpenseMutation,
+  useStopExpenseMutation,
   useDeleteExpenseMutation,
   EXPENSES_QUERY_KEY,
 } from './useExpensesQuery'
