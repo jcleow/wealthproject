@@ -18,16 +18,16 @@ export function parseDecimal(value: string | undefined): number {
 
 export function nonCashAssetV2ToTimelineItem(item: NonCashAssetResponseV2): TimelineItem {
   const balance = parseDecimal(item.balance)
-  const adjBalance = parseDecimal(item.adjBalance)
+  const eventAdjBalance = parseDecimal(item.eventAdjBalance)
   return {
     itemId: item.id,
     parentId: item.parentId,
     name: item.name,
     category: item.category,
     amountAnnual: balance,
-    adjAnnualAmt: adjBalance,
+    adjAnnualAmt: eventAdjBalance,
     amountMonthly: balance,
-    adjMonthlyAmt: adjBalance,
+    adjMonthlyAmt: eventAdjBalance,
     itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
@@ -36,17 +36,16 @@ export function nonCashAssetV2ToTimelineItem(item: NonCashAssetResponseV2): Time
 
 export function investmentV2ToTimelineItem(item: InvestmentResponseV2): TimelineItem {
   const balance = parseDecimal(item.balance)
-  const adjBalance = parseDecimal(item.adjBalance)
-  const growthRate = parseDecimal(item.growthRate)
+  const eventAdjBalance = parseDecimal(item.eventAdjBalance)
   return {
     itemId: item.id,
     parentId: item.parentId,
     name: item.name,
     category: item.category,
     amountAnnual: balance,
-    adjAnnualAmt: adjBalance,
+    adjAnnualAmt: eventAdjBalance,
     amountMonthly: balance,
-    adjMonthlyAmt: adjBalance,
+    adjMonthlyAmt: eventAdjBalance,
     itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
@@ -56,15 +55,15 @@ export function investmentV2ToTimelineItem(item: InvestmentResponseV2): Timeline
 
 export function cashAssetV2ToTimelineItem(item: CashAssetResponseV2): TimelineItem {
   const balance = parseDecimal(item.balance)
-  const adjBalance = parseDecimal(item.adjBalance)
+  const eventAdjBalance = parseDecimal(item.eventAdjBalance)
   return {
     itemId: item.itemId,
     name: item.name,
     category: item.category,
     amountAnnual: balance,
-    adjAnnualAmt: adjBalance,
+    adjAnnualAmt: eventAdjBalance,
     amountMonthly: balance,
-    adjMonthlyAmt: adjBalance,
+    adjMonthlyAmt: eventAdjBalance,
     itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
@@ -74,16 +73,16 @@ export function cashAssetV2ToTimelineItem(item: CashAssetResponseV2): TimelineIt
 
 export function cpfAssetV2ToTimelineItem(item: CPFAssetResponseV2): TimelineItem {
   const balance = parseDecimal(item.balance)
-  const adjBalance = parseDecimal(item.adjBalance)
+  const eventAdjBalance = parseDecimal(item.eventAdjBalance)
   return {
     itemId: item.id,
     parentId: item.parentId,
     name: item.name,
     category: item.category,
     amountAnnual: balance,
-    adjAnnualAmt: adjBalance,
+    adjAnnualAmt: eventAdjBalance,
     amountMonthly: balance,
-    adjMonthlyAmt: adjBalance,
+    adjMonthlyAmt: eventAdjBalance,
     itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
@@ -92,16 +91,16 @@ export function cpfAssetV2ToTimelineItem(item: CPFAssetResponseV2): TimelineItem
 
 export function liabilityV2ToTimelineItem(item: LiabilityResponseV2): TimelineItem {
   const balance = parseDecimal(item.balance)
-  const adjBalance = parseDecimal(item.adjBalance)
+  const eventAdjBalance = parseDecimal(item.eventAdjBalance)
   return {
     itemId: item.id,
     parentId: item.parentId,
     name: item.name,
     category: item.category,
     amountAnnual: balance,
-    adjAnnualAmt: adjBalance,
+    adjAnnualAmt: eventAdjBalance,
     amountMonthly: balance,
-    adjMonthlyAmt: adjBalance,
+    adjMonthlyAmt: eventAdjBalance,
     sourceAmount: parseDecimal(item.sourceAmount),
     itemType: item.itemType,
     startYear: item.startYear,
@@ -116,9 +115,9 @@ export function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
     name: item.name,
     category: item.category,
     amountAnnual: parseDecimal(item.amount),
-    adjAnnualAmt: parseDecimal(item.adjAmount),
+    adjAnnualAmt: parseDecimal(item.eventAdjAmount),
     amountMonthly: parseDecimal(item.amount),
-    adjMonthlyAmt: parseDecimal(item.adjAmount),
+    adjMonthlyAmt: parseDecimal(item.eventAdjAmount),
     sourceFrequency: item.sourceFrequency,
     itemType: item.itemType,
     startYear: item.startYear,
@@ -134,9 +133,9 @@ export function expenseV2ToTimelineItem(item: ExpenseResponseV2): TimelineItem {
     name: item.name,
     category: item.category,
     amountAnnual: parseDecimal(item.amount),
-    adjAnnualAmt: parseDecimal(item.adjAmount),
+    adjAnnualAmt: parseDecimal(item.eventAdjAmount),
     amountMonthly: parseDecimal(item.amount),
-    adjMonthlyAmt: parseDecimal(item.adjAmount),
+    adjMonthlyAmt: parseDecimal(item.eventAdjAmount),
     sourceFrequency: item.sourceFrequency,
     itemType: item.itemType,
     startYear: item.startYear,

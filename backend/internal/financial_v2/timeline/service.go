@@ -838,16 +838,16 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 			adjBalance = adjusted.Round(0)
 		}
 		responses = append(responses, NonCashAssetResponse{
-			ID:         row.ID,
-			ParentID:   row.ParentID,
-			Name:       row.Name,
-			Category:   row.Category,
-			Balance:    *balance,
-			AdjBalance: *adjBalance,
-			ItemType:   string(row.ItemType),
-			StartDate:  row.StartDate.Format("2006-01-02"),
-			StartYear:  state.StartYear,
-			StartMonth: state.StartMonth,
+			ID:              row.ID,
+			ParentID:        row.ParentID,
+			Name:            row.Name,
+			Category:        row.Category,
+			Balance:         *balance,
+			EventAdjBalance: *adjBalance,
+			ItemType:        string(row.ItemType),
+			StartDate:       row.StartDate.Format("2006-01-02"),
+			StartYear:       state.StartYear,
+			StartMonth:      state.StartMonth,
 		})
 	}
 	return responses, total
@@ -874,17 +874,17 @@ func buildInvestmentResponses(rows []FinancialDataRow, itemStates ItemStateMap, 
 			adjBalance = adjusted.Round(0)
 		}
 		responses = append(responses, InvestmentResponse{
-			ID:         row.ID,
-			ParentID:   row.ParentID,
-			Name:       row.Name,
-			Category:   row.Category,
-			Balance:    *balance,
-			AdjBalance: *adjBalance,
-			GrowthRate: row.GrowthRate,
-			ItemType:   string(row.ItemType),
-			StartDate:  row.StartDate.Format("2006-01-02"),
-			StartYear:  state.StartYear,
-			StartMonth: state.StartMonth,
+			ID:              row.ID,
+			ParentID:        row.ParentID,
+			Name:            row.Name,
+			Category:        row.Category,
+			Balance:         *balance,
+			EventAdjBalance: *adjBalance,
+			GrowthRate:      row.GrowthRate,
+			ItemType:        string(row.ItemType),
+			StartDate:       row.StartDate.Format("2006-01-02"),
+			StartYear:       state.StartYear,
+			StartMonth:      state.StartMonth,
 		})
 	}
 	return responses, total
@@ -925,15 +925,15 @@ func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, e
 			}
 		}
 		responses = append(responses, CashAssetResponse{
-			ItemID:        row.ID,
-			Name:          row.Name,
-			Category:      row.Category,
-			Balance:       *balanceRounded,
-			AdjBalance:    *adjBalance,
-			ItemType:      string(row.ItemType),
-			StartYear:     state.StartYear,
-			StartMonth:    state.StartMonth,
-			IsAccumulator: row.IsAccumulator,
+			ItemID:          row.ID,
+			Name:            row.Name,
+			Category:        row.Category,
+			Balance:         *balanceRounded,
+			EventAdjBalance: *adjBalance,
+			ItemType:        string(row.ItemType),
+			StartYear:       state.StartYear,
+			StartMonth:      state.StartMonth,
+			IsAccumulator:   row.IsAccumulator,
 		})
 	}
 	return responses, total, accumulatorID
@@ -971,16 +971,16 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, e
 			adjBalance = adjusted.Round(0)
 		}
 		responses = append(responses, LiabilityResponse{
-			ID:           row.ID,
-			ParentID:     row.ParentID,
-			Name:         row.Name,
-			Category:     row.Category,
-			Balance:      *balance,
-			AdjBalance:   *adjBalance,
-			SourceAmount: *row.Amount.Round(0),
-			ItemType:     string(row.ItemType),
-			StartYear:    state.StartYear,
-			StartMonth:   state.StartMonth,
+			ID:              row.ID,
+			ParentID:        row.ParentID,
+			Name:            row.Name,
+			Category:        row.Category,
+			Balance:         *balance,
+			EventAdjBalance: *adjBalance,
+			SourceAmount:    *row.Amount.Round(0),
+			ItemType:        string(row.ItemType),
+			StartYear:       state.StartYear,
+			StartMonth:      state.StartMonth,
 		})
 	}
 	return responses, total
@@ -1014,7 +1014,7 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, even
 			Name:            row.Name,
 			Category:        row.Category,
 			Amount:          *amount,
-			AdjAmount:       *adjAmount,
+			EventAdjAmount:  *adjAmount,
 			SourceFrequency: string(row.Frequency),
 			ItemType:        string(row.ItemType),
 			StartYear:       state.StartYear,
@@ -1081,7 +1081,7 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, eve
 			Name:              name,
 			Category:          row.Category,
 			Amount:            *amount,
-			AdjAmount:         *adjAmount,
+			EventAdjAmount:    *adjAmount,
 			SourceFrequency:   string(row.Frequency),
 			ItemType:          string(row.ItemType),
 			StartYear:         state.StartYear,
@@ -1148,40 +1148,40 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int, date t
 	balances := cpfCtx.Balances
 	responses := []CPFAssetResponse{
 		{
-			ID:         "cpf-oa",
-			ParentID:   "cpf",
-			Name:       "CPF Ordinary Account",
-			Category:   "cpf",
-			Balance:    *balances.AccumulatedOA.Round(0),
-			AdjBalance: *balances.AccumulatedOA.Round(0),
-			ItemType:   "cpf_account",
-			StartDate:  "",
-			StartYear:  yearIndex,
-			StartMonth: month,
+			ID:              "cpf-oa",
+			ParentID:        "cpf",
+			Name:            "CPF Ordinary Account",
+			Category:        "cpf",
+			Balance:         *balances.AccumulatedOA.Round(0),
+			EventAdjBalance: *balances.AccumulatedOA.Round(0),
+			ItemType:        "cpf_account",
+			StartDate:       "",
+			StartYear:       yearIndex,
+			StartMonth:      month,
 		},
 		{
-			ID:         "cpf-sa",
-			ParentID:   "cpf",
-			Name:       "CPF Special Account",
-			Category:   "cpf",
-			Balance:    *balances.AccumulatedSA.Round(0),
-			AdjBalance: *balances.AccumulatedSA.Round(0),
-			ItemType:   "cpf_account",
-			StartDate:  "",
-			StartYear:  yearIndex,
-			StartMonth: month,
+			ID:              "cpf-sa",
+			ParentID:        "cpf",
+			Name:            "CPF Special Account",
+			Category:        "cpf",
+			Balance:         *balances.AccumulatedSA.Round(0),
+			EventAdjBalance: *balances.AccumulatedSA.Round(0),
+			ItemType:        "cpf_account",
+			StartDate:       "",
+			StartYear:       yearIndex,
+			StartMonth:      month,
 		},
 		{
-			ID:         "cpf-ma",
-			ParentID:   "cpf",
-			Name:       "CPF MediSave Account",
-			Category:   "cpf",
-			Balance:    *balances.AccumulatedMA.Round(0),
-			AdjBalance: *balances.AccumulatedMA.Round(0),
-			ItemType:   "cpf_account",
-			StartDate:  "",
-			StartYear:  yearIndex,
-			StartMonth: month,
+			ID:              "cpf-ma",
+			ParentID:        "cpf",
+			Name:            "CPF MediSave Account",
+			Category:        "cpf",
+			Balance:         *balances.AccumulatedMA.Round(0),
+			EventAdjBalance: *balances.AccumulatedMA.Round(0),
+			ItemType:        "cpf_account",
+			StartDate:       "",
+			StartYear:       yearIndex,
+			StartMonth:      month,
 		},
 	}
 
@@ -1196,16 +1196,16 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int, date t
 
 	if showRA {
 		responses = append(responses, CPFAssetResponse{
-			ID:         "cpf-ra",
-			ParentID:   "cpf",
-			Name:       "CPF Retirement Account",
-			Category:   "cpf",
-			Balance:    *raBalance,
-			AdjBalance: *raBalance,
-			ItemType:   "cpf_account",
-			StartDate:  "",
-			StartYear:  yearIndex,
-			StartMonth: month,
+			ID:              "cpf-ra",
+			ParentID:        "cpf",
+			Name:            "CPF Retirement Account",
+			Category:        "cpf",
+			Balance:         *raBalance,
+			EventAdjBalance: *raBalance,
+			ItemType:        "cpf_account",
+			StartDate:       "",
+			StartYear:       yearIndex,
+			StartMonth:      month,
 		})
 	}
 

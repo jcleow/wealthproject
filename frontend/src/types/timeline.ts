@@ -188,7 +188,7 @@ export interface NonCashAssetResponseV2 {
   name: string
   category: string
   balance: string
-  adjBalance: string
+  eventAdjBalance: string
   itemType: TimelineItemType
   startDate: string
   startYear: number
@@ -202,7 +202,7 @@ export interface InvestmentResponseV2 {
   name: string
   category: string
   balance: string
-  adjBalance: string
+  eventAdjBalance: string
   growthRate: string
   itemType: TimelineItemType
   startDate: string
@@ -216,7 +216,7 @@ export interface CashAssetResponseV2 {
   name: string
   category: string
   balance: string
-  adjBalance: string
+  eventAdjBalance: string
   itemType: TimelineItemType
   startYear: number
   startMonth: number
@@ -230,7 +230,7 @@ export interface CPFAssetResponseV2 {
   name: string
   category: string
   balance: string
-  adjBalance: string
+  eventAdjBalance: string
   itemType: TimelineItemType
   startDate: string
   startYear: number
@@ -244,7 +244,7 @@ export interface LiabilityResponseV2 {
   name: string
   category: string
   balance: string
-  adjBalance: string
+  eventAdjBalance: string
   sourceAmount: string
   itemType: TimelineItemType
   startYear: number
@@ -258,7 +258,7 @@ export interface IncomeResponseV2 {
   name: string
   category: string
   amount: string
-  adjAmount: string
+  eventAdjAmount: string
   sourceFrequency: TimelineFrequency
   itemType: TimelineItemType
   startYear: number
@@ -292,7 +292,7 @@ export interface ExpenseResponseV2 {
   name: string
   category: string
   amount: string
-  adjAmount: string
+  eventAdjAmount: string
   sourceFrequency: TimelineFrequency
   itemType: TimelineItemType
   startYear: number
