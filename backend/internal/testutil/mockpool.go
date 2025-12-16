@@ -1,4 +1,4 @@
-package repository
+package testutil
 
 import (
 	"context"

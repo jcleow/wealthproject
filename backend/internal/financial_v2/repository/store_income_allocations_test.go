@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/decimal"
+	"financial-chat-system/backend/internal/testutil"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,7 @@ import (
 func TestListIncomeAllocations_ReturnsAllocationsForIncome(t *testing.T) {
 	t.Parallel()
 
-	mockPool := NewMockPool(t)
+	mockPool := testutil.NewMockPool(t)
 	store := NewStore(mockPool)
 	ctx := context.Background()
 	userID := "test-user"
@@ -24,7 +25,7 @@ func TestListIncomeAllocations_ReturnsAllocationsForIncome(t *testing.T) {
 	cashAccountID := "cash-account-1"
 	investmentID := "investment-1"
 
-	rows := NewStubRows(t, [][]any{
+	rows := testutil.NewStubRows(t, [][]any{
 		{
 			incomeID, "alloc-1", "parent-1",
 			createdAt, nil,
@@ -61,13 +62,13 @@ func TestListIncomeAllocations_ReturnsAllocationsForIncome(t *testing.T) {
 func TestListIncomeAllocations_IncomeNotFound(t *testing.T) {
 	t.Parallel()
 
-	mockPool := NewMockPool(t)
+	mockPool := testutil.NewMockPool(t)
 	store := NewStore(mockPool)
 	ctx := context.Background()
 	userID := "test-user"
 	incomeID := "non-existent-income"
 
-	rows := NewStubRows(t, [][]any{})
+	rows := testutil.NewStubRows(t, [][]any{})
 	mockPool.EnqueueQuery("income_allocations", []any{incomeID, userID}, rows, nil)
 
 	_, err := store.ListIncomeAllocations(ctx, userID, incomeID)
@@ -77,13 +78,13 @@ func TestListIncomeAllocations_IncomeNotFound(t *testing.T) {
 func TestListIncomeAllocations_IncomeExistsButNoAllocations(t *testing.T) {
 	t.Parallel()
 
-	mockPool := NewMockPool(t)
+	mockPool := testutil.NewMockPool(t)
 	store := NewStore(mockPool)
 	ctx := context.Background()
 	userID := "test-user"
 	incomeID := "income-1"
 
-	rows := NewStubRows(t, [][]any{
+	rows := testutil.NewStubRows(t, [][]any{
 		{incomeID, nil, nil, nil, nil, nil, nil, nil, nil, nil},
 	})
 	mockPool.EnqueueQuery("income_allocations", []any{incomeID, userID}, rows, nil)
@@ -96,7 +97,7 @@ func TestListIncomeAllocations_IncomeExistsButNoAllocations(t *testing.T) {
 func TestCreateIncomeAllocation_ToCashAccount(t *testing.T) {
 	t.Parallel()
 
-	mockPool := NewMockPool(t)
+	mockPool := testutil.NewMockPool(t)
 	store := NewStore(mockPool)
 	ctx := context.Background()
 	userID := "test-user"
@@ -106,11 +107,11 @@ func TestCreateIncomeAllocation_ToCashAccount(t *testing.T) {
 	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	allocationValue := decimal.MustFromString("50")
-	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, NewStubRow(t, []any{true}, nil))
+	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))
 	mockPool.EnqueueRow(
 		"INSERT INTO income_allocations",
 		[]any{incomeID, (*string)(nil), startDate, (*time.Time)(nil), &cashAccountID, (*string)(nil), "percentage", *allocationValue},
-		NewStubRow(t, []any{
+		testutil.NewStubRow(t, []any{
 			"alloc-new", incomeID, "alloc-new", startDate, nil, cashAccountID, nil, "percentage", *allocationValue, createdAt,
 		}, nil))
 
@@ -133,7 +134,7 @@ func TestCreateIncomeAllocation_ToCashAccount(t *testing.T) {
 func TestCreateIncomeAllocation_ToInvestment(t *testing.T) {
 	t.Parallel()
 
-	mockPool := NewMockPool(t)
+	mockPool := testutil.NewMockPool(t)
 	store := NewStore(mockPool)
 	ctx := context.Background()
 	userID := "test-user"
@@ -143,11 +144,11 @@ func TestCreateIncomeAllocation_ToInvestment(t *testing.T) {
 	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	allocationValue := decimal.MustFromString("1000")
-	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, NewStubRow(t, []any{true}, nil))
+	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))
 	mockPool.EnqueueRow(
 		"INSERT INTO income_allocations",
 		[]any{incomeID, (*string)(nil), startDate, (*time.Time)(nil), (*string)(nil), &investmentID, "fixed", *allocationValue},
-		NewStubRow(t, []any{
+		testutil.NewStubRow(t, []any{
 			"alloc-new", incomeID, "alloc-new", startDate, nil, nil, investmentID, "fixed", *allocationValue, createdAt,
 		}, nil))
 
@@ -170,14 +171,14 @@ func TestCreateIncomeAllocation_ToInvestment(t *testing.T) {
 func TestCreateIncomeAllocation_IncomeNotOwned(t *testing.T) {
 	t.Parallel()
 
-	mockPool := NewMockPool(t)
+	mockPool := testutil.NewMockPool(t)
 	store := NewStore(mockPool)
 	ctx := context.Background()
 	userID := "test-user"
 	incomeID := "income-not-owned"
 	cashAccountID := "cash-account-1"
 
-	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, NewStubRow(t, []any{false}, nil))
+	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{false}, nil))
 
 	allocation := IncomeAllocation{
 		IncomeID:            incomeID,
@@ -193,7 +194,7 @@ func TestCreateIncomeAllocation_IncomeNotOwned(t *testing.T) {
 func TestDeleteIncomeAllocation_Success(t *testing.T) {
 	t.Parallel()
 
-	mockPool := NewMockPool(t)
+	mockPool := testutil.NewMockPool(t)
 	store := NewStore(mockPool)
 	ctx := context.Background()
 	userID := "test-user"
@@ -208,7 +209,7 @@ func TestDeleteIncomeAllocation_Success(t *testing.T) {
 func TestDeleteIncomeAllocation_NotFound(t *testing.T) {
 	t.Parallel()
 
-	mockPool := NewMockPool(t)
+	mockPool := testutil.NewMockPool(t)
 	store := NewStore(mockPool)
 	ctx := context.Background()
 	userID := "test-user"
