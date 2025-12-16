@@ -425,8 +425,17 @@ export function FinancialFormModal({
     await performSave(payload)
   }
 
+  // Helper to get ID from data (supports both 'id' and 'itemId' from timeline)
+  function getDataId(): string | undefined {
+    if (!data) return undefined
+    if ('id' in data && data.id) return data.id
+    if ('itemId' in data && (data as any).itemId) return (data as any).itemId
+    return undefined
+  }
+
   async function handleDelete() {
-    if (!data || !('id' in data) || !data.id || !onDelete) return
+    const id = getDataId()
+    if (!id || !onDelete) return
 
     // For expenses at future months, show confirmation modal
     if (type === 'expense' && isFutureMonth && onStop) {
@@ -438,14 +447,15 @@ export function FinancialFormModal({
 
     setIsDeleting(true)
     try {
-      await onDelete(data.id)
+      await onDelete(id)
     } finally {
       setIsDeleting(false)
     }
   }
 
   async function handleConfirmDelete() {
-    if (!data || !('id' in data) || !data.id) return
+    const id = getDataId()
+    if (!id) return
 
     setIsDeleting(true)
     try {
@@ -457,9 +467,9 @@ export function FinancialFormModal({
         selectedMonth !== undefined
       ) {
         const endDate = calculateStopEndDate(anchorYear, selectedYear, selectedMonth)
-        await onStop(data.id, endDate)
+        await onStop(id, endDate)
       } else if (onDelete) {
-        await onDelete(data.id)
+        await onDelete(id)
       }
       setShowDeleteConfirmation(false)
     } finally {
