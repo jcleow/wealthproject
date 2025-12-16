@@ -435,10 +435,15 @@ export function FinancialFormModal({
 
   async function handleDelete() {
     const id = getDataId()
-    if (!id || !onDelete) return
+    console.log('[Modal handleDelete]', { id, hasOnDelete: !!onDelete, data, type, isFutureMonth })
+    if (!id || !onDelete) {
+      console.log('[Modal handleDelete] Early return - missing id or onDelete')
+      return
+    }
 
     // For expenses at future months, show confirmation modal
     if (type === 'expense' && isFutureMonth && onStop) {
+      console.log('[Modal handleDelete] Showing delete confirmation modal')
       setShowDeleteConfirmation(true)
       return
     }
@@ -447,7 +452,9 @@ export function FinancialFormModal({
 
     setIsDeleting(true)
     try {
+      console.log('[Modal handleDelete] Calling onDelete with id:', id)
       await onDelete(id)
+      console.log('[Modal handleDelete] onDelete completed')
     } finally {
       setIsDeleting(false)
     }
@@ -517,7 +524,7 @@ export function FinancialFormModal({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {mode === 'edit' && data && 'id' in data && data.id && onDelete && (
+              {mode === 'edit' && data && getDataId() && onDelete && (
                 <button
                   type="button"
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-all hover:bg-red-600/20 hover:text-red-400"

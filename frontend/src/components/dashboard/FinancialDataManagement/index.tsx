@@ -379,6 +379,7 @@ export function FinancialDataManagement({
   }
 
   const handleDeleteItem = async (category: FinancialCategory, id: string) => {
+    console.log('[handleDeleteItem] Start:', { category, id, selectedYear, usingTimeline })
     try {
       // Investments are handled separately from timeline edits
       if (category !== 'investment' && usingTimeline && onSaveTimelineEdits && selectedYear > 0) {
@@ -409,7 +410,9 @@ export function FinancialDataManagement({
           await deleteIncome(id)
           break
         case 'expense':
+          console.log('[handleDeleteItem] Calling deleteExpense with id:', id)
           await deleteExpense(id)
+          console.log('[handleDeleteItem] deleteExpense completed')
           break
         case 'investment':
           await deleteInvestmentMutation.mutateAsync(id)
@@ -577,7 +580,13 @@ export function FinancialDataManagement({
   }
 
   const handleModalDelete = async (id: string) => {
-    await handleDeleteItem(modalState.type, id)
+    console.log('[handleModalDelete] Deleting:', { type: modalState.type, id })
+    try {
+      await handleDeleteItem(modalState.type, id)
+      console.log('[handleModalDelete] Delete successful')
+    } catch (error) {
+      console.error('[handleModalDelete] Delete failed:', error)
+    }
     handleModalClose()
   }
 
