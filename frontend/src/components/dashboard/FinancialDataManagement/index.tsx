@@ -14,11 +14,13 @@ import {
   useDeleteInvestmentMutation,
   useDeleteIncomeAllocationMutation,
   useStopIncomeAllocationMutation,
+  useStopExpenseMutation,
 } from '@/hooks/queries'
 import type { TimelineItem, TimelineEditRequest, TimelineEdit, TimelineFrequency } from '@/types/timeline'
 import type { PropertyLinkRecord } from '@/types/property'
 import type { FinancialFormValues } from '@/components/modals/FinancialFormModal'
 import { FinancialFormModal } from '@/components/modals/FinancialFormModal'
+import { DeleteConfirmationModal } from '@/components/modals/FinancialFormModal/DeleteConfirmationModal'
 import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal'
 import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal'
@@ -95,6 +97,7 @@ export function FinancialDataManagement({
   const createInvestmentMutation = useCreateInvestmentMutation()
   const updateInvestmentMutation = useUpdateInvestmentMutation()
   const deleteInvestmentMutation = useDeleteInvestmentMutation()
+  const stopExpenseMutation = useStopExpenseMutation()
   // Get investment allocations from snapshot (filtered by month) instead of direct API
   const investmentAllocations = useMemo(() => {
     if (!timelineMonthV2?.incomeAllocations) return []
@@ -211,6 +214,12 @@ export function FinancialDataManagement({
     incomeAmount: number
     initialEditAllocationId?: string
   }>({ isOpen: false, incomeId: '', incomeName: '', incomeAmount: 0 })
+  const [debtRepaymentDeleteState, setDebtRepaymentDeleteState] = useState<{
+    isOpen: boolean
+    item: TimelineItem | null
+    deleteMode: 'stop' | 'delete'
+    isDeleting: boolean
+  }>({ isOpen: false, item: null, deleteMode: 'stop', isDeleting: false })
 
   // ========== Computed values ==========
   const mergedLinks = useMemo(() => {
@@ -380,10 +389,20 @@ export function FinancialDataManagement({
     try {
       // Investments are handled separately from timeline edits
       if (category !== 'investment' && usingTimeline && onSaveTimelineEdits && selectedYear > 0) {
+        // Look up the original item to get its name for the timeline edit
+        const dataSource = category === 'asset' ? yearAssets
+          : category === 'liability' ? yearLiabilities
+          : category === 'income' ? yearIncomes
+          : category === 'expense' ? yearExpenses
+          : []
+        const item = dataSource.find((i) => getItemId(i) === id)
+        const itemName = item?.name ?? ''
+
         const isFlow = category === 'income' || category === 'expense'
         const edit: TimelineEdit = {
           itemId: id,
           itemType: category,
+          name: itemName,
           amount: 0,
           ...(isFlow && { frequency: 'annual' as const }),
         }
@@ -426,8 +445,12 @@ export function FinancialDataManagement({
   const handleModalSave = async (payload: FinancialFormValues, mode: 'create' | 'edit') => {
     const timestamp = ('updatedAt' in payload ? payload.updatedAt : null) ?? new Date().toISOString()
 
-    // Investments are handled separately from timeline edits
-    if (payload.type !== 'investment' && usingTimeline && onSaveTimelineEdits) {
+    // Check if this is a debt repayment expense (has sourceLiabilityId)
+    // Debt repayments should use direct API updates, not timeline edits, to preserve the liability link
+    const isDebtRepayment = payload.type === 'expense' && 'sourceLiabilityId' in payload && !!payload.sourceLiabilityId
+
+    // Investments and debt repayments are handled separately from timeline edits
+    if (payload.type !== 'investment' && !isDebtRepayment && usingTimeline && onSaveTimelineEdits) {
       const mapFrequency = (freq: string | undefined): TimelineFrequency => {
         if (freq === 'monthly' || freq === 'weekly' || freq === 'biweekly' || freq === 'quarterly' || freq === 'semiannual' || freq === 'annual') {
           return freq
@@ -469,6 +492,8 @@ export function FinancialDataManagement({
 
       const category = payload.type !== 'cpf' ? payload.category : ''
       const isFlow = payload.type === 'income' || payload.type === 'expense'
+      // Preserve sourceLiabilityId for debt repayment expenses
+      const sourceLiabilityId = payload.type === 'expense' ? payload.sourceLiabilityId : undefined
 
       const edit: TimelineEdit = {
         itemId: itemId || undefined,
@@ -477,6 +502,7 @@ export function FinancialDataManagement({
         category,
         amount,
         ...(isFlow && { frequency: mapFrequency(payload.frequency) }),
+        ...(sourceLiabilityId && { sourceLiabilityId }),
       }
 
       const request: TimelineEditRequest = {
@@ -538,11 +564,13 @@ export function FinancialDataManagement({
         break
       }
       case 'expense': {
-        const { type: _type, id: _id, updatedAt: _updatedAt, ...values } = payload
+        const { type: _type, id: _id, updatedAt: _updatedAt, sourceLiabilityId, ...values } = payload
+
         if (mode === 'edit' && modalState.data) {
           const targetId = getItemId(modalState.data)
           if (!targetId) throw new Error('Unable to update expense: missing item id')
-          await updateExpense(targetId, { ...values, updatedAt: timestamp })
+          // Backend handles versioning logic (stop + create for future months)
+          await updateExpense(targetId, { ...values, sourceLiabilityId, updatedAt: timestamp })
         } else {
           await addExpense(values)
         }
@@ -567,6 +595,11 @@ export function FinancialDataManagement({
 
   const handleModalDelete = async (id: string) => {
     await handleDeleteItem(modalState.type, id)
+    handleModalClose()
+  }
+
+  const handleModalStop = async (id: string, endDate: string) => {
+    await stopExpenseMutation.mutateAsync({ id, endDate })
     handleModalClose()
   }
 
@@ -640,6 +673,47 @@ export function FinancialDataManagement({
       } catch (error) {
         console.error('Failed to delete allocation:', error)
       }
+    }
+  }
+
+  // ========== Debt Repayment Delete Handler ==========
+  // Determine if we're in a future month (not anchor)
+  const isFutureMonth = selectedYear > 0 || (selectedMonth !== undefined && selectedMonth > 1)
+
+  const handleDeleteDebtRepayment = (item: TimelineItem) => {
+    // At future months, show confirmation modal with versioning options
+    if (isFutureMonth) {
+      setDebtRepaymentDeleteState({
+        isOpen: true,
+        item,
+        deleteMode: 'stop',
+        isDeleting: false,
+      })
+      return
+    }
+
+    // At anchor month, do a simple hard delete
+    if (!confirm('Are you sure you want to delete this debt repayment?')) return
+    void deleteExpense(item.itemId)
+  }
+
+  const handleConfirmDebtRepaymentDelete = async () => {
+    const { item, deleteMode } = debtRepaymentDeleteState
+    if (!item?.itemId) return
+
+    setDebtRepaymentDeleteState(prev => ({ ...prev, isDeleting: true }))
+    try {
+      if (deleteMode === 'stop' && selectedYear !== undefined) {
+        const effectiveMonth = selectedMonth ?? 1
+        const endDate = calculateAllocationEndDate(selectedYear, effectiveMonth, anchorYear)
+        await stopExpenseMutation.mutateAsync({ id: item.itemId, endDate })
+      } else {
+        await deleteExpense(item.itemId)
+      }
+      setDebtRepaymentDeleteState({ isOpen: false, item: null, deleteMode: 'stop', isDeleting: false })
+    } catch (error) {
+      console.error('Failed to delete debt repayment:', error)
+      setDebtRepaymentDeleteState(prev => ({ ...prev, isDeleting: false }))
     }
   }
 
@@ -776,6 +850,7 @@ export function FinancialDataManagement({
                   investments={key === 'income' ? investmentAssets : undefined}
                   onEditAllocation={key === 'income' ? handleEditAllocation : undefined}
                   onDeleteAllocation={key === 'income' ? handleDeleteAllocation : undefined}
+                  onDeleteDebtRepayment={key === 'expense' ? handleDeleteDebtRepayment : undefined}
                 />
                 </ResizableCard>
               ))}
@@ -799,9 +874,16 @@ export function FinancialDataManagement({
         onSave={handleModalSave}
         type={modalState.type}
         selectedYear={selectedYear}
+        selectedMonth={selectedMonth}
         selectedYearLabel={formatYearLabel(selectedYear)}
+        anchorYear={anchorYear ?? undefined}
         onDelete={
           modalState.mode === 'edit' && getItemId(modalState.data) ? handleModalDelete : undefined
+        }
+        onStop={
+          modalState.mode === 'edit' && modalState.type === 'expense' && getItemId(modalState.data)
+            ? handleModalStop
+            : undefined
         }
       />
       <PropertyPlannerModal
@@ -838,6 +920,18 @@ export function FinancialDataManagement({
         incomeName={allocationModalState.incomeName}
         incomeAmount={allocationModalState.incomeAmount}
         initialEditAllocationId={allocationModalState.initialEditAllocationId}
+      />
+      <DeleteConfirmationModal
+        isOpen={debtRepaymentDeleteState.isOpen}
+        onCancel={() => setDebtRepaymentDeleteState({ isOpen: false, item: null, deleteMode: 'stop', isDeleting: false })}
+        onConfirm={handleConfirmDebtRepaymentDelete}
+        isDeleting={debtRepaymentDeleteState.isDeleting}
+        deleteMode={debtRepaymentDeleteState.deleteMode}
+        onDeleteModeChange={(mode) => setDebtRepaymentDeleteState(prev => ({ ...prev, deleteMode: mode }))}
+        selectedYearLabel={formatYearLabel(selectedYear)}
+        selectedYear={selectedYear}
+        selectedMonth={selectedMonth}
+        anchorYear={anchorYear}
       />
     </>
   )

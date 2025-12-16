@@ -152,14 +152,6 @@ export function NetWorthProjection({
   })
 
   const projection = useMemo<ProjectionPoint[]>(() => {
-    console.log('[PROJECTION DEBUG]', {
-      hasTimelineMonths: !!timelineMonths,
-      timelineMonthsLength: timelineMonths?.length,
-      hasTimelineYears: !!timelineYears,
-      timelineYearsLength: timelineYears?.length,
-      firstMonth: timelineMonths?.[0]
-    })
-
     // Always use monthly data when available (regardless of zoom level)
     // The zoom level only affects how we display the data (axis labels, windowing)
     if (timelineMonths && timelineMonths.length > 0) {
@@ -741,19 +733,6 @@ export function NetWorthProjection({
       const endAge = startingAge + lastYearOffset
       const years = endAge - startAge
 
-      console.log('[AGE DEBUG]', {
-        dataResolution,
-        startingAge,
-        firstMonthIndex,
-        lastMonthIndex,
-        firstYearOffset,
-        lastYearOffset,
-        startAge,
-        endAge,
-        firstCalendarYear: displayData[0].calendarYear,
-        lastCalendarYear: displayData[displayData.length - 1].calendarYear
-      })
-
       return { startAge, endAge, years }
     }
 
@@ -771,14 +750,6 @@ export function NetWorthProjection({
   const defaultTitle = 'Net Worth Projection'
   const defaultSubtitle = `Age ${ageRange.startAge} to ${ageRange.endAge} (${ageRange.years} years)`
 
-  // Debug: log what we're showing
-  console.log('[SUBTITLE DEBUG]', {
-    startAge: ageRange.startAge,
-    endAge: ageRange.endAge,
-    displayDataLength: displayData.length,
-    firstYearIndex: displayData[0]?.yearIndex,
-    firstCalendarYear: displayData[0]?.calendarYear
-  })
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col p-5">

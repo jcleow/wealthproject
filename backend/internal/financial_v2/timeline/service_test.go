@@ -755,8 +755,8 @@ func TestComputeFinancialSnapshot_OpenEndedLiabilityWithLinkedExpense(t *testing
 		} else if *expense.SourceLiabilityID != liabilityID {
 			t.Errorf("expense SourceLiabilityID = %s, want %s", *expense.SourceLiabilityID, liabilityID)
 		}
-		if expense.Name != "Credit Card Payment Repayment" {
-			t.Errorf("expense name = %s, want 'Credit Card Payment Repayment'", expense.Name)
+		if expense.Name != "Credit Card Payment" {
+			t.Errorf("expense name = %s, want 'Credit Card Payment'", expense.Name)
 		}
 	}
 }

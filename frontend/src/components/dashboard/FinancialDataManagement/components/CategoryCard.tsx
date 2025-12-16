@@ -61,6 +61,8 @@ interface CategoryCardProps {
   investments?: TimelineItem[]  // For resolving investment names in allocations
   onEditAllocation?: (allocation: IncomeAllocation) => void
   onDeleteAllocation?: (allocation: IncomeAllocation) => void
+  // Debt repayment callbacks
+  onDeleteDebtRepayment?: (item: TimelineItem) => void
 }
 
 export function CategoryCard({
@@ -103,6 +105,7 @@ export function CategoryCard({
   investments = [],
   onEditAllocation,
   onDeleteAllocation,
+  onDeleteDebtRepayment,
 }: CategoryCardProps) {
   const config = categoryConfig[category]
 
@@ -266,7 +269,7 @@ export function CategoryCard({
             {isPositiveTrend ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
             {Math.abs(mockTrend)}%
           </div>
-          <span className="text-[10px] text-slate-500">vs last month</span>
+          <span className="text-sm text-slate-500">vs last month</span>
         </div>
       </div>
 
@@ -346,6 +349,8 @@ export function CategoryCard({
                 debtRepayments={sortedDebtRepayments}
                 getDisplayAmount={getDisplayAmount}
                 showMonthlyData={showMonthlyData}
+                onEdit={(item) => onEditItem('expense', item)}
+                onDelete={(item) => onDeleteDebtRepayment?.(item)}
               />
             )}
           </>
@@ -388,7 +393,7 @@ function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, 
             className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
           >
             <span className="truncate text-sm text-slate-300">{item.name}</span>
-            <span className={`${numericStyles.medium} transition-opacity group-hover/item:opacity-0`}>
+            <span className={`${numericStyles.base} transition-opacity group-hover/item:opacity-0`}>
               {formatCurrency(getDisplayAmount(item))}
             </span>
             {/* Edit/Delete buttons - absolutely positioned, visible on hover */}
@@ -441,7 +446,7 @@ function CPFAssetsSection({ cpfAssets, getDisplayAmount }: CPFAssetsSectionProps
           className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
         >
           <span className="truncate text-sm text-slate-300">{item.name}</span>
-          <span className={numericStyles.medium}>
+          <span className={numericStyles.base}>
             {formatCurrency(getDisplayAmount(item))}
           </span>
         </div>
@@ -538,10 +543,10 @@ function InvestmentsSection({
             <div className="min-w-0 flex-1">
               <span className="truncate text-sm text-slate-300">{getInvestmentName(allocation.targetInvestmentId!)}</span>
             </div>
-            <span className={`${numericStyles.medium} transition-opacity group-hover/item:opacity-0`}>
+            <span className={`${numericStyles.base} transition-opacity group-hover/item:opacity-0`}>
               {formatAllocationValue(allocation)}
               {allocation.allocationType === 'fixed' && (
-                <span className="ml-1 text-xs text-slate-400">/yr</span>
+                <span className="ml-1 text-xs text-slate-400">/mo</span>
               )}
             </span>
             {/* Edit/Delete buttons - absolutely positioned, visible on hover */}
@@ -563,7 +568,7 @@ function InvestmentsSection({
                   type="button"
                   title="Delete"
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-3 w-3" />                  
                 </button>
               )}
             </div>
@@ -586,13 +591,30 @@ interface DebtRepaymentsSectionProps {
   debtRepayments: TimelineItem[]
   getDisplayAmount: (item: TimelineItem) => number
   showMonthlyData: boolean
+  onEdit?: (item: TimelineItem) => void
+  onDelete?: (item: TimelineItem) => void
 }
 
-function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyData }: DebtRepaymentsSectionProps) {
+function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyData, onEdit, onDelete }: DebtRepaymentsSectionProps) {
   const total = debtRepayments.reduce((sum, item) => sum + getDisplayAmount(item), 0)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
+
+  // Close on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sectionRef.current && !sectionRef.current.contains(event.target as Node)) {
+        setSelectedId(null)
+      }
+    }
+    if (selectedId) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [selectedId])
 
   return (
-    <div className="mt-3 border-t border-white/[0.06] pt-3">
+    <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
       <div className="mb-2 flex items-center gap-2 px-2">
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Debt Repayments</span>
         <span className="text-[10px] text-slate-600">
@@ -600,18 +622,54 @@ function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyDa
           {showMonthlyData && <span className="ml-1 text-[10px] text-slate-500">/mo</span>}
         </span>
       </div>
-      {debtRepayments.map((item, index) => (
-        <div
-          key={item.itemId || `debt-repayment-${index}`}
-          className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
-        >
-          <span className="truncate text-sm text-slate-300">{item.name}</span>
-          <span className="text-sm font-medium text-slate-200">
-            {formatCurrency(getDisplayAmount(item))}
-            {showMonthlyData && <span className="ml-1 text-xs text-slate-400">/mo</span>}
-          </span>
-        </div>
-      ))}
+      {debtRepayments.map((item, index) => {
+        const itemId = item.itemId || `debt-repayment-${index}`
+        const isSelected = selectedId === itemId
+        return (
+          <div
+            key={itemId}
+            onClick={() => setSelectedId(isSelected ? null : itemId)}
+            className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
+          >
+            <span className="truncate text-sm text-slate-300">{item.name}</span>
+            <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
+              {formatCurrency(getDisplayAmount(item))}
+              {showMonthlyData && <span className="ml-1 text-xs text-slate-400">/mo</span>}
+            </span>
+            {/* Edit/Delete buttons - visible when selected */}
+            {isSelected && (
+              <div className="absolute right-2 flex items-center gap-0.5">
+                {onEdit && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEdit(item)
+                    }}
+                    className="rounded p-1 text-slate-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                    type="button"
+                    title="Edit"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+                {onDelete && item.itemId && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete(item)
+                    }}
+                    className="rounded p-1 text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                    type="button"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

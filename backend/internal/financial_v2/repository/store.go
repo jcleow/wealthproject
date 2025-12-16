@@ -854,21 +854,51 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 }
 
 // CreateExpense creates a new expense record.
+// Uses upsert to handle conflicts on (parent_id, start_date).
 func (s *Store) CreateExpense(ctx context.Context, userID string, exp Expense) (Expense, error) {
 	startDate := exp.StartDate
 	if startDate.IsZero() {
 		startDate = time.Now().UTC()
 	}
 
-	row := s.pool.QueryRow(ctx, `
-		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, notes, source_liability_id)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11)
-		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(notes, ''), updated_at, source_liability_id`,
-		userID, nullIfEmpty(exp.ParentID), exp.Payee, exp.Amount, exp.Frequency, startDate, exp.EndDate, exp.Category, exp.GrowthRate, exp.Notes, exp.SourceLiabilityID)
+	// Default growth strategy if not provided
+	growthStrategy := exp.GrowthStrategy
+	if growthStrategy == "" {
+		growthStrategy = "annual_step"
+	}
+
+	query := `
+		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, source_liability_id)
+		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, ''), $12)
+		ON CONFLICT ON CONSTRAINT finance_expenses_parent_start_date_key DO UPDATE
+		SET payee=EXCLUDED.payee,
+		    amount=EXCLUDED.amount,
+		    frequency=EXCLUDED.frequency,
+		    end_date=EXCLUDED.end_date,
+		    category=EXCLUDED.category,
+		    growth_rate=EXCLUDED.growth_rate,
+		    growth_strategy=EXCLUDED.growth_strategy,
+		    notes=EXCLUDED.notes,
+		    source_liability_id=EXCLUDED.source_liability_id,
+		    updated_at=NOW()
+		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(growth_strategy, '') as growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`
+
+	args := []any{
+		userID, nullIfEmpty(exp.ParentID), exp.Payee, exp.Amount, exp.Frequency,
+		startDate, exp.EndDate, exp.Category, exp.GrowthRate, growthStrategy,
+		exp.Notes, exp.SourceLiabilityID,
+	}
+
+	logQuery(query, args)
+	row := s.pool.QueryRow(ctx, query, args...)
 
 	var created Expense
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency, &created.StartDate, &created.EndDate, &created.Category, &created.GrowthRate, &created.Notes, &created.UpdatedAt, &created.SourceLiabilityID); err != nil {
-		return Expense{}, err
+	if err := row.Scan(
+		&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency,
+		&created.StartDate, &created.EndDate, &created.Category, &created.GrowthRate,
+		&created.GrowthStrategy, &created.Notes, &created.UpdatedAt, &created.SourceLiabilityID,
+	); err != nil {
+		return Expense{}, fmt.Errorf("failed to create expense: %w", err)
 	}
 
 	return created, nil

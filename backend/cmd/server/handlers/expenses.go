@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"financial-chat-system/backend/internal/financial/repository"
+	"financial-chat-system/backend/internal/decimal"
+	"financial-chat-system/backend/internal/financial_v2/expense"
+	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
 
 // expenseInput is the JSON-friendly input struct for expense creation/update.
@@ -25,14 +27,21 @@ type expenseInput struct {
 	Notes          string   `json:"notes"`
 	// Source relationship to liability (e.g., loan payment)
 	SourceLiabilityID *string `json:"sourceLiabilityId,omitempty"`
+	// UpdateMode: UpdateModeInPlace (default) or UpdateModeVersioned
+	UpdateMode string `json:"updateMode,omitempty"`
 }
 
-func (e expenseInput) toExpense() repository.Expense {
-	exp := repository.Expense{
+// stopInput is the JSON input for stopping an expense (soft delete)
+type stopInput struct {
+	EndDate string `json:"endDate"`
+}
+
+func (e expenseInput) toExpense() repo.Expense {
+	exp := repo.Expense{
 		ID:                e.ID,
 		ParentID:          e.ParentID,
 		Payee:             e.Payee,
-		Amount:            e.Amount,
+		Amount:            *decimal.MustFromFloat64(e.Amount),
 		Frequency:         e.Frequency,
 		Category:          e.Category,
 		GrowthStrategy:    e.GrowthStrategy,
@@ -50,18 +59,22 @@ func (e expenseInput) toExpense() repository.Expense {
 		}
 	}
 	if e.GrowthRate != nil {
-		exp.GrowthRate = *e.GrowthRate
+		exp.GrowthRate = *decimal.MustFromFloat64(*e.GrowthRate)
 	}
 	return exp
 }
 
 // ExpenseHandler serves expense CRUD endpoints.
 type ExpenseHandler struct {
-	store *repository.Store
+	store   *repo.Store
+	service *expense.Service
 }
 
-func NewExpenseHandler(store *repository.Store) *ExpenseHandler {
-	return &ExpenseHandler{store: store}
+func NewExpenseHandler(store *repo.Store) *ExpenseHandler {
+	return &ExpenseHandler{
+		store:   store,
+		service: expense.NewService(store),
+	}
 }
 
 func (h *ExpenseHandler) RegisterRoutes(router *http.ServeMux) {
@@ -81,12 +94,24 @@ func (h *ExpenseHandler) handleCollection(w http.ResponseWriter, r *http.Request
 }
 
 func (h *ExpenseHandler) handleItem(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/cashflow/expenses/")
-	if id == "" {
+	path := strings.TrimPrefix(r.URL.Path, "/cashflow/expenses/")
+	if path == "" {
 		notFound(w)
 		return
 	}
 
+	// Check for /stop suffix (e.g., /cashflow/expenses/{id}/stop)
+	if strings.HasSuffix(path, "/stop") {
+		id := strings.TrimSuffix(path, "/stop")
+		if r.Method == http.MethodPost {
+			h.stop(w, r, id)
+		} else {
+			methodNotAllowed(w)
+		}
+		return
+	}
+
+	id := path
 	switch r.Method {
 	case http.MethodGet:
 		h.get(w, r, id)
@@ -104,7 +129,12 @@ func (h *ExpenseHandler) list(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pagination := parsePagination(r)
+	v1Pagination := parsePagination(r)
+	// Convert v1 pagination to v2 pagination (v2 uses pointers)
+	pagination := repo.PaginationParams{
+		Limit:  &v1Pagination.Limit,
+		Offset: &v1Pagination.Offset,
+	}
 	result, err := h.store.ListExpensesGrouped(r.Context(), userID, pagination)
 	if err != nil {
 		internalError(w, err)
@@ -120,7 +150,7 @@ func (h *ExpenseHandler) get(w http.ResponseWriter, r *http.Request, id string) 
 	}
 	item, err := h.store.GetExpense(r.Context(), userID, id)
 	if err != nil {
-		if err == repository.ErrNotFound {
+		if err == repo.ErrNotFound {
 			notFound(w)
 			return
 		}
@@ -163,17 +193,45 @@ func (h *ExpenseHandler) update(w http.ResponseWriter, r *http.Request, id strin
 		badRequest(w, err)
 		return
 	}
-	input.ID = id
-	updated, err := h.store.UpdateExpense(r.Context(), userID, input.toExpense())
+
+	// Parse startDate if provided
+	var startDate *time.Time
+	if input.StartDate != nil {
+		t, err := time.Parse(time.RFC3339, *input.StartDate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		startDate = &t
+	}
+
+	// Build service input
+	serviceInput := expense.UpdateInput{
+		ID:                id,
+		Payee:             input.Payee,
+		Amount:            input.Amount,
+		Frequency:         input.Frequency,
+		Category:          input.Category,
+		Notes:             input.Notes,
+		GrowthRate:        input.GrowthRate,
+		GrowthStrategy:    input.GrowthStrategy,
+		SourceLiabilityID: input.SourceLiabilityID,
+		StartDate:         startDate,
+		UpdateMode:        input.UpdateMode,
+	}
+
+	// Delegate to service layer
+	result, err := h.service.Update(r.Context(), userID, id, serviceInput)
 	if err != nil {
-		if err == repository.ErrNotFound {
+		if err == repo.ErrNotFound {
 			notFound(w)
 			return
 		}
+		log.Printf("expense.Update error: %v", err)
 		internalError(w, err)
 		return
 	}
-	writeJSON(w, updated)
+	writeJSON(w, result)
 }
 
 func (h *ExpenseHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
@@ -182,7 +240,7 @@ func (h *ExpenseHandler) delete(w http.ResponseWriter, r *http.Request, id strin
 		return
 	}
 	if err := h.store.DeleteExpense(r.Context(), userID, id); err != nil {
-		if err == repository.ErrNotFound {
+		if err == repo.ErrNotFound {
 			notFound(w)
 			return
 		}
@@ -190,4 +248,36 @@ func (h *ExpenseHandler) delete(w http.ResponseWriter, r *http.Request, id strin
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// stop sets the end_date on an expense (soft delete)
+func (h *ExpenseHandler) stop(w http.ResponseWriter, r *http.Request, id string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	var input stopInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+	if input.EndDate == "" {
+		badRequest(w, errMissingFields("endDate"))
+		return
+	}
+	endDate, err := time.Parse(time.RFC3339, input.EndDate)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+	updated, err := h.store.StopExpense(r.Context(), userID, id, endDate)
+	if err != nil {
+		if err == repo.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, updated)
 }

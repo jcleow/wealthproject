@@ -285,6 +285,45 @@ go run cmd/server/main.go    # Needs B6+B7 implementation
 ./scripts/setup.sh    # Will work after backend implementation
 ```
 
+## String Constants Convention
+
+**Always use named constants for string literals that represent enums, modes, or statuses.**
+
+This prevents typos, enables IDE autocompletion, and makes refactoring safer.
+
+### Backend (Go)
+```go
+// Define constants at package level
+const (
+    UpdateModeInPlace   = "in_place"
+    UpdateModeVersioned = "versioned"
+)
+
+// Use constants in code
+if input.UpdateMode == UpdateModeVersioned { ... }
+```
+
+### Frontend (TypeScript)
+```typescript
+// Define constants with 'as const' for type narrowing
+export const UPDATE_MODE_IN_PLACE = 'in_place' as const
+export const UPDATE_MODE_VERSIONED = 'versioned' as const
+export type UpdateMode = typeof UPDATE_MODE_IN_PLACE | typeof UPDATE_MODE_VERSIONED
+
+// Use constants in code
+const updateMode = applyFromThisMonthOnly ? UPDATE_MODE_VERSIONED : UPDATE_MODE_IN_PLACE
+```
+
+### When to use constants
+- API request/response field values (e.g., `updateMode`, `status`, `type`)
+- Database enum values
+- Event types
+- Any string compared with `===` or `==` in multiple places
+
+### Naming conventions
+- **Go**: PascalCase (e.g., `UpdateModeVersioned`)
+- **TypeScript**: SCREAMING_SNAKE_CASE (e.g., `UPDATE_MODE_VERSIONED`)
+
 ## Golang best practice
 When generating or modifying Go code, follow these principles:
 - Enforce strict type safety — avoid interface{} unless absolutely necessary; prefer structs or generics.
@@ -318,6 +357,43 @@ When generating or modifying Go code, follow these principles:
 - **Only expose immutable interfaces**: Public interfaces should NEVER change (like io.Reader, io.Writer) — if it might change, keep it internal
 - **Testing without factories**: Concrete return types are still testable — consumers can define minimal interfaces for mocking only what they need
 
+### Handler & Service Layer Separation
+- **Handlers should only handle HTTP concerns**: parsing request bodies, validating input, calling services, and writing responses
+- **Business logic belongs in the service layer**: all domain logic, orchestration of multiple repository calls, and complex operations should be in services under `internal/financial_v2/<domain>/`
+- **Services should be stateless**: inject dependencies (like `*repo.Store`) via constructor
+- **Keep handlers thin**: if a handler method exceeds ~20 lines of logic, move the business logic to a service
+
+Example:
+```go
+// BAD: Business logic in handler
+func (h *Handler) update(w http.ResponseWriter, r *http.Request, id string) {
+    // ... parsing ...
+    current, _ := h.store.GetItem(ctx, id)
+    h.store.StopItem(ctx, id, endDate)
+    existing, _ := h.store.FindByParent(ctx, id)
+    if existing != nil {
+        // update existing...
+    } else {
+        // create new version...
+    }
+}
+
+// GOOD: Handler delegates to service
+func (h *Handler) update(w http.ResponseWriter, r *http.Request, id string) {
+    // Parse input
+    var input updateInput
+    json.NewDecoder(r.Body).Decode(&input)
+
+    // Delegate to service
+    result, err := h.service.Update(ctx, userID, id, input.toServiceInput())
+    if err != nil {
+        handleError(w, err)
+        return
+    }
+    writeJSON(w, result)
+}
+```
+
 Example:
 ```go
 // BAD: Java-style factory pattern
@@ -349,9 +425,11 @@ type userGetter interface {
 TypeScript & React Coding Agent Rules
 
 - Type safety first
-  - Never use `any`; prefer `unknown` with proper narrowing.
+  - **Never use `any`**; prefer `unknown` with proper narrowing.
   - Use generics, discriminated unions, and Zod schemas.
   - Validate API responses before use; avoid `// @ts-ignore` unless justified.
+  - **Always use proper DTOs/types** - Import and use existing types from `types/` folder instead of inline type assertions or `any`.
+  - When API response types don't exist, create them in the appropriate `types/*.ts` file before use.
 - Predictable, clean architecture
   - Separate code under `types/`, `lib/`, `components/`, `hooks/`, `app/`.
   - Keep components free of heavy business logic; prefer pure functions.

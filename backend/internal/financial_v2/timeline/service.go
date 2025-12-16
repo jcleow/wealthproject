@@ -1069,16 +1069,10 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, eve
 			adjAmount = adjMonthly.Round(0)
 		}
 
-		// Append "Repayment" to linked expense names for clarity
-		name := row.Name
-		if row.SourceLiabilityID != nil {
-			name = row.Name + " Repayment"
-		}
-
 		responses = append(responses, ExpenseResponse{
 			ID:                row.ID,
 			ParentID:          row.ParentID,
-			Name:              name,
+			Name:              row.Name,
 			Category:          row.Category,
 			Amount:            *amount,
 			EventAdjAmount:    *adjAmount,
