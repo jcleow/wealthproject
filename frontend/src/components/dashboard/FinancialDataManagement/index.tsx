@@ -662,7 +662,7 @@ export function FinancialDataManagement({
       category: item.category || 'stocks_portfolio',
       // Use amountMonthly (original balance) not adjMonthlyAmt (after growth)
       currentValue: item.amountMonthly ?? item.adjMonthlyAmt ?? 0,
-      annualGrowthRate: item.growthRate ?? 7.0,
+      annualGrowthRate: item.growthRate ?? 6.0,
       notes: '',
     }
     setModalState({

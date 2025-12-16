@@ -37,6 +37,7 @@ export function nonCashAssetV2ToTimelineItem(item: NonCashAssetResponseV2): Time
 export function investmentV2ToTimelineItem(item: InvestmentResponseV2): TimelineItem {
   const balance = parseDecimal(item.balance)
   const adjBalance = parseDecimal(item.adjBalance)
+  const growthRate = parseDecimal(item.growthRate)
   return {
     itemId: item.id,
     parentId: item.parentId,

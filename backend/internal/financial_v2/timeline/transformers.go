@@ -41,7 +41,7 @@ func transformInvestments(investments []repo.Investment) []FinancialDataRow {
 			StartDate:  inv.StartDate,
 			EndDate:    inv.EndDate,
 			ItemType:   FinInvestment,
-			GrowthRate: inv.AnnualGrowthRate,
+			GrowthRate: inv.GrowthRate,
 		})
 	}
 	return rows

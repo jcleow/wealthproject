@@ -499,7 +499,7 @@ export function FinancialFormModal({
           annualGrowthRate: effectiveRate.toString(),
           interestRateApr: '4.5',
           minimumPayment: '',
-          growthRate: '6.0',
+          growthRate: effectiveRate.toString(),
           notes: investment.notes ?? '',
         })
         break

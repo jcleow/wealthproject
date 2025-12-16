@@ -11,18 +11,25 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // DebugSQL enables SQL query logging when set to true
 var DebugSQL = false
 
+type PgxPool interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 type Store struct {
-	pool *pgxpool.Pool
+	pool PgxPool
 }
 
 // NewStore creates a new repository Store with pgxpool
-func NewStore(pool *pgxpool.Pool) *Store {
+func NewStore(pool PgxPool) *Store {
 	return &Store{pool: pool}
 }
 
@@ -85,17 +92,17 @@ type NonCashAsset struct {
 
 // Investment mirrors NonCashAsset but lives in finance_investments
 type Investment struct {
-	ID               string          `json:"id"`
-	ParentID         string          `json:"parentId"`
-	Name             string          `json:"name"`
-	Category         string          `json:"category"`
-	CurrentValue     decimal.Decimal `json:"currentValue"`
-	AnnualGrowthRate decimal.Decimal `json:"annualGrowthRate"`
-	StartDate        time.Time       `json:"startDate"`         // Precise start date (day-level)
-	EndDate          *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
-	Notes            string          `json:"notes"`
-	GrowthStrategy   string          `json:"growthStrategy"`
-	UpdatedAt        time.Time       `json:"updatedAt"`
+	ID             string          `json:"id"`
+	ParentID       string          `json:"parentId"`
+	Name           string          `json:"name"`
+	Category       string          `json:"category"`
+	CurrentValue   decimal.Decimal `json:"currentValue"`
+	GrowthRate     decimal.Decimal `json:"growthRate"`
+	StartDate      time.Time       `json:"startDate"`         // Precise start date (day-level)
+	EndDate        *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
+	Notes          string          `json:"notes"`
+	GrowthStrategy string          `json:"growthStrategy"`
+	UpdatedAt      time.Time       `json:"updatedAt"`
 }
 
 type CashAsset struct {
@@ -319,16 +326,16 @@ func (s *Store) ListInvestments(
 ) (PaginatedResult[Investment], error) {
 	query := `
 	SELECT id,
-		COALESCE(parent_id, id) as parent_id,
-		name,
-		category,
-		current_value,
-		annual_growth_rate,
-		start_date,
-		end_date,
-		COALESCE(notes, '') as notes,
-		updated_at
-	FROM finance_investments
+	COALESCE(parent_id, id) as parent_id,
+	name,
+	category,
+	current_value,
+	growth_rate,
+	start_date,
+	end_date,
+	COALESCE(notes, '') as notes,
+	updated_at
+FROM finance_investments
 	WHERE user_id = $1
 	`
 
@@ -375,7 +382,7 @@ func (s *Store) ListInvestments(
 	investments := []Investment{}
 	for rows.Next() {
 		var inv Investment
-		err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.AnnualGrowthRate, &inv.StartDate, &inv.EndDate, &inv.Notes, &inv.UpdatedAt)
+		err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.GrowthRate, &inv.StartDate, &inv.EndDate, &inv.Notes, &inv.UpdatedAt)
 		if err != nil {
 			return PaginatedResult[Investment]{}, err
 		}
@@ -781,9 +788,9 @@ func (s *Store) GetCPFAccount(
 type IncomeAllocation struct {
 	ID                  string          `json:"id"`
 	IncomeID            string          `json:"incomeId"`
-	ParentID            string          `json:"parentId"`              // Groups versions of same logical allocation
-	StartDate           time.Time       `json:"startDate"`             // When this version starts
-	EndDate             *time.Time      `json:"endDate,omitempty"`     // When this version ends (NULL = ongoing)
+	ParentID            string          `json:"parentId"`          // Groups versions of same logical allocation
+	StartDate           time.Time       `json:"startDate"`         // When this version starts
+	EndDate             *time.Time      `json:"endDate,omitempty"` // When this version ends (NULL = ongoing)
 	TargetCashAccountID *string         `json:"targetCashAccountId,omitempty"`
 	TargetInvestmentID  *string         `json:"targetInvestmentId,omitempty"`
 	AllocationType      string          `json:"allocationType"`  // 'percentage' or 'fixed'

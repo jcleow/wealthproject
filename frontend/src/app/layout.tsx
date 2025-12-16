@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import Script from 'next/script'
 import { Geist, Geist_Mono } from 'next/font/google'
 import '../styles/globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
@@ -26,6 +27,27 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} bg-black text-white`}
     >
+      <head>
+        {process.env.NODE_ENV === 'development' && (
+          <>
+            <Script
+              src="//unpkg.com/grab/dist/index.global.js"
+              crossOrigin="anonymous"
+              strategy="beforeInteractive"
+            />
+            <Script
+              src="//unpkg.com/@react-grab/claude-code/dist/client.global.js"
+              crossOrigin="anonymous"
+              strategy="lazyOnload"
+            />
+            <Script
+              src="//unpkg.com/@react-grab/codex/dist/client.global.js"
+              crossOrigin="anonymous"
+              strategy="lazyOnload"
+            />
+          </>
+        )}
+      </head>
       <body className="antialiased bg-black text-white">
         <QueryProvider>
           <AuthProvider>{children}</AuthProvider>
