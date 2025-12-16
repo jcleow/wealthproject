@@ -388,7 +388,7 @@ function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, 
             className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
           >
             <span className="truncate text-sm text-slate-300">{item.name}</span>
-            <span className={`${numericStyles.medium} transition-opacity group-hover/item:opacity-0`}>
+            <span className={`${numericStyles.base} transition-opacity group-hover/item:opacity-0`}>
               {formatCurrency(getDisplayAmount(item))}
             </span>
             {/* Edit/Delete buttons - absolutely positioned, visible on hover */}
@@ -441,7 +441,7 @@ function CPFAssetsSection({ cpfAssets, getDisplayAmount }: CPFAssetsSectionProps
           className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
         >
           <span className="truncate text-sm text-slate-300">{item.name}</span>
-          <span className={numericStyles.medium}>
+          <span className={numericStyles.base}>
             {formatCurrency(getDisplayAmount(item))}
           </span>
         </div>
@@ -538,7 +538,7 @@ function InvestmentsSection({
             <div className="min-w-0 flex-1">
               <span className="truncate text-sm text-slate-300">{getInvestmentName(allocation.targetInvestmentId!)}</span>
             </div>
-            <span className={`${numericStyles.medium} transition-opacity group-hover/item:opacity-0`}>
+            <span className={`${numericStyles.base} transition-opacity group-hover/item:opacity-0`}>
               {formatAllocationValue(allocation)}
               {allocation.allocationType === 'fixed' && (
                 <span className="ml-1 text-xs text-slate-400">/yr</span>
@@ -606,7 +606,7 @@ function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyDa
           className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
         >
           <span className="truncate text-sm text-slate-300">{item.name}</span>
-          <span className="text-sm font-medium text-slate-200">
+          <span className={numericStyles.base}>
             {formatCurrency(getDisplayAmount(item))}
             {showMonthlyData && <span className="ml-1 text-xs text-slate-400">/mo</span>}
           </span>
