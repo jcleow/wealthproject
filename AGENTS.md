@@ -388,9 +388,11 @@ type userGetter interface {
 TypeScript & React Coding Agent Rules
 
 - Type safety first
-  - Never use `any`; prefer `unknown` with proper narrowing.
+  - **Never use `any`**; prefer `unknown` with proper narrowing.
   - Use generics, discriminated unions, and Zod schemas.
   - Validate API responses before use; avoid `// @ts-ignore` unless justified.
+  - **Always use proper DTOs/types** - Import and use existing types from `types/` folder instead of inline type assertions or `any`.
+  - When API response types don't exist, create them in the appropriate `types/*.ts` file before use.
 - Predictable, clean architecture
   - Separate code under `types/`, `lib/`, `components/`, `hooks/`, `app/`.
   - Keep components free of heavy business logic; prefer pure functions.
