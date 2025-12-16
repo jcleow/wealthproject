@@ -857,9 +857,9 @@ func TestSnapshotContract_LinkedExpensesIncludeSourceLiabilityID(t *testing.T) {
 			liabilityID, *linkedExpense.SourceLiabilityID)
 	}
 
-	// Linked expense name should have " Repayment" suffix
-	if linkedExpense.Name != "Credit Card Repayment" {
-		t.Errorf("linked expense: expected name 'Credit Card Repayment', got '%s'", linkedExpense.Name)
+	// Linked expense name should match the original payee name
+	if linkedExpense.Name != "Credit Card" {
+		t.Errorf("linked expense: expected name 'Credit Card', got '%s'", linkedExpense.Name)
 	}
 
 	// Regular expense should NOT have SourceLiabilityID
