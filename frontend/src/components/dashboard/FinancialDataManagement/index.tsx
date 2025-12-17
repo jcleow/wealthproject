@@ -30,7 +30,7 @@ import {
   LIABILITY_ENTITY,
   EXPENSE_ENTITY,
   INVESTMENT_ENTITY,
-} from '@/components/modals/FinancialFormModal/types'
+} from '@/types/financial'
 import { DeleteConfirmationModal } from '@/components/modals/FinancialFormModal/DeleteConfirmationModal'
 import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal'
@@ -66,6 +66,7 @@ export function FinancialDataManagement({
   onSelectMonth,
   timelineYear,
   timelineMonth,
+  timelineMonths,
   timelineMonthV2,
   timelineYears,
   anchorYear,
@@ -828,6 +829,7 @@ export function FinancialDataManagement({
           anchorMonth={anchorMonth}
           resolution={resolution}
           timelineYears={timelineYears}
+          timelineMonths={timelineMonths}
           isTimelineLoading={isTimelineLoading}
           viewMode={viewMode}
           onViewModeChange={setViewMode}

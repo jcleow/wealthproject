@@ -1,5 +1,19 @@
 import { z } from 'zod'
 
+// Entity type constants
+export const ASSET_ENTITY = 'asset' as const
+export const INCOME_ENTITY = 'income' as const
+export const LIABILITY_ENTITY = 'liability' as const
+export const EXPENSE_ENTITY = 'expense' as const
+export const INVESTMENT_ENTITY = 'investment' as const
+
+export type FinancialEntityType =
+  | typeof ASSET_ENTITY
+  | typeof INCOME_ENTITY
+  | typeof LIABILITY_ENTITY
+  | typeof EXPENSE_ENTITY
+  | typeof INVESTMENT_ENTITY
+
 // Pagination types
 export type PaginatedResponse<T> = {
   data: T[]

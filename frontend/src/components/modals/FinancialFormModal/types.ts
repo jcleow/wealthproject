@@ -1,23 +1,22 @@
 import type { Asset, Expense, Frequency, Income, Liability } from '@/types/financial'
 
+// Re-export entity constants from common location
+export {
+  ASSET_ENTITY,
+  INCOME_ENTITY,
+  LIABILITY_ENTITY,
+  EXPENSE_ENTITY,
+  INVESTMENT_ENTITY,
+  type FinancialEntityType,
+} from '@/types/financial'
+
 // Update mode constants for expense versioning
 export const UPDATE_MODE_IN_PLACE = 'in_place' as const
 export const UPDATE_MODE_VERSIONED = 'versioned' as const
 export type UpdateMode = typeof UPDATE_MODE_IN_PLACE | typeof UPDATE_MODE_VERSIONED
 
-// Entity type constants
-export const ASSET_ENTITY = 'asset' as const
-export const INCOME_ENTITY = 'income' as const
-export const LIABILITY_ENTITY = 'liability' as const
-export const EXPENSE_ENTITY = 'expense' as const
-export const INVESTMENT_ENTITY = 'investment' as const
-
-export type FinancialDataType =
-  | typeof ASSET_ENTITY
-  | typeof INCOME_ENTITY
-  | typeof LIABILITY_ENTITY
-  | typeof EXPENSE_ENTITY
-  | typeof INVESTMENT_ENTITY
+// Alias for backward compatibility
+export type FinancialDataType = import('@/types/financial').FinancialEntityType
 
 export type FormState = {
   name: string
