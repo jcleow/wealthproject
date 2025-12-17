@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: financial-chat-postgres-dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-financial_chat}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U financial_user -d financial_chat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: golang:1.24
+    container_name: financial-chat-backend-dev
+    working_dir: /workspace
+    env_file:
+      - .env.dev
+    environment:
+      PORT: 8081
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:?set POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-financial_chat}?sslmode=disable}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      BACKEND_SHARED_SECRET: ${BACKEND_SHARED_SECRET:?set BACKEND_SHARED_SECRET}
+      PRIMARY_LLM: ${PRIMARY_LLM:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-3-sonnet-20240229}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-flash}
+    command: sh -c "go mod download && go run ./backend/cmd/server/main.go"
+    volumes:
+      - ./:/workspace
+      - go_mod_cache:/go/pkg/mod
+      - go_build_cache:/root/.cache/go-build
+    ports:
+      - "${BACKEND_HOST_PORT:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    image: node:20
+    container_name: financial-chat-frontend-dev
+    working_dir: /workspace/frontend
+    env_file:
+      - .env.dev
+    environment:
+      NODE_ENV: development
+      GO_BACKEND_URL: http://backend:8081
+      BACKEND_SHARED_SECRET: ${BACKEND_SHARED_SECRET:?set BACKEND_SHARED_SECRET}
+      BETTERAUTH_URL: http://localhost:3001
+      NEXT_PUBLIC_BETTERAUTH_URL: http://localhost:3001
+      NEXT_TELEMETRY_DISABLED: "1"
+    command: >
+      sh -c "corepack enable &&
+             corepack prepare pnpm@latest --activate &&
+             pnpm install --frozen-lockfile || pnpm install &&
+             pnpm dev --hostname 0.0.0.0 --port 3001"
+    volumes:
+      - ./frontend:/workspace/frontend
+      - frontend_node_modules:/workspace/frontend/node_modules
+    ports:
+      - "${FRONTEND_HOST_PORT:-3001}:3001"
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  postgres_data_dev:
+  go_mod_cache:
+  go_build_cache:
+  frontend_node_modules:

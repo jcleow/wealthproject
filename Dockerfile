@@ -1,5 +1,6 @@
 # Multi-stage build for Go backend
-FROM golang:1.21-alpine AS backend-builder
+# Use Go 1.24 to match go.mod requirement
+FROM golang:1.24-alpine AS backend-builder
 
 # Install git for dependency resolution
 RUN apk add --no-cache git

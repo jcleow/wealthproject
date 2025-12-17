@@ -54,3 +54,7 @@ frontend/.env.*
 *.cache/
 *__debug*
 *.tsbuildinfo
+
+# pnpm
+.pnpm-store/
+frontend/.pnpm-store/

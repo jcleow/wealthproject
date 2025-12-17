@@ -128,6 +128,16 @@ find_env_source() {
     return
   fi
 
+  # Prefer explicit dev/prod envs if present
+  if [[ -f "$REPO_ROOT/.env.dev" ]]; then
+    echo "$REPO_ROOT/.env.dev"
+    return
+  fi
+  if [[ -f "$REPO_ROOT/.env.prod" ]]; then
+    echo "$REPO_ROOT/.env.prod"
+    return
+  fi
+
   # Prefer this worktree's .env
   if [[ -f "$REPO_ROOT/.env" ]]; then
     echo "$REPO_ROOT/.env"
