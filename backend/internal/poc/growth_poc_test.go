@@ -132,6 +132,9 @@ func TestAccountPOC_Database(t *testing.T) {
 		t.Skipf("failed to connect to database: %v", err)
 	}
 	defer db.Close()
+	if err := db.PingContext(context.Background()); err != nil {
+		t.Skipf("skipping integration test: %v", err)
+	}
 
 	ctx := context.Background()
 	dbPOC := NewDatabasePOC(db)

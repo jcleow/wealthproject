@@ -443,21 +443,29 @@ func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit E
 	// Otherwise, create or update the item
 	switch edit.ItemType {
 	case ItemTypeAsset:
+		amount := edit.Amount
+		if ann, err := Annualize(edit.Amount, edit.Frequency); err == nil {
+			amount = ann
+		}
 		_, err := s.store.CreateAsset(ctx, userID, repository.Asset{
 			ParentID:         parentID,
 			Name:             name,
 			Category:         category,
-			CurrentValue:     edit.Amount,
+			CurrentValue:     amount,
 			AnnualGrowthRate: 0,
 			StartDate:        time.Date(absoluteStartYear, 1, 1, 0, 0, 0, 0, time.UTC),
 		})
 		return err
 	case ItemTypeLiability:
+		amount := edit.Amount
+		if ann, err := Annualize(edit.Amount, edit.Frequency); err == nil {
+			amount = ann
+		}
 		_, err := s.store.CreateLiability(ctx, userID, repository.Liability{
 			ParentID:        parentID,
 			Name:            name,
 			Category:        category,
-			CurrentBalance:  edit.Amount,
+			CurrentBalance:  amount,
 			InterestRateAPR: 0,
 			MinimumPayment:  0,
 			StartDate:       time.Date(absoluteStartYear, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -577,7 +585,7 @@ func (s *Service) buildTimeline(ctx context.Context, userID string, resolution s
 	}
 
 	// Otherwise, aggregate months into years for yearly resolution
-	return s.transformMonthsToYears(monthlyResp, userSettings), nil
+	return s.transformMonthsToYears(monthlyResp, userSettings, accumulator, cashAccounts), nil
 }
 
 // computeMonthlyTimeline is the unified computation engine that always computes at monthly resolution.
@@ -648,6 +656,10 @@ func (s *Service) computeMonthlyTimeline(
 		// Apply growth (only after first full year - month 12 onwards)
 		if monthIdx >= 12 {
 			for id, st := range state {
+				// Only grow after the first full year since the item started.
+				if year <= st.startYear {
+					continue
+				}
 				// Use per-item growth rate if explicitly set, otherwise fallback to category defaults
 				rate := st.growthRate
 				if rate == 0 && st.item.ItemType != ItemTypeIncome && st.item.ItemType != ItemTypeExpense {
@@ -708,6 +720,11 @@ func (s *Service) computeMonthlyTimeline(
 				delete(state, r.ParentID)
 				hasOverride = true
 				continue
+			}
+
+			// Mark override when replacing an existing item version
+			if _, exists := state[r.ParentID]; exists {
+				hasOverride = true
 			}
 
 			// Store end year as absolute year (not relative)
@@ -804,7 +821,7 @@ func (s *Service) computeMonthlyTimeline(
 
 // transformMonthsToYears aggregates monthly timeline data into yearly bars.
 // Takes December snapshot for assets/liabilities, sums income/expenses over 12 months.
-func (s *Service) transformMonthsToYears(monthlyResp TimelineResponse, userSettings repository.UserSettings) TimelineResponse {
+func (s *Service) transformMonthsToYears(monthlyResp TimelineResponse, userSettings repository.UserSettings, accumulator repository.CashAccount, cashAccounts []repository.CashAccount) TimelineResponse {
 	if len(monthlyResp.Months) == 0 {
 		return TimelineResponse{Resolution: "yearly", Version: defaultVersion, Years: []TimelineYear{}}
 	}
@@ -828,12 +845,17 @@ func (s *Service) transformMonthsToYears(monthlyResp TimelineResponse, userSetti
 		incomeByID := make(map[string]TimelineItem)
 		expenseByID := make(map[string]TimelineItem)
 
+		overridesThisYear := false
 		for monthOffset := 0; monthOffset < 12; monthOffset++ {
 			monthIdx := yearIdx*12 + monthOffset
 			if monthIdx >= len(monthlyResp.Months) {
 				break
 			}
 			month := monthlyResp.Months[monthIdx]
+
+			if month.HasOverrides {
+				overridesThisYear = true
+			}
 
 			// Sum up monthly net savings to get annual
 			annualNetSavings += month.MonthlyNetSavings
@@ -890,7 +912,7 @@ func (s *Service) transformMonthsToYears(monthlyResp TimelineResponse, userSetti
 			Expenses:             yearExpenses,
 			NetCash:              annualNetSavings,
 			NetWorth:             december.NetWorth,
-			HasOverrides:         december.HasOverrides,
+			HasOverrides:         overridesThisYear,
 			GrowthApplied:        december.GrowthApplied,
 			AnnualNetSavings:     annualNetSavings,
 			AccumulatedCashStart: monthlyResp.Months[yearIdx*12].AccumulatedCashStart,
@@ -898,6 +920,39 @@ func (s *Service) transformMonthsToYears(monthlyResp TimelineResponse, userSetti
 			InterestEarned:       sumInterestForYear(monthlyResp.Months, yearIdx),
 			AccumulatorAccountID: december.AccumulatorAccountID,
 		})
+	}
+
+	// Recompute cash accumulation at yearly granularity to match expected annual behavior.
+	interestRate := accumulator.InterestRate
+	if interestRate == 0 {
+		interestRate = defaultCashInterestRateAnnual
+	}
+	rateFactor := interestRate / 100.0
+	accumulated := accumulator.Balance
+
+	for i := range years {
+		start := accumulated
+		interest := 0.0
+
+		if i > 0 {
+			// Add prior year's net savings once per year, then apply annual interest.
+			accumulated += years[i-1].AnnualNetSavings
+			interest = accumulated * rateFactor
+			accumulated += interest
+		}
+
+		// Update accumulator cash account balances for this year
+		for j := range years[i].CashAccounts {
+			if years[i].CashAccounts[j].IsAccumulator {
+				years[i].CashAccounts[j].AmountAnnual = accumulated
+				years[i].CashAccounts[j].AdjustedAnnual = accumulated
+			}
+		}
+
+		years[i].AccumulatedCashStart = start
+		years[i].AccumulatedCashEnd = accumulated
+		years[i].InterestEarned = interest
+		years[i].NetWorth = sumAdjusted(years[i].Assets) + sumCashAccountBalances(years[i].CashAccounts) - sumAdjusted(years[i].Liabilities)
 	}
 
 	return TimelineResponse{

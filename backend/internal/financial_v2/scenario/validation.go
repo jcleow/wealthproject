@@ -18,6 +18,7 @@ var (
 	ErrInvalidEndDate        = errors.New("invalid endDate; expected YYYY-MM or month-start date")
 	ErrMissingStartDate      = errors.New("startDate is required for impact")
 	ErrInvalidTargetCount    = errors.New("exactly one target ID must be set per impact")
+	ErrInvalidTargetType     = errors.New("invalid targetType; must be asset, liability, income, expense, cash, or investment")
 )
 
 // ValidCadences lists all valid cadence values (derived from common.AllFrequencies)
@@ -25,6 +26,9 @@ var ValidCadences = frequenciesToStrings(common.AllFrequencies)
 
 // ValidImpactKinds lists all valid impact kind values
 var ValidImpactKinds = []string{ImpactKindDelta, ImpactKindOverride, ImpactKindStart, ImpactKindStop}
+
+// ValidTargetTypes lists supported target types for scenario impacts
+var ValidTargetTypes = []string{"asset", "liability", "income", "expense", "cash", "investment"}
 
 // IsValidImpactKind checks if the impact kind is valid
 func IsValidImpactKind(kind string) bool {
@@ -34,6 +38,11 @@ func IsValidImpactKind(kind string) bool {
 // IsValidCadence checks if the cadence is valid
 func IsValidCadence(cadence string) bool {
 	return inSet(strings.ToLower(strings.TrimSpace(cadence)), ValidCadences)
+}
+
+// IsValidTargetType checks if the target type is supported
+func IsValidTargetType(targetType string) bool {
+	return inSet(strings.ToLower(strings.TrimSpace(targetType)), ValidTargetTypes)
 }
 
 // ParseDateOrMonth parses a date string in YYYY-MM-DD or YYYY-MM format

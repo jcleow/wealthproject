@@ -1691,6 +1691,44 @@ func (s *Store) GetExpense(ctx context.Context, userID, id string) (Expense, err
 	return it, nil
 }
 
+func (s *Store) GetExpenseBySourceLiability(ctx context.Context, userID, liabilityID string) (Expense, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id,
+		       COALESCE(parent_id, id) as parent_id,
+		       payee,
+		       amount,
+		       frequency,
+		       start_date,
+		       end_date,
+		       category,
+		       COALESCE(growth_rate, 2.0) as growth_rate,
+		       COALESCE(notes, '') as notes,
+		       COALESCE(growth_strategy, 'annual_step') as growth_strategy,
+		       updated_at,
+		       source_liability_id
+		FROM finance_expenses
+		WHERE user_id = $1 AND source_liability_id = $2
+		LIMIT 1`, userID, liabilityID)
+
+	var it Expense
+	var endDate sql.NullTime
+	var sourceLiabilityID sql.NullString
+
+	if err := row.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.GrowthStrategy, &it.UpdatedAt, &sourceLiabilityID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Expense{}, ErrNotFound
+		}
+		return Expense{}, err
+	}
+	if endDate.Valid {
+		it.EndDate = &endDate.Time
+	}
+	if sourceLiabilityID.Valid {
+		it.SourceLiabilityID = &sourceLiabilityID.String
+	}
+	return it, nil
+}
+
 func (s *Store) CreateExpense(ctx context.Context, userID string, it Expense) (Expense, error) {
 	startDate := it.StartDate
 	if startDate.IsZero() {

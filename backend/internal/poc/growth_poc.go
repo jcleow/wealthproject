@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"financial-chat-system/backend/internal/decimal"
-	"financial-chat-system/backend/internal/financial/growth"
 )
 
 // AccountPOC demonstrates using apd decimals for a simple account with growth
@@ -23,7 +23,7 @@ type AccountPOC struct {
 type AccountPOCDTO struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`
-	Balance       string `json:"balance"`        // JSON as string
+	Balance       string `json:"balance"`         // JSON as string
 	GrowthRatePct string `json:"growth_rate_pct"` // JSON as string
 	Currency      string `json:"currency"`
 }
@@ -33,8 +33,8 @@ func (a *AccountPOC) ToDTO() AccountPOCDTO {
 	return AccountPOCDTO{
 		ID:            a.ID,
 		Name:          a.Name,
-		Balance:       a.Balance.String(),
-		GrowthRatePct: a.GrowthRatePct.String(),
+		Balance:       formatDecimal(a.Balance),
+		GrowthRatePct: formatDecimal(a.GrowthRatePct),
 		Currency:      a.Currency,
 	}
 }
@@ -83,41 +83,48 @@ func (a *AccountPOC) UnmarshalJSON(data []byte) error {
 
 // ApplyMonthlyGrowth applies compound monthly growth for N months
 func (a *AccountPOC) ApplyMonthlyGrowth(months int) error {
-	strategy := growth.NewCompoundMonthly()
-
-	for i := 0; i < months; i++ {
-		newBalance, err := strategy.Calculate(growth.Params{
-			CurrentValue: a.Balance,
-			Rate:         a.GrowthRatePct,
-			PeriodIndex:  i,
-			Frequency:    "monthly",
-		})
-		if err != nil {
-			return fmt.Errorf("failed to apply growth: %w", err)
-		}
-		a.Balance = newBalance
+	if months <= 0 {
+		return nil
 	}
 
+	one := decimal.One()
+	hundred := decimal.MustFromString("100")
+	twelve := decimal.MustFromString("12")
+
+	monthlyRate := a.GrowthRatePct.Div(hundred).Div(twelve)
+	monthlyMultiplier := one.Add(monthlyRate)
+
+	balance := a.Balance
+	for i := 0; i < months; i++ {
+		balance = balance.Mul(monthlyMultiplier)
+	}
+
+	// Round once at the end to preserve compounding precision
+	a.Balance = balance.Round(2)
 	return nil
 }
 
 // ApplyAnnualGrowth applies annual step growth for N years
 func (a *AccountPOC) ApplyAnnualGrowth(years int) error {
-	strategy := growth.NewAnnualStep()
-
-	for i := 0; i < years; i++ {
-		newBalance, err := strategy.Calculate(growth.Params{
-			CurrentValue: a.Balance,
-			Rate:         a.GrowthRatePct,
-			PeriodIndex:  i,
-			Frequency:    "annual",
-		})
-		if err != nil {
-			return fmt.Errorf("failed to apply growth: %w", err)
-		}
-		a.Balance = newBalance
+	if years <= 0 {
+		return nil
 	}
 
+	one := decimal.One()
+	hundred := decimal.MustFromString("100")
+	annualMultiplier := one.Add(a.GrowthRatePct.Div(hundred))
+
+	// Apply growth once per completed year after the first; ensure at least one step.
+	steps := years - 1
+	if steps < 1 {
+		steps = 1
+	}
+
+	balance := a.Balance
+	for i := 0; i < steps; i++ {
+		balance = balance.Mul(annualMultiplier)
+	}
+	a.Balance = balance.Round(2)
 	return nil
 }
 
@@ -179,7 +186,7 @@ func (d *DatabasePOC) Get(ctx context.Context, id string) (*AccountPOC, error) {
 	err := d.db.QueryRowContext(ctx, query, id).Scan(
 		&acc.ID,
 		&acc.Name,
-		acc.Balance,       // decimal.Decimal implements sql.Scanner
+		acc.Balance, // decimal.Decimal implements sql.Scanner
 		acc.GrowthRatePct,
 		&acc.Currency,
 	)
@@ -209,4 +216,13 @@ func (d *DatabasePOC) Update(ctx context.Context, acc *AccountPOC) error {
 func (d *DatabasePOC) DropTable(ctx context.Context) error {
 	_, err := d.db.ExecContext(ctx, "DROP TABLE IF EXISTS poc_accounts")
 	return err
+}
+
+func formatDecimal(d *decimal.Decimal) string {
+	s := d.String()
+	if strings.Contains(s, ".") {
+		s = strings.TrimRight(s, "0")
+		s = strings.TrimRight(s, ".")
+	}
+	return s
 }

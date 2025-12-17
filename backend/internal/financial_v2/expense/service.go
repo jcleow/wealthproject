@@ -2,6 +2,8 @@ package expense
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"financial-chat-system/backend/internal/decimal"
@@ -23,6 +25,21 @@ const (
 // Types
 // =============================================================================
 
+// ValidationError represents a client input validation error.
+type ValidationError struct {
+	Message string
+}
+
+func (e ValidationError) Error() string {
+	return e.Message
+}
+
+// IsValidationError reports whether the error is a validation error.
+func IsValidationError(err error) bool {
+	var ve ValidationError
+	return errors.As(err, &ve)
+}
+
 // CreateInput contains the parameters for creating an expense.
 // Uses decimal.Decimal for financial values to avoid precision loss.
 type CreateInput struct {
@@ -39,6 +56,21 @@ type CreateInput struct {
 	ParentID          *string
 }
 
+// CreateParams is the raw input (strings) used by HTTP handlers.
+type CreateParams struct {
+	Payee             string
+	Amount            string
+	Frequency         string
+	Category          string
+	Notes             string
+	GrowthRate        *string
+	GrowthStrategy    string
+	SourceLiabilityID *string
+	StartDate         *string
+	EndDate           *string
+	ParentID          *string
+}
+
 // UpdateInput contains the parameters for updating an expense.
 // Uses decimal.Decimal for financial values to avoid precision loss.
 type UpdateInput struct {
@@ -52,6 +84,20 @@ type UpdateInput struct {
 	GrowthStrategy    string
 	SourceLiabilityID *string
 	StartDate         *time.Time
+	UpdateMode        string
+}
+
+// UpdateParams is the raw input (strings) used by HTTP handlers.
+type UpdateParams struct {
+	Payee             string
+	Amount            string
+	Frequency         string
+	Category          string
+	Notes             string
+	GrowthRate        *string
+	GrowthStrategy    string
+	SourceLiabilityID *string
+	StartDate         *string
 	UpdateMode        string
 }
 
@@ -112,6 +158,15 @@ func (s *Service) Create(ctx context.Context, userID string, input CreateInput) 
 	return &created, nil
 }
 
+// CreateFromParams validates and converts raw params then delegates to Create.
+func (s *Service) CreateFromParams(ctx context.Context, userID string, params CreateParams) (*repo.Expense, error) {
+	input, err := buildCreateInput(params)
+	if err != nil {
+		return nil, err
+	}
+	return s.Create(ctx, userID, input)
+}
+
 // Update handles both in-place and versioned expense updates
 func (s *Service) Update(ctx context.Context, userID, expenseID string, input UpdateInput) (*repo.Expense, error) {
 	if input.UpdateMode == UpdateModeVersioned && input.StartDate != nil {
@@ -120,9 +175,136 @@ func (s *Service) Update(ctx context.Context, userID, expenseID string, input Up
 	return s.inPlaceUpdate(ctx, userID, expenseID, input)
 }
 
+// UpdateFromParams validates and converts raw params then delegates to Update.
+func (s *Service) UpdateFromParams(ctx context.Context, userID, expenseID string, params UpdateParams) (*repo.Expense, error) {
+	input, err := buildUpdateInput(expenseID, params)
+	if err != nil {
+		return nil, err
+	}
+	return s.Update(ctx, userID, expenseID, input)
+}
+
 // =============================================================================
 // Private Methods
 // =============================================================================
+
+func buildCreateInput(params CreateParams) (CreateInput, error) {
+	if err := requireFields(map[string]string{
+		"payee":     params.Payee,
+		"amount":    params.Amount,
+		"frequency": params.Frequency,
+		"category":  params.Category,
+	}); err != nil {
+		return CreateInput{}, err
+	}
+
+	amount, err := parseDecimalField("amount", params.Amount)
+	if err != nil {
+		return CreateInput{}, err
+	}
+	growthRate, err := parseOptionalDecimal("growthRate", params.GrowthRate)
+	if err != nil {
+		return CreateInput{}, err
+	}
+
+	startDate, err := parseRFC3339Pointer(params.StartDate)
+	if err != nil {
+		return CreateInput{}, ValidationError{Message: fmt.Sprintf("invalid startDate: %v", err)}
+	}
+
+	endDate, err := parseRFC3339Pointer(params.EndDate)
+	if err != nil {
+		return CreateInput{}, ValidationError{Message: fmt.Sprintf("invalid endDate: %v", err)}
+	}
+
+	return CreateInput{
+		Payee:             params.Payee,
+		Amount:            *amount,
+		Frequency:         params.Frequency,
+		Category:          params.Category,
+		Notes:             params.Notes,
+		GrowthRate:        growthRate,
+		GrowthStrategy:    params.GrowthStrategy,
+		SourceLiabilityID: params.SourceLiabilityID,
+		StartDate:         startDate,
+		EndDate:           endDate,
+		ParentID:          params.ParentID,
+	}, nil
+}
+
+func buildUpdateInput(expenseID string, params UpdateParams) (UpdateInput, error) {
+	if err := requireFields(map[string]string{
+		"payee":     params.Payee,
+		"amount":    params.Amount,
+		"frequency": params.Frequency,
+		"category":  params.Category,
+	}); err != nil {
+		return UpdateInput{}, err
+	}
+
+	amount, err := parseDecimalField("amount", params.Amount)
+	if err != nil {
+		return UpdateInput{}, err
+	}
+	growthRate, err := parseOptionalDecimal("growthRate", params.GrowthRate)
+	if err != nil {
+		return UpdateInput{}, err
+	}
+
+	startDate, err := parseRFC3339Pointer(params.StartDate)
+	if err != nil {
+		return UpdateInput{}, ValidationError{Message: fmt.Sprintf("invalid startDate: %v", err)}
+	}
+
+	return UpdateInput{
+		ID:                expenseID,
+		Payee:             params.Payee,
+		Amount:            *amount,
+		Frequency:         params.Frequency,
+		Category:          params.Category,
+		Notes:             params.Notes,
+		GrowthRate:        growthRate,
+		GrowthStrategy:    params.GrowthStrategy,
+		SourceLiabilityID: params.SourceLiabilityID,
+		StartDate:         startDate,
+		UpdateMode:        params.UpdateMode,
+	}, nil
+}
+
+func parseRFC3339Pointer(value *string) (*time.Time, error) {
+	if value == nil || *value == "" {
+		return nil, nil
+	}
+	t, err := time.Parse(time.RFC3339, *value)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func parseDecimalField(field, value string) (*decimal.Decimal, error) {
+	d, err := decimal.NewFromString(value)
+	if err != nil {
+		return nil, ValidationError{Message: fmt.Sprintf("invalid %s: %v", field, err)}
+	}
+	return d, nil
+}
+
+func parseOptionalDecimal(field string, value *string) (*decimal.Decimal, error) {
+	if value == nil || *value == "" {
+		return nil, nil
+	}
+	return parseDecimalField(field, *value)
+}
+
+func requireFields(fields map[string]string) error {
+	for name, val := range fields {
+		if val == "" {
+			return ValidationError{Message: fmt.Sprintf("%s is required", name)}
+		}
+	}
+	return nil
+}
 
 // versionedUpdate stops the current expense and creates a new version
 func (s *Service) versionedUpdate(ctx context.Context, userID, expenseID string, input UpdateInput) (*repo.Expense, error) {
