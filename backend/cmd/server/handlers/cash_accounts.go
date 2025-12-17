@@ -121,69 +121,6 @@ func (h *CashAccountHandler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, created)
 }
 
-// PUT /api/v1/cash-accounts/{id}
-func (h *CashAccountHandler) update(w http.ResponseWriter, r *http.Request, id string) {
-	userID, ok := requireUserID(w, r)
-	if !ok {
-		return
-	}
-	var payload repository.CashAccount
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		badRequest(w, err)
-		return
-	}
-	payload.ID = id
-	payload.UserID = userID
-	updated, err := h.store.UpdateCashAccount(r.Context(), payload)
-	if err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w, err)
-		return
-	}
-	writeJSON(w, updated)
-}
-
-// DELETE /api/v1/cash-accounts/{id}
-func (h *CashAccountHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
-	userID, ok := requireUserID(w, r)
-	if !ok {
-		return
-	}
-
-	// Check if this is the accumulator account
-	account, err := h.store.GetCashAccount(r.Context(), userID, id)
-	if err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w, err)
-		return
-	}
-
-	// Prevent deletion of accumulator account
-	if account.IsAccumulator {
-		writeError(w, http.StatusBadRequest, "cannot_delete_accumulator", "Cannot delete cash accumulator account. Set balance to 0 instead.")
-		return
-	}
-
-	// Cascade delete: remove linked incomes first (polymorphic FK, must be done in app layer)
-	_ = h.store.DeleteIncomesBySource(r.Context(), userID, "cash_account", id)
-
-	if err := h.store.DeleteCashAccount(r.Context(), userID, id); err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
 // PUT /api/v1/cash-accounts/{id}/set-accumulator
 func (h *CashAccountHandler) setAccumulator(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
