@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { liabilitiesApi } from '@/api/financial'
 import type { Liability } from '@/types/financial'
+import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export const LIABILITIES_QUERY_KEY = QUERY_KEYS.financial.liabilities
@@ -40,12 +41,29 @@ export function useUpdateLiabilityMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<Liability> }) =>
-      liabilitiesApi.updateLiability(id, updates),
-    onSuccess: (updatedLiability) => {
-      queryClient.setQueryData<Liability[]>(LIABILITIES_QUERY_KEY, (old) =>
-        old?.map((liability) => liability.id === updatedLiability.id ? updatedLiability : liability) ?? []
-      )
+    mutationFn: ({ id, updates }: {
+      id: string
+      updates: Partial<Liability> & {
+        updateMode?: UpdateMode
+      }
+    }) => liabilitiesApi.updateLiability(id, updates),
+    onSuccess: () => {
+      // Invalidate timeline and related queries to refetch with new/updated liability
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.expenses })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
+    },
+  })
+}
+
+export function useStopLiabilityMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, endDate }: { id: string; endDate: string }) =>
+      liabilitiesApi.stopLiability(id, endDate),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.expenses })

@@ -55,10 +55,7 @@ func (h *LiabilityHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		h.get(w, r, id)
-	case http.MethodPut:
-		h.update(w, r, id)
-	case http.MethodDelete:
-		h.delete(w, r, id)
+	// PUT and DELETE moved to v2 API with versioning support
 	default:
 		methodNotAllowed(w)
 	}
@@ -136,41 +133,4 @@ func (h *LiabilityHandler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, created)
 }
 
-func (h *LiabilityHandler) update(w http.ResponseWriter, r *http.Request, id string) {
-	userID, ok := requireUserID(w, r)
-	if !ok {
-		return
-	}
-	var payload repository.Liability
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		badRequest(w, err)
-		return
-	}
-	payload.ID = id
-	updated, err := h.store.UpdateLiability(r.Context(), userID, payload)
-	if err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w, err)
-		return
-	}
-	writeJSON(w, updated)
-}
-
-func (h *LiabilityHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
-	userID, ok := requireUserID(w, r)
-	if !ok {
-		return
-	}
-	if err := h.store.DeleteLiability(r.Context(), userID, id); err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
+// update and delete methods moved to v2 API (liabilities_v2.go) with versioning support

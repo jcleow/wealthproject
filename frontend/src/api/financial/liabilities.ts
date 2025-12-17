@@ -1,7 +1,8 @@
-import { apiClient } from '../client'
+import { ApiError, apiClient } from '../client'
 import { buildPaginatedPath } from './helpers'
 import { normalizePaginatedResponse, toLiability } from './transformers'
 import type { Liability, PaginatedResponse, PaginationParams } from '@/types/financial'
+import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 
 export async function listLiabilities(params?: PaginationParams): Promise<PaginatedResponse<Liability>> {
   const path = buildPaginatedPath('/liabilities', params)
@@ -28,7 +29,12 @@ export async function createLiability(payload: Omit<Liability, 'id' | 'updatedAt
   return toLiability(data)
 }
 
-export async function updateLiability(id: string, payload: Partial<Liability>): Promise<Liability> {
+export async function updateLiability(
+  id: string,
+  payload: Partial<Liability> & {
+    updateMode?: UpdateMode
+  }
+): Promise<Liability> {
   const body: Record<string, unknown> = {
     name: payload.name,
     category: payload.category,
@@ -39,13 +45,32 @@ export async function updateLiability(id: string, payload: Partial<Liability>): 
     startDate: payload.startDate,
     endDate: payload.endDate,
   }
+  // Add updateMode for versioned updates
+  if (payload.updateMode !== undefined) {
+    body.updateMode = payload.updateMode
+  }
 
-  const data = await apiClient.put<any>(`/liabilities/${id}`, body)
+  // Use v2 API for versioned update support
+  const data = await apiClient.put<any>(`/v2/liabilities/${id}`, body)
+  return toLiability(data)
+}
+
+// Stop a liability (soft delete) - sets end_date
+export async function stopLiability(id: string, endDate: string): Promise<Liability> {
+  const data = await apiClient.post<any>(`/v2/liabilities/${id}/stop`, { endDate })
   return toLiability(data)
 }
 
 export async function deleteLiability(id: string): Promise<void> {
-  await apiClient.delete<void>(`/liabilities/${id}`)
+  try {
+    // Use v2 API for recursive delete support
+    await apiClient.delete<void>(`/v2/liabilities/${id}`)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return
+    }
+    throw error
+  }
 }
 
 export async function convertLiabilityToProperty(id: string): Promise<Liability> {
@@ -62,6 +87,7 @@ export const liabilitiesApi = {
   listLiabilities,
   createLiability,
   updateLiability,
+  stopLiability,
   deleteLiability,
   deleteAllLiabilities,
   convertLiabilityToProperty,

@@ -2,20 +2,43 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"time"
 
+	"financial-chat-system/backend/internal/financial_v2/liability"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/middleware"
 )
 
+// liabilityInput is the JSON-friendly input struct for liability update.
+type liabilityInput struct {
+	ID                string   `json:"id"`
+	ParentID          string   `json:"parentId"`
+	Name              string   `json:"name"`
+	Category          string   `json:"category"`
+	CurrentBalance    float64  `json:"currentBalance"`
+	InterestRateAPR   *float64 `json:"interestRateApr"`
+	MinimumPayment    *float64 `json:"minimumPayment"`
+	GrowthStrategy    string   `json:"growthStrategy"`
+	RepaymentStrategy string   `json:"repaymentStrategy"`
+	Notes             string   `json:"notes"`
+	StartDate         *string  `json:"startDate"`
+	UpdateMode        string   `json:"updateMode,omitempty"`
+}
+
 // LiabilityV2Handler serves liability CRUD endpoints for v2 API.
 type LiabilityV2Handler struct {
-	store *repo.Store
+	store   *repo.Store
+	service *liability.Service
 }
 
 // NewLiabilityV2Handler creates a new v2 liability handler.
 func NewLiabilityV2Handler(store *repo.Store) *LiabilityV2Handler {
-	return &LiabilityV2Handler{store: store}
+	return &LiabilityV2Handler{
+		store:   store,
+		service: liability.NewService(store),
+	}
 }
 
 // HandleCreate creates a new liability and auto-creates a linked expense.
@@ -58,4 +81,103 @@ func (h *LiabilityV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request
 
 	w.WriteHeader(http.StatusCreated)
 	writeJSON(w, created)
+}
+
+// HandleUpdate handles PUT /api/v2/liabilities/{id}
+func (h *LiabilityV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
+	userCtx := middleware.GetUserContext(r.Context())
+
+	var input liabilityInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	// Parse startDate if provided
+	var startDate *time.Time
+	if input.StartDate != nil {
+		t, err := time.Parse(time.RFC3339, *input.StartDate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		startDate = &t
+	}
+
+	// Build service input
+	serviceInput := liability.UpdateInput{
+		ID:                id,
+		Name:              input.Name,
+		Category:          input.Category,
+		CurrentBalance:    input.CurrentBalance,
+		InterestRateAPR:   input.InterestRateAPR,
+		MinimumPayment:    input.MinimumPayment,
+		GrowthStrategy:    input.GrowthStrategy,
+		RepaymentStrategy: input.RepaymentStrategy,
+		Notes:             input.Notes,
+		StartDate:         startDate,
+		UpdateMode:        input.UpdateMode,
+	}
+
+	// Delegate to service layer
+	result, err := h.service.Update(r.Context(), userCtx.UserID, id, serviceInput)
+	if err != nil {
+		if err == repo.ErrNotFound {
+			notFound(w)
+			return
+		}
+		log.Printf("liability.Update error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
+// HandleDelete handles DELETE /api/v2/liabilities/{id}
+func (h *LiabilityV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
+	userCtx := middleware.GetUserContext(r.Context())
+
+	if err := h.store.DeleteLiability(r.Context(), userCtx.UserID, id); err != nil {
+		if err == repo.ErrNotFound {
+			notFound(w)
+			return
+		}
+		log.Printf("liability.Delete error: %v", err)
+		internalError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// HandleStop handles POST /api/v2/liabilities/{id}/stop
+func (h *LiabilityV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
+	userCtx := middleware.GetUserContext(r.Context())
+
+	var input stopInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+	if input.EndDate == "" {
+		badRequest(w, errMissingFields("endDate"))
+		return
+	}
+
+	endDate, err := time.Parse(time.RFC3339, input.EndDate)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	updated, err := h.store.StopLiability(r.Context(), userCtx.UserID, id, endDate)
+	if err != nil {
+		if err == repo.ErrNotFound {
+			notFound(w)
+			return
+		}
+		log.Printf("liability.Stop error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, updated)
 }
