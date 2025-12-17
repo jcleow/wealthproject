@@ -203,61 +203,14 @@ func (h *IncomeHandler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, created)
 }
 
-// PUT /api/v1/cashflow/incomes/{id}
-func (h *IncomeHandler) update(w http.ResponseWriter, r *http.Request, id string) {
-	userID, ok := requireUserID(w, r)
-	if !ok {
-		return
-	}
-	var input incomeInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		badRequest(w, err)
-		return
-	}
-	cpfWageType, err := input.normalizeCPFFields()
-	if err != nil {
-		badRequest(w, err)
-		return
-	}
-	input.CPFWageType = cpfWageType
-	input.ID = id
-	updated, err := h.store.UpdateIncome(r.Context(), userID, input.toIncome())
-	if err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w, err)
-		return
-	}
-	writeJSON(w, updated)
-}
-
-// DELETE /api/v1/cashflow/incomes/{id}
-func (h *IncomeHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
-	userID, ok := requireUserID(w, r)
-	if !ok {
-		return
-	}
-	if err := h.store.DeleteIncome(r.Context(), userID, id); err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
 // ----- Income Allocation handlers -----
 
 // allocationInput is the JSON-friendly input struct for allocation creation/update.
 type allocationInput struct {
-	TargetCashAccountID *string  `json:"targetCashAccountId,omitempty"`
-	TargetInvestmentID  *string  `json:"targetInvestmentId,omitempty"`
-	AllocationType      string   `json:"allocationType"` // 'percentage' or 'fixed'
-	AllocationValue     float64  `json:"allocationValue"`
+	TargetCashAccountID *string `json:"targetCashAccountId,omitempty"`
+	TargetInvestmentID  *string `json:"targetInvestmentId,omitempty"`
+	AllocationType      string  `json:"allocationType"` // 'percentage' or 'fixed'
+	AllocationValue     float64 `json:"allocationValue"`
 }
 
 // GET|POST /api/v1/cashflow/incomes/{incomeId}/allocations
@@ -276,11 +229,11 @@ func (h *IncomeHandler) handleAllocationsCollection(w http.ResponseWriter, r *ht
 func (h *IncomeHandler) handleAllocationItem(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
 	switch r.Method {
 	case http.MethodGet:
-		h.getAllocation(w, r, allocID)
+		h.getAllocation(w, r, incomeID, allocID)
 	case http.MethodPut:
-		h.updateAllocation(w, r, allocID)
+		h.updateAllocation(w, r, incomeID, allocID)
 	case http.MethodDelete:
-		h.deleteAllocation(w, r, allocID)
+		h.deleteAllocation(w, r, incomeID, allocID)
 	default:
 		methodNotAllowed(w)
 	}
@@ -362,7 +315,7 @@ func (h *IncomeHandler) createAllocation(w http.ResponseWriter, r *http.Request,
 }
 
 // GET /api/v1/cashflow/incomes/{incomeId}/allocations/{allocId}
-func (h *IncomeHandler) getAllocation(w http.ResponseWriter, r *http.Request, allocID string) {
+func (h *IncomeHandler) getAllocation(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
 		return
@@ -376,11 +329,15 @@ func (h *IncomeHandler) getAllocation(w http.ResponseWriter, r *http.Request, al
 		internalError(w, err)
 		return
 	}
+	if allocation.IncomeID != incomeID {
+		notFound(w)
+		return
+	}
 	writeJSON(w, allocation)
 }
 
 // PUT /api/v1/cashflow/incomes/{incomeId}/allocations/{allocId}
-func (h *IncomeHandler) updateAllocation(w http.ResponseWriter, r *http.Request, allocID string) {
+func (h *IncomeHandler) updateAllocation(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
 		return
@@ -415,8 +372,23 @@ func (h *IncomeHandler) updateAllocation(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
+	existing, err := h.store.GetIncomeAllocation(r.Context(), userID, allocID)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w, err)
+		return
+	}
+	if existing.IncomeID != incomeID {
+		notFound(w)
+		return
+	}
+
 	allocation := repository.IncomeAllocation{
 		ID:                  allocID,
+		IncomeID:            incomeID,
 		TargetCashAccountID: input.TargetCashAccountID,
 		TargetInvestmentID:  input.TargetInvestmentID,
 		AllocationType:      input.AllocationType,
@@ -436,9 +408,22 @@ func (h *IncomeHandler) updateAllocation(w http.ResponseWriter, r *http.Request,
 }
 
 // DELETE /api/v1/cashflow/incomes/{incomeId}/allocations/{allocId}
-func (h *IncomeHandler) deleteAllocation(w http.ResponseWriter, r *http.Request, allocID string) {
+func (h *IncomeHandler) deleteAllocation(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
+		return
+	}
+	allocation, err := h.store.GetIncomeAllocation(r.Context(), userID, allocID)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w, err)
+		return
+	}
+	if allocation.IncomeID != incomeID {
+		notFound(w)
 		return
 	}
 	if err := h.store.DeleteIncomeAllocation(r.Context(), userID, allocID); err != nil {

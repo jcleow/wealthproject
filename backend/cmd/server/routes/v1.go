@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"financial-chat-system/backend/cmd/server/handlers"
-	"financial-chat-system/backend/internal/cpf/account"
 	"financial-chat-system/backend/internal/financial"
 	finRepo "financial-chat-system/backend/internal/financial/repository"
 	"financial-chat-system/backend/internal/financial/timeline"
@@ -29,7 +28,6 @@ type V1Dependencies struct {
 	TimelineService  *timeline.Service
 	FinStore         *finRepo.Store
 	FinStoreV2       *finRepoV2.Store // V2 store for migrated handlers
-	CPFAccountRepo   *account.Repository
 }
 
 // SetupV1Router creates and configures the v1 API router with all middleware and routes
@@ -92,9 +90,7 @@ func RegisterV1ProtectedRoutes(router *mux.Router, deps V1Dependencies) {
 	// Expense endpoints moved to v2 routes only
 	propertyHandler := handlers.NewPropertyScenarioHandler(deps.FinStore)
 	propertyLinkHandler := handlers.NewPropertyLinkHandler(deps.FinStore)
-	scenarioHandler := handlers.NewScenarioEventHandler(deps.FinStore)
 	cashAccountHandler := handlers.NewCashAccountHandler(deps.FinStore)
-	cpfHandler := handlers.NewCPFHandler(deps.CPFAccountRepo)
 
 	router.PathPrefix("/assets").Handler(handlerToHTTPMux("/api/v1", assetHandler.RegisterRoutes))
 	router.PathPrefix("/investments").Handler(handlerToHTTPMux("/api/v1", investmentHandler.RegisterRoutes))
@@ -103,9 +99,8 @@ func RegisterV1ProtectedRoutes(router *mux.Router, deps V1Dependencies) {
 	// Expense routes are now handled by v2 router
 	router.PathPrefix("/property-planner/scenarios").Handler(handlerToHTTPMux("/api/v1", propertyHandler.RegisterRoutes))
 	router.PathPrefix("/property-links").Handler(handlerToHTTPMux("/api/v1", propertyLinkHandler.RegisterRoutes))
-	router.PathPrefix("/scenario-events").Handler(handlerToHTTPMux("/api/v1", scenarioHandler.RegisterRoutes))
 	router.PathPrefix("/cash-accounts").Handler(handlerToHTTPMux("/api/v1", cashAccountHandler.RegisterRoutes))
-	router.PathPrefix("/cpf").Handler(handlerToHTTPMux("/api/v1", cpfHandler.RegisterRoutes))
+	// scenario-events and cpf endpoints moved to v2 routes only
 
 	// Timeline endpoints
 	timelineHandler := handlers.NewTimelineHandler(deps.TimelineService)

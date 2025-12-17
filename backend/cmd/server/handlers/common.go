@@ -57,15 +57,6 @@ func writeError(w http.ResponseWriter, statusCode int, errorCode string, message
 	json.NewEncoder(w).Encode(response)
 }
 
-// writeSuccess writes a success response to the client
-func writeSuccess(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("API-Version", "v1")
-	w.WriteHeader(http.StatusOK)
-
-	json.NewEncoder(w).Encode(data)
-}
-
 func methodNotAllowed(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }
@@ -119,66 +110,6 @@ func requireUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
 // =============================================================================
 // Query Parameter Helpers
 // =============================================================================
-
-// queryInt parses a required integer query parameter.
-// Returns an error if the parameter is missing or not a valid integer.
-func queryInt(r *http.Request, key string) (int, error) {
-	v := r.URL.Query().Get(key)
-	if v == "" {
-		return 0, fmt.Errorf("%s is required", key)
-	}
-	val, err := strconv.Atoi(v)
-	if err != nil {
-		return 0, fmt.Errorf("%s must be a valid integer", key)
-	}
-	return val, nil
-}
-
-// queryIntRange parses a required integer query parameter with min/max validation.
-// Returns an error if the parameter is missing, not a valid integer, or out of range.
-func queryIntRange(r *http.Request, key string, min, max int) (int, error) {
-	val, err := queryInt(r, key)
-	if err != nil {
-		return 0, err
-	}
-	if val < min || val > max {
-		return 0, fmt.Errorf("%s must be between %d and %d", key, min, max)
-	}
-	return val, nil
-}
-
-// queryIntOpt parses an optional integer query parameter with a default value.
-// Returns the default if the parameter is missing.
-// Returns an error if the parameter is present but not a valid integer.
-func queryIntOpt(r *http.Request, key string, defaultVal int) (int, error) {
-	v := r.URL.Query().Get(key)
-	if v == "" {
-		return defaultVal, nil
-	}
-	val, err := strconv.Atoi(v)
-	if err != nil {
-		return 0, fmt.Errorf("%s must be a valid integer", key)
-	}
-	return val, nil
-}
-
-// queryIntOptRange parses an optional integer query parameter with min/max validation.
-// Returns the default if the parameter is missing.
-// Returns an error if the parameter is present but invalid or out of range.
-func queryIntOptRange(r *http.Request, key string, defaultVal, min, max int) (int, error) {
-	v := r.URL.Query().Get(key)
-	if v == "" {
-		return defaultVal, nil
-	}
-	val, err := strconv.Atoi(v)
-	if err != nil {
-		return 0, fmt.Errorf("%s must be a valid integer", key)
-	}
-	if val < min || val > max {
-		return 0, fmt.Errorf("%s must be between %d and %d", key, min, max)
-	}
-	return val, nil
-}
 
 // queryDate parses a required date query parameter in DD-MM-YYYY format.
 func queryDate(r *http.Request, key string) (time.Time, error) {

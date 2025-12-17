@@ -10,7 +10,6 @@ import (
 	"financial-chat-system/backend/cmd/server/routes"
 	"financial-chat-system/backend/cmd/server/setup"
 	"financial-chat-system/backend/internal/config"
-	"financial-chat-system/backend/internal/cpf/account"
 	"financial-chat-system/backend/internal/database"
 	"financial-chat-system/backend/internal/financial"
 	finRepo "financial-chat-system/backend/internal/financial/repository"
@@ -94,7 +93,6 @@ func main() {
 	// Initialize repositories
 	finStore := finRepo.NewStore(db)
 	finStoreV2 := finRepoV2.NewStore(pool)
-	cpfAccountRepo := account.NewRepository(db)
 	usageRepo := usage.NewRepository(db, cfg.UsageTrackingEnabled)
 
 	// Initialize financial registry
@@ -140,7 +138,6 @@ func main() {
 		TimelineService:  timelineService,
 		FinStore:         finStore,
 		FinStoreV2:       finStoreV2,
-		CPFAccountRepo:   cpfAccountRepo,
 	})
 
 	// Setup v2 API routes

@@ -720,15 +720,6 @@ func (h *DispatchHandler) rollbackExecuted(ctx context.Context, executed []execu
 	return failures
 }
 
-// isCriticalFailure determines if a failure should stop further execution
-func (h *DispatchHandler) isCriticalFailure(toolName string, err error) bool {
-	criticalTools := map[string]bool{
-		"createAsset":     true,
-		"createLiability": true,
-	}
-	return criticalTools[toolName]
-}
-
 func cloneParams(params map[string]interface{}) map[string]interface{} {
 	clone := make(map[string]interface{}, len(params))
 	for k, v := range params {
