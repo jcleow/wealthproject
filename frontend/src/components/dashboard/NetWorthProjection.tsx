@@ -177,6 +177,7 @@ export function NetWorthProjection({
           totalAssets,
           totalLiabilities,
           calendarYear, // This is the absolute year (2025, 2026, etc.) for display
+          calendarMonth: month.month,
           hasNonAnnualSource: false,
           hasOverride: !!month.hasOverrides,
         }
@@ -716,36 +717,40 @@ export function NetWorthProjection({
   const ageRange = useMemo(() => {
     const startingAge = userSettings?.startingAge ?? DEFAULT_STARTING_AGE
     const terminalAge = userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE
+    const rawAnchorYear =
+      projection[0]?.calendarYear ??
+      timelineMonths?.[0]?.year ??
+      (timelineYears?.[0]?.year ?? BASE_CALENDAR_YEAR)
+    const anchorYear = rawAnchorYear >= 1900 ? rawAnchorYear : BASE_CALENDAR_YEAR + rawAnchorYear
+    const anchorMonth =
+      projection[0]?.calendarMonth ??
+      timelineMonths?.[0]?.month ??
+      1
 
     if (displayData.length === 0) {
       return { startAge: startingAge, endAge: terminalAge, years: Math.max(1, terminalAge - startingAge) }
     }
 
-    // For monthly data, calculate age from yearIndex (0-based year offset)
-    if (dataResolution === 'monthly') {
-      const firstMonthIndex = displayData[0].yearIndex ?? 0
-      const lastMonthIndex = displayData[displayData.length - 1].yearIndex ?? 0
+    const anchorMonthIndex = anchorYear * 12 + (anchorMonth - 1)
 
-      const firstYearOffset = Math.floor(firstMonthIndex / 12)
-      const lastYearOffset = Math.floor(lastMonthIndex / 12)
-
-      const startAge = startingAge + firstYearOffset
-      const endAge = startingAge + lastYearOffset
-      const years = endAge - startAge
-
-      return { startAge, endAge, years }
+    const toMonthIndex = (point: ProjectionPoint): number => {
+      const year = point.calendarYear ?? anchorYear
+      const month = point.calendarMonth ?? 1
+      return year * 12 + (month - 1)
     }
 
-    // For yearly data, use yearIndex directly
-    const firstYearIndex = displayData[0].yearIndex ?? 0
-    const lastYearIndex = displayData[displayData.length - 1].yearIndex ?? 0
+    const firstMonthIndex = toMonthIndex(displayData[0])
+    const lastMonthIndex = toMonthIndex(displayData[displayData.length - 1])
 
-    const startAge = startingAge + firstYearIndex
-    const endAge = startingAge + lastYearIndex
+    const startAgeMonths = Math.max(0, (startingAge * 12) + (firstMonthIndex - anchorMonthIndex))
+    const endAgeMonths = Math.max(startAgeMonths, (startingAge * 12) + (lastMonthIndex - anchorMonthIndex))
+
+    const startAge = Math.floor(startAgeMonths / 12)
+    const endAge = Math.floor(endAgeMonths / 12)
     const years = endAge - startAge
 
     return { startAge, endAge, years }
-  }, [displayData, userSettings?.startingAge, userSettings?.terminalAge, dataResolution])
+  }, [displayData, projection, timelineMonths, timelineYears, userSettings?.startingAge, userSettings?.terminalAge])
 
   const defaultTitle = 'Net Worth Projection'
   const defaultSubtitle = `Age ${ageRange.startAge} to ${ageRange.endAge} (${ageRange.years} years)`

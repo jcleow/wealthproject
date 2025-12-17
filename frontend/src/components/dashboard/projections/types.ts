@@ -21,6 +21,8 @@ export type ProjectionPoint = {
   totalAssets: number
   totalLiabilities: number
   calendarYear: number
+  /** Month (1-12) when available for monthly data */
+  calendarMonth?: number
   hasNonAnnualSource?: boolean
   hasOverride?: boolean
 }

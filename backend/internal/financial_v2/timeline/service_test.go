@@ -964,12 +964,12 @@ func TestComputeFinancialSnapshot_VersionedIncomeAllocations(t *testing.T) {
 		},
 		investments: []repo.Investment{
 			{
-				ID:               "inv-1",
-				ParentID:         "inv-1",
-				Name:             "ETF Portfolio",
-				CurrentValue:     *decimal.MustFromString("10000"),
-				AnnualGrowthRate: *decimal.MustFromString("0"), // No growth for simplicity
-				StartDate:        startDate,
+				ID:           "inv-1",
+				ParentID:     "inv-1",
+				Name:         "ETF Portfolio",
+				CurrentValue: *decimal.MustFromString("10000"),
+				GrowthRate:   *decimal.MustFromString("0"), // No growth for simplicity
+				StartDate:    startDate,
 			},
 		},
 		incomeAllocs: []repo.IncomeAllocation{

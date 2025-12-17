@@ -404,7 +404,7 @@ function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, 
     }
   }, [selectedId])
 
-  const handleDoubleClick = useCallback((itemId: string) => {
+  const handleClick = useCallback((itemId: string) => {
     setSelectedId((prev) => (prev === itemId ? null : itemId))
   }, [])
 
@@ -420,14 +420,14 @@ function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, 
         return (
           <div
             key={itemId}
-            onDoubleClick={() => handleDoubleClick(itemId)}
+            onClick={() => handleClick(itemId)}
             className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
           >
             <span className="truncate text-sm text-slate-300">{item.name}</span>
             <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
               {formatCurrency(getDisplayAmount(item))}
             </span>
-            {/* Edit/Delete buttons - visible when selected via double-click */}
+            {/* Edit/Delete buttons - visible when selected */}
             {isSelected && (
               <div className="absolute right-2 flex items-center gap-0.5">
                 {onEdit && (
@@ -490,7 +490,7 @@ function CPFAssetsSection({ cpfAssets, getDisplayAmount, onEdit, onDelete }: CPF
     }
   }, [selectedId])
 
-  const handleDoubleClick = useCallback((itemId: string) => {
+  const handleClick = useCallback((itemId: string) => {
     setSelectedId((prev) => (prev === itemId ? null : itemId))
   }, [])
 
@@ -506,14 +506,14 @@ function CPFAssetsSection({ cpfAssets, getDisplayAmount, onEdit, onDelete }: CPF
         return (
           <div
             key={itemId}
-            onDoubleClick={() => handleDoubleClick(itemId)}
+            onClick={() => handleClick(itemId)}
             className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
           >
             <span className="truncate text-sm text-slate-300">{item.name}</span>
             <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
               {formatCurrency(getDisplayAmount(item))}
             </span>
-            {/* Edit/Delete buttons - visible when selected via double-click */}
+            {/* Edit/Delete buttons - visible when selected */}
             {isSelected && (
               <div className="absolute right-2 flex items-center gap-0.5">
                 {onEdit && (
@@ -621,7 +621,7 @@ function InvestmentsSection({
     }
   }, [selectedId])
 
-  const handleDoubleClick = useCallback((allocationId: string) => {
+  const handleClick = useCallback((allocationId: string) => {
     setSelectedId((prev) => (prev === allocationId ? null : allocationId))
   }, [])
 
@@ -655,7 +655,7 @@ function InvestmentsSection({
           return (
             <div
               key={allocation.id}
-              onDoubleClick={() => handleDoubleClick(allocation.id)}
+              onClick={() => handleClick(allocation.id)}
               className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
             >
               <div className="min-w-0 flex-1">
@@ -667,7 +667,7 @@ function InvestmentsSection({
                   <span className="ml-1 text-xs text-slate-400">/mo</span>
                 )}
               </span>
-              {/* Edit/Delete buttons - visible when selected via double-click */}
+              {/* Edit/Delete buttons - visible when selected */}
               {isSelected && (
                 <div className="absolute right-2 flex items-center gap-0.5">
                   {onEditAllocation && (
