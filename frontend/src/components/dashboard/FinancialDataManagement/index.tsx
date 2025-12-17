@@ -19,6 +19,9 @@ import {
   useStopAssetMutation,
   useStopLiabilityMutation,
   useStopIncomeMutation,
+  useCpfAccountQuery,
+  useCreateCpfAccountMutation,
+  useUpdateCpfAccountMutation,
   useDeleteCpfAccountMutation,
 } from '@/hooks/queries'
 import type { TimelineItem } from '@/types/timeline'
@@ -36,7 +39,7 @@ import { DeleteConfirmationModal } from '@/components/modals/FinancialFormModal/
 import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal'
 import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal'
-// CpfAccountFormModal removed - using FinancialFormModal for per-item editing
+import { CpfAccountFormModal } from '@/components/modals/CpfAccountFormModal'
 // import { financialApi } from '@/api/financial'
 import type { IncomeAllocation } from '@/api/financial/incomes'
 
@@ -135,7 +138,10 @@ export function FinancialDataManagement({
   }, [timelineMonthV2?.incomeAllocations])
   const deleteAllocationMutation = useDeleteIncomeAllocationMutation()
   const stopAllocationMutation = useStopIncomeAllocationMutation()
-  // CPF account queries - no longer using dedicated CPF modal
+  // CPF account queries
+  const { data: cpfAccount } = useCpfAccountQuery()
+  const createCpfAccountMutation = useCreateCpfAccountMutation()
+  const updateCpfAccountMutation = useUpdateCpfAccountMutation()
   const deleteCpfAccountMutation = useDeleteCpfAccountMutation()
 
   // ========== V2 Data Extraction ==========
@@ -210,6 +216,10 @@ export function FinancialDataManagement({
   const [cashAccountModalState, setCashAccountModalState] = useState<CashAccountModalState>({
     isOpen: false,
     mode: 'create',
+  })
+  const [cpfModalState, setCpfModalState] = useState<{ isOpen: boolean; mode: 'create' | 'edit' }>({
+    isOpen: false,
+    mode: 'edit',
   })
   const [activeAnnualizationId, setActiveAnnualizationId] = useState<string | null>(null)
   const [assetLinks] = useState<Record<string, PropertyLinkRecord[]>>({})
@@ -781,24 +791,13 @@ export function FinancialDataManagement({
   }
 
   // ========== CPF Handlers ==========
+  const handleAddCpf = () => {
+    setCpfModalState({ isOpen: true, mode: 'create' })
+  }
+
   // Edit CPF - use FinancialFormModal for per-item editing (like investments)
-  const handleEditCpf = (item: TimelineItem) => {
-    // Convert CPF TimelineItem to asset-like shape for the modal
-    // Use amountMonthly (original balance) not adjMonthlyAmt (after growth)
-    const cpfData = {
-      id: item.itemId,
-      name: item.name,
-      category: item.category || 'cpf_oa',
-      currentValue: item.amountMonthly ?? item.adjMonthlyAmt ?? 0,
-      annualGrowthRate: 0, // CPF growth is handled separately
-      notes: '',
-    }
-    setModalState({
-      isOpen: true,
-      type: 'asset',
-      mode: 'edit',
-      data: cpfData as EditableFinancialItem,
-    })
+  const handleEditCpf = (_item: TimelineItem) => {
+    setCpfModalState({ isOpen: true, mode: cpfAccount ? 'edit' : 'create' })
   }
 
   // Delete CPF - use existing asset delete flow
@@ -900,6 +899,7 @@ export function FinancialDataManagement({
                   hasInvestmentsSection={key === 'income' ? hasInvestmentsSection : false}
                   monthlyInvestments={key === 'income' ? monthlyInvestments : 0}
                   onAddInvestment={key === 'asset' ? handleAddInvestment : undefined}
+                  onAddCpf={key === 'asset' ? handleAddCpf : undefined}
                   onEditInvestment={key === 'asset' ? handleEditInvestment : undefined}
                   onDeleteInvestment={key === 'asset' ? handleDeleteInvestment : undefined}
                   onManageAllocations={key === 'income' ? handleManageAllocations : undefined}
@@ -980,6 +980,18 @@ export function FinancialDataManagement({
         }}
         onDelete={async (id) => {
           await deleteCashAccountMutation.mutateAsync(id)
+        }}
+      />
+      <CpfAccountFormModal
+        isOpen={cpfModalState.isOpen}
+        mode={cpfModalState.mode}
+        cpfAccount={cpfAccount}
+        onClose={() => setCpfModalState({ isOpen: false, mode: 'edit' })}
+        onCreate={async (payload) => {
+          await createCpfAccountMutation.mutateAsync(payload)
+        }}
+        onSave={async (id, updates) => {
+          await updateCpfAccountMutation.mutateAsync({ id, updates })
         }}
       />
       <IncomeAllocationModal

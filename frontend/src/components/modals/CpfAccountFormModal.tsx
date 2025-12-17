@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
-import type { CPFAccount, CPFAccountUpdatePayload, ResidencyStatus } from '@/types/cpf'
+import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload, ResidencyStatus } from '@/types/cpf'
 
 interface CpfAccountFormModalProps {
   isOpen: boolean
   onClose: () => void
   cpfAccount: CPFAccount | null | undefined
-  onSave: (id: string, updates: CPFAccountUpdatePayload) => Promise<void>
+  mode: 'create' | 'edit'
+  onSave?: (id: string, updates: CPFAccountUpdatePayload) => Promise<void>
+  onCreate?: (payload: CPFAccountCreatePayload) => Promise<void>
 }
 
 interface FormFields {
@@ -31,6 +33,18 @@ const RESIDENCY_OPTIONS: { value: ResidencyStatus; label: string }[] = [
   { value: 'pr_year_2', label: 'PR Year 2' },
   { value: 'pr_year_3_plus', label: 'PR Year 3+' },
 ]
+
+const EMPTY_FIELDS: FormFields = {
+  oaBalance: '',
+  saBalance: '',
+  maBalance: '',
+  raBalance: '',
+  oaUsedForHousing: '',
+  dateOfBirth: '',
+  residencyStatus: 'citizen',
+  housingStartDate: '',
+  prGrantDate: '',
+}
 
 function formatDateForInput(isoDate: string | undefined): string {
   if (!isoDate) return ''
@@ -57,25 +71,23 @@ export function CpfAccountFormModal({
   isOpen,
   onClose,
   cpfAccount,
+  mode,
   onSave,
+  onCreate,
 }: CpfAccountFormModalProps) {
-  const [fields, setFields] = useState<FormFields>({
-    oaBalance: '',
-    saBalance: '',
-    maBalance: '',
-    raBalance: '',
-    oaUsedForHousing: '',
-    dateOfBirth: '',
-    residencyStatus: 'citizen',
-    housingStartDate: '',
-    prGrantDate: '',
-  })
+  const [fields, setFields] = useState<FormFields>({ ...EMPTY_FIELDS })
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  // Populate form when cpfAccount changes
+  // Populate form when cpfAccount changes or when switching modes
   useEffect(() => {
+    if (mode === 'create') {
+      setFields({ ...EMPTY_FIELDS })
+      setErrors({})
+      return
+    }
+
     if (cpfAccount) {
       setFields({
         oaBalance: toDisplayString(cpfAccount.oaBalance),
@@ -88,8 +100,10 @@ export function CpfAccountFormModal({
         housingStartDate: formatDateForInput(cpfAccount.housingStartDate),
         prGrantDate: formatDateForInput(cpfAccount.prGrantDate),
       })
+    } else {
+      setFields({ ...EMPTY_FIELDS })
     }
-  }, [cpfAccount])
+  }, [cpfAccount, mode])
 
   const validate = (): boolean => {
     const nextErrors: FormErrors = {}
@@ -126,27 +140,52 @@ export function CpfAccountFormModal({
     setSubmitError(null)
 
     if (!validate()) return
-    if (!cpfAccount?.id) {
-      setSubmitError('No CPF account to update')
-      return
-    }
-
     try {
       setSubmitting(true)
 
-      const updates: CPFAccountUpdatePayload = {
-        oaBalance: parseDisplayValue(fields.oaBalance),
-        saBalance: parseDisplayValue(fields.saBalance),
-        maBalance: parseDisplayValue(fields.maBalance),
-        raBalance: parseDisplayValue(fields.raBalance),
-        oaUsedForHousing: parseDisplayValue(fields.oaUsedForHousing),
-        dateOfBirth: fields.dateOfBirth,
-        residencyStatus: fields.residencyStatus,
-        housingStartDate: fields.housingStartDate || undefined,
-        prGrantDate: fields.prGrantDate || undefined,
+      if (mode === 'create') {
+        if (!onCreate) {
+          setSubmitError('Creation is currently unavailable')
+          return
+        }
+        const payload: CPFAccountCreatePayload = {
+          oaBalance: parseDisplayValue(fields.oaBalance),
+          saBalance: parseDisplayValue(fields.saBalance),
+          maBalance: parseDisplayValue(fields.maBalance),
+          raBalance: parseDisplayValue(fields.raBalance),
+          oaUsedForHousing: parseDisplayValue(fields.oaUsedForHousing),
+          dateOfBirth: fields.dateOfBirth,
+          residencyStatus: fields.residencyStatus,
+          housingStartDate: fields.housingStartDate || undefined,
+          prGrantDate: fields.prGrantDate || undefined,
+        }
+        await onCreate(payload)
+      } else {
+        if (!cpfAccount?.id) {
+          setSubmitError('No CPF account to update')
+          return
+        }
+
+        const updates: CPFAccountUpdatePayload = {
+          oaBalance: parseDisplayValue(fields.oaBalance),
+          saBalance: parseDisplayValue(fields.saBalance),
+          maBalance: parseDisplayValue(fields.maBalance),
+          raBalance: parseDisplayValue(fields.raBalance),
+          oaUsedForHousing: parseDisplayValue(fields.oaUsedForHousing),
+          dateOfBirth: fields.dateOfBirth,
+          residencyStatus: fields.residencyStatus,
+          housingStartDate: fields.housingStartDate || undefined,
+          prGrantDate: fields.prGrantDate || undefined,
+        }
+
+        if (!onSave) {
+          setSubmitError('Saving is currently unavailable')
+          return
+        }
+
+        await onSave(cpfAccount.id, updates)
       }
 
-      await onSave(cpfAccount.id, updates)
       onClose()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save CPF account'
@@ -173,7 +212,9 @@ export function CpfAccountFormModal({
       <div className="mb-6 flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-wide text-blue-300">CPF Account</p>
-          <h2 className="text-lg font-semibold text-white">Edit CPF Balances</h2>
+          <h2 className="text-lg font-semibold text-white">
+            {mode === 'create' ? 'Add CPF Account' : 'Edit CPF Balances'}
+          </h2>
         </div>
         <button
           type="button"

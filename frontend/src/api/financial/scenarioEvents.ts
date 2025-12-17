@@ -4,13 +4,13 @@ import type { ScenarioEvent } from '@/types/scenario'
 import { scenarioEventFromDto, scenarioEventToDto, scenarioImpactToDto } from '@/types/scenario'
 
 export async function listScenarioEvents(): Promise<ScenarioEvent[]> {
-  const data = await apiClient.get<any>('/scenario-events')
+  const data = await apiClient.get<any>('/scenario-events', undefined, { baseUrl: '/api/v2' })
   return normalizeScenarioEventList(data)
 }
 
 export async function getScenarioEvent(id: string): Promise<ScenarioEvent> {
   if (!id) throw new Error('Scenario event id is required')
-  const data = await apiClient.get<any>(`/scenario-events/${encodeURIComponent(id)}`)
+  const data = await apiClient.get<any>(`/scenario-events/${encodeURIComponent(id)}`, undefined, { baseUrl: '/api/v2' })
   return normalizeScenarioEvent(data)
 }
 
@@ -25,7 +25,7 @@ export async function createScenarioEvent(payload: ScenarioEvent): Promise<Scena
     tags: payload.tags ?? [],
     isIncluded: payload.isIncluded ?? true,
   })
-  const data = await apiClient.post<any>('/scenario-events', body)
+  const data = await apiClient.post<any>('/scenario-events', body, { baseUrl: '/api/v2' })
 
   const impacts = Array.isArray(data.impacts)
     ? data.impacts.map(normalizeImpact)
@@ -61,7 +61,7 @@ export async function updateScenarioEvent(id: string, payload: ScenarioEvent): P
     tags: payload.tags ?? [],
     isIncluded: payload.isIncluded ?? true,
   })
-  const data = await apiClient.put<any>(`/scenario-events/${encodeURIComponent(id)}`, body)
+  const data = await apiClient.put<any>(`/scenario-events/${encodeURIComponent(id)}`, body, { baseUrl: '/api/v2' })
 
   const impacts = Array.isArray(data.impacts)
     ? data.impacts.map(normalizeImpact)
@@ -87,7 +87,7 @@ export async function updateScenarioEvent(id: string, payload: ScenarioEvent): P
 
 export async function deleteScenarioEvent(id: string): Promise<void> {
   if (!id) throw new Error('Scenario event id is required')
-  await apiClient.delete<void>(`/scenario-events/${encodeURIComponent(id)}`)
+  await apiClient.delete<void>(`/scenario-events/${encodeURIComponent(id)}`, { baseUrl: '/api/v2' })
 }
 
 export async function deleteAllScenarioEvents(): Promise<void> {

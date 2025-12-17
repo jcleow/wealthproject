@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Plus, ArrowDownWideNarrow, ArrowUpRight, ArrowDownRight, Pencil, Trash2, Wallet, BarChart3 } from 'lucide-react'
+import { Plus, ArrowDownWideNarrow, ArrowUpRight, ArrowDownRight, Pencil, Trash2, Wallet, BarChart3, Shield } from 'lucide-react'
 import type { TimelineItem, CPFContributionResponseV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CashAccount } from '@/types/financial'
@@ -54,6 +54,8 @@ interface CategoryCardProps {
   onAddInvestment?: () => void
   onEditInvestment?: (item: TimelineItem) => void
   onDeleteInvestment?: (id: string) => void
+  // CPF add callback
+  onAddCpf?: () => void
   // Income allocation callbacks
   onManageAllocations?: (item: TimelineItem) => void
   // Investment allocations data (for Income card)
@@ -103,6 +105,7 @@ export function CategoryCard({
   onAddInvestment,
   onEditInvestment,
   onDeleteInvestment,
+  onAddCpf,
   onManageAllocations,
   investmentAllocations = [],
   investments = [],
@@ -209,7 +212,7 @@ export function CategoryCard({
             />
           </button>
           {/* For assets, show dropdown; for others, direct add */}
-          {category === 'asset' && onAddInvestment ? (
+          {category === 'asset' && (onAddInvestment || onAddCpf) ? (
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setShowAssetMenu(!showAssetMenu)}
@@ -226,23 +229,38 @@ export function CategoryCard({
                       onAddItem()
                       setShowAssetMenu(false)
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-white/5"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-white/5"
                     type="button"
                   >
                     <Wallet className="h-4 w-4 text-emerald-400" />
                     Asset
                   </button>
-                  <button
-                    onClick={() => {
-                      onAddInvestment()
-                      setShowAssetMenu(false)
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-white/5"
-                    type="button"
-                  >
-                    <BarChart3 className="h-4 w-4 text-purple-400" />
-                    Investment
-                  </button>
+                  {onAddInvestment && (
+                    <button
+                      onClick={() => {
+                        onAddInvestment()
+                        setShowAssetMenu(false)
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-white/5"
+                      type="button"
+                    >
+                      <BarChart3 className="h-4 w-4 text-purple-400" />
+                      Investment
+                    </button>
+                  )}
+                  {onAddCpf && (
+                    <button
+                      onClick={() => {
+                        onAddCpf()
+                        setShowAssetMenu(false)
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-white/5"
+                      type="button"
+                    >
+                      <Shield className="h-4 w-4 text-blue-400" />
+                      CPF Account
+                    </button>
+                  )}
                 </div>
               )}
             </div>
