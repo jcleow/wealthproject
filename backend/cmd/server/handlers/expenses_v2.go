@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/expense"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/middleware"
@@ -113,65 +112,24 @@ func (h *ExpenseV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if input.Payee == "" || input.Amount == "" || input.Frequency == "" || input.Category == "" {
-		badRequest(w, errMissingFields("payee, amount, frequency, category"))
-		return
-	}
-
-	// Parse decimal values
-	amount, err := decimal.NewFromString(input.Amount)
-	if err != nil {
-		badRequest(w, err)
-		return
-	}
-
-	var growthRate *decimal.Decimal
-	if input.GrowthRate != nil && *input.GrowthRate != "" {
-		gr, err := decimal.NewFromString(*input.GrowthRate)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		growthRate = gr
-	}
-
-	var startDate *time.Time
-	if input.StartDate != nil && *input.StartDate != "" {
-		t, err := time.Parse(time.RFC3339, *input.StartDate)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		startDate = &t
-	}
-
-	var endDate *time.Time
-	if input.EndDate != nil && *input.EndDate != "" {
-		t, err := time.Parse(time.RFC3339, *input.EndDate)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		endDate = &t
-	}
-
-	// Build service input and delegate to service layer
-	serviceInput := expense.CreateInput{
+	created, err := h.service.CreateFromParams(r.Context(), userID, expense.CreateParams{
 		Payee:             input.Payee,
-		Amount:            *amount,
+		Amount:            input.Amount,
 		Frequency:         input.Frequency,
 		Category:          input.Category,
 		Notes:             input.Notes,
-		GrowthRate:        growthRate,
+		GrowthRate:        input.GrowthRate,
 		GrowthStrategy:    input.GrowthStrategy,
 		SourceLiabilityID: input.SourceLiabilityID,
-		StartDate:         startDate,
-		EndDate:           endDate,
+		StartDate:         input.StartDate,
+		EndDate:           input.EndDate,
 		ParentID:          input.ParentID,
-	}
-
-	created, err := h.service.Create(r.Context(), userID, serviceInput)
+	})
 	if err != nil {
+		if expense.IsValidationError(err) {
+			badRequest(w, err)
+			return
+		}
 		log.Printf("expense.Create error: %v", err)
 		internalError(w, err)
 		return
@@ -234,52 +192,23 @@ func (h *ExpenseV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	// Parse decimal values from strings
-	amount, err := decimal.NewFromString(input.Amount)
-	if err != nil {
-		badRequest(w, err)
-		return
-	}
-
-	var growthRate *decimal.Decimal
-	if input.GrowthRate != nil && *input.GrowthRate != "" {
-		gr, err := decimal.NewFromString(*input.GrowthRate)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		growthRate = gr
-	}
-
-	// Parse startDate if provided
-	var startDate *time.Time
-	if input.StartDate != nil && *input.StartDate != "" {
-		t, err := time.Parse(time.RFC3339, *input.StartDate)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		startDate = &t
-	}
-
-	// Build service input
-	serviceInput := expense.UpdateInput{
-		ID:                id,
+	result, err := h.service.UpdateFromParams(r.Context(), userID, id, expense.UpdateParams{
 		Payee:             input.Payee,
-		Amount:            *amount,
+		Amount:            input.Amount,
 		Frequency:         input.Frequency,
 		Category:          input.Category,
-		GrowthRate:        growthRate,
-		GrowthStrategy:    input.GrowthStrategy,
 		Notes:             input.Notes,
+		GrowthRate:        input.GrowthRate,
+		GrowthStrategy:    input.GrowthStrategy,
 		SourceLiabilityID: input.SourceLiabilityID,
-		StartDate:         startDate,
+		StartDate:         input.StartDate,
 		UpdateMode:        input.UpdateMode,
-	}
-
-	// Delegate to service layer
-	result, err := h.service.Update(r.Context(), userID, id, serviceInput)
+	})
 	if err != nil {
+		if expense.IsValidationError(err) {
+			badRequest(w, err)
+			return
+		}
 		if err == repo.ErrNotFound {
 			notFound(w)
 			return

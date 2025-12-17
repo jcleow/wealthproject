@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/liability"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/middleware"
@@ -85,78 +84,23 @@ func (h *LiabilityV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if input.Name == "" || input.Category == "" {
-		badRequest(w, errMissingFields("name, category"))
-		return
-	}
-
-	// Parse decimal values
-	var currentBalance decimal.Decimal
-	if input.CurrentBalance != "" {
-		cb, err := decimal.NewFromString(input.CurrentBalance)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		currentBalance = *cb
-	}
-
-	var interestRateAPR *decimal.Decimal
-	if input.InterestRateAPR != nil && *input.InterestRateAPR != "" {
-		ir, err := decimal.NewFromString(*input.InterestRateAPR)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		interestRateAPR = ir
-	}
-
-	var minimumPayment *decimal.Decimal
-	if input.MinimumPayment != nil && *input.MinimumPayment != "" {
-		mp, err := decimal.NewFromString(*input.MinimumPayment)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		minimumPayment = mp
-	}
-
-	var startDate *time.Time
-	if input.StartDate != nil && *input.StartDate != "" {
-		t, err := time.Parse(time.RFC3339, *input.StartDate)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		startDate = &t
-	}
-
-	var endDate *time.Time
-	if input.EndDate != nil && *input.EndDate != "" {
-		t, err := time.Parse(time.RFC3339, *input.EndDate)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		endDate = &t
-	}
-
-	// Build service input and delegate to service layer
-	serviceInput := liability.CreateInput{
+	created, err := h.service.CreateFromParams(r.Context(), userCtx.UserID, liability.CreateParams{
 		Name:              input.Name,
 		Category:          input.Category,
-		CurrentBalance:    currentBalance,
-		InterestRateAPR:   interestRateAPR,
-		MinimumPayment:    minimumPayment,
+		CurrentBalance:    input.CurrentBalance,
+		InterestRateAPR:   input.InterestRateAPR,
+		MinimumPayment:    input.MinimumPayment,
 		GrowthStrategy:    input.GrowthStrategy,
 		RepaymentStrategy: input.RepaymentStrategy,
 		Notes:             input.Notes,
-		StartDate:         startDate,
-		EndDate:           endDate,
-	}
-
-	created, err := h.service.Create(r.Context(), userCtx.UserID, serviceInput)
+		StartDate:         input.StartDate,
+		EndDate:           input.EndDate,
+	})
 	if err != nil {
+		if liability.IsValidationError(err) {
+			badRequest(w, err)
+			return
+		}
 		log.Printf("liability.Create error: %v", err)
 		internalError(w, err)
 		return
@@ -177,62 +121,23 @@ func (h *LiabilityV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Parse decimal values from strings
-	currentBalance, err := decimal.NewFromString(input.CurrentBalance)
-	if err != nil {
-		badRequest(w, err)
-		return
-	}
-
-	var interestRateAPR *decimal.Decimal
-	if input.InterestRateAPR != nil && *input.InterestRateAPR != "" {
-		ir, err := decimal.NewFromString(*input.InterestRateAPR)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		interestRateAPR = ir
-	}
-
-	var minimumPayment *decimal.Decimal
-	if input.MinimumPayment != nil && *input.MinimumPayment != "" {
-		mp, err := decimal.NewFromString(*input.MinimumPayment)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		minimumPayment = mp
-	}
-
-	// Parse startDate if provided
-	var startDate *time.Time
-	if input.StartDate != nil {
-		t, err := time.Parse(time.RFC3339, *input.StartDate)
-		if err != nil {
-			badRequest(w, err)
-			return
-		}
-		startDate = &t
-	}
-
-	// Build service input
-	serviceInput := liability.UpdateInput{
-		ID:                id,
+	result, err := h.service.UpdateFromParams(r.Context(), userCtx.UserID, id, liability.UpdateParams{
 		Name:              input.Name,
 		Category:          input.Category,
-		CurrentBalance:    *currentBalance,
-		InterestRateAPR:   interestRateAPR,
-		MinimumPayment:    minimumPayment,
+		CurrentBalance:    input.CurrentBalance,
+		InterestRateAPR:   input.InterestRateAPR,
+		MinimumPayment:    input.MinimumPayment,
 		GrowthStrategy:    input.GrowthStrategy,
 		RepaymentStrategy: input.RepaymentStrategy,
 		Notes:             input.Notes,
-		StartDate:         startDate,
+		StartDate:         input.StartDate,
 		UpdateMode:        input.UpdateMode,
-	}
-
-	// Delegate to service layer
-	result, err := h.service.Update(r.Context(), userCtx.UserID, id, serviceInput)
+	})
 	if err != nil {
+		if liability.IsValidationError(err) {
+			badRequest(w, err)
+			return
+		}
 		if err == repo.ErrNotFound {
 			notFound(w)
 			return

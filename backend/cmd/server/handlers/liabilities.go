@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
 )
@@ -135,6 +137,39 @@ func (h *LiabilityHandler) create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, err)
 		return
+	}
+
+	if created.MinimumPayment > 0 {
+		// If no repayment expense exists for this liability, auto-create one.
+		if _, err := h.store.GetExpenseBySourceLiability(r.Context(), userID, created.ID); err != nil {
+			if err != repository.ErrNotFound {
+				internalError(w, err)
+				return
+			}
+
+			monthStart := created.StartDate
+			if monthStart.IsZero() {
+				monthStart = time.Now().UTC()
+			}
+			monthStart = time.Date(monthStart.Year(), monthStart.Month(), 1, 0, 0, 0, 0, monthStart.Location())
+			expense := repository.Expense{
+				Payee:             created.Name,
+				Amount:            created.MinimumPayment,
+				Frequency:         "monthly",
+				StartDate:         monthStart,
+				EndDate:           created.EndDate,
+				Category:          "Debt Payment",
+				GrowthRate:        0,
+				GrowthStrategy:    "annual_step",
+				Notes:             fmt.Sprintf("Auto-generated payment for %s", created.Name),
+				SourceLiabilityID: &created.ID,
+			}
+
+			if _, err := h.store.CreateExpense(r.Context(), userID, expense); err != nil {
+				internalError(w, err)
+				return
+			}
+		}
 	}
 
 	writeJSON(w, created)

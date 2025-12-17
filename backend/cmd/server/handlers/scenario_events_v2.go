@@ -514,3 +514,22 @@ func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, e
 
 	return impacts, nil
 }
+
+func ptrOrNil(s string) *string {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func parseIntDefault(s string, defaultVal int) int {
+	if strings.TrimSpace(s) == "" {
+		return defaultVal
+	}
+	val, err := strconv.Atoi(s)
+	if err != nil {
+		return defaultVal
+	}
+	return val
+}

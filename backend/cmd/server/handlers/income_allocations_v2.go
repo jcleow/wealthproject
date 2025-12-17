@@ -159,9 +159,12 @@ func (h *IncomeAllocationV2Handler) HandleCreate(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if input.AllocationType == "percentage" && allocationValue.ToFloat64() > 100 {
-		writeError(w, http.StatusBadRequest, "bad_request", "percentage allocationValue must be between 0 and 100")
-		return
+	if input.AllocationType == "percentage" {
+		maxPercentage := decimal.MustFromString("100")
+		if allocationValue.Cmp(maxPercentage) == 1 {
+			writeError(w, http.StatusBadRequest, "bad_request", "percentage allocationValue must be between 0 and 100")
+			return
+		}
 	}
 
 	allocation := repo.IncomeAllocation{
