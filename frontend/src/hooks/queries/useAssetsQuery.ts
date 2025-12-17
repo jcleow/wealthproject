@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { assetsApi } from '@/api/financial'
 import type { Asset } from '@/types/financial'
+import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export const ASSETS_QUERY_KEY = QUERY_KEYS.financial.assets
@@ -40,14 +41,27 @@ export function useUpdateAssetMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<Asset> }) =>
-      assetsApi.updateAsset(id, updates),
-    onSuccess: (updatedAsset) => {
-      // Update the assets cache
-      queryClient.setQueryData<Asset[]>(ASSETS_QUERY_KEY, (old) =>
-        old?.map((asset) => asset.id === updatedAsset.id ? updatedAsset : asset) ?? []
-      )
-      // Invalidate related queries
+    mutationFn: ({ id, updates }: {
+      id: string
+      updates: Partial<Asset> & {
+        updateMode?: UpdateMode
+      }
+    }) => assetsApi.updateAsset(id, updates),
+    onSuccess: () => {
+      // Invalidate timeline and netWorth to refetch with new/updated asset
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
+    },
+  })
+}
+
+export function useStopAssetMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, endDate }: { id: string; endDate: string }) =>
+      assetsApi.stopAsset(id, endDate),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
     },

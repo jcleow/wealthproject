@@ -55,10 +55,7 @@ func (h *AssetHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		h.get(w, r, id)
-	case http.MethodPut:
-		h.update(w, r, id)
-	case http.MethodDelete:
-		h.delete(w, r, id)
+	// PUT and DELETE moved to v2 API with versioning support
 	default:
 		methodNotAllowed(w)
 	}
@@ -134,41 +131,4 @@ func (h *AssetHandler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, created)
 }
 
-func (h *AssetHandler) update(w http.ResponseWriter, r *http.Request, id string) {
-	userID, ok := requireUserID(w, r)
-	if !ok {
-		return
-	}
-	var payload repository.Asset
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		badRequest(w, err)
-		return
-	}
-	payload.ID = id
-	updated, err := h.store.UpdateAsset(r.Context(), userID, payload)
-	if err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w, err)
-		return
-	}
-	writeJSON(w, updated)
-}
-
-func (h *AssetHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
-	userID, ok := requireUserID(w, r)
-	if !ok {
-		return
-	}
-	if err := h.store.DeleteAsset(r.Context(), userID, id); err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
+// update and delete methods moved to v2 API (assets_v2.go) with versioning support
