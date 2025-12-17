@@ -3,7 +3,18 @@ import { Trash2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
 import { Modal } from '@/components/ui/Modal'
-import type { Asset, Expense, Frequency, Income, Liability } from '@/types/financial'
+import {
+  ASSET_ENTITY,
+  EXPENSE_ENTITY,
+  INCOME_ENTITY,
+  INVESTMENT_ENTITY,
+  LIABILITY_ENTITY,
+  type Asset,
+  type Expense,
+  type Frequency,
+  type Income,
+  type Liability,
+} from '@/types/financial'
 import { formatCurrency } from '@/lib/format'
 import { growthApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
@@ -442,7 +453,17 @@ export function FinancialFormModal({
     }
 
     // For expenses, assets, liabilities, incomes, and investments at future months, show confirmation modal
-    if ((type === 'expense' || type === 'asset' || type === 'liability' || type === 'income' || type === 'investment') && isFutureMonth && onStop) {
+    if (
+      (
+        type === EXPENSE_ENTITY ||
+        type === ASSET_ENTITY ||
+        type === LIABILITY_ENTITY ||
+        type === INCOME_ENTITY ||
+        type === INVESTMENT_ENTITY
+      ) &&
+      isFutureMonth &&
+      onStop
+    ) {
       console.log('[Modal handleDelete] Showing delete confirmation modal')
       setShowDeleteConfirmation(true)
       return

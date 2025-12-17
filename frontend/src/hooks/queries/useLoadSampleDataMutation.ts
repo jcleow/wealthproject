@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialApi } from '@/api/financial'
 import type { Income, Expense } from '@/types/financial'
-import type { CPFAccountCreatePayload } from '@/types/cpf'
+import type { CPFAccount, CPFAccountCreatePayload } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'
 import { QUERY_KEYS } from '@/lib/queryKeys'
+import { CPF_QUERY_KEY } from './useCpfQuery'
 
 // Helper to generate YYYY-MM format date strings
 function getMonthString(yearsFromNow: number, monthOffset = 0): string {
@@ -18,6 +19,8 @@ export function useLoadSampleDataMutation() {
 
   return useMutation({
     mutationFn: async () => {
+      let cpfAccount: CPFAccount | null = null
+
       // First clear all data including CPF
       await Promise.all([
         financialApi.deleteAllAssets(),
@@ -44,9 +47,9 @@ export function useLoadSampleDataMutation() {
       try {
         const existingCPF = await financialApi.getCPFAccount()
         if (existingCPF) {
-          await financialApi.updateCPFAccount(existingCPF.id, sampleCPFAccount)
+          cpfAccount = await financialApi.updateCPFAccount(existingCPF.id, sampleCPFAccount)
         } else {
-          await financialApi.createCPFAccount(sampleCPFAccount)
+          cpfAccount = await financialApi.createCPFAccount(sampleCPFAccount)
         }
       } catch (error) {
         console.error('[loadSampleData] Failed to upsert CPF account', error)
@@ -614,7 +617,7 @@ export function useLoadSampleDataMutation() {
         scenarioEvents.push(createdEvent)
       }
 
-      return { assets, investments, liabilities, incomes, expenses: expensesResult.data, scenarioEvents }
+      return { assets, investments, liabilities, incomes, expenses: expensesResult.data, scenarioEvents, cpfAccount }
     },
     onSuccess: (data) => {
       // Update all caches with the new data - this immediately updates the UI
@@ -624,11 +627,16 @@ export function useLoadSampleDataMutation() {
       queryClient.setQueryData(QUERY_KEYS.financial.incomes, data.incomes)
       queryClient.setQueryData(QUERY_KEYS.financial.expenses, data.expenses)
       queryClient.setQueryData(QUERY_KEYS.financial.scenarioEvents, data.scenarioEvents)
+      if (data.cpfAccount) {
+        queryClient.setQueryData(CPF_QUERY_KEY, data.cpfAccount)
+      }
 
       // Invalidate derived queries that need to be recalculated (timeline, netWorth, etc)
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timelineV2 })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
+      queryClient.invalidateQueries({ queryKey: CPF_QUERY_KEY })
     },
   })
 }
