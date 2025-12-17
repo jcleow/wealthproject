@@ -14,6 +14,25 @@ const (
 	UpdateModeVersioned = "versioned"
 )
 
+// =============================================================================
+// Types
+// =============================================================================
+
+// CreateInput contains the parameters for creating a liability.
+// Uses decimal.Decimal for financial values to avoid precision loss.
+type CreateInput struct {
+	Name              string
+	Category          string
+	CurrentBalance    decimal.Decimal
+	InterestRateAPR   *decimal.Decimal
+	MinimumPayment    *decimal.Decimal
+	GrowthStrategy    string
+	RepaymentStrategy string
+	Notes             string
+	StartDate         *time.Time
+	EndDate           *time.Time
+}
+
 // UpdateInput contains the parameters for updating a liability.
 // Uses decimal.Decimal for financial values to avoid precision loss.
 type UpdateInput struct {
@@ -38,6 +57,50 @@ type Service struct {
 // NewService creates a new liability service
 func NewService(store *repo.Store) *Service {
 	return &Service{store: store}
+}
+
+// =============================================================================
+// Public Methods
+// =============================================================================
+
+// Create creates a new liability with default values applied
+func (s *Service) Create(ctx context.Context, userID string, input CreateInput) (*repo.Liability, error) {
+	li := repo.Liability{
+		Name:              input.Name,
+		Category:          input.Category,
+		CurrentBalance:    input.CurrentBalance,
+		GrowthStrategy:    input.GrowthStrategy,
+		RepaymentStrategy: input.RepaymentStrategy,
+		Notes:             input.Notes,
+	}
+
+	// Apply interest rate if provided
+	if input.InterestRateAPR != nil {
+		li.InterestRateAPR = *input.InterestRateAPR
+	}
+
+	// Apply minimum payment if provided
+	if input.MinimumPayment != nil {
+		li.MinimumPayment = *input.MinimumPayment
+	}
+
+	// Apply start date (default to now)
+	if input.StartDate != nil {
+		li.StartDate = *input.StartDate
+	} else {
+		li.StartDate = time.Now().UTC()
+	}
+
+	// Set end date if provided
+	if input.EndDate != nil {
+		li.EndDate = input.EndDate
+	}
+
+	created, err := s.store.CreateLiability(ctx, userID, li)
+	if err != nil {
+		return nil, err
+	}
+	return &created, nil
 }
 
 // Update handles both in-place and versioned liability updates

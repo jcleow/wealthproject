@@ -49,7 +49,7 @@ func (s *Store) CreateSession(ctx context.Context, userID string, sessionID stri
 			return nil, fmt.Errorf("invalid session id: %w", err)
 		}
 	}
-	now := time.Now()
+	now := time.Now().UTC()
 
 	session := &SessionState{
 		SessionID:        sessionID,
@@ -109,7 +109,7 @@ func (s *Store) GetSession(ctx context.Context, sessionID string) (*SessionState
 
 // UpdateSession updates an existing session
 func (s *Store) UpdateSession(ctx context.Context, session *SessionState) error {
-	session.UpdatedAt = time.Now()
+	session.UpdatedAt = time.Now().UTC()
 
 	stateJSON, err := json.Marshal(session)
 	if err != nil {
@@ -153,7 +153,7 @@ func (s *Store) AddMessage(ctx context.Context, sessionID string, message llm.Ch
 		StepID:    uuid.New().String(),
 		Type:      fmt.Sprintf("%s_message", message.Role),
 		Content:   message.Content,
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 	}
 
 	if len(message.ToolCalls) > 0 {
@@ -174,7 +174,7 @@ func (s *Store) AddPendingActions(ctx context.Context, sessionID string, toolCal
 		return err
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	for _, tc := range toolCalls {
 		// Parse the arguments JSON string into a map
 		var parameters map[string]interface{}
@@ -292,7 +292,7 @@ func (s *Store) ListActiveSessions(ctx context.Context, userID string) ([]*Sessi
 	`
 
 	// Consider sessions active if updated in the last 24 hours
-	cutoff := time.Now().Add(-24 * time.Hour)
+	cutoff := time.Now().UTC().Add(-24 * time.Hour)
 
 	rows, err := s.db.QueryContext(ctx, query, userID, cutoff)
 	if err != nil {
@@ -316,7 +316,7 @@ func (s *Store) ListActiveSessions(ctx context.Context, userID string) ([]*Sessi
 
 // CleanupExpiredSessions removes old sessions
 func (s *Store) CleanupExpiredSessions(ctx context.Context, maxAge time.Duration) (int, error) {
-	cutoff := time.Now().Add(-maxAge)
+	cutoff := time.Now().UTC().Add(-maxAge)
 
 	query := `
 		DELETE FROM chat_sessions
@@ -360,7 +360,7 @@ func (s *Store) SaveConversationHistory(ctx context.Context, sessionID string, m
 			}
 		}
 
-		_, err = tx.ExecContext(ctx, query, msgID, sessionID, msg.Role, msg.Content, toolCallsJSON, time.Now())
+		_, err = tx.ExecContext(ctx, query, msgID, sessionID, msg.Role, msg.Content, toolCallsJSON, time.Now().UTC())
 		if err != nil {
 			return fmt.Errorf("failed to save message: %w", err)
 		}

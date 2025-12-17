@@ -14,9 +14,30 @@ const (
 	UpdateModeVersioned = "versioned"
 )
 
+// Default values for expense creation
+const (
+	DefaultGrowthRate = 2.0
+)
+
 // =============================================================================
 // Types
 // =============================================================================
+
+// CreateInput contains the parameters for creating an expense.
+// Uses decimal.Decimal for financial values to avoid precision loss.
+type CreateInput struct {
+	Payee             string
+	Amount            decimal.Decimal
+	Frequency         string
+	Category          string
+	Notes             string
+	GrowthRate        *decimal.Decimal
+	GrowthStrategy    string
+	SourceLiabilityID *string
+	StartDate         *time.Time
+	EndDate           *time.Time
+	ParentID          *string
+}
 
 // UpdateInput contains the parameters for updating an expense.
 // Uses decimal.Decimal for financial values to avoid precision loss.
@@ -47,6 +68,49 @@ func NewService(store *repo.Store) *Service {
 // =============================================================================
 // Public Methods
 // =============================================================================
+
+// Create creates a new expense with default values applied
+func (s *Service) Create(ctx context.Context, userID string, input CreateInput) (*repo.Expense, error) {
+	exp := repo.Expense{
+		Payee:             input.Payee,
+		Amount:            input.Amount,
+		Frequency:         input.Frequency,
+		Category:          input.Category,
+		Notes:             input.Notes,
+		GrowthStrategy:    input.GrowthStrategy,
+		SourceLiabilityID: input.SourceLiabilityID,
+	}
+
+	// Set ParentID if provided (for versioned creates)
+	if input.ParentID != nil {
+		exp.ParentID = *input.ParentID
+	}
+
+	// Apply default or provided growth rate
+	if input.GrowthRate != nil {
+		exp.GrowthRate = *input.GrowthRate
+	} else {
+		exp.GrowthRate = *decimal.MustFromFloat64(DefaultGrowthRate)
+	}
+
+	// Apply default or provided start date
+	if input.StartDate != nil {
+		exp.StartDate = *input.StartDate
+	} else {
+		exp.StartDate = time.Now().UTC()
+	}
+
+	// Set end date if provided
+	if input.EndDate != nil {
+		exp.EndDate = input.EndDate
+	}
+
+	created, err := s.store.CreateExpense(ctx, userID, exp)
+	if err != nil {
+		return nil, err
+	}
+	return &created, nil
+}
 
 // Update handles both in-place and versioned expense updates
 func (s *Service) Update(ctx context.Context, userID, expenseID string, input UpdateInput) (*repo.Expense, error) {

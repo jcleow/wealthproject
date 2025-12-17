@@ -497,7 +497,7 @@ func buildAnchorRange(opts TimelineOptions, rows EffectiveRows) (time.Time, time
 		start = normalizeToMonthStart(earliest)
 	}
 	if start.IsZero() {
-		start = normalizeToMonthStart(time.Now())
+		start = normalizeToMonthStart(time.Now().UTC())
 	}
 
 	end := normalizeToMonthStart(opts.EndDate)

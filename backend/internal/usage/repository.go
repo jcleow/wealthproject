@@ -66,7 +66,7 @@ func (r *Repository) LogUsage(ctx context.Context, userID string, sessionID *str
 		id, userID, sessionID, response.RequestID, response.Provider, response.Model,
 		promptTokens, completionTokens, cachedTokens, thoughtsTokens, totalTokens,
 		cost.InputCostUSD, cost.OutputCostUSD, cost.TotalCostUSD,
-		processingTimeMs, toolCallsCount, time.Now(),
+		processingTimeMs, toolCallsCount, time.Now().UTC(),
 	)
 
 	if err != nil {
