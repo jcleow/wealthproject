@@ -125,53 +125,52 @@ func (h *ExpenseV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	exp := repo.Expense{
-		Payee:             input.Payee,
-		Amount:            *amount,
-		Frequency:         input.Frequency,
-		Category:          input.Category,
-		Notes:             input.Notes,
-		GrowthStrategy:    input.GrowthStrategy,
-		SourceLiabilityID: input.SourceLiabilityID,
-	}
-
-	if input.ParentID != nil {
-		exp.ParentID = *input.ParentID
-	}
-
+	var growthRate *decimal.Decimal
 	if input.GrowthRate != nil && *input.GrowthRate != "" {
 		gr, err := decimal.NewFromString(*input.GrowthRate)
 		if err != nil {
 			badRequest(w, err)
 			return
 		}
-		exp.GrowthRate = *gr
-	} else {
-		// Default growth rate
-		exp.GrowthRate = *decimal.MustFromFloat64(2.0)
+		growthRate = gr
 	}
 
+	var startDate *time.Time
 	if input.StartDate != nil && *input.StartDate != "" {
 		t, err := time.Parse(time.RFC3339, *input.StartDate)
 		if err != nil {
 			badRequest(w, err)
 			return
 		}
-		exp.StartDate = t
-	} else {
-		exp.StartDate = time.Now()
+		startDate = &t
 	}
 
+	var endDate *time.Time
 	if input.EndDate != nil && *input.EndDate != "" {
 		t, err := time.Parse(time.RFC3339, *input.EndDate)
 		if err != nil {
 			badRequest(w, err)
 			return
 		}
-		exp.EndDate = &t
+		endDate = &t
 	}
 
-	created, err := h.store.CreateExpense(r.Context(), userID, exp)
+	// Build service input and delegate to service layer
+	serviceInput := expense.CreateInput{
+		Payee:             input.Payee,
+		Amount:            *amount,
+		Frequency:         input.Frequency,
+		Category:          input.Category,
+		Notes:             input.Notes,
+		GrowthRate:        growthRate,
+		GrowthStrategy:    input.GrowthStrategy,
+		SourceLiabilityID: input.SourceLiabilityID,
+		StartDate:         startDate,
+		EndDate:           endDate,
+		ParentID:          input.ParentID,
+	}
+
+	created, err := h.service.Create(r.Context(), userID, serviceInput)
 	if err != nil {
 		log.Printf("expense.Create error: %v", err)
 		internalError(w, err)

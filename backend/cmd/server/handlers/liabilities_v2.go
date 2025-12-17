@@ -43,6 +43,20 @@ func NewLiabilityV2Handler(store *repo.Store) *LiabilityV2Handler {
 	}
 }
 
+// liabilityCreateInput is the JSON input for creating a liability
+type liabilityCreateInput struct {
+	Name              string  `json:"name"`
+	Category          string  `json:"category"`
+	CurrentBalance    string  `json:"currentBalance"`
+	InterestRateAPR   *string `json:"interestRateApr"`
+	MinimumPayment    *string `json:"minimumPayment"`
+	GrowthStrategy    string  `json:"growthStrategy"`
+	RepaymentStrategy string  `json:"repaymentStrategy"`
+	Notes             string  `json:"notes"`
+	StartDate         *string `json:"startDate"`
+	EndDate           *string `json:"endDate"`
+}
+
 // POST /api/v2/liabilities
 // HandleCreate creates a new liability and auto-creates a linked expense.
 // @Summary Create a liability (v2)
@@ -50,7 +64,7 @@ func NewLiabilityV2Handler(store *repo.Store) *LiabilityV2Handler {
 // @Tags Liabilities V2
 // @Accept json
 // @Produce json
-// @Param liability body repo.Liability true "Liability to create"
+// @Param liability body liabilityCreateInput true "Liability to create"
 // @Success 201 {object} repo.Liability
 // @Failure 400 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
@@ -65,19 +79,85 @@ func (h *LiabilityV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request
 
 	userCtx := middleware.GetUserContext(r.Context())
 
-	var payload repo.Liability
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	var input liabilityCreateInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		badRequest(w, err)
 		return
 	}
 
-	if payload.Name == "" || payload.Category == "" {
+	if input.Name == "" || input.Category == "" {
 		badRequest(w, errMissingFields("name, category"))
 		return
 	}
 
-	created, err := h.store.CreateLiability(r.Context(), userCtx.UserID, payload)
+	// Parse decimal values
+	var currentBalance decimal.Decimal
+	if input.CurrentBalance != "" {
+		cb, err := decimal.NewFromString(input.CurrentBalance)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		currentBalance = *cb
+	}
+
+	var interestRateAPR *decimal.Decimal
+	if input.InterestRateAPR != nil && *input.InterestRateAPR != "" {
+		ir, err := decimal.NewFromString(*input.InterestRateAPR)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		interestRateAPR = ir
+	}
+
+	var minimumPayment *decimal.Decimal
+	if input.MinimumPayment != nil && *input.MinimumPayment != "" {
+		mp, err := decimal.NewFromString(*input.MinimumPayment)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		minimumPayment = mp
+	}
+
+	var startDate *time.Time
+	if input.StartDate != nil && *input.StartDate != "" {
+		t, err := time.Parse(time.RFC3339, *input.StartDate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		startDate = &t
+	}
+
+	var endDate *time.Time
+	if input.EndDate != nil && *input.EndDate != "" {
+		t, err := time.Parse(time.RFC3339, *input.EndDate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		endDate = &t
+	}
+
+	// Build service input and delegate to service layer
+	serviceInput := liability.CreateInput{
+		Name:              input.Name,
+		Category:          input.Category,
+		CurrentBalance:    currentBalance,
+		InterestRateAPR:   interestRateAPR,
+		MinimumPayment:    minimumPayment,
+		GrowthStrategy:    input.GrowthStrategy,
+		RepaymentStrategy: input.RepaymentStrategy,
+		Notes:             input.Notes,
+		StartDate:         startDate,
+		EndDate:           endDate,
+	}
+
+	created, err := h.service.Create(r.Context(), userCtx.UserID, serviceInput)
 	if err != nil {
+		log.Printf("liability.Create error: %v", err)
 		internalError(w, err)
 		return
 	}
