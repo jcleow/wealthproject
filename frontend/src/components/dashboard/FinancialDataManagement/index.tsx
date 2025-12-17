@@ -12,9 +12,13 @@ import {
   useCreateInvestmentMutation,
   useUpdateInvestmentMutation,
   useDeleteInvestmentMutation,
+  useStopInvestmentMutation,
   useDeleteIncomeAllocationMutation,
   useStopIncomeAllocationMutation,
   useStopExpenseMutation,
+  useStopAssetMutation,
+  useStopLiabilityMutation,
+  useStopIncomeMutation,
 } from '@/hooks/queries'
 import type { TimelineItem, TimelineEditRequest, TimelineEdit, TimelineFrequency } from '@/types/timeline'
 import type { PropertyLinkRecord } from '@/types/property'
@@ -98,6 +102,10 @@ export function FinancialDataManagement({
   const updateInvestmentMutation = useUpdateInvestmentMutation()
   const deleteInvestmentMutation = useDeleteInvestmentMutation()
   const stopExpenseMutation = useStopExpenseMutation()
+  const stopAssetMutation = useStopAssetMutation()
+  const stopLiabilityMutation = useStopLiabilityMutation()
+  const stopIncomeMutation = useStopIncomeMutation()
+  const stopInvestmentMutation = useStopInvestmentMutation()
   // Get investment allocations from snapshot (filtered by month) instead of direct API
   const investmentAllocations = useMemo(() => {
     if (!timelineMonthV2?.incomeAllocations) return []
@@ -598,8 +606,28 @@ export function FinancialDataManagement({
     handleModalClose()
   }
 
-  const handleModalStop = async (id: string, endDate: string) => {
+  const handleModalStopExpense = async (id: string, endDate: string) => {
     await stopExpenseMutation.mutateAsync({ id, endDate })
+    handleModalClose()
+  }
+
+  const handleModalStopAsset = async (id: string, endDate: string) => {
+    await stopAssetMutation.mutateAsync({ id, endDate })
+    handleModalClose()
+  }
+
+  const handleModalStopLiability = async (id: string, endDate: string) => {
+    await stopLiabilityMutation.mutateAsync({ id, endDate })
+    handleModalClose()
+  }
+
+  const handleModalStopIncome = async (id: string, endDate: string) => {
+    await stopIncomeMutation.mutateAsync({ id, endDate })
+    handleModalClose()
+  }
+
+  const handleModalStopInvestment = async (id: string, endDate: string) => {
+    await stopInvestmentMutation.mutateAsync({ id, endDate })
     handleModalClose()
   }
 
@@ -881,8 +909,18 @@ export function FinancialDataManagement({
           modalState.mode === 'edit' && getItemId(modalState.data) ? handleModalDelete : undefined
         }
         onStop={
-          modalState.mode === 'edit' && modalState.type === 'expense' && getItemId(modalState.data)
-            ? handleModalStop
+          modalState.mode === 'edit' && getItemId(modalState.data)
+            ? modalState.type === 'expense'
+              ? handleModalStopExpense
+              : modalState.type === 'asset'
+                ? handleModalStopAsset
+                : modalState.type === 'liability'
+                  ? handleModalStopLiability
+                  : modalState.type === 'income'
+                    ? handleModalStopIncome
+                    : modalState.type === 'investment'
+                      ? handleModalStopInvestment
+                      : undefined
             : undefined
         }
       />

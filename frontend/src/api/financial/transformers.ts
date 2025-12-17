@@ -145,19 +145,22 @@ export const toGrowthConfig = (item: any): GrowthConfig => ({
 // =============================================================================
 
 export const toCPFAccount = (item: any): CPFAccount => ({
-  id: item.id ?? item.ID,
-  userId: item.user_id ?? item.userId ?? item.UserID,
-  oaBalance: item.oa_balance ?? item.oaBalance ?? item.OABalance ?? 0,
-  saBalance: item.sa_balance ?? item.saBalance ?? item.SABalance ?? 0,
-  maBalance: item.ma_balance ?? item.maBalance ?? item.MABalance ?? 0,
-  raBalance: item.ra_balance ?? item.raBalance ?? item.RABalance ?? 0,
-  oaUsedForHousing: item.oa_used_for_housing ?? item.oaUsedForHousing ?? item.OAUsedForHousing ?? 0,
-  housingStartDate: item.housing_start_date ?? item.housingStartDate ?? item.HousingStartDate,
-  dateOfBirth: item.date_of_birth ?? item.dateOfBirth ?? item.DateOfBirth,
-  residencyStatus: item.residency_status ?? item.residencyStatus ?? item.ResidencyStatus ?? 'citizen',
-  prGrantDate: item.pr_grant_date ?? item.prGrantDate ?? item.PRGrantDate,
-  createdAt: item.created_at ?? item.createdAt ?? item.CreatedAt,
-  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+  id: item.id,
+  userId: item.userId,
+  parentId: item.parentId ?? item.id,
+  startDate: item.startDate ?? item.createdAt,
+  endDate: item.endDate,
+  oaBalance: item.oaBalance ?? 0,
+  saBalance: item.saBalance ?? 0,
+  maBalance: item.maBalance ?? 0,
+  raBalance: item.raBalance ?? 0,
+  oaUsedForHousing: item.oaUsedForHousing ?? 0,
+  housingStartDate: item.housingStartDate,
+  dateOfBirth: item.dateOfBirth,
+  residencyStatus: item.residencyStatus ?? 'citizen',
+  prGrantDate: item.prGrantDate,
+  createdAt: item.createdAt,
+  updatedAt: item.updatedAt,
 })
 
 export const toCPFConfiguration = (item: any): CPFConfiguration => ({

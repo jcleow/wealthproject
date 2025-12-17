@@ -176,14 +176,18 @@ type Expense struct {
 }
 
 // CPFAccount represents a user's CPF account with balances and profile data.
+// Supports versioning via parent_id + start_date/end_date for timeline-aware edits.
 type CPFAccount struct {
 	ID               string          `json:"id"`
 	UserID           string          `json:"userId"`
-	OABalance        decimal.Decimal `json:"oaBalance"`        // Ordinary Account balance
-	SABalance        decimal.Decimal `json:"saBalance"`        // Special Account balance
-	MABalance        decimal.Decimal `json:"maBalance"`        // MediSave Account balance
-	RABalance        decimal.Decimal `json:"raBalance"`        // Retirement Account balance (only after age 55)
-	OAUsedForHousing decimal.Decimal `json:"oaUsedForHousing"` // OA amount used for housing (for accrued interest)
+	ParentID         string          `json:"parentId"`          // Groups versions of same logical account
+	StartDate        time.Time       `json:"startDate"`         // When this version starts
+	EndDate          *time.Time      `json:"endDate,omitempty"` // When this version ends (NULL = ongoing)
+	OABalance        decimal.Decimal `json:"oaBalance"`         // Ordinary Account balance
+	SABalance        decimal.Decimal `json:"saBalance"`         // Special Account balance
+	MABalance        decimal.Decimal `json:"maBalance"`         // MediSave Account balance
+	RABalance        decimal.Decimal `json:"raBalance"`         // Retirement Account balance (only after age 55)
+	OAUsedForHousing decimal.Decimal `json:"oaUsedForHousing"`  // OA amount used for housing (for accrued interest)
 	HousingStartDate *time.Time      `json:"housingStartDate,omitempty"`
 	DateOfBirth      time.Time       `json:"dateOfBirth"`
 	ResidencyStatus  string          `json:"residencyStatus"` // 'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'
@@ -730,7 +734,8 @@ func (s *Store) ListExpenses(
 	}, nil
 }
 
-// GetCPFAccount retrieves the CPF account for a user (one per user)
+// GetCPFAccount retrieves the CPF account for a user.
+// After migration, returns the most recent version (no end_date) if versioning columns exist.
 func (s *Store) GetCPFAccount(
 	ctx context.Context,
 	userID string,
@@ -739,6 +744,9 @@ func (s *Store) GetCPFAccount(
 	SELECT
 		id,
 		user_id,
+		COALESCE(parent_id, id) as parent_id,
+		COALESCE(start_date, created_at) as start_date,
+		end_date,
 		oa_balance,
 		sa_balance,
 		ma_balance,
@@ -751,12 +759,17 @@ func (s *Store) GetCPFAccount(
 		created_at,
 		updated_at
 	FROM cpf_accounts
-	WHERE user_id = $1`
+	WHERE user_id = $1 AND end_date IS NULL
+	ORDER BY start_date DESC
+	LIMIT 1`
 
 	var cpf CPFAccount
 	err := s.pool.QueryRow(ctx, query, userID).Scan(
 		&cpf.ID,
 		&cpf.UserID,
+		&cpf.ParentID,
+		&cpf.StartDate,
+		&cpf.EndDate,
 		&cpf.OABalance,
 		&cpf.SABalance,
 		&cpf.MABalance,

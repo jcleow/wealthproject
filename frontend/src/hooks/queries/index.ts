@@ -3,6 +3,7 @@ export {
   useAssetsQuery,
   useCreateAssetMutation,
   useUpdateAssetMutation,
+  useStopAssetMutation,
   useDeleteAssetMutation,
   ASSETS_QUERY_KEY,
 } from './useAssetsQuery'
@@ -12,6 +13,7 @@ export {
   useLiabilitiesQuery,
   useCreateLiabilityMutation,
   useUpdateLiabilityMutation,
+  useStopLiabilityMutation,
   useDeleteLiabilityMutation,
   LIABILITIES_QUERY_KEY,
 } from './useLiabilitiesQuery'
@@ -21,6 +23,7 @@ export {
   useIncomesQuery,
   useCreateIncomeMutation,
   useUpdateIncomeMutation,
+  useStopIncomeMutation,
   useDeleteIncomeMutation,
   INCOMES_QUERY_KEY,
 } from './useIncomesQuery'
@@ -50,6 +53,7 @@ export {
   useInvestmentsQuery,
   useCreateInvestmentMutation,
   useUpdateInvestmentMutation,
+  useStopInvestmentMutation,
   useDeleteInvestmentMutation,
   INVESTMENTS_QUERY_KEY,
 } from './useInvestmentsQuery'
@@ -59,6 +63,7 @@ export {
   useCashAccountsQuery,
   useCreateCashAccountMutation,
   useUpdateCashAccountMutation,
+  useStopCashAccountMutation,
   useDeleteCashAccountMutation,
   useSetAccumulatorMutation,
   CASH_ACCOUNTS_QUERY_KEY,

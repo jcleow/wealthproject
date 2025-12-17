@@ -441,8 +441,8 @@ export function FinancialFormModal({
       return
     }
 
-    // For expenses at future months, show confirmation modal
-    if (type === 'expense' && isFutureMonth && onStop) {
+    // For expenses, assets, liabilities, incomes, and investments at future months, show confirmation modal
+    if ((type === 'expense' || type === 'asset' || type === 'liability' || type === 'income' || type === 'investment') && isFutureMonth && onStop) {
       console.log('[Modal handleDelete] Showing delete confirmation modal')
       setShowDeleteConfirmation(true)
       return

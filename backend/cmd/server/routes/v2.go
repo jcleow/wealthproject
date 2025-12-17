@@ -53,9 +53,24 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	expenseHandler := handlers.NewExpenseV2Handler(deps.FinStore)
 	router.HandleFunc("/cashflow/expenses", expenseHandler.HandleDeleteAll).Methods("DELETE")
 
-	// Liability v2 endpoints (with auto-linked expense creation)
+	// Liability v2 endpoints (with auto-linked expense creation and versioning)
 	liabilityHandler := handlers.NewLiabilityV2Handler(deps.FinStore)
 	router.HandleFunc("/liabilities", liabilityHandler.HandleCreate).Methods("POST")
+	router.HandleFunc("/liabilities/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "PUT":
+			liabilityHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			liabilityHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("PUT", "DELETE")
+	router.HandleFunc("/liabilities/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		liabilityHandler.HandleStop(w, r, id)
+	}).Methods("POST")
 
 	// Scenario events v2 endpoints (with typed FK columns)
 	scenarioHandler := handlers.NewScenarioEventV2Handler(deps.FinStore)
@@ -78,6 +93,24 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		id := vars["id"]
 		scenarioHandler.HandleToggle(w, r, id)
 	}).Methods("PATCH")
+
+	// Income v2 endpoints (versioned update/delete/stop)
+	incomeHandler := handlers.NewIncomeV2Handler(deps.FinStore)
+	router.HandleFunc("/cashflow/incomes/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "PUT":
+			incomeHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			incomeHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("PUT", "DELETE")
+	router.HandleFunc("/cashflow/incomes/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		incomeHandler.HandleStop(w, r, id)
+	}).Methods("POST")
 
 	// Income allocations v2 endpoints
 	allocHandler := handlers.NewIncomeAllocationV2Handler(deps.FinStore)
@@ -108,5 +141,79 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		incomeID := vars["incomeId"]
 		allocID := vars["allocId"]
 		allocHandler.HandleStop(w, r, incomeID, allocID)
+	}).Methods("POST")
+
+	// Asset v2 endpoints (versioned update/delete/stop)
+	assetHandler := handlers.NewAssetV2Handler(deps.FinStore)
+	router.HandleFunc("/assets/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "PUT":
+			assetHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			assetHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("PUT", "DELETE")
+	router.HandleFunc("/assets/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		assetHandler.HandleStop(w, r, id)
+	}).Methods("POST")
+
+	// Investment v2 endpoints (versioned update/delete/stop with cascade to allocations)
+	investmentHandler := handlers.NewInvestmentV2Handler(deps.FinStore)
+	router.HandleFunc("/investments/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "PUT":
+			investmentHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			investmentHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("PUT", "DELETE")
+	router.HandleFunc("/investments/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		investmentHandler.HandleStop(w, r, id)
+	}).Methods("POST")
+
+	// Cash account v2 endpoints (versioned update/delete/stop with cascade to allocations)
+	cashAccountHandler := handlers.NewCashAccountV2Handler(deps.FinStore)
+	router.HandleFunc("/cash-accounts/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "PUT":
+			cashAccountHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			cashAccountHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("PUT", "DELETE")
+	router.HandleFunc("/cash-accounts/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		cashAccountHandler.HandleStop(w, r, id)
+	}).Methods("POST")
+
+	// CPF account v2 endpoints (versioned update/delete/stop)
+	cpfHandler := handlers.NewCPFV2Handler(deps.FinStore)
+	router.HandleFunc("/cpf/account", cpfHandler.HandleGet).Methods("GET")
+	router.HandleFunc("/cpf/account", cpfHandler.HandleCreate).Methods("POST")
+	router.HandleFunc("/cpf/account/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "PUT":
+			cpfHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			cpfHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("PUT", "DELETE")
+	router.HandleFunc("/cpf/account/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		cpfHandler.HandleStop(w, r, id)
 	}).Methods("POST")
 }

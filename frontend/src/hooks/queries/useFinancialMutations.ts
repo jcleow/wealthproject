@@ -17,7 +17,7 @@ export function useDeleteAllFinancialDataMutation() {
         financialApi.deleteAllExpensesV2(), // Bulk delete via V2 (falls back to V1 if not implemented)
         financialApi.deleteAllCashAccounts(),
         financialApi.deleteAllScenarioEvents(),
-        financialApi.deleteCPFAccount().catch(() => {}), // Ignore if no CPF account exists
+        financialApi.deleteCurrentCPFAccount().catch(() => {}), // Ignore if no CPF account exists
       ])
     },
     onSuccess: () => {

@@ -27,7 +27,7 @@ export function useLoadSampleDataMutation() {
         financialApi.deleteAllExpenses(),
         financialApi.deleteAllCashAccounts(),
         financialApi.deleteAllScenarioEvents(),
-        financialApi.deleteCPFAccount().catch(() => {}), // Ignore if no CPF account exists
+        financialApi.deleteCurrentCPFAccount().catch(() => {}), // Ignore if no CPF account exists
       ])
 
       // Ensure CPF profile exists so timeline v2 can show CPF assets and contributions
@@ -44,7 +44,7 @@ export function useLoadSampleDataMutation() {
       try {
         const existingCPF = await financialApi.getCPFAccount()
         if (existingCPF) {
-          await financialApi.updateCPFAccount(sampleCPFAccount)
+          await financialApi.updateCPFAccount(existingCPF.id, sampleCPFAccount)
         } else {
           await financialApi.createCPFAccount(sampleCPFAccount)
         }
