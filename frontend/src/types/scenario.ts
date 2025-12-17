@@ -1,5 +1,5 @@
 export type ScenarioImpactKind = 'delta' | 'override' | 'start' | 'stop'
-export type ScenarioTargetType = 'asset' | 'liability' | 'income' | 'expense'
+export type ScenarioTargetType = 'asset' | 'liability' | 'income' | 'expense' | 'cash' | 'investment'
 export type ScenarioCadence = 'one_time' | 'weekly' | 'bi_weekly' | 'monthly' | 'quarterly' | 'semi_annual' | 'annual'
 
 // UI verb type for sentence-builder pattern
@@ -39,6 +39,12 @@ export function impactToVerb(impactKind: ScenarioImpactKind, amount: number): Im
 export interface ScenarioImpactDto {
   targetType: ScenarioTargetType
   targetId?: string | null
+  targetAssetId?: string | null
+  targetLiabilityId?: string | null
+  targetIncomeId?: string | null
+  targetExpenseId?: string | null
+  targetCashAccountId?: string | null
+  targetInvestmentId?: string | null
   impactKind: ScenarioImpactKind
   amount: number
   currency: string
@@ -87,29 +93,74 @@ export interface ScenarioEvent {
   impacts: ScenarioImpact[]
 }
 
-export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact => ({
-  targetType: dto.targetType,
-  targetId: dto.targetId ?? undefined,
-  impactKind: dto.impactKind,
-  amount: dto.amount,
-  currency: dto.currency,
-  cadence: dto.cadence,
-  startMonth: dto.startDate.slice(0, 7),
-  endMonth: dto.endDate ? dto.endDate.slice(0, 7) : undefined,
-  notes: dto.notes ?? undefined,
-})
+const pickTargetFromDto = (dto: ScenarioImpactDto): { targetType: ScenarioTargetType; targetId?: string } => {
+  const typed = [
+    ['asset', dto.targetAssetId],
+    ['liability', dto.targetLiabilityId],
+    ['income', dto.targetIncomeId],
+    ['expense', dto.targetExpenseId],
+    ['cash', dto.targetCashAccountId],
+    ['investment', dto.targetInvestmentId],
+  ] as const
 
-export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto => ({
-  targetType: impact.targetType,
-  targetId: impact.targetId,
-  impactKind: impact.impactKind,
-  amount: impact.amount,
-  currency: impact.currency,
-  cadence: impact.cadence,
-  startDate: impact.startMonth,
-  endDate: impact.endMonth,
-  notes: impact.notes,
-})
+  const match = typed.find(([, id]) => Boolean(id?.trim()))
+  if (match) {
+    return { targetType: match[0] as ScenarioTargetType, targetId: match[1] ?? undefined }
+  }
+
+  return { targetType: dto.targetType, targetId: dto.targetId ?? undefined }
+}
+
+const mapTargetToDtoFields = (impact: ScenarioImpact): Pick<ScenarioImpactDto, 'targetType' | 'targetId' | 'targetAssetId' | 'targetLiabilityId' | 'targetIncomeId' | 'targetExpenseId' | 'targetCashAccountId' | 'targetInvestmentId'> => {
+  const targetId = impact.targetId
+  switch (impact.targetType) {
+    case 'asset':
+      return { targetType: 'asset', targetId, targetAssetId: targetId }
+    case 'liability':
+      return { targetType: 'liability', targetId, targetLiabilityId: targetId }
+    case 'income':
+      return { targetType: 'income', targetId, targetIncomeId: targetId }
+    case 'expense':
+      return { targetType: 'expense', targetId, targetExpenseId: targetId }
+    case 'cash':
+      return { targetType: 'cash', targetId, targetCashAccountId: targetId }
+    case 'investment':
+      return { targetType: 'investment', targetId, targetInvestmentId: targetId }
+    default:
+      return { targetType: impact.targetType, targetId }
+  }
+}
+
+export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact => {
+  const target = pickTargetFromDto(dto)
+
+  return {
+    targetType: target.targetType,
+    targetId: target.targetId,
+    impactKind: dto.impactKind,
+    amount: dto.amount,
+    currency: dto.currency,
+    cadence: dto.cadence,
+    startMonth: dto.startDate.slice(0, 7),
+    endMonth: dto.endDate ? dto.endDate.slice(0, 7) : undefined,
+    notes: dto.notes ?? undefined,
+  }
+}
+
+export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto => {
+  const targetFields = mapTargetToDtoFields(impact)
+
+  return {
+    ...targetFields,
+    impactKind: impact.impactKind,
+    amount: impact.amount,
+    currency: impact.currency,
+    cadence: impact.cadence,
+    startDate: impact.startMonth,
+    endDate: impact.endMonth,
+    notes: impact.notes,
+  }
+}
 
 export const scenarioEventFromDto = (dto: ScenarioEventDto): ScenarioEvent => ({
   id: dto.id,

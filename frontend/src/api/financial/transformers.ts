@@ -201,6 +201,12 @@ export const toCPFContributionPreview = (item: any): CPFContributionPreview => (
 export const normalizeImpact = (impact: any): ScenarioImpactDto => ({
   targetType: impact.targetType ?? impact.target_type ?? impact.TargetType ?? 'asset',
   targetId: impact.targetId ?? impact.target_id ?? impact.TargetID ?? undefined,
+  targetAssetId: impact.targetAssetId ?? impact.target_asset_id ?? impact.TargetAssetId ?? undefined,
+  targetLiabilityId: impact.targetLiabilityId ?? impact.target_liability_id ?? impact.TargetLiabilityId ?? undefined,
+  targetIncomeId: impact.targetIncomeId ?? impact.target_income_id ?? impact.TargetIncomeId ?? undefined,
+  targetExpenseId: impact.targetExpenseId ?? impact.target_expense_id ?? impact.TargetExpenseId ?? undefined,
+  targetCashAccountId: impact.targetCashAccountId ?? impact.target_cash_account_id ?? impact.TargetCashAccountId ?? undefined,
+  targetInvestmentId: impact.targetInvestmentId ?? impact.target_investment_id ?? impact.TargetInvestmentId ?? undefined,
   impactKind: impact.impactKind ?? impact.impact_kind ?? impact.ImpactKind ?? 'delta',
   amount: Number(impact.amount ?? impact.Amount ?? 0),
   currency: impact.currency ?? impact.Currency ?? 'SGD',
