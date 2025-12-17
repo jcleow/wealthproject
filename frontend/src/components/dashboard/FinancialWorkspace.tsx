@@ -322,7 +322,6 @@ export function FinancialWorkspace({
           <div className="h-full">
             <NetWorthProjection
               chartTitle="Net Worth Projection"
-              chartSubtitle={`Age ${31 + (timelineYears?.[0]?.year ?? 0)} to ${31 + (timelineYears?.[timelineYears.length - 1]?.year ?? 30)} (${timelineYears?.length ?? 31} years)`}
               timelineYears={timelineYears}
               timelineMonths={timelineMonths}
               resolution={resolution}

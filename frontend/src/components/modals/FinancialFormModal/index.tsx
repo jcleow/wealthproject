@@ -622,10 +622,7 @@ export function FinancialFormModal({
                       value={formData.frequency}
                       onChange={(e) => updateFormField('frequency', e.target.value as Frequency)}
                     >
-                      <option value="weekly">Weekly</option>
-                      <option value="biweekly">Bi-weekly</option>
                       <option value="monthly">Monthly</option>
-                      <option value="quarterly">Quarterly</option>
                       <option value="annual">Annual</option>
                     </select>
                   </div>

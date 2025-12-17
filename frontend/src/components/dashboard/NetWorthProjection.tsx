@@ -713,44 +713,15 @@ export function NetWorthProjection({
     }))
   }, [scenarioEvents, displayData, projection, dataResolution, timelineMonths, zoomLevel])
 
-  // Calculate age range from actual displayed data
+  // Calculate age range from user settings (full planning horizon)
   const ageRange = useMemo(() => {
     const startingAge = userSettings?.startingAge ?? DEFAULT_STARTING_AGE
     const terminalAge = userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE
-    const rawAnchorYear =
-      projection[0]?.calendarYear ??
-      timelineMonths?.[0]?.year ??
-      (timelineYears?.[0]?.year ?? BASE_CALENDAR_YEAR)
-    const anchorYear = rawAnchorYear >= 1900 ? rawAnchorYear : BASE_CALENDAR_YEAR + rawAnchorYear
-    const anchorMonth =
-      projection[0]?.calendarMonth ??
-      timelineMonths?.[0]?.month ??
-      1
-
-    if (displayData.length === 0) {
-      return { startAge: startingAge, endAge: terminalAge, years: Math.max(1, terminalAge - startingAge) }
-    }
-
-    const anchorMonthIndex = anchorYear * 12 + (anchorMonth - 1)
-
-    const toMonthIndex = (point: ProjectionPoint): number => {
-      const year = point.calendarYear ?? anchorYear
-      const month = point.calendarMonth ?? 1
-      return year * 12 + (month - 1)
-    }
-
-    const firstMonthIndex = toMonthIndex(displayData[0])
-    const lastMonthIndex = toMonthIndex(displayData[displayData.length - 1])
-
-    const startAgeMonths = Math.max(0, (startingAge * 12) + (firstMonthIndex - anchorMonthIndex))
-    const endAgeMonths = Math.max(startAgeMonths, (startingAge * 12) + (lastMonthIndex - anchorMonthIndex))
-
-    const startAge = Math.floor(startAgeMonths / 12)
-    const endAge = Math.floor(endAgeMonths / 12)
-    const years = endAge - startAge
-
+    const startAge = startingAge
+    const endAge = Math.max(startAge, terminalAge)
+    const years = Math.max(1, endAge - startAge)
     return { startAge, endAge, years }
-  }, [displayData, projection, timelineMonths, timelineYears, userSettings?.startingAge, userSettings?.terminalAge])
+  }, [userSettings?.startingAge, userSettings?.terminalAge])
 
   const defaultTitle = 'Net Worth Projection'
   const defaultSubtitle = `Age ${ageRange.startAge} to ${ageRange.endAge} (${ageRange.years} years)`
