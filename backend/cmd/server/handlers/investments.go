@@ -45,10 +45,7 @@ func (h *InvestmentHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		h.get(w, r, id)
-	case http.MethodPut:
-		h.update(w, r, id)
-	case http.MethodDelete:
-		h.delete(w, r, id)
+	// PUT and DELETE moved to v2 API with versioning and cascade stop support
 	default:
 		methodNotAllowed(w)
 	}

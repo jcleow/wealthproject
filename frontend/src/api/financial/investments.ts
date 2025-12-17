@@ -1,7 +1,8 @@
-import { apiClient } from '../client'
+import { ApiError, apiClient } from '../client'
 import { buildPaginatedPath } from './helpers'
 import { normalizePaginatedResponse, toAsset } from './transformers'
 import type { Asset, PaginatedResponse, PaginationParams } from '@/types/financial'
+import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 
 // Investment shares the same shape as Asset but uses finance_investments table
 export type Investment = Asset
@@ -31,12 +32,17 @@ export async function createInvestment(payload: Omit<Investment, 'id' | 'updated
   return toInvestment(data)
 }
 
-export async function updateInvestment(id: string, payload: Partial<Investment>): Promise<Investment> {
+export async function updateInvestment(
+  id: string,
+  payload: Partial<Investment> & {
+    updateMode?: UpdateMode
+  }
+): Promise<Investment> {
   const body: Record<string, unknown> = {
     name: payload.name,
     category: payload.category,
     currentValue: payload.currentValue,
-    annualGrowthRate: payload.annualGrowthRate,
+    growthRate: payload.annualGrowthRate, // Backend uses growthRate
     notes: payload.notes,
   }
 
@@ -44,13 +50,32 @@ export async function updateInvestment(id: string, payload: Partial<Investment>)
   // This prevents Go from receiving zero-time values
   if (payload.startDate !== undefined) body.startDate = payload.startDate
   if (payload.endDate !== undefined) body.endDate = payload.endDate
+  // Add updateMode for versioned updates
+  if (payload.updateMode !== undefined) {
+    body.updateMode = payload.updateMode
+  }
 
-  const data = await apiClient.put<any>(`/investments/${id}`, body)
+  // Use v2 API for versioned update support
+  const data = await apiClient.put<any>(`/v2/investments/${id}`, body)
+  return toInvestment(data)
+}
+
+// Stop an investment (soft delete) - sets end_date and cascades to linked allocations
+export async function stopInvestment(id: string, endDate: string): Promise<Investment> {
+  const data = await apiClient.post<any>(`/v2/investments/${id}/stop`, { endDate })
   return toInvestment(data)
 }
 
 export async function deleteInvestment(id: string): Promise<void> {
-  await apiClient.delete<void>(`/investments/${id}`)
+  try {
+    // Use v2 API for recursive delete support
+    await apiClient.delete<void>(`/v2/investments/${id}`)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return
+    }
+    throw error
+  }
 }
 
 export async function deleteAllInvestments(): Promise<void> {
@@ -62,6 +87,7 @@ export const investmentsApi = {
   listInvestments,
   createInvestment,
   updateInvestment,
+  stopInvestment,
   deleteInvestment,
   deleteAllInvestments,
 }

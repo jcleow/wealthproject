@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { investmentsApi, type Investment } from '@/api/financial/investments'
+import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export const INVESTMENTS_QUERY_KEY = QUERY_KEYS.financial.investments
@@ -40,14 +41,28 @@ export function useUpdateInvestmentMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<Investment> }) =>
-      investmentsApi.updateInvestment(id, updates),
-    onSuccess: (updatedInvestment) => {
-      // Update the investments cache
-      queryClient.setQueryData<Investment[]>(INVESTMENTS_QUERY_KEY, (old) =>
-        old?.map((inv) => inv.id === updatedInvestment.id ? updatedInvestment : inv) ?? []
-      )
-      // Invalidate related queries
+    mutationFn: ({ id, updates }: {
+      id: string
+      updates: Partial<Investment> & {
+        updateMode?: UpdateMode
+      }
+    }) => investmentsApi.updateInvestment(id, updates),
+    onSuccess: () => {
+      // Invalidate timeline to refetch with new/updated investment
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timelineV2 })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
+    },
+  })
+}
+
+export function useStopInvestmentMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, endDate }: { id: string; endDate: string }) =>
+      investmentsApi.stopInvestment(id, endDate),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timelineV2 })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
