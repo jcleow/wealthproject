@@ -3,7 +3,7 @@
 ## Quick Reference
 
 **Status**: Ready for Review
-**PRD Location**: `/specs/monthly-resolution/monthly-resolution-prd.md`
+**PRD Location**: `/specs/timeline/monthly-resolution/monthly-resolution-prd.md`
 **Total Effort**: 49 complexity points (~6-7 weeks solo developer)
 **Includes**: Development + Comprehensive Testing ✅
 

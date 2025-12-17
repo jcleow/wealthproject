@@ -3,7 +3,7 @@
 **Version:** 1.0.0
 **Last Updated:** December 2024
 **Status:** Ready for Implementation
-**Logic Specification:** `specs/singapore-finance-logic-spec.md`
+**Logic Specification:** `specs/regional/singapore/singapore-finance-logic-spec.md`
 
 ---
 

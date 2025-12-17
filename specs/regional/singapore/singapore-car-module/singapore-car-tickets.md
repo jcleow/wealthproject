@@ -2381,10 +2381,10 @@ export function VehicleModal({ isOpen, onClose, vehicleId }: VehicleModalProps) 
 - COE categories
 
 **Deliverables:**
-- `specs/singapore-car-module/user-guide.md`
-- `specs/singapore-car-module/api-reference.md`
-- `specs/singapore-car-module/rule-versioning.md`
-- `specs/singapore-car-module/sg-car-reference.md`
+- `specs/regional/singapore/singapore-car-module/user-guide.md`
+- `specs/regional/singapore/singapore-car-module/api-reference.md`
+- `specs/regional/singapore/singapore-car-module/rule-versioning.md`
+- `specs/regional/singapore/singapore-car-module/sg-car-reference.md`
 
 **Acceptance Criteria:**
 - [ ] User guide covers all features

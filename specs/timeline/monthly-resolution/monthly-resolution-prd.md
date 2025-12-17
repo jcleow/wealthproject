@@ -2231,6 +2231,6 @@ Sprint 4:
 ### References
 
 - Existing multiyear timeline PRD: `/specs/rewrite-phase-2/multiyear-docs/prd.txt`
-- Scenario analysis PRD: `/specs/scenario-analysis/scenario-analysis-prd.md`
+- Scenario analysis PRD: `/specs/scenarios/analysis/scenario-analysis-prd.md`
 - API contract: `/specs/rewrite-phase-1/api-contract.md`
 - AGENTS.md conventions: `/AGENTS.md`

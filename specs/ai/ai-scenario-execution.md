@@ -1643,7 +1643,7 @@ flowchart TD
 ```
 You are implementing the context injection and user settings feature for the AI chat system.
 
-Read the PRD at /specs/ai-scenario-execution.md, specifically sections:
+Read the PRD at /specs/ai/ai-scenario-execution.md, specifically sections:
 - 3.5 Prompt Pipeline Architecture
 - 4. API Contracts (Financial Context Response)
 - 5. Implementation Tickets (B0.1, B0.2, B0.3, B1.1, F1.1)
@@ -1695,7 +1695,7 @@ Run tests after each change: go test ./...
 ```
 You are implementing scenario CRUD tools for the AI chat system.
 
-Read the PRD at /specs/ai-scenario-execution.md, specifically sections:
+Read the PRD at /specs/ai/ai-scenario-execution.md, specifically sections:
 - 4. API Contracts (Tool Call Examples)
 - 5. Implementation Tickets (B2.1-B2.5)
 - 7.5 Handling "What If" Questions
@@ -1750,7 +1750,7 @@ Run tests after each change: go test ./...
 ```
 You are implementing net worth analysis tools for the AI chat system.
 
-Read the PRD at /specs/ai-scenario-execution.md, specifically sections:
+Read the PRD at /specs/ai/ai-scenario-execution.md, specifically sections:
 - 3. Technical Architecture (Data Flow for Net Worth Analysis)
 - 4. API Contracts (getNetWorthSummary, compareScenarioImpact responses)
 - 5. Implementation Tickets (B1.2, B3.1-B3.5)

@@ -64,7 +64,7 @@ Complete the frontend integration of CPF contributions into the financial planni
 - 90%+ salary income has CPF data populated
 - CPF calculations match official CPF calculator 100%
 
-**Specification**: `/specs/cpf/cpf-integration-tickets.md`
+**Specification**: `/specs/regional/singapore/cpf/cpf-integration-tickets.md`
 
 ---
 
@@ -124,8 +124,8 @@ Add monthly time resolution to financial projections with intelligent zoom-based
 - 75% retention after 7 days
 
 **Specifications**:
-- PRD: `/specs/monthly-resolution/monthly-resolution-prd.md`
-- Summary: `/specs/monthly-resolution/SUMMARY.md`
+- PRD: `/specs/timeline/monthly-resolution/monthly-resolution-prd.md`
+- Summary: `/specs/timeline/monthly-resolution/SUMMARY.md`
 
 ---
 
@@ -151,7 +151,7 @@ Build a comprehensive CPF simulation engine that models 30+ year projections inc
 - "As a 45-year-old, I want to know if I should top up my SA to maximize tax relief"
 - "As a 60-year-old, I want to compare CPF LIFE plans and deferral options"
 
-**Specification**: `/specs/cpf/cpf-simulation-prd.md`
+**Specification**: `/specs/regional/singapore/cpf/cpf-simulation-prd.md`
 
 ---
 
@@ -171,8 +171,8 @@ Add comprehensive Singapore car ownership cost modeling including COE bidding, L
 - **Financing Calculator**: Loan scenarios with down payment optimization
 
 **Specifications**:
-- PRD: `/specs/singapore-car-module/singapore-car-prd.md`
-- Tickets: `/specs/singapore-car-module/singapore-car-tickets.md`
+- PRD: `/specs/regional/singapore/singapore-car-module/singapore-car-prd.md`
+- Tickets: `/specs/regional/singapore/singapore-car-module/singapore-car-tickets.md`
 
 ---
 
@@ -191,7 +191,7 @@ Enhance the AI financial assistant to autonomously create, execute, and compare 
 - **Learning System**: Adapts to user preferences over time
 - **Scenario Comparison**: Automated analysis of trade-offs
 
-**Specification**: `/specs/ai-scenario-execution.md`
+**Specification**: `/specs/ai/ai-scenario-execution.md`
 
 ---
 
