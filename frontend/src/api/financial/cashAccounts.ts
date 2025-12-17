@@ -29,10 +29,11 @@ export async function createCashAccount(payload: Omit<CashAccount, 'id' | 'creat
 }
 
 export async function updateCashAccount(id: string, payload: Partial<CashAccount>): Promise<CashAccount> {
+  // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
     name: payload.name,
-    balance: payload.balance,
-    interestRate: payload.interestRate,
+    balance: payload.balance?.toString(),
+    interestRate: payload.interestRate?.toString(),
     bankName: payload.bankName,
     accountType: payload.accountType,
     notes: payload.notes,

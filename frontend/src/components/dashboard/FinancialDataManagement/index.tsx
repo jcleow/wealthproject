@@ -121,7 +121,7 @@ export function FinancialDataManagement({
         targetCashAccountId: alloc.targetCashAccountId,
         targetInvestmentId: alloc.targetInvestmentId,
         allocationType: alloc.allocationType,
-        allocationValue: Number(alloc.allocationValue),
+        allocationValue: alloc.allocationValue, // Keep as string to avoid precision loss
         createdAt: '', // Not needed for display
       }))
   }, [timelineMonthV2?.incomeAllocations])

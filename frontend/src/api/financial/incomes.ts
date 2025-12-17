@@ -14,7 +14,7 @@ export interface IncomeAllocation {
   targetCashAccountId?: string
   targetInvestmentId?: string
   allocationType: 'percentage' | 'fixed'
-  allocationValue: number
+  allocationValue: string // Use string to avoid precision loss
   createdAt: string
 }
 
@@ -22,7 +22,7 @@ export interface CreateIncomeAllocationPayload {
   targetCashAccountId?: string
   targetInvestmentId?: string
   allocationType: 'percentage' | 'fixed'
-  allocationValue: number
+  allocationValue: string // Use string to avoid precision loss
 }
 
 export async function listIncomes(params?: PaginationParams): Promise<PaginatedResponse<Income>> {
@@ -55,14 +55,15 @@ export async function updateIncome(
     updateMode?: UpdateMode
   }
 ): Promise<Income> {
+  // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
     source: payload.source,
-    amount: payload.amount,
+    amount: payload.amount?.toString(),
     frequency: payload.frequency,
     startDate: payload.startDate,
     endDate: payload.endDate,
     category: payload.category,
-    growthRate: payload.growthRate,
+    growthRate: payload.growthRate?.toString(),
     notes: payload.notes,
   }
   if (payload.cpfWageType !== undefined) body.cpfWageType = payload.cpfWageType

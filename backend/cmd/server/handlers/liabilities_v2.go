@@ -6,25 +6,27 @@ import (
 	"net/http"
 	"time"
 
+	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/liability"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/middleware"
 )
 
 // liabilityInput is the JSON-friendly input struct for liability update.
+// Uses string for decimal values to avoid float64 precision loss.
 type liabilityInput struct {
-	ID                string   `json:"id"`
-	ParentID          string   `json:"parentId"`
-	Name              string   `json:"name"`
-	Category          string   `json:"category"`
-	CurrentBalance    float64  `json:"currentBalance"`
-	InterestRateAPR   *float64 `json:"interestRateApr"`
-	MinimumPayment    *float64 `json:"minimumPayment"`
-	GrowthStrategy    string   `json:"growthStrategy"`
-	RepaymentStrategy string   `json:"repaymentStrategy"`
-	Notes             string   `json:"notes"`
-	StartDate         *string  `json:"startDate"`
-	UpdateMode        string   `json:"updateMode,omitempty"`
+	ID                string  `json:"id"`
+	ParentID          string  `json:"parentId"`
+	Name              string  `json:"name"`
+	Category          string  `json:"category"`
+	CurrentBalance    string  `json:"currentBalance"`
+	InterestRateAPR   *string `json:"interestRateApr"`
+	MinimumPayment    *string `json:"minimumPayment"`
+	GrowthStrategy    string  `json:"growthStrategy"`
+	RepaymentStrategy string  `json:"repaymentStrategy"`
+	Notes             string  `json:"notes"`
+	StartDate         *string `json:"startDate"`
+	UpdateMode        string  `json:"updateMode,omitempty"`
 }
 
 // LiabilityV2Handler serves liability CRUD endpoints for v2 API.
@@ -93,6 +95,33 @@ func (h *LiabilityV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Parse decimal values from strings
+	currentBalance, err := decimal.NewFromString(input.CurrentBalance)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	var interestRateAPR *decimal.Decimal
+	if input.InterestRateAPR != nil && *input.InterestRateAPR != "" {
+		ir, err := decimal.NewFromString(*input.InterestRateAPR)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		interestRateAPR = ir
+	}
+
+	var minimumPayment *decimal.Decimal
+	if input.MinimumPayment != nil && *input.MinimumPayment != "" {
+		mp, err := decimal.NewFromString(*input.MinimumPayment)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		minimumPayment = mp
+	}
+
 	// Parse startDate if provided
 	var startDate *time.Time
 	if input.StartDate != nil {
@@ -109,9 +138,9 @@ func (h *LiabilityV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request
 		ID:                id,
 		Name:              input.Name,
 		Category:          input.Category,
-		CurrentBalance:    input.CurrentBalance,
-		InterestRateAPR:   input.InterestRateAPR,
-		MinimumPayment:    input.MinimumPayment,
+		CurrentBalance:    *currentBalance,
+		InterestRateAPR:   interestRateAPR,
+		MinimumPayment:    minimumPayment,
 		GrowthStrategy:    input.GrowthStrategy,
 		RepaymentStrategy: input.RepaymentStrategy,
 		Notes:             input.Notes,

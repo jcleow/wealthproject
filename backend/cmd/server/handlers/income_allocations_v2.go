@@ -20,6 +20,7 @@ func NewIncomeAllocationV2Handler(store *repo.Store) *IncomeAllocationV2Handler 
 }
 
 // incomeAllocationV2DTO is the JSON response structure.
+// Uses string for decimal values to avoid float64 precision loss.
 type incomeAllocationV2DTO struct {
 	ID                  string  `json:"id"`
 	IncomeID            string  `json:"incomeId"`
@@ -29,7 +30,7 @@ type incomeAllocationV2DTO struct {
 	TargetCashAccountID *string `json:"targetCashAccountId,omitempty"`
 	TargetInvestmentID  *string `json:"targetInvestmentId,omitempty"`
 	AllocationType      string  `json:"allocationType"`
-	AllocationValue     float64 `json:"allocationValue"`
+	AllocationValue     string  `json:"allocationValue"`
 	CreatedAt           string  `json:"createdAt"`
 }
 
@@ -42,7 +43,7 @@ func toIncomeAllocationV2DTO(a repo.IncomeAllocation) incomeAllocationV2DTO {
 		TargetCashAccountID: a.TargetCashAccountID,
 		TargetInvestmentID:  a.TargetInvestmentID,
 		AllocationType:      a.AllocationType,
-		AllocationValue:     a.AllocationValue.ToFloat64(),
+		AllocationValue:     a.AllocationValue.String(),
 		CreatedAt:           a.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 	if a.EndDate != nil {
@@ -109,11 +110,12 @@ func (h *IncomeAllocationV2Handler) HandleListByIncome(w http.ResponseWriter, r 
 }
 
 // incomeAllocationCreateDTO is the JSON input structure for create/update.
+// Uses string for decimal values to avoid float64 precision loss.
 type incomeAllocationCreateDTO struct {
 	TargetCashAccountID *string `json:"targetCashAccountId,omitempty"`
 	TargetInvestmentID  *string `json:"targetInvestmentId,omitempty"`
 	AllocationType      string  `json:"allocationType"`
-	AllocationValue     float64 `json:"allocationValue"`
+	AllocationValue     string  `json:"allocationValue"`
 }
 
 // HandleCreate handles POST /incomes/{incomeId}/allocations - create a new allocation.
@@ -142,12 +144,19 @@ func (h *IncomeAllocationV2Handler) HandleCreate(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if input.AllocationValue <= 0 {
+	// Parse allocation value from string
+	allocationValue, err := decimal.NewFromString(input.AllocationValue)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "invalid allocationValue format")
+		return
+	}
+
+	if allocationValue.IsNegative() || allocationValue.IsZero() {
 		writeError(w, http.StatusBadRequest, "bad_request", "allocationValue must be positive")
 		return
 	}
 
-	if input.AllocationType == "percentage" && input.AllocationValue > 100 {
+	if input.AllocationType == "percentage" && allocationValue.ToFloat64() > 100 {
 		writeError(w, http.StatusBadRequest, "bad_request", "percentage allocationValue must be between 0 and 100")
 		return
 	}
@@ -157,7 +166,7 @@ func (h *IncomeAllocationV2Handler) HandleCreate(w http.ResponseWriter, r *http.
 		TargetCashAccountID: input.TargetCashAccountID,
 		TargetInvestmentID:  input.TargetInvestmentID,
 		AllocationType:      input.AllocationType,
-		AllocationValue:     *decimal.MustFromFloat64(input.AllocationValue),
+		AllocationValue:     *allocationValue,
 	}
 
 	created, err := h.store.CreateIncomeAllocation(r.Context(), userID, allocation)
@@ -197,12 +206,19 @@ func (h *IncomeAllocationV2Handler) HandleUpdate(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if input.AllocationValue <= 0 {
+	// Parse allocation value from string
+	allocationValue, err := decimal.NewFromString(input.AllocationValue)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "invalid allocationValue format")
+		return
+	}
+
+	if allocationValue.IsNegative() || allocationValue.IsZero() {
 		writeError(w, http.StatusBadRequest, "bad_request", "allocationValue must be positive")
 		return
 	}
 
-	if input.AllocationType == "percentage" && input.AllocationValue > 100 {
+	if input.AllocationType == "percentage" && allocationValue.ToFloat64() > 100 {
 		writeError(w, http.StatusBadRequest, "bad_request", "percentage allocationValue must be between 0 and 100")
 		return
 	}
@@ -213,7 +229,7 @@ func (h *IncomeAllocationV2Handler) HandleUpdate(w http.ResponseWriter, r *http.
 		TargetCashAccountID: input.TargetCashAccountID,
 		TargetInvestmentID:  input.TargetInvestmentID,
 		AllocationType:      input.AllocationType,
-		AllocationValue:     *decimal.MustFromFloat64(input.AllocationValue),
+		AllocationValue:     *allocationValue,
 	}
 
 	updated, err := h.store.UpdateIncomeAllocation(r.Context(), userID, allocation)

@@ -6,22 +6,24 @@ import (
 	"net/http"
 	"time"
 
+	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/cashaccount"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
 
 // cashAccountV2Input is the JSON-friendly input struct for cash account v2 update.
+// Uses string for decimal values to avoid float64 precision loss.
 type cashAccountV2Input struct {
-	ID             string   `json:"id"`
-	Name           string   `json:"name"`
-	Balance        float64  `json:"balance"`
-	InterestRate   *float64 `json:"interestRate"`
-	BankName       string   `json:"bankName"`
-	AccountType    string   `json:"accountType"`
-	Notes          string   `json:"notes"`
-	GrowthStrategy string   `json:"growthStrategy"`
-	StartDate      *string  `json:"startDate"`
-	UpdateMode     string   `json:"updateMode,omitempty"`
+	ID             string  `json:"id"`
+	Name           string  `json:"name"`
+	Balance        string  `json:"balance"`
+	InterestRate   *string `json:"interestRate"`
+	BankName       string  `json:"bankName"`
+	AccountType    string  `json:"accountType"`
+	Notes          string  `json:"notes"`
+	GrowthStrategy string  `json:"growthStrategy"`
+	StartDate      *string `json:"startDate"`
+	UpdateMode     string  `json:"updateMode,omitempty"`
 }
 
 // CashAccountV2Handler serves cash account v2 endpoints.
@@ -51,6 +53,23 @@ func (h *CashAccountV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Parse decimal values from strings
+	balance, err := decimal.NewFromString(input.Balance)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	var interestRate *decimal.Decimal
+	if input.InterestRate != nil && *input.InterestRate != "" {
+		ir, err := decimal.NewFromString(*input.InterestRate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		interestRate = ir
+	}
+
 	// Parse startDate if provided
 	var startDate *time.Time
 	if input.StartDate != nil {
@@ -66,8 +85,8 @@ func (h *CashAccountV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Reque
 	serviceInput := cashaccount.UpdateInput{
 		ID:             id,
 		Name:           input.Name,
-		Balance:        input.Balance,
-		InterestRate:   input.InterestRate,
+		Balance:        *balance,
+		InterestRate:   interestRate,
 		BankName:       input.BankName,
 		AccountType:    input.AccountType,
 		Notes:          input.Notes,

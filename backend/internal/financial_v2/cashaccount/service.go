@@ -18,12 +18,13 @@ const (
 // ErrCannotDeleteAccumulator is returned when attempting to delete the accumulator account
 var ErrCannotDeleteAccumulator = errors.New("cannot delete cash accumulator account")
 
-// UpdateInput contains the parameters for updating a cash account
+// UpdateInput contains the parameters for updating a cash account.
+// Uses decimal.Decimal for financial values to avoid precision loss.
 type UpdateInput struct {
 	ID             string
 	Name           string
-	Balance        float64
-	InterestRate   *float64
+	Balance        decimal.Decimal
+	InterestRate   *decimal.Decimal
 	BankName       string
 	AccountType    string
 	Notes          string
@@ -82,7 +83,7 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, accountID string, i
 		ID:             accountID,
 		UserID:         userID,
 		Name:           input.Name,
-		Balance:        *decimal.MustFromFloat64(input.Balance),
+		Balance:        input.Balance,
 		BankName:       input.BankName,
 		AccountType:    input.AccountType,
 		Notes:          input.Notes,
@@ -90,7 +91,7 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, accountID string, i
 	}
 
 	if input.InterestRate != nil {
-		ca.InterestRate = *decimal.MustFromFloat64(*input.InterestRate)
+		ca.InterestRate = *input.InterestRate
 	}
 
 	return s.store.UpdateCashAccount(ctx, userID, ca)

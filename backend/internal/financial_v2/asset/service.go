@@ -14,13 +14,14 @@ const (
 	UpdateModeVersioned = "versioned"
 )
 
-// UpdateInput contains the parameters for updating an asset
+// UpdateInput contains the parameters for updating an asset.
+// Uses decimal.Decimal for financial values to avoid precision loss.
 type UpdateInput struct {
 	ID             string
 	Name           string
 	Category       string
-	CurrentValue   float64
-	GrowthRate     *float64
+	CurrentValue   decimal.Decimal
+	GrowthRate     *decimal.Decimal
 	GrowthStrategy string
 	Notes          string
 	StartDate      *time.Time
@@ -73,12 +74,12 @@ func (s *Service) versionedUpdate(ctx context.Context, userID, assetID string, i
 func (s *Service) updateExistingVersion(ctx context.Context, userID string, existing *repo.NonCashAsset, input UpdateInput) (*repo.NonCashAsset, error) {
 	existing.Name = input.Name
 	existing.Category = input.Category
-	existing.CurrentValue = *decimal.MustFromFloat64(input.CurrentValue)
+	existing.CurrentValue = input.CurrentValue
 	existing.Notes = input.Notes
 	existing.GrowthStrategy = input.GrowthStrategy
 
 	if input.GrowthRate != nil {
-		existing.AnnualGrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		existing.AnnualGrowthRate = *input.GrowthRate
 	}
 
 	return s.store.UpdateNonCashAsset(ctx, userID, *existing)
@@ -90,14 +91,16 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 		ParentID:       parentID,
 		Name:           input.Name,
 		Category:       input.Category,
-		CurrentValue:   *decimal.MustFromFloat64(input.CurrentValue),
+		CurrentValue:   input.CurrentValue,
 		Notes:          input.Notes,
 		GrowthStrategy: input.GrowthStrategy,
 		StartDate:      *input.StartDate,
 	}
 
 	if input.GrowthRate != nil {
-		newAsset.AnnualGrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		newAsset.AnnualGrowthRate = *input.GrowthRate
+	} else {
+		newAsset.AnnualGrowthRate = current.AnnualGrowthRate
 	}
 
 	created, err := s.store.CreateNonCashAsset(ctx, userID, newAsset)
@@ -113,13 +116,13 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, assetID string, inp
 		ID:             assetID,
 		Name:           input.Name,
 		Category:       input.Category,
-		CurrentValue:   *decimal.MustFromFloat64(input.CurrentValue),
+		CurrentValue:   input.CurrentValue,
 		Notes:          input.Notes,
 		GrowthStrategy: input.GrowthStrategy,
 	}
 
 	if input.GrowthRate != nil {
-		asset.AnnualGrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		asset.AnnualGrowthRate = *input.GrowthRate
 	}
 
 	return s.store.UpdateNonCashAsset(ctx, userID, asset)

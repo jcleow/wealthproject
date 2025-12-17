@@ -107,7 +107,7 @@ export function IncomeAllocationModal({
 
     const payload: CreateIncomeAllocationPayload = {
       allocationType,
-      allocationValue: parseFloat(allocationValue),
+      allocationValue, // Keep as string to avoid precision loss
       ...(targetType === 'investment'
         ? { targetInvestmentId: targetId }
         : { targetCashAccountId: targetId }),
@@ -161,11 +161,11 @@ export function IncomeAllocationModal({
 
   const totalPercentageAllocated = allocations
     .filter((a) => a.allocationType === 'percentage')
-    .reduce((sum, a) => sum + a.allocationValue, 0)
+    .reduce((sum, a) => sum + parseFloat(a.allocationValue), 0)
 
   const totalFixedAllocated = allocations
     .filter((a) => a.allocationType === 'fixed')
-    .reduce((sum, a) => sum + a.allocationValue, 0)
+    .reduce((sum, a) => sum + parseFloat(a.allocationValue), 0)
 
   const isFormValid = targetId && allocationValue && parseFloat(allocationValue) > 0
   const isSaving = createMutation.isPending || updateMutation.isPending

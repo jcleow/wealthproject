@@ -14,14 +14,15 @@ const (
 	UpdateModeVersioned = "versioned"
 )
 
-// UpdateInput contains the parameters for updating an income
+// UpdateInput contains the parameters for updating an income.
+// Uses decimal.Decimal for financial values to avoid precision loss.
 type UpdateInput struct {
 	ID             string
 	Source         string
 	Category       string
-	Amount         float64
+	Amount         decimal.Decimal
 	Frequency      string
-	GrowthRate     *float64
+	GrowthRate     *decimal.Decimal
 	GrowthStrategy string
 	Notes          string
 	StartDate      *time.Time
@@ -74,13 +75,13 @@ func (s *Service) versionedUpdate(ctx context.Context, userID, incomeID string, 
 func (s *Service) updateExistingVersion(ctx context.Context, userID string, existing *repo.Income, input UpdateInput) (*repo.Income, error) {
 	existing.Source = input.Source
 	existing.Category = input.Category
-	existing.Amount = *decimal.MustFromFloat64(input.Amount)
+	existing.Amount = input.Amount
 	existing.Frequency = input.Frequency
 	existing.Notes = input.Notes
 	existing.GrowthStrategy = input.GrowthStrategy
 
 	if input.GrowthRate != nil {
-		existing.GrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		existing.GrowthRate = *input.GrowthRate
 	}
 
 	return s.store.UpdateIncome(ctx, userID, *existing)
@@ -92,7 +93,7 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 		ParentID:       parentID,
 		Source:         input.Source,
 		Category:       input.Category,
-		Amount:         *decimal.MustFromFloat64(input.Amount),
+		Amount:         input.Amount,
 		Frequency:      input.Frequency,
 		Notes:          input.Notes,
 		GrowthStrategy: input.GrowthStrategy,
@@ -103,7 +104,7 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 	}
 
 	if input.GrowthRate != nil {
-		newIncome.GrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		newIncome.GrowthRate = *input.GrowthRate
 	} else {
 		newIncome.GrowthRate = current.GrowthRate
 	}
@@ -121,14 +122,14 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, incomeID string, in
 		ID:             incomeID,
 		Source:         input.Source,
 		Category:       input.Category,
-		Amount:         *decimal.MustFromFloat64(input.Amount),
+		Amount:         input.Amount,
 		Frequency:      input.Frequency,
 		Notes:          input.Notes,
 		GrowthStrategy: input.GrowthStrategy,
 	}
 
 	if input.GrowthRate != nil {
-		inc.GrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		inc.GrowthRate = *input.GrowthRate
 	}
 
 	return s.store.UpdateIncome(ctx, userID, inc)

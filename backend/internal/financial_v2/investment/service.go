@@ -14,13 +14,14 @@ const (
 	UpdateModeVersioned = "versioned"
 )
 
-// UpdateInput contains the parameters for updating an investment
+// UpdateInput contains the parameters for updating an investment.
+// Uses decimal.Decimal for financial values to avoid precision loss.
 type UpdateInput struct {
 	ID             string
 	Name           string
 	Category       string
-	CurrentValue   float64
-	GrowthRate     *float64
+	CurrentValue   decimal.Decimal
+	GrowthRate     *decimal.Decimal
 	GrowthStrategy string
 	Notes          string
 	StartDate      *time.Time
@@ -84,12 +85,12 @@ func (s *Service) versionedUpdate(ctx context.Context, userID, investmentID stri
 func (s *Service) updateExistingVersion(ctx context.Context, userID string, existing *repo.Investment, input UpdateInput) (*repo.Investment, error) {
 	existing.Name = input.Name
 	existing.Category = input.Category
-	existing.CurrentValue = *decimal.MustFromFloat64(input.CurrentValue)
+	existing.CurrentValue = input.CurrentValue
 	existing.Notes = input.Notes
 	existing.GrowthStrategy = input.GrowthStrategy
 
 	if input.GrowthRate != nil {
-		existing.GrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		existing.GrowthRate = *input.GrowthRate
 	}
 
 	return s.store.UpdateInvestment(ctx, userID, *existing)
@@ -101,14 +102,14 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 		ParentID:       parentID,
 		Name:           input.Name,
 		Category:       input.Category,
-		CurrentValue:   *decimal.MustFromFloat64(input.CurrentValue),
+		CurrentValue:   input.CurrentValue,
 		Notes:          input.Notes,
 		GrowthStrategy: input.GrowthStrategy,
 		StartDate:      *input.StartDate,
 	}
 
 	if input.GrowthRate != nil {
-		newInvestment.GrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		newInvestment.GrowthRate = *input.GrowthRate
 	} else {
 		newInvestment.GrowthRate = current.GrowthRate
 	}
@@ -126,13 +127,13 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, investmentID string
 		ID:             investmentID,
 		Name:           input.Name,
 		Category:       input.Category,
-		CurrentValue:   *decimal.MustFromFloat64(input.CurrentValue),
+		CurrentValue:   input.CurrentValue,
 		Notes:          input.Notes,
 		GrowthStrategy: input.GrowthStrategy,
 	}
 
 	if input.GrowthRate != nil {
-		inv.GrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		inv.GrowthRate = *input.GrowthRate
 	}
 
 	return s.store.UpdateInvestment(ctx, userID, inv)

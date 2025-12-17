@@ -6,23 +6,25 @@ import (
 	"net/http"
 	"time"
 
+	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/income"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
 
 // incomeV2Input is the JSON-friendly input struct for income v2 update.
+// Uses string for decimal values to avoid float64 precision loss.
 type incomeV2Input struct {
-	ID             string   `json:"id"`
-	ParentID       string   `json:"parentId"`
-	Source         string   `json:"source"`
-	Category       string   `json:"category"`
-	Amount         float64  `json:"amount"`
-	Frequency      string   `json:"frequency"`
-	GrowthRate     *float64 `json:"growthRate"`
-	GrowthStrategy string   `json:"growthStrategy"`
-	Notes          string   `json:"notes"`
-	StartDate      *string  `json:"startDate"`
-	UpdateMode     string   `json:"updateMode,omitempty"`
+	ID             string  `json:"id"`
+	ParentID       string  `json:"parentId"`
+	Source         string  `json:"source"`
+	Category       string  `json:"category"`
+	Amount         string  `json:"amount"`
+	Frequency      string  `json:"frequency"`
+	GrowthRate     *string `json:"growthRate"`
+	GrowthStrategy string  `json:"growthStrategy"`
+	Notes          string  `json:"notes"`
+	StartDate      *string `json:"startDate"`
+	UpdateMode     string  `json:"updateMode,omitempty"`
 }
 
 // IncomeV2Handler serves income v2 endpoints.
@@ -52,6 +54,23 @@ func (h *IncomeV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, i
 		return
 	}
 
+	// Parse decimal values from strings
+	amount, err := decimal.NewFromString(input.Amount)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	var growthRate *decimal.Decimal
+	if input.GrowthRate != nil && *input.GrowthRate != "" {
+		gr, err := decimal.NewFromString(*input.GrowthRate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		growthRate = gr
+	}
+
 	// Parse startDate if provided
 	var startDate *time.Time
 	if input.StartDate != nil {
@@ -68,9 +87,9 @@ func (h *IncomeV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, i
 		ID:             id,
 		Source:         input.Source,
 		Category:       input.Category,
-		Amount:         input.Amount,
+		Amount:         *amount,
 		Frequency:      input.Frequency,
-		GrowthRate:     input.GrowthRate,
+		GrowthRate:     growthRate,
 		GrowthStrategy: input.GrowthStrategy,
 		Notes:          input.Notes,
 		StartDate:      startDate,

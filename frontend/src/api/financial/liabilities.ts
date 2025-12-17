@@ -35,12 +35,13 @@ export async function updateLiability(
     updateMode?: UpdateMode
   }
 ): Promise<Liability> {
+  // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
     name: payload.name,
     category: payload.category,
-    currentBalance: payload.currentBalance,
-    interestRateApr: payload.interestRateApr,
-    minimumPayment: payload.minimumPayment,
+    currentBalance: payload.currentBalance?.toString(),
+    interestRateApr: payload.interestRateApr?.toString(),
+    minimumPayment: payload.minimumPayment?.toString(),
     notes: payload.notes,
     startDate: payload.startDate,
     endDate: payload.endDate,

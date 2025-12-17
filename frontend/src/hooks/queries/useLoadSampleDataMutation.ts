@@ -478,13 +478,13 @@ export function useLoadSampleDataMutation() {
           financialApi.createIncomeAllocation(salaryIncome.id, {
             targetInvestmentId: syfeInvestment.id,
             allocationType: 'fixed',
-            allocationValue: 300,
+            allocationValue: '300',
           }),
           // $200/month to Singapore Savings Bonds
           financialApi.createIncomeAllocation(salaryIncome.id, {
             targetInvestmentId: ssbInvestment.id,
             allocationType: 'fixed',
-            allocationValue: 200,
+            allocationValue: '200',
           }),
         ])
       }

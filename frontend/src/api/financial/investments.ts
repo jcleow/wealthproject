@@ -38,11 +38,12 @@ export async function updateInvestment(
     updateMode?: UpdateMode
   }
 ): Promise<Investment> {
+  // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
     name: payload.name,
     category: payload.category,
-    currentValue: payload.currentValue,
-    growthRate: payload.annualGrowthRate, // Backend uses growthRate
+    currentValue: payload.currentValue?.toString(),
+    growthRate: payload.annualGrowthRate?.toString(), // Backend uses growthRate
     notes: payload.notes,
   }
 

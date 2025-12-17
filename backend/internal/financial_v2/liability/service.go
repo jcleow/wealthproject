@@ -14,14 +14,15 @@ const (
 	UpdateModeVersioned = "versioned"
 )
 
-// UpdateInput contains the parameters for updating a liability
+// UpdateInput contains the parameters for updating a liability.
+// Uses decimal.Decimal for financial values to avoid precision loss.
 type UpdateInput struct {
 	ID                string
 	Name              string
 	Category          string
-	CurrentBalance    float64
-	InterestRateAPR   *float64
-	MinimumPayment    *float64
+	CurrentBalance    decimal.Decimal
+	InterestRateAPR   *decimal.Decimal
+	MinimumPayment    *decimal.Decimal
 	GrowthStrategy    string
 	RepaymentStrategy string
 	Notes             string
@@ -75,16 +76,16 @@ func (s *Service) versionedUpdate(ctx context.Context, userID, liabilityID strin
 func (s *Service) updateExistingVersion(ctx context.Context, userID string, existing *repo.Liability, input UpdateInput) (*repo.Liability, error) {
 	existing.Name = input.Name
 	existing.Category = input.Category
-	existing.CurrentBalance = *decimal.MustFromFloat64(input.CurrentBalance)
+	existing.CurrentBalance = input.CurrentBalance
 	existing.Notes = input.Notes
 	existing.GrowthStrategy = input.GrowthStrategy
 	existing.RepaymentStrategy = input.RepaymentStrategy
 
 	if input.InterestRateAPR != nil {
-		existing.InterestRateAPR = *decimal.MustFromFloat64(*input.InterestRateAPR)
+		existing.InterestRateAPR = *input.InterestRateAPR
 	}
 	if input.MinimumPayment != nil {
-		existing.MinimumPayment = *decimal.MustFromFloat64(*input.MinimumPayment)
+		existing.MinimumPayment = *input.MinimumPayment
 	}
 
 	return s.store.UpdateLiability(ctx, userID, *existing)
@@ -96,7 +97,7 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 		ParentID:          parentID,
 		Name:              input.Name,
 		Category:          input.Category,
-		CurrentBalance:    *decimal.MustFromFloat64(input.CurrentBalance),
+		CurrentBalance:    input.CurrentBalance,
 		Notes:             input.Notes,
 		GrowthStrategy:    input.GrowthStrategy,
 		RepaymentStrategy: input.RepaymentStrategy,
@@ -104,13 +105,13 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 	}
 
 	if input.InterestRateAPR != nil {
-		newLiability.InterestRateAPR = *decimal.MustFromFloat64(*input.InterestRateAPR)
+		newLiability.InterestRateAPR = *input.InterestRateAPR
 	} else {
 		newLiability.InterestRateAPR = current.InterestRateAPR
 	}
 
 	if input.MinimumPayment != nil {
-		newLiability.MinimumPayment = *decimal.MustFromFloat64(*input.MinimumPayment)
+		newLiability.MinimumPayment = *input.MinimumPayment
 	} else {
 		newLiability.MinimumPayment = current.MinimumPayment
 	}
@@ -128,17 +129,17 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, liabilityID string,
 		ID:                liabilityID,
 		Name:              input.Name,
 		Category:          input.Category,
-		CurrentBalance:    *decimal.MustFromFloat64(input.CurrentBalance),
+		CurrentBalance:    input.CurrentBalance,
 		Notes:             input.Notes,
 		GrowthStrategy:    input.GrowthStrategy,
 		RepaymentStrategy: input.RepaymentStrategy,
 	}
 
 	if input.InterestRateAPR != nil {
-		li.InterestRateAPR = *decimal.MustFromFloat64(*input.InterestRateAPR)
+		li.InterestRateAPR = *input.InterestRateAPR
 	}
 	if input.MinimumPayment != nil {
-		li.MinimumPayment = *decimal.MustFromFloat64(*input.MinimumPayment)
+		li.MinimumPayment = *input.MinimumPayment
 	}
 
 	return s.store.UpdateLiability(ctx, userID, li)

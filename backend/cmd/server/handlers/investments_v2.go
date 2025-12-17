@@ -6,22 +6,24 @@ import (
 	"net/http"
 	"time"
 
+	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/investment"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
 
 // investmentV2Input is the JSON-friendly input struct for investment v2 update.
+// Uses string for decimal values to avoid float64 precision loss.
 type investmentV2Input struct {
-	ID             string   `json:"id"`
-	ParentID       string   `json:"parentId"`
-	Name           string   `json:"name"`
-	Category       string   `json:"category"`
-	CurrentValue   float64  `json:"currentValue"`
-	GrowthRate     *float64 `json:"growthRate"`
-	GrowthStrategy string   `json:"growthStrategy"`
-	Notes          string   `json:"notes"`
-	StartDate      *string  `json:"startDate"`
-	UpdateMode     string   `json:"updateMode,omitempty"`
+	ID             string  `json:"id"`
+	ParentID       string  `json:"parentId"`
+	Name           string  `json:"name"`
+	Category       string  `json:"category"`
+	CurrentValue   string  `json:"currentValue"`
+	GrowthRate     *string `json:"growthRate"`
+	GrowthStrategy string  `json:"growthStrategy"`
+	Notes          string  `json:"notes"`
+	StartDate      *string `json:"startDate"`
+	UpdateMode     string  `json:"updateMode,omitempty"`
 }
 
 // InvestmentV2Handler serves investment v2 endpoints.
@@ -51,6 +53,23 @@ func (h *InvestmentV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Parse decimal values from strings
+	currentValue, err := decimal.NewFromString(input.CurrentValue)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	var growthRate *decimal.Decimal
+	if input.GrowthRate != nil && *input.GrowthRate != "" {
+		gr, err := decimal.NewFromString(*input.GrowthRate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		growthRate = gr
+	}
+
 	// Parse startDate if provided
 	var startDate *time.Time
 	if input.StartDate != nil {
@@ -67,8 +86,8 @@ func (h *InvestmentV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Reques
 		ID:             id,
 		Name:           input.Name,
 		Category:       input.Category,
-		CurrentValue:   input.CurrentValue,
-		GrowthRate:     input.GrowthRate,
+		CurrentValue:   *currentValue,
+		GrowthRate:     growthRate,
 		GrowthStrategy: input.GrowthStrategy,
 		Notes:          input.Notes,
 		StartDate:      startDate,
