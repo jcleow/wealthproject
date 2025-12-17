@@ -9,10 +9,13 @@ export interface CPFBalances {
   ra: number
 }
 
-// Database-backed CPF Account (per-user)
+// Database-backed CPF Account (per-user, versioned)
 export interface CPFAccount {
   id: string
   userId: string
+  parentId: string // Groups versions of same logical account
+  startDate: string // When this version starts
+  endDate?: string // When this version ends (null = ongoing)
   oaBalance: number // in cents
   saBalance: number // in cents
   maBalance: number // in cents
@@ -38,6 +41,8 @@ export interface CPFAccountCreatePayload {
   prGrantDate?: string
 }
 
+export type UpdateMode = 'in_place' | 'versioned'
+
 export interface CPFAccountUpdatePayload {
   oaBalance?: number
   saBalance?: number
@@ -48,6 +53,8 @@ export interface CPFAccountUpdatePayload {
   dateOfBirth?: string
   residencyStatus?: ResidencyStatus
   prGrantDate?: string
+  updateMode?: UpdateMode
+  startDate?: string // Required for versioned updates
 }
 
 // Legacy profile type (for existing components)

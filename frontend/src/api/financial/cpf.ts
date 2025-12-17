@@ -11,7 +11,7 @@ import type {
 
 export async function getCPFAccount(): Promise<CPFAccount | null> {
   try {
-    const data = await apiClient.get<any>('/cpf/account')
+    const data = await apiClient.get<any>('/v2/cpf/account')
     return toCPFAccount(data)
   } catch {
     return null
@@ -20,38 +20,60 @@ export async function getCPFAccount(): Promise<CPFAccount | null> {
 
 export async function createCPFAccount(payload: CPFAccountCreatePayload): Promise<CPFAccount> {
   const body = {
-    oa_balance: payload.oaBalance ?? 0,
-    sa_balance: payload.saBalance ?? 0,
-    ma_balance: payload.maBalance ?? 0,
-    ra_balance: payload.raBalance ?? 0,
-    oa_used_for_housing: payload.oaUsedForHousing ?? 0,
-    housing_start_date: payload.housingStartDate,
-    date_of_birth: payload.dateOfBirth,
-    residency_status: payload.residencyStatus,
-    pr_grant_date: payload.prGrantDate,
+    oaBalance: (payload.oaBalance ?? 0).toString(),
+    saBalance: (payload.saBalance ?? 0).toString(),
+    maBalance: (payload.maBalance ?? 0).toString(),
+    raBalance: (payload.raBalance ?? 0).toString(),
+    oaUsedForHousing: (payload.oaUsedForHousing ?? 0).toString(),
+    housingStartDate: payload.housingStartDate,
+    dateOfBirth: payload.dateOfBirth,
+    residencyStatus: payload.residencyStatus,
+    prGrantDate: payload.prGrantDate,
   }
-  const data = await apiClient.post<any>('/cpf/account', body)
+  const data = await apiClient.post<any>('/v2/cpf/account', body)
   return toCPFAccount(data)
 }
 
-export async function updateCPFAccount(payload: CPFAccountUpdatePayload): Promise<CPFAccount> {
-  const body: Record<string, unknown> = {}
-  if (payload.oaBalance !== undefined) body.oa_balance = payload.oaBalance
-  if (payload.saBalance !== undefined) body.sa_balance = payload.saBalance
-  if (payload.maBalance !== undefined) body.ma_balance = payload.maBalance
-  if (payload.raBalance !== undefined) body.ra_balance = payload.raBalance
-  if (payload.oaUsedForHousing !== undefined) body.oa_used_for_housing = payload.oaUsedForHousing
-  if (payload.housingStartDate !== undefined) body.housing_start_date = payload.housingStartDate
-  if (payload.dateOfBirth !== undefined) body.date_of_birth = payload.dateOfBirth
-  if (payload.residencyStatus !== undefined) body.residency_status = payload.residencyStatus
-  if (payload.prGrantDate !== undefined) body.pr_grant_date = payload.prGrantDate
+export async function updateCPFAccount(
+  id: string,
+  payload: CPFAccountUpdatePayload
+): Promise<CPFAccount> {
+  // Use string for decimal values to preserve precision
+  const body: Record<string, unknown> = {
+    oaBalance: payload.oaBalance?.toString() ?? '0',
+    saBalance: payload.saBalance?.toString() ?? '0',
+    maBalance: payload.maBalance?.toString() ?? '0',
+    raBalance: payload.raBalance?.toString() ?? '0',
+    oaUsedForHousing: payload.oaUsedForHousing?.toString() ?? '0',
+    housingStartDate: payload.housingStartDate,
+    dateOfBirth: payload.dateOfBirth,
+    residencyStatus: payload.residencyStatus,
+    prGrantDate: payload.prGrantDate,
+    updateMode: payload.updateMode,
+    startDate: payload.startDate,
+  }
 
-  const data = await apiClient.put<any>('/cpf/account', body)
+  // Use v2 API for versioned update support
+  const data = await apiClient.put<any>(`/v2/cpf/account/${id}`, body)
   return toCPFAccount(data)
 }
 
-export async function deleteCPFAccount(): Promise<void> {
-  await apiClient.delete('/cpf/account')
+export async function stopCPFAccount(id: string, endDate: string): Promise<CPFAccount> {
+  const data = await apiClient.post<any>(`/v2/cpf/account/${id}/stop`, { endDate })
+  return toCPFAccount(data)
+}
+
+export async function deleteCPFAccount(id: string): Promise<void> {
+  // Use v2 API for proper delete with cascade support
+  await apiClient.delete(`/v2/cpf/account/${id}`)
+}
+
+// Helper to delete the current user's CPF account (fetches ID first)
+export async function deleteCurrentCPFAccount(): Promise<void> {
+  const account = await getCPFAccount()
+  if (account) {
+    await deleteCPFAccount(account.id)
+  }
 }
 
 export async function getCPFConfig(params?: { year?: number; date?: string }): Promise<CPFConfiguration> {
@@ -88,7 +110,9 @@ export const cpfApi = {
   getCPFAccount,
   createCPFAccount,
   updateCPFAccount,
+  stopCPFAccount,
   deleteCPFAccount,
+  deleteCurrentCPFAccount,
   getCPFConfig,
   listCPFConfigYears,
   getCPFContributionPreview,

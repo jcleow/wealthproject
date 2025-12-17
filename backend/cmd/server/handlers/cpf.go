@@ -54,10 +54,7 @@ func (h *CPFHandler) handleAccount(w http.ResponseWriter, r *http.Request) {
 		h.getAccount(w, r)
 	case http.MethodPost:
 		h.createAccount(w, r)
-	case http.MethodPut:
-		h.updateAccount(w, r)
-	case http.MethodDelete:
-		h.deleteAccount(w, r)
+	// PUT and DELETE moved to v2 API with versioning support
 	default:
 		methodNotAllowed(w)
 	}
