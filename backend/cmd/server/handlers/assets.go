@@ -22,6 +22,7 @@ func (h *AssetHandler) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("/assets/", h.handleItem)
 }
 
+// GET|POST /api/v1/assets
 func (h *AssetHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -33,6 +34,8 @@ func (h *AssetHandler) handleCollection(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// GET /api/v1/assets/{id}
+// PUT /api/v1/assets/{id}/convert-to-property
 func (h *AssetHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/assets/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
@@ -61,6 +64,7 @@ func (h *AssetHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// PUT /api/v1/assets/{id}/convert-to-property
 func (h *AssetHandler) convertToProperty(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -78,6 +82,7 @@ func (h *AssetHandler) convertToProperty(w http.ResponseWriter, r *http.Request,
 	writeJSON(w, updated)
 }
 
+// GET /api/v1/assets
 func (h *AssetHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -92,6 +97,7 @@ func (h *AssetHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+// GET /api/v1/assets/{id}
 func (h *AssetHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -109,6 +115,7 @@ func (h *AssetHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 	writeJSON(w, item)
 }
 
+// POST /api/v1/assets
 func (h *AssetHandler) create(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

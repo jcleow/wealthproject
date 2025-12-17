@@ -374,10 +374,12 @@ func (c *CPFContext) ResetYTDIfNewYear(date time.Time, monthIdx int) {
 
 // ProcessIncomes calculates CPF contributions for all applicable incomes
 // Returns total employee CPF deduction and map of income ID -> contribution result
+// If applyToBalances is false, contributions are calculated but not added to accumulated balances (used for anchor month)
 func (c *CPFContext) ProcessIncomes(
 	incomes []FinancialDataRow,
 	state map[string]*decimal.Decimal,
 	date time.Time,
+	applyToBalances bool,
 ) (*decimal.Decimal, map[string]*cpfProcessor.ContributionResult) {
 	totalEmployeeCPF := decimal.Zero()
 	contributions := make(map[string]*cpfProcessor.ContributionResult)
@@ -411,7 +413,10 @@ func (c *CPFContext) ProcessIncomes(
 
 		if result != nil {
 			contributions[income.ID] = result
-			c.Processor.AddContributionToBalances(result, c.Balances)
+			// Only add contributions to balances if not anchor month
+			if applyToBalances {
+				c.Processor.AddContributionToBalances(result, c.Balances)
+			}
 			totalEmployeeCPF = totalEmployeeCPF.Add(result.EmployeeContribution)
 		}
 	}
@@ -505,29 +510,58 @@ func buildAnchorRange(opts TimelineOptions, rows EffectiveRows) (time.Time, time
 // isActiveInMonth checks if a financial row is active during the given month.
 // An item is active if it started on or before the last day of that month,
 // and hasn't ended before the first day of that month.
+//
+// IMPORTANT: This function compares calendar dates (year/month/day) in the
+// date's original timezone, NOT UTC timestamps. This ensures that a date like
+// "2026-02-01 00:00:00 +0800" is correctly treated as February 1st, even though
+// its UTC representation is "2026-01-31 16:00:00 UTC".
 func isActiveInMonth(row FinancialDataRow, date time.Time) bool {
-	// Get the last day of the month
-	year, month, _ := date.Date()
-	lastDayOfMonth := time.Date(year, month+1, 0, 23, 59, 59, 0, date.Location())
+	// Extract year/month from the check date
+	checkYear, checkMonth, _ := date.Date()
 
-	// Item must start on or before the last day of this month
-	if row.StartDate.After(lastDayOfMonth) {
+	// Extract year/month from the start date in its ORIGINAL timezone
+	// This preserves the user's intended calendar date
+	startYear, startMonth, _ := row.StartDate.Date()
+
+	// Check if start date is after the check month
+	// Item starts AFTER this month if: startYear > checkYear, or
+	// (startYear == checkYear AND startMonth > checkMonth)
+	if startYear > checkYear || (startYear == checkYear && startMonth > checkMonth) {
 		return false
 	}
-	// If item has an end date, it must not have ended before the first day of this month
-	if row.EndDate != nil && row.EndDate.Before(date) {
-		return false
+
+	// If item has an end date, check if it ended before the check month
+	if row.EndDate != nil {
+		endYear, endMonth, _ := row.EndDate.Date()
+
+		// Item ended BEFORE this month if: endYear < checkYear, or
+		// (endYear == checkYear AND endMonth < checkMonth)
+		if endYear < checkYear || (endYear == checkYear && endMonth < checkMonth) {
+			return false
+		}
 	}
+
 	return true
 }
 
 // hasStartedByMonth checks if an item has started on or before the given month.
 // Unlike isActiveInMonth, this ignores end dates - useful for liabilities where
 // the end date represents the loan term, not when the debt disappears.
+//
+// Uses calendar date comparison to avoid timezone issues.
 func hasStartedByMonth(row FinancialDataRow, date time.Time) bool {
-	year, month, _ := date.Date()
-	lastDayOfMonth := time.Date(year, month+1, 0, 23, 59, 59, 0, date.Location())
-	return !row.StartDate.After(lastDayOfMonth)
+	checkYear, checkMonth, _ := date.Date()
+	startYear, startMonth, _ := row.StartDate.Date()
+
+	// Item has started if: startYear < checkYear, or
+	// (startYear == checkYear AND startMonth <= checkMonth)
+	if startYear < checkYear {
+		return true
+	}
+	if startYear == checkYear && startMonth <= checkMonth {
+		return true
+	}
+	return false
 }
 
 // initializeItemStates creates ItemStateMap with StartYear/StartMonth for all financial rows
@@ -767,7 +801,9 @@ func applyInvestmentAllocations(
 ) *decimal.Decimal {
 	total := decimal.Zero()
 
-	// Build a map of income ID -> allocations targeting investments (filtered by date)
+	// Build a map of income ParentID -> allocations targeting investments (filtered by date)
+	// Allocations are linked to the original income ID, which for versioned incomes is the ParentID.
+	// When an income is versioned, new versions have different IDs but same ParentID.
 	incomeAllocMap := make(map[string][]repo.IncomeAllocation)
 	for _, alloc := range allocations {
 		if alloc.TargetInvestmentID != nil && isAllocationActiveInMonth(alloc, currentDate) {
@@ -780,7 +816,9 @@ func applyInvestmentAllocations(
 			continue
 		}
 
-		allocs, hasAllocs := incomeAllocMap[income.ID]
+		// Look up allocations by income's ParentID since allocations are linked to the original income.
+		// For non-versioned incomes, ParentID == ID. For versioned incomes, ParentID points to original.
+		allocs, hasAllocs := incomeAllocMap[income.ParentID]
 		if !hasAllocs {
 			continue
 		}
@@ -1375,7 +1413,9 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	}
 
 	// Process CPF contributions (using adjusted income values if scenarios are active)
-	employeeCPF, cpfContributions := mctx.CPFCtx.ProcessIncomes(mctx.Data.Incomes, stateForCalcs, currentDate)
+	// For anchor month, calculate contributions but don't add to balances (show base values)
+	applyContributions := !isAnchorMonth
+	employeeCPF, cpfContributions := mctx.CPFCtx.ProcessIncomes(mctx.Data.Incomes, stateForCalcs, currentDate, applyContributions)
 
 	// Calculate cash flow; investment allocations are computed every month but only mutate balances after the anchor month
 	var netSavings, netCashFlow, netInvestments *decimal.Decimal

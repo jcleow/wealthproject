@@ -11,7 +11,7 @@ import type {
 
 export async function getCPFAccount(): Promise<CPFAccount | null> {
   try {
-    const data = await apiClient.get<any>('/v2/cpf/account')
+    const data = await apiClient.get<any>('/cpf/account', undefined, { baseUrl: '/api/v2' })
     return toCPFAccount(data)
   } catch {
     return null
@@ -30,7 +30,7 @@ export async function createCPFAccount(payload: CPFAccountCreatePayload): Promis
     residencyStatus: payload.residencyStatus,
     prGrantDate: payload.prGrantDate,
   }
-  const data = await apiClient.post<any>('/v2/cpf/account', body)
+  const data = await apiClient.post<any>('/cpf/account', body, { baseUrl: '/api/v2' })
   return toCPFAccount(data)
 }
 
@@ -54,25 +54,28 @@ export async function updateCPFAccount(
   }
 
   // Use v2 API for versioned update support
-  const data = await apiClient.put<any>(`/v2/cpf/account/${id}`, body)
+  const data = await apiClient.put<any>(`/cpf/account/${id}`, body, { baseUrl: '/api/v2' })
   return toCPFAccount(data)
 }
 
 export async function stopCPFAccount(id: string, endDate: string): Promise<CPFAccount> {
-  const data = await apiClient.post<any>(`/v2/cpf/account/${id}/stop`, { endDate })
+  const data = await apiClient.post<any>(`/cpf/account/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
   return toCPFAccount(data)
 }
 
 export async function deleteCPFAccount(id: string): Promise<void> {
   // Use v2 API for proper delete with cascade support
-  await apiClient.delete(`/v2/cpf/account/${id}`)
+  await apiClient.delete(`/cpf/account/${id}`, { baseUrl: '/api/v2' })
 }
 
-// Helper to delete the current user's CPF account (fetches ID first)
+/**
+ * Delete all CPF accounts using the V2 endpoint (bulk delete, includes versioned entries)
+ */
 export async function deleteCurrentCPFAccount(): Promise<void> {
-  const account = await getCPFAccount()
-  if (account) {
-    await deleteCPFAccount(account.id)
+  const response = await fetch('/api/v2/cpf/accounts', { method: 'DELETE' })
+  if (!response.ok && response.status !== 204) {
+    const errorText = await response.text()
+    throw new Error(`Failed to delete CPF accounts: ${response.status} ${errorText}`)
   }
 }
 

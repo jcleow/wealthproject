@@ -16,11 +16,11 @@ export interface CPFAccount {
   parentId: string // Groups versions of same logical account
   startDate: string // When this version starts
   endDate?: string // When this version ends (null = ongoing)
-  oaBalance: number // in cents
-  saBalance: number // in cents
-  maBalance: number // in cents
-  raBalance: number // in cents
-  oaUsedForHousing: number // in cents
+  oaBalance: number // in dollars (decimal)
+  saBalance: number // in dollars (decimal)
+  maBalance: number // in dollars (decimal)
+  raBalance: number // in dollars (decimal)
+  oaUsedForHousing: number // in dollars (decimal)
   housingStartDate?: string
   dateOfBirth: string
   residencyStatus: ResidencyStatus

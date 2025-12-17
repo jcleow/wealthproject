@@ -48,20 +48,20 @@ export async function updateAsset(
   }
 
   // Use v2 API for versioned update support
-  const data = await apiClient.put<any>(`/v2/assets/${id}`, body)
+  const data = await apiClient.put<any>(`/assets/${id}`, body, { baseUrl: '/api/v2' })
   return toAsset(data)
 }
 
 // Stop an asset (soft delete) - sets end_date
 export async function stopAsset(id: string, endDate: string): Promise<Asset> {
-  const data = await apiClient.post<any>(`/v2/assets/${id}/stop`, { endDate })
+  const data = await apiClient.post<any>(`/assets/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
   return toAsset(data)
 }
 
 export async function deleteAsset(id: string): Promise<void> {
   try {
     // Use v2 API for recursive delete support
-    await apiClient.delete<void>(`/v2/assets/${id}`)
+    await apiClient.delete<void>(`/assets/${id}`, { baseUrl: '/api/v2' })
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return
@@ -75,9 +75,15 @@ export async function convertAssetToProperty(id: string): Promise<Asset> {
   return toAsset(data)
 }
 
+/**
+ * Delete all assets using the V2 endpoint (bulk delete, includes versioned entries)
+ */
 export async function deleteAllAssets(): Promise<void> {
-  const result = await listAssets({ limit: -1 })
-  await Promise.all(result.data.map((asset) => deleteAsset(asset.id)))
+  const response = await fetch('/api/v2/assets', { method: 'DELETE' })
+  if (!response.ok && response.status !== 204) {
+    const errorText = await response.text()
+    throw new Error(`Failed to delete assets: ${response.status} ${errorText}`)
+  }
 }
 
 export const assetsApi = {

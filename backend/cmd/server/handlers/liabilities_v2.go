@@ -43,6 +43,7 @@ func NewLiabilityV2Handler(store *repo.Store) *LiabilityV2Handler {
 	}
 }
 
+// POST /api/v2/liabilities
 // HandleCreate creates a new liability and auto-creates a linked expense.
 // @Summary Create a liability (v2)
 // @Description Creates a new liability. If minimumPayment > 0, automatically creates a linked expense for debt repayment.
@@ -85,7 +86,8 @@ func (h *LiabilityV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request
 	writeJSON(w, created)
 }
 
-// HandleUpdate handles PUT /api/v2/liabilities/{id}
+// PUT /api/v2/liabilities/{id}
+// HandleUpdate updates a liability with versioning.
 func (h *LiabilityV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userCtx := middleware.GetUserContext(r.Context())
 
@@ -162,7 +164,8 @@ func (h *LiabilityV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request
 	writeJSON(w, result)
 }
 
-// HandleDelete handles DELETE /api/v2/liabilities/{id}
+// DELETE /api/v2/liabilities/{id}
+// HandleDelete removes a liability.
 func (h *LiabilityV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userCtx := middleware.GetUserContext(r.Context())
 
@@ -178,7 +181,8 @@ func (h *LiabilityV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HandleStop handles POST /api/v2/liabilities/{id}/stop
+// POST /api/v2/liabilities/{id}/stop
+// HandleStop sets an end date for a liability.
 func (h *LiabilityV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userCtx := middleware.GetUserContext(r.Context())
 

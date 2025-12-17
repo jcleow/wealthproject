@@ -40,7 +40,8 @@ func NewAssetV2Handler(store *repo.Store) *AssetV2Handler {
 	}
 }
 
-// HandleUpdate handles PUT /api/v2/assets/{id}
+// PUT /api/v2/assets/{id}
+// HandleUpdate updates an asset with versioning.
 func (h *AssetV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -108,7 +109,8 @@ func (h *AssetV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id
 	writeJSON(w, result)
 }
 
-// HandleDelete handles DELETE /api/v2/assets/{id}
+// DELETE /api/v2/assets/{id}
+// HandleDelete removes an asset.
 func (h *AssetV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -127,7 +129,8 @@ func (h *AssetV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HandleStop handles POST /api/v2/assets/{id}/stop
+// POST /api/v2/assets/{id}/stop
+// HandleStop schedules an asset end date.
 func (h *AssetV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

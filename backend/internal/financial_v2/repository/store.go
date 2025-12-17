@@ -1261,3 +1261,97 @@ func (s *Store) DeleteIncomeAllocation(
 
 	return nil
 }
+
+// ==================== Bulk Delete Operations ====================
+
+// DeleteAllNonCashAssets deletes all non-cash assets for a user (bulk delete).
+func (s *Store) DeleteAllNonCashAssets(ctx context.Context, userID string) (int64, error) {
+	query := `DELETE FROM finance_assets WHERE user_id = $1`
+	logQuery(query, []any{userID})
+	tag, err := s.pool.Exec(ctx, query, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete all non-cash assets: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// DeleteAllCashAssets resets all cash accounts for a user (bulk delete).
+// The accumulator account is preserved but reset to 0 balance.
+// Non-accumulator accounts are deleted.
+func (s *Store) DeleteAllCashAssets(ctx context.Context, userID string) (int64, error) {
+	// Reset accumulator balance to 0 (keep the account)
+	resetQuery := `UPDATE finance_cash_accounts SET balance = 0, updated_at = NOW() WHERE user_id = $1 AND is_accumulator = true`
+	logQuery(resetQuery, []any{userID})
+	_, err := s.pool.Exec(ctx, resetQuery, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to reset accumulator balance: %w", err)
+	}
+
+	// Delete non-accumulator cash accounts
+	deleteQuery := `DELETE FROM finance_cash_accounts WHERE user_id = $1 AND is_accumulator = false`
+	logQuery(deleteQuery, []any{userID})
+	tag, err := s.pool.Exec(ctx, deleteQuery, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete non-accumulator cash accounts: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// DeleteAllLiabilities deletes all liabilities for a user (bulk delete).
+func (s *Store) DeleteAllLiabilities(ctx context.Context, userID string) (int64, error) {
+	query := `DELETE FROM finance_liabilities WHERE user_id = $1`
+	logQuery(query, []any{userID})
+	tag, err := s.pool.Exec(ctx, query, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete all liabilities: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// DeleteAllIncomes deletes all incomes for a user (bulk delete).
+// Also cascades to delete income_allocations via FK constraint.
+func (s *Store) DeleteAllIncomes(ctx context.Context, userID string) (int64, error) {
+	query := `DELETE FROM finance_incomes WHERE user_id = $1`
+	logQuery(query, []any{userID})
+	tag, err := s.pool.Exec(ctx, query, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete all incomes: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// DeleteAllInvestments deletes all investments for a user (bulk delete).
+func (s *Store) DeleteAllInvestments(ctx context.Context, userID string) (int64, error) {
+	query := `DELETE FROM finance_investments WHERE user_id = $1`
+	logQuery(query, []any{userID})
+	tag, err := s.pool.Exec(ctx, query, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete all investments: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// DeleteAllCPFAccounts deletes all CPF accounts for a user (bulk delete).
+func (s *Store) DeleteAllCPFAccounts(ctx context.Context, userID string) (int64, error) {
+	query := `DELETE FROM cpf_accounts WHERE user_id = $1`
+	logQuery(query, []any{userID})
+	tag, err := s.pool.Exec(ctx, query, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete all CPF accounts: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// DeleteAllIncomeAllocations deletes all income allocations for a user (bulk delete).
+func (s *Store) DeleteAllIncomeAllocations(ctx context.Context, userID string) (int64, error) {
+	query := `
+	DELETE FROM income_allocations ia
+	USING finance_incomes fi
+	WHERE ia.income_id = fi.id AND fi.user_id = $1`
+	logQuery(query, []any{userID})
+	tag, err := s.pool.Exec(ctx, query, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete all income allocations: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}

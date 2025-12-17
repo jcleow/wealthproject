@@ -6,7 +6,8 @@ import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 
 export async function listExpenses(params?: PaginationParams): Promise<PaginatedResponse<Expense>> {
   const path = buildPaginatedPath('/cashflow/expenses', params)
-  const raw = await apiClient.get<any>(path)
+  // Use v2 API for full expense management
+  const raw = await apiClient.get<any>(path, undefined, { baseUrl: '/api/v2' })
 
   // Backend returns GroupedExpenses with regularExpenses and debtRepayments
   const regularExpenses = Array.isArray(raw?.regularExpenses) ? raw.regularExpenses : []
@@ -23,12 +24,13 @@ export async function listExpenses(params?: PaginationParams): Promise<Paginated
 }
 
 export async function createExpense(payload: Omit<Expense, 'id' | 'updatedAt'> & { parentId?: string; sourceLiabilityId?: string }): Promise<Expense> {
+  // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
     payee: payload.payee,
-    amount: payload.amount,
+    amount: payload.amount?.toString(),
     frequency: payload.frequency,
     category: payload.category,
-    growthRate: payload.growthRate ?? 2.0,
+    growthRate: (payload.growthRate ?? 2.0).toString(),
     notes: payload.notes,
   }
   if (payload.startDate !== undefined) body.startDate = payload.startDate
@@ -36,7 +38,8 @@ export async function createExpense(payload: Omit<Expense, 'id' | 'updatedAt'> &
   if (payload.parentId !== undefined) body.parentId = payload.parentId
   if (payload.sourceLiabilityId !== undefined) body.sourceLiabilityId = payload.sourceLiabilityId
 
-  const data = await apiClient.post<any>('/cashflow/expenses', body)
+  // Use v2 API for full expense management
+  const data = await apiClient.post<any>('/cashflow/expenses', body, { baseUrl: '/api/v2' })
   return toExpense(data)
 }
 
@@ -47,12 +50,13 @@ export async function updateExpense(
     updateMode?: UpdateMode
   }
 ): Promise<Expense> {
+  // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
     payee: payload.payee,
-    amount: payload.amount,
+    amount: payload.amount?.toString(),
     frequency: payload.frequency,
     category: payload.category,
-    growthRate: payload.growthRate,
+    growthRate: payload.growthRate?.toString(),
     notes: payload.notes,
     startDate: payload.startDate,
     endDate: payload.endDate,
@@ -66,19 +70,22 @@ export async function updateExpense(
     body.updateMode = payload.updateMode
   }
 
-  const data = await apiClient.put<any>(`/cashflow/expenses/${id}`, body)
+  // Use v2 API for versioned update support
+  const data = await apiClient.put<any>(`/cashflow/expenses/${id}`, body, { baseUrl: '/api/v2' })
   return toExpense(data)
 }
 
 // Stop an expense (soft delete) - sets end_date
 export async function stopExpense(id: string, endDate: string): Promise<Expense> {
-  const data = await apiClient.post<any>(`/cashflow/expenses/${id}/stop`, { endDate })
+  // Use v2 API for versioned stop support
+  const data = await apiClient.post<any>(`/cashflow/expenses/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
   return toExpense(data)
 }
 
 export async function deleteExpense(id: string): Promise<void> {
   try {
-    await apiClient.delete<void>(`/cashflow/expenses/${id}`)
+    // Use v2 API for recursive delete support
+    await apiClient.delete<void>(`/cashflow/expenses/${id}`, { baseUrl: '/api/v2' })
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return

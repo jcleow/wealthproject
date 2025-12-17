@@ -49,9 +49,36 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	router.HandleFunc("/financial/timeline/chart", timelineHandler.HandleGetTimelineChart).Methods("GET")
 	router.HandleFunc("/financial/timeline/snapshot", timelineHandler.HandleGetSnapshot).Methods("GET")
 
-	// Expense v2 endpoints (bulk operations)
+	// Bulk delete v2 endpoints (for delete all data functionality)
+	// These must be registered BEFORE the /{id} routes to avoid route conflicts
+	bulkDeleteHandler := handlers.NewBulkDeleteV2Handler(deps.FinStore)
+	router.HandleFunc("/assets", bulkDeleteHandler.HandleDeleteAllAssets).Methods("DELETE")
+	router.HandleFunc("/cash-accounts", bulkDeleteHandler.HandleDeleteAllCashAccounts).Methods("DELETE")
+	router.HandleFunc("/liabilities", bulkDeleteHandler.HandleDeleteAllLiabilities).Methods("DELETE")
+	router.HandleFunc("/cashflow/incomes", bulkDeleteHandler.HandleDeleteAllIncomes).Methods("DELETE")
+	router.HandleFunc("/investments", bulkDeleteHandler.HandleDeleteAllInvestments).Methods("DELETE")
+	router.HandleFunc("/cpf/accounts", bulkDeleteHandler.HandleDeleteAllCPFAccounts).Methods("DELETE")
+
+	// Expense v2 endpoints (full CRUD with versioning)
 	expenseHandler := handlers.NewExpenseV2Handler(deps.FinStore)
+	router.HandleFunc("/cashflow/expenses", expenseHandler.HandleList).Methods("GET")
+	router.HandleFunc("/cashflow/expenses", expenseHandler.HandleCreate).Methods("POST")
 	router.HandleFunc("/cashflow/expenses", expenseHandler.HandleDeleteAll).Methods("DELETE")
+	router.HandleFunc("/cashflow/expenses/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "PUT":
+			expenseHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			expenseHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("PUT", "DELETE")
+	router.HandleFunc("/cashflow/expenses/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		expenseHandler.HandleStop(w, r, id)
+	}).Methods("POST")
 
 	// Liability v2 endpoints (with auto-linked expense creation and versioning)
 	liabilityHandler := handlers.NewLiabilityV2Handler(deps.FinStore)

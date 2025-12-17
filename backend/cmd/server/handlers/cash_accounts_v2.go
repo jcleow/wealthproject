@@ -40,7 +40,8 @@ func NewCashAccountV2Handler(store *repo.Store) *CashAccountV2Handler {
 	}
 }
 
-// HandleUpdate handles PUT /api/v2/cash-accounts/{id}
+// PUT /api/v2/cash-accounts/{id}
+// HandleUpdate updates a cash account with versioning.
 func (h *CashAccountV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -109,7 +110,8 @@ func (h *CashAccountV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, result)
 }
 
-// HandleDelete handles DELETE /api/v2/cash-accounts/{id}
+// DELETE /api/v2/cash-accounts/{id}
+// HandleDelete removes a cash account.
 func (h *CashAccountV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -132,8 +134,8 @@ func (h *CashAccountV2Handler) HandleDelete(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HandleStop handles POST /api/v2/cash-accounts/{id}/stop
-// This will cascade stop to any income allocations targeting this cash account.
+// POST /api/v2/cash-accounts/{id}/stop
+// HandleStop sets an end date for a cash account and cascades to allocations.
 func (h *CashAccountV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

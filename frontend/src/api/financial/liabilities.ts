@@ -52,20 +52,20 @@ export async function updateLiability(
   }
 
   // Use v2 API for versioned update support
-  const data = await apiClient.put<any>(`/v2/liabilities/${id}`, body)
+  const data = await apiClient.put<any>(`/liabilities/${id}`, body, { baseUrl: '/api/v2' })
   return toLiability(data)
 }
 
 // Stop a liability (soft delete) - sets end_date
 export async function stopLiability(id: string, endDate: string): Promise<Liability> {
-  const data = await apiClient.post<any>(`/v2/liabilities/${id}/stop`, { endDate })
+  const data = await apiClient.post<any>(`/liabilities/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
   return toLiability(data)
 }
 
 export async function deleteLiability(id: string): Promise<void> {
   try {
     // Use v2 API for recursive delete support
-    await apiClient.delete<void>(`/v2/liabilities/${id}`)
+    await apiClient.delete<void>(`/liabilities/${id}`, { baseUrl: '/api/v2' })
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return
@@ -79,9 +79,15 @@ export async function convertLiabilityToProperty(id: string): Promise<Liability>
   return toLiability(data)
 }
 
+/**
+ * Delete all liabilities using the V2 endpoint (bulk delete, includes versioned entries)
+ */
 export async function deleteAllLiabilities(): Promise<void> {
-  const result = await listLiabilities({ limit: -1 })
-  await Promise.all(result.data.map((liability) => deleteLiability(liability.id)))
+  const response = await fetch('/api/v2/liabilities', { method: 'DELETE' })
+  if (!response.ok && response.status !== 204) {
+    const errorText = await response.text()
+    throw new Error(`Failed to delete liabilities: ${response.status} ${errorText}`)
+  }
 }
 
 export const liabilitiesApi = {

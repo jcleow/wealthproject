@@ -40,7 +40,8 @@ func NewInvestmentV2Handler(store *repo.Store) *InvestmentV2Handler {
 	}
 }
 
-// HandleUpdate handles PUT /api/v2/investments/{id}
+// PUT /api/v2/investments/{id}
+// HandleUpdate updates an investment with versioning and cascading rules.
 func (h *InvestmentV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -108,7 +109,8 @@ func (h *InvestmentV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, result)
 }
 
-// HandleDelete handles DELETE /api/v2/investments/{id}
+// DELETE /api/v2/investments/{id}
+// HandleDelete removes an investment.
 func (h *InvestmentV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -127,8 +129,8 @@ func (h *InvestmentV2Handler) HandleDelete(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HandleStop handles POST /api/v2/investments/{id}/stop
-// This will cascade stop to any income allocations targeting this investment.
+// POST /api/v2/investments/{id}/stop
+// HandleStop sets an end date for an investment and cascades to income allocations.
 func (h *InvestmentV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

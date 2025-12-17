@@ -19,6 +19,7 @@ func NewTimelineV2Handler(svc *timeline_v2.Service) *TimelineV2Handler {
 	return &TimelineV2Handler{svc: svc}
 }
 
+// GET /api/v2/financial/timeline/chart
 // HandleGetTimelineChart returns the timeline chart data (summary only)
 // @Summary Get financial timeline chart (v2)
 // @Description Returns the simplified financial timeline chart with net worth projections
@@ -56,6 +57,7 @@ func (h *TimelineV2Handler) HandleGetTimelineChart(w http.ResponseWriter, r *htt
 	writeJSON(w, resp)
 }
 
+// GET /api/v2/financial/timeline/snapshot
 // HandleGetSnapshot returns monthly financial snapshots with optional range filtering
 // @Summary Get monthly financial snapshots (v2)
 // @Description Returns detailed monthly snapshots with all financial items, balances, and summaries. startDate is required (DD-MM-YYYY format). If endDate is not provided, returns only items matching startDate.

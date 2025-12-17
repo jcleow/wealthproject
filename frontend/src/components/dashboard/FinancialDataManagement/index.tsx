@@ -19,8 +19,9 @@ import {
   useStopAssetMutation,
   useStopLiabilityMutation,
   useStopIncomeMutation,
+  useDeleteCpfAccountMutation,
 } from '@/hooks/queries'
-import type { TimelineItem, TimelineEditRequest, TimelineEdit, TimelineFrequency } from '@/types/timeline'
+import type { TimelineItem } from '@/types/timeline'
 import type { PropertyLinkRecord } from '@/types/property'
 import type { FinancialFormValues } from '@/components/modals/FinancialFormModal'
 import { FinancialFormModal } from '@/components/modals/FinancialFormModal'
@@ -35,6 +36,7 @@ import { DeleteConfirmationModal } from '@/components/modals/FinancialFormModal/
 import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal'
 import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal'
+// CpfAccountFormModal removed - using FinancialFormModal for per-item editing
 // import { financialApi } from '@/api/financial'
 import type { IncomeAllocation } from '@/api/financial/incomes'
 
@@ -73,11 +75,9 @@ export function FinancialDataManagement({
   anchorMonth,
   resolution,
   isTimelineLoading = false,
-  onSaveTimelineEdits,
 }: FinancialDataManagementProps) {
   // V2 data is available when the feature flag is enabled and data is loaded
   const hasV2Data = !!timelineMonthV2
-  const usingTimeline = true
   const [viewMode, setViewMode] = useState<'annualized' | 'monthly'>('monthly')
 
   // Determine if we should show monthly data
@@ -135,6 +135,8 @@ export function FinancialDataManagement({
   }, [timelineMonthV2?.incomeAllocations])
   const deleteAllocationMutation = useDeleteIncomeAllocationMutation()
   const stopAllocationMutation = useStopIncomeAllocationMutation()
+  // CPF account queries - no longer using dedicated CPF modal
+  const deleteCpfAccountMutation = useDeleteCpfAccountMutation()
 
   // ========== V2 Data Extraction ==========
   const yearAssets = useMemo(() => {
@@ -403,52 +405,57 @@ export function FinancialDataManagement({
 
   const handleDeleteItem = async (category: FinancialCategory, id: string) => {
     try {
-      // Investments are handled separately from timeline edits
-      if (category !== 'investment' && usingTimeline && onSaveTimelineEdits && selectedYear > 0) {
-        // Look up the original item to get its name for the timeline edit
-        const dataSource = category === 'asset' ? yearAssets
-          : category === 'liability' ? yearLiabilities
-          : category === 'income' ? yearIncomes
-          : category === 'expense' ? yearExpenses
-          : []
-        const item = dataSource.find((i) => getItemId(i) === id)
-        const itemName = item?.name ?? ''
+      // Check if we're at anchor month - always use direct delete at anchor
+      // selectedYear and anchorYear are both actual calendar years (e.g., 2025)
+      // selectedMonth and anchorMonth are both actual months (1-12)
+      const isAtAnchorMonth = selectedYear === anchorYear && selectedMonth === anchorMonth
+      console.log('[handleDeleteItem]', { category, id, selectedYear, selectedMonth, anchorYear, anchorMonth, isAtAnchorMonth })
 
-        const isFlow = category === 'income' || category === 'expense'
-        const edit: TimelineEdit = {
-          itemId: id,
-          itemType: category,
-          name: itemName,
-          amount: 0,
-          ...(isFlow && { frequency: 'annual' as const }),
+      // At anchor month or for investments, use direct API delete
+      // Timeline edits (amount: 0) are only for future months where we want versioned "stop"
+      if (isAtAnchorMonth || category === 'investment') {
+        // Use direct delete API
+        switch (category) {
+          case 'asset':
+            await deleteAsset(id)
+            break
+          case 'liability':
+            await deleteLiability(id)
+            break
+          case 'income':
+            await deleteIncome(id)
+            break
+          case 'expense':
+            await deleteExpense(id)
+            break
+          case 'investment':
+            await deleteInvestmentMutation.mutateAsync(id)
+            break
         }
-
-        const request: TimelineEditRequest = {
-          year: selectedYear,
-          edits: [edit],
-        }
-        await onSaveTimelineEdits(request)
+        await refresh()
         return
       }
 
+      // For future months, use the stop API to set end_date (soft delete)
+      // Calculate end_date as last day of the month before the selected month in UTC
+      // Day 0 of a month = last day of previous month
+      const stopEndDate = new Date(Date.UTC(selectedYear, (selectedMonth ?? 1) - 1, 0)).toISOString()
+
       switch (category) {
         case 'asset':
-          await deleteAsset(id)
+          await stopAssetMutation.mutateAsync({ id, endDate: stopEndDate })
           break
         case 'liability':
-          await deleteLiability(id)
+          await stopLiabilityMutation.mutateAsync({ id, endDate: stopEndDate })
           break
         case 'income':
-          await deleteIncome(id)
+          await stopIncomeMutation.mutateAsync({ id, endDate: stopEndDate })
           break
         case 'expense':
-          await deleteExpense(id)
-          break
-        case 'investment':
-          await deleteInvestmentMutation.mutateAsync(id)
+          await stopExpenseMutation.mutateAsync({ id, endDate: stopEndDate })
           break
       }
-      await refresh()
+      return
     } catch (error) {
       console.error(`Failed to delete ${category}:`, error)
     }
@@ -465,71 +472,34 @@ export function FinancialDataManagement({
     // Debt repayments should use direct API updates, not timeline edits, to preserve the liability link
     const isDebtRepayment = payload.type === 'expense' && 'sourceLiabilityId' in payload && !!payload.sourceLiabilityId
 
-    // Investments and debt repayments are handled separately from timeline edits
-    if (payload.type !== 'investment' && !isDebtRepayment && usingTimeline && onSaveTimelineEdits) {
-      const mapFrequency = (freq: string | undefined): TimelineFrequency => {
-        if (freq === 'monthly' || freq === 'weekly' || freq === 'biweekly' || freq === 'quarterly' || freq === 'semiannual' || freq === 'annual') {
-          return freq
-        }
-        return 'annual'
-      }
+    // Check if we're at anchor month (base month) - edits at anchor should use direct API updates
+    // to avoid creating duplicate records. Timeline edits always create new versions.
+    // selectedYear and anchorYear are both actual calendar years (e.g., 2025)
+    // selectedMonth and anchorMonth are both actual months (1-12)
+    const isAtAnchorMonth = selectedYear === anchorYear && selectedMonth === anchorMonth
 
-      const payloadId = 'id' in payload ? payload.id : undefined
-      const modalDataId = modalState.data ? getItemId(modalState.data) : undefined
-      const itemId = payloadId || modalDataId
+    console.log('[handleModalSave]', {
+      mode,
+      type: payload.type,
+      selectedYear,
+      selectedMonth,
+      anchorYear,
+      anchorMonth,
+      isAtAnchorMonth,
+      isDebtRepayment,
+    })
 
-      const amount = (() => {
-        switch (payload.type) {
-          case 'asset':
-            return Math.round(payload.currentValue)
-          case 'liability':
-            return Math.round(payload.currentBalance)
-          case 'income':
-          case 'expense':
-            return Math.round(payload.amount)
-          case 'cpf':
-            return 0
-        }
-      })()
+    // For future month edits (not at anchor), use versioned updates that stop+create
+    // This properly handles versioning by setting end_date on parent and creating new version
+    const isFutureMonthEdit = mode === 'edit' && !isAtAnchorMonth && !isDebtRepayment
 
-      const name = (() => {
-        switch (payload.type) {
-          case 'asset':
-          case 'liability':
-            return payload.name
-          case 'income':
-            return payload.source
-          case 'expense':
-            return payload.payee
-          case 'cpf':
-            return ''
-        }
-      })()
+    // Calculate startDate for versioned updates (first day of selected month in UTC)
+    // Use Date.UTC to avoid timezone issues - we want 2026-02-01T00:00:00Z not local time
+    const versionStartDate = isFutureMonthEdit && selectedYear && selectedMonth
+      ? new Date(Date.UTC(selectedYear, selectedMonth - 1, 1)).toISOString()
+      : undefined
 
-      const category = payload.type !== 'cpf' ? payload.category : ''
-      const isFlow = payload.type === 'income' || payload.type === 'expense'
-      // Preserve sourceLiabilityId for debt repayment expenses
-      const sourceLiabilityId = payload.type === 'expense' ? payload.sourceLiabilityId : undefined
-
-      const edit: TimelineEdit = {
-        itemId: itemId || undefined,
-        name,
-        itemType: payload.type === 'cpf' ? 'asset' : payload.type,
-        category,
-        amount,
-        ...(isFlow && { frequency: mapFrequency(payload.frequency) }),
-        ...(sourceLiabilityId && { sourceLiabilityId }),
-      }
-
-      const request: TimelineEditRequest = {
-        year: selectedYear,
-        edits: [edit],
-      }
-      await onSaveTimelineEdits(request)
-      handleModalClose()
-      return
-    }
-
+    console.log('[handleModalSave] Using direct API path', { isFutureMonthEdit, versionStartDate })
     switch (payload.type) {
       case 'cpf': {
         await Promise.all(
@@ -551,7 +521,11 @@ export function FinancialDataManagement({
         if (mode === 'edit' && modalState.data) {
           const targetId = getItemId(modalState.data)
           if (!targetId) throw new Error('Unable to update asset: missing item id')
-          await updateAsset(targetId, { ...values, updatedAt: timestamp })
+          await updateAsset(targetId, {
+            ...values,
+            updatedAt: timestamp,
+            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: versionStartDate }),
+          })
         } else {
           await addAsset(values)
         }
@@ -562,7 +536,11 @@ export function FinancialDataManagement({
         if (mode === 'edit' && modalState.data) {
           const targetId = getItemId(modalState.data)
           if (!targetId) throw new Error('Unable to update income: missing item id')
-          await updateIncome(targetId, { ...values, updatedAt: timestamp })
+          await updateIncome(targetId, {
+            ...values,
+            updatedAt: timestamp,
+            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: versionStartDate }),
+          })
         } else {
           await addIncome(values)
         }
@@ -573,7 +551,11 @@ export function FinancialDataManagement({
         if (mode === 'edit' && modalState.data) {
           const targetId = getItemId(modalState.data)
           if (!targetId) throw new Error('Unable to update liability: missing item id')
-          await updateLiability(targetId, { ...values, updatedAt: timestamp })
+          await updateLiability(targetId, {
+            ...values,
+            updatedAt: timestamp,
+            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: versionStartDate }),
+          })
         } else {
           await addLiability(values)
         }
@@ -585,8 +567,12 @@ export function FinancialDataManagement({
         if (mode === 'edit' && modalState.data) {
           const targetId = getItemId(modalState.data)
           if (!targetId) throw new Error('Unable to update expense: missing item id')
-          // Backend handles versioning logic (stop + create for future months)
-          await updateExpense(targetId, { ...values, sourceLiabilityId, updatedAt: timestamp })
+          await updateExpense(targetId, {
+            ...values,
+            sourceLiabilityId,
+            updatedAt: timestamp,
+            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: versionStartDate }),
+          })
         } else {
           await addExpense(values)
         }
@@ -677,10 +663,12 @@ export function FinancialDataManagement({
   }
 
   // Delete or stop an allocation
-  // At base (selectedYear=0, selectedMonth=0): delete the allocation entirely
+  // At anchor month: delete the allocation entirely
   // At future month: stop the allocation by setting end_date to last day of previous month
   const handleDeleteAllocation = async (allocation: IncomeAllocation) => {
-    const isFutureMonth = selectedYear > 0 || (selectedMonth !== undefined && selectedMonth > 0)
+    // Check if we're past the anchor month (future month)
+    const isAtAnchor = selectedYear === anchorYear && selectedMonth === anchorMonth
+    const isFutureMonth = !isAtAnchor
 
     if (isFutureMonth) {
       // Stop allocation at this future point - set end_date to last day of previous month
@@ -714,7 +702,8 @@ export function FinancialDataManagement({
 
   // ========== Debt Repayment Delete Handler ==========
   // Determine if we're in a future month (not anchor)
-  const isFutureMonth = selectedYear > 0 || (selectedMonth !== undefined && selectedMonth > 1)
+  const isAtAnchorForDebt = selectedYear === anchorYear && selectedMonth === anchorMonth
+  const isFutureMonth = !isAtAnchorForDebt
 
   const handleDeleteDebtRepayment = (item: TimelineItem) => {
     // At future months, show confirmation modal with versioning options
@@ -788,6 +777,37 @@ export function FinancialDataManagement({
       await deleteInvestmentMutation.mutateAsync(id)
     } catch (error) {
       console.error('Failed to delete investment:', error)
+    }
+  }
+
+  // ========== CPF Handlers ==========
+  // Edit CPF - use FinancialFormModal for per-item editing (like investments)
+  const handleEditCpf = (item: TimelineItem) => {
+    // Convert CPF TimelineItem to asset-like shape for the modal
+    // Use amountMonthly (original balance) not adjMonthlyAmt (after growth)
+    const cpfData = {
+      id: item.itemId,
+      name: item.name,
+      category: item.category || 'cpf_oa',
+      currentValue: item.amountMonthly ?? item.adjMonthlyAmt ?? 0,
+      annualGrowthRate: 0, // CPF growth is handled separately
+      notes: '',
+    }
+    setModalState({
+      isOpen: true,
+      type: 'asset',
+      mode: 'edit',
+      data: cpfData as EditableFinancialItem,
+    })
+  }
+
+  // Delete CPF - use existing asset delete flow
+  const handleDeleteCpf = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this CPF account? This cannot be undone.')) return
+    try {
+      await deleteCpfAccountMutation.mutateAsync(id)
+    } catch (error) {
+      console.error('Failed to delete CPF account:', error)
     }
   }
 
@@ -888,6 +908,8 @@ export function FinancialDataManagement({
                   onEditAllocation={key === 'income' ? handleEditAllocation : undefined}
                   onDeleteAllocation={key === 'income' ? handleDeleteAllocation : undefined}
                   onDeleteDebtRepayment={key === 'expense' ? handleDeleteDebtRepayment : undefined}
+                  onEditCpf={key === 'asset' ? handleEditCpf : undefined}
+                  onDeleteCpf={key === 'asset' ? handleDeleteCpf : undefined}
                 />
                 </ResizableCard>
               ))}

@@ -39,20 +39,20 @@ export async function updateCashAccount(id: string, payload: Partial<CashAccount
     notes: payload.notes,
   }
   // Use v2 API for versioned update support
-  const data = await apiClient.put<any>(`/v2/cash-accounts/${id}`, body)
+  const data = await apiClient.put<any>(`/cash-accounts/${id}`, body, { baseUrl: '/api/v2' })
   return toCashAccount(data)
 }
 
 // Stop a cash account (soft delete) - sets end_date and cascades to linked allocations
 export async function stopCashAccount(id: string, endDate: string): Promise<CashAccount> {
-  const data = await apiClient.post<any>(`/v2/cash-accounts/${id}/stop`, { endDate })
+  const data = await apiClient.post<any>(`/cash-accounts/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
   return toCashAccount(data)
 }
 
 export async function deleteCashAccount(id: string): Promise<void> {
   try {
     // Use v2 API for proper delete with cascade support
-    await apiClient.delete<void>(`/v2/cash-accounts/${id}`)
+    await apiClient.delete<void>(`/cash-accounts/${id}`, { baseUrl: '/api/v2' })
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return
@@ -65,10 +65,15 @@ export async function setAccumulatorAccount(id: string): Promise<void> {
   await apiClient.put<void>(`/cash-accounts/${id}/set-accumulator`)
 }
 
+/**
+ * Delete all cash accounts using the V2 endpoint (bulk delete, includes versioned entries)
+ */
 export async function deleteAllCashAccounts(): Promise<void> {
-  const accounts = await listCashAccounts()
-  const nonAccumulatorAccounts = accounts.filter((account) => !account.isAccumulator)
-  await Promise.all(nonAccumulatorAccounts.map((account) => deleteCashAccount(account.id)))
+  const response = await fetch('/api/v2/cash-accounts', { method: 'DELETE' })
+  if (!response.ok && response.status !== 204) {
+    const errorText = await response.text()
+    throw new Error(`Failed to delete cash accounts: ${response.status} ${errorText}`)
+  }
 }
 
 export const cashAccountsApi = {

@@ -11,7 +11,8 @@ import (
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
 
-// HandleGet handles GET /api/v2/cpf/account (returns current user's CPF account)
+// GET /api/v2/cpf/account
+// HandleGet returns the current user's CPF account.
 func (h *CPFV2Handler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -48,7 +49,8 @@ type cpfV2CreateInput struct {
 	PRGrantDate     *string `json:"prGrantDate"`
 }
 
-// HandleCreate handles POST /api/v2/cpf/account
+// POST /api/v2/cpf/account
+// HandleCreate creates a CPF account.
 func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -174,7 +176,8 @@ func NewCPFV2Handler(store *repo.Store) *CPFV2Handler {
 	}
 }
 
-// HandleUpdate handles PUT /api/v2/cpf/account/{id}
+// PUT /api/v2/cpf/account/{id}
+// HandleUpdate updates a CPF account.
 func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -281,7 +284,8 @@ func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id s
 	writeJSON(w, result)
 }
 
-// HandleDelete handles DELETE /api/v2/cpf/account/{id}
+// DELETE /api/v2/cpf/account/{id}
+// HandleDelete removes a CPF account.
 func (h *CPFV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -300,7 +304,8 @@ func (h *CPFV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id s
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HandleStop handles POST /api/v2/cpf/account/{id}/stop
+// POST /api/v2/cpf/account/{id}/stop
+// HandleStop sets an end date for a CPF account.
 func (h *CPFV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

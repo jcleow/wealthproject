@@ -22,6 +22,7 @@ func (h *CashAccountHandler) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("/cash-accounts/", h.handleItem)
 }
 
+// GET|POST /api/v1/cash-accounts
 func (h *CashAccountHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -33,6 +34,8 @@ func (h *CashAccountHandler) handleCollection(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// GET /api/v1/cash-accounts/{id}
+// PUT /api/v1/cash-accounts/{id}/set-accumulator
 func (h *CashAccountHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/cash-accounts/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
@@ -61,6 +64,7 @@ func (h *CashAccountHandler) handleItem(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// GET /api/v1/cash-accounts
 func (h *CashAccountHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -74,6 +78,7 @@ func (h *CashAccountHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, items)
 }
 
+// GET /api/v1/cash-accounts/{id}
 func (h *CashAccountHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -91,6 +96,7 @@ func (h *CashAccountHandler) get(w http.ResponseWriter, r *http.Request, id stri
 	writeJSON(w, item)
 }
 
+// POST /api/v1/cash-accounts
 func (h *CashAccountHandler) create(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -115,6 +121,7 @@ func (h *CashAccountHandler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, created)
 }
 
+// PUT /api/v1/cash-accounts/{id}
 func (h *CashAccountHandler) update(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -139,6 +146,7 @@ func (h *CashAccountHandler) update(w http.ResponseWriter, r *http.Request, id s
 	writeJSON(w, updated)
 }
 
+// DELETE /api/v1/cash-accounts/{id}
 func (h *CashAccountHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -176,6 +184,7 @@ func (h *CashAccountHandler) delete(w http.ResponseWriter, r *http.Request, id s
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// PUT /api/v1/cash-accounts/{id}/set-accumulator
 func (h *CashAccountHandler) setAccumulator(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

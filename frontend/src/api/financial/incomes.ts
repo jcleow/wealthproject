@@ -73,20 +73,20 @@ export async function updateIncome(
   }
 
   // Use v2 API for versioned update support
-  const data = await apiClient.put<any>(`/v2/cashflow/incomes/${id}`, body)
+  const data = await apiClient.put<any>(`/cashflow/incomes/${id}`, body, { baseUrl: '/api/v2' })
   return toIncome(data)
 }
 
 // Stop an income (soft delete) - sets end_date
 export async function stopIncome(id: string, endDate: string): Promise<Income> {
-  const data = await apiClient.post<any>(`/v2/cashflow/incomes/${id}/stop`, { endDate })
+  const data = await apiClient.post<any>(`/cashflow/incomes/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
   return toIncome(data)
 }
 
 export async function deleteIncome(id: string): Promise<void> {
   try {
     // Use v2 API for recursive delete support
-    await apiClient.delete<void>(`/v2/cashflow/incomes/${id}`)
+    await apiClient.delete<void>(`/cashflow/incomes/${id}`, { baseUrl: '/api/v2' })
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return
@@ -95,9 +95,16 @@ export async function deleteIncome(id: string): Promise<void> {
   }
 }
 
+/**
+ * Delete all incomes using the V2 endpoint (bulk delete, includes versioned entries)
+ * Also cascades to delete income allocations.
+ */
 export async function deleteAllIncomes(): Promise<void> {
-  const result = await listIncomes({ limit: -1 })
-  await Promise.all(result.data.map((income) => deleteIncome(income.id)))
+  const response = await fetch('/api/v2/cashflow/incomes', { method: 'DELETE' })
+  if (!response.ok && response.status !== 204) {
+    const errorText = await response.text()
+    throw new Error(`Failed to delete incomes: ${response.status} ${errorText}`)
+  }
 }
 
 // Income Allocation API Methods

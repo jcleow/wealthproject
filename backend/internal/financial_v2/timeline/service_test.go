@@ -922,3 +922,111 @@ func TestComputeFinancialSnapshot_FixedTermLiabilityPastEndDate(t *testing.T) {
 		}
 	}
 }
+
+// TestComputeFinancialSnapshot_VersionedIncomeAllocations tests that allocations work correctly
+// when the income has been versioned (e.g., user edited the income in a future month).
+// The allocation should still apply to all versions of the income because allocations are
+// linked by the income's ParentID.
+func TestComputeFinancialSnapshot_VersionedIncomeAllocations(t *testing.T) {
+	// Scenario:
+	// - Income v1: $5000/month from Jan 1 - Jan 31 (ID: "income-v1", ParentID: "income-v1")
+	// - Income v2: $6000/month from Feb 1 onwards (ID: "income-v2", ParentID: "income-v1")
+	// - Allocation: $500 fixed to investment, linked to income-v1 (the original/parent)
+	// Expected: allocation should apply in all months (Jan through Mar)
+	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC)
+	incomeV1EndDate := time.Date(2025, 1, 31, 23, 59, 59, 0, time.UTC)
+
+	store := &mockStore{
+		incomes: []repo.Income{
+			{
+				ID:         "income-v1",
+				ParentID:   "income-v1", // Original income is its own parent
+				Source:     "Salary",
+				Amount:     *decimal.MustFromString("5000"),
+				Frequency:  "monthly",
+				StartDate:  startDate,
+				EndDate:    &incomeV1EndDate, // Ended at end of January
+				Category:   "Employment",
+				GrowthRate: *decimal.MustFromString("0"),
+			},
+			{
+				ID:         "income-v2",
+				ParentID:   "income-v1", // Points to original income
+				Source:     "Salary",
+				Amount:     *decimal.MustFromString("6000"), // Increased in Feb
+				Frequency:  "monthly",
+				StartDate:  time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC),
+				EndDate:    nil, // Still ongoing
+				Category:   "Employment",
+				GrowthRate: *decimal.MustFromString("0"),
+			},
+		},
+		investments: []repo.Investment{
+			{
+				ID:               "inv-1",
+				ParentID:         "inv-1",
+				Name:             "ETF Portfolio",
+				CurrentValue:     *decimal.MustFromString("10000"),
+				AnnualGrowthRate: *decimal.MustFromString("0"), // No growth for simplicity
+				StartDate:        startDate,
+			},
+		},
+		incomeAllocs: []repo.IncomeAllocation{
+			{
+				ID:                 "alloc-1",
+				IncomeID:           "income-v1", // Linked to original income (ParentID)
+				TargetInvestmentID: strPtr("inv-1"),
+				AllocationType:     "fixed",
+				AllocationValue:    *decimal.MustFromString("500"), // Fixed $500/month
+				StartDate:          startDate,
+			},
+		},
+	}
+
+	service := NewService(store)
+	opts := TimelineOptions{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	result, err := service.ComputeFinancialSnapshot(context.Background(), "user-1", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Months) != 3 {
+		t.Fatalf("expected 3 months, got %d", len(result.Months))
+	}
+
+	// All months should have NetInvestments = 500 because:
+	// - Month 1: income-v1 is active, allocation applies via ParentID match
+	// - Month 2+: income-v2 is active, allocation applies because income-v2.ParentID == "income-v1"
+	expectedNetInvestments := decimal.MustFromString("500")
+
+	for i, month := range result.Months {
+		t.Logf("Month %d: NetInvestments=%s, InvestmentBalance=%s",
+			i+1, month.NetInvestments.String(), month.Investments[0].Balance.String())
+
+		if month.NetInvestments.Cmp(expectedNetInvestments) != 0 {
+			t.Errorf("month %d: expected net investments %s, got %s",
+				i+1, expectedNetInvestments.String(), month.NetInvestments.String())
+		}
+	}
+
+	// Investment balance should increase after anchor month:
+	// Month 1 (anchor): 10000 (allocation calculated but not applied to balance)
+	// Month 2: 10000 + 500 = 10500
+	// Month 3: 10500 + 500 = 11000
+	expectedBalances := []string{"10000", "10500", "11000"}
+	for i, month := range result.Months {
+		if len(month.Investments) != 1 {
+			t.Fatalf("month %d: expected 1 investment, got %d", i+1, len(month.Investments))
+		}
+		expected := decimal.MustFromString(expectedBalances[i])
+		if month.Investments[0].Balance.Cmp(expected) != 0 {
+			t.Errorf("month %d: expected investment balance %s, got %s",
+				i+1, expected.String(), month.Investments[0].Balance.String())
+		}
+	}
+}

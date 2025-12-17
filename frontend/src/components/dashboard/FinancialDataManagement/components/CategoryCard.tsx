@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Plus, ArrowDownWideNarrow, ArrowUpRight, ArrowDownRight, Pencil, Trash2, Wallet, BarChart3 } from 'lucide-react'
 import type { TimelineItem, CPFContributionResponseV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
@@ -63,6 +63,9 @@ interface CategoryCardProps {
   onDeleteAllocation?: (allocation: IncomeAllocation) => void
   // Debt repayment callbacks
   onDeleteDebtRepayment?: (item: TimelineItem) => void
+  // CPF CRUD callbacks
+  onEditCpf?: (item: TimelineItem) => void
+  onDeleteCpf?: (id: string) => void
 }
 
 export function CategoryCard({
@@ -106,6 +109,8 @@ export function CategoryCard({
   onEditAllocation,
   onDeleteAllocation,
   onDeleteDebtRepayment,
+  onEditCpf,
+  onDeleteCpf,
 }: CategoryCardProps) {
   const config = categoryConfig[category]
 
@@ -323,7 +328,12 @@ export function CategoryCard({
 
             {/* CPF Sub-section for Assets (V2 only) */}
             {category === 'asset' && cpfAssets.length > 0 && (
-              <CPFAssetsSection cpfAssets={cpfAssets} getDisplayAmount={getDisplayAmount} />
+              <CPFAssetsSection
+                cpfAssets={cpfAssets}
+                getDisplayAmount={getDisplayAmount}
+                onEdit={onEditCpf}
+                onDelete={onDeleteCpf}
+              />
             )}
 
             {/* CPF Contributions Sub-section for Income (V2 only) */}
@@ -378,47 +388,76 @@ interface InvestmentsAssetsSectionProps {
 
 function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, onDelete }: InvestmentsAssetsSectionProps) {
   const total = investmentAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
+
+  // Close on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sectionRef.current && !sectionRef.current.contains(event.target as Node)) {
+        setSelectedId(null)
+      }
+    }
+    if (selectedId) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [selectedId])
+
+  const handleDoubleClick = useCallback((itemId: string) => {
+    setSelectedId((prev) => (prev === itemId ? null : itemId))
+  }, [])
 
   return (
-    <div className="mt-3 border-t border-white/[0.06] pt-3">
+    <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
       <div className="mb-2 flex items-center gap-2 px-2">
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Investments</span>
         <span className="text-[10px] text-slate-600">({formatCurrency(total)})</span>
       </div>
       {investmentAssets.map((item, index) => {
         const itemId = item.itemId || `investment-asset-${index}`
+        const isSelected = selectedId === itemId
         return (
           <div
             key={itemId}
-            className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
+            onDoubleClick={() => handleDoubleClick(itemId)}
+            className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
           >
             <span className="truncate text-sm text-slate-300">{item.name}</span>
-            <span className={`${numericStyles.base} transition-opacity group-hover/item:opacity-0`}>
+            <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
               {formatCurrency(getDisplayAmount(item))}
             </span>
-            {/* Edit/Delete buttons - absolutely positioned, visible on hover */}
-            <div className="pointer-events-none absolute right-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:pointer-events-auto group-hover/item:opacity-100">
-              {onEdit && (
-                <button
-                  onClick={() => onEdit(item)}
-                  className="rounded p-1 text-slate-500 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
-                  type="button"
-                  title="Edit"
-                >
-                  <Pencil className="h-3 w-3" />
-                </button>
-              )}
-              {onDelete && item.itemId && (
-                <button
-                  onClick={() => onDelete(item.itemId!)}
-                  className="rounded p-1 text-slate-500 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
-                  type="button"
-                  title="Delete"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              )}
-            </div>
+            {/* Edit/Delete buttons - visible when selected via double-click */}
+            {isSelected && (
+              <div className="absolute right-2 flex items-center gap-0.5">
+                {onEdit && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEdit(item)
+                    }}
+                    className="rounded p-1 text-slate-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                    type="button"
+                    title="Edit"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+                {onDelete && item.itemId && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete(item.itemId!)
+                    }}
+                    className="rounded p-1 text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                    type="button"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )
       })}
@@ -429,28 +468,85 @@ function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, 
 interface CPFAssetsSectionProps {
   cpfAssets: TimelineItem[]
   getDisplayAmount: (item: TimelineItem) => number
+  onEdit?: (item: TimelineItem) => void
+  onDelete?: (id: string) => void
 }
 
-function CPFAssetsSection({ cpfAssets, getDisplayAmount }: CPFAssetsSectionProps) {
+function CPFAssetsSection({ cpfAssets, getDisplayAmount, onEdit, onDelete }: CPFAssetsSectionProps) {
   const total = cpfAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
+
+  // Close on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sectionRef.current && !sectionRef.current.contains(event.target as Node)) {
+        setSelectedId(null)
+      }
+    }
+    if (selectedId) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [selectedId])
+
+  const handleDoubleClick = useCallback((itemId: string) => {
+    setSelectedId((prev) => (prev === itemId ? null : itemId))
+  }, [])
 
   return (
-    <div className="mt-3 border-t border-white/[0.06] pt-3">
+    <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
       <div className="mb-2 flex items-center gap-2 px-2">
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">CPF Accounts</span>
         <span className="text-[10px] text-slate-600">({formatCurrency(total)})</span>
       </div>
-      {cpfAssets.map((item, index) => (
-        <div
-          key={item.itemId || `cpf-asset-${index}`}
-          className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
-        >
-          <span className="truncate text-sm text-slate-300">{item.name}</span>
-          <span className={numericStyles.base}>
-            {formatCurrency(getDisplayAmount(item))}
-          </span>
-        </div>
-      ))}
+      {cpfAssets.map((item, index) => {
+        const itemId = item.itemId || `cpf-asset-${index}`
+        const isSelected = selectedId === itemId
+        return (
+          <div
+            key={itemId}
+            onDoubleClick={() => handleDoubleClick(itemId)}
+            className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
+          >
+            <span className="truncate text-sm text-slate-300">{item.name}</span>
+            <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
+              {formatCurrency(getDisplayAmount(item))}
+            </span>
+            {/* Edit/Delete buttons - visible when selected via double-click */}
+            {isSelected && (
+              <div className="absolute right-2 flex items-center gap-0.5">
+                {onEdit && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEdit(item)
+                    }}
+                    className="rounded p-1 text-slate-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                    type="button"
+                    title="Edit"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+                {onDelete && item.itemId && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete(item.itemId!)
+                    }}
+                    className="rounded p-1 text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                    type="button"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -509,6 +605,25 @@ function InvestmentsSection({
 }: InvestmentsSectionProps) {
   // Filter for investment allocations only
   const investmentAllocations = allocations.filter((a) => a.targetInvestmentId)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
+
+  // Close on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sectionRef.current && !sectionRef.current.contains(event.target as Node)) {
+        setSelectedId(null)
+      }
+    }
+    if (selectedId) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [selectedId])
+
+  const handleDoubleClick = useCallback((allocationId: string) => {
+    setSelectedId((prev) => (prev === allocationId ? null : allocationId))
+  }, [])
 
   // Helper to get investment name by ID
   const getInvestmentName = (investmentId: string): string => {
@@ -525,7 +640,7 @@ function InvestmentsSection({
   }
 
   return (
-    <div className="mt-3 border-t border-white/[0.06] pt-3">
+    <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
       <div className="mb-2 flex items-center gap-2 px-2">
         <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Investments</span>
         <span className="text-[10px] text-slate-600">
@@ -535,45 +650,57 @@ function InvestmentsSection({
       </div>
 
       {investmentAllocations.length > 0 ? (
-        investmentAllocations.map((allocation) => (
-          <div
-            key={allocation.id}
-            className="group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
-          >
-            <div className="min-w-0 flex-1">
-              <span className="truncate text-sm text-slate-300">{getInvestmentName(allocation.targetInvestmentId!)}</span>
+        investmentAllocations.map((allocation) => {
+          const isSelected = selectedId === allocation.id
+          return (
+            <div
+              key={allocation.id}
+              onDoubleClick={() => handleDoubleClick(allocation.id)}
+              className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
+            >
+              <div className="min-w-0 flex-1">
+                <span className="truncate text-sm text-slate-300">{getInvestmentName(allocation.targetInvestmentId!)}</span>
+              </div>
+              <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
+                {formatAllocationValue(allocation)}
+                {allocation.allocationType === 'fixed' && (
+                  <span className="ml-1 text-xs text-slate-400">/mo</span>
+                )}
+              </span>
+              {/* Edit/Delete buttons - visible when selected via double-click */}
+              {isSelected && (
+                <div className="absolute right-2 flex items-center gap-0.5">
+                  {onEditAllocation && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onEditAllocation(allocation)
+                      }}
+                      className="rounded p-1 text-slate-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                      type="button"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                  )}
+                  {onDeleteAllocation && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDeleteAllocation(allocation)
+                      }}
+                      className="rounded p-1 text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                      type="button"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-            <span className={`${numericStyles.base} transition-opacity group-hover/item:opacity-0`}>
-              {formatAllocationValue(allocation)}
-              {allocation.allocationType === 'fixed' && (
-                <span className="ml-1 text-xs text-slate-400">/mo</span>
-              )}
-            </span>
-            {/* Edit/Delete buttons - absolutely positioned, visible on hover */}
-            <div className="pointer-events-none absolute right-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover/item:pointer-events-auto group-hover/item:opacity-100">
-              {onEditAllocation && (
-                <button
-                  onClick={() => onEditAllocation(allocation)}
-                  className="rounded p-1 text-slate-500 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
-                  type="button"
-                  title="Edit"
-                >
-                  <Pencil className="h-3 w-3" />
-                </button>
-              )}
-              {onDeleteAllocation && (
-                <button
-                  onClick={() => onDeleteAllocation(allocation)}
-                  className="rounded p-1 text-slate-500 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
-                  type="button"
-                  title="Delete"
-                >
-                  <Trash2 className="h-3 w-3" />                  
-                </button>
-              )}
-            </div>
-          </div>
-        ))
+          )
+        })
       ) : (
         <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
           <span className="truncate text-sm text-slate-300">Allocated to investments</span>

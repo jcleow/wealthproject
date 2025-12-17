@@ -53,7 +53,8 @@ func toIncomeAllocationV2DTO(a repo.IncomeAllocation) incomeAllocationV2DTO {
 	return dto
 }
 
-// HandleListAll handles GET /income-allocations - list all allocations for the user.
+// GET /api/v2/income-allocations
+// HandleListAll lists all income allocations for the user.
 // Query params:
 //   - targetType: "investment" or "cash_account" to filter by target type
 func (h *IncomeAllocationV2Handler) HandleListAll(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +88,8 @@ func (h *IncomeAllocationV2Handler) HandleListAll(w http.ResponseWriter, r *http
 	json.NewEncoder(w).Encode(dtos)
 }
 
-// HandleListByIncome handles GET /incomes/{incomeId}/allocations - list allocations for a specific income.
+// GET /api/v2/incomes/{incomeId}/allocations
+// HandleListByIncome lists allocations for a specific income.
 func (h *IncomeAllocationV2Handler) HandleListByIncome(w http.ResponseWriter, r *http.Request, incomeID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -118,7 +120,8 @@ type incomeAllocationCreateDTO struct {
 	AllocationValue     string  `json:"allocationValue"`
 }
 
-// HandleCreate handles POST /incomes/{incomeId}/allocations - create a new allocation.
+// POST /api/v2/incomes/{incomeId}/allocations
+// HandleCreate creates a new allocation.
 func (h *IncomeAllocationV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request, incomeID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -180,7 +183,8 @@ func (h *IncomeAllocationV2Handler) HandleCreate(w http.ResponseWriter, r *http.
 	json.NewEncoder(w).Encode(toIncomeAllocationV2DTO(*created))
 }
 
-// HandleUpdate handles PUT /incomes/{incomeId}/allocations/{allocId} - update an allocation.
+// PUT /api/v2/incomes/{incomeId}/allocations/{allocId}
+// HandleUpdate updates an income allocation.
 func (h *IncomeAllocationV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -242,7 +246,8 @@ func (h *IncomeAllocationV2Handler) HandleUpdate(w http.ResponseWriter, r *http.
 	json.NewEncoder(w).Encode(toIncomeAllocationV2DTO(*updated))
 }
 
-// HandleDelete handles DELETE /incomes/{incomeId}/allocations/{allocId} - delete an allocation.
+// DELETE /api/v2/incomes/{incomeId}/allocations/{allocId}
+// HandleDelete deletes an income allocation.
 func (h *IncomeAllocationV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -263,7 +268,8 @@ type stopAllocationDTO struct {
 	EndDate string `json:"endDate"` // ISO 8601 format (e.g., "2031-03-31T23:59:59Z")
 }
 
-// HandleStop handles POST /incomes/{incomeId}/allocations/{allocId}/stop - set end_date.
+// POST /api/v2/incomes/{incomeId}/allocations/{allocId}/stop
+// HandleStop sets an end date for an allocation without deleting the record.
 // This "stops" an allocation at a future point without deleting the original record.
 func (h *IncomeAllocationV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
 	userID, ok := requireUserID(w, r)

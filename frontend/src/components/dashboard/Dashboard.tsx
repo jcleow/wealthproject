@@ -131,6 +131,7 @@ export function Dashboard() {
                     onSelectMonth={timeline.setSelectedMonth}
                     timelineYear={timeline.selectedYearData}
                     timelineMonth={timeline.selectedMonthData}
+                    timelineMonths={timeline.timelineQuery.data?.months}
                     timelineMonthV2={timeline.selectedMonthDataV2}
                     timelineYears={timeline.timelineQuery.data?.years}
                     anchorYear={timeline.anchorYear}

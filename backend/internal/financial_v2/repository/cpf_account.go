@@ -248,20 +248,23 @@ func (s *Store) FindCPFAccountByParentAndStartDate(
 }
 
 // CreateCPFAccount creates a new CPF account record.
-// Uses upsert to handle conflicts on (user_id, start_date).
+// For new accounts (no parent_id), inserts with NULL parent_id first,
+// then the RETURNING clause returns COALESCE(parent_id, id) as parent_id.
 func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAccount) (CPFAccount, error) {
 	startDate := cpf.StartDate
 	if startDate.IsZero() {
 		startDate = time.Now().UTC()
 	}
 
+	// For new CPF accounts, parent_id should be NULL (self-referencing is handled in RETURNING).
+	// For versioned updates, parent_id will be set to the original record's ID.
 	query := `
 		INSERT INTO cpf_accounts (
 			user_id, parent_id, start_date, end_date,
 			oa_balance, sa_balance, ma_balance, ra_balance,
 			oa_used_for_housing, housing_start_date, date_of_birth,
 			residency_status, pr_grant_date
-		) VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING id, user_id, COALESCE(parent_id, id), start_date, end_date,
 		          oa_balance, sa_balance, ma_balance, ra_balance,
 		          oa_used_for_housing, housing_start_date, date_of_birth,

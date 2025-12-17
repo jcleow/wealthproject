@@ -46,6 +46,7 @@ func NewSettingsHandler(svc *timeline.Service) *SettingsHandler {
 	return &SettingsHandler{svc: svc}
 }
 
+// GET /api/v1/financial/timeline
 // HandleGetTimeline returns the full timeline with optional resolution override.
 // @Summary Get financial timeline
 // @Description Returns the full financial timeline with optional resolution and scenario filtering
@@ -107,6 +108,7 @@ func (h *TimelineHandler) HandleGetTimeline(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, resp)
 }
 
+// PUT /api/v1/financial/timeline/{year}
 // HandleUpsertYear upserts overrides/new items for a given year and returns refreshed timeline.
 // @Summary Update financial data for a specific year
 // @Description Upserts financial data edits for a given year
@@ -177,6 +179,7 @@ func (h *TimelineHandler) HandleUpsertYear(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, resp)
 }
 
+// GET /api/v1/financial/growth
 // HandleGetGrowth returns growth config.
 func (h *GrowthHandler) HandleGetGrowth(w http.ResponseWriter, r *http.Request) {
 	cfg, err := h.svc.GetGrowthConfig(r.Context())
@@ -190,6 +193,7 @@ func (h *GrowthHandler) HandleGetGrowth(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// PUT /api/v1/financial/growth
 // HandlePutGrowth updates growth config.
 func (h *GrowthHandler) HandlePutGrowth(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
@@ -223,6 +227,7 @@ func errorsIsNotFound(err error) bool {
 	return errors.Is(err, repository.ErrNotFound)
 }
 
+// GET /api/v1/settings
 // HandleGetSettings returns user settings.
 func (h *SettingsHandler) HandleGetSettings(w http.ResponseWriter, r *http.Request) {
 	settings, err := h.svc.GetUserSettings(r.Context())
@@ -233,6 +238,7 @@ func (h *SettingsHandler) HandleGetSettings(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, settings)
 }
 
+// PUT /api/v1/settings
 // HandlePutSettings updates user settings.
 func (h *SettingsHandler) HandlePutSettings(w http.ResponseWriter, r *http.Request) {
 	var payload repository.UserSettings

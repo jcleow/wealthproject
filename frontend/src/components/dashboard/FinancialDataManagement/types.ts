@@ -57,6 +57,7 @@ export interface FinancialDataManagementProps {
   onSelectMonth?: (month: number | null) => void
   timelineYear?: TimelineYear
   timelineMonth?: TimelineMonth
+  timelineMonths?: TimelineMonth[]
   /** V2 month data - when provided, used for card display instead of V1 data */
   timelineMonthV2?: MonthDetailResponseV2
   timelineYears?: TimelineYear[]

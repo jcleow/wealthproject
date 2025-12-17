@@ -18,15 +18,16 @@ const (
 // Types
 // =============================================================================
 
-// UpdateInput contains the parameters for updating an expense
+// UpdateInput contains the parameters for updating an expense.
+// Uses decimal.Decimal for financial values to avoid precision loss.
 type UpdateInput struct {
 	ID                string
 	Payee             string
-	Amount            float64
+	Amount            decimal.Decimal
 	Frequency         string
 	Category          string
 	Notes             string
-	GrowthRate        *float64
+	GrowthRate        *decimal.Decimal
 	GrowthStrategy    string
 	SourceLiabilityID *string
 	StartDate         *time.Time
@@ -86,7 +87,7 @@ func (s *Service) versionedUpdate(ctx context.Context, userID, expenseID string,
 // updateExistingVersion updates an existing versioned expense
 func (s *Service) updateExistingVersion(ctx context.Context, userID string, existing *repo.Expense, input UpdateInput) (*repo.Expense, error) {
 	existing.Payee = input.Payee
-	existing.Amount = *decimal.MustFromFloat64(input.Amount)
+	existing.Amount = input.Amount
 	existing.Frequency = input.Frequency
 	existing.Category = input.Category
 	existing.Notes = input.Notes
@@ -94,7 +95,7 @@ func (s *Service) updateExistingVersion(ctx context.Context, userID string, exis
 	existing.SourceLiabilityID = input.SourceLiabilityID
 
 	if input.GrowthRate != nil {
-		existing.GrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		existing.GrowthRate = *input.GrowthRate
 	}
 
 	return s.store.UpdateExpense(ctx, userID, *existing)
@@ -105,7 +106,7 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 	newExp := repo.Expense{
 		ParentID:          parentID,
 		Payee:             input.Payee,
-		Amount:            *decimal.MustFromFloat64(input.Amount),
+		Amount:            input.Amount,
 		Frequency:         input.Frequency,
 		Category:          input.Category,
 		Notes:             input.Notes,
@@ -115,7 +116,9 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 	}
 
 	if input.GrowthRate != nil {
-		newExp.GrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		newExp.GrowthRate = *input.GrowthRate
+	} else {
+		newExp.GrowthRate = current.GrowthRate
 	}
 
 	// Preserve source liability ID from current if not provided
@@ -135,7 +138,7 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, expenseID string, i
 	exp := repo.Expense{
 		ID:                expenseID,
 		Payee:             input.Payee,
-		Amount:            *decimal.MustFromFloat64(input.Amount),
+		Amount:            input.Amount,
 		Frequency:         input.Frequency,
 		Category:          input.Category,
 		Notes:             input.Notes,
@@ -144,7 +147,7 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, expenseID string, i
 	}
 
 	if input.GrowthRate != nil {
-		exp.GrowthRate = *decimal.MustFromFloat64(*input.GrowthRate)
+		exp.GrowthRate = *input.GrowthRate
 	}
 
 	return s.store.UpdateExpense(ctx, userID, exp)

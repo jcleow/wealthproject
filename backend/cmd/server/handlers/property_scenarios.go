@@ -28,6 +28,7 @@ type propertyScenarioRequest struct {
 	LiabilityID string `json:"liability_id"`
 }
 
+// GET|POST /api/v1/property-planner/scenarios
 func (h *PropertyScenarioHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -39,6 +40,7 @@ func (h *PropertyScenarioHandler) handleCollection(w http.ResponseWriter, r *htt
 	}
 }
 
+// GET|PUT|DELETE /api/v1/property-planner/scenarios/{id}
 func (h *PropertyScenarioHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/property-planner/scenarios/")
 	if id == "" {
@@ -58,6 +60,7 @@ func (h *PropertyScenarioHandler) handleItem(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// GET /api/v1/property-planner/scenarios
 func (h *PropertyScenarioHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -71,6 +74,7 @@ func (h *PropertyScenarioHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, items)
 }
 
+// GET /api/v1/property-planner/scenarios/{id}
 func (h *PropertyScenarioHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -88,6 +92,7 @@ func (h *PropertyScenarioHandler) get(w http.ResponseWriter, r *http.Request, id
 	writeJSON(w, item)
 }
 
+// POST /api/v1/property-planner/scenarios
 func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -142,6 +147,7 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, created)
 }
 
+// PUT /api/v1/property-planner/scenarios/{id}
 func (h *PropertyScenarioHandler) update(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -165,6 +171,7 @@ func (h *PropertyScenarioHandler) update(w http.ResponseWriter, r *http.Request,
 	writeJSON(w, updated)
 }
 
+// DELETE /api/v1/property-planner/scenarios/{id}
 func (h *PropertyScenarioHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

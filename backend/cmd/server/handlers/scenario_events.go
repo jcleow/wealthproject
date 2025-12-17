@@ -120,6 +120,7 @@ func toEventDTO(in scenarioEventInput) scenarioEventDTO {
 	}
 }
 
+// GET|POST /api/v1/scenario-events
 func (h *ScenarioEventHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
@@ -131,6 +132,8 @@ func (h *ScenarioEventHandler) handleCollection(w http.ResponseWriter, r *http.R
 	}
 }
 
+// GET|PUT|DELETE /api/v1/scenario-events/{id}
+// PATCH /api/v1/scenario-events/{id}/toggle
 func (h *ScenarioEventHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/scenario-events/")
 	if path == "" {
@@ -161,6 +164,7 @@ func (h *ScenarioEventHandler) handleItem(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// POST /api/v1/scenario-events
 func (h *ScenarioEventHandler) create(w http.ResponseWriter, r *http.Request) {
 	userCtx := middleware.GetUserContext(r.Context())
 	if userCtx.UserID == "" {
@@ -190,6 +194,7 @@ func (h *ScenarioEventHandler) create(w http.ResponseWriter, r *http.Request) {
 	writeSuccess(w, toScenarioEventDTO(created))
 }
 
+// GET /api/v1/scenario-events
 func (h *ScenarioEventHandler) list(w http.ResponseWriter, r *http.Request) {
 	userCtx := middleware.GetUserContext(r.Context())
 	if userCtx.UserID == "" {
@@ -260,6 +265,7 @@ func (h *ScenarioEventHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeSuccess(w, resp)
 }
 
+// GET /api/v1/scenario-events/{id}
 func (h *ScenarioEventHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 	userCtx := middleware.GetUserContext(r.Context())
 	if userCtx.UserID == "" {
@@ -278,6 +284,7 @@ func (h *ScenarioEventHandler) get(w http.ResponseWriter, r *http.Request, id st
 	writeSuccess(w, toScenarioEventDTO(ev))
 }
 
+// PUT /api/v1/scenario-events/{id}
 func (h *ScenarioEventHandler) update(w http.ResponseWriter, r *http.Request, id string) {
 	userCtx := middleware.GetUserContext(r.Context())
 	if userCtx.UserID == "" {
@@ -310,6 +317,7 @@ func (h *ScenarioEventHandler) update(w http.ResponseWriter, r *http.Request, id
 	writeSuccess(w, toScenarioEventDTO(updated))
 }
 
+// DELETE /api/v1/scenario-events/{id}
 func (h *ScenarioEventHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
 	userCtx := middleware.GetUserContext(r.Context())
 	if userCtx.UserID == "" {
@@ -328,6 +336,7 @@ func (h *ScenarioEventHandler) delete(w http.ResponseWriter, r *http.Request, id
 	writeSuccess(w, map[string]string{"status": "deleted"})
 }
 
+// PATCH /api/v1/scenario-events/{id}/toggle
 func (h *ScenarioEventHandler) toggle(w http.ResponseWriter, r *http.Request, id string) {
 	userCtx := middleware.GetUserContext(r.Context())
 	if userCtx.UserID == "" {

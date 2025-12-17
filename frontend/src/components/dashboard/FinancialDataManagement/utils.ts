@@ -88,9 +88,7 @@ export function calculateAllocationEndDate(
   anchorYear?: number | null
 ): string {
   const targetYear = calculateActualYear(selectedYear, anchorYear)
-  // Convert 1-indexed month to 0-indexed for JavaScript Date, then go back one day
-  const targetDate = new Date(targetYear, selectedMonth - 1, 1)
-  targetDate.setDate(0) // Goes to last day of previous month
-  targetDate.setHours(23, 59, 59, 0)
-  return targetDate.toISOString()
+  // Use Date.UTC to ensure dates are stored in UTC, avoiding timezone issues
+  // Day 0 of a month = last day of previous month
+  return new Date(Date.UTC(targetYear, selectedMonth - 1, 0, 23, 59, 59)).toISOString()
 }

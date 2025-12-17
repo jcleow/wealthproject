@@ -44,6 +44,7 @@ type propertyLinkRequest struct {
 	LiabilityID        string `json:"liability_id"`
 }
 
+// GET|POST /api/v1/property-links
 func (h *PropertyLinkHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
@@ -55,6 +56,7 @@ func (h *PropertyLinkHandler) handleCollection(w http.ResponseWriter, r *http.Re
 	}
 }
 
+// PUT /api/v1/property-links/{id}
 func (h *PropertyLinkHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/property-links/")
 	if id == "" {
@@ -69,6 +71,7 @@ func (h *PropertyLinkHandler) handleItem(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// POST /api/v1/property-links
 func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -189,6 +192,7 @@ func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// PUT /api/v1/property-links/{id}
 func (h *PropertyLinkHandler) update(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -248,6 +252,7 @@ func (h *PropertyLinkHandler) update(w http.ResponseWriter, r *http.Request, id 
 	writeJSON(w, link)
 }
 
+// GET /api/v1/property-links
 func (h *PropertyLinkHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

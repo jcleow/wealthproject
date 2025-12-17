@@ -22,6 +22,7 @@ func (h *LiabilityHandler) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("/liabilities/", h.handleItem)
 }
 
+// GET|POST /api/v1/liabilities
 func (h *LiabilityHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -33,6 +34,8 @@ func (h *LiabilityHandler) handleCollection(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// GET /api/v1/liabilities/{id}
+// PUT /api/v1/liabilities/{id}/convert-to-property
 func (h *LiabilityHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/liabilities/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
@@ -61,6 +64,7 @@ func (h *LiabilityHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// PUT /api/v1/liabilities/{id}/convert-to-property
 func (h *LiabilityHandler) convertToProperty(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -78,6 +82,7 @@ func (h *LiabilityHandler) convertToProperty(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, updated)
 }
 
+// GET /api/v1/liabilities
 func (h *LiabilityHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -92,6 +97,7 @@ func (h *LiabilityHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+// GET /api/v1/liabilities/{id}
 func (h *LiabilityHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -109,6 +115,7 @@ func (h *LiabilityHandler) get(w http.ResponseWriter, r *http.Request, id string
 	writeJSON(w, item)
 }
 
+// POST /api/v1/liabilities
 func (h *LiabilityHandler) create(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

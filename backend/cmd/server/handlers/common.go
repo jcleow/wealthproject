@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
+	repoV2 "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/middleware"
 )
 
@@ -19,6 +20,11 @@ type ErrorResponse struct {
 	Error      string `json:"error"`
 	Message    string `json:"message"`
 	StatusCode int    `json:"status_code"`
+}
+
+// stopInput is the JSON input for stopping a financial entity (soft delete)
+type stopInput struct {
+	EndDate string `json:"endDate"`
 }
 
 // writeError writes an error response to the client
@@ -219,4 +225,24 @@ func parsePagination(r *http.Request) repository.PaginationParams {
 	}
 
 	return repository.NormalizePagination(p)
+}
+
+// parsePaginationV2 extracts limit and offset from query parameters for v2 repository.
+// Use limit=-1 to return all results (no limit).
+func parsePaginationV2(r *http.Request) repoV2.PaginationParams {
+	var limit, offset *int
+
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil {
+			limit = &l
+		}
+	}
+
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil {
+			offset = &o
+		}
+	}
+
+	return repoV2.PaginationParams{Limit: limit, Offset: offset}
 }

@@ -134,6 +134,7 @@ func loadSystemPrompt() (string, error) {
 	return "", fmt.Errorf("no system prompt file found; set SYSTEM_PROMPT_PATH or place the prompt in internal/llm/prompts/system_prompt.txt")
 }
 
+// POST /api/v1/chat
 // HandleChat processes chat requests and generates responses with tool calls
 // @Summary Send a chat message
 // @Description Process a chat message and generate AI response with financial tool calls
@@ -880,6 +881,7 @@ func getBoolParam(args map[string]interface{}, key string, defaultValue bool) bo
 	return defaultValue
 }
 
+// POST /api/v1/chat/stream
 // HandleChatStream handles streaming chat responses (optional, for future implementation)
 func (h *ChatHandler) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 	// Set headers for SSE
@@ -892,6 +894,7 @@ func (h *ChatHandler) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "data: %s\n\n", `{"error": "Streaming not yet implemented"}`)
 }
 
+// GET /api/v1/chat/history/{sessionId}
 // GetChatHistory retrieves chat history for a session
 func (h *ChatHandler) GetChatHistory(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)

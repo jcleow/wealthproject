@@ -78,6 +78,7 @@ export const buildDefaultFormState = (type: FinancialDataType, growthConfigs?: G
 }
 
 // Date helpers for versioning
+// Use Date.UTC to ensure dates are stored in UTC, avoiding timezone issues
 export const calculateVersionStartDate = (
   anchorYear: number,
   selectedYear: number,
@@ -85,7 +86,7 @@ export const calculateVersionStartDate = (
 ): string => {
   const actualYear = anchorYear + selectedYear
   const actualMonth = selectedMonth - 1 // JS Date uses 0-indexed months
-  return new Date(actualYear, actualMonth, 1).toISOString()
+  return new Date(Date.UTC(actualYear, actualMonth, 1)).toISOString()
 }
 
 export const calculateStopEndDate = (
@@ -95,6 +96,6 @@ export const calculateStopEndDate = (
 ): string => {
   const actualYear = anchorYear + selectedYear
   const actualMonth = selectedMonth - 1 // JS Date uses 0-indexed months
-  // End date is the last day of the previous month
-  return new Date(actualYear, actualMonth, 0).toISOString() // Day 0 = last day of previous month
+  // End date is the last day of the previous month (day 0 = last day of previous month)
+  return new Date(Date.UTC(actualYear, actualMonth, 0)).toISOString()
 }

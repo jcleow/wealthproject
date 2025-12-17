@@ -29,6 +29,7 @@ type HealthResponse struct {
 	Services  map[string]interface{} `json:"services"`
 }
 
+// GET /api/v1/health
 // HandleHealth returns the health status of the application
 // @Summary Health check
 // @Description Get the health status of the application
@@ -77,6 +78,7 @@ func (h *HealthHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GET /api/v1/tools
 // HandleTools returns the available financial tools
 // @Summary Get available financial tools
 // @Description Returns a list of all available financial tools and their metadata

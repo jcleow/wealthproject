@@ -113,6 +113,7 @@ type ExecutionSummary struct {
 	Status             string `json:"status"` // "success", "partial_success", "failed"
 }
 
+// POST /api/v1/financial/actions/dispatch
 // HandleDispatch executes approved financial actions
 // @Summary Execute financial actions
 // @Description Execute approved financial actions from a chat session
@@ -742,6 +743,7 @@ func writeJSON(w http.ResponseWriter, payload interface{}) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
+// POST /api/v1/financial/actions/dispatch/batch
 // HandleBatchDispatch handles multiple dispatch requests in batch
 func (h *DispatchHandler) HandleBatchDispatch(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotImplemented, "not_implemented", "Batch dispatch not yet implemented")

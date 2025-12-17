@@ -41,7 +41,8 @@ func NewIncomeV2Handler(store *repo.Store) *IncomeV2Handler {
 	}
 }
 
-// HandleUpdate handles PUT /api/v2/incomes/{id}
+// PUT /api/v2/cashflow/incomes/{id}
+// HandleUpdate applies a versioned update to an income.
 func (h *IncomeV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -110,7 +111,8 @@ func (h *IncomeV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, i
 	writeJSON(w, result)
 }
 
-// HandleDelete handles DELETE /api/v2/incomes/{id}
+// DELETE /api/v2/cashflow/incomes/{id}
+// HandleDelete removes an income and its children.
 func (h *IncomeV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -129,7 +131,8 @@ func (h *IncomeV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, i
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HandleStop handles POST /api/v2/incomes/{id}/stop
+// POST /api/v2/cashflow/incomes/{id}/stop
+// HandleStop schedules the end date for an income.
 func (h *IncomeV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

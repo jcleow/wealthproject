@@ -117,7 +117,8 @@ func toScenarioEventV2DTO(ev repo.ScenarioEvent) scenarioEventV2DTO {
 
 // --- Handler Methods ---
 
-// HandleCreate creates a new scenario event
+// POST /api/v2/scenario-events
+// HandleCreate creates a new scenario event.
 // @Summary Create scenario event (v2)
 // @Description Create a new scenario event with typed FK impacts
 // @Tags Scenario Events V2
@@ -158,7 +159,8 @@ func (h *ScenarioEventV2Handler) HandleCreate(w http.ResponseWriter, r *http.Req
 	writeJSON(w, toScenarioEventV2DTO(created))
 }
 
-// HandleList lists scenario events
+// GET /api/v2/scenario-events
+// HandleList lists scenario events.
 // @Summary List scenario events (v2)
 // @Description List all scenario events with pagination and filtering
 // @Tags Scenario Events V2
@@ -244,7 +246,8 @@ func (h *ScenarioEventV2Handler) HandleList(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, resp)
 }
 
-// HandleGet gets a single scenario event
+// GET /api/v2/scenario-events/{id}
+// HandleGet gets a single scenario event.
 // @Summary Get scenario event (v2)
 // @Description Get a scenario event by ID
 // @Tags Scenario Events V2
@@ -274,7 +277,8 @@ func (h *ScenarioEventV2Handler) HandleGet(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, toScenarioEventV2DTO(ev))
 }
 
-// HandleUpdate updates a scenario event
+// PUT /api/v2/scenario-events/{id}
+// HandleUpdate updates a scenario event.
 // @Summary Update scenario event (v2)
 // @Description Update a scenario event by ID
 // @Tags Scenario Events V2
@@ -320,7 +324,8 @@ func (h *ScenarioEventV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Req
 	writeJSON(w, toScenarioEventV2DTO(updated))
 }
 
-// HandleDelete deletes a scenario event
+// DELETE /api/v2/scenario-events/{id}
+// HandleDelete deletes a scenario event.
 // @Summary Delete scenario event (v2)
 // @Description Delete a scenario event by ID
 // @Tags Scenario Events V2
@@ -349,7 +354,8 @@ func (h *ScenarioEventV2Handler) HandleDelete(w http.ResponseWriter, r *http.Req
 	writeJSON(w, map[string]string{"status": "deleted"})
 }
 
-// HandleToggle toggles the included status
+// PATCH /api/v2/scenario-events/{id}/toggle
+// HandleToggle toggles the included status.
 // @Summary Toggle scenario included status (v2)
 // @Description Toggle whether a scenario is included in projections
 // @Tags Scenario Events V2

@@ -57,20 +57,20 @@ export async function updateInvestment(
   }
 
   // Use v2 API for versioned update support
-  const data = await apiClient.put<any>(`/v2/investments/${id}`, body)
+  const data = await apiClient.put<any>(`/investments/${id}`, body, { baseUrl: '/api/v2' })
   return toInvestment(data)
 }
 
 // Stop an investment (soft delete) - sets end_date and cascades to linked allocations
 export async function stopInvestment(id: string, endDate: string): Promise<Investment> {
-  const data = await apiClient.post<any>(`/v2/investments/${id}/stop`, { endDate })
+  const data = await apiClient.post<any>(`/investments/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
   return toInvestment(data)
 }
 
 export async function deleteInvestment(id: string): Promise<void> {
   try {
     // Use v2 API for recursive delete support
-    await apiClient.delete<void>(`/v2/investments/${id}`)
+    await apiClient.delete<void>(`/investments/${id}`, { baseUrl: '/api/v2' })
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return
@@ -79,9 +79,15 @@ export async function deleteInvestment(id: string): Promise<void> {
   }
 }
 
+/**
+ * Delete all investments using the V2 endpoint (bulk delete, includes versioned entries)
+ */
 export async function deleteAllInvestments(): Promise<void> {
-  const result = await listInvestments({ limit: -1 })
-  await Promise.all(result.data.map((investment) => deleteInvestment(investment.id)))
+  const response = await fetch('/api/v2/investments', { method: 'DELETE' })
+  if (!response.ok && response.status !== 204) {
+    const errorText = await response.text()
+    throw new Error(`Failed to delete investments: ${response.status} ${errorText}`)
+  }
 }
 
 export const investmentsApi = {

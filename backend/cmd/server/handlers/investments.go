@@ -22,6 +22,7 @@ func (h *InvestmentHandler) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("/investments/", h.handleItem)
 }
 
+// GET|POST /api/v1/investments
 func (h *InvestmentHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -33,6 +34,7 @@ func (h *InvestmentHandler) handleCollection(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// GET /api/v1/investments/{id}
 func (h *InvestmentHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/investments/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
@@ -51,6 +53,7 @@ func (h *InvestmentHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GET /api/v1/investments
 func (h *InvestmentHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -65,6 +68,7 @@ func (h *InvestmentHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+// GET /api/v1/investments/{id}
 func (h *InvestmentHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -82,6 +86,7 @@ func (h *InvestmentHandler) get(w http.ResponseWriter, r *http.Request, id strin
 	writeJSON(w, item)
 }
 
+// POST /api/v1/investments
 func (h *InvestmentHandler) create(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -104,6 +109,7 @@ func (h *InvestmentHandler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, created)
 }
 
+// PUT /api/v1/investments/{id}
 func (h *InvestmentHandler) update(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -127,6 +133,7 @@ func (h *InvestmentHandler) update(w http.ResponseWriter, r *http.Request, id st
 	writeJSON(w, updated)
 }
 
+// DELETE /api/v1/investments/{id}
 func (h *InvestmentHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

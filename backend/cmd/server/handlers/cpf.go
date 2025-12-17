@@ -48,6 +48,7 @@ func (h *CPFHandler) RegisterRoutes(router *http.ServeMux) {
 // Account Endpoints
 // ===============================
 
+// GET|POST /api/v1/cpf/account
 func (h *CPFHandler) handleAccount(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -101,6 +102,7 @@ func accountToResponse(acc *account.CPFAccount) cpfAccountResponse {
 	return resp
 }
 
+// GET /api/v1/cpf/account
 func (h *CPFHandler) getAccount(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -132,6 +134,7 @@ type createAccountRequest struct {
 	PRGrantDate      *string  `json:"pr_grant_date"`
 }
 
+// POST /api/v1/cpf/account
 func (h *CPFHandler) createAccount(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -219,6 +222,7 @@ type updateAccountRequest struct {
 	PRGrantDate      *string  `json:"pr_grant_date"`
 }
 
+// PUT /api/v1/cpf/account
 func (h *CPFHandler) updateAccount(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -300,6 +304,7 @@ func (h *CPFHandler) updateAccount(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, accountToResponse(updated))
 }
 
+// DELETE /api/v1/cpf/account
 func (h *CPFHandler) deleteAccount(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -323,6 +328,7 @@ func (h *CPFHandler) deleteAccount(w http.ResponseWriter, r *http.Request) {
 // Configuration Endpoints
 // ===============================
 
+// GET /api/v1/cpf/config
 func (h *CPFHandler) handleConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w)
@@ -392,6 +398,7 @@ func configToResponse(cfg *config.CPFConfiguration) cpfConfigResponse {
 	return resp
 }
 
+// GET /api/v1/cpf/config/years
 func (h *CPFHandler) handleConfigYears(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w)
@@ -406,6 +413,7 @@ func (h *CPFHandler) handleConfigYears(w http.ResponseWriter, r *http.Request) {
 // Contribution Preview Endpoint
 // ===============================
 
+// GET /api/v1/cpf/contribution-preview
 func (h *CPFHandler) handleContributionPreview(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		methodNotAllowed(w)

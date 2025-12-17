@@ -89,6 +89,7 @@ func (h *IncomeHandler) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("/cashflow/incomes/", h.handleItem)
 }
 
+// GET|POST /api/v1/cashflow/incomes
 func (h *IncomeHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -100,6 +101,8 @@ func (h *IncomeHandler) handleCollection(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// GET /api/v1/cashflow/incomes/{id}
+// GET|PUT|DELETE /api/v1/cashflow/incomes/{id}/allocations[/ {allocId}]
 func (h *IncomeHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/cashflow/incomes/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
@@ -138,6 +141,7 @@ func (h *IncomeHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GET /api/v1/cashflow/incomes
 func (h *IncomeHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -152,6 +156,7 @@ func (h *IncomeHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+// GET /api/v1/cashflow/incomes/{id}
 func (h *IncomeHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -169,6 +174,7 @@ func (h *IncomeHandler) get(w http.ResponseWriter, r *http.Request, id string) {
 	writeJSON(w, item)
 }
 
+// POST /api/v1/cashflow/incomes
 func (h *IncomeHandler) create(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -197,6 +203,7 @@ func (h *IncomeHandler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, created)
 }
 
+// PUT /api/v1/cashflow/incomes/{id}
 func (h *IncomeHandler) update(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -226,6 +233,7 @@ func (h *IncomeHandler) update(w http.ResponseWriter, r *http.Request, id string
 	writeJSON(w, updated)
 }
 
+// DELETE /api/v1/cashflow/incomes/{id}
 func (h *IncomeHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -252,6 +260,7 @@ type allocationInput struct {
 	AllocationValue     float64  `json:"allocationValue"`
 }
 
+// GET|POST /api/v1/cashflow/incomes/{incomeId}/allocations
 func (h *IncomeHandler) handleAllocationsCollection(w http.ResponseWriter, r *http.Request, incomeID string) {
 	switch r.Method {
 	case http.MethodGet:
@@ -263,6 +272,7 @@ func (h *IncomeHandler) handleAllocationsCollection(w http.ResponseWriter, r *ht
 	}
 }
 
+// GET|PUT|DELETE /api/v1/cashflow/incomes/{incomeId}/allocations/{allocId}
 func (h *IncomeHandler) handleAllocationItem(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
 	switch r.Method {
 	case http.MethodGet:
@@ -276,6 +286,7 @@ func (h *IncomeHandler) handleAllocationItem(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// GET /api/v1/cashflow/incomes/{incomeId}/allocations
 func (h *IncomeHandler) listAllocations(w http.ResponseWriter, r *http.Request, incomeID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -293,6 +304,7 @@ func (h *IncomeHandler) listAllocations(w http.ResponseWriter, r *http.Request, 
 	writeJSON(w, allocations)
 }
 
+// POST /api/v1/cashflow/incomes/{incomeId}/allocations
 func (h *IncomeHandler) createAllocation(w http.ResponseWriter, r *http.Request, incomeID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -349,6 +361,7 @@ func (h *IncomeHandler) createAllocation(w http.ResponseWriter, r *http.Request,
 	writeJSON(w, created)
 }
 
+// GET /api/v1/cashflow/incomes/{incomeId}/allocations/{allocId}
 func (h *IncomeHandler) getAllocation(w http.ResponseWriter, r *http.Request, allocID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -366,6 +379,7 @@ func (h *IncomeHandler) getAllocation(w http.ResponseWriter, r *http.Request, al
 	writeJSON(w, allocation)
 }
 
+// PUT /api/v1/cashflow/incomes/{incomeId}/allocations/{allocId}
 func (h *IncomeHandler) updateAllocation(w http.ResponseWriter, r *http.Request, allocID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -421,6 +435,7 @@ func (h *IncomeHandler) updateAllocation(w http.ResponseWriter, r *http.Request,
 	writeJSON(w, updated)
 }
 
+// DELETE /api/v1/cashflow/incomes/{incomeId}/allocations/{allocId}
 func (h *IncomeHandler) deleteAllocation(w http.ResponseWriter, r *http.Request, allocID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

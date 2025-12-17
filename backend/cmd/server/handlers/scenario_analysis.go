@@ -32,6 +32,8 @@ type scenarioAnalysisResponse struct {
 	Scenario timeline.TimelineResponse `json:"scenario"`
 }
 
+// POST /api/v1/scenario-analysis
+// Handle processes scenario analysis requests.
 func (h *ScenarioAnalysisHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	userCtx := middleware.GetUserContext(r.Context())
 	if strings.TrimSpace(userCtx.UserID) == "" {
