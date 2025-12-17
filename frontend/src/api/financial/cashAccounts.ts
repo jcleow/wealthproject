@@ -1,4 +1,4 @@
-import { apiClient } from '../client'
+import { ApiError, apiClient } from '../client'
 import { toCashAccount } from './transformers'
 import type { CashAccount } from '@/types/financial'
 
@@ -32,20 +32,32 @@ export async function updateCashAccount(id: string, payload: Partial<CashAccount
   const body: Record<string, unknown> = {
     name: payload.name,
     balance: payload.balance,
-    interest_rate: payload.interestRate,
-    bank_name: payload.bankName,
-    account_type: payload.accountType,
-    is_accumulator: payload.isAccumulator,
-    start_year: payload.startYear,
-    end_year: payload.endYear,
+    interestRate: payload.interestRate,
+    bankName: payload.bankName,
+    accountType: payload.accountType,
     notes: payload.notes,
   }
-  const data = await apiClient.put<any>(`/cash-accounts/${id}`, body)
+  // Use v2 API for versioned update support
+  const data = await apiClient.put<any>(`/v2/cash-accounts/${id}`, body)
+  return toCashAccount(data)
+}
+
+// Stop a cash account (soft delete) - sets end_date and cascades to linked allocations
+export async function stopCashAccount(id: string, endDate: string): Promise<CashAccount> {
+  const data = await apiClient.post<any>(`/v2/cash-accounts/${id}/stop`, { endDate })
   return toCashAccount(data)
 }
 
 export async function deleteCashAccount(id: string): Promise<void> {
-  await apiClient.delete<void>(`/cash-accounts/${id}`)
+  try {
+    // Use v2 API for proper delete with cascade support
+    await apiClient.delete<void>(`/v2/cash-accounts/${id}`)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return
+    }
+    throw error
+  }
 }
 
 export async function setAccumulatorAccount(id: string): Promise<void> {
@@ -63,6 +75,7 @@ export const cashAccountsApi = {
   getCashAccount,
   createCashAccount,
   updateCashAccount,
+  stopCashAccount,
   deleteCashAccount,
   setAccumulatorAccount,
   deleteAllCashAccounts,

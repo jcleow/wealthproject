@@ -75,3 +75,16 @@ export function useSetAccumulatorMutation() {
     },
   })
 }
+
+export function useStopCashAccountMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, endDate }: { id: string; endDate: string }) =>
+      cashAccountsApi.stopCashAccount(id, endDate),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timelineV2 })
+    },
+  })
+}
