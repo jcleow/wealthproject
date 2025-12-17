@@ -132,10 +132,7 @@ func (h *IncomeHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		h.get(w, r, incomeID)
-	case http.MethodPut:
-		h.update(w, r, incomeID)
-	case http.MethodDelete:
-		h.delete(w, r, incomeID)
+	// PUT and DELETE moved to v2 API with versioning support
 	default:
 		methodNotAllowed(w)
 	}

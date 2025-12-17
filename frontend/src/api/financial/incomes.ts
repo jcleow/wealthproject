@@ -1,7 +1,8 @@
-import { apiClient } from '../client'
+import { ApiError, apiClient } from '../client'
 import { buildPaginatedPath } from './helpers'
 import { normalizePaginatedResponse, toIncome } from './transformers'
 import type { Income, PaginatedResponse, PaginationParams } from '@/types/financial'
+import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 
 // Income Allocation Types
 export interface IncomeAllocation {
@@ -48,7 +49,12 @@ export async function createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): P
   return toIncome(data)
 }
 
-export async function updateIncome(id: string, payload: Partial<Income>): Promise<Income> {
+export async function updateIncome(
+  id: string,
+  payload: Partial<Income> & {
+    updateMode?: UpdateMode
+  }
+): Promise<Income> {
   const body: Record<string, unknown> = {
     source: payload.source,
     amount: payload.amount,
@@ -60,13 +66,32 @@ export async function updateIncome(id: string, payload: Partial<Income>): Promis
     notes: payload.notes,
   }
   if (payload.cpfWageType !== undefined) body.cpfWageType = payload.cpfWageType
+  // Add updateMode for versioned updates
+  if (payload.updateMode !== undefined) {
+    body.updateMode = payload.updateMode
+  }
 
-  const data = await apiClient.put<any>(`/cashflow/incomes/${id}`, body)
+  // Use v2 API for versioned update support
+  const data = await apiClient.put<any>(`/v2/cashflow/incomes/${id}`, body)
+  return toIncome(data)
+}
+
+// Stop an income (soft delete) - sets end_date
+export async function stopIncome(id: string, endDate: string): Promise<Income> {
+  const data = await apiClient.post<any>(`/v2/cashflow/incomes/${id}/stop`, { endDate })
   return toIncome(data)
 }
 
 export async function deleteIncome(id: string): Promise<void> {
-  await apiClient.delete<void>(`/cashflow/incomes/${id}`)
+  try {
+    // Use v2 API for recursive delete support
+    await apiClient.delete<void>(`/v2/cashflow/incomes/${id}`)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return
+    }
+    throw error
+  }
 }
 
 export async function deleteAllIncomes(): Promise<void> {
@@ -149,6 +174,7 @@ export const incomesApi = {
   listIncomes,
   createIncome,
   updateIncome,
+  stopIncome,
   deleteIncome,
   deleteAllIncomes,
   listAllIncomeAllocations,

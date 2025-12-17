@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { incomesApi } from '@/api/financial'
 import type { Income } from '@/types/financial'
+import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export const INCOMES_QUERY_KEY = QUERY_KEYS.financial.incomes
@@ -38,12 +39,27 @@ export function useUpdateIncomeMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<Income> }) =>
-      incomesApi.updateIncome(id, updates),
-    onSuccess: (updatedIncome) => {
-      queryClient.setQueryData<Income[]>(INCOMES_QUERY_KEY, (old) =>
-        old?.map((income) => income.id === updatedIncome.id ? updatedIncome : income) ?? []
-      )
+    mutationFn: ({ id, updates }: {
+      id: string
+      updates: Partial<Income> & {
+        updateMode?: UpdateMode
+      }
+    }) => incomesApi.updateIncome(id, updates),
+    onSuccess: () => {
+      // Invalidate timeline and cashflow to refetch with new/updated income
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
+    },
+  })
+}
+
+export function useStopIncomeMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, endDate }: { id: string; endDate: string }) =>
+      incomesApi.stopIncome(id, endDate),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
     },
