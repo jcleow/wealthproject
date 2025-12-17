@@ -72,6 +72,7 @@ export {
 // CPF account queries and mutations
 export {
   useCpfAccountQuery,
+  useCreateCpfAccountMutation,
   useUpdateCpfAccountMutation,
   useStopCpfAccountMutation,
   useDeleteCpfAccountMutation,

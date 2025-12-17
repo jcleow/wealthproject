@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cpfApi } from '@/api/financial/cpf'
 import { QUERY_KEYS } from '@/lib/queryKeys'
-import type { CPFAccountUpdatePayload } from '@/types/cpf'
+import type { CPFAccountCreatePayload, CPFAccountUpdatePayload } from '@/types/cpf'
 
 export const CPF_QUERY_KEY = ['cpf'] as const
 
@@ -9,6 +9,18 @@ export function useCpfAccountQuery() {
   return useQuery({
     queryKey: CPF_QUERY_KEY,
     queryFn: cpfApi.getCPFAccount,
+  })
+}
+
+export function useCreateCpfAccountMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: CPFAccountCreatePayload) => cpfApi.createCPFAccount(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CPF_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.all })
+    },
   })
 }
 
