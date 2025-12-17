@@ -5,7 +5,19 @@ export const UPDATE_MODE_IN_PLACE = 'in_place' as const
 export const UPDATE_MODE_VERSIONED = 'versioned' as const
 export type UpdateMode = typeof UPDATE_MODE_IN_PLACE | typeof UPDATE_MODE_VERSIONED
 
-export type FinancialDataType = 'asset' | 'income' | 'liability' | 'expense' | 'investment'
+// Entity type constants
+export const ASSET_ENTITY = 'asset' as const
+export const INCOME_ENTITY = 'income' as const
+export const LIABILITY_ENTITY = 'liability' as const
+export const EXPENSE_ENTITY = 'expense' as const
+export const INVESTMENT_ENTITY = 'investment' as const
+
+export type FinancialDataType =
+  | typeof ASSET_ENTITY
+  | typeof INCOME_ENTITY
+  | typeof LIABILITY_ENTITY
+  | typeof EXPENSE_ENTITY
+  | typeof INVESTMENT_ENTITY
 
 export type FormState = {
   name: string

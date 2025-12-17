@@ -24,6 +24,13 @@ import type { TimelineItem, TimelineEditRequest, TimelineEdit, TimelineFrequency
 import type { PropertyLinkRecord } from '@/types/property'
 import type { FinancialFormValues } from '@/components/modals/FinancialFormModal'
 import { FinancialFormModal } from '@/components/modals/FinancialFormModal'
+import {
+  ASSET_ENTITY,
+  INCOME_ENTITY,
+  LIABILITY_ENTITY,
+  EXPENSE_ENTITY,
+  INVESTMENT_ENTITY,
+} from '@/components/modals/FinancialFormModal/types'
 import { DeleteConfirmationModal } from '@/components/modals/FinancialFormModal/DeleteConfirmationModal'
 import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal'
@@ -910,15 +917,15 @@ export function FinancialDataManagement({
         }
         onStop={
           modalState.mode === 'edit' && getItemId(modalState.data)
-            ? modalState.type === 'expense'
+            ? modalState.type === EXPENSE_ENTITY
               ? handleModalStopExpense
-              : modalState.type === 'asset'
+              : modalState.type === ASSET_ENTITY
                 ? handleModalStopAsset
-                : modalState.type === 'liability'
+                : modalState.type === LIABILITY_ENTITY
                   ? handleModalStopLiability
-                  : modalState.type === 'income'
+                  : modalState.type === INCOME_ENTITY
                     ? handleModalStopIncome
-                    : modalState.type === 'investment'
+                    : modalState.type === INVESTMENT_ENTITY
                       ? handleModalStopInvestment
                       : undefined
             : undefined

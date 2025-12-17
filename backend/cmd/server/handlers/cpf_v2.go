@@ -41,9 +41,11 @@ type cpfV2CreateInput struct {
 	RABalance        string  `json:"raBalance"`
 	OAUsedForHousing string  `json:"oaUsedForHousing"`
 	HousingStartDate *string `json:"housingStartDate"`
-	DateOfBirth      string  `json:"dateOfBirth"`
-	ResidencyStatus  string  `json:"residencyStatus"`
-	PRGrantDate      *string `json:"prGrantDate"`
+	// TODO: DateOfBirth should be moved to a general user profile/settings module
+	// rather than being specific to CPF. This is kept here temporarily for CPF calculations.
+	DateOfBirth     string  `json:"dateOfBirth"`
+	ResidencyStatus string  `json:"residencyStatus"`
+	PRGrantDate     *string `json:"prGrantDate"`
 }
 
 // HandleCreate handles POST /api/v2/cpf/account
@@ -149,11 +151,13 @@ type cpfV2Input struct {
 	RABalance        string  `json:"raBalance"`
 	OAUsedForHousing string  `json:"oaUsedForHousing"`
 	HousingStartDate *string `json:"housingStartDate"`
-	DateOfBirth      string  `json:"dateOfBirth"`
-	ResidencyStatus  string  `json:"residencyStatus"`
-	PRGrantDate      *string `json:"prGrantDate"`
-	StartDate        *string `json:"startDate"`
-	UpdateMode       string  `json:"updateMode,omitempty"`
+	// TODO: DateOfBirth should be moved to a general user profile/settings module
+	// rather than being specific to CPF. This is kept here temporarily for CPF calculations.
+	DateOfBirth     string  `json:"dateOfBirth"`
+	ResidencyStatus string  `json:"residencyStatus"`
+	PRGrantDate     *string `json:"prGrantDate"`
+	StartDate       *string `json:"startDate"`
+	UpdateMode      string  `json:"updateMode,omitempty"`
 }
 
 // CPFV2Handler serves CPF v2 endpoints.
