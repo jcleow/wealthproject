@@ -45,7 +45,8 @@ type scenarioImpactV2DTO struct {
 	TargetInvestmentID  *string `json:"targetInvestmentId,omitempty"`
 
 	// Computed field for convenience (read-only in response)
-	TargetType string `json:"targetType,omitempty"`
+	TargetType string  `json:"targetType,omitempty"`
+	TargetID   *string `json:"targetId,omitempty"`
 }
 
 type scenarioEventV2DTO struct {
@@ -72,6 +73,7 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		val := imp.Notes
 		notes = &val
 	}
+	targetID := imp.TargetID()
 	return scenarioImpactV2DTO{
 		ImpactKind:          imp.ImpactKind,
 		Amount:              imp.Amount,
@@ -87,6 +89,7 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		TargetCashAccountID: imp.TargetCashAccountID,
 		TargetInvestmentID:  imp.TargetInvestmentID,
 		TargetType:          imp.TargetType(),
+		TargetID:            targetID,
 	}
 }
 
@@ -437,82 +440,162 @@ func buildScenarioEventV2(userID string, dto scenarioEventV2DTO) (repo.ScenarioE
 	return ev, nil
 }
 
+type impactTarget struct {
+	targetType string
+	targetID   string
+}
+
+func resolveImpactTarget(in scenarioImpactV2DTO) (impactTarget, error) {
+	typedTargets := make([]impactTarget, 0, 1)
+
+	addTypedTarget := func(val *string, targetType string) {
+		if t := scenario.NonEmptyPtr(val); t != nil {
+			typedTargets = append(typedTargets, impactTarget{
+				targetType: targetType,
+				targetID:   strings.TrimSpace(*t),
+			})
+		}
+	}
+
+	addTypedTarget(in.TargetAssetID, "asset")
+	addTypedTarget(in.TargetLiabilityID, "liability")
+	addTypedTarget(in.TargetIncomeID, "income")
+	addTypedTarget(in.TargetExpenseID, "expense")
+	addTypedTarget(in.TargetCashAccountID, "cash")
+	addTypedTarget(in.TargetInvestmentID, "investment")
+
+	if len(typedTargets) > 1 {
+		return impactTarget{}, scenario.ErrInvalidTargetCount
+	}
+	if len(typedTargets) == 1 {
+		if !scenario.IsValidTargetType(typedTargets[0].targetType) {
+			return impactTarget{}, scenario.ErrInvalidTargetType
+		}
+		return typedTargets[0], nil
+	}
+
+	targetID := scenario.NonEmptyPtr(in.TargetID)
+	targetType := strings.ToLower(strings.TrimSpace(in.TargetType))
+	if targetID == nil || targetType == "" {
+		return impactTarget{}, scenario.ErrInvalidTargetCount
+	}
+	if !scenario.IsValidTargetType(targetType) {
+		return impactTarget{}, scenario.ErrInvalidTargetType
+	}
+
+	return impactTarget{
+		targetType: targetType,
+		targetID:   strings.TrimSpace(*targetID),
+	}, nil
+}
+
 func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, error) {
 	if len(reqs) == 0 {
 		return []repo.ScenarioImpact{}, nil
 	}
-	var impacts []repo.ScenarioImpact
 
+	impacts := make([]repo.ScenarioImpact, 0, len(reqs))
 	for _, in := range reqs {
-		ik, err := scenario.NormalizeImpactKind(in.ImpactKind)
+		impact, err := buildImpactV2(in)
 		if err != nil {
 			return nil, err
 		}
-		cad, err := scenario.NormalizeCadence(in.Cadence)
-		if err != nil {
-			return nil, err
-		}
-
-		if strings.TrimSpace(in.StartDate) == "" {
-			return nil, scenario.ErrMissingStartDate
-		}
-		start, err := scenario.ParseMonthStart(in.StartDate)
-		if err != nil {
-			return nil, scenario.ErrInvalidStartDate
-		}
-		var end *time.Time
-		if strings.TrimSpace(scenario.PtrOrEmpty(in.EndDate)) != "" {
-			val, err := scenario.ParseMonthStart(scenario.PtrOrEmpty(in.EndDate))
-			if err != nil {
-				return nil, scenario.ErrInvalidEndDate
-			}
-			end = &val
-		}
-
-		// Validate exactly one target is set
-		targetCount := 0
-		if in.TargetAssetID != nil && *in.TargetAssetID != "" {
-			targetCount++
-		}
-		if in.TargetLiabilityID != nil && *in.TargetLiabilityID != "" {
-			targetCount++
-		}
-		if in.TargetIncomeID != nil && *in.TargetIncomeID != "" {
-			targetCount++
-		}
-		if in.TargetExpenseID != nil && *in.TargetExpenseID != "" {
-			targetCount++
-		}
-		if in.TargetCashAccountID != nil && *in.TargetCashAccountID != "" {
-			targetCount++
-		}
-		if in.TargetInvestmentID != nil && *in.TargetInvestmentID != "" {
-			targetCount++
-		}
-		if targetCount != 1 {
-			return nil, scenario.ErrInvalidTargetCount
-		}
-
-		impact := repo.ScenarioImpact{
-			ImpactKind:          ik,
-			Amount:              in.Amount,
-			Currency:            strings.ToUpper(strings.TrimSpace(in.Currency)),
-			Cadence:             cad,
-			StartDate:           start,
-			EndDate:             end,
-			Notes:               strings.TrimSpace(scenario.PtrOrEmpty(in.Notes)),
-			TargetAssetID:       scenario.NonEmptyPtr(in.TargetAssetID),
-			TargetLiabilityID:   scenario.NonEmptyPtr(in.TargetLiabilityID),
-			TargetIncomeID:      scenario.NonEmptyPtr(in.TargetIncomeID),
-			TargetExpenseID:     scenario.NonEmptyPtr(in.TargetExpenseID),
-			TargetCashAccountID: scenario.NonEmptyPtr(in.TargetCashAccountID),
-			TargetInvestmentID:  scenario.NonEmptyPtr(in.TargetInvestmentID),
-		}
-
 		impacts = append(impacts, impact)
 	}
 
 	return impacts, nil
+}
+
+func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
+	ik, cad, err := normalizeImpactKindAndCadence(in)
+	if err != nil {
+		return repo.ScenarioImpact{}, err
+	}
+
+	start, end, err := parseImpactDates(in)
+	if err != nil {
+		return repo.ScenarioImpact{}, err
+	}
+
+	target, err := resolveImpactTarget(in)
+	if err != nil {
+		return repo.ScenarioImpact{}, err
+	}
+
+	impact := repo.ScenarioImpact{
+		ImpactKind: ik,
+		Amount:     in.Amount,
+		Currency:   strings.ToUpper(strings.TrimSpace(in.Currency)),
+		Cadence:    cad,
+		StartDate:  start,
+		EndDate:    end,
+		Notes:      strings.TrimSpace(scenario.PtrOrEmpty(in.Notes)),
+	}
+
+	return impactWithTarget(impact, target)
+}
+
+func normalizeImpactKindAndCadence(in scenarioImpactV2DTO) (string, common.Frequency, error) {
+	ik, err := scenario.NormalizeImpactKind(in.ImpactKind)
+	if err != nil {
+		return "", "", err
+	}
+	cad, err := scenario.NormalizeCadence(in.Cadence)
+	if err != nil {
+		return "", "", err
+	}
+	return ik, cad, nil
+}
+
+func parseImpactDates(in scenarioImpactV2DTO) (time.Time, *time.Time, error) {
+	if strings.TrimSpace(in.StartDate) == "" {
+		return time.Time{}, nil, scenario.ErrMissingStartDate
+	}
+
+	start, err := scenario.ParseMonthStart(in.StartDate)
+	if err != nil {
+		return time.Time{}, nil, scenario.ErrInvalidStartDate
+	}
+
+	if strings.TrimSpace(scenario.PtrOrEmpty(in.EndDate)) == "" {
+		return start, nil, nil
+	}
+
+	val, err := scenario.ParseMonthStart(scenario.PtrOrEmpty(in.EndDate))
+	if err != nil {
+		return time.Time{}, nil, scenario.ErrInvalidEndDate
+	}
+	return start, &val, nil
+}
+
+func assignImpactTarget(impact *repo.ScenarioImpact, target impactTarget) error {
+	id := target.targetID
+
+	switch target.targetType {
+	case "asset":
+		impact.TargetAssetID = &id
+	case "liability":
+		impact.TargetLiabilityID = &id
+	case "income":
+		impact.TargetIncomeID = &id
+	case "expense":
+		impact.TargetExpenseID = &id
+	case "cash":
+		impact.TargetCashAccountID = &id
+	case "investment":
+		impact.TargetInvestmentID = &id
+	default:
+		return scenario.ErrInvalidTargetType
+	}
+
+	return nil
+}
+
+func impactWithTarget(impact repo.ScenarioImpact, target impactTarget) (repo.ScenarioImpact, error) {
+	if err := assignImpactTarget(&impact, target); err != nil {
+		return repo.ScenarioImpact{}, err
+	}
+	return impact, nil
 }
 
 func ptrOrNil(s string) *string {

@@ -301,12 +301,20 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 // insertImpactsV2 inserts impacts using typed FK columns.
 func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, eventID string, impacts []ScenarioImpact) error {
 	for _, imp := range impacts {
+		targetID := imp.TargetID()
+		targetType := imp.TargetType()
+		if targetID == nil || strings.TrimSpace(*targetID) == "" || !scenario.IsValidTargetType(targetType) {
+			return scenario.ErrInvalidTargetCount
+		}
+
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO scenario_event_impacts
 			(event_id, impact_kind, amount, currency, cadence, start_date, end_date, notes,
+			 target_type, target_id,
 			 target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 			eventID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartDate, imp.EndDate, imp.Notes,
+			targetType, *targetID,
 			imp.TargetAssetID, imp.TargetLiabilityID, imp.TargetIncomeID, imp.TargetExpenseID, imp.TargetCashAccountID, imp.TargetInvestmentID,
 		); err != nil {
 			return err
