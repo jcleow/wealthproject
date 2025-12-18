@@ -5,6 +5,31 @@
 ### Testing
 - After relevant changes on the backend, please ensure to add or update tests
 
+### Sensitive Credentials - NEVER COMMIT
+
+**CRITICAL: Never commit files containing secrets, passwords, or API keys.**
+
+Files that must NEVER be committed:
+- `.env.dev`, `.env.local`, `.env.production`, `.env.staging` - contain database passwords, API keys
+- `credentials.json`, `secrets.json`, `*-credentials.json` - service account credentials
+- `*.key`, `*.p12`, `*.pfx` - private keys and certificates
+- Any file containing `PASSWORD`, `SECRET`, `API_KEY`, or connection strings with credentials
+
+Before committing, always check:
+1. Run `git diff --staged` to review what's being committed
+2. Look for any hardcoded passwords, API keys, or connection strings
+3. Ensure `.env*` files are in `.gitignore`
+
+If credentials were accidentally committed:
+1. Do NOT just delete and commit - the secret is already in history
+2. Rewrite git history to remove the file entirely (use `git filter-branch` or `git filter-repo`)
+3. Force push to update remote
+4. **Rotate the exposed credentials immediately**
+
+Safe to commit:
+- `.env.example`, `.env.*.example` - templates without real values
+- CA certificates (`.pem` files like `supabase-ca-chain.pem`) - these are public keys
+
 ### Safety and permissions
 
 Allowed without prompt:

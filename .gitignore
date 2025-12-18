@@ -17,10 +17,26 @@ backend/server
 # Go workspace file
 go.work
 
-# Environment variables
+# Environment variables (NEVER commit these - contain secrets)
 .env
 .env.local
+.env.dev
 .env.production
+.env.staging
+.env*.local
+*.env
+
+# Credentials and secrets (NEVER commit)
+credentials.json
+secrets.json
+*.key
+*.p12
+*.pfx
+service-account*.json
+*-credentials.json
+*-secrets.json
+# Note: CA certificate .pem files (like supabase-ca-chain.pem) are public and OK to commit
+# Private key .pem files should use .key extension instead
 
 # IDE files
 .vscode/
