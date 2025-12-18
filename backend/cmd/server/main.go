@@ -47,12 +47,7 @@ import (
 // @securityDefinitions.apikey AuthToken
 // @in header
 // @name X-Auth-Token
-// @description JWT token for production authentication (HMAC-signed with BACKEND_SHARED_SECRET)
-
-// @securityDefinitions.apikey SessionID
-// @in header
-// @name X-Session-ID
-// @description User/Session ID for development mode authentication
+// @description JWT token for authentication (HMAC-signed with BACKEND_SHARED_SECRET). In dev mode, use GET /api/dev/token?user_id=<uuid> to generate one.
 
 func main() {
 	// Load environment variables
