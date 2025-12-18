@@ -565,8 +565,9 @@ import { validateForm, buildPayload } from './logic'
 ```
 
 ### Skip index.ts When
-- Folder contains only 1 export (just import directly)
-- Re-export adds no value
+- Folder contains only 1-2 exports (just import directly from the file)
+- Re-export adds no value (single-line re-exports are unnecessary indirection)
+- Import directly: `import { useFormState } from './hooks/useFormState'` instead of creating a hooks/index.ts
 
 ## TanStack Query Cache Update Pitfalls
 
