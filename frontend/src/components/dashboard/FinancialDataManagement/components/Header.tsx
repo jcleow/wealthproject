@@ -128,24 +128,39 @@ export function Header({
           <h3 className="text-lg font-semibold text-white">Financial Data</h3>
           <p className="text-sm text-gray-400">{`${effectiveYear} (Age ${displayAge})`}</p>
         </div>
-        <div className="flex items-center gap-3 text-xs text-gray-300">
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              {resolution === 'monthly' && (
-                <ViewModeSelector
-                  viewMode={viewMode}
-                  onViewModeChange={onViewModeChange}
-                  isDisabled={isTimelineLoading}
+        {/* Unified timeline control bar */}
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex items-center gap-1 p-1 rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm">
+            {resolution === 'monthly' && (
+              <>
+                <SelectField
+                  label="View"
+                  id="view-mode-selector"
+                  value={viewMode}
+                  disabled={isTimelineLoading}
+                  onChange={(e) => onViewModeChange(e.target.value as 'annualized' | 'monthly')}
+                  options={[
+                    { value: 'annualized', label: 'Annualized' },
+                    { value: 'monthly', label: 'Monthly' },
+                  ]}
                 />
-              )}
+                <div className="w-px h-6 bg-white/[0.08]" />
+              </>
+            )}
 
-              <YearSelector
-                yearIndex={Math.max(0, Math.min(30, yearIndex))}
-                onYearChange={handleYearInput}
-                isDisabled={isTimelineLoading}
-              />
+            <SelectField
+              label="Year"
+              id="year-selector"
+              value={Math.max(0, Math.min(30, yearIndex))}
+              disabled={isTimelineLoading}
+              onChange={(e) => handleYearInput(e.target.value)}
+              options={Array.from({ length: 31 }, (_, idx) => ({ value: idx, label: String(idx) }))}
+              className="w-16"
+            />
 
-              {resolution === 'monthly' && viewMode === 'monthly' && (
+            {resolution === 'monthly' && viewMode === 'monthly' && (
+              <>
+                <div className="w-px h-6 bg-white/[0.08]" />
                 <MonthSelector
                   selectedMonth={displayMonth}
                   effectiveYear={effectiveYear}
@@ -154,111 +169,62 @@ export function Header({
                   onSelectMonth={onSelectMonth}
                   isDisabled={isTimelineLoading}
                 />
-              )}
-            </div>
-
-            {shouldShowSlider && (
-              <div className="w-full min-w-[260px] max-w-md">
-                <Slider.Root
-                  className={`relative
-flex items-center
-h-10 w-full
-px-3
-rounded-lg border border-white/10
-bg-[#0f172a]/40
-select-none`}
-                  min={0}
-                  max={monthRange?.sliderMax ?? 0}
-                  step={1}
-                  value={[sliderValue]}
-                  onValueChange={handleSliderChange}
-                  disabled={isSliderDisabled}
-                  aria-label="Timeline month slider"
-                >
-                  <Slider.Track className="relative h-1.5 w-full rounded-full bg-white/10">
-                    <Slider.Range className="absolute h-full rounded-full bg-blue-500" />
-                  </Slider.Track>
-                  <Slider.Thumb className={`block
-h-4 w-4
-rounded-full border border-white/40 focus:outline-none focus:ring-2 focus:ring-blue-400
-bg-white
-shadow-[0_0_0_5px_rgba(59,130,246,0.25)] disabled:opacity-50
-transition-colors`} />
-                </Slider.Root>
-              </div>
+              </>
             )}
           </div>
+
+          {shouldShowSlider && (
+            <Slider.Root
+              className="relative flex items-center h-6 w-72 select-none"
+              min={0}
+              max={monthRange?.sliderMax ?? 0}
+              step={1}
+              value={[sliderValue]}
+              onValueChange={handleSliderChange}
+              disabled={isSliderDisabled}
+              aria-label="Timeline month slider"
+            >
+              <Slider.Track className="relative h-1 w-full rounded-full bg-slate-700/60">
+                <Slider.Range className="absolute h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400" />
+              </Slider.Track>
+              <Slider.Thumb className="block h-4 w-4 rounded-full bg-white border-2 border-blue-400 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/30 hover:scale-110 disabled:opacity-50 transition-transform cursor-grab active:cursor-grabbing" />
+            </Slider.Root>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-interface YearSelectorProps {
-  yearIndex: number
-  onYearChange: (value: string) => void
-  isDisabled: boolean
+interface SelectFieldProps {
+  label: string
+  id: string
+  value: string | number
+  disabled?: boolean
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
+  options: { value: string | number; label: string }[]
+  className?: string
 }
 
-function YearSelector({ yearIndex, onYearChange, isDisabled }: YearSelectorProps) {
+function SelectField({ label, id, value, disabled, onChange, options, className }: SelectFieldProps) {
   return (
-    <div className={`flex items-center
-gap-2 px-2 py-1
-rounded-lg border border-white/10
-bg-transparent`}>
-      <label className="hidden text-gray-400 sm:block" htmlFor="year-selector">
-        Year
+    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
+      <label className="text-[10px] font-medium uppercase tracking-wider text-slate-500" htmlFor={id}>
+        {label}
       </label>
       <select
-        id="year-selector"
-        className={`w-24
-px-2 py-1
-rounded-md border border-white/10 focus:border-blue-400 focus:outline-none
-bg-[#0f172a]/60
-text-sm text-white`}
-        value={yearIndex}
-        disabled={isDisabled}
-        onChange={(event) => onYearChange(event.target.value)}
+        id={id}
+        className={`appearance-none cursor-pointer bg-transparent text-sm font-medium text-white pr-5 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${className ?? ''}`}
+        style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0 center', backgroundRepeat: 'no-repeat', backgroundSize: '1rem' }}
+        value={value}
+        disabled={disabled}
+        onChange={onChange}
       >
-        {Array.from({ length: 31 }, (_, idx) => (
-          <option key={idx} value={idx}>
-            {idx}
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
           </option>
         ))}
-      </select>
-    </div>
-  )
-}
-
-interface ViewModeSelectorProps {
-  viewMode: 'annualized' | 'monthly'
-  onViewModeChange: (mode: 'annualized' | 'monthly') => void
-  isDisabled: boolean
-}
-
-function ViewModeSelector({ viewMode, onViewModeChange, isDisabled }: ViewModeSelectorProps) {
-  return (
-    <div className={`flex items-center
-gap-2 px-2 py-1
-rounded-lg border border-white/10
-bg-transparent`}>
-      <label className="hidden text-gray-400 sm:block" htmlFor="view-mode-selector">
-        View
-      </label>
-      <select
-        id="view-mode-selector"
-        className={`px-2 py-1
-rounded-md border border-white/10 focus:border-blue-400 focus:outline-none
-bg-[#0f172a]/60
-text-sm text-white`}
-        value={viewMode}
-        disabled={isDisabled}
-        onChange={(event) => {
-          onViewModeChange(event.target.value as 'annualized' | 'monthly')
-        }}
-      >
-        <option value="annualized">Annualized</option>
-        <option value="monthly">Monthly</option>
       </select>
     </div>
   )
@@ -289,19 +255,14 @@ function MonthSelector({
     : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
   return (
-    <div className={`flex items-center
-gap-2 px-2 py-1
-rounded-lg border border-white/10
-bg-transparent`}>
-      <label className="hidden text-gray-400 sm:block" htmlFor="month-selector">
+    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
+      <label className="text-[10px] font-medium uppercase tracking-wider text-slate-500" htmlFor="month-selector">
         Month
       </label>
       <select
         id="month-selector"
-        className={`px-2 py-1
-rounded-md border border-white/10 focus:border-blue-400 focus:outline-none
-bg-[#0f172a]/60
-text-sm text-white`}
+        className="appearance-none cursor-pointer bg-transparent text-sm font-medium text-white pr-5 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0 center', backgroundRepeat: 'no-repeat', backgroundSize: '1rem' }}
         value={safeMonth}
         disabled={isDisabled}
         onChange={(event) => {
