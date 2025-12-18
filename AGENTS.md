@@ -4,6 +4,7 @@
 
 ### Testing
 - After relevant changes on the backend, please ensure to add or update tests
+- When adding or changing backend endpoints, regenerate Swagger (`swag init`) so docs stay in sync with the API
 
 ### Sensitive Credentials - NEVER COMMIT
 

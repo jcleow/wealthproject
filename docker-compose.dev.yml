@@ -51,6 +51,7 @@ services:
       - .env.dev
     environment:
       NODE_ENV: development
+      NODE_OPTIONS: "--max-old-space-size=1024"
       GO_BACKEND_URL: http://backend:8081
       BACKEND_SHARED_SECRET: ${BACKEND_SHARED_SECRET:?set BACKEND_SHARED_SECRET}
       BETTERAUTH_URL: ${BETTERAUTH_URL:-http://localhost:3001}
@@ -62,6 +63,10 @@ services:
              corepack prepare pnpm@latest --activate &&
              pnpm install --frozen-lockfile || pnpm install &&
              pnpm dev --hostname 0.0.0.0 --port 3001"
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
     volumes:
       - ./frontend:/workspace/frontend
       - frontend_node_modules:/workspace/frontend/node_modules

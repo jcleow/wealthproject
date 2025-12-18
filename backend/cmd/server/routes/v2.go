@@ -82,6 +82,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 
 	// Liability v2 endpoints (with auto-linked expense creation and versioning)
 	liabilityHandler := handlers.NewLiabilityV2Handler(deps.FinStore)
+	router.HandleFunc("/liabilities", liabilityHandler.HandleList).Methods("GET")
 	router.HandleFunc("/liabilities", liabilityHandler.HandleCreate).Methods("POST")
 	router.HandleFunc("/liabilities/{id}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -123,6 +124,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 
 	// Income v2 endpoints (versioned update/delete/stop)
 	incomeHandler := handlers.NewIncomeV2Handler(deps.FinStore)
+	router.HandleFunc("/cashflow/incomes", incomeHandler.HandleList).Methods("GET")
 	router.HandleFunc("/cashflow/incomes/{id}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
@@ -172,6 +174,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 
 	// Asset v2 endpoints (versioned update/delete/stop)
 	assetHandler := handlers.NewAssetV2Handler(deps.FinStore)
+	router.HandleFunc("/assets", assetHandler.HandleList).Methods("GET")
 	router.HandleFunc("/assets/{id}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
@@ -190,6 +193,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 
 	// Investment v2 endpoints (versioned update/delete/stop with cascade to allocations)
 	investmentHandler := handlers.NewInvestmentV2Handler(deps.FinStore)
+	router.HandleFunc("/investments", investmentHandler.HandleList).Methods("GET")
 	router.HandleFunc("/investments/{id}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
@@ -208,6 +212,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 
 	// Cash account v2 endpoints (versioned update/delete/stop with cascade to allocations)
 	cashAccountHandler := handlers.NewCashAccountV2Handler(deps.FinStore)
+	router.HandleFunc("/cash-accounts", cashAccountHandler.HandleList).Methods("GET")
 	router.HandleFunc("/cash-accounts/{id}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]

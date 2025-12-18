@@ -41,8 +41,51 @@ func NewIncomeV2Handler(store *repo.Store) *IncomeV2Handler {
 	}
 }
 
+// GET /api/v2/cashflow/incomes
+// HandleList lists incomes for the user.
+// @Summary List incomes (v2)
+// @Description Returns paginated incomes for the authenticated user
+// @Tags Incomes V2
+// @Produce json
+// @Param limit query int false "Max items to return (-1 for all)"
+// @Param offset query int false "Number of items to skip"
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cashflow/incomes [get]
+func (h *IncomeV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	pagination := parsePaginationV2(r)
+	result, err := h.store.ListIncomes(r.Context(), userID, repo.DateRangeOptions{}, pagination)
+	if err != nil {
+		log.Printf("income.List error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
 // PUT /api/v2/cashflow/incomes/{id}
 // HandleUpdate applies a versioned update to an income.
+// @Summary Update an income (v2)
+// @Description Updates an income with versioning support
+// @Tags Incomes V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Income ID"
+// @Param income body incomeV2Input true "Income data"
+// @Success 200 {object} repo.Income
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cashflow/incomes/{id} [put]
 func (h *IncomeV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -113,6 +156,16 @@ func (h *IncomeV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, i
 
 // DELETE /api/v2/cashflow/incomes/{id}
 // HandleDelete removes an income and its children.
+// @Summary Delete an income (v2)
+// @Description Deletes an income and all descendant versions
+// @Tags Incomes V2
+// @Param id path string true "Income ID"
+// @Success 204 "No Content"
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cashflow/incomes/{id} [delete]
 func (h *IncomeV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -133,6 +186,20 @@ func (h *IncomeV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, i
 
 // POST /api/v2/cashflow/incomes/{id}/stop
 // HandleStop schedules the end date for an income.
+// @Summary Stop an income (v2)
+// @Description Sets the endDate on an income (soft delete)
+// @Tags Incomes V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Income ID"
+// @Param body body stopInput true "Stop input with endDate"
+// @Success 200 {object} repo.Income
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cashflow/incomes/{id}/stop [post]
 func (h *IncomeV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

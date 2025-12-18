@@ -36,10 +36,10 @@ import {
   INVESTMENT_ENTITY,
 } from '@/types/financial'
 import { DeleteConfirmationModal } from '@/components/modals/FinancialFormModal/DeleteConfirmationModal'
-import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal'
-import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal'
-import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal'
-import { CpfAccountFormModal } from '@/components/modals/CpfAccountFormModal'
+import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal/CashAccountFormModal'
+import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
+import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal/IncomeAllocationModal'
+import { CpfAccountFormModal } from '@/components/modals/CpfAccountFormModal/CpfAccountFormModal'
 // import { financialApi } from '@/api/financial'
 import type { IncomeAllocation } from '@/api/financial/incomes'
 

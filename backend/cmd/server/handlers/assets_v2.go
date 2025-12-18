@@ -40,8 +40,51 @@ func NewAssetV2Handler(store *repo.Store) *AssetV2Handler {
 	}
 }
 
+// GET /api/v2/assets
+// HandleList lists non-cash assets for the user.
+// @Summary List assets (v2)
+// @Description Returns paginated non-cash assets for the authenticated user
+// @Tags Assets V2
+// @Produce json
+// @Param limit query int false "Max items to return (-1 for all)"
+// @Param offset query int false "Number of items to skip"
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/assets [get]
+func (h *AssetV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	pagination := parsePaginationV2(r)
+	result, err := h.store.ListNonCashAssets(r.Context(), userID, repo.DateRangeOptions{}, pagination)
+	if err != nil {
+		log.Printf("asset.List error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
 // PUT /api/v2/assets/{id}
 // HandleUpdate updates an asset with versioning.
+// @Summary Update an asset (v2)
+// @Description Updates an asset with versioning support
+// @Tags Assets V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Asset ID"
+// @Param asset body assetInput true "Asset data"
+// @Success 200 {object} repo.NonCashAsset
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/assets/{id} [put]
 func (h *AssetV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -111,6 +154,16 @@ func (h *AssetV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id
 
 // DELETE /api/v2/assets/{id}
 // HandleDelete removes an asset.
+// @Summary Delete an asset (v2)
+// @Description Deletes an asset and its descendant versions
+// @Tags Assets V2
+// @Param id path string true "Asset ID"
+// @Success 204 "No Content"
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/assets/{id} [delete]
 func (h *AssetV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -131,6 +184,20 @@ func (h *AssetV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id
 
 // POST /api/v2/assets/{id}/stop
 // HandleStop schedules an asset end date.
+// @Summary Stop an asset (v2)
+// @Description Sets the endDate on an asset (soft delete)
+// @Tags Assets V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Asset ID"
+// @Param body body stopInput true "Stop input with endDate"
+// @Success 200 {object} repo.NonCashAsset
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/assets/{id}/stop [post]
 func (h *AssetV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

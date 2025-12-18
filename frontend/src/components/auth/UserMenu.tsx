@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { LogOut, User, ChevronDown, Settings } from 'lucide-react'
 import { useSession, signOut } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
-import { SettingsModal } from '@/components/modals/SettingsModal'
+import { SettingsModal } from '@/components/modals/SettingsModal/SettingsModal'
 
 export function UserMenu() {
   const { data: session, isPending } = useSession()

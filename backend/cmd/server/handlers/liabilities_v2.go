@@ -42,6 +42,35 @@ func NewLiabilityV2Handler(store *repo.Store) *LiabilityV2Handler {
 	}
 }
 
+// GET /api/v2/liabilities
+// HandleList lists liabilities for the user.
+// @Summary List liabilities (v2)
+// @Description Returns paginated liabilities for the authenticated user
+// @Tags Liabilities V2
+// @Produce json
+// @Param limit query int false "Max items to return (-1 for all)"
+// @Param offset query int false "Number of items to skip"
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/liabilities [get]
+func (h *LiabilityV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	pagination := parsePaginationV2(r)
+	result, err := h.store.ListLiabilities(r.Context(), userID, repo.DateRangeOptions{}, pagination)
+	if err != nil {
+		log.Printf("liability.List error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
 // liabilityCreateInput is the JSON input for creating a liability
 type liabilityCreateInput struct {
 	Name              string  `json:"name"`
@@ -112,6 +141,20 @@ func (h *LiabilityV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request
 
 // PUT /api/v2/liabilities/{id}
 // HandleUpdate updates a liability with versioning.
+// @Summary Update a liability (v2)
+// @Description Updates a liability with versioning support
+// @Tags Liabilities V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Liability ID"
+// @Param liability body liabilityInput true "Liability data"
+// @Success 200 {object} repo.Liability
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/liabilities/{id} [put]
 func (h *LiabilityV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userCtx := middleware.GetUserContext(r.Context())
 
@@ -151,6 +194,16 @@ func (h *LiabilityV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request
 
 // DELETE /api/v2/liabilities/{id}
 // HandleDelete removes a liability.
+// @Summary Delete a liability (v2)
+// @Description Deletes a liability and all descendant versions
+// @Tags Liabilities V2
+// @Param id path string true "Liability ID"
+// @Success 204 "No Content"
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/liabilities/{id} [delete]
 func (h *LiabilityV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userCtx := middleware.GetUserContext(r.Context())
 
@@ -168,6 +221,20 @@ func (h *LiabilityV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request
 
 // POST /api/v2/liabilities/{id}/stop
 // HandleStop sets an end date for a liability.
+// @Summary Stop a liability (v2)
+// @Description Sets the endDate on a liability (soft delete)
+// @Tags Liabilities V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Liability ID"
+// @Param body body stopInput true "Stop input with endDate"
+// @Success 200 {object} repo.Liability
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/liabilities/{id}/stop [post]
 func (h *LiabilityV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userCtx := middleware.GetUserContext(r.Context())
 

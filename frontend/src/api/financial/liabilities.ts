@@ -6,7 +6,7 @@ import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 
 export async function listLiabilities(params?: PaginationParams): Promise<PaginatedResponse<Liability>> {
   const path = buildPaginatedPath('/liabilities', params)
-  const data = await apiClient.get<any>(path)
+  const data = await apiClient.get<any>(path, undefined, { baseUrl: '/api/v2' })
   return normalizePaginatedResponse<Liability>(data, toLiability, params)
 }
 

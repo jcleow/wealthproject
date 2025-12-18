@@ -13,6 +13,16 @@ import (
 
 // GET /api/v2/cpf/account
 // HandleGet returns the current user's CPF account.
+// @Summary Get CPF account (v2)
+// @Description Returns the CPF account for the authenticated user
+// @Tags CPF V2
+// @Produce json
+// @Success 200 {object} repo.CPFAccount
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/account [get]
 func (h *CPFV2Handler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -51,6 +61,18 @@ type cpfV2CreateInput struct {
 
 // POST /api/v2/cpf/account
 // HandleCreate creates a CPF account.
+// @Summary Create CPF account (v2)
+// @Description Creates a CPF account with balances and profile data
+// @Tags CPF V2
+// @Accept json
+// @Produce json
+// @Param cpf body cpfV2CreateInput true "CPF account data"
+// @Success 201 {object} repo.CPFAccount
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/account [post]
 func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -178,6 +200,20 @@ func NewCPFV2Handler(store *repo.Store) *CPFV2Handler {
 
 // PUT /api/v2/cpf/account/{id}
 // HandleUpdate updates a CPF account.
+// @Summary Update CPF account (v2)
+// @Description Updates a CPF account version
+// @Tags CPF V2
+// @Accept json
+// @Produce json
+// @Param id path string true "CPF account ID"
+// @Param cpf body cpfV2Input true "CPF account data"
+// @Success 200 {object} repo.CPFAccount
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/account/{id} [put]
 func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -286,6 +322,16 @@ func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id s
 
 // DELETE /api/v2/cpf/account/{id}
 // HandleDelete removes a CPF account.
+// @Summary Delete CPF account (v2)
+// @Description Deletes a CPF account and its versions
+// @Tags CPF V2
+// @Param id path string true "CPF account ID"
+// @Success 204 "No Content"
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/account/{id} [delete]
 func (h *CPFV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -306,6 +352,20 @@ func (h *CPFV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id s
 
 // POST /api/v2/cpf/account/{id}/stop
 // HandleStop sets an end date for a CPF account.
+// @Summary Stop CPF account (v2)
+// @Description Sets the endDate on a CPF account (soft delete)
+// @Tags CPF V2
+// @Accept json
+// @Produce json
+// @Param id path string true "CPF account ID"
+// @Param body body stopInput true "Stop input with endDate"
+// @Success 200 {object} repo.CPFAccount
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/account/{id}/stop [post]
 func (h *CPFV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

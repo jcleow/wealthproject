@@ -6,14 +6,14 @@ import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export const INCOMES_QUERY_KEY = QUERY_KEYS.financial.incomes
 
-export function useIncomesQuery() {
+export function useIncomesQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: INCOMES_QUERY_KEY,
     queryFn: async () => {
       const result = await incomesApi.listIncomes({ limit: -1 })
       return result.data
     },
-    enabled: false, // V2 timeline provides this data - no need to fetch separately
+    enabled: options?.enabled ?? true,
     staleTime: 30_000,
     cacheTime: 5 * 60 * 1000,
   })

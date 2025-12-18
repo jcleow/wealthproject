@@ -3,12 +3,14 @@ import { toCashAccount } from './transformers'
 import type { CashAccount } from '@/types/financial'
 
 export async function listCashAccounts(): Promise<CashAccount[]> {
-  const data = await apiClient.get<any[]>('/cash-accounts')
-  return (data ?? []).map(toCashAccount)
+  const data = await apiClient.get<any>('/cash-accounts', undefined, { baseUrl: '/api/v2' })
+  // V2 API returns paginated response with data array
+  const items = Array.isArray(data?.data) ? data.data : []
+  return items.map(toCashAccount)
 }
 
 export async function getCashAccount(id: string): Promise<CashAccount> {
-  const data = await apiClient.get<any>(`/cash-accounts/${id}`)
+  const data = await apiClient.get<any>(`/cash-accounts/${id}`, undefined, { baseUrl: '/api/v2' })
   return toCashAccount(data)
 }
 

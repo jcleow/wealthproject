@@ -1,6 +1,207 @@
 basePath: /api
 definitions:
-  cmd_server_handlers.ChatRequest:
+  common.Frequency:
+    enum:
+    - one_time
+    - weekly
+    - bi_weekly
+    - monthly
+    - quarterly
+    - semi_annual
+    - annual
+    type: string
+    x-enum-varnames:
+    - FrequencyOneTime
+    - FrequencyWeekly
+    - FrequencyBiweekly
+    - FrequencyMonthly
+    - FrequencyQuarterly
+    - FrequencySemiannual
+    - FrequencyAnnual
+  financial-chat-system_backend_internal_financial_v2_repository.Expense:
+    properties:
+      amount:
+        type: number
+      category:
+        type: string
+      endDate:
+        description: NULL means ongoing
+        type: string
+      frequency:
+        type: string
+      growthRate:
+        type: number
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      payee:
+        type: string
+      sourceLiabilityId:
+        description: Link to liability this expense pays down
+        type: string
+      startDate:
+        description: Precise start date (day-level)
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  financial-chat-system_backend_internal_financial_v2_repository.GroupedExpenses:
+    properties:
+      count:
+        type: integer
+      debtRepayments:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Expense'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      regularExpenses:
+        items:
+          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Expense'
+        type: array
+    type: object
+  financial-chat-system_backend_internal_financial_v2_repository.Income:
+    properties:
+      amount:
+        type: number
+      category:
+        type: string
+      cpfWageType:
+        description: '''ow'' (Ordinary Wages) or ''aw'' (Additional Wages)'
+        type: string
+      endDate:
+        description: NULL means ongoing
+        type: string
+      frequency:
+        type: string
+      growthRate:
+        type: number
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      incomeType:
+        description: CPF-related fields
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      source:
+        type: string
+      startDate:
+        description: Precise start date (day-level) - now required
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  financial-chat-system_backend_internal_financial_v2_repository.Investment:
+    properties:
+      category:
+        type: string
+      currentValue:
+        type: number
+      endDate:
+        description: NULL means ongoing
+        type: string
+      growthRate:
+        type: number
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      startDate:
+        description: Precise start date (day-level)
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  financial-chat-system_backend_internal_financial_v2_repository.Liability:
+    properties:
+      category:
+        type: string
+      currentBalance:
+        type: number
+      endDate:
+        description: NULL means ongoing
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      interestRateApr:
+        type: number
+      minimumPayment:
+        type: number
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      repaymentStrategy:
+        type: string
+      startDate:
+        description: Precise start date (day-level)
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  financial.ImpactEstimate:
+    properties:
+      description:
+        type: string
+      monthly_change:
+        type: number
+      net_worth_change:
+        type: number
+    type: object
+  financial.ProposedAction:
+    properties:
+      call_id:
+        type: string
+      dependencies:
+        items:
+          type: string
+        type: array
+      estimated_impact:
+        $ref: '#/definitions/financial.ImpactEstimate'
+      friendly_description:
+        type: string
+      parameters:
+        additionalProperties: true
+        type: object
+      tool_name:
+        type: string
+      warnings:
+        items:
+          $ref: '#/definitions/financial.Warning'
+        type: array
+    type: object
+  financial.Warning:
+    properties:
+      message:
+        type: string
+      severity:
+        description: '"low", "medium", "high"'
+        type: string
+      type:
+        type: string
+    type: object
+  handlers.ChatRequest:
     properties:
       chat_id:
         type: string
@@ -13,7 +214,7 @@ definitions:
     - message
     - session_id
     type: object
-  cmd_server_handlers.ChatResponse:
+  handlers.ChatResponse:
     properties:
       actions_executed:
         type: integer
@@ -23,22 +224,22 @@ definitions:
         type: string
       conversation_flow:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_session.ConversationStep'
+          $ref: '#/definitions/session.ConversationStep'
         type: array
       message_id:
         type: string
       proposed_actions:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial.ProposedAction'
+          $ref: '#/definitions/financial.ProposedAction'
         type: array
       requires_approval:
         type: boolean
     type: object
-  cmd_server_handlers.DispatchRequest:
+  handlers.DispatchRequest:
     properties:
       selected_actions:
         items:
-          $ref: '#/definitions/cmd_server_handlers.SelectedAction'
+          $ref: '#/definitions/handlers.SelectedAction'
         type: array
       session_id:
         type: string
@@ -46,20 +247,20 @@ definitions:
     - selected_actions
     - session_id
     type: object
-  cmd_server_handlers.DispatchResponse:
+  handlers.DispatchResponse:
     properties:
       api_version:
         type: string
       results:
         items:
-          $ref: '#/definitions/cmd_server_handlers.ExecutionResult'
+          $ref: '#/definitions/handlers.ExecutionResult'
         type: array
       summary:
-        $ref: '#/definitions/cmd_server_handlers.ExecutionSummary'
+        $ref: '#/definitions/handlers.ExecutionSummary'
       updated_session_state:
-        $ref: '#/definitions/financial-chat-system_backend_internal_session.SessionState'
+        $ref: '#/definitions/session.SessionState'
     type: object
-  cmd_server_handlers.ExecutionResult:
+  handlers.ExecutionResult:
     properties:
       call_id:
         type: string
@@ -76,7 +277,7 @@ definitions:
       tool_name:
         type: string
     type: object
-  cmd_server_handlers.ExecutionSummary:
+  handlers.ExecutionSummary:
     properties:
       failed:
         type: integer
@@ -92,7 +293,7 @@ definitions:
       total_execution_time_ms:
         type: integer
     type: object
-  cmd_server_handlers.HealthResponse:
+  handlers.HealthResponse:
     properties:
       services:
         additionalProperties: true
@@ -106,7 +307,7 @@ definitions:
       version:
         type: string
     type: object
-  cmd_server_handlers.SelectedAction:
+  handlers.SelectedAction:
     properties:
       approved:
         type: boolean
@@ -118,13 +319,291 @@ definitions:
     required:
     - call_id
     type: object
-  cmd_server_handlers.scenarioEventInput:
+  handlers.assetInput:
+    properties:
+      annualGrowthRate:
+        type: string
+      category:
+        type: string
+      currentValue:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.cashAccountV2Input:
+    properties:
+      accountType:
+        type: string
+      balance:
+        type: string
+      bankName:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      interestRate:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.cpfV2CreateInput:
+    properties:
+      dateOfBirth:
+        description: |-
+          TODO: DateOfBirth should be moved to a general user profile/settings module
+          rather than being specific to CPF. This is kept here temporarily for CPF calculations.
+        type: string
+      housingStartDate:
+        type: string
+      maBalance:
+        type: string
+      oaBalance:
+        type: string
+      oaUsedForHousing:
+        type: string
+      prGrantDate:
+        type: string
+      raBalance:
+        type: string
+      residencyStatus:
+        type: string
+      saBalance:
+        type: string
+    type: object
+  handlers.cpfV2Input:
+    properties:
+      dateOfBirth:
+        description: |-
+          TODO: DateOfBirth should be moved to a general user profile/settings module
+          rather than being specific to CPF. This is kept here temporarily for CPF calculations.
+        type: string
+      housingStartDate:
+        type: string
+      maBalance:
+        type: string
+      oaBalance:
+        type: string
+      oaUsedForHousing:
+        type: string
+      prGrantDate:
+        type: string
+      raBalance:
+        type: string
+      residencyStatus:
+        type: string
+      saBalance:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.expenseCreateInput:
+    properties:
+      amount:
+        type: string
+      category:
+        type: string
+      endDate:
+        type: string
+      frequency:
+        type: string
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      payee:
+        type: string
+      sourceLiabilityId:
+        type: string
+      startDate:
+        type: string
+    type: object
+  handlers.expenseV2Input:
+    properties:
+      amount:
+        type: string
+      category:
+        type: string
+      frequency:
+        type: string
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      payee:
+        type: string
+      sourceLiabilityId:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.incomeAllocationCreateDTO:
+    properties:
+      allocationType:
+        type: string
+      allocationValue:
+        type: string
+      targetCashAccountId:
+        type: string
+      targetInvestmentId:
+        type: string
+    type: object
+  handlers.incomeAllocationV2DTO:
+    properties:
+      allocationType:
+        type: string
+      allocationValue:
+        type: string
+      createdAt:
+        type: string
+      endDate:
+        type: string
+      id:
+        type: string
+      incomeId:
+        type: string
+      parentId:
+        type: string
+      startDate:
+        type: string
+      targetCashAccountId:
+        type: string
+      targetInvestmentId:
+        type: string
+    type: object
+  handlers.incomeV2Input:
+    properties:
+      amount:
+        type: string
+      category:
+        type: string
+      frequency:
+        type: string
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      source:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.investmentV2Input:
+    properties:
+      category:
+        type: string
+      currentValue:
+        type: string
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.liabilityCreateInput:
+    properties:
+      category:
+        type: string
+      currentBalance:
+        type: string
+      endDate:
+        type: string
+      growthStrategy:
+        type: string
+      interestRateApr:
+        type: string
+      minimumPayment:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      repaymentStrategy:
+        type: string
+      startDate:
+        type: string
+    type: object
+  handlers.liabilityInput:
+    properties:
+      category:
+        type: string
+      currentBalance:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      interestRateApr:
+        type: string
+      minimumPayment:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      repaymentStrategy:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.scenarioEventV2DTO:
     properties:
       description:
-        type: string
-      display_color:
-        type: string
-      display_icon:
         type: string
       displayColor:
         type: string
@@ -134,19 +613,13 @@ definitions:
         type: string
       impacts:
         items:
-          $ref: '#/definitions/cmd_server_handlers.scenarioImpactInput'
+          $ref: '#/definitions/handlers.scenarioImpactV2DTO'
         type: array
-      is_included:
-        type: boolean
       isIncluded:
         type: boolean
       name:
         type: string
-      occurs_on:
-        type: string
       occursOn:
-        type: string
-      scenario_id:
         type: string
       scenarioId:
         type: string
@@ -155,140 +628,276 @@ definitions:
           type: string
         type: array
     type: object
-  cmd_server_handlers.scenarioImpactInput:
+  handlers.scenarioImpactV2DTO:
     properties:
       amount:
         type: integer
       cadence:
-        type: string
+        $ref: '#/definitions/common.Frequency'
       currency:
         type: string
-      end_month:
-        type: string
-      endMonth:
-        type: string
-      impact_kind:
+      endDate:
         type: string
       impactKind:
         type: string
       notes:
         type: string
-      start_month:
+      startDate:
         type: string
-      startMonth:
+      targetAssetId:
+        description: Typed target IDs (only one should be set per impact)
         type: string
-      target_id:
+      targetCashAccountId:
         type: string
-      target_type:
+      targetExpenseId:
         type: string
       targetId:
         type: string
+      targetIncomeId:
+        type: string
+      targetInvestmentId:
+        type: string
+      targetLiabilityId:
+        type: string
       targetType:
+        description: Computed field for convenience (read-only in response)
         type: string
     type: object
-  financial-chat-system_backend_internal_financial.ImpactEstimate:
+  handlers.stopAllocationDTO:
     properties:
-      description:
+      endDate:
+        description: ISO 8601 format (e.g., "2031-03-31T23:59:59Z")
         type: string
-      monthly_change:
-        type: number
-      net_worth_change:
-        type: number
     type: object
-  financial-chat-system_backend_internal_financial.ProposedAction:
+  handlers.stopInput:
+    properties:
+      endDate:
+        type: string
+    type: object
+  llm.ChatMessage:
+    properties:
+      content:
+        description: Message content
+        type: string
+      name:
+        description: Optional name for tool messages
+        type: string
+      role:
+        description: '"user", "assistant", "system", "tool"'
+        type: string
+      tool_call_id:
+        description: ID of tool call this message responds to
+        type: string
+      tool_calls:
+        description: Tool calls in this message
+        items:
+          $ref: '#/definitions/llm.ToolCall'
+        type: array
+    type: object
+  llm.FunctionCall:
+    properties:
+      arguments:
+        description: JSON string of function arguments
+        type: string
+      name:
+        description: Function name (e.g., "create_asset")
+        type: string
+    type: object
+  llm.ToolCall:
+    properties:
+      function:
+        allOf:
+        - $ref: '#/definitions/llm.FunctionCall'
+        description: Function details
+      id:
+        description: Unique identifier for this tool call
+        type: string
+      type:
+        description: Always "function" for function calls
+        type: string
+    type: object
+  repository.CPFAccount:
+    properties:
+      createdAt:
+        type: string
+      dateOfBirth:
+        type: string
+      endDate:
+        description: When this version ends (NULL = ongoing)
+        type: string
+      housingStartDate:
+        type: string
+      id:
+        type: string
+      maBalance:
+        description: MediSave Account balance
+        type: number
+      oaBalance:
+        description: Ordinary Account balance
+        type: number
+      oaUsedForHousing:
+        description: OA amount used for housing (for accrued interest)
+        type: number
+      parentId:
+        description: Groups versions of same logical account
+        type: string
+      prGrantDate:
+        type: string
+      raBalance:
+        description: Retirement Account balance (only after age 55)
+        type: number
+      residencyStatus:
+        description: '''citizen'', ''pr_year_1'', ''pr_year_2'', ''pr_year_3_plus'''
+        type: string
+      saBalance:
+        description: Special Account balance
+        type: number
+      startDate:
+        description: When this version starts
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  repository.CashAsset:
+    properties:
+      accountType:
+        description: '''checking'', ''savings'', ''money_market'''
+        type: string
+      balance:
+        type: number
+      bankName:
+        type: string
+      createdAt:
+        type: string
+      endDate:
+        description: NULL means ongoing
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      interestRate:
+        type: number
+      isAccumulator:
+        type: boolean
+      name:
+        type: string
+      notes:
+        type: string
+      startDate:
+        description: Precise start date (day-level)
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  repository.NonCashAsset:
+    properties:
+      annualGrowthRate:
+        type: number
+      category:
+        type: string
+      currentValue:
+        type: number
+      endDate:
+        description: NULL means ongoing
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      startDate:
+        description: Precise start date (day-level)
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  session.ConversationStep:
+    properties:
+      content:
+        type: string
+      result:
+        additionalProperties: true
+        type: object
+      step_id:
+        type: string
+      timestamp:
+        type: string
+      tool_calls:
+        items:
+          type: string
+        type: array
+      tool_name:
+        type: string
+      type:
+        description: '"user_message", "llm_response", "tool_execution"'
+        type: string
+    type: object
+  session.PendingToolCall:
     properties:
       call_id:
+        type: string
+      created_at:
         type: string
       dependencies:
         items:
           type: string
         type: array
-      estimated_impact:
-        $ref: '#/definitions/financial-chat-system_backend_internal_financial.ImpactEstimate'
       friendly_description:
         type: string
       parameters:
         additionalProperties: true
         type: object
+      preview:
+        type: string
       tool_name:
         type: string
-      warnings:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial.Warning'
-        type: array
     type: object
-  financial-chat-system_backend_internal_financial.Warning:
+  session.SessionState:
     properties:
-      message:
+      chat_id:
         type: string
-      severity:
-        description: '"low", "medium", "high"'
-        type: string
-      type:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_financial_repository.ScenarioEvent:
-    properties:
-      createdAt:
-        type: string
-      description:
-        type: string
-      displayColor:
-        type: string
-      displayIcon:
-        type: string
-      id:
-        type: string
-      impacts:
+      conversation_flow:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioImpact'
+          $ref: '#/definitions/session.ConversationStep'
         type: array
-      isIncluded:
-        type: boolean
-      name:
+      created_at:
         type: string
-      occursOn:
+      last_asset_id:
         type: string
-      scenarioID:
+      last_liability_id:
         type: string
-      tags:
+      last_property_plan_id:
+        type: string
+      messages:
         items:
+          $ref: '#/definitions/llm.ChatMessage'
+        type: array
+      metadata:
+        additionalProperties:
           type: string
+        type: object
+      pending_actions:
+        items:
+          $ref: '#/definitions/session.PendingToolCall'
         type: array
-      updatedAt:
+      session_id:
         type: string
-      userID:
+      updated_at:
         type: string
-    type: object
-  financial-chat-system_backend_internal_financial_repository.ScenarioImpact:
-    properties:
-      amount:
-        format: int64
-        type: integer
-      cadence:
-        type: string
-      createdAt:
-        type: string
-      currency:
-        type: string
-      endMonth:
-        type: string
-      eventID:
-        type: string
-      id:
-        type: string
-      impactKind:
-        type: string
-      notes:
-        type: string
-      startMonth:
-        type: string
-      targetID:
-        type: string
-      targetType:
+      user_id:
         type: string
     type: object
-  financial-chat-system_backend_internal_financial_timeline.EventImpactSummary:
+  timeline.EventImpactSummary:
     properties:
       amountAnnual:
         description: annualized
@@ -305,14 +914,14 @@ definitions:
       notes:
         type: string
     type: object
-  financial-chat-system_backend_internal_financial_timeline.GrowthApplied:
+  timeline.GrowthApplied:
     properties:
       annualRatePct:
         type: number
       category:
         type: string
     type: object
-  financial-chat-system_backend_internal_financial_timeline.ItemType:
+  timeline.ItemType:
     enum:
     - asset
     - liability
@@ -326,7 +935,7 @@ definitions:
     - ItemTypeIncome
     - ItemTypeExpense
     - ItemTypeCashAccount
-  financial-chat-system_backend_internal_financial_timeline.TimelineItem:
+  timeline.TimelineItem:
     properties:
       adjAnnualAmt:
         type: number
@@ -340,14 +949,9 @@ definitions:
         type: number
       category:
         type: string
-      createdMonth:
-        description: Month when created (1-12)
-        type: integer
-      createdYear:
-        type: integer
       eventImpacts:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.EventImpactSummary'
+          $ref: '#/definitions/timeline.EventImpactSummary'
         type: array
       growthRate:
         description: GrowthRate is the per-item annual growth rate (percentage)
@@ -361,7 +965,7 @@ definitions:
           (parent_id if present, else row id).
         type: string
       itemType:
-        $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.ItemType'
+        $ref: '#/definitions/timeline.ItemType'
       name:
         type: string
       parentId:
@@ -375,8 +979,13 @@ definitions:
         type: number
       sourceFrequency:
         type: string
+      startMonth:
+        description: Month when item started (1-12)
+        type: integer
+      startYear:
+        type: integer
     type: object
-  financial-chat-system_backend_internal_financial_timeline.TimelineMonth:
+  timeline.TimelineMonth:
     properties:
       accumulatedCashEnd:
         type: number
@@ -386,31 +995,31 @@ definitions:
         type: string
       assets:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
+          $ref: '#/definitions/timeline.TimelineItem'
         type: array
       cashAccounts:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
+          $ref: '#/definitions/timeline.TimelineItem'
         type: array
       expenses:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
+          $ref: '#/definitions/timeline.TimelineItem'
         type: array
       growthApplied:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied'
+          $ref: '#/definitions/timeline.GrowthApplied'
         type: array
       hasOverrides:
         type: boolean
       income:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
+          $ref: '#/definitions/timeline.TimelineItem'
         type: array
       interestEarned:
         type: number
       liabilities:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
+          $ref: '#/definitions/timeline.TimelineItem'
         type: array
       month:
         description: Month number (1-12)
@@ -433,11 +1042,11 @@ definitions:
         description: 0-based year index
         type: integer
     type: object
-  financial-chat-system_backend_internal_financial_timeline.TimelineResponse:
+  timeline.TimelineResponse:
     properties:
       months:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineMonth'
+          $ref: '#/definitions/timeline.TimelineMonth'
         type: array
       resolution:
         description: '"yearly" or "monthly"'
@@ -452,10 +1061,10 @@ definitions:
         type: string
       years:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineYear'
+          $ref: '#/definitions/timeline.TimelineYear'
         type: array
     type: object
-  financial-chat-system_backend_internal_financial_timeline.TimelineYear:
+  timeline.TimelineYear:
     properties:
       accumulatedCashEnd:
         description: Cash balance at end of year (after interest)
@@ -471,33 +1080,33 @@ definitions:
         type: number
       assets:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
+          $ref: '#/definitions/timeline.TimelineItem'
         type: array
       cashAccounts:
-        description: Cash accounts from cash_accounts table
+        description: Cash accounts from finance_cash_accounts table
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
+          $ref: '#/definitions/timeline.TimelineItem'
         type: array
       expenses:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
+          $ref: '#/definitions/timeline.TimelineItem'
         type: array
       growthApplied:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied'
+          $ref: '#/definitions/timeline.GrowthApplied'
         type: array
       hasOverrides:
         type: boolean
       income:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
+          $ref: '#/definitions/timeline.TimelineItem'
         type: array
       interestEarned:
         description: Interest earned this year on accumulator
         type: number
       liabilities:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
+          $ref: '#/definitions/timeline.TimelineItem'
         type: array
       netCash:
         description: Income - Expenses (annual net savings)
@@ -508,18 +1117,14 @@ definitions:
       year:
         type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse:
+  timeline_v2.CPFAssetResponse:
     properties:
-      adjBalance:
-        type: number
       balance:
         type: number
       category:
         type: string
-      createdMonth:
-        type: integer
-      createdYear:
-        type: integer
+      eventAdjBalance:
+        type: number
       id:
         type: string
       itemType:
@@ -530,20 +1135,26 @@ definitions:
         type: string
       startDate:
         type: string
+      startMonth:
+        type: integer
+      startYear:
+        type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse:
+  timeline_v2.CPFContributionResponse:
     properties:
-      adjAmount:
+      allocationMa:
         type: number
-      amount:
+      allocationOa:
+        type: number
+      allocationRa:
+        type: number
+      allocationSa:
         type: number
       category:
         type: string
-      createdMonth:
-        type: integer
-      createdYear:
-        type: integer
-      growthRate:
+      employeeContribution:
+        type: number
+      employerContribution:
         type: number
       id:
         type: string
@@ -555,19 +1166,21 @@ definitions:
         type: string
       sourceFrequency:
         type: string
-    type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse:
-    properties:
-      adjBalance:
+      startMonth:
+        type: integer
+      startYear:
+        type: integer
+      totalContribution:
         type: number
+    type: object
+  timeline_v2.CashAssetResponse:
+    properties:
       balance:
         type: number
       category:
         type: string
-      createdMonth:
-        type: integer
-      createdYear:
-        type: integer
+      eventAdjBalance:
+        type: number
       isAccumulator:
         type: boolean
       itemId:
@@ -576,19 +1189,19 @@ definitions:
         type: string
       name:
         type: string
+      startMonth:
+        type: integer
+      startYear:
+        type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse:
+  timeline_v2.ExpenseResponse:
     properties:
-      adjAmount:
-        type: number
       amount:
         type: number
       category:
         type: string
-      createdMonth:
-        type: integer
-      createdYear:
-        type: integer
+      eventAdjAmount:
+        type: number
       id:
         type: string
       itemType:
@@ -599,19 +1212,85 @@ definitions:
         type: string
       sourceFrequency:
         type: string
+      sourceLiabilityId:
+        description: Link to liability this expense pays down
+        type: string
+      startMonth:
+        type: integer
+      startYear:
+        type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse:
+  timeline_v2.IncomeAllocationResponse:
     properties:
-      adjAmount:
+      allocationType:
+        type: string
+      allocationValue:
+        type: number
+      endDate:
+        type: string
+      id:
+        type: string
+      incomeId:
+        type: string
+      parentId:
+        type: string
+      startDate:
+        type: string
+      targetCashAccountId:
+        type: string
+      targetInvestmentId:
+        type: string
+    type: object
+  timeline_v2.IncomeResponse:
+    properties:
+      allocationMa:
+        type: number
+      allocationOa:
+        description: CPF allocation breakdown
+        type: number
+      allocationRa:
+        type: number
+      allocationSa:
         type: number
       amount:
         type: number
       category:
         type: string
-      createdMonth:
+      employeeCpf:
+        type: number
+      employerCpf:
+        type: number
+      eventAdjAmount:
+        type: number
+      growthRate:
+        type: number
+      id:
+        type: string
+      itemType:
+        type: string
+      name:
+        type: string
+      netTakeHomePay:
+        type: number
+      parentId:
+        type: string
+      sourceFrequency:
+        type: string
+      startMonth:
         type: integer
-      createdYear:
+      startYear:
         type: integer
+      totalCpf:
+        type: number
+    type: object
+  timeline_v2.InvestmentResponse:
+    properties:
+      balance:
+        type: number
+      category:
+        type: string
+      eventAdjBalance:
+        type: number
       growthRate:
         type: number
       id:
@@ -622,37 +1301,39 @@ definitions:
         type: string
       parentId:
         type: string
-      sourceFrequency:
+      startDate:
         type: string
+      startMonth:
+        type: integer
+      startYear:
+        type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse:
+  timeline_v2.LiabilityResponse:
     properties:
-      adjAnnualAmt:
-        type: number
-      adjMonthlyAmt:
-        type: number
-      annualAmt:
+      balance:
+        description: Point-in-time balance
         type: number
       category:
         type: string
-      createdMonth:
-        type: integer
-      createdYear:
-        type: integer
+      eventAdjBalance:
+        description: Adjusted balance with scenario events
+        type: number
       id:
         type: string
       itemType:
         type: string
-      monthlyAmt:
-        type: number
       name:
         type: string
       parentId:
         type: string
       sourceAmount:
         type: number
+      startMonth:
+        type: integer
+      startYear:
+        type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse:
+  timeline_v2.MonthDetailResponse:
     properties:
       accumulatorAccountId:
         type: string
@@ -662,55 +1343,65 @@ definitions:
         type: integer
       cashAssets:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse'
+          $ref: '#/definitions/timeline_v2.CashAssetResponse'
         type: array
       cpfAssets:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse'
+          $ref: '#/definitions/timeline_v2.CPFAssetResponse'
         type: array
       cpfContributions:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse'
+          $ref: '#/definitions/timeline_v2.CPFContributionResponse'
         type: array
       expenses:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse'
+          $ref: '#/definitions/timeline_v2.ExpenseResponse'
         type: array
       income:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse'
+          $ref: '#/definitions/timeline_v2.IncomeResponse'
+        type: array
+      incomeAllocations:
+        items:
+          $ref: '#/definitions/timeline_v2.IncomeAllocationResponse'
+        type: array
+      investments:
+        items:
+          $ref: '#/definitions/timeline_v2.InvestmentResponse'
         type: array
       liabilities:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse'
+          $ref: '#/definitions/timeline_v2.LiabilityResponse'
         type: array
       month:
         type: integer
       netCash:
+        description: income - employee CPF - expenses - investments (monthly)
+        type: number
+      netInvestments:
+        description: employee CPF contribution (monthly)
         type: number
       netSavings:
+        description: Savings breakdown
         type: number
       netWorth:
+        description: Other totals
         type: number
       nonCashAssets:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse'
+          $ref: '#/definitions/timeline_v2.NonCashAssetResponse'
         type: array
       year:
         type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse:
+  timeline_v2.NonCashAssetResponse:
     properties:
-      adjBalance:
-        type: number
       balance:
         type: number
       category:
         type: string
-      createdMonth:
-        type: integer
-      createdYear:
-        type: integer
+      eventAdjBalance:
+        type: number
       id:
         type: string
       itemType:
@@ -721,12 +1412,16 @@ definitions:
         type: string
       startDate:
         type: string
+      startMonth:
+        type: integer
+      startYear:
+        type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse:
+  timeline_v2.TimelineAnnualChartResponse:
     properties:
       months:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary'
+          $ref: '#/definitions/timeline_v2.TimelineMonthlySummary'
         type: array
       resolution:
         type: string
@@ -736,10 +1431,10 @@ definitions:
         type: array
       years:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary'
+          $ref: '#/definitions/timeline_v2.TimelineYearlySummary'
         type: array
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary:
+  timeline_v2.TimelineMonthlySummary:
     properties:
       allMonthsIndex:
         type: integer
@@ -748,14 +1443,14 @@ definitions:
       netWorth:
         type: number
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response:
+  timeline_v2.TimelineV2Response:
     properties:
       months:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse'
+          $ref: '#/definitions/timeline_v2.MonthDetailResponse'
         type: array
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary:
+  timeline_v2.TimelineYearlySummary:
     properties:
       allYearsIndex:
         type: integer
@@ -763,124 +1458,6 @@ definitions:
         type: number
       year:
         type: integer
-    type: object
-  financial-chat-system_backend_internal_llm.ChatMessage:
-    properties:
-      content:
-        description: Message content
-        type: string
-      name:
-        description: Optional name for tool messages
-        type: string
-      role:
-        description: '"user", "assistant", "system", "tool"'
-        type: string
-      tool_call_id:
-        description: ID of tool call this message responds to
-        type: string
-      tool_calls:
-        description: Tool calls in this message
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_llm.ToolCall'
-        type: array
-    type: object
-  financial-chat-system_backend_internal_llm.FunctionCall:
-    properties:
-      arguments:
-        description: JSON string of function arguments
-        type: string
-      name:
-        description: Function name (e.g., "create_asset")
-        type: string
-    type: object
-  financial-chat-system_backend_internal_llm.ToolCall:
-    properties:
-      function:
-        allOf:
-        - $ref: '#/definitions/financial-chat-system_backend_internal_llm.FunctionCall'
-        description: Function details
-      id:
-        description: Unique identifier for this tool call
-        type: string
-      type:
-        description: Always "function" for function calls
-        type: string
-    type: object
-  financial-chat-system_backend_internal_session.ConversationStep:
-    properties:
-      content:
-        type: string
-      result:
-        additionalProperties: true
-        type: object
-      step_id:
-        type: string
-      timestamp:
-        type: string
-      tool_calls:
-        items:
-          type: string
-        type: array
-      tool_name:
-        type: string
-      type:
-        description: '"user_message", "llm_response", "tool_execution"'
-        type: string
-    type: object
-  financial-chat-system_backend_internal_session.PendingToolCall:
-    properties:
-      call_id:
-        type: string
-      created_at:
-        type: string
-      dependencies:
-        items:
-          type: string
-        type: array
-      friendly_description:
-        type: string
-      parameters:
-        additionalProperties: true
-        type: object
-      preview:
-        type: string
-      tool_name:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_session.SessionState:
-    properties:
-      chat_id:
-        type: string
-      conversation_flow:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_session.ConversationStep'
-        type: array
-      created_at:
-        type: string
-      last_asset_id:
-        type: string
-      last_liability_id:
-        type: string
-      last_property_plan_id:
-        type: string
-      messages:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_llm.ChatMessage'
-        type: array
-      metadata:
-        additionalProperties:
-          type: string
-        type: object
-      pending_actions:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_session.PendingToolCall'
-        type: array
-      session_id:
-        type: string
-      updated_at:
-        type: string
-      user_id:
-        type: string
     type: object
 host: localhost:8080
 info:
@@ -907,14 +1484,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.ChatRequest'
+          $ref: '#/definitions/handlers.ChatRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.ChatResponse'
+            $ref: '#/definitions/handlers.ChatResponse'
         "400":
           description: Bad Request
           schema:
@@ -942,14 +1519,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.DispatchRequest'
+          $ref: '#/definitions/handlers.DispatchRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.DispatchResponse'
+            $ref: '#/definitions/handlers.DispatchResponse'
         "400":
           description: Bad Request
           schema:
@@ -994,7 +1571,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse'
+            $ref: '#/definitions/timeline.TimelineResponse'
         "400":
           description: Bad Request
           schema:
@@ -1035,7 +1612,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse'
+            $ref: '#/definitions/timeline.TimelineResponse'
         "400":
           description: Bad Request
           schema:
@@ -1061,89 +1638,10 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.HealthResponse'
+            $ref: '#/definitions/handlers.HealthResponse'
       summary: Health check
       tags:
       - Health
-  /v1/scenario-events:
-    get:
-      consumes:
-      - application/json
-      description: List all scenario events or create a new one
-      parameters:
-      - description: New scenario event
-        in: body
-        name: body
-        schema:
-          $ref: '#/definitions/cmd_server_handlers.scenarioEventInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent'
-            type: array
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - SessionID: []
-      - AuthToken: []
-      summary: List or create scenario events
-      tags:
-      - Scenario Events
-    post:
-      consumes:
-      - application/json
-      description: List all scenario events or create a new one
-      parameters:
-      - description: New scenario event
-        in: body
-        name: body
-        schema:
-          $ref: '#/definitions/cmd_server_handlers.scenarioEventInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent'
-            type: array
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - SessionID: []
-      - AuthToken: []
-      summary: List or create scenario events
-      tags:
-      - Scenario Events
   /v1/tools:
     get:
       description: Returns a list of all available financial tools and their metadata
@@ -1158,6 +1656,895 @@ paths:
       summary: Get available financial tools
       tags:
       - Health
+  /v2/assets:
+    delete:
+      description: Bulk deletes all non-cash assets for the authenticated user in
+        a single query.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete all assets (v2)
+      tags:
+      - Bulk Delete V2
+    get:
+      description: Returns paginated non-cash assets for the authenticated user
+      parameters:
+      - description: Max items to return (-1 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of items to skip
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: List assets (v2)
+      tags:
+      - Assets V2
+  /v2/assets/{id}:
+    delete:
+      description: Deletes an asset and its descendant versions
+      parameters:
+      - description: Asset ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete an asset (v2)
+      tags:
+      - Assets V2
+    put:
+      consumes:
+      - application/json
+      description: Updates an asset with versioning support
+      parameters:
+      - description: Asset ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Asset data
+        in: body
+        name: asset
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.assetInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.NonCashAsset'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Update an asset (v2)
+      tags:
+      - Assets V2
+  /v2/assets/{id}/stop:
+    post:
+      consumes:
+      - application/json
+      description: Sets the endDate on an asset (soft delete)
+      parameters:
+      - description: Asset ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Stop input with endDate
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.stopInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.NonCashAsset'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Stop an asset (v2)
+      tags:
+      - Assets V2
+  /v2/cash-accounts:
+    delete:
+      description: Bulk deletes all cash accounts for the authenticated user in a
+        single query.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete all cash accounts (v2)
+      tags:
+      - Bulk Delete V2
+    get:
+      description: Returns paginated cash accounts for the authenticated user
+      parameters:
+      - description: Max items to return (-1 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of items to skip
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: List cash accounts (v2)
+      tags:
+      - Cash Accounts V2
+  /v2/cash-accounts/{id}:
+    delete:
+      description: Deletes a cash account and descendant versions
+      parameters:
+      - description: Cash account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete a cash account (v2)
+      tags:
+      - Cash Accounts V2
+    put:
+      consumes:
+      - application/json
+      description: Updates a cash account with versioning support
+      parameters:
+      - description: Cash account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Cash account data
+        in: body
+        name: cashAccount
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.cashAccountV2Input'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.CashAsset'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Update a cash account (v2)
+      tags:
+      - Cash Accounts V2
+  /v2/cash-accounts/{id}/stop:
+    post:
+      consumes:
+      - application/json
+      description: Sets the endDate on a cash account (soft delete) and cascades to
+        allocations
+      parameters:
+      - description: Cash account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Stop input with endDate
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.stopInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.CashAsset'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Stop a cash account (v2)
+      tags:
+      - Cash Accounts V2
+  /v2/cashflow/expenses:
+    delete:
+      description: Bulk deletes all expenses for the authenticated user in a single
+        query.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete all expenses (v2)
+      tags:
+      - Expenses V2
+    get:
+      description: Returns expenses grouped into regularExpenses and debtRepayments
+      parameters:
+      - description: Max items to return (-1 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of items to skip
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.GroupedExpenses'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: List expenses (v2)
+      tags:
+      - Expenses V2
+    post:
+      consumes:
+      - application/json
+      description: Creates a new expense
+      parameters:
+      - description: Expense data
+        in: body
+        name: expense
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.expenseCreateInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Expense'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Create an expense (v2)
+      tags:
+      - Expenses V2
+  /v2/cashflow/expenses/{id}:
+    delete:
+      description: Deletes an expense and all its descendant versions
+      parameters:
+      - description: Expense ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete an expense (v2)
+      tags:
+      - Expenses V2
+    put:
+      consumes:
+      - application/json
+      description: Updates an expense with versioning support
+      parameters:
+      - description: Expense ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Expense data
+        in: body
+        name: expense
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.expenseV2Input'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Expense'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Update an expense (v2)
+      tags:
+      - Expenses V2
+  /v2/cashflow/expenses/{id}/stop:
+    post:
+      consumes:
+      - application/json
+      description: Sets the end_date on an expense (soft delete)
+      parameters:
+      - description: Expense ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Stop input with endDate
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.stopInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Expense'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Stop an expense (v2)
+      tags:
+      - Expenses V2
+  /v2/cashflow/incomes:
+    delete:
+      description: Bulk deletes all incomes for the authenticated user in a single
+        query.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete all incomes (v2)
+      tags:
+      - Bulk Delete V2
+    get:
+      description: Returns paginated incomes for the authenticated user
+      parameters:
+      - description: Max items to return (-1 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of items to skip
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: List incomes (v2)
+      tags:
+      - Incomes V2
+  /v2/cashflow/incomes/{id}:
+    delete:
+      description: Deletes an income and all descendant versions
+      parameters:
+      - description: Income ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete an income (v2)
+      tags:
+      - Incomes V2
+    put:
+      consumes:
+      - application/json
+      description: Updates an income with versioning support
+      parameters:
+      - description: Income ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Income data
+        in: body
+        name: income
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.incomeV2Input'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Income'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Update an income (v2)
+      tags:
+      - Incomes V2
+  /v2/cashflow/incomes/{id}/stop:
+    post:
+      consumes:
+      - application/json
+      description: Sets the endDate on an income (soft delete)
+      parameters:
+      - description: Income ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Stop input with endDate
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.stopInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Income'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Stop an income (v2)
+      tags:
+      - Incomes V2
+  /v2/cpf/account:
+    get:
+      description: Returns the CPF account for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.CPFAccount'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Get CPF account (v2)
+      tags:
+      - CPF V2
+    post:
+      consumes:
+      - application/json
+      description: Creates a CPF account with balances and profile data
+      parameters:
+      - description: CPF account data
+        in: body
+        name: cpf
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.cpfV2CreateInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/repository.CPFAccount'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Create CPF account (v2)
+      tags:
+      - CPF V2
+  /v2/cpf/account/{id}:
+    delete:
+      description: Deletes a CPF account and its versions
+      parameters:
+      - description: CPF account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete CPF account (v2)
+      tags:
+      - CPF V2
+    put:
+      consumes:
+      - application/json
+      description: Updates a CPF account version
+      parameters:
+      - description: CPF account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: CPF account data
+        in: body
+        name: cpf
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.cpfV2Input'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.CPFAccount'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Update CPF account (v2)
+      tags:
+      - CPF V2
+  /v2/cpf/account/{id}/stop:
+    post:
+      consumes:
+      - application/json
+      description: Sets the endDate on a CPF account (soft delete)
+      parameters:
+      - description: CPF account ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Stop input with endDate
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.stopInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.CPFAccount'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Stop CPF account (v2)
+      tags:
+      - CPF V2
+  /v2/cpf/accounts:
+    delete:
+      description: Bulk deletes all CPF accounts for the authenticated user in a single
+        query.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete all CPF accounts (v2)
+      tags:
+      - Bulk Delete V2
   /v2/financial/timeline/chart:
     get:
       description: Returns the simplified financial timeline chart with net worth
@@ -1174,7 +2561,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse'
+            $ref: '#/definitions/timeline_v2.TimelineAnnualChartResponse'
         "400":
           description: Bad Request
           schema:
@@ -1206,13 +2593,17 @@ paths:
         in: query
         name: endDate
         type: string
+      - description: 'Include scenario impacts in adjBalance/adjAmount (default: false)'
+        in: query
+        name: includeScenarios
+        type: boolean
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response'
+            $ref: '#/definitions/timeline_v2.TimelineV2Response'
         "400":
           description: Bad Request
           schema:
@@ -1229,6 +2620,822 @@ paths:
       summary: Get monthly financial snapshots (v2)
       tags:
       - Timeline V2
+  /v2/income-allocations:
+    get:
+      description: Returns all income allocations with optional target filtering
+      parameters:
+      - description: Filter by target type (investment|cash_account)
+        in: query
+        name: targetType
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.incomeAllocationV2DTO'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: List all income allocations (v2)
+      tags:
+      - Income Allocations V2
+  /v2/incomes/{incomeId}/allocations:
+    get:
+      description: Lists allocations for a specific income
+      parameters:
+      - description: Income ID
+        in: path
+        name: incomeId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.incomeAllocationV2DTO'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: List income allocations (v2)
+      tags:
+      - Income Allocations V2
+    post:
+      consumes:
+      - application/json
+      description: Creates a new allocation for an income
+      parameters:
+      - description: Income ID
+        in: path
+        name: incomeId
+        required: true
+        type: string
+      - description: Allocation data
+        in: body
+        name: allocation
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.incomeAllocationCreateDTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.incomeAllocationV2DTO'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Create income allocation (v2)
+      tags:
+      - Income Allocations V2
+  /v2/incomes/{incomeId}/allocations/{allocId}:
+    delete:
+      description: Deletes an income allocation version chain
+      parameters:
+      - description: Income ID
+        in: path
+        name: incomeId
+        required: true
+        type: string
+      - description: Allocation ID
+        in: path
+        name: allocId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete income allocation (v2)
+      tags:
+      - Income Allocations V2
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing income allocation
+      parameters:
+      - description: Income ID
+        in: path
+        name: incomeId
+        required: true
+        type: string
+      - description: Allocation ID
+        in: path
+        name: allocId
+        required: true
+        type: string
+      - description: Allocation data
+        in: body
+        name: allocation
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.incomeAllocationCreateDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.incomeAllocationV2DTO'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Update income allocation (v2)
+      tags:
+      - Income Allocations V2
+  /v2/incomes/{incomeId}/allocations/{allocId}/stop:
+    post:
+      consumes:
+      - application/json
+      description: Sets an endDate on an allocation (soft delete)
+      parameters:
+      - description: Income ID
+        in: path
+        name: incomeId
+        required: true
+        type: string
+      - description: Allocation ID
+        in: path
+        name: allocId
+        required: true
+        type: string
+      - description: Stop input with endDate
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.stopAllocationDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.incomeAllocationV2DTO'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Stop income allocation (v2)
+      tags:
+      - Income Allocations V2
+  /v2/investments:
+    delete:
+      description: Bulk deletes all investments for the authenticated user in a single
+        query.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete all investments (v2)
+      tags:
+      - Bulk Delete V2
+    get:
+      description: Returns paginated investments for the authenticated user
+      parameters:
+      - description: Max items to return (-1 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of items to skip
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: List investments (v2)
+      tags:
+      - Investments V2
+  /v2/investments/{id}:
+    delete:
+      description: Deletes an investment and its descendant versions
+      parameters:
+      - description: Investment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete an investment (v2)
+      tags:
+      - Investments V2
+    put:
+      consumes:
+      - application/json
+      description: Updates an investment with versioning support
+      parameters:
+      - description: Investment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Investment data
+        in: body
+        name: investment
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.investmentV2Input'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Investment'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Update an investment (v2)
+      tags:
+      - Investments V2
+  /v2/investments/{id}/stop:
+    post:
+      consumes:
+      - application/json
+      description: Sets the endDate on an investment (soft delete) and cascades to
+        allocations
+      parameters:
+      - description: Investment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Stop input with endDate
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.stopInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Investment'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Stop an investment (v2)
+      tags:
+      - Investments V2
+  /v2/liabilities:
+    delete:
+      description: Bulk deletes all liabilities for the authenticated user in a single
+        query.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete all liabilities (v2)
+      tags:
+      - Bulk Delete V2
+    get:
+      description: Returns paginated liabilities for the authenticated user
+      parameters:
+      - description: Max items to return (-1 for all)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of items to skip
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: List liabilities (v2)
+      tags:
+      - Liabilities V2
+    post:
+      consumes:
+      - application/json
+      description: Creates a new liability. If minimumPayment > 0, automatically creates
+        a linked expense for debt repayment.
+      parameters:
+      - description: Liability to create
+        in: body
+        name: liability
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.liabilityCreateInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Liability'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Create a liability (v2)
+      tags:
+      - Liabilities V2
+  /v2/liabilities/{id}:
+    delete:
+      description: Deletes a liability and all descendant versions
+      parameters:
+      - description: Liability ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete a liability (v2)
+      tags:
+      - Liabilities V2
+    put:
+      consumes:
+      - application/json
+      description: Updates a liability with versioning support
+      parameters:
+      - description: Liability ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Liability data
+        in: body
+        name: liability
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.liabilityInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Liability'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Update a liability (v2)
+      tags:
+      - Liabilities V2
+  /v2/liabilities/{id}/stop:
+    post:
+      consumes:
+      - application/json
+      description: Sets the endDate on a liability (soft delete)
+      parameters:
+      - description: Liability ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Stop input with endDate
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.stopInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Liability'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Stop a liability (v2)
+      tags:
+      - Liabilities V2
+  /v2/scenario-events:
+    get:
+      description: List all scenario events with pagination and filtering
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Filter by year
+        in: query
+        name: year
+        type: integer
+      - description: Filter by included status
+        in: query
+        name: included
+        type: boolean
+      - description: Filter by tags (comma-separated)
+        in: query
+        name: tags
+        type: string
+      - description: Search query
+        in: query
+        name: q
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: List scenario events (v2)
+      tags:
+      - Scenario Events V2
+    post:
+      consumes:
+      - application/json
+      description: Create a new scenario event with typed FK impacts
+      parameters:
+      - description: Scenario event
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.scenarioEventV2DTO'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.scenarioEventV2DTO'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Create scenario event (v2)
+      tags:
+      - Scenario Events V2
+  /v2/scenario-events/{id}:
+    delete:
+      description: Delete a scenario event by ID
+      parameters:
+      - description: Event ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete scenario event (v2)
+      tags:
+      - Scenario Events V2
+    get:
+      description: Get a scenario event by ID
+      parameters:
+      - description: Event ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.scenarioEventV2DTO'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Get scenario event (v2)
+      tags:
+      - Scenario Events V2
+    put:
+      consumes:
+      - application/json
+      description: Update a scenario event by ID
+      parameters:
+      - description: Event ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Scenario event
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.scenarioEventV2DTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.scenarioEventV2DTO'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Update scenario event (v2)
+      tags:
+      - Scenario Events V2
+  /v2/scenario-events/{id}/toggle:
+    patch:
+      consumes:
+      - application/json
+      description: Toggle whether a scenario is included in projections
+      parameters:
+      - description: Event ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Toggle payload
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: boolean
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Toggle scenario included status (v2)
+      tags:
+      - Scenario Events V2
 schemes:
 - http
 - https

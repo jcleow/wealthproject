@@ -9,10 +9,10 @@ export function useInvestmentsQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: INVESTMENTS_QUERY_KEY,
     queryFn: async () => {
-      const result = await investmentsApi.listInvestments({ limit: 20 })
+      const result = await investmentsApi.listInvestments({ limit: -1 })
       return result.data
     },
-    enabled: options?.enabled ?? false, // Disabled by default - components opt-in when needed
+    enabled: options?.enabled ?? true,
     staleTime: 30_000, // Consider fresh for 30 seconds
     cacheTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   })

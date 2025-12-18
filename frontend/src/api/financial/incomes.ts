@@ -27,7 +27,7 @@ export interface CreateIncomeAllocationPayload {
 
 export async function listIncomes(params?: PaginationParams): Promise<PaginatedResponse<Income>> {
   const path = buildPaginatedPath('/cashflow/incomes', params)
-  const data = await apiClient.get<any>(path)
+  const data = await apiClient.get<any>(path, undefined, { baseUrl: '/api/v2' })
   return normalizePaginatedResponse<Income>(data, toIncome, params)
 }
 

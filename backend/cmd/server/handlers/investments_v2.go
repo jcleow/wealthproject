@@ -40,8 +40,51 @@ func NewInvestmentV2Handler(store *repo.Store) *InvestmentV2Handler {
 	}
 }
 
+// GET /api/v2/investments
+// HandleList lists investments for the user.
+// @Summary List investments (v2)
+// @Description Returns paginated investments for the authenticated user
+// @Tags Investments V2
+// @Produce json
+// @Param limit query int false "Max items to return (-1 for all)"
+// @Param offset query int false "Number of items to skip"
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/investments [get]
+func (h *InvestmentV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	pagination := parsePaginationV2(r)
+	result, err := h.store.ListInvestments(r.Context(), userID, repo.DateRangeOptions{}, pagination)
+	if err != nil {
+		log.Printf("investment.List error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
 // PUT /api/v2/investments/{id}
 // HandleUpdate updates an investment with versioning and cascading rules.
+// @Summary Update an investment (v2)
+// @Description Updates an investment with versioning support
+// @Tags Investments V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Investment ID"
+// @Param investment body investmentV2Input true "Investment data"
+// @Success 200 {object} repo.Investment
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/investments/{id} [put]
 func (h *InvestmentV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -111,6 +154,16 @@ func (h *InvestmentV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Reques
 
 // DELETE /api/v2/investments/{id}
 // HandleDelete removes an investment.
+// @Summary Delete an investment (v2)
+// @Description Deletes an investment and its descendant versions
+// @Tags Investments V2
+// @Param id path string true "Investment ID"
+// @Success 204 "No Content"
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/investments/{id} [delete]
 func (h *InvestmentV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -131,6 +184,20 @@ func (h *InvestmentV2Handler) HandleDelete(w http.ResponseWriter, r *http.Reques
 
 // POST /api/v2/investments/{id}/stop
 // HandleStop sets an end date for an investment and cascades to income allocations.
+// @Summary Stop an investment (v2)
+// @Description Sets the endDate on an investment (soft delete) and cascades to allocations
+// @Tags Investments V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Investment ID"
+// @Param body body stopInput true "Stop input with endDate"
+// @Success 200 {object} repo.Investment
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/investments/{id}/stop [post]
 func (h *InvestmentV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
