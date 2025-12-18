@@ -16,9 +16,11 @@ interface ScenarioEventModalProps {
   onSaved?: (event: ScenarioEvent) => void
   onDeleted?: () => void
   event?: ScenarioEvent
+  anchorYear?: number | null
+  anchorMonth?: number | null
 }
 
-export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event }: ScenarioEventModalProps) {
+export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event, anchorYear, anchorMonth }: ScenarioEventModalProps) {
   const { data: fetchedEvent, isFetching } = useScenarioEvent(event?.id, isOpen && Boolean(event?.id), event)
   const hydratedEvent = fetchedEvent ?? event
 
@@ -111,7 +113,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event 
     <Modal isOpen={isOpen} onClose={onClose} overlayClassName="bg-black/80 backdrop-blur-sm p-4 sm:p-6">
       <div className={`relative
 overflow-hidden
-w-full max-w-4xl
+w-full min-w-[56rem] max-w-4xl
 rounded-2xl border border-white/[0.1]
 bg-[#0a0a0a]/95
 text-white
@@ -122,8 +124,8 @@ rounded-lg border border-white/[0.08]
 bg-white/[0.03]
 text-xs
 animate-pulse`}>Loading...</div>}
-          <ModalHeader isEditing={!!event} onExample={fillExample} onClose={onClose} disabled={loadingState} />
-          <ScenarioFormFields form={form} onFieldChange={(k, v) => setForm(p => ({ ...p, [k]: v }))} disabled={loadingState} />
+          <ModalHeader isEditing={!!event} onExample={fillExample} onClose={onClose} disabled={loadingState} isIncluded={form.isIncluded} onToggleIncluded={(value) => setForm(p => ({ ...p, isIncluded: value }))} />
+          <ScenarioFormFields form={form} onFieldChange={(k, v) => setForm(p => ({ ...p, [k]: v }))} disabled={loadingState} anchorYear={anchorYear} anchorMonth={anchorMonth} />
           {form.occursOn ? (
             <ImpactList impacts={form.impacts} onUpdate={handleImpactChange} onAdd={addImpact} onRemove={removeImpact}
               loading={loadingState} itemSelector={itemSelector} financialItems={financialItems} />

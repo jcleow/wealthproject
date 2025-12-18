@@ -8,33 +8,19 @@ interface ScenarioFormFieldsProps {
   form: ScenarioEventFormState
   onFieldChange: <K extends keyof ScenarioEventFormState>(field: K, value: ScenarioEventFormState[K]) => void
   disabled?: boolean
+  anchorYear?: number | null
+  anchorMonth?: number | null
 }
 
-export function ScenarioFormFields({ form, onFieldChange, disabled }: ScenarioFormFieldsProps) {
+export function ScenarioFormFields({ form, onFieldChange, disabled, anchorYear, anchorMonth }: ScenarioFormFieldsProps) {
+  // Build minDate and defaultViewDate from anchor values
+  const minDate = anchorYear && anchorMonth
+    ? `${anchorYear}-${String(anchorMonth).padStart(2, '0')}`
+    : undefined
+  const defaultViewDate = minDate
+
   return (
     <>
-      {/* Include toggle */}
-      <div className={`flex items-center justify-between
-mt-5 px-4 py-3
-rounded-xl border border-white/[0.06]
-bg-white/[0.02]`}>
-        <div className="text-sm text-slate-300">Include in projections</div>
-        <button
-          type="button"
-          onClick={() => onFieldChange('isIncluded', !form.isIncluded)}
-          className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-            form.isIncluded
-              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-              : 'border-white/[0.08] bg-white/[0.03] text-slate-400'
-          }`}
-        >
-          <span className={`flex h-4 w-8 items-center rounded-full p-[2px] transition-all ${form.isIncluded ? 'bg-emerald-500/60 justify-end' : 'bg-white/10 justify-start'}`}>
-            <span className={`h-3 w-3 rounded-full ${form.isIncluded ? 'bg-white' : 'bg-slate-400'}`} />
-          </span>
-          {form.isIncluded ? 'Enabled' : 'Disabled'}
-        </button>
-      </div>
-
       {/* Form grid */}
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <label className="space-y-1.5 text-sm">
@@ -61,6 +47,8 @@ disabled:opacity-50`}
             placeholder="Select month"
             disabled={disabled}
             className="w-full"
+            minDate={minDate}
+            defaultViewDate={defaultViewDate}
           />
         </div>
 
@@ -79,7 +67,7 @@ disabled:opacity-50`}
           <textarea
             value={form.description}
             onChange={(e) => onFieldChange('description', e.target.value)}
-            rows={2}
+            rows={1}
             className={`w-full
 px-3 py-2.5
 rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none

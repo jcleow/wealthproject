@@ -102,7 +102,7 @@ shadow-lg shadow-black/30`}>
             <div className="col-span-3 py-3 text-center text-xs text-slate-500">Type to search for an icon.</div>
           )}
           {hasSearch &&
-            filteredIcons.slice(0, 24).map((opt, idx) => (
+            filteredIcons.slice(0, 3).map((opt, idx) => (
               <button
                 key={`${opt.name}-${idx}`}
                 type="button"
