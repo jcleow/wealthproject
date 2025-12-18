@@ -70,9 +70,9 @@ func (h *DevHandler) HandleDevToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create JWT with same structure as the BFF
+	// Create JWT with same structure as the BFF (but longer expiry for dev convenience)
 	now := time.Now()
-	expires := now.Add(5 * time.Minute)
+	expires := now.Add(24 * time.Hour)
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": userID,

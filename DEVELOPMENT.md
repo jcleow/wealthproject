@@ -20,6 +20,7 @@ The backend will be running at `http://localhost:8080`
 **Available Endpoints:**
 - `GET /api/v1/health` - Health check with system status
 - `GET /api/v1/tools` - List available financial tools
+- `GET /api/dev/token` - Generate dev auth token (dev mode only)
 
 **Example requests:**
 ```bash
@@ -29,6 +30,29 @@ curl http://localhost:8080/api/v1/health
 # List financial tools
 curl http://localhost:8080/api/v1/tools
 ```
+
+### 4. Generating Dev Auth Tokens
+
+Most API endpoints require authentication. In development, use the dev token endpoint:
+
+```bash
+# Generate a token for a user (get user_id from your database)
+curl "http://localhost:8080/api/dev/token?user_id=<your-user-uuid>"
+
+# Response:
+# {
+#   "token": "eyJ...",
+#   "userId": "...",
+#   "expires": "...",
+#   "usage": "curl -H \"X-Auth-Token: eyJ...\" http://localhost:8080/api/v2/..."
+# }
+
+# Use the token to call authenticated endpoints
+TOKEN=$(curl -s "http://localhost:8080/api/dev/token?user_id=<your-user-uuid>" | jq -r .token)
+curl -H "X-Auth-Token: $TOKEN" http://localhost:8080/api/v2/investments
+```
+
+**Note:** Dev tokens are valid for 24 hours. This endpoint returns 404 in production.
 
 ## What's Currently Implemented
 
