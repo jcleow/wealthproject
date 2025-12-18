@@ -684,10 +684,8 @@ export function NetWorthProjection({
 
       if (dataResolution === 'monthly') {
         // Monthly mode: match by calendar year and month directly in displayData
-        // Each displayPoint has calendarYear and we can calculate the month from yearIndex
         displayPoint = displayData.find((point) => {
-          const pointMonth = (point.yearIndex % 12) + 1 // Convert 0-based month index to 1-based month
-          return point.calendarYear === eventDate.year && pointMonth === eventDate.month
+          return point.calendarYear === eventDate.year && point.calendarMonth === eventDate.month
         })
 
         // If not found in current window, skip this event

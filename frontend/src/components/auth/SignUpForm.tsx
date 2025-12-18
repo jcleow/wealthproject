@@ -29,7 +29,7 @@ export function SignUpForm() {
         email: data.email,
         password: data.password,
         name: data.name,
-        callbackURL: '/',
+        callbackURL: '/dashboard',
       })
 
       if (result.error) {
@@ -37,7 +37,7 @@ export function SignUpForm() {
         return
       }
 
-      router.push('/')
+      router.push('/dashboard')
       router.refresh()
     } catch {
       setServerError('An unexpected error occurred. Please try again.')

@@ -28,7 +28,7 @@ export function LoginForm() {
       const result = await signIn.email({
         email: data.email,
         password: data.password,
-        callbackURL: '/',
+        callbackURL: '/dashboard',
       })
 
       if (result.error) {
@@ -36,7 +36,7 @@ export function LoginForm() {
         return
       }
 
-      router.push('/')
+      router.push('/dashboard')
       router.refresh()
     } catch {
       setServerError('An unexpected error occurred. Please try again.')
