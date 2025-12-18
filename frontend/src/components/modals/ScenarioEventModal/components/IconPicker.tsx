@@ -140,13 +140,12 @@ export function IconPicker({
       {/* Popover */}
       {isOpen && (
         <div className={`
-          absolute left-0 top-full z-50 mt-2
+          absolute left-0 top-full z-[100] mt-2
           w-72
           rounded-2xl
-          border border-white/[0.1]
-          bg-[#0c0c0c]/98
-          backdrop-blur-xl
-          shadow-2xl shadow-black/50
+          border border-white/[0.12]
+          bg-[#0c0c0c]
+          shadow-2xl shadow-black/60
           overflow-hidden
           animate-in fade-in slide-in-from-top-2 duration-200
         `}>

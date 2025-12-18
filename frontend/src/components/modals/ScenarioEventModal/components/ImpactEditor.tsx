@@ -5,6 +5,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { ScenarioImpact, ImpactVerb } from '@/types/scenario'
 import { verbToImpact, impactToVerb } from '@/types/scenario'
 import { MonthPicker } from '@/components/ui/MonthPicker'
+import { useState, useRef, useEffect } from 'react'
 
 const TrashIcon = LucideIcons.Trash2 as LucideIcon | undefined
 const ChevronDownIcon = LucideIcons.ChevronDown as LucideIcon | undefined
@@ -16,6 +17,40 @@ const TrendingDownIcon = LucideIcons.TrendingDown as LucideIcon | undefined
 const TargetIcon = LucideIcons.Target as LucideIcon | undefined
 const PlusCircleIcon = LucideIcons.PlusCircle as LucideIcon | undefined
 const XCircleIcon = LucideIcons.XCircle as LucideIcon | undefined
+
+// Target type options grouped by category
+const TARGET_TYPE_GROUPS = [
+  {
+    label: 'Cash Flow',
+    options: [
+      { value: 'income', label: 'Income' },
+      { value: 'expense', label: 'Expense' },
+    ]
+  },
+  {
+    label: 'Assets',
+    options: [
+      { value: 'cash', label: 'Cash Account' },
+      { value: 'investment', label: 'Investment' },
+      { value: 'asset', label: 'Non-Cash Asset' },
+    ]
+  },
+  {
+    label: 'Liabilities',
+    options: [
+      { value: 'liability', label: 'Debt/Liability' },
+    ]
+  },
+]
+
+// Get label for a target type value
+function getTargetTypeDisplayLabel(value: string): string {
+  for (const group of TARGET_TYPE_GROUPS) {
+    const option = group.options.find(o => o.value === value)
+    if (option) return option.label
+  }
+  return value
+}
 
 export type FinancialItem = { id: string; name: string; amount: number; frequency?: string }
 
@@ -109,9 +144,29 @@ export function ImpactEditor({
   const VerbIcon = getVerbIcon(currentVerb)
   const verbColor = getVerbColor(currentVerb)
 
+  // State for custom target type dropdown
+  const [targetTypeOpen, setTargetTypeOpen] = useState(false)
+  const targetTypeRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (targetTypeRef.current && !targetTypeRef.current.contains(event.target as Node)) {
+        setTargetTypeOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const handleVerbChange = (verb: ImpactVerb) => {
     const { impactKind, amount } = verbToImpact(verb, Math.abs(impact.amount) || 0)
     onUpdate(index, { impactKind, amount })
+  }
+
+  const handleTargetTypeChange = (value: string) => {
+    onUpdate(index, { targetType: value as ScenarioImpact['targetType'] })
+    setTargetTypeOpen(false)
   }
 
   const selectedItem = items.find(it => it.id === selectedItemId)
@@ -198,22 +253,82 @@ export function ImpactEditor({
       <div className="space-y-3">
         {/* Row 1: Type + Verb + Amount */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Target type */}
-          <SelectWrapper>
-            <select
-              value={impact.targetType}
-              onChange={(e) => onUpdate(index, { targetType: e.target.value as ScenarioImpact['targetType'] })}
-              className={selectStyles}
+          {/* Target type - custom dropdown that always drops down */}
+          <div className="relative" ref={targetTypeRef}>
+            <button
+              type="button"
+              onClick={() => !loading && setTargetTypeOpen(!targetTypeOpen)}
               disabled={loading}
+              className={`
+                flex items-center justify-between gap-2
+                pl-3 pr-8 py-2
+                min-w-[140px]
+                rounded-lg
+                border border-white/[0.08] hover:border-white/[0.15]
+                bg-white/[0.03] hover:bg-white/[0.05]
+                text-sm text-white text-left
+                disabled:opacity-50 disabled:cursor-not-allowed
+                transition-all duration-200
+                ${targetTypeOpen ? 'border-blue-500/40' : ''}
+              `}
             >
-              <option value="income">Income</option>
-              <option value="expense">Expense</option>
-              <option value="asset">Non-Cash Asset</option>
-              <option value="investment">Investment</option>
-              <option value="liability">Debt/Liability</option>
-              <option value="cash">Cash Account</option>
-            </select>
-          </SelectWrapper>
+              <span>{getTargetTypeDisplayLabel(impact.targetType)}</span>
+              {ChevronDownIcon && (
+                <ChevronDownIcon className={`absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 transition-transform duration-200 ${targetTypeOpen ? 'rotate-180' : ''}`} />
+              )}
+            </button>
+
+            {/* Custom dropdown menu - always drops DOWN */}
+            {targetTypeOpen && (
+              <div className="
+                absolute left-0 top-full z-[100] mt-1
+                min-w-[180px]
+                rounded-xl
+                border border-white/[0.12]
+                bg-[#0c0c0c]
+                shadow-2xl shadow-black/60
+                overflow-hidden
+                animate-in fade-in slide-in-from-top-2 duration-150
+              ">
+                {TARGET_TYPE_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    {/* Group header */}
+                    <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-white/[0.02]">
+                      {group.label}
+                    </div>
+                    {/* Group options */}
+                    {group.options.map((option) => {
+                      const isSelected = option.value === impact.targetType
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => handleTargetTypeChange(option.value)}
+                          className={`
+                            w-full flex items-center gap-2
+                            px-3 py-2
+                            text-sm text-left
+                            transition-all duration-150
+                            ${isSelected
+                              ? 'bg-blue-500/15 text-white'
+                              : 'text-slate-300 hover:bg-white/[0.05]'
+                            }
+                          `}
+                        >
+                          <span className="w-4 shrink-0">
+                            {isSelected && CheckIcon && (
+                              <CheckIcon className="h-3.5 w-3.5 text-blue-400" />
+                            )}
+                          </span>
+                          <span>{option.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Visual connector */}
           {ArrowRightIcon && (
@@ -370,14 +485,13 @@ export function ImpactEditor({
               {/* Dropdown menu */}
               {dropdownOpen && (
                 <div className={`
-                  absolute z-50
+                  absolute z-[100]
                   w-full
                   mt-2
                   rounded-xl
-                  border border-white/[0.1]
-                  bg-[#0a0a0a]/98
-                  backdrop-blur-xl
-                  shadow-2xl shadow-black/50
+                  border border-white/[0.12]
+                  bg-[#0a0a0a]
+                  shadow-2xl shadow-black/60
                   overflow-hidden
                   animate-in fade-in slide-in-from-top-2 duration-200
                 `}>
