@@ -10,7 +10,7 @@ export function useExpensesQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: EXPENSES_QUERY_KEY,
     queryFn: async () => {
-      const result = await expensesApi.listExpenses({ limit: -1 })
+      const result = await expensesApi.listExpenses()
       return result.data
     },
     enabled: options?.enabled ?? true,

@@ -10,7 +10,7 @@ export function useAssetsQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ASSETS_QUERY_KEY,
     queryFn: async () => {
-      const result = await assetsApi.listAssets({ limit: -1 })
+      const result = await assetsApi.listAssets()
       return result.data
     },
     enabled: options?.enabled ?? true,

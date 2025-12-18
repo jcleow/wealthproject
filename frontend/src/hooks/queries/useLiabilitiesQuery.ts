@@ -10,7 +10,7 @@ export function useLiabilitiesQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: LIABILITIES_QUERY_KEY,
     queryFn: async () => {
-      const result = await liabilitiesApi.listLiabilities({ limit: -1 })
+      const result = await liabilitiesApi.listLiabilities()
       return result.data
     },
     enabled: options?.enabled ?? true,

@@ -10,7 +10,7 @@ export function useIncomesQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: INCOMES_QUERY_KEY,
     queryFn: async () => {
-      const result = await incomesApi.listIncomes({ limit: -1 })
+      const result = await incomesApi.listIncomes()
       return result.data
     },
     enabled: options?.enabled ?? true,

@@ -9,7 +9,7 @@ export function useInvestmentsQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: INVESTMENTS_QUERY_KEY,
     queryFn: async () => {
-      const result = await investmentsApi.listInvestments({ limit: -1 })
+      const result = await investmentsApi.listInvestments()
       return result.data
     },
     enabled: options?.enabled ?? true,
