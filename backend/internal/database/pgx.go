@@ -2,10 +2,32 @@ package database
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// loadSupabaseCA loads the Supabase CA certificate chain if available.
+func loadSupabaseCA() *x509.CertPool {
+	candidates := []string{
+		"supabase-ca-chain.pem",
+		"/workspace/supabase-ca-chain.pem",
+	}
+	for _, path := range candidates {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		pool := x509.NewCertPool()
+		if pool.AppendCertsFromPEM(data) {
+			return pool
+		}
+	}
+	return nil
+}
 
 // ConnectPgx creates a new pgxpool connection pool.
 // This is used for financial_v2 repositories that benefit from pgx features.
@@ -18,6 +40,15 @@ func ConnectPgx(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) 
 	// Configure pool settings
 	config.MaxConns = 25
 	config.MinConns = 5
+
+	// Load Supabase CA cert for SSL verification
+	if caPool := loadSupabaseCA(); caPool != nil && config.ConnConfig.TLSConfig != nil {
+		config.ConnConfig.TLSConfig.RootCAs = caPool
+	} else if caPool != nil {
+		config.ConnConfig.TLSConfig = &tls.Config{
+			RootCAs: caPool,
+		}
+	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {

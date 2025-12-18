@@ -53,9 +53,10 @@ services:
       NODE_ENV: development
       GO_BACKEND_URL: http://backend:8081
       BACKEND_SHARED_SECRET: ${BACKEND_SHARED_SECRET:?set BACKEND_SHARED_SECRET}
-      BETTERAUTH_URL: http://localhost:3001
+      BETTERAUTH_URL: ${BETTERAUTH_URL:-http://localhost:3001}
       NEXT_PUBLIC_BETTERAUTH_URL: ""
       NEXT_TELEMETRY_DISABLED: "1"
+      NODE_EXTRA_CA_CERTS: /workspace/supabase-ca-chain.pem
     command: >
       sh -c "corepack enable &&
              corepack prepare pnpm@latest --activate &&
@@ -64,6 +65,7 @@ services:
     volumes:
       - ./frontend:/workspace/frontend
       - frontend_node_modules:/workspace/frontend/node_modules
+      - ./supabase-ca-chain.pem:/workspace/supabase-ca-chain.pem:ro
     depends_on:
       backend:
         condition: service_started

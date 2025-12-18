@@ -1,8 +1,8 @@
 # Development: IP-based access on port 80
 :80 {
-    # API requests -> backend
+    # All API requests -> frontend (Next.js BFF handles auth + proxies to backend)
     handle /api/* {
-        reverse_proxy backend:8081
+        reverse_proxy frontend:3001
     }
 
     # Everything else -> frontend

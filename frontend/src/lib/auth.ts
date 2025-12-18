@@ -1,15 +1,35 @@
 import { betterAuth } from 'better-auth'
 import { Pool } from 'pg'
+import fs from 'fs'
+import path from 'path'
+
+// Load Supabase CA certificate chain (check multiple locations)
+const caCandidates = [
+  path.join(process.cwd(), 'supabase-ca-chain.pem'),
+  path.join(process.cwd(), '..', 'supabase-ca-chain.pem'),
+  '/workspace/supabase-ca-chain.pem',
+]
+console.log('[Auth] Looking for CA cert, cwd:', process.cwd())
+console.log('[Auth] CA candidates:', caCandidates.map((p) => `${p} (exists: ${fs.existsSync(p)})`))
+const caPath = caCandidates.find((p) => fs.existsSync(p))
+const ca = caPath ? fs.readFileSync(caPath).toString() : undefined
+console.log('[Auth] CA cert loaded:', caPath ? `yes (${caPath})` : 'no')
 
 // Create a PostgreSQL pool for BetterAuth
 // Append search_path to use auth schema for BetterAuth tables
 const connectionString = process.env.DATABASE_URL || ''
 console.log('[Auth] DATABASE_URL:', connectionString ? connectionString.replace(/:[^:@]+@/, ':***@') : 'NOT SET')
 const separator = connectionString.includes('?') ? '&' : '?'
-const poolConnectionString = `${connectionString}${separator}options=-c%20search_path%3Dauth`
+const poolConnectionString = `${connectionString}${separator}options=-c%20search_path%3Dapp_auth`
 
 const pool = new Pool({
   connectionString: poolConnectionString,
+  ssl: ca
+    ? {
+        ca,
+        rejectUnauthorized: true, // Verify against our CA
+      }
+    : undefined,
 })
 
 pool.on('error', (err) => {

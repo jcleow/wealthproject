@@ -1,7 +1,8 @@
 import { createAuthClient } from 'better-auth/react'
 
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_BETTERAUTH_URL || 'http://localhost:3000',
+  // Use env var if set, otherwise use relative path (same origin)
+  baseURL: process.env.NEXT_PUBLIC_BETTERAUTH_URL || undefined,
 })
 
 // Re-export hooks and methods from the auth client
