@@ -15,7 +15,30 @@ import (
     _ "github.com/lib/pq"
 )
 
+// findCAPath returns the path to the Supabase CA cert if it exists.
+func findCAPath() string {
+	candidates := []string{
+		"supabase-ca-chain.pem",
+		"/workspace/supabase-ca-chain.pem",
+	}
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return ""
+}
+
 func Connect(databaseURL string) (*sql.DB, error) {
+	// Add sslrootcert if CA cert is available and not already specified
+	if caPath := findCAPath(); caPath != "" && !strings.Contains(databaseURL, "sslrootcert") {
+		sep := "?"
+		if strings.Contains(databaseURL, "?") {
+			sep = "&"
+		}
+		databaseURL = databaseURL + sep + "sslrootcert=" + caPath
+	}
+
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)

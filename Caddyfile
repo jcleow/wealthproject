@@ -1,12 +1,25 @@
-# Replace YOUR_DOMAIN with your actual domain (e.g., assetra.com)
-YOUR_DOMAIN {
-    # API requests -> backend
+# Development: IP-based access on port 80
+:80 {
+    # All API requests -> frontend (Next.js BFF handles auth + proxies to backend)
     handle /api/* {
-        reverse_proxy backend:8080
+        reverse_proxy frontend:3001
     }
 
     # Everything else -> frontend
     handle {
-        reverse_proxy frontend:3000
+        reverse_proxy frontend:3001
     }
 }
+
+# Production: Replace YOUR_DOMAIN with your actual domain (e.g., example.com)
+# YOUR_DOMAIN {
+#     # API requests -> backend
+#     handle /api/* {
+#         reverse_proxy backend:8080
+#     }
+#
+#     # Everything else -> frontend
+#     handle {
+#         reverse_proxy frontend:3000
+#     }
+# }
