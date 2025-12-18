@@ -5,10 +5,14 @@ import type { ScenarioEvent, ScenarioImpact } from '@/types/scenario'
 import { useCreateScenarioEventMutation, useUpdateScenarioEventMutation, useDeleteScenarioEventMutation } from '@/hooks/queries/useScenarioEventsQuery'
 import { useScenarioEvent } from '@/hooks/useScenarioEvent'
 import { Modal } from '@/components/ui/Modal'
+import * as LucideIcons from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 import { useScenarioEventForm, useImpactItemSelector, useFinancialItems } from './hooks'
 import { ModalHeader, ModalFooter, ScenarioFormFields, ImpactList, getTargetTypeLabel } from './components'
 import { validateScenarioEvent, expandImpactsForPayload } from './logic'
+
+const CalendarClockIcon = LucideIcons.CalendarClock as LucideIcon | undefined
 
 interface ScenarioEventModalProps {
   isOpen: boolean
@@ -111,38 +115,122 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} overlayClassName="bg-black/80 backdrop-blur-sm p-4 sm:p-6">
-      <div className={`relative
-overflow-hidden
-w-full min-w-[56rem] max-w-4xl
-rounded-2xl border border-white/[0.1]
-bg-[#0a0a0a]/95
-text-white
-backdrop-blur-xl shadow-xl`}>
-        <div className="max-h-[80vh] overflow-y-auto p-6 pr-3 custom-scrollbar">
-          {isFetching && <div className={`mb-4 px-3 py-2
-rounded-lg border border-white/[0.08]
-bg-white/[0.03]
-text-xs
-animate-pulse`}>Loading...</div>}
-          <ModalHeader isEditing={!!event} onExample={fillExample} onClose={onClose} disabled={loadingState} isIncluded={form.isIncluded} onToggleIncluded={(value) => setForm(p => ({ ...p, isIncluded: value }))} />
-          <ScenarioFormFields form={form} onFieldChange={(k, v) => setForm(p => ({ ...p, [k]: v }))} disabled={loadingState} anchorYear={anchorYear} anchorMonth={anchorMonth} />
-          {form.occursOn ? (
-            <ImpactList impacts={form.impacts} onUpdate={handleImpactChange} onAdd={addImpact} onRemove={removeImpact}
-              loading={loadingState} itemSelector={itemSelector} financialItems={financialItems} />
-          ) : (
-            <div className={`mt-6 px-4 py-6
-rounded-xl border border-white/[0.06]
-bg-white/[0.02]
-text-center text-sm text-slate-400`}>
-              Select an &quot;Occurs on&quot; month above to define impacts.
+      <div className="
+        relative
+        overflow-hidden
+        w-full min-w-[56rem] max-w-4xl
+        rounded-2xl
+        border border-white/[0.08]
+        bg-[#0a0a0a]/98
+        text-white
+        backdrop-blur-xl
+        shadow-2xl shadow-black/50
+      ">
+        {/* Subtle gradient accent at top */}
+        <div className="
+          absolute top-0 left-0 right-0 h-px
+          bg-gradient-to-r from-transparent via-blue-500/30 to-transparent
+        " />
+
+        {/* Ambient glow effects */}
+        <div className="absolute -top-32 -left-32 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Content container */}
+        <div className="relative max-h-[85vh] overflow-y-auto p-8 custom-scrollbar">
+          {/* Loading state */}
+          {isFetching && (
+            <div className="
+              mb-6 px-4 py-3
+              rounded-xl
+              border border-white/[0.06]
+              bg-white/[0.02]
+              flex items-center gap-3
+              animate-pulse
+            ">
+              <div className="h-4 w-4 rounded-full border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
+              <span className="text-sm text-slate-400">Loading scenario...</span>
             </div>
           )}
-          {error && <div className={`mt-4 px-3 py-2.5
-rounded-lg border border-rose-500/20
-bg-rose-500/5
-text-sm text-rose-400`}>{error}</div>}
-          <ModalFooter isEditing={!!event} confirmDelete={confirmDelete} onConfirmDelete={setConfirmDelete}
-            onDelete={handleDelete} onSave={handleSave} onClose={onClose} saving={saving} deleting={deleting} disabled={loadingState} />
+
+          <ModalHeader
+            isEditing={!!event}
+            onExample={fillExample}
+            onClose={onClose}
+            disabled={loadingState}
+            isIncluded={form.isIncluded}
+            onToggleIncluded={(value) => setForm(p => ({ ...p, isIncluded: value }))}
+          />
+
+          <ScenarioFormFields
+            form={form}
+            onFieldChange={(k, v) => setForm(p => ({ ...p, [k]: v }))}
+            disabled={loadingState}
+            anchorYear={anchorYear}
+            anchorMonth={anchorMonth}
+          />
+
+          {form.occursOn ? (
+            <ImpactList
+              impacts={form.impacts}
+              onUpdate={handleImpactChange}
+              onAdd={addImpact}
+              onRemove={removeImpact}
+              loading={loadingState}
+              itemSelector={itemSelector}
+              financialItems={financialItems}
+            />
+          ) : (
+            <div className="
+              mt-8
+              px-6 py-8
+              rounded-2xl
+              border border-dashed border-white/[0.08]
+              bg-white/[0.01]
+              text-center
+            ">
+              <div className="
+                inline-flex items-center justify-center
+                h-12 w-12 mb-4
+                rounded-2xl
+                bg-white/[0.03]
+                border border-white/[0.06]
+              ">
+                {CalendarClockIcon && <CalendarClockIcon className="h-5 w-5 text-slate-500" />}
+              </div>
+              <p className="text-sm text-slate-400">
+                Select an <span className="text-white font-medium">&ldquo;Occurs On&rdquo;</span> date above to define impacts
+              </p>
+            </div>
+          )}
+
+          {/* Error message */}
+          {error && (
+            <div className="
+              mt-6 px-4 py-3
+              rounded-xl
+              border border-rose-500/20
+              bg-rose-500/5
+              flex items-start gap-3
+            ">
+              <div className="h-5 w-5 rounded-full bg-rose-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="text-rose-400 text-xs font-bold">!</span>
+              </div>
+              <p className="text-sm text-rose-400">{error}</p>
+            </div>
+          )}
+
+          <ModalFooter
+            isEditing={!!event}
+            confirmDelete={confirmDelete}
+            onConfirmDelete={setConfirmDelete}
+            onDelete={handleDelete}
+            onSave={handleSave}
+            onClose={onClose}
+            saving={saving}
+            deleting={deleting}
+            disabled={loadingState}
+          />
         </div>
       </div>
     </Modal>

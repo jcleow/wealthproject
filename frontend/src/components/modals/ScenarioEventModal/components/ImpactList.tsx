@@ -7,6 +7,7 @@ import { ImpactEditor } from './ImpactEditor'
 import type { UseImpactItemSelectorReturn, UseFinancialItemsReturn } from '../hooks'
 
 const PlusIcon = LucideIcons.Plus as LucideIcon | undefined
+const LayersIcon = LucideIcons.Layers as LucideIcon | undefined
 
 interface ImpactListProps {
   impacts: ScenarioImpact[]
@@ -42,32 +43,48 @@ export function ImpactList({
   const { getItemsForType, isLoadingForType } = financialItems
 
   return (
-    <div className="mt-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-white">Impacts</p>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Describe what changes in this scenario.
-          </p>
+    <div className="mt-8">
+      {/* Section header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="
+            flex items-center justify-center
+            h-8 w-8
+            rounded-xl
+            bg-gradient-to-br from-violet-500/20 to-purple-500/20
+            border border-white/[0.06]
+          ">
+            {LayersIcon && <LayersIcon className="h-4 w-4 text-violet-400" />}
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-white">Financial Impacts</h3>
+            <p className="text-xs text-slate-500">
+              Define what changes when this scenario occurs
+            </p>
+          </div>
         </div>
         <button
           type="button"
-          className={`inline-flex items-center
-gap-1.5 px-3 py-2
-rounded-lg border border-white/[0.08] hover:border-white/[0.15]
-bg-white/[0.03] hover:bg-white/[0.06]
-text-xs font-medium text-slate-400 hover:text-slate-200
-disabled:opacity-50
-transition-all`}
+          className={`
+            group inline-flex items-center gap-2
+            px-3.5 py-2
+            rounded-xl
+            border border-white/[0.06] hover:border-violet-500/30
+            bg-white/[0.02] hover:bg-violet-500/5
+            text-xs font-medium text-slate-400 hover:text-violet-400
+            disabled:opacity-50 disabled:cursor-not-allowed
+            transition-all duration-200
+          `}
           onClick={onAdd}
           disabled={loading}
         >
-          {PlusIcon ? <PlusIcon className="h-3.5 w-3.5" /> : '+'}
-          Add impact
+          {PlusIcon && <PlusIcon className="h-3.5 w-3.5" />}
+          Add Impact
         </button>
       </div>
 
-      <div className="space-y-3">
+      {/* Impacts list */}
+      <div className="space-y-4">
         {impacts.map((impact, index) => {
           const items = getItemsForType(impact.targetType)
           const isLoadingItems = isLoadingForType(impact.targetType, items)

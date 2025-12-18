@@ -1,8 +1,13 @@
 "use client"
 
+import * as LucideIcons from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { MonthPicker } from '@/components/ui/MonthPicker'
 import { IconPicker } from './IconPicker'
 import type { ScenarioEventFormState } from '../hooks'
+
+const CalendarIcon = LucideIcons.Calendar as LucideIcon | undefined
+const FileTextIcon = LucideIcons.FileText as LucideIcon | undefined
 
 interface ScenarioFormFieldsProps {
   form: ScenarioEventFormState
@@ -20,66 +25,93 @@ export function ScenarioFormFields({ form, onFieldChange, disabled, anchorYear, 
   const defaultViewDate = minDate
 
   return (
-    <>
-      {/* Form grid */}
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <label className="space-y-1.5 text-sm">
-          <span className="text-sm font-medium text-slate-300">Name</span>
-          <input
-            value={form.name}
-            onChange={(e) => onFieldChange('name', e.target.value)}
-            className={`w-full
-px-3 py-2.5
-rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
-bg-white/[0.03]
-text-white placeholder:text-slate-500
-disabled:opacity-50`}
-            placeholder="e.g., Job Loss"
-            disabled={disabled}
-          />
-        </label>
+    <div className="mt-6 space-y-5">
+      {/* Event Details Section */}
+      <div className="space-y-4">
+        {/* Name + Icon row */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
+              Event Name
+            </label>
+            <div className="flex items-center gap-2">
+              <IconPicker
+                iconName={form.displayIcon}
+                iconColor={form.iconColor}
+                searchQuery={form.iconSearch}
+                onIconChange={(name) => onFieldChange('displayIcon', name)}
+                onColorChange={(color) => onFieldChange('iconColor', color)}
+                onSearchChange={(query) => onFieldChange('iconSearch', query)}
+                disabled={disabled}
+              />
+              <input
+                value={form.name}
+                onChange={(e) => onFieldChange('name', e.target.value)}
+                className={`
+                  flex-1 h-[42px]
+                  px-4
+                  rounded-xl
+                  border border-white/[0.08] focus:border-blue-500/40
+                  bg-white/[0.03] focus:bg-white/[0.05]
+                  text-white placeholder:text-slate-600
+                  text-sm
+                  outline-none
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  transition-all duration-200
+                `}
+                placeholder="e.g., Job Loss, Home Purchase, Retirement"
+                disabled={disabled}
+              />
+            </div>
+          </div>
 
-        <div className="space-y-1.5 text-sm">
-          <span className="text-sm font-medium text-slate-300">Occurs on (month)</span>
-          <MonthPicker
-            value={form.occursOn}
-            onChange={(value) => onFieldChange('occursOn', value)}
-            placeholder="Select month"
-            disabled={disabled}
-            className="w-full"
-            minDate={minDate}
-            defaultViewDate={defaultViewDate}
-          />
+          {/* Occurs on */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
+              {CalendarIcon && <CalendarIcon className="h-3.5 w-3.5 text-slate-500" />}
+              Occurs On
+            </label>
+            <MonthPicker
+              value={form.occursOn}
+              onChange={(value) => onFieldChange('occursOn', value)}
+              placeholder="Select month"
+              disabled={disabled}
+              className="w-full"
+              minDate={minDate}
+              defaultViewDate={defaultViewDate}
+            />
+          </div>
         </div>
 
-        <IconPicker
-          iconName={form.displayIcon}
-          iconColor={form.iconColor}
-          searchQuery={form.iconSearch}
-          onIconChange={(name) => onFieldChange('displayIcon', name)}
-          onColorChange={(color) => onFieldChange('iconColor', color)}
-          onSearchChange={(query) => onFieldChange('iconSearch', query)}
-          disabled={disabled}
-        />
-
-        <div className="md:col-span-2 space-y-1.5 text-sm">
-          <span className="text-sm font-medium text-slate-300">Description</span>
+        {/* Description */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-300">
+            {FileTextIcon && <FileTextIcon className="h-3.5 w-3.5 text-slate-500" />}
+            Description
+            <span className="text-xs text-slate-600 font-normal">(optional)</span>
+          </label>
           <textarea
             value={form.description}
             onChange={(e) => onFieldChange('description', e.target.value)}
-            rows={1}
-            className={`w-full
-px-3 py-2.5
-rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
-bg-white/[0.03]
-text-white placeholder:text-slate-500
-disabled:opacity-50
-resize-none`}
-            placeholder="What is this scenario about?"
+            rows={2}
+            className={`
+              w-full
+              px-4 py-3
+              rounded-xl
+              border border-white/[0.08] focus:border-blue-500/40
+              bg-white/[0.03] focus:bg-white/[0.05]
+              text-white placeholder:text-slate-600
+              text-sm leading-relaxed
+              outline-none
+              disabled:opacity-50 disabled:cursor-not-allowed
+              resize-none
+              transition-all duration-200
+            `}
+            placeholder="Briefly describe this scenario..."
             disabled={disabled}
           />
         </div>
       </div>
-    </>
+    </div>
   )
 }
