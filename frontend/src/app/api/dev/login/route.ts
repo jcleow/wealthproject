@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       body: { email, password },
     })
 
-    if (!signInResponse?.session?.token) {
+    if (!signInResponse?.token) {
       return Response.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -47,11 +47,11 @@ export async function POST(request: NextRequest) {
 
     // Return token and user info in JSON
     return Response.json({
-      token: signInResponse.session.token,
+      token: signInResponse.token,
       userId: signInResponse.user.id,
       email: signInResponse.user.email,
       cookieName: 'better-auth.session_token',
-      usage: `curl -b "better-auth.session_token=${signInResponse.session.token}" http://localhost:3000/api/v2/...`,
+      usage: `curl -b "better-auth.session_token=${signInResponse.token}" http://localhost:3000/api/v2/...`,
     })
   } catch (error) {
     console.error('[Dev Login] Error:', error)

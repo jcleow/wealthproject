@@ -50,6 +50,10 @@ func SetupV1Router(mainRouter *mux.Router, deps V1Dependencies) *mux.Router {
 	healthHandler := handlers.NewHealthHandler()
 	v1Router.HandleFunc("/health", healthHandler.HandleHealth).Methods("GET")
 
+	// Dev-only endpoint for generating auth tokens (returns 404 in production)
+	devHandler := handlers.NewDevHandler()
+	mainRouter.HandleFunc("/api/dev/token", devHandler.HandleDevToken).Methods("GET")
+
 	// Create authenticated subrouter for protected routes
 	authRouter := v1Router.PathPrefix("").Subrouter()
 	middleware.SetFinancialStore(deps.FinStore)
