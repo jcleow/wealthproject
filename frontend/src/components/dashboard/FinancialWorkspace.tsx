@@ -429,11 +429,7 @@ transition-all`}>
                 setScenarioEventToEdit(event)
                 setIsScenarioModalOpen(true)
               }}
-              onSelectYear={(year) => {
-                onSelectYear(year)
-                const target = document.getElementById('financial-data-section')
-                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }}
+              onSelectYear={onSelectYear}
               onSelectMonth={onSelectMonth}
             />
           </div>
