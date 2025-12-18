@@ -27,9 +27,6 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -82,9 +79,6 @@ const docTemplate = `{
         "/v1/financial/actions/dispatch": {
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -146,9 +140,6 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -207,9 +198,6 @@ const docTemplate = `{
         "/v1/financial/timeline/{year}": {
             "put": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -313,9 +301,6 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -361,9 +346,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -389,9 +371,6 @@ const docTemplate = `{
         "/v2/assets/{id}": {
             "put": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -458,9 +437,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -502,9 +478,6 @@ const docTemplate = `{
         "/v2/assets/{id}/stop": {
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -573,9 +546,6 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -621,9 +591,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -649,9 +616,6 @@ const docTemplate = `{
         "/v2/cash-accounts/{id}": {
             "put": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -718,9 +682,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -762,9 +723,6 @@ const docTemplate = `{
         "/v2/cash-accounts/{id}/stop": {
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -833,9 +791,6 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -879,9 +834,6 @@ const docTemplate = `{
             },
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -934,9 +886,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -962,9 +911,6 @@ const docTemplate = `{
         "/v2/cashflow/expenses/{id}": {
             "put": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -1031,9 +977,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -1075,9 +1018,6 @@ const docTemplate = `{
         "/v2/cashflow/expenses/{id}/stop": {
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -1146,9 +1086,6 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -1194,9 +1131,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -1222,9 +1156,6 @@ const docTemplate = `{
         "/v2/cashflow/incomes/{id}": {
             "put": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -1291,9 +1222,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -1335,9 +1263,6 @@ const docTemplate = `{
         "/v2/cashflow/incomes/{id}/stop": {
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -1406,9 +1331,6 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -1445,9 +1367,6 @@ const docTemplate = `{
             },
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -1501,9 +1420,6 @@ const docTemplate = `{
         "/v2/cpf/account/{id}": {
             "put": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -1570,9 +1486,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -1614,9 +1527,6 @@ const docTemplate = `{
         "/v2/cpf/account/{id}/stop": {
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -1685,9 +1595,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -1713,9 +1620,6 @@ const docTemplate = `{
         "/v2/financial/timeline/chart": {
             "get": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -1764,9 +1668,6 @@ const docTemplate = `{
         "/v2/financial/timeline/snapshot": {
             "get": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -1828,9 +1729,6 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -1874,9 +1772,6 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -1918,9 +1813,6 @@ const docTemplate = `{
             },
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -1981,9 +1873,6 @@ const docTemplate = `{
         "/v2/incomes/{incomeId}/allocations/{allocId}": {
             "put": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -2050,9 +1939,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -2094,9 +1980,6 @@ const docTemplate = `{
         "/v2/incomes/{incomeId}/allocations/{allocId}/stop": {
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -2172,9 +2055,6 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -2220,9 +2100,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -2248,9 +2125,6 @@ const docTemplate = `{
         "/v2/investments/{id}": {
             "put": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -2317,9 +2191,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -2361,9 +2232,6 @@ const docTemplate = `{
         "/v2/investments/{id}/stop": {
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -2432,9 +2300,6 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -2479,9 +2344,6 @@ const docTemplate = `{
             },
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -2534,9 +2396,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -2562,9 +2421,6 @@ const docTemplate = `{
         "/v2/liabilities/{id}": {
             "put": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -2631,9 +2487,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -2675,9 +2528,6 @@ const docTemplate = `{
         "/v2/liabilities/{id}/stop": {
             "post": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -2745,9 +2595,6 @@ const docTemplate = `{
         "/v2/scenario-events": {
             "get": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -2820,9 +2667,6 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -2876,9 +2720,6 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -2924,9 +2765,6 @@ const docTemplate = `{
             },
             "put": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -2993,9 +2831,6 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "SessionID": []
-                    },
-                    {
                         "AuthToken": []
                     }
                 ],
@@ -3041,9 +2876,6 @@ const docTemplate = `{
         "/v2/scenario-events/{id}/toggle": {
             "patch": {
                 "security": [
-                    {
-                        "SessionID": []
-                    },
                     {
                         "AuthToken": []
                     }
@@ -5267,15 +5099,9 @@ const docTemplate = `{
     },
     "securityDefinitions": {
         "AuthToken": {
-            "description": "JWT token for production authentication (HMAC-signed with BACKEND_SHARED_SECRET)",
+            "description": "JWT token for authentication (HMAC-signed with BACKEND_SHARED_SECRET). In dev mode, use GET /api/dev/token?user_id=uuid to generate one.",
             "type": "apiKey",
             "name": "X-Auth-Token",
-            "in": "header"
-        },
-        "SessionID": {
-            "description": "User/Session ID for development mode authentication",
-            "type": "apiKey",
-            "name": "X-Session-ID",
             "in": "header"
         }
     }

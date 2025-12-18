@@ -1503,7 +1503,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Send a chat message
       tags:
@@ -1543,7 +1542,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Execute financial actions
       tags:
@@ -1583,7 +1581,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Get financial timeline
       tags:
@@ -1624,7 +1621,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Update financial data for a specific year
       tags:
@@ -1669,7 +1665,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete all assets (v2)
       tags:
@@ -1699,7 +1694,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: List assets (v2)
       tags:
@@ -1727,7 +1721,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete an asset (v2)
       tags:
@@ -1771,7 +1764,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Update an asset (v2)
       tags:
@@ -1816,7 +1808,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Stop an asset (v2)
       tags:
@@ -1834,7 +1825,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete all cash accounts (v2)
       tags:
@@ -1864,7 +1854,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: List cash accounts (v2)
       tags:
@@ -1892,7 +1881,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete a cash account (v2)
       tags:
@@ -1936,7 +1924,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Update a cash account (v2)
       tags:
@@ -1982,7 +1969,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Stop a cash account (v2)
       tags:
@@ -2000,7 +1986,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete all expenses (v2)
       tags:
@@ -2029,7 +2014,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: List expenses (v2)
       tags:
@@ -2063,7 +2047,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Create an expense (v2)
       tags:
@@ -2091,7 +2074,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete an expense (v2)
       tags:
@@ -2135,7 +2117,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Update an expense (v2)
       tags:
@@ -2180,7 +2161,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Stop an expense (v2)
       tags:
@@ -2198,7 +2178,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete all incomes (v2)
       tags:
@@ -2228,7 +2207,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: List incomes (v2)
       tags:
@@ -2256,7 +2234,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete an income (v2)
       tags:
@@ -2300,7 +2277,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Update an income (v2)
       tags:
@@ -2345,7 +2321,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Stop an income (v2)
       tags:
@@ -2371,7 +2346,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Get CPF account (v2)
       tags:
@@ -2405,7 +2379,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Create CPF account (v2)
       tags:
@@ -2433,7 +2406,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete CPF account (v2)
       tags:
@@ -2477,7 +2449,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Update CPF account (v2)
       tags:
@@ -2522,7 +2493,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Stop CPF account (v2)
       tags:
@@ -2540,7 +2510,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete all CPF accounts (v2)
       tags:
@@ -2573,7 +2542,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Get financial timeline chart (v2)
       tags:
@@ -2615,7 +2583,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Get monthly financial snapshots (v2)
       tags:
@@ -2643,7 +2610,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: List all income allocations (v2)
       tags:
@@ -2672,7 +2638,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: List income allocations (v2)
       tags:
@@ -2711,7 +2676,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Create income allocation (v2)
       tags:
@@ -2739,7 +2703,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete income allocation (v2)
       tags:
@@ -2783,7 +2746,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Update income allocation (v2)
       tags:
@@ -2833,7 +2795,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Stop income allocation (v2)
       tags:
@@ -2851,7 +2812,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete all investments (v2)
       tags:
@@ -2881,7 +2841,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: List investments (v2)
       tags:
@@ -2909,7 +2868,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete an investment (v2)
       tags:
@@ -2953,7 +2911,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Update an investment (v2)
       tags:
@@ -2999,7 +2956,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Stop an investment (v2)
       tags:
@@ -3017,7 +2973,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete all liabilities (v2)
       tags:
@@ -3047,7 +3002,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: List liabilities (v2)
       tags:
@@ -3082,7 +3036,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Create a liability (v2)
       tags:
@@ -3110,7 +3063,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete a liability (v2)
       tags:
@@ -3154,7 +3106,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Update a liability (v2)
       tags:
@@ -3199,7 +3150,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Stop a liability (v2)
       tags:
@@ -3248,7 +3198,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: List scenario events (v2)
       tags:
@@ -3282,7 +3231,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Create scenario event (v2)
       tags:
@@ -3313,7 +3261,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Delete scenario event (v2)
       tags:
@@ -3344,7 +3291,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Get scenario event (v2)
       tags:
@@ -3388,7 +3334,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Update scenario event (v2)
       tags:
@@ -3431,7 +3376,6 @@ paths:
             additionalProperties: true
             type: object
       security:
-      - SessionID: []
       - AuthToken: []
       summary: Toggle scenario included status (v2)
       tags:
@@ -3441,13 +3385,8 @@ schemes:
 - https
 securityDefinitions:
   AuthToken:
-    description: JWT token for production authentication (HMAC-signed with BACKEND_SHARED_SECRET)
+    description: JWT token for authentication (HMAC-signed with BACKEND_SHARED_SECRET). In dev mode, use GET /api/dev/token?user_id=uuid to generate one.
     in: header
     name: X-Auth-Token
-    type: apiKey
-  SessionID:
-    description: User/Session ID for development mode authentication
-    in: header
-    name: X-Session-ID
     type: apiKey
 swagger: "2.0"
