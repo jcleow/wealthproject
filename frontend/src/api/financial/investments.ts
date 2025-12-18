@@ -28,7 +28,7 @@ export async function createInvestment(payload: Omit<Investment, 'id' | 'updated
   if (payload.startDate !== undefined) body.startDate = payload.startDate
   if (payload.endDate !== undefined) body.endDate = payload.endDate
 
-  const data = await apiClient.post<any>('/investments', body)
+  const data = await apiClient.post<any>('/investments', body, { baseUrl: '/api/v2' })
   return toInvestment(data)
 }
 

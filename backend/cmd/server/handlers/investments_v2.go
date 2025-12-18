@@ -40,6 +40,93 @@ func NewInvestmentV2Handler(store *repo.Store) *InvestmentV2Handler {
 	}
 }
 
+// investmentCreateInput is the JSON-friendly input struct for investment creation.
+type investmentCreateInput struct {
+	Name           string  `json:"name"`
+	Category       string  `json:"category"`
+	CurrentValue   float64 `json:"currentValue"`
+	GrowthRate     float64 `json:"annualGrowthRate"`
+	GrowthStrategy string  `json:"growthStrategy"`
+	Notes          string  `json:"notes"`
+	StartDate      *string `json:"startDate"`
+	EndDate        *string `json:"endDate"`
+}
+
+// POST /api/v2/investments
+// HandleCreate creates a new investment.
+// @Summary Create an investment (v2)
+// @Description Creates a new investment for the authenticated user
+// @Tags Investments V2
+// @Accept json
+// @Produce json
+// @Param investment body investmentCreateInput true "Investment data"
+// @Success 200 {object} repo.Investment
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/investments [post]
+func (h *InvestmentV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var input investmentCreateInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	if input.Name == "" || input.Category == "" {
+		badRequest(w, errMissingFields("name, category"))
+		return
+	}
+
+	// Parse dates
+	var startDate time.Time
+	if input.StartDate != nil {
+		t, err := time.Parse(time.RFC3339, *input.StartDate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		startDate = t
+	} else {
+		startDate = time.Now().UTC()
+	}
+
+	var endDate *time.Time
+	if input.EndDate != nil {
+		t, err := time.Parse(time.RFC3339, *input.EndDate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		endDate = &t
+	}
+
+	// Build repository investment
+	inv := repo.Investment{
+		Name:           input.Name,
+		Category:       input.Category,
+		CurrentValue:   *decimal.MustFromFloat64(input.CurrentValue),
+		GrowthRate:     *decimal.MustFromFloat64(input.GrowthRate),
+		GrowthStrategy: input.GrowthStrategy,
+		Notes:          input.Notes,
+		StartDate:      startDate,
+		EndDate:        endDate,
+	}
+
+	created, err := h.store.CreateInvestment(r.Context(), userID, inv)
+	if err != nil {
+		log.Printf("investment.Create error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, created)
+}
+
 // GET /api/v2/investments
 // HandleList lists investments for the user.
 // @Summary List investments (v2)

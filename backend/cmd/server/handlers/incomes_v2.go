@@ -41,6 +41,97 @@ func NewIncomeV2Handler(store *repo.Store) *IncomeV2Handler {
 	}
 }
 
+// incomeV2CreateInput is the JSON-friendly input struct for income v2 create.
+type incomeV2CreateInput struct {
+	Source         string  `json:"source"`
+	Category       string  `json:"category"`
+	Amount         float64 `json:"amount"`
+	Frequency      string  `json:"frequency"`
+	GrowthRate     float64 `json:"growthRate"`
+	GrowthStrategy string  `json:"growthStrategy"`
+	Notes          string  `json:"notes"`
+	StartDate      *string `json:"startDate"`
+	EndDate        *string `json:"endDate"`
+	CPFWageType    string  `json:"cpfWageType"`
+}
+
+// POST /api/v2/cashflow/incomes
+// HandleCreate creates a new income.
+// @Summary Create an income (v2)
+// @Description Creates a new income for the authenticated user
+// @Tags Incomes V2
+// @Accept json
+// @Produce json
+// @Param income body incomeV2CreateInput true "Income data"
+// @Success 200 {object} repo.Income
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cashflow/incomes [post]
+func (h *IncomeV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var input incomeV2CreateInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	if input.Source == "" || input.Amount == 0 || input.Frequency == "" || input.Category == "" {
+		badRequest(w, errMissingFields("source, amount, frequency, category"))
+		return
+	}
+
+	// Parse dates
+	var startDate time.Time
+	if input.StartDate != nil {
+		t, err := time.Parse(time.RFC3339, *input.StartDate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		startDate = t
+	} else {
+		startDate = time.Now().UTC()
+	}
+
+	var endDate *time.Time
+	if input.EndDate != nil {
+		t, err := time.Parse(time.RFC3339, *input.EndDate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		endDate = &t
+	}
+
+	// Build repository income
+	inc := repo.Income{
+		Source:         input.Source,
+		Category:       input.Category,
+		Amount:         *decimal.MustFromFloat64(input.Amount),
+		Frequency:      input.Frequency,
+		GrowthRate:     *decimal.MustFromFloat64(input.GrowthRate),
+		GrowthStrategy: input.GrowthStrategy,
+		Notes:          input.Notes,
+		StartDate:      startDate,
+		EndDate:        endDate,
+		CPFWageType:    input.CPFWageType,
+	}
+
+	created, err := h.store.CreateIncome(r.Context(), userID, inc)
+	if err != nil {
+		log.Printf("income.Create error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, created)
+}
+
 // GET /api/v2/cashflow/incomes
 // HandleList lists incomes for the user.
 // @Summary List incomes (v2)

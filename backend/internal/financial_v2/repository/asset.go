@@ -61,7 +61,7 @@ func (s *Store) CreateNonCashAsset(ctx context.Context, userID string, asset Non
 
 	query := `
 		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, start_date, end_date, notes, growth_strategy)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, NULLIF($9, ''), $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), $10)
 		ON CONFLICT ON CONSTRAINT finance_assets_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,

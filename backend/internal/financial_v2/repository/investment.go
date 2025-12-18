@@ -222,12 +222,12 @@ func (s *Store) CreateInvestment(ctx context.Context, userID string, inv Investm
 	// Default growth strategy if not provided
 	growthStrategy := inv.GrowthStrategy
 	if growthStrategy == "" {
-		growthStrategy = "monthly_compound"
+		growthStrategy = "compound_monthly"
 	}
 
 	query := `
 		INSERT INTO finance_investments (user_id, parent_id, name, category, current_value, growth_rate, start_date, end_date, growth_strategy, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''))
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''))
 		ON CONFLICT ON CONSTRAINT finance_investments_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,

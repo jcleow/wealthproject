@@ -173,7 +173,7 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, inc Income) (In
 
 	query := `
 		INSERT INTO finance_incomes (user_id, parent_id, source, category, amount, frequency, start_date, end_date, growth_rate, growth_strategy, notes, income_type, cpf_wage_type)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, ''), COALESCE(NULLIF($12, ''), 'other'), NULLIF($13, ''))
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, ''), COALESCE(NULLIF($12, ''), 'other'), NULLIF($13, ''))
 		ON CONFLICT ON CONSTRAINT finance_incomes_parent_start_date_key DO UPDATE
 		SET source=EXCLUDED.source,
 		    category=EXCLUDED.category,

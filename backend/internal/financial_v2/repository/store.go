@@ -829,7 +829,7 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 
 	row := s.pool.QueryRow(ctx, `
 		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes, repayment_strategy)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11)
 		ON CONFLICT ON CONSTRAINT finance_liabilities_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
@@ -882,7 +882,7 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, exp Expense) (
 
 	query := `
 		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, source_liability_id)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, ''), $12)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, ''), $12)
 		ON CONFLICT ON CONSTRAINT finance_expenses_parent_start_date_key DO UPDATE
 		SET payee=EXCLUDED.payee,
 		    amount=EXCLUDED.amount,
@@ -1130,7 +1130,7 @@ func (s *Store) CreateIncomeAllocation(
 
 	query := `
 	INSERT INTO income_allocations (income_id, parent_id, start_date, end_date, target_cash_account_id, target_investment_id, allocation_type, allocation_value)
-	VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	RETURNING id, income_id, COALESCE(parent_id, id), start_date, end_date, target_cash_account_id, target_investment_id, allocation_type, allocation_value, created_at`
 
 	var created IncomeAllocation

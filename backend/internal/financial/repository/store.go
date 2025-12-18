@@ -405,7 +405,7 @@ func (s *Store) CreateAsset(ctx context.Context, userID string, a Asset) (Asset,
 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, start_date, end_date, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, NULLIF($9, ''))
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''))
 		ON CONFLICT ON CONSTRAINT finance_assets_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
@@ -648,7 +648,7 @@ func (s *Store) CreateInvestment(ctx context.Context, userID string, inv Investm
 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_investments (user_id, parent_id, name, category, current_value, growth_rate, start_date, end_date, notes)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, NULLIF($9, ''))
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''))
 		ON CONFLICT ON CONSTRAINT finance_investments_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
@@ -939,7 +939,7 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_liabilities (user_id, parent_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, notes, repayment_strategy)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11)
 		ON CONFLICT ON CONSTRAINT finance_liabilities_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
@@ -1356,7 +1356,7 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, cpf_wage_type, source_type, source_id)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, COALESCE($9, 3.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''), NULLIF($12, ''), $13, $14)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 3.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''), NULLIF($12, ''), $13, $14)
 		ON CONFLICT ON CONSTRAINT finance_incomes_parent_start_date_key DO UPDATE
 		SET source=EXCLUDED.source,
 		    amount=EXCLUDED.amount,
@@ -1738,7 +1738,7 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, it Expense) (E
 
 	row := s.db.QueryRowContext(ctx, `
 		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, source_liability_id)
-		VALUES ($1, COALESCE($2, gen_random_uuid()), $3, $4, $5, $6, $7, $8, COALESCE($9, 2.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''), $12)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 2.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''), $12)
 		ON CONFLICT ON CONSTRAINT finance_expenses_parent_start_date_key DO UPDATE
 		SET payee=EXCLUDED.payee,
 		    amount=EXCLUDED.amount,

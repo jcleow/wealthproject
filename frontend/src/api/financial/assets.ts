@@ -22,7 +22,7 @@ export async function createAsset(payload: Omit<Asset, 'id' | 'updatedAt'>): Pro
   if (payload.startDate !== undefined) body.startDate = payload.startDate
   if (payload.endDate !== undefined) body.endDate = payload.endDate
 
-  const data = await apiClient.post<any>('/assets', body)
+  const data = await apiClient.post<any>('/assets', body, { baseUrl: '/api/v2' })
   return toAsset(data)
 }
 

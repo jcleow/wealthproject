@@ -40,6 +40,93 @@ func NewAssetV2Handler(store *repo.Store) *AssetV2Handler {
 	}
 }
 
+// assetCreateInput is the JSON-friendly input struct for asset creation.
+type assetCreateInput struct {
+	Name           string  `json:"name"`
+	Category       string  `json:"category"`
+	CurrentValue   float64 `json:"currentValue"`
+	GrowthRate     float64 `json:"annualGrowthRate"`
+	GrowthStrategy string  `json:"growthStrategy"`
+	Notes          string  `json:"notes"`
+	StartDate      *string `json:"startDate"`
+	EndDate        *string `json:"endDate"`
+}
+
+// POST /api/v2/assets
+// HandleCreate creates a new asset.
+// @Summary Create an asset (v2)
+// @Description Creates a new non-cash asset for the authenticated user
+// @Tags Assets V2
+// @Accept json
+// @Produce json
+// @Param asset body assetCreateInput true "Asset data"
+// @Success 200 {object} repo.NonCashAsset
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/assets [post]
+func (h *AssetV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var input assetCreateInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	if input.Name == "" || input.Category == "" {
+		badRequest(w, errMissingFields("name, category"))
+		return
+	}
+
+	// Parse dates
+	var startDate time.Time
+	if input.StartDate != nil {
+		t, err := time.Parse(time.RFC3339, *input.StartDate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		startDate = t
+	} else {
+		startDate = time.Now().UTC()
+	}
+
+	var endDate *time.Time
+	if input.EndDate != nil {
+		t, err := time.Parse(time.RFC3339, *input.EndDate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		endDate = &t
+	}
+
+	// Build repository asset
+	a := repo.NonCashAsset{
+		Name:             input.Name,
+		Category:         input.Category,
+		CurrentValue:     *decimal.MustFromFloat64(input.CurrentValue),
+		AnnualGrowthRate: *decimal.MustFromFloat64(input.GrowthRate),
+		GrowthStrategy:   input.GrowthStrategy,
+		Notes:            input.Notes,
+		StartDate:        startDate,
+		EndDate:          endDate,
+	}
+
+	created, err := h.store.CreateNonCashAsset(r.Context(), userID, a)
+	if err != nil {
+		log.Printf("asset.Create error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, created)
+}
+
 // GET /api/v2/assets
 // HandleList lists non-cash assets for the user.
 // @Summary List assets (v2)

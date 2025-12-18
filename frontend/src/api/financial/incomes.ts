@@ -45,7 +45,7 @@ export async function createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): P
   if (payload.cpfWageType !== undefined) body.cpfWageType = payload.cpfWageType
   if (payload.endDate !== undefined) body.endDate = payload.endDate
 
-  const data = await apiClient.post<any>('/cashflow/incomes', body)
+  const data = await apiClient.post<any>('/cashflow/incomes', body, { baseUrl: '/api/v2' })
   return toIncome(data)
 }
 

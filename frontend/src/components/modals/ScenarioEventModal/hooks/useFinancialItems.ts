@@ -32,19 +32,20 @@ export function useFinancialItems(): UseFinancialItemsReturn {
   const allFinancialDataLoading = financialDataLoading || investmentsLoading || cashAccountsLoading
 
   // Get items for a given target type
+  // Always use the actual row id, not parentId - parentId is for internal versioning only
   const getItemsForType = useMemo(() => {
     return (targetType: string): FinancialItem[] => {
       switch (targetType) {
         case 'income':
-          return incomes.map(inc => ({ id: inc.parentId ?? inc.id, name: inc.source, amount: inc.amount, frequency: inc.frequency }))
+          return incomes.map(inc => ({ id: inc.id, name: inc.source, amount: inc.amount, frequency: inc.frequency }))
         case 'expense':
-          return expenses.map(exp => ({ id: exp.parentId ?? exp.id, name: exp.payee, amount: exp.amount, frequency: exp.frequency }))
+          return expenses.map(exp => ({ id: exp.id, name: exp.payee, amount: exp.amount, frequency: exp.frequency }))
         case 'asset':
-          return assets.map(a => ({ id: a.parentId ?? a.id, name: a.name, amount: a.currentValue }))
+          return assets.map(a => ({ id: a.id, name: a.name, amount: a.currentValue }))
         case 'liability':
-          return liabilities.map(l => ({ id: l.parentId ?? l.id, name: l.name, amount: l.currentBalance }))
+          return liabilities.map(l => ({ id: l.id, name: l.name, amount: l.currentBalance }))
         case 'investment':
-          return investments.map(inv => ({ id: inv.parentId ?? inv.id, name: inv.name, amount: inv.currentValue }))
+          return investments.map(inv => ({ id: inv.id, name: inv.name, amount: inv.currentValue }))
         case 'cash':
           return cashAccounts.map(ca => ({ id: ca.id, name: ca.name, amount: ca.balance }))
         default:
@@ -82,7 +83,7 @@ export function useFinancialItems(): UseFinancialItemsReturn {
 
       const match = rawItems.find(it => it.id === targetId || it.parentId === targetId)
       if (match) {
-        return match.parentId ?? match.id
+        return match.id
       }
 
       return targetId

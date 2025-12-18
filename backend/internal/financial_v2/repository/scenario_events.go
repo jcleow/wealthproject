@@ -300,12 +300,16 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 
 // insertImpactsV2 inserts impacts using typed FK columns.
 func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, eventID string, impacts []ScenarioImpact) error {
-	for _, imp := range impacts {
+	for i, imp := range impacts {
 		targetID := imp.TargetID()
 		targetType := imp.TargetType()
 		if targetID == nil || strings.TrimSpace(*targetID) == "" || !scenario.IsValidTargetType(targetType) {
 			return scenario.ErrInvalidTargetCount
 		}
+
+		// Debug log: show exactly what we're inserting
+		fmt.Printf("insertImpactsV2[%d]: eventID=%s targetType=%s targetID=%s targetIncomeID=%v targetAssetID=%v targetExpenseID=%v\n",
+			i, eventID, targetType, *targetID, imp.TargetIncomeID, imp.TargetAssetID, imp.TargetExpenseID)
 
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO scenario_event_impacts
@@ -317,6 +321,7 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, eventID string, 
 			targetType, *targetID,
 			imp.TargetAssetID, imp.TargetLiabilityID, imp.TargetIncomeID, imp.TargetExpenseID, imp.TargetCashAccountID, imp.TargetInvestmentID,
 		); err != nil {
+			fmt.Printf("insertImpactsV2[%d] FAILED: %v\n", i, err)
 			return err
 		}
 	}

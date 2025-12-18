@@ -307,12 +307,25 @@ func (h *ScenarioEventV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Req
 		badRequest(w, err)
 		return
 	}
+
+	// Debug log the incoming payload
+	for i, imp := range payload.Impacts {
+		log.Printf("scenario v2 update: impact[%d] targetIncomeId=%v targetType=%s targetId=%v",
+			i, imp.TargetIncomeID, imp.TargetType, imp.TargetID)
+	}
+
 	ev, err := buildScenarioEventV2(userCtx.UserID, payload)
 	if err != nil {
 		badRequest(w, err)
 		return
 	}
 	ev.ID = id
+
+	// Debug log the built impacts
+	for i, imp := range ev.Impacts {
+		log.Printf("scenario v2 update: built impact[%d] TargetIncomeID=%v TargetType=%s",
+			i, imp.TargetIncomeID, imp.TargetType())
+	}
 
 	updated, err := h.store.UpdateScenarioEventV2(r.Context(), ev)
 	if err != nil {

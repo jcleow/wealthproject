@@ -125,6 +125,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	// Income v2 endpoints (versioned update/delete/stop)
 	incomeHandler := handlers.NewIncomeV2Handler(deps.FinStore)
 	router.HandleFunc("/cashflow/incomes", incomeHandler.HandleList).Methods("GET")
+	router.HandleFunc("/cashflow/incomes", incomeHandler.HandleCreate).Methods("POST")
 	router.HandleFunc("/cashflow/incomes/{id}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
@@ -175,6 +176,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	// Asset v2 endpoints (versioned update/delete/stop)
 	assetHandler := handlers.NewAssetV2Handler(deps.FinStore)
 	router.HandleFunc("/assets", assetHandler.HandleList).Methods("GET")
+	router.HandleFunc("/assets", assetHandler.HandleCreate).Methods("POST")
 	router.HandleFunc("/assets/{id}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
@@ -194,6 +196,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	// Investment v2 endpoints (versioned update/delete/stop with cascade to allocations)
 	investmentHandler := handlers.NewInvestmentV2Handler(deps.FinStore)
 	router.HandleFunc("/investments", investmentHandler.HandleList).Methods("GET")
+	router.HandleFunc("/investments", investmentHandler.HandleCreate).Methods("POST")
 	router.HandleFunc("/investments/{id}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
