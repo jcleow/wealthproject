@@ -24,7 +24,11 @@ const HeroSection: React.FC = () => {
   }, []);
 
   return (
-    <section className="relative h-screen flex items-center justify-center text-center bg-background text-foreground overflow-hidden">
+    <section className={`relative
+flex items-center justify-center overflow-hidden
+h-screen
+bg-background
+text-center text-foreground`}>
       <div className="z-10 p-4 max-w-4xl mx-auto">
         <h1 ref={titleRef} className="text-5xl md:text-7xl font-bold mb-4 leading-tight">
           Gain Clarity. Take Control. Your Financial AI.
@@ -34,7 +38,12 @@ const HeroSection: React.FC = () => {
         </p>
         <button
           ref={buttonRef}
-          className="bg-primary text-primary-foreground px-8 py-3 rounded-full text-lg font-semibold hover:bg-primary/90 transition-colors shadow-lg"
+          className={`px-8 py-3
+rounded-full
+bg-primary hover:bg-primary/90
+text-primary-foreground text-lg font-semibold
+shadow-lg
+transition-colors`}
         >
           Request Beta Access
         </button>

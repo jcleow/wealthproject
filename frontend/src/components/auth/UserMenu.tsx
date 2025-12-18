@@ -76,9 +76,16 @@ export function UserMenu() {
     <div className="relative z-[100]" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-800 transition-colors"
+        className={`flex items-center
+gap-2 px-3 py-2
+rounded-md
+hover:bg-gray-800
+transition-colors`}
       >
-        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+        <div className={`flex items-center justify-center
+w-8 h-8
+rounded-full
+bg-blue-600`}>
           {session.user.image ? (
             <img
               src={session.user.image}
@@ -96,7 +103,13 @@ export function UserMenu() {
       </button>
 
       {isOpen && (
-          <div className="absolute right-0 z-[100] mt-2 w-56 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl" style={{ isolation: 'isolate' }}>
+          <div className={`absolute right-0 z-[100]
+overflow-hidden
+w-56
+mt-2
+rounded-xl border border-white/[0.08]
+bg-[#0a0a0a]
+shadow-2xl`} style={{ isolation: 'isolate' }}>
             <div className="px-4 py-3 border-b border-white/[0.06]">
               <p className="text-sm font-medium text-slate-200 truncate">
                 {session.user.name}
@@ -112,7 +125,12 @@ export function UserMenu() {
                   setIsOpen(false)
                   setIsSettingsOpen(true)
                 }}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 hover:text-slate-100 transition-colors"
+                className={`flex items-center
+w-full
+gap-2 px-4 py-2.5
+hover:bg-white/5
+text-sm text-slate-300 hover:text-slate-100
+transition-colors`}
               >
                 <Settings className="w-4 h-4" />
                 Settings
@@ -120,7 +138,13 @@ export function UserMenu() {
               <button
                 onClick={handleSignOut}
                 disabled={isSigningOut}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 hover:text-slate-100 transition-colors disabled:opacity-50"
+                className={`flex items-center
+w-full
+gap-2 px-4 py-2.5
+hover:bg-white/5
+text-sm text-slate-300 hover:text-slate-100
+disabled:opacity-50
+transition-colors`}
               >
                 <LogOut className="w-4 h-4" />
                 {isSigningOut ? 'Signing out...' : 'Sign out'}

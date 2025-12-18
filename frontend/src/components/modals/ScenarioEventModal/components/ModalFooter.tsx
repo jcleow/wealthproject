@@ -29,14 +29,20 @@ export function ModalFooter({
   disabled,
 }: ModalFooterProps) {
   return (
-    <div className="mt-6 flex items-center justify-between gap-3 border-t border-white/[0.06] pt-5">
+    <div className={`flex items-center justify-between
+mt-6 gap-3 pt-5
+border-t border-white/[0.06]`}>
       {isEditing ? (
         confirmDelete ? (
           <div className="flex items-center gap-2">
             <span className="text-sm text-rose-400">Delete this scenario?</span>
             <button
               type="button"
-              className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-sm font-medium text-rose-400 hover:bg-rose-500/20 disabled:opacity-50"
+              className={`px-3 py-1.5
+rounded-lg border border-rose-500/30
+bg-rose-500/10 hover:bg-rose-500/20
+text-sm font-medium text-rose-400
+disabled:opacity-50`}
               onClick={onDelete}
               disabled={disabled}
             >
@@ -44,7 +50,10 @@ export function ModalFooter({
             </button>
             <button
               type="button"
-              className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-slate-400"
+              className={`px-3 py-1.5
+rounded-lg border border-white/[0.08]
+bg-white/[0.03]
+text-sm text-slate-400`}
               onClick={() => onConfirmDelete(false)}
             >
               Cancel
@@ -53,7 +62,12 @@ export function ModalFooter({
         ) : (
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-sm font-medium text-rose-400 hover:bg-rose-500/10 disabled:opacity-50"
+            className={`inline-flex items-center
+gap-1.5 px-3 py-2
+rounded-lg border border-rose-500/20
+bg-rose-500/5 hover:bg-rose-500/10
+text-sm font-medium text-rose-400
+disabled:opacity-50`}
             onClick={() => onConfirmDelete(true)}
             disabled={disabled}
           >
@@ -67,7 +81,11 @@ export function ModalFooter({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-400 hover:text-slate-200 disabled:opacity-50"
+          className={`px-4 py-2
+rounded-lg border border-white/[0.08]
+bg-white/[0.03]
+text-sm font-medium text-slate-400 hover:text-slate-200
+disabled:opacity-50`}
           onClick={onClose}
           disabled={saving || deleting}
         >
@@ -75,7 +93,11 @@ export function ModalFooter({
         </button>
         <button
           type="button"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-blue-500 disabled:opacity-50"
+          className={`px-4 py-2
+rounded-lg
+bg-blue-600 hover:bg-blue-500
+text-sm font-medium text-white
+shadow-lg disabled:opacity-50`}
           onClick={onSave}
           disabled={disabled}
         >

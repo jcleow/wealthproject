@@ -68,7 +68,12 @@ function AvatarStack({ scenarios, activeIds }: { scenarios: MockScenario[]; acti
         return (
           <div
             key={scenario.id}
-            className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10 bg-slate-900 shadow-lg shadow-black/30"
+            className={`relative
+overflow-hidden
+h-9 w-9
+rounded-full border border-white/10
+bg-slate-900
+shadow-lg shadow-black/30`}
             aria-label={scenario.name}
           >
             <div
@@ -76,7 +81,10 @@ function AvatarStack({ scenarios, activeIds }: { scenarios: MockScenario[]; acti
                 isActive ? scenario.accent : scenario.mutedAccent
               } ${isActive ? 'opacity-90' : 'opacity-60'}`}
             />
-            <span className="relative flex h-full w-full items-center justify-center drop-shadow-sm">
+            <span className={`relative
+flex items-center justify-center
+h-full w-full
+drop-shadow-sm`}>
               <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-white/60'}`} />
             </span>
           </div>
@@ -189,13 +197,21 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
         setOpen(true)
       }}
     >
-      <div className="relative flex items-center gap-3 overflow-visible rounded-full bg-gradient-to-r from-slate-800/90 via-slate-800/85 to-slate-900/85 px-4 py-2 pr-16">
+      <div className={`relative
+flex items-center overflow-visible
+gap-3 px-4 py-2 pr-16
+rounded-full
+bg-gradient-to-r from-slate-800/90 via-slate-800/85 to-slate-900/85`}>
         <AvatarStack scenarios={topStack} activeIds={activeIds} />
         <input
           ref={inputRef}
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
-          className="w-full bg-transparent text-sm text-white caret-white placeholder:text-slate-100/80 focus:outline-none"
+          className={`w-full
+focus:outline-none
+bg-transparent
+text-sm text-white placeholder:text-slate-100/80
+caret-white`}
           placeholder="Search scenarios..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -203,14 +219,27 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
         {/* carved notch via background circle */}
         <div
           aria-hidden
-          className="pointer-events-none absolute right-[-2px] top-1/2 z-10 h-14 w-14 -translate-y-1/2 rounded-full bg-[#0b1020]"
+          className={`absolute right-[-2px] top-1/2 z-10
+h-14 w-14
+pointer-events-none
+rounded-full
+bg-[#0b1020]
+-translate-y-1/2`}
         />
         <button
           type="button"
           onClick={() => {
             if (onCreateScenario) onCreateScenario()
           }}
-          className="absolute right-1 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-gradient-to-br from-sky-500/85 via-blue-600/85 to-indigo-600/85 text-white shadow-xl shadow-black/60 transition hover:scale-105 hover:border-white/40"
+          className={`absolute right-1 top-1/2 z-20
+flex items-center justify-center
+h-10 w-10
+rounded-full border border-white/25 hover:border-white/40
+bg-gradient-to-br from-sky-500/85 via-blue-600/85 to-indigo-600/85
+text-white
+shadow-xl shadow-black/60
+transition hover:scale-105
+-translate-y-1/2`}
           aria-label="Create scenario"
         >
           <Plus className="h-3.5 w-3.5 text-white/90" />
@@ -227,7 +256,11 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
               aria-hidden
             />
             <div
-              className="fixed z-40 space-y-3 rounded-2xl border border-white/10 bg-[#0f1629] p-4 shadow-2xl shadow-black/40"
+              className={`fixed z-40
+space-y-3 p-4
+rounded-2xl border border-white/10
+bg-[#0f1629]
+shadow-2xl shadow-black/40`}
               style={{
                 top: dropdownStyle.top,
                 left: dropdownStyle.left,
@@ -236,7 +269,9 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
               onClick={(e) => e.stopPropagation()}
               onWheel={(e) => e.stopPropagation()}
             >
-              <div className="mb-2 flex items-center justify-between text-xs text-slate-200">
+              <div className={`flex items-center justify-between
+mb-2
+text-xs text-slate-200`}>
                 <span className="font-semibold">{`${scenarios.length} scenarios`}</span>
                 <button
                   type="button"
@@ -245,7 +280,11 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
                     const allSelected = activeIds.size === allIds.size
                     setActiveIds(allSelected ? new Set() : allIds)
                   }}
-                  className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white transition hover:border-white/30 hover:bg-white/10"
+                  className={`px-3 py-1
+rounded-full border border-white/15 hover:border-white/30
+bg-white/5 hover:bg-white/10
+text-[11px] font-semibold text-white
+transition`}
                 >
                   {activeIds.size === scenarios.length ? 'Deselect all' : 'Select all'}
                 </button>
@@ -257,15 +296,28 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
                   return (
                     <div
                       key={scenario.id}
-                      className="flex w-full items-center gap-3 rounded-lg border border-white/5 bg-white/5 px-3 py-2 transition hover:border-white/15 hover:bg-white/10"
+                      className={`flex items-center
+w-full
+gap-3 px-3 py-2
+rounded-lg border border-white/5 hover:border-white/15
+bg-white/5 hover:bg-white/10
+transition`}
                     >
-                      <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/10 bg-slate-900 shadow-md shadow-black/20">
+                      <div className={`relative
+overflow-hidden
+h-9 w-9
+rounded-full border border-white/10
+bg-slate-900
+shadow-md shadow-black/20`}>
                         <div
                           className={`absolute inset-0 bg-gradient-to-br ${
                             isActive ? scenario.accent : scenario.mutedAccent
                           }`}
                         />
-                        <span className="relative flex h-full w-full items-center justify-center drop-shadow-sm">
+                        <span className={`relative
+flex items-center justify-center
+h-full w-full
+drop-shadow-sm`}>
                           <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-white/60'}`} />
                         </span>
                       </div>
@@ -291,7 +343,12 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
                       <button
                         type="button"
                         onClick={() => deleteScenario(scenario.id)}
-                        className="flex h-5 w-5 items-center justify-center rounded border border-red-500/30 bg-red-500/10 text-red-400 transition hover:border-red-500/50 hover:bg-red-500/20 hover:text-red-300"
+                        className={`flex items-center justify-center
+h-5 w-5
+rounded border border-red-500/30 hover:border-red-500/50
+bg-red-500/10 hover:bg-red-500/20
+text-red-400 hover:text-red-300
+transition`}
                         aria-label={`Delete ${scenario.name}`}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -300,7 +357,11 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
                   )
                 })}
                 {visibleScenarios.length === 0 && (
-                  <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/10 px-3 py-3 text-sm text-slate-400">
+                  <div className={`flex items-center
+gap-2 px-3 py-3
+rounded-lg border border-white/5
+bg-white/10
+text-sm text-slate-400`}>
                     <MinusCircle className="h-4 w-4" />
                     No scenarios match your search.
                   </div>
@@ -311,7 +372,11 @@ export function ScenarioSelectorMock({ onCreateScenario }: { onCreateScenario?: 
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:border-white/35 hover:bg-white/20"
+                  className={`px-3.5 py-1.5
+rounded-full border border-white/20 hover:border-white/35
+bg-white/10 hover:bg-white/20
+text-xs font-semibold text-white
+transition`}
                 >
                   Apply
                 </button>

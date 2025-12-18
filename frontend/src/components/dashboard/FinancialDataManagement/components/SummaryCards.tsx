@@ -34,7 +34,10 @@ interface NetWorthCardProps {
 
 function NetWorthCard({ netWorth }: NetWorthCardProps) {
   return (
-    <div className="rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/60 p-4 transition-all hover:border-white/[0.15]">
+    <div className={`p-4
+rounded-2xl border border-white/[0.1] hover:border-white/[0.15]
+bg-[#0a0a0a]/60
+transition-all`}>
       <div className="flex items-center justify-between">
         <div>
           <h4 className="text-sm font-medium text-slate-200">Net Worth</h4>
@@ -61,7 +64,10 @@ function SavingsCard({ annualSavings, hasV2Data, timelineMonthV2 }: SavingsCardP
     : annualSavings
 
   return (
-    <div className="rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/60 p-4 transition-all hover:border-white/[0.15]">
+    <div className={`p-4
+rounded-2xl border border-white/[0.1] hover:border-white/[0.15]
+bg-[#0a0a0a]/60
+transition-all`}>
       <div className="flex items-center justify-between">
         <div>
           <h4 className="text-sm font-medium text-slate-200">Savings</h4>

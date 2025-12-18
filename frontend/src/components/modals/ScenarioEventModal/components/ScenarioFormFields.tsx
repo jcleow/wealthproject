@@ -14,7 +14,10 @@ export function ScenarioFormFields({ form, onFieldChange, disabled }: ScenarioFo
   return (
     <>
       {/* Include toggle */}
-      <div className="mt-5 flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+      <div className={`flex items-center justify-between
+mt-5 px-4 py-3
+rounded-xl border border-white/[0.06]
+bg-white/[0.02]`}>
         <div className="text-sm text-slate-300">Include in projections</div>
         <button
           type="button"
@@ -39,7 +42,12 @@ export function ScenarioFormFields({ form, onFieldChange, disabled }: ScenarioFo
           <input
             value={form.name}
             onChange={(e) => onFieldChange('name', e.target.value)}
-            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-white placeholder:text-slate-500 focus:border-blue-500/50 focus:outline-none disabled:opacity-50"
+            className={`w-full
+px-3 py-2.5
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.03]
+text-white placeholder:text-slate-500
+disabled:opacity-50`}
             placeholder="e.g., Job Loss"
             disabled={disabled}
           />
@@ -72,7 +80,13 @@ export function ScenarioFormFields({ form, onFieldChange, disabled }: ScenarioFo
             value={form.description}
             onChange={(e) => onFieldChange('description', e.target.value)}
             rows={2}
-            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-white placeholder:text-slate-500 focus:border-blue-500/50 focus:outline-none resize-none disabled:opacity-50"
+            className={`w-full
+px-3 py-2.5
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.03]
+text-white placeholder:text-slate-500
+disabled:opacity-50
+resize-none`}
             placeholder="What is this scenario about?"
             disabled={disabled}
           />

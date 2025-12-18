@@ -160,7 +160,13 @@ export function Header({
             {shouldShowSlider && (
               <div className="w-full min-w-[260px] max-w-md">
                 <Slider.Root
-                  className="relative flex h-10 w-full select-none items-center rounded-lg border border-white/10 bg-[#0f172a]/40 px-3"
+                  className={`relative
+flex items-center
+h-10 w-full
+px-3
+rounded-lg border border-white/10
+bg-[#0f172a]/40
+select-none`}
                   min={0}
                   max={monthRange?.sliderMax ?? 0}
                   step={1}
@@ -172,7 +178,12 @@ export function Header({
                   <Slider.Track className="relative h-1.5 w-full rounded-full bg-white/10">
                     <Slider.Range className="absolute h-full rounded-full bg-blue-500" />
                   </Slider.Track>
-                  <Slider.Thumb className="block h-4 w-4 rounded-full border border-white/40 bg-white shadow-[0_0_0_5px_rgba(59,130,246,0.25)] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50" />
+                  <Slider.Thumb className={`block
+h-4 w-4
+rounded-full border border-white/40 focus:outline-none focus:ring-2 focus:ring-blue-400
+bg-white
+shadow-[0_0_0_5px_rgba(59,130,246,0.25)] disabled:opacity-50
+transition-colors`} />
                 </Slider.Root>
               </div>
             )}
@@ -191,13 +202,20 @@ interface YearSelectorProps {
 
 function YearSelector({ yearIndex, onYearChange, isDisabled }: YearSelectorProps) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
+    <div className={`flex items-center
+gap-2 px-2 py-1
+rounded-lg border border-white/10
+bg-transparent`}>
       <label className="hidden text-gray-400 sm:block" htmlFor="year-selector">
         Year
       </label>
       <select
         id="year-selector"
-        className="w-24 rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
+        className={`w-24
+px-2 py-1
+rounded-md border border-white/10 focus:border-blue-400 focus:outline-none
+bg-[#0f172a]/60
+text-sm text-white`}
         value={yearIndex}
         disabled={isDisabled}
         onChange={(event) => onYearChange(event.target.value)}
@@ -220,13 +238,19 @@ interface ViewModeSelectorProps {
 
 function ViewModeSelector({ viewMode, onViewModeChange, isDisabled }: ViewModeSelectorProps) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
+    <div className={`flex items-center
+gap-2 px-2 py-1
+rounded-lg border border-white/10
+bg-transparent`}>
       <label className="hidden text-gray-400 sm:block" htmlFor="view-mode-selector">
         View
       </label>
       <select
         id="view-mode-selector"
-        className="rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
+        className={`px-2 py-1
+rounded-md border border-white/10 focus:border-blue-400 focus:outline-none
+bg-[#0f172a]/60
+text-sm text-white`}
         value={viewMode}
         disabled={isDisabled}
         onChange={(event) => {
@@ -265,13 +289,19 @@ function MonthSelector({
     : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-transparent px-2 py-1">
+    <div className={`flex items-center
+gap-2 px-2 py-1
+rounded-lg border border-white/10
+bg-transparent`}>
       <label className="hidden text-gray-400 sm:block" htmlFor="month-selector">
         Month
       </label>
       <select
         id="month-selector"
-        className="rounded-md border border-white/10 bg-[#0f172a]/60 px-2 py-1 text-sm text-white focus:border-blue-400 focus:outline-none"
+        className={`px-2 py-1
+rounded-md border border-white/10 focus:border-blue-400 focus:outline-none
+bg-[#0f172a]/60
+text-sm text-white`}
         value={safeMonth}
         disabled={isDisabled}
         onChange={(event) => {

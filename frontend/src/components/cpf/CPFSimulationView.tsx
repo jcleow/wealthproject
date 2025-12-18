@@ -115,9 +115,14 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+      <div className={`flex items-center justify-between
+px-5 py-4
+border-b border-white/[0.06]`}>
         <div className="flex items-center gap-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/20">
+          <div className={`flex items-center justify-center
+h-9 w-9
+rounded-lg
+bg-emerald-500/20`}>
             <Wallet className="h-5 w-5 text-emerald-400" />
           </div>
           <div>
@@ -129,7 +134,12 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
         </div>
         <button
           onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
+          className={`flex items-center justify-center
+h-8 w-8
+rounded-lg
+hover:bg-white/5
+text-slate-400 hover:text-white
+transition`}
           title="Close CPF Simulation"
         >
           <X className="h-4 w-4" />

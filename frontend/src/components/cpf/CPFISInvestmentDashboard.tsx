@@ -127,7 +127,9 @@ export function CPFISInvestmentDashboard({
 
       {/* Investments List */}
       <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a]">
-        <div className="flex items-center justify-between border-b border-white/[0.04] p-5">
+        <div className={`flex items-center justify-between
+p-5
+border-b border-white/[0.04]`}>
           <h3 className="text-sm font-medium text-slate-300">Your CPFIS Investments</h3>
           <div className="flex items-center gap-2">
             {/* Account Filter */}
@@ -146,7 +148,12 @@ export function CPFISInvestmentDashboard({
                 </button>
               ))}
             </div>
-            <button className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/20">
+            <button className={`flex items-center
+gap-1.5 px-3 py-1.5
+rounded-lg border border-white/[0.08]
+bg-emerald-500/10 hover:bg-emerald-500/20
+text-xs font-medium text-emerald-400
+transition`}>
               <Plus className="h-3.5 w-3.5" />
               Add Investment
             </button>
@@ -220,7 +227,11 @@ function BalanceCard({
       </p>
       <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
       {total !== undefined && (
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+        <div className={`overflow-hidden
+h-1.5 w-full
+mt-2
+rounded-full
+bg-white/[0.06]`}>
           <div
             className="h-full rounded-full bg-blue-500"
             style={{ width: `${Math.min(100, (value / total) * 100)}%` }}
@@ -284,7 +295,10 @@ function InvestmentRow({ investment }: { investment: CPFISInvestment }) {
   const isPositive = gainLoss >= 0
 
   return (
-    <div className="flex items-center justify-between p-4 transition hover:bg-white/[0.02]">
+    <div className={`flex items-center justify-between
+p-4
+hover:bg-white/[0.02]
+transition`}>
       <div className="flex items-center gap-4">
         <div
           className={`flex h-10 w-10 items-center justify-center rounded-lg ${

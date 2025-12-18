@@ -36,7 +36,10 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
   if (toasts.length === 0) return null
 
   return (
-    <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex w-full max-w-sm flex-col gap-3">
+    <div className={`fixed bottom-6 right-6 z-50
+flex flex-col
+w-full max-w-sm
+pointer-events-none gap-3`}>
       {toasts.map((toast) => {
         const tone = toneMap[toast.type]
 
@@ -44,7 +47,9 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
           <div
             key={toast.id}
             className={cn(
-              'pointer-events-auto rounded-2xl border px-4 py-3 shadow-xl shadow-black/40 backdrop-blur',
+              `pointer-events-auto px-4 py-3
+rounded-2xl border
+shadow-xl shadow-black/40 backdrop-blur`,
               tone.classes
             )}
           >

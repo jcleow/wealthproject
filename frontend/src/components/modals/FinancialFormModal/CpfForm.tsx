@@ -18,7 +18,11 @@ function CpfField({ label, placeholder, value, onChange, error }: CpfFieldProps)
         placeholder={placeholder}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none"
+        className={`w-full
+px-3 py-2 placeholder-gray-500
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
       />
       {error && <p className="text-xs text-rose-300">{error}</p>}
     </div>

@@ -31,11 +31,19 @@ export function CashAccountFormModal({
       isOpen={isOpen}
       onClose={form.isBusy ? undefined : onClose}
       overlayClassName="bg-black/60"
-      className="mx-4 w-full max-w-md rounded-xl border border-white/[0.08] bg-[#0a0a0a]"
+      className={`w-full max-w-md
+mx-4
+rounded-xl border border-white/[0.08]
+bg-[#0a0a0a]`}
     >
-      <div className="flex items-center justify-between border-b border-gray-700 p-6">
+      <div className={`flex items-center justify-between
+p-6
+border-b border-gray-700`}>
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500">
+          <div className={`flex items-center justify-center
+h-10 w-10
+rounded-full
+bg-emerald-500`}>
             <span className="text-lg text-white">🏦</span>
           </div>
           <h2 className="text-lg font-semibold text-white">
@@ -45,7 +53,12 @@ export function CashAccountFormModal({
         <div className="flex items-center gap-3">
           {mode === 'edit' && data?.id && onDelete && (
             <button
-              className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-red-600/20 hover:text-red-400"
+              className={`flex items-center justify-center
+h-8 w-8
+rounded-full
+hover:bg-red-600/20
+text-gray-400 hover:text-red-400
+transition-colors`}
               disabled={form.isSaving || form.isDeleting}
               onClick={form.handleDelete}
               title="Delete account"
@@ -55,7 +68,12 @@ export function CashAccountFormModal({
             </button>
           )}
           <button
-            className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
+            className={`flex items-center justify-center
+h-8 w-8
+rounded-full
+hover:bg-gray-700
+text-gray-400 hover:text-white
+transition-colors`}
             disabled={form.isSaving || form.isDeleting}
             onClick={onClose}
             title="Close"
@@ -70,7 +88,11 @@ export function CashAccountFormModal({
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-300">Account Name</label>
           <input
-            className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+            className={`w-full
+px-3 py-2 placeholder-gray-400
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
             onChange={(event) => form.setFormData((prev) => ({ ...prev, name: event.target.value }))}
             placeholder="e.g., DBS Savings"
             required
@@ -83,7 +105,11 @@ export function CashAccountFormModal({
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-300">Current Balance</label>
             <input
-              className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+              className={`w-full
+px-3 py-2 placeholder-gray-400
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
               inputMode="decimal"
               onChange={(event) =>
                 form.setFormData((prev) => ({
@@ -99,7 +125,11 @@ export function CashAccountFormModal({
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-300">Interest Rate (%)</label>
             <input
-              className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+              className={`w-full
+px-3 py-2 placeholder-gray-400
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
               onChange={(event) =>
                 form.setFormData((prev) => ({
                   ...prev,
@@ -118,7 +148,11 @@ export function CashAccountFormModal({
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-300">Bank Name (optional)</label>
             <input
-              className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+              className={`w-full
+px-3 py-2 placeholder-gray-400
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
               onChange={(event) =>
                 form.setFormData((prev) => ({ ...prev, bankName: event.target.value }))
               }
@@ -130,7 +164,11 @@ export function CashAccountFormModal({
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-300">Account Type</label>
             <select
-              className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
+              className={`w-full
+px-3 py-2
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
               onChange={(event) =>
                 form.setFormData((prev) => ({ ...prev, accountType: event.target.value }))
               }
@@ -148,7 +186,11 @@ export function CashAccountFormModal({
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-300">Notes (optional)</label>
           <textarea
-            className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+            className={`w-full
+px-3 py-2 placeholder-gray-400
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
             onChange={(event) =>
               form.setFormData((prev) => ({ ...prev, notes: event.target.value }))
             }
@@ -168,7 +210,11 @@ export function CashAccountFormModal({
             Cancel
           </button>
           <button
-            className="rounded-lg bg-emerald-500 px-6 py-2 text-white transition-colors hover:bg-emerald-600 disabled:bg-gray-600"
+            className={`px-6 py-2
+rounded-lg
+bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-600
+text-white
+transition-colors`}
             disabled={form.isSaving || form.isDeleting}
             type="submit"
           >

@@ -727,7 +727,9 @@ export function NetWorthProjection({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col p-5">
-      <div className="mb-4 flex flex-shrink-0 items-center justify-between border-b border-white/[0.04] pb-4">
+      <div className={`flex flex-shrink-0 items-center justify-between
+mb-4 pb-4
+border-b border-white/[0.04]`}>
         <div>
           <h3 className="text-lg font-medium text-slate-200">
             {chartTitle ?? defaultTitle}
@@ -740,7 +742,12 @@ export function NetWorthProjection({
           {onAddScenario && (
             <button
               onClick={onAddScenario}
-              className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs font-medium text-slate-400 transition-all hover:border-white/[0.12] hover:bg-white/[0.04] hover:text-slate-200"
+              className={`flex items-center
+gap-1.5 px-3 py-1.5
+rounded-lg border border-white/[0.08] hover:border-white/[0.12]
+bg-white/[0.02] hover:bg-white/[0.04]
+text-xs font-medium text-slate-400 hover:text-slate-200
+transition-all`}
               type="button"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -752,14 +759,25 @@ export function NetWorthProjection({
 
       <div
         ref={chartContainerRef}
-        className="relative w-full flex-1 min-h-[250px] min-w-0 overflow-hidden [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
+        className={`relative
+flex-1 overflow-hidden
+w-full min-h-[250px] min-w-0
+[&_*:focus]:outline-none [&_*:focus-visible]:outline-none`}
       >
         {/* Zoom controls and scroll mode toggle positioned on the right side - always visible */}
-        <div className="absolute right-4 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-3">
+        <div className={`absolute right-4 top-1/2 z-10
+flex flex-col
+gap-3
+-translate-y-1/2`}>
           {/* Scroll mode toggle */}
           <button
             onClick={() => setScrollMode(scrollMode === 'page' ? 'zoom' : 'page')}
-            className="flex flex-col items-center gap-1 rounded-lg border border-white/[0.08] bg-[#0a0a0a]/80 p-2 backdrop-blur-sm transition-colors hover:bg-white/5"
+            className={`flex flex-col items-center
+gap-1 p-2
+rounded-lg border border-white/[0.08]
+bg-[#0a0a0a]/80 hover:bg-white/5
+backdrop-blur-sm
+transition-colors`}
             title={scrollMode === 'page' ? 'Switch to scroll-to-zoom mode' : 'Switch to page scroll mode'}
             type="button"
           >
@@ -896,7 +914,9 @@ export function NetWorthProjection({
             </ResponsiveContainer>
           </div>
         ) : (
-          <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-slate-400">
+          <div className={`flex items-center justify-center
+h-full min-h-[240px]
+text-sm text-slate-400`}>
             Add assets or liabilities to view your net worth projection.
           </div>
         )}
@@ -904,7 +924,11 @@ export function NetWorthProjection({
       <div className="mt-2 text-center text-xs text-slate-300">
         <button
           type="button"
-          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200 transition hover:bg-white/10"
+          className={`px-3 py-1
+rounded-full border border-white/10
+bg-white/5 hover:bg-white/10
+text-slate-200
+transition`}
           onClick={() => setXAxisMode((prev) => prev === 'age' ? 'actual_year' : 'age')}
         >
           {xAxisMode === 'age' ? 'Age' : 'Year'}

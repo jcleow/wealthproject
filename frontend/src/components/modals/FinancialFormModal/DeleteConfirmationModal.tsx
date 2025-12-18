@@ -50,24 +50,38 @@ export function DeleteConfirmationModal({
       isOpen={isOpen}
       onClose={onCancel}
       overlayClassName="bg-black/60"
-      className="mx-4 w-full max-w-sm rounded-xl border border-white/[0.08] bg-[#0a0a0a]"
+      className={`w-full max-w-sm
+mx-4
+rounded-xl border border-white/[0.08]
+bg-[#0a0a0a]`}
     >
       <div className="p-6">
         <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/20">
+          <div className={`flex items-center justify-center
+h-10 w-10
+rounded-full
+bg-red-500/20`}>
             <Trash2 className="h-5 w-5 text-red-400" />
           </div>
           <h3 className="text-lg font-semibold text-white">Delete Expense</h3>
         </div>
         <p className="mb-4 text-sm text-gray-300">How would you like to delete this expense?</p>
         <div className="mb-6 space-y-3">
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-700 bg-gray-800/50 p-3 transition-colors hover:border-gray-600">
+          <label className={`flex items-start
+gap-3 p-3
+rounded-lg border border-gray-700 hover:border-gray-600
+bg-gray-800/50
+cursor-pointer transition-colors`}>
             <input
               type="radio"
               name="deleteMode"
               checked={deleteMode === 'stop'}
               onChange={() => onDeleteModeChange('stop')}
-              className="mt-1 h-4 w-4 border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-gray-800"
+              className={`h-4 w-4
+mt-1
+border-gray-600 focus:ring-emerald-500 focus:ring-offset-gray-800
+bg-gray-700
+text-emerald-500`}
             />
             <div>
               <span className="text-sm font-medium text-gray-200">Stop from {dateDisplay}</span>
@@ -76,13 +90,21 @@ export function DeleteConfirmationModal({
               </p>
             </div>
           </label>
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-700 bg-gray-800/50 p-3 transition-colors hover:border-gray-600">
+          <label className={`flex items-start
+gap-3 p-3
+rounded-lg border border-gray-700 hover:border-gray-600
+bg-gray-800/50
+cursor-pointer transition-colors`}>
             <input
               type="radio"
               name="deleteMode"
               checked={deleteMode === 'delete'}
               onChange={() => onDeleteModeChange('delete')}
-              className="mt-1 h-4 w-4 border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-gray-800"
+              className={`h-4 w-4
+mt-1
+border-gray-600 focus:ring-emerald-500 focus:ring-offset-gray-800
+bg-gray-700
+text-emerald-500`}
             />
             <div>
               <span className="text-sm font-medium text-gray-200">Delete completely</span>
@@ -96,7 +118,10 @@ export function DeleteConfirmationModal({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg px-4 py-2 text-gray-400 transition-colors hover:text-white"
+            className={`px-4 py-2
+rounded-lg
+text-gray-400 hover:text-white
+transition-colors`}
           >
             Cancel
           </button>
@@ -104,7 +129,11 @@ export function DeleteConfirmationModal({
             type="button"
             onClick={onConfirm}
             disabled={isDeleting}
-            className="rounded-lg bg-red-500 px-4 py-2 text-white transition-colors hover:bg-red-600 disabled:bg-gray-600"
+            className={`px-4 py-2
+rounded-lg
+bg-red-500 hover:bg-red-600 disabled:bg-gray-600
+text-white
+transition-colors`}
           >
             {isDeleting ? 'Deleting...' : deleteMode === 'stop' ? 'Stop Expense' : 'Delete'}
           </button>

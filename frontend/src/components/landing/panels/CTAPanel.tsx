@@ -115,7 +115,11 @@ export function CTAPanel() {
   return (
     <div
       ref={containerRef}
-      className="landing-panel relative flex min-h-screen flex-col items-center justify-center px-6 py-24"
+      className={`relative
+flex flex-col items-center justify-center
+min-h-screen
+px-6 py-24
+landing-panel`}
     >
       {/* Background gradient */}
       <div
@@ -126,14 +130,25 @@ export function CTAPanel() {
       />
 
       {/* Decorative corners */}
-      <div className="pointer-events-none absolute left-8 top-8 h-24 w-24 border-l border-t border-[var(--landing-border-accent)] opacity-30" />
-      <div className="pointer-events-none absolute right-8 top-8 h-24 w-24 border-r border-t border-[var(--landing-border-accent)] opacity-30" />
+      <div className={`absolute left-8 top-8
+h-24 w-24
+pointer-events-none
+border-l border-t border-[var(--landing-border-accent)]
+opacity-30`} />
+      <div className={`absolute right-8 top-8
+h-24 w-24
+pointer-events-none
+border-r border-t border-[var(--landing-border-accent)]
+opacity-30`} />
 
       <div className="relative z-10 max-w-4xl text-center">
         {/* Header */}
         <div className="cta-header mb-12 opacity-0" data-animate>
           <span
-            className="landing-body mb-6 block text-xs font-medium uppercase tracking-[0.25em]"
+            className={`block
+mb-6
+text-xs font-medium tracking-[0.25em]
+landing-body uppercase`}
             style={{ color: 'var(--landing-gold)' }}
           >
             Start Today
@@ -154,7 +169,12 @@ export function CTAPanel() {
         <div className="cta-button mb-8 opacity-0" data-animate>
           <Link
             href="/dashboard"
-            className="group relative inline-flex items-center gap-4 overflow-hidden rounded-full px-10 py-5 transition-all duration-500"
+            className={`relative
+inline-flex items-center overflow-hidden
+gap-4 px-10 py-5
+rounded-full
+transition-all duration-500
+group`}
             style={{
               background: 'linear-gradient(135deg, var(--landing-gold) 0%, #A8893D 100%)',
               boxShadow: '0 4px 30px rgba(201, 169, 98, 0.3)',
@@ -162,20 +182,26 @@ export function CTAPanel() {
           >
             {/* Shimmer effect */}
             <div
-              className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+              className={`absolute inset-0
+opacity-0 group-hover:opacity-100
+transition-opacity duration-500`}
               style={{
                 background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
                 animation: 'landing-shimmer 2s infinite',
               }}
             />
             <span
-              className="landing-body relative text-base font-semibold uppercase tracking-[0.1em]"
+              className={`relative
+text-base font-semibold tracking-[0.1em]
+landing-body uppercase`}
               style={{ color: 'var(--landing-bg)' }}
             >
               Start Planning Free
             </span>
             <ArrowRight
-              className="relative h-5 w-5 transition-transform duration-300 group-hover:translate-x-1"
+              className={`relative
+h-5 w-5
+transition-transform duration-300 group-hover:translate-x-1`}
               style={{ color: 'var(--landing-bg)' }}
             />
           </Link>
@@ -197,11 +223,19 @@ export function CTAPanel() {
           {features.map((feature) => (
             <div
               key={feature.label}
-              className="cta-feature landing-card group rounded-xl p-6 text-center opacity-0"
+              className={`p-6
+rounded-xl
+text-center
+opacity-0
+cta-feature landing-card group`}
               data-animate
             >
               <div
-                className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110"
+                className={`flex items-center justify-center
+h-12 w-12
+mx-auto mb-4
+rounded-xl
+transition-transform duration-300 group-hover:scale-110`}
                 style={{ background: 'var(--landing-gold-muted)' }}
               >
                 <feature.icon

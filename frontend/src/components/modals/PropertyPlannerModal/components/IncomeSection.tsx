@@ -24,7 +24,11 @@ export function IncomeSection({ inputs, calculation, onChange }: IncomeSectionPr
         <label className="text-sm font-medium text-gray-300">
           Monthly Household Income
           <input
-            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-lg font-semibold text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+            className={`w-full
+mt-1 px-4 py-2
+rounded-2xl border border-white/10 focus:border-blue-400 focus:outline-none
+bg-white/5
+text-lg font-semibold text-white placeholder:text-gray-500`}
             inputMode="numeric"
             onChange={(event) => {
               const raw = event.target.value.replace(/[^0-9]/g, '')
@@ -39,7 +43,11 @@ export function IncomeSection({ inputs, calculation, onChange }: IncomeSectionPr
         <label className="text-sm font-medium text-gray-300">
           Other Monthly Debt Obligations
           <input
-            className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-lg font-semibold text-white placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
+            className={`w-full
+mt-1 px-4 py-2
+rounded-2xl border border-white/10 focus:border-blue-400 focus:outline-none
+bg-white/5
+text-lg font-semibold text-white placeholder:text-gray-500`}
             inputMode="numeric"
             onChange={(event) => {
               const raw = event.target.value.replace(/[^0-9]/g, '')

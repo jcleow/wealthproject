@@ -76,7 +76,11 @@ export function AllocationList({
           <div className="flex items-center gap-1">
             <button
               onClick={() => onEdit(allocation)}
-              className="rounded p-1.5 text-gray-400 transition hover:bg-gray-700 hover:text-white"
+              className={`p-1.5
+rounded
+hover:bg-gray-700
+text-gray-400 hover:text-white
+transition`}
               title="Edit"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -86,7 +90,11 @@ export function AllocationList({
             <button
               onClick={() => onDelete(allocation)}
               disabled={isDeleting}
-              className="rounded p-1.5 text-gray-400 transition hover:bg-rose-500/20 hover:text-rose-400"
+              className={`p-1.5
+rounded
+hover:bg-rose-500/20
+text-gray-400 hover:text-rose-400
+transition`}
               title="Delete"
             >
               <Trash2 className="h-4 w-4" />

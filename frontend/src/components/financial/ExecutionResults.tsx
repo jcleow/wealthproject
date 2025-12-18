@@ -34,7 +34,11 @@ export function ExecutionResults({ execution }: ExecutionResultsProps) {
   const status = statusCopy[execution.status]
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-gray-100 shadow-lg shadow-black/30">
+    <div className={`p-5
+rounded-2xl border border-white/10
+bg-white/5
+text-sm text-gray-100
+shadow-lg shadow-black/30`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-gray-400">
@@ -46,7 +50,10 @@ export function ExecutionResults({ execution }: ExecutionResultsProps) {
         </div>
         <span
           className={cn(
-            'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold',
+            `inline-flex items-center
+gap-2 px-3 py-1
+rounded-full border
+text-xs font-semibold`,
             status.tone
           )}
         >
@@ -56,7 +63,11 @@ export function ExecutionResults({ execution }: ExecutionResultsProps) {
       </div>
 
       {execution.summary && (
-        <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl border border-white/5 bg-black/20 p-3 text-xs text-gray-200">
+        <div className={`grid grid-cols-3
+mt-4 gap-3 p-3
+rounded-xl border border-white/5
+bg-black/20
+text-xs text-gray-200`}>
           <div>
             <p className="text-gray-400">Succeeded</p>
             <p className="font-semibold text-emerald-200">{execution.summary.successful}</p>
@@ -92,7 +103,10 @@ export function ExecutionResults({ execution }: ExecutionResultsProps) {
                 <span className="text-gray-300">{action.friendly_description}</span>
                 <span
                   className={cn(
-                    'ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold',
+                    `inline-flex items-center
+ml-auto gap-1 px-2 py-1
+rounded-full
+text-[10px] font-semibold`,
                     actionStatus.tone
                   )}
                 >
@@ -102,7 +116,11 @@ export function ExecutionResults({ execution }: ExecutionResultsProps) {
               </div>
 
               {action.error && (
-                <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] text-rose-100">
+                <div className={`inline-flex items-center
+mt-2 gap-2 px-2 py-1
+rounded-lg
+bg-rose-500/10
+text-[11px] text-rose-100`}>
                   <AlertTriangle className="h-3 w-3" />
                   {action.error}
                 </div>
@@ -119,7 +137,10 @@ export function ExecutionResults({ execution }: ExecutionResultsProps) {
       </div>
 
       {execution.status === 'failed' && execution.errorMessage && (
-        <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+        <div className={`mt-4 px-3 py-2
+rounded-xl border border-rose-500/30
+bg-rose-500/10
+text-xs text-rose-100`}>
           {execution.errorMessage}
         </div>
       )}

@@ -26,7 +26,11 @@ export function FormField({ label, type, step, placeholder, value, onChange, err
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-emerald-400 focus:outline-none"
+        className={`w-full
+px-3 py-2
+rounded-lg border border-white/10 focus:border-emerald-400 focus:outline-none
+bg-white/5
+text-sm text-white placeholder:text-gray-500`}
       />
       {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
       {error && <p className="text-xs text-rose-300">{error}</p>}

@@ -47,7 +47,11 @@ export function MortgageOverview({ calculation, onEdit, loanAmount, formattedLoa
   ]
 
   return (
-    <section className="space-y-6 rounded-3xl border border-white/10 bg-[#030712] p-6 text-white shadow-[0_15px_40px_rgba(0,0,0,0.45)]">
+    <section className={`space-y-6 p-6
+rounded-3xl border border-white/10
+bg-[#030712]
+text-white
+shadow-[0_15px_40px_rgba(0,0,0,0.45)]`}>
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Mortgage Overview</p>
@@ -190,14 +194,23 @@ export function MortgageOverview({ calculation, onEdit, loanAmount, formattedLoa
 
       <div className="mt-6 flex justify-end gap-3">
         <button
-          className="rounded-full border border-white/15 bg-[#030712] px-4 py-2 text-sm text-gray-200 transition hover:border-white/30"
+          className={`px-4 py-2
+rounded-full border border-white/15 hover:border-white/30
+bg-[#030712]
+text-sm text-gray-200
+transition`}
           onClick={onEdit}
           type="button"
         >
           Adjust inputs
         </button>
         <button
-          className="rounded-full bg-[#2d76f8] px-5 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(45,118,248,0.35)] transition hover:bg-[#3d84ff] disabled:opacity-50"
+          className={`px-5 py-2
+rounded-full
+bg-[#2d76f8] hover:bg-[#3d84ff]
+text-sm font-semibold text-white
+shadow-[0_8px_20px_rgba(45,118,248,0.35)] disabled:opacity-50
+transition`}
           type="button"
           onClick={handleApplyPlan}
         >

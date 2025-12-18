@@ -212,7 +212,12 @@ export function ScenarioDemoWidget() {
             key={scenario.id}
             onClick={() => toggleScenario(scenario.id)}
             className={cn(
-              'landing-body flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-all duration-300',
+              `flex items-center
+gap-2 px-4 py-2
+rounded-full border
+text-sm
+transition-all duration-300
+landing-body`,
               scenario.enabled
                 ? 'scale-[1.02]'
                 : 'hover:border-[var(--landing-border-accent)]'
@@ -312,7 +317,9 @@ export function ScenarioDemoWidget() {
       {/* Active scenarios indicator */}
       {scenarios.some((s) => s.enabled) && (
         <div
-          className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs"
+          className={`flex flex-wrap items-center justify-center
+mt-6 gap-2
+text-xs`}
           style={{ color: 'var(--landing-text-muted)' }}
         >
           <span className="landing-body">Active:</span>

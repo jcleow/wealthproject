@@ -95,7 +95,9 @@ export function ImpactEditor({
           <button
             type="button"
             onClick={() => onRemove(index)}
-            className="text-slate-500 transition-colors hover:text-rose-400 disabled:opacity-50"
+            className={`text-slate-500 hover:text-rose-400
+disabled:opacity-50
+transition-colors`}
             disabled={loading}
           >
             {TrashIcon ? <TrashIcon className="h-3.5 w-3.5" /> : '✕'}
@@ -109,7 +111,12 @@ export function ImpactEditor({
         <select
           value={impact.targetType}
           onChange={(e) => onUpdate(index, { targetType: e.target.value as ScenarioImpact['targetType'] })}
-          className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white transition-all focus:border-blue-500/50 focus:outline-none disabled:opacity-50"
+          className={`px-3 py-2
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.03]
+text-sm text-white
+disabled:opacity-50
+transition-all`}
           disabled={loading}
         >
           <option value="income">Income</option>
@@ -124,7 +131,12 @@ export function ImpactEditor({
         <select
           value={currentVerb}
           onChange={(e) => handleVerbChange(e.target.value as ImpactVerb)}
-          className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white transition-all focus:border-blue-500/50 focus:outline-none disabled:opacity-50"
+          className={`px-3 py-2
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.03]
+text-sm text-white
+disabled:opacity-50
+transition-all`}
           disabled={loading}
         >
           <option value="increases_by">increases by</option>
@@ -147,7 +159,13 @@ export function ImpactEditor({
                 const { impactKind, amount } = verbToImpact(currentVerb, Number.isNaN(numeric) ? 0 : numeric)
                 onUpdate(index, { impactKind, amount })
               }}
-              className="w-28 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-slate-500 transition-all focus:border-blue-500/50 focus:outline-none disabled:opacity-50"
+              className={`w-28
+px-3 py-2
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.03]
+text-sm text-white placeholder:text-slate-500
+disabled:opacity-50
+transition-all`}
               placeholder="5,000"
               disabled={loading}
             />
@@ -159,7 +177,12 @@ export function ImpactEditor({
           <select
             value={impact.cadence}
             onChange={(e) => onUpdate(index, { cadence: e.target.value as ScenarioImpact['cadence'] })}
-            className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-white transition-all focus:border-blue-500/50 focus:outline-none disabled:opacity-50"
+            className={`px-3 py-2
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.03]
+text-sm text-white
+disabled:opacity-50
+transition-all`}
             disabled={loading}
           >
             <option value="one_time">one-time</option>
@@ -196,7 +219,10 @@ export function ImpactEditor({
       {currentVerb !== 'starts_at' && (
         <>
           {items.length === 0 && !isLoadingItems ? (
-            <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-400/80">
+            <div className={`mt-3 px-3 py-2
+rounded-lg border border-amber-500/20
+bg-amber-500/5
+text-xs text-amber-400/80`}>
               No {getTargetTypeLabel(impact.targetType)} items found. Add some in the Financial Data section first.
             </div>
           ) : (
@@ -206,14 +232,25 @@ export function ImpactEditor({
                 <span className="text-rose-400">*</span>
               </p>
               {isLoadingItems ? (
-                <div className="text-xs text-slate-500 animate-pulse rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2">Loading items...</div>
+                <div className={`px-3 py-2
+rounded-lg border border-white/[0.08]
+bg-white/[0.03]
+text-xs text-slate-500
+animate-pulse`}>Loading items...</div>
               ) : (
                 <div className="relative" ref={dropdownRef}>
                   {/* Dropdown trigger button */}
                   <button
                     type="button"
                     onClick={() => onDropdownToggle(!dropdownOpen)}
-                    className="w-full flex items-center justify-between gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-sm text-left transition-all hover:border-white/[0.15] hover:bg-white/[0.05] focus:border-blue-500/50 focus:outline-none disabled:opacity-50"
+                    className={`flex items-center justify-between
+w-full
+gap-2 px-3 py-2.5
+rounded-lg border border-white/[0.08] hover:border-white/[0.15] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.03] hover:bg-white/[0.05]
+text-sm text-left
+disabled:opacity-50
+transition-all`}
                     disabled={loading}
                   >
                     {selectedItem ? (
@@ -233,19 +270,32 @@ export function ImpactEditor({
 
                   {/* Dropdown menu */}
                   {dropdownOpen && (
-                    <div className="absolute z-50 mt-1 w-full rounded-lg border border-white/[0.1] bg-[#0a0a0a]/98 backdrop-blur-xl shadow-xl shadow-black/40">
+                    <div className={`absolute z-50
+w-full
+mt-1
+rounded-lg border border-white/[0.1]
+bg-[#0a0a0a]/98
+backdrop-blur-xl shadow-xl shadow-black/40`}>
                       {/* Search input */}
                       <div className="p-2 border-b border-white/[0.06]">
                         <div className="relative">
                           {SearchIcon && (
-                            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                            <SearchIcon className={`absolute left-2.5 top-1/2
+h-3.5 w-3.5
+text-slate-500
+-translate-y-1/2`} />
                           )}
                           <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => onSearchChange(e.target.value)}
                             placeholder={`Search ${getTargetTypeLabel(impact.targetType)}...`}
-                            className="w-full rounded-md border border-white/[0.08] bg-white/[0.03] pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 transition-all focus:border-blue-500/50 focus:outline-none"
+                            className={`w-full
+pl-8 pr-3 py-1.5
+rounded-md border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.03]
+text-xs text-white placeholder:text-slate-500
+transition-all`}
                             autoFocus
                           />
                         </div>
@@ -297,7 +347,13 @@ export function ImpactEditor({
               type="text"
               value={newItemName || ''}
               onChange={(e) => onNewItemNameChange(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-sm text-white placeholder:text-slate-500 transition-all focus:border-blue-500/50 focus:outline-none disabled:opacity-50"
+              className={`w-full
+mt-1.5 px-3 py-2.5
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.03]
+text-sm text-white placeholder:text-slate-500
+disabled:opacity-50
+transition-all`}
               placeholder={`e.g., ${impact.targetType === 'income' ? 'Side Hustle' : impact.targetType === 'expense' ? 'New Subscription' : impact.targetType === 'asset' ? 'Investment Property' : impact.targetType === 'investment' ? 'New Fund' : impact.targetType === 'cash' ? 'Emergency Fund' : 'Car Loan'}`}
               disabled={loading}
             />
@@ -311,7 +367,13 @@ export function ImpactEditor({
           type="text"
           value={impact.notes ?? ''}
           onChange={(e) => onUpdate(index, { notes: e.target.value })}
-          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-white placeholder:text-slate-500 transition-all focus:border-blue-500/50 focus:outline-none disabled:opacity-50"
+          className={`w-full
+px-3 py-2
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.03]
+text-xs text-white placeholder:text-slate-500
+disabled:opacity-50
+transition-all`}
           placeholder="Notes (optional)"
           disabled={loading}
         />

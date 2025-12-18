@@ -30,7 +30,11 @@ export function CpfAccountFormModal({
       isOpen={isOpen}
       onClose={form.submitting ? undefined : onClose}
       overlayClassName="bg-black/60"
-      className="w-full max-w-lg rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-6 shadow-2xl"
+      className={`w-full max-w-lg
+p-6
+rounded-xl border border-white/[0.08]
+bg-[#0a0a0a]
+shadow-2xl`}
     >
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -43,7 +47,13 @@ export function CpfAccountFormModal({
           type="button"
           onClick={onClose}
           disabled={form.submitting}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-gray-300 transition hover:bg-white/10 disabled:opacity-50"
+          className={`flex items-center justify-center
+h-8 w-8
+rounded-full
+bg-white/5 hover:bg-white/10
+text-gray-300
+disabled:opacity-50
+transition`}
         >
           &times;
         </button>
@@ -116,7 +126,11 @@ export function CpfAccountFormModal({
             <select
               value={form.fields.residencyStatus}
               onChange={(e) => form.handleFieldChange('residencyStatus', e.target.value)}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none"
+              className={`w-full
+px-3 py-2
+rounded-lg border border-white/10 focus:border-emerald-400 focus:outline-none
+bg-white/5
+text-sm text-white`}
             >
               {RESIDENCY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value} className="bg-[#0a0a0a]">
@@ -153,14 +167,25 @@ export function CpfAccountFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-gray-200 transition hover:bg-white/10"
+            className={`flex-1
+px-4 py-2
+rounded-lg border border-white/10
+bg-white/5 hover:bg-white/10
+text-sm text-gray-200
+transition`}
             disabled={form.submitting}
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex-1 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-600 disabled:opacity-70"
+            className={`flex-1
+px-4 py-2
+rounded-lg
+bg-emerald-500 hover:bg-emerald-600
+text-sm font-medium text-white
+disabled:opacity-70
+transition`}
             disabled={form.submitting}
           >
             {form.submitting ? 'Saving...' : 'Save Changes'}

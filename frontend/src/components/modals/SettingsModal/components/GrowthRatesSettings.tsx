@@ -18,7 +18,10 @@ export function GrowthRatesSettings({ configs, onRateChange }: GrowthRatesSettin
         {configs.map(cfg => (
           <div
             key={cfg.category}
-            className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#111111] px-4 py-3"
+            className={`flex items-center justify-between
+px-4 py-3
+rounded-lg border border-white/[0.06]
+bg-[#111111]`}
           >
             <span className="text-sm text-slate-200">
               {GrowthConfigCategoryLabels[cfg.category] ?? cfg.category}
@@ -29,7 +32,11 @@ export function GrowthRatesSettings({ configs, onRateChange }: GrowthRatesSettin
                 step="0.1"
                 value={cfg.annualRatePct}
                 onChange={e => onRateChange(cfg.category, e.target.value)}
-                className="w-20 rounded-md border border-white/[0.08] bg-[#1a1a1a] px-2 py-1 text-right text-sm text-slate-200 focus:border-blue-500 focus:outline-none"
+                className={`w-20
+px-2 py-1
+rounded-md border border-white/[0.08] focus:border-blue-500 focus:outline-none
+bg-[#1a1a1a]
+text-right text-sm text-slate-200`}
               />
               <span className="text-sm text-slate-400">%</span>
             </div>

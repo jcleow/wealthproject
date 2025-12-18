@@ -43,8 +43,14 @@ const OW_CEILING = 7400
 // Custom Node: Salary Input
 function SalaryInputNode({ data }: { data: { salary: number; age: number; onChange: (salary: number, age: number) => void } }) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[#0f1728]/95 p-4 shadow-xl backdrop-blur min-w-[200px]">
-      <div className="mb-3 text-xs font-medium uppercase tracking-wide text-emerald-400">
+    <div className={`min-w-[200px]
+p-4
+rounded-xl border border-white/[0.08]
+bg-[#0f1728]/95
+shadow-xl backdrop-blur`}>
+      <div className={`mb-3
+text-xs font-medium tracking-wide text-emerald-400
+uppercase`}>
         Monthly Salary
       </div>
 
@@ -57,7 +63,12 @@ function SalaryInputNode({ data }: { data: { salary: number; age: number; onChan
               type="number"
               value={data.salary}
               onChange={(e) => data.onChange(Number(e.target.value), data.age)}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 pl-7 pr-3 text-lg font-semibold text-white transition focus:border-emerald-500/50 focus:outline-none"
+              className={`w-full
+py-2 pl-7 pr-3
+rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-lg font-semibold text-white
+transition`}
             />
           </div>
         </div>
@@ -67,7 +78,12 @@ function SalaryInputNode({ data }: { data: { salary: number; age: number; onChan
           <select
             value={data.age}
             onChange={(e) => data.onChange(data.salary, Number(e.target.value))}
-            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 px-3 text-white transition focus:border-emerald-500/50 focus:outline-none"
+            className={`w-full
+py-2 px-3
+rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-white
+transition`}
           >
             <option value={30}>35 or below</option>
             <option value={40}>36-45</option>
@@ -89,10 +105,16 @@ function SalaryInputNode({ data }: { data: { salary: number; age: number; onChan
 // Custom Node: CPF Calculator (middle)
 function CalculatorNode({ data }: { data: { rates: typeof CPF_RATES['35']; cappedWage: number } }) {
   return (
-    <div className="rounded-xl border border-violet-500/30 bg-violet-500/10 p-4 shadow-xl backdrop-blur min-w-[180px]">
+    <div className={`min-w-[180px]
+p-4
+rounded-xl border border-violet-500/30
+bg-violet-500/10
+shadow-xl backdrop-blur`}>
       <Handle type="target" position={Position.Left} className="!bg-violet-500 !w-3 !h-3" />
 
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-violet-400">
+      <div className={`mb-2
+text-xs font-medium tracking-wide text-violet-400
+uppercase`}>
         CPF Calculator
       </div>
 
@@ -165,10 +187,16 @@ function TakeHomeNode({ data }: { data: { grossSalary: number; employeeContrib: 
   const takeHome = data.grossSalary - data.employeeContrib
 
   return (
-    <div className="rounded-xl border border-green-500/30 bg-green-500/10 p-4 shadow-xl backdrop-blur min-w-[180px]">
+    <div className={`min-w-[180px]
+p-4
+rounded-xl border border-green-500/30
+bg-green-500/10
+shadow-xl backdrop-blur`}>
       <Handle type="target" position={Position.Left} className="!bg-green-500 !w-3 !h-3" />
 
-      <div className="mb-1 text-xs font-medium uppercase tracking-wide text-green-400">
+      <div className={`mb-1
+text-xs font-medium tracking-wide text-green-400
+uppercase`}>
         Take-Home Pay
       </div>
 
@@ -349,12 +377,15 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
       >
         <Background color="#1e293b" gap={20} size={1} />
         <Controls
-          className="!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white"
+          className={`!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white`}
         />
       </ReactFlow>
 
       {/* Summary Footer */}
-      <div className="border-t border-white/[0.06] px-4 py-3 flex items-center justify-between text-sm">
+      <div className={`flex items-center justify-between
+px-4 py-3
+border-t border-white/[0.06]
+text-sm`}>
         <div className="flex gap-6">
           <div>
             <span className="text-slate-400">Total CPF: </span>

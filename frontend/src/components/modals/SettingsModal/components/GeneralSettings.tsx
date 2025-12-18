@@ -32,7 +32,11 @@ export function GeneralSettings({
           max="120"
           value={settings.startingAge || ''}
           onChange={e => onStartingAgeChange(e.target.value)}
-          className="w-32 rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-3 py-2 text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+          className={`w-32
+px-3 py-2 placeholder-slate-500
+rounded-lg border border-white/[0.08] focus:border-blue-500 focus:outline-none
+bg-[#1a1a1a]
+text-slate-200`}
         />
       </div>
 
@@ -49,7 +53,11 @@ export function GeneralSettings({
           max="120"
           value={settings.terminalAge || ''}
           onChange={e => onTerminalAgeChange(e.target.value)}
-          className="w-32 rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-3 py-2 text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+          className={`w-32
+px-3 py-2 placeholder-slate-500
+rounded-lg border border-white/[0.08] focus:border-blue-500 focus:outline-none
+bg-[#1a1a1a]
+text-slate-200`}
         />
         <p className="mt-2 text-xs text-slate-500">
           Planning years: {Math.max(0, settings.terminalAge - settings.startingAge)}
@@ -66,7 +74,11 @@ export function GeneralSettings({
         <select
           value={settings.yearDisplayFormat}
           onChange={e => onYearDisplayFormatChange(e.target.value as YearDisplayFormat)}
-          className="w-64 rounded-lg border border-white/[0.08] bg-[#1a1a1a] px-3 py-2 text-slate-200 focus:border-blue-500 focus:outline-none"
+          className={`w-64
+px-3 py-2
+rounded-lg border border-white/[0.08] focus:border-blue-500 focus:outline-none
+bg-[#1a1a1a]
+text-slate-200`}
         >
           <option value="year_number">Year Number (Year 0, Year 1...)</option>
           <option value="actual_year">Actual Year ({new Date().getFullYear()}, {new Date().getFullYear() + 1}...)</option>

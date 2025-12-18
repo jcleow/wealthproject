@@ -95,7 +95,12 @@ export function QueryDebugPanel() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 z-50 rounded-lg bg-purple-600 px-4 py-2 text-white shadow-lg hover:bg-purple-700"
+        className={`fixed bottom-4 right-4 z-50
+px-4 py-2
+rounded-lg
+bg-purple-600 hover:bg-purple-700
+text-white
+shadow-lg`}
       >
         🐛 Debug Panel
       </button>
@@ -103,7 +108,14 @@ export function QueryDebugPanel() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-96 max-h-[600px] overflow-auto rounded-lg border border-gray-700 bg-gray-900 p-4 text-white shadow-xl">
+    <div className={`fixed bottom-4 right-4 z-50
+overflow-auto
+w-96 max-h-[600px]
+p-4
+rounded-lg border border-gray-700
+bg-gray-900
+text-white
+shadow-xl`}>
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-bold text-lg">TanStack Query Debug Panel</h3>
         <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">✕</button>
@@ -137,21 +149,33 @@ export function QueryDebugPanel() {
           <button
             onClick={testCreateAsset}
             disabled={createAssetMutation.isLoading}
-            className="w-full px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded text-sm"
+            className={`w-full
+px-3 py-1
+rounded
+bg-green-600 hover:bg-green-700 disabled:bg-gray-600
+text-sm`}
           >
             {createAssetMutation.isLoading ? 'Creating...' : '➕ Create Test Asset'}
           </button>
           <button
             onClick={testUpdateAsset}
             disabled={updateAssetMutation.isLoading || !assetsQuery.data?.length}
-            className="w-full px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded text-sm"
+            className={`w-full
+px-3 py-1
+rounded
+bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600
+text-sm`}
           >
             {updateAssetMutation.isLoading ? 'Updating...' : '✏️ Update First Asset'}
           </button>
           <button
             onClick={testDeleteAsset}
             disabled={deleteAssetMutation.isLoading}
-            className="w-full px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 rounded text-sm"
+            className={`w-full
+px-3 py-1
+rounded
+bg-red-600 hover:bg-red-700 disabled:bg-gray-600
+text-sm`}
           >
             {deleteAssetMutation.isLoading ? 'Deleting...' : '🗑️ Delete Test Asset'}
           </button>
@@ -164,13 +188,21 @@ export function QueryDebugPanel() {
         <div className="space-y-2">
           <button
             onClick={invalidateAll}
-            className="w-full px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded text-sm"
+            className={`w-full
+px-3 py-1
+rounded
+bg-yellow-600 hover:bg-yellow-700
+text-sm`}
           >
             🔄 Invalidate All Queries
           </button>
           <button
             onClick={clearCache}
-            className="w-full px-3 py-1 bg-gray-600 hover:bg-gray-700 rounded text-sm"
+            className={`w-full
+px-3 py-1
+rounded
+bg-gray-600 hover:bg-gray-700
+text-sm`}
           >
             🗑️ Clear All Cache
           </button>

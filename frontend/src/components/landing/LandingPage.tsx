@@ -40,7 +40,10 @@ export function LandingPage() {
   return (
     <div
       ref={containerRef}
-      className="landing-wrapper landing-grain relative min-h-screen overflow-x-hidden"
+      className={`relative
+overflow-x-hidden
+min-h-screen
+landing-wrapper landing-grain`}
       style={{ background: 'var(--landing-bg)' }}
     >
       {/* Flow Field Background - the Loki timeline effect */}
@@ -70,7 +73,12 @@ export function LandingPage() {
         />
         {/* Subtle gold ambient glow */}
         <div
-          className="absolute bottom-0 left-1/2 h-[600px] w-[800px] -translate-x-1/2 translate-y-1/2 rounded-full opacity-[0.03] blur-3xl"
+          className={`absolute bottom-0 left-1/2
+h-[600px] w-[800px]
+rounded-full
+opacity-[0.03] blur-3xl
+translate-y-1/2
+-translate-x-1/2`}
           style={{ background: 'var(--landing-gold)' }}
         />
       </div>

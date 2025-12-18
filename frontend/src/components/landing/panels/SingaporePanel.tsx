@@ -79,14 +79,19 @@ export function SingaporePanel() {
   return (
     <div
       ref={containerRef}
-      className="landing-panel relative flex min-h-screen flex-col items-center justify-center px-6 py-24"
+      className={`relative
+flex flex-col items-center justify-center
+min-h-screen
+px-6 py-24
+landing-panel`}
     >
       {/* Section header */}
       <div className="sg-title mb-20 max-w-3xl text-center opacity-0" data-animate>
         <div className="mb-6 flex items-center justify-center gap-4">
           <div className="landing-rule w-12" />
           <span
-            className="landing-body text-xs font-medium uppercase tracking-[0.25em]"
+            className={`text-xs font-medium tracking-[0.25em]
+landing-body uppercase`}
             style={{ color: 'var(--landing-gold)' }}
           >
             Singapore Context
@@ -116,7 +121,12 @@ export function SingaporePanel() {
       <div className="sg-grid grid w-full max-w-5xl gap-6 md:grid-cols-2">
         {/* Housing Card */}
         <div
-          className="sg-card landing-card group relative overflow-hidden rounded-2xl p-8 opacity-0"
+          className={`relative
+overflow-hidden
+p-8
+rounded-2xl
+opacity-0
+sg-card landing-card group`}
           data-animate
         >
           {/* Decorative corner */}
@@ -143,7 +153,12 @@ export function SingaporePanel() {
             <div className="space-y-4">
               {/* BTO Option */}
               <div
-                className="group/option relative overflow-hidden rounded-xl p-5 transition-all duration-300"
+                className={`relative
+overflow-hidden
+p-5
+rounded-xl
+transition-all duration-300
+group/option`}
                 style={{ background: 'rgba(16, 185, 129, 0.08)' }}
               >
                 <div className="flex items-center justify-between">
@@ -175,7 +190,12 @@ export function SingaporePanel() {
 
               {/* Resale Option */}
               <div
-                className="group/option relative overflow-hidden rounded-xl p-5 transition-all duration-300"
+                className={`relative
+overflow-hidden
+p-5
+rounded-xl
+transition-all duration-300
+group/option`}
                 style={{ background: 'rgba(244, 63, 94, 0.08)' }}
               >
                 <div className="flex items-center justify-between">
@@ -210,7 +230,12 @@ export function SingaporePanel() {
 
         {/* COE Card */}
         <div
-          className="sg-card landing-card group relative overflow-hidden rounded-2xl p-8 opacity-0"
+          className={`relative
+overflow-hidden
+p-8
+rounded-2xl
+opacity-0
+sg-card landing-card group`}
           data-animate
         >
           {/* Decorative corner */}
@@ -237,7 +262,12 @@ export function SingaporePanel() {
             <div className="space-y-4">
               {/* Low COE */}
               <div
-                className="group/option relative overflow-hidden rounded-xl p-5 transition-all duration-300"
+                className={`relative
+overflow-hidden
+p-5
+rounded-xl
+transition-all duration-300
+group/option`}
                 style={{ background: 'rgba(16, 185, 129, 0.08)' }}
               >
                 <div className="flex items-center justify-between">
@@ -269,7 +299,12 @@ export function SingaporePanel() {
 
               {/* High COE */}
               <div
-                className="group/option relative overflow-hidden rounded-xl p-5 transition-all duration-300"
+                className={`relative
+overflow-hidden
+p-5
+rounded-xl
+transition-all duration-300
+group/option`}
                 style={{ background: 'rgba(244, 63, 94, 0.08)' }}
               >
                 <div className="flex items-center justify-between">
@@ -305,7 +340,11 @@ export function SingaporePanel() {
 
       {/* CPF Strategy Card - Full width */}
       <div
-        className="sg-cpf-card mt-6 w-full max-w-5xl rounded-2xl border p-10 opacity-0"
+        className={`w-full max-w-5xl
+mt-6 p-10
+rounded-2xl border
+opacity-0
+sg-cpf-card`}
         style={{
           borderColor: 'var(--landing-border-accent)',
           background: 'linear-gradient(135deg, rgba(201, 169, 98, 0.08) 0%, rgba(12, 17, 25, 0.9) 100%)',
@@ -330,7 +369,9 @@ export function SingaporePanel() {
           <div className="flex w-full max-w-md items-center justify-center gap-8">
             <div className="flex-1 text-center">
               <p
-                className="landing-body mb-2 text-xs font-medium uppercase tracking-wider"
+                className={`mb-2
+text-xs font-medium tracking-wider
+landing-body uppercase`}
                 style={{ color: 'var(--landing-text-muted)' }}
               >
                 Max OA
@@ -368,7 +409,9 @@ export function SingaporePanel() {
 
             <div className="flex-1 text-center">
               <p
-                className="landing-body mb-2 text-xs font-medium uppercase tracking-wider"
+                className={`mb-2
+text-xs font-medium tracking-wider
+landing-body uppercase`}
                 style={{ color: 'var(--landing-text-muted)' }}
               >
                 Max SA

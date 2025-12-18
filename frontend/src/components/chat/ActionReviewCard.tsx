@@ -52,7 +52,11 @@ export default function ActionReviewCard({
   const status = statusCopy[review.status]
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm shadow-lg shadow-black/30">
+    <div className={`p-5
+rounded-2xl border border-white/10
+bg-white/5
+text-sm
+shadow-lg shadow-black/30`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs uppercase tracking-wide text-gray-400">
@@ -65,7 +69,10 @@ export default function ActionReviewCard({
         </div>
         <span
           className={cn(
-            "inline-flex items-center gap-1 rounded-full border px-3 py-1 font-medium text-xs",
+            `inline-flex items-center
+gap-1 px-3 py-1
+rounded-full border
+font-medium text-xs`,
             status.tone
           )}
         >
@@ -77,7 +84,10 @@ export default function ActionReviewCard({
       <div className="mt-4 space-y-2">
         {review.actions.map((action) => (
           <div
-            className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-gray-200"
+            className={`px-3 py-2
+rounded-xl border border-white/10
+bg-black/20
+text-sm text-gray-200`}
             key={action.call_id}
           >
             <div className="flex flex-wrap items-center gap-2">
@@ -145,7 +155,13 @@ export default function ActionReviewCard({
       )}
 
       <button
-        className="mt-4 flex w-full items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-medium text-xs text-gray-300 transition hover:bg-black/50"
+        className={`flex items-center justify-between
+w-full
+mt-4 px-3 py-2
+rounded-lg border border-white/10
+bg-black/30 hover:bg-black/50
+font-medium text-xs text-gray-300
+transition`}
         onClick={() => setShowDiagnostics((value) => !value)}
         type="button"
       >
@@ -158,7 +174,12 @@ export default function ActionReviewCard({
       </button>
 
       {showDiagnostics && (
-        <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-black/50 px-3 py-2 text-xs text-gray-300">
+        <pre className={`overflow-auto
+max-h-64
+mt-2 px-3 py-2
+rounded-lg
+bg-black/50
+text-xs text-gray-300`}>
           {JSON.stringify(
             {
               review_id: review.id,

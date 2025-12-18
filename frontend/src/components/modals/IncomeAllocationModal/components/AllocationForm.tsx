@@ -52,7 +52,9 @@ export function AllocationForm({
   )
 
   return (
-    <div className="space-y-4 rounded-lg border border-gray-700 bg-gray-800/30 p-4">
+    <div className={`space-y-4 p-4
+rounded-lg border border-gray-700
+bg-gray-800/30`}>
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-white">
           {isEditing ? 'Edit Allocation' : 'New Allocation'}
@@ -114,12 +116,20 @@ export function AllocationForm({
           value={searchTerm}
           onChange={(e) => onSearchTermChange(e.target.value)}
           placeholder={`Search ${targetType === 'investment' ? 'investments' : 'cash accounts'}...`}
-          className="mb-2 w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+          className={`w-full
+mb-2 px-3 py-2 placeholder-gray-400
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
         />
         <select
           value={targetId}
           onChange={(e) => onTargetIdChange(e.target.value)}
-          className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
+          className={`w-full
+px-3 py-2
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
         >
           <option value="">Select {targetType === 'investment' ? 'an investment' : 'a cash account'}</option>
           {targetType === 'investment'
@@ -143,7 +153,11 @@ export function AllocationForm({
           <select
             value={allocationType}
             onChange={(e) => onAllocationTypeChange(e.target.value as AllocationType)}
-            className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-emerald-500 focus:outline-none"
+            className={`w-full
+px-3 py-2
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
           >
             <option value="percentage">Percentage</option>
             <option value="fixed">Fixed Amount</option>
@@ -161,7 +175,11 @@ export function AllocationForm({
             min="0"
             max={allocationType === 'percentage' ? '100' : undefined}
             step={allocationType === 'percentage' ? '1' : '100'}
-            className="w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white placeholder-gray-400 focus:border-emerald-500 focus:outline-none"
+            className={`w-full
+px-3 py-2 placeholder-gray-400
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
           />
         </div>
       </div>
@@ -169,7 +187,12 @@ export function AllocationForm({
       <button
         onClick={onSave}
         disabled={!isFormValid || isSaving}
-        className="w-full rounded-lg bg-emerald-500 px-4 py-2 text-white transition hover:bg-emerald-600 disabled:bg-gray-600 disabled:cursor-not-allowed"
+        className={`w-full
+px-4 py-2
+rounded-lg
+bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-600
+text-white
+transition disabled:cursor-not-allowed`}
       >
         {isSaving ? 'Saving...' : isEditing ? 'Update Allocation' : 'Add Allocation'}
       </button>

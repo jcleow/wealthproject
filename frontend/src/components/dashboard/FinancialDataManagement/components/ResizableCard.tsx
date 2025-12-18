@@ -65,7 +65,11 @@ export function ResizableCard({ id, children }: ResizableCardProps) {
       onResizeStop={handleResizeStop}
       resizeHandles={['s']}
       handle={
-        <div className="absolute bottom-0 left-0 right-0 flex h-3 cursor-ns-resize items-center justify-center opacity-0 transition-opacity hover:opacity-100 group-hover/card:opacity-50">
+        <div className={`absolute bottom-0 left-0 right-0
+flex items-center justify-center
+h-3
+opacity-0 hover:opacity-100 group-hover/card:opacity-50
+cursor-ns-resize transition-opacity`}>
           <div className="h-1 w-12 rounded-full bg-white/20" />
         </div>
       }

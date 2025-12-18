@@ -17,7 +17,8 @@ export function ModalHeader({ isEditing, onExample, onClose, disabled }: ModalHe
   return (
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-[10px] uppercase tracking-[0.25em] text-slate-500 font-medium">Scenario</p>
+        <p className={`text-[10px] tracking-[0.25em] text-slate-500 font-medium
+uppercase`}>Scenario</p>
         <h2 className="text-xl font-semibold tracking-tight text-white mt-1">
           {isEditing ? 'Edit Scenario Event' : 'Create a new scenario'}
         </h2>
@@ -26,7 +27,13 @@ export function ModalHeader({ isEditing, onExample, onClose, disabled }: ModalHe
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-medium text-slate-400 transition-all hover:border-white/[0.15] hover:bg-white/[0.06] hover:text-slate-200 disabled:opacity-50"
+          className={`inline-flex items-center
+gap-2 px-3 py-2
+rounded-lg border border-white/[0.08] hover:border-white/[0.15]
+bg-white/[0.03] hover:bg-white/[0.06]
+text-xs font-medium text-slate-400 hover:text-slate-200
+disabled:opacity-50
+transition-all`}
           onClick={onExample}
           disabled={disabled}
         >
@@ -35,7 +42,12 @@ export function ModalHeader({ isEditing, onExample, onClose, disabled }: ModalHe
         </button>
         <button
           type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-slate-400 transition-all hover:border-white/[0.15] hover:bg-white/[0.06] hover:text-white"
+          className={`flex items-center justify-center
+h-9 w-9
+rounded-lg border border-white/[0.08] hover:border-white/[0.15]
+bg-white/[0.03] hover:bg-white/[0.06]
+text-slate-400 hover:text-white
+transition-all`}
           onClick={onClose}
           aria-label="Close"
         >

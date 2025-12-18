@@ -109,20 +109,36 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event 
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} overlayClassName="bg-black/80 backdrop-blur-sm p-4 sm:p-6">
-      <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/95 backdrop-blur-xl text-white shadow-xl">
+      <div className={`relative
+overflow-hidden
+w-full max-w-4xl
+rounded-2xl border border-white/[0.1]
+bg-[#0a0a0a]/95
+text-white
+backdrop-blur-xl shadow-xl`}>
         <div className="max-h-[80vh] overflow-y-auto p-6 pr-3 custom-scrollbar">
-          {isFetching && <div className="mb-4 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs animate-pulse">Loading...</div>}
+          {isFetching && <div className={`mb-4 px-3 py-2
+rounded-lg border border-white/[0.08]
+bg-white/[0.03]
+text-xs
+animate-pulse`}>Loading...</div>}
           <ModalHeader isEditing={!!event} onExample={fillExample} onClose={onClose} disabled={loadingState} />
           <ScenarioFormFields form={form} onFieldChange={(k, v) => setForm(p => ({ ...p, [k]: v }))} disabled={loadingState} />
           {form.occursOn ? (
             <ImpactList impacts={form.impacts} onUpdate={handleImpactChange} onAdd={addImpact} onRemove={removeImpact}
               loading={loadingState} itemSelector={itemSelector} financialItems={financialItems} />
           ) : (
-            <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-6 text-center text-sm text-slate-400">
+            <div className={`mt-6 px-4 py-6
+rounded-xl border border-white/[0.06]
+bg-white/[0.02]
+text-center text-sm text-slate-400`}>
               Select an &quot;Occurs on&quot; month above to define impacts.
             </div>
           )}
-          {error && <div className="mt-4 rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2.5 text-sm text-rose-400">{error}</div>}
+          {error && <div className={`mt-4 px-3 py-2.5
+rounded-lg border border-rose-500/20
+bg-rose-500/5
+text-sm text-rose-400`}>{error}</div>}
           <ModalFooter isEditing={!!event} confirmDelete={confirmDelete} onConfirmDelete={setConfirmDelete}
             onDelete={handleDelete} onSave={handleSave} onClose={onClose} saving={saving} deleting={deleting} disabled={loadingState} />
         </div>

@@ -93,7 +93,10 @@ export function CPFBalanceOverview({ profile, className }: CPFBalanceOverviewPro
               {formatCurrency(totalBalance)}
             </h2>
           </div>
-          <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-1.5">
+          <div className={`flex items-center
+gap-2 px-3 py-1.5
+rounded-lg
+bg-emerald-500/10`}>
             <TrendingUp className="h-4 w-4 text-emerald-400" />
             <span className="text-sm font-medium text-emerald-400">
               +{formatCurrency(extraInterest)}/yr extra
@@ -131,7 +134,10 @@ export function CPFBalanceOverview({ profile, className }: CPFBalanceOverviewPro
                     if (!active || !payload?.[0]) return null
                     const data = payload[0].payload
                     return (
-                      <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur">
+                      <div className={`px-3 py-2
+rounded-lg border border-white/10
+bg-[#0f1728]/95
+shadow-xl backdrop-blur`}>
                         <p className="text-xs font-medium text-slate-300">{data.name}</p>
                         <p className="text-lg font-semibold text-white">
                           {formatCurrency(data.value)}
@@ -160,7 +166,11 @@ export function CPFBalanceOverview({ profile, className }: CPFBalanceOverviewPro
             return (
               <div
                 key={account}
-                className="group rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/[0.1] hover:bg-white/[0.04]"
+                className={`p-3
+rounded-lg border border-white/[0.06] hover:border-white/[0.1]
+bg-white/[0.02] hover:bg-white/[0.04]
+transition
+group`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -175,13 +185,23 @@ export function CPFBalanceOverview({ profile, className }: CPFBalanceOverviewPro
                       <div className="relative">
                         <Info className="h-3.5 w-3.5 cursor-help text-slate-500 hover:text-slate-400" />
                         {/* Tooltip */}
-                        <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
-                          <div className="whitespace-nowrap rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 text-xs text-slate-300 shadow-xl backdrop-blur">
+                        <div className={`absolute bottom-full left-1/2 z-50
+pointer-events-none mb-2 group-hover:pointer-events-auto
+opacity-0 group-hover:opacity-100
+transition-opacity
+-translate-x-1/2`}>
+                          <div className={`px-3 py-2
+rounded-lg border border-white/10
+bg-[#0f1728]/95
+whitespace-nowrap text-xs text-slate-300
+shadow-xl backdrop-blur`}>
                             <p className="font-medium text-white">{info.rate} p.a.</p>
                             <p className="mt-0.5">{info.description}</p>
                           </div>
                           {/* Arrow */}
-                          <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-[#0f1728]/95" />
+                          <div className={`absolute left-1/2 top-full
+border-4 border-transparent border-t-[#0f1728]/95
+-translate-x-1/2`} />
                         </div>
                       </div>
                     </div>

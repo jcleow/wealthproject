@@ -142,8 +142,16 @@ export function TimelineEditDrawer({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-end bg-black/40 backdrop-blur-sm">
-      <div className="h-full w-full max-w-md overflow-auto border-l border-white/10 bg-[#0b1222] p-6 shadow-2xl">
+    <div className={`fixed inset-0 z-[120]
+flex items-center justify-end
+bg-black/40
+backdrop-blur-sm`}>
+      <div className={`overflow-auto
+h-full w-full max-w-md
+p-6
+border-l border-white/10
+bg-[#0b1222]
+shadow-2xl`}>
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-wide text-gray-400">Year {year}</p>
@@ -154,7 +162,11 @@ export function TimelineEditDrawer({
           </div>
           <button
             onClick={onClose}
-            className="h-9 w-9 rounded-full bg-white/5 text-gray-300 transition hover:bg-white/10"
+            className={`h-9 w-9
+rounded-full
+bg-white/5 hover:bg-white/10
+text-gray-300
+transition`}
             type="button"
           >
             ✕
@@ -165,7 +177,11 @@ export function TimelineEditDrawer({
           <div className="space-y-2">
             <label className="text-sm text-gray-300">Existing item (optional)</label>
             <select
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-blue-400 focus:outline-none"
+              className={`w-full
+px-3 py-2
+rounded-lg border border-white/10 focus:border-blue-400 focus:outline-none
+bg-white/5
+text-sm text-white`}
               value={form.itemId}
               onChange={(event) => handleExistingChange(event.target.value)}
             >
@@ -183,7 +199,11 @@ export function TimelineEditDrawer({
               <label className="text-sm text-gray-300">Name</label>
               <input
                 type="text"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+                className={`w-full
+px-3 py-2
+rounded-lg border border-white/10 focus:border-blue-400 focus:outline-none
+bg-white/5
+text-white`}
                 placeholder="e.g., Savings"
                 value={form.name}
                 onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
@@ -192,7 +212,11 @@ export function TimelineEditDrawer({
             <div className="space-y-2">
               <label className="text-sm text-gray-300">Item type</label>
               <select
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+                className={`w-full
+px-3 py-2
+rounded-lg border border-white/10 focus:border-blue-400 focus:outline-none
+bg-white/5
+text-white`}
                 value={form.itemType}
                 onChange={(event) => {
                   const newType = event.target.value as TimelineItemType
@@ -218,7 +242,11 @@ export function TimelineEditDrawer({
               <label className="text-sm text-gray-300">Category</label>
               <input
                 type="text"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+                className={`w-full
+px-3 py-2
+rounded-lg border border-white/10 focus:border-blue-400 focus:outline-none
+bg-white/5
+text-white`}
                 placeholder="asset_cash"
                 value={form.category}
                 onChange={(event) =>
@@ -231,7 +259,11 @@ export function TimelineEditDrawer({
               <div className="space-y-2">
                 <label className="text-sm text-gray-300">Frequency</label>
                 <select
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+                  className={`w-full
+px-3 py-2
+rounded-lg border border-white/10 focus:border-blue-400 focus:outline-none
+bg-white/5
+text-white`}
                   value={form.frequency ?? 'annual'}
                   onChange={(event) =>
                     setForm((prev) => ({
@@ -258,7 +290,11 @@ export function TimelineEditDrawer({
               type="number"
               min="0"
               step="0.01"
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+              className={`w-full
+px-3 py-2
+rounded-lg border border-white/10 focus:border-blue-400 focus:outline-none
+bg-white/5
+text-white`}
               placeholder="0.00"
               value={form.amount}
               onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
@@ -273,7 +309,11 @@ export function TimelineEditDrawer({
           <div className="space-y-2">
             <label className="text-sm text-gray-300">Note (optional)</label>
             <textarea
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white focus:border-blue-400 focus:outline-none"
+              className={`w-full
+px-3 py-2
+rounded-lg border border-white/10 focus:border-blue-400 focus:outline-none
+bg-white/5
+text-white`}
               rows={2}
               value={form.note}
               onChange={(event) => setForm((prev) => ({ ...prev, note: event.target.value }))}
@@ -283,14 +323,20 @@ export function TimelineEditDrawer({
 
           {error && <p className="text-sm text-rose-300">{error}</p>}
 
-          <div className="flex items-center justify-between border-t border-white/10 pt-4">
+          <div className={`flex items-center justify-between
+pt-4
+border-t border-white/10`}>
             <div className="text-xs text-gray-400">
               Latest-wins overrides; new items persist in downstream years.
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="rounded-lg px-4 py-2 text-gray-300 transition hover:bg-white/5"
+                className={`px-4 py-2
+rounded-lg
+hover:bg-white/5
+text-gray-300
+transition`}
                 onClick={onClose}
                 disabled={saving}
               >
@@ -298,7 +344,12 @@ export function TimelineEditDrawer({
               </button>
               <button
                 type="submit"
-                className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-600 disabled:opacity-60"
+                className={`px-4 py-2
+rounded-lg
+bg-blue-500 hover:bg-blue-600
+text-sm font-semibold text-white
+disabled:opacity-60
+transition`}
                 disabled={saving}
               >
                 {saving ? 'Saving...' : 'Save overrides'}

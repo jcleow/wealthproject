@@ -9,11 +9,20 @@ interface AppSidebarProps {
 
 export function AppSidebar({ user }: AppSidebarProps) {
   return (
-    <div className="flex h-full w-full flex-col bg-gray-950 border-r border-gray-800">
+    <div className={`flex flex-col
+h-full w-full
+border-r border-gray-800
+bg-gray-950`}>
       {/* Sidebar Header */}
-      <div className="flex flex-row items-center justify-between p-4 border-b border-gray-800">
+      <div className={`flex flex-row items-center justify-between
+p-4
+border-b border-gray-800`}>
         <Link className="flex flex-row items-center gap-3" href="/">
-          <span className="cursor-pointer rounded-md px-2 font-semibold text-lg text-white hover:bg-gray-800">
+          <span className={`px-2
+rounded-md
+hover:bg-gray-800
+font-semibold text-lg text-white
+cursor-pointer`}>
             Chatbot
           </span>
         </Link>

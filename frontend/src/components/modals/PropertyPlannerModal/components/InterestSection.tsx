@@ -57,7 +57,10 @@ export function InterestSection({ inputs, onChange }: InterestSectionProps) {
             <p className="text-xs uppercase text-gray-400">{card.label}</p>
             <div className="flex items-baseline gap-2">
               <input
-                className="w-full bg-transparent text-2xl font-semibold text-white focus:outline-none"
+                className={`w-full
+focus:outline-none
+bg-transparent
+text-2xl font-semibold text-white`}
                 type="number"
                 value={card.value === 0 ? '' : card.value}
                 min={card.min}

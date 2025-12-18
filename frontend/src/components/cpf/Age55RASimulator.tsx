@@ -29,8 +29,14 @@ function BalancesInputNode({ data }: { data: {
   const total = data.oaBalance + data.saBalance + data.maBalance
 
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[#0f1728]/95 p-4 shadow-xl backdrop-blur min-w-[220px]">
-      <div className="mb-3 text-xs font-medium uppercase tracking-wide text-cyan-400">
+    <div className={`min-w-[220px]
+p-4
+rounded-xl border border-white/[0.08]
+bg-[#0f1728]/95
+shadow-xl backdrop-blur`}>
+      <div className={`mb-3
+text-xs font-medium tracking-wide text-cyan-400
+uppercase`}>
         Balances Before 55
       </div>
 
@@ -43,7 +49,12 @@ function BalancesInputNode({ data }: { data: {
               type="number"
               value={data.oaBalance}
               onChange={(e) => data.onChange('oaBalance', Number(e.target.value))}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 pl-7 pr-3 text-white transition focus:border-emerald-500/50 focus:outline-none"
+              className={`w-full
+py-2 pl-7 pr-3
+rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-white
+transition`}
             />
           </div>
         </div>
@@ -56,7 +67,12 @@ function BalancesInputNode({ data }: { data: {
               type="number"
               value={data.saBalance}
               onChange={(e) => data.onChange('saBalance', Number(e.target.value))}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 pl-7 pr-3 text-white transition focus:border-blue-500/50 focus:outline-none"
+              className={`w-full
+py-2 pl-7 pr-3
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.02]
+text-white
+transition`}
             />
           </div>
         </div>
@@ -69,7 +85,12 @@ function BalancesInputNode({ data }: { data: {
               type="number"
               value={data.maBalance}
               onChange={(e) => data.onChange('maBalance', Number(e.target.value))}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 pl-7 pr-3 text-white transition focus:border-amber-500/50 focus:outline-none"
+              className={`w-full
+py-2 pl-7 pr-3
+rounded-lg border border-white/[0.08] focus:border-amber-500/50 focus:outline-none
+bg-white/[0.02]
+text-white
+transition`}
             />
           </div>
         </div>
@@ -114,10 +135,16 @@ function TransferNode({ data }: { data: {
   shortfall: number
 }}) {
   return (
-    <div className="rounded-xl border border-violet-500/30 bg-violet-500/10 p-4 shadow-xl backdrop-blur min-w-[220px]">
+    <div className={`min-w-[220px]
+p-4
+rounded-xl border border-violet-500/30
+bg-violet-500/10
+shadow-xl backdrop-blur`}>
       <Handle type="target" position={Position.Left} className="!bg-violet-500 !w-3 !h-3" />
 
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-violet-400">
+      <div className={`mb-2
+text-xs font-medium tracking-wide text-violet-400
+uppercase`}>
         RA Creation Process
       </div>
 
@@ -178,10 +205,16 @@ function ResultNode({ data }: { data: {
   shortfall: number
 }}) {
   return (
-    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 shadow-xl backdrop-blur min-w-[200px]">
+    <div className={`min-w-[200px]
+p-4
+rounded-xl border border-emerald-500/30
+bg-emerald-500/10
+shadow-xl backdrop-blur`}>
       <Handle type="target" position={Position.Left} className="!bg-emerald-500 !w-3 !h-3" />
 
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-emerald-400">
+      <div className={`mb-2
+text-xs font-medium tracking-wide text-emerald-400
+uppercase`}>
         After Age 55
       </div>
 
@@ -244,10 +277,16 @@ function ShieldingTipNode({ data }: { data: {
   if (!data.canShield) return null
 
   return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 shadow-xl backdrop-blur min-w-[180px]">
+    <div className={`min-w-[180px]
+p-4
+rounded-xl border border-amber-500/30
+bg-amber-500/10
+shadow-xl backdrop-blur`}>
       <Handle type="target" position={Position.Left} className="!bg-amber-500 !w-3 !h-3" />
 
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-amber-400">
+      <div className={`mb-2
+text-xs font-medium tracking-wide text-amber-400
+uppercase`}>
         💡 SA Shielding Tip
       </div>
 
@@ -437,12 +476,15 @@ export function Age55RASimulator({ className }: Age55RASimulatorProps) {
       >
         <Background color="#1e293b" gap={20} size={1} />
         <Controls
-          className="!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white"
+          className={`!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white`}
         />
       </ReactFlow>
 
       {/* Summary Footer */}
-      <div className="border-t border-white/[0.06] px-4 py-3 flex items-center justify-between text-sm">
+      <div className={`flex items-center justify-between
+px-4 py-3
+border-t border-white/[0.06]
+text-sm`}>
         <div className="flex gap-6">
           <div>
             <span className="text-slate-400">Target: </span>

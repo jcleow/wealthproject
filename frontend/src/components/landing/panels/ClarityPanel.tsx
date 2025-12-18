@@ -79,14 +79,19 @@ export function ClarityPanel() {
   return (
     <div
       ref={containerRef}
-      className="landing-panel relative flex min-h-screen flex-col items-center justify-center px-6 py-24"
+      className={`relative
+flex flex-col items-center justify-center
+min-h-screen
+px-6 py-24
+landing-panel`}
     >
       {/* Section header */}
       <div className="clarity-header mb-16 max-w-3xl text-center opacity-0" data-animate>
         <div className="mb-6 flex items-center justify-center gap-4">
           <div className="landing-rule w-12" />
           <span
-            className="landing-body text-xs font-medium uppercase tracking-[0.25em]"
+            className={`text-xs font-medium tracking-[0.25em]
+landing-body uppercase`}
             style={{ color: 'var(--landing-gold)' }}
           >
             The Solution
@@ -112,7 +117,11 @@ export function ClarityPanel() {
 
       {/* Demo widget container */}
       <div
-        className="clarity-demo w-full max-w-2xl rounded-2xl border p-1 opacity-0"
+        className={`w-full max-w-2xl
+p-1
+rounded-2xl border
+opacity-0
+clarity-demo`}
         style={{
           borderColor: 'var(--landing-border-accent)',
           background: 'linear-gradient(180deg, rgba(201, 169, 98, 0.05) 0%, transparent 100%)',

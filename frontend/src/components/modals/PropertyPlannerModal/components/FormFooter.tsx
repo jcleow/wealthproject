@@ -34,7 +34,9 @@ export function FormFooter({
         {helperMessage && <span className="text-blue-200">{helperMessage}</span>}
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+      <div className={`flex flex-wrap items-center justify-between
+mt-6 gap-3 pt-4
+border-t border-white/10`}>
         <div className="text-xs text-gray-400">
           {lastSavedAt
             ? `Last saved ${new Date(lastSavedAt).toLocaleTimeString()}`
@@ -42,7 +44,12 @@ export function FormFooter({
         </div>
         <div className="flex items-center gap-2">
           <button
-            className="rounded-full border border-white/15 bg-[#030712] px-4 py-2 text-sm text-gray-200 transition hover:border-white/30 disabled:opacity-50"
+            className={`px-4 py-2
+rounded-full border border-white/15 hover:border-white/30
+bg-[#030712]
+text-sm text-gray-200
+disabled:opacity-50
+transition`}
             type="button"
             onClick={onSavePlan}
             disabled={isSavingDraft}
@@ -56,7 +63,12 @@ export function FormFooter({
             )}
           </button>
           <button
-            className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.35)] transition hover:bg-emerald-400 disabled:opacity-50"
+            className={`px-5 py-2
+rounded-full
+bg-emerald-500 hover:bg-emerald-400
+text-sm font-semibold text-white
+shadow-[0_10px_30px_rgba(16,185,129,0.35)] disabled:opacity-50
+transition`}
             type="button"
             onClick={onGenerate}
             disabled={!isValid}

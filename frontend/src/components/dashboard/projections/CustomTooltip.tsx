@@ -22,8 +22,13 @@ export function CustomTooltip({
   const age = startingAge + yearsPassed
 
   return (
-    <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur-xl min-w-[180px]">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+    <div className={`min-w-[180px]
+px-3 py-2
+rounded-lg border border-white/10
+bg-[#0f1728]/95
+shadow-xl backdrop-blur-xl`}>
+      <p className={`text-[10px] font-bold tracking-widest text-slate-400
+uppercase`}>
         Year {data.calendarYear} (Age {age})
       </p>
       <p className="mt-0.5 text-xl font-light text-white">

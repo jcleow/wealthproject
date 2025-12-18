@@ -63,15 +63,24 @@ export function MonthPicker({ value, onChange, placeholder = 'Select month', dis
       </Button>
       <Popover
         placement="bottom start"
-        className="z-50 entering:animate-in entering:fade-in entering:zoom-in-95 exiting:animate-out exiting:fade-out exiting:zoom-out-95"
+        className={`z-50
+entering:animate-in exiting:animate-out
+entering:fade-in entering:zoom-in-95 exiting:fade-out exiting:zoom-out-95`}
       >
-        <Dialog className="rounded-xl border border-white/10 bg-[#0f172a] p-4 shadow-2xl outline-none min-w-[240px]">
+        <Dialog className={`min-w-[240px]
+p-4
+rounded-xl border border-white/10 outline-none
+bg-[#0f172a]
+shadow-2xl`}>
           {/* Year navigation */}
           <div className="flex items-center justify-between mb-4">
             <button
               type="button"
               onClick={() => setViewYear(y => y - 1)}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-white/10 hover:text-white focus:outline-none"
+              className={`p-1.5
+rounded-lg focus:outline-none
+hover:bg-white/10
+text-gray-400 hover:text-white`}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -79,7 +88,10 @@ export function MonthPicker({ value, onChange, placeholder = 'Select month', dis
             <button
               type="button"
               onClick={() => setViewYear(y => y + 1)}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-white/10 hover:text-white focus:outline-none"
+              className={`p-1.5
+rounded-lg focus:outline-none
+hover:bg-white/10
+text-gray-400 hover:text-white`}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
