@@ -23,6 +23,8 @@ interface FinancialWorkspaceProps {
   overrideYears?: Set<number>
   timelineError?: string | null
   onOpenCPF?: () => void
+  anchorYear?: number | null
+  anchorMonth?: number | null
 }
 
 export function FinancialWorkspace({
@@ -36,6 +38,8 @@ export function FinancialWorkspace({
   overrideYears = new Set<number>(),
   timelineError = null,
   onOpenCPF,
+  anchorYear,
+  anchorMonth,
 }: FinancialWorkspaceProps) {
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
@@ -441,6 +445,8 @@ transition-all`}>
         <ScenarioEventModal
           isOpen={isScenarioModalOpen}
           event={scenarioEventToEdit ?? undefined}
+          anchorYear={anchorYear}
+          anchorMonth={anchorMonth}
           onClose={() => {
             setIsScenarioModalOpen(false)
             setScenarioEventToEdit(null)

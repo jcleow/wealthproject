@@ -157,6 +157,8 @@ shrink-0`}>
                     overrideYears={timeline.overrideYears}
                     timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
+                    anchorYear={timeline.anchorYear}
+                    anchorMonth={timeline.anchorMonth}
                   />
                 </div>
 

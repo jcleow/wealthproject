@@ -10,6 +10,10 @@ interface MonthPickerProps {
   placeholder?: string
   disabled?: boolean
   className?: string
+  /** Minimum selectable date in YYYY-MM format. Months before this will be disabled. */
+  minDate?: string
+  /** Default view date in YYYY-MM format. Calendar opens to this month's year when no value is set. */
+  defaultViewDate?: string
 }
 
 const MONTHS = [
@@ -22,21 +26,43 @@ const MONTH_FULL = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ]
 
-export function MonthPicker({ value, onChange, placeholder = 'Select month', disabled, className }: MonthPickerProps) {
+export function MonthPicker({ value, onChange, placeholder = 'Select month', disabled, className, minDate, defaultViewDate }: MonthPickerProps) {
   const [isOpen, setIsOpen] = useState(false)
+
+  // Parse minDate
+  const minYear = minDate ? parseInt(minDate.split('-')[0]) : undefined
+  const minMonth = minDate ? parseInt(minDate.split('-')[1]) - 1 : undefined // 0-indexed
+
+  // Parse defaultViewDate
+  const defaultYear = defaultViewDate ? parseInt(defaultViewDate.split('-')[0]) : undefined
 
   // Parse value to get year and month
   const currentYear = value ? parseInt(value.split('-')[0]) : new Date().getFullYear()
   const currentMonth = value ? parseInt(value.split('-')[1]) - 1 : null // 0-indexed
 
-  const [viewYear, setViewYear] = useState(currentYear)
+  // Default view year: value > defaultViewDate > current year
+  const initialViewYear = value ? parseInt(value.split('-')[0]) : (defaultYear ?? new Date().getFullYear())
+  const [viewYear, setViewYear] = useState(initialViewYear)
 
-  // Reset view year when value changes
+  // Reset view year when value or defaultViewDate changes
   useEffect(() => {
     if (value) {
       setViewYear(parseInt(value.split('-')[0]))
+    } else if (defaultYear) {
+      setViewYear(defaultYear)
     }
-  }, [value])
+  }, [value, defaultYear])
+
+  // Check if a month is disabled (before minDate)
+  const isMonthDisabled = (monthIndex: number): boolean => {
+    if (minYear === undefined || minMonth === undefined) return false
+    if (viewYear < minYear) return true
+    if (viewYear === minYear && monthIndex < minMonth) return true
+    return false
+  }
+
+  // Check if we can navigate to previous year
+  const canGoToPreviousYear = minYear === undefined || viewYear > minYear
 
   const handleMonthSelect = (monthIndex: number) => {
     const month = String(monthIndex + 1).padStart(2, '0')
@@ -54,12 +80,12 @@ export function MonthPicker({ value, onChange, placeholder = 'Select month', dis
     <DialogTrigger isOpen={isOpen} onOpenChange={setIsOpen}>
       <Button
         isDisabled={disabled}
-        className={`flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-left text-xs text-white hover:border-white/20 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50 ${className || ''}`}
+        className={`flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-left text-white hover:border-white/20 focus:border-blue-500/50 focus:outline-none disabled:opacity-50 ${className || ''}`}
       >
-        <span className={value ? 'text-white' : 'text-gray-500'}>
+        <span className={value ? 'text-white' : 'text-slate-500'}>
           {formatDisplay() || placeholder}
         </span>
-        <CalendarIcon className="h-3.5 w-3.5 text-gray-400 ml-auto" />
+        <CalendarIcon className="h-4 w-4 text-slate-500 ml-auto shrink-0" />
       </Button>
       <Popover
         placement="bottom start"
@@ -77,10 +103,12 @@ shadow-2xl`}>
             <button
               type="button"
               onClick={() => setViewYear(y => y - 1)}
+              disabled={!canGoToPreviousYear}
               className={`p-1.5
 rounded-lg focus:outline-none
 hover:bg-white/10
-text-gray-400 hover:text-white`}
+text-gray-400 hover:text-white
+disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-400`}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -101,15 +129,19 @@ text-gray-400 hover:text-white`}
           <div className="grid grid-cols-3 gap-2">
             {MONTHS.map((month, index) => {
               const isSelected = currentMonth === index && currentYear === viewYear
+              const isDisabled = isMonthDisabled(index)
               return (
                 <button
                   key={month}
                   type="button"
+                  disabled={isDisabled}
                   onClick={() => handleMonthSelect(index)}
                   className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isSelected
-                      ? 'bg-blue-500 text-white'
-                      : 'text-gray-300 hover:bg-white/10'
+                    isDisabled
+                      ? 'text-gray-600 cursor-not-allowed'
+                      : isSelected
+                        ? 'bg-blue-500 text-white'
+                        : 'text-gray-300 hover:bg-white/10'
                   }`}
                 >
                   {month}
