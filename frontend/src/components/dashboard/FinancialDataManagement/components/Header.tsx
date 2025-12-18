@@ -118,8 +118,8 @@ export function Header({
     [monthRange, onSelectMonth, onSelectYear]
   )
 
-  const shouldShowSlider = resolution === 'monthly' && viewMode === 'monthly' && !!monthRange
-  const isSliderDisabled = isTimelineLoading || !monthRange || monthRange.sliderMax === 0
+  const shouldShowSlider = resolution === 'monthly' && !!monthRange
+  const isSliderDisabled = isTimelineLoading || !monthRange || monthRange.sliderMax === 0 || viewMode === 'annualized'
 
   return (
     <div className="px-6 py-4">
@@ -158,7 +158,7 @@ export function Header({
               className="w-16"
             />
 
-            {resolution === 'monthly' && viewMode === 'monthly' && (
+            {resolution === 'monthly' && (
               <>
                 <div className="w-px h-6 bg-white/[0.08]" />
                 <MonthSelector
@@ -167,7 +167,7 @@ export function Header({
                   anchorYear={anchorYear}
                   anchorMonth={anchorMonth}
                   onSelectMonth={onSelectMonth}
-                  isDisabled={isTimelineLoading}
+                  isDisabled={isTimelineLoading || viewMode === 'annualized'}
                 />
               </>
             )}
