@@ -191,9 +191,15 @@ export function CategoryCard({
   }
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/60 transition-all hover:border-white/[0.15]">
+    <div className={`flex flex-col overflow-hidden
+h-full w-full min-w-0
+rounded-2xl border border-white/[0.1] hover:border-white/[0.15]
+bg-[#0a0a0a]/60
+transition-all`}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-2.5">
+      <div className={`flex items-center justify-between
+px-4 py-2.5
+border-b border-white/[0.04]`}>
         <div className="flex items-center gap-2.5">
           <div className={`rounded-lg border p-1.5 ${config.gradientBg}`}>
             <IconComponent className={`h-4 w-4 ${config.textColor}`} />
@@ -203,7 +209,11 @@ export function CategoryCard({
         <div className="flex items-center gap-0.5">
           <button
             type="button"
-            className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+            className={`p-1.5
+rounded-md
+hover:bg-white/5
+text-slate-500 hover:text-slate-300
+transition-colors`}
             aria-label={`Sort ${sortDirection === 'desc' ? 'high to low' : 'low to high'}`}
             onClick={onToggleSortDirection}
           >
@@ -216,20 +226,34 @@ export function CategoryCard({
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setShowAssetMenu(!showAssetMenu)}
-                className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+                className={`p-1.5
+rounded-md
+hover:bg-white/5
+text-slate-500 hover:text-slate-300
+transition-colors`}
                 type="button"
                 title="Add Item"
               >
                 <Plus className="h-4 w-4" />
               </button>
               {showAssetMenu && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border border-white/10 bg-[#151515] py-1 shadow-xl">
+                <div className={`absolute right-0 top-full z-50
+w-40
+mt-1 py-1
+rounded-lg border border-white/10
+bg-[#151515]
+shadow-xl`}>
                   <button
                     onClick={() => {
                       onAddItem()
                       setShowAssetMenu(false)
                     }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-white/5"
+                className={`flex items-center
+w-full
+gap-2 px-3 py-2
+hover:bg-white/5
+text-left text-sm text-slate-300
+transition-colors`}
                     type="button"
                   >
                     <Wallet className="h-4 w-4 text-emerald-400" />
@@ -241,7 +265,12 @@ export function CategoryCard({
                         onAddInvestment()
                         setShowAssetMenu(false)
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-white/5"
+                      className={`flex items-center
+w-full
+gap-2 px-3 py-2
+hover:bg-white/5
+text-left text-sm text-slate-300
+transition-colors`}
                       type="button"
                     >
                       <BarChart3 className="h-4 w-4 text-purple-400" />
@@ -254,7 +283,12 @@ export function CategoryCard({
                         onAddCpf()
                         setShowAssetMenu(false)
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-300 transition-colors hover:bg-white/5"
+                      className={`flex items-center
+w-full
+gap-2 px-3 py-2
+hover:bg-white/5
+text-left text-sm text-slate-300
+transition-colors`}
                       type="button"
                     >
                       <Shield className="h-4 w-4 text-blue-400" />
@@ -267,7 +301,11 @@ export function CategoryCard({
           ) : (
             <button
               onClick={onAddItem}
-              className="rounded-md p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-300"
+              className={`p-1.5
+rounded-md
+hover:bg-white/5
+text-slate-500 hover:text-slate-300
+transition-colors`}
               type="button"
               title="Add Item"
             >
@@ -383,7 +421,9 @@ export function CategoryCard({
             )}
           </>
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-1 py-6 text-center">
+          <div className={`flex flex-1 flex-col items-center justify-center
+gap-1 py-6
+text-center`}>
             <p className="text-[11px] text-slate-500">{config.emptyDescription}</p>
             <p className="text-[10px] text-slate-600">
               Click + to add
@@ -429,7 +469,8 @@ function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, 
   return (
     <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
       <div className="mb-2 flex items-center gap-2 px-2">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Investments</span>
+        <span className={`text-[10px] font-medium tracking-wider text-slate-500
+uppercase`}>Investments</span>
         <span className="text-[10px] text-slate-600">({formatCurrency(total)})</span>
       </div>
       {investmentAssets.map((item, index) => {
@@ -454,7 +495,11 @@ function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, 
                       e.stopPropagation()
                       onEdit(item)
                     }}
-                    className="rounded p-1 text-slate-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                    className={`p-1
+rounded
+hover:bg-blue-500/20
+text-slate-400 hover:text-blue-300
+transition-colors`}
                     type="button"
                     title="Edit"
                   >
@@ -467,7 +512,11 @@ function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, 
                       e.stopPropagation()
                       onDelete(item.itemId!)
                     }}
-                    className="rounded p-1 text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                    className={`p-1
+rounded
+hover:bg-rose-500/20
+text-slate-400 hover:text-rose-300
+transition-colors`}
                     type="button"
                     title="Delete"
                   >
@@ -515,7 +564,8 @@ function CPFAssetsSection({ cpfAssets, getDisplayAmount, onEdit, onDelete }: CPF
   return (
     <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
       <div className="mb-2 flex items-center gap-2 px-2">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">CPF Accounts</span>
+        <span className={`text-[10px] font-medium tracking-wider text-slate-500
+uppercase`}>CPF Accounts</span>
         <span className="text-[10px] text-slate-600">({formatCurrency(total)})</span>
       </div>
       {cpfAssets.map((item, index) => {
@@ -540,7 +590,11 @@ function CPFAssetsSection({ cpfAssets, getDisplayAmount, onEdit, onDelete }: CPF
                       e.stopPropagation()
                       onEdit(item)
                     }}
-                    className="rounded p-1 text-slate-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                    className={`p-1
+rounded
+hover:bg-blue-500/20
+text-slate-400 hover:text-blue-300
+transition-colors`}
                     type="button"
                     title="Edit"
                   >
@@ -553,7 +607,11 @@ function CPFAssetsSection({ cpfAssets, getDisplayAmount, onEdit, onDelete }: CPF
                       e.stopPropagation()
                       onDelete(item.itemId!)
                     }}
-                    className="rounded p-1 text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                    className={`p-1
+rounded
+hover:bg-rose-500/20
+text-slate-400 hover:text-rose-300
+transition-colors`}
                     type="button"
                     title="Delete"
                   >
@@ -579,19 +637,28 @@ function CPFContributionsSection({ cpfContributionsRaw }: CPFContributionsSectio
   return (
     <div className="mt-3 border-t border-white/[0.06] pt-3">
       <div className="mb-2 flex items-center gap-2 px-2">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">CPF Contributions</span>
+        <span className={`text-[10px] font-medium tracking-wider text-slate-500
+uppercase`}>CPF Contributions</span>
         <span className="text-[10px] text-slate-600">({formatCurrency(total)})</span>
       </div>
       {cpfContributionsRaw.map((item, index) => (
         <div key={item.id || `cpf-contrib-${index}`}>
-          <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
+          <div className={`flex items-center justify-between
+px-2 py-1.5
+rounded-lg
+hover:bg-white/[0.04]
+transition-colors`}>
             <span className="truncate text-sm text-slate-300">Employee Contribution - {item.name.replace('CPF Contribution - ', '')}</span>
             <span className={numericStyles.base}>
               ({formatCurrency(parseDecimal(item.employeeContribution))})
               <span className="ml-1 text-xs text-slate-400">/mo</span>
             </span>
           </div>
-          <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
+          <div className={`flex items-center justify-between
+px-2 py-1.5
+rounded-lg
+hover:bg-white/[0.04]
+transition-colors`}>
             <span className="truncate text-sm text-slate-300">Employer Contribution - {item.name.replace('CPF Contribution - ', '')}</span>
             <span className={numericStyles.base}>
               {formatCurrency(parseDecimal(item.employerContribution))}
@@ -660,7 +727,8 @@ function InvestmentsSection({
   return (
     <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
       <div className="mb-2 flex items-center gap-2 px-2">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Investments</span>
+        <span className={`text-[10px] font-medium tracking-wider text-slate-500
+uppercase`}>Investments</span>
         <span className="text-[10px] text-slate-600">
           ({formatCurrency(showMonthlyData ? monthlyInvestments : monthlyInvestments * 12)})
           <span className="ml-1 text-[10px] text-slate-500">{showMonthlyData ? '/mo' : '/yr'}</span>
@@ -694,7 +762,11 @@ function InvestmentsSection({
                         e.stopPropagation()
                         onEditAllocation(allocation)
                       }}
-                      className="rounded p-1 text-slate-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                      className={`p-1
+rounded
+hover:bg-blue-500/20
+text-slate-400 hover:text-blue-300
+transition-colors`}
                       type="button"
                       title="Edit"
                     >
@@ -707,7 +779,11 @@ function InvestmentsSection({
                         e.stopPropagation()
                         onDeleteAllocation(allocation)
                       }}
-                      className="rounded p-1 text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                      className={`p-1
+rounded
+hover:bg-rose-500/20
+text-slate-400 hover:text-rose-300
+transition-colors`}
                       type="button"
                       title="Delete"
                     >
@@ -720,7 +796,11 @@ function InvestmentsSection({
           )
         })
       ) : (
-        <div className="flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.04]">
+        <div className={`flex items-center justify-between
+px-2 py-1.5
+rounded-lg
+hover:bg-white/[0.04]
+transition-colors`}>
           <span className="truncate text-sm text-slate-300">Allocated to investments</span>
           <span className={numericStyles.base}>
             {formatCurrency(showMonthlyData ? monthlyInvestments : monthlyInvestments * 12)}
@@ -761,7 +841,8 @@ function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyDa
   return (
     <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
       <div className="mb-2 flex items-center gap-2 px-2">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Debt Repayments</span>
+        <span className={`text-[10px] font-medium tracking-wider text-slate-500
+uppercase`}>Debt Repayments</span>
         <span className="text-[10px] text-slate-600">
           ({formatCurrency(total)})
           {showMonthlyData && <span className="ml-1 text-[10px] text-slate-500">/mo</span>}
@@ -790,7 +871,11 @@ function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyDa
                       e.stopPropagation()
                       onEdit(item)
                     }}
-                    className="rounded p-1 text-slate-400 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                    className={`p-1
+rounded
+hover:bg-blue-500/20
+text-slate-400 hover:text-blue-300
+transition-colors`}
                     type="button"
                     title="Edit"
                   >
@@ -803,7 +888,11 @@ function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyDa
                       e.stopPropagation()
                       onDelete(item)
                     }}
-                    className="rounded p-1 text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+                    className={`p-1
+rounded
+hover:bg-rose-500/20
+text-slate-400 hover:text-rose-300
+transition-colors`}
                     type="button"
                     title="Delete"
                   >

@@ -82,24 +82,48 @@ export function HeroPanel() {
   return (
     <div
       ref={containerRef}
-      className="landing-panel relative flex min-h-screen flex-col items-center justify-center px-6 py-20"
+      className={`relative
+flex flex-col items-center justify-center
+min-h-screen
+px-6 py-20
+landing-panel`}
     >
       {/* Decorative corner accents */}
-      <div className="pointer-events-none absolute left-8 top-8 h-20 w-20 border-l border-t border-[var(--landing-border)] opacity-40" />
-      <div className="pointer-events-none absolute right-8 top-8 h-20 w-20 border-r border-t border-[var(--landing-border)] opacity-40" />
-      <div className="pointer-events-none absolute bottom-8 left-8 h-20 w-20 border-b border-l border-[var(--landing-border)] opacity-40" />
-      <div className="pointer-events-none absolute bottom-8 right-8 h-20 w-20 border-b border-r border-[var(--landing-border)] opacity-40" />
+      <div className={`absolute left-8 top-8
+h-20 w-20
+pointer-events-none
+border-l border-t border-[var(--landing-border)]
+opacity-40`} />
+      <div className={`absolute right-8 top-8
+h-20 w-20
+pointer-events-none
+border-r border-t border-[var(--landing-border)]
+opacity-40`} />
+      <div className={`absolute bottom-8 left-8
+h-20 w-20
+pointer-events-none
+border-b border-l border-[var(--landing-border)]
+opacity-40`} />
+      <div className={`absolute bottom-8 right-8
+h-20 w-20
+pointer-events-none
+border-b border-r border-[var(--landing-border)]
+opacity-40`} />
 
       {/* Content */}
       <div className="relative z-10 max-w-5xl text-center">
         {/* Overline */}
         <div
           data-animate
-          className="hero-overline mb-8 flex items-center justify-center gap-3 opacity-0"
+          className={`flex items-center justify-center
+mb-8 gap-3
+opacity-0
+hero-overline`}
         >
           <span className="h-px w-8 bg-[var(--landing-gold)]" />
           <span
-            className="landing-body text-xs font-medium uppercase tracking-[0.25em]"
+            className={`text-xs font-medium tracking-[0.25em]
+landing-body uppercase`}
             style={{ color: 'var(--landing-gold)' }}
           >
             Financial Clarity
@@ -111,14 +135,21 @@ export function HeroPanel() {
         <h1 className="mb-8">
           <span
             data-animate
-            className="hero-title-line-1 landing-display block text-5xl opacity-0 md:text-7xl lg:text-8xl"
+            className={`block
+text-5xl md:text-7xl lg:text-8xl
+opacity-0
+hero-title-line-1 landing-display`}
             style={{ color: 'var(--landing-text-primary)' }}
           >
             Your Future
           </span>
           <span
             data-animate
-            className="hero-title-line-2 landing-display-italic mt-2 block text-5xl opacity-0 md:text-7xl lg:text-8xl"
+            className={`block
+mt-2
+text-5xl md:text-7xl lg:text-8xl
+opacity-0
+hero-title-line-2 landing-display-italic`}
           >
             <span className="landing-gold-text">Is Not Written</span>
             <span style={{ color: 'var(--landing-text-secondary)' }}> Yet</span>
@@ -128,14 +159,21 @@ export function HeroPanel() {
         {/* Decorative rule */}
         <div
           data-animate
-          className="hero-rule landing-rule-gold mx-auto mb-10 w-32 origin-center"
+          className={`w-32
+mx-auto mb-10
+origin-center
+hero-rule landing-rule-gold`}
           style={{ transform: 'scaleX(0)' }}
         />
 
         {/* Subtitle */}
         <p
           data-animate
-          className="hero-subtitle landing-body mx-auto max-w-xl text-lg opacity-0 md:text-xl"
+          className={`max-w-xl
+mx-auto
+text-lg md:text-xl
+opacity-0
+hero-subtitle landing-body`}
           style={{ color: 'var(--landing-text-secondary)' }}
         >
           Every decision branches into a different outcome.
@@ -149,20 +187,28 @@ export function HeroPanel() {
         <div data-animate className="hero-cta mt-12 opacity-0">
           <a
             href="/dashboard"
-            className="group inline-flex items-center gap-3 rounded-full border px-8 py-4 transition-all duration-500"
+            className={`inline-flex items-center
+gap-3 px-8 py-4
+rounded-full border
+transition-all duration-500
+group`}
             style={{
               borderColor: 'var(--landing-border-accent)',
               background: 'var(--landing-gold-muted)',
             }}
           >
             <span
-              className="landing-body text-sm font-medium uppercase tracking-[0.15em]"
+              className={`text-sm font-medium tracking-[0.15em]
+landing-body uppercase`}
               style={{ color: 'var(--landing-gold)' }}
             >
               Start Planning
             </span>
             <span
-              className="flex h-6 w-6 items-center justify-center rounded-full transition-transform duration-300 group-hover:translate-x-1"
+              className={`flex items-center justify-center
+h-6 w-6
+rounded-full
+transition-transform duration-300 group-hover:translate-x-1`}
               style={{ background: 'var(--landing-gold)' }}
             >
               <ArrowDown
@@ -177,7 +223,11 @@ export function HeroPanel() {
       {/* Scroll indicator */}
       <div
         data-animate
-        className="hero-scroll absolute bottom-16 flex flex-col items-center gap-4 opacity-0"
+        className={`absolute bottom-16
+flex flex-col items-center
+gap-4
+opacity-0
+hero-scroll`}
       >
         <span
           className="landing-body text-xs font-medium uppercase tracking-[0.2em]"
@@ -186,7 +236,10 @@ export function HeroPanel() {
           Scroll to explore
         </span>
         <div
-          className="flex h-10 w-6 items-start justify-center rounded-full border p-1.5"
+          className={`flex items-start justify-center
+h-10 w-6
+p-1.5
+rounded-full border`}
           style={{ borderColor: 'var(--landing-border)' }}
         >
           <div

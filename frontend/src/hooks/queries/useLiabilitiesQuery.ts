@@ -6,14 +6,14 @@ import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export const LIABILITIES_QUERY_KEY = QUERY_KEYS.financial.liabilities
 
-export function useLiabilitiesQuery() {
+export function useLiabilitiesQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: LIABILITIES_QUERY_KEY,
     queryFn: async () => {
       const result = await liabilitiesApi.listLiabilities({ limit: -1 })
       return result.data
     },
-    enabled: false, // V2 timeline provides this data - no need to fetch separately
+    enabled: options?.enabled ?? true,
     staleTime: 30_000,
     cacheTime: 5 * 60 * 1000,
   })

@@ -87,7 +87,10 @@ export function TimelineSnapshot({ year, month, timelineYear, timelineMonth, res
           </p>
         </div>
         {data.hasOverrides && (
-          <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-medium text-blue-100">
+          <span className={`px-3 py-1
+rounded-full
+bg-blue-500/15
+text-xs font-medium text-blue-100`}>
             Overrides applied
           </span>
         )}

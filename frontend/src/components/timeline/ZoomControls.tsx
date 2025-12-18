@@ -37,7 +37,11 @@ export function ZoomControls({
     <div className={`flex items-center gap-2 ${className}`}>
       {/* Reset Zoom - only show when zoomed in */}
       {isZoomedOut && (
-        <div className="flex flex-col gap-1 rounded-lg border border-white/[0.08] bg-[#0a0a0a]/80 p-1 backdrop-blur-sm">
+        <div className={`flex flex-col
+gap-1 p-1
+rounded-lg border border-white/[0.08]
+bg-[#0a0a0a]/80
+backdrop-blur-sm`}>
           <button
             onClick={handleReset}
             className="rounded p-2 transition-colors hover:bg-white/5"

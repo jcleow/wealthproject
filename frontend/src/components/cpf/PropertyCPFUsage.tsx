@@ -196,7 +196,10 @@ function CPFUsageTab({ usage }: { usage: CPFHousingUsage }) {
                   if (!active || !payload?.[0]) return null
                   const data = payload[0].payload
                   return (
-                    <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur">
+                    <div className={`px-3 py-2
+rounded-lg border border-white/10
+bg-[#0f1728]/95
+shadow-xl backdrop-blur`}>
                       <p className="text-xs font-bold text-slate-400">Year {data.year}</p>
                       <div className="mt-2 space-y-1 text-xs">
                         <div className="flex justify-between gap-4">
@@ -228,7 +231,10 @@ function CPFUsageTab({ usage }: { usage: CPFHousingUsage }) {
         </div>
 
         {/* Warning */}
-        <div className="mt-4 flex items-start gap-3 rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
+        <div className={`flex items-start
+mt-4 gap-3 p-3
+rounded-lg border border-amber-500/20
+bg-amber-500/5`}>
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
           <p className="text-xs text-slate-300">
             When you sell your property, you must refund the principal used plus all accrued
@@ -290,7 +296,11 @@ function SaleSimulatorTab({
                 type="number"
                 value={salePrice}
                 onChange={(e) => setSalePrice(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2.5 pl-8 pr-4 text-sm text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:outline-none"
+                className={`w-full
+py-2.5 pl-8 pr-4
+rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-sm text-white placeholder:text-slate-600`}
               />
             </div>
           </div>
@@ -303,7 +313,11 @@ function SaleSimulatorTab({
                 type="number"
                 value={outstandingLoan}
                 onChange={(e) => setOutstandingLoan(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2.5 pl-8 pr-4 text-sm text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:outline-none"
+                className={`w-full
+py-2.5 pl-8 pr-4
+rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-sm text-white placeholder:text-slate-600`}
               />
             </div>
           </div>
@@ -365,7 +379,10 @@ function SaleSimulatorTab({
       <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
         <h3 className="mb-4 text-sm font-medium text-slate-300">CPF Refund Destination</h3>
 
-        <div className="flex items-center justify-between rounded-lg bg-white/[0.02] p-4">
+        <div className={`flex items-center justify-between
+p-4
+rounded-lg
+bg-white/[0.02]`}>
           <div className="text-center">
             <p className="text-xs text-slate-400">Total Refund</p>
             <p className="text-xl font-semibold text-white">
@@ -398,7 +415,10 @@ function SaleSimulatorTab({
         <p className="mt-3 text-xs text-slate-400">{sale.refundDestination.reason}</p>
 
         {simulatedSale.netCashProceeds < 0 && (
-          <div className="mt-4 flex items-start gap-3 rounded-lg bg-rose-500/10 border border-rose-500/20 p-3">
+          <div className={`flex items-start
+mt-4 gap-3 p-3
+rounded-lg border border-rose-500/20
+bg-rose-500/10`}>
             <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-rose-400" />
             <p className="text-xs text-rose-300">
               Warning: Your sale proceeds are insufficient to cover the CPF refund. You will need
@@ -442,7 +462,10 @@ function HousingGrantsTab({ grants }: { grants: GrantCalculationResult }) {
   return (
     <div className="space-y-6">
       {/* Total Grants */}
-      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-center">
+      <div className={`p-5
+rounded-xl border border-emerald-500/30
+bg-emerald-500/10
+text-center`}>
         <p className="text-xs text-emerald-300">Total Grants You May Be Eligible For</p>
         <p className="mt-2 text-4xl font-bold text-emerald-400">
           {formatCurrency(grants.totalGrants)}
@@ -579,7 +602,11 @@ function BreakdownRow({
           {formatCurrency(value)}
         </span>
       </div>
-      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+      <div className={`overflow-hidden
+h-1.5 w-full
+mt-1
+rounded-full
+bg-white/[0.06]`}>
         <div
           className={`h-full rounded-full ${color}`}
           style={{ width: `${Math.min(100, percentage)}%` }}

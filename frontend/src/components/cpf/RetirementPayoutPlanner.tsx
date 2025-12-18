@@ -139,7 +139,9 @@ export function RetirementPayoutPlanner({ className }: RetirementPayoutPlannerPr
     <div className={`space-y-6 ${className}`}>
       {/* Input Section */}
       <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-medium text-white">
+        <h3 className={`flex items-center
+mb-4 gap-2
+text-sm font-medium text-white`}>
           <Banknote className="h-4 w-4 text-emerald-400" />
           CPF LIFE Payout Estimator
         </h3>
@@ -157,7 +159,12 @@ export function RetirementPayoutPlanner({ className }: RetirementPayoutPlannerPr
                 value={raBalance > 0 ? raBalance.toLocaleString() : ''}
                 onChange={(e) => handleBalanceChange(e.target.value)}
                 placeholder="Enter your RA balance"
-                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2.5 pl-7 pr-3 text-white placeholder-slate-500 transition focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                className={`w-full
+py-2.5 pl-7 pr-3 placeholder-slate-500
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none focus:ring-1 focus:ring-blue-500/50
+bg-white/[0.02]
+text-white
+transition`}
               />
             </div>
             <input
@@ -300,7 +307,9 @@ export function RetirementPayoutPlanner({ className }: RetirementPayoutPlannerPr
             </div>
           </div>
 
-          <div className="max-h-80 overflow-y-auto rounded-lg border border-white/[0.04]">
+          <div className={`overflow-y-auto
+max-h-80
+rounded-lg border border-white/[0.04]`}>
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-[#0a0a0a]">
                 <tr className="border-b border-white/[0.06]">
@@ -338,7 +347,10 @@ export function RetirementPayoutPlanner({ className }: RetirementPayoutPlannerPr
 
       {/* Empty State */}
       {!hasEnteredBalance && (
-        <div className="rounded-xl border border-dashed border-white/[0.1] bg-white/[0.02] p-8 text-center">
+        <div className={`p-8
+rounded-xl border border-dashed border-white/[0.1]
+bg-white/[0.02]
+text-center`}>
           <Shield className="mx-auto h-10 w-10 text-slate-500" />
           <p className="mt-3 text-sm text-slate-400">
             Enter your Retirement Account balance to see estimated CPF LIFE payouts

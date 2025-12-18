@@ -98,12 +98,19 @@ export function FirstSplitPanel() {
   return (
     <div
       ref={containerRef}
-      className="landing-panel relative flex min-h-screen flex-col items-center justify-center px-6 py-24"
+      className={`relative
+flex flex-col items-center justify-center
+min-h-screen
+px-6 py-24
+landing-panel`}
     >
       {/* Section header */}
       <div className="split-title mb-20 max-w-3xl text-center opacity-0" data-animate>
         <span
-          className="landing-body mb-4 block text-xs font-medium uppercase tracking-[0.25em]"
+          className={`block
+mb-4
+text-xs font-medium tracking-[0.25em]
+landing-body uppercase`}
           style={{ color: 'var(--landing-gold)' }}
         >
           The Butterfly Effect
@@ -121,15 +128,29 @@ export function FirstSplitPanel() {
       </div>
 
       {/* Asymmetric card layout */}
-      <div className="split-cards relative grid w-full max-w-5xl gap-8 md:grid-cols-2 md:gap-6">
+      <div className={`relative
+grid md:grid-cols-2
+w-full max-w-5xl
+gap-8 md:gap-6
+split-cards`}>
         {/* Left card - Expense */}
         <div
-          className="split-card-left landing-card group relative overflow-hidden rounded-2xl p-8 opacity-0 md:-mt-8"
+          className={`relative
+overflow-hidden
+p-8
+rounded-2xl
+opacity-0
+split-card-left landing-card group md:-mt-8`}
           data-animate
         >
           {/* Glow effect */}
           <div
-            className="absolute -right-20 -top-20 h-40 w-40 rounded-full opacity-20 blur-3xl transition-opacity duration-500 group-hover:opacity-40"
+            className={`absolute
+h-40 w-40
+rounded-full
+opacity-20 blur-3xl group-hover:opacity-40
+transition-opacity duration-500
+-right-20 -top-20`}
             style={{ background: 'var(--landing-rose)' }}
           />
 
@@ -164,7 +185,9 @@ export function FirstSplitPanel() {
             </p>
 
             <div className="space-y-3">
-              <div className="flex items-baseline justify-between border-b border-[var(--landing-border)] pb-3">
+              <div className={`flex items-baseline justify-between
+pb-3
+border-b border-[var(--landing-border)]`}>
                 <span
                   className="landing-body text-sm"
                   style={{ color: 'var(--landing-text-secondary)' }}
@@ -190,12 +213,22 @@ export function FirstSplitPanel() {
 
         {/* Right card - Investment */}
         <div
-          className="split-card-right landing-card group relative overflow-hidden rounded-2xl p-8 opacity-0 md:mt-8"
+          className={`relative
+overflow-hidden
+p-8 md:mt-8
+rounded-2xl
+opacity-0
+split-card-right landing-card group`}
           data-animate
         >
           {/* Glow effect */}
           <div
-            className="absolute -left-20 -top-20 h-40 w-40 rounded-full opacity-20 blur-3xl transition-opacity duration-500 group-hover:opacity-40"
+            className={`absolute
+h-40 w-40
+rounded-full
+opacity-20 blur-3xl group-hover:opacity-40
+transition-opacity duration-500
+-left-20 -top-20`}
             style={{ background: 'var(--landing-emerald)' }}
           />
 
@@ -230,7 +263,9 @@ export function FirstSplitPanel() {
             </p>
 
             <div className="space-y-3">
-              <div className="flex items-baseline justify-between border-b border-[var(--landing-border)] pb-3">
+              <div className={`flex items-baseline justify-between
+pb-3
+border-b border-[var(--landing-border)]`}>
                 <span
                   className="landing-body text-sm"
                   style={{ color: 'var(--landing-text-secondary)' }}
@@ -255,14 +290,22 @@ export function FirstSplitPanel() {
         </div>
 
         {/* Connecting line */}
-        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-px w-16 -translate-x-1/2 -translate-y-1/2 md:block">
+        <div className={`absolute left-1/2 top-1/2
+hidden md:block
+h-px w-16
+pointer-events-none
+-translate-x-1/2 -translate-y-1/2`}>
           <div className="landing-rule-gold h-full w-full" />
         </div>
       </div>
 
       {/* Difference callout */}
       <div
-        className="split-difference mt-16 rounded-2xl border px-12 py-8 text-center opacity-0"
+        className={`mt-16 px-12 py-8
+rounded-2xl border
+text-center
+opacity-0
+split-difference`}
         style={{
           borderColor: 'var(--landing-border-accent)',
           background: 'var(--landing-gold-muted)',
@@ -270,7 +313,10 @@ export function FirstSplitPanel() {
         data-animate
       >
         <span
-          className="landing-body mb-2 block text-xs font-medium uppercase tracking-[0.2em]"
+          className={`block
+mb-2
+text-xs font-medium tracking-[0.2em]
+landing-body uppercase`}
           style={{ color: 'var(--landing-text-muted)' }}
         >
           Net Worth Difference

@@ -14,7 +14,12 @@ interface FeatureCardProps {
 
 const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon }) => {
   return (
-    <div className="p-6 rounded-lg bg-card shadow-lg flex flex-col items-center text-center">
+    <div className={`flex flex-col items-center
+p-6
+rounded-lg
+bg-card
+text-center
+shadow-lg`}>
       <div className="text-4xl mb-4 text-primary">{icon}</div> {/* Icon placeholder */}
       <h3 className="text-2xl font-semibold mb-4">{title}</h3>
       <p className="text-muted-foreground">{description}</p>

@@ -114,12 +114,19 @@ export function MultipleFuturesPanel() {
   return (
     <div
       ref={containerRef}
-      className="landing-panel relative flex min-h-screen flex-col items-center justify-center px-6 py-24"
+      className={`relative
+flex flex-col items-center justify-center
+min-h-screen
+px-6 py-24
+landing-panel`}
     >
       {/* Section header */}
       <div className="futures-title mb-20 max-w-3xl text-center opacity-0" data-animate>
         <span
-          className="landing-body mb-4 block text-xs font-medium uppercase tracking-[0.25em]"
+          className={`block
+mb-4
+text-xs font-medium tracking-[0.25em]
+landing-body uppercase`}
           style={{ color: 'var(--landing-gold)' }}
         >
           Compounding Complexity
@@ -148,7 +155,13 @@ export function MultipleFuturesPanel() {
         {scenarios.map((s, index) => (
           <div
             key={s.label}
-            className="futures-item group relative overflow-hidden rounded-xl border border-[var(--landing-border)] p-6 opacity-0 transition-all duration-500 hover:border-[var(--landing-border-accent)]"
+            className={`relative
+overflow-hidden
+p-6
+rounded-xl border border-[var(--landing-border)] hover:border-[var(--landing-border-accent)]
+opacity-0
+transition-all duration-500
+futures-item group`}
             style={{
               background: 'linear-gradient(180deg, rgba(17, 24, 32, 0.6) 0%, rgba(12, 17, 25, 0.8) 100%)',
               transform: index % 2 === 1 ? 'translateY(20px)' : 'translateY(0)',
@@ -157,14 +170,24 @@ export function MultipleFuturesPanel() {
           >
             {/* Hover glow */}
             <div
-              className="absolute -right-12 -top-12 h-24 w-24 rounded-full opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-30"
+              className={`absolute
+h-24 w-24
+rounded-full
+opacity-0 blur-2xl group-hover:opacity-30
+transition-opacity duration-500
+-right-12 -top-12`}
               style={{ background: s.color }}
             />
 
             <div className="relative z-10 flex items-start gap-5">
               {/* Icon */}
               <div
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-2xl transition-transform duration-300 group-hover:scale-110"
+                className={`flex items-center justify-center
+h-14 w-14
+rounded-xl
+text-2xl
+transition-transform duration-300 group-hover:scale-110
+shrink-0`}
                 style={{ background: `${s.color}15` }}
               >
                 {s.icon}
@@ -205,7 +228,9 @@ export function MultipleFuturesPanel() {
 
             {/* Decorative line */}
             <div
-              className="absolute bottom-0 left-0 h-px w-0 transition-all duration-500 group-hover:w-full"
+              className={`absolute bottom-0 left-0
+h-px w-0 group-hover:w-full
+transition-all duration-500`}
               style={{ background: `linear-gradient(90deg, transparent, ${s.color}, transparent)` }}
             />
           </div>

@@ -57,7 +57,12 @@ function ChatInputBase({
   }
 
   return (
-    <div className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-xl shadow-black/30">
+    <div className={`flex items-center
+w-full
+gap-3 px-4 py-3
+rounded-2xl border border-white/10
+bg-white/5
+shadow-xl shadow-black/30`}>
       <Textarea
         ref={textareaRef}
         value={input}
@@ -70,7 +75,13 @@ function ChatInputBase({
           status === 'loading' ? 'Processing...' : 'Ask about your finances...'
         }
         className={cn(
-          'min-h-0 max-h-[160px] flex-1 resize-none rounded-none border-none bg-transparent px-0 py-0 text-sm leading-8 text-white placeholder:text-slate-500 focus-visible:outline-none focus:outline-none focus-visible:ring-0 focus:ring-0 focus-visible:ring-offset-0 focus:ring-offset-0 focus-visible:outline-offset-0',
+          `flex-1
+min-h-0 max-h-[160px]
+px-0 py-0
+rounded-none border-none focus-visible:outline-none focus:outline-none focus-visible:ring-0 focus:ring-0 focus-visible:ring-offset-0 focus:ring-offset-0 focus-visible:outline-offset-0
+bg-transparent
+text-sm leading-8 text-white placeholder:text-slate-500
+resize-none`,
           status === 'loading' && 'opacity-50'
         )}
         disabled={isLoading}
@@ -80,7 +91,11 @@ function ChatInputBase({
       <div className="flex items-center gap-2">
         {status === 'loading' ? (
           <button
-            className="rounded-lg bg-white/10 p-2 text-slate-300 transition-all hover:bg-white hover:text-black"
+            className={`p-2
+rounded-lg
+bg-white/10 hover:bg-white
+text-slate-300 hover:text-black
+transition-all`}
             onClick={() => {}}
             type="button"
           >
@@ -88,7 +103,12 @@ function ChatInputBase({
           </button>
         ) : (
           <button
-            className="rounded-lg bg-white/10 p-2 text-slate-300 transition-all hover:bg-white hover:text-black disabled:opacity-50 disabled:hover:bg-white/10 disabled:hover:text-slate-300"
+            className={`p-2
+rounded-lg
+bg-white/10 hover:bg-white disabled:hover:bg-white/10
+text-slate-300 hover:text-black disabled:hover:text-slate-300
+disabled:opacity-50
+transition-all`}
             onClick={handleSubmit}
             disabled={!input.trim() || isLoading}
             type="button"

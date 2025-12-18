@@ -108,7 +108,10 @@ function SalaryInputNode({ data }: { data: {
   onChange: (field: string, value: number) => void
 }}) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[#0f1728]/95 shadow-xl backdrop-blur min-w-[180px]">
+    <div className={`min-w-[180px]
+rounded-xl border border-white/[0.08]
+bg-[#0f1728]/95
+shadow-xl backdrop-blur`}>
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-emerald-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-emerald-500 !w-3 !h-3" />
@@ -116,8 +119,12 @@ function SalaryInputNode({ data }: { data: {
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-emerald-500 !w-3 !h-3" />
 
       {/* Drag handle area */}
-      <div className="drag-handle cursor-move px-4 pt-3 pb-2 border-b border-white/[0.06]">
-        <div className="text-xs font-medium uppercase tracking-wide text-emerald-400">
+      <div className={`px-4 pt-3 pb-2
+border-b border-white/[0.06]
+cursor-move
+drag-handle`}>
+        <div className={`text-xs font-medium tracking-wide text-emerald-400
+uppercase`}>
           Your Profile
         </div>
       </div>
@@ -132,7 +139,12 @@ function SalaryInputNode({ data }: { data: {
               type="number"
               value={data.salary}
               onChange={(e) => data.onChange('salary', Number(e.target.value))}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 pl-7 pr-3 text-lg font-semibold text-white transition focus:border-emerald-500/50 focus:outline-none"
+              className={`w-full
+py-2 pl-7 pr-3
+rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-lg font-semibold text-white
+transition`}
             />
           </div>
         </div>
@@ -145,7 +157,12 @@ function SalaryInputNode({ data }: { data: {
             onChange={(e) => data.onChange('age', Number(e.target.value))}
             min={21}
             max={70}
-            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 px-3 text-white transition focus:border-emerald-500/50 focus:outline-none"
+            className={`w-full
+py-2 px-3
+rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-white
+transition`}
           />
         </div>
       </div>
@@ -167,15 +184,22 @@ function ContributionNode({ data }: { data: {
   takeHome: number
 }}) {
   return (
-    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 shadow-xl backdrop-blur min-w-[160px]">
+    <div className={`min-w-[160px]
+rounded-xl border border-emerald-500/30
+bg-emerald-500/10
+shadow-xl backdrop-blur`}>
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-emerald-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-emerald-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-emerald-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-emerald-500 !w-3 !h-3" />
 
-      <div className="drag-handle cursor-move px-4 pt-3 pb-2 border-b border-emerald-500/20">
-        <div className="text-xs font-medium uppercase tracking-wide text-emerald-400">
+      <div className={`px-4 pt-3 pb-2
+border-b border-emerald-500/20
+cursor-move
+drag-handle`}>
+        <div className={`text-xs font-medium tracking-wide text-emerald-400
+uppercase`}>
           Monthly CPF
         </div>
       </div>
@@ -193,7 +217,10 @@ function ContributionNode({ data }: { data: {
           <span className="text-amber-400">MA:</span>
           <span className="text-white">{formatCurrency(data.maContrib)}</span>
         </div>
-        <div className="flex justify-between pt-2 border-t border-white/10 font-medium">
+        <div className={`flex justify-between
+pt-2
+border-t border-white/10
+font-medium`}>
           <span className="text-slate-300">Total:</span>
           <span className="text-white">{formatCurrency(data.totalContrib)}</span>
         </div>
@@ -220,14 +247,20 @@ function BalancesNode({ data }: { data: {
   const total = data.oaBalance + data.saBalance + data.maBalance
 
   return (
-    <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 shadow-xl backdrop-blur min-w-[180px]">
+    <div className={`min-w-[180px]
+rounded-xl border border-blue-500/30
+bg-blue-500/10
+shadow-xl backdrop-blur`}>
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-blue-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-blue-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-blue-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-blue-500 !w-3 !h-3" />
 
-      <div className="drag-handle cursor-move px-4 pt-3 pb-2 border-b border-blue-500/20">
+      <div className={`px-4 pt-3 pb-2
+border-b border-blue-500/20
+cursor-move
+drag-handle`}>
         <div className="text-xs font-medium uppercase tracking-wide text-blue-400">
           Balances at 55
         </div>
@@ -237,36 +270,54 @@ function BalancesNode({ data }: { data: {
         <div>
           <label className="text-xs text-slate-500">OA Balance</label>
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+            <span className={`absolute left-2 top-1/2
+text-slate-400 text-xs
+-translate-y-1/2`}>$</span>
             <input
               type="number"
               value={data.oaBalance}
               onChange={(e) => data.onChange('oaBalance', Number(e.target.value))}
-              className="w-full rounded border border-white/[0.08] bg-white/[0.02] py-1 pl-5 pr-2 text-sm text-blue-300 focus:border-blue-500/50 focus:outline-none"
+              className={`w-full
+py-1 pl-5 pr-2
+rounded border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.02]
+text-sm text-blue-300`}
             />
           </div>
         </div>
         <div>
           <label className="text-xs text-slate-500">SA Balance</label>
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+            <span className={`absolute left-2 top-1/2
+text-slate-400 text-xs
+-translate-y-1/2`}>$</span>
             <input
               type="number"
               value={data.saBalance}
               onChange={(e) => data.onChange('saBalance', Number(e.target.value))}
-              className="w-full rounded border border-white/[0.08] bg-white/[0.02] py-1 pl-5 pr-2 text-sm text-emerald-300 focus:border-emerald-500/50 focus:outline-none"
+              className={`w-full
+py-1 pl-5 pr-2
+rounded border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-sm text-emerald-300`}
             />
           </div>
         </div>
         <div>
           <label className="text-xs text-slate-500">MA Balance</label>
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+            <span className={`absolute left-2 top-1/2
+text-slate-400 text-xs
+-translate-y-1/2`}>$</span>
             <input
               type="number"
               value={data.maBalance}
               onChange={(e) => data.onChange('maBalance', Number(e.target.value))}
-              className="w-full rounded border border-white/[0.08] bg-white/[0.02] py-1 pl-5 pr-2 text-sm text-amber-300 focus:border-amber-500/50 focus:outline-none"
+              className={`w-full
+py-1 pl-5 pr-2
+rounded border border-white/[0.08] focus:border-amber-500/50 focus:outline-none
+bg-white/[0.02]
+text-sm text-amber-300`}
             />
           </div>
         </div>
@@ -290,14 +341,20 @@ function HousingNode({ data }: { data: {
   onChange: (field: string, value: number) => void
 }}) {
   return (
-    <div className="rounded-xl border border-violet-500/30 bg-violet-500/10 shadow-xl backdrop-blur min-w-[160px]">
+    <div className={`min-w-[160px]
+rounded-xl border border-violet-500/30
+bg-violet-500/10
+shadow-xl backdrop-blur`}>
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-violet-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-violet-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-violet-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-violet-500 !w-3 !h-3" />
 
-      <div className="drag-handle cursor-move px-4 pt-3 pb-2 border-b border-violet-500/20">
+      <div className={`px-4 pt-3 pb-2
+border-b border-violet-500/20
+cursor-move
+drag-handle`}>
         <div className="text-xs font-medium uppercase tracking-wide text-violet-400">
           Housing (Optional)
         </div>
@@ -307,12 +364,18 @@ function HousingNode({ data }: { data: {
         <div>
           <label className="text-xs text-slate-500">CPF Used for Property</label>
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+            <span className={`absolute left-2 top-1/2
+text-slate-400 text-xs
+-translate-y-1/2`}>$</span>
             <input
               type="number"
               value={data.cpfUsedForHousing}
               onChange={(e) => data.onChange('cpfUsedForHousing', Number(e.target.value))}
-              className="w-full rounded border border-white/[0.08] bg-white/[0.02] py-1 pl-5 pr-2 text-sm text-violet-300 focus:border-violet-500/50 focus:outline-none"
+              className={`w-full
+py-1 pl-5 pr-2
+rounded border border-white/[0.08] focus:border-violet-500/50 focus:outline-none
+bg-white/[0.02]
+text-sm text-violet-300`}
             />
           </div>
         </div>
@@ -343,14 +406,20 @@ function RACreationNode({ data }: { data: {
   const metTarget = data.shortfall <= 0
 
   return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 shadow-xl backdrop-blur min-w-[180px]">
+    <div className={`min-w-[180px]
+rounded-xl border border-amber-500/30
+bg-amber-500/10
+shadow-xl backdrop-blur`}>
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-amber-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-amber-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-amber-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-amber-500 !w-3 !h-3" />
 
-      <div className="drag-handle cursor-move px-4 pt-3 pb-2 border-b border-amber-500/20">
+      <div className={`px-4 pt-3 pb-2
+border-b border-amber-500/20
+cursor-move
+drag-handle`}>
         <div className="text-xs font-medium uppercase tracking-wide text-amber-400">
           Age 55: RA Created
         </div>
@@ -401,14 +470,20 @@ function PayoutNode({ data }: { data: {
   plan: string
 }}) {
   return (
-    <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 shadow-xl backdrop-blur min-w-[160px]">
+    <div className={`min-w-[160px]
+rounded-xl border border-purple-500/30
+bg-purple-500/10
+shadow-xl backdrop-blur`}>
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-purple-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-purple-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-purple-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-purple-500 !w-3 !h-3" />
 
-      <div className="drag-handle cursor-move px-4 pt-3 pb-2 border-b border-purple-500/20">
+      <div className={`px-4 pt-3 pb-2
+border-b border-purple-500/20
+cursor-move
+drag-handle`}>
         <div className="text-xs font-medium uppercase tracking-wide text-purple-400">
           CPF LIFE (Age 65+)
         </div>
@@ -444,14 +519,20 @@ function RemainingNode({ data }: { data: {
   withdrawable: number
 }}) {
   return (
-    <div className="rounded-xl border border-green-500/30 bg-green-500/10 shadow-xl backdrop-blur min-w-[140px]">
+    <div className={`min-w-[140px]
+rounded-xl border border-green-500/30
+bg-green-500/10
+shadow-xl backdrop-blur`}>
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-green-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-green-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-green-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-green-500 !w-3 !h-3" />
 
-      <div className="drag-handle cursor-move px-4 pt-3 pb-2 border-b border-green-500/20">
+      <div className={`px-4 pt-3 pb-2
+border-b border-green-500/20
+cursor-move
+drag-handle`}>
         <div className="text-xs font-medium uppercase tracking-wide text-green-400">
           Other Balances
         </div>
@@ -868,7 +949,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       >
         <Background color="#1e293b" gap={20} size={1} />
         <Controls
-          className="!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white"
+          className={`!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white`}
         />
         <Panel position="top-right" className="bg-slate-800/80 rounded-lg p-2 text-xs text-slate-400">
           Drag nodes • Drag connectors • Scroll to zoom
@@ -876,7 +957,10 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       </ReactFlow>
 
       {/* Summary Footer */}
-      <div className="border-t border-white/[0.06] px-4 py-3 flex items-center justify-between text-sm">
+      <div className={`flex items-center justify-between
+px-4 py-3
+border-t border-white/[0.06]
+text-sm`}>
         <div className="flex gap-4">
           <div>
             <span className="text-slate-400">Monthly CPF: </span>

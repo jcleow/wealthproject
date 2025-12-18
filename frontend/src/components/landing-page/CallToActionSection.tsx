@@ -43,7 +43,12 @@ const CallToActionSection: React.FC = () => {
       <p ref={subheadlineRef} className="text-xl mb-8">Join our beta program and start building a clearer financial future today.</p>
       <button
         ref={buttonRef}
-        className="bg-primary text-primary-foreground px-10 py-4 rounded-full text-xl font-semibold hover:bg-primary/90 transition-colors shadow-lg"
+        className={`px-10 py-4
+rounded-full
+bg-primary hover:bg-primary/90
+text-primary-foreground text-xl font-semibold
+shadow-lg
+transition-colors`}
       >
         Join the Beta
       </button>

@@ -6,7 +6,7 @@ import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 
 export async function listAssets(params?: PaginationParams): Promise<PaginatedResponse<Asset>> {
   const path = buildPaginatedPath('/assets', params)
-  const data = await apiClient.get<any>(path)
+  const data = await apiClient.get<any>(path, undefined, { baseUrl: '/api/v2' })
   return normalizePaginatedResponse<Asset>(data, toAsset, params)
 }
 

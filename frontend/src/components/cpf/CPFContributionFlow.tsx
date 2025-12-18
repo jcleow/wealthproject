@@ -218,7 +218,8 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Header with view toggle */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between
+gap-4`}>
         <div>
           <h3 className="text-lg font-medium text-white">CPF Contribution Flow</h3>
           <p className="text-sm text-slate-400">
@@ -298,7 +299,10 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
                   const data = payload[0].payload
                   if (data.source && data.target) {
                     return (
-                      <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur">
+                      <div className={`px-3 py-2
+rounded-lg border border-white/10
+bg-[#0f1728]/95
+shadow-xl backdrop-blur`}>
                         <p className="text-xs text-slate-400">
                           {data.source.name} → {data.target.name}
                         </p>
@@ -309,7 +313,10 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
                     )
                   }
                   return (
-                    <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur">
+                    <div className={`px-3 py-2
+rounded-lg border border-white/10
+bg-[#0f1728]/95
+shadow-xl backdrop-blur`}>
                       <p className="text-xs text-slate-400">{data.name}</p>
                       <p className="text-lg font-semibold text-white">
                         {formatCurrency(data.value)}
@@ -329,24 +336,39 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
         <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
           <h4 className="mb-4 text-sm font-medium text-white">Salary Breakdown</h4>
           <div className="space-y-3">
-            <div className="flex items-center justify-between rounded-lg bg-indigo-500/10 p-3">
+            <div className={`flex items-center justify-between
+p-3
+rounded-lg
+bg-indigo-500/10`}>
               <span className="text-sm text-slate-300">Gross Salary</span>
               <span className="font-semibold text-indigo-400">{formatCurrency(data.grossSalary)}</span>
             </div>
-            <div className="flex items-center justify-between rounded-lg bg-purple-500/10 p-3">
+            <div className={`flex items-center justify-between
+p-3
+rounded-lg
+bg-purple-500/10`}>
               <span className="text-sm text-slate-300">Employee CPF (-)</span>
               <span className="font-semibold text-purple-400">-{formatCurrency(data.employeeCPF)}</span>
             </div>
-            <div className="flex items-center justify-between rounded-lg bg-green-500/10 p-3">
+            <div className={`flex items-center justify-between
+p-3
+rounded-lg
+bg-green-500/10`}>
               <span className="text-sm text-slate-300">Take-Home Pay</span>
               <span className="font-semibold text-green-400">{formatCurrency(data.takeHome)}</span>
             </div>
             <div className="my-2 border-t border-white/5" />
-            <div className="flex items-center justify-between rounded-lg bg-pink-500/10 p-3">
+            <div className={`flex items-center justify-between
+p-3
+rounded-lg
+bg-pink-500/10`}>
               <span className="text-sm text-slate-300">Employer CPF (+)</span>
               <span className="font-semibold text-pink-400">+{formatCurrency(data.employerCPF)}</span>
             </div>
-            <div className="flex items-center justify-between rounded-lg bg-amber-500/10 p-3">
+            <div className={`flex items-center justify-between
+p-3
+rounded-lg
+bg-amber-500/10`}>
               <span className="text-sm text-slate-300">Total CPF Contribution</span>
               <span className="font-semibold text-amber-400">{formatCurrency(data.totalCPF)}</span>
             </div>
@@ -375,8 +397,17 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
                       <span className="text-sm text-slate-300">{info.name}</span>
                       <div className="relative">
                         <Info className="h-3.5 w-3.5 cursor-help text-slate-500" />
-                        <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100">
-                          <div className="w-48 rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 text-xs shadow-xl backdrop-blur">
+                        <div className={`absolute bottom-full left-1/2 z-50
+pointer-events-none mb-2
+opacity-0 group-hover:opacity-100
+transition-opacity
+-translate-x-1/2`}>
+                          <div className={`w-48
+px-3 py-2
+rounded-lg border border-white/10
+bg-[#0f1728]/95
+text-xs
+shadow-xl backdrop-blur`}>
                             <p className="font-medium text-white">{info.rate}</p>
                             <p className="mt-0.5 text-slate-300">{info.description}</p>
                           </div>
@@ -397,7 +428,10 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
 
           {/* Ceiling Info */}
           {data.excessWages > 0 && (
-            <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-500/10 p-3">
+            <div className={`flex items-start
+mt-4 gap-2 p-3
+rounded-lg
+bg-amber-500/10`}>
               <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
               <p className="text-xs text-amber-200">
                 {formatCurrency(data.excessWages)} of your {selectedView} income exceeds the CPF
@@ -409,7 +443,10 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
       </div>
 
       {/* Info Footer */}
-      <div className="flex items-start gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
+      <div className={`flex items-start
+gap-3 p-4
+rounded-lg border border-white/[0.06]
+bg-white/[0.02]`}>
         <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-400" />
         <div className="text-xs text-slate-400">
           <p>

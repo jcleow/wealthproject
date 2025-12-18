@@ -4,8 +4,8 @@ import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import { assetsApi, liabilitiesApi, propertyApi } from '@/api/financial'
-import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
-import { ScenarioEventModal } from '../modals/ScenarioEventModal'
+import { PropertyPlannerModal } from '../modals/PropertyPlannerModal/PropertyPlannerModal'
+import { ScenarioEventModal } from '../modals/ScenarioEventModal/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { UserMenu } from '../auth/UserMenu'
 import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
@@ -161,9 +161,16 @@ export function FinancialWorkspace({
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-transparent text-slate-200">
+    <div className={`flex flex-col
+h-full min-h-0 w-full min-w-0
+bg-transparent
+text-slate-200`}>
       {/* Compact Header */}
-      <header className="relative z-[100] flex h-14 shrink-0 items-center justify-between px-6">
+      <header className={`relative z-[100]
+flex items-center justify-between
+h-14
+px-6
+shrink-0`}>
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             {/* <h2 className="text-lg font-medium tracking-tight text-slate-100">Workspace</h2> */}
@@ -171,21 +178,35 @@ export function FinancialWorkspace({
         </div>
 
         {/* Glass pill control group */}
-        <div className="flex items-center gap-3 rounded-full border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 backdrop-blur-sm">
+        <div className={`flex items-center
+gap-3 px-3 py-1.5
+rounded-full border border-white/[0.06]
+bg-white/[0.02]
+backdrop-blur-sm`}>
           {/* Search */}
           <div className="flex items-center gap-2 border-r border-white/[0.06] pr-3">
             <Search className="h-3.5 w-3.5 text-slate-500" />
             <input
               type="text"
               placeholder="Search..."
-              className="w-48 bg-transparent text-[13px] text-slate-300 placeholder-slate-600 focus:outline-none"
+              className={`w-48
+placeholder-slate-600
+focus:outline-none
+bg-transparent
+text-[13px] text-slate-300`}
             />
           </div>
 
           <div className="hidden items-center gap-1 md:flex">
             <button
               onClick={handleLoadDefaults}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition hover:bg-white/5 hover:text-slate-300 disabled:opacity-60"
+              className={`flex items-center justify-center
+h-7 w-7
+rounded-full
+hover:bg-white/5
+text-slate-500 hover:text-slate-300
+disabled:opacity-60
+transition`}
               title="Load defaults"
               type="button"
               disabled={isSeeding}
@@ -194,7 +215,13 @@ export function FinancialWorkspace({
             </button>
             <button
               onClick={handleClearAllData}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-rose-400/70 transition hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-60"
+              className={`flex items-center justify-center
+h-7 w-7
+rounded-full
+hover:bg-rose-500/10
+text-rose-400/70 hover:text-rose-300
+disabled:opacity-60
+transition`}
               title="Delete all data"
               type="button"
               disabled={isClearing}
@@ -208,7 +235,12 @@ export function FinancialWorkspace({
           <div className="relative z-[100]" ref={moduleMenuRef}>
             <button
               onClick={() => setIsModuleMenuOpen((prev) => !prev)}
-              className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium text-slate-400 transition hover:bg-white/5 hover:text-slate-200"
+              className={`flex items-center
+gap-1.5 px-2 py-1
+rounded-lg
+hover:bg-white/5
+text-[11px] font-medium text-slate-400 hover:text-slate-200
+transition`}
               type="button"
             >
               <Sparkles className="h-3 w-3 text-blue-400/70" />
@@ -222,16 +254,31 @@ export function FinancialWorkspace({
                 className="fixed inset-0 z-[99]"
                 onClick={() => setIsModuleMenuOpen(false)}
               />
-              <div className="absolute right-0 z-[100] mt-2 w-64 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl" style={{ isolation: 'isolate' }}>
+              <div className={`absolute right-0 z-[100]
+overflow-hidden
+w-64
+mt-2
+rounded-xl border border-white/[0.08]
+bg-[#0a0a0a]
+shadow-2xl`} style={{ isolation: 'isolate' }}>
                 <button
                   onClick={() => {
                     setIsModuleMenuOpen(false)
                     handlePropertyPlanner()
                   }}
-                  className="flex w-full items-start gap-3 border-b border-white/[0.04] px-4 py-3 text-left text-sm text-slate-200 transition hover:bg-white/5"
+                  className={`flex items-start
+w-full
+gap-3 px-4 py-3
+border-b border-white/[0.04]
+hover:bg-white/5
+text-left text-sm text-slate-200
+transition`}
                   type="button"
                 >
-                  <span className="mt-0.5 rounded-lg border border-blue-500/20 bg-blue-500/10 p-2 text-blue-400">
+                  <span className={`mt-0.5 p-2
+rounded-lg border border-blue-500/20
+bg-blue-500/10
+text-blue-400`}>
                     <Building2 className="h-4 w-4" />
                   </span>
                   <div className="space-y-0.5">
@@ -245,10 +292,19 @@ export function FinancialWorkspace({
                     setIsModuleMenuOpen(false)
                     onOpenCPF?.()
                   }}
-                  className="flex w-full items-start gap-3 border-b border-white/[0.04] px-4 py-3 text-left text-sm text-slate-200 transition hover:bg-white/5"
+                  className={`flex items-start
+w-full
+gap-3 px-4 py-3
+border-b border-white/[0.04]
+hover:bg-white/5
+text-left text-sm text-slate-200
+transition`}
                   type="button"
                 >
-                  <span className="mt-0.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2 text-emerald-400">
+                  <span className={`mt-0.5 p-2
+rounded-lg border border-emerald-500/20
+bg-emerald-500/10
+text-emerald-400`}>
                     <Wallet className="h-4 w-4" />
                   </span>
                   <div className="space-y-0.5">
@@ -258,8 +314,14 @@ export function FinancialWorkspace({
                 </button>
                 {/* Coming Soon Modules */}
                 <div className="cursor-not-allowed opacity-60">
-                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
-                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-500">
+                  <div className={`flex items-start
+w-full
+gap-3 px-4 py-3
+text-left text-sm`}>
+                    <span className={`mt-0.5 p-2
+rounded-lg border border-white/[0.06]
+bg-white/[0.02]
+text-slate-500`}>
                       <Car className="h-4 w-4" />
                     </span>
                     <div className="space-y-0.5">
@@ -269,8 +331,14 @@ export function FinancialWorkspace({
                   </div>
                 </div>
                 <div className="cursor-not-allowed opacity-60">
-                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
-                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-500">
+                  <div className={`flex items-start
+w-full
+gap-3 px-4 py-3
+text-left text-sm`}>
+                    <span className={`mt-0.5 p-2
+rounded-lg border border-white/[0.06]
+bg-white/[0.02]
+text-slate-500`}>
                       <Receipt className="h-4 w-4" />
                     </span>
                     <div className="space-y-0.5">
@@ -280,8 +348,14 @@ export function FinancialWorkspace({
                   </div>                                    
                 </div>
                 <div className="cursor-not-allowed opacity-60">
-                  <div className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm">
-                    <span className="mt-0.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 text-slate-500">
+                  <div className={`flex items-start
+w-full
+gap-3 px-4 py-3
+text-left text-sm`}>
+                    <span className={`mt-0.5 p-2
+rounded-lg border border-white/[0.06]
+bg-white/[0.02]
+text-slate-500`}>
                       <Receipt className="h-4 w-4" />
                     </span>
                     <div className="space-y-0.5">
@@ -300,7 +374,12 @@ export function FinancialWorkspace({
           {/* Notification bell */}
           <button
             type="button"
-            className="flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+            className={`flex items-center justify-center
+h-7 w-7
+rounded-full
+hover:bg-white/5
+text-slate-500 hover:text-slate-300
+transition`}
           >
             <Bell className="h-3.5 w-3.5" />
           </button>
@@ -310,14 +389,22 @@ export function FinancialWorkspace({
       </header>
 
       {timelineError && (
-        <div className="mx-6 mt-4 rounded-lg border border-rose-500/20 bg-rose-500/5 px-4 py-2 text-xs text-rose-300">
+        <div className={`mx-6 mt-4 px-4 py-2
+rounded-lg border border-rose-500/20
+bg-rose-500/5
+text-xs text-rose-300`}>
           Timeline unavailable: {timelineError}
         </div>
       )}
 
       {/* Chart Section */}
       <div className="flex-1 p-6">
-        <section className="relative h-full overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0a0a0a]/60 transition-all hover:border-white/[0.15]">
+        <section className={`relative
+overflow-hidden
+h-full
+rounded-2xl border border-white/[0.1] hover:border-white/[0.15]
+bg-[#0a0a0a]/60
+transition-all`}>
           {/* Chart Container - NetWorthProjection has its own header */}
           <div className="h-full">
             <NetWorthProjection

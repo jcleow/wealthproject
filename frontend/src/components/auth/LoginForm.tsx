@@ -80,7 +80,10 @@ export function LoginForm() {
       </div>
 
       {serverError && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-2 rounded-md text-sm">
+        <div className={`px-4 py-2
+border border-red-500/50 rounded-md
+bg-red-500/10
+text-red-400 text-sm`}>
           {serverError}
         </div>
       )}

@@ -80,24 +80,40 @@ export function ChaosPanel() {
   return (
     <div
       ref={containerRef}
-      className="landing-panel relative flex min-h-screen flex-col items-center justify-center px-6 py-24"
+      className={`relative
+flex flex-col items-center justify-center
+min-h-screen
+px-6 py-24
+landing-panel`}
     >
       {/* Decorative lines */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
-          className="absolute left-1/4 top-1/4 h-px w-32 -rotate-45 opacity-20"
+          className={`absolute left-1/4 top-1/4
+h-px w-32
+opacity-20
+-rotate-45`}
           style={{ background: 'var(--landing-border)' }}
         />
         <div
-          className="absolute right-1/4 top-1/3 h-px w-48 rotate-12 opacity-20"
+          className={`absolute right-1/4 top-1/3
+h-px w-48
+opacity-20
+rotate-12`}
           style={{ background: 'var(--landing-border)' }}
         />
         <div
-          className="absolute bottom-1/3 left-1/3 h-px w-24 -rotate-12 opacity-20"
+          className={`absolute bottom-1/3 left-1/3
+h-px w-24
+opacity-20
+-rotate-12`}
           style={{ background: 'var(--landing-border)' }}
         />
         <div
-          className="absolute bottom-1/4 right-1/3 h-px w-40 rotate-45 opacity-20"
+          className={`absolute bottom-1/4 right-1/3
+h-px w-40
+opacity-20
+rotate-45`}
           style={{ background: 'var(--landing-border)' }}
         />
       </div>
@@ -105,7 +121,10 @@ export function ChaosPanel() {
       <div className="relative z-10 max-w-4xl text-center">
         {/* Main question */}
         <h2
-          className="chaos-question landing-display mb-8 text-4xl opacity-0 md:text-6xl lg:text-7xl"
+          className={`mb-8
+text-4xl md:text-6xl lg:text-7xl
+opacity-0
+chaos-question landing-display`}
           style={{ color: 'var(--landing-text-primary)' }}
           data-animate
         >
@@ -118,7 +137,11 @@ export function ChaosPanel() {
 
         {/* Subtitle */}
         <p
-          className="chaos-subtitle landing-body mx-auto mb-16 max-w-xl text-lg opacity-0"
+          className={`max-w-xl
+mx-auto mb-16
+text-lg
+opacity-0
+chaos-subtitle landing-body`}
           style={{ color: 'var(--landing-text-muted)' }}
           data-animate
         >

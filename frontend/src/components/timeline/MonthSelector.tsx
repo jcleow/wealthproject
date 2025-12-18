@@ -75,7 +75,11 @@ export function MonthSelector({
       <button
         onClick={handlePrevious}
         disabled={isAtStart}
-        className="rounded-lg border border-gray-700/30 bg-gray-900/40 p-2 backdrop-blur-sm transition-colors hover:bg-gray-800/60 disabled:cursor-not-allowed disabled:opacity-40"
+        className={`p-2
+rounded-lg border border-gray-700/30
+bg-gray-900/40 hover:bg-gray-800/60
+backdrop-blur-sm disabled:opacity-40
+transition-colors disabled:cursor-not-allowed`}
         title="Previous month"
         aria-label="Go to previous month"
       >
@@ -88,7 +92,12 @@ export function MonthSelector({
         <select
           value={month}
           onChange={(e) => onMonthChange(year, parseInt(e.target.value, 10))}
-          className="rounded-lg border border-gray-700/30 bg-gray-900/40 px-3 py-2 text-sm font-medium text-gray-200 backdrop-blur-sm transition-colors hover:bg-gray-800/60 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          className={`px-3 py-2
+rounded-lg border border-gray-700/30 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
+bg-gray-900/40 hover:bg-gray-800/60
+text-sm font-medium text-gray-200
+backdrop-blur-sm
+transition-colors`}
           aria-label="Select month"
         >
           {MONTH_NAMES.map((name, index) => (
@@ -102,7 +111,12 @@ export function MonthSelector({
         <select
           value={year}
           onChange={(e) => onMonthChange(parseInt(e.target.value, 10), 1)}
-          className="rounded-lg border border-gray-700/30 bg-gray-900/40 px-3 py-2 text-sm font-medium text-gray-200 backdrop-blur-sm transition-colors hover:bg-gray-800/60 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          className={`px-3 py-2
+rounded-lg border border-gray-700/30 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
+bg-gray-900/40 hover:bg-gray-800/60
+text-sm font-medium text-gray-200
+backdrop-blur-sm
+transition-colors`}
           aria-label="Select year"
         >
           {Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i).map((y) => (
@@ -117,7 +131,11 @@ export function MonthSelector({
       <button
         onClick={handleNext}
         disabled={isAtEnd}
-        className="rounded-lg border border-gray-700/30 bg-gray-900/40 p-2 backdrop-blur-sm transition-colors hover:bg-gray-800/60 disabled:cursor-not-allowed disabled:opacity-40"
+        className={`p-2
+rounded-lg border border-gray-700/30
+bg-gray-900/40 hover:bg-gray-800/60
+backdrop-blur-sm disabled:opacity-40
+transition-colors disabled:cursor-not-allowed`}
         title="Next month"
         aria-label="Go to next month"
       >

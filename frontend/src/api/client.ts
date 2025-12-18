@@ -21,14 +21,6 @@ export interface ApiRequestOptions {
 }
 
 const DEFAULT_BASE_URL = '/api/v1'
-const DEV_SESSION_FALLBACK = 'dev-user'
-
-function getDevSessionID(): string | undefined {
-  // Vite injects import.meta.env; in prod builds this will be tree-shaken away
-  if (typeof import.meta === 'undefined') return undefined
-  if (import.meta.env?.PROD) return undefined
-  return import.meta.env?.VITE_DEV_SESSION_ID || DEV_SESSION_FALLBACK
-}
 
 function buildUrl(path: string, params?: Record<string, unknown>, baseUrl: string = DEFAULT_BASE_URL): string {
   const url = new URL(path, 'http://local-placeholder')
@@ -53,10 +45,8 @@ function buildUrl(path: string, params?: Record<string, unknown>, baseUrl: strin
 export async function apiFetch<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { method = 'GET', params, body, headers, baseUrl = DEFAULT_BASE_URL } = options
   const url = buildUrl(path, params, baseUrl)
-  const devSessionID = getDevSessionID()
   const mergedHeaders = {
     'Content-Type': 'application/json',
-    ...(devSessionID ? { 'X-Session-ID': devSessionID } : {}),
     ...headers,
   }
 

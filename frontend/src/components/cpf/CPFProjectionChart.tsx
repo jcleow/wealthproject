@@ -135,7 +135,11 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                   if (!active || !payload?.[0]) return null
                   const data = payload[0].payload
                   return (
-                    <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur min-w-[200px]">
+                    <div className={`min-w-[200px]
+px-3 py-2
+rounded-lg border border-white/10
+bg-[#0f1728]/95
+shadow-xl backdrop-blur`}>
                       <p className="text-xs font-bold text-slate-400">
                         Age {data.age} ({data.year})
                       </p>
@@ -267,7 +271,11 @@ function RetirementCard({
             {percentage.toFixed(0)}%
           </span>
         </div>
-        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+        <div className={`overflow-hidden
+h-1.5 w-full
+mt-1
+rounded-full
+bg-white/[0.06]`}>
           <div
             className={`h-full rounded-full transition-all ${
               isOnTrack ? 'bg-emerald-500' : 'bg-amber-500'

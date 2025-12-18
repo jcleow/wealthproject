@@ -60,11 +60,6 @@ func Authenticate(next http.Handler) http.Handler {
 			}
 		}
 
-		// Fallback for legacy session-based auth (dev only)
-		if userID == "" && isDevMode() {
-			userID = r.Header.Get("X-Session-ID")
-		}
-
 		// Ensure user has cash accumulator account (onboarding)
 		if userID != "" && finStore != nil {
 			ensureCashAccumulator(r.Context(), userID)

@@ -4,6 +4,7 @@
 
 ### Testing
 - After relevant changes on the backend, please ensure to add or update tests
+- When adding or changing backend endpoints, regenerate Swagger (`swag init`) so docs stay in sync with the API
 
 ### Sensitive Credentials - NEVER COMMIT
 
@@ -517,6 +518,56 @@ TypeScript & React Coding Agent Rules
   - Optimistic updates capability
   - Reduced boilerplate code
   - Better user experience with instant feedback
+
+## Complex Modal/Component Folder Structure
+
+When a modal or component exceeds ~250 lines and mixes multiple concerns (form state, API calls, UI rendering, domain logic), refactor into a co-located folder structure:
+
+```
+ComponentName/
+├─ ComponentName.tsx      ← Orchestration only (~100-150 LOC max)
+├─ hooks/
+│  ├─ index.ts            ← Re-exports all hooks + types
+│  ├─ useFormState.ts     ← Form state, hydration, field updates
+│  ├─ useItemSelector.ts  ← Dropdown/selection state
+│  └─ useDataFetching.ts  ← Data fetching, loading states
+├─ components/
+│  ├─ index.ts            ← Re-exports all components + utilities
+│  ├─ Header.tsx          ← Modal/section header
+│  ├─ Footer.tsx          ← Action buttons, save/cancel
+│  ├─ FormFields.tsx      ← Input fields, form layout
+│  └─ ItemEditor.tsx      ← Complex nested editor UI
+└─ logic/
+   ├─ index.ts            ← Re-exports all logic functions
+   ├─ validation.ts       ← Pure validation functions
+   └─ transformation.ts   ← Payload building, data transforms
+```
+
+### When to Apply
+- Modal/component exceeds 250 lines
+- File mixes 3+ concerns (state, UI, domain logic, API)
+- Multiple developers touch the same file frequently
+- Testing individual parts is difficult
+
+### Principles
+1. **Main file = orchestration only**: Import hooks, components, logic. Wire them together. No inline JSX beyond layout structure.
+2. **Hooks handle state**: Form state, selection state, data fetching. Each hook returns typed state + handlers.
+3. **Components are presentational**: Receive props, render UI. No direct API calls or complex state logic.
+4. **Logic is pure functions**: Validation, payload building, transformations. Easy to test in isolation.
+5. **Index files for clean imports**: Each subfolder has an index.ts that re-exports everything for single-line imports.
+
+### Import Pattern
+```typescript
+// In main ComponentName.tsx
+import { useFormState, useItemSelector, useDataFetching } from './hooks'
+import { Header, Footer, FormFields, ItemEditor } from './components'
+import { validateForm, buildPayload } from './logic'
+```
+
+### Skip index.ts When
+- Folder contains only 1-2 exports (just import directly from the file)
+- Re-export adds no value (single-line re-exports are unnecessary indirection)
+- Import directly: `import { useFormState } from './hooks/useFormState'` instead of creating a hooks/index.ts
 
 ## TanStack Query Cache Update Pitfalls
 

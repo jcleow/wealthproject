@@ -25,6 +25,7 @@ export async function createScenarioEvent(payload: ScenarioEvent): Promise<Scena
     tags: payload.tags ?? [],
     isIncluded: payload.isIncluded ?? true,
   })
+  console.log('[createScenarioEvent] Sending payload:', JSON.stringify(body, null, 2))
   const data = await apiClient.post<any>('/scenario-events', body, { baseUrl: '/api/v2' })
 
   const impacts = Array.isArray(data.impacts)

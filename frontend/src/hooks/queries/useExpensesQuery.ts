@@ -6,14 +6,14 @@ import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export const EXPENSES_QUERY_KEY = QUERY_KEYS.financial.expenses
 
-export function useExpensesQuery() {
+export function useExpensesQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: EXPENSES_QUERY_KEY,
     queryFn: async () => {
       const result = await expensesApi.listExpenses({ limit: -1 })
       return result.data
     },
-    enabled: false, // V2 timeline provides this data - no need to fetch separately
+    enabled: options?.enabled ?? true,
     staleTime: 30_000,
     cacheTime: 5 * 60 * 1000,
   })

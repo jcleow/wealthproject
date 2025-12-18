@@ -57,6 +57,16 @@ func toIncomeAllocationV2DTO(a repo.IncomeAllocation) incomeAllocationV2DTO {
 // HandleListAll lists all income allocations for the user.
 // Query params:
 //   - targetType: "investment" or "cash_account" to filter by target type
+// @Summary List all income allocations (v2)
+// @Description Returns all income allocations with optional target filtering
+// @Tags Income Allocations V2
+// @Produce json
+// @Param targetType query string false "Filter by target type (investment|cash_account)"
+// @Success 200 {array} incomeAllocationV2DTO
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/income-allocations [get]
 func (h *IncomeAllocationV2Handler) HandleListAll(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -90,6 +100,16 @@ func (h *IncomeAllocationV2Handler) HandleListAll(w http.ResponseWriter, r *http
 
 // GET /api/v2/incomes/{incomeId}/allocations
 // HandleListByIncome lists allocations for a specific income.
+// @Summary List income allocations (v2)
+// @Description Lists allocations for a specific income
+// @Tags Income Allocations V2
+// @Produce json
+// @Param incomeId path string true "Income ID"
+// @Success 200 {array} incomeAllocationV2DTO
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/incomes/{incomeId}/allocations [get]
 func (h *IncomeAllocationV2Handler) HandleListByIncome(w http.ResponseWriter, r *http.Request, incomeID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -122,6 +142,19 @@ type incomeAllocationCreateDTO struct {
 
 // POST /api/v2/incomes/{incomeId}/allocations
 // HandleCreate creates a new allocation.
+// @Summary Create income allocation (v2)
+// @Description Creates a new allocation for an income
+// @Tags Income Allocations V2
+// @Accept json
+// @Produce json
+// @Param incomeId path string true "Income ID"
+// @Param allocation body incomeAllocationCreateDTO true "Allocation data"
+// @Success 201 {object} incomeAllocationV2DTO
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/incomes/{incomeId}/allocations [post]
 func (h *IncomeAllocationV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request, incomeID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -188,6 +221,20 @@ func (h *IncomeAllocationV2Handler) HandleCreate(w http.ResponseWriter, r *http.
 
 // PUT /api/v2/incomes/{incomeId}/allocations/{allocId}
 // HandleUpdate updates an income allocation.
+// @Summary Update income allocation (v2)
+// @Description Updates an existing income allocation
+// @Tags Income Allocations V2
+// @Accept json
+// @Produce json
+// @Param incomeId path string true "Income ID"
+// @Param allocId path string true "Allocation ID"
+// @Param allocation body incomeAllocationCreateDTO true "Allocation data"
+// @Success 200 {object} incomeAllocationV2DTO
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/incomes/{incomeId}/allocations/{allocId} [put]
 func (h *IncomeAllocationV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -251,6 +298,16 @@ func (h *IncomeAllocationV2Handler) HandleUpdate(w http.ResponseWriter, r *http.
 
 // DELETE /api/v2/incomes/{incomeId}/allocations/{allocId}
 // HandleDelete deletes an income allocation.
+// @Summary Delete income allocation (v2)
+// @Description Deletes an income allocation version chain
+// @Tags Income Allocations V2
+// @Param incomeId path string true "Income ID"
+// @Param allocId path string true "Allocation ID"
+// @Success 204 "No Content"
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/incomes/{incomeId}/allocations/{allocId} [delete]
 func (h *IncomeAllocationV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -274,6 +331,21 @@ type stopAllocationDTO struct {
 // POST /api/v2/incomes/{incomeId}/allocations/{allocId}/stop
 // HandleStop sets an end date for an allocation without deleting the record.
 // This "stops" an allocation at a future point without deleting the original record.
+// @Summary Stop income allocation (v2)
+// @Description Sets an endDate on an allocation (soft delete)
+// @Tags Income Allocations V2
+// @Accept json
+// @Produce json
+// @Param incomeId path string true "Income ID"
+// @Param allocId path string true "Allocation ID"
+// @Param body body stopAllocationDTO true "Stop input with endDate"
+// @Success 200 {object} incomeAllocationV2DTO
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/incomes/{incomeId}/allocations/{allocId}/stop [post]
 func (h *IncomeAllocationV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, incomeID, allocID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

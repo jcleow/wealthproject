@@ -65,7 +65,9 @@ function RSTUCalculator({ profile }: { profile: CPFProfile }) {
   return (
     <div className="space-y-6">
       {/* Info Banner */}
-      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+      <div className={`p-4
+rounded-xl border border-emerald-500/20
+bg-emerald-500/5`}>
         <div className="flex items-start gap-3">
           <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
           <div className="text-xs text-slate-300">
@@ -94,7 +96,11 @@ function RSTUCalculator({ profile }: { profile: CPFProfile }) {
                 value={selfTopUp}
                 onChange={(e) => setSelfTopUp(e.target.value)}
                 placeholder="0"
-                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2.5 pl-8 pr-4 text-sm text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:outline-none"
+                className={`w-full
+py-2.5 pl-8 pr-4
+rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-sm text-white placeholder:text-slate-600`}
               />
             </div>
             <p className="text-xs text-slate-500">
@@ -111,7 +117,11 @@ function RSTUCalculator({ profile }: { profile: CPFProfile }) {
                 value={familyTopUp}
                 onChange={(e) => setFamilyTopUp(e.target.value)}
                 placeholder="0"
-                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2.5 pl-8 pr-4 text-sm text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:outline-none"
+                className={`w-full
+py-2.5 pl-8 pr-4
+rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-sm text-white placeholder:text-slate-600`}
               />
             </div>
             <p className="text-xs text-slate-500">
@@ -155,7 +165,9 @@ function RSTUCalculator({ profile }: { profile: CPFProfile }) {
             remaining={result.familyReliefRemaining}
             cap={CPF_LIMITS.rstuFamilyCap}
           />
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <div className={`p-4
+rounded-lg border border-emerald-500/30
+bg-emerald-500/10`}>
             <p className="text-xs text-emerald-300">Total Tax Savings</p>
             <p className="mt-1 text-2xl font-semibold text-emerald-400">
               {formatCurrency(result.taxSavings)}
@@ -168,7 +180,10 @@ function RSTUCalculator({ profile }: { profile: CPFProfile }) {
 
         {/* Optimization Tips */}
         {result.selfReliefRemaining > 0 && (
-          <div className="mt-4 flex items-start gap-3 rounded-lg bg-blue-500/5 p-3">
+          <div className={`flex items-start
+mt-4 gap-3 p-3
+rounded-lg
+bg-blue-500/5`}>
             <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-400" />
             <p className="text-xs text-slate-300">
               <span className="font-medium text-blue-300">Tip: </span>
@@ -262,7 +277,11 @@ function OAtoSATransfer({ profile }: { profile: CPFProfile }) {
                   onChange={(e) => setTransferAmount(e.target.value)}
                   placeholder="0"
                   max={result.maxTransferable}
-                  className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2.5 pl-8 pr-4 text-sm text-white placeholder:text-slate-600 focus:border-blue-500/50 focus:outline-none"
+                  className={`w-full
+py-2.5 pl-8 pr-4
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.02]
+text-sm text-white placeholder:text-slate-600`}
                 />
               </div>
               <p className="text-xs text-slate-500">
@@ -275,7 +294,10 @@ function OAtoSATransfer({ profile }: { profile: CPFProfile }) {
             {/* Transfer Preview */}
             {result.actualTransfer > 0 && (
               <div className="mt-6">
-                <div className="flex items-center justify-between rounded-lg bg-white/[0.02] p-4">
+                <div className={`flex items-center justify-between
+p-4
+rounded-lg
+bg-white/[0.02]`}>
                   <div className="text-center">
                     <p className="text-xs text-slate-400">From OA</p>
                     <p className="text-lg font-semibold text-blue-400">
@@ -327,7 +349,12 @@ function OAtoSATransfer({ profile }: { profile: CPFProfile }) {
                   </div>
                 )}
 
-                <button className="mt-4 w-full rounded-lg bg-blue-500 py-2.5 text-sm font-medium text-white transition hover:bg-blue-600">
+                <button className={`w-full
+mt-4 py-2.5
+rounded-lg
+bg-blue-500 hover:bg-blue-600
+text-sm font-medium text-white
+transition`}>
                   Transfer {formatCurrency(result.actualTransfer)} to SA
                 </button>
               </div>
@@ -356,7 +383,11 @@ function ResultCard({
     <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
       <p className="text-xs text-slate-400">{label}</p>
       <p className="mt-1 text-xl font-semibold text-white">{formatCurrency(value)}</p>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+      <div className={`overflow-hidden
+h-1.5 w-full
+mt-2
+rounded-full
+bg-white/[0.06]`}>
         <div
           className="h-full rounded-full bg-emerald-500 transition-all"
           style={{ width: `${percentage}%` }}

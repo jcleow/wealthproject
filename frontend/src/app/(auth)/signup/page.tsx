@@ -3,7 +3,10 @@ import { SignUpForm } from '@/components/auth/SignUpForm'
 
 export default function SignUpPage() {
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center px-4">
+    <div className={`flex flex-col items-center justify-center
+min-h-screen
+px-4
+bg-black`}>
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">

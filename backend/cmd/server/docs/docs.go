@@ -51,7 +51,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.ChatRequest"
+                            "$ref": "#/definitions/handlers.ChatRequest"
                         }
                     }
                 ],
@@ -59,7 +59,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.ChatResponse"
+                            "$ref": "#/definitions/handlers.ChatResponse"
                         }
                     },
                     "400": {
@@ -107,7 +107,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.DispatchRequest"
+                            "$ref": "#/definitions/handlers.DispatchRequest"
                         }
                     }
                 ],
@@ -115,7 +115,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.DispatchResponse"
+                            "$ref": "#/definitions/handlers.DispatchResponse"
                         }
                     },
                     "400": {
@@ -184,7 +184,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse"
+                            "$ref": "#/definitions/timeline.TimelineResponse"
                         }
                     },
                     "400": {
@@ -248,7 +248,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse"
+                            "$ref": "#/definitions/timeline.TimelineResponse"
                         }
                     },
                     "400": {
@@ -282,13 +282,34 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.HealthResponse"
+                            "$ref": "#/definitions/handlers.HealthResponse"
                         }
                     }
                 }
             }
         },
-        "/v1/scenario-events": {
+        "/v1/tools": {
+            "get": {
+                "description": "Returns a list of all available financial tools and their metadata",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Get available financial tools",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/assets": {
             "get": {
                 "security": [
                     {
@@ -298,7 +319,84 @@ const docTemplate = `{
                         "AuthToken": []
                     }
                 ],
-                "description": "List all scenario events or create a new one",
+                "description": "Returns paginated non-cash assets for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Assets V2"
+                ],
+                "summary": "List assets (v2)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Max items to return (-1 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of items to skip",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Bulk deletes all non-cash assets for the authenticated user in a single query.",
+                "tags": [
+                    "Bulk Delete V2"
+                ],
+                "summary": "Delete all assets (v2)",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/assets/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Updates an asset with versioning support",
                 "consumes": [
                     "application/json"
                 ],
@@ -306,16 +404,24 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Scenario Events"
+                    "Assets V2"
                 ],
-                "summary": "List or create scenario events",
+                "summary": "Update an asset (v2)",
                 "parameters": [
                     {
-                        "description": "New scenario event",
-                        "name": "body",
+                        "type": "string",
+                        "description": "Asset ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Asset data",
+                        "name": "asset",
                         "in": "body",
+                        "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.scenarioEventInput"
+                            "$ref": "#/definitions/handlers.assetInput"
                         }
                     }
                 ],
@@ -323,20 +429,1006 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent"
-                            }
-                        }
-                    },
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent"
+                            "$ref": "#/definitions/repository.NonCashAsset"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Deletes an asset and its descendant versions",
+                "tags": [
+                    "Assets V2"
+                ],
+                "summary": "Delete an asset (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Asset ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/assets/{id}/stop": {
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Sets the endDate on an asset (soft delete)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Assets V2"
+                ],
+                "summary": "Stop an asset (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Asset ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Stop input with endDate",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.stopInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.NonCashAsset"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cash-accounts": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns paginated cash accounts for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cash Accounts V2"
+                ],
+                "summary": "List cash accounts (v2)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Max items to return (-1 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of items to skip",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Bulk deletes all cash accounts for the authenticated user in a single query.",
+                "tags": [
+                    "Bulk Delete V2"
+                ],
+                "summary": "Delete all cash accounts (v2)",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cash-accounts/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Updates a cash account with versioning support",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cash Accounts V2"
+                ],
+                "summary": "Update a cash account (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cash account ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cash account data",
+                        "name": "cashAccount",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.cashAccountV2Input"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.CashAsset"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Deletes a cash account and descendant versions",
+                "tags": [
+                    "Cash Accounts V2"
+                ],
+                "summary": "Delete a cash account (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cash account ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cash-accounts/{id}/stop": {
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Sets the endDate on a cash account (soft delete) and cascades to allocations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Cash Accounts V2"
+                ],
+                "summary": "Stop a cash account (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cash account ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Stop input with endDate",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.stopInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.CashAsset"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cashflow/expenses": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns expenses grouped into regularExpenses and debtRepayments",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Expenses V2"
+                ],
+                "summary": "List expenses (v2)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Max items to return (-1 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of items to skip",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.GroupedExpenses"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Creates a new expense",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Expenses V2"
+                ],
+                "summary": "Create an expense (v2)",
+                "parameters": [
+                    {
+                        "description": "Expense data",
+                        "name": "expense",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.expenseCreateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Expense"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Bulk deletes all expenses for the authenticated user in a single query.",
+                "tags": [
+                    "Expenses V2"
+                ],
+                "summary": "Delete all expenses (v2)",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cashflow/expenses/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Updates an expense with versioning support",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Expenses V2"
+                ],
+                "summary": "Update an expense (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Expense ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Expense data",
+                        "name": "expense",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.expenseV2Input"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Expense"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Deletes an expense and all its descendant versions",
+                "tags": [
+                    "Expenses V2"
+                ],
+                "summary": "Delete an expense (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Expense ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cashflow/expenses/{id}/stop": {
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Sets the end_date on an expense (soft delete)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Expenses V2"
+                ],
+                "summary": "Stop an expense (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Expense ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Stop input with endDate",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.stopInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Expense"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cashflow/incomes": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns paginated incomes for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Incomes V2"
+                ],
+                "summary": "List incomes (v2)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Max items to return (-1 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of items to skip",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Bulk deletes all incomes for the authenticated user in a single query.",
+                "tags": [
+                    "Bulk Delete V2"
+                ],
+                "summary": "Delete all incomes (v2)",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cashflow/incomes/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Updates an income with versioning support",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Incomes V2"
+                ],
+                "summary": "Update an income (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Income ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Income data",
+                        "name": "income",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.incomeV2Input"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Income"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Deletes an income and all descendant versions",
+                "tags": [
+                    "Incomes V2"
+                ],
+                "summary": "Delete an income (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Income ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cashflow/incomes/{id}/stop": {
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Sets the endDate on an income (soft delete)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Incomes V2"
+                ],
+                "summary": "Stop an income (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Income ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Stop input with endDate",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.stopInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Income"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cpf/account": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns the CPF account for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CPF V2"
+                ],
+                "summary": "Get CPF account (v2)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.CPFAccount"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -360,7 +1452,7 @@ const docTemplate = `{
                         "AuthToken": []
                     }
                 ],
-                "description": "List all scenario events or create a new one",
+                "description": "Creates a CPF account with balances and profile data",
                 "consumes": [
                     "application/json"
                 ],
@@ -368,33 +1460,25 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Scenario Events"
+                    "CPF V2"
                 ],
-                "summary": "List or create scenario events",
+                "summary": "Create CPF account (v2)",
                 "parameters": [
                     {
-                        "description": "New scenario event",
-                        "name": "body",
+                        "description": "CPF account data",
+                        "name": "cpf",
                         "in": "body",
+                        "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.scenarioEventInput"
+                            "$ref": "#/definitions/handlers.cpfV2CreateInput"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent"
-                            }
-                        }
-                    },
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioEvent"
+                            "$ref": "#/definitions/repository.CPFAccount"
                         }
                     },
                     "400": {
@@ -414,19 +1498,210 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/tools": {
-            "get": {
-                "description": "Returns a list of all available financial tools and their metadata",
+        "/v2/cpf/account/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Updates a CPF account version",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Health"
+                    "CPF V2"
                 ],
-                "summary": "Get available financial tools",
+                "summary": "Update CPF account (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CPF account ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "CPF account data",
+                        "name": "cpf",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.cpfV2Input"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.CPFAccount"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Deletes a CPF account and its versions",
+                "tags": [
+                    "CPF V2"
+                ],
+                "summary": "Delete CPF account (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CPF account ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cpf/account/{id}/stop": {
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Sets the endDate on a CPF account (soft delete)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CPF V2"
+                ],
+                "summary": "Stop CPF account (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CPF account ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Stop input with endDate",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.stopInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.CPFAccount"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/cpf/accounts": {
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Bulk deletes all CPF accounts for the authenticated user in a single query.",
+                "tags": [
+                    "Bulk Delete V2"
+                ],
+                "summary": "Delete all CPF accounts (v2)",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -466,7 +1741,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse"
+                            "$ref": "#/definitions/timeline_v2.TimelineAnnualChartResponse"
                         }
                     },
                     "400": {
@@ -517,13 +1792,19 @@ const docTemplate = `{
                         "description": "End date (DD-MM-YYYY). Defaults to startDate if not provided.",
                         "name": "endDate",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include scenario impacts in adjBalance/adjAmount (default: false)",
+                        "name": "includeScenarios",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response"
+                            "$ref": "#/definitions/timeline_v2.TimelineV2Response"
                         }
                     },
                     "400": {
@@ -542,10 +1823,1584 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v2/income-allocations": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns all income allocations with optional target filtering",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Income Allocations V2"
+                ],
+                "summary": "List all income allocations (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by target type (investment|cash_account)",
+                        "name": "targetType",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.incomeAllocationV2DTO"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/incomes/{incomeId}/allocations": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Lists allocations for a specific income",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Income Allocations V2"
+                ],
+                "summary": "List income allocations (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Income ID",
+                        "name": "incomeId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.incomeAllocationV2DTO"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Creates a new allocation for an income",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Income Allocations V2"
+                ],
+                "summary": "Create income allocation (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Income ID",
+                        "name": "incomeId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Allocation data",
+                        "name": "allocation",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.incomeAllocationCreateDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.incomeAllocationV2DTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/incomes/{incomeId}/allocations/{allocId}": {
+            "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Updates an existing income allocation",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Income Allocations V2"
+                ],
+                "summary": "Update income allocation (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Income ID",
+                        "name": "incomeId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Allocation ID",
+                        "name": "allocId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Allocation data",
+                        "name": "allocation",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.incomeAllocationCreateDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.incomeAllocationV2DTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Deletes an income allocation version chain",
+                "tags": [
+                    "Income Allocations V2"
+                ],
+                "summary": "Delete income allocation (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Income ID",
+                        "name": "incomeId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Allocation ID",
+                        "name": "allocId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/incomes/{incomeId}/allocations/{allocId}/stop": {
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Sets an endDate on an allocation (soft delete)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Income Allocations V2"
+                ],
+                "summary": "Stop income allocation (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Income ID",
+                        "name": "incomeId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Allocation ID",
+                        "name": "allocId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Stop input with endDate",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.stopAllocationDTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.incomeAllocationV2DTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/investments": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns paginated investments for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Investments V2"
+                ],
+                "summary": "List investments (v2)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Max items to return (-1 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of items to skip",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Bulk deletes all investments for the authenticated user in a single query.",
+                "tags": [
+                    "Bulk Delete V2"
+                ],
+                "summary": "Delete all investments (v2)",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/investments/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Updates an investment with versioning support",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Investments V2"
+                ],
+                "summary": "Update an investment (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Investment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Investment data",
+                        "name": "investment",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.investmentV2Input"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Investment"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Deletes an investment and its descendant versions",
+                "tags": [
+                    "Investments V2"
+                ],
+                "summary": "Delete an investment (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Investment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/investments/{id}/stop": {
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Sets the endDate on an investment (soft delete) and cascades to allocations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Investments V2"
+                ],
+                "summary": "Stop an investment (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Investment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Stop input with endDate",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.stopInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Investment"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/liabilities": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns paginated liabilities for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Liabilities V2"
+                ],
+                "summary": "List liabilities (v2)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Max items to return (-1 for all)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of items to skip",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Creates a new liability. If minimumPayment \u003e 0, automatically creates a linked expense for debt repayment.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Liabilities V2"
+                ],
+                "summary": "Create a liability (v2)",
+                "parameters": [
+                    {
+                        "description": "Liability to create",
+                        "name": "liability",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.liabilityCreateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Liability"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Bulk deletes all liabilities for the authenticated user in a single query.",
+                "tags": [
+                    "Bulk Delete V2"
+                ],
+                "summary": "Delete all liabilities (v2)",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/liabilities/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Updates a liability with versioning support",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Liabilities V2"
+                ],
+                "summary": "Update a liability (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Liability ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Liability data",
+                        "name": "liability",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.liabilityInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Liability"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Deletes a liability and all descendant versions",
+                "tags": [
+                    "Liabilities V2"
+                ],
+                "summary": "Delete a liability (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Liability ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/liabilities/{id}/stop": {
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Sets the endDate on a liability (soft delete)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Liabilities V2"
+                ],
+                "summary": "Stop a liability (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Liability ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Stop input with endDate",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.stopInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Liability"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/scenario-events": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "List all scenario events with pagination and filtering",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scenario Events V2"
+                ],
+                "summary": "List scenario events (v2)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by year",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by included status",
+                        "name": "included",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by tags (comma-separated)",
+                        "name": "tags",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search query",
+                        "name": "q",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Create a new scenario event with typed FK impacts",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scenario Events V2"
+                ],
+                "summary": "Create scenario event (v2)",
+                "parameters": [
+                    {
+                        "description": "Scenario event",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.scenarioEventV2DTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.scenarioEventV2DTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/scenario-events/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Get a scenario event by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scenario Events V2"
+                ],
+                "summary": "Get scenario event (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.scenarioEventV2DTO"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Update a scenario event by ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scenario Events V2"
+                ],
+                "summary": "Update scenario event (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Scenario event",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.scenarioEventV2DTO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.scenarioEventV2DTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Delete a scenario event by ID",
+                "tags": [
+                    "Scenario Events V2"
+                ],
+                "summary": "Delete scenario event (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/scenario-events/{id}/toggle": {
+            "patch": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Toggle whether a scenario is included in projections",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scenario Events V2"
+                ],
+                "summary": "Toggle scenario included status (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Toggle payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
-        "cmd_server_handlers.ChatRequest": {
+        "common.Frequency": {
+            "type": "string",
+            "enum": [
+                "one_time",
+                "weekly",
+                "bi_weekly",
+                "monthly",
+                "quarterly",
+                "semi_annual",
+                "annual"
+            ],
+            "x-enum-varnames": [
+                "FrequencyOneTime",
+                "FrequencyWeekly",
+                "FrequencyBiweekly",
+                "FrequencyMonthly",
+                "FrequencyQuarterly",
+                "FrequencySemiannual",
+                "FrequencyAnnual"
+            ]
+        },
+        "financial-chat-system_backend_internal_financial_v2_repository.Expense": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "description": "NULL means ongoing",
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "number"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "payee": {
+                    "type": "string"
+                },
+                "sourceLiabilityId": {
+                    "description": "Link to liability this expense pays down",
+                    "type": "string"
+                },
+                "startDate": {
+                    "description": "Precise start date (day-level)",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_repository.GroupedExpenses": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "debtRepayments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Expense"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "regularExpenses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Expense"
+                    }
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_repository.Income": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "cpfWageType": {
+                    "description": "'ow' (Ordinary Wages) or 'aw' (Additional Wages)",
+                    "type": "string"
+                },
+                "endDate": {
+                    "description": "NULL means ongoing",
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "number"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "incomeType": {
+                    "description": "CPF-related fields",
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "description": "Precise start date (day-level) - now required",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_repository.Investment": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "currentValue": {
+                    "type": "number"
+                },
+                "endDate": {
+                    "description": "NULL means ongoing",
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "number"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "description": "Precise start date (day-level)",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_repository.Liability": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "currentBalance": {
+                    "type": "number"
+                },
+                "endDate": {
+                    "description": "NULL means ongoing",
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "interestRateApr": {
+                    "type": "number"
+                },
+                "minimumPayment": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "repaymentStrategy": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "description": "Precise start date (day-level)",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial.ImpactEstimate": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "monthly_change": {
+                    "type": "number"
+                },
+                "net_worth_change": {
+                    "type": "number"
+                }
+            }
+        },
+        "financial.ProposedAction": {
+            "type": "object",
+            "properties": {
+                "call_id": {
+                    "type": "string"
+                },
+                "dependencies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "estimated_impact": {
+                    "$ref": "#/definitions/financial.ImpactEstimate"
+                },
+                "friendly_description": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "tool_name": {
+                    "type": "string"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial.Warning"
+                    }
+                }
+            }
+        },
+        "financial.Warning": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "severity": {
+                    "description": "\"low\", \"medium\", \"high\"",
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ChatRequest": {
             "type": "object",
             "required": [
                 "chat_id",
@@ -564,7 +3419,7 @@ const docTemplate = `{
                 }
             }
         },
-        "cmd_server_handlers.ChatResponse": {
+        "handlers.ChatResponse": {
             "type": "object",
             "properties": {
                 "actions_executed": {
@@ -579,7 +3434,7 @@ const docTemplate = `{
                 "conversation_flow": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_session.ConversationStep"
+                        "$ref": "#/definitions/session.ConversationStep"
                     }
                 },
                 "message_id": {
@@ -588,7 +3443,7 @@ const docTemplate = `{
                 "proposed_actions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial.ProposedAction"
+                        "$ref": "#/definitions/financial.ProposedAction"
                     }
                 },
                 "requires_approval": {
@@ -596,7 +3451,7 @@ const docTemplate = `{
                 }
             }
         },
-        "cmd_server_handlers.DispatchRequest": {
+        "handlers.DispatchRequest": {
             "type": "object",
             "required": [
                 "selected_actions",
@@ -606,7 +3461,7 @@ const docTemplate = `{
                 "selected_actions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.SelectedAction"
+                        "$ref": "#/definitions/handlers.SelectedAction"
                     }
                 },
                 "session_id": {
@@ -614,7 +3469,7 @@ const docTemplate = `{
                 }
             }
         },
-        "cmd_server_handlers.DispatchResponse": {
+        "handlers.DispatchResponse": {
             "type": "object",
             "properties": {
                 "api_version": {
@@ -623,18 +3478,18 @@ const docTemplate = `{
                 "results": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.ExecutionResult"
+                        "$ref": "#/definitions/handlers.ExecutionResult"
                     }
                 },
                 "summary": {
-                    "$ref": "#/definitions/cmd_server_handlers.ExecutionSummary"
+                    "$ref": "#/definitions/handlers.ExecutionSummary"
                 },
                 "updated_session_state": {
-                    "$ref": "#/definitions/financial-chat-system_backend_internal_session.SessionState"
+                    "$ref": "#/definitions/session.SessionState"
                 }
             }
         },
-        "cmd_server_handlers.ExecutionResult": {
+        "handlers.ExecutionResult": {
             "type": "object",
             "properties": {
                 "call_id": {
@@ -660,7 +3515,7 @@ const docTemplate = `{
                 }
             }
         },
-        "cmd_server_handlers.ExecutionSummary": {
+        "handlers.ExecutionSummary": {
             "type": "object",
             "properties": {
                 "failed": {
@@ -684,7 +3539,7 @@ const docTemplate = `{
                 }
             }
         },
-        "cmd_server_handlers.HealthResponse": {
+        "handlers.HealthResponse": {
             "type": "object",
             "properties": {
                 "services": {
@@ -705,7 +3560,7 @@ const docTemplate = `{
                 }
             }
         },
-        "cmd_server_handlers.SelectedAction": {
+        "handlers.SelectedAction": {
             "type": "object",
             "required": [
                 "call_id"
@@ -723,7 +3578,429 @@ const docTemplate = `{
                 }
             }
         },
-        "cmd_server_handlers.scenarioEventInput": {
+        "handlers.assetInput": {
+            "type": "object",
+            "properties": {
+                "annualGrowthRate": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "currentValue": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.cashAccountV2Input": {
+            "type": "object",
+            "properties": {
+                "accountType": {
+                    "type": "string"
+                },
+                "balance": {
+                    "type": "string"
+                },
+                "bankName": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "interestRate": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.cpfV2CreateInput": {
+            "type": "object",
+            "properties": {
+                "dateOfBirth": {
+                    "description": "TODO: DateOfBirth should be moved to a general user profile/settings module\nrather than being specific to CPF. This is kept here temporarily for CPF calculations.",
+                    "type": "string"
+                },
+                "housingStartDate": {
+                    "type": "string"
+                },
+                "maBalance": {
+                    "type": "string"
+                },
+                "oaBalance": {
+                    "type": "string"
+                },
+                "oaUsedForHousing": {
+                    "type": "string"
+                },
+                "prGrantDate": {
+                    "type": "string"
+                },
+                "raBalance": {
+                    "type": "string"
+                },
+                "residencyStatus": {
+                    "type": "string"
+                },
+                "saBalance": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.cpfV2Input": {
+            "type": "object",
+            "properties": {
+                "dateOfBirth": {
+                    "description": "TODO: DateOfBirth should be moved to a general user profile/settings module\nrather than being specific to CPF. This is kept here temporarily for CPF calculations.",
+                    "type": "string"
+                },
+                "housingStartDate": {
+                    "type": "string"
+                },
+                "maBalance": {
+                    "type": "string"
+                },
+                "oaBalance": {
+                    "type": "string"
+                },
+                "oaUsedForHousing": {
+                    "type": "string"
+                },
+                "prGrantDate": {
+                    "type": "string"
+                },
+                "raBalance": {
+                    "type": "string"
+                },
+                "residencyStatus": {
+                    "type": "string"
+                },
+                "saBalance": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.expenseCreateInput": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "payee": {
+                    "type": "string"
+                },
+                "sourceLiabilityId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.expenseV2Input": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "payee": {
+                    "type": "string"
+                },
+                "sourceLiabilityId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.incomeAllocationCreateDTO": {
+            "type": "object",
+            "properties": {
+                "allocationType": {
+                    "type": "string"
+                },
+                "allocationValue": {
+                    "type": "string"
+                },
+                "targetCashAccountId": {
+                    "type": "string"
+                },
+                "targetInvestmentId": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.incomeAllocationV2DTO": {
+            "type": "object",
+            "properties": {
+                "allocationType": {
+                    "type": "string"
+                },
+                "allocationValue": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "incomeId": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "targetCashAccountId": {
+                    "type": "string"
+                },
+                "targetInvestmentId": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.incomeV2Input": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.investmentV2Input": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "currentValue": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.liabilityCreateInput": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "currentBalance": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "interestRateApr": {
+                    "type": "string"
+                },
+                "minimumPayment": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "repaymentStrategy": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.liabilityInput": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "currentBalance": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "interestRateApr": {
+                    "type": "string"
+                },
+                "minimumPayment": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "repaymentStrategy": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.scenarioEventV2DTO": {
             "type": "object",
             "properties": {
                 "description": {
@@ -735,25 +4012,16 @@ const docTemplate = `{
                 "displayIcon": {
                     "type": "string"
                 },
-                "display_color": {
-                    "type": "string"
-                },
-                "display_icon": {
-                    "type": "string"
-                },
                 "id": {
                     "type": "string"
                 },
                 "impacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.scenarioImpactInput"
+                        "$ref": "#/definitions/handlers.scenarioImpactV2DTO"
                     }
                 },
                 "isIncluded": {
-                    "type": "boolean"
-                },
-                "is_included": {
                     "type": "boolean"
                 },
                 "name": {
@@ -762,13 +4030,7 @@ const docTemplate = `{
                 "occursOn": {
                     "type": "string"
                 },
-                "occurs_on": {
-                    "type": "string"
-                },
                 "scenarioId": {
-                    "type": "string"
-                },
-                "scenario_id": {
                     "type": "string"
                 },
                 "tags": {
@@ -779,71 +4041,327 @@ const docTemplate = `{
                 }
             }
         },
-        "cmd_server_handlers.scenarioImpactInput": {
+        "handlers.scenarioImpactV2DTO": {
             "type": "object",
             "properties": {
                 "amount": {
                     "type": "integer"
                 },
                 "cadence": {
-                    "type": "string"
+                    "$ref": "#/definitions/common.Frequency"
                 },
                 "currency": {
                     "type": "string"
                 },
-                "endMonth": {
-                    "type": "string"
-                },
-                "end_month": {
+                "endDate": {
                     "type": "string"
                 },
                 "impactKind": {
                     "type": "string"
                 },
-                "impact_kind": {
-                    "type": "string"
-                },
                 "notes": {
                     "type": "string"
                 },
-                "startMonth": {
+                "startDate": {
                     "type": "string"
                 },
-                "start_month": {
+                "targetAssetId": {
+                    "description": "Typed target IDs (only one should be set per impact)",
+                    "type": "string"
+                },
+                "targetCashAccountId": {
+                    "type": "string"
+                },
+                "targetExpenseId": {
                     "type": "string"
                 },
                 "targetId": {
                     "type": "string"
                 },
+                "targetIncomeId": {
+                    "type": "string"
+                },
+                "targetInvestmentId": {
+                    "type": "string"
+                },
+                "targetLiabilityId": {
+                    "type": "string"
+                },
                 "targetType": {
-                    "type": "string"
-                },
-                "target_id": {
-                    "type": "string"
-                },
-                "target_type": {
+                    "description": "Computed field for convenience (read-only in response)",
                     "type": "string"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial.ImpactEstimate": {
+        "handlers.stopAllocationDTO": {
             "type": "object",
             "properties": {
-                "description": {
+                "endDate": {
+                    "description": "ISO 8601 format (e.g., \"2031-03-31T23:59:59Z\")",
                     "type": "string"
-                },
-                "monthly_change": {
-                    "type": "number"
-                },
-                "net_worth_change": {
-                    "type": "number"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial.ProposedAction": {
+        "handlers.stopInput": {
+            "type": "object",
+            "properties": {
+                "endDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "llm.ChatMessage": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Message content",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Optional name for tool messages",
+                    "type": "string"
+                },
+                "role": {
+                    "description": "\"user\", \"assistant\", \"system\", \"tool\"",
+                    "type": "string"
+                },
+                "tool_call_id": {
+                    "description": "ID of tool call this message responds to",
+                    "type": "string"
+                },
+                "tool_calls": {
+                    "description": "Tool calls in this message",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/llm.ToolCall"
+                    }
+                }
+            }
+        },
+        "llm.FunctionCall": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "description": "JSON string of function arguments",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Function name (e.g., \"create_asset\")",
+                    "type": "string"
+                }
+            }
+        },
+        "llm.ToolCall": {
+            "type": "object",
+            "properties": {
+                "function": {
+                    "description": "Function details",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/llm.FunctionCall"
+                        }
+                    ]
+                },
+                "id": {
+                    "description": "Unique identifier for this tool call",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Always \"function\" for function calls",
+                    "type": "string"
+                }
+            }
+        },
+        "repository.CPFAccount": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "dateOfBirth": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "description": "When this version ends (NULL = ongoing)",
+                    "type": "string"
+                },
+                "housingStartDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "maBalance": {
+                    "description": "MediSave Account balance",
+                    "type": "number"
+                },
+                "oaBalance": {
+                    "description": "Ordinary Account balance",
+                    "type": "number"
+                },
+                "oaUsedForHousing": {
+                    "description": "OA amount used for housing (for accrued interest)",
+                    "type": "number"
+                },
+                "parentId": {
+                    "description": "Groups versions of same logical account",
+                    "type": "string"
+                },
+                "prGrantDate": {
+                    "type": "string"
+                },
+                "raBalance": {
+                    "description": "Retirement Account balance (only after age 55)",
+                    "type": "number"
+                },
+                "residencyStatus": {
+                    "description": "'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'",
+                    "type": "string"
+                },
+                "saBalance": {
+                    "description": "Special Account balance",
+                    "type": "number"
+                },
+                "startDate": {
+                    "description": "When this version starts",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.CashAsset": {
+            "type": "object",
+            "properties": {
+                "accountType": {
+                    "description": "'checking', 'savings', 'money_market'",
+                    "type": "string"
+                },
+                "balance": {
+                    "type": "number"
+                },
+                "bankName": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "description": "NULL means ongoing",
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "interestRate": {
+                    "type": "number"
+                },
+                "isAccumulator": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "description": "Precise start date (day-level)",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.NonCashAsset": {
+            "type": "object",
+            "properties": {
+                "annualGrowthRate": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "currentValue": {
+                    "type": "number"
+                },
+                "endDate": {
+                    "description": "NULL means ongoing",
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "description": "Precise start date (day-level)",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "session.ConversationStep": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "step_id": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "tool_calls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tool_name": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"user_message\", \"llm_response\", \"tool_execution\"",
+                    "type": "string"
+                }
+            }
+        },
+        "session.PendingToolCall": {
             "type": "object",
             "properties": {
                 "call_id": {
+                    "type": "string"
+                },
+                "created_at": {
                     "type": "string"
                 },
                 "dependencies": {
@@ -852,9 +4370,6 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
-                "estimated_impact": {
-                    "$ref": "#/definitions/financial-chat-system_backend_internal_financial.ImpactEstimate"
-                },
                 "friendly_description": {
                     "type": "string"
                 },
@@ -862,125 +4377,68 @@ const docTemplate = `{
                     "type": "object",
                     "additionalProperties": true
                 },
+                "preview": {
+                    "type": "string"
+                },
                 "tool_name": {
                     "type": "string"
-                },
-                "warnings": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial.Warning"
-                    }
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial.Warning": {
+        "session.SessionState": {
             "type": "object",
             "properties": {
-                "message": {
+                "chat_id": {
                     "type": "string"
                 },
-                "severity": {
-                    "description": "\"low\", \"medium\", \"high\"",
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_repository.ScenarioEvent": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "displayColor": {
-                    "type": "string"
-                },
-                "displayIcon": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "impacts": {
+                "conversation_flow": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_repository.ScenarioImpact"
+                        "$ref": "#/definitions/session.ConversationStep"
                     }
                 },
-                "isIncluded": {
-                    "type": "boolean"
-                },
-                "name": {
+                "created_at": {
                     "type": "string"
                 },
-                "occursOn": {
+                "last_asset_id": {
                     "type": "string"
                 },
-                "scenarioID": {
+                "last_liability_id": {
                     "type": "string"
                 },
-                "tags": {
+                "last_property_plan_id": {
+                    "type": "string"
+                },
+                "messages": {
                     "type": "array",
                     "items": {
+                        "$ref": "#/definitions/llm.ChatMessage"
+                    }
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
                         "type": "string"
                     }
                 },
-                "updatedAt": {
+                "pending_actions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/session.PendingToolCall"
+                    }
+                },
+                "session_id": {
                     "type": "string"
                 },
-                "userID": {
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_repository.ScenarioImpact": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "integer",
-                    "format": "int64"
-                },
-                "cadence": {
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "currency": {
-                    "type": "string"
-                },
-                "endMonth": {
-                    "type": "string"
-                },
-                "eventID": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "impactKind": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "startMonth": {
-                    "type": "string"
-                },
-                "targetID": {
-                    "type": "string"
-                },
-                "targetType": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_timeline.EventImpactSummary": {
+        "timeline.EventImpactSummary": {
             "type": "object",
             "properties": {
                 "amountAnnual": {
@@ -1005,7 +4463,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_timeline.GrowthApplied": {
+        "timeline.GrowthApplied": {
             "type": "object",
             "properties": {
                 "annualRatePct": {
@@ -1016,7 +4474,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_timeline.ItemType": {
+        "timeline.ItemType": {
             "type": "string",
             "enum": [
                 "asset",
@@ -1033,7 +4491,7 @@ const docTemplate = `{
                 "ItemTypeCashAccount"
             ]
         },
-        "financial-chat-system_backend_internal_financial_timeline.TimelineItem": {
+        "timeline.TimelineItem": {
             "type": "object",
             "properties": {
                 "adjAnnualAmt": {
@@ -1053,17 +4511,10 @@ const docTemplate = `{
                 "category": {
                     "type": "string"
                 },
-                "createdMonth": {
-                    "description": "Month when created (1-12)",
-                    "type": "integer"
-                },
-                "createdYear": {
-                    "type": "integer"
-                },
                 "eventImpacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.EventImpactSummary"
+                        "$ref": "#/definitions/timeline.EventImpactSummary"
                     }
                 },
                 "growthRate": {
@@ -1079,7 +4530,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "itemType": {
-                    "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.ItemType"
+                    "$ref": "#/definitions/timeline.ItemType"
                 },
                 "name": {
                     "type": "string"
@@ -1097,10 +4548,17 @@ const docTemplate = `{
                 },
                 "sourceFrequency": {
                     "type": "string"
+                },
+                "startMonth": {
+                    "description": "Month when item started (1-12)",
+                    "type": "integer"
+                },
+                "startYear": {
+                    "type": "integer"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_timeline.TimelineMonth": {
+        "timeline.TimelineMonth": {
             "type": "object",
             "properties": {
                 "accumulatedCashEnd": {
@@ -1115,25 +4573,25 @@ const docTemplate = `{
                 "assets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
+                        "$ref": "#/definitions/timeline.TimelineItem"
                     }
                 },
                 "cashAccounts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
+                        "$ref": "#/definitions/timeline.TimelineItem"
                     }
                 },
                 "expenses": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
+                        "$ref": "#/definitions/timeline.TimelineItem"
                     }
                 },
                 "growthApplied": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied"
+                        "$ref": "#/definitions/timeline.GrowthApplied"
                     }
                 },
                 "hasOverrides": {
@@ -1142,7 +4600,7 @@ const docTemplate = `{
                 "income": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
+                        "$ref": "#/definitions/timeline.TimelineItem"
                     }
                 },
                 "interestEarned": {
@@ -1151,7 +4609,7 @@ const docTemplate = `{
                 "liabilities": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
+                        "$ref": "#/definitions/timeline.TimelineItem"
                     }
                 },
                 "month": {
@@ -1183,13 +4641,13 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_timeline.TimelineResponse": {
+        "timeline.TimelineResponse": {
             "type": "object",
             "properties": {
                 "months": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineMonth"
+                        "$ref": "#/definitions/timeline.TimelineMonth"
                     }
                 },
                 "resolution": {
@@ -1209,12 +4667,12 @@ const docTemplate = `{
                 "years": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineYear"
+                        "$ref": "#/definitions/timeline.TimelineYear"
                     }
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_timeline.TimelineYear": {
+        "timeline.TimelineYear": {
             "type": "object",
             "properties": {
                 "accumulatedCashEnd": {
@@ -1236,26 +4694,26 @@ const docTemplate = `{
                 "assets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
+                        "$ref": "#/definitions/timeline.TimelineItem"
                     }
                 },
                 "cashAccounts": {
-                    "description": "Cash accounts from cash_accounts table",
+                    "description": "Cash accounts from finance_cash_accounts table",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
+                        "$ref": "#/definitions/timeline.TimelineItem"
                     }
                 },
                 "expenses": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
+                        "$ref": "#/definitions/timeline.TimelineItem"
                     }
                 },
                 "growthApplied": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied"
+                        "$ref": "#/definitions/timeline.GrowthApplied"
                     }
                 },
                 "hasOverrides": {
@@ -1264,7 +4722,7 @@ const docTemplate = `{
                 "income": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
+                        "$ref": "#/definitions/timeline.TimelineItem"
                     }
                 },
                 "interestEarned": {
@@ -1274,7 +4732,7 @@ const docTemplate = `{
                 "liabilities": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
+                        "$ref": "#/definitions/timeline.TimelineItem"
                     }
                 },
                 "netCash": {
@@ -1290,23 +4748,17 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse": {
+        "timeline_v2.CPFAssetResponse": {
             "type": "object",
             "properties": {
-                "adjBalance": {
-                    "type": "number"
-                },
                 "balance": {
                     "type": "number"
                 },
                 "category": {
                     "type": "string"
                 },
-                "createdMonth": {
-                    "type": "integer"
-                },
-                "createdYear": {
-                    "type": "integer"
+                "eventAdjBalance": {
+                    "type": "number"
                 },
                 "id": {
                     "type": "string"
@@ -1322,28 +4774,37 @@ const docTemplate = `{
                 },
                 "startDate": {
                     "type": "string"
+                },
+                "startMonth": {
+                    "type": "integer"
+                },
+                "startYear": {
+                    "type": "integer"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse": {
+        "timeline_v2.CPFContributionResponse": {
             "type": "object",
             "properties": {
-                "adjAmount": {
+                "allocationMa": {
                     "type": "number"
                 },
-                "amount": {
+                "allocationOa": {
+                    "type": "number"
+                },
+                "allocationRa": {
+                    "type": "number"
+                },
+                "allocationSa": {
                     "type": "number"
                 },
                 "category": {
                     "type": "string"
                 },
-                "createdMonth": {
-                    "type": "integer"
+                "employeeContribution": {
+                    "type": "number"
                 },
-                "createdYear": {
-                    "type": "integer"
-                },
-                "growthRate": {
+                "employerContribution": {
                     "type": "number"
                 },
                 "id": {
@@ -1360,26 +4821,29 @@ const docTemplate = `{
                 },
                 "sourceFrequency": {
                     "type": "string"
+                },
+                "startMonth": {
+                    "type": "integer"
+                },
+                "startYear": {
+                    "type": "integer"
+                },
+                "totalContribution": {
+                    "type": "number"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse": {
+        "timeline_v2.CashAssetResponse": {
             "type": "object",
             "properties": {
-                "adjBalance": {
-                    "type": "number"
-                },
                 "balance": {
                     "type": "number"
                 },
                 "category": {
                     "type": "string"
                 },
-                "createdMonth": {
-                    "type": "integer"
-                },
-                "createdYear": {
-                    "type": "integer"
+                "eventAdjBalance": {
+                    "type": "number"
                 },
                 "isAccumulator": {
                     "type": "boolean"
@@ -1392,26 +4856,26 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "startMonth": {
+                    "type": "integer"
+                },
+                "startYear": {
+                    "type": "integer"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse": {
+        "timeline_v2.ExpenseResponse": {
             "type": "object",
             "properties": {
-                "adjAmount": {
-                    "type": "number"
-                },
                 "amount": {
                     "type": "number"
                 },
                 "category": {
                     "type": "string"
                 },
-                "createdMonth": {
-                    "type": "integer"
-                },
-                "createdYear": {
-                    "type": "integer"
+                "eventAdjAmount": {
+                    "type": "number"
                 },
                 "id": {
                     "type": "string"
@@ -1427,13 +4891,65 @@ const docTemplate = `{
                 },
                 "sourceFrequency": {
                     "type": "string"
+                },
+                "sourceLiabilityId": {
+                    "description": "Link to liability this expense pays down",
+                    "type": "string"
+                },
+                "startMonth": {
+                    "type": "integer"
+                },
+                "startYear": {
+                    "type": "integer"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse": {
+        "timeline_v2.IncomeAllocationResponse": {
             "type": "object",
             "properties": {
-                "adjAmount": {
+                "allocationType": {
+                    "type": "string"
+                },
+                "allocationValue": {
+                    "type": "number"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "incomeId": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "targetCashAccountId": {
+                    "type": "string"
+                },
+                "targetInvestmentId": {
+                    "type": "string"
+                }
+            }
+        },
+        "timeline_v2.IncomeResponse": {
+            "type": "object",
+            "properties": {
+                "allocationMa": {
+                    "type": "number"
+                },
+                "allocationOa": {
+                    "description": "CPF allocation breakdown",
+                    "type": "number"
+                },
+                "allocationRa": {
+                    "type": "number"
+                },
+                "allocationSa": {
                     "type": "number"
                 },
                 "amount": {
@@ -1442,11 +4958,58 @@ const docTemplate = `{
                 "category": {
                     "type": "string"
                 },
-                "createdMonth": {
+                "employeeCpf": {
+                    "type": "number"
+                },
+                "employerCpf": {
+                    "type": "number"
+                },
+                "eventAdjAmount": {
+                    "type": "number"
+                },
+                "growthRate": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "itemType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "netTakeHomePay": {
+                    "type": "number"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "sourceFrequency": {
+                    "type": "string"
+                },
+                "startMonth": {
                     "type": "integer"
                 },
-                "createdYear": {
+                "startYear": {
                     "type": "integer"
+                },
+                "totalCpf": {
+                    "type": "number"
+                }
+            }
+        },
+        "timeline_v2.InvestmentResponse": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "eventAdjBalance": {
+                    "type": "number"
                 },
                 "growthRate": {
                     "type": "number"
@@ -1463,40 +5026,36 @@ const docTemplate = `{
                 "parentId": {
                     "type": "string"
                 },
-                "sourceFrequency": {
+                "startDate": {
                     "type": "string"
+                },
+                "startMonth": {
+                    "type": "integer"
+                },
+                "startYear": {
+                    "type": "integer"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse": {
+        "timeline_v2.LiabilityResponse": {
             "type": "object",
             "properties": {
-                "adjAnnualAmt": {
-                    "type": "number"
-                },
-                "adjMonthlyAmt": {
-                    "type": "number"
-                },
-                "annualAmt": {
+                "balance": {
+                    "description": "Point-in-time balance",
                     "type": "number"
                 },
                 "category": {
                     "type": "string"
                 },
-                "createdMonth": {
-                    "type": "integer"
-                },
-                "createdYear": {
-                    "type": "integer"
+                "eventAdjBalance": {
+                    "description": "Adjusted balance with scenario events",
+                    "type": "number"
                 },
                 "id": {
                     "type": "string"
                 },
                 "itemType": {
                     "type": "string"
-                },
-                "monthlyAmt": {
-                    "type": "number"
                 },
                 "name": {
                     "type": "string"
@@ -1506,10 +5065,16 @@ const docTemplate = `{
                 },
                 "sourceAmount": {
                     "type": "number"
+                },
+                "startMonth": {
+                    "type": "integer"
+                },
+                "startYear": {
+                    "type": "integer"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse": {
+        "timeline_v2.MonthDetailResponse": {
             "type": "object",
             "properties": {
                 "accumulatorAccountId": {
@@ -1524,55 +5089,74 @@ const docTemplate = `{
                 "cashAssets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse"
+                        "$ref": "#/definitions/timeline_v2.CashAssetResponse"
                     }
                 },
                 "cpfAssets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse"
+                        "$ref": "#/definitions/timeline_v2.CPFAssetResponse"
                     }
                 },
                 "cpfContributions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse"
+                        "$ref": "#/definitions/timeline_v2.CPFContributionResponse"
                     }
                 },
                 "expenses": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse"
+                        "$ref": "#/definitions/timeline_v2.ExpenseResponse"
                     }
                 },
                 "income": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse"
+                        "$ref": "#/definitions/timeline_v2.IncomeResponse"
+                    }
+                },
+                "incomeAllocations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.IncomeAllocationResponse"
+                    }
+                },
+                "investments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.InvestmentResponse"
                     }
                 },
                 "liabilities": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse"
+                        "$ref": "#/definitions/timeline_v2.LiabilityResponse"
                     }
                 },
                 "month": {
                     "type": "integer"
                 },
                 "netCash": {
+                    "description": "income - employee CPF - expenses - investments (monthly)",
+                    "type": "number"
+                },
+                "netInvestments": {
+                    "description": "employee CPF contribution (monthly)",
                     "type": "number"
                 },
                 "netSavings": {
+                    "description": "Savings breakdown",
                     "type": "number"
                 },
                 "netWorth": {
+                    "description": "Other totals",
                     "type": "number"
                 },
                 "nonCashAssets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse"
+                        "$ref": "#/definitions/timeline_v2.NonCashAssetResponse"
                     }
                 },
                 "year": {
@@ -1580,23 +5164,17 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse": {
+        "timeline_v2.NonCashAssetResponse": {
             "type": "object",
             "properties": {
-                "adjBalance": {
-                    "type": "number"
-                },
                 "balance": {
                     "type": "number"
                 },
                 "category": {
                     "type": "string"
                 },
-                "createdMonth": {
-                    "type": "integer"
-                },
-                "createdYear": {
-                    "type": "integer"
+                "eventAdjBalance": {
+                    "type": "number"
                 },
                 "id": {
                     "type": "string"
@@ -1612,16 +5190,22 @@ const docTemplate = `{
                 },
                 "startDate": {
                     "type": "string"
+                },
+                "startMonth": {
+                    "type": "integer"
+                },
+                "startYear": {
+                    "type": "integer"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse": {
+        "timeline_v2.TimelineAnnualChartResponse": {
             "type": "object",
             "properties": {
                 "months": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary"
+                        "$ref": "#/definitions/timeline_v2.TimelineMonthlySummary"
                     }
                 },
                 "resolution": {
@@ -1636,12 +5220,12 @@ const docTemplate = `{
                 "years": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary"
+                        "$ref": "#/definitions/timeline_v2.TimelineYearlySummary"
                     }
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary": {
+        "timeline_v2.TimelineMonthlySummary": {
             "type": "object",
             "properties": {
                 "allMonthsIndex": {
@@ -1655,18 +5239,18 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response": {
+        "timeline_v2.TimelineV2Response": {
             "type": "object",
             "properties": {
                 "months": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse"
+                        "$ref": "#/definitions/timeline_v2.MonthDetailResponse"
                     }
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary": {
+        "timeline_v2.TimelineYearlySummary": {
             "type": "object",
             "properties": {
                 "allYearsIndex": {
@@ -1677,182 +5261,6 @@ const docTemplate = `{
                 },
                 "year": {
                     "type": "integer"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_llm.ChatMessage": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "description": "Message content",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Optional name for tool messages",
-                    "type": "string"
-                },
-                "role": {
-                    "description": "\"user\", \"assistant\", \"system\", \"tool\"",
-                    "type": "string"
-                },
-                "tool_call_id": {
-                    "description": "ID of tool call this message responds to",
-                    "type": "string"
-                },
-                "tool_calls": {
-                    "description": "Tool calls in this message",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_llm.ToolCall"
-                    }
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_llm.FunctionCall": {
-            "type": "object",
-            "properties": {
-                "arguments": {
-                    "description": "JSON string of function arguments",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Function name (e.g., \"create_asset\")",
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_llm.ToolCall": {
-            "type": "object",
-            "properties": {
-                "function": {
-                    "description": "Function details",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_llm.FunctionCall"
-                        }
-                    ]
-                },
-                "id": {
-                    "description": "Unique identifier for this tool call",
-                    "type": "string"
-                },
-                "type": {
-                    "description": "Always \"function\" for function calls",
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_session.ConversationStep": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "result": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "step_id": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                },
-                "tool_calls": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "tool_name": {
-                    "type": "string"
-                },
-                "type": {
-                    "description": "\"user_message\", \"llm_response\", \"tool_execution\"",
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_session.PendingToolCall": {
-            "type": "object",
-            "properties": {
-                "call_id": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "dependencies": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "friendly_description": {
-                    "type": "string"
-                },
-                "parameters": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "preview": {
-                    "type": "string"
-                },
-                "tool_name": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_session.SessionState": {
-            "type": "object",
-            "properties": {
-                "chat_id": {
-                    "type": "string"
-                },
-                "conversation_flow": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_session.ConversationStep"
-                    }
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "last_asset_id": {
-                    "type": "string"
-                },
-                "last_liability_id": {
-                    "type": "string"
-                },
-                "last_property_plan_id": {
-                    "type": "string"
-                },
-                "messages": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_llm.ChatMessage"
-                    }
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "pending_actions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_session.PendingToolCall"
-                    }
-                },
-                "session_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
                 }
             }
         }

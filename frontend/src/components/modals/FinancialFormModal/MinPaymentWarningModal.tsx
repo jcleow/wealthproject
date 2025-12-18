@@ -24,11 +24,17 @@ export function MinPaymentWarningModal({
       isOpen={isOpen}
       onClose={onCancel}
       overlayClassName="bg-black/60"
-      className="mx-4 w-full max-w-sm rounded-xl border border-white/[0.08] bg-[#0a0a0a]"
+      className={`w-full max-w-sm
+mx-4
+rounded-xl border border-white/[0.08]
+bg-[#0a0a0a]`}
     >
       <div className="p-6">
         <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20">
+          <div className={`flex items-center justify-center
+h-10 w-10
+rounded-full
+bg-amber-500/20`}>
             <AlertTriangle className="h-5 w-5 text-amber-400" />
           </div>
           <h3 className="text-lg font-semibold text-white">Lower Minimum Payment</h3>
@@ -42,7 +48,10 @@ export function MinPaymentWarningModal({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg px-4 py-2 text-gray-400 transition-colors hover:text-white"
+            className={`px-4 py-2
+rounded-lg
+text-gray-400 hover:text-white
+transition-colors`}
           >
             Cancel
           </button>
@@ -50,7 +59,11 @@ export function MinPaymentWarningModal({
             type="button"
             onClick={onConfirm}
             disabled={isSaving}
-            className="rounded-lg bg-amber-500 px-4 py-2 text-white transition-colors hover:bg-amber-600 disabled:bg-gray-600"
+            className={`px-4 py-2
+rounded-lg
+bg-amber-500 hover:bg-amber-600 disabled:bg-gray-600
+text-white
+transition-colors`}
           >
             {isSaving ? 'Saving...' : 'Continue'}
           </button>

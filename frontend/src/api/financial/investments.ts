@@ -12,7 +12,7 @@ const toInvestment = toAsset
 
 export async function listInvestments(params?: PaginationParams): Promise<PaginatedResponse<Investment>> {
   const path = buildPaginatedPath('/investments', params)
-  const data = await apiClient.get<any>(path)
+  const data = await apiClient.get<any>(path, undefined, { baseUrl: '/api/v2' })
   return normalizePaginatedResponse<Investment>(data, toInvestment, params)
 }
 

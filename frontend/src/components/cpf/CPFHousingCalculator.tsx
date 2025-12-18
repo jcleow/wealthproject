@@ -28,8 +28,14 @@ function PropertyInputNode({ data }: { data: {
   onChange: (field: string, value: number | string) => void
 }}) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[#0f1728]/95 p-4 shadow-xl backdrop-blur min-w-[240px]">
-      <div className="mb-3 text-xs font-medium uppercase tracking-wide text-blue-400">
+    <div className={`min-w-[240px]
+p-4
+rounded-xl border border-white/[0.08]
+bg-[#0f1728]/95
+shadow-xl backdrop-blur`}>
+      <div className={`mb-3
+text-xs font-medium tracking-wide text-blue-400
+uppercase`}>
         Property Details
       </div>
 
@@ -39,7 +45,12 @@ function PropertyInputNode({ data }: { data: {
           <select
             value={data.propertyType}
             onChange={(e) => data.onChange('propertyType', e.target.value)}
-            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 px-3 text-sm text-white transition focus:border-blue-500/50 focus:outline-none"
+            className={`w-full
+py-2 px-3
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.02]
+text-sm text-white
+transition`}
           >
             <option value="bto">BTO (New HDB)</option>
             <option value="resale">HDB Resale</option>
@@ -55,7 +66,12 @@ function PropertyInputNode({ data }: { data: {
               type="number"
               value={data.purchasePrice}
               onChange={(e) => data.onChange('purchasePrice', Number(e.target.value))}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 pl-7 pr-3 text-white transition focus:border-blue-500/50 focus:outline-none"
+              className={`w-full
+py-2 pl-7 pr-3
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.02]
+text-white
+transition`}
             />
           </div>
         </div>
@@ -68,7 +84,12 @@ function PropertyInputNode({ data }: { data: {
               type="number"
               value={data.valuation}
               onChange={(e) => data.onChange('valuation', Number(e.target.value))}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 pl-7 pr-3 text-white transition focus:border-blue-500/50 focus:outline-none"
+              className={`w-full
+py-2 pl-7 pr-3
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.02]
+text-white
+transition`}
             />
           </div>
         </div>
@@ -79,7 +100,12 @@ function PropertyInputNode({ data }: { data: {
             <select
               value={data.loanType}
               onChange={(e) => data.onChange('loanType', e.target.value)}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 px-3 text-sm text-white transition focus:border-blue-500/50 focus:outline-none"
+              className={`w-full
+py-2 px-3
+rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
+bg-white/[0.02]
+text-sm text-white
+transition`}
             >
               {data.propertyType === 'resale' && <option value="hdb">HDB Loan (2.6%)</option>}
               <option value="bank">Bank Loan (~4%)</option>
@@ -100,10 +126,16 @@ function CPFBalanceNode({ data }: { data: {
   onChange: (field: string, value: number) => void
 }}) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[#0f1728]/95 p-4 shadow-xl backdrop-blur min-w-[200px]">
+    <div className={`min-w-[200px]
+p-4
+rounded-xl border border-white/[0.08]
+bg-[#0f1728]/95
+shadow-xl backdrop-blur`}>
       <Handle type="target" position={Position.Left} className="!bg-emerald-500 !w-3 !h-3" />
 
-      <div className="mb-3 text-xs font-medium uppercase tracking-wide text-emerald-400">
+      <div className={`mb-3
+text-xs font-medium tracking-wide text-emerald-400
+uppercase`}>
         Your CPF Balances
       </div>
 
@@ -116,7 +148,12 @@ function CPFBalanceNode({ data }: { data: {
               type="number"
               value={data.oaBalance}
               onChange={(e) => data.onChange('oaBalance', Number(e.target.value))}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 pl-7 pr-3 text-white transition focus:border-emerald-500/50 focus:outline-none"
+              className={`w-full
+py-2 pl-7 pr-3
+rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-white
+transition`}
             />
           </div>
         </div>
@@ -129,7 +166,12 @@ function CPFBalanceNode({ data }: { data: {
               type="number"
               value={data.totalCpf}
               onChange={(e) => data.onChange('totalCpf', Number(e.target.value))}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] py-2 pl-7 pr-3 text-white transition focus:border-emerald-500/50 focus:outline-none"
+              className={`w-full
+py-2 pl-7 pr-3
+rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+bg-white/[0.02]
+text-white
+transition`}
             />
           </div>
         </div>
@@ -166,10 +208,16 @@ function LimitsNode({ data }: { data: {
   const showLimits = data.propertyType !== 'bto'
 
   return (
-    <div className="rounded-xl border border-violet-500/30 bg-violet-500/10 p-4 shadow-xl backdrop-blur min-w-[200px]">
+    <div className={`min-w-[200px]
+p-4
+rounded-xl border border-violet-500/30
+bg-violet-500/10
+shadow-xl backdrop-blur`}>
       <Handle type="target" position={Position.Left} className="!bg-violet-500 !w-3 !h-3" />
 
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-violet-400">
+      <div className={`mb-2
+text-xs font-medium tracking-wide text-violet-400
+uppercase`}>
         CPF Usage Limits
       </div>
 
@@ -404,12 +452,15 @@ export function CPFHousingCalculator({ className }: CPFHousingCalculatorProps) {
       >
         <Background color="#1e293b" gap={20} size={1} />
         <Controls
-          className="!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white"
+          className={`!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white`}
         />
       </ReactFlow>
 
       {/* Summary Footer */}
-      <div className="border-t border-white/[0.06] px-4 py-3 flex items-center justify-between text-sm">
+      <div className={`flex items-center justify-between
+px-4 py-3
+border-t border-white/[0.06]
+text-sm`}>
         <div className="flex gap-6">
           <div>
             <span className="text-slate-400">Valuation Limit: </span>

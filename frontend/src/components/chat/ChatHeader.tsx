@@ -16,7 +16,11 @@ export default function ChatHeader({ onToggleHistory, isHistoryOpen: _isHistoryO
       {/* Header with branding */}
       <div className="mb-6 flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/5 bg-gradient-to-br from-zinc-800 to-black shadow-glow">
+          <div className={`flex items-center justify-center
+h-10 w-10
+rounded-2xl border border-white/5
+bg-gradient-to-br from-zinc-800 to-black
+shadow-glow`}>
             <Sparkles className="h-5 w-5 text-white" />
           </div>
           <div>
@@ -35,7 +39,11 @@ export default function ChatHeader({ onToggleHistory, isHistoryOpen: _isHistoryO
       </div>
 
       {/* Navigation tabs */}
-      <nav className="flex gap-1 rounded-xl border border-white/5 bg-white/5 p-1 backdrop-blur-md">
+      <nav className={`flex
+gap-1 p-1
+rounded-xl border border-white/5
+bg-white/5
+backdrop-blur-md`}>
         <button
           type="button"
           onClick={() => setActiveTab('chat')}

@@ -99,7 +99,10 @@ export function SAShieldingPlanner({ profile, className }: SAShieldingPlannerPro
       {/* Strategy Overview */}
       <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/20">
+          <div className={`flex items-center justify-center
+h-10 w-10
+rounded-lg
+bg-violet-500/20`}>
             <Shield className="h-5 w-5 text-violet-400" />
           </div>
           <div>
@@ -111,7 +114,9 @@ export function SAShieldingPlanner({ profile, className }: SAShieldingPlannerPro
         </div>
 
         {/* Info Banner */}
-        <div className="rounded-lg bg-violet-500/5 border border-violet-500/20 p-4 mb-6">
+        <div className={`p-4 mb-6
+rounded-lg border border-violet-500/20
+bg-violet-500/5`}>
           <div className="flex items-start gap-3">
             <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-violet-400" />
             <div className="text-xs text-slate-300">
@@ -150,7 +155,9 @@ export function SAShieldingPlanner({ profile, className }: SAShieldingPlannerPro
             <p className="mt-1 text-xs text-slate-500">Via 6-month T-Bills</p>
           </div>
 
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <div className={`p-4
+rounded-lg border border-emerald-500/30
+bg-emerald-500/10`}>
             <div className="flex items-center gap-2 text-xs text-emerald-300">
               <TrendingUp className="h-3.5 w-3.5" />
               <span>10-Year Benefit</span>
@@ -208,7 +215,10 @@ export function SAShieldingPlanner({ profile, className }: SAShieldingPlannerPro
                   if (!active || !payload?.[0]) return null
                   const data = payload[0].payload
                   return (
-                    <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur">
+                    <div className={`px-3 py-2
+rounded-lg border border-white/10
+bg-[#0f1728]/95
+shadow-xl backdrop-blur`}>
                       <p className="text-xs font-bold text-slate-400">
                         Age {data.age} ({data.year})
                       </p>
@@ -329,7 +339,9 @@ export function SAShieldingPlanner({ profile, className }: SAShieldingPlannerPro
           </div>
 
           {/* With Shielding */}
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-4">
+          <div className={`p-4
+rounded-lg border border-emerald-500/30
+bg-emerald-500/5`}>
             <p className="text-xs font-medium text-emerald-300">With SA Shielding</p>
             <div className="mt-4 space-y-3">
               <ComparisonRow
@@ -408,7 +420,10 @@ export function SAShieldingPlanner({ profile, className }: SAShieldingPlannerPro
         </div>
 
         {/* Warning */}
-        <div className="mt-4 flex items-start gap-3 rounded-lg bg-amber-500/5 border border-amber-500/20 p-3">
+        <div className={`flex items-start
+mt-4 gap-3 p-3
+rounded-lg border border-amber-500/20
+bg-amber-500/5`}>
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
           <p className="text-xs text-slate-300">
             <span className="font-medium text-amber-300">Important: </span>
@@ -459,7 +474,11 @@ function Step({
 }) {
   return (
     <div className="flex gap-4">
-      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-sm font-semibold text-violet-400">
+      <div className={`flex flex-shrink-0 items-center justify-center
+h-8 w-8
+rounded-full
+bg-violet-500/20
+text-sm font-semibold text-violet-400`}>
         {number}
       </div>
       <div>

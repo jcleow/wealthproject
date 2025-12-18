@@ -40,8 +40,51 @@ func NewCashAccountV2Handler(store *repo.Store) *CashAccountV2Handler {
 	}
 }
 
+// GET /api/v2/cash-accounts
+// HandleList lists cash accounts for the user.
+// @Summary List cash accounts (v2)
+// @Description Returns paginated cash accounts for the authenticated user
+// @Tags Cash Accounts V2
+// @Produce json
+// @Param limit query int false "Max items to return (-1 for all)"
+// @Param offset query int false "Number of items to skip"
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cash-accounts [get]
+func (h *CashAccountV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	pagination := parsePaginationV2(r)
+	result, err := h.store.ListCashAssets(r.Context(), userID, repo.DateRangeOptions{}, pagination)
+	if err != nil {
+		log.Printf("cashaccount.List error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
 // PUT /api/v2/cash-accounts/{id}
 // HandleUpdate updates a cash account with versioning.
+// @Summary Update a cash account (v2)
+// @Description Updates a cash account with versioning support
+// @Tags Cash Accounts V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Cash account ID"
+// @Param cashAccount body cashAccountV2Input true "Cash account data"
+// @Success 200 {object} repo.CashAsset
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cash-accounts/{id} [put]
 func (h *CashAccountV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -112,6 +155,16 @@ func (h *CashAccountV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Reque
 
 // DELETE /api/v2/cash-accounts/{id}
 // HandleDelete removes a cash account.
+// @Summary Delete a cash account (v2)
+// @Description Deletes a cash account and descendant versions
+// @Tags Cash Accounts V2
+// @Param id path string true "Cash account ID"
+// @Success 204 "No Content"
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cash-accounts/{id} [delete]
 func (h *CashAccountV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -136,6 +189,20 @@ func (h *CashAccountV2Handler) HandleDelete(w http.ResponseWriter, r *http.Reque
 
 // POST /api/v2/cash-accounts/{id}/stop
 // HandleStop sets an end date for a cash account and cascades to allocations.
+// @Summary Stop a cash account (v2)
+// @Description Sets the endDate on a cash account (soft delete) and cascades to allocations
+// @Tags Cash Accounts V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Cash account ID"
+// @Param body body stopInput true "Stop input with endDate"
+// @Success 200 {object} repo.CashAsset
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cash-accounts/{id}/stop [post]
 func (h *CashAccountV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

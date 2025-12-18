@@ -139,7 +139,12 @@ export function LineItem({
                 <Tooltip.Content
                   side="top"
                   sideOffset={6}
-                  className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+                  className={`z-50
+px-2 py-1
+rounded-md
+bg-black
+text-xs text-white
+shadow-lg`}
                 >
                   Accumulator - receives surplus cash
                 </Tooltip.Content>
@@ -164,7 +169,11 @@ export function LineItem({
                     onClick={() => {
                       setActiveAnnualizationId(activeAnnualizationId === itemId ? null : itemId)
                     }}
-                    className="flex h-3.5 w-3.5 items-center justify-center rounded text-slate-600 transition hover:text-slate-300"
+                    className={`flex items-center justify-center
+h-3.5 w-3.5
+rounded
+text-slate-600 hover:text-slate-300
+transition`}
                     aria-label="Show annualized source"
                   >
                     <Info className="h-2.5 w-2.5" />
@@ -173,7 +182,12 @@ export function LineItem({
                 <Tooltip.Content
                   side="top"
                   sideOffset={6}
-                  className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+                  className={`z-50
+px-2 py-1
+rounded-md
+bg-black
+text-xs text-white
+shadow-lg`}
                 >
                   {annualizationLabel}
                 </Tooltip.Content>
@@ -185,7 +199,11 @@ export function LineItem({
             <button
               type="button"
               onClick={() => onToggleExpand(itemId)}
-              className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded text-slate-600 transition hover:text-slate-300"
+              className={`flex flex-shrink-0 items-center justify-center
+h-3.5 w-3.5
+rounded
+text-slate-600 hover:text-slate-300
+transition`}
               aria-label={isExpanded ? 'Collapse scenarios' : 'Expand scenarios'}
             >
               <ChevronRight className={`h-2.5 w-2.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
@@ -196,7 +214,12 @@ export function LineItem({
             <button
               type="button"
               onClick={() => onOpenPropertyPlanner(propertyLink)}
-              className="flex h-4 w-4 items-center justify-center rounded bg-white/5 text-blue-300 transition hover:bg-white/10"
+              className={`flex items-center justify-center
+h-4 w-4
+rounded
+bg-white/5 hover:bg-white/10
+text-blue-300
+transition`}
               title="Open property scenario"
             >
               <Home className="h-2.5 w-2.5" />
@@ -220,7 +243,11 @@ export function LineItem({
             {item.itemType === 'cash_account' && !item.isAccumulator && onSetAccumulator && (
               <button
                 onClick={handleSetAccumulatorClick}
-                className="rounded p-1 text-slate-500 transition-colors hover:bg-amber-500/20 hover:text-amber-300"
+                className={`p-1
+rounded
+hover:bg-amber-500/20
+text-slate-500 hover:text-amber-300
+transition-colors`}
                 type="button"
                 title="Set as accumulator"
               >
@@ -234,7 +261,11 @@ export function LineItem({
                   e.stopPropagation()
                   onManageAllocations(item)
                 }}
-                className="rounded p-1 text-slate-500 transition-colors hover:bg-purple-500/20 hover:text-purple-300"
+                className={`p-1
+rounded
+hover:bg-purple-500/20
+text-slate-500 hover:text-purple-300
+transition-colors`}
                 type="button"
                 title="Manage allocations"
               >
@@ -243,7 +274,11 @@ export function LineItem({
             )}
             <button
               onClick={handleEditClick}
-              className="rounded p-1 text-slate-500 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+              className={`p-1
+rounded
+hover:bg-blue-500/20
+text-slate-500 hover:text-blue-300
+transition-colors`}
               type="button"
               title="Edit"
             >
@@ -251,7 +286,11 @@ export function LineItem({
             </button>
             <button
               onClick={handleDeleteClick}
-              className="rounded p-1 text-slate-500 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+              className={`p-1
+rounded
+hover:bg-rose-500/20
+text-slate-500 hover:text-rose-300
+transition-colors`}
               type="button"
               title="Delete"
             >
@@ -282,7 +321,11 @@ interface ScenarioImpactsListProps {
 function ScenarioImpactsList({ item, scenarioImpacts, showMonthlyData }: ScenarioImpactsListProps) {
   return (
     <div className="space-y-1">
-      <div className="flex w-full items-center justify-between rounded pl-4 pr-2 py-1.5 text-sm text-gray-300">
+      <div className={`flex items-center justify-between
+w-full
+pl-4 pr-2 py-1.5
+rounded
+text-sm text-gray-300`}>
         <div className="flex items-center gap-2">
           <span className="text-xs italic">Original</span>
         </div>
@@ -317,7 +360,10 @@ function ScenarioImpactsList({ item, scenarioImpacts, showMonthlyData }: Scenari
                 />
               ) : (
                 <span
-                  className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                  className={`flex flex-shrink-0 items-center justify-center
+h-3.5 w-3.5
+rounded-full
+text-[10px] font-bold text-white`}
                   style={{ backgroundColor: event?.displayColor ?? '#888' }}
                 >
                   {(event?.displayIcon ?? '?').slice(0, 1).toUpperCase()}
