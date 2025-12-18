@@ -8,13 +8,29 @@ import { QUERY_KEYS } from '@/lib/queryKeys'
 import { DEFAULT_STARTING_AGE } from '@/components/dashboard/projections/types'
 import { calculateActualYear } from '../utils'
 
+/**
+ * Timeline Navigation Props
+ *
+ * Year values:
+ * - `selectedYear`: Can be either a relative offset (0, 1, 2...) or absolute year (2024, 2025...).
+ *   The `calculateActualYear` utility handles both formats.
+ * - `anchorAbsoluteYear`: The absolute calendar year when the timeline starts (e.g., 2024)
+ *
+ * Month values (calendar month numbers):
+ * - All month values use 1-12 representing January-December within a calendar year
+ * - `selectedCalendarMonth`: The currently selected month (1-12)
+ * - `anchorCalendarMonth`: The month when the timeline starts (1-12, e.g., 12 for December)
+ */
 interface HeaderProps {
   selectedYear: number
   onSelectYear?: (year: number) => void
-  selectedMonth?: number
+  /** Calendar month number (1-12, where 1=January, 12=December) */
+  selectedCalendarMonth?: number
   onSelectMonth?: (month: number | null) => void
-  anchorYear?: number | null
-  anchorMonth?: number | null
+  /** Absolute calendar year when timeline starts */
+  anchorAbsoluteYear?: number | null
+  /** Calendar month number when timeline starts (1-12) */
+  anchorCalendarMonth?: number | null
   resolution?: TimeResolution
   timelineYears?: TimelineYear[]
   timelineMonths?: TimelineMonth[]
@@ -28,10 +44,10 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 export function Header({
   selectedYear,
   onSelectYear,
-  selectedMonth,
+  selectedCalendarMonth,
   onSelectMonth,
-  anchorYear,
-  anchorMonth,
+  anchorAbsoluteYear,
+  anchorCalendarMonth,
   resolution,
   timelineYears,
   timelineMonths,
@@ -45,39 +61,43 @@ export function Header({
     staleTime: 5 * 60 * 1000,
   })
 
-  const handleYearInput = (value: string) => {
-    const yearIndex = Number.parseInt(value, 10)
-    if (Number.isNaN(yearIndex)) return
-    const clamped = Math.max(0, Math.min(30, yearIndex))
+  // Default anchor year to current year if not provided
+  const resolvedAnchorYear = anchorAbsoluteYear ?? new Date().getFullYear()
 
-    // Convert index to absolute year
-    const baseYear = anchorYear ?? new Date().getFullYear()
-    const targetYear =
+  const handleYearInput = (value: string) => {
+    const relativeYearIdx = Number.parseInt(value, 10)
+    if (Number.isNaN(relativeYearIdx)) return
+    const clamped = Math.max(0, Math.min(30, relativeYearIdx))
+
+    // Convert relative index to absolute year
+    const targetAbsoluteYear =
       timelineYears && timelineYears[clamped]
         ? timelineYears[clamped].year
-        : baseYear + clamped
+        : resolvedAnchorYear + clamped
 
-    onSelectYear?.(targetYear)
+    onSelectYear?.(targetAbsoluteYear)
 
     // Always switch to the earliest available month when changing years
-    if (anchorYear && anchorMonth && targetYear === anchorYear) {
+    if (anchorAbsoluteYear && anchorCalendarMonth && targetAbsoluteYear === anchorAbsoluteYear) {
       // For anchor year, earliest month is the anchor month
-      onSelectMonth?.(anchorMonth)
+      onSelectMonth?.(anchorCalendarMonth)
     } else {
       // For other years, earliest month is January
       onSelectMonth?.(1)
     }
   }
 
-  // Calculate year index from selected year
-  const baseYear = anchorYear ?? new Date().getFullYear()
-  const effectiveYear = calculateActualYear(selectedYear, anchorYear)
-  const yearIndex = effectiveYear - baseYear
+  // Derive absolute year from selectedYear (which can be relative or absolute)
+  const absoluteYear = calculateActualYear(selectedYear, anchorAbsoluteYear)
+  /** Year offset from anchor (0 = anchor year, 1 = next year, etc.) */
+  const relativeYearIndex = absoluteYear - resolvedAnchorYear
   const startingAge = userSettings?.startingAge ?? DEFAULT_STARTING_AGE
-  const ageBaseYear = anchorYear ?? timelineYears?.[0]?.year ?? baseYear
-  const displayAge = Math.max(0, startingAge + (effectiveYear - ageBaseYear))
-  const minMonthForEffectiveYear = effectiveYear === baseYear ? anchorMonth ?? 1 : 1
-  const displayMonth = Math.max(selectedMonth ?? minMonthForEffectiveYear, minMonthForEffectiveYear)
+  const ageBaseYear = anchorAbsoluteYear ?? timelineYears?.[0]?.year ?? resolvedAnchorYear
+  const displayAge = Math.max(0, startingAge + (absoluteYear - ageBaseYear))
+  /** Minimum allowed calendar month for the current year (anchor month if in anchor year, else January) */
+  const minCalendarMonthForYear = absoluteYear === resolvedAnchorYear ? anchorCalendarMonth ?? 1 : 1
+  /** Calendar month to display (1-12), clamped to valid range */
+  const displayCalendarMonth = Math.max(selectedCalendarMonth ?? minCalendarMonthForYear, minCalendarMonthForYear)
 
   const monthRange = useMemo(() => {
     if (!timelineMonths || timelineMonths.length === 0) return null
@@ -98,35 +118,59 @@ export function Header({
     }
   }, [timelineMonths])
 
+  // Slider value and max depend on view mode
+  const sliderMax = useMemo(() => {
+    if (viewMode === 'annualized') {
+      return 30 // Relative year indices 0-30
+    }
+    return monthRange?.sliderMax ?? 0
+  }, [viewMode, monthRange])
+
   const sliderValue = useMemo(() => {
+    if (viewMode === 'annualized') {
+      return Math.max(0, Math.min(30, relativeYearIndex))
+    }
     if (!monthRange) return 0
-    const currentMonthIndex = effectiveYear * 12 + (displayMonth - 1)
+    // Calculate slider position from absolute year and calendar month
+    // Use the raw selectedCalendarMonth (falling back to anchor month) to avoid clamping issues
+    const calendarMonthForSlider = selectedCalendarMonth ?? monthRange.first.month
+    const currentMonthIndex = absoluteYear * 12 + (calendarMonthForSlider - 1)
     const rawValue = currentMonthIndex - monthRange.startIndex
-    return Math.min(Math.max(rawValue, 0), monthRange.sliderMax)
-  }, [displayMonth, effectiveYear, monthRange])
+    return Math.max(rawValue, 0)
+  }, [viewMode, relativeYearIndex, selectedCalendarMonth, absoluteYear, monthRange])
 
   const handleSliderChange = useCallback(
     (value: number[]) => {
-      if (!monthRange || value[0] === undefined) return
-      const clamped = Math.min(Math.max(value[0], 0), monthRange.sliderMax)
-      const absoluteMonthIndex = monthRange.startIndex + clamped
-      const targetYear = Math.floor(absoluteMonthIndex / 12)
-      const targetMonth = (absoluteMonthIndex % 12) + 1
-      onSelectYear?.(targetYear)
-      onSelectMonth?.(targetMonth)
+      if (value[0] === undefined) return
+
+      if (viewMode === 'annualized') {
+        // Slider controls relative year index in annualized mode
+        const clampedRelativeYear = Math.min(Math.max(value[0], 0), 30)
+        handleYearInput(String(clampedRelativeYear))
+      } else {
+        // Slider controls month in monthly mode
+        if (!monthRange) return
+        const clampedSliderValue = Math.min(Math.max(value[0], 0), monthRange.sliderMax)
+        const absoluteMonthIndex = monthRange.startIndex + clampedSliderValue
+        const targetAbsoluteYear = Math.floor(absoluteMonthIndex / 12)
+        /** Calendar month (1-12) derived from absolute month index */
+        const targetCalendarMonth = (absoluteMonthIndex % 12) + 1
+        onSelectYear?.(targetAbsoluteYear)
+        onSelectMonth?.(targetCalendarMonth)
+      }
     },
-    [monthRange, onSelectMonth, onSelectYear]
+    [viewMode, monthRange, onSelectMonth, onSelectYear, handleYearInput]
   )
 
   const shouldShowSlider = resolution === 'monthly' && !!monthRange
-  const isSliderDisabled = isTimelineLoading || !monthRange || monthRange.sliderMax === 0 || viewMode === 'annualized'
+  const isSliderDisabled = isTimelineLoading || sliderMax === 0
 
   return (
     <div className="px-6 py-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold text-white">Financial Data</h3>
-          <p className="text-sm text-gray-400">{`${effectiveYear} (Age ${displayAge})`}</p>
+          <p className="text-sm text-gray-400">{`${absoluteYear} (Age ${displayAge})`}</p>
         </div>
         {/* Unified timeline control bar */}
         <div className="flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm">
@@ -151,7 +195,7 @@ export function Header({
             <SelectField
               label="Year"
               id="year-selector"
-              value={Math.max(0, Math.min(30, yearIndex))}
+              value={Math.max(0, Math.min(30, relativeYearIndex))}
               disabled={isTimelineLoading}
               onChange={(e) => handleYearInput(e.target.value)}
               options={Array.from({ length: 31 }, (_, idx) => ({ value: idx, label: String(idx) }))}
@@ -162,10 +206,10 @@ export function Header({
               <>
                 <div className="w-px h-6 bg-white/[0.08]" />
                 <MonthSelector
-                  selectedMonth={displayMonth}
-                  effectiveYear={effectiveYear}
-                  anchorYear={anchorYear}
-                  anchorMonth={anchorMonth}
+                  selectedCalendarMonth={displayCalendarMonth}
+                  absoluteYear={absoluteYear}
+                  anchorAbsoluteYear={anchorAbsoluteYear}
+                  anchorCalendarMonth={anchorCalendarMonth}
                   onSelectMonth={onSelectMonth}
                   isDisabled={isTimelineLoading || viewMode === 'annualized'}
                 />
@@ -178,12 +222,12 @@ export function Header({
               <Slider.Root
                 className="relative flex items-center h-5 w-full select-none"
                 min={0}
-                max={monthRange?.sliderMax ?? 0}
+                max={sliderMax}
                 step={1}
                 value={[sliderValue]}
                 onValueChange={handleSliderChange}
                 disabled={isSliderDisabled}
-                aria-label="Timeline month slider"
+                aria-label={viewMode === 'annualized' ? 'Timeline year slider' : 'Timeline month slider'}
               >
                 <Slider.Track className="relative h-1 w-full rounded-full bg-slate-700/60">
                   <Slider.Range className="absolute h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400" />
@@ -233,27 +277,33 @@ function SelectField({ label, id, value, disabled, onChange, options, className 
 }
 
 interface MonthSelectorProps {
-  selectedMonth?: number
-  effectiveYear: number
-  anchorYear?: number | null
-  anchorMonth?: number | null
+  /** Calendar month number (1-12) */
+  selectedCalendarMonth?: number
+  /** Absolute calendar year (e.g., 2024) */
+  absoluteYear: number
+  /** Absolute calendar year when timeline starts */
+  anchorAbsoluteYear?: number | null
+  /** Calendar month number when timeline starts (1-12) */
+  anchorCalendarMonth?: number | null
   onSelectMonth?: (month: number | null) => void
   isDisabled: boolean
 }
 
 function MonthSelector({
-  selectedMonth,
-  effectiveYear,
-  anchorYear,
-  anchorMonth,
+  selectedCalendarMonth,
+  absoluteYear,
+  anchorAbsoluteYear,
+  anchorCalendarMonth,
   onSelectMonth,
   isDisabled,
 }: MonthSelectorProps) {
-  const baseYear = anchorYear ?? new Date().getFullYear()
-  const minMonthForYear = effectiveYear === baseYear ? anchorMonth ?? 1 : 1
-  const safeMonth = Math.max(selectedMonth ?? minMonthForYear, minMonthForYear)
-  const monthOptions = effectiveYear === baseYear
-    ? Array.from({ length: 12 - (minMonthForYear - 1) }, (_, idx) => minMonthForYear + idx)
+  const resolvedAnchorYear = anchorAbsoluteYear ?? new Date().getFullYear()
+  /** Minimum calendar month allowed for current year (anchor month if in anchor year, else January) */
+  const minCalendarMonth = absoluteYear === resolvedAnchorYear ? anchorCalendarMonth ?? 1 : 1
+  const safeCalendarMonth = Math.max(selectedCalendarMonth ?? minCalendarMonth, minCalendarMonth)
+  /** Available calendar months (1-12) for the current year */
+  const monthOptions = absoluteYear === resolvedAnchorYear
+    ? Array.from({ length: 12 - (minCalendarMonth - 1) }, (_, idx) => minCalendarMonth + idx)
     : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
   return (
@@ -265,21 +315,21 @@ function MonthSelector({
         id="month-selector"
         className="appearance-none cursor-pointer bg-transparent text-sm font-medium text-white pr-5 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0 center', backgroundRepeat: 'no-repeat', backgroundSize: '1rem' }}
-        value={safeMonth}
+        value={safeCalendarMonth}
         disabled={isDisabled}
         onChange={(event) => {
-          const month = Number(event.target.value)
-          const clamped = Math.max(month, minMonthForYear)
-          onSelectMonth?.(clamped)
+          const calendarMonth = Number(event.target.value)
+          const clampedCalendarMonth = Math.max(calendarMonth, minCalendarMonth)
+          onSelectMonth?.(clampedCalendarMonth)
         }}
       >
-        {monthOptions.map((monthNumber) => (
+        {monthOptions.map((calendarMonth) => (
           <option
-            key={monthNumber}
-            value={monthNumber}
-            disabled={effectiveYear === baseYear && monthNumber < minMonthForYear}
+            key={calendarMonth}
+            value={calendarMonth}
+            disabled={absoluteYear === resolvedAnchorYear && calendarMonth < minCalendarMonth}
           >
-            {MONTH_NAMES[monthNumber - 1]}
+            {MONTH_NAMES[calendarMonth - 1]}
           </option>
         ))}
       </select>

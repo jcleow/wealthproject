@@ -842,10 +842,10 @@ export function FinancialDataManagement({
         <Header
           selectedYear={selectedYear}
           onSelectYear={onSelectYear}
-          selectedMonth={selectedMonth}
+          selectedCalendarMonth={selectedMonth}
           onSelectMonth={onSelectMonth}
-          anchorYear={anchorYear}
-          anchorMonth={anchorMonth}
+          anchorAbsoluteYear={anchorYear}
+          anchorCalendarMonth={anchorMonth}
           resolution={resolution}
           timelineYears={timelineYears}
           timelineMonths={timelineMonths}

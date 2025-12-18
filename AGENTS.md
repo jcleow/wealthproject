@@ -220,6 +220,34 @@ This approach ensures:
 - The timeline uses the stable ID (parent_id if present, else id) for scenario matching. Impacts must target this stable ID.
 - API responses expose the stable `item_id`; include `parent_id`/`row_id` if you need to disambiguate. Use `parentId ?? id` in the UI when saving `targetId`.
 
+### Timeline Navigation Variable Naming Conventions
+
+When working with timeline navigation (year/month selectors, sliders), use these naming conventions to avoid confusion:
+
+**Year Variables:**
+| Variable Name | Type | Description | Example |
+|---------------|------|-------------|---------|
+| `anchorAbsoluteYear` | number \| null | Absolute calendar year when timeline starts (from props) | `2024` |
+| `resolvedAnchorYear` | number | Anchor year with fallback to current year | `2024` |
+| `absoluteYear` | number | Current absolute calendar year being viewed | `2025` |
+| `relativeYearIndex` | number | Year offset from anchor (0 = anchor year) | `0`, `1`, `2`... |
+| `selectedYear` | number | Raw prop value (can be relative OR absolute - use `calculateActualYear` to normalize) | `0` or `2024` |
+
+**Month Variables (Calendar Month Numbers 1-12):**
+| Variable Name | Type | Description | Example |
+|---------------|------|-------------|---------|
+| `anchorCalendarMonth` | number \| null | Calendar month (1-12) when timeline starts | `12` (December) |
+| `selectedCalendarMonth` | number \| undefined | Currently selected calendar month (1-12) | `6` (June) |
+| `displayCalendarMonth` | number | Calendar month to display, clamped to valid range | `12` |
+| `minCalendarMonthForYear` | number | Minimum allowed month for current year (anchor month if in anchor year, else 1) | `12` or `1` |
+
+**Key Rules:**
+1. **Calendar month numbers are always 1-12** (1=January, 12=December) - never 0-indexed
+2. **Use `absoluteYear` for calculations**, not `selectedYear` (which may be relative)
+3. **Use `relativeYearIndex` for UI display** (year selector shows 0, 1, 2...)
+4. **Prefix with `calendar`** when referring to month numbers within a year (distinguishes from month indices or offsets)
+5. **Use `resolved*` prefix** for values with null fallbacks applied
+
 ## API Contract
 
 - API versioning should always be included
