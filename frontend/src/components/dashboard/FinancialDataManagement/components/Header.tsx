@@ -123,14 +123,14 @@ export function Header({
 
   return (
     <div className="px-6 py-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold text-white">Financial Data</h3>
           <p className="text-sm text-gray-400">{`${effectiveYear} (Age ${displayAge})`}</p>
         </div>
         {/* Unified timeline control bar */}
-        <div className="flex flex-col items-end gap-3">
-          <div className="flex items-center gap-1 p-1 rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm">
+        <div className="flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm">
+          <div className="flex items-center gap-1 p-1">
             {resolution === 'monthly' && (
               <>
                 <SelectField
@@ -174,21 +174,23 @@ export function Header({
           </div>
 
           {shouldShowSlider && (
-            <Slider.Root
-              className="relative flex items-center h-6 w-72 select-none"
-              min={0}
-              max={monthRange?.sliderMax ?? 0}
-              step={1}
-              value={[sliderValue]}
-              onValueChange={handleSliderChange}
-              disabled={isSliderDisabled}
-              aria-label="Timeline month slider"
-            >
-              <Slider.Track className="relative h-1 w-full rounded-full bg-slate-700/60">
-                <Slider.Range className="absolute h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400" />
-              </Slider.Track>
-              <Slider.Thumb className="block h-4 w-4 rounded-full bg-white border-2 border-blue-400 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/30 hover:scale-110 disabled:opacity-50 transition-transform cursor-grab active:cursor-grabbing" />
-            </Slider.Root>
+            <div className="border-t border-white/[0.08] px-3 py-2">
+              <Slider.Root
+                className="relative flex items-center h-5 w-full select-none"
+                min={0}
+                max={monthRange?.sliderMax ?? 0}
+                step={1}
+                value={[sliderValue]}
+                onValueChange={handleSliderChange}
+                disabled={isSliderDisabled}
+                aria-label="Timeline month slider"
+              >
+                <Slider.Track className="relative h-1 w-full rounded-full bg-slate-700/60">
+                  <Slider.Range className="absolute h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400" />
+                </Slider.Track>
+                <Slider.Thumb className="block h-3.5 w-3.5 rounded-full bg-white border-2 border-blue-400 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/30 hover:scale-110 disabled:opacity-50 transition-transform cursor-grab active:cursor-grabbing" />
+              </Slider.Root>
+            </div>
           )}
         </div>
       </div>
