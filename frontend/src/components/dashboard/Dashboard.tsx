@@ -149,6 +149,7 @@ shrink-0`}>
                   <FinancialWorkspace
                     selectedYear={timeline.selectedYear}
                     onSelectYear={timeline.setSelectedYear}
+                    onSelectMonth={timeline.setSelectedMonth}
                     timelineYears={timeline.timelineQuery.data?.years}
                     timelineMonths={timeline.timelineQuery.data?.months}
                     resolution={timeline.resolution}

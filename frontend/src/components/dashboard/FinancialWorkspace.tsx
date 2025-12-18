@@ -15,6 +15,7 @@ import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 interface FinancialWorkspaceProps {
   selectedYear: number
   onSelectYear: (year: number) => void
+  onSelectMonth?: (month: number) => void
   timelineYears?: TimelineYear[]
   timelineMonths?: TimelineMonth[]
   resolution?: TimeResolution
@@ -30,6 +31,7 @@ interface FinancialWorkspaceProps {
 export function FinancialWorkspace({
   selectedYear,
   onSelectYear,
+  onSelectMonth,
   timelineYears,
   timelineMonths,
   resolution = 'yearly',
@@ -432,6 +434,7 @@ transition-all`}>
                 const target = document.getElementById('financial-data-section')
                 if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
               }}
+              onSelectMonth={onSelectMonth}
             />
           </div>
         </section>

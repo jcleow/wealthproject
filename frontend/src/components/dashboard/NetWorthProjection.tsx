@@ -41,6 +41,7 @@ export interface NetWorthProjectionProps {
   overrideYears?: Set<number>
   selectedYear?: number
   onSelectYear?: (year: number) => void
+  onSelectMonth?: (month: number) => void
   scenarioEvents?: ScenarioEvent[]
   onScenarioSelect?: (event: ScenarioEvent) => void
   onAddScenario?: () => void
@@ -57,6 +58,7 @@ export function NetWorthProjection({
   overrideYears,
   selectedYear,
   onSelectYear,
+  onSelectMonth,
   scenarioEvents,
   onScenarioSelect,
   onAddScenario,
@@ -839,6 +841,7 @@ transition-colors`}
                     <YearTick
                       overrideYears={overrideYearsSet}
                       onSelectYear={onSelectYear}
+                      onSelectMonth={onSelectMonth}
                       selectedYear={selectedYear}
                       mode={xAxisMode}
                       startingAge={userSettings?.startingAge}

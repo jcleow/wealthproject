@@ -7,6 +7,7 @@ interface YearTickProps {
   payload?: { value: number }
   overrideYears: Set<number>
   onSelectYear?: (year: number) => void
+  onSelectMonth?: (month: number) => void
   selectedYear?: number
   mode: AxisMode
   startingAge?: number
@@ -21,6 +22,7 @@ export function YearTick({
   payload,
   overrideYears,
   onSelectYear,
+  onSelectMonth,
   selectedYear,
   mode,
   startingAge,
@@ -68,7 +70,22 @@ export function YearTick({
   }
 
   const handleClick = () => {
-    if (onSelectYear) onSelectYear(payload.value)
+    if (resolution === 'monthly') {
+      // In monthly resolution, payload.value is the global month index (0, 1, 2, ... 420)
+      // Convert to calendar year and month (1-12)
+      const monthIndex = payload.value
+      const yearOffset = Math.floor(monthIndex / 12)
+      const month = (monthIndex % 12) + 1 // Convert to 1-based month
+      const calendarYear = (baseCalendarYear ?? new Date().getFullYear()) + yearOffset
+
+      if (onSelectYear) onSelectYear(calendarYear)
+      if (onSelectMonth) onSelectMonth(month)
+    } else {
+      // Yearly resolution - payload.value is the year index (0, 1, 2...)
+      // Convert to calendar year
+      const calendarYear = (baseCalendarYear ?? new Date().getFullYear()) + payload.value
+      if (onSelectYear) onSelectYear(calendarYear)
+    }
   }
 
   return (
