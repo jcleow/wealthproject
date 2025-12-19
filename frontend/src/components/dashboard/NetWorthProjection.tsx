@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Area,
@@ -744,12 +745,14 @@ border-b border-white/[0.04]`}>
           {onAddScenario && (
             <button
               onClick={onAddScenario}
-              className={`flex items-center
-gap-1.5 px-3 py-1.5
-rounded-lg border border-white/[0.08] hover:border-white/[0.12]
-bg-white/[0.02] hover:bg-white/[0.04]
-text-xs font-medium text-slate-400 hover:text-slate-200
-transition-all`}
+              className={clsx(
+                "flex items-center gap-1.5",
+                "px-3 py-1.5",
+                "border border-white/[0.08] hover:border-white/[0.12] rounded-lg",
+                "bg-white/[0.02] hover:bg-white/[0.04]",
+                "font-medium hover:text-slate-200 text-slate-400 text-xs",
+                "transition-all",
+              )}
               type="button"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -767,19 +770,18 @@ w-full min-h-[250px] min-w-0
 [&_*:focus]:outline-none [&_*:focus-visible]:outline-none`}
       >
         {/* Zoom controls and scroll mode toggle positioned on the right side - always visible */}
-        <div className={`absolute right-4 top-1/2 z-10
-flex flex-col
-gap-3
--translate-y-1/2`}>
+        <div className={`absolute right-4 top-1/2 z-10 flex flex-col gap-3 -translate-y-1/2`}>
           {/* Scroll mode toggle */}
           <button
             onClick={() => setScrollMode(scrollMode === 'page' ? 'zoom' : 'page')}
-            className={`flex flex-col items-center
-gap-1 p-2
-rounded-lg border border-white/[0.08]
-bg-[#0a0a0a]/80 hover:bg-white/5
-backdrop-blur-sm
-transition-colors`}
+            className={clsx(
+              "flex flex-col items-center gap-1",
+              "p-2",
+              "border border-white/[0.08] rounded-lg",
+              "bg-[#0a0a0a]/80 hover:bg-white/5",
+              "backdrop-blur-sm",
+              "transition-colors",
+            )}
             title={scrollMode === 'page' ? 'Switch to scroll-to-zoom mode' : 'Switch to page scroll mode'}
             type="button"
           >

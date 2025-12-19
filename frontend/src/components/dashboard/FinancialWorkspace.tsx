@@ -11,6 +11,7 @@ import { UserMenu } from '../auth/UserMenu'
 import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { ZoomLevel } from '@/components/timeline/ZoomControls'
+import clsx from 'clsx'
 
 interface FinancialWorkspaceProps {
   selectedYear: number
@@ -184,11 +185,13 @@ shrink-0`}>
         </div>
 
         {/* Glass pill control group */}
-        <div className={`flex items-center
-gap-3 px-3 py-1.5
-rounded-full border border-white/[0.06]
-bg-white/[0.02]
-backdrop-blur-sm`}>
+        <div className={clsx(
+          "flex items-center gap-3",
+          "px-3 py-1.5",
+          "border border-white/[0.06] rounded-full",
+          "bg-white/[0.02]",
+          "backdrop-blur-sm",
+        )}>
           {/* Search */}
           <div className="flex items-center gap-2 border-r border-white/[0.06] pr-3">
             <Search className="h-3.5 w-3.5 text-slate-500" />
@@ -206,13 +209,15 @@ text-[13px] text-slate-300`}
           <div className="hidden items-center gap-1 md:flex">
             <button
               onClick={handleLoadDefaults}
-              className={`flex items-center justify-center
-h-7 w-7
-rounded-full
-hover:bg-white/5
-text-slate-500 hover:text-slate-300
-disabled:opacity-60
-transition`}
+              className={clsx(
+                "flex items-center justify-center",
+                "h-7 w-7",
+                "rounded-full",
+                "hover:bg-white/5",
+                "hover:text-slate-300 text-slate-500",
+                "disabled:opacity-60",
+                "transition",
+              )}
               title="Load defaults"
               type="button"
               disabled={isSeeding}
@@ -221,13 +226,15 @@ transition`}
             </button>
             <button
               onClick={handleClearAllData}
-              className={`flex items-center justify-center
-h-7 w-7
-rounded-full
-hover:bg-rose-500/10
-text-rose-400/70 hover:text-rose-300
-disabled:opacity-60
-transition`}
+              className={clsx(
+                "flex items-center justify-center",
+                "h-7 w-7",
+                "rounded-full",
+                "hover:bg-rose-500/10",
+                "hover:text-rose-300 text-rose-400/70",
+                "disabled:opacity-60",
+                "transition",
+              )}
               title="Delete all data"
               type="button"
               disabled={isClearing}
@@ -241,12 +248,14 @@ transition`}
           <div className="relative z-[100]" ref={moduleMenuRef}>
             <button
               onClick={() => setIsModuleMenuOpen((prev) => !prev)}
-              className={`flex items-center
-gap-1.5 px-2 py-1
-rounded-lg
-hover:bg-white/5
-text-[11px] font-medium text-slate-400 hover:text-slate-200
-transition`}
+              className={clsx(
+                "flex items-center gap-1.5",
+                "px-2 py-1",
+                "rounded-lg",
+                "hover:bg-white/5",
+                "font-medium hover:text-slate-200 text-[11px] text-slate-400",
+                "transition",
+              )}
               type="button"
             >
               <Sparkles className="h-3 w-3 text-blue-400/70" />
@@ -260,25 +269,29 @@ transition`}
                 className="fixed inset-0 z-[99]"
                 onClick={() => setIsModuleMenuOpen(false)}
               />
-              <div className={`absolute right-0 z-[100]
-overflow-hidden
-w-64
-mt-2
-rounded-xl border border-white/[0.08]
-bg-[#0a0a0a]
-shadow-2xl`} style={{ isolation: 'isolate' }}>
+              <div className={clsx(
+                "absolute right-0 z-[100]",
+                "w-64",
+                "mt-2",
+                "border border-white/[0.08] rounded-xl",
+                "bg-[#0a0a0a]",
+                "shadow-2xl",
+                "overflow-hidden",
+              )} style={{ isolation: 'isolate' }}>
                 <button
                   onClick={() => {
                     setIsModuleMenuOpen(false)
                     handlePropertyPlanner()
                   }}
-                  className={`flex items-start
-w-full
-gap-3 px-4 py-3
-border-b border-white/[0.04]
-hover:bg-white/5
-text-left text-sm text-slate-200
-transition`}
+                  className={clsx(
+                    "flex items-start gap-3",
+                    "w-full",
+                    "px-4 py-3",
+                    "border-b border-white/[0.04]",
+                    "hover:bg-white/5",
+                    "text-left text-slate-200 text-sm",
+                    "transition",
+                  )}
                   type="button"
                 >
                   <span className={`mt-0.5 p-2
@@ -298,13 +311,15 @@ text-blue-400`}>
                     setIsModuleMenuOpen(false)
                     onOpenCPF?.()
                   }}
-                  className={`flex items-start
-w-full
-gap-3 px-4 py-3
-border-b border-white/[0.04]
-hover:bg-white/5
-text-left text-sm text-slate-200
-transition`}
+                  className={clsx(
+                    "flex items-start gap-3",
+                    "w-full",
+                    "px-4 py-3",
+                    "border-b border-white/[0.04]",
+                    "hover:bg-white/5",
+                    "text-left text-slate-200 text-sm",
+                    "transition",
+                  )}
                   type="button"
                 >
                   <span className={`mt-0.5 p-2
@@ -380,12 +395,14 @@ text-slate-500`}>
           {/* Notification bell */}
           <button
             type="button"
-            className={`flex items-center justify-center
-h-7 w-7
-rounded-full
-hover:bg-white/5
-text-slate-500 hover:text-slate-300
-transition`}
+            className={clsx(
+              "flex items-center justify-center",
+              "h-7 w-7",
+              "rounded-full",
+              "hover:bg-white/5",
+              "hover:text-slate-300 text-slate-500",
+              "transition",
+            )}
           >
             <Bell className="h-3.5 w-3.5" />
           </button>
@@ -395,22 +412,26 @@ transition`}
       </header>
 
       {timelineError && (
-        <div className={`mx-6 mt-4 px-4 py-2
-rounded-lg border border-rose-500/20
-bg-rose-500/5
-text-xs text-rose-300`}>
+        <div className={clsx(
+          "mt-4 mx-6 px-4 py-2",
+          "border border-rose-500/20 rounded-lg",
+          "bg-rose-500/5",
+          "text-rose-300 text-xs",
+        )}>
           Timeline unavailable: {timelineError}
         </div>
       )}
 
       {/* Chart Section */}
       <div className="flex-1 p-6">
-        <section className={`relative
-overflow-hidden
-h-full
-rounded-2xl border border-white/[0.1] hover:border-white/[0.15]
-bg-[#0a0a0a]/60
-transition-all`}>
+        <section className={clsx(
+          "relative",
+          "h-full",
+          "border border-white/[0.1] hover:border-white/[0.15] rounded-2xl",
+          "bg-[#0a0a0a]/60",
+          "transition-all",
+          "overflow-hidden",
+        )}>
           {/* Chart Container - NetWorthProjection has its own header */}
           <div className="h-full">
             <NetWorthProjection
