@@ -215,32 +215,138 @@ func (s *Service) loadEffectiveRows(
 // Also populates mctx.AppliedImpacts with tracking info about which impacts were applied.
 // Called AFTER growth is applied but BEFORE building responses.
 //
-// Example: Cash account with +$100k/month delta impact (no end date)
+// ═══════════════════════════════════════════════════════════════════════════════
+// WORKED EXAMPLE: Cash account "cash-123" with +$100k/month delta impact
+// ═══════════════════════════════════════════════════════════════════════════════
 //
-//	Month 1 (Dec 2025 - anchor):
-//	  State["cash-123"] = $25,000 (base value, no mutation on anchor)
-//	  EventAdjustedState["cash-123"] = $125,000 (for display only)
+// INPUT DATA:
 //
-//	Month 2 (Jan 2026):
-//	  State["cash-123"] starts at $25,000 + growth = $25,051
-//	  Delta +$100k applied → EventAdjustedState = $125,051
-//	  Persisted to State["cash-123"] = $125,051 ← KEY: this is the fix
+//	ScenarioImpacts.ImpactsByTarget = {
+//	  "cash-123": [{
+//	    EventID:    "event-abc",
+//	    ImpactKind: "delta",
+//	    Amount:     100000,        // $100k
+//	    Cadence:    "monthly",
+//	    StartDate:  "2025-12-01",
+//	    EndDate:    nil,           // no end = indefinite
+//	  }]
+//	}
+//	ItemStates["cash-123"] = {
+//	  Row: {ItemType: "cash_asset", Frequency: "monthly"},
+//	  Balance: $25,000
+//	}
 //
-//	Month 3 (Feb 2026):
-//	  State["cash-123"] starts at $125,051 + growth = $125,309
-//	  Delta +$100k applied → EventAdjustedState = $225,309
-//	  Persisted to State["cash-123"] = $225,309
+// ───────────────────────────────────────────────────────────────────────────────
+// MONTH 1: December 2025 (anchor month)
+// ───────────────────────────────────────────────────────────────────────────────
 //
-//	Result: $25k → $125k → $225k → $325k (accumulates with compound growth)
+// STEP 1: Initialize EventAdjustedState as copy of State
+//
+//	mctx.State = {"cash-123": $25,000, "income-456": $120,000, ...}
+//	mctx.EventAdjustedState = {"cash-123": $25,000, "income-456": $120,000, ...}
+//
+// STEP 2: Process item "cash-123"
+//
+//	impacts = [{EventID: "event-abc", ImpactKind: "delta", Amount: 100000}]
+//	baseValue = $25,000
+//	itemInfo = {ItemType: "cash_asset", Frequency: "monthly"}
+//
+// STEP 3: ApplyImpactsToItemWithTracking()
+//
+//	Pass 1 (stop):    No stop impacts → continue
+//	Pass 2 (override): No override impacts → continue
+//	Pass 3 (delta):   Found delta, amount = $100,000
+//	                  result.AdjustedValue = $25,000 + $100,000 = $125,000
+//	                  result.AppliedImpacts = [{EventID: "event-abc", ImpactKind: "delta", ...}]
+//
+// STEP 4: Store results
+//
+//	mctx.EventAdjustedState["cash-123"] = $125,000
+//	mctx.AppliedImpacts["cash-123"] = [{EventID: "event-abc", ...}]
+//
+// STEP 5: Persist delta? (isAnchorMonth = true → SKIP)
+//
+//	mctx.State["cash-123"] = $25,000 (unchanged)
+//
+// END OF MONTH 1:
+//
+//	State["cash-123"] = $25,000          ← persisted for next month
+//	EventAdjustedState["cash-123"] = $125,000  ← shown in response
+//
+// ───────────────────────────────────────────────────────────────────────────────
+// MONTH 2: January 2026
+// ───────────────────────────────────────────────────────────────────────────────
+//
+// (Growth was already applied in processMonth before this function)
+//
+// STEP 1: Initialize EventAdjustedState as copy of State
+//
+//	mctx.State = {"cash-123": $25,051, ...}  // $25,000 + 2.5% annual growth
+//	mctx.EventAdjustedState = {"cash-123": $25,051, ...}
+//
+// STEP 2-3: Process and apply impacts
+//
+//	baseValue = $25,051
+//	result.AdjustedValue = $25,051 + $100,000 = $125,051
+//
+// STEP 4: Store results
+//
+//	mctx.EventAdjustedState["cash-123"] = $125,051
+//
+// STEP 5: Persist delta? (isAnchorMonth = false → YES)
+//
+//	mctx.State["cash-123"] = $125,051  ← KEY FIX: persisted!
+//
+// END OF MONTH 2:
+//
+//	State["cash-123"] = $125,051         ← carries forward
+//	EventAdjustedState["cash-123"] = $125,051
+//
+// ───────────────────────────────────────────────────────────────────────────────
+// MONTH 3: February 2026
+// ───────────────────────────────────────────────────────────────────────────────
+//
+// STEP 1: After growth applied
+//
+//	mctx.State = {"cash-123": $125,309, ...}  // $125,051 + growth
+//
+// STEP 2-5: Process impacts
+//
+//	result.AdjustedValue = $125,309 + $100,000 = $225,309
+//	mctx.State["cash-123"] = $225,309  ← persisted
+//
+// ───────────────────────────────────────────────────────────────────────────────
+// SUMMARY: Month-over-month accumulation
+// ───────────────────────────────────────────────────────────────────────────────
+//
+//	Month    | State (start) | + Growth | + Delta  | State (end)
+//	---------|---------------|----------|----------|-------------
+//	Dec 2025 | $25,000       | -        | (display)| $25,000
+//	Jan 2026 | $25,000       | +$51     | +$100k   | $125,051
+//	Feb 2026 | $125,051      | +$258    | +$100k   | $225,309
+//	Mar 2026 | $225,309      | +$464    | +$100k   | $325,773
+//	Apr 2026 | $325,773      | +$671    | +$100k   | $426,444
+//
+// ═══════════════════════════════════════════════════════════════════════════════
 func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time, isAnchorMonth bool) {
+	// ─────────────────────────────────────────────────────────────────────────
+	// Example: mctx.ScenarioImpacts = nil when no scenarios are enabled
+	// Result: EventAdjustedState stays nil, response builders use base State
+	// ─────────────────────────────────────────────────────────────────────────
 	if mctx.ScenarioImpacts == nil {
-		// No scenarios - adjusted state stays nil (response builders will use base State)
 		mctx.EventAdjustedState = nil
 		mctx.AppliedImpacts = nil
 		return
 	}
 
-	// Initialize adjusted state as copy of current state
+	// ─────────────────────────────────────────────────────────────────────────
+	// STEP 1: Initialize EventAdjustedState as copy of State
+	//
+	// Example:
+	//   mctx.State = {"cash-123": $125,051, "income-456": $120,000}
+	//   After this step:
+	//   mctx.EventAdjustedState = {"cash-123": $125,051, "income-456": $120,000}
+	// ─────────────────────────────────────────────────────────────────────────
 	mctx.EventAdjustedState = make(map[string]*decimal.Decimal)
 	mctx.AppliedImpacts = make(map[string][]scenario.AppliedImpactInfo)
 	for id, balance := range mctx.State {
@@ -250,25 +356,42 @@ func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time, isAnchorM
 		}
 	}
 
-	// Process each item that has impacts
+	// ─────────────────────────────────────────────────────────────────────────
+	// STEP 2-5: Process each item that has impacts
+	//
+	// Example iteration:
+	//   itemID = "cash-123"
+	//   impacts = [{EventID: "event-abc", ImpactKind: "delta", Amount: 100000}]
+	// ─────────────────────────────────────────────────────────────────────────
 	for itemID, impacts := range mctx.ScenarioImpacts.ImpactsByTarget {
+		// Example: itemID = "cash-123"
+		//          impacts = [{ImpactKind: "delta", Amount: 100000, Cadence: "monthly"}]
+
 		itemState, exists := mctx.ItemStates[itemID]
 		if !exists {
 			continue // Item may be from excluded scenario or not in loaded data
 		}
 
+		// Example: baseValue = $125,051 (from State after growth)
 		baseValue := mctx.State[itemID]
 		if baseValue == nil {
 			continue
 		}
 
-		// Convert FinancialDataRow to scenario.ItemInfo
+		// Example: itemInfo = {ItemType: "cash_asset", Frequency: "monthly"}
 		itemInfo := scenario.ItemInfo{
 			ItemType:  string(itemState.Row.ItemType),
 			Frequency: itemState.Row.Frequency,
 		}
 
-		// Use tracking function to get both adjusted value and applied impacts
+		// ─────────────────────────────────────────────────────────────────────
+		// STEP 3: Apply impacts using priority order (stop → override → delta)
+		//
+		// Example:
+		//   Input:  baseValue = $125,051, impacts = [{delta, $100k}]
+		//   Output: result.AdjustedValue = $225,051
+		//           result.AppliedImpacts = [{EventID: "event-abc", ImpactKind: "delta", ...}]
+		// ─────────────────────────────────────────────────────────────────────
 		result := scenario.ApplyImpactsToItemWithTracking(
 			impacts,
 			baseValue,
@@ -276,18 +399,36 @@ func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time, isAnchorM
 			itemInfo,
 			mctx.ScenarioImpacts.EventsByID,
 		)
+
+		// ─────────────────────────────────────────────────────────────────────
+		// STEP 4: Store adjusted value for response building
+		//
+		// Example:
+		//   mctx.EventAdjustedState["cash-123"] = $225,051
+		//   mctx.AppliedImpacts["cash-123"] = [{EventID: "event-abc", ...}]
+		// ─────────────────────────────────────────────────────────────────────
 		mctx.EventAdjustedState[itemID] = result.AdjustedValue
 		if len(result.AppliedImpacts) > 0 {
 			mctx.AppliedImpacts[itemID] = result.AppliedImpacts
 		}
 
-		// Persist delta impacts to State so they accumulate across months
-		// Only delta impacts should persist - stop/override are display-only
-		// Skip anchor month (consistent with other mutations)
+		// ─────────────────────────────────────────────────────────────────────
+		// STEP 5: Persist delta impacts to State for accumulation
+		//
+		// Why only delta? Override/stop are display-only adjustments.
+		// Why skip anchor? Consistent with other mutations (CPF, allocations).
+		//
+		// Example (isAnchorMonth = false):
+		//   Found delta impact → persist
+		//   mctx.State["cash-123"] = $225,051  ← this carries to next month!
+		//
+		// Example (isAnchorMonth = true):
+		//   Skip persistence
+		//   mctx.State["cash-123"] = $125,051  ← unchanged
+		// ─────────────────────────────────────────────────────────────────────
 		if !isAnchorMonth {
 			for _, appliedImpact := range result.AppliedImpacts {
 				if appliedImpact.ImpactKind == scenario.ImpactKindDelta {
-					// Delta was applied, persist the adjusted value to State
 					mctx.State[itemID] = result.AdjustedValue
 					break // Only need to persist once per item
 				}
