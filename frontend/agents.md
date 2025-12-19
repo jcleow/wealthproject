@@ -1,3 +1,14 @@
+# Package Manager
+
+**Use pnpm only.** Do not use npm or yarn.
+
+- Lockfiles are gitignored (`pnpm-lock.yaml`, `package-lock.json`)
+- Install: `pnpm install`
+- Add package: `pnpm add <package>`
+- Run script: `pnpm run <script>`
+
+---
+
 # Frontend Reusable Components
 
 ## CollapsibleSection (`src/components/dashboard/FinancialDataManagement/components/CollapsibleSection.tsx`)
