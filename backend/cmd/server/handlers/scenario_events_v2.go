@@ -575,13 +575,20 @@ func parseImpactDates(in scenarioImpactV2DTO) (time.Time, *time.Time, error) {
 		return time.Time{}, nil, scenario.ErrInvalidStartDate
 	}
 
-	if strings.TrimSpace(scenario.PtrOrEmpty(in.EndDate)) == "" {
+	endDateStr := scenario.PtrOrEmpty(in.EndDate)
+	if strings.TrimSpace(endDateStr) == "" {
+		log.Printf("parseImpactDates: startDate=%s endDate=nil (empty)", in.StartDate)
 		return start, nil, nil
 	}
 
-	val, err := scenario.ParseMonthStart(scenario.PtrOrEmpty(in.EndDate))
+	val, err := scenario.ParseMonthStart(endDateStr)
 	if err != nil {
 		return time.Time{}, nil, scenario.ErrInvalidEndDate
+	}
+	log.Printf("parseImpactDates: startDate=%s (%v) endDate=%s (%v) before=%v",
+		in.StartDate, start, endDateStr, val, val.Before(start))
+	if val.Before(start) {
+		return time.Time{}, nil, scenario.ErrEndDateBeforeStart
 	}
 	return start, &val, nil
 }

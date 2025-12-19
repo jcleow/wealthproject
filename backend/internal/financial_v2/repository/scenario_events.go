@@ -308,8 +308,8 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, eventID string, 
 		}
 
 		// Debug log: show exactly what we're inserting
-		fmt.Printf("insertImpactsV2[%d]: eventID=%s targetType=%s targetID=%s targetIncomeID=%v targetAssetID=%v targetExpenseID=%v\n",
-			i, eventID, targetType, *targetID, imp.TargetIncomeID, imp.TargetAssetID, imp.TargetExpenseID)
+		fmt.Printf("insertImpactsV2[%d]: eventID=%s targetType=%s targetID=%s startDate=%v endDate=%v\n",
+			i, eventID, targetType, *targetID, imp.StartDate, imp.EndDate)
 
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO scenario_event_impacts

@@ -17,6 +17,7 @@ var (
 	ErrInvalidDate           = errors.New("invalid date format; expected YYYY-MM-DD or YYYY-MM")
 	ErrInvalidStartDate      = errors.New("invalid startDate; expected YYYY-MM or month-start date")
 	ErrInvalidEndDate        = errors.New("invalid endDate; expected YYYY-MM or month-start date")
+	ErrEndDateBeforeStart    = errors.New("endDate cannot be before startDate")
 	ErrMissingStartDate      = errors.New("startDate is required for impact")
 	ErrInvalidTargetCount    = errors.New("exactly one target ID must be set per impact")
 	ErrInvalidTargetType     = errors.New("invalid targetType; must be asset, liability, income, expense, cash, or investment")
