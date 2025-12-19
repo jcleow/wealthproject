@@ -175,6 +175,41 @@ func TestBuildImpactContext_MultipleEventsTargetingSameItem(t *testing.T) {
 	}
 }
 
+func TestBuildImpactContext_EventWithNoImpacts_StillIndexed(t *testing.T) {
+	/*
+		SCENARIO: Event exists but has no impacts
+		────────────────────────────────────────────────────────────────────────
+		Given: An event with an empty impacts array
+		When:  BuildImpactContext is called
+		Then:  The event should still be in EventsByID (but no ImpactsByTarget entries)
+
+		NOTE: Validation that events MUST have at least one impact is enforced
+		      at the API layer (scenario_events_v2.go handler), not here.
+		      BuildImpactContext is tolerant of edge cases for robustness.
+	*/
+	event := Event{
+		ID:      "event-empty",
+		Name:    "Empty event",
+		Impacts: []Impact{}, // No impacts
+	}
+
+	ctx := BuildImpactContext([]Event{event})
+
+	if ctx == nil {
+		t.Fatal("expected non-nil context even with empty impacts")
+	}
+
+	// Event should be indexed
+	if ctx.EventsByID["event-empty"] == nil {
+		t.Error("expected event-empty in EventsByID")
+	}
+
+	// No impacts to index
+	if len(ctx.ImpactsByTarget) != 0 {
+		t.Errorf("expected 0 impacts indexed, got %d", len(ctx.ImpactsByTarget))
+	}
+}
+
 func TestBuildImpactContext_ImpactWithNoTarget_Skipped(t *testing.T) {
 	/*
 		SCENARIO: Impact has no target (edge case / data integrity issue)
@@ -478,6 +513,15 @@ func TestApplyImpactsToItem_StopImpact_TrumpsOtherImpacts(t *testing.T) {
 
 		WHY: Logically, if you lose your job, it doesn't matter what raise
 		     or bonus you were getting - income is zero.
+
+		DESIGN NOTE: Multiple impacts on the same item ARE valid in certain cases:
+		  - Override + Delta: "Salary becomes $150k" + "$5k signing bonus" ✓
+		  - Multiple Deltas: "+$5k raise" + "+$2k COLA adjustment" ✓
+		  - Stop + anything: Stop wins, others ignored (this test)
+
+		This test specifically verifies the stop-trumps-all priority order.
+		In practice, users create separate scenario events for different
+		what-if questions, and we need to handle overlapping impacts correctly.
 	*/
 	incomeID := "salary-1"
 	baseValue := mustDecimal("10000")
