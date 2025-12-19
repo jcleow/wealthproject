@@ -2,6 +2,7 @@
 
 import { Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import type { CashAccount } from '@/types/financial'
 import { formatCurrency } from '@/lib/format'
 
@@ -163,23 +164,12 @@ text-white`}
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-300">Account Type</label>
-            <select
-              className={`w-full
-px-3 py-2
-rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
-bg-gray-700
-text-white`}
-              onChange={(event) =>
-                form.setFormData((prev) => ({ ...prev, accountType: event.target.value }))
-              }
+            <CustomSelect
               value={form.formData.accountType}
-            >
-              {accountTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => form.setFormData((prev) => ({ ...prev, accountType: String(val) }))}
+              options={accountTypeOptions}
+              className="w-full"
+            />
           </div>
         </div>
 

@@ -1,5 +1,7 @@
 "use client"
 
+import { CustomSelect } from '@/components/ui/CustomSelect'
+
 interface SelectOption {
   value: string
   label: string
@@ -16,17 +18,12 @@ export function SelectField({ label, value, onChange, options }: SelectFieldProp
   return (
     <label className="text-sm font-medium text-gray-300">
       {label}
-      <select
-        className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
-        onChange={(e) => onChange(e.target.value)}
+      <CustomSelect
         value={value}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+        onChange={(val) => onChange(String(val))}
+        options={options}
+        className="mt-1 w-full"
+      />
     </label>
   )
 }

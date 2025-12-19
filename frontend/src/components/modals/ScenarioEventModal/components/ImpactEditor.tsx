@@ -144,15 +144,25 @@ export function ImpactEditor({
   const VerbIcon = getVerbIcon(currentVerb)
   const verbColor = getVerbColor(currentVerb)
 
-  // State for custom target type dropdown
+  // State for custom dropdowns
   const [targetTypeOpen, setTargetTypeOpen] = useState(false)
+  const [verbOpen, setVerbOpen] = useState(false)
+  const [cadenceOpen, setCadenceOpen] = useState(false)
   const targetTypeRef = useRef<HTMLDivElement>(null)
+  const verbRef = useRef<HTMLDivElement>(null)
+  const cadenceRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (targetTypeRef.current && !targetTypeRef.current.contains(event.target as Node)) {
         setTargetTypeOpen(false)
+      }
+      if (verbRef.current && !verbRef.current.contains(event.target as Node)) {
+        setVerbOpen(false)
+      }
+      if (cadenceRef.current && !cadenceRef.current.contains(event.target as Node)) {
+        setCadenceOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -186,26 +196,6 @@ export function ImpactEditor({
   const filteredItems = searchQuery
     ? items.filter(it => it.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : items
-
-  // Styled select wrapper
-  const SelectWrapper = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-    <div className={`relative ${className}`}>
-      {children}
-      {ChevronDownIcon && <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 pointer-events-none" />}
-    </div>
-  )
-
-  const selectStyles = `
-    appearance-none cursor-pointer
-    pl-3 pr-8 py-2
-    rounded-lg
-    border border-white/[0.08] hover:border-white/[0.15] focus:border-blue-500/40
-    bg-white/[0.03] hover:bg-white/[0.05]
-    text-sm text-white
-    outline-none
-    disabled:opacity-50 disabled:cursor-not-allowed
-    transition-all duration-200
-  `
 
   const inputStyles = `
     px-3 py-2
@@ -348,24 +338,87 @@ export function ImpactEditor({
             <ArrowRightIcon className="h-3.5 w-3.5 text-slate-600 shrink-0" />
           )}
 
-          {/* Verb dropdown with icon */}
-          <div className="relative">
-            <div className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${verbColor}`}>
-              {VerbIcon && <VerbIcon className="h-3.5 w-3.5" />}
-            </div>
-            <select
-              value={currentVerb}
-              onChange={(e) => handleVerbChange(e.target.value as ImpactVerb)}
-              className={`${selectStyles} pl-8`}
+          {/* Verb dropdown with icon - custom dropdown */}
+          <div className="relative" ref={verbRef}>
+            <button
+              type="button"
+              onClick={() => !loading && setVerbOpen(!verbOpen)}
               disabled={loading}
+              className={`
+                flex items-center justify-between gap-2
+                pl-8 pr-8 py-2
+                min-w-[140px]
+                rounded-lg
+                border border-white/[0.08] hover:border-white/[0.15]
+                bg-white/[0.03] hover:bg-white/[0.05]
+                text-sm text-white text-left
+                disabled:opacity-50 disabled:cursor-not-allowed
+                transition-all duration-200
+                ${verbOpen ? 'border-blue-500/40' : ''}
+              `}
             >
-              <option value="increases_by">increases by</option>
-              <option value="decreases_by">decreases by</option>
-              <option value="becomes">becomes</option>
-              <option value="starts_at">starts at</option>
-              <option value="ends">ends</option>
-            </select>
-            {ChevronDownIcon && <ChevronDownIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 pointer-events-none" />}
+              <div className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${verbColor}`}>
+                {VerbIcon && <VerbIcon className="h-3.5 w-3.5" />}
+              </div>
+              <span>{currentVerb === 'increases_by' ? 'increases by' : currentVerb === 'decreases_by' ? 'decreases by' : currentVerb === 'becomes' ? 'becomes' : currentVerb === 'starts_at' ? 'starts at' : 'ends'}</span>
+              {ChevronDownIcon && (
+                <ChevronDownIcon className={`absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 transition-transform duration-200 ${verbOpen ? 'rotate-180' : ''}`} />
+              )}
+            </button>
+
+            {/* Verb dropdown menu */}
+            {verbOpen && (
+              <div className="
+                absolute left-0 top-full z-[100] mt-1
+                min-w-[160px]
+                rounded-xl
+                border border-white/[0.12]
+                bg-[#0c0c0c]
+                shadow-2xl shadow-black/60
+                overflow-hidden
+                animate-in fade-in slide-in-from-top-2 duration-150
+              ">
+                {[
+                  { value: 'increases_by', label: 'increases by' },
+                  { value: 'decreases_by', label: 'decreases by' },
+                  { value: 'becomes', label: 'becomes' },
+                  { value: 'starts_at', label: 'starts at' },
+                  { value: 'ends', label: 'ends' },
+                ].map((option) => {
+                  const isSelected = option.value === currentVerb
+                  const OptionIcon = getVerbIcon(option.value as ImpactVerb)
+                  const optionColor = getVerbColor(option.value as ImpactVerb)
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        handleVerbChange(option.value as ImpactVerb)
+                        setVerbOpen(false)
+                      }}
+                      className={`
+                        w-full flex items-center gap-2
+                        px-3 py-2
+                        text-sm text-left
+                        transition-all duration-150
+                        ${isSelected
+                          ? 'bg-blue-500/15 text-white'
+                          : 'text-slate-300 hover:bg-white/[0.05]'
+                        }
+                      `}
+                    >
+                      <span className={`w-4 shrink-0 ${optionColor}`}>
+                        {OptionIcon && <OptionIcon className="h-3.5 w-3.5" />}
+                      </span>
+                      <span>{option.label}</span>
+                      {isSelected && CheckIcon && (
+                        <CheckIcon className="h-3.5 w-3.5 text-blue-400 ml-auto" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Amount - hidden when verb is 'ends' */}
@@ -388,19 +441,80 @@ export function ImpactEditor({
             </div>
           )}
 
-          {/* Cadence - shown for income/expense (all except 'ends'), and for balance sheet items (only delta verbs) */}
+          {/* Cadence - custom dropdown matching target type style */}
           {showCadenceSelector && (
-            <SelectWrapper>
-              <select
-                value={impact.cadence}
-                onChange={(e) => onUpdate(index, { cadence: e.target.value as ScenarioCadence })}
-                className={selectStyles}
+            <div className="relative" ref={cadenceRef}>
+              <button
+                type="button"
+                onClick={() => !loading && setCadenceOpen(!cadenceOpen)}
                 disabled={loading}
+                className={`
+                  flex items-center justify-between gap-2
+                  pl-3 pr-8 py-2
+                  min-w-[110px]
+                  rounded-lg
+                  border border-white/[0.08] hover:border-white/[0.15]
+                  bg-white/[0.03] hover:bg-white/[0.05]
+                  text-sm text-white text-left
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  transition-all duration-200
+                  ${cadenceOpen ? 'border-blue-500/40' : ''}
+                `}
               >
-                <option value="monthly">monthly</option>
-                <option value="annual">annually</option>
-              </select>
-            </SelectWrapper>
+                <span>{impact.cadence === 'monthly' ? 'monthly' : 'annually'}</span>
+                {ChevronDownIcon && (
+                  <ChevronDownIcon className={`absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 transition-transform duration-200 ${cadenceOpen ? 'rotate-180' : ''}`} />
+                )}
+              </button>
+
+              {/* Cadence dropdown menu */}
+              {cadenceOpen && (
+                <div className="
+                  absolute left-0 top-full z-[100] mt-1
+                  min-w-[120px]
+                  rounded-xl
+                  border border-white/[0.12]
+                  bg-[#0c0c0c]
+                  shadow-2xl shadow-black/60
+                  overflow-hidden
+                  animate-in fade-in slide-in-from-top-2 duration-150
+                ">
+                  {[
+                    { value: 'monthly', label: 'monthly' },
+                    { value: 'annual', label: 'annually' },
+                  ].map((option) => {
+                    const isSelected = option.value === impact.cadence
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          onUpdate(index, { cadence: option.value as ScenarioCadence })
+                          setCadenceOpen(false)
+                        }}
+                        className={`
+                          w-full flex items-center gap-2
+                          px-3 py-2
+                          text-sm text-left
+                          transition-all duration-150
+                          ${isSelected
+                            ? 'bg-blue-500/15 text-white'
+                            : 'text-slate-300 hover:bg-white/[0.05]'
+                          }
+                        `}
+                      >
+                        <span className="w-4 shrink-0">
+                          {isSelected && CheckIcon && (
+                            <CheckIcon className="h-3.5 w-3.5 text-blue-400" />
+                          )}
+                        </span>
+                        <span>{option.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           )}
         </div>
 

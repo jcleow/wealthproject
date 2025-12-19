@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   ReactFlow,
   Node,
@@ -11,11 +11,106 @@ import {
   Position,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { ChevronDown, Check } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
 
 // 2025 BRS
 const BRS_2025 = 106500
+
+// Custom dropdown for CPF Housing selects
+function HousingDropdown<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T
+  onChange: (value: T) => void
+  options: { value: T; label: string }[]
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as globalThis.Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedOption = options.find(opt => opt.value === value)
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsOpen(!isOpen)
+        }}
+        className={`w-full
+          flex items-center justify-between
+          py-2 px-3
+          rounded-lg border border-white/[0.08]
+          bg-white/[0.02] hover:bg-white/[0.04]
+          text-sm text-white text-left
+          transition
+          ${isOpen ? 'border-blue-500/50' : ''}`}
+      >
+        <span>{selectedOption?.label ?? ''}</span>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="
+          absolute left-0 top-full z-[100] mt-1
+          w-full
+          rounded-xl
+          border border-white/[0.12]
+          bg-[#0c0c0c]
+          shadow-2xl shadow-black/60
+          overflow-hidden
+          animate-in fade-in slide-in-from-top-2 duration-150
+        ">
+          <div className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
+            {options.map((opt) => {
+              const isSelected = opt.value === value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onChange(opt.value)
+                    setIsOpen(false)
+                  }}
+                  className={`
+                    w-full flex items-center gap-2
+                    px-3 py-2
+                    text-sm text-left
+                    transition-all duration-150
+                    ${isSelected
+                      ? 'bg-blue-500/15 text-white'
+                      : 'text-slate-300 hover:bg-white/[0.05]'
+                    }
+                  `}
+                >
+                  <span className="w-4 shrink-0">
+                    {isSelected && <Check className="h-3.5 w-3.5 text-blue-400" />}
+                  </span>
+                  <span>{opt.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // Property Input Node
 function PropertyInputNode({ data }: { data: {
@@ -42,20 +137,15 @@ uppercase`}>
       <div className="space-y-3">
         <div>
           <label className="mb-1 block text-xs text-slate-400">Property Type</label>
-          <select
+          <HousingDropdown
             value={data.propertyType}
-            onChange={(e) => data.onChange('propertyType', e.target.value)}
-            className={`w-full
-py-2 px-3
-rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
-bg-white/[0.02]
-text-sm text-white
-transition`}
-          >
-            <option value="bto">BTO (New HDB)</option>
-            <option value="resale">HDB Resale</option>
-            <option value="private">Private Property</option>
-          </select>
+            onChange={(val) => data.onChange('propertyType', val)}
+            options={[
+              { value: 'bto', label: 'BTO (New HDB)' },
+              { value: 'resale', label: 'HDB Resale' },
+              { value: 'private', label: 'Private Property' },
+            ]}
+          />
         </div>
 
         <div>
@@ -97,19 +187,18 @@ transition`}
         {data.propertyType !== 'bto' && (
           <div>
             <label className="mb-1 block text-xs text-slate-400">Loan Type</label>
-            <select
+            <HousingDropdown
               value={data.loanType}
-              onChange={(e) => data.onChange('loanType', e.target.value)}
-              className={`w-full
-py-2 px-3
-rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
-bg-white/[0.02]
-text-sm text-white
-transition`}
-            >
-              {data.propertyType === 'resale' && <option value="hdb">HDB Loan (2.6%)</option>}
-              <option value="bank">Bank Loan (~4%)</option>
-            </select>
+              onChange={(val) => data.onChange('loanType', val)}
+              options={
+                data.propertyType === 'resale'
+                  ? [
+                      { value: 'hdb', label: 'HDB Loan (2.6%)' },
+                      { value: 'bank', label: 'Bank Loan (~4%)' },
+                    ]
+                  : [{ value: 'bank', label: 'Bank Loan (~4%)' }]
+              }
+            />
           </div>
         )}
       </div>

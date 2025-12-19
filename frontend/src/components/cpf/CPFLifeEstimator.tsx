@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   ReactFlow,
   Node,
@@ -11,6 +11,7 @@ import {
   Position,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { ChevronDown, Check } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
 
@@ -23,6 +24,100 @@ const PAYOUT_FACTORS = {
 
 type PlanType = keyof typeof PAYOUT_FACTORS
 type StartAge = 65 | 66 | 67 | 68 | 69 | 70
+
+// Custom dropdown for CPF selects
+function CPFDropdown<T extends string | number>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T
+  onChange: (value: T) => void
+  options: { value: T; label: string }[]
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as globalThis.Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedOption = options.find(opt => opt.value === value)
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsOpen(!isOpen)
+        }}
+        className={`w-full
+          flex items-center justify-between
+          py-2 px-3
+          rounded-lg border border-white/[0.08]
+          bg-white/[0.02] hover:bg-white/[0.04]
+          text-white text-left
+          transition
+          ${isOpen ? 'border-purple-500/50' : ''}`}
+      >
+        <span>{selectedOption?.label ?? ''}</span>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="
+          absolute left-0 top-full z-[100] mt-1
+          w-full
+          rounded-xl
+          border border-white/[0.12]
+          bg-[#0c0c0c]
+          shadow-2xl shadow-black/60
+          overflow-hidden
+          animate-in fade-in slide-in-from-top-2 duration-150
+        ">
+          <div className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
+            {options.map((opt) => {
+              const isSelected = opt.value === value
+              return (
+                <button
+                  key={String(opt.value)}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onChange(opt.value)
+                    setIsOpen(false)
+                  }}
+                  className={`
+                    w-full flex items-center gap-2
+                    px-3 py-2
+                    text-sm text-left
+                    transition-all duration-150
+                    ${isSelected
+                      ? 'bg-purple-500/15 text-white'
+                      : 'text-slate-300 hover:bg-white/[0.05]'
+                    }
+                  `}
+                >
+                  <span className="w-4 shrink-0">
+                    {isSelected && <Check className="h-3.5 w-3.5 text-purple-400" />}
+                  </span>
+                  <span>{opt.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // RA Input Node
 function RAInputNode({ data }: { data: {
@@ -63,23 +158,18 @@ transition`}
 
         <div>
           <label className="mb-1 block text-xs text-slate-400">Start Payout At</label>
-          <select
+          <CPFDropdown
             value={data.startAge}
-            onChange={(e) => data.onChange('startAge', Number(e.target.value))}
-            className={`w-full
-py-2 px-3
-rounded-lg border border-white/[0.08] focus:border-purple-500/50 focus:outline-none
-bg-white/[0.02]
-text-white
-transition`}
-          >
-            <option value={65}>Age 65 (earliest)</option>
-            <option value={66}>Age 66 (+7% bonus)</option>
-            <option value={67}>Age 67 (+14% bonus)</option>
-            <option value={68}>Age 68 (+21% bonus)</option>
-            <option value={69}>Age 69 (+28% bonus)</option>
-            <option value={70}>Age 70 (+35% bonus)</option>
-          </select>
+            onChange={(val) => data.onChange('startAge', val)}
+            options={[
+              { value: 65, label: 'Age 65 (earliest)' },
+              { value: 66, label: 'Age 66 (+7% bonus)' },
+              { value: 67, label: 'Age 67 (+14% bonus)' },
+              { value: 68, label: 'Age 68 (+21% bonus)' },
+              { value: 69, label: 'Age 69 (+28% bonus)' },
+              { value: 70, label: 'Age 70 (+35% bonus)' },
+            ]}
+          />
         </div>
 
         {data.startAge > 65 && (

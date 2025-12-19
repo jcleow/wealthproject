@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import {
   ReactFlow,
   Node,
@@ -11,6 +11,7 @@ import {
   Position,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { ChevronDown, Check } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
 
@@ -39,6 +40,100 @@ function getAgeGroup(age: number): AgeGroup {
 
 // OW ceiling for 2025
 const OW_CEILING = 7400
+
+// Custom dropdown for CPF Contribution selects
+function ContributionDropdown({
+  value,
+  onChange,
+  options,
+}: {
+  value: number
+  onChange: (value: number) => void
+  options: { value: number; label: string }[]
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as globalThis.Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedOption = options.find(opt => opt.value === value)
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsOpen(!isOpen)
+        }}
+        className={`w-full
+          flex items-center justify-between
+          py-2 px-3
+          rounded-lg border border-white/[0.08]
+          bg-white/[0.02] hover:bg-white/[0.04]
+          text-white text-left
+          transition
+          ${isOpen ? 'border-emerald-500/50' : ''}`}
+      >
+        <span>{selectedOption?.label ?? ''}</span>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="
+          absolute left-0 top-full z-[100] mt-1
+          w-full
+          rounded-xl
+          border border-white/[0.12]
+          bg-[#0c0c0c]
+          shadow-2xl shadow-black/60
+          overflow-hidden
+          animate-in fade-in slide-in-from-top-2 duration-150
+        ">
+          <div className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
+            {options.map((opt) => {
+              const isSelected = opt.value === value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onChange(opt.value)
+                    setIsOpen(false)
+                  }}
+                  className={`
+                    w-full flex items-center gap-2
+                    px-3 py-2
+                    text-sm text-left
+                    transition-all duration-150
+                    ${isSelected
+                      ? 'bg-emerald-500/15 text-white'
+                      : 'text-slate-300 hover:bg-white/[0.05]'
+                    }
+                  `}
+                >
+                  <span className="w-4 shrink-0">
+                    {isSelected && <Check className="h-3.5 w-3.5 text-emerald-400" />}
+                  </span>
+                  <span>{opt.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // Custom Node: Salary Input
 function SalaryInputNode({ data }: { data: { salary: number; age: number; onChange: (salary: number, age: number) => void } }) {
@@ -75,25 +170,20 @@ transition`}
 
         <div>
           <label className="mb-1 block text-xs text-slate-400">Your Age</label>
-          <select
+          <ContributionDropdown
             value={data.age}
-            onChange={(e) => data.onChange(data.salary, Number(e.target.value))}
-            className={`w-full
-py-2 px-3
-rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
-bg-white/[0.02]
-text-white
-transition`}
-          >
-            <option value={30}>35 or below</option>
-            <option value={40}>36-45</option>
-            <option value={48}>46-50</option>
-            <option value={52}>51-55</option>
-            <option value={58}>56-60</option>
-            <option value={62}>61-65</option>
-            <option value={68}>66-70</option>
-            <option value={72}>Above 70</option>
-          </select>
+            onChange={(val) => data.onChange(data.salary, val)}
+            options={[
+              { value: 30, label: '35 or below' },
+              { value: 40, label: '36-45' },
+              { value: 48, label: '46-50' },
+              { value: 52, label: '51-55' },
+              { value: 58, label: '56-60' },
+              { value: 62, label: '61-65' },
+              { value: 68, label: '66-70' },
+              { value: 72, label: 'Above 70' },
+            ]}
+          />
         </div>
       </div>
 

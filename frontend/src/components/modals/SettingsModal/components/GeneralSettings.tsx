@@ -1,6 +1,7 @@
 "use client"
 
 import type { UserSettings, YearDisplayFormat } from '@/types/financial'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 
 interface GeneralSettingsProps {
   settings: UserSettings
@@ -9,6 +10,7 @@ interface GeneralSettingsProps {
   onYearDisplayFormatChange: (value: YearDisplayFormat) => void
   onAutoExecuteToolsChange: (enabled: boolean) => void
   onGroupItemsByCategoryChange: (enabled: boolean) => void
+  onChartPictureInPictureChange: (enabled: boolean) => void
 }
 
 export function GeneralSettings({
@@ -18,6 +20,7 @@ export function GeneralSettings({
   onYearDisplayFormatChange,
   onAutoExecuteToolsChange,
   onGroupItemsByCategoryChange,
+  onChartPictureInPictureChange,
 }: GeneralSettingsProps) {
   return (
     <div className="space-y-6">
@@ -73,18 +76,15 @@ text-slate-200`}
         <p className="mb-3 text-xs text-slate-500">
           How years are displayed in the timeline
         </p>
-        <select
+        <CustomSelect
           value={settings.yearDisplayFormat}
-          onChange={e => onYearDisplayFormatChange(e.target.value as YearDisplayFormat)}
-          className={`w-64
-px-3 py-2
-rounded-lg border border-white/[0.08] focus:border-blue-500 focus:outline-none
-bg-[#1a1a1a]
-text-slate-200`}
-        >
-          <option value="year_number">Year Number (Year 0, Year 1...)</option>
-          <option value="actual_year">Actual Year ({new Date().getFullYear()}, {new Date().getFullYear() + 1}...)</option>
-        </select>
+          onChange={(val) => onYearDisplayFormatChange(val as YearDisplayFormat)}
+          className="w-64"
+          options={[
+            { value: 'year_number', label: 'Year Number (Year 0, Year 1...)' },
+            { value: 'actual_year', label: `Actual Year (${new Date().getFullYear()}, ${new Date().getFullYear() + 1}...)` },
+          ]}
+        />
       </div>
 
       <div className="pt-4 border-t border-white/[0.06]">
@@ -107,6 +107,32 @@ text-slate-200`}
             <span
               className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                 settings.groupItemsByCategory ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-white/[0.06]">
+        <div className="flex items-center justify-between">
+          <div>
+            <label className="block text-sm font-medium text-slate-300">
+              Chart Picture-in-Picture
+            </label>
+            <p className="text-xs text-slate-500 mt-1">
+              Show a mini floating chart when scrolling past the main chart
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChartPictureInPictureChange(!settings.chartPictureInPicture)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              settings.chartPictureInPicture ? 'bg-blue-600' : 'bg-slate-600'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                settings.chartPictureInPicture ? 'translate-x-6' : 'translate-x-1'
               }`}
             />
           </button>

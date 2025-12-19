@@ -4,6 +4,7 @@ import type { CashAccount } from '@/types/financial'
 import type { Investment } from '@/api/financial/investments'
 import type { AllocationType, TargetType } from '../hooks'
 import { formatCurrency } from '@/lib/format'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 
 interface AllocationFormProps {
   isEditing: boolean
@@ -122,46 +123,38 @@ rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
 bg-gray-700
 text-white`}
         />
-        <select
+        <CustomSelect
           value={targetId}
-          onChange={(e) => onTargetIdChange(e.target.value)}
-          className={`w-full
-px-3 py-2
-rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
-bg-gray-700
-text-white`}
-        >
-          <option value="">Select {targetType === 'investment' ? 'an investment' : 'a cash account'}</option>
-          {targetType === 'investment'
-            ? filteredInvestments.map((inv) => (
-                <option key={inv.id} value={inv.id}>
-                  {inv.name} ({formatCurrency(inv.currentValue)})
-                </option>
-              ))
-            : filteredCashAccounts.map((ca) => (
-                <option key={ca.id} value={ca.id}>
-                  {ca.name} ({formatCurrency(ca.balance)})
-                </option>
-              ))}
-        </select>
+          onChange={(val) => onTargetIdChange(String(val))}
+          placeholder={`Select ${targetType === 'investment' ? 'an investment' : 'a cash account'}`}
+          options={
+            targetType === 'investment'
+              ? filteredInvestments.map((inv) => ({
+                  value: inv.id,
+                  label: `${inv.name} (${formatCurrency(inv.currentValue)})`,
+                }))
+              : filteredCashAccounts.map((ca) => ({
+                  value: ca.id,
+                  label: `${ca.name} (${formatCurrency(ca.balance)})`,
+                }))
+          }
+          className="w-full"
+        />
       </div>
 
       {/* Allocation type and value */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-300">Type</label>
-          <select
+          <CustomSelect
             value={allocationType}
-            onChange={(e) => onAllocationTypeChange(e.target.value as AllocationType)}
-            className={`w-full
-px-3 py-2
-rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
-bg-gray-700
-text-white`}
-          >
-            <option value="percentage">Percentage</option>
-            <option value="fixed">Fixed Amount</option>
-          </select>
+            onChange={(val) => onAllocationTypeChange(val as AllocationType)}
+            options={[
+              { value: 'percentage', label: 'Percentage' },
+              { value: 'fixed', label: 'Fixed Amount' },
+            ]}
+            className="w-full"
+          />
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-300">

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { ChevronDown, Check } from 'lucide-react'
 
 import type { TimelineEditRequest, TimelineFrequency, TimelineItem, TimelineItemType, TimelineYear } from '@/types/timeline'
 
@@ -37,6 +38,119 @@ type FormState = {
   amount: string
   frequency?: TimelineFrequency // Only used for income/expense
   note: string
+}
+
+// Custom dropdown component for this drawer
+function TimelineDropdown<T extends string>({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: T | ''
+  onChange: (value: T) => void
+  options: { value: T; label: string }[]
+  placeholder?: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedOption = options.find(opt => opt.value === value)
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full
+          flex items-center justify-between
+          px-3 py-2
+          rounded-lg border border-white/10
+          bg-white/5 hover:bg-white/[0.07]
+          text-sm text-white text-left
+          transition-colors
+          ${isOpen ? 'border-blue-400' : ''}`}
+      >
+        <span className={selectedOption ? 'text-white' : 'text-slate-500'}>
+          {selectedOption?.label ?? placeholder ?? 'Select...'}
+        </span>
+        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="
+          absolute left-0 top-full z-[100] mt-1
+          w-full min-w-[140px]
+          rounded-xl
+          border border-white/[0.12]
+          bg-[#0c0c0c]
+          shadow-2xl shadow-black/60
+          overflow-hidden
+          animate-in fade-in slide-in-from-top-2 duration-150
+        ">
+          <div className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
+            {placeholder && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange('' as T)
+                  setIsOpen(false)
+                }}
+                className={`
+                  w-full flex items-center gap-2
+                  px-3 py-2
+                  text-sm text-left text-slate-500
+                  transition-all duration-150
+                  hover:bg-white/[0.05]
+                `}
+              >
+                <span className="w-4 shrink-0" />
+                <span>{placeholder}</span>
+              </button>
+            )}
+            {options.map((opt) => {
+              const isSelected = opt.value === value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value)
+                    setIsOpen(false)
+                  }}
+                  className={`
+                    w-full flex items-center gap-2
+                    px-3 py-2
+                    text-sm text-left
+                    transition-all duration-150
+                    ${isSelected
+                      ? 'bg-blue-500/15 text-white'
+                      : 'text-slate-300 hover:bg-white/[0.05]'
+                    }
+                  `}
+                >
+                  <span className="w-4 shrink-0">
+                    {isSelected && <Check className="h-3.5 w-3.5 text-blue-400" />}
+                  </span>
+                  <span>{opt.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 const defaultState: FormState = {
@@ -176,22 +290,15 @@ transition`}
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <label className="text-sm text-gray-300">Existing item (optional)</label>
-            <select
-              className={`w-full
-px-3 py-2
-rounded-lg border border-white/10 focus:border-blue-400 focus:outline-none
-bg-white/5
-text-sm text-white`}
+            <TimelineDropdown
               value={form.itemId}
-              onChange={(event) => handleExistingChange(event.target.value)}
-            >
-              <option value="">Select item</option>
-              {existingItems.map((item) => (
-                <option key={item.itemId} value={item.itemId}>
-                  {item.name} ({item.itemType})
-                </option>
-              ))}
-            </select>
+              onChange={handleExistingChange}
+              placeholder="Select item"
+              options={existingItems.map((item) => ({
+                value: item.itemId,
+                label: `${item.name} (${item.itemType})`,
+              }))}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -211,15 +318,9 @@ text-white`}
             </div>
             <div className="space-y-2">
               <label className="text-sm text-gray-300">Item type</label>
-              <select
-                className={`w-full
-px-3 py-2
-rounded-lg border border-white/10 focus:border-blue-400 focus:outline-none
-bg-white/5
-text-white`}
+              <TimelineDropdown
                 value={form.itemType}
-                onChange={(event) => {
-                  const newType = event.target.value as TimelineItemType
+                onChange={(newType) => {
                   const newIsFlow = newType === 'income' || newType === 'expense'
                   setForm((prev) => ({
                     ...prev,
@@ -228,12 +329,13 @@ text-white`}
                     frequency: newIsFlow ? (prev.frequency ?? 'annual') : undefined,
                   }))
                 }}
-              >
-                <option value="asset">Asset</option>
-                <option value="liability">Liability</option>
-                <option value="income">Income</option>
-                <option value="expense">Expense</option>
-              </select>
+                options={[
+                  { value: 'asset', label: 'Asset' },
+                  { value: 'liability', label: 'Liability' },
+                  { value: 'income', label: 'Income' },
+                  { value: 'expense', label: 'Expense' },
+                ]}
+              />
             </div>
           </div>
 
@@ -258,26 +360,14 @@ text-white`}
             {isFlow && (
               <div className="space-y-2">
                 <label className="text-sm text-gray-300">Frequency</label>
-                <select
-                  className={`w-full
-px-3 py-2
-rounded-lg border border-white/10 focus:border-blue-400 focus:outline-none
-bg-white/5
-text-white`}
+                <TimelineDropdown
                   value={form.frequency ?? 'annual'}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      frequency: event.target.value as TimelineFrequency,
-                    }))
-                  }
-                >
-                  {Object.entries(frequencyLabel).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm((prev) => ({ ...prev, frequency: val }))}
+                  options={Object.entries(frequencyLabel).map(([value, label]) => ({
+                    value: value as TimelineFrequency,
+                    label,
+                  }))}
+                />
               </div>
             )}
           </div>

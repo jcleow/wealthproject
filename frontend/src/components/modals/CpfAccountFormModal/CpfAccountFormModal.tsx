@@ -1,6 +1,7 @@
 'use client'
 
 import { Modal } from '@/components/ui/Modal'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload } from '@/types/cpf'
 
 import { useCpfAccountForm, RESIDENCY_OPTIONS } from './hooks'
@@ -123,21 +124,12 @@ transition`}
           />
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-gray-200">Residency Status</label>
-            <select
+            <CustomSelect
               value={form.fields.residencyStatus}
-              onChange={(e) => form.handleFieldChange('residencyStatus', e.target.value)}
-              className={`w-full
-px-3 py-2
-rounded-lg border border-white/10 focus:border-emerald-400 focus:outline-none
-bg-white/5
-text-sm text-white`}
-            >
-              {RESIDENCY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value} className="bg-[#0a0a0a]">
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => form.handleFieldChange('residencyStatus', String(val))}
+              options={RESIDENCY_OPTIONS}
+              className="w-full"
+            />
           </div>
         </div>
 

@@ -2,6 +2,7 @@
 
 import { Calendar } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import type { Asset, Liability } from '@/types/financial'
 import type { MortgageInputs, PropertyPlannerType } from '@/types/property'
 import { PROPERTY_TYPES } from '@/types/property'
@@ -30,17 +31,12 @@ function PropertyBasicsSection({
     <div className="grid gap-4 sm:grid-cols-2">
       <label className="text-sm font-medium text-gray-300">
         Property Type
-        <select
-          className="mt-1 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-white focus:border-blue-400 focus:outline-none"
-          onChange={(event) => onSelectPropertyType(event.target.value as PropertyPlannerType)}
+        <CustomSelect
           value={propertyType}
-        >
-          {PROPERTY_TYPES.map((type) => (
-            <option key={type.id} value={type.id}>
-              {type.label}
-            </option>
-          ))}
-        </select>
+          onChange={(val) => onSelectPropertyType(val as PropertyPlannerType)}
+          options={PROPERTY_TYPES.map((type) => ({ value: type.id, label: type.label }))}
+          className="mt-1 w-full"
+        />
       </label>
       <label className="text-sm font-medium text-gray-300">
         Property Loan (select or add)

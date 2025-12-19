@@ -1,6 +1,7 @@
 import { Trash2 } from 'lucide-react'
 
 import { Modal } from '@/components/ui/Modal'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 import { type Frequency } from '@/types/financial'
 import { formatCurrency } from '@/lib/format'
 
@@ -208,19 +209,15 @@ transition-all`}
                 {(normalizedCategory === 'incomes' || normalizedCategory === 'expenses') && (
                   <div>
                     <label className="mb-2.5 block text-sm font-medium text-gray-200">Frequency</label>
-                    <select
-                      className={`w-full
-px-3.5 py-2.5
-rounded-lg border border-white/[0.08] focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20
-bg-white/[0.03] focus:bg-white/[0.05]
-text-white
-transition-all`}
+                    <CustomSelect
                       value={form.formData.frequency}
-                      onChange={(e) => form.updateFormField('frequency', e.target.value as Frequency)}
-                    >
-                      <option value="monthly">Monthly</option>
-                      <option value="annual">Annual</option>
-                    </select>
+                      onChange={(val) => form.updateFormField('frequency', val as Frequency)}
+                      options={[
+                        { value: 'monthly', label: 'Monthly' },
+                        { value: 'annual', label: 'Annual' },
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                 )}
 
@@ -319,21 +316,12 @@ text-white`}
               {/* Category selector */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-300">Category</label>
-                <select
-                  className={`w-full
-px-3 py-2
-rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
-bg-gray-700
-text-white`}
+                <CustomSelect
                   value={form.formData.category}
-                  onChange={(e) => form.handleCategoryChange(e.target.value)}
-                >
-                  {categorySelectOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => form.handleCategoryChange(String(val))}
+                  options={categorySelectOptions}
+                  className="w-full"
+                />
 
                 {type === 'liability' && form.formData.category === '' && (
                   <button
