@@ -1,6 +1,7 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import * as Slider from '@radix-ui/react-slider'
 import { useQuery } from '@tanstack/react-query'
+import { Check, ChevronDown } from 'lucide-react'
 
 import type { TimeResolution, TimelineYear, TimelineMonth } from '@/types/timeline'
 import { settingsApi } from '@/api/financial'
@@ -182,7 +183,7 @@ export function Header({
                   id="view-mode-selector"
                   value={viewMode}
                   disabled={isTimelineLoading}
-                  onChange={(e) => onViewModeChange(e.target.value as 'annualized' | 'monthly')}
+                  onChange={(val) => onViewModeChange(val as 'annualized' | 'monthly')}
                   options={[
                     { value: 'annualized', label: 'Annualized' },
                     { value: 'monthly', label: 'Monthly' },
@@ -197,7 +198,7 @@ export function Header({
               id="year-selector"
               value={Math.max(0, Math.min(30, relativeYearIndex))}
               disabled={isTimelineLoading}
-              onChange={(e) => handleYearInput(e.target.value)}
+              onChange={(val) => handleYearInput(String(val))}
               options={Array.from({ length: 31 }, (_, idx) => ({ value: idx, label: String(idx) }))}
               className="w-16"
             />
@@ -247,31 +248,96 @@ interface SelectFieldProps {
   id: string
   value: string | number
   disabled?: boolean
-  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
+  onChange: (value: string | number) => void
   options: { value: string | number; label: string }[]
   className?: string
 }
 
 function SelectField({ label, id, value, disabled, onChange, options, className }: SelectFieldProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedOption = options.find(opt => opt.value === value)
+
   return (
-    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
+    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors" ref={containerRef}>
       <label className="text-[10px] font-medium uppercase tracking-wider text-slate-500" htmlFor={id}>
         {label}
       </label>
-      <select
-        id={id}
-        className={`appearance-none cursor-pointer bg-transparent text-sm font-medium text-white pr-5 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${className ?? ''}`}
-        style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0 center', backgroundRepeat: 'no-repeat', backgroundSize: '1rem' }}
-        value={value}
-        disabled={disabled}
-        onChange={onChange}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <div className={`relative ${className ?? ''}`}>
+        <button
+          type="button"
+          id={id}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
+          className={`
+            flex items-center gap-1
+            appearance-none cursor-pointer
+            bg-transparent
+            text-sm font-medium text-white
+            focus:outline-none
+            disabled:opacity-50 disabled:cursor-not-allowed
+            ${isOpen ? 'text-blue-400' : ''}
+          `}
+        >
+          <span>{selectedOption?.label ?? ''}</span>
+          <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isOpen && (
+          <div className="
+            absolute left-0 top-full z-[100] mt-1
+            min-w-[100px]
+            rounded-lg
+            border border-white/[0.12]
+            bg-[#0c0c0c]
+            shadow-xl shadow-black/50
+            overflow-hidden
+            animate-in fade-in slide-in-from-top-2 duration-150
+          ">
+            <div className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
+              {options.map((opt) => {
+                const isSelected = opt.value === value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value)
+                      setIsOpen(false)
+                    }}
+                    className={`
+                      w-full flex items-center gap-2
+                      px-3 py-1.5
+                      text-sm text-left
+                      transition-all duration-150
+                      ${isSelected
+                        ? 'bg-blue-500/15 text-white'
+                        : 'text-slate-300 hover:bg-white/[0.05]'
+                      }
+                    `}
+                  >
+                    <span className="w-3 shrink-0">
+                      {isSelected && <Check className="h-3 w-3 text-blue-400" />}
+                    </span>
+                    <span>{opt.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -297,6 +363,19 @@ function MonthSelector({
   onSelectMonth,
   isDisabled,
 }: MonthSelectorProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const resolvedAnchorYear = anchorAbsoluteYear ?? new Date().getFullYear()
   /** Minimum calendar month allowed for current year (anchor month if in anchor year, else January) */
   const minCalendarMonth = absoluteYear === resolvedAnchorYear ? anchorCalendarMonth ?? 1 : 1
@@ -307,32 +386,79 @@ function MonthSelector({
     : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
   return (
-    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
+    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors" ref={containerRef}>
       <label className="text-[10px] font-medium uppercase tracking-wider text-slate-500" htmlFor="month-selector">
         Month
       </label>
-      <select
-        id="month-selector"
-        className="appearance-none cursor-pointer bg-transparent text-sm font-medium text-white pr-5 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0 center', backgroundRepeat: 'no-repeat', backgroundSize: '1rem' }}
-        value={safeCalendarMonth}
-        disabled={isDisabled}
-        onChange={(event) => {
-          const calendarMonth = Number(event.target.value)
-          const clampedCalendarMonth = Math.max(calendarMonth, minCalendarMonth)
-          onSelectMonth?.(clampedCalendarMonth)
-        }}
-      >
-        {monthOptions.map((calendarMonth) => (
-          <option
-            key={calendarMonth}
-            value={calendarMonth}
-            disabled={absoluteYear === resolvedAnchorYear && calendarMonth < minCalendarMonth}
-          >
-            {MONTH_NAMES[calendarMonth - 1]}
-          </option>
-        ))}
-      </select>
+      <div className="relative w-[100px]">
+        <button
+          type="button"
+          id="month-selector"
+          onClick={() => !isDisabled && setIsOpen(!isOpen)}
+          disabled={isDisabled}
+          className={`
+            flex items-center justify-between gap-1 w-full
+            appearance-none cursor-pointer
+            bg-transparent
+            text-sm font-medium text-white
+            focus:outline-none
+            disabled:opacity-50 disabled:cursor-not-allowed
+            ${isOpen ? 'text-blue-400' : ''}
+          `}
+        >
+          <span>{MONTH_NAMES[safeCalendarMonth - 1]}</span>
+          <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isOpen && (
+          <div className="
+            absolute left-0 top-full z-[100] mt-1
+            min-w-[120px]
+            rounded-lg
+            border border-white/[0.12]
+            bg-[#0c0c0c]
+            shadow-xl shadow-black/50
+            overflow-hidden
+            animate-in fade-in slide-in-from-top-2 duration-150
+          ">
+            <div className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
+              {monthOptions.map((calendarMonth) => {
+                const isSelected = calendarMonth === safeCalendarMonth
+                const isMonthDisabled = absoluteYear === resolvedAnchorYear && calendarMonth < minCalendarMonth
+                return (
+                  <button
+                    key={calendarMonth}
+                    type="button"
+                    disabled={isMonthDisabled}
+                    onClick={() => {
+                      const clampedCalendarMonth = Math.max(calendarMonth, minCalendarMonth)
+                      onSelectMonth?.(clampedCalendarMonth)
+                      setIsOpen(false)
+                    }}
+                    className={`
+                      w-full flex items-center gap-2
+                      px-3 py-1.5
+                      text-sm text-left
+                      transition-all duration-150
+                      ${isMonthDisabled
+                        ? 'opacity-50 cursor-not-allowed text-slate-500'
+                        : isSelected
+                          ? 'bg-blue-500/15 text-white'
+                          : 'text-slate-300 hover:bg-white/[0.05]'
+                      }
+                    `}
+                  >
+                    <span className="w-3 shrink-0">
+                      {isSelected && <Check className="h-3 w-3 text-blue-400" />}
+                    </span>
+                    <span>{MONTH_NAMES[calendarMonth - 1]}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

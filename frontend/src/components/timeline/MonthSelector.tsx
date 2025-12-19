@@ -1,6 +1,7 @@
 'use client'
 
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { ChevronLeft, ChevronRight, ChevronDown, Check } from 'lucide-react'
 
 export interface MonthSelectorProps {
   /** Current selected year */
@@ -33,6 +34,193 @@ const MONTH_NAMES = [
 ]
 
 const MONTH_ABBREV = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// Custom dropdown for month selection
+function MonthDropdown({
+  value,
+  onChange,
+  options,
+  ariaLabel,
+}: {
+  value: number
+  onChange: (value: number) => void
+  options: { value: number; label: string }[]
+  ariaLabel: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedOption = options.find(opt => opt.value === value)
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`px-3 py-2
+          flex items-center justify-between gap-2
+          w-[130px]
+          rounded-lg border border-gray-700/30
+          bg-gray-900/40 hover:bg-gray-800/60
+          text-sm font-medium text-gray-200
+          backdrop-blur-sm
+          transition-colors
+          ${isOpen ? 'border-blue-500' : ''}`}
+        aria-label={ariaLabel}
+      >
+        <span>{selectedOption?.label ?? ''}</span>
+        <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="
+          absolute left-0 top-full z-[100] mt-1
+          min-w-[130px]
+          rounded-xl
+          border border-white/[0.12]
+          bg-[#0c0c0c]
+          shadow-2xl shadow-black/60
+          overflow-hidden
+          animate-in fade-in slide-in-from-top-2 duration-150
+        ">
+          <div className="max-h-60 overflow-y-auto py-1 custom-scrollbar">
+            {options.map((opt) => {
+              const isSelected = opt.value === value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value)
+                    setIsOpen(false)
+                  }}
+                  className={`
+                    w-full flex items-center gap-2
+                    px-3 py-2
+                    text-sm text-left
+                    transition-all duration-150
+                    ${isSelected
+                      ? 'bg-blue-500/15 text-white'
+                      : 'text-slate-300 hover:bg-white/[0.05]'
+                    }
+                  `}
+                >
+                  <span className="w-4 shrink-0">
+                    {isSelected && <Check className="h-3.5 w-3.5 text-blue-400" />}
+                  </span>
+                  <span>{opt.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Custom dropdown for year selection
+function YearDropdown({
+  value,
+  onChange,
+  options,
+  ariaLabel,
+}: {
+  value: number
+  onChange: (value: number) => void
+  options: { value: number; label: string }[]
+  ariaLabel: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const selectedOption = options.find(opt => opt.value === value)
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`px-3 py-2
+          flex items-center gap-2
+          rounded-lg border border-gray-700/30
+          bg-gray-900/40 hover:bg-gray-800/60
+          text-sm font-medium text-gray-200
+          backdrop-blur-sm
+          transition-colors
+          ${isOpen ? 'border-blue-500' : ''}`}
+        aria-label={ariaLabel}
+      >
+        <span>{selectedOption?.label ?? ''}</span>
+        <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="
+          absolute left-0 top-full z-[100] mt-1
+          min-w-[100px]
+          rounded-xl
+          border border-white/[0.12]
+          bg-[#0c0c0c]
+          shadow-2xl shadow-black/60
+          overflow-hidden
+          animate-in fade-in slide-in-from-top-2 duration-150
+        ">
+          <div className="max-h-60 overflow-y-auto py-1 custom-scrollbar">
+            {options.map((opt) => {
+              const isSelected = opt.value === value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value)
+                    setIsOpen(false)
+                  }}
+                  className={`
+                    w-full flex items-center gap-2
+                    px-3 py-2
+                    text-sm text-left
+                    transition-all duration-150
+                    ${isSelected
+                      ? 'bg-blue-500/15 text-white'
+                      : 'text-slate-300 hover:bg-white/[0.05]'
+                    }
+                  `}
+                >
+                  <span className="w-4 shrink-0">
+                    {isSelected && <Check className="h-3.5 w-3.5 text-blue-400" />}
+                  </span>
+                  <span>{opt.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function MonthSelector({
   year,
@@ -89,42 +277,23 @@ transition-colors disabled:cursor-not-allowed`}
       {/* Month/Year Display */}
       <div className="flex items-baseline gap-2">
         {/* Month Dropdown */}
-        <select
+        <MonthDropdown
           value={month}
-          onChange={(e) => onMonthChange(year, parseInt(e.target.value, 10))}
-          className={`px-3 py-2
-rounded-lg border border-gray-700/30 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
-bg-gray-900/40 hover:bg-gray-800/60
-text-sm font-medium text-gray-200
-backdrop-blur-sm
-transition-colors`}
-          aria-label="Select month"
-        >
-          {MONTH_NAMES.map((name, index) => (
-            <option key={name} value={index + 1} className="bg-gray-900 text-gray-200">
-              {name}
-            </option>
-          ))}
-        </select>
+          onChange={(val) => onMonthChange(year, val)}
+          options={MONTH_NAMES.map((name, index) => ({ value: index + 1, label: name }))}
+          ariaLabel="Select month"
+        />
 
         {/* Year Display/Dropdown */}
-        <select
+        <YearDropdown
           value={year}
-          onChange={(e) => onMonthChange(parseInt(e.target.value, 10), 1)}
-          className={`px-3 py-2
-rounded-lg border border-gray-700/30 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
-bg-gray-900/40 hover:bg-gray-800/60
-text-sm font-medium text-gray-200
-backdrop-blur-sm
-transition-colors`}
-          aria-label="Select year"
-        >
-          {Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i).map((y) => (
-            <option key={y} value={y} className="bg-gray-900 text-gray-200">
-              Year {y}
-            </option>
-          ))}
-        </select>
+          onChange={(val) => onMonthChange(val, 1)}
+          options={Array.from({ length: maxYear - minYear + 1 }, (_, i) => ({
+            value: minYear + i,
+            label: `Year ${minYear + i}`,
+          }))}
+          ariaLabel="Select year"
+        />
       </div>
 
       {/* Next Month Button */}
