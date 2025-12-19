@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { Plus, ArrowDownWideNarrow, ArrowUpRight, ArrowDownRight, Pencil, Trash2, Wallet, BarChart3, Shield } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Plus, ArrowDownWideNarrow, ArrowUpRight, ArrowDownRight, Wallet, BarChart3, Shield } from 'lucide-react'
 import type { TimelineItem, CPFContributionResponseV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CashAccount } from '@/types/financial'
@@ -11,6 +11,7 @@ import { categoryConfig } from '../config'
 import { getAppliedImpacts, getItemId, sortItems } from '../utils'
 import { parseDecimal } from '../converters'
 import { LineItem } from './LineItem'
+import { CollapsibleSection, CollapsibleItem, useCollapsibleSelection } from './CollapsibleSection'
 import type { FinancialCategory } from '../types'
 
 interface CategoryCardProps {
@@ -68,6 +69,8 @@ interface CategoryCardProps {
   // CPF CRUD callbacks
   onEditCpf?: (item: TimelineItem) => void
   onDeleteCpf?: (id: string) => void
+  // Display settings
+  groupItemsByCategory?: boolean
 }
 
 export function CategoryCard({
@@ -114,6 +117,7 @@ export function CategoryCard({
   onDeleteDebtRepayment,
   onEditCpf,
   onDeleteCpf,
+  groupItemsByCategory = true,
 }: CategoryCardProps) {
   const config = categoryConfig[category]
 
@@ -336,41 +340,186 @@ transition-colors`}
 
       {/* List Items */}
       <div className="scrollbar-hide flex-1 overflow-y-auto px-3 py-2">
-        {hasData ? (
+        {hasData || (category === 'asset' && (investmentAssets.length > 0 || cpfAssets.length > 0)) ? (
           <>
-            {sortedData.map((item, index) => {
-              const itemId = getItemId(item) || `${category}-${index}`
-              const scenarioImpacts = getAppliedImpacts(item, category, scenarioEvents)
-              const isExpanded = expandedScenarioItems.has(itemId)
-              const isSelected = selectedItemId === itemId
-
-              return (
-                <LineItem
-                  key={itemId}
-                  item={item}
-                  category={category}
-                  index={index}
-                  isSelected={isSelected}
-                  onSelect={onSelectItem}
-                  onEdit={onEditItem}
-                  onDelete={onDeleteItem}
+            {/* For Assets */}
+            {category === 'asset' && sortedData.length > 0 && (
+              groupItemsByCategory ? (
+                <GroupedAssetsSection
+                  items={sortedData}
+                  summarizeAmount={summarizeAmount}
+                  selectedItemId={selectedItemId}
+                  onSelectItem={onSelectItem}
+                  onEditItem={onEditItem}
+                  onDeleteItem={onDeleteItem}
                   onSetAccumulator={onSetAccumulator}
                   onOpenCashAccountEdit={onOpenCashAccountEdit}
                   onDeleteCashAccount={onDeleteCashAccount}
-                  onManageAllocations={category === 'income' ? onManageAllocations : undefined}
                   cashAccounts={cashAccounts}
-                  scenarioImpacts={scenarioImpacts}
-                  isExpanded={isExpanded}
-                  onToggleExpand={onToggleScenarioExpanded}
+                  scenarioEvents={scenarioEvents}
+                  expandedScenarioItems={expandedScenarioItems}
+                  onToggleScenarioExpanded={onToggleScenarioExpanded}
                   showMonthlyData={showMonthlyData}
                   getDisplayAmount={getDisplayAmount}
                   activeAnnualizationId={activeAnnualizationId}
                   setActiveAnnualizationId={setActiveAnnualizationId}
-                  propertyLink={getPropertyLink(item, index)}
+                  getPropertyLink={getPropertyLink}
+                  onOpenPropertyPlanner={onOpenPropertyPlanner}
+                />
+              ) : (
+                <FlatItemsSection
+                  items={sortedData}
+                  financialCategory="asset"
+                  summarizeAmount={summarizeAmount}
+                  selectedItemId={selectedItemId}
+                  onSelectItem={onSelectItem}
+                  onEditItem={onEditItem}
+                  onDeleteItem={onDeleteItem}
+                  onSetAccumulator={onSetAccumulator}
+                  onOpenCashAccountEdit={onOpenCashAccountEdit}
+                  onDeleteCashAccount={onDeleteCashAccount}
+                  cashAccounts={cashAccounts}
+                  scenarioEvents={scenarioEvents}
+                  expandedScenarioItems={expandedScenarioItems}
+                  onToggleScenarioExpanded={onToggleScenarioExpanded}
+                  showMonthlyData={showMonthlyData}
+                  getDisplayAmount={getDisplayAmount}
+                  activeAnnualizationId={activeAnnualizationId}
+                  setActiveAnnualizationId={setActiveAnnualizationId}
+                  getPropertyLink={getPropertyLink}
                   onOpenPropertyPlanner={onOpenPropertyPlanner}
                 />
               )
-            })}
+            )}
+
+            {/* For Income */}
+            {category === 'income' && sortedData.length > 0 && (
+              groupItemsByCategory ? (
+                <GroupedItemsSection
+                  items={sortedData}
+                  financialCategory="income"
+                  summarizeAmount={summarizeAmount}
+                  selectedItemId={selectedItemId}
+                  onSelectItem={onSelectItem}
+                  onEditItem={onEditItem}
+                  onDeleteItem={onDeleteItem}
+                  onManageAllocations={onManageAllocations}
+                  cashAccounts={cashAccounts}
+                  scenarioEvents={scenarioEvents}
+                  expandedScenarioItems={expandedScenarioItems}
+                  onToggleScenarioExpanded={onToggleScenarioExpanded}
+                  showMonthlyData={showMonthlyData}
+                  getDisplayAmount={getDisplayAmount}
+                  activeAnnualizationId={activeAnnualizationId}
+                  setActiveAnnualizationId={setActiveAnnualizationId}
+                />
+              ) : (
+                <FlatItemsSection
+                  items={sortedData}
+                  financialCategory="income"
+                  summarizeAmount={summarizeAmount}
+                  selectedItemId={selectedItemId}
+                  onSelectItem={onSelectItem}
+                  onEditItem={onEditItem}
+                  onDeleteItem={onDeleteItem}
+                  onManageAllocations={onManageAllocations}
+                  cashAccounts={cashAccounts}
+                  scenarioEvents={scenarioEvents}
+                  expandedScenarioItems={expandedScenarioItems}
+                  onToggleScenarioExpanded={onToggleScenarioExpanded}
+                  showMonthlyData={showMonthlyData}
+                  getDisplayAmount={getDisplayAmount}
+                  activeAnnualizationId={activeAnnualizationId}
+                  setActiveAnnualizationId={setActiveAnnualizationId}
+                />
+              )
+            )}
+
+            {/* For Liabilities */}
+            {category === 'liability' && sortedData.length > 0 && (
+              groupItemsByCategory ? (
+                <GroupedItemsSection
+                  items={sortedData}
+                  financialCategory="liability"
+                  summarizeAmount={summarizeAmount}
+                  selectedItemId={selectedItemId}
+                  onSelectItem={onSelectItem}
+                  onEditItem={onEditItem}
+                  onDeleteItem={onDeleteItem}
+                  cashAccounts={cashAccounts}
+                  scenarioEvents={scenarioEvents}
+                  expandedScenarioItems={expandedScenarioItems}
+                  onToggleScenarioExpanded={onToggleScenarioExpanded}
+                  showMonthlyData={showMonthlyData}
+                  getDisplayAmount={getDisplayAmount}
+                  activeAnnualizationId={activeAnnualizationId}
+                  setActiveAnnualizationId={setActiveAnnualizationId}
+                  getPropertyLink={getPropertyLink}
+                  onOpenPropertyPlanner={onOpenPropertyPlanner}
+                />
+              ) : (
+                <FlatItemsSection
+                  items={sortedData}
+                  financialCategory="liability"
+                  summarizeAmount={summarizeAmount}
+                  selectedItemId={selectedItemId}
+                  onSelectItem={onSelectItem}
+                  onEditItem={onEditItem}
+                  onDeleteItem={onDeleteItem}
+                  cashAccounts={cashAccounts}
+                  scenarioEvents={scenarioEvents}
+                  expandedScenarioItems={expandedScenarioItems}
+                  onToggleScenarioExpanded={onToggleScenarioExpanded}
+                  showMonthlyData={showMonthlyData}
+                  getDisplayAmount={getDisplayAmount}
+                  activeAnnualizationId={activeAnnualizationId}
+                  setActiveAnnualizationId={setActiveAnnualizationId}
+                  getPropertyLink={getPropertyLink}
+                  onOpenPropertyPlanner={onOpenPropertyPlanner}
+                />
+              )
+            )}
+
+            {/* For Expenses (excluding debt repayments which have their own section) */}
+            {category === 'expense' && sortedData.length > 0 && (
+              groupItemsByCategory ? (
+                <GroupedItemsSection
+                  items={sortedData}
+                  financialCategory="expense"
+                  summarizeAmount={summarizeAmount}
+                  selectedItemId={selectedItemId}
+                  onSelectItem={onSelectItem}
+                  onEditItem={onEditItem}
+                  onDeleteItem={onDeleteItem}
+                  cashAccounts={cashAccounts}
+                  scenarioEvents={scenarioEvents}
+                  expandedScenarioItems={expandedScenarioItems}
+                  onToggleScenarioExpanded={onToggleScenarioExpanded}
+                  showMonthlyData={showMonthlyData}
+                  getDisplayAmount={getDisplayAmount}
+                  activeAnnualizationId={activeAnnualizationId}
+                  setActiveAnnualizationId={setActiveAnnualizationId}
+                />
+              ) : (
+                <FlatItemsSection
+                  items={sortedData}
+                  financialCategory="expense"
+                  summarizeAmount={summarizeAmount}
+                  selectedItemId={selectedItemId}
+                  onSelectItem={onSelectItem}
+                  onEditItem={onEditItem}
+                  onDeleteItem={onDeleteItem}
+                  cashAccounts={cashAccounts}
+                  scenarioEvents={scenarioEvents}
+                  expandedScenarioItems={expandedScenarioItems}
+                  onToggleScenarioExpanded={onToggleScenarioExpanded}
+                  showMonthlyData={showMonthlyData}
+                  getDisplayAmount={getDisplayAmount}
+                  activeAnnualizationId={activeAnnualizationId}
+                  setActiveAnnualizationId={setActiveAnnualizationId}
+                />
+              )
+            )}
 
             {/* Investments Sub-section for Assets (V2 only) */}
             {category === 'asset' && investmentAssets.length > 0 && (
@@ -437,6 +586,277 @@ text-center`}>
 
 // Sub-components for V2 sections
 
+// Helper to format category names for display
+function formatCategoryName(category: string): string {
+  // Map common category values to friendly display names
+  const categoryMap: Record<string, string> = {
+    'bank_account': 'Bank Accounts',
+    'bank': 'Bank Accounts',
+    'savings': 'Savings',
+    'cash': 'Cash',
+    'property': 'Property',
+    'real_estate': 'Real Estate',
+    'vehicle': 'Vehicles',
+    'other': 'Other Assets',
+    'investment': 'Investments',
+    'cpf': 'CPF',
+    'stocks': 'Stocks',
+    'bonds': 'Bonds',
+    'crypto': 'Crypto',
+  }
+
+  // Check if we have a mapping, otherwise format the category string
+  if (categoryMap[category.toLowerCase()]) {
+    return categoryMap[category.toLowerCase()]
+  }
+
+  // Convert snake_case or camelCase to Title Case
+  return category
+    .replace(/_/g, ' ')
+    .replace(/([A-Z])/g, ' $1')
+    .trim()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
+// Generic Grouped Items Section - groups items by their category field
+// Works for all financial categories (assets, liabilities, income, expenses)
+interface GroupedItemsSectionProps {
+  items: TimelineItem[]
+  financialCategory: FinancialCategory
+  summarizeAmount: (item: TimelineItem) => number
+  selectedItemId: string | null
+  onSelectItem: (itemId: string | null) => void
+  onEditItem: (category: FinancialCategory, item: TimelineItem) => void
+  onDeleteItem: (category: FinancialCategory, id: string) => void
+  onSetAccumulator?: (id: string) => void
+  onOpenCashAccountEdit?: (cashAccount: CashAccount) => void
+  onDeleteCashAccount?: (id: string) => void
+  onManageAllocations?: (item: TimelineItem) => void
+  cashAccounts: CashAccount[]
+  scenarioEvents: ScenarioEvent[]
+  expandedScenarioItems: Set<string>
+  onToggleScenarioExpanded: (itemId: string) => void
+  showMonthlyData: boolean
+  getDisplayAmount: (item: TimelineItem) => number
+  activeAnnualizationId: string | null
+  setActiveAnnualizationId: (id: string | null) => void
+  getPropertyLink?: (item: TimelineItem, index: number) => PropertyLinkRecord | null
+  onOpenPropertyPlanner?: (link: PropertyLinkRecord) => void
+}
+
+function GroupedItemsSection({
+  items,
+  financialCategory,
+  summarizeAmount,
+  selectedItemId,
+  onSelectItem,
+  onEditItem,
+  onDeleteItem,
+  onSetAccumulator,
+  onOpenCashAccountEdit,
+  onDeleteCashAccount,
+  onManageAllocations,
+  cashAccounts,
+  scenarioEvents,
+  expandedScenarioItems,
+  onToggleScenarioExpanded,
+  showMonthlyData,
+  getDisplayAmount,
+  activeAnnualizationId,
+  setActiveAnnualizationId,
+  getPropertyLink,
+  onOpenPropertyPlanner,
+}: GroupedItemsSectionProps) {
+  // Group items by their category field
+  const groupedItems = items.reduce((acc, item) => {
+    const cat = item.category || 'Other'
+    if (!acc[cat]) {
+      acc[cat] = []
+    }
+    acc[cat].push(item)
+    return acc
+  }, {} as Record<string, TimelineItem[]>)
+
+  // Sort categories alphabetically, but put "Other" at the end
+  const sortedCategories = Object.keys(groupedItems).sort((a, b) => {
+    if (a.toLowerCase() === 'other') return 1
+    if (b.toLowerCase() === 'other') return -1
+    return a.localeCompare(b)
+  })
+
+  return (
+    <>
+      {sortedCategories.map((cat) => {
+        const categoryItems = groupedItems[cat]
+        const categoryTotal = categoryItems.reduce((sum, item) => sum + summarizeAmount(item), 0)
+
+        // Hide categories with $0 total
+        if (categoryTotal === 0) {
+          return null
+        }
+
+        return (
+          <CollapsibleSection key={cat} title={formatCategoryName(cat)} total={categoryTotal}>
+            {categoryItems.map((item, index) => {
+              const itemId = getItemId(item) || `${financialCategory}-${cat}-${index}`
+              const scenarioImpacts = getAppliedImpacts(item, financialCategory, scenarioEvents)
+              const isExpanded = expandedScenarioItems.has(itemId)
+              const isSelected = selectedItemId === itemId
+
+              return (
+                <LineItem
+                  key={itemId}
+                  item={item}
+                  category={financialCategory}
+                  index={index}
+                  isSelected={isSelected}
+                  onSelect={onSelectItem}
+                  onEdit={onEditItem}
+                  onDelete={onDeleteItem}
+                  onSetAccumulator={onSetAccumulator}
+                  onOpenCashAccountEdit={onOpenCashAccountEdit}
+                  onDeleteCashAccount={onDeleteCashAccount}
+                  onManageAllocations={financialCategory === 'income' ? onManageAllocations : undefined}
+                  cashAccounts={cashAccounts}
+                  scenarioImpacts={scenarioImpacts}
+                  isExpanded={isExpanded}
+                  onToggleExpand={onToggleScenarioExpanded}
+                  showMonthlyData={showMonthlyData}
+                  getDisplayAmount={getDisplayAmount}
+                  activeAnnualizationId={activeAnnualizationId}
+                  setActiveAnnualizationId={setActiveAnnualizationId}
+                  propertyLink={getPropertyLink?.(item, index) ?? null}
+                  onOpenPropertyPlanner={onOpenPropertyPlanner}
+                />
+              )
+            })}
+          </CollapsibleSection>
+        )
+      })}
+    </>
+  )
+}
+
+// Grouped Assets Section - wrapper for assets with asset-specific props
+interface GroupedAssetsSectionProps {
+  items: TimelineItem[]
+  summarizeAmount: (item: TimelineItem) => number
+  selectedItemId: string | null
+  onSelectItem: (itemId: string | null) => void
+  onEditItem: (category: FinancialCategory, item: TimelineItem) => void
+  onDeleteItem: (category: FinancialCategory, id: string) => void
+  onSetAccumulator?: (id: string) => void
+  onOpenCashAccountEdit?: (cashAccount: CashAccount) => void
+  onDeleteCashAccount?: (id: string) => void
+  cashAccounts: CashAccount[]
+  scenarioEvents: ScenarioEvent[]
+  expandedScenarioItems: Set<string>
+  onToggleScenarioExpanded: (itemId: string) => void
+  showMonthlyData: boolean
+  getDisplayAmount: (item: TimelineItem) => number
+  activeAnnualizationId: string | null
+  setActiveAnnualizationId: (id: string | null) => void
+  getPropertyLink: (item: TimelineItem, index: number) => PropertyLinkRecord | null
+  onOpenPropertyPlanner?: (link: PropertyLinkRecord) => void
+}
+
+function GroupedAssetsSection(props: GroupedAssetsSectionProps) {
+  return (
+    <GroupedItemsSection
+      {...props}
+      financialCategory="asset"
+    />
+  )
+}
+
+// Flat items section - renders items without grouping
+interface FlatItemsSectionProps {
+  items: TimelineItem[]
+  financialCategory: FinancialCategory
+  summarizeAmount: (item: TimelineItem) => number
+  selectedItemId: string | null
+  onSelectItem: (itemId: string | null) => void
+  onEditItem: (category: FinancialCategory, item: TimelineItem) => void
+  onDeleteItem: (category: FinancialCategory, id: string) => void
+  onSetAccumulator?: (id: string) => void
+  onOpenCashAccountEdit?: (cashAccount: CashAccount) => void
+  onDeleteCashAccount?: (id: string) => void
+  onManageAllocations?: (item: TimelineItem) => void
+  cashAccounts: CashAccount[]
+  scenarioEvents: ScenarioEvent[]
+  expandedScenarioItems: Set<string>
+  onToggleScenarioExpanded: (itemId: string) => void
+  showMonthlyData: boolean
+  getDisplayAmount: (item: TimelineItem) => number
+  activeAnnualizationId: string | null
+  setActiveAnnualizationId: (id: string | null) => void
+  getPropertyLink?: (item: TimelineItem, index: number) => PropertyLinkRecord | null
+  onOpenPropertyPlanner?: (link: PropertyLinkRecord) => void
+}
+
+function FlatItemsSection({
+  items,
+  financialCategory,
+  selectedItemId,
+  onSelectItem,
+  onEditItem,
+  onDeleteItem,
+  onSetAccumulator,
+  onOpenCashAccountEdit,
+  onDeleteCashAccount,
+  onManageAllocations,
+  cashAccounts,
+  scenarioEvents,
+  expandedScenarioItems,
+  onToggleScenarioExpanded,
+  showMonthlyData,
+  getDisplayAmount,
+  activeAnnualizationId,
+  setActiveAnnualizationId,
+  getPropertyLink,
+  onOpenPropertyPlanner,
+}: FlatItemsSectionProps) {
+  return (
+    <>
+      {items.map((item, index) => {
+        const itemId = getItemId(item) || `${financialCategory}-${index}`
+        const scenarioImpacts = getAppliedImpacts(item, financialCategory, scenarioEvents)
+        const isExpanded = expandedScenarioItems.has(itemId)
+        const isSelected = selectedItemId === itemId
+
+        return (
+          <LineItem
+            key={itemId}
+            item={item}
+            category={financialCategory}
+            index={index}
+            isSelected={isSelected}
+            onSelect={onSelectItem}
+            onEdit={onEditItem}
+            onDelete={onDeleteItem}
+            onSetAccumulator={onSetAccumulator}
+            onOpenCashAccountEdit={onOpenCashAccountEdit}
+            onDeleteCashAccount={onDeleteCashAccount}
+            onManageAllocations={financialCategory === 'income' ? onManageAllocations : undefined}
+            cashAccounts={cashAccounts}
+            scenarioImpacts={scenarioImpacts}
+            isExpanded={isExpanded}
+            onToggleExpand={onToggleScenarioExpanded}
+            showMonthlyData={showMonthlyData}
+            getDisplayAmount={getDisplayAmount}
+            activeAnnualizationId={activeAnnualizationId}
+            setActiveAnnualizationId={setActiveAnnualizationId}
+            propertyLink={getPropertyLink?.(item, index) ?? null}
+            onOpenPropertyPlanner={onOpenPropertyPlanner}
+          />
+        )
+      })}
+    </>
+  )
+}
+
 interface InvestmentsAssetsSectionProps {
   investmentAssets: TimelineItem[]
   getDisplayAmount: (item: TimelineItem) => number
@@ -446,88 +866,27 @@ interface InvestmentsAssetsSectionProps {
 
 function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, onDelete }: InvestmentsAssetsSectionProps) {
   const total = investmentAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const sectionRef = useRef<HTMLDivElement>(null)
-
-  // Close on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (sectionRef.current && !sectionRef.current.contains(event.target as Node)) {
-        setSelectedId(null)
-      }
-    }
-    if (selectedId) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [selectedId])
-
-  const handleClick = useCallback((itemId: string) => {
-    setSelectedId((prev) => (prev === itemId ? null : itemId))
-  }, [])
+  const { selectedId, handleSelect, sectionRef } = useCollapsibleSelection()
 
   return (
-    <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
-      <div className="mb-2 flex items-center gap-2 px-2">
-        <span className={`text-[10px] font-medium tracking-wider text-slate-500
-uppercase`}>Investments</span>
-        <span className="text-[10px] text-slate-600">({formatCurrency(total)})</span>
-      </div>
-      {investmentAssets.map((item, index) => {
-        const itemId = item.itemId || `investment-asset-${index}`
-        const isSelected = selectedId === itemId
-        return (
-          <div
-            key={itemId}
-            onClick={() => handleClick(itemId)}
-            className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
-          >
-            <span className="truncate text-sm text-slate-300">{item.name}</span>
-            <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
-              {formatCurrency(getDisplayAmount(item))}
-            </span>
-            {/* Edit/Delete buttons - visible when selected */}
-            {isSelected && (
-              <div className="absolute right-2 flex items-center gap-0.5">
-                {onEdit && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onEdit(item)
-                    }}
-                    className={`p-1
-rounded
-hover:bg-blue-500/20
-text-slate-400 hover:text-blue-300
-transition-colors`}
-                    type="button"
-                    title="Edit"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                )}
-                {onDelete && item.itemId && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onDelete(item.itemId!)
-                    }}
-                    className={`p-1
-rounded
-hover:bg-rose-500/20
-text-slate-400 hover:text-rose-300
-transition-colors`}
-                    type="button"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })}
+    <div ref={sectionRef}>
+      <CollapsibleSection title="Investments" total={total}>
+        {investmentAssets.map((item, index) => {
+          const itemId = item.itemId || `investment-asset-${index}`
+          return (
+            <CollapsibleItem
+              key={itemId}
+              id={itemId}
+              name={item.name}
+              amount={getDisplayAmount(item)}
+              isSelected={selectedId === itemId}
+              onSelect={handleSelect}
+              onEdit={onEdit ? () => onEdit(item) : undefined}
+              onDelete={onDelete && item.itemId ? () => onDelete(item.itemId!) : undefined}
+            />
+          )
+        })}
+      </CollapsibleSection>
     </div>
   )
 }
@@ -541,88 +900,27 @@ interface CPFAssetsSectionProps {
 
 function CPFAssetsSection({ cpfAssets, getDisplayAmount, onEdit, onDelete }: CPFAssetsSectionProps) {
   const total = cpfAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const sectionRef = useRef<HTMLDivElement>(null)
-
-  // Close on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (sectionRef.current && !sectionRef.current.contains(event.target as Node)) {
-        setSelectedId(null)
-      }
-    }
-    if (selectedId) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [selectedId])
-
-  const handleClick = useCallback((itemId: string) => {
-    setSelectedId((prev) => (prev === itemId ? null : itemId))
-  }, [])
+  const { selectedId, handleSelect, sectionRef } = useCollapsibleSelection()
 
   return (
-    <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
-      <div className="mb-2 flex items-center gap-2 px-2">
-        <span className={`text-[10px] font-medium tracking-wider text-slate-500
-uppercase`}>CPF Accounts</span>
-        <span className="text-[10px] text-slate-600">({formatCurrency(total)})</span>
-      </div>
-      {cpfAssets.map((item, index) => {
-        const itemId = item.itemId || `cpf-asset-${index}`
-        const isSelected = selectedId === itemId
-        return (
-          <div
-            key={itemId}
-            onClick={() => handleClick(itemId)}
-            className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
-          >
-            <span className="truncate text-sm text-slate-300">{item.name}</span>
-            <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
-              {formatCurrency(getDisplayAmount(item))}
-            </span>
-            {/* Edit/Delete buttons - visible when selected */}
-            {isSelected && (
-              <div className="absolute right-2 flex items-center gap-0.5">
-                {onEdit && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onEdit(item)
-                    }}
-                    className={`p-1
-rounded
-hover:bg-blue-500/20
-text-slate-400 hover:text-blue-300
-transition-colors`}
-                    type="button"
-                    title="Edit"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                )}
-                {onDelete && item.itemId && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onDelete(item.itemId!)
-                    }}
-                    className={`p-1
-rounded
-hover:bg-rose-500/20
-text-slate-400 hover:text-rose-300
-transition-colors`}
-                    type="button"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })}
+    <div ref={sectionRef}>
+      <CollapsibleSection title="CPF Accounts" total={total}>
+        {cpfAssets.map((item, index) => {
+          const itemId = item.itemId || `cpf-asset-${index}`
+          return (
+            <CollapsibleItem
+              key={itemId}
+              id={itemId}
+              name={item.name}
+              amount={getDisplayAmount(item)}
+              isSelected={selectedId === itemId}
+              onSelect={handleSelect}
+              onEdit={onEdit ? () => onEdit(item) : undefined}
+              onDelete={onDelete && item.itemId ? () => onDelete(item.itemId!) : undefined}
+            />
+          )
+        })}
+      </CollapsibleSection>
     </div>
   )
 }
@@ -635,31 +933,18 @@ function CPFContributionsSection({ cpfContributionsRaw }: CPFContributionsSectio
   const total = cpfContributionsRaw.reduce((sum, item) => sum + parseDecimal(item.totalContribution), 0)
 
   return (
-    <div className="mt-3 border-t border-white/[0.06] pt-3">
-      <div className="mb-2 flex items-center gap-2 px-2">
-        <span className={`text-[10px] font-medium tracking-wider text-slate-500
-uppercase`}>CPF Contributions</span>
-        <span className="text-[10px] text-slate-600">({formatCurrency(total)})</span>
-      </div>
+    <CollapsibleSection title="CPF Contributions" total={total}>
       {cpfContributionsRaw.map((item, index) => (
         <div key={item.id || `cpf-contrib-${index}`}>
-          <div className={`flex items-center justify-between
-px-2 py-1.5
-rounded-lg
-hover:bg-white/[0.04]
-transition-colors`}>
-            <span className="truncate text-sm text-slate-300">Employee Contribution - {item.name.replace('CPF Contribution - ', '')}</span>
+          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
+            <span className="truncate text-sm text-slate-300">Employee - {item.name.replace('CPF Contribution - ', '')}</span>
             <span className={numericStyles.base}>
               ({formatCurrency(parseDecimal(item.employeeContribution))})
               <span className="ml-1 text-xs text-slate-400">/mo</span>
             </span>
           </div>
-          <div className={`flex items-center justify-between
-px-2 py-1.5
-rounded-lg
-hover:bg-white/[0.04]
-transition-colors`}>
-            <span className="truncate text-sm text-slate-300">Employer Contribution - {item.name.replace('CPF Contribution - ', '')}</span>
+          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
+            <span className="truncate text-sm text-slate-300">Employer - {item.name.replace('CPF Contribution - ', '')}</span>
             <span className={numericStyles.base}>
               {formatCurrency(parseDecimal(item.employerContribution))}
               <span className="ml-1 text-xs text-slate-400">/mo</span>
@@ -667,7 +952,7 @@ transition-colors`}>
           </div>
         </div>
       ))}
-    </div>
+    </CollapsibleSection>
   )
 }
 
@@ -688,126 +973,53 @@ function InvestmentsSection({
   onEditAllocation,
   onDeleteAllocation,
 }: InvestmentsSectionProps) {
-  // Filter for investment allocations only
   const investmentAllocations = allocations.filter((a) => a.targetInvestmentId)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const sectionRef = useRef<HTMLDivElement>(null)
+  const { selectedId, handleSelect, sectionRef } = useCollapsibleSelection()
+  const displayAmount = showMonthlyData ? monthlyInvestments : monthlyInvestments * 12
 
-  // Close on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (sectionRef.current && !sectionRef.current.contains(event.target as Node)) {
-        setSelectedId(null)
-      }
-    }
-    if (selectedId) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [selectedId])
-
-  const handleClick = useCallback((allocationId: string) => {
-    setSelectedId((prev) => (prev === allocationId ? null : allocationId))
-  }, [])
-
-  // Helper to get investment name by ID
   const getInvestmentName = (investmentId: string): string => {
     const investment = investments.find((i) => getItemId(i) === investmentId)
     return investment?.name ?? 'Unknown Investment'
   }
 
-  // Format allocation value
-  const formatAllocationValue = (allocation: IncomeAllocation): string => {
-    if (allocation.allocationType === 'percentage') {
-      return `${allocation.allocationValue}%`
-    }
-    return formatCurrency(allocation.allocationValue)
+  const getAllocationAmount = (allocation: IncomeAllocation): number => {
+    // allocationValue is stored as a number
+    return typeof allocation.allocationValue === 'number'
+      ? allocation.allocationValue
+      : parseFloat(allocation.allocationValue) || 0
   }
 
   return (
-    <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
-      <div className="mb-2 flex items-center gap-2 px-2">
-        <span className={`text-[10px] font-medium tracking-wider text-slate-500
-uppercase`}>Investments</span>
-        <span className="text-[10px] text-slate-600">
-          ({formatCurrency(showMonthlyData ? monthlyInvestments : monthlyInvestments * 12)})
-          <span className="ml-1 text-[10px] text-slate-500">{showMonthlyData ? '/mo' : '/yr'}</span>
-        </span>
-      </div>
-
-      {investmentAllocations.length > 0 ? (
-        investmentAllocations.map((allocation) => {
-          const isSelected = selectedId === allocation.id
-          return (
-            <div
+    <div ref={sectionRef}>
+      <CollapsibleSection
+        title="Investments"
+        total={displayAmount}
+        totalSuffix={showMonthlyData ? '/mo' : '/yr'}
+      >
+        {investmentAllocations.length > 0 ? (
+          investmentAllocations.map((allocation) => (
+            <CollapsibleItem
               key={allocation.id}
-              onClick={() => handleClick(allocation.id)}
-              className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
-            >
-              <div className="min-w-0 flex-1">
-                <span className="truncate text-sm text-slate-300">{getInvestmentName(allocation.targetInvestmentId!)}</span>
-              </div>
-              <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
-                {formatAllocationValue(allocation)}
-                {allocation.allocationType === 'fixed' && (
-                  <span className="ml-1 text-xs text-slate-400">/mo</span>
-                )}
-              </span>
-              {/* Edit/Delete buttons - visible when selected */}
-              {isSelected && (
-                <div className="absolute right-2 flex items-center gap-0.5">
-                  {onEditAllocation && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onEditAllocation(allocation)
-                      }}
-                      className={`p-1
-rounded
-hover:bg-blue-500/20
-text-slate-400 hover:text-blue-300
-transition-colors`}
-                      type="button"
-                      title="Edit"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                  )}
-                  {onDeleteAllocation && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onDeleteAllocation(allocation)
-                      }}
-                      className={`p-1
-rounded
-hover:bg-rose-500/20
-text-slate-400 hover:text-rose-300
-transition-colors`}
-                      type="button"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })
-      ) : (
-        <div className={`flex items-center justify-between
-px-2 py-1.5
-rounded-lg
-hover:bg-white/[0.04]
-transition-colors`}>
-          <span className="truncate text-sm text-slate-300">Allocated to investments</span>
-          <span className={numericStyles.base}>
-            {formatCurrency(showMonthlyData ? monthlyInvestments : monthlyInvestments * 12)}
-            <span className="ml-1 text-xs text-slate-400">{showMonthlyData ? '/mo' : '/yr'}</span>
-          </span>
-        </div>
-      )}
+              id={allocation.id}
+              name={getInvestmentName(allocation.targetInvestmentId!)}
+              amount={getAllocationAmount(allocation)}
+              amountSuffix={allocation.allocationType === 'fixed' ? '/mo' : (allocation.allocationType === 'percentage' ? '%' : undefined)}
+              isSelected={selectedId === allocation.id}
+              onSelect={handleSelect}
+              onEdit={onEditAllocation ? () => onEditAllocation(allocation) : undefined}
+              onDelete={onDeleteAllocation ? () => onDeleteAllocation(allocation) : undefined}
+            />
+          ))
+        ) : (
+          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
+            <span className="truncate text-sm text-slate-300">Allocated to investments</span>
+            <span className={numericStyles.base}>
+              {formatCurrency(displayAmount)}
+              <span className="ml-1 text-xs text-slate-400">{showMonthlyData ? '/mo' : '/yr'}</span>
+            </span>
+          </div>
+        )}
+      </CollapsibleSection>
     </div>
   )
 }
@@ -822,88 +1034,32 @@ interface DebtRepaymentsSectionProps {
 
 function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyData, onEdit, onDelete }: DebtRepaymentsSectionProps) {
   const total = debtRepayments.reduce((sum, item) => sum + getDisplayAmount(item), 0)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const sectionRef = useRef<HTMLDivElement>(null)
-
-  // Close on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (sectionRef.current && !sectionRef.current.contains(event.target as Node)) {
-        setSelectedId(null)
-      }
-    }
-    if (selectedId) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [selectedId])
+  const { selectedId, handleSelect, sectionRef } = useCollapsibleSelection()
 
   return (
-    <div ref={sectionRef} className="mt-3 border-t border-white/[0.06] pt-3">
-      <div className="mb-2 flex items-center gap-2 px-2">
-        <span className={`text-[10px] font-medium tracking-wider text-slate-500
-uppercase`}>Debt Repayments</span>
-        <span className="text-[10px] text-slate-600">
-          ({formatCurrency(total)})
-          {showMonthlyData && <span className="ml-1 text-[10px] text-slate-500">/mo</span>}
-        </span>
-      </div>
-      {debtRepayments.map((item, index) => {
-        const itemId = item.itemId || `debt-repayment-${index}`
-        const isSelected = selectedId === itemId
-        return (
-          <div
-            key={itemId}
-            onClick={() => setSelectedId(isSelected ? null : itemId)}
-            className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
-          >
-            <span className="truncate text-sm text-slate-300">{item.name}</span>
-            <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
-              {formatCurrency(getDisplayAmount(item))}
-              {showMonthlyData && <span className="ml-1 text-xs text-slate-400">/mo</span>}
-            </span>
-            {/* Edit/Delete buttons - visible when selected */}
-            {isSelected && (
-              <div className="absolute right-2 flex items-center gap-0.5">
-                {onEdit && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onEdit(item)
-                    }}
-                    className={`p-1
-rounded
-hover:bg-blue-500/20
-text-slate-400 hover:text-blue-300
-transition-colors`}
-                    type="button"
-                    title="Edit"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                )}
-                {onDelete && item.itemId && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onDelete(item)
-                    }}
-                    className={`p-1
-rounded
-hover:bg-rose-500/20
-text-slate-400 hover:text-rose-300
-transition-colors`}
-                    type="button"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })}
+    <div ref={sectionRef}>
+      <CollapsibleSection
+        title="Debt Repayments"
+        total={total}
+        totalSuffix={showMonthlyData ? '/mo' : undefined}
+      >
+        {debtRepayments.map((item, index) => {
+          const itemId = item.itemId || `debt-repayment-${index}`
+          return (
+            <CollapsibleItem
+              key={itemId}
+              id={itemId}
+              name={item.name}
+              amount={getDisplayAmount(item)}
+              amountSuffix={showMonthlyData ? '/mo' : undefined}
+              isSelected={selectedId === itemId}
+              onSelect={handleSelect}
+              onEdit={onEdit ? () => onEdit(item) : undefined}
+              onDelete={onDelete && item.itemId ? () => onDelete(item) : undefined}
+            />
+          )
+        })}
+      </CollapsibleSection>
     </div>
   )
 }
