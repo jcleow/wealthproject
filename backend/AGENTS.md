@@ -12,8 +12,70 @@ The v1 Store is **DEPRECATED**. All new development and handler migrations MUST 
 When migrating handlers from v1 to v2:
 1. Change import from `internal/financial/repository` to `internal/financial_v2/repository`
 2. Update handler constructor to accept `*finRepoV2.Store`
-3. Convert float64 inputs to `decimal.Decimal` using `decimal.MustFromFloat64()`
+3. Use string types for decimal JSON inputs (see Decimal Handling below)
 4. Handle pointer returns appropriately
+
+## ⚠️ P0: Decimal Handling in API Handlers
+
+**NEVER use `float64` for monetary values in JSON input structs.** Float64 causes precision loss.
+
+### Correct Pattern for JSON Input Structs
+
+Use `string` type for all decimal fields (amounts, rates, percentages):
+
+```go
+// ✅ CORRECT: Use string for decimal values
+type createInput struct {
+    Amount     string  `json:"amount"`      // Required decimal
+    GrowthRate *string `json:"growthRate"`  // Optional decimal
+}
+
+// ❌ WRONG: Never use float64 for money
+type createInput struct {
+    Amount     float64 `json:"amount"`
+    GrowthRate float64 `json:"growthRate"`
+}
+```
+
+### Parsing Decimal Strings in Handlers
+
+```go
+// Required field
+amount, err := decimal.NewFromString(input.Amount)
+if err != nil {
+    badRequest(w, err)
+    return
+}
+
+// Optional field
+var growthRate *decimal.Decimal
+if input.GrowthRate != nil && *input.GrowthRate != "" {
+    gr, err := decimal.NewFromString(*input.GrowthRate)
+    if err != nil {
+        badRequest(w, err)
+        return
+    }
+    growthRate = gr
+}
+
+// Build repository struct
+item := repo.Item{
+    Amount: *amount,
+}
+if growthRate != nil {
+    item.GrowthRate = *growthRate
+}
+```
+
+### Reference: Decimal Package
+
+Located at `internal/decimal/decimal.go`, wraps `github.com/cockroachdb/apd/v3`:
+
+- `decimal.NewFromString(s)` - Parse string to decimal (preferred)
+- `decimal.Zero()` - Returns 0
+- `decimal.One()` - Returns 1
+- Methods: `.Add()`, `.Sub()`, `.Mul()`, `.Div()`, `.Round()`, `.Cmp()`
+- Contexts: `MoneyContext` (2 decimal), `PercentageContext`, `GrowthContext`
 
 ## Repository Structure
 

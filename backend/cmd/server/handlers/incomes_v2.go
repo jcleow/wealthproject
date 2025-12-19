@@ -42,12 +42,13 @@ func NewIncomeV2Handler(store *repo.Store) *IncomeV2Handler {
 }
 
 // incomeV2CreateInput is the JSON-friendly input struct for income v2 create.
+// Uses string for decimal values to avoid float64 precision loss.
 type incomeV2CreateInput struct {
 	Source         string  `json:"source"`
 	Category       string  `json:"category"`
-	Amount         float64 `json:"amount"`
+	Amount         string  `json:"amount"`
 	Frequency      string  `json:"frequency"`
-	GrowthRate     float64 `json:"growthRate"`
+	GrowthRate     *string `json:"growthRate"`
 	GrowthStrategy string  `json:"growthStrategy"`
 	Notes          string  `json:"notes"`
 	StartDate      *string `json:"startDate"`
@@ -81,9 +82,26 @@ func (h *IncomeV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Source == "" || input.Amount == 0 || input.Frequency == "" || input.Category == "" {
+	if input.Source == "" || input.Amount == "" || input.Frequency == "" || input.Category == "" {
 		badRequest(w, errMissingFields("source, amount, frequency, category"))
 		return
+	}
+
+	// Parse decimal values from strings
+	amount, err := decimal.NewFromString(input.Amount)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	var growthRate *decimal.Decimal
+	if input.GrowthRate != nil && *input.GrowthRate != "" {
+		gr, err := decimal.NewFromString(*input.GrowthRate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		growthRate = gr
 	}
 
 	// Parse dates
@@ -113,14 +131,16 @@ func (h *IncomeV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	inc := repo.Income{
 		Source:         input.Source,
 		Category:       input.Category,
-		Amount:         *decimal.MustFromFloat64(input.Amount),
+		Amount:         *amount,
 		Frequency:      input.Frequency,
-		GrowthRate:     *decimal.MustFromFloat64(input.GrowthRate),
 		GrowthStrategy: input.GrowthStrategy,
 		Notes:          input.Notes,
 		StartDate:      startDate,
 		EndDate:        endDate,
 		CPFWageType:    input.CPFWageType,
+	}
+	if growthRate != nil {
+		inc.GrowthRate = *growthRate
 	}
 
 	created, err := h.store.CreateIncome(r.Context(), userID, inc)

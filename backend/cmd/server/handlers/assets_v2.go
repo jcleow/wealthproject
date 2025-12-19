@@ -41,11 +41,12 @@ func NewAssetV2Handler(store *repo.Store) *AssetV2Handler {
 }
 
 // assetCreateInput is the JSON-friendly input struct for asset creation.
+// Uses string for decimal values to avoid float64 precision loss.
 type assetCreateInput struct {
 	Name           string  `json:"name"`
 	Category       string  `json:"category"`
-	CurrentValue   float64 `json:"currentValue"`
-	GrowthRate     float64 `json:"annualGrowthRate"`
+	CurrentValue   string  `json:"currentValue"`
+	GrowthRate     *string `json:"annualGrowthRate"`
 	GrowthStrategy string  `json:"growthStrategy"`
 	Notes          string  `json:"notes"`
 	StartDate      *string `json:"startDate"`
@@ -83,6 +84,23 @@ func (h *AssetV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parse decimal values from strings
+	currentValue, err := decimal.NewFromString(input.CurrentValue)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	var growthRate *decimal.Decimal
+	if input.GrowthRate != nil && *input.GrowthRate != "" {
+		gr, err := decimal.NewFromString(*input.GrowthRate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		growthRate = gr
+	}
+
 	// Parse dates
 	var startDate time.Time
 	if input.StartDate != nil {
@@ -108,14 +126,16 @@ func (h *AssetV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 
 	// Build repository asset
 	a := repo.NonCashAsset{
-		Name:             input.Name,
-		Category:         input.Category,
-		CurrentValue:     *decimal.MustFromFloat64(input.CurrentValue),
-		AnnualGrowthRate: *decimal.MustFromFloat64(input.GrowthRate),
-		GrowthStrategy:   input.GrowthStrategy,
-		Notes:            input.Notes,
-		StartDate:        startDate,
-		EndDate:          endDate,
+		Name:           input.Name,
+		Category:       input.Category,
+		CurrentValue:   *currentValue,
+		GrowthStrategy: input.GrowthStrategy,
+		Notes:          input.Notes,
+		StartDate:      startDate,
+		EndDate:        endDate,
+	}
+	if growthRate != nil {
+		a.AnnualGrowthRate = *growthRate
 	}
 
 	created, err := h.store.CreateNonCashAsset(r.Context(), userID, a)

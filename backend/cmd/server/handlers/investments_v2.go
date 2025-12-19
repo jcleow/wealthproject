@@ -41,11 +41,12 @@ func NewInvestmentV2Handler(store *repo.Store) *InvestmentV2Handler {
 }
 
 // investmentCreateInput is the JSON-friendly input struct for investment creation.
+// Uses string for decimal values to avoid float64 precision loss.
 type investmentCreateInput struct {
 	Name           string  `json:"name"`
 	Category       string  `json:"category"`
-	CurrentValue   float64 `json:"currentValue"`
-	GrowthRate     float64 `json:"annualGrowthRate"`
+	CurrentValue   string  `json:"currentValue"`
+	GrowthRate     *string `json:"annualGrowthRate"`
 	GrowthStrategy string  `json:"growthStrategy"`
 	Notes          string  `json:"notes"`
 	StartDate      *string `json:"startDate"`
@@ -83,6 +84,23 @@ func (h *InvestmentV2Handler) HandleCreate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Parse decimal values from strings
+	currentValue, err := decimal.NewFromString(input.CurrentValue)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	var growthRate *decimal.Decimal
+	if input.GrowthRate != nil && *input.GrowthRate != "" {
+		gr, err := decimal.NewFromString(*input.GrowthRate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		growthRate = gr
+	}
+
 	// Parse dates
 	var startDate time.Time
 	if input.StartDate != nil {
@@ -110,12 +128,14 @@ func (h *InvestmentV2Handler) HandleCreate(w http.ResponseWriter, r *http.Reques
 	inv := repo.Investment{
 		Name:           input.Name,
 		Category:       input.Category,
-		CurrentValue:   *decimal.MustFromFloat64(input.CurrentValue),
-		GrowthRate:     *decimal.MustFromFloat64(input.GrowthRate),
+		CurrentValue:   *currentValue,
 		GrowthStrategy: input.GrowthStrategy,
 		Notes:          input.Notes,
 		StartDate:      startDate,
 		EndDate:        endDate,
+	}
+	if growthRate != nil {
+		inv.GrowthRate = *growthRate
 	}
 
 	created, err := h.store.CreateInvestment(r.Context(), userID, inv)
