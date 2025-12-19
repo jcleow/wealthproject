@@ -25,7 +25,11 @@ func (s *Store) ListExpensesGrouped(
 	userID string,
 	pagination PaginationParams,
 ) (GroupedExpenses, error) {
-	result, err := s.ListExpenses(ctx, userID, DateRangeOptions{}, pagination)
+	result, err := s.ListExpenses(ctx, ListQuery{
+		UserID:     userID,
+		DateRange:  DateRangeOptions{},
+		Pagination: pagination,
+	})
 	if err != nil {
 		return GroupedExpenses{}, err
 	}

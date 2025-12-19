@@ -115,39 +115,45 @@ func (s *Service) loadEffectiveRows(
 
 	g, gctx := errgroup.WithContext(ctx)
 
+	listQuery := repo.ListQuery{
+		UserID:     userID,
+		DateRange:  dateOpts,
+		Pagination: paginationOpts,
+	}
+
 	g.Go(func() error {
 		var err error
-		nonCashAssets, err = s.store.ListNonCashAssets(gctx, userID, dateOpts, paginationOpts)
+		nonCashAssets, err = s.store.ListNonCashAssets(gctx, listQuery)
 		return err
 	})
 
 	g.Go(func() error {
 		var err error
-		investments, err = s.store.ListInvestments(gctx, userID, dateOpts, paginationOpts)
+		investments, err = s.store.ListInvestments(gctx, listQuery)
 		return err
 	})
 
 	g.Go(func() error {
 		var err error
-		cashAssets, err = s.store.ListCashAssets(gctx, userID, dateOpts, paginationOpts)
+		cashAssets, err = s.store.ListCashAssets(gctx, listQuery)
 		return err
 	})
 
 	g.Go(func() error {
 		var err error
-		liabilities, err = s.store.ListLiabilities(gctx, userID, dateOpts, paginationOpts)
+		liabilities, err = s.store.ListLiabilities(gctx, listQuery)
 		return err
 	})
 
 	g.Go(func() error {
 		var err error
-		incomes, err = s.store.ListIncomes(gctx, userID, dateOpts, paginationOpts)
+		incomes, err = s.store.ListIncomes(gctx, listQuery)
 		return err
 	})
 
 	g.Go(func() error {
 		var err error
-		expenses, err = s.store.ListExpenses(gctx, userID, dateOpts, paginationOpts)
+		expenses, err = s.store.ListExpenses(gctx, listQuery)
 		return err
 	})
 

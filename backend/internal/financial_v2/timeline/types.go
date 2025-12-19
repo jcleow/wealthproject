@@ -56,12 +56,12 @@ const (
 )
 
 type Store interface {
-	ListNonCashAssets(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.NonCashAsset], error)
-	ListInvestments(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Investment], error)
-	ListCashAssets(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.CashAsset], error)
-	ListLiabilities(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Liability], error)
-	ListIncomes(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Income], error)
-	ListExpenses(context.Context, string, repository.DateRangeOptions, repository.PaginationParams) (repository.PaginatedResult[repository.Expense], error)
+	ListNonCashAssets(context.Context, repository.ListQuery) (repository.PaginatedResult[repository.NonCashAsset], error)
+	ListInvestments(context.Context, repository.ListQuery) (repository.PaginatedResult[repository.Investment], error)
+	ListCashAssets(context.Context, repository.ListQuery) (repository.PaginatedResult[repository.CashAsset], error)
+	ListLiabilities(context.Context, repository.ListQuery) (repository.PaginatedResult[repository.Liability], error)
+	ListIncomes(context.Context, repository.ListQuery) (repository.PaginatedResult[repository.Income], error)
+	ListExpenses(context.Context, repository.ListQuery) (repository.PaginatedResult[repository.Expense], error)
 	GetCPFAccount(context.Context, string) (*repository.CPFAccount, error)
 	ListAllIncomeAllocations(context.Context, string) ([]repository.IncomeAllocation, error)
 	// GetExcludedScenarioTargetIDs returns IDs of financial items created by excluded scenarios

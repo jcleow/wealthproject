@@ -21,27 +21,27 @@ type fullMockStore struct {
 	incomeAllocations []repo.IncomeAllocation
 }
 
-func (m *fullMockStore) ListNonCashAssets(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.NonCashAsset], error) {
+func (m *fullMockStore) ListNonCashAssets(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.NonCashAsset], error) {
 	return repo.PaginatedResult[repo.NonCashAsset]{Data: m.nonCashAssets, Count: len(m.nonCashAssets)}, nil
 }
 
-func (m *fullMockStore) ListInvestments(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.Investment], error) {
+func (m *fullMockStore) ListInvestments(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Investment], error) {
 	return repo.PaginatedResult[repo.Investment]{Data: m.investments, Count: len(m.investments)}, nil
 }
 
-func (m *fullMockStore) ListCashAssets(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.CashAsset], error) {
+func (m *fullMockStore) ListCashAssets(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.CashAsset], error) {
 	return repo.PaginatedResult[repo.CashAsset]{Data: m.cashAssets, Count: len(m.cashAssets)}, nil
 }
 
-func (m *fullMockStore) ListLiabilities(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.Liability], error) {
+func (m *fullMockStore) ListLiabilities(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Liability], error) {
 	return repo.PaginatedResult[repo.Liability]{Data: m.liabilities, Count: len(m.liabilities)}, nil
 }
 
-func (m *fullMockStore) ListIncomes(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.Income], error) {
+func (m *fullMockStore) ListIncomes(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Income], error) {
 	return repo.PaginatedResult[repo.Income]{Data: m.incomes, Count: len(m.incomes)}, nil
 }
 
-func (m *fullMockStore) ListExpenses(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.Expense], error) {
+func (m *fullMockStore) ListExpenses(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Expense], error) {
 	return repo.PaginatedResult[repo.Expense]{Data: m.expenses, Count: len(m.expenses)}, nil
 }
 
