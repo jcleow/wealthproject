@@ -147,7 +147,115 @@ func ApplyImpactsToItem(
 	return result
 }
 
-// ApplyImpactsToItemWithTracking applies impacts and returns both the result and tracking info
+// ApplyImpactsToItemWithTracking applies impacts and returns both the result and tracking info.
+// Same logic as ApplyImpactsToItem but also tracks which impacts were applied for API responses.
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// WORKED EXAMPLE: Cash account with delta impact
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// INPUT:
+//
+//	impacts = [
+//	  {EventID: "evt-1", ImpactKind: "delta", Amount: 100000, Cadence: "monthly",
+//	   StartDate: "2025-12-01", EndDate: nil}
+//	]
+//	baseValue = $125,051
+//	currentDate = "2026-01-15"
+//	itemInfo = {ItemType: "cash_asset", Frequency: "monthly"}
+//	eventsByID = {"evt-1": {ID: "evt-1", UpdatedAt: "2025-12-01T10:00:00Z"}}
+//
+// PROCESSING:
+//
+//	PASS 1 (stop):
+//	  impacts[0].ImpactKind = "delta" ≠ "stop" → skip
+//	  No stop found → continue to pass 2
+//
+//	PASS 2 (override):
+//	  impacts[0].ImpactKind = "delta" ≠ "override" → skip
+//	  No override found → result.AdjustedValue stays $125,051
+//
+//	PASS 3 (delta):
+//	  impacts[0].ImpactKind = "delta" ✓
+//	  ImpactAppliesToMonth("2025-12-01", nil, "2026-01-15") → true
+//	  deltaAmount = ConvertImpactAmount($100,000, "monthly", "cash_asset") = $100,000
+//	  result.AdjustedValue = $125,051 + $100,000 = $225,051
+//	  result.AppliedImpacts = [{EventID: "evt-1", ImpactKind: "delta",
+//	                           AmountMonthly: 100000, AmountAnnual: 1200000}]
+//
+// OUTPUT:
+//
+//	ApplyImpactsResult{
+//	  AdjustedValue: $225,051,
+//	  AppliedImpacts: [{EventID: "evt-1", ImpactKind: "delta", AmountMonthly: 100000, ...}]
+//	}
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// WORKED EXAMPLE: Income with override + delta impacts
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// INPUT:
+//
+//	impacts = [
+//	  {EventID: "evt-raise", ImpactKind: "override", Amount: 150000, Cadence: "annual"},
+//	  {EventID: "evt-bonus", ImpactKind: "delta", Amount: 5000, Cadence: "annual"}
+//	]
+//	baseValue = $120,000 (current annual salary)
+//	itemInfo = {ItemType: "income", Frequency: "annual"}
+//
+// PROCESSING:
+//
+//	PASS 1 (stop): No stop → continue
+//
+//	PASS 2 (override):
+//	  Found "evt-raise" override, Amount = $150,000
+//	  result.AdjustedValue = $150,000 (replaces base entirely)
+//	  result.AppliedImpacts = [{EventID: "evt-raise", ImpactKind: "override", ...}]
+//
+//	PASS 3 (delta):
+//	  Found "evt-bonus" delta, Amount = $5,000
+//	  result.AdjustedValue = $150,000 + $5,000 = $155,000
+//	  result.AppliedImpacts = [
+//	    {EventID: "evt-raise", ImpactKind: "override", AmountAnnual: 150000},
+//	    {EventID: "evt-bonus", ImpactKind: "delta", AmountAnnual: 5000}
+//	  ]
+//
+// OUTPUT:
+//
+//	ApplyImpactsResult{
+//	  AdjustedValue: $155,000,
+//	  AppliedImpacts: [override info, delta info]
+//	}
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// WORKED EXAMPLE: Income with stop impact (job loss)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// INPUT:
+//
+//	impacts = [
+//	  {EventID: "evt-quit", ImpactKind: "stop", StartDate: "2026-03-01"},
+//	  {EventID: "evt-bonus", ImpactKind: "delta", Amount: 5000}  // would be ignored
+//	]
+//	baseValue = $120,000
+//	currentDate = "2026-04-01"
+//
+// PROCESSING:
+//
+//	PASS 1 (stop):
+//	  Found "evt-quit" stop impact
+//	  ImpactAppliesToMonth("2026-03-01", nil, "2026-04-01") → true (started)
+//	  result.AdjustedValue = $0 (immediately)
+//	  RETURN EARLY ← delta never processed
+//
+// OUTPUT:
+//
+//	ApplyImpactsResult{
+//	  AdjustedValue: $0,
+//	  AppliedImpacts: [{EventID: "evt-quit", ImpactKind: "stop", ...}]
+//	}
+//
+// ═══════════════════════════════════════════════════════════════════════════════
 func ApplyImpactsToItemWithTracking(
 	impacts []Impact,
 	baseValue *decimal.Decimal,
@@ -155,12 +263,27 @@ func ApplyImpactsToItemWithTracking(
 	itemInfo ItemInfo,
 	eventsByID map[string]*Event,
 ) ApplyImpactsResult {
+	// ─────────────────────────────────────────────────────────────────────────
+	// Initialize result with base value
+	//
+	// Example: baseValue = $125,051
+	//          result.AdjustedValue = $125,051 (will be modified by impacts)
+	// ─────────────────────────────────────────────────────────────────────────
 	result := ApplyImpactsResult{
 		AdjustedValue:  baseValue,
 		AppliedImpacts: []AppliedImpactInfo{},
 	}
 
-	// First pass: check for stop impacts
+	// ─────────────────────────────────────────────────────────────────────────
+	// PASS 1: Check for stop impacts (highest priority - returns immediately)
+	//
+	// Example: Job loss scenario
+	//   impact = {ImpactKind: "stop", StartDate: "2026-03-01"}
+	//   currentDate = "2026-04-01"
+	//   ImpactAppliesToMonth() → true (stop has started)
+	//   result.AdjustedValue = $0
+	//   RETURN immediately (skip override and delta passes)
+	// ─────────────────────────────────────────────────────────────────────────
 	for _, impact := range impacts {
 		if impact.ImpactKind == ImpactKindStop && ImpactAppliesToMonth(impact, currentDate) {
 			result.AdjustedValue = decimal.Zero()
@@ -176,15 +299,29 @@ func ApplyImpactsToItemWithTracking(
 		}
 	}
 
-	// Second pass: find latest applicable override (by event updated_at)
+	// ─────────────────────────────────────────────────────────────────────────
+	// PASS 2: Find latest applicable override (by event.UpdatedAt timestamp)
+	//
+	// Why "latest"? If user creates multiple conflicting overrides, the most
+	// recently updated one wins. This allows users to correct mistakes.
+	//
+	// Example: Two override impacts for same item
+	//   impact1 = {EventID: "old", Amount: 100000, event.UpdatedAt: "2025-01-01"}
+	//   impact2 = {EventID: "new", Amount: 150000, event.UpdatedAt: "2025-06-01"}
+	//   latestOverride = impact2 (newer UpdatedAt wins)
+	//   result.AdjustedValue = $150,000 (replaces base value entirely)
+	// ─────────────────────────────────────────────────────────────────────────
 	var latestOverride *Impact
 	var latestOverrideTime time.Time
 
 	for i := range impacts {
 		impact := &impacts[i]
+		// Example: impact.ImpactKind = "delta" → skip (not override)
 		if impact.ImpactKind != ImpactKindOverride {
 			continue
 		}
+		// Example: impact.StartDate = "2026-06-01", currentDate = "2026-01-01"
+		//          → false (impact hasn't started yet)
 		if !ImpactAppliesToMonth(*impact, currentDate) {
 			continue
 		}
@@ -194,12 +331,16 @@ func ApplyImpactsToItemWithTracking(
 			continue
 		}
 
+		// Example: event.UpdatedAt = "2025-06-01" > latestOverrideTime "2025-01-01"
+		//          → this becomes the new latestOverride
 		if latestOverride == nil || event.UpdatedAt.After(latestOverrideTime) {
 			latestOverride = impact
 			latestOverrideTime = event.UpdatedAt
 		}
 	}
 
+	// Example: latestOverride = {Amount: 150000, Cadence: "annual"}
+	//          result.AdjustedValue = $150,000 (base value completely replaced)
 	if latestOverride != nil {
 		result.AdjustedValue = ConvertImpactAmount(latestOverride, itemInfo)
 		monthlyAmt, annualAmt := computeImpactAmounts(latestOverride)
@@ -213,19 +354,43 @@ func ApplyImpactsToItemWithTracking(
 		})
 	}
 
-	// Third pass: apply all delta impacts (cumulative)
+	// ─────────────────────────────────────────────────────────────────────────
+	// PASS 3: Apply all delta impacts (cumulative - all deltas stack)
+	//
+	// Unlike override (only latest wins), ALL applicable deltas are summed.
+	// This allows multiple additive adjustments.
+	//
+	// Example: Two delta impacts
+	//   delta1 = {Amount: 100000, Cadence: "monthly"}  // +$100k/month
+	//   delta2 = {Amount: 5000, Cadence: "monthly"}    // +$5k/month bonus
+	//   Both apply: result.AdjustedValue += $100,000 += $5,000
+	//
+	// Example with prior override:
+	//   After PASS 2: result.AdjustedValue = $150,000 (from override)
+	//   delta = {Amount: 5000}
+	//   result.AdjustedValue = $150,000 + $5,000 = $155,000
+	// ─────────────────────────────────────────────────────────────────────────
 	for i := range impacts {
 		impact := &impacts[i]
+		// Example: impact.ImpactKind = "override" → skip (not delta)
 		if impact.ImpactKind != ImpactKindDelta {
 			continue
 		}
+		// Example: impact.EndDate = "2025-12-31", currentDate = "2026-01-01"
+		//          → false (impact has ended)
 		if !ImpactAppliesToMonth(*impact, currentDate) {
 			continue
 		}
 
+		// Example: impact.Amount = 100000, Cadence = "monthly", ItemType = "cash_asset"
+		//          deltaAmount = $100,000 (no conversion needed for assets)
 		deltaAmount := ConvertImpactAmount(impact, itemInfo)
+
+		// Example: result.AdjustedValue = $125,051 + $100,000 = $225,051
 		result.AdjustedValue = result.AdjustedValue.Add(deltaAmount)
 
+		// Track this impact for API response
+		// Example: monthlyAmt = 100000, annualAmt = 1200000
 		monthlyAmt, annualAmt := computeImpactAmounts(impact)
 		result.AppliedImpacts = append(result.AppliedImpacts, AppliedImpactInfo{
 			EventID:       impact.EventID,
@@ -237,6 +402,9 @@ func ApplyImpactsToItemWithTracking(
 		})
 	}
 
+	// Example final result:
+	//   AdjustedValue = $225,051
+	//   AppliedImpacts = [{EventID: "evt-1", ImpactKind: "delta", AmountMonthly: 100000, ...}]
 	return result
 }
 
