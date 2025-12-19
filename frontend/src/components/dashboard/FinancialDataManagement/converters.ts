@@ -1,5 +1,7 @@
 import type {
   TimelineItem,
+  TimelineEventImpact,
+  AppliedImpactV2,
   NonCashAssetResponseV2,
   InvestmentResponseV2,
   CashAssetResponseV2,
@@ -14,6 +16,18 @@ export function parseDecimal(value: string | undefined): number {
   if (!value) return 0
   const parsed = parseFloat(value)
   return isNaN(parsed) ? 0 : parsed
+}
+
+/** Convert V2 applied impacts to TimelineEventImpact array */
+function convertAppliedImpacts(impacts?: AppliedImpactV2[]): TimelineEventImpact[] | undefined {
+  if (!impacts || impacts.length === 0) return undefined
+  return impacts.map((imp) => ({
+    eventId: imp.eventId,
+    amountAnnual: parseDecimal(imp.amountAnnual),
+    amountMonthly: parseDecimal(imp.amountMonthly),
+    impactKind: imp.impactKind,
+    notes: imp.notes,
+  }))
 }
 
 export function nonCashAssetV2ToTimelineItem(item: NonCashAssetResponseV2): TimelineItem {
@@ -31,6 +45,7 @@ export function nonCashAssetV2ToTimelineItem(item: NonCashAssetResponseV2): Time
     itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
+    eventImpacts: convertAppliedImpacts(item.eventImpacts),
   }
 }
 
@@ -50,6 +65,7 @@ export function investmentV2ToTimelineItem(item: InvestmentResponseV2): Timeline
     startYear: item.startYear,
     startMonth: item.startMonth,
     growthRate: parseDecimal(item.growthRate),
+    eventImpacts: convertAppliedImpacts(item.eventImpacts),
   }
 }
 
@@ -68,6 +84,7 @@ export function cashAssetV2ToTimelineItem(item: CashAssetResponseV2): TimelineIt
     startYear: item.startYear,
     startMonth: item.startMonth,
     isAccumulator: item.isAccumulator,
+    eventImpacts: convertAppliedImpacts(item.eventImpacts),
   }
 }
 
@@ -105,6 +122,7 @@ export function liabilityV2ToTimelineItem(item: LiabilityResponseV2): TimelineIt
     itemType: item.itemType,
     startYear: item.startYear,
     startMonth: item.startMonth,
+    eventImpacts: convertAppliedImpacts(item.eventImpacts),
   }
 }
 
@@ -123,6 +141,7 @@ export function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
     startYear: item.startYear,
     startMonth: item.startMonth,
     growthRate: parseDecimal(item.growthRate),
+    eventImpacts: convertAppliedImpacts(item.eventImpacts),
   }
 }
 
@@ -141,5 +160,6 @@ export function expenseV2ToTimelineItem(item: ExpenseResponseV2): TimelineItem {
     startYear: item.startYear,
     startMonth: item.startMonth,
     sourceLiabilityId: item.sourceLiabilityId,
+    eventImpacts: convertAppliedImpacts(item.eventImpacts),
   }
 }

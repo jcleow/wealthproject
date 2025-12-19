@@ -32,6 +32,15 @@ export interface TimelineEventImpact {
   notes?: string
 }
 
+/** Applied impact in V2 response (decimal values as strings from backend) */
+export interface AppliedImpactV2 {
+  eventId: string
+  amountAnnual: string
+  amountMonthly: string
+  impactKind: 'delta' | 'override' | 'start' | 'stop'
+  notes?: string
+}
+
 export interface TimelineItem {
   itemId: string
   rowId?: string
@@ -194,6 +203,7 @@ export interface NonCashAssetResponseV2 {
   startDate: string
   startYear: number
   startMonth: number
+  eventImpacts?: AppliedImpactV2[]
 }
 
 /** Investment in V2 response (decimal values come as strings from backend) */
@@ -209,6 +219,7 @@ export interface InvestmentResponseV2 {
   startDate: string
   startYear: number
   startMonth: number
+  eventImpacts?: AppliedImpactV2[]
 }
 
 /** Cash asset in V2 response (decimal values come as strings from backend) */
@@ -222,6 +233,7 @@ export interface CashAssetResponseV2 {
   startYear: number
   startMonth: number
   isAccumulator: boolean
+  eventImpacts?: AppliedImpactV2[]
 }
 
 /** CPF asset in V2 response (decimal values come as strings from backend) */
@@ -250,6 +262,7 @@ export interface LiabilityResponseV2 {
   itemType: TimelineItemType
   startYear: number
   startMonth: number
+  eventImpacts?: AppliedImpactV2[]
 }
 
 /** Income in V2 response (decimal values come as strings from backend) */
@@ -265,6 +278,7 @@ export interface IncomeResponseV2 {
   startYear: number
   startMonth: number
   growthRate: string
+  eventImpacts?: AppliedImpactV2[]
 }
 
 /** CPF contribution in V2 response (decimal values come as strings from backend) */
@@ -300,4 +314,5 @@ export interface ExpenseResponseV2 {
   startMonth: number
   /** Link to liability this expense pays down (debt repayment) */
   sourceLiabilityId?: string
+  eventImpacts?: AppliedImpactV2[]
 }
