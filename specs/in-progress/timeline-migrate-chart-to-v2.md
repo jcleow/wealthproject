@@ -434,32 +434,122 @@ Chart: Multi-line comparison
 
 ## Files to Modify
 
-### Backend
-1. `backend/internal/financial_v2/timeline/service.go` - Implement `GetTimeline`
+### Backend (New Files)
+1. `backend/internal/financial_v2/timeline/chart_types.go` - Chart request/response types
+2. `backend/internal/financial_v2/timeline/chart_service.go` - Chart computation logic
 
-### Frontend
-1. `frontend/src/services/timelineApi.ts` - Add `getTimelineV2Chart` method
-2. `frontend/src/types/timeline.ts` - Add V2 chart types
-3. `frontend/src/hooks/useTimelineChart.ts` - New hook (create)
-4. `frontend/src/components/dashboard/NetWorthProjection.tsx` - Support V2 data
-5. `frontend/src/components/dashboard/Dashboard.tsx` - Use V2 hook for chart
+### Backend (Modify)
+3. `backend/cmd/server/handlers/timeline_v2.go` - Update handler to parse series param
+4. `backend/cmd/server/routes.go` - Ensure route is registered
+
+### Frontend (New Files)
+5. `frontend/src/types/chart.ts` - TypeScript types for chart API
+6. `frontend/src/hooks/useChartData.ts` - React Query hook
+
+### Frontend (Modify)
+7. `frontend/src/services/timelineApi.ts` - Add `getChartData` method
+8. `frontend/src/components/dashboard/NetWorthProjection.tsx` - Use new hook
+9. `frontend/src/components/dashboard/Dashboard.tsx` - Update to use chart API
+
+---
+
+## Phased Implementation
+
+### Phase 1: Core Chart API (MVP)
+**Goal**: Replace V1 timeline with V2 chart for net worth projection
+
+**Backend**:
+- Implement `ChartRequest` / `ChartResponse` types
+- Implement `GetChartData` with support for:
+  - `net_worth` (required for current chart)
+  - `total_assets`, `total_liabilities`, `total_cpf` (useful baselines)
+- Reuse existing `processMonth` logic, extract only needed aggregates
+
+**Frontend**:
+- Add types and API method
+- Update `NetWorthProjection` to use new endpoint
+- Verify chart renders identically to V1
+
+**Success Criteria**:
+- Chart loads in <200ms (vs 1.7s on V1)
+- Net worth values match V1 exactly
+
+### Phase 2: Income/Expense Series
+**Goal**: Enable income vs expenses visualizations
+
+**Add series**:
+- `total_income`, `total_expenses`
+- `net_savings`, `net_cash_flow`
+
+**Frontend**:
+- Add income/expense comparison chart component
+- Add cash flow visualization
+
+### Phase 3: CPF Breakdown
+**Goal**: Enable CPF projection charts
+
+**Add series**:
+- `cpf_oa`, `cpf_sa`, `cpf_ma`, `cpf_ra`
+
+**Frontend**:
+- Add CPF stacked area chart component
+- Show CPF growth over time with account breakdown
+
+### Phase 4: Category Aggregations
+**Goal**: Enable stacked bar charts by category
+
+**Add series**:
+- `assets_by_category`
+- `liabilities_by_category`
+- `income_by_category`
+- `expenses_by_category`
+
+**Backend optimization**:
+- Collect category totals in single pass during month processing
+- Return dynamic category list based on user's data
+
+**Frontend**:
+- Add stacked bar chart component
+- Add asset allocation visualization
+
+### Phase 5: Performance Optimizations
+**Goal**: Sub-100ms response times
+
+**Optimizations**:
+- Pre-filter active items at start (avoid per-month `isActiveInMonth` checks)
+- Skip CPF calculations when not requested
+- Pre-allocate slices with capacity hints
+- Consider caching for unchanged financial data
+
+---
 
 ## Testing Strategy
 
-1. **Backend**: Add unit test for `GetTimeline` verifying:
-   - Correct net worth calculation matches `ComputeFinancialSnapshot`
-   - Yearly aggregation works correctly
-   - Scenario inclusion works
+### Backend Tests
+1. **Unit tests** for each series calculation
+2. **Comparison tests**: Verify `net_worth` from chart matches `NetWorth` from snapshot
+3. **Performance tests**: Ensure <200ms for full 35-year projection
 
-2. **Frontend**: Verify chart renders identically with V2 data
+### Frontend Tests
+1. **Visual regression**: Chart renders same as V1
+2. **Integration**: Hook correctly fetches and caches data
+3. **Type safety**: TypeScript catches mismatches
 
-## Migration Path
+---
 
-Phase 1 (this PR):
-- Implement V2 backend
-- Add frontend support
-- Use V2 for chart, keep V1 for detail panels
+## Future Considerations
 
-Phase 2 (future):
-- Migrate detail panels to V2 snapshot API
-- Deprecate V1 timeline endpoint
+### Additional Series Ideas
+- `savings_rate` - Percentage series (net_savings / total_income)
+- `debt_to_income` - Percentage series
+- `fire_number` - 25x annual expenses projection
+- `investment_returns` - Separate from principal
+
+### Caching Strategy
+- Financial data rarely changes; consider caching chart responses
+- Invalidate on any financial data mutation
+- Could use Redis or in-memory cache with TTL
+
+### Real-time Updates
+- WebSocket support for live chart updates during scenario editing
+- Debounced recalculation as user adjusts sliders
