@@ -49,7 +49,7 @@ func (s *Store) CreateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	created.Tags = decodeStringArray(tagsBytes)
 
 	if len(ev.Impacts) > 0 {
-		if err := s.insertImpactsV2(ctx, tx, created.ID, ev.Impacts); err != nil {
+		if err := s.insertImpactsV2(ctx, tx, ev.UserID, created.ID, ev.Impacts); err != nil {
 			return ScenarioEvent{}, err
 		}
 	}
@@ -227,7 +227,7 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 		return ScenarioEvent{}, err
 	}
 	if len(ev.Impacts) > 0 {
-		if err := s.insertImpactsV2(ctx, tx, ev.ID, ev.Impacts); err != nil {
+		if err := s.insertImpactsV2(ctx, tx, ev.UserID, ev.ID, ev.Impacts); err != nil {
 			return ScenarioEvent{}, err
 		}
 	}
@@ -299,8 +299,27 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 }
 
 // insertImpactsV2 inserts impacts using typed FK columns.
-func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, eventID string, impacts []ScenarioImpact) error {
-	for i, imp := range impacts {
+// For start impacts, it first creates the finance row, then sets the target ID.
+func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, eventID string, impacts []ScenarioImpact) error {
+	for i := range impacts {
+		imp := &impacts[i]
+
+		// For start impacts, create the finance row first
+		if imp.ImpactKind == scenario.ImpactKindStart {
+			targetType := imp.TargetType()
+			if !scenario.IsValidTargetType(targetType) {
+				return fmt.Errorf("start impact requires valid targetType, got: %q", targetType)
+			}
+
+			newID, err := s.createFinanceRowForStartImpact(ctx, tx, userID, imp, targetType)
+			if err != nil {
+				return fmt.Errorf("failed to create finance row for start impact: %w", err)
+			}
+
+			// Set the target ID on the impact
+			s.setTargetID(imp, targetType, newID)
+		}
+
 		targetID := imp.TargetID()
 		targetType := imp.TargetType()
 
@@ -308,10 +327,6 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, eventID string, 
 		if targetID == nil || strings.TrimSpace(*targetID) == "" || !scenario.IsValidTargetType(targetType) {
 			return scenario.ErrInvalidTargetCount
 		}
-
-		// Debug log: show exactly what we're inserting
-		fmt.Printf("insertImpactsV2[%d]: eventID=%s targetType=%s targetID=%s startDate=%v endDate=%v\n",
-			i, eventID, targetType, *targetID, imp.StartDate, imp.EndDate)
 
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO scenario_event_impacts
@@ -323,11 +338,120 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, eventID string, 
 			targetType, *targetID,
 			imp.TargetAssetID, imp.TargetLiabilityID, imp.TargetIncomeID, imp.TargetExpenseID, imp.TargetCashAccountID, imp.TargetInvestmentID,
 		); err != nil {
-			fmt.Printf("insertImpactsV2[%d] FAILED: %v\n", i, err)
 			return err
 		}
 	}
 	return nil
+}
+
+// createFinanceRowForStartImpact creates a new finance row based on the impact's target type.
+// Returns the ID of the newly created row.
+func (s *Store) createFinanceRowForStartImpact(ctx context.Context, tx pgx.Tx, userID string, imp *ScenarioImpact, targetType string) (string, error) {
+	// Parse the item name from notes (format: "New: {name}" or "New: {name} - {notes}")
+	name := parseNameFromNotes(imp.Notes)
+	if name == "" {
+		name = "Scenario Item"
+	}
+
+	// Convert amount from int64 (dollars) to decimal string
+	amountStr := fmt.Sprintf("%d.00", imp.Amount)
+
+	switch targetType {
+	case "income":
+		var id string
+		err := tx.QueryRow(ctx, `
+			INSERT INTO finance_incomes (user_id, source, category, amount, frequency, start_date, end_date, growth_rate, growth_strategy, notes, income_type)
+			VALUES ($1, $2, 'scenario', $3, $4, $5, $6, '0', 'annual_step', $7, 'other')
+			RETURNING id`,
+			userID, name, amountStr, imp.Cadence, imp.StartDate, imp.EndDate, imp.Notes,
+		).Scan(&id)
+		return id, err
+
+	case "expense":
+		var id string
+		err := tx.QueryRow(ctx, `
+			INSERT INTO finance_expenses (user_id, payee, category, amount, frequency, start_date, end_date, growth_rate, growth_strategy, notes)
+			VALUES ($1, $2, 'scenario', $3, $4, $5, $6, '0', 'annual_step', $7)
+			RETURNING id`,
+			userID, name, amountStr, imp.Cadence, imp.StartDate, imp.EndDate, imp.Notes,
+		).Scan(&id)
+		return id, err
+
+	case "asset":
+		var id string
+		err := tx.QueryRow(ctx, `
+			INSERT INTO finance_assets (user_id, name, category, current_value, annual_growth_rate, start_date, end_date, growth_strategy, notes)
+			VALUES ($1, $2, 'scenario', $3, '0', $4, $5, 'compound_monthly', $6)
+			RETURNING id`,
+			userID, name, amountStr, imp.StartDate, imp.EndDate, imp.Notes,
+		).Scan(&id)
+		return id, err
+
+	case "investment":
+		var id string
+		err := tx.QueryRow(ctx, `
+			INSERT INTO finance_investments (user_id, name, category, current_value, growth_rate, start_date, end_date, growth_strategy, notes)
+			VALUES ($1, $2, 'scenario', $3, '0', $4, $5, 'compound_monthly', $6)
+			RETURNING id`,
+			userID, name, amountStr, imp.StartDate, imp.EndDate, imp.Notes,
+		).Scan(&id)
+		return id, err
+
+	case "liability":
+		var id string
+		err := tx.QueryRow(ctx, `
+			INSERT INTO finance_liabilities (user_id, name, category, current_balance, interest_rate_apr, minimum_payment, start_date, end_date, repayment_strategy, notes)
+			VALUES ($1, $2, 'scenario', $3, '0', '0', $4, $5, 'standard_amortization', $6)
+			RETURNING id`,
+			userID, name, amountStr, imp.StartDate, imp.EndDate, imp.Notes,
+		).Scan(&id)
+		return id, err
+
+	case "cash":
+		var id string
+		err := tx.QueryRow(ctx, `
+			INSERT INTO finance_cash_accounts (user_id, name, balance, interest_rate, start_date, end_date, is_accumulator, notes)
+			VALUES ($1, $2, $3, '0', $4, $5, false, $6)
+			RETURNING id`,
+			userID, name, amountStr, imp.StartDate, imp.EndDate, imp.Notes,
+		).Scan(&id)
+		return id, err
+
+	default:
+		return "", fmt.Errorf("unsupported target type for start impact: %s", targetType)
+	}
+}
+
+// setTargetID sets the appropriate target ID field based on target type.
+func (s *Store) setTargetID(imp *ScenarioImpact, targetType string, id string) {
+	switch targetType {
+	case "income":
+		imp.TargetIncomeID = &id
+	case "expense":
+		imp.TargetExpenseID = &id
+	case "asset":
+		imp.TargetAssetID = &id
+	case "investment":
+		imp.TargetInvestmentID = &id
+	case "liability":
+		imp.TargetLiabilityID = &id
+	case "cash":
+		imp.TargetCashAccountID = &id
+	}
+}
+
+// parseNameFromNotes extracts the item name from the notes field.
+// Expected format: "New: {name}" or "New: {name} - {additional notes}"
+func parseNameFromNotes(notes string) string {
+	if !strings.HasPrefix(notes, "New: ") {
+		return ""
+	}
+	name := strings.TrimPrefix(notes, "New: ")
+	// If there's additional notes after " - ", extract just the name
+	if idx := strings.Index(name, " - "); idx > 0 {
+		name = name[:idx]
+	}
+	return strings.TrimSpace(name)
 }
 
 // GetExcludedScenarioTargetIDs returns IDs of financial items created by excluded scenarios.
