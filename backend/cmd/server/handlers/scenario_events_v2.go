@@ -530,11 +530,6 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		return repo.ScenarioImpact{}, err
 	}
 
-	target, err := resolveImpactTarget(in)
-	if err != nil {
-		return repo.ScenarioImpact{}, err
-	}
-
 	impact := repo.ScenarioImpact{
 		ImpactKind: ik,
 		Amount:     in.Amount,
@@ -543,6 +538,21 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		StartDate:  start,
 		EndDate:    end,
 		Notes:      strings.TrimSpace(scenario.PtrOrEmpty(in.Notes)),
+	}
+
+	// For start impacts, we only need targetType (the repository will create the target)
+	if ik == scenario.ImpactKindStart {
+		targetType := strings.ToLower(strings.TrimSpace(in.TargetType))
+		if !scenario.IsValidTargetType(targetType) {
+			return repo.ScenarioImpact{}, scenario.ErrInvalidTargetType
+		}
+		// Set a placeholder target based on type - the repository will replace it with the real ID
+		return impactWithTarget(impact, impactTarget{targetType: targetType, targetID: "pending"})
+	}
+
+	target, err := resolveImpactTarget(in)
+	if err != nil {
+		return repo.ScenarioImpact{}, err
 	}
 
 	return impactWithTarget(impact, target)
