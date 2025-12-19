@@ -220,6 +220,13 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
             </div>
           )}
 
+          {/* Hint when no impacts */}
+          {form.occursOn && form.impacts.length === 0 && (
+            <p className="mt-4 text-sm text-amber-400/70 text-center">
+              Add at least one impact to save this event.
+            </p>
+          )}
+
           <ModalFooter
             isEditing={!!event}
             confirmDelete={confirmDelete}
@@ -229,7 +236,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
             onClose={onClose}
             saving={saving}
             deleting={deleting}
-            disabled={loadingState}
+            disabled={loadingState || form.impacts.length === 0}
           />
         </div>
       </div>

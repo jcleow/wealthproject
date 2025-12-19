@@ -504,7 +504,7 @@ func resolveImpactTarget(in scenarioImpactV2DTO) (impactTarget, error) {
 
 func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, error) {
 	if len(reqs) == 0 {
-		return []repo.ScenarioImpact{}, nil
+		return nil, errors.New("scenario event must have at least one impact")
 	}
 
 	impacts := make([]repo.ScenarioImpact, 0, len(reqs))
