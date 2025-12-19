@@ -528,6 +528,7 @@ transition-colors`}
                 getDisplayAmount={getDisplayAmount}
                 onEdit={onEditInvestment}
                 onDelete={onDeleteInvestment}
+                groupItems={groupItemsByCategory}
               />
             )}
 
@@ -538,12 +539,13 @@ transition-colors`}
                 getDisplayAmount={getDisplayAmount}
                 onEdit={onEditCpf}
                 onDelete={onDeleteCpf}
+                groupItems={groupItemsByCategory}
               />
             )}
 
             {/* CPF Contributions Sub-section for Income (V2 only) */}
             {category === 'income' && cpfContributionsRaw.length > 0 && (
-              <CPFContributionsSection cpfContributionsRaw={cpfContributionsRaw} />
+              <CPFContributionsSection cpfContributionsRaw={cpfContributionsRaw} groupItems={groupItemsByCategory} />
             )}
 
             {/* Investments Sub-section (V2 only) */}
@@ -555,6 +557,7 @@ transition-colors`}
                 investments={investments}
                 onEditAllocation={onEditAllocation}
                 onDeleteAllocation={onDeleteAllocation}
+                groupItems={groupItemsByCategory}
               />
             )}
 
@@ -566,6 +569,7 @@ transition-colors`}
                 showMonthlyData={showMonthlyData}
                 onEdit={(item) => onEditItem('expense', item)}
                 onDelete={(item) => onDeleteDebtRepayment?.(item)}
+                groupItems={groupItemsByCategory}
               />
             )}
           </>
@@ -862,30 +866,37 @@ interface InvestmentsAssetsSectionProps {
   getDisplayAmount: (item: TimelineItem) => number
   onEdit?: (item: TimelineItem) => void
   onDelete?: (id: string) => void
+  groupItems?: boolean
 }
 
-function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, onDelete }: InvestmentsAssetsSectionProps) {
+function InvestmentsAssetsSection({ investmentAssets, getDisplayAmount, onEdit, onDelete, groupItems = true }: InvestmentsAssetsSectionProps) {
   const total = investmentAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0)
   const { selectedId, handleSelect, sectionRef } = useCollapsibleSelection()
+
+  const renderItems = () => investmentAssets.map((item, index) => {
+    const itemId = item.itemId || `investment-asset-${index}`
+    return (
+      <CollapsibleItem
+        key={itemId}
+        id={itemId}
+        name={item.name}
+        amount={getDisplayAmount(item)}
+        isSelected={selectedId === itemId}
+        onSelect={handleSelect}
+        onEdit={onEdit ? () => onEdit(item) : undefined}
+        onDelete={onDelete && item.itemId ? () => onDelete(item.itemId!) : undefined}
+      />
+    )
+  })
+
+  if (!groupItems) {
+    return <div ref={sectionRef}>{renderItems()}</div>
+  }
 
   return (
     <div ref={sectionRef}>
       <CollapsibleSection title="Investments" total={total}>
-        {investmentAssets.map((item, index) => {
-          const itemId = item.itemId || `investment-asset-${index}`
-          return (
-            <CollapsibleItem
-              key={itemId}
-              id={itemId}
-              name={item.name}
-              amount={getDisplayAmount(item)}
-              isSelected={selectedId === itemId}
-              onSelect={handleSelect}
-              onEdit={onEdit ? () => onEdit(item) : undefined}
-              onDelete={onDelete && item.itemId ? () => onDelete(item.itemId!) : undefined}
-            />
-          )
-        })}
+        {renderItems()}
       </CollapsibleSection>
     </div>
   )
@@ -896,30 +907,37 @@ interface CPFAssetsSectionProps {
   getDisplayAmount: (item: TimelineItem) => number
   onEdit?: (item: TimelineItem) => void
   onDelete?: (id: string) => void
+  groupItems?: boolean
 }
 
-function CPFAssetsSection({ cpfAssets, getDisplayAmount, onEdit, onDelete }: CPFAssetsSectionProps) {
+function CPFAssetsSection({ cpfAssets, getDisplayAmount, onEdit, onDelete, groupItems = true }: CPFAssetsSectionProps) {
   const total = cpfAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0)
   const { selectedId, handleSelect, sectionRef } = useCollapsibleSelection()
+
+  const renderItems = () => cpfAssets.map((item, index) => {
+    const itemId = item.itemId || `cpf-asset-${index}`
+    return (
+      <CollapsibleItem
+        key={itemId}
+        id={itemId}
+        name={item.name}
+        amount={getDisplayAmount(item)}
+        isSelected={selectedId === itemId}
+        onSelect={handleSelect}
+        onEdit={onEdit ? () => onEdit(item) : undefined}
+        onDelete={onDelete && item.itemId ? () => onDelete(item.itemId!) : undefined}
+      />
+    )
+  })
+
+  if (!groupItems) {
+    return <div ref={sectionRef}>{renderItems()}</div>
+  }
 
   return (
     <div ref={sectionRef}>
       <CollapsibleSection title="CPF Accounts" total={total}>
-        {cpfAssets.map((item, index) => {
-          const itemId = item.itemId || `cpf-asset-${index}`
-          return (
-            <CollapsibleItem
-              key={itemId}
-              id={itemId}
-              name={item.name}
-              amount={getDisplayAmount(item)}
-              isSelected={selectedId === itemId}
-              onSelect={handleSelect}
-              onEdit={onEdit ? () => onEdit(item) : undefined}
-              onDelete={onDelete && item.itemId ? () => onDelete(item.itemId!) : undefined}
-            />
-          )
-        })}
+        {renderItems()}
       </CollapsibleSection>
     </div>
   )
@@ -927,31 +945,38 @@ function CPFAssetsSection({ cpfAssets, getDisplayAmount, onEdit, onDelete }: CPF
 
 interface CPFContributionsSectionProps {
   cpfContributionsRaw: CPFContributionResponseV2[]
+  groupItems?: boolean
 }
 
-function CPFContributionsSection({ cpfContributionsRaw }: CPFContributionsSectionProps) {
+function CPFContributionsSection({ cpfContributionsRaw, groupItems = true }: CPFContributionsSectionProps) {
   const total = cpfContributionsRaw.reduce((sum, item) => sum + parseDecimal(item.totalContribution), 0)
+
+  const renderItems = () => cpfContributionsRaw.map((item, index) => (
+    <div key={item.id || `cpf-contrib-${index}`}>
+      <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
+        <span className="truncate text-sm text-slate-300">Employee - {item.name.replace('CPF Contribution - ', '')}</span>
+        <span className={numericStyles.base}>
+          ({formatCurrency(parseDecimal(item.employeeContribution))})
+          <span className="ml-1 text-xs text-slate-400">/mo</span>
+        </span>
+      </div>
+      <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
+        <span className="truncate text-sm text-slate-300">Employer - {item.name.replace('CPF Contribution - ', '')}</span>
+        <span className={numericStyles.base}>
+          {formatCurrency(parseDecimal(item.employerContribution))}
+          <span className="ml-1 text-xs text-slate-400">/mo</span>
+        </span>
+      </div>
+    </div>
+  ))
+
+  if (!groupItems) {
+    return <>{renderItems()}</>
+  }
 
   return (
     <CollapsibleSection title="CPF Contributions" total={total}>
-      {cpfContributionsRaw.map((item, index) => (
-        <div key={item.id || `cpf-contrib-${index}`}>
-          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
-            <span className="truncate text-sm text-slate-300">Employee - {item.name.replace('CPF Contribution - ', '')}</span>
-            <span className={numericStyles.base}>
-              ({formatCurrency(parseDecimal(item.employeeContribution))})
-              <span className="ml-1 text-xs text-slate-400">/mo</span>
-            </span>
-          </div>
-          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
-            <span className="truncate text-sm text-slate-300">Employer - {item.name.replace('CPF Contribution - ', '')}</span>
-            <span className={numericStyles.base}>
-              {formatCurrency(parseDecimal(item.employerContribution))}
-              <span className="ml-1 text-xs text-slate-400">/mo</span>
-            </span>
-          </div>
-        </div>
-      ))}
+      {renderItems()}
     </CollapsibleSection>
   )
 }
@@ -963,6 +988,7 @@ interface InvestmentsSectionProps {
   investments: TimelineItem[]
   onEditAllocation?: (allocation: IncomeAllocation) => void
   onDeleteAllocation?: (allocation: IncomeAllocation) => void
+  groupItems?: boolean
 }
 
 function InvestmentsSection({
@@ -972,6 +998,7 @@ function InvestmentsSection({
   investments,
   onEditAllocation,
   onDeleteAllocation,
+  groupItems = true,
 }: InvestmentsSectionProps) {
   const investmentAllocations = allocations.filter((a) => a.targetInvestmentId)
   const { selectedId, handleSelect, sectionRef } = useCollapsibleSelection()
@@ -989,6 +1016,34 @@ function InvestmentsSection({
       : parseFloat(allocation.allocationValue) || 0
   }
 
+  const renderItems = () => investmentAllocations.length > 0 ? (
+    investmentAllocations.map((allocation) => (
+      <CollapsibleItem
+        key={allocation.id}
+        id={allocation.id}
+        name={getInvestmentName(allocation.targetInvestmentId!)}
+        amount={getAllocationAmount(allocation)}
+        amountSuffix={allocation.allocationType === 'fixed' ? '/mo' : (allocation.allocationType === 'percentage' ? '%' : undefined)}
+        isSelected={selectedId === allocation.id}
+        onSelect={handleSelect}
+        onEdit={onEditAllocation ? () => onEditAllocation(allocation) : undefined}
+        onDelete={onDeleteAllocation ? () => onDeleteAllocation(allocation) : undefined}
+      />
+    ))
+  ) : (
+    <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
+      <span className="truncate text-sm text-slate-300">Allocated to investments</span>
+      <span className={numericStyles.base}>
+        {formatCurrency(displayAmount)}
+        <span className="ml-1 text-xs text-slate-400">{showMonthlyData ? '/mo' : '/yr'}</span>
+      </span>
+    </div>
+  )
+
+  if (!groupItems) {
+    return <div ref={sectionRef}>{renderItems()}</div>
+  }
+
   return (
     <div ref={sectionRef}>
       <CollapsibleSection
@@ -996,29 +1051,7 @@ function InvestmentsSection({
         total={displayAmount}
         totalSuffix={showMonthlyData ? '/mo' : '/yr'}
       >
-        {investmentAllocations.length > 0 ? (
-          investmentAllocations.map((allocation) => (
-            <CollapsibleItem
-              key={allocation.id}
-              id={allocation.id}
-              name={getInvestmentName(allocation.targetInvestmentId!)}
-              amount={getAllocationAmount(allocation)}
-              amountSuffix={allocation.allocationType === 'fixed' ? '/mo' : (allocation.allocationType === 'percentage' ? '%' : undefined)}
-              isSelected={selectedId === allocation.id}
-              onSelect={handleSelect}
-              onEdit={onEditAllocation ? () => onEditAllocation(allocation) : undefined}
-              onDelete={onDeleteAllocation ? () => onDeleteAllocation(allocation) : undefined}
-            />
-          ))
-        ) : (
-          <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
-            <span className="truncate text-sm text-slate-300">Allocated to investments</span>
-            <span className={numericStyles.base}>
-              {formatCurrency(displayAmount)}
-              <span className="ml-1 text-xs text-slate-400">{showMonthlyData ? '/mo' : '/yr'}</span>
-            </span>
-          </div>
-        )}
+        {renderItems()}
       </CollapsibleSection>
     </div>
   )
@@ -1030,11 +1063,33 @@ interface DebtRepaymentsSectionProps {
   showMonthlyData: boolean
   onEdit?: (item: TimelineItem) => void
   onDelete?: (item: TimelineItem) => void
+  groupItems?: boolean
 }
 
-function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyData, onEdit, onDelete }: DebtRepaymentsSectionProps) {
+function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyData, onEdit, onDelete, groupItems = true }: DebtRepaymentsSectionProps) {
   const total = debtRepayments.reduce((sum, item) => sum + getDisplayAmount(item), 0)
   const { selectedId, handleSelect, sectionRef } = useCollapsibleSelection()
+
+  const renderItems = () => debtRepayments.map((item, index) => {
+    const itemId = item.itemId || `debt-repayment-${index}`
+    return (
+      <CollapsibleItem
+        key={itemId}
+        id={itemId}
+        name={item.name}
+        amount={getDisplayAmount(item)}
+        amountSuffix={showMonthlyData ? '/mo' : undefined}
+        isSelected={selectedId === itemId}
+        onSelect={handleSelect}
+        onEdit={onEdit ? () => onEdit(item) : undefined}
+        onDelete={onDelete && item.itemId ? () => onDelete(item) : undefined}
+      />
+    )
+  })
+
+  if (!groupItems) {
+    return <div ref={sectionRef}>{renderItems()}</div>
+  }
 
   return (
     <div ref={sectionRef}>
@@ -1043,22 +1098,7 @@ function DebtRepaymentsSection({ debtRepayments, getDisplayAmount, showMonthlyDa
         total={total}
         totalSuffix={showMonthlyData ? '/mo' : undefined}
       >
-        {debtRepayments.map((item, index) => {
-          const itemId = item.itemId || `debt-repayment-${index}`
-          return (
-            <CollapsibleItem
-              key={itemId}
-              id={itemId}
-              name={item.name}
-              amount={getDisplayAmount(item)}
-              amountSuffix={showMonthlyData ? '/mo' : undefined}
-              isSelected={selectedId === itemId}
-              onSelect={handleSelect}
-              onEdit={onEdit ? () => onEdit(item) : undefined}
-              onDelete={onDelete && item.itemId ? () => onDelete(item) : undefined}
-            />
-          )
-        })}
+        {renderItems()}
       </CollapsibleSection>
     </div>
   )

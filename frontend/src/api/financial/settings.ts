@@ -9,8 +9,10 @@ export async function getUserSettings(): Promise<UserSettings> {
     terminalAge: data.terminalAge ?? 65,
     yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
     timeResolution: data.timeResolution ?? 'yearly',
+    compoundingFrequency: data.compoundingFrequency ?? 'monthly',
     autoExecuteTools: data.autoExecuteTools ?? false,
     groupItemsByCategory: data.groupItemsByCategory ?? true,
+    chartPictureInPicture: data.chartPictureInPicture ?? false,
     updatedAt: data.updatedAt,
   }
 }
@@ -21,8 +23,10 @@ export async function updateUserSettings(settings: UserSettings): Promise<UserSe
     terminalAge: settings.terminalAge,
     yearDisplayFormat: settings.yearDisplayFormat,
     timeResolution: settings.timeResolution,
+    compoundingFrequency: settings.compoundingFrequency,
     autoExecuteTools: settings.autoExecuteTools,
     groupItemsByCategory: settings.groupItemsByCategory,
+    chartPictureInPicture: settings.chartPictureInPicture,
   })
   return {
     id: data.id,
@@ -30,8 +34,10 @@ export async function updateUserSettings(settings: UserSettings): Promise<UserSe
     terminalAge: data.terminalAge ?? 65,
     yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
     timeResolution: data.timeResolution ?? 'yearly',
+    compoundingFrequency: data.compoundingFrequency ?? 'monthly',
     autoExecuteTools: data.autoExecuteTools ?? false,
     groupItemsByCategory: data.groupItemsByCategory ?? true,
+    chartPictureInPicture: data.chartPictureInPicture ?? false,
     updatedAt: data.updatedAt,
   }
 }

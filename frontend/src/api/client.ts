@@ -63,7 +63,10 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
       const data = await response.json()
       const message = (data as { message?: string; error?: string }).message ?? (data as any).error ?? fallbackMessage
       throw new ApiError(status, message, data)
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError) {
+        throw err
+      }
       throw new ApiError(status, fallbackMessage)
     }
   }

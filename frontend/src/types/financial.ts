@@ -205,6 +205,7 @@ export const GrowthConfigCategoryLabels: Record<string, string> = {
 // User Settings
 export type YearDisplayFormat = 'year_number' | 'actual_year'
 export type TimeResolution = 'yearly' | 'monthly'
+export type CompoundingFrequency = 'monthly' | 'annual'
 
 export type UserSettings = {
   id?: string
@@ -212,8 +213,11 @@ export type UserSettings = {
   terminalAge: number
   yearDisplayFormat: YearDisplayFormat
   timeResolution: TimeResolution
+  compoundingFrequency: CompoundingFrequency
   autoExecuteTools: boolean
   /** Whether to group financial items by category in collapsible sections */
   groupItemsByCategory: boolean
+  /** Whether to show a mini floating chart when scrolled out of view */
+  chartPictureInPicture: boolean
   updatedAt?: string
 }

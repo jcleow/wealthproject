@@ -16,25 +16,29 @@ type DateRangeOptions struct {
 
 // UserSettings stores user preferences like starting age.
 type UserSettings struct {
-	ID                   string    `json:"id,omitempty"`
-	UserID               string    `json:"userId,omitempty"`
-	StartingAge          int       `json:"startingAge"`
-	TerminalAge          int       `json:"terminalAge"`
-	YearDisplayFormat    string    `json:"yearDisplayFormat"`
-	TimeResolution       string    `json:"timeResolution"`       // How data is DISPLAYED (yearly bars vs monthly bars)
-	CompoundingFrequency string    `json:"compoundingFrequency"` // How growth is COMPUTED (monthly compound vs annual step)
-	AutoExecuteTools     bool      `json:"autoExecuteTools"`
-	UpdatedAt            time.Time `json:"updatedAt,omitempty"`
+	ID                    string    `json:"id,omitempty"`
+	UserID                string    `json:"userId,omitempty"`
+	StartingAge           int       `json:"startingAge"`
+	TerminalAge           int       `json:"terminalAge"`
+	YearDisplayFormat     string    `json:"yearDisplayFormat"`
+	TimeResolution        string    `json:"timeResolution"`        // How data is DISPLAYED (yearly bars vs monthly bars)
+	CompoundingFrequency  string    `json:"compoundingFrequency"`  // How growth is COMPUTED (monthly compound vs annual step)
+	AutoExecuteTools      bool      `json:"autoExecuteTools"`
+	GroupItemsByCategory  bool      `json:"groupItemsByCategory"`  // Whether to group financial items by category in UI
+	ChartPictureInPicture bool      `json:"chartPictureInPicture"` // Whether to show mini chart when scrolled out of view
+	UpdatedAt             time.Time `json:"updatedAt,omitempty"`
 }
 
 // DefaultUserSettings are the system defaults.
 var DefaultUserSettings = UserSettings{
-	StartingAge:          30,
-	TerminalAge:          65,
-	YearDisplayFormat:    "age", // Show age by default (more intuitive than year numbers)
-	TimeResolution:       "yearly",
-	CompoundingFrequency: "monthly", // Default to monthly compounding (more accurate)
-	AutoExecuteTools:     false,
+	StartingAge:           30,
+	TerminalAge:           65,
+	YearDisplayFormat:     "age", // Show age by default (more intuitive than year numbers)
+	TimeResolution:        "yearly",
+	CompoundingFrequency:  "monthly", // Default to monthly compounding (more accurate)
+	AutoExecuteTools:      false,
+	GroupItemsByCategory:  true,
+	ChartPictureInPicture: false, // Disabled by default
 }
 
 // GrowthConfig stores bounded annual growth assumptions.
@@ -248,11 +252,13 @@ func (s *Store) GetUserSettings(ctx context.Context, userID string) (UserSetting
 		       COALESCE(time_resolution, 'yearly'),
 		       COALESCE(compounding_frequency, 'monthly'),
 		       COALESCE(auto_execute_tools, false),
+		       COALESCE(group_items_by_category, true),
+		       COALESCE(chart_picture_in_picture, false),
 		       updated_at
 		FROM user_settings
 		WHERE user_id = $1`, userID)
 	var settings UserSettings
-	if err := row.Scan(&settings.ID, &settings.UserID, &settings.StartingAge, &settings.TerminalAge, &settings.YearDisplayFormat, &settings.TimeResolution, &settings.CompoundingFrequency, &settings.AutoExecuteTools, &settings.UpdatedAt); err != nil {
+	if err := row.Scan(&settings.ID, &settings.UserID, &settings.StartingAge, &settings.TerminalAge, &settings.YearDisplayFormat, &settings.TimeResolution, &settings.CompoundingFrequency, &settings.AutoExecuteTools, &settings.GroupItemsByCategory, &settings.ChartPictureInPicture, &settings.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return DefaultUserSettings, nil
 		}
@@ -264,8 +270,8 @@ func (s *Store) GetUserSettings(ctx context.Context, userID string) (UserSetting
 // UpsertUserSettings inserts or updates user settings.
 func (s *Store) UpsertUserSettings(ctx context.Context, userID string, settings UserSettings) (UserSettings, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO user_settings (user_id, starting_age, terminal_age, year_display_format, time_resolution, compounding_frequency, auto_execute_tools)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO user_settings (user_id, starting_age, terminal_age, year_display_format, time_resolution, compounding_frequency, auto_execute_tools, group_items_by_category, chart_picture_in_picture)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (user_id) DO UPDATE
 		SET starting_age = EXCLUDED.starting_age,
 		    terminal_age = EXCLUDED.terminal_age,
@@ -273,15 +279,19 @@ func (s *Store) UpsertUserSettings(ctx context.Context, userID string, settings 
 		    time_resolution = EXCLUDED.time_resolution,
 		    compounding_frequency = EXCLUDED.compounding_frequency,
 		    auto_execute_tools = EXCLUDED.auto_execute_tools,
+		    group_items_by_category = EXCLUDED.group_items_by_category,
+		    chart_picture_in_picture = EXCLUDED.chart_picture_in_picture,
 		    updated_at = NOW()
 		RETURNING id, user_id, starting_age, terminal_age, year_display_format,
 		          COALESCE(time_resolution, 'yearly'),
 		          COALESCE(compounding_frequency, 'monthly'),
 		          COALESCE(auto_execute_tools, false),
+		          COALESCE(group_items_by_category, true),
+		          COALESCE(chart_picture_in_picture, false),
 		          updated_at`,
-		userID, settings.StartingAge, settings.TerminalAge, settings.YearDisplayFormat, settings.TimeResolution, settings.CompoundingFrequency, settings.AutoExecuteTools)
+		userID, settings.StartingAge, settings.TerminalAge, settings.YearDisplayFormat, settings.TimeResolution, settings.CompoundingFrequency, settings.AutoExecuteTools, settings.GroupItemsByCategory, settings.ChartPictureInPicture)
 	var updated UserSettings
-	if err := row.Scan(&updated.ID, &updated.UserID, &updated.StartingAge, &updated.TerminalAge, &updated.YearDisplayFormat, &updated.TimeResolution, &updated.CompoundingFrequency, &updated.AutoExecuteTools, &updated.UpdatedAt); err != nil {
+	if err := row.Scan(&updated.ID, &updated.UserID, &updated.StartingAge, &updated.TerminalAge, &updated.YearDisplayFormat, &updated.TimeResolution, &updated.CompoundingFrequency, &updated.AutoExecuteTools, &updated.GroupItemsByCategory, &updated.ChartPictureInPicture, &updated.UpdatedAt); err != nil {
 		return UserSettings{}, err
 	}
 	return updated, nil

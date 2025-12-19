@@ -33,6 +33,7 @@ export interface UseSettingsFormReturn {
   handleYearDisplayFormatChange: (value: YearDisplayFormat) => void
   handleAutoExecuteToolsChange: (enabled: boolean) => void
   handleGroupItemsByCategoryChange: (enabled: boolean) => void
+  handleChartPictureInPictureChange: (enabled: boolean) => void
 
   // Actions
   handleSave: () => void
@@ -54,8 +55,10 @@ export function useSettingsForm({ isOpen, onClose }: UseSettingsFormOptions): Us
     terminalAge: 65,
     yearDisplayFormat: 'year_number',
     timeResolution: 'yearly',
+    compoundingFrequency: 'monthly',
     autoExecuteTools: false,
     groupItemsByCategory: true,
+    chartPictureInPicture: false,
   })
   const [hasSettingsChanges, setHasSettingsChanges] = useState(false)
 
@@ -146,6 +149,11 @@ export function useSettingsForm({ isOpen, onClose }: UseSettingsFormOptions): Us
     setHasSettingsChanges(true)
   }, [])
 
+  const handleChartPictureInPictureChange = useCallback((enabled: boolean) => {
+    setEditedSettings(prev => ({ ...prev, chartPictureInPicture: enabled }))
+    setHasSettingsChanges(true)
+  }, [])
+
   const handleSave = useCallback(() => {
     if (activeSection === 'growth-rates' && hasGrowthChanges) {
       updateGrowthMutation.mutate(editedConfigs)
@@ -183,6 +191,7 @@ export function useSettingsForm({ isOpen, onClose }: UseSettingsFormOptions): Us
     handleYearDisplayFormatChange,
     handleAutoExecuteToolsChange,
     handleGroupItemsByCategoryChange,
+    handleChartPictureInPictureChange,
     handleSave,
     handleReset,
     hasChanges,
