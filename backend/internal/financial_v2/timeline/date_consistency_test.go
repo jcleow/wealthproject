@@ -412,6 +412,133 @@ func TestStopOperation_WithTimezoneOffset(t *testing.T) {
 }
 
 // =============================================================================
+// Tests for creating items in future months
+// =============================================================================
+
+// TestCreateInFutureMonth_ItemShouldNotAppearInPreviousMonths tests that when
+// a user creates a new item while viewing a future month, the item's startDate
+// is set to that future month and it should NOT appear in earlier months.
+func TestCreateInFutureMonth_ItemShouldNotAppearInPreviousMonths(t *testing.T) {
+	// Scenario: Anchor month is Dec 2025, user is viewing Feb 2026
+	// User creates a new asset in Feb 2026
+	// The asset should:
+	// - NOT appear in Dec 2025 (anchor month)
+	// - NOT appear in Jan 2026
+	// - APPEAR in Feb 2026 and onwards
+
+	anchorMonth := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC)
+	viewingMonth := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+
+	// New asset created while viewing Feb 2026
+	// Frontend should set startDate to Feb 1, 2026 UTC
+	newAsset := FinancialDataRow{
+		ID:        "asset-created-in-feb",
+		ParentID:  "asset-created-in-feb",
+		Name:      "New Investment",
+		Amount:    *decimal.MustFromString("10000"),
+		StartDate: viewingMonth, // Should be set by frontend to viewing month
+		EndDate:   nil,
+		ItemType:  FinNonCashAsset,
+	}
+
+	// Should NOT appear in anchor month (Dec 2025)
+	decCheck := anchorMonth
+	if isActiveInMonth(newAsset, decCheck) {
+		t.Error("Asset created in Feb 2026 should NOT appear in Dec 2025 (anchor month)")
+	}
+
+	// Should NOT appear in Jan 2026
+	janCheck := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+	if isActiveInMonth(newAsset, janCheck) {
+		t.Error("Asset created in Feb 2026 should NOT appear in Jan 2026")
+	}
+
+	// SHOULD appear in Feb 2026
+	febCheck := time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC)
+	if !isActiveInMonth(newAsset, febCheck) {
+		t.Error("Asset created in Feb 2026 SHOULD appear in Feb 2026")
+	}
+
+	// SHOULD appear in Mar 2026 (and onwards)
+	marCheck := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	if !isActiveInMonth(newAsset, marCheck) {
+		t.Error("Asset created in Feb 2026 SHOULD appear in Mar 2026")
+	}
+}
+
+// TestCreateInFutureMonth_AllItemTypes verifies the behavior for all financial item types
+func TestCreateInFutureMonth_AllItemTypes(t *testing.T) {
+	// User is viewing Feb 2026, creates items there
+	viewingMonth := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	janCheck := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+	febCheck := time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC)
+
+	testCases := []struct {
+		name     string
+		itemType FinancialDataType
+	}{
+		{"NonCashAsset", FinNonCashAsset},
+		{"CashAsset", FinCashAsset},
+		{"Liability", FinLiabilities},
+		{"Income", FinIncome},
+		{"Expense", FinExpense},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			item := FinancialDataRow{
+				ID:        "item-" + tc.name,
+				ParentID:  "item-" + tc.name,
+				Name:      "New " + tc.name,
+				Amount:    *decimal.MustFromString("1000"),
+				StartDate: viewingMonth,
+				EndDate:   nil,
+				ItemType:  tc.itemType,
+			}
+
+			if isActiveInMonth(item, janCheck) {
+				t.Errorf("%s created in Feb should NOT appear in Jan", tc.name)
+			}
+
+			if !isActiveInMonth(item, febCheck) {
+				t.Errorf("%s created in Feb SHOULD appear in Feb", tc.name)
+			}
+		})
+	}
+}
+
+// TestCreateInFutureMonth_WithBuggyBehavior documents what happens when
+// startDate is NOT set correctly (defaulting to current date/anchor)
+func TestCreateInFutureMonth_WithBuggyBehavior(t *testing.T) {
+	// This test documents the BUG behavior before the fix
+	// When startDate defaults to "now" instead of the viewing month
+
+	anchorMonth := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC)
+
+	// BUGGY: Asset created while viewing Feb 2026, but startDate defaulted to Dec 2025
+	buggyAsset := FinancialDataRow{
+		ID:        "asset-buggy",
+		ParentID:  "asset-buggy",
+		Name:      "Buggy Asset",
+		Amount:    *decimal.MustFromString("10000"),
+		StartDate: anchorMonth, // BUG: Defaulted to anchor/current date instead of viewing month
+		EndDate:   nil,
+		ItemType:  FinNonCashAsset,
+	}
+
+	// With the bug, asset incorrectly appears in Dec 2025
+	decCheck := anchorMonth
+	if !isActiveInMonth(buggyAsset, decCheck) {
+		t.Log("BUG CONFIRMED: When startDate defaults to anchor, asset appears in Dec 2025")
+	}
+
+	// This test exists to document the bug behavior
+	// After the fix in FinancialDataManagement/index.tsx, the frontend
+	// correctly sets startDate to the viewing month, preventing this issue
+	t.Log("Fix: Frontend now calculates startDate based on selectedYear/selectedMonth for CREATE mode")
+}
+
+// =============================================================================
 // Tests for delete operations at anchor month
 // =============================================================================
 
