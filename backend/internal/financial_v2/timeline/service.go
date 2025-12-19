@@ -413,25 +413,43 @@ func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time, isAnchorM
 		}
 
 		// ─────────────────────────────────────────────────────────────────────
-		// STEP 5: Persist delta impacts to State for accumulation
+		// STEP 5: Persist impacts to State for accumulation
 		//
-		// Why only delta? Override/stop are display-only adjustments.
+		// Which impacts persist?
+		//   - delta:    ✅ Accumulates (+$100k/month compounds over time)
+		//   - override: ✅ Replaces base value (salary becomes $150k, then grows)
+		//   - start:    ✅ Item begins with new value (then grows)
+		//   - stop:     ❌ No persistence needed (value is $0, nothing to grow)
+		//
 		// Why skip anchor? Consistent with other mutations (CPF, allocations).
 		//
-		// Example (isAnchorMonth = false):
-		//   Found delta impact → persist
-		//   mctx.State["cash-123"] = $225,051  ← this carries to next month!
+		// Example - Delta (isAnchorMonth = false):
+		//   State["cash-123"] = $125,051
+		//   Delta +$100k applied → AdjustedValue = $225,051
+		//   Persist → State["cash-123"] = $225,051 (carries to next month with growth)
 		//
-		// Example (isAnchorMonth = true):
-		//   Skip persistence
-		//   mctx.State["cash-123"] = $125,051  ← unchanged
+		// Example - Override (isAnchorMonth = false):
+		//   State["income-456"] = $120,000 (old salary)
+		//   Override to $150k → AdjustedValue = $150,000
+		//   Persist → State["income-456"] = $150,000 (new salary, will grow next month)
+		//
+		// Example - Stop:
+		//   State["income-456"] = $120,000
+		//   Stop → AdjustedValue = $0
+		//   NO persist → State stays $120,000 (but EventAdjustedState shows $0)
+		//   Why? Stop is checked each month; if stop ends, base value should resume
 		// ─────────────────────────────────────────────────────────────────────
-		if !isAnchorMonth {
+		if !isAnchorMonth && len(result.AppliedImpacts) > 0 {
+			// Check if any non-stop impact was applied
+			shouldPersist := false
 			for _, appliedImpact := range result.AppliedImpacts {
-				if appliedImpact.ImpactKind == scenario.ImpactKindDelta {
-					mctx.State[itemID] = result.AdjustedValue
-					break // Only need to persist once per item
+				if appliedImpact.ImpactKind != scenario.ImpactKindStop {
+					shouldPersist = true
+					break
 				}
+			}
+			if shouldPersist {
+				mctx.State[itemID] = result.AdjustedValue
 			}
 		}
 	}
