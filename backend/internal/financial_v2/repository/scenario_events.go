@@ -303,6 +303,8 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, eventID string, 
 	for i, imp := range impacts {
 		targetID := imp.TargetID()
 		targetType := imp.TargetType()
+
+		// All impacts must have a valid target
 		if targetID == nil || strings.TrimSpace(*targetID) == "" || !scenario.IsValidTargetType(targetType) {
 			return scenario.ErrInvalidTargetCount
 		}

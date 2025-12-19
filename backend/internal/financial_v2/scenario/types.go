@@ -96,6 +96,8 @@ type Impact struct {
 	CreatedAt  time.Time
 
 	// Typed FK columns (only one is non-nil per row)
+	// For all impact kinds (delta/override/stop/start), one of these must be set.
+	// For start impacts, the target_*_id points to a newly created finance_* row.
 	TargetAssetID       *string
 	TargetLiabilityID   *string
 	TargetIncomeID      *string
