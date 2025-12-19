@@ -103,6 +103,7 @@ transition-colors`}
               onTerminalAgeChange={form.handleTerminalAgeChange}
               onYearDisplayFormatChange={form.handleYearDisplayFormatChange}
               onAutoExecuteToolsChange={form.handleAutoExecuteToolsChange}
+              onGroupItemsByCategoryChange={form.handleGroupItemsByCategoryChange}
             />
           ) : (
             <GrowthRatesSettings

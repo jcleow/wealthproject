@@ -10,6 +10,7 @@ export async function getUserSettings(): Promise<UserSettings> {
     yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
     timeResolution: data.timeResolution ?? 'yearly',
     autoExecuteTools: data.autoExecuteTools ?? false,
+    groupItemsByCategory: data.groupItemsByCategory ?? true,
     updatedAt: data.updatedAt,
   }
 }
@@ -21,6 +22,7 @@ export async function updateUserSettings(settings: UserSettings): Promise<UserSe
     yearDisplayFormat: settings.yearDisplayFormat,
     timeResolution: settings.timeResolution,
     autoExecuteTools: settings.autoExecuteTools,
+    groupItemsByCategory: settings.groupItemsByCategory,
   })
   return {
     id: data.id,
@@ -29,6 +31,7 @@ export async function updateUserSettings(settings: UserSettings): Promise<UserSe
     yearDisplayFormat: data.yearDisplayFormat ?? 'year_number',
     timeResolution: data.timeResolution ?? 'yearly',
     autoExecuteTools: data.autoExecuteTools ?? false,
+    groupItemsByCategory: data.groupItemsByCategory ?? true,
     updatedAt: data.updatedAt,
   }
 }

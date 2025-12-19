@@ -213,5 +213,7 @@ export type UserSettings = {
   yearDisplayFormat: YearDisplayFormat
   timeResolution: TimeResolution
   autoExecuteTools: boolean
+  /** Whether to group financial items by category in collapsible sections */
+  groupItemsByCategory: boolean
   updatedAt?: string
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import {
@@ -40,7 +41,8 @@ import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal/C
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
 import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal/IncomeAllocationModal'
 import { CpfAccountFormModal } from '@/components/modals/CpfAccountFormModal/CpfAccountFormModal'
-// import { financialApi } from '@/api/financial'
+import { settingsApi } from '@/api/financial'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 import type { IncomeAllocation } from '@/api/financial/incomes'
 
 // Local imports
@@ -104,6 +106,15 @@ export function FinancialDataManagement({
   } = useFinancialDataContext()
 
   const { events: scenarioEvents } = useScenarioEvents()
+
+  // User settings for display preferences
+  const { data: userSettings } = useQuery({
+    queryKey: QUERY_KEYS.settings.user,
+    queryFn: () => settingsApi.getUserSettings(),
+    staleTime: 5 * 60 * 1000,
+  })
+  const groupItemsByCategory = userSettings?.groupItemsByCategory ?? true
+
   const { data: cashAccounts = [] } = useCashAccountsQuery()
   const createCashAccountMutation = useCreateCashAccountMutation()
   const updateCashAccountMutation = useUpdateCashAccountMutation()
@@ -910,6 +921,7 @@ export function FinancialDataManagement({
                   onDeleteDebtRepayment={key === 'expense' ? handleDeleteDebtRepayment : undefined}
                   onEditCpf={key === 'asset' ? handleEditCpf : undefined}
                   onDeleteCpf={key === 'asset' ? handleDeleteCpf : undefined}
+                  groupItemsByCategory={groupItemsByCategory}
                 />
                 </ResizableCard>
               ))}

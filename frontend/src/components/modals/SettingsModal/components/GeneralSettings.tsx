@@ -8,6 +8,7 @@ interface GeneralSettingsProps {
   onTerminalAgeChange: (value: string) => void
   onYearDisplayFormatChange: (value: YearDisplayFormat) => void
   onAutoExecuteToolsChange: (enabled: boolean) => void
+  onGroupItemsByCategoryChange: (enabled: boolean) => void
 }
 
 export function GeneralSettings({
@@ -16,6 +17,7 @@ export function GeneralSettings({
   onTerminalAgeChange,
   onYearDisplayFormatChange,
   onAutoExecuteToolsChange,
+  onGroupItemsByCategoryChange,
 }: GeneralSettingsProps) {
   return (
     <div className="space-y-6">
@@ -83,6 +85,32 @@ text-slate-200`}
           <option value="year_number">Year Number (Year 0, Year 1...)</option>
           <option value="actual_year">Actual Year ({new Date().getFullYear()}, {new Date().getFullYear() + 1}...)</option>
         </select>
+      </div>
+
+      <div className="pt-4 border-t border-white/[0.06]">
+        <div className="flex items-center justify-between">
+          <div>
+            <label className="block text-sm font-medium text-slate-300">
+              Group Items by Category
+            </label>
+            <p className="text-xs text-slate-500 mt-1">
+              Organize financial items into collapsible category sections
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onGroupItemsByCategoryChange(!settings.groupItemsByCategory)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              settings.groupItemsByCategory ? 'bg-blue-600' : 'bg-slate-600'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                settings.groupItemsByCategory ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
       </div>
 
       <div className="pt-4 border-t border-white/[0.06]">

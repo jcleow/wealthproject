@@ -32,6 +32,7 @@ export interface UseSettingsFormReturn {
   handleTerminalAgeChange: (value: string) => void
   handleYearDisplayFormatChange: (value: YearDisplayFormat) => void
   handleAutoExecuteToolsChange: (enabled: boolean) => void
+  handleGroupItemsByCategoryChange: (enabled: boolean) => void
 
   // Actions
   handleSave: () => void
@@ -53,7 +54,8 @@ export function useSettingsForm({ isOpen, onClose }: UseSettingsFormOptions): Us
     terminalAge: 65,
     yearDisplayFormat: 'year_number',
     timeResolution: 'yearly',
-    autoExecuteTools: false
+    autoExecuteTools: false,
+    groupItemsByCategory: true,
   })
   const [hasSettingsChanges, setHasSettingsChanges] = useState(false)
 
@@ -139,6 +141,11 @@ export function useSettingsForm({ isOpen, onClose }: UseSettingsFormOptions): Us
     setHasSettingsChanges(true)
   }, [])
 
+  const handleGroupItemsByCategoryChange = useCallback((enabled: boolean) => {
+    setEditedSettings(prev => ({ ...prev, groupItemsByCategory: enabled }))
+    setHasSettingsChanges(true)
+  }, [])
+
   const handleSave = useCallback(() => {
     if (activeSection === 'growth-rates' && hasGrowthChanges) {
       updateGrowthMutation.mutate(editedConfigs)
@@ -175,6 +182,7 @@ export function useSettingsForm({ isOpen, onClose }: UseSettingsFormOptions): Us
     handleTerminalAgeChange,
     handleYearDisplayFormatChange,
     handleAutoExecuteToolsChange,
+    handleGroupItemsByCategoryChange,
     handleSave,
     handleReset,
     hasChanges,
