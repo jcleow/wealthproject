@@ -37,9 +37,9 @@ export function useFinancialItems(): UseFinancialItemsReturn {
     return (targetType: string): FinancialItem[] => {
       switch (targetType) {
         case 'income':
-          return incomes.map(inc => ({ id: inc.id, name: inc.source, amount: inc.amount, frequency: inc.frequency }))
+          return incomes.map(inc => ({ id: inc.id, name: inc.name, amount: inc.amount, frequency: inc.frequency }))
         case 'expense':
-          return expenses.map(exp => ({ id: exp.id, name: exp.payee, amount: exp.amount, frequency: exp.frequency }))
+          return expenses.map(exp => ({ id: exp.id, name: exp.name, amount: exp.amount, frequency: exp.frequency }))
         case 'asset':
           return assets.map(a => ({ id: a.id, name: a.name, amount: a.currentValue }))
         case 'liability':
@@ -62,10 +62,10 @@ export function useFinancialItems(): UseFinancialItemsReturn {
       let rawItems: Array<{ id: string; parentId?: string; name: string }> = []
       switch (targetType) {
         case 'income':
-          rawItems = incomes.map(inc => ({ id: inc.id, parentId: inc.parentId, name: inc.source }))
+          rawItems = incomes.map(inc => ({ id: inc.id, parentId: inc.parentId, name: inc.name }))
           break
         case 'expense':
-          rawItems = expenses.map(exp => ({ id: exp.id, parentId: exp.parentId, name: exp.payee }))
+          rawItems = expenses.map(exp => ({ id: exp.id, parentId: exp.parentId, name: exp.name }))
           break
         case 'asset':
           rawItems = assets.map(a => ({ id: a.id, parentId: a.parentId, name: a.name }))

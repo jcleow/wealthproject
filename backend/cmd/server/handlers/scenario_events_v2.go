@@ -34,6 +34,8 @@ type scenarioImpactV2DTO struct {
 	Cadence    common.Frequency `json:"cadence"`
 	StartDate  string           `json:"startDate"`
 	EndDate    *string          `json:"endDate,omitempty"`
+	Name       *string          `json:"name,omitempty"`      // Name from the target financial item (JOINed)
+	Frequency  *string          `json:"frequency,omitempty"` // Frequency from target item (only for income/expense)
 	Notes      *string          `json:"notes,omitempty"`
 
 	// Typed target IDs (only one should be set per impact)
@@ -68,6 +70,16 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		val := imp.EndDate.Format(time.DateOnly)
 		end = &val
 	}
+	var name *string
+	if strings.TrimSpace(imp.Name) != "" {
+		val := imp.Name
+		name = &val
+	}
+	var frequency *string
+	if imp.Frequency != "" {
+		val := string(imp.Frequency)
+		frequency = &val
+	}
 	var notes *string
 	if strings.TrimSpace(imp.Notes) != "" {
 		val := imp.Notes
@@ -81,6 +93,8 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		Cadence:             imp.Cadence,
 		StartDate:           imp.StartDate.Format(time.DateOnly),
 		EndDate:             end,
+		Name:                name,
+		Frequency:           frequency,
 		Notes:               notes,
 		TargetAssetID:       imp.TargetAssetID,
 		TargetLiabilityID:   imp.TargetLiabilityID,
@@ -537,19 +551,11 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		Cadence:    cad,
 		StartDate:  start,
 		EndDate:    end,
+		Name:       strings.TrimSpace(scenario.PtrOrEmpty(in.Name)),
 		Notes:      strings.TrimSpace(scenario.PtrOrEmpty(in.Notes)),
 	}
 
-	// For start impacts, we only need targetType (the repository will create the target)
-	if ik == scenario.ImpactKindStart {
-		targetType := strings.ToLower(strings.TrimSpace(in.TargetType))
-		if !scenario.IsValidTargetType(targetType) {
-			return repo.ScenarioImpact{}, scenario.ErrInvalidTargetType
-		}
-		// Set a placeholder target based on type - the repository will replace it with the real ID
-		return impactWithTarget(impact, impactTarget{targetType: targetType, targetID: "pending"})
-	}
-
+	// All impacts (including start) must have a pre-existing target - resolve from DTO
 	target, err := resolveImpactTarget(in)
 	if err != nil {
 		return repo.ScenarioImpact{}, err

@@ -26,7 +26,7 @@ export async function listExpenses(params?: PaginationParams): Promise<Paginated
 export async function createExpense(payload: Omit<Expense, 'id' | 'updatedAt'> & { parentId?: string; sourceLiabilityId?: string }): Promise<Expense> {
   // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
-    payee: payload.payee,
+    name: payload.name,
     amount: payload.amount?.toString(),
     frequency: payload.frequency,
     category: payload.category,
@@ -52,7 +52,7 @@ export async function updateExpense(
 ): Promise<Expense> {
   // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
-    payee: payload.payee,
+    name: payload.name,
     amount: payload.amount?.toString(),
     frequency: payload.frequency,
     category: payload.category,

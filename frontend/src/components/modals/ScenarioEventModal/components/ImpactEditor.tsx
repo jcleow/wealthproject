@@ -2,9 +2,10 @@
 
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { ScenarioImpact, ImpactVerb, ScenarioCadence } from '@/types/scenario'
+import type { ScenarioImpact, ImpactVerb, ScenarioCadence, ItemFrequency } from '@/types/scenario'
 import { verbToImpact, impactToVerb } from '@/types/scenario'
 import { MonthPicker } from '@/components/ui/MonthPicker'
+import { LockedField } from './LockedField'
 import { useState, useRef, useEffect } from 'react'
 
 const TrashIcon = LucideIcons.Trash2 as LucideIcon | undefined
@@ -148,9 +149,11 @@ export function ImpactEditor({
   const [targetTypeOpen, setTargetTypeOpen] = useState(false)
   const [verbOpen, setVerbOpen] = useState(false)
   const [cadenceOpen, setCadenceOpen] = useState(false)
+  const [frequencyOpen, setFrequencyOpen] = useState(false)
   const targetTypeRef = useRef<HTMLDivElement>(null)
   const verbRef = useRef<HTMLDivElement>(null)
   const cadenceRef = useRef<HTMLDivElement>(null)
+  const frequencyRef = useRef<HTMLDivElement>(null)
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -164,6 +167,9 @@ export function ImpactEditor({
       if (cadenceRef.current && !cadenceRef.current.contains(event.target as Node)) {
         setCadenceOpen(false)
       }
+      if (frequencyRef.current && !frequencyRef.current.contains(event.target as Node)) {
+        setFrequencyOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -174,17 +180,21 @@ export function ImpactEditor({
     onUpdate(index, { impactKind, amount })
   }
 
-  // Determine whether to show cadence selector based on item type and verb
+  // Determine whether to show cadence/frequency selector based on item type and verb
   // See PRD for full mapping table
   const isCashFlowItem = impact.targetType === 'income' || impact.targetType === 'expense'
   const isBalanceSheetItem = impact.targetType === 'asset' || impact.targetType === 'liability' ||
                              impact.targetType === 'cash' || impact.targetType === 'investment'
   const isDeltaVerb = currentVerb === 'increases_by' || currentVerb === 'decreases_by'
+  const isStartImpact = currentVerb === 'starts_at'
+
+  // Show frequency selector for start impacts on cash flow items (can be one_time, monthly, annual)
+  const showFrequencySelector = isCashFlowItem && isStartImpact
 
   // Show cadence selector for:
-  // - Income/Expense: all verbs except 'ends' (they're recurring flows)
+  // - Income/Expense: delta/override verbs (they're recurring flows) - NOT for start impacts
   // - Asset/Liability/Cash/Investment: only delta verbs (recurring contributions/payments)
-  const showCadenceSelector = (isCashFlowItem && currentVerb !== 'ends') ||
+  const showCadenceSelector = (isCashFlowItem && currentVerb !== 'ends' && !isStartImpact) ||
                               (isBalanceSheetItem && isDeltaVerb)
 
   const handleTargetTypeChange = (value: string) => {
@@ -222,14 +232,14 @@ export function ImpactEditor({
         <div className="flex items-center gap-2">
           <span className="
             flex items-center justify-center
-            h-6 w-6
+            h-5 w-5
             rounded-full
             bg-white/[0.05]
-            text-[10px] font-bold text-slate-500
+            text-[10px] font-semibold text-slate-500
           ">
             {index + 1}
           </span>
-          <span className="text-xs text-slate-500 uppercase tracking-wider">Impact</span>
+          <span className="text-xs text-slate-500 uppercase tracking-wide">Impact</span>
         </div>
         {canRemove && (
           <button
@@ -516,18 +526,95 @@ export function ImpactEditor({
               )}
             </div>
           )}
+
+          {/* Frequency - for start impacts on cash flow items (includes one_time option) */}
+          {showFrequencySelector && (
+            <div className="relative" ref={frequencyRef}>
+              <button
+                type="button"
+                onClick={() => !loading && setFrequencyOpen(!frequencyOpen)}
+                disabled={loading}
+                className={`
+                  flex items-center justify-between gap-2
+                  pl-3 pr-8 py-2
+                  min-w-[110px]
+                  rounded-lg
+                  border border-white/[0.08] hover:border-white/[0.15]
+                  bg-white/[0.03] hover:bg-white/[0.05]
+                  text-sm text-white text-left
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  transition-all duration-200
+                  ${frequencyOpen ? 'border-blue-500/40' : ''}
+                `}
+              >
+                <span>{impact.frequency === 'one_time' ? 'one-time' : impact.frequency === 'annual' ? 'annually' : 'monthly'}</span>
+                {ChevronDownIcon && (
+                  <ChevronDownIcon className={`absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 transition-transform duration-200 ${frequencyOpen ? 'rotate-180' : ''}`} />
+                )}
+              </button>
+
+              {/* Frequency dropdown menu */}
+              {frequencyOpen && (
+                <div className="
+                  absolute left-0 top-full z-[100] mt-1
+                  min-w-[120px]
+                  rounded-xl
+                  border border-white/[0.12]
+                  bg-[#0c0c0c]
+                  shadow-2xl shadow-black/60
+                  overflow-hidden
+                  animate-in fade-in slide-in-from-top-2 duration-150
+                ">
+                  {[
+                    { value: 'one_time', label: 'one-time' },
+                    { value: 'monthly', label: 'monthly' },
+                    { value: 'annual', label: 'annually' },
+                  ].map((option) => {
+                    const isSelected = option.value === impact.frequency
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          onUpdate(index, { frequency: option.value as ItemFrequency })
+                          setFrequencyOpen(false)
+                        }}
+                        className={`
+                          w-full flex items-center gap-2
+                          px-3 py-2
+                          text-sm text-left
+                          transition-all duration-150
+                          ${isSelected
+                            ? 'bg-blue-500/15 text-white'
+                            : 'text-slate-300 hover:bg-white/[0.05]'
+                          }
+                        `}
+                      >
+                        <span className="w-4 shrink-0">
+                          {isSelected && CheckIcon && (
+                            <CheckIcon className="h-3.5 w-3.5 text-blue-400" />
+                          )}
+                        </span>
+                        <span>{option.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Row 2: Date range */}
         <div className="flex flex-wrap items-center gap-2 pl-0.5">
-          <span className="text-xs text-slate-500 uppercase tracking-wide">From</span>
+          <span className="text-[11px] text-slate-500 uppercase tracking-wide">From</span>
           <MonthPicker
             value={impact.startMonth}
             onChange={(value) => onUpdate(index, { startMonth: value })}
             placeholder="Select month"
             disabled={loading}
           />
-          <span className="text-xs text-slate-500 uppercase tracking-wide">to</span>
+          <span className="text-[11px] text-slate-500 uppercase tracking-wide">to</span>
           <MonthPicker
             value={impact.endMonth}
             onChange={(value) => onUpdate(index, { endMonth: value || undefined })}
@@ -535,7 +622,7 @@ export function ImpactEditor({
             disabled={loading}
           />
           {!impact.endMonth && (
-            <span className="text-[10px] text-slate-600 bg-white/[0.03] px-2 py-0.5 rounded-full">
+            <span className="text-[10px] text-slate-600 bg-white/[0.04] px-2 py-0.5 rounded-full border border-white/[0.04]">
               indefinite
             </span>
           )}
@@ -568,7 +655,7 @@ export function ImpactEditor({
             </div>
           ) : (
             <div className="relative" ref={dropdownRef}>
-              <label className="text-xs text-slate-500 mb-2 block">
+              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">
                 Select {getTargetTypeLabel(impact.targetType)} <span className="text-rose-400">*</span>
               </label>
               {/* Dropdown trigger button */}
@@ -591,13 +678,13 @@ export function ImpactEditor({
               >
                 {selectedItem ? (
                   <span className="flex items-center justify-between flex-1 min-w-0">
-                    <span className="truncate text-white">{selectedItem.name}</span>
-                    <span className="text-slate-500 text-xs ml-2 shrink-0 font-mono">
+                    <span className="truncate text-white text-sm">{selectedItem.name}</span>
+                    <span className="text-slate-400 text-xs ml-2 shrink-0 font-mono">
                       {formatAmount(selectedItem.amount, selectedItem.frequency)}
                     </span>
                   </span>
                 ) : (
-                  <span className="text-slate-500">Choose an item...</span>
+                  <span className="text-slate-500 text-sm">Choose an item...</span>
                 )}
                 {ChevronDownIcon && (
                   <ChevronDownIcon className={`h-4 w-4 text-slate-500 shrink-0 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
@@ -657,7 +744,7 @@ export function ImpactEditor({
                           className={`
                             w-full flex items-center gap-3
                             rounded-lg px-3 py-2.5
-                            text-sm text-left
+                            text-left
                             transition-all duration-150
                             ${selectedItemId === item.id
                               ? 'bg-blue-500/15 text-white border border-blue-500/20'
@@ -667,11 +754,11 @@ export function ImpactEditor({
                         >
                           <span className="w-5 shrink-0 flex items-center justify-center">
                             {selectedItemId === item.id && CheckIcon && (
-                              <CheckIcon className="h-4 w-4 text-blue-400" />
+                              <CheckIcon className="h-3.5 w-3.5 text-blue-400" />
                             )}
                           </span>
-                          <span className="flex-1 truncate">{item.name}</span>
-                          <span className="text-slate-500 text-xs font-mono shrink-0">
+                          <span className="flex-1 truncate text-sm">{item.name}</span>
+                          <span className="text-slate-400 text-xs font-mono shrink-0">
                             {formatAmount(item.amount, item.frequency)}
                           </span>
                         </button>
@@ -688,43 +775,57 @@ export function ImpactEditor({
       {/* New item name input - for 'starts_at' verb */}
       {currentVerb === 'starts_at' && (
         <div className="mt-4 pt-4 border-t border-white/[0.04]">
-          <label className="text-xs text-slate-500 mb-2 block">
-            Name for new {getTargetTypeLabel(impact.targetType)} <span className="text-rose-400">*</span>
-          </label>
-          <input
-            type="text"
-            value={newItemName || ''}
-            onChange={(e) => onNewItemNameChange(e.target.value)}
-            className={`
-              w-full
-              px-4 py-3
-              rounded-xl
-              border border-white/[0.08] hover:border-white/[0.15] focus:border-blue-500/40
-              bg-white/[0.03] hover:bg-white/[0.05] focus:bg-white/[0.05]
-              text-sm text-white placeholder:text-slate-500
-              outline-none
-              disabled:opacity-50 disabled:cursor-not-allowed
-              transition-all duration-200
-            `}
-            placeholder={`e.g., ${impact.targetType === 'income' ? 'Side Hustle' : impact.targetType === 'expense' ? 'New Subscription' : impact.targetType === 'asset' ? 'Investment Property' : impact.targetType === 'investment' ? 'New Fund' : impact.targetType === 'cash' ? 'Emergency Fund' : 'Car Loan'}`}
-            disabled={loading}
-          />
+          {/* Use LockedField for existing items (has selectedItemId), regular input for new */}
+          {selectedItemId ? (
+            <LockedField
+              value={newItemName || ''}
+              onChange={onNewItemNameChange}
+              label="name"
+              placeholder={`e.g., ${impact.targetType === 'income' ? 'Side Hustle' : impact.targetType === 'expense' ? 'New Subscription' : impact.targetType === 'asset' ? 'Investment Property' : impact.targetType === 'investment' ? 'New Fund' : impact.targetType === 'cash' ? 'Emergency Fund' : 'Car Loan'}`}
+              secondaryValue={impact.amount ? `$${new Intl.NumberFormat('en-US').format(Math.abs(impact.amount))}` : undefined}
+              disabled={loading}
+              isNew={false}
+            />
+          ) : (
+            <>
+              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">
+                Name for new {getTargetTypeLabel(impact.targetType)} <span className="text-rose-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={newItemName || ''}
+                onChange={(e) => onNewItemNameChange(e.target.value)}
+                className={`
+                  w-full
+                  px-0 py-2
+                  bg-transparent
+                  border-0 border-b border-white/[0.08] hover:border-white/[0.15] focus:border-blue-500/50
+                  text-sm text-white placeholder:text-slate-600
+                  outline-none
+                  caret-blue-400
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  transition-all duration-200
+                `}
+                placeholder={`e.g., ${impact.targetType === 'income' ? 'Side Hustle' : impact.targetType === 'expense' ? 'New Subscription' : impact.targetType === 'asset' ? 'Investment Property' : impact.targetType === 'investment' ? 'New Fund' : impact.targetType === 'cash' ? 'Emergency Fund' : 'Car Loan'}`}
+                disabled={loading}
+              />
+            </>
+          )}
         </div>
       )}
 
       {/* Notes */}
-      <div className="mt-3">
+      <div className="mt-4">
         <input
           type="text"
           value={impact.notes ?? ''}
           onChange={(e) => onUpdate(index, { notes: e.target.value })}
           className={`
             w-full
-            px-4 py-2.5
-            rounded-xl
-            border border-white/[0.06] hover:border-white/[0.1] focus:border-white/[0.15]
-            bg-white/[0.02] hover:bg-white/[0.03] focus:bg-white/[0.03]
-            text-xs text-slate-400 placeholder:text-slate-600
+            px-0 py-2
+            bg-transparent
+            border-0 border-b border-white/[0.06] hover:border-white/[0.1] focus:border-white/[0.15]
+            text-sm text-slate-400 placeholder:text-slate-600
             outline-none
             disabled:opacity-50 disabled:cursor-not-allowed
             transition-all duration-200

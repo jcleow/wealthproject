@@ -39,7 +39,7 @@ func (i incomeInput) toIncome() repository.Income {
 	inc := repository.Income{
 		ID:             i.ID,
 		ParentID:       i.ParentID,
-		Source:         i.Source,
+		Name:           i.Source,
 		Amount:         i.Amount,
 		Frequency:      i.Frequency,
 		Category:       i.Category,

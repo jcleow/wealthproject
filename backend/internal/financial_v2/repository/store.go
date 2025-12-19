@@ -143,7 +143,7 @@ type Liability struct {
 type Income struct {
 	ID             string          `json:"id"`
 	ParentID       string          `json:"parentId"`
-	Source         string          `json:"source"`
+	Name           string          `json:"name"`
 	Amount         decimal.Decimal `json:"amount"`
 	Frequency      string          `json:"frequency"`
 	StartDate      time.Time       `json:"startDate"`         // Precise start date (day-level) - now required
@@ -162,7 +162,7 @@ type Income struct {
 type Expense struct {
 	ID                string          `json:"id"`
 	ParentID          string          `json:"parentId"`
-	Payee             string          `json:"payee"`
+	Name              string          `json:"name"`
 	Amount            decimal.Decimal `json:"amount"`
 	Frequency         string          `json:"frequency"`
 	StartDate         time.Time       `json:"startDate"`         // Precise start date (day-level)
@@ -574,7 +574,7 @@ func (s *Store) ListIncomes(
 	query := `
 	SELECT id,
 		COALESCE(parent_id, id) as parent_id,
-		source,
+		name,
 		amount,
 		frequency,
 		start_date,
@@ -630,7 +630,7 @@ func (s *Store) ListIncomes(
 	for rows.Next() {
 		var i Income
 		err := rows.Scan(
-			&i.ID, &i.ParentID, &i.Source, &i.Amount, &i.Frequency,
+			&i.ID, &i.ParentID, &i.Name, &i.Amount, &i.Frequency,
 			&i.StartDate, &i.EndDate, &i.Category, &i.GrowthRate,
 			&i.Notes, &i.GrowthStrategy, &i.UpdatedAt,
 			&i.IncomeType, &i.CPFWageType,
@@ -656,7 +656,7 @@ func (s *Store) ListExpenses(
 	query := `
 	SELECT id,
 		COALESCE(parent_id, id) as parent_id,
-		payee,
+		name,
 		amount,
 		frequency,
 		start_date,
@@ -711,7 +711,7 @@ func (s *Store) ListExpenses(
 	for rows.Next() {
 		var e Expense
 		err := rows.Scan(
-			&e.ID, &e.ParentID, &e.Payee, &e.Amount, &e.Frequency,
+			&e.ID, &e.ParentID, &e.Name, &e.Amount, &e.Frequency,
 			&e.StartDate, &e.EndDate, &e.Category, &e.GrowthRate,
 			&e.Notes, &e.GrowthStrategy, &e.UpdatedAt, &e.SourceLiabilityID,
 		)
@@ -847,7 +847,7 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 	zero := decimal.Zero()
 	if created.MinimumPayment.Cmp(zero) > 0 {
 		_, _ = s.CreateExpense(ctx, userID, Expense{
-			Payee:             created.Name,
+			Name:              created.Name,
 			Amount:            created.MinimumPayment,
 			Frequency:         "monthly",
 			StartDate:         created.StartDate,
@@ -876,10 +876,10 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, exp Expense) (
 	}
 
 	query := `
-		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, source_liability_id)
+		INSERT INTO finance_expenses (user_id, parent_id, name, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, source_liability_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, ''), $12)
 		ON CONFLICT ON CONSTRAINT finance_expenses_parent_start_date_key DO UPDATE
-		SET payee=EXCLUDED.payee,
+		SET name=EXCLUDED.name,
 		    amount=EXCLUDED.amount,
 		    frequency=EXCLUDED.frequency,
 		    end_date=EXCLUDED.end_date,
@@ -889,10 +889,10 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, exp Expense) (
 		    notes=EXCLUDED.notes,
 		    source_liability_id=EXCLUDED.source_liability_id,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(growth_strategy, '') as growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`
+		RETURNING id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(growth_strategy, '') as growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`
 
 	args := []any{
-		userID, nullIfEmpty(exp.ParentID), exp.Payee, exp.Amount, exp.Frequency,
+		userID, nullIfEmpty(exp.ParentID), exp.Name, exp.Amount, exp.Frequency,
 		startDate, exp.EndDate, exp.Category, exp.GrowthRate, growthStrategy,
 		exp.Notes, exp.SourceLiabilityID,
 	}
@@ -902,7 +902,7 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, exp Expense) (
 
 	var created Expense
 	if err := row.Scan(
-		&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency,
+		&created.ID, &created.ParentID, &created.Name, &created.Amount, &created.Frequency,
 		&created.StartDate, &created.EndDate, &created.Category, &created.GrowthRate,
 		&created.GrowthStrategy, &created.Notes, &created.UpdatedAt, &created.SourceLiabilityID,
 	); err != nil {

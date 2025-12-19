@@ -96,12 +96,9 @@ export function useImpactItemSelector({
         if (stable) {
           initialSelectedId[index] = stable
 
-          // For 'start' impacts, populate newItemNames with the actual item's name
-          if (impact.impactKind === 'start') {
-            const matchedItem = items.find(it => it.id === stable)
-            if (matchedItem) {
-              initialNewItemNames[index] = matchedItem.name
-            }
+          // For 'start' impacts, populate newItemNames from impact.name (from API)
+          if (impact.impactKind === 'start' && impact.name) {
+            initialNewItemNames[index] = impact.name
           }
         }
       }

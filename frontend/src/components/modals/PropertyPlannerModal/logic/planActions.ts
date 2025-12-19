@@ -204,7 +204,7 @@ export async function handleApplyPlan({
         (ex) => ex.category === 'housing_mortgage' && ex.notes?.includes(selectedLiabilityId)
       )
       const payload = {
-        payee: 'Mortgage Payment',
+        name: 'Mortgage Payment',
         amount: calculation.monthlyPayment,
         frequency: 'monthly' as const,
         category: 'housing_mortgage',

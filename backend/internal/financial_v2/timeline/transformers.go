@@ -96,7 +96,7 @@ func transformIncomes(incomes []repo.Income) []FinancialDataRow {
 		rows = append(rows, FinancialDataRow{
 			ID:          i.ID,
 			ParentID:    i.ParentID,
-			Name:        i.Source, // Income uses "Source" as name
+			Name:        i.Name,
 			Category:    i.Category,
 			Amount:      i.Amount,
 			Frequency:   Frequency(i.Frequency), // Keep actual frequency
@@ -117,7 +117,7 @@ func transformExpenses(expenses []repo.Expense) []FinancialDataRow {
 		rows = append(rows, FinancialDataRow{
 			ID:                e.ID,
 			ParentID:          e.ParentID,
-			Name:              e.Payee, // Expense uses "Payee" as name
+			Name:              e.Name,
 			Category:          e.Category,
 			Amount:            e.Amount,
 			Frequency:         Frequency(e.Frequency), // Keep actual frequency

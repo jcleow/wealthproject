@@ -16,7 +16,7 @@ import (
 type expenseV2Input struct {
 	ID                string  `json:"id"`
 	ParentID          string  `json:"parentId"`
-	Payee             string  `json:"payee"`
+	Name             string  `json:"name"`
 	Amount            string  `json:"amount"`
 	Frequency         string  `json:"frequency"`
 	Category          string  `json:"category"`
@@ -73,7 +73,7 @@ func (h *ExpenseV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 
 // expenseCreateInput is the JSON input for creating an expense
 type expenseCreateInput struct {
-	Payee             string  `json:"payee"`
+	Name             string  `json:"name"`
 	Amount            string  `json:"amount"`
 	Frequency         string  `json:"frequency"`
 	Category          string  `json:"category"`
@@ -113,7 +113,7 @@ func (h *ExpenseV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	created, err := h.service.CreateFromParams(r.Context(), userID, expense.CreateParams{
-		Payee:             input.Payee,
+		Name:             input.Name,
 		Amount:            input.Amount,
 		Frequency:         input.Frequency,
 		Category:          input.Category,
@@ -193,7 +193,7 @@ func (h *ExpenseV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, 
 	}
 
 	result, err := h.service.UpdateFromParams(r.Context(), userID, id, expense.UpdateParams{
-		Payee:             input.Payee,
+		Name:             input.Name,
 		Amount:            input.Amount,
 		Frequency:         input.Frequency,
 		Category:          input.Category,

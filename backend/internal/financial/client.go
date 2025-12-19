@@ -291,7 +291,7 @@ func (c *Client) CreateIncome(ctx context.Context, params IncomeParams) (*string
 	}
 
 	created, err := c.store.CreateIncome(ctx, userID, repository.Income{
-		Source:    params.Source,
+		Name:      params.Source,
 		Amount:    params.Amount,
 		Frequency: params.Frequency,
 		StartDate: startDate,
@@ -321,7 +321,7 @@ func (c *Client) UpdateIncome(ctx context.Context, params UpdateIncomeParams) (*
 	}
 
 	if params.Source != "" {
-		current.Source = params.Source
+		current.Name = params.Source
 	}
 	if params.Amount != nil {
 		current.Amount = *params.Amount
@@ -387,7 +387,7 @@ func (c *Client) CreateExpense(ctx context.Context, params ExpenseParams) (*stri
 	}
 
 	created, err := c.store.CreateExpense(ctx, userID, repository.Expense{
-		Payee:     params.Payee,
+		Name:      params.Payee,
 		Amount:    params.Amount,
 		Frequency: params.Frequency,
 		Category:  params.Category,
@@ -416,7 +416,7 @@ func (c *Client) UpdateExpense(ctx context.Context, params UpdateExpenseParams) 
 	}
 
 	if params.Payee != "" {
-		current.Payee = params.Payee
+		current.Name = params.Payee
 	}
 	if params.Amount != nil {
 		current.Amount = *params.Amount
@@ -533,7 +533,7 @@ func (c *Client) resolveIncomeID(ctx context.Context, userID, explicit, last, by
 		return "", err
 	}
 	if id, suggestions := matchName(incomes, name, func(inc repository.Income) (string, string) {
-		return inc.ID, inc.Source
+		return inc.ID, inc.Name
 	}); id != "" {
 		return id, nil
 	} else if len(suggestions) > 0 {
@@ -562,7 +562,7 @@ func (c *Client) resolveExpenseID(ctx context.Context, userID, explicit, last, b
 		return "", err
 	}
 	if id, suggestions := matchName(expenses, name, func(ex repository.Expense) (string, string) {
-		return ex.ID, ex.Payee
+		return ex.ID, ex.Name
 	}); id != "" {
 		return id, nil
 	} else if len(suggestions) > 0 {
@@ -703,7 +703,7 @@ func (c *Client) CreatePropertyScenario(ctx context.Context, params PropertyScen
 		monthly := calculator.CalculateMonthlyPayment(params.LoanAmount, params.InterestRate, params.LoanTenure)
 		if monthly > 0 {
 			_, _ = c.store.CreateExpense(ctx, userID, repository.Expense{
-				Payee:     "Mortgage Payment",
+				Name:      "Mortgage Payment",
 				Amount:    monthly,
 				Frequency: "monthly",
 				Category:  "housing_mortgage",
@@ -892,7 +892,7 @@ func (c *Client) GetFinancialContext(ctx context.Context, userID string) (*Finan
 		monthly := annualToMonthly(i.Amount, i.Frequency)
 		contextIncome = append(contextIncome, ContextItem{
 			ID:       i.ID,
-			Name:     i.Source,
+			Name:     i.Name,
 			Category: i.Category,
 			Amount:   monthly,
 			Notes:    i.Notes,
@@ -906,7 +906,7 @@ func (c *Client) GetFinancialContext(ctx context.Context, userID string) (*Finan
 		monthly := annualToMonthly(e.Amount, e.Frequency)
 		contextExpenses = append(contextExpenses, ContextItem{
 			ID:       e.ID,
-			Name:     e.Payee,
+			Name:     e.Name,
 			Category: e.Category,
 			Amount:   monthly,
 			Notes:    e.Notes,
@@ -1356,7 +1356,7 @@ func (c *Client) IdentifyNetWorthLevers(ctx context.Context, userID string, para
 			annual := toAnnual(i.Amount, i.Frequency)
 			levers = append(levers, lever{
 				Type:         "income",
-				Name:         i.Source,
+				Name:         i.Name,
 				AnnualImpact: annual,
 				Description:  fmt.Sprintf("+$%s/year income", formatMoney(annual)),
 			})
@@ -1369,7 +1369,7 @@ func (c *Client) IdentifyNetWorthLevers(ctx context.Context, userID string, para
 			annual := toAnnual(e.Amount, e.Frequency)
 			levers = append(levers, lever{
 				Type:         "expense",
-				Name:         e.Payee,
+				Name:         e.Name,
 				AnnualImpact: -annual,
 				Description:  fmt.Sprintf("-$%s/year expense", formatMoney(annual)),
 			})
@@ -1697,7 +1697,7 @@ func (c *Client) createFinancialItemForScenario(ctx context.Context, userID stri
 
 	case "income":
 		created, err := c.store.CreateIncome(ctx, userID, repository.Income{
-			Source:    itemName,
+			Name:      itemName,
 			Amount:    *params.ImpactValue,
 			Frequency: "monthly",
 			Notes:     fmt.Sprintf("Created for scenario: %s", params.Name),
@@ -1709,7 +1709,7 @@ func (c *Client) createFinancialItemForScenario(ctx context.Context, userID stri
 
 	case "expense":
 		created, err := c.store.CreateExpense(ctx, userID, repository.Expense{
-			Payee:     itemName,
+			Name:      itemName,
 			Amount:    *params.ImpactValue,
 			Frequency: "monthly",
 			Notes:     fmt.Sprintf("Created for scenario: %s", params.Name),

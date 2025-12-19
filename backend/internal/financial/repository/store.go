@@ -98,7 +98,7 @@ type PropertyScenario struct {
 type Income struct {
 	ID             string     `json:"id"`
 	ParentID       string     `json:"parentId"`
-	Source         string     `json:"source"`
+	Name           string     `json:"name"`
 	Amount         float64    `json:"amount"`
 	Frequency      string     `json:"frequency"`
 	StartDate      time.Time  `json:"startDate"`
@@ -118,7 +118,7 @@ type Income struct {
 type Expense struct {
 	ID             string     `json:"id"`
 	ParentID       string     `json:"parentId"`
-	Payee          string     `json:"payee"`
+	Name           string     `json:"name"`
 	Amount         float64    `json:"amount"`
 	Frequency      string     `json:"frequency"`
 	StartDate      time.Time  `json:"startDate"`
@@ -1176,7 +1176,7 @@ func (s *Store) ListIncomes(ctx context.Context, userID string, pagination Pagin
 	query := `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
-		       source,
+		       name,
 		       amount,
 		       frequency,
 		       start_date,
@@ -1207,7 +1207,7 @@ func (s *Store) ListIncomes(ctx context.Context, userID string, pagination Pagin
 		var it Income
 		var endDate sql.NullTime
 		var sourceType, sourceID sql.NullString
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt, &sourceType, &sourceID); err != nil {
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt, &sourceType, &sourceID); err != nil {
 			return PaginatedResult[Income]{}, err
 		}
 		if endDate.Valid {
@@ -1243,7 +1243,7 @@ func (s *Store) ListAllIncomes(ctx context.Context, userID string, opts DateRang
 	query := `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
-		       source,
+		       name,
 		       amount,
 		       frequency,
 		       start_date,
@@ -1286,7 +1286,7 @@ func (s *Store) ListAllIncomes(ctx context.Context, userID string, opts DateRang
 		var it Income
 		var endDate sql.NullTime
 		var sourceType, sourceID sql.NullString
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.CPFWageType, &it.UpdatedAt, &sourceType, &sourceID); err != nil {
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.CPFWageType, &it.UpdatedAt, &sourceType, &sourceID); err != nil {
 			return nil, err
 		}
 		if endDate.Valid {
@@ -1311,7 +1311,7 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (Income, error
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
-		       source,
+		       name,
 		       amount,
 		       frequency,
 		       start_date,
@@ -1328,7 +1328,7 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (Income, error
 	var it Income
 	var endDate sql.NullTime
 	var sourceType, sourceID sql.NullString
-	if err := row.Scan(&it.ID, &it.ParentID, &it.Source, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.CPFWageType, &it.UpdatedAt, &sourceType, &sourceID); err != nil {
+	if err := row.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.CPFWageType, &it.UpdatedAt, &sourceType, &sourceID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Income{}, ErrNotFound
 		}
@@ -1355,10 +1355,10 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 	endDate := it.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_incomes (user_id, parent_id, source, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, cpf_wage_type, source_type, source_id)
+		INSERT INTO finance_incomes (user_id, parent_id, name, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, cpf_wage_type, source_type, source_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 3.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''), NULLIF($12, ''), $13, $14)
 		ON CONFLICT ON CONSTRAINT finance_incomes_parent_start_date_key DO UPDATE
-		SET source=EXCLUDED.source,
+		SET name=EXCLUDED.name,
 		    amount=EXCLUDED.amount,
 		    frequency=EXCLUDED.frequency,
 		    end_date=EXCLUDED.end_date,
@@ -1370,8 +1370,8 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 		    source_type=EXCLUDED.source_type,
 		    source_id=EXCLUDED.source_id,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at, source_type, source_id`,
-		userID, nullIfEmpty(it.ParentID), it.Source, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.CPFWageType, it.SourceType, it.SourceID)
+		RETURNING id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at, source_type, source_id`,
+		userID, nullIfEmpty(it.ParentID), it.Name, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.CPFWageType, it.SourceType, it.SourceID)
 
 	var created Income
 	var endDateVal sql.NullTime
@@ -1379,7 +1379,7 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 	if err := row.Scan(
 		&created.ID,
 		&created.ParentID,
-		&created.Source,
+		&created.Name,
 		&created.Amount,
 		&created.Frequency,
 		&created.StartDate,
@@ -1414,7 +1414,7 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Inc
 
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_incomes
-		SET source=$3,
+		SET name=$3,
 		    amount=$4,
 		    frequency=$5,
 		    start_date=COALESCE($6, start_date),
@@ -1428,13 +1428,13 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Inc
 		    source_id=$14,
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), source, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at, source_type, source_id`,
-		userID, it.ID, it.Source, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.CPFWageType, it.SourceType, it.SourceID)
+		RETURNING id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at, source_type, source_id`,
+		userID, it.ID, it.Name, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.CPFWageType, it.SourceType, it.SourceID)
 
 	var updated Income
 	var endDateVal sql.NullTime
 	var sourceType, sourceID sql.NullString
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Source, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.CPFWageType, &updated.UpdatedAt, &sourceType, &sourceID); err != nil {
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.CPFWageType, &updated.UpdatedAt, &sourceType, &sourceID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Income{}, ErrNotFound
 		}
@@ -1500,7 +1500,7 @@ func (s *Store) ListExpenses(ctx context.Context, userID string, pagination Pagi
 	query := `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
-		       payee,
+		       name,
 		       amount,
 		       frequency,
 		       start_date,
@@ -1530,7 +1530,7 @@ func (s *Store) ListExpenses(ctx context.Context, userID string, pagination Pagi
 		var it Expense
 		var endDate sql.NullTime
 		var sourceLiabilityID sql.NullString
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt, &sourceLiabilityID); err != nil {
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt, &sourceLiabilityID); err != nil {
 			return PaginatedResult[Expense]{}, err
 		}
 		if endDate.Valid {
@@ -1597,7 +1597,7 @@ func (s *Store) ListAllExpenses(ctx context.Context, userID string, opts DateRan
 	query := `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
-		       payee,
+		       name,
 		       amount,
 		       frequency,
 		       start_date,
@@ -1638,7 +1638,7 @@ func (s *Store) ListAllExpenses(ctx context.Context, userID string, opts DateRan
 		var it Expense
 		var endDate sql.NullTime
 		var sourceLiabilityID sql.NullString
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt, &sourceLiabilityID); err != nil {
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt, &sourceLiabilityID); err != nil {
 			return nil, err
 		}
 		if endDate.Valid {
@@ -1660,7 +1660,7 @@ func (s *Store) GetExpense(ctx context.Context, userID, id string) (Expense, err
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
-		       payee,
+		       name,
 		       amount,
 		       frequency,
 		       start_date,
@@ -1675,7 +1675,7 @@ func (s *Store) GetExpense(ctx context.Context, userID, id string) (Expense, err
 	var it Expense
 	var endDate sql.NullTime
 	var sourceLiabilityID sql.NullString
-	if err := row.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt, &sourceLiabilityID); err != nil {
+	if err := row.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt, &sourceLiabilityID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Expense{}, ErrNotFound
 		}
@@ -1695,7 +1695,7 @@ func (s *Store) GetExpenseBySourceLiability(ctx context.Context, userID, liabili
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id,
 		       COALESCE(parent_id, id) as parent_id,
-		       payee,
+		       name,
 		       amount,
 		       frequency,
 		       start_date,
@@ -1714,7 +1714,7 @@ func (s *Store) GetExpenseBySourceLiability(ctx context.Context, userID, liabili
 	var endDate sql.NullTime
 	var sourceLiabilityID sql.NullString
 
-	if err := row.Scan(&it.ID, &it.ParentID, &it.Payee, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.GrowthStrategy, &it.UpdatedAt, &sourceLiabilityID); err != nil {
+	if err := row.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.GrowthStrategy, &it.UpdatedAt, &sourceLiabilityID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Expense{}, ErrNotFound
 		}
@@ -1737,10 +1737,10 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, it Expense) (E
 	endDate := it.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, source_liability_id)
+		INSERT INTO finance_expenses (user_id, parent_id, name, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, source_liability_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 2.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''), $12)
 		ON CONFLICT ON CONSTRAINT finance_expenses_parent_start_date_key DO UPDATE
-		SET payee=EXCLUDED.payee,
+		SET name=EXCLUDED.name,
 		    amount=EXCLUDED.amount,
 		    frequency=EXCLUDED.frequency,
 		    end_date=EXCLUDED.end_date,
@@ -1750,13 +1750,13 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, it Expense) (E
 		    notes=EXCLUDED.notes,
 		    source_liability_id=EXCLUDED.source_liability_id,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`,
-		userID, nullIfEmpty(it.ParentID), it.Payee, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.SourceLiabilityID)
+		RETURNING id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`,
+		userID, nullIfEmpty(it.ParentID), it.Name, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.SourceLiabilityID)
 
 	var created Expense
 	var endDateVal sql.NullTime
 	var sourceLiabilityID sql.NullString
-	if err := row.Scan(&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency, &created.StartDate, &endDateVal, &created.Category, &created.GrowthRate, &created.GrowthStrategy, &created.Notes, &created.UpdatedAt, &sourceLiabilityID); err != nil {
+	if err := row.Scan(&created.ID, &created.ParentID, &created.Name, &created.Amount, &created.Frequency, &created.StartDate, &endDateVal, &created.Category, &created.GrowthRate, &created.GrowthStrategy, &created.Notes, &created.UpdatedAt, &sourceLiabilityID); err != nil {
 		return Expense{}, err
 	}
 	if endDateVal.Valid {
@@ -1775,7 +1775,7 @@ func (s *Store) UpdateExpense(ctx context.Context, userID string, it Expense) (E
 
 	row := s.db.QueryRowContext(ctx, `
 		UPDATE finance_expenses
-		SET payee=$3,
+		SET name=$3,
 		    amount=$4,
 		    frequency=$5,
 		    start_date=COALESCE($6, start_date),
@@ -1787,13 +1787,13 @@ func (s *Store) UpdateExpense(ctx context.Context, userID string, it Expense) (E
 		    source_liability_id=$12,
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`,
-		userID, it.ID, it.Payee, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.SourceLiabilityID)
+		RETURNING id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`,
+		userID, it.ID, it.Name, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.SourceLiabilityID)
 
 	var updated Expense
 	var endDateVal sql.NullTime
 	var sourceLiabilityID sql.NullString
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Payee, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.UpdatedAt, &sourceLiabilityID); err != nil {
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.UpdatedAt, &sourceLiabilityID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Expense{}, ErrNotFound
 		}
@@ -1835,7 +1835,7 @@ func (s *Store) DeleteExpense(ctx context.Context, userID, id string) error {
 // Used for upsert logic in versioned updates.
 func (s *Store) FindExpenseByParentAndStartDate(ctx context.Context, userID, parentID string, startDate time.Time) (*Expense, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id
+		SELECT id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id
 		FROM finance_expenses
 		WHERE user_id=$1 AND parent_id=$2 AND DATE(start_date)=DATE($3)`,
 		userID, parentID, startDate)
@@ -1843,7 +1843,7 @@ func (s *Store) FindExpenseByParentAndStartDate(ctx context.Context, userID, par
 	var exp Expense
 	var endDateVal sql.NullTime
 	var sourceLiabilityID sql.NullString
-	if err := row.Scan(&exp.ID, &exp.ParentID, &exp.Payee, &exp.Amount, &exp.Frequency, &exp.StartDate, &endDateVal, &exp.Category, &exp.GrowthRate, &exp.GrowthStrategy, &exp.Notes, &exp.UpdatedAt, &sourceLiabilityID); err != nil {
+	if err := row.Scan(&exp.ID, &exp.ParentID, &exp.Name, &exp.Amount, &exp.Frequency, &exp.StartDate, &endDateVal, &exp.Category, &exp.GrowthRate, &exp.GrowthStrategy, &exp.Notes, &exp.UpdatedAt, &sourceLiabilityID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil // Not found, but not an error
 		}
@@ -1866,13 +1866,13 @@ func (s *Store) StopExpense(ctx context.Context, userID, id string, endDate time
 		UPDATE finance_expenses
 		SET end_date=$3, updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`,
+		RETURNING id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 2.0), growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`,
 		userID, id, endDate)
 
 	var updated Expense
 	var endDateVal sql.NullTime
 	var sourceLiabilityID sql.NullString
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Payee, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.UpdatedAt, &sourceLiabilityID); err != nil {
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.UpdatedAt, &sourceLiabilityID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Expense{}, ErrNotFound
 		}

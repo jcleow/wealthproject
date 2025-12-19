@@ -34,7 +34,7 @@ export async function listIncomes(params?: PaginationParams): Promise<PaginatedR
 export async function createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): Promise<Income> {
   // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
-    source: payload.source,
+    name: payload.name,
     amount: String(payload.amount),
     frequency: payload.frequency,
     startDate: payload.startDate ?? new Date().toISOString(),
@@ -58,7 +58,7 @@ export async function updateIncome(
 ): Promise<Income> {
   // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
-    source: payload.source,
+    name: payload.name,
     amount: payload.amount?.toString(),
     frequency: payload.frequency,
     startDate: payload.startDate,

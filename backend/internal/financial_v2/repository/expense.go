@@ -65,7 +65,7 @@ func (s *Store) GetExpense(ctx context.Context, userID, id string) (*Expense, er
 	query := `
 	SELECT id,
 		COALESCE(parent_id, id) as parent_id,
-		payee,
+		name,
 		amount,
 		frequency,
 		start_date,
@@ -83,7 +83,7 @@ func (s *Store) GetExpense(ctx context.Context, userID, id string) (*Expense, er
 
 	var e Expense
 	err := s.pool.QueryRow(ctx, query, userID, id).Scan(
-		&e.ID, &e.ParentID, &e.Payee, &e.Amount, &e.Frequency,
+		&e.ID, &e.ParentID, &e.Name, &e.Amount, &e.Frequency,
 		&e.StartDate, &e.EndDate, &e.Category, &e.GrowthRate,
 		&e.Notes, &e.GrowthStrategy, &e.UpdatedAt, &e.SourceLiabilityID,
 	)
@@ -101,7 +101,7 @@ func (s *Store) GetExpense(ctx context.Context, userID, id string) (*Expense, er
 func (s *Store) UpdateExpense(ctx context.Context, userID string, exp Expense) (*Expense, error) {
 	query := `
 	UPDATE finance_expenses
-	SET payee = $3,
+	SET name = $3,
 	    amount = $4,
 	    frequency = $5,
 	    start_date = COALESCE($6, start_date),
@@ -113,7 +113,7 @@ func (s *Store) UpdateExpense(ctx context.Context, userID string, exp Expense) (
 	    source_liability_id = $12,
 	    updated_at = NOW()
 	WHERE user_id = $1 AND id = $2
-	RETURNING id, COALESCE(parent_id, id), payee, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(growth_strategy, '') as growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`
+	RETURNING id, COALESCE(parent_id, id), name, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(growth_strategy, '') as growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`
 
 	var startDate *time.Time
 	if !exp.StartDate.IsZero() {
@@ -127,7 +127,7 @@ func (s *Store) UpdateExpense(ctx context.Context, userID string, exp Expense) (
 	}
 
 	args := []any{
-		userID, exp.ID, exp.Payee, exp.Amount, exp.Frequency,
+		userID, exp.ID, exp.Name, exp.Amount, exp.Frequency,
 		startDate, exp.EndDate, exp.Category, growthRate,
 		exp.GrowthStrategy, exp.Notes, exp.SourceLiabilityID,
 	}
@@ -136,7 +136,7 @@ func (s *Store) UpdateExpense(ctx context.Context, userID string, exp Expense) (
 
 	var updated Expense
 	err := s.pool.QueryRow(ctx, query, args...).Scan(
-		&updated.ID, &updated.ParentID, &updated.Payee, &updated.Amount, &updated.Frequency,
+		&updated.ID, &updated.ParentID, &updated.Name, &updated.Amount, &updated.Frequency,
 		&updated.StartDate, &updated.EndDate, &updated.Category, &updated.GrowthRate,
 		&updated.GrowthStrategy, &updated.Notes, &updated.UpdatedAt, &updated.SourceLiabilityID,
 	)
@@ -187,7 +187,7 @@ func (s *Store) FindExpenseByParentAndStartDate(
 	query := `
 	SELECT id,
 		COALESCE(parent_id, id) as parent_id,
-		payee,
+		name,
 		amount,
 		frequency,
 		start_date,
@@ -205,7 +205,7 @@ func (s *Store) FindExpenseByParentAndStartDate(
 
 	var e Expense
 	err := s.pool.QueryRow(ctx, query, userID, parentID, startDate).Scan(
-		&e.ID, &e.ParentID, &e.Payee, &e.Amount, &e.Frequency,
+		&e.ID, &e.ParentID, &e.Name, &e.Amount, &e.Frequency,
 		&e.StartDate, &e.EndDate, &e.Category, &e.GrowthRate,
 		&e.Notes, &e.GrowthStrategy, &e.UpdatedAt, &e.SourceLiabilityID,
 	)
@@ -240,13 +240,13 @@ func (s *Store) StopExpense(ctx context.Context, userID, id string, endDate time
 	UPDATE finance_expenses
 	SET end_date = $3, updated_at = NOW()
 	WHERE user_id = $1 AND id = $2
-	RETURNING id, COALESCE(parent_id, id), payee, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(growth_strategy, '') as growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`
+	RETURNING id, COALESCE(parent_id, id), name, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(growth_strategy, '') as growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`
 
 	logQuery(query, []any{userID, id, endDate})
 
 	var updated Expense
 	err := s.pool.QueryRow(ctx, query, userID, id, endDate).Scan(
-		&updated.ID, &updated.ParentID, &updated.Payee, &updated.Amount, &updated.Frequency,
+		&updated.ID, &updated.ParentID, &updated.Name, &updated.Amount, &updated.Frequency,
 		&updated.StartDate, &updated.EndDate, &updated.Category, &updated.GrowthRate,
 		&updated.GrowthStrategy, &updated.Notes, &updated.UpdatedAt, &updated.SourceLiabilityID,
 	)

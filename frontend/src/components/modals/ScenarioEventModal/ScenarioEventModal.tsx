@@ -51,7 +51,11 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
   useEffect(() => {
     if (!isOpen) return
     setConfirmDelete(false)
-    hydratedEvent ? itemSelector.setNewItemNames({}) : itemSelector.resetSelections()
+    // Only reset selections when creating new (no hydratedEvent)
+    // For editing, the useImpactItemSelector hook handles hydrating newItemNames from impact.name
+    if (!hydratedEvent) {
+      itemSelector.resetSelections()
+    }
   }, [hydratedEvent, isOpen])
 
   const handleImpactChange = useCallback((index: number, update: Partial<ScenarioImpact>) => {

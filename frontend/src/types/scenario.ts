@@ -5,8 +5,8 @@ export type ScenarioTargetType = 'asset' | 'liability' | 'income' | 'expense' | 
 // Override, stop, and start impacts are implicitly one-time (cadence is ignored in processing)
 export type ScenarioCadence = 'monthly' | 'annual'
 
-// Default cadence for non-delta impacts (value is ignored in processing, but needed for API)
-export const DEFAULT_CADENCE: ScenarioCadence = 'monthly'
+// Default cadence for recurring impacts - explicitly named to indicate it's monthly
+export const DEFAULT_MONTHLY_CADENCE: ScenarioCadence = 'monthly'
 
 // UI verb type for sentence-builder pattern
 export type ImpactVerb = 'increases_by' | 'decreases_by' | 'becomes' | 'starts_at' | 'ends'
@@ -54,9 +54,11 @@ export interface ScenarioImpactDto {
   impactKind: ScenarioImpactKind
   amount: number
   currency: string
-  cadence: ScenarioCadence
+  cadence: ScenarioCadence | ItemFrequency  // For start impacts, uses ItemFrequency (includes one_time)
   startDate: string
   endDate?: string | null
+  name?: string | null       // Name from the target financial item (JOINed)
+  frequency?: string | null  // Frequency from target item (only for income/expense, JOINed)
   notes?: string | null
 }
 
@@ -73,6 +75,9 @@ export interface ScenarioEventDto {
   impacts: ScenarioImpactDto[]
 }
 
+// Frequency for created financial items (used by start impacts)
+export type ItemFrequency = 'one_time' | 'monthly' | 'annual'
+
 // Frontend domain models (camelCase)
 export interface ScenarioImpact {
   targetType: ScenarioTargetType
@@ -83,6 +88,8 @@ export interface ScenarioImpact {
   cadence: ScenarioCadence
   startMonth: string
   endMonth?: string
+  name?: string  // Name for the financial item (used by start impacts)
+  frequency?: ItemFrequency  // Frequency for start impacts (one_time, monthly, annual)
   notes?: string
 }
 
@@ -139,6 +146,7 @@ const mapTargetToDtoFields = (impact: ScenarioImpact): Pick<ScenarioImpactDto, '
 
 export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact => {
   const target = pickTargetFromDto(dto)
+  const isStartImpact = dto.impactKind === 'start'
 
   return {
     targetType: target.targetType,
@@ -146,24 +154,31 @@ export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact =>
     impactKind: dto.impactKind,
     amount: dto.amount,
     currency: dto.currency,
-    cadence: dto.cadence,
+    // For non-start impacts, use the impact's cadence
+    cadence: isStartImpact ? 'monthly' : (dto.cadence as ScenarioCadence),
     startMonth: dto.startDate.slice(0, 7),
     endMonth: dto.endDate ? dto.endDate.slice(0, 7) : undefined,
+    name: dto.name ?? undefined,
+    // For start impacts, use frequency from JOINed finance table (or fallback to cadence for backwards compat)
+    frequency: isStartImpact ? ((dto.frequency as ItemFrequency) || (dto.cadence as ItemFrequency)) : undefined,
     notes: dto.notes ?? undefined,
   }
 }
 
 export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto => {
   const targetFields = mapTargetToDtoFields(impact)
+  const isStartImpact = impact.impactKind === 'start'
 
   return {
     ...targetFields,
     impactKind: impact.impactKind,
     amount: impact.amount,
     currency: impact.currency,
-    cadence: impact.cadence,
+    // For start impacts, send frequency as cadence (backend expects one_time/monthly/annual)
+    cadence: isStartImpact ? (impact.frequency ?? 'monthly') : impact.cadence,
     startDate: impact.startMonth,
     endDate: impact.endMonth,
+    name: impact.name,
     notes: impact.notes,
   }
 }
