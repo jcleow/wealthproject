@@ -450,8 +450,8 @@ func TestApplyImpactsToItem_StopImpact_ZerosValue(t *testing.T) {
 		eventsByID,
 	)
 
-	if result.Cmp(decimal.Zero()) != 0 {
-		t.Errorf("expected $0 after stop impact, got %s", result.String())
+	if result.AdjustedValue.Cmp(decimal.Zero()) != 0 {
+		t.Errorf("expected $0 after stop impact, got %s", result.AdjustedValue.String())
 	}
 }
 
@@ -494,8 +494,8 @@ func TestApplyImpactsToItem_StopImpact_BeforeStartDate_NotApplied(t *testing.T) 
 	)
 
 	expected := mustDecimal("10000")
-	if result.Cmp(expected) != 0 {
-		t.Errorf("expected %s (stop not yet active), got %s", expected.String(), result.String())
+	if result.AdjustedValue.Cmp(expected) != 0 {
+		t.Errorf("expected %s (stop not yet active), got %s", expected.String(), result.AdjustedValue.String())
 	}
 }
 
@@ -569,8 +569,8 @@ func TestApplyImpactsToItem_StopImpact_TrumpsOtherImpacts(t *testing.T) {
 		eventsByID,
 	)
 
-	if result.Cmp(decimal.Zero()) != 0 {
-		t.Errorf("expected $0 (stop trumps override and delta), got %s", result.String())
+	if result.AdjustedValue.Cmp(decimal.Zero()) != 0 {
+		t.Errorf("expected $0 (stop trumps override and delta), got %s", result.AdjustedValue.String())
 	}
 }
 
@@ -619,8 +619,8 @@ func TestApplyImpactsToItem_OverrideImpact_ReplacesBaseValue(t *testing.T) {
 	)
 
 	expected := mustDecimal("150000")
-	if result.Cmp(expected) != 0 {
-		t.Errorf("expected %s (override replaces base), got %s", expected.String(), result.String())
+	if result.AdjustedValue.Cmp(expected) != 0 {
+		t.Errorf("expected %s (override replaces base), got %s", expected.String(), result.AdjustedValue.String())
 	}
 }
 
@@ -677,8 +677,8 @@ func TestApplyImpactsToItem_MultipleOverrides_LatestEventWins(t *testing.T) {
 	)
 
 	expected := mustDecimal("160000")
-	if result.Cmp(expected) != 0 {
-		t.Errorf("expected %s (latest override wins), got %s", expected.String(), result.String())
+	if result.AdjustedValue.Cmp(expected) != 0 {
+		t.Errorf("expected %s (latest override wins), got %s", expected.String(), result.AdjustedValue.String())
 	}
 }
 
@@ -726,8 +726,8 @@ func TestApplyImpactsToItem_DeltaImpact_AddsToBaseValue(t *testing.T) {
 	)
 
 	expected := mustDecimal("26000")
-	if result.Cmp(expected) != 0 {
-		t.Errorf("expected %s (base + delta), got %s", expected.String(), result.String())
+	if result.AdjustedValue.Cmp(expected) != 0 {
+		t.Errorf("expected %s (base + delta), got %s", expected.String(), result.AdjustedValue.String())
 	}
 }
 
@@ -783,8 +783,8 @@ func TestApplyImpactsToItem_MultipleDeltas_Stack(t *testing.T) {
 	)
 
 	expected := mustDecimal("26500")
-	if result.Cmp(expected) != 0 {
-		t.Errorf("expected %s (base + both deltas), got %s", expected.String(), result.String())
+	if result.AdjustedValue.Cmp(expected) != 0 {
+		t.Errorf("expected %s (base + both deltas), got %s", expected.String(), result.AdjustedValue.String())
 	}
 }
 
@@ -829,8 +829,8 @@ func TestApplyImpactsToItem_NegativeDelta_Subtracts(t *testing.T) {
 	)
 
 	expected := mustDecimal("3200")
-	if result.Cmp(expected) != 0 {
-		t.Errorf("expected %s, got %s", expected.String(), result.String())
+	if result.AdjustedValue.Cmp(expected) != 0 {
+		t.Errorf("expected %s, got %s", expected.String(), result.AdjustedValue.String())
 	}
 }
 
@@ -890,8 +890,8 @@ func TestApplyImpactsToItem_OverrideThenDelta(t *testing.T) {
 	)
 
 	expected := mustDecimal("160000")
-	if result.Cmp(expected) != 0 {
-		t.Errorf("expected %s (override + delta), got %s", expected.String(), result.String())
+	if result.AdjustedValue.Cmp(expected) != 0 {
+		t.Errorf("expected %s (override + delta), got %s", expected.String(), result.AdjustedValue.String())
 	}
 }
 
@@ -1016,16 +1016,16 @@ func TestConvertImpactAmount_Asset_Override_NoConversion(t *testing.T) {
 }
 
 // =============================================================================
-// ApplyImpactsToItemWithTracking Tests
+// ApplyImpactsToItem Tests
 // =============================================================================
 
-func TestApplyImpactsToItemWithTracking_TracksAppliedImpacts(t *testing.T) {
+func TestApplyImpactsToItem_TracksAppliedImpacts(t *testing.T) {
 	/*
 		SCENARIO: Tracking which impacts were applied (for API response)
 		────────────────────────────────────────────────────────────────────────
 		Given: Cash account with $25,000
 		       Delta impact +$1,000/month starting March 2025
-		When:  ApplyImpactsToItemWithTracking is called for April 2025
+		When:  ApplyImpactsToItem is called for April 2025
 		Then:  Result should include:
 		       - AdjustedValue = $26,000
 		       - AppliedImpacts contains the delta impact info
@@ -1055,7 +1055,7 @@ func TestApplyImpactsToItemWithTracking_TracksAppliedImpacts(t *testing.T) {
 		"event-savings": {ID: "event-savings", Name: "Monthly savings", UpdatedAt: date(2025, 2, 1)},
 	}
 
-	result := ApplyImpactsToItemWithTracking(
+	result := ApplyImpactsToItem(
 		impacts,
 		baseValue,
 		currentDate,
@@ -1089,12 +1089,12 @@ func TestApplyImpactsToItemWithTracking_TracksAppliedImpacts(t *testing.T) {
 	}
 }
 
-func TestApplyImpactsToItemWithTracking_StopReturnsEarly(t *testing.T) {
+func TestApplyImpactsToItem_StopReturnsEarly(t *testing.T) {
 	/*
 		SCENARIO: Stop impact returns early with tracking
 		────────────────────────────────────────────────────────────────────────
 		Given: Income with both stop and delta impacts
-		When:  ApplyImpactsToItemWithTracking is called
+		When:  ApplyImpactsToItem is called
 		Then:  Result should show:
 		       - AdjustedValue = $0
 		       - AppliedImpacts contains ONLY the stop impact
@@ -1131,7 +1131,7 @@ func TestApplyImpactsToItemWithTracking_StopReturnsEarly(t *testing.T) {
 		"event-bonus": {ID: "event-bonus", UpdatedAt: date(2025, 2, 15)},
 	}
 
-	result := ApplyImpactsToItemWithTracking(
+	result := ApplyImpactsToItem(
 		impacts,
 		baseValue,
 		currentDate,

@@ -86,18 +86,9 @@ func BuildImpactContext(events []Event) *ImpactContext {
 //	  {ImpactKind: "delta", Amount: 5000},       // Adds $5k bonus
 //	]
 //	result = $150,000 + $5,000 = $155,000
-func ApplyImpactsToItem(
-	impacts []Impact,
-	baseValue *decimal.Decimal,
-	currentDate time.Time,
-	itemInfo ItemInfo,
-	eventsByID map[string]*Event,
-) *decimal.Decimal {
-	return ApplyImpactsToItemWithTracking(impacts, baseValue, currentDate, itemInfo, eventsByID).AdjustedValue
-}
-
-// ApplyImpactsToItemWithTracking applies impacts and returns both the result and tracking info.
-// Same logic as ApplyImpactsToItem but also tracks which impacts were applied for API responses.
+//
+// ApplyImpactsToItem returns both the adjusted value and tracking info
+// (which impacts were applied, for API responses).
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 // WORKED EXAMPLE: Cash account with delta impact
@@ -205,7 +196,7 @@ func ApplyImpactsToItem(
 //	}
 //
 // ═══════════════════════════════════════════════════════════════════════════════
-func ApplyImpactsToItemWithTracking(
+func ApplyImpactsToItem(
 	impacts []Impact,
 	baseValue *decimal.Decimal,
 	currentDate time.Time,

@@ -251,7 +251,7 @@ func (s *Service) loadEffectiveRows(
 //	baseValue = $25,000
 //	itemInfo = {ItemType: "cash_asset", Frequency: "monthly"}
 //
-// STEP 3: ApplyImpactsToItemWithTracking()
+// STEP 3: ApplyImpactsToItem()
 //
 //	Pass 1 (stop):    No stop impacts → continue
 //	Pass 2 (override): No override impacts → continue
@@ -392,7 +392,7 @@ func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time, isAnchorM
 		//   Output: result.AdjustedValue = $225,051
 		//           result.AppliedImpacts = [{EventID: "event-abc", ImpactKind: "delta", ...}]
 		// ─────────────────────────────────────────────────────────────────────
-		result := scenario.ApplyImpactsToItemWithTracking(
+		result := scenario.ApplyImpactsToItem(
 			impacts,
 			baseValue,
 			currentDate,
