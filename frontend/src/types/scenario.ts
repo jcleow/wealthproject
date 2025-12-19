@@ -1,6 +1,12 @@
 export type ScenarioImpactKind = 'delta' | 'override' | 'start' | 'stop'
 export type ScenarioTargetType = 'asset' | 'liability' | 'income' | 'expense' | 'cash' | 'investment'
-export type ScenarioCadence = 'one_time' | 'weekly' | 'bi_weekly' | 'monthly' | 'quarterly' | 'semi_annual' | 'annual'
+
+// Cadence for delta impacts (recurring): monthly or annual
+// Override, stop, and start impacts are implicitly one-time (cadence is ignored in processing)
+export type ScenarioCadence = 'monthly' | 'annual'
+
+// Default cadence for non-delta impacts (value is ignored in processing, but needed for API)
+export const DEFAULT_CADENCE: ScenarioCadence = 'monthly'
 
 // UI verb type for sentence-builder pattern
 export type ImpactVerb = 'increases_by' | 'decreases_by' | 'becomes' | 'starts_at' | 'ends'

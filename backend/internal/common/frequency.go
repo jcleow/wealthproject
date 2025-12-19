@@ -7,38 +7,44 @@ import "financial-chat-system/backend/internal/decimal"
 type Frequency string
 
 const (
-	FrequencyOneTime    Frequency = "one_time"
-	FrequencyWeekly     Frequency = "weekly"
-	FrequencyBiweekly   Frequency = "bi_weekly"
-	FrequencyMonthly    Frequency = "monthly"
-	FrequencyQuarterly  Frequency = "quarterly"
-	FrequencySemiannual Frequency = "semi_annual"
-	FrequencyAnnual     Frequency = "annual"
+	FrequencyOneTime Frequency = "one_time"
+	FrequencyMonthly Frequency = "monthly"
+	FrequencyAnnual  Frequency = "annual"
+
+	// Deprecated frequencies - kept for migration compatibility, do not use in new code
+	// These will be removed after data migration completes
+	FrequencyWeekly     Frequency = "weekly"      // deprecated
+	FrequencyBiweekly   Frequency = "bi_weekly"   // deprecated
+	FrequencyQuarterly  Frequency = "quarterly"   // deprecated
+	FrequencySemiannual Frequency = "semi_annual" // deprecated
 )
 
-// AllFrequencies contains all valid frequency values.
+// AllFrequencies contains all valid frequency values for new data.
 var AllFrequencies = []Frequency{
 	FrequencyOneTime,
-	FrequencyWeekly,
-	FrequencyBiweekly,
 	FrequencyMonthly,
-	FrequencyQuarterly,
-	FrequencySemiannual,
 	FrequencyAnnual,
 }
 
 // RecurringFrequencies contains frequencies that recur (excludes one_time).
+// Used for delta impacts only.
 var RecurringFrequencies = []Frequency{
-	FrequencyWeekly,
-	FrequencyBiweekly,
 	FrequencyMonthly,
-	FrequencyQuarterly,
-	FrequencySemiannual,
 	FrequencyAnnual,
 }
 
+// DeprecatedFrequencies contains frequencies that are being phased out.
+// Used by migration logic to identify records that need conversion.
+var DeprecatedFrequencies = []Frequency{
+	FrequencyWeekly,
+	FrequencyBiweekly,
+	FrequencyQuarterly,
+	FrequencySemiannual,
+}
+
 // ToMonthlyAmount converts an amount to monthly based on frequency.
-// Uses exact calculations: weekly = amount * 52 / 12, bi_weekly = amount * 26 / 12
+// Primary frequencies: monthly (no conversion), annual (÷12)
+// Deprecated frequencies are still supported for backward compatibility during migration.
 func ToMonthlyAmount(amount *decimal.Decimal, freq Frequency) *decimal.Decimal {
 	if amount == nil {
 		return decimal.Zero()
@@ -46,6 +52,9 @@ func ToMonthlyAmount(amount *decimal.Decimal, freq Frequency) *decimal.Decimal {
 	switch freq {
 	case FrequencyAnnual:
 		return amount.Div(decimal.NewFromInt64(12, 0))
+	case FrequencyMonthly, FrequencyOneTime:
+		return amount
+	// Deprecated frequencies - kept for migration compatibility
 	case FrequencyQuarterly:
 		return amount.Div(decimal.NewFromInt64(3, 0))
 	case FrequencySemiannual:
@@ -54,8 +63,6 @@ func ToMonthlyAmount(amount *decimal.Decimal, freq Frequency) *decimal.Decimal {
 		return amount.Mul(decimal.NewFromInt64(52, 0)).Div(decimal.NewFromInt64(12, 0))
 	case FrequencyBiweekly:
 		return amount.Mul(decimal.NewFromInt64(26, 0)).Div(decimal.NewFromInt64(12, 0))
-	case FrequencyMonthly, FrequencyOneTime:
-		return amount
 	default:
 		return amount
 	}

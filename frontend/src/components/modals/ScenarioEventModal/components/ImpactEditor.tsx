@@ -2,7 +2,7 @@
 
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { ScenarioImpact, ImpactVerb } from '@/types/scenario'
+import type { ScenarioImpact, ImpactVerb, ScenarioCadence } from '@/types/scenario'
 import { verbToImpact, impactToVerb } from '@/types/scenario'
 import { MonthPicker } from '@/components/ui/MonthPicker'
 import { useState, useRef, useEffect } from 'react'
@@ -163,6 +163,19 @@ export function ImpactEditor({
     const { impactKind, amount } = verbToImpact(verb, Math.abs(impact.amount) || 0)
     onUpdate(index, { impactKind, amount })
   }
+
+  // Determine whether to show cadence selector based on item type and verb
+  // See PRD for full mapping table
+  const isCashFlowItem = impact.targetType === 'income' || impact.targetType === 'expense'
+  const isBalanceSheetItem = impact.targetType === 'asset' || impact.targetType === 'liability' ||
+                             impact.targetType === 'cash' || impact.targetType === 'investment'
+  const isDeltaVerb = currentVerb === 'increases_by' || currentVerb === 'decreases_by'
+
+  // Show cadence selector for:
+  // - Income/Expense: all verbs except 'ends' (they're recurring flows)
+  // - Asset/Liability/Cash/Investment: only delta verbs (recurring contributions/payments)
+  const showCadenceSelector = (isCashFlowItem && currentVerb !== 'ends') ||
+                              (isBalanceSheetItem && isDeltaVerb)
 
   const handleTargetTypeChange = (value: string) => {
     onUpdate(index, { targetType: value as ScenarioImpact['targetType'] })
@@ -375,21 +388,16 @@ export function ImpactEditor({
             </div>
           )}
 
-          {/* Cadence - hidden when verb is 'ends' */}
-          {currentVerb !== 'ends' && (
+          {/* Cadence - shown for income/expense (all except 'ends'), and for balance sheet items (only delta verbs) */}
+          {showCadenceSelector && (
             <SelectWrapper>
               <select
                 value={impact.cadence}
-                onChange={(e) => onUpdate(index, { cadence: e.target.value as ScenarioImpact['cadence'] })}
+                onChange={(e) => onUpdate(index, { cadence: e.target.value as ScenarioCadence })}
                 className={selectStyles}
                 disabled={loading}
               >
-                <option value="one_time">one-time</option>
-                <option value="weekly">weekly</option>
-                <option value="bi_weekly">bi-weekly</option>
                 <option value="monthly">monthly</option>
-                <option value="quarterly">quarterly</option>
-                <option value="semi_annual">semi-annually</option>
                 <option value="annual">annually</option>
               </select>
             </SelectWrapper>

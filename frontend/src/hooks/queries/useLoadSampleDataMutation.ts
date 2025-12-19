@@ -3,6 +3,7 @@ import { financialApi } from '@/api/financial'
 import type { Income, Expense } from '@/types/financial'
 import type { CPFAccount, CPFAccountCreatePayload } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'
+import { DEFAULT_CADENCE } from '@/types/scenario'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { CPF_QUERY_KEY } from './useCpfQuery'
 
@@ -299,7 +300,7 @@ export function useLoadSampleDataMutation() {
               impactKind: 'start',
               amount: 50000,
               currency: 'SGD',
-              cadence: 'one_time',
+              cadence: DEFAULT_CADENCE,
               startMonth: getMonthString(2),
               notes: 'Wedding banquet, photography, honeymoon (~$50k total)',
             },
@@ -319,7 +320,7 @@ export function useLoadSampleDataMutation() {
               impactKind: 'start',
               amount: 450000,
               currency: 'SGD',
-              cadence: 'one_time',
+              cadence: DEFAULT_CADENCE,
               startMonth: getMonthString(5),
               notes: '4-room BTO flat in Tengah (estimated value)',
             },
@@ -328,7 +329,7 @@ export function useLoadSampleDataMutation() {
               impactKind: 'start',
               amount: 350000,
               currency: 'SGD',
-              cadence: 'one_time',
+              cadence: DEFAULT_CADENCE,
               startMonth: getMonthString(5),
               notes: 'HDB loan at 2.6% for 25 years (~$1,600/month)',
             },
@@ -346,7 +347,7 @@ export function useLoadSampleDataMutation() {
               impactKind: 'start',
               amount: 50000,
               currency: 'SGD',
-              cadence: 'one_time',
+              cadence: DEFAULT_CADENCE,
               startMonth: getMonthString(5),
               notes: 'Renovation and furniture (~$50k)',
             },
@@ -375,7 +376,7 @@ export function useLoadSampleDataMutation() {
               impactKind: 'start',
               amount: 11000,
               currency: 'SGD',
-              cadence: 'one_time',
+              cadence: DEFAULT_CADENCE,
               startMonth: getMonthString(4),
               notes: 'Baby Bonus cash gift ($11k for first child) - offsets $8k baby gear',
             },
@@ -395,7 +396,7 @@ export function useLoadSampleDataMutation() {
               impactKind: 'start',
               amount: 150000,
               currency: 'SGD',
-              cadence: 'one_time',
+              cadence: DEFAULT_CADENCE,
               startMonth: getMonthString(7),
               notes: 'Toyota Corolla Hybrid (depreciating asset)',
             },
@@ -404,7 +405,7 @@ export function useLoadSampleDataMutation() {
               impactKind: 'start',
               amount: 100000,
               currency: 'SGD',
-              cadence: 'one_time',
+              cadence: DEFAULT_CADENCE,
               startMonth: getMonthString(7),
               notes: 'Car loan at 2.78% for 7 years',
             },
@@ -513,7 +514,10 @@ export function useLoadSampleDataMutation() {
             const startMonth = impact.startMonth ?? event.occursOn
             // Use the impact amount (must be positive for income/expense schemas)
             const impactAmount = Math.abs(impact.amount ?? 1)
-            const isOneTime = impact.cadence === 'one_time'
+            // Determine if this is a one-time item based on whether endMonth equals startMonth
+            // or based on notes containing one-time indicators (wedding, bonus, etc.)
+            const hasOneTimeIndicator = (impact.notes ?? '').toLowerCase().match(/wedding|bonus|gift|renovation|furniture|baby gear/)
+            const isOneTime = (impact.endMonth && impact.endMonth === impact.startMonth) || hasOneTimeIndicator
             const startDateIso = startMonth ? new Date(startMonth).toISOString() : new Date().toISOString()
             // For one-time items, set endDate to end of same month so they only appear once
             const endDateIso = isOneTime ? (() => {

@@ -480,14 +480,19 @@ func ImpactAppliesToMonth(impact Impact, currentDate time.Time) bool {
 }
 
 // ConvertImpactAmount converts impact amount (int64 dollars) to decimal.
-// For flow items (income/expense), normalizes based on impact cadence.
+// Normalizes based on impact cadence for the timeline's monthly processing.
 //
-// Example 1 - Asset/Liability (no normalization needed):
+// Example 1 - Asset with monthly delta:
 //
-//	impact.Amount = 100000, itemInfo.ItemType = "cash_asset"
-//	result = $100,000 (direct conversion)
+//	impact.Amount = 1000, impact.Cadence = "monthly", itemInfo.ItemType = "asset"
+//	result = $1,000 (added each month)
 //
-// Example 2 - Income stored annually, impact is monthly:
+// Example 2 - Asset with annual delta:
+//
+//	impact.Amount = 12000, impact.Cadence = "annual", itemInfo.ItemType = "asset"
+//	result = $12,000 ÷ 12 = $1,000 (added each month)
+//
+// Example 3 - Income stored annually, impact is monthly:
 //
 //	impact.Amount = 5000, impact.Cadence = "monthly"
 //	itemInfo.ItemType = "income", itemInfo.Frequency = "annual"
@@ -495,7 +500,7 @@ func ImpactAppliesToMonth(impact Impact, currentDate time.Time) bool {
 //	Step 2: convert to annual = $5,000 × 12 = $60,000
 //	result = $60,000
 //
-// Example 3 - Income stored monthly, impact is annual:
+// Example 4 - Income stored monthly, impact is annual:
 //
 //	impact.Amount = 12000, impact.Cadence = "annual"
 //	itemInfo.ItemType = "income", itemInfo.Frequency = "monthly"
@@ -506,23 +511,34 @@ func ConvertImpactAmount(impact *Impact, itemInfo ItemInfo) *decimal.Decimal {
 	// Impact.Amount is stored as int64 (dollars, like all financial amounts in the DB)
 	amount := decimal.NewFromInt64(impact.Amount, 0)
 
-	// For flow items (income/expense), the impact amount is stored in its cadence
-	// but we need to normalize to match the item's storage frequency
+	// For flow items (income/expense), normalize to match the item's storage frequency
 	if itemInfo.ItemType == "income" || itemInfo.ItemType == "expense" {
 		// First convert impact amount to monthly
 		monthlyAmount := NormalizeToMonthly(amount, impact.Cadence)
 		// Then convert to item's frequency for storage consistency
 		amount = NormalizeFromMonthly(monthlyAmount, itemInfo.Frequency)
+	} else {
+		// For balance sheet items (asset, liability, cash, investment),
+		// normalize annual to monthly since timeline processes month-by-month
+		// Only applies to delta impacts (override/start/stop don't use cadence)
+		if impact.ImpactKind == ImpactKindDelta {
+			amount = NormalizeToMonthly(amount, impact.Cadence)
+		}
 	}
 
 	return amount
 }
 
-// NormalizeToMonthly converts an amount from any cadence to monthly equivalent
+// NormalizeToMonthly converts an amount from any cadence to monthly equivalent.
+// Primary cadences: monthly (no conversion), annual (÷12)
+// Deprecated cadences are still supported for backward compatibility during migration.
 func NormalizeToMonthly(amount *decimal.Decimal, cadence common.Frequency) *decimal.Decimal {
 	switch cadence {
 	case common.FrequencyAnnual:
 		return amount.Div(decimal.NewFromInt64(12, 0))
+	case common.FrequencyMonthly, common.FrequencyOneTime:
+		return amount
+	// Deprecated frequencies - kept for migration compatibility
 	case common.FrequencyQuarterly:
 		return amount.Div(decimal.NewFromInt64(3, 0))
 	case common.FrequencySemiannual:
@@ -531,18 +547,21 @@ func NormalizeToMonthly(amount *decimal.Decimal, cadence common.Frequency) *deci
 		return amount.Mul(decimal.NewFromInt64(26, 0)).Div(decimal.NewFromInt64(12, 0))
 	case common.FrequencyWeekly:
 		return amount.Mul(decimal.NewFromInt64(52, 0)).Div(decimal.NewFromInt64(12, 0))
-	case common.FrequencyMonthly, common.FrequencyOneTime:
-		return amount
 	default:
 		return amount
 	}
 }
 
-// NormalizeFromMonthly converts a monthly amount to a target frequency
+// NormalizeFromMonthly converts a monthly amount to a target frequency.
+// Primary frequencies: monthly (no conversion), annual (×12)
+// Deprecated frequencies are still supported for backward compatibility during migration.
 func NormalizeFromMonthly(monthlyAmount *decimal.Decimal, targetFreq common.Frequency) *decimal.Decimal {
 	switch targetFreq {
 	case common.FrequencyAnnual:
 		return monthlyAmount.Mul(decimal.NewFromInt64(12, 0))
+	case common.FrequencyMonthly:
+		return monthlyAmount
+	// Deprecated frequencies - kept for migration compatibility
 	case common.FrequencyQuarterly:
 		return monthlyAmount.Mul(decimal.NewFromInt64(3, 0))
 	case common.FrequencySemiannual:
@@ -551,8 +570,6 @@ func NormalizeFromMonthly(monthlyAmount *decimal.Decimal, targetFreq common.Freq
 		return monthlyAmount.Mul(decimal.NewFromInt64(12, 0)).Div(decimal.NewFromInt64(26, 0))
 	case common.FrequencyWeekly:
 		return monthlyAmount.Mul(decimal.NewFromInt64(12, 0)).Div(decimal.NewFromInt64(52, 0))
-	case common.FrequencyMonthly:
-		return monthlyAmount
 	default:
 		return monthlyAmount
 	}

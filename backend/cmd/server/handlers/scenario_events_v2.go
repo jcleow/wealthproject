@@ -557,6 +557,11 @@ func normalizeImpactKindAndCadence(in scenarioImpactV2DTO) (string, common.Frequ
 	if err != nil {
 		return "", "", err
 	}
+	// Validate cadence is appropriate for the impact kind
+	// Delta impacts require monthly/annual (recurring), others are implicitly one-time
+	if err := scenario.ValidateCadenceForImpactKind(ik, cad); err != nil {
+		return "", "", err
+	}
 	return ik, cad, nil
 }
 

@@ -12,7 +12,8 @@ import (
 var (
 	ErrMissingRequiredFields = errors.New("missing required fields")
 	ErrInvalidImpactKind     = errors.New("invalid impactKind; must be delta, override, start, or stop")
-	ErrInvalidCadence        = errors.New("invalid cadence; must be one_time, weekly, bi_weekly, monthly, quarterly, semi_annual, or annual")
+	ErrInvalidCadence        = errors.New("invalid cadence; must be one_time, monthly, or annual")
+	ErrDeltaRequiresCadence  = errors.New("delta impacts require cadence to be monthly or annual")
 	ErrInvalidDate           = errors.New("invalid date format; expected YYYY-MM-DD or YYYY-MM")
 	ErrInvalidStartDate      = errors.New("invalid startDate; expected YYYY-MM or month-start date")
 	ErrInvalidEndDate        = errors.New("invalid endDate; expected YYYY-MM or month-start date")
@@ -23,6 +24,9 @@ var (
 
 // ValidCadences lists all valid cadence values (derived from common.AllFrequencies)
 var ValidCadences = frequenciesToStrings(common.AllFrequencies)
+
+// ValidDeltaCadences lists cadences valid for delta impacts (recurring only: monthly, annual)
+var ValidDeltaCadences = frequenciesToStrings(common.RecurringFrequencies)
 
 // ValidImpactKinds lists all valid impact kind values
 var ValidImpactKinds = []string{ImpactKindDelta, ImpactKindOverride, ImpactKindStart, ImpactKindStop}
@@ -38,6 +42,23 @@ func IsValidImpactKind(kind string) bool {
 // IsValidCadence checks if the cadence is valid
 func IsValidCadence(cadence string) bool {
 	return inSet(strings.ToLower(strings.TrimSpace(cadence)), ValidCadences)
+}
+
+// IsValidDeltaCadence checks if the cadence is valid for delta impacts (monthly or annual only)
+func IsValidDeltaCadence(cadence string) bool {
+	return inSet(strings.ToLower(strings.TrimSpace(cadence)), ValidDeltaCadences)
+}
+
+// ValidateCadenceForImpactKind validates that the cadence is appropriate for the impact kind.
+// Delta impacts require monthly or annual cadence (recurring).
+// Override, start, and stop impacts are implicitly one-time (cadence is ignored in processing).
+func ValidateCadenceForImpactKind(impactKind string, cadence common.Frequency) error {
+	if impactKind == ImpactKindDelta {
+		if !IsValidDeltaCadence(string(cadence)) {
+			return ErrDeltaRequiresCadence
+		}
+	}
+	return nil
 }
 
 // IsValidTargetType checks if the target type is supported
