@@ -17,11 +17,12 @@ export async function listInvestments(params?: PaginationParams): Promise<Pagina
 }
 
 export async function createInvestment(payload: Omit<Investment, 'id' | 'updatedAt'>): Promise<Investment> {
+  // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
     name: payload.name,
     category: payload.category,
-    currentValue: payload.currentValue,
-    annualGrowthRate: payload.annualGrowthRate,
+    currentValue: String(payload.currentValue),
+    annualGrowthRate: String(payload.annualGrowthRate),
     notes: payload.notes,
   }
 
