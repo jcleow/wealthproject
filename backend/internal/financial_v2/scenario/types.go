@@ -10,7 +10,53 @@ import (
 // ErrNotFound indicates a scenario record was not found
 var ErrNotFound = errors.New("scenario not found")
 
-// ImpactKind constants
+// ImpactKind constants define how a scenario impact modifies a financial item.
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// UI VERB → IMPACT KIND MAPPING
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// The frontend uses human-readable verbs that map to these constants:
+//
+//	┌────────────────┬────────────┬─────────────────────────────────────────────┐
+//	│ UI Verb        │ ImpactKind │ Description                                 │
+//	├────────────────┼────────────┼─────────────────────────────────────────────┤
+//	│ "increases_by" │ delta      │ Add amount to current value (+$100k/month)  │
+//	│ "decreases_by" │ delta      │ Subtract amount (stored as negative delta)  │
+//	│ "becomes"      │ override   │ Replace value entirely (salary becomes $150k│
+//	│ "starts_at"    │ start      │ Item begins existing with this value        │
+//	│ "ends"         │ stop       │ Item stops existing (becomes $0)            │
+//	└────────────────┴────────────┴─────────────────────────────────────────────┘
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// PERSISTENCE & GROWTH BEHAVIOR
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// How each impact kind affects State persistence and subsequent growth:
+//
+//	┌────────────┬───────────┬───────────┬─────────────────────────────────────┐
+//	│ ImpactKind │ Persisted │ Grows?    │ Behavior                            │
+//	├────────────┼───────────┼───────────┼─────────────────────────────────────┤
+//	│ delta      │ ✅ Yes    │ ✅ Yes    │ Accumulates: $25k→$125k→$225k→$325k │
+//	│ override   │ ✅ Yes    │ ✅ Yes    │ Replaces base, then grows naturally │
+//	│ start      │ ✅ Yes    │ ✅ Yes    │ Sets initial value, then grows      │
+//	│ stop       │ ❌ No     │ N/A       │ Shows $0; if stop ends, base resumes│
+//	└────────────┴───────────┴───────────┴─────────────────────────────────────┘
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+// PRIORITY ORDER (in ApplyImpactsToItem)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+//  1. STOP:     If any stop impact applies → return $0 immediately
+//  2. OVERRIDE: Find latest by event.UpdatedAt → replace base value
+//  3. DELTA:    Apply ALL deltas cumulatively (they stack)
+//
+// Example with multiple impacts on same item:
+//
+//	impacts = [override $150k, delta +$5k, delta +$3k]
+//	result  = $150k + $5k + $3k = $158k
+//
+// ═══════════════════════════════════════════════════════════════════════════════
 const (
 	ImpactKindStart    = "start"
 	ImpactKindStop     = "stop"
