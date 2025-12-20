@@ -725,6 +725,10 @@ func (s *Service) computeMonthlyTimeline(
 			// Mark override when replacing an existing item version
 			if _, exists := state[r.ParentID]; exists {
 				hasOverride = true
+			} else if r.StartYear > baseYear {
+				// Mark override when a new item starts after year 0
+				// (it was created mid-timeline, not as initial data)
+				hasOverride = true
 			}
 
 			// Store end year as absolute year (not relative)

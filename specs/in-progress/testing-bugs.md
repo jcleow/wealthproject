@@ -118,45 +118,15 @@ Medium - UI shows scenarios exist (amber dot may appear) but breakdown details d
 
 ---
 
-## P0: Security - Add user_id filter to ListScenarioImpacts
+## ~~P0: Security - Add user_id filter to ListScenarioImpacts~~ ✅ DONE
 
-### Description
-The `ListScenarioImpacts` function in `backend/internal/financial/repository/scenario_events.go` queries by `event_id` only without filtering by `user_id`. While this is called internally after fetching an event already filtered by user_id, defense-in-depth requires explicit user ownership checks.
-
-### Files
-- `backend/internal/financial/repository/scenario_events.go:351-410` (v1)
-- `backend/internal/financial_v2/repository/scenario_events.go:371+` (v2)
-
-### Fix
-Add `user_id` parameter and join with `scenario_events` table to verify ownership:
-```sql
-SELECT imp.* FROM scenario_event_impacts imp
-JOIN scenario_events ev ON imp.event_id = ev.id
-WHERE imp.event_id = $1 AND ev.user_id = $2
-```
+Fixed in commit `b8e6feea` on branch `feat/p0-fixes`.
 
 ---
 
-## P0: Test - Fix TestProjection_NewItemPersistsForward
+## ~~P0: Test - Fix TestProjection_NewItemPersistsForward~~ ✅ DONE
 
-### Description
-Test expects `HasOverrides=true` when creating a new item via `UpsertYear`, but the current logic only sets `HasOverrides` when replacing an existing item or deleting. Currently skipped with `t.Skip()`.
-
-### Root Cause
-In `backend/internal/financial/timeline/service.go:700-728`, `hasOverride` is only set to true when:
-1. Amount is 0 (deletion)
-2. Replacing an existing item version (`if _, exists := state[r.ParentID]; exists`)
-
-Creating a **new** item doesn't set the flag.
-
-### Options
-1. **Fix the logic**: Set `hasOverride=true` when an item's `StartYear` matches the current year being processed (indicates it was created in that year, not year 0)
-2. **Remove UpsertYear**: If this endpoint is deprecated in favor of direct CRUD, remove it entirely
-3. **Update test expectation**: If the current behavior is intentional, update the test
-
-### Files
-- `backend/internal/financial/timeline/service.go:700-728`
-- `backend/internal/financial/timeline/service_test.go:54-93`
+Fixed by implementing Option 1: Set `hasOverride=true` when an item's `StartYear > baseYear` (indicating it was created mid-timeline, not as initial year 0 data).
 
 ---
 
