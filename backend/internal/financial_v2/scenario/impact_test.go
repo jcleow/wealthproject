@@ -269,13 +269,18 @@ func TestImpactAppliesToMonth_BeforeStartDate(t *testing.T) {
 		         If we're computing December 2025, this impact doesn't apply yet.
 	*/
 	impact := Impact{
+		EventID:   "test-event",
 		StartDate: date(2025, 3, 1),
 		Cadence:   common.FrequencyMonthly,
 	}
+	event := &Event{
+		ID:       "test-event",
+		OccursOn: date(2025, 3, 1),
+	}
 
-	// January 2025 is before March 2025
-	if ImpactAppliesToMonth(impact, date(2025, 1, 15)) {
-		t.Error("impact should NOT apply before start date")
+	// January 2025 is before March 2025 (event.OccursOn)
+	if ImpactAppliesToMonth(impact, date(2025, 1, 15), event) {
+		t.Error("impact should NOT apply before event occurs_on date")
 	}
 }
 
@@ -291,12 +296,17 @@ func TestImpactAppliesToMonth_OnStartMonth(t *testing.T) {
 		     on March 15, it applies to the entire March 2025 month.
 	*/
 	impact := Impact{
+		EventID:   "test-event",
 		StartDate: date(2025, 3, 15), // Mid-month
 		Cadence:   common.FrequencyMonthly,
 	}
+	event := &Event{
+		ID:       "test-event",
+		OccursOn: date(2025, 3, 15),
+	}
 
 	// March 1, 2025 is in the same month
-	if !ImpactAppliesToMonth(impact, date(2025, 3, 1)) {
+	if !ImpactAppliesToMonth(impact, date(2025, 3, 1), event) {
 		t.Error("impact SHOULD apply in the start month")
 	}
 }
@@ -312,13 +322,18 @@ func TestImpactAppliesToMonth_AfterStartDate_NoEndDate(t *testing.T) {
 		EXAMPLE: "My salary is now $150k" - this change persists indefinitely.
 	*/
 	impact := Impact{
+		EventID:   "test-event",
 		StartDate: date(2025, 3, 1),
 		EndDate:   nil, // No end date
 		Cadence:   common.FrequencyMonthly,
 	}
+	event := &Event{
+		ID:       "test-event",
+		OccursOn: date(2025, 3, 1),
+	}
 
 	// Far future date
-	if !ImpactAppliesToMonth(impact, date(2030, 12, 1)) {
+	if !ImpactAppliesToMonth(impact, date(2030, 12, 1), event) {
 		t.Error("impact with no end date SHOULD apply indefinitely")
 	}
 }
@@ -335,13 +350,18 @@ func TestImpactAppliesToMonth_AfterEndDate(t *testing.T) {
 		         the impact no longer applies.
 	*/
 	impact := Impact{
+		EventID:   "test-event",
 		StartDate: date(2025, 3, 1),
 		EndDate:   datePtr(2025, 6, 30),
 		Cadence:   common.FrequencyMonthly,
 	}
+	event := &Event{
+		ID:       "test-event",
+		OccursOn: date(2025, 3, 1),
+	}
 
 	// July 2025 is after June 2025
-	if ImpactAppliesToMonth(impact, date(2025, 7, 1)) {
+	if ImpactAppliesToMonth(impact, date(2025, 7, 1), event) {
 		t.Error("impact should NOT apply after end date")
 	}
 }
@@ -355,12 +375,17 @@ func TestImpactAppliesToMonth_WithinDateRange(t *testing.T) {
 		Then:  It SHOULD apply (within range)
 	*/
 	impact := Impact{
+		EventID:   "test-event",
 		StartDate: date(2025, 3, 1),
 		EndDate:   datePtr(2025, 6, 30),
 		Cadence:   common.FrequencyMonthly,
 	}
+	event := &Event{
+		ID:       "test-event",
+		OccursOn: date(2025, 3, 1),
+	}
 
-	if !ImpactAppliesToMonth(impact, date(2025, 4, 15)) {
+	if !ImpactAppliesToMonth(impact, date(2025, 4, 15), event) {
 		t.Error("impact SHOULD apply within its date range")
 	}
 }
@@ -376,11 +401,16 @@ func TestImpactAppliesToMonth_OneTime_SameMonth(t *testing.T) {
 		EXAMPLE: "One-time $10,000 bonus in March"
 	*/
 	impact := Impact{
+		EventID:   "test-event",
 		StartDate: date(2025, 3, 15),
 		Cadence:   common.FrequencyOneTime,
 	}
+	event := &Event{
+		ID:       "test-event",
+		OccursOn: date(2025, 3, 15),
+	}
 
-	if !ImpactAppliesToMonth(impact, date(2025, 3, 1)) {
+	if !ImpactAppliesToMonth(impact, date(2025, 3, 1), event) {
 		t.Error("one-time impact SHOULD apply in its trigger month")
 	}
 }
@@ -396,11 +426,16 @@ func TestImpactAppliesToMonth_OneTime_DifferentMonth(t *testing.T) {
 		EXAMPLE: "One-time $10,000 bonus in March" doesn't repeat in April.
 	*/
 	impact := Impact{
+		EventID:   "test-event",
 		StartDate: date(2025, 3, 15),
 		Cadence:   common.FrequencyOneTime,
 	}
+	event := &Event{
+		ID:       "test-event",
+		OccursOn: date(2025, 3, 15),
+	}
 
-	if ImpactAppliesToMonth(impact, date(2025, 4, 1)) {
+	if ImpactAppliesToMonth(impact, date(2025, 4, 1), event) {
 		t.Error("one-time impact should NOT apply in different month")
 	}
 }
@@ -439,7 +474,7 @@ func TestApplyImpactsToItem_StopImpact_ZerosValue(t *testing.T) {
 	}
 
 	eventsByID := map[string]*Event{
-		"event-quit": {ID: "event-quit", Name: "Lose job", UpdatedAt: date(2025, 2, 1)},
+		"event-quit": {ID: "event-quit", Name: "Lose job", OccursOn: date(2025, 3, 1), UpdatedAt: date(2025, 2, 1)},
 	}
 
 	result := ApplyImpactsToItem(
@@ -482,7 +517,7 @@ func TestApplyImpactsToItem_StopImpact_BeforeStartDate_NotApplied(t *testing.T) 
 	}
 
 	eventsByID := map[string]*Event{
-		"event-quit": {ID: "event-quit", Name: "Plan to quit", UpdatedAt: date(2025, 2, 1)},
+		"event-quit": {ID: "event-quit", Name: "Plan to quit", OccursOn: date(2025, 6, 1), UpdatedAt: date(2025, 2, 1)},
 	}
 
 	result := ApplyImpactsToItem(
@@ -556,9 +591,9 @@ func TestApplyImpactsToItem_StopImpact_TrumpsOtherImpacts(t *testing.T) {
 	}
 
 	eventsByID := map[string]*Event{
-		"event-raise": {ID: "event-raise", UpdatedAt: date(2025, 1, 1)},
-		"event-bonus": {ID: "event-bonus", UpdatedAt: date(2025, 1, 15)},
-		"event-quit":  {ID: "event-quit", UpdatedAt: date(2025, 2, 1)},
+		"event-raise": {ID: "event-raise", OccursOn: date(2025, 3, 1), UpdatedAt: date(2025, 1, 1)},
+		"event-bonus": {ID: "event-bonus", OccursOn: date(2025, 3, 1), UpdatedAt: date(2025, 1, 15)},
+		"event-quit":  {ID: "event-quit", OccursOn: date(2025, 3, 1), UpdatedAt: date(2025, 2, 1)},
 	}
 
 	result := ApplyImpactsToItem(
@@ -607,7 +642,7 @@ func TestApplyImpactsToItem_OverrideImpact_ReplacesBaseValue(t *testing.T) {
 	}
 
 	eventsByID := map[string]*Event{
-		"event-raise": {ID: "event-raise", Name: "Get a raise", UpdatedAt: date(2025, 5, 15)},
+		"event-raise": {ID: "event-raise", Name: "Get a raise", OccursOn: date(2025, 6, 1), UpdatedAt: date(2025, 5, 15)},
 	}
 
 	result := ApplyImpactsToItem(
@@ -664,8 +699,8 @@ func TestApplyImpactsToItem_MultipleOverrides_LatestEventWins(t *testing.T) {
 	}
 
 	eventsByID := map[string]*Event{
-		"event-first":  {ID: "event-first", Name: "First raise", UpdatedAt: date(2025, 1, 1)},
-		"event-better": {ID: "event-better", Name: "Better offer", UpdatedAt: date(2025, 1, 15)}, // More recent
+		"event-first":  {ID: "event-first", Name: "First raise", OccursOn: date(2025, 6, 1), UpdatedAt: date(2025, 1, 1)},
+		"event-better": {ID: "event-better", Name: "Better offer", OccursOn: date(2025, 6, 1), UpdatedAt: date(2025, 1, 15)}, // More recent
 	}
 
 	result := ApplyImpactsToItem(
@@ -714,7 +749,7 @@ func TestApplyImpactsToItem_DeltaImpact_AddsToBaseValue(t *testing.T) {
 	}
 
 	eventsByID := map[string]*Event{
-		"event-savings": {ID: "event-savings", Name: "Monthly savings", UpdatedAt: date(2025, 2, 1)},
+		"event-savings": {ID: "event-savings", Name: "Monthly savings", OccursOn: date(2025, 3, 1), UpdatedAt: date(2025, 2, 1)},
 	}
 
 	result := ApplyImpactsToItem(
@@ -770,8 +805,8 @@ func TestApplyImpactsToItem_MultipleDeltas_Stack(t *testing.T) {
 	}
 
 	eventsByID := map[string]*Event{
-		"event-savings": {ID: "event-savings", UpdatedAt: date(2025, 2, 1)},
-		"event-side":    {ID: "event-side", UpdatedAt: date(2025, 2, 15)},
+		"event-savings": {ID: "event-savings", OccursOn: date(2025, 3, 1), UpdatedAt: date(2025, 2, 1)},
+		"event-side":    {ID: "event-side", OccursOn: date(2025, 3, 1), UpdatedAt: date(2025, 2, 15)},
 	}
 
 	result := ApplyImpactsToItem(
@@ -817,7 +852,7 @@ func TestApplyImpactsToItem_NegativeDelta_Subtracts(t *testing.T) {
 	}
 
 	eventsByID := map[string]*Event{
-		"event-rent": {ID: "event-rent", Name: "Rent increase", UpdatedAt: date(2025, 2, 1)},
+		"event-rent": {ID: "event-rent", Name: "Rent increase", OccursOn: date(2025, 3, 1), UpdatedAt: date(2025, 2, 1)},
 	}
 
 	result := ApplyImpactsToItem(
@@ -878,7 +913,7 @@ func TestApplyImpactsToItem_OverrideThenDelta(t *testing.T) {
 	}
 
 	eventsByID := map[string]*Event{
-		"event-job": {ID: "event-job", Name: "New job offer", UpdatedAt: date(2025, 5, 15)},
+		"event-job": {ID: "event-job", Name: "New job offer", OccursOn: date(2025, 6, 1), UpdatedAt: date(2025, 5, 15)},
 	}
 
 	result := ApplyImpactsToItem(
@@ -1052,7 +1087,7 @@ func TestApplyImpactsToItem_TracksAppliedImpacts(t *testing.T) {
 	}
 
 	eventsByID := map[string]*Event{
-		"event-savings": {ID: "event-savings", Name: "Monthly savings", UpdatedAt: date(2025, 2, 1)},
+		"event-savings": {ID: "event-savings", Name: "Monthly savings", OccursOn: date(2025, 3, 1), UpdatedAt: date(2025, 2, 1)},
 	}
 
 	result := ApplyImpactsToItem(
@@ -1127,8 +1162,8 @@ func TestApplyImpactsToItem_StopReturnsEarly(t *testing.T) {
 	}
 
 	eventsByID := map[string]*Event{
-		"event-quit":  {ID: "event-quit", UpdatedAt: date(2025, 2, 1)},
-		"event-bonus": {ID: "event-bonus", UpdatedAt: date(2025, 2, 15)},
+		"event-quit":  {ID: "event-quit", OccursOn: date(2025, 3, 1), UpdatedAt: date(2025, 2, 1)},
+		"event-bonus": {ID: "event-bonus", OccursOn: date(2025, 3, 1), UpdatedAt: date(2025, 2, 15)},
 	}
 
 	result := ApplyImpactsToItem(

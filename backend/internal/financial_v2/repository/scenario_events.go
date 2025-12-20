@@ -150,8 +150,7 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 			COALESCE(a.name, l.name, inc.name, exp.name, ca.name, inv.name, '') as target_name,
 			'SGD' as target_currency,
 			COALESCE(inc.frequency, exp.frequency, '') as target_frequency,
-			-- Use event's occurs_on as the impact start date (when the impact takes effect)
-			e.occurs_on as target_start_date,
+			COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as target_start_date,
 			COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as target_end_date,
 			COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as target_notes,
 			-- Advanced fields from financial item (ca uses account_type instead of category)
@@ -402,8 +401,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 			COALESCE(a.name, l.name, inc.name, exp.name, ca.name, inv.name, '') as target_name,
 			'SGD' as target_currency,
 			COALESCE(inc.frequency, exp.frequency, '') as target_frequency,
-			-- Use event's occurs_on as the impact start date (when the impact takes effect)
-			ev.occurs_on as target_start_date,
+			COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as target_start_date,
 			COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as target_end_date,
 			COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as target_notes,
 			-- Advanced fields from financial item (ca uses account_type instead of category)
