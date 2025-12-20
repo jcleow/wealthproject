@@ -88,7 +88,7 @@ func TestV2CashAccounts_Update_NotFound(t *testing.T) {
 		"balance": "25000.00",
 	}
 
-	resp := ts.Request("PUT", "/api/v2/cash-accounts/nonexistent-id").
+	resp := ts.Request("PUT", "/api/v2/cash-accounts/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
@@ -123,7 +123,7 @@ func TestV2CashAccounts_Delete_Success(t *testing.T) {
 func TestV2CashAccounts_Delete_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
-	resp := ts.Request("DELETE", "/api/v2/cash-accounts/nonexistent-id").
+	resp := ts.Request("DELETE", "/api/v2/cash-accounts/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		Do(t)
 
@@ -163,7 +163,7 @@ func TestV2CashAccounts_BulkDelete_Success(t *testing.T) {
 		WithDefaultAuth().
 		Do(t)
 
-	testutil.AssertOK(t, resp, nil)
+	testutil.AssertNoContent(t, resp)
 
 	// Verify all deleted
 	resp = ts.Request("GET", "/api/v2/cash-accounts").

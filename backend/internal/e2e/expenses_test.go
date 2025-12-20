@@ -152,13 +152,17 @@ func TestV2Expenses_Update_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
-		"name":      "Updated Name",
-		"amount":    "200.00",
-		"frequency": "monthly",
+		"name":           "Updated Name",
+		"amount":         "200.00",
+		"frequency":      "monthly",
+		"category":       "utilities",
+		"startDate":      "2025-01-01T00:00:00Z",
+		"growthRate":     "2.0",
+		"growthStrategy": "annual_step",
 	}
 
 	// ===== ACT =====
-	resp := ts.Request("PUT", "/api/v2/cashflow/expenses/nonexistent-id").
+	resp := ts.Request("PUT", "/api/v2/cashflow/expenses/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
@@ -197,7 +201,7 @@ func TestV2Expenses_Delete_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
 	// ===== ACT =====
-	resp := ts.Request("DELETE", "/api/v2/cashflow/expenses/nonexistent-id").
+	resp := ts.Request("DELETE", "/api/v2/cashflow/expenses/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		Do(t)
 
@@ -239,7 +243,7 @@ func TestV2Expenses_BulkDelete_Success(t *testing.T) {
 		Do(t)
 
 	// ===== ASSERT =====
-	testutil.AssertOK(t, resp, nil)
+	testutil.AssertNoContent(t, resp)
 
 	// Verify all deleted
 	resp = ts.Request("GET", "/api/v2/cashflow/expenses").

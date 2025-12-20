@@ -76,7 +76,7 @@ func TestFlow_IncomeToAllocationToTimeline(t *testing.T) {
 		Do(t)
 
 	var allocation map[string]interface{}
-	testutil.AssertOK(t, resp, &allocation)
+	testutil.AssertCreated(t, resp, &allocation)
 	require.NotEmpty(t, allocation["id"])
 
 	// Step 4: Verify timeline includes the data
@@ -111,7 +111,7 @@ func TestFlow_LiabilityCreatesLinkedExpense(t *testing.T) {
 		Do(t)
 
 	var liability map[string]interface{}
-	testutil.AssertOK(t, resp, &liability)
+	testutil.AssertCreated(t, resp, &liability)
 	liabilityID := liability["id"].(string)
 	require.NotEmpty(t, liabilityID)
 
@@ -165,7 +165,7 @@ func TestFlow_ScenarioImpactsTimeline(t *testing.T) {
 		"category":       "housing",
 		"startDate":      "2025-01-01T00:00:00Z",
 		"growthRate":     "0",
-		"growthStrategy": "none",
+		"growthStrategy": "fixed", // Use "fixed" for no growth (valid values: compound_monthly, annual_step, tiered_adb, fixed)
 	}
 
 	resp := ts.Request("POST", "/api/v2/cashflow/expenses").
@@ -177,13 +177,23 @@ func TestFlow_ScenarioImpactsTimeline(t *testing.T) {
 	testutil.AssertOK(t, resp, &expense)
 	require.NotEmpty(t, expense["id"])
 
-	// Create a scenario event
+	// Create a scenario event (requires displayIcon, and impacts to have at least one valid impact)
+	expenseID := expense["id"].(string)
 	scenarioPayload := map[string]interface{}{
 		"name":        "Move to Cheaper Apartment",
 		"description": "Reduces rent by $500",
-		"occursOn":    "2025-06-01T00:00:00Z",
+		"occursOn":    "2025-06-01",
+		"displayIcon": "home",
 		"isIncluded":  true,
-		"impacts":     []interface{}{},
+		"impacts": []map[string]interface{}{
+			{
+				"targetExpenseId": expenseID,
+				"impactKind":      "delta",
+				"amount":          -50000, // -$500.00 in cents
+				"cadence":         "monthly",
+				"startDate":       "2025-06-01",
+			},
+		},
 	}
 
 	resp = ts.Request("POST", "/api/v2/scenario-events").

@@ -152,13 +152,17 @@ func TestV2Incomes_Update_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
-		"name":      "Updated Name",
-		"amount":    "10000.00",
-		"frequency": "monthly",
+		"name":           "Updated Name",
+		"amount":         "10000.00",
+		"frequency":      "monthly",
+		"category":       "salary",
+		"startDate":      "2025-01-01T00:00:00Z",
+		"growthRate":     "3.0",
+		"growthStrategy": "annual_step",
 	}
 
 	// ===== ACT =====
-	resp := ts.Request("PUT", "/api/v2/cashflow/incomes/nonexistent-id").
+	resp := ts.Request("PUT", "/api/v2/cashflow/incomes/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
@@ -197,7 +201,7 @@ func TestV2Incomes_Delete_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
 	// ===== ACT =====
-	resp := ts.Request("DELETE", "/api/v2/cashflow/incomes/nonexistent-id").
+	resp := ts.Request("DELETE", "/api/v2/cashflow/incomes/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		Do(t)
 

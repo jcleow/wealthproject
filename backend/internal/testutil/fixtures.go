@@ -120,6 +120,7 @@ func CreateScenarioEventFixture(t *testing.T, store *repository.Store, userID, n
 		OccursOn:    time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
 		IsIncluded:  true,
 		Description: "Test scenario event",
+		DisplayIcon: "calendar",
 	})
 	require.NoError(t, err, "failed to create scenario event fixture")
 	return event

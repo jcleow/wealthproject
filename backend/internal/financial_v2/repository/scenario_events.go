@@ -376,6 +376,10 @@ func (s *Store) ToggleScenarioIncludedV2(ctx context.Context, userID, eventID st
 		SET is_included=$3, updated_at=NOW()
 		WHERE id=$1 AND user_id=$2`, eventID, userID, included)
 	if err != nil {
+		// Invalid UUID format should be treated as not found
+		if strings.Contains(err.Error(), "invalid input syntax for type uuid") {
+			return ErrScenarioNotFound
+		}
 		return err
 	}
 	if tag.RowsAffected() == 0 {

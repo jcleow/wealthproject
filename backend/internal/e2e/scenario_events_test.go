@@ -21,20 +21,32 @@ func TestV2ScenarioEvents_List_Empty(t *testing.T) {
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
-	data, ok := result["data"].([]interface{})
-	require.True(t, ok, "expected data to be an array")
-	require.Empty(t, data)
+	items, ok := result["items"].([]interface{})
+	require.True(t, ok, "expected items to be an array")
+	require.Empty(t, items)
 }
 
 func TestV2ScenarioEvents_Create_Success(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
+	// Create an income to target with the impact
+	incomeID := testutil.CreateIncomeFixture(t, ts.Pool, ts.UserID, "Base Salary")
+
 	payload := map[string]interface{}{
 		"name":        "Job Promotion",
 		"description": "Expected promotion in June",
-		"occursOn":    "2025-06-01T00:00:00Z",
+		"occursOn":    "2025-06-01",
+		"displayIcon": "briefcase",
 		"isIncluded":  true,
-		"impacts":     []interface{}{},
+		"impacts": []map[string]interface{}{
+			{
+				"targetIncomeId": incomeID,
+				"impactKind":     "delta",
+				"amount":         100000, // $1000.00 raise
+				"cadence":        "monthly",
+				"startDate":      "2025-06-01",
+			},
+		},
 	}
 
 	resp := ts.Request("POST", "/api/v2/scenario-events").
@@ -96,9 +108,9 @@ func TestV2ScenarioEvents_List_WithData(t *testing.T) {
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
-	data, ok := result["data"].([]interface{})
-	require.True(t, ok, "expected data to be an array")
-	require.Len(t, data, 2)
+	items, ok := result["items"].([]interface{})
+	require.True(t, ok, "expected items to be an array")
+	require.Len(t, items, 2)
 }
 
 func TestV2ScenarioEvents_Get_Success(t *testing.T) {
@@ -121,7 +133,7 @@ func TestV2ScenarioEvents_Get_Success(t *testing.T) {
 func TestV2ScenarioEvents_Get_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
-	resp := ts.Request("GET", "/api/v2/scenario-events/nonexistent-id").
+	resp := ts.Request("GET", "/api/v2/scenario-events/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		Do(t)
 
@@ -131,15 +143,27 @@ func TestV2ScenarioEvents_Get_NotFound(t *testing.T) {
 func TestV2ScenarioEvents_Update_Success(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
-	// Create a fixture
+	// Create an income to target with the impact
+	incomeID := testutil.CreateIncomeFixture(t, ts.Pool, ts.UserID, "Base Salary")
+
+	// Create scenario event with an impact
 	event := testutil.CreateScenarioEventFixture(t, ts.Store, ts.UserID, "Original Event")
 
 	payload := map[string]interface{}{
 		"name":        "Updated Event",
 		"description": "Updated description",
-		"occursOn":    "2025-07-01T00:00:00Z",
+		"occursOn":    "2025-07-01",
+		"displayIcon": "star",
 		"isIncluded":  false,
-		"impacts":     []interface{}{},
+		"impacts": []map[string]interface{}{
+			{
+				"targetIncomeId": incomeID,
+				"impactKind":     "delta",
+				"amount":         50000, // $500.00
+				"cadence":        "monthly",
+				"startDate":      "2025-07-01",
+			},
+		},
 	}
 
 	resp := ts.Request("PUT", "/api/v2/scenario-events/"+event.ID).
@@ -157,12 +181,26 @@ func TestV2ScenarioEvents_Update_Success(t *testing.T) {
 func TestV2ScenarioEvents_Update_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
+	// Create an income to have a valid impact target
+	incomeID := testutil.CreateIncomeFixture(t, ts.Pool, ts.UserID, "Base Salary")
+
 	payload := map[string]interface{}{
-		"name":     "Updated Name",
-		"occursOn": "2025-07-01T00:00:00Z",
+		"name":        "Updated Name",
+		"occursOn":    "2025-07-01",
+		"displayIcon": "star",
+		"isIncluded":  true,
+		"impacts": []map[string]interface{}{
+			{
+				"targetIncomeId": incomeID,
+				"impactKind":     "delta",
+				"amount":         50000,
+				"cadence":        "monthly",
+				"startDate":      "2025-07-01",
+			},
+		},
 	}
 
-	resp := ts.Request("PUT", "/api/v2/scenario-events/nonexistent-id").
+	resp := ts.Request("PUT", "/api/v2/scenario-events/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
@@ -180,7 +218,7 @@ func TestV2ScenarioEvents_Delete_Success(t *testing.T) {
 		WithDefaultAuth().
 		Do(t)
 
-	testutil.AssertNoContent(t, resp)
+	testutil.AssertOK(t, resp, nil)
 
 	// Verify it's deleted
 	resp = ts.Request("GET", "/api/v2/scenario-events").
@@ -190,14 +228,14 @@ func TestV2ScenarioEvents_Delete_Success(t *testing.T) {
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
-	data := result["data"].([]interface{})
-	require.Empty(t, data)
+	items := result["items"].([]interface{})
+	require.Empty(t, items)
 }
 
 func TestV2ScenarioEvents_Delete_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
-	resp := ts.Request("DELETE", "/api/v2/scenario-events/nonexistent-id").
+	resp := ts.Request("DELETE", "/api/v2/scenario-events/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		Do(t)
 
@@ -244,7 +282,7 @@ func TestV2ScenarioEvents_Toggle_NotFound(t *testing.T) {
 		"isIncluded": false,
 	}
 
-	resp := ts.Request("PATCH", "/api/v2/scenario-events/nonexistent-id/toggle").
+	resp := ts.Request("PATCH", "/api/v2/scenario-events/"+testutil.NonexistentUUID+"/toggle").
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)

@@ -45,7 +45,7 @@ func TestV2Liabilities_Create_Success(t *testing.T) {
 		Do(t)
 
 	var result map[string]interface{}
-	testutil.AssertOK(t, resp, &result)
+	testutil.AssertCreated(t, resp, &result)
 
 	require.NotEmpty(t, result["id"])
 	require.Equal(t, "Home Mortgage", result["name"])
@@ -134,11 +134,16 @@ func TestV2Liabilities_Update_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
-		"name":           "Updated Name",
-		"currentBalance": "450000.00",
+		"name":              "Updated Name",
+		"category":          "mortgage",
+		"currentBalance":    "450000.00",
+		"interestRateApr":   "4.5",
+		"minimumPayment":    "1500.00",
+		"startDate":         "2025-01-01T00:00:00Z",
+		"repaymentStrategy": "standard_amortization",
 	}
 
-	resp := ts.Request("PUT", "/api/v2/liabilities/nonexistent-id").
+	resp := ts.Request("PUT", "/api/v2/liabilities/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
@@ -173,7 +178,7 @@ func TestV2Liabilities_Delete_Success(t *testing.T) {
 func TestV2Liabilities_Delete_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
-	resp := ts.Request("DELETE", "/api/v2/liabilities/nonexistent-id").
+	resp := ts.Request("DELETE", "/api/v2/liabilities/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		Do(t)
 
@@ -213,7 +218,7 @@ func TestV2Liabilities_BulkDelete_Success(t *testing.T) {
 		WithDefaultAuth().
 		Do(t)
 
-	testutil.AssertOK(t, resp, nil)
+	testutil.AssertNoContent(t, resp)
 
 	// Verify all deleted
 	resp = ts.Request("GET", "/api/v2/liabilities").
@@ -246,7 +251,7 @@ func TestV2Liabilities_Create_AutoCreatesLinkedExpense(t *testing.T) {
 		Do(t)
 
 	var liability map[string]interface{}
-	testutil.AssertOK(t, resp, &liability)
+	testutil.AssertCreated(t, resp, &liability)
 
 	// Check that a linked expense was created
 	resp = ts.Request("GET", "/api/v2/cashflow/expenses").

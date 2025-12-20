@@ -39,7 +39,7 @@ func GetTestDatabaseURL() string {
 	}
 	password := os.Getenv("DB_PASSWORD")
 	if password == "" {
-		password = "${DB_PASSWORD}"
+		password = "financial_pass_dev_2024"
 	}
 	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, dbName)
 }
@@ -86,6 +86,10 @@ func GetTestPool(t *testing.T) *pgxpool.Pool {
 
 // TestUserID is a consistent user ID for integration tests.
 const TestUserID = "test-user-integration-00000000"
+
+// NonexistentUUID is a valid UUID format that doesn't exist in the database.
+// Use this for "not found" tests instead of "nonexistent-id" which fails UUID parsing.
+const NonexistentUUID = "00000000-0000-0000-0000-000000000000"
 
 // CleanupTestData removes test data created by integration tests.
 // Call this at the start or end of each test to ensure isolation.

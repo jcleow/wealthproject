@@ -136,7 +136,7 @@ func TestV2Investments_Update_NotFound(t *testing.T) {
 		"currentValue": "120000.00",
 	}
 
-	resp := ts.Request("PUT", "/api/v2/investments/nonexistent-id").
+	resp := ts.Request("PUT", "/api/v2/investments/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
@@ -171,7 +171,7 @@ func TestV2Investments_Delete_Success(t *testing.T) {
 func TestV2Investments_Delete_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
-	resp := ts.Request("DELETE", "/api/v2/investments/nonexistent-id").
+	resp := ts.Request("DELETE", "/api/v2/investments/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		Do(t)
 
@@ -211,7 +211,7 @@ func TestV2Investments_BulkDelete_Success(t *testing.T) {
 		WithDefaultAuth().
 		Do(t)
 
-	testutil.AssertOK(t, resp, nil)
+	testutil.AssertNoContent(t, resp)
 
 	// Verify all deleted
 	resp = ts.Request("GET", "/api/v2/investments").

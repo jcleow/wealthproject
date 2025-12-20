@@ -18,8 +18,8 @@ func TestV2CPF_Get_Empty(t *testing.T) {
 		WithDefaultAuth().
 		Do(t)
 
-	// When no CPF account exists, should return 200 with null/empty
-	testutil.AssertOK(t, resp, nil)
+	// When no CPF account exists, API returns 404
+	testutil.AssertNotFound(t, resp)
 }
 
 func TestV2CPF_Create_Success(t *testing.T) {
@@ -29,10 +29,10 @@ func TestV2CPF_Create_Success(t *testing.T) {
 		"oaBalance":       "50000.00",
 		"saBalance":       "30000.00",
 		"maBalance":       "20000.00",
-		"raBalance":       "0",
-		"dateOfBirth":     "1990-01-15T00:00:00Z",
+		"raBalance":       "0.00",
+		"dateOfBirth":     "1990-01-15",
 		"residencyStatus": "citizen",
-		"startDate":       "2025-01-01T00:00:00Z",
+		"startDate":       "2025-01-01",
 	}
 
 	resp := ts.Request("POST", "/api/v2/cpf/account").
@@ -41,7 +41,7 @@ func TestV2CPF_Create_Success(t *testing.T) {
 		Do(t)
 
 	var result map[string]interface{}
-	testutil.AssertOK(t, resp, &result)
+	testutil.AssertCreated(t, resp, &result)
 
 	require.NotEmpty(t, result["id"])
 	require.Equal(t, "citizen", result["residencyStatus"])
@@ -89,13 +89,14 @@ func TestV2CPF_Update_Success(t *testing.T) {
 	cpfID := testutil.CreateCPFAccountFixture(t, ts.Pool, ts.UserID)
 
 	payload := map[string]interface{}{
-		"oaBalance":       "60000.00",
-		"saBalance":       "35000.00",
-		"maBalance":       "25000.00",
-		"raBalance":       "0",
-		"dateOfBirth":     "1990-01-15T00:00:00Z",
-		"residencyStatus": "citizen",
-		"startDate":       "2025-01-01T00:00:00Z",
+		"oaBalance":        "60000.00",
+		"saBalance":        "35000.00",
+		"maBalance":        "25000.00",
+		"raBalance":        "0.00",
+		"oaUsedForHousing": "0.00",
+		"dateOfBirth":      "1990-01-15",
+		"residencyStatus":  "citizen",
+		"startDate":        "2025-01-01T00:00:00Z",
 	}
 
 	resp := ts.Request("PUT", "/api/v2/cpf/account/"+cpfID).
@@ -113,12 +114,17 @@ func TestV2CPF_Update_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
-		"oaBalance":       "60000.00",
-		"dateOfBirth":     "1990-01-15T00:00:00Z",
-		"residencyStatus": "citizen",
+		"oaBalance":        "60000.00",
+		"saBalance":        "35000.00",
+		"maBalance":        "25000.00",
+		"raBalance":        "0.00",
+		"oaUsedForHousing": "0.00",
+		"dateOfBirth":      "1990-01-15",
+		"residencyStatus":  "citizen",
+		"startDate":        "2025-01-01T00:00:00Z",
 	}
 
-	resp := ts.Request("PUT", "/api/v2/cpf/account/nonexistent-id").
+	resp := ts.Request("PUT", "/api/v2/cpf/account/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
@@ -142,7 +148,7 @@ func TestV2CPF_Delete_Success(t *testing.T) {
 func TestV2CPF_Delete_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
-	resp := ts.Request("DELETE", "/api/v2/cpf/account/nonexistent-id").
+	resp := ts.Request("DELETE", "/api/v2/cpf/account/"+testutil.NonexistentUUID).
 		WithDefaultAuth().
 		Do(t)
 
@@ -181,7 +187,7 @@ func TestV2CPF_BulkDelete_Success(t *testing.T) {
 		WithDefaultAuth().
 		Do(t)
 
-	testutil.AssertOK(t, resp, nil)
+	testutil.AssertNoContent(t, resp)
 }
 
 func TestV2CPF_Get_Unauthorized(t *testing.T) {
