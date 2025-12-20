@@ -1859,7 +1859,7 @@ func (s *Service) GetTimeline(
 // extractScenarioIDsFromImpacts extracts unique scenario event IDs from the impact context.
 func extractScenarioIDsFromImpacts(impacts *scenario.ImpactContext) []string {
 	if impacts == nil {
-		return nil
+		return []string{}
 	}
 	ids := make([]string, 0, len(impacts.EventsByID))
 	for eventID := range impacts.EventsByID {
