@@ -127,7 +127,10 @@ export function liabilityV2ToTimelineItem(item: LiabilityResponseV2): TimelineIt
 }
 
 export function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
-  // V2 API always returns monthly amounts, so we need to calculate annual
+  // V2 API returns monthly amounts for a specific month
+  // NOTE: amountAnnual = monthly * 12 is an approximation. For accurate annual totals
+  // with compounding growth or mid-year scenario impacts, all 12 months should be summed.
+  // TODO: Consider passing all 12 months to calculate proper annual totals.
   const monthlyAmount = parseDecimal(item.amount)
   const monthlyEventAdj = parseDecimal(item.eventAdjAmount)
   return {
@@ -149,7 +152,10 @@ export function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
 }
 
 export function expenseV2ToTimelineItem(item: ExpenseResponseV2): TimelineItem {
-  // V2 API always returns monthly amounts, so we need to calculate annual
+  // V2 API returns monthly amounts for a specific month
+  // NOTE: amountAnnual = monthly * 12 is an approximation. For accurate annual totals
+  // with compounding growth or mid-year scenario impacts, all 12 months should be summed.
+  // TODO: Consider passing all 12 months to calculate proper annual totals.
   const monthlyAmount = parseDecimal(item.amount)
   const monthlyEventAdj = parseDecimal(item.eventAdjAmount)
   return {

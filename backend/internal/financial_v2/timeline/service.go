@@ -1743,7 +1743,12 @@ func (s *Service) ComputeFinancialSnapshot(
 	if err != nil {
 		return TimelineV2Response{}, err
 	}
+	return s.computeSnapshotFromData(sgData, opts), nil
+}
 
+// computeSnapshotFromData computes the timeline snapshot from pre-loaded financial data.
+// This allows callers to reuse loaded data for multiple purposes (e.g., extracting scenario IDs).
+func (s *Service) computeSnapshotFromData(sgData SGFinancialDataRows, opts TimelineOptions) TimelineV2Response {
 	anchorStart, anchorEnd := buildAnchorRange(opts, sgData.Rows)
 	linkedExpenses := buildLinkedExpensesByLiability(sgData.Rows.Expenses)
 
@@ -1772,7 +1777,7 @@ func (s *Service) ComputeFinancialSnapshot(
 		resultMonths = append(resultMonths, processMonth(mctx, allMonthsIndex, currentDate, isAnchorMonth))
 	}
 
-	return TimelineV2Response{Months: resultMonths}, nil
+	return TimelineV2Response{Months: resultMonths}
 }
 
 // loadFinancialData loads all financial data for the given user and date range
@@ -1790,7 +1795,7 @@ func (s *Service) loadFinancialData(ctx context.Context, userID string, opts Tim
 }
 
 // GetTimeline generates a timeline chart response for the given user and resolution.
-// It reuses the ComputeFinancialSnapshot logic and extracts only net worth values.
+// It computes monthly snapshots and extracts net worth values for the chart.
 func (s *Service) GetTimeline(
 	ctx context.Context,
 	userID string,
@@ -1805,20 +1810,30 @@ func (s *Service) GetTimeline(
 	startDate := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(defaultYearsToProject, 0, 0)
 
-	// Compute full snapshot using existing logic
 	opts := TimelineOptions{
 		StartDate:        startDate,
 		EndDate:          endDate,
 		IncludeScenarios: true,
 	}
 
-	snapshot, err := s.ComputeFinancialSnapshot(ctx, userID, opts)
+	// Load financial data once - this gives us access to ScenarioImpacts.EventsByID
+	sgData, err := s.loadFinancialData(ctx, userID, opts)
 	if err != nil {
 		return TimelineAnnualChartResponse{}, err
 	}
 
-	// Extract scenario IDs from impacts
-	scenarioIDs := extractScenarioIDs(snapshot.Months)
+	// Compute monthly snapshots using loaded data
+	snapshot := s.computeSnapshotFromData(sgData, opts)
+
+	// Extract scenario IDs directly from loaded data (O(n) where n = number of events)
+	// instead of iterating through all months and all items (O(months * items * impacts))
+	var scenarioIDs []string
+	if sgData.ScenarioImpacts != nil {
+		scenarioIDs = make([]string, 0, len(sgData.ScenarioImpacts.EventsByID))
+		for eventID := range sgData.ScenarioImpacts.EventsByID {
+			scenarioIDs = append(scenarioIDs, eventID)
+		}
+	}
 
 	if resolution == "yearly" {
 		// Aggregate monthly data into yearly summaries (use December of each year)
@@ -1849,8 +1864,17 @@ func (s *Service) GetTimeline(
 	}, nil
 }
 
-// aggregateToYearly converts monthly snapshots to yearly summaries.
-// Uses December values as representative for each year.
+// aggregateToYearly converts monthly snapshots to yearly summaries for the chart.
+// Uses December values (or last available month) as representative for each year.
+//
+// This aggregation is correct for:
+//   - NetWorth: a point-in-time balance best represented by year-end value
+//   - Assets/Liabilities: point-in-time balances
+//
+// Note: For cashflow items (income/expenses), the frontend handles annual totals
+// separately. If detailed item-level yearly aggregation is needed, income/expense
+// amounts should be summed across all 12 months to account for compounding growth
+// and mid-year scenario impacts.
 func aggregateToYearly(months []MonthDetailResponse) []TimelineYearlySummary {
 	if len(months) == 0 {
 		return []TimelineYearlySummary{}
