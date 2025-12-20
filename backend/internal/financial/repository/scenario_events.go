@@ -124,7 +124,7 @@ func (s *Store) CreateScenarioEvent(ctx context.Context, ev ScenarioEvent) (Scen
 	}
 
 	if len(ev.Impacts) > 0 {
-		created.Impacts, _ = s.ListScenarioImpacts(ctx, created.ID)
+		created.Impacts, _ = s.ListScenarioImpacts(ctx, created.UserID, created.ID)
 	}
 	return created, nil
 }
@@ -144,7 +144,7 @@ func (s *Store) GetScenarioEvent(ctx context.Context, userID, eventID string) (S
 		return ScenarioEvent{}, err
 	}
 	ev.Tags = decodeStringArray(tagsJSON)
-	ev.Impacts, _ = s.ListScenarioImpacts(ctx, ev.ID)
+	ev.Impacts, _ = s.ListScenarioImpacts(ctx, userID, ev.ID)
 	return ev, nil
 }
 
@@ -315,7 +315,7 @@ func (s *Store) UpdateScenarioEvent(ctx context.Context, ev ScenarioEvent) (Scen
 	if err := tx.Commit(); err != nil {
 		return ScenarioEvent{}, err
 	}
-	updated.Impacts, _ = s.ListScenarioImpacts(ctx, updated.ID)
+	updated.Impacts, _ = s.ListScenarioImpacts(ctx, updated.UserID, updated.ID)
 	return updated, nil
 }
 
@@ -349,7 +349,8 @@ func (s *Store) ToggleScenarioIncluded(ctx context.Context, userID, eventID stri
 }
 
 // ListScenarioImpacts lists impacts for an event.
-func (s *Store) ListScenarioImpacts(ctx context.Context, eventID string) ([]ScenarioImpact, error) {
+// Requires userID for defense-in-depth ownership verification.
+func (s *Store) ListScenarioImpacts(ctx context.Context, userID, eventID string) ([]ScenarioImpact, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT imp.id, imp.event_id,
 		       CASE
@@ -368,14 +369,15 @@ func (s *Store) ListScenarioImpacts(ctx context.Context, eventID string) ([]Scen
 		       COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as notes,
 		       imp.created_at
 		FROM scenario_event_impacts imp
+		JOIN scenario_events ev ON imp.event_id = ev.id
 		LEFT JOIN finance_assets a ON imp.target_asset_id = a.id
 		LEFT JOIN finance_liabilities l ON imp.target_liability_id = l.id
 		LEFT JOIN finance_incomes inc ON imp.target_income_id = inc.id
 		LEFT JOIN finance_expenses exp ON imp.target_expense_id = exp.id
 		LEFT JOIN finance_cash_accounts ca ON imp.target_cash_account_id = ca.id
 		LEFT JOIN finance_investments inv ON imp.target_investment_id = inv.id
-		WHERE imp.event_id = $1
-		ORDER BY imp.created_at ASC`, eventID)
+		WHERE imp.event_id = $1 AND ev.user_id = $2
+		ORDER BY imp.created_at ASC`, eventID, userID)
 	if err != nil {
 		return nil, err
 	}

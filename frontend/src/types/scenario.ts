@@ -1,5 +1,24 @@
-export type ScenarioImpactKind = 'delta' | 'override' | 'start' | 'stop'
-export type ScenarioTargetType = 'asset' | 'liability' | 'income' | 'expense' | 'cash' | 'investment'
+// Impact kinds for scenario impacts
+export enum ImpactKind {
+  Delta = 'delta',
+  Override = 'override',
+  Start = 'start',
+  Stop = 'stop',
+}
+
+// Target types for scenario impacts
+export enum TargetType {
+  Asset = 'asset',
+  Liability = 'liability',
+  Income = 'income',
+  Expense = 'expense',
+  Cash = 'cash',
+  Investment = 'investment',
+}
+
+// Legacy type aliases for backwards compatibility
+export type ScenarioImpactKind = `${ImpactKind}`
+export type ScenarioTargetType = `${TargetType}`
 
 // Cadence for delta impacts (recurring): monthly or annual
 // Override, stop, and start impacts are implicitly one-time (cadence is ignored in processing)
@@ -64,6 +83,9 @@ export interface ScenarioImpactDto {
   category?: string | null
   growthRate?: number | null
   growthStrategy?: string | null
+  // Liability-specific fields for start impacts
+  interestRate?: number | null    // APR % for liabilities
+  minimumPayment?: number | null  // Min payment for liabilities
 }
 
 export interface ScenarioEventDto {
@@ -80,7 +102,14 @@ export interface ScenarioEventDto {
 }
 
 // Frequency for created financial items (used by start impacts)
-export type ItemFrequency = 'one_time' | 'monthly' | 'annual'
+export enum Frequency {
+  OneTime = 'one_time',
+  Monthly = 'monthly',
+  Annual = 'annual',
+}
+
+// Legacy type alias for backwards compatibility
+export type ItemFrequency = `${Frequency}`
 
 // Growth strategy options for income/expense
 export type GrowthStrategy = 'none' | 'annual_step' | 'compound'
@@ -102,6 +131,9 @@ export interface ScenarioImpact {
   category?: string  // Category for the created financial item
   growthRate?: number  // Annual growth rate (%)
   growthStrategy?: GrowthStrategy  // How growth is applied
+  // Liability-specific fields for start impacts
+  interestRate?: number  // APR % for liabilities
+  minimumPayment?: number  // Min payment for liabilities
 }
 
 export interface ScenarioEvent {
@@ -177,6 +209,9 @@ export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact =>
     category: dto.category ?? undefined,
     growthRate: dto.growthRate ?? undefined,
     growthStrategy: (dto.growthStrategy as GrowthStrategy) ?? undefined,
+    // Liability-specific fields for start impacts
+    interestRate: dto.interestRate ?? undefined,
+    minimumPayment: dto.minimumPayment ?? undefined,
   }
 }
 
@@ -199,6 +234,9 @@ export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto =
     category: impact.category,
     growthRate: impact.growthRate,
     growthStrategy: impact.growthStrategy,
+    // Liability-specific fields for start impacts
+    interestRate: impact.interestRate,
+    minimumPayment: impact.minimumPayment,
   }
 }
 

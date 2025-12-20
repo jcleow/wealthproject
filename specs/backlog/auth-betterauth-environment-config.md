@@ -58,7 +58,7 @@ NEXT_PUBLIC_BETTERAUTH_URL="https://yourdomain.com"
 
 ```bash
 # Development
-DATABASE_URL="postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat?sslmode=disable"
+DATABASE_URL="postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"
 
 # Production (with SSL)
 DATABASE_URL="postgres://user:password@hostname:5432/database?sslmode=require"
@@ -96,7 +96,7 @@ BETTERAUTH_URL="https://verylocal:3000"
 NEXT_PUBLIC_BETTERAUTH_URL="https://verylocal:3000"
 
 # Database
-DATABASE_URL="postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat?sslmode=disable"
+DATABASE_URL="postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"
 
 # Backend Integration
 GO_BACKEND_URL="http://verylocal:8080/api/v1"
@@ -123,7 +123,7 @@ NEXT_DEBUG=true
 BETTERAUTH_SECRET="dev_secret_a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
 
 # Database
-DATABASE_URL="postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat?sslmode=disable"
+DATABASE_URL="postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"
 
 # Server Configuration
 PORT=8080
@@ -266,7 +266,7 @@ services:
       - BETTERAUTH_SECRET=dev_secret_a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
       - BETTERAUTH_URL=https://verylocal:3000
       - NEXT_PUBLIC_BETTERAUTH_URL=https://verylocal:3000
-      - DATABASE_URL=postgres://financial_user:financial_pass_dev_2024@postgres:5432/financial_chat?sslmode=disable
+      - DATABASE_URL=postgres://financial_user:${DB_PASSWORD}@postgres:5432/financial_chat?sslmode=disable
       - GO_BACKEND_URL=http://backend:8080/api/v1
       - HTTPS=true
     volumes:
@@ -283,7 +283,7 @@ services:
       - "8080:8080"
     environment:
       - BETTERAUTH_SECRET=dev_secret_a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
-      - DATABASE_URL=postgres://financial_user:financial_pass_dev_2024@postgres:5432/financial_chat?sslmode=disable
+      - DATABASE_URL=postgres://financial_user:${DB_PASSWORD}@postgres:5432/financial_chat?sslmode=disable
       - PORT=8080
       - DEBUG_AUTH=true
     volumes:
@@ -295,7 +295,7 @@ services:
     image: postgres:15
     environment:
       - POSTGRES_USER=financial_user
-      - POSTGRES_PASSWORD=financial_pass_dev_2024
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=financial_chat
     ports:
       - "5432:5432"
@@ -605,7 +605,7 @@ echo "BETTERAUTH_SECRET=$(node -e 'console.log(require("crypto").randomBytes(32)
 docker-compose up -d postgres
 
 # Verify database connection
-psql postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat -c "SELECT 1"
+psql postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat -c "SELECT 1"
 ```
 
 4. **Validate configuration**:

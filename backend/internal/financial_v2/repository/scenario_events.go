@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/common"
+	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
 
 	"github.com/jackc/pgx/v5"
@@ -49,6 +50,15 @@ func (s *Store) CreateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 	created.Tags = decodeStringArray(tagsBytes)
 
+	// For 'start' impacts, update the linked financial item's amount and frequency
+	for _, imp := range ev.Impacts {
+		if imp.ImpactKind == scenario.ImpactKindStart {
+			if err := s.updateStartImpactTarget(ctx, tx, &imp); err != nil {
+				return ScenarioEvent{}, fmt.Errorf("failed to update start impact target: %w", err)
+			}
+		}
+	}
+
 	if len(ev.Impacts) > 0 {
 		if err := s.insertImpactsV2(ctx, tx, ev.UserID, created.ID, ev.Impacts); err != nil {
 			return ScenarioEvent{}, err
@@ -60,7 +70,7 @@ func (s *Store) CreateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 
 	if len(ev.Impacts) > 0 {
-		created.Impacts, _ = s.ListScenarioImpactsV2(ctx, created.ID)
+		created.Impacts, _ = s.ListScenarioImpactsV2(ctx, created.UserID, created.ID)
 	}
 	return created, nil
 }
@@ -80,7 +90,7 @@ func (s *Store) GetScenarioEventV2(ctx context.Context, userID, eventID string) 
 		return ScenarioEvent{}, err
 	}
 	ev.Tags = decodeStringArray(tagsJSON)
-	ev.Impacts, _ = s.ListScenarioImpactsV2(ctx, ev.ID)
+	ev.Impacts, _ = s.ListScenarioImpactsV2(ctx, userID, ev.ID)
 	return ev, nil
 }
 
@@ -268,7 +278,7 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	if err := tx.Commit(ctx); err != nil {
 		return ScenarioEvent{}, err
 	}
-	updated.Impacts, _ = s.ListScenarioImpactsV2(ctx, updated.ID)
+	updated.Impacts, _ = s.ListScenarioImpactsV2(ctx, updated.UserID, updated.ID)
 	return updated, nil
 }
 
@@ -308,8 +318,14 @@ func (s *Store) updateStartImpactTarget(ctx context.Context, tx pgx.Tx, imp *Sce
 	}
 	if imp.TargetLiabilityID != nil {
 		_, err := tx.Exec(ctx, `
-			UPDATE finance_liabilities SET current_balance = $1, category = COALESCE(NULLIF($2, ''), category), updated_at = NOW() WHERE id = $3`,
-			imp.Amount, category, *imp.TargetLiabilityID)
+			UPDATE finance_liabilities SET
+				current_balance = $1,
+				category = COALESCE(NULLIF($2, ''), category),
+				interest_rate_apr = COALESCE($3, interest_rate_apr),
+				minimum_payment = COALESCE($4, minimum_payment),
+				updated_at = NOW()
+			WHERE id = $5`,
+			imp.Amount, category, imp.InterestRate, imp.MinimumPayment, *imp.TargetLiabilityID)
 		return err
 	}
 	if imp.TargetIncomeID != nil {
@@ -360,6 +376,10 @@ func (s *Store) ToggleScenarioIncludedV2(ctx context.Context, userID, eventID st
 		SET is_included=$3, updated_at=NOW()
 		WHERE id=$1 AND user_id=$2`, eventID, userID, included)
 	if err != nil {
+		// Invalid UUID format should be treated as not found
+		if strings.Contains(err.Error(), "invalid input syntax for type uuid") {
+			return ErrScenarioNotFound
+		}
 		return err
 	}
 	if tag.RowsAffected() == 0 {
@@ -370,7 +390,8 @@ func (s *Store) ToggleScenarioIncludedV2(ctx context.Context, userID, eventID st
 
 // ListScenarioImpactsV2 lists impacts for an event using typed FK columns.
 // Joins with target tables to derive name, currency, frequency, dates, and notes from the linked financial item.
-func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]ScenarioImpact, error) {
+// Requires userID for defense-in-depth ownership verification.
+func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID string) ([]ScenarioImpact, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT
 			sei.id, sei.event_id, sei.impact_kind, sei.amount, sei.cadence, sei.created_at,
@@ -386,16 +407,20 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 			-- Advanced fields from financial item (ca uses account_type instead of category)
 			COALESCE(a.category, l.category, inc.category, exp.category, ca.account_type, inv.category, '') as target_category,
 			COALESCE(a.growth_rate, inv.growth_rate, inc.growth_rate, exp.growth_rate) as target_growth_rate,
-			COALESCE(inc.growth_strategy, exp.growth_strategy, '') as target_growth_strategy
+			COALESCE(inc.growth_strategy, exp.growth_strategy, '') as target_growth_strategy,
+			-- Liability-specific fields
+			l.interest_rate_apr as target_interest_rate,
+			l.minimum_payment as target_min_payment
 		FROM scenario_event_impacts sei
+		JOIN scenario_events ev ON sei.event_id = ev.id
 		LEFT JOIN finance_assets a ON sei.target_asset_id = a.id
 		LEFT JOIN finance_liabilities l ON sei.target_liability_id = l.id
 		LEFT JOIN finance_incomes inc ON sei.target_income_id = inc.id
 		LEFT JOIN finance_expenses exp ON sei.target_expense_id = exp.id
 		LEFT JOIN finance_cash_accounts ca ON sei.target_cash_account_id = ca.id
 		LEFT JOIN finance_investments inv ON sei.target_investment_id = inv.id
-		WHERE sei.event_id = $1
-		ORDER BY sei.created_at ASC`, eventID)
+		WHERE sei.event_id = $1 AND ev.user_id = $2
+		ORDER BY sei.created_at ASC`, eventID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -404,14 +429,27 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 	var impacts []ScenarioImpact
 	for rows.Next() {
 		var imp ScenarioImpact
+		// Temporary variables for decimal scan
+		var interestRateAPR, minPayment *decimal.Decimal
 		// pgx scans NULL directly into pointer fields
 		if err := rows.Scan(
 			&imp.ID, &imp.EventID, &imp.ImpactKind, &imp.Amount, &imp.Cadence, &imp.CreatedAt,
 			&imp.TargetAssetID, &imp.TargetLiabilityID, &imp.TargetIncomeID, &imp.TargetExpenseID, &imp.TargetCashAccountID, &imp.TargetInvestmentID,
 			&imp.Name, &imp.Currency, &imp.Frequency, &imp.StartDate, &imp.EndDate, &imp.Notes,
 			&imp.Category, &imp.GrowthRate, &imp.GrowthStrategy,
+			&interestRateAPR, &minPayment,
 		); err != nil {
 			return nil, err
+		}
+		// Convert decimal to float64/int64
+		if interestRateAPR != nil {
+			val := interestRateAPR.ToFloat64()
+			imp.InterestRate = &val
+		}
+		if minPayment != nil {
+			// minimum_payment is stored as decimal, convert to int64
+			val := int64(minPayment.ToFloat64())
+			imp.MinimumPayment = &val
 		}
 
 		impacts = append(impacts, imp)
@@ -426,7 +464,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 // All impacts (including start) must have a pre-existing targetId - no auto-creation.
 // Stores: event_id, impact_kind, amount, cadence, and target FK columns.
 // Other values (name, currency, frequency, dates, notes) are derived from the linked financial item.
-func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, eventID string, impacts []ScenarioImpact) error {
+func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, _ string, eventID string, impacts []ScenarioImpact) error {
 	for i := range impacts {
 		imp := &impacts[i]
 

@@ -126,7 +126,7 @@ func TestAccountPOC_Database(t *testing.T) {
 	}
 
 	// Connect to test database
-	connStr := "host=localhost port=5432 user=financial_user_dev_2024 password=financial_pass_dev_2024 dbname=financial_db_dev_2024 sslmode=disable"
+	connStr := "host=localhost port=5432 user=financial_user_dev_2024 password=${DB_PASSWORD} dbname=financial_db_dev_2024 sslmode=disable"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		t.Skipf("failed to connect to database: %v", err)

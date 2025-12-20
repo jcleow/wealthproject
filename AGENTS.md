@@ -5,6 +5,16 @@
 ### Testing
 - After relevant changes on the backend, please ensure to add or update tests
 - When adding or changing backend endpoints, regenerate Swagger (`swag init`) so docs stay in sync with the API
+- **Before every commit**, run the test script to ensure all tests pass:
+  ```bash
+  cd backend && ./scripts/run-tests.sh
+  ```
+  This script automatically:
+  1. Creates the `financial_chat_test` database (if needed)
+  2. Runs migrations
+  3. Runs unit tests
+  4. Runs integration tests
+  5. Drops the test database when done
 
 ### Sensitive Credentials - NEVER COMMIT
 
@@ -717,7 +727,7 @@ if growthRate != nil {
 ```
 
 ### Reference: Decimal Package
-
+- We NEVER USE shopspring/decimal
 Located at `internal/decimal/decimal.go`, wraps `github.com/cockroachdb/apd/v3`:
 
 - `decimal.NewFromString(s)` - Parse string to decimal (preferred)

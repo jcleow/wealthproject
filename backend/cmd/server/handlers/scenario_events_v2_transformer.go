@@ -70,6 +70,8 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		Category:            category,
 		GrowthRate:          imp.GrowthRate,
 		GrowthStrategy:      growthStrategy,
+		InterestRate:        imp.InterestRate,
+		MinimumPayment:      imp.MinimumPayment,
 		TargetAssetID:       imp.TargetAssetID,
 		TargetLiabilityID:   imp.TargetLiabilityID,
 		TargetIncomeID:      imp.TargetIncomeID,
@@ -265,6 +267,9 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 	if in.GrowthStrategy != nil {
 		impact.GrowthStrategy = *in.GrowthStrategy
 	}
+	// Set liability-specific fields if provided
+	impact.InterestRate = in.InterestRate
+	impact.MinimumPayment = in.MinimumPayment
 
 	// All impacts (including start) must have a pre-existing target - resolve from DTO
 	target, err := resolveImpactTarget(in)

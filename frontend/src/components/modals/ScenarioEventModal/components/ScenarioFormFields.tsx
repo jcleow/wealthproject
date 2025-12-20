@@ -8,6 +8,7 @@ import type { ScenarioEventFormState } from '../hooks'
 
 const CalendarIcon = LucideIcons.Calendar as LucideIcon | undefined
 const FileTextIcon = LucideIcons.FileText as LucideIcon | undefined
+const ExternalLinkIcon = LucideIcons.ExternalLink as LucideIcon | undefined
 
 interface ScenarioFormFieldsProps {
   form: ScenarioEventFormState
@@ -15,14 +16,26 @@ interface ScenarioFormFieldsProps {
   disabled?: boolean
   anchorYear?: number | null
   anchorMonth?: number | null
+  onJumpToDate?: (year: number, month: number) => void
 }
 
-export function ScenarioFormFields({ form, onFieldChange, disabled, anchorYear, anchorMonth }: ScenarioFormFieldsProps) {
+export function ScenarioFormFields({ form, onFieldChange, disabled, anchorYear, anchorMonth, onJumpToDate }: ScenarioFormFieldsProps) {
   // Build minDate and defaultViewDate from anchor values
   const minDate = anchorYear && anchorMonth
     ? `${anchorYear}-${String(anchorMonth).padStart(2, '0')}`
     : undefined
   const defaultViewDate = minDate
+
+  // Parse occursOn to get year and month for jump functionality
+  const handleJumpToDate = () => {
+    if (!form.occursOn || !onJumpToDate) return
+    const [yearStr, monthStr] = form.occursOn.split('-')
+    const year = parseInt(yearStr, 10)
+    const month = parseInt(monthStr, 10)
+    if (!isNaN(year) && !isNaN(month)) {
+      onJumpToDate(year, month)
+    }
+  }
 
   return (
     <div className="mt-6 space-y-5">
@@ -71,15 +84,38 @@ export function ScenarioFormFields({ form, onFieldChange, disabled, anchorYear, 
               {CalendarIcon && <CalendarIcon className="h-3.5 w-3.5 text-slate-500" />}
               Occurs On
             </label>
-            <MonthPicker
-              value={form.occursOn}
-              onChange={(value) => onFieldChange('occursOn', value)}
-              placeholder="Select month"
-              disabled={disabled}
-              className="w-full"
-              minDate={minDate}
-              defaultViewDate={defaultViewDate}
-            />
+            <div className="flex items-center gap-2">
+              <MonthPicker
+                value={form.occursOn}
+                onChange={(value) => onFieldChange('occursOn', value)}
+                placeholder="Select month"
+                disabled={disabled}
+                className="flex-1"
+                minDate={minDate}
+                defaultViewDate={defaultViewDate}
+              />
+              {onJumpToDate && form.occursOn && (
+                <button
+                  type="button"
+                  onClick={handleJumpToDate}
+                  disabled={disabled}
+                  className={`
+                    flex items-center justify-center
+                    h-[42px] px-3
+                    rounded-xl
+                    border border-white/[0.08] hover:border-blue-500/40
+                    bg-white/[0.03] hover:bg-white/[0.05]
+                    text-slate-400 hover:text-blue-400
+                    text-sm
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    transition-all duration-200
+                  `}
+                  title="Jump to this date on timeline"
+                >
+                  {ExternalLinkIcon && <ExternalLinkIcon className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

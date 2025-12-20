@@ -103,7 +103,7 @@ BETTERAUTH_URL="https://verylocal:3000"
 NEXT_PUBLIC_BETTERAUTH_URL="https://verylocal:3000"
 
 # Database (existing)
-DATABASE_URL="postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat?sslmode=disable"
+DATABASE_URL="postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"
 
 # HTTPS for development (required for secure cookies)
 HTTPS=true
@@ -987,7 +987,7 @@ export { ApiError }
 BETTERAUTH_SECRET="your-super-secret-256-bit-key"
 BETTERAUTH_URL="https://verylocal:3000"
 NEXT_PUBLIC_BETTERAUTH_URL="https://verylocal:3000"
-DATABASE_URL="postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat?sslmode=disable"
+DATABASE_URL="postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"
 GO_BACKEND_URL="http://verylocal:8080/api/v1"
 HTTPS=true
 ```
@@ -995,7 +995,7 @@ HTTPS=true
 ### Backend (`.env`)
 ```bash
 BETTERAUTH_SECRET="your-super-secret-256-bit-key"
-DATABASE_URL="postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat?sslmode=disable"
+DATABASE_URL="postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"
 PORT=8080
 # ... other existing vars
 ```

@@ -311,8 +311,8 @@ export function ImpactEditor({
         </div>
       )}
 
-      {/* Advanced section for start impacts */}
-      {currentVerb === 'starts_at' && (
+      {/* Advanced section for all impacts except 'ends' */}
+      {currentVerb !== 'ends' && (
         <AdvancedSection
           impact={impact}
           index={index}

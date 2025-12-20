@@ -921,7 +921,7 @@ BETTERAUTH_URL="https://verylocal:3000"
 NEXT_PUBLIC_BETTERAUTH_URL="https://verylocal:3000"
 
 # Database
-DATABASE_URL="postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat?sslmode=disable"
+DATABASE_URL="postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"
 
 # Development
 NODE_ENV="development"

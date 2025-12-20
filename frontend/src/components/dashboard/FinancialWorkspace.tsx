@@ -478,6 +478,12 @@ text-slate-500`}>
             setScenarioEventToEdit(null)
             setIsScenarioModalOpen(false)
           }}
+          onJumpToDate={(year, month) => {
+            onSelectYear(year)
+            onSelectMonth?.(month)
+            setIsScenarioModalOpen(false)
+            setScenarioEventToEdit(null)
+          }}
         />
       )}
     </div>

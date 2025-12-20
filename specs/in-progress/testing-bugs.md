@@ -118,56 +118,21 @@ Medium - UI shows scenarios exist (amber dot may appear) but breakdown details d
 
 ---
 
-## P0: Security - Add user_id filter to ListScenarioImpacts
+## ~~P0: Security - Add user_id filter to ListScenarioImpacts~~ ✅ DONE
 
-### Description
-The `ListScenarioImpacts` function in `backend/internal/financial/repository/scenario_events.go` queries by `event_id` only without filtering by `user_id`. While this is called internally after fetching an event already filtered by user_id, defense-in-depth requires explicit user ownership checks.
-
-### Files
-- `backend/internal/financial/repository/scenario_events.go:351-410` (v1)
-- `backend/internal/financial_v2/repository/scenario_events.go:371+` (v2)
-
-### Fix
-Add `user_id` parameter and join with `scenario_events` table to verify ownership:
-```sql
-SELECT imp.* FROM scenario_event_impacts imp
-JOIN scenario_events ev ON imp.event_id = ev.id
-WHERE imp.event_id = $1 AND ev.user_id = $2
-```
+Fixed in commit `b8e6feea` on branch `feat/p0-fixes`.
 
 ---
 
-## P0: Test - Fix TestProjection_NewItemPersistsForward
+## ~~P0: Test - Fix TestProjection_NewItemPersistsForward~~ ✅ DONE
 
-### Description
-Test expects `HasOverrides=true` when creating a new item via `UpsertYear`, but the current logic only sets `HasOverrides` when replacing an existing item or deleting. Currently skipped with `t.Skip()`.
-
-### Root Cause
-In `backend/internal/financial/timeline/service.go:700-728`, `hasOverride` is only set to true when:
-1. Amount is 0 (deletion)
-2. Replacing an existing item version (`if _, exists := state[r.ParentID]; exists`)
-
-Creating a **new** item doesn't set the flag.
-
-### Options
-1. **Fix the logic**: Set `hasOverride=true` when an item's `StartYear` matches the current year being processed (indicates it was created in that year, not year 0)
-2. **Remove UpsertYear**: If this endpoint is deprecated in favor of direct CRUD, remove it entirely
-3. **Update test expectation**: If the current behavior is intentional, update the test
-
-### Files
-- `backend/internal/financial/timeline/service.go:700-728`
-- `backend/internal/financial/timeline/service_test.go:54-93`
+Fixed by implementing Option 1: Set `hasOverride=true` when an item's `StartYear > baseYear` (indicating it was created mid-timeline, not as initial year 0 data).
 
 ---
 
-## P1: Refactor - Advanced sections for all impact kinds
+## ~~P1: Refactor - Advanced sections for all impact kinds~~ ✅ DONE
 
-### Description
-Currently, the Advanced section (category, growth rate, growth strategy) only shows for "starts_at" impacts. Should be available for all impact kinds to allow customizing the created/modified financial item.
-
-### Files
-- `frontend/src/components/modals/ScenarioEventModal/components/ImpactEditor.tsx:314-322`
-- `frontend/src/components/modals/ScenarioEventModal/components/AdvancedSection.tsx`
+Now shows Advanced section for all impact kinds except 'ends'. Growth options properly shown for income/expense (unless explicitly one-time start impact) and always for assets/investments.
 
 ---
 
@@ -191,3 +156,123 @@ The `updateFinancialItemName` function in ScenarioEventModal only updates the na
 
 ### Files
 - `frontend/src/components/modals/ScenarioEventModal/ScenarioEventModal.tsx:20-56`
+
+---
+
+## P2: UI - Growth strategy field ordering and conditional display
+
+### Description
+In the financial item form (income/expense/asset/liability modals), the Growth Strategy dropdown should be on the left and Growth Rate should only be shown when a growth strategy other than "No Growth" is selected.
+
+### Current Behavior
+- Growth Rate (%) is on the left, Growth Strategy is on the right
+- Growth Rate is always visible regardless of the selected strategy
+
+### Expected Behavior
+- Growth Strategy dropdown should be on the left
+- Growth Rate input should only appear when a growth strategy other than "No Growth" is selected (conditional display)
+
+### Screenshot Reference
+Form shows: GROWTH RATE (%) [0.0] | GROWTH STRATEGY [Select...]
+
+### Files to Investigate
+- `frontend/src/components/modals/` - Income/Expense/Asset/Liability modal components
+- Look for growth rate/strategy form field ordering
+
+---
+
+## P2: Feature - Add scenario icons to financial items created via scenarios
+
+### Description
+Financial data items that were created via scenario events (e.g., "starts" impact kind) should display scenario icons in the financial data management list. Clicking these icons should open the corresponding scenario modal.
+
+### Current Behavior
+- Items like "Retirement at 60" and "Salary Promotion" show small icons next to them in the expanded section
+- However, items that were entirely created via a scenario (not just modified) may not have visible scenario indicators
+
+### Expected Behavior
+- All financial items that originated from a scenario event should show a scenario icon
+- Clicking the icon should open the scenario event modal for editing
+
+### Screenshot Reference
+Shows "Software Engineer Salary" expanded with:
+- Original: $4,400
+- Retirement at 60 🏃: $2,000
+- Salary Promotion 📈: $2,400
+
+### Files to Investigate
+- `frontend/src/components/dashboard/FinancialDataManagement.tsx`
+- Look for `getAppliedImpacts` and how scenario indicators are rendered
+
+---
+
+## P2: Bug - Timeline slider shows future scenarios in past dates
+
+### Description
+When traversing the timeline slider backwards (moving to earlier dates), scenarios that are scheduled to occur in the future incorrectly appear as if they were applied in the past.
+
+### Current Behavior
+- Moving the timeline slider to past dates shows scenario impacts that shouldn't be visible yet
+- Future scenarios "leak" into past timeline positions
+
+### Expected Behavior
+- Scenarios should only appear in the timeline from their occurrence date forward
+- Moving slider to a date before a scenario's occurrence should not show that scenario's impacts
+
+### Screenshot Reference
+Shows list with scenario impacts visible even when viewing a past date
+
+### Root Cause Investigation
+- Timeline service may not be correctly filtering scenarios by the selected date
+- The `GetTimelineWithScenarios` function may be applying all scenarios regardless of the current slider position
+
+### Files to Investigate
+- `backend/internal/financial/timeline/service.go` - `GetTimelineWithScenarios()`
+- `backend/internal/financial/scenario/service.go` - `Apply()` function date filtering
+- `frontend/src/` - Timeline slider state and API calls
+
+---
+
+## P2: Feature - Deactivated scenarios should show grey icon, not disappear
+
+### Description
+When a scenario event is deactivated (toggled off), its icon should remain visible in the chart/timeline but appear greyed out. The icon should still be clickable to re-activate or edit.
+
+### Current Behavior
+- Deactivating a scenario causes it to completely disappear from the chart
+
+### Expected Behavior
+- Deactivated scenarios should show a grey/muted icon in the chart
+- The grey icon should still be clickable to open the scenario modal
+- This allows users to easily see where scenarios exist even when inactive
+
+### Screenshot Reference
+Edit Scenario modal shows "Active" toggle for "Wedding & ROM" event (December 2027)
+
+### Files to Investigate
+- `frontend/src/components/` - Chart component rendering scenario markers
+- Look for how `isActive` flag is handled in scenario display logic
+
+---
+
+## P2: Feature - Add "Jump to date" button in scenario modal
+
+### Description
+The scenario modal should include a button that allows users to quickly jump to the month (or year) when the scenario occurs on the timeline.
+
+### Current Behavior
+- The scenario modal shows the "Occurs On" date (e.g., "December 2027")
+- No way to quickly navigate the timeline to that date from the modal
+
+### Expected Behavior
+- Add a button (e.g., "Go to date" or calendar icon button) next to or near the "Occurs On" field
+- Clicking the button should:
+  1. Close the modal (or keep it open with overlay)
+  2. Navigate the timeline slider to the scenario's occurrence date
+
+### Screenshot Reference
+Edit Scenario modal shows "Occurs On: December 2027" - needs a jump/navigate button
+
+### Files to Investigate
+- `frontend/src/components/modals/ScenarioEventModal/ScenarioEventModal.tsx`
+- Timeline state management for programmatic navigation
