@@ -17,11 +17,12 @@ var (
 )
 
 // GetTestDatabaseURL returns the test database URL from environment or default.
+// Uses financial_chat_test database by default to isolate from dev data.
 func GetTestDatabaseURL() string {
 	if url := os.Getenv("TEST_DATABASE_URL"); url != "" {
 		return url
 	}
-	// Default to local dev database with test schema
+	// Default to test database (separate from dev)
 	host := os.Getenv("DB_HOST")
 	if host == "" {
 		host = "localhost"
@@ -30,10 +31,8 @@ func GetTestDatabaseURL() string {
 	if port == "" {
 		port = "5432"
 	}
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "financial_chat"
-	}
+	// Use dedicated test database, not the dev database
+	dbName := "financial_chat_test"
 	user := os.Getenv("DB_USER")
 	if user == "" {
 		user = "financial_user"
