@@ -203,14 +203,14 @@ shrink-0`}
                     onSelectMonth={timeline.setSelectedMonth}
                     timelineYear={timeline.selectedYearData}
                     timelineMonth={timeline.selectedMonthData}
-                    timelineMonths={timeline.timelineQuery.data?.months}
+                    timelineMonths={timeline.sliderMonths}
                     timelineMonthV2={timeline.selectedMonthDataV2}
-                    timelineYears={timeline.timelineQuery.data?.years}
+                    timelineYears={timeline.sliderYears}
                     anchorYear={timeline.anchorYear}
                     anchorMonth={timeline.anchorMonth}
                     resolution={timeline.resolution}
                     zoomLevel={zoomLevel}
-                    isTimelineLoading={timeline.timelineQuery.isLoading}
+                    isTimelineLoading={timeline.isLoading}
                     onSaveTimelineEdits={timeline.saveEdits}
                   />
                 </div>

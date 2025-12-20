@@ -37,11 +37,6 @@ export function useTimeline(options?: UseTimelineOptions) {
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
 
-  // Debug: log feature flag status
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    console.debug('[useTimeline] V2 feature flag:', useTimelineV2)
-  }
-
   // V1 timeline query - disabled when V2 feature flag is on
   // When V2 is enabled, chart uses V2 chart endpoint and detail panels use V2 snapshot
   const timelineQuery = useQuery<TimelineResponse>({
@@ -379,6 +374,57 @@ export function useTimeline(options?: UseTimelineOptions) {
     [upsertMutation]
   )
 
+  // Determine loading state based on which API is being used
+  const isLoading = useTimelineV2
+    ? timelineV2Query.isLoading || timelineChartQuery.isLoading
+    : timelineQuery.isLoading
+
+  // Provide months/years for slider navigation - uses V2 when enabled
+  // Cast to TimelineMonth[]/TimelineYear[] since slider only uses year/month props
+  const sliderMonths = useMemo((): TimelineMonth[] | undefined => {
+    if (useTimelineV2) {
+      // V2 snapshot months have year/month properties - cast with minimal placeholder data
+      return timelineV2Query.data?.months?.map(m => ({
+        year: m.year,
+        month: m.month,
+        // Placeholder values for type compatibility - slider only uses year/month
+        yearIndex: 0,
+        monthIndex: m.allMonthsIndex,
+        assets: [],
+        cashAccounts: [],
+        liabilities: [],
+        income: [],
+        expenses: [],
+        netCash: 0,
+        netWorth: 0,
+        hasOverrides: false,
+        growthApplied: [],
+      }))
+    }
+    return timelineQuery.data?.months
+  }, [timelineV2Query.data?.months, timelineQuery.data?.months])
+
+  const sliderYears = useMemo((): TimelineYear[] | undefined => {
+    if (useTimelineV2) {
+      // V2 chart years have year property - cast with minimal placeholder data
+      const chartData = timelineChartQuery.data as TimelineChartResponse | undefined
+      return chartData?.years?.map(y => ({
+        year: y.year,
+        // Placeholder values for type compatibility - slider only uses year
+        assets: [],
+        cashAccounts: [],
+        liabilities: [],
+        income: [],
+        expenses: [],
+        netCash: 0,
+        netWorth: parseFloat(y.netWorth) || 0,
+        hasOverrides: false,
+        growthApplied: [],
+      }))
+    }
+    return timelineQuery.data?.years
+  }, [timelineChartQuery.data, timelineQuery.data?.years])
+
   return {
     timelineQuery,
     timelineV2Query,
@@ -399,10 +445,16 @@ export function useTimeline(options?: UseTimelineOptions) {
     chartYears,
     /** Chart months - uses V2 data when enabled, falls back to V1 */
     chartMonths,
+    /** Months for slider navigation - minimal data with year/month */
+    sliderMonths,
+    /** Years for slider navigation - minimal data with year */
+    sliderYears,
     saveEdits,
     saving: upsertMutation.isPending,
     /** Whether the V2 feature flag is enabled */
     isV2Enabled: useTimelineV2,
+    /** Whether timeline data is loading */
+    isLoading,
     anchorYear: earliestMonth?.year ?? null,
     anchorMonth: earliestMonth?.month ?? null,
   }
