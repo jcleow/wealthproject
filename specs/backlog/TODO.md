@@ -47,3 +47,15 @@
 **Depends on:** OpenAPI TypeScript Codegen
 
 ---
+
+### Setup Pre-commit/Pre-push Hooks for Testing
+
+**Problem:** Tests and linting are only run in CI after pushing, leading to failed builds and wasted CI minutes. Developers can accidentally push broken code.
+
+**Solution:** Use `husky` + `lint-staged` to run tests and linting before commits/pushes.
+
+**Effort:** ~30 mins
+
+**Spec:** [dev-git-hooks.md](./dev-git-hooks.md)
+
+---
