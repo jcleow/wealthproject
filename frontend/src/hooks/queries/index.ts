@@ -84,3 +84,9 @@ export {
   useDeleteAllFinancialDataMutation,
   useLoadSampleDataMutation,
 } from './useFinancialMutations'
+
+// Timeline V2 chart queries
+export {
+  useTimelineChartQuery,
+  TIMELINE_CHART_QUERY_KEY,
+} from './useTimelineChartQuery'

@@ -181,8 +181,8 @@ shrink-0`}
                     selectedYear={timeline.selectedYear}
                     onSelectYear={timeline.setSelectedYear}
                     onSelectMonth={timeline.setSelectedMonth}
-                    timelineYears={timeline.timelineQuery.data?.years}
-                    timelineMonths={timeline.timelineQuery.data?.months}
+                    timelineYears={timeline.chartYears}
+                    timelineMonths={timeline.chartMonths}
                     resolution={timeline.resolution}
                     zoomLevel={zoomLevel}
                     onZoomLevelChange={setZoomLevel}
@@ -227,8 +227,8 @@ shrink-0`}
       {/* Picture-in-Picture mini chart */}
       {showPiP && !showCPFView && (
         <MiniChart
-          timelineYears={timeline.timelineQuery.data?.years}
-          timelineMonths={timeline.timelineQuery.data?.months}
+          timelineYears={timeline.chartYears}
+          timelineMonths={timeline.chartMonths}
           scenarioEvents={scenarioEvents}
           onDismiss={dismissPiP}
           onScrollToChart={scrollToChart}

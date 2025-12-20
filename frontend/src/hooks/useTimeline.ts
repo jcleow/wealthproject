@@ -9,10 +9,12 @@ import type {
   TimelineMonth,
   TimeResolution,
   TimelineV2Response,
+  TimelineChartResponse,
   MonthDetailResponseV2,
 } from '@/types/timeline'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { useTimelineV2 } from '@/lib/featureFlags'
+import { TIMELINE_CHART_QUERY_KEY } from '@/hooks/queries/useTimelineChartQuery'
 
 /**
  * Format a date as DD-MM-YYYY for V2 API
@@ -43,6 +45,16 @@ export function useTimeline(options?: UseTimelineOptions) {
     }),
     staleTime: 1000 * 60 * 5,
     retry: 1,
+  })
+
+  // V2 chart query - fetches simplified chart data when feature flag is on
+  const timelineChartQuery = useQuery<TimelineChartResponse>({
+    queryKey: [...TIMELINE_CHART_QUERY_KEY, options?.resolution ?? 'yearly'],
+    queryFn: () => timelineApi.getTimelineV2Chart({ resolution: options?.resolution }),
+    staleTime: 30_000,
+    cacheTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    enabled: useTimelineV2,
   })
 
   const resolution = timelineQuery.data?.resolution || 'yearly'
@@ -218,6 +230,58 @@ export function useTimeline(options?: UseTimelineOptions) {
     return years
   }, [timelineQuery.data, resolution])
 
+  // Transform V2 chart data to TimelineYear[] format for chart rendering
+  // This provides minimal data needed for chart display (just net worth per year)
+  const chartYears: TimelineYear[] | undefined = useMemo(() => {
+    const chartData = timelineChartQuery.data as TimelineChartResponse | undefined
+    if (!useTimelineV2 || !chartData?.years) {
+      // Fall back to V1 data
+      return timelineQuery.data?.years
+    }
+
+    // Transform V2 chart years to TimelineYear format
+    return chartData.years.map((chartYear) => ({
+      year: chartYear.year,
+      netWorth: parseFloat(chartYear.netWorth) || 0,
+      // Empty arrays for items - chart only needs netWorth
+      assets: [],
+      cashAccounts: [],
+      liabilities: [],
+      income: [],
+      expenses: [],
+      netCash: 0,
+      hasOverrides: false,
+      growthApplied: [],
+    }))
+  }, [timelineChartQuery.data, timelineQuery.data?.years])
+
+  // Transform V2 chart data to TimelineMonth[] format for chart rendering
+  const chartMonths: TimelineMonth[] | undefined = useMemo(() => {
+    const chartData = timelineChartQuery.data as TimelineChartResponse | undefined
+    if (!useTimelineV2 || !chartData?.months) {
+      // Fall back to V1 data
+      return timelineQuery.data?.months
+    }
+
+    // Transform V2 chart months to TimelineMonth format
+    return chartData.months.map((chartMonth, index) => ({
+      year: Math.floor(index / 12) + new Date().getFullYear(), // Approximate year from index
+      month: (index % 12) + 1,
+      yearIndex: Math.floor(index / 12),
+      monthIndex: chartMonth.allMonthsIndex,
+      netWorth: parseFloat(chartMonth.netWorth) || 0,
+      // Empty arrays for items - chart only needs netWorth
+      assets: [],
+      cashAccounts: [],
+      liabilities: [],
+      income: [],
+      expenses: [],
+      netCash: 0,
+      hasOverrides: false,
+      growthApplied: [],
+    }))
+  }, [timelineChartQuery.data, timelineQuery.data?.months])
+
   const upsertMutation = useMutation({
     mutationFn: (payload: TimelineEditRequest) =>
       timelineApi.putTimeline(payload.year, payload),
@@ -227,9 +291,12 @@ export function useTimeline(options?: UseTimelineOptions) {
         data
       )
       setSelectedYear(variables.year)
-      // Also invalidate V2 query if enabled
+      // Also invalidate V2 queries if enabled
       if (useTimelineV2) {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timelineV2 }).catch(() => {
+          // ignore cache errors
+        })
+        queryClient.invalidateQueries({ queryKey: TIMELINE_CHART_QUERY_KEY }).catch(() => {
           // ignore cache errors
         })
       }
@@ -241,9 +308,12 @@ export function useTimeline(options?: UseTimelineOptions) {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline }).catch(() => {
         // ignore cache errors
       })
-      // Also invalidate V2 if enabled
+      // Also invalidate V2 queries if enabled
       if (useTimelineV2) {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timelineV2 }).catch(() => {
+          // ignore cache errors
+        })
+        queryClient.invalidateQueries({ queryKey: TIMELINE_CHART_QUERY_KEY }).catch(() => {
           // ignore cache errors
         })
       }
@@ -264,6 +334,8 @@ export function useTimeline(options?: UseTimelineOptions) {
   return {
     timelineQuery,
     timelineV2Query,
+    /** V2 chart query - only populated when NEXT_PUBLIC_USE_TIMELINE_V2=true */
+    timelineChartQuery,
     resolution,
     selectedYear: selectedYearValue,
     selectedMonth: selectedMonthValue,
@@ -275,6 +347,10 @@ export function useTimeline(options?: UseTimelineOptions) {
     setSelectedMonth,
     years,
     overrideYears,
+    /** Chart years - uses V2 data when enabled, falls back to V1 */
+    chartYears,
+    /** Chart months - uses V2 data when enabled, falls back to V1 */
+    chartMonths,
     saveEdits,
     saving: upsertMutation.isPending,
     /** Whether the V2 feature flag is enabled */

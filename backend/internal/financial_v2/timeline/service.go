@@ -1789,23 +1789,161 @@ func (s *Service) loadFinancialData(ctx context.Context, userID string, opts Tim
 	return sgData, nil
 }
 
-// GetTimeline generates a timeline chart response for the given user and resolution
+// GetTimeline generates a timeline chart response for the given user and resolution.
+// It reuses the ComputeFinancialSnapshot logic and extracts only net worth values.
 func (s *Service) GetTimeline(
 	ctx context.Context,
 	userID string,
 	resolution string,
 ) (TimelineAnnualChartResponse, error) {
-	// TODO: Implement timeline calculation logic
-	// This is a stub - you need to implement:
-	// 1. Call loadEffectiveRows to get all financial data
-	// 2. Determine time range (start to end)
-	// 3. Calculate net worth for each year/month
-	// 4. Return TimelineAnnualChartResponse
+	// Default planning horizon: 35 years (typical age 30-65)
+	const defaultYearsToProject = 35
+
+	// Calculate date range - start from January 1 of the current year
+	// This ensures all financial items created this year are included
+	now := time.Now()
+	startDate := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
+	endDate := startDate.AddDate(defaultYearsToProject, 0, 0)
+
+	// Compute full snapshot using existing logic
+	opts := TimelineOptions{
+		StartDate:        startDate,
+		EndDate:          endDate,
+		IncludeScenarios: true,
+	}
+
+	snapshot, err := s.ComputeFinancialSnapshot(ctx, userID, opts)
+	if err != nil {
+		return TimelineAnnualChartResponse{}, err
+	}
+
+	// Extract scenario IDs from impacts
+	scenarioIDs := extractScenarioIDs(snapshot.Months)
+
+	if resolution == "yearly" {
+		// Aggregate monthly data into yearly summaries (use December of each year)
+		years := aggregateToYearly(snapshot.Months)
+		return TimelineAnnualChartResponse{
+			Resolution:  "yearly",
+			Years:       years,
+			Months:      nil,
+			ScenarioIds: scenarioIDs,
+		}, nil
+	}
+
+	// Monthly resolution: convert MonthDetailResponse to TimelineMonthlySummary
+	months := make([]TimelineMonthlySummary, len(snapshot.Months))
+	for i, m := range snapshot.Months {
+		months[i] = TimelineMonthlySummary{
+			Month:          m.Month,
+			AllMonthsIndex: m.AllMonthsIndex,
+			NetWorth:       m.NetWorth,
+		}
+	}
 
 	return TimelineAnnualChartResponse{
-		Resolution:  resolution,
-		Years:       []TimelineYearlySummary{},
-		Months:      []TimelineMonthlySummary{},
-		ScenarioIds: []string{},
+		Resolution:  "monthly",
+		Years:       nil,
+		Months:      months,
+		ScenarioIds: scenarioIDs,
 	}, nil
+}
+
+// aggregateToYearly converts monthly snapshots to yearly summaries.
+// Uses December values as representative for each year.
+func aggregateToYearly(months []MonthDetailResponse) []TimelineYearlySummary {
+	if len(months) == 0 {
+		return []TimelineYearlySummary{}
+	}
+
+	// Group by year, keeping the last month of each year (December or last available)
+	yearMap := make(map[int]MonthDetailResponse)
+	for _, m := range months {
+		existing, ok := yearMap[m.Year]
+		if !ok || m.Month > existing.Month {
+			yearMap[m.Year] = m
+		}
+	}
+
+	// Convert to sorted slice
+	years := make([]TimelineYearlySummary, 0, len(yearMap))
+	for year, m := range yearMap {
+		years = append(years, TimelineYearlySummary{
+			Year:          year,
+			AllYearsIndex: m.AllYearsIndex,
+			NetWorth:      m.NetWorth,
+		})
+	}
+
+	// Sort by year
+	sort.Slice(years, func(i, j int) bool {
+		return years[i].Year < years[j].Year
+	})
+
+	// Reassign AllYearsIndex based on sorted position
+	for i := range years {
+		years[i].AllYearsIndex = i
+	}
+
+	return years
+}
+
+// extractScenarioIDs collects unique scenario event IDs from applied impacts.
+func extractScenarioIDs(months []MonthDetailResponse) []string {
+	seen := make(map[string]bool)
+	var ids []string
+
+	for _, m := range months {
+		// Check all item types for impacts
+		for _, item := range m.NonCashAssets {
+			for _, impact := range item.EventImpacts {
+				if !seen[impact.EventID] {
+					seen[impact.EventID] = true
+					ids = append(ids, impact.EventID)
+				}
+			}
+		}
+		for _, item := range m.Investments {
+			for _, impact := range item.EventImpacts {
+				if !seen[impact.EventID] {
+					seen[impact.EventID] = true
+					ids = append(ids, impact.EventID)
+				}
+			}
+		}
+		for _, item := range m.CashAssets {
+			for _, impact := range item.EventImpacts {
+				if !seen[impact.EventID] {
+					seen[impact.EventID] = true
+					ids = append(ids, impact.EventID)
+				}
+			}
+		}
+		for _, item := range m.Liabilities {
+			for _, impact := range item.EventImpacts {
+				if !seen[impact.EventID] {
+					seen[impact.EventID] = true
+					ids = append(ids, impact.EventID)
+				}
+			}
+		}
+		for _, item := range m.Income {
+			for _, impact := range item.EventImpacts {
+				if !seen[impact.EventID] {
+					seen[impact.EventID] = true
+					ids = append(ids, impact.EventID)
+				}
+			}
+		}
+		for _, item := range m.Expenses {
+			for _, impact := range item.EventImpacts {
+				if !seen[impact.EventID] {
+					seen[impact.EventID] = true
+					ids = append(ids, impact.EventID)
+				}
+			}
+		}
+	}
+
+	return ids
 }

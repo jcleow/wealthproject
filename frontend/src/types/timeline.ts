@@ -316,3 +316,27 @@ export interface ExpenseResponseV2 {
   sourceLiabilityId?: string
   eventImpacts?: AppliedImpactV2[]
 }
+
+// ========== Timeline V2 Chart Types ==========
+
+/** Yearly summary for chart display */
+export interface TimelineChartYear {
+  year: number
+  allYearsIndex: number
+  netWorth: string // decimal as string from backend
+}
+
+/** Monthly summary for chart display */
+export interface TimelineChartMonth {
+  month: number
+  allMonthsIndex: number
+  netWorth: string // decimal as string from backend
+}
+
+/** V2 Response for chart endpoint */
+export interface TimelineChartResponse {
+  resolution: TimeResolution
+  years?: TimelineChartYear[]
+  months?: TimelineChartMonth[]
+  scenarioIds: string[]
+}

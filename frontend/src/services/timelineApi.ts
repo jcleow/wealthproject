@@ -1,4 +1,9 @@
-import type { TimelineEditRequest, TimelineResponse, TimelineV2Response } from '@/types/timeline'
+import type {
+  TimelineChartResponse,
+  TimelineEditRequest,
+  TimelineResponse,
+  TimelineV2Response,
+} from '@/types/timeline'
 
 function getApiBaseUrl(version: 'v1' | 'v2' = 'v1') {
   // Use relative path - requests go through Next.js BFF at /api/v1/* or /api/v2/*
@@ -88,6 +93,25 @@ export const timelineApi = {
     }
     return jsonRequest<TimelineV2Response>(
       `/financial/timeline/snapshot?${params.toString()}`,
+      { method: 'GET' },
+      API_BASE_V2
+    )
+  },
+
+  /**
+   * Get V2 timeline chart data for net worth projection
+   * @param resolution - 'yearly' or 'monthly' (defaults to 'yearly')
+   */
+  async getTimelineV2Chart(options?: {
+    resolution?: 'yearly' | 'monthly'
+  }): Promise<TimelineChartResponse> {
+    const params = new URLSearchParams()
+    if (options?.resolution) {
+      params.set('resolution', options.resolution)
+    }
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return jsonRequest<TimelineChartResponse>(
+      `/financial/timeline/chart${query}`,
       { method: 'GET' },
       API_BASE_V2
     )
