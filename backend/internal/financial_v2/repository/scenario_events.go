@@ -285,10 +285,15 @@ func (s *Store) updateStartImpactTarget(ctx context.Context, tx pgx.Tx, imp *Sce
 	// Get category (use empty string if not set)
 	category := imp.Category
 
-	// Get growth strategy (use empty string if not set, only for income/expense)
+	// Get growth strategy - map frontend values to DB values
+	// Frontend: none, annual_step, compound → DB: fixed, annual_step, compound_monthly
 	growthStrategy := imp.GrowthStrategy
-	if growthStrategy == "" {
-		growthStrategy = "none"
+	switch growthStrategy {
+	case "none", "":
+		growthStrategy = "fixed"
+	case "compound":
+		growthStrategy = "compound_monthly"
+	// annual_step stays as is
 	}
 
 	// Debug log
