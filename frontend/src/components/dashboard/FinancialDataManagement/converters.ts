@@ -127,15 +127,18 @@ export function liabilityV2ToTimelineItem(item: LiabilityResponseV2): TimelineIt
 }
 
 export function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
+  // V2 API always returns monthly amounts, so we need to calculate annual
+  const monthlyAmount = parseDecimal(item.amount)
+  const monthlyEventAdj = parseDecimal(item.eventAdjAmount)
   return {
     itemId: item.id,
     parentId: item.parentId,
     name: item.name,
     category: item.category,
-    amountAnnual: parseDecimal(item.amount),
-    adjAnnualAmt: parseDecimal(item.eventAdjAmount),
-    amountMonthly: parseDecimal(item.amount),
-    adjMonthlyAmt: parseDecimal(item.eventAdjAmount),
+    amountAnnual: monthlyAmount * 12,
+    adjAnnualAmt: monthlyEventAdj * 12,
+    amountMonthly: monthlyAmount,
+    adjMonthlyAmt: monthlyEventAdj,
     sourceFrequency: item.sourceFrequency,
     itemType: item.itemType,
     startYear: item.startYear,
@@ -146,15 +149,18 @@ export function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
 }
 
 export function expenseV2ToTimelineItem(item: ExpenseResponseV2): TimelineItem {
+  // V2 API always returns monthly amounts, so we need to calculate annual
+  const monthlyAmount = parseDecimal(item.amount)
+  const monthlyEventAdj = parseDecimal(item.eventAdjAmount)
   return {
     itemId: item.id,
     parentId: item.parentId,
     name: item.name,
     category: item.category,
-    amountAnnual: parseDecimal(item.amount),
-    adjAnnualAmt: parseDecimal(item.eventAdjAmount),
-    amountMonthly: parseDecimal(item.amount),
-    adjMonthlyAmt: parseDecimal(item.eventAdjAmount),
+    amountAnnual: monthlyAmount * 12,
+    adjAnnualAmt: monthlyEventAdj * 12,
+    amountMonthly: monthlyAmount,
+    adjMonthlyAmt: monthlyEventAdj,
     sourceFrequency: item.sourceFrequency,
     itemType: item.itemType,
     startYear: item.startYear,
