@@ -86,7 +86,9 @@ export function FinancialDataManagement({
   const [viewMode, setViewMode] = useState<'annualized' | 'monthly'>('monthly')
 
   // Determine if we should show monthly data
-  const showMonthlyData = viewMode === 'monthly' && resolution === 'monthly' && timelineMonth
+  // For V2: use timelineMonthV2, for V1: use timelineMonth
+  const hasMonthData = hasV2Data ? !!timelineMonthV2 : !!timelineMonth
+  const showMonthlyData = viewMode === 'monthly' && resolution === 'monthly' && hasMonthData
 
   // ========== Data from context and queries ==========
   const {
