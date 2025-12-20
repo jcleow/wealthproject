@@ -1,5 +1,17 @@
 # TODO
 
+### Compact Database Migrations
+
+**Problem:** We have 63+ migration files that have accumulated over time. Many are small incremental changes (add column, alter constraint, etc.) that could be consolidated into clean base schemas.
+
+**Solution:** Squash migrations into a single baseline migration per major table group, keeping only recent migrations that haven't been applied to production.
+
+**Effort:** ~2-3 hours
+
+**Spec:** [db-migration-compaction.md](./db-migration-compaction.md)
+
+---
+
 ### Migrate Auth State from React Context to Zustand Store
 
 **Problem:** Current auth uses `useSession()` hook which can re-fetch on remounts and only works inside React components.
