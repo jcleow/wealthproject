@@ -524,7 +524,6 @@ export function FinancialDataManagement({
       ? new Date(Date.UTC(selectedYear, selectedMonth - 1, 1)).toISOString()
       : undefined
 
-    console.log('[handleModalSave] Using direct API path', { isFutureMonth, isFutureMonthEdit, futureMonthStartDate })
     switch (payload.type) {
       case 'cpf': {
         await Promise.all(
@@ -679,7 +678,7 @@ export function FinancialDataManagement({
   const handleManageAllocations = (item: TimelineItem) => {
     const id = getItemId(item)
     if (!id) return
-    const name = 'source' in item ? (item as any).source : item.name ?? 'Income'
+    const name = item.name ?? 'Income'
     const amount = item.amountAnnual ?? (item.amountMonthly ?? 0) * 12
     setAllocationModalState({
       isOpen: true,
@@ -693,7 +692,7 @@ export function FinancialDataManagement({
   const handleEditAllocation = (allocation: IncomeAllocation) => {
     const income = yearIncomes.find((i) => getItemId(i) === allocation.incomeId)
     if (!income) return
-    const name = 'source' in income ? (income as any).source : income.name ?? 'Income'
+    const name = income.name ?? 'Income'
     const amount = income.amountAnnual ?? (income.amountMonthly ?? 0) * 12
     setAllocationModalState({
       isOpen: true,
