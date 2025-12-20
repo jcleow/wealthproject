@@ -1825,15 +1825,7 @@ func (s *Service) GetTimeline(
 	// Compute monthly snapshots using loaded data
 	snapshot := s.computeSnapshotFromData(sgData, opts)
 
-	// Extract scenario IDs directly from loaded data (O(n) where n = number of events)
-	// instead of iterating through all months and all items (O(months * items * impacts))
-	var scenarioIDs []string
-	if sgData.ScenarioImpacts != nil {
-		scenarioIDs = make([]string, 0, len(sgData.ScenarioImpacts.EventsByID))
-		for eventID := range sgData.ScenarioImpacts.EventsByID {
-			scenarioIDs = append(scenarioIDs, eventID)
-		}
-	}
+	scenarioIDs := extractScenarioIDsFromImpacts(sgData.ScenarioImpacts)
 
 	if resolution == "yearly" {
 		// Aggregate monthly data into yearly summaries (use December of each year)
@@ -1862,6 +1854,18 @@ func (s *Service) GetTimeline(
 		Months:      months,
 		ScenarioIds: scenarioIDs,
 	}, nil
+}
+
+// extractScenarioIDsFromImpacts extracts unique scenario event IDs from the impact context.
+func extractScenarioIDsFromImpacts(impacts *scenario.ImpactContext) []string {
+	if impacts == nil {
+		return nil
+	}
+	ids := make([]string, 0, len(impacts.EventsByID))
+	for eventID := range impacts.EventsByID {
+		ids = append(ids, eventID)
+	}
+	return ids
 }
 
 // aggregateToYearly converts monthly snapshots to yearly summaries for the chart.
