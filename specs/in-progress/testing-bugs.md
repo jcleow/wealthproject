@@ -115,3 +115,79 @@ k := key{t: row.Type, id: row.ID}
 
 ### Priority
 Medium - UI shows scenarios exist (amber dot may appear) but breakdown details don't show
+
+---
+
+## P0: Security - Add user_id filter to ListScenarioImpacts
+
+### Description
+The `ListScenarioImpacts` function in `backend/internal/financial/repository/scenario_events.go` queries by `event_id` only without filtering by `user_id`. While this is called internally after fetching an event already filtered by user_id, defense-in-depth requires explicit user ownership checks.
+
+### Files
+- `backend/internal/financial/repository/scenario_events.go:351-410` (v1)
+- `backend/internal/financial_v2/repository/scenario_events.go:371+` (v2)
+
+### Fix
+Add `user_id` parameter and join with `scenario_events` table to verify ownership:
+```sql
+SELECT imp.* FROM scenario_event_impacts imp
+JOIN scenario_events ev ON imp.event_id = ev.id
+WHERE imp.event_id = $1 AND ev.user_id = $2
+```
+
+---
+
+## P0: Test - Fix TestProjection_NewItemPersistsForward
+
+### Description
+Test expects `HasOverrides=true` when creating a new item via `UpsertYear`, but the current logic only sets `HasOverrides` when replacing an existing item or deleting. Currently skipped with `t.Skip()`.
+
+### Root Cause
+In `backend/internal/financial/timeline/service.go:700-728`, `hasOverride` is only set to true when:
+1. Amount is 0 (deletion)
+2. Replacing an existing item version (`if _, exists := state[r.ParentID]; exists`)
+
+Creating a **new** item doesn't set the flag.
+
+### Options
+1. **Fix the logic**: Set `hasOverride=true` when an item's `StartYear` matches the current year being processed (indicates it was created in that year, not year 0)
+2. **Remove UpsertYear**: If this endpoint is deprecated in favor of direct CRUD, remove it entirely
+3. **Update test expectation**: If the current behavior is intentional, update the test
+
+### Files
+- `backend/internal/financial/timeline/service.go:700-728`
+- `backend/internal/financial/timeline/service_test.go:54-93`
+
+---
+
+## P1: Refactor - Advanced sections for all impact kinds
+
+### Description
+Currently, the Advanced section (category, growth rate, growth strategy) only shows for "starts_at" impacts. Should be available for all impact kinds to allow customizing the created/modified financial item.
+
+### Files
+- `frontend/src/components/modals/ScenarioEventModal/components/ImpactEditor.tsx:314-322`
+- `frontend/src/components/modals/ScenarioEventModal/components/AdvancedSection.tsx`
+
+---
+
+## P1: Refactor - ItemSelector into smaller subcomponents
+
+### Description
+The ItemSelector component is getting large and handles multiple concerns. Should be broken into:
+- SearchInput component
+- ItemList component
+- CreateNewItem component
+
+### Files
+- `frontend/src/components/modals/ScenarioEventModal/components/ItemSelector.tsx`
+
+---
+
+## P1: Feature - Generalize financial item update function
+
+### Description
+The `updateFinancialItemName` function in ScenarioEventModal only updates the name field. Should be generalized to update all fields of the financial item (amount, frequency, category, etc.) when editing via the modal.
+
+### Files
+- `frontend/src/components/modals/ScenarioEventModal/ScenarioEventModal.tsx:20-56`
