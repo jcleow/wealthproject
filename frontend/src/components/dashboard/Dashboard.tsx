@@ -1,16 +1,22 @@
 'use client'
 
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { PanelLeftOpen } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
 import { Chat } from '../chat/Chat'
 import { ChatFloatingLauncher } from './ChatFloatingLauncher'
 import { FinancialDataManagement } from './FinancialDataManagement'
 import { FinancialWorkspace } from './FinancialWorkspace'
+import { MiniChart } from './MiniChart'
 import { CPFSimulationView } from '../cpf/CPFSimulationView'
 import { useTimeline } from '@/hooks/useTimeline'
+import { usePictureInPicture } from '@/hooks/usePictureInPicture'
+import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import { generateUUID } from '@/lib/utils'
 import { FinancialDataProvider } from '@/contexts/FinancialDataContext'
+import { settingsApi } from '@/api/financial'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 
 export function Dashboard() {
@@ -25,6 +31,28 @@ export function Dashboard() {
     timeline.timelineQuery.error instanceof Error
       ? timeline.timelineQuery.error.message
       : null
+
+  // Fetch user settings for PiP preference
+  const { data: userSettings } = useQuery({
+    queryKey: QUERY_KEYS.settings.user,
+    queryFn: () => settingsApi.getUserSettings(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Fetch scenario events for mini chart
+  const { events: scenarioEvents } = useScenarioEvents()
+
+  // Picture-in-picture chart functionality
+  const { targetRef: chartRef, showPiP, dismissPiP } = usePictureInPicture({
+    enabled: userSettings?.chartPictureInPicture ?? false,
+    threshold: 0.2, // Show PiP when less than 20% of chart is visible
+  })
+
+  // Scroll back to the main chart
+  const scrollToChart = useCallback(() => {
+    chartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    dismissPiP()
+  }, [chartRef, dismissPiP])
 
   // Keyboard shortcut: Cmd+B to toggle chat
   useEffect(() => {
@@ -141,11 +169,14 @@ bg-[#0a0a0a]/80`}>
             ) : (
               <>
                 {/* Top workspace with chart */}
-                <div className={`flex flex-col overflow-hidden
+                <div
+                  ref={chartRef}
+                  className={`flex flex-col overflow-hidden
 min-h-[60vh] min-w-0
 rounded-2xl
 bg-transparent
-shrink-0`}>
+shrink-0`}
+                >
                   <FinancialWorkspace
                     selectedYear={timeline.selectedYear}
                     onSelectYear={timeline.setSelectedYear}
@@ -192,6 +223,17 @@ shrink-0`}>
       <div className="lg:hidden">
         <ChatFloatingLauncher chatId={chatId} />
       </div>
+
+      {/* Picture-in-Picture mini chart */}
+      {showPiP && !showCPFView && (
+        <MiniChart
+          timelineYears={timeline.timelineQuery.data?.years}
+          timelineMonths={timeline.timelineQuery.data?.months}
+          scenarioEvents={scenarioEvents}
+          onDismiss={dismissPiP}
+          onScrollToChart={scrollToChart}
+        />
+      )}
     </FinancialDataProvider>
   )
 }

@@ -104,6 +104,7 @@ transition-colors`}
               onYearDisplayFormatChange={form.handleYearDisplayFormatChange}
               onAutoExecuteToolsChange={form.handleAutoExecuteToolsChange}
               onGroupItemsByCategoryChange={form.handleGroupItemsByCategoryChange}
+              onChartPictureInPictureChange={form.handleChartPictureInPictureChange}
             />
           ) : (
             <GrowthRatesSettings

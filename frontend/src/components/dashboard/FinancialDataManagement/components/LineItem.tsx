@@ -121,13 +121,7 @@ export function LineItem({
         {/* Left side: name */}
         <div className="flex min-w-0 items-center gap-2">
           <span className={`truncate text-sm transition-colors ${isSelected ? 'text-slate-100' : 'text-slate-300'}`}>
-            {'name' in item
-              ? item.name
-              : 'source' in item
-              ? (item as any).source
-              : 'payee' in item
-              ? (item as any).payee
-              : 'Entry'}
+            {item.name ?? 'Entry'}
           </span>
           {/* Accumulator star */}
           {item.isAccumulator && (

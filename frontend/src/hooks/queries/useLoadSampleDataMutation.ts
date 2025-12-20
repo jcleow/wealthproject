@@ -3,7 +3,7 @@ import { financialApi } from '@/api/financial'
 import type { Income, Expense } from '@/types/financial'
 import type { CPFAccount, CPFAccountCreatePayload } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'
-import { DEFAULT_CADENCE } from '@/types/scenario'
+import { DEFAULT_MONTHLY_CADENCE } from '@/types/scenario'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { CPF_QUERY_KEY } from './useCpfQuery'
 
@@ -23,12 +23,13 @@ export function useLoadSampleDataMutation() {
       let cpfAccount: CPFAccount | null = null
 
       // First clear all data including CPF
+      // Use V2 bulk delete endpoints where available for better cleanup
       await Promise.all([
         financialApi.deleteAllAssets(),
         financialApi.deleteAllInvestments(),
         financialApi.deleteAllLiabilities(),
         financialApi.deleteAllIncomes(),
-        financialApi.deleteAllExpenses(),
+        financialApi.deleteAllExpensesV2(), // Use V2 to ensure all expenses (including scenario-created) are deleted
         financialApi.deleteAllCashAccounts(),
         financialApi.deleteAllScenarioEvents(),
         financialApi.deleteCurrentCPFAccount().catch(() => {}), // Ignore if no CPF account exists
@@ -123,7 +124,7 @@ export function useLoadSampleDataMutation() {
 
       const sampleIncomes: Array<Omit<Income, 'id' | 'updatedAt'>> = [
         {
-          source: 'Software Engineer Salary',
+          name: 'Software Engineer Salary',
           category: 'Employment',
           amount: 7500,
           frequency: 'monthly',
@@ -156,7 +157,7 @@ export function useLoadSampleDataMutation() {
 
       const sampleExpenses: Array<Omit<Expense, 'id' | 'updatedAt'>> = [
         {
-          payee: 'Parents Allowance',
+          name: 'Parents Allowance',
           category: 'Family',
           amount: 500,
           frequency: 'monthly',
@@ -165,7 +166,7 @@ export function useLoadSampleDataMutation() {
           notes: 'Monthly contribution to parents',
         },
         {
-          payee: 'Rent (Room)',
+          name: 'Rent (Room)',
           category: 'Housing',
           amount: 1200,
           frequency: 'monthly',
@@ -174,7 +175,7 @@ export function useLoadSampleDataMutation() {
           notes: 'Master bedroom in shared HDB, Toa Payoh',
         },
         {
-          payee: 'Groceries & Hawker',
+          name: 'Groceries & Hawker',
           category: 'Food',
           amount: 600,
           frequency: 'monthly',
@@ -183,7 +184,7 @@ export function useLoadSampleDataMutation() {
           notes: 'Mix of cooking and hawker center meals',
         },
         {
-          payee: 'Dining & Social',
+          name: 'Dining & Social',
           category: 'Food',
           amount: 400,
           frequency: 'monthly',
@@ -192,7 +193,7 @@ export function useLoadSampleDataMutation() {
           notes: 'Restaurants, dates, gatherings with friends',
         },
         {
-          payee: 'Public Transport',
+          name: 'Public Transport',
           category: 'Transport',
           amount: 120,
           frequency: 'monthly',
@@ -201,7 +202,7 @@ export function useLoadSampleDataMutation() {
           notes: 'MRT and bus, monthly concession',
         },
         {
-          payee: 'Grab/Taxi',
+          name: 'Grab/Taxi',
           category: 'Transport',
           amount: 100,
           frequency: 'monthly',
@@ -210,7 +211,7 @@ export function useLoadSampleDataMutation() {
           notes: 'Late nights and rainy days',
         },
         {
-          payee: 'Mobile Plan',
+          name: 'Mobile Plan',
           category: 'Bills',
           amount: 45,
           frequency: 'monthly',
@@ -219,7 +220,7 @@ export function useLoadSampleDataMutation() {
           notes: 'Circles.Life SIM-only plan',
         },
         {
-          payee: 'Subscriptions',
+          name: 'Subscriptions',
           category: 'Bills',
           amount: 50,
           frequency: 'monthly',
@@ -228,7 +229,7 @@ export function useLoadSampleDataMutation() {
           notes: 'Netflix, Spotify, iCloud',
         },
         {
-          payee: 'Term Life Insurance',
+          name: 'Term Life Insurance',
           category: 'Insurance',
           amount: 150,
           frequency: 'monthly',
@@ -237,7 +238,7 @@ export function useLoadSampleDataMutation() {
           notes: 'NTUC Income term life, $500k coverage',
         },
         {
-          payee: 'Health Insurance (IP)',
+          name: 'Health Insurance (IP)',
           category: 'Insurance',
           amount: 80,
           frequency: 'monthly',
@@ -246,7 +247,7 @@ export function useLoadSampleDataMutation() {
           notes: 'Integrated Shield Plan rider, paid from Medisave + cash',
         },
         {
-          payee: 'Gym Membership',
+          name: 'Gym Membership',
           category: 'Health',
           amount: 100,
           frequency: 'monthly',
@@ -255,7 +256,7 @@ export function useLoadSampleDataMutation() {
           notes: 'ActiveSG + occasional ClassPass',
         },
         {
-          payee: 'Personal Care',
+          name: 'Personal Care',
           category: 'Personal',
           amount: 80,
           frequency: 'monthly',
@@ -264,7 +265,7 @@ export function useLoadSampleDataMutation() {
           notes: 'Haircut, toiletries, etc',
         },
         {
-          payee: 'Shopping & Entertainment',
+          name: 'Shopping & Entertainment',
           category: 'Personal',
           amount: 200,
           frequency: 'monthly',
@@ -273,7 +274,7 @@ export function useLoadSampleDataMutation() {
           notes: 'Clothes, gadgets, movies',
         },
         {
-          payee: 'Annual Travel Fund',
+          name: 'Annual Travel Fund',
           category: 'Travel',
           amount: 4000,
           frequency: 'annual',
@@ -300,9 +301,10 @@ export function useLoadSampleDataMutation() {
               impactKind: 'start',
               amount: 50000,
               currency: 'SGD',
-              cadence: DEFAULT_CADENCE,
+              cadence: DEFAULT_MONTHLY_CADENCE,
               startMonth: getMonthString(2),
-              notes: 'Wedding banquet, photography, honeymoon (~$50k total)',
+              frequency: 'one_time',
+              name: 'Wedding Expenses',
             },
           ],
         },
@@ -320,36 +322,38 @@ export function useLoadSampleDataMutation() {
               impactKind: 'start',
               amount: 450000,
               currency: 'SGD',
-              cadence: DEFAULT_CADENCE,
+              cadence: DEFAULT_MONTHLY_CADENCE,
               startMonth: getMonthString(5),
-              notes: '4-room BTO flat in Tengah (estimated value)',
+              name: 'BTO Flat (Tengah)',
             },
             {
               targetType: 'liability',
               impactKind: 'start',
               amount: 350000,
               currency: 'SGD',
-              cadence: DEFAULT_CADENCE,
+              cadence: DEFAULT_MONTHLY_CADENCE,
               startMonth: getMonthString(5),
-              notes: 'HDB loan at 2.6% for 25 years (~$1,600/month)',
+              name: 'HDB Loan',
             },
             {
               targetType: 'expense',
-              impactKind: 'delta',
-              amount: 400,
+              impactKind: 'start',
+              amount: 1600,
               currency: 'SGD',
               cadence: 'monthly',
               startMonth: getMonthString(5),
-              notes: 'Net housing cost change: +$1,600 HDB loan - $1,200 rent saved = +$400',
+              frequency: 'monthly',
+              name: 'HDB Loan Payment',
             },
             {
               targetType: 'expense',
               impactKind: 'start',
               amount: 50000,
               currency: 'SGD',
-              cadence: DEFAULT_CADENCE,
+              cadence: DEFAULT_MONTHLY_CADENCE,
               startMonth: getMonthString(5),
-              notes: 'Renovation and furniture (~$50k)',
+              frequency: 'one_time',
+              name: 'Renovation',
             },
           ],
         },
@@ -364,21 +368,23 @@ export function useLoadSampleDataMutation() {
           impacts: [
             {
               targetType: 'expense',
-              impactKind: 'delta',
+              impactKind: 'start',
               amount: 1500,
               currency: 'SGD',
               cadence: 'monthly',
               startMonth: getMonthString(4),
-              notes: 'Childcare, diapers, formula, baby essentials (~$1.5k/month ongoing)',
+              frequency: 'monthly',
+              name: 'Childcare & Baby Expenses',
             },
             {
               targetType: 'income',
               impactKind: 'start',
               amount: 11000,
               currency: 'SGD',
-              cadence: DEFAULT_CADENCE,
+              cadence: DEFAULT_MONTHLY_CADENCE,
               startMonth: getMonthString(4),
-              notes: 'Baby Bonus cash gift ($11k for first child) - offsets $8k baby gear',
+              frequency: 'one_time',
+              name: 'Baby Bonus',
             },
           ],
         },
@@ -396,18 +402,18 @@ export function useLoadSampleDataMutation() {
               impactKind: 'start',
               amount: 150000,
               currency: 'SGD',
-              cadence: DEFAULT_CADENCE,
+              cadence: DEFAULT_MONTHLY_CADENCE,
               startMonth: getMonthString(7),
-              notes: 'Toyota Corolla Hybrid (depreciating asset)',
+              name: 'Toyota Corolla Hybrid',
             },
             {
               targetType: 'liability',
               impactKind: 'start',
               amount: 100000,
               currency: 'SGD',
-              cadence: DEFAULT_CADENCE,
+              cadence: DEFAULT_MONTHLY_CADENCE,
               startMonth: getMonthString(7),
-              notes: 'Car loan at 2.78% for 7 years',
+              name: 'Car Loan',
             },
             {
               targetType: 'expense',
@@ -416,7 +422,8 @@ export function useLoadSampleDataMutation() {
               currency: 'SGD',
               cadence: 'monthly',
               startMonth: getMonthString(7),
-              notes: 'Car Running Costs',
+              frequency: 'monthly',
+              name: 'Car Running Costs',
             },
           ],
         },
@@ -472,7 +479,7 @@ export function useLoadSampleDataMutation() {
 
       // Create income allocations for investment contributions
       // Allocate from salary income to both investment accounts
-      const salaryIncome = incomes.find(inc => inc.source === 'Software Engineer Salary')
+      const salaryIncome = incomes.find(inc => inc.name === 'Software Engineer Salary')
       const syfeInvestment = investments.find(inv => inv.name.includes('Syfe'))
       const ssbInvestment = investments.find(inv => inv.name.includes('Singapore Savings'))
 
@@ -494,7 +501,7 @@ export function useLoadSampleDataMutation() {
       }
 
       // Build lookup maps for linking delta/override impacts to existing items
-      const incomeBySource = new Map(incomes.map(inc => [inc.source, inc.id]))
+      const incomeBySource = new Map(incomes.map(inc => [inc.name, inc.id]))
       const expensesResult = await financialApi.listExpenses()
       const expenses = expensesResult.data
 
@@ -514,10 +521,9 @@ export function useLoadSampleDataMutation() {
             const startMonth = impact.startMonth ?? event.occursOn
             // Use the impact amount (must be positive for income/expense schemas)
             const impactAmount = Math.abs(impact.amount ?? 1)
-            // Determine if this is a one-time item based on whether endMonth equals startMonth
-            // or based on notes containing one-time indicators (wedding, bonus, etc.)
-            const hasOneTimeIndicator = (impact.notes ?? '').toLowerCase().match(/wedding|bonus|gift|renovation|furniture|baby gear/)
-            const isOneTime = (impact.endMonth && impact.endMonth === impact.startMonth) || hasOneTimeIndicator
+            // Use explicit frequency from impact, default to monthly
+            const frequency = impact.frequency || 'monthly'
+            const isOneTime = frequency === 'one_time'
             const startDateIso = startMonth ? new Date(startMonth).toISOString() : new Date().toISOString()
             // For one-time items, set endDate to end of same month so they only appear once
             const endDateIso = isOneTime ? (() => {
@@ -531,11 +537,11 @@ export function useLoadSampleDataMutation() {
             if (impact.targetType === 'asset') {
               // Assets persist indefinitely - don't set endDate even for one-time
               const newAsset = await financialApi.createAsset({
-                name: impact.notes || `${event.name} - Asset`,
+                name: impact.name || `${event.name} - Asset`,
                 category: 'other_asset',
                 currentValue: impactAmount,
                 annualGrowthRate: 3.0,
-                notes: `Created by scenario: ${event.name}`,
+                notes: '',
                 startDate: startDateIso,
                 // No endDate - assets persist (e.g., property doesn't disappear)
               })
@@ -543,42 +549,38 @@ export function useLoadSampleDataMutation() {
             } else if (impact.targetType === 'liability') {
               // Liabilities persist until paid off - don't set endDate for one-time
               const newLiability = await financialApi.createLiability({
-                name: impact.notes || `${event.name} - Liability`,
+                name: impact.name || `${event.name} - Liability`,
                 category: 'Loan',
                 currentBalance: impactAmount,
                 interestRateApr: 3.0,
                 minimumPayment: 0,
-                notes: `Created by scenario: ${event.name}`,
+                notes: '',
                 startDate: startDateIso,
                 // No endDate - liabilities persist until paid off
               })
               targetId = newLiability.id
             } else if (impact.targetType === 'income') {
               const newIncome = await financialApi.createIncome({
-                source: impact.notes || `${event.name} - Income`,
+                name: impact.name || `${event.name} - Income`,
                 category: 'Other',
                 amount: impactAmount,
-                // Use 'one_time' frequency for one-time items (backend handles this specially)
-                // endDate provides a second layer of protection against recurrence
-                frequency: isOneTime ? 'one_time' : 'monthly',
+                frequency: frequency,
                 startDate: startDateIso,
                 endDate: endDateIso,
                 growthRate: 0,
-                notes: `Created by scenario: ${event.name}`,
+                notes: '',
               })
               targetId = newIncome.id
             } else if (impact.targetType === 'expense') {
               const newExpense = await financialApi.createExpense({
-                payee: impact.notes || `${event.name} - Expense`,
+                name: impact.name || `${event.name} - Expense`,
                 category: 'Other',
                 amount: impactAmount,
-                // Use 'one_time' frequency for one-time items (backend handles this specially)
-                // endDate provides a second layer of protection against recurrence
-                frequency: isOneTime ? 'one_time' : 'monthly',
+                frequency: frequency,
                 startDate: startDateIso,
                 endDate: endDateIso,
                 growthRate: 0,
-                notes: `Created by scenario: ${event.name}`,
+                notes: '',
               })
               targetId = newExpense.id
             }

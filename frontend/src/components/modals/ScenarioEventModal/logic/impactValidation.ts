@@ -45,6 +45,10 @@ export function validateScenarioEvent({
     return { valid: false, error: 'Icon is required.' }
   }
 
+  if (impacts.length === 0) {
+    return { valid: false, error: 'Add at least one impact to save this event.' }
+  }
+
   // Validate item selection and new item names for each impact
   for (let i = 0; i < impacts.length; i++) {
     const impact = impacts[i]

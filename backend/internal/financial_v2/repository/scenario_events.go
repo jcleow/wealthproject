@@ -10,6 +10,7 @@ import (
 
 	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
+
 	"github.com/jackc/pgx/v5"
 )
 
@@ -49,7 +50,7 @@ func (s *Store) CreateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	created.Tags = decodeStringArray(tagsBytes)
 
 	if len(ev.Impacts) > 0 {
-		if err := s.insertImpactsV2(ctx, tx, created.ID, ev.Impacts); err != nil {
+		if err := s.insertImpactsV2(ctx, tx, ev.UserID, created.ID, ev.Impacts); err != nil {
 			return ScenarioEvent{}, err
 		}
 	}
@@ -123,7 +124,7 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 		return nil, 0, err
 	}
 
-	// Single JOIN query using CTE: paginate events first, then join impacts
+	// Single JOIN query using CTE: paginate events first, then join impacts and target tables for derived values
 	query := fmt.Sprintf(`
 		WITH paginated_events AS (
 			SELECT * FROM scenario_events
@@ -133,11 +134,28 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 		)
 		SELECT
 			e.id, e.user_id, e.name, e.description, e.occurs_on, e.display_icon, e.display_color, e.tags, e.scenario_id, e.is_included, e.created_at, e.updated_at,
-			i.id, i.impact_kind, i.amount, i.currency, i.cadence, i.start_date, i.end_date, i.notes, i.created_at,
-			i.target_asset_id, i.target_liability_id, i.target_income_id, i.target_expense_id, i.target_cash_account_id, i.target_investment_id
+			i.id, i.impact_kind, i.amount, i.cadence, i.created_at,
+			i.target_asset_id, i.target_liability_id, i.target_income_id, i.target_expense_id, i.target_cash_account_id, i.target_investment_id,
+			-- Derived from financial item
+			COALESCE(a.name, l.name, inc.name, exp.name, ca.name, inv.name, '') as target_name,
+			'SGD' as target_currency,
+			COALESCE(inc.frequency, exp.frequency, '') as target_frequency,
+			COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as target_start_date,
+			COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as target_end_date,
+			COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as target_notes,
+			-- Advanced fields from financial item (ca uses account_type instead of category)
+			COALESCE(a.category, l.category, inc.category, exp.category, ca.account_type, inv.category, '') as target_category,
+			COALESCE(a.growth_rate, inv.growth_rate, inc.growth_rate, exp.growth_rate) as target_growth_rate,
+			COALESCE(inc.growth_strategy, exp.growth_strategy, '') as target_growth_strategy
 		FROM paginated_events e
 		LEFT JOIN scenario_event_impacts i ON i.event_id = e.id
-		ORDER BY e.occurs_on ASC, e.created_at DESC, i.start_date ASC NULLS LAST, i.created_at ASC`,
+		LEFT JOIN finance_assets a ON i.target_asset_id = a.id
+		LEFT JOIN finance_liabilities l ON i.target_liability_id = l.id
+		LEFT JOIN finance_incomes inc ON i.target_income_id = inc.id
+		LEFT JOIN finance_expenses exp ON i.target_expense_id = exp.id
+		LEFT JOIN finance_cash_accounts ca ON i.target_cash_account_id = ca.id
+		LEFT JOIN finance_investments inv ON i.target_investment_id = inv.id
+		ORDER BY e.occurs_on ASC, e.created_at DESC, i.created_at ASC`,
 		whereClause, len(args)+1, len(args)+2)
 
 	rows, err := s.pool.Query(ctx, query, append(args, limit, offset)...)
@@ -155,15 +173,20 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 		var tagsJSON []byte
 
 		// Impact fields (nullable due to LEFT JOIN)
-		var impID, impKind, impCurrency, impCadence, impNotes *string
+		var impID, impKind, impCadence *string
 		var impAmount *int64
-		var impStartDate, impEndDate, impCreatedAt *time.Time
+		var impCreatedAt, targetStartDate, targetEndDate *time.Time
 		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID *string
+		var targetName, targetCurrency, targetFrequency, targetNotes *string // Derived from joined target tables
+		var targetCategory, targetGrowthStrategy *string
+		var targetGrowthRate *float64
 
 		if err := rows.Scan(
 			&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &ev.ScenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt,
-			&impID, &impKind, &impAmount, &impCurrency, &impCadence, &impStartDate, &impEndDate, &impNotes, &impCreatedAt,
+			&impID, &impKind, &impAmount, &impCadence, &impCreatedAt,
 			&targetAssetID, &targetLiabilityID, &targetIncomeID, &targetExpenseID, &targetCashAccountID, &targetInvestmentID,
+			&targetName, &targetCurrency, &targetFrequency, &targetStartDate, &targetEndDate, &targetNotes,
+			&targetCategory, &targetGrowthRate, &targetGrowthStrategy,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -181,9 +204,10 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 		// Add impact if present (LEFT JOIN may produce NULL impact rows)
 		if impID != nil {
 			existing.Impacts = append(existing.Impacts, scanImpactPgx(
-				ev.ID, impID, impKind, impAmount, impCurrency, impCadence,
-				impStartDate, impEndDate, impNotes, impCreatedAt,
+				ev.ID, impID, impKind, impAmount, impCadence, impCreatedAt,
 				targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID,
+				targetName, targetCurrency, targetFrequency, targetStartDate, targetEndDate, targetNotes,
+				targetCategory, targetGrowthRate, targetGrowthStrategy,
 			))
 		}
 	}
@@ -198,6 +222,7 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 }
 
 // UpdateScenarioEventV2 replaces metadata and impacts using typed FK columns.
+// For 'start' impacts, also updates the linked financial item's amount and frequency.
 func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (ScenarioEvent, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -223,11 +248,20 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 	updated.Tags = decodeStringArray(tagsBytes)
 
+	// For 'start' impacts, update the linked financial item's amount and frequency
+	for _, imp := range ev.Impacts {
+		if imp.ImpactKind == scenario.ImpactKindStart {
+			if err := s.updateStartImpactTarget(ctx, tx, &imp); err != nil {
+				return ScenarioEvent{}, fmt.Errorf("failed to update start impact target: %w", err)
+			}
+		}
+	}
+
 	if _, err := tx.Exec(ctx, `DELETE FROM scenario_event_impacts WHERE event_id=$1`, ev.ID); err != nil {
 		return ScenarioEvent{}, err
 	}
 	if len(ev.Impacts) > 0 {
-		if err := s.insertImpactsV2(ctx, tx, ev.ID, ev.Impacts); err != nil {
+		if err := s.insertImpactsV2(ctx, tx, ev.UserID, ev.ID, ev.Impacts); err != nil {
 			return ScenarioEvent{}, err
 		}
 	}
@@ -236,6 +270,75 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 	updated.Impacts, _ = s.ListScenarioImpactsV2(ctx, updated.ID)
 	return updated, nil
+}
+
+// updateStartImpactTarget updates the linked financial item for a 'start' impact.
+// This syncs the amount, frequency, category, growth_rate, and growth_strategy
+// from the impact to the actual financial record.
+func (s *Store) updateStartImpactTarget(ctx context.Context, tx pgx.Tx, imp *ScenarioImpact) error {
+	// Determine frequency string for income/expense tables
+	freq := string(imp.Cadence)
+	if freq == "" {
+		freq = "monthly"
+	}
+
+	// Get category (use empty string if not set)
+	category := imp.Category
+
+	// Get growth strategy - map frontend values to DB values
+	// Frontend: none, annual_step, compound → DB: fixed, annual_step, compound_monthly
+	growthStrategy := imp.GrowthStrategy
+	switch growthStrategy {
+	case "none", "":
+		growthStrategy = "fixed"
+	case "compound":
+		growthStrategy = "compound_monthly"
+	// annual_step stays as is
+	}
+
+	// Debug log
+	fmt.Printf("[updateStartImpactTarget] Amount=%d Cadence=%q freq=%q category=%q growthRate=%v growthStrategy=%q\n",
+		imp.Amount, imp.Cadence, freq, category, imp.GrowthRate, growthStrategy)
+
+	if imp.TargetAssetID != nil {
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_assets SET current_value = $1, category = COALESCE(NULLIF($2, ''), category), growth_rate = COALESCE($3, growth_rate), updated_at = NOW() WHERE id = $4`,
+			imp.Amount, category, imp.GrowthRate, *imp.TargetAssetID)
+		return err
+	}
+	if imp.TargetLiabilityID != nil {
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_liabilities SET current_balance = $1, category = COALESCE(NULLIF($2, ''), category), updated_at = NOW() WHERE id = $3`,
+			imp.Amount, category, *imp.TargetLiabilityID)
+		return err
+	}
+	if imp.TargetIncomeID != nil {
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_incomes SET amount = $1, frequency = $2, category = COALESCE(NULLIF($3, ''), category), growth_rate = COALESCE($4, growth_rate), growth_strategy = COALESCE(NULLIF($5, ''), growth_strategy), updated_at = NOW() WHERE id = $6`,
+			imp.Amount, freq, category, imp.GrowthRate, growthStrategy, *imp.TargetIncomeID)
+		return err
+	}
+	if imp.TargetExpenseID != nil {
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_expenses SET amount = $1, frequency = $2, category = COALESCE(NULLIF($3, ''), category), growth_rate = COALESCE($4, growth_rate), growth_strategy = COALESCE(NULLIF($5, ''), growth_strategy), updated_at = NOW() WHERE id = $6`,
+			imp.Amount, freq, category, imp.GrowthRate, growthStrategy, *imp.TargetExpenseID)
+		return err
+	}
+	if imp.TargetCashAccountID != nil {
+		// Cash accounts use account_type instead of category
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_cash_accounts SET balance = $1, account_type = COALESCE(NULLIF($2, ''), account_type), updated_at = NOW() WHERE id = $3`,
+			imp.Amount, category, *imp.TargetCashAccountID)
+		return err
+	}
+	if imp.TargetInvestmentID != nil {
+		// Investments use growth_rate (not annual_growth_rate)
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_investments SET current_value = $1, category = COALESCE(NULLIF($2, ''), category), growth_rate = COALESCE($3, growth_rate), updated_at = NOW() WHERE id = $4`,
+			imp.Amount, category, imp.GrowthRate, *imp.TargetInvestmentID)
+		return err
+	}
+	return nil
 }
 
 // DeleteScenarioEventV2 removes an event for a user.
@@ -266,13 +369,33 @@ func (s *Store) ToggleScenarioIncludedV2(ctx context.Context, userID, eventID st
 }
 
 // ListScenarioImpactsV2 lists impacts for an event using typed FK columns.
+// Joins with target tables to derive name, currency, frequency, dates, and notes from the linked financial item.
 func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]ScenarioImpact, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, event_id, impact_kind, amount, currency, cadence, start_date, end_date, notes, created_at,
-		       target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id
-		FROM scenario_event_impacts
-		WHERE event_id = $1
-		ORDER BY start_date ASC NULLS LAST, created_at ASC`, eventID)
+		SELECT
+			sei.id, sei.event_id, sei.impact_kind, sei.amount, sei.cadence, sei.created_at,
+			sei.target_asset_id, sei.target_liability_id, sei.target_income_id,
+			sei.target_expense_id, sei.target_cash_account_id, sei.target_investment_id,
+			-- Derived from financial item
+			COALESCE(a.name, l.name, inc.name, exp.name, ca.name, inv.name, '') as target_name,
+			'SGD' as target_currency,
+			COALESCE(inc.frequency, exp.frequency, '') as target_frequency,
+			COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as target_start_date,
+			COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as target_end_date,
+			COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as target_notes,
+			-- Advanced fields from financial item (ca uses account_type instead of category)
+			COALESCE(a.category, l.category, inc.category, exp.category, ca.account_type, inv.category, '') as target_category,
+			COALESCE(a.growth_rate, inv.growth_rate, inc.growth_rate, exp.growth_rate) as target_growth_rate,
+			COALESCE(inc.growth_strategy, exp.growth_strategy, '') as target_growth_strategy
+		FROM scenario_event_impacts sei
+		LEFT JOIN finance_assets a ON sei.target_asset_id = a.id
+		LEFT JOIN finance_liabilities l ON sei.target_liability_id = l.id
+		LEFT JOIN finance_incomes inc ON sei.target_income_id = inc.id
+		LEFT JOIN finance_expenses exp ON sei.target_expense_id = exp.id
+		LEFT JOIN finance_cash_accounts ca ON sei.target_cash_account_id = ca.id
+		LEFT JOIN finance_investments inv ON sei.target_investment_id = inv.id
+		WHERE sei.event_id = $1
+		ORDER BY sei.created_at ASC`, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -283,9 +406,10 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 		var imp ScenarioImpact
 		// pgx scans NULL directly into pointer fields
 		if err := rows.Scan(
-			&imp.ID, &imp.EventID, &imp.ImpactKind, &imp.Amount, &imp.Currency, &imp.Cadence,
-			&imp.StartDate, &imp.EndDate, &imp.Notes, &imp.CreatedAt,
+			&imp.ID, &imp.EventID, &imp.ImpactKind, &imp.Amount, &imp.Cadence, &imp.CreatedAt,
 			&imp.TargetAssetID, &imp.TargetLiabilityID, &imp.TargetIncomeID, &imp.TargetExpenseID, &imp.TargetCashAccountID, &imp.TargetInvestmentID,
+			&imp.Name, &imp.Currency, &imp.Frequency, &imp.StartDate, &imp.EndDate, &imp.Notes,
+			&imp.Category, &imp.GrowthRate, &imp.GrowthStrategy,
 		); err != nil {
 			return nil, err
 		}
@@ -299,29 +423,29 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 }
 
 // insertImpactsV2 inserts impacts using typed FK columns.
-func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, eventID string, impacts []ScenarioImpact) error {
-	for i, imp := range impacts {
+// All impacts (including start) must have a pre-existing targetId - no auto-creation.
+// Stores: event_id, impact_kind, amount, cadence, and target FK columns.
+// Other values (name, currency, frequency, dates, notes) are derived from the linked financial item.
+func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, eventID string, impacts []ScenarioImpact) error {
+	for i := range impacts {
+		imp := &impacts[i]
+
 		targetID := imp.TargetID()
 		targetType := imp.TargetType()
+
+		// All impacts must have a valid target (pre-created by frontend)
 		if targetID == nil || strings.TrimSpace(*targetID) == "" || !scenario.IsValidTargetType(targetType) {
 			return scenario.ErrInvalidTargetCount
 		}
 
-		// Debug log: show exactly what we're inserting
-		fmt.Printf("insertImpactsV2[%d]: eventID=%s targetType=%s targetID=%s startDate=%v endDate=%v\n",
-			i, eventID, targetType, *targetID, imp.StartDate, imp.EndDate)
-
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO scenario_event_impacts
-			(event_id, impact_kind, amount, currency, cadence, start_date, end_date, notes,
-			 target_type, target_id,
+			(event_id, impact_kind, amount, cadence,
 			 target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-			eventID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartDate, imp.EndDate, imp.Notes,
-			targetType, *targetID,
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+			eventID, imp.ImpactKind, imp.Amount, imp.Cadence,
 			imp.TargetAssetID, imp.TargetLiabilityID, imp.TargetIncomeID, imp.TargetExpenseID, imp.TargetCashAccountID, imp.TargetInvestmentID,
 		); err != nil {
-			fmt.Printf("insertImpactsV2[%d] FAILED: %v\n", i, err)
 			return err
 		}
 	}
@@ -413,25 +537,32 @@ func decodeStringArray(b []byte) []string {
 }
 
 // scanImpactPgx constructs a ScenarioImpact from nullable pointer scan results (pgx style).
+// Impact table stores: id, event_id, impact_kind, amount, cadence, created_at, and target FK columns.
+// Other fields (name, currency, frequency, dates, notes, category, growth_rate, growth_strategy)
+// are derived from the joined financial item tables.
 func scanImpactPgx(
 	eventID string,
 	impID, impKind *string,
 	impAmount *int64,
-	impCurrency, impCadence *string,
-	impStartDate, impEndDate *time.Time,
-	impNotes *string,
+	impCadence *string,
 	impCreatedAt *time.Time,
 	targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID *string,
+	// Derived from financial item
+	targetName, targetCurrency, targetFrequency *string,
+	targetStartDate, targetEndDate *time.Time, targetNotes *string,
+	// Advanced fields from financial item
+	targetCategory *string, targetGrowthRate *float64, targetGrowthStrategy *string,
 ) ScenarioImpact {
 	imp := ScenarioImpact{
 		EventID:             eventID,
-		EndDate:             impEndDate,
 		TargetAssetID:       targetAssetID,
 		TargetLiabilityID:   targetLiabilityID,
 		TargetIncomeID:      targetIncomeID,
 		TargetExpenseID:     targetExpenseID,
 		TargetCashAccountID: targetCashAccountID,
 		TargetInvestmentID:  targetInvestmentID,
+		EndDate:             targetEndDate,
+		GrowthRate:          targetGrowthRate,
 	}
 	if impID != nil {
 		imp.ID = *impID
@@ -442,20 +573,34 @@ func scanImpactPgx(
 	if impAmount != nil {
 		imp.Amount = *impAmount
 	}
-	if impCurrency != nil {
-		imp.Currency = *impCurrency
-	}
 	if impCadence != nil {
 		imp.Cadence = common.Frequency(*impCadence)
 	}
-	if impNotes != nil {
-		imp.Notes = *impNotes
-	}
-	if impStartDate != nil {
-		imp.StartDate = *impStartDate
-	}
 	if impCreatedAt != nil {
 		imp.CreatedAt = *impCreatedAt
+	}
+	// Derived fields from financial item
+	if targetName != nil {
+		imp.Name = *targetName
+	}
+	if targetCurrency != nil {
+		imp.Currency = *targetCurrency
+	}
+	if targetFrequency != nil {
+		imp.Frequency = *targetFrequency
+	}
+	if targetStartDate != nil {
+		imp.StartDate = *targetStartDate
+	}
+	if targetNotes != nil {
+		imp.Notes = *targetNotes
+	}
+	// Advanced fields from financial item
+	if targetCategory != nil {
+		imp.Category = *targetCategory
+	}
+	if targetGrowthStrategy != nil {
+		imp.GrowthStrategy = *targetGrowthStrategy
 	}
 	return imp
 }

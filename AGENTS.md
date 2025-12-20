@@ -323,8 +323,8 @@ financial-chat-system/
 **Frontend (ready now):**
 ```bash
 cd frontend
-npm install
-npm run dev    # http://localhost:3000
+pnpm install
+pnpm run dev    # http://localhost:3000
 ```
 
 **Backend (needs implementation):**
@@ -644,3 +644,328 @@ onSuccess: (data) => {
 - All IDs must use UUID()
 - All database dates must use timestamptz
 - Migration filenames must be timestamp-based (e.g., 20250101001_description.up/down.sql), placed under backend/migrations, and numbered after the latest timestamp.
+
+---
+
+# Backend-Specific Guidelines
+
+## CRITICAL: Use financial_v2 Store, Not financial (v1)
+
+**DO NOT use `internal/financial/repository/store.go` (v1 Store).**
+
+The v1 Store is **DEPRECATED**. All new development and handler migrations MUST use the v2 Store:
+- Import: `finRepoV2 "financial-chat-system/backend/internal/financial_v2/repository"`
+- The v2 Store uses `decimal.Decimal` for monetary values (not `float64`)
+- v2 methods return pointers for single-item queries (`*Type` instead of `Type`)
+
+When migrating handlers from v1 to v2:
+1. Change import from `internal/financial/repository` to `internal/financial_v2/repository`
+2. Update handler constructor to accept `*finRepoV2.Store`
+3. Use string types for decimal JSON inputs (see Decimal Handling below)
+4. Handle pointer returns appropriately
+
+## P0: Decimal Handling in API Handlers
+
+**NEVER use `float64` for monetary values in JSON input structs.** Float64 causes precision loss.
+
+### Correct Pattern for JSON Input Structs
+
+Use `string` type for all decimal fields (amounts, rates, percentages):
+
+```go
+// CORRECT: Use string for decimal values
+type createInput struct {
+    Amount     string  `json:"amount"`      // Required decimal
+    GrowthRate *string `json:"growthRate"`  // Optional decimal
+}
+
+// WRONG: Never use float64 for money
+type createInput struct {
+    Amount     float64 `json:"amount"`
+    GrowthRate float64 `json:"growthRate"`
+}
+```
+
+### Parsing Decimal Strings in Handlers
+
+```go
+// Required field
+amount, err := decimal.NewFromString(input.Amount)
+if err != nil {
+    badRequest(w, err)
+    return
+}
+
+// Optional field
+var growthRate *decimal.Decimal
+if input.GrowthRate != nil && *input.GrowthRate != "" {
+    gr, err := decimal.NewFromString(*input.GrowthRate)
+    if err != nil {
+        badRequest(w, err)
+        return
+    }
+    growthRate = gr
+}
+
+// Build repository struct
+item := repo.Item{
+    Amount: *amount,
+}
+if growthRate != nil {
+    item.GrowthRate = *growthRate
+}
+```
+
+### Reference: Decimal Package
+
+Located at `internal/decimal/decimal.go`, wraps `github.com/cockroachdb/apd/v3`:
+
+- `decimal.NewFromString(s)` - Parse string to decimal (preferred)
+- `decimal.Zero()` - Returns 0
+- `decimal.One()` - Returns 1
+- Methods: `.Add()`, `.Sub()`, `.Mul()`, `.Div()`, `.Round()`, `.Cmp()`
+- Contexts: `MoneyContext` (2 decimal), `PercentageContext`, `GrowthContext`
+
+## Repository Structure
+
+### Deprecated vs Active Code
+
+| Path | Status | Notes |
+|------|--------|-------|
+| `internal/financial/repository/store.go` | **DEPRECATED** | v1 repository - DO NOT USE for new features |
+| `internal/financial_v2/repository/store.go` | **ACTIVE** | v2 repository - all new features go here |
+| `internal/financial_v2/repository/expense.go` | **ACTIVE** | Expense CRUD operations (v2) |
+| `cmd/server/handlers/` | **ACTIVE** | HTTP handlers (being migrated to v2 store) |
+
+### Key Differences: v1 vs v2
+
+| Feature | v1 (`financial/`) | v2 (`financial_v2/`) |
+|---------|-------------------|----------------------|
+| Decimal handling | `float64` | `decimal.Decimal` |
+| Error handling | `repository.ErrNotFound` | `repository.ErrNotFound` |
+| Return types | Direct structs | Pointer returns (`*Type`) |
+| Query logging | None | `logQuery()` debug support |
+
+## Database Schema Details
+
+### Entity Relationships
+
+See `/specs/income-relationships-schema.md` for full ERD documentation.
+
+Key tables:
+- `finance_incomes` - Income records with optional source (polymorphic FK)
+- `finance_expenses` - Expense records with optional liability source
+- `finance_investments` - Investment accounts
+- `finance_cash_accounts` - Cash/bank accounts
+- `finance_liabilities` - Loans/debts
+- `income_allocations` - Distribution of income to destinations (v2 only)
+
+### Foreign Key Patterns
+
+1. **Direct FK** (DB-enforced): Used when target is single table
+   - `income_allocations.target_cash_account_id -> finance_cash_accounts.id`
+   - `income_allocations.target_investment_id -> finance_investments.id`
+
+2. **Polymorphic FK** (App-enforced): Used when target can be multiple tables
+   - `finance_incomes.source_type + source_id` -> investments OR cash_accounts
+   - Requires app-level cascade delete
+
+### Cascade Delete Behavior
+
+| Relationship | Type | Cascade |
+|--------------|------|---------|
+| income -> allocations | DB FK | DB-level (ON DELETE CASCADE) |
+| cash_account -> allocations | DB FK | DB-level (ON DELETE CASCADE) |
+| investment -> allocations | DB FK | DB-level (ON DELETE CASCADE) |
+| investment -> incomes (source) | Polymorphic | App-level (handler code) |
+| cash_account -> incomes (source) | Polymorphic | App-level (handler code) |
+| liability -> expenses | DB FK | DB-level (ON DELETE CASCADE) |
+
+## Backend Development Guidelines
+
+### Adding New Features
+
+1. Add models and methods to `internal/financial_v2/repository/store.go`
+2. Use `decimal.Decimal` for all monetary values
+3. Return pointers for single-item queries
+4. Use proper error wrapping with `fmt.Errorf`
+
+### SQL Style
+
+1. **Use CTEs over nested subqueries** - CTEs (`WITH` clauses) are more readable
+   ```sql
+   -- Good: CTE
+   WITH paginated_events AS (
+       SELECT * FROM scenario_events
+       WHERE user_id = $1
+       LIMIT $2 OFFSET $3
+   )
+   SELECT e.*, i.*
+   FROM paginated_events e
+   LEFT JOIN scenario_event_impacts i ON i.event_id = e.id
+
+   -- Avoid: Nested subquery
+   SELECT e.*, i.*
+   FROM (SELECT * FROM scenario_events WHERE user_id = $1 LIMIT $2 OFFSET $3) e
+   LEFT JOIN scenario_event_impacts i ON i.event_id = e.id
+   ```
+
+2. **Avoid N+1 queries** - Use JOINs or batch queries instead of looping
+3. **Use pgx directly** - `financial_v2` uses `pgxpool`, not `database/sql`
+
+### Testing Queries
+
+Enable SQL logging by setting `repository.DebugSQL = true` in v2 store.
+
+---
+
+# Frontend-Specific Guidelines
+
+## Package Manager
+
+**Use pnpm only.** Do not use npm or yarn.
+
+- Lockfiles are gitignored (`pnpm-lock.yaml`, `package-lock.json`)
+- Install: `pnpm install`
+- Add package: `pnpm add <package>`
+- Run script: `pnpm run <script>`
+
+## Frontend Reusable Components
+
+### CollapsibleSection (`src/components/dashboard/FinancialDataManagement/components/CollapsibleSection.tsx`)
+
+A reusable collapsible section component system with three exports:
+
+#### `CollapsibleSection`
+Container component for collapsible content with a clickable header.
+
+**Props:**
+- `title: string` - Section title (displayed uppercase)
+- `total: number` - Total amount to display (formatted as currency)
+- `totalSuffix?: string` - Optional suffix (e.g., `/mo`, `/yr`)
+- `defaultCollapsed?: boolean` - Initial collapsed state (default: `true`)
+- `children: ReactNode` - Content to show when expanded
+
+**Usage:**
+```tsx
+<CollapsibleSection title="Bank Accounts" total={43000}>
+  {/* Items here */}
+</CollapsibleSection>
+```
+
+#### `CollapsibleItem`
+A row component for items inside CollapsibleSection with click-to-select behavior.
+
+**Props:**
+- `id: string` - Unique identifier for the item
+- `name: string` - Display name
+- `amount: number` - Amount to display
+- `amountSuffix?: string` - Optional suffix (e.g., `/mo`, `/yr`, `%`)
+- `formatAsCurrency?: boolean` - Whether to format as currency (default: `true`, auto-disabled for `%` suffix)
+- `isSelected: boolean` - Whether item is currently selected
+- `onSelect: (id: string) => void` - Selection handler
+- `onEdit?: () => void` - Optional edit handler (shows edit button when selected)
+- `onDelete?: () => void` - Optional delete handler (shows delete button when selected)
+
+**Usage:**
+```tsx
+<CollapsibleItem
+  id="item-1"
+  name="Savings Account"
+  amount={25000}
+  isSelected={selectedId === 'item-1'}
+  onSelect={handleSelect}
+  onEdit={() => handleEdit(item)}
+  onDelete={() => handleDelete(item.id)}
+/>
+```
+
+#### `useCollapsibleSelection`
+A hook for managing selection state with click-outside handling.
+
+**Returns:**
+- `selectedId: string | null` - Currently selected item ID
+- `handleSelect: (id: string) => void` - Toggle selection handler
+- `sectionRef: RefObject<HTMLDivElement>` - Ref to attach to container for click-outside detection
+
+**Usage:**
+```tsx
+function MySection() {
+  const { selectedId, handleSelect, sectionRef } = useCollapsibleSelection()
+
+  return (
+    <div ref={sectionRef}>
+      <CollapsibleSection title="Items" total={1000}>
+        {items.map(item => (
+          <CollapsibleItem
+            key={item.id}
+            id={item.id}
+            name={item.name}
+            amount={item.amount}
+            isSelected={selectedId === item.id}
+            onSelect={handleSelect}
+          />
+        ))}
+      </CollapsibleSection>
+    </div>
+  )
+}
+```
+
+### GroupedItemsSection (`src/components/dashboard/FinancialDataManagement/components/CategoryCard.tsx`)
+
+A component that groups financial items by their `category` field and renders each group as a CollapsibleSection.
+
+**Features:**
+- Automatically groups items by `item.category`
+- Hides categories with $0 total
+- Sorts categories alphabetically (with "Other" at the end)
+- Formats category names (e.g., `bank_account` → "Bank Accounts")
+
+**Props:**
+- `items: TimelineItem[]` - Items to group and display
+- `financialCategory: FinancialCategory` - The financial type ('asset' | 'liability' | 'income' | 'expense')
+- `summarizeAmount: (item: TimelineItem) => number` - Function to get display amount
+- `selectedItemId`, `onSelectItem`, `onEditItem`, `onDeleteItem`, etc. - Standard item interaction handlers
+
+**Usage:**
+```tsx
+<GroupedItemsSection
+  items={assets}
+  financialCategory="asset"
+  summarizeAmount={summarizeAmount}
+  selectedItemId={selectedItemId}
+  onSelectItem={onSelectItem}
+  onEditItem={onEditItem}
+  onDeleteItem={onDeleteItem}
+  // ... other props
+/>
+```
+
+### `formatCategoryName` (internal helper)
+
+Converts category field values to display names:
+- `bank_account` → "Bank Accounts"
+- `real_estate` → "Real Estate"
+- `cpf` → "CPF"
+- Unknown categories: converts snake_case/camelCase to Title Case
+
+## Category Name Mappings
+
+The following category values are mapped to friendly display names:
+
+| Category Value | Display Name |
+|---------------|--------------|
+| `bank_account` | Bank Accounts |
+| `bank` | Bank Accounts |
+| `savings` | Savings |
+| `cash` | Cash |
+| `property` | Property |
+| `real_estate` | Real Estate |
+| `vehicle` | Vehicles |
+| `other` | Other Assets |
+| `investment` | Investments |
+| `cpf` | CPF |
+| `stocks` | Stocks |
+| `bonds` | Bonds |
+| `crypto` | Crypto |

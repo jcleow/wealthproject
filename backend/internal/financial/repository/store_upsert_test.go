@@ -27,7 +27,7 @@ func TestCreateFinancialRowsUpsertByParentAndStartDate(t *testing.T) {
 		{
 			name:    "asset",
 			pattern: `(?s)INSERT INTO finance_assets .*ON CONFLICT ON CONSTRAINT finance_assets_parent_start_date_key DO UPDATE`,
-			columns: []string{"id", "parent_id", "name", "category", "current_value", "annual_growth_rate", "start_date", "end_date", "notes", "updated_at"},
+			columns: []string{"id", "parent_id", "name", "category", "current_value", "growth_rate", "start_date", "end_date", "notes", "updated_at"},
 			values:  []driver.Value{"row-asset", "asset-parent", "Cash", "asset_cash", 2000.0, 0.0, now, nil, "", now},
 			args:    9,
 			call: func(ctx context.Context, s *Store) error {
@@ -70,7 +70,7 @@ func TestCreateFinancialRowsUpsertByParentAndStartDate(t *testing.T) {
 			call: func(ctx context.Context, s *Store) error {
 				_, err := s.CreateIncome(ctx, "test-user", Income{
 					ParentID:  "income-parent",
-					Source:    "Salary",
+					Name:      "Salary",
 					Amount:    8000,
 					Frequency: "monthly",
 					StartDate: now,
@@ -88,7 +88,7 @@ func TestCreateFinancialRowsUpsertByParentAndStartDate(t *testing.T) {
 			call: func(ctx context.Context, s *Store) error {
 				_, err := s.CreateExpense(ctx, "test-user", Expense{
 					ParentID:  "expense-parent",
-					Payee:     "Rent",
+					Name:      "Rent",
 					Amount:    2500,
 					Frequency: "monthly",
 					StartDate: now,

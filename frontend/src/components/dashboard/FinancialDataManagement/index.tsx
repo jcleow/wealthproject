@@ -510,17 +510,20 @@ export function FinancialDataManagement({
       isDebtRepayment,
     })
 
+    // Check if we're in a future month (not at anchor)
+    const isFutureMonth = !isAtAnchorMonth
+
     // For future month edits (not at anchor), use versioned updates that stop+create
     // This properly handles versioning by setting end_date on parent and creating new version
-    const isFutureMonthEdit = mode === 'edit' && !isAtAnchorMonth && !isDebtRepayment
+    const isFutureMonthEdit = mode === 'edit' && isFutureMonth && !isDebtRepayment
 
-    // Calculate startDate for versioned updates (first day of selected month in UTC)
+    // Calculate startDate for future months (first day of selected month in UTC)
+    // Used for both CREATE (new items start at selected month) and EDIT (versioned updates)
     // Use Date.UTC to avoid timezone issues - we want 2026-02-01T00:00:00Z not local time
-    const versionStartDate = isFutureMonthEdit && selectedYear && selectedMonth
+    const futureMonthStartDate = isFutureMonth && selectedYear && selectedMonth
       ? new Date(Date.UTC(selectedYear, selectedMonth - 1, 1)).toISOString()
       : undefined
 
-    console.log('[handleModalSave] Using direct API path', { isFutureMonthEdit, versionStartDate })
     switch (payload.type) {
       case 'cpf': {
         await Promise.all(
@@ -531,6 +534,7 @@ export function FinancialDataManagement({
               currentValue: account.currentValue,
               annualGrowthRate: account.annualGrowthRate,
               notes: account.notes ?? undefined,
+              ...(futureMonthStartDate && { startDate: futureMonthStartDate }),
             })
           )
         )
@@ -545,10 +549,13 @@ export function FinancialDataManagement({
           await updateAsset(targetId, {
             ...values,
             updatedAt: timestamp,
-            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: versionStartDate }),
+            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: futureMonthStartDate }),
           })
         } else {
-          await addAsset(values)
+          await addAsset({
+            ...values,
+            ...(futureMonthStartDate && { startDate: futureMonthStartDate }),
+          })
         }
         break
       }
@@ -560,10 +567,14 @@ export function FinancialDataManagement({
           await updateIncome(targetId, {
             ...values,
             updatedAt: timestamp,
-            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: versionStartDate }),
+            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: futureMonthStartDate }),
           })
         } else {
-          await addIncome(values)
+          await addIncome({
+            ...values,
+            // Override the form's startDate with selected month if in future
+            ...(futureMonthStartDate && { startDate: futureMonthStartDate }),
+          })
         }
         break
       }
@@ -575,10 +586,13 @@ export function FinancialDataManagement({
           await updateLiability(targetId, {
             ...values,
             updatedAt: timestamp,
-            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: versionStartDate }),
+            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: futureMonthStartDate }),
           })
         } else {
-          await addLiability(values)
+          await addLiability({
+            ...values,
+            ...(futureMonthStartDate && { startDate: futureMonthStartDate }),
+          })
         }
         break
       }
@@ -592,10 +606,13 @@ export function FinancialDataManagement({
             ...values,
             sourceLiabilityId,
             updatedAt: timestamp,
-            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: versionStartDate }),
+            ...(isFutureMonthEdit && { updateMode: 'versioned', startDate: futureMonthStartDate }),
           })
         } else {
-          await addExpense(values)
+          await addExpense({
+            ...values,
+            ...(futureMonthStartDate && { startDate: futureMonthStartDate }),
+          })
         }
         break
       }
@@ -606,7 +623,10 @@ export function FinancialDataManagement({
           if (!targetId) throw new Error('Unable to update investment: missing item id')
           await updateInvestmentMutation.mutateAsync({ id: targetId, updates: { ...values, updatedAt: timestamp } })
         } else {
-          await createInvestmentMutation.mutateAsync(values)
+          await createInvestmentMutation.mutateAsync({
+            ...values,
+            ...(futureMonthStartDate && { startDate: futureMonthStartDate }),
+          })
         }
         await refresh()
         break
@@ -658,7 +678,7 @@ export function FinancialDataManagement({
   const handleManageAllocations = (item: TimelineItem) => {
     const id = getItemId(item)
     if (!id) return
-    const name = 'source' in item ? (item as any).source : item.name ?? 'Income'
+    const name = item.name ?? 'Income'
     const amount = item.amountAnnual ?? (item.amountMonthly ?? 0) * 12
     setAllocationModalState({
       isOpen: true,
@@ -672,7 +692,7 @@ export function FinancialDataManagement({
   const handleEditAllocation = (allocation: IncomeAllocation) => {
     const income = yearIncomes.find((i) => getItemId(i) === allocation.incomeId)
     if (!income) return
-    const name = 'source' in income ? (income as any).source : income.name ?? 'Income'
+    const name = income.name ?? 'Income'
     const amount = income.amountAnnual ?? (income.amountMonthly ?? 0) * 12
     setAllocationModalState({
       isOpen: true,

@@ -38,11 +38,12 @@ export function expandImpactsForPayload({
     }
 
     if (verb === 'starts_at') {
-      // For new items, store the name in notes
+      // For new items, set the name field for the created financial item
       const itemName = newItemNames[index]?.trim() || ''
       expandedImpacts.push({
         ...baseImpact,
-        notes: itemName ? `New: ${itemName}${baseImpact.notes ? ` - ${baseImpact.notes}` : ''}` : baseImpact.notes,
+        name: itemName || baseImpact.name,  // Store name in the name field
+        // Keep notes separate (don't duplicate name in notes)
       })
     } else {
       const targetId = selectedItemId[index]

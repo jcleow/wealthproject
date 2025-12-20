@@ -56,7 +56,7 @@ export type LiabilityFormValues = {
 export type IncomeFormValues = {
   type: 'income'
   id?: string
-  source: string
+  name: string
   amount: number
   frequency: Frequency
   category: string
@@ -69,7 +69,7 @@ export type IncomeFormValues = {
 export type ExpenseFormValues = {
   type: 'expense'
   id?: string
-  payee: string
+  name: string
   amount: number
   frequency: Frequency
   category: string

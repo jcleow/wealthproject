@@ -11,11 +11,12 @@ export async function listAssets(params?: PaginationParams): Promise<PaginatedRe
 }
 
 export async function createAsset(payload: Omit<Asset, 'id' | 'updatedAt'>): Promise<Asset> {
+  // Use string for decimal values to avoid float64 precision loss (matches updateAsset)
   const body: Record<string, unknown> = {
     name: payload.name,
     category: payload.category,
-    currentValue: payload.currentValue,
-    annualGrowthRate: payload.annualGrowthRate,
+    currentValue: payload.currentValue?.toString(),
+    annualGrowthRate: payload.annualGrowthRate?.toString(),
     notes: payload.notes,
   }
 

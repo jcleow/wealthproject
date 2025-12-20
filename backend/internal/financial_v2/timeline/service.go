@@ -115,39 +115,45 @@ func (s *Service) loadEffectiveRows(
 
 	g, gctx := errgroup.WithContext(ctx)
 
+	listQuery := repo.ListQuery{
+		UserID:     userID,
+		DateRange:  dateOpts,
+		Pagination: paginationOpts,
+	}
+
 	g.Go(func() error {
 		var err error
-		nonCashAssets, err = s.store.ListNonCashAssets(gctx, userID, dateOpts, paginationOpts)
+		nonCashAssets, err = s.store.ListNonCashAssets(gctx, listQuery)
 		return err
 	})
 
 	g.Go(func() error {
 		var err error
-		investments, err = s.store.ListInvestments(gctx, userID, dateOpts, paginationOpts)
+		investments, err = s.store.ListInvestments(gctx, listQuery)
 		return err
 	})
 
 	g.Go(func() error {
 		var err error
-		cashAssets, err = s.store.ListCashAssets(gctx, userID, dateOpts, paginationOpts)
+		cashAssets, err = s.store.ListCashAssets(gctx, listQuery)
 		return err
 	})
 
 	g.Go(func() error {
 		var err error
-		liabilities, err = s.store.ListLiabilities(gctx, userID, dateOpts, paginationOpts)
+		liabilities, err = s.store.ListLiabilities(gctx, listQuery)
 		return err
 	})
 
 	g.Go(func() error {
 		var err error
-		incomes, err = s.store.ListIncomes(gctx, userID, dateOpts, paginationOpts)
+		incomes, err = s.store.ListIncomes(gctx, listQuery)
 		return err
 	})
 
 	g.Go(func() error {
 		var err error
-		expenses, err = s.store.ListExpenses(gctx, userID, dateOpts, paginationOpts)
+		expenses, err = s.store.ListExpenses(gctx, listQuery)
 		return err
 	})
 
@@ -191,15 +197,17 @@ func (s *Service) loadEffectiveRows(
 
 	// Transform repository types to FinancialDataRow
 	// Filter out items from excluded scenarios
+	rows := EffectiveRows{
+		NonCashAssets: filterExcludedAssets(transformNonCashAssets(nonCashAssets.Data), excludedTargets.AssetIDs),
+		Investments:   filterExcludedInvestments(transformInvestments(investments.Data), excludedTargets.InvestmentIDs),
+		CashAssets:    filterExcludedCashAssets(transformCashAssets(cashAssets.Data), excludedTargets.CashAccountIDs),
+		Liabilities:   filterExcludedLiabilities(transformLiabilities(liabilities.Data), excludedTargets.LiabilityIDs),
+		Incomes:       filterExcludedIncomes(transformIncomes(incomes.Data), excludedTargets.IncomeIDs),
+		Expenses:      filterExcludedExpenses(transformExpenses(expenses.Data), excludedTargets.ExpenseIDs),
+	}
+
 	return SGFinancialDataRows{
-		Rows: EffectiveRows{
-			NonCashAssets: filterExcludedAssets(transformNonCashAssets(nonCashAssets.Data), excludedTargets.AssetIDs),
-			Investments:   filterExcludedInvestments(transformInvestments(investments.Data), excludedTargets.InvestmentIDs),
-			CashAssets:    filterExcludedCashAssets(transformCashAssets(cashAssets.Data), excludedTargets.CashAccountIDs),
-			Liabilities:   filterExcludedLiabilities(transformLiabilities(liabilities.Data), excludedTargets.LiabilityIDs),
-			Incomes:       filterExcludedIncomes(transformIncomes(incomes.Data), excludedTargets.IncomeIDs),
-			Expenses:      filterExcludedExpenses(transformExpenses(expenses.Data), excludedTargets.ExpenseIDs),
-		},
+		Rows:              rows,
 		CPFAccount:        mapToCPFAccount(cpfAccount),
 		IncomeAllocations: incomeAllocations,
 		ScenarioImpacts:   impactCtx,
@@ -251,7 +259,7 @@ func (s *Service) loadEffectiveRows(
 //	baseValue = $25,000
 //	itemInfo = {ItemType: "cash_asset", Frequency: "monthly"}
 //
-// STEP 3: ApplyImpactsToItemWithTracking()
+// STEP 3: ApplyImpactsToItem()
 //
 //	Pass 1 (stop):    No stop impacts → continue
 //	Pass 2 (override): No override impacts → continue
@@ -392,7 +400,7 @@ func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time, isAnchorM
 		//   Output: result.AdjustedValue = $225,051
 		//           result.AppliedImpacts = [{EventID: "event-abc", ImpactKind: "delta", ...}]
 		// ─────────────────────────────────────────────────────────────────────
-		result := scenario.ApplyImpactsToItemWithTracking(
+		result := scenario.ApplyImpactsToItem(
 			impacts,
 			baseValue,
 			currentDate,
@@ -415,37 +423,56 @@ func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time, isAnchorM
 		// ─────────────────────────────────────────────────────────────────────
 		// STEP 5: Persist impacts to State for accumulation
 		//
-		// Which impacts persist?
+		// BALANCE SHEET ITEMS (asset, liability, cash, investment):
 		//   - delta:    ✅ Accumulates (+$100k/month compounds over time)
+		//   - override: ✅ Replaces balance (account becomes $150k)
+		//   - start:    ✅ Item begins with new value (then grows)
+		//   - stop:     ❌ No persistence (value is $0)
+		//
+		// FLOW ITEMS (income, expense):
+		//   - delta:    ❌ Does NOT accumulate (each month = base + delta)
 		//   - override: ✅ Replaces base value (salary becomes $150k, then grows)
 		//   - start:    ✅ Item begins with new value (then grows)
-		//   - stop:     ❌ No persistence needed (value is $0, nothing to grow)
+		//   - stop:     ❌ No persistence (value is $0)
 		//
-		// Why skip anchor? Consistent with other mutations (CPF, allocations).
+		// Why? Balances carry forward; flows are recurring per-period amounts.
+		// If you get a $1k/month raise, your monthly income is base + $1k,
+		// NOT previous month's income + $1k.
 		//
-		// Example - Delta (isAnchorMonth = false):
+		// Example - Delta on cash account (isAnchorMonth = false):
 		//   State["cash-123"] = $125,051
 		//   Delta +$100k applied → AdjustedValue = $225,051
-		//   Persist → State["cash-123"] = $225,051 (carries to next month with growth)
+		//   Persist → State["cash-123"] = $225,051 (carries to next month)
 		//
-		// Example - Override (isAnchorMonth = false):
-		//   State["income-456"] = $120,000 (old salary)
-		//   Override to $150k → AdjustedValue = $150,000
-		//   Persist → State["income-456"] = $150,000 (new salary, will grow next month)
+		// Example - Delta on income (isAnchorMonth = false):
+		//   State["income-456"] = $10,000 (monthly salary)
+		//   Delta +$1k applied → AdjustedValue = $11,000
+		//   NO persist → State stays $10,000 (delta reapplied each month)
 		//
-		// Example - Stop:
-		//   State["income-456"] = $120,000
-		//   Stop → AdjustedValue = $0
-		//   NO persist → State stays $120,000 (but EventAdjustedState shows $0)
-		//   Why? Stop is checked each month; if stop ends, base value should resume
+		// Example - Override on income (isAnchorMonth = false):
+		//   State["income-456"] = $10,000 (old monthly salary)
+		//   Override to $12k → AdjustedValue = $12,000
+		//   Persist → State["income-456"] = $12,000 (new base salary)
 		// ─────────────────────────────────────────────────────────────────────
 		if !isAnchorMonth && len(result.AppliedImpacts) > 0 {
-			// Check if any non-stop impact was applied
+			// Determine if this item type should persist delta impacts
+			isFlowItem := itemState.Row.ItemType == FinIncome || itemState.Row.ItemType == FinExpense
+
+			// Check which impact types were applied
 			shouldPersist := false
 			for _, appliedImpact := range result.AppliedImpacts {
-				if appliedImpact.ImpactKind != scenario.ImpactKindStop {
+				switch appliedImpact.ImpactKind {
+				case scenario.ImpactKindStop:
+					// Stop never persists
+					continue
+				case scenario.ImpactKindDelta:
+					// Delta only persists for balance sheet items
+					if !isFlowItem {
+						shouldPersist = true
+					}
+				default:
+					// Override and start always persist
 					shouldPersist = true
-					break
 				}
 			}
 			if shouldPersist {

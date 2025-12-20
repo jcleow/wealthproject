@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import type { ScenarioEvent, ScenarioImpact } from '@/types/scenario'
 import { useCreateScenarioEventMutation, useUpdateScenarioEventMutation, useDeleteScenarioEventMutation } from '@/hooks/queries/useScenarioEventsQuery'
 import { useScenarioEvent } from '@/hooks/useScenarioEvent'
+import { financialApi } from '@/api/financial'
 import { Modal } from '@/components/ui/Modal'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -13,6 +14,50 @@ import { ModalHeader, ModalFooter, ScenarioFormFields, ImpactList, getTargetType
 import { validateScenarioEvent, expandImpactsForPayload } from './logic'
 
 const CalendarClockIcon = LucideIcons.CalendarClock as LucideIcon | undefined
+
+// Helper to update a financial item's name by finding it in the loaded data and sending the full payload
+// TODO: Optimize by using a Map/index for O(1) lookup instead of O(N) find()
+function updateFinancialItemName(
+  targetType: string,
+  itemId: string,
+  newName: string,
+  financialItems: ReturnType<typeof useFinancialItems>
+): Promise<unknown> | null {
+  switch (targetType) {
+    case 'income': {
+      const item = financialItems.incomes.find(i => i.id === itemId)
+      if (!item) return null
+      return financialApi.updateIncome(itemId, { ...item, name: newName })
+    }
+    case 'expense': {
+      const item = financialItems.expenses.find(i => i.id === itemId)
+      if (!item) return null
+      return financialApi.updateExpense(itemId, { ...item, name: newName })
+    }
+    case 'asset': {
+      const item = financialItems.assets.find(i => i.id === itemId)
+      if (!item) return null
+      return financialApi.updateAsset(itemId, { ...item, name: newName })
+    }
+    case 'liability': {
+      const item = financialItems.liabilities.find(i => i.id === itemId)
+      if (!item) return null
+      return financialApi.updateLiability(itemId, { ...item, name: newName })
+    }
+    case 'investment': {
+      const item = financialItems.investments?.find(i => i.id === itemId)
+      if (!item) return null
+      return financialApi.updateInvestment(itemId, { ...item, name: newName })
+    }
+    case 'cash': {
+      const item = financialItems.cashAccounts?.find(i => i.id === itemId)
+      if (!item) return null
+      return financialApi.updateCashAccount(itemId, { ...item, name: newName })
+    }
+    default:
+      return null
+  }
+}
 
 interface ScenarioEventModalProps {
   isOpen: boolean
@@ -51,7 +96,11 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
   useEffect(() => {
     if (!isOpen) return
     setConfirmDelete(false)
-    hydratedEvent ? itemSelector.setNewItemNames({}) : itemSelector.resetSelections()
+    // Only reset selections when creating new (no hydratedEvent)
+    // For editing, the useImpactItemSelector hook handles hydrating newItemNames from impact.name
+    if (!hydratedEvent) {
+      itemSelector.resetSelections()
+    }
   }, [hydratedEvent, isOpen])
 
   const handleImpactChange = useCallback((index: number, update: Partial<ScenarioImpact>) => {
@@ -93,6 +142,31 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
       const saved = existingId
         ? await updateMutation.mutateAsync({ id: existingId, event: { ...hydratedEvent, ...payload } as ScenarioEvent })
         : await createMutation.mutateAsync(payload)
+
+      // Update financial item names for start impacts that have been renamed
+      const updatePromises: Promise<unknown>[] = []
+      form.impacts.forEach((impact, index) => {
+        if (impact.impactKind === 'start') {
+          const itemId = itemSelector.selectedItemId[index]
+          const newName = itemSelector.newItemNames[index]
+          const originalImpact = hydratedEvent?.impacts?.[index]
+          const originalName = originalImpact?.name
+
+          // Only update if there's an existing item and the name changed
+          if (itemId && newName && newName !== originalName) {
+            const updatePromise = updateFinancialItemName(impact.targetType, itemId, newName, financialItems)
+            if (updatePromise) {
+              updatePromises.push(updatePromise)
+            }
+          }
+        }
+      })
+
+      // Fire and forget - don't block on these updates
+      if (updatePromises.length > 0) {
+        Promise.all(updatePromises).catch(console.error)
+      }
+
       onSaved?.(saved)
       onClose()
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save.') }
@@ -220,6 +294,13 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
             </div>
           )}
 
+          {/* Hint when no impacts */}
+          {form.occursOn && form.impacts.length === 0 && (
+            <p className="mt-4 text-sm text-amber-400/70 text-center">
+              Add at least one impact to save this event.
+            </p>
+          )}
+
           <ModalFooter
             isEditing={!!event}
             confirmDelete={confirmDelete}
@@ -229,7 +310,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
             onClose={onClose}
             saving={saving}
             deleting={deleting}
-            disabled={loadingState}
+            disabled={loadingState || form.impacts.length === 0}
           />
         </div>
       </div>

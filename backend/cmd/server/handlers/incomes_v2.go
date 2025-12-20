@@ -16,7 +16,7 @@ import (
 type incomeV2Input struct {
 	ID             string  `json:"id"`
 	ParentID       string  `json:"parentId"`
-	Source         string  `json:"source"`
+	Name           string  `json:"name"`
 	Category       string  `json:"category"`
 	Amount         string  `json:"amount"`
 	Frequency      string  `json:"frequency"`
@@ -44,7 +44,7 @@ func NewIncomeV2Handler(store *repo.Store) *IncomeV2Handler {
 // incomeV2CreateInput is the JSON-friendly input struct for income v2 create.
 // Uses string for decimal values to avoid float64 precision loss.
 type incomeV2CreateInput struct {
-	Source         string  `json:"source"`
+	Name           string  `json:"name"`
 	Category       string  `json:"category"`
 	Amount         string  `json:"amount"`
 	Frequency      string  `json:"frequency"`
@@ -82,8 +82,8 @@ func (h *IncomeV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Source == "" || input.Amount == "" || input.Frequency == "" || input.Category == "" {
-		badRequest(w, errMissingFields("source, amount, frequency, category"))
+	if input.Name == "" || input.Amount == "" || input.Frequency == "" || input.Category == "" {
+		badRequest(w, errMissingFields("name, amount, frequency, category"))
 		return
 	}
 
@@ -129,7 +129,7 @@ func (h *IncomeV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 
 	// Build repository income
 	inc := repo.Income{
-		Source:         input.Source,
+		Name:           input.Name,
 		Category:       input.Category,
 		Amount:         *amount,
 		Frequency:      input.Frequency,
@@ -172,7 +172,11 @@ func (h *IncomeV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pagination := parsePaginationV2(r)
-	result, err := h.store.ListIncomes(r.Context(), userID, repo.DateRangeOptions{}, pagination)
+	result, err := h.store.ListIncomes(r.Context(), repo.ListQuery{
+		UserID:     userID,
+		DateRange:  repo.DateRangeOptions{},
+		Pagination: pagination,
+	})
 	if err != nil {
 		log.Printf("income.List error: %v", err)
 		internalError(w, err)
@@ -240,7 +244,7 @@ func (h *IncomeV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, i
 	// Build service input
 	serviceInput := income.UpdateInput{
 		ID:             id,
-		Source:         input.Source,
+		Name:           input.Name,
 		Category:       input.Category,
 		Amount:         *amount,
 		Frequency:      input.Frequency,

@@ -153,7 +153,7 @@ func (h *LiabilityHandler) create(w http.ResponseWriter, r *http.Request) {
 			}
 			monthStart = time.Date(monthStart.Year(), monthStart.Month(), 1, 0, 0, 0, 0, monthStart.Location())
 			expense := repository.Expense{
-				Payee:             created.Name,
+				Name:              created.Name,
 				Amount:            created.MinimumPayment,
 				Frequency:         "monthly",
 				StartDate:         monthStart,

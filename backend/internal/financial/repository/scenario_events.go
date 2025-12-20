@@ -21,10 +21,31 @@ WITH filtered_events AS (
 	LIMIT $%d OFFSET $%d
 )
 SELECT fe.id, fe.user_id, fe.name, fe.description, fe.occurs_on, fe.display_icon, fe.display_color, fe.tags, fe.scenario_id, fe.is_included, fe.created_at, fe.updated_at,
-       imp.id, imp.event_id, imp.target_type, imp.target_id, imp.impact_kind, imp.amount, imp.currency, imp.cadence, imp.start_date, imp.end_date, imp.notes, imp.created_at
+       imp.id, imp.event_id,
+       CASE
+         WHEN imp.target_asset_id IS NOT NULL THEN 'asset'
+         WHEN imp.target_liability_id IS NOT NULL THEN 'liability'
+         WHEN imp.target_income_id IS NOT NULL THEN 'income'
+         WHEN imp.target_expense_id IS NOT NULL THEN 'expense'
+         WHEN imp.target_cash_account_id IS NOT NULL THEN 'cash_account'
+         WHEN imp.target_investment_id IS NOT NULL THEN 'investment'
+         ELSE ''
+       END as target_type,
+       COALESCE(imp.target_asset_id, imp.target_liability_id, imp.target_income_id, imp.target_expense_id, imp.target_cash_account_id, imp.target_investment_id) as target_id,
+       imp.impact_kind, imp.amount, 'SGD' as currency, imp.cadence,
+       COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as start_date,
+       COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as end_date,
+       COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as notes,
+       imp.created_at
 FROM filtered_events fe
 LEFT JOIN scenario_event_impacts imp ON imp.event_id = fe.id
-ORDER BY fe.occurs_on ASC, fe.created_at DESC, imp.start_date ASC NULLS LAST, imp.created_at ASC`
+LEFT JOIN finance_assets a ON imp.target_asset_id = a.id
+LEFT JOIN finance_liabilities l ON imp.target_liability_id = l.id
+LEFT JOIN finance_incomes inc ON imp.target_income_id = inc.id
+LEFT JOIN finance_expenses exp ON imp.target_expense_id = exp.id
+LEFT JOIN finance_cash_accounts ca ON imp.target_cash_account_id = ca.id
+LEFT JOIN finance_investments inv ON imp.target_investment_id = inv.id
+ORDER BY fe.occurs_on ASC, fe.created_at DESC, imp.created_at ASC`
 
 // ScenarioEvent represents a scenario event with impacts.
 type ScenarioEvent struct {
@@ -330,10 +351,31 @@ func (s *Store) ToggleScenarioIncluded(ctx context.Context, userID, eventID stri
 // ListScenarioImpacts lists impacts for an event.
 func (s *Store) ListScenarioImpacts(ctx context.Context, eventID string) ([]ScenarioImpact, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, event_id, target_type, target_id, impact_kind, amount, currency, cadence, start_date, end_date, notes, created_at
-		FROM scenario_event_impacts
-		WHERE event_id = $1
-		ORDER BY start_date ASC NULLS LAST, created_at ASC`, eventID)
+		SELECT imp.id, imp.event_id,
+		       CASE
+		         WHEN imp.target_asset_id IS NOT NULL THEN 'asset'
+		         WHEN imp.target_liability_id IS NOT NULL THEN 'liability'
+		         WHEN imp.target_income_id IS NOT NULL THEN 'income'
+		         WHEN imp.target_expense_id IS NOT NULL THEN 'expense'
+		         WHEN imp.target_cash_account_id IS NOT NULL THEN 'cash_account'
+		         WHEN imp.target_investment_id IS NOT NULL THEN 'investment'
+		         ELSE ''
+		       END as target_type,
+		       COALESCE(imp.target_asset_id, imp.target_liability_id, imp.target_income_id, imp.target_expense_id, imp.target_cash_account_id, imp.target_investment_id) as target_id,
+		       imp.impact_kind, imp.amount, 'SGD' as currency, imp.cadence,
+		       COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as start_date,
+		       COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as end_date,
+		       COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as notes,
+		       imp.created_at
+		FROM scenario_event_impacts imp
+		LEFT JOIN finance_assets a ON imp.target_asset_id = a.id
+		LEFT JOIN finance_liabilities l ON imp.target_liability_id = l.id
+		LEFT JOIN finance_incomes inc ON imp.target_income_id = inc.id
+		LEFT JOIN finance_expenses exp ON imp.target_expense_id = exp.id
+		LEFT JOIN finance_cash_accounts ca ON imp.target_cash_account_id = ca.id
+		LEFT JOIN finance_investments inv ON imp.target_investment_id = inv.id
+		WHERE imp.event_id = $1
+		ORDER BY imp.created_at ASC`, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +412,7 @@ func (s *Store) ListScenarioImpacts(ctx context.Context, eventID string) ([]Scen
 
 func insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, impacts []ScenarioImpact) error {
 	for _, imp := range impacts {
-		// Map target_type + target_id to typed FK columns for V2 compatibility
+		// Map target_type + target_id to typed FK columns
 		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID interface{}
 		switch imp.TargetType {
 		case "asset":
@@ -389,10 +431,10 @@ func insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, impacts []Sc
 
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO scenario_event_impacts
-			(event_id, target_type, target_id, impact_kind, amount, currency, cadence, start_date, end_date, notes,
+			(event_id, impact_kind, amount, cadence,
 			 target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
-			eventID, imp.TargetType, imp.TargetID, imp.ImpactKind, imp.Amount, imp.Currency, imp.Cadence, imp.StartDate, imp.EndDate, imp.Notes,
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+			eventID, imp.ImpactKind, imp.Amount, imp.Cadence,
 			targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID); err != nil {
 			return err
 		}

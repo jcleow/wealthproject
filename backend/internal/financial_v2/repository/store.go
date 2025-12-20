@@ -143,7 +143,7 @@ type Liability struct {
 type Income struct {
 	ID             string          `json:"id"`
 	ParentID       string          `json:"parentId"`
-	Source         string          `json:"source"`
+	Name           string          `json:"name"`
 	Amount         decimal.Decimal `json:"amount"`
 	Frequency      string          `json:"frequency"`
 	StartDate      time.Time       `json:"startDate"`         // Precise start date (day-level) - now required
@@ -162,7 +162,7 @@ type Income struct {
 type Expense struct {
 	ID                string          `json:"id"`
 	ParentID          string          `json:"parentId"`
-	Payee             string          `json:"payee"`
+	Name              string          `json:"name"`
 	Amount            decimal.Decimal `json:"amount"`
 	Frequency         string          `json:"frequency"`
 	StartDate         time.Time       `json:"startDate"`         // Precise start date (day-level)
@@ -199,6 +199,13 @@ type CPFAccount struct {
 type DateRangeOptions struct {
 	StartDate *time.Time // Filter items where start_date >= this
 	EndDate   *time.Time // Filter items where start_date <= this
+}
+
+// ListQuery consolidates common query parameters for list operations.
+type ListQuery struct {
+	UserID     string
+	DateRange  DateRangeOptions
+	Pagination PaginationParams
 }
 
 func addDateRangeFilterQuery(opts DateRangeOptions, argIdx int) (string, int) {
@@ -241,9 +248,7 @@ func addPaginationQuery(
 
 func (s *Store) ListNonCashAssets(
 	ctx context.Context,
-	userID string,
-	dateRangeOpts DateRangeOptions,
-	pagination PaginationParams,
+	q ListQuery,
 ) (PaginatedResult[NonCashAsset], error) {
 	query := `
 	SELECT id,
@@ -251,7 +256,7 @@ func (s *Store) ListNonCashAssets(
 		name,
 		category,
 		current_value,
-		annual_growth_rate,
+		growth_rate,
 		start_date,
 		end_date,
 		COALESCE(notes, '') as notes,
@@ -260,32 +265,32 @@ func (s *Store) ListNonCashAssets(
 	WHERE user_id = $1
 	`
 
-	args := []any{userID}
+	args := []any{q.UserID}
 	argIdx := 2 // i.e start 2
 
 	// Add dynamic date range filtering
-	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
+	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.StartDate != nil {
-			args = append(args, *dateRangeOpts.StartDate)
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
-		if dateRangeOpts.EndDate != nil {
-			args = append(args, *dateRangeOpts.EndDate)
+		if q.DateRange.EndDate != nil {
+			args = append(args, *q.DateRange.EndDate)
 		}
 	}
 
 	query += ` ORDER BY parent_id, start_date`
 
 	// Add pagination
-	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	paginationSubQuery, _ := addPaginationQuery(q.Pagination, argIdx)
 	if paginationSubQuery != "" {
 		query += " " + paginationSubQuery
-		if pagination.Limit != nil {
-			args = append(args, *pagination.Limit)
+		if q.Pagination.Limit != nil {
+			args = append(args, *q.Pagination.Limit)
 		}
-		if pagination.Offset != nil {
-			args = append(args, *pagination.Offset)
+		if q.Pagination.Offset != nil {
+			args = append(args, *q.Pagination.Offset)
 		}
 	}
 
@@ -317,16 +322,14 @@ func (s *Store) ListNonCashAssets(
 	return PaginatedResult[NonCashAsset]{
 		Data:   nonCashAssets,
 		Count:  len(nonCashAssets),
-		Limit:  pagination.Limit,
-		Offset: pagination.Offset,
+		Limit:  q.Pagination.Limit,
+		Offset: q.Pagination.Offset,
 	}, nil
 }
 
 func (s *Store) ListInvestments(
 	ctx context.Context,
-	userID string,
-	dateRangeOpts DateRangeOptions,
-	pagination PaginationParams,
+	q ListQuery,
 ) (PaginatedResult[Investment], error) {
 	query := `
 	SELECT id,
@@ -343,30 +346,30 @@ FROM finance_investments
 	WHERE user_id = $1
 	`
 
-	args := []any{userID}
+	args := []any{q.UserID}
 	argIdx := 2
 
-	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
+	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.StartDate != nil {
-			args = append(args, *dateRangeOpts.StartDate)
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
-		if dateRangeOpts.EndDate != nil {
-			args = append(args, *dateRangeOpts.EndDate)
+		if q.DateRange.EndDate != nil {
+			args = append(args, *q.DateRange.EndDate)
 		}
 	}
 
 	query += ` ORDER BY parent_id, start_date`
 
-	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	paginationSubQuery, _ := addPaginationQuery(q.Pagination, argIdx)
 	if paginationSubQuery != "" {
 		query += " " + paginationSubQuery
-		if pagination.Limit != nil {
-			args = append(args, *pagination.Limit)
+		if q.Pagination.Limit != nil {
+			args = append(args, *q.Pagination.Limit)
 		}
-		if pagination.Offset != nil {
-			args = append(args, *pagination.Offset)
+		if q.Pagination.Offset != nil {
+			args = append(args, *q.Pagination.Offset)
 		}
 	}
 
@@ -396,16 +399,14 @@ FROM finance_investments
 	return PaginatedResult[Investment]{
 		Data:   investments,
 		Count:  len(investments),
-		Limit:  pagination.Limit,
-		Offset: pagination.Offset,
+		Limit:  q.Pagination.Limit,
+		Offset: q.Pagination.Offset,
 	}, nil
 }
 
 func (s *Store) ListCashAssets(
 	ctx context.Context,
-	userID string,
-	dateRangeOpts DateRangeOptions,
-	pagination PaginationParams,
+	q ListQuery,
 ) (PaginatedResult[CashAsset], error) {
 	query := `
 	SELECT id,
@@ -425,32 +426,32 @@ func (s *Store) ListCashAssets(
 	FROM finance_cash_accounts
 	WHERE user_id = $1`
 
-	args := []any{userID}
+	args := []any{q.UserID}
 	argIdx := 2
 
 	// Add dynamic date range filtering
-	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
+	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.StartDate != nil {
-			args = append(args, *dateRangeOpts.StartDate)
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
-		if dateRangeOpts.EndDate != nil {
-			args = append(args, *dateRangeOpts.EndDate)
+		if q.DateRange.EndDate != nil {
+			args = append(args, *q.DateRange.EndDate)
 		}
 	}
 
 	query += ` ORDER BY created_at`
 
 	// Add pagination
-	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	paginationSubQuery, _ := addPaginationQuery(q.Pagination, argIdx)
 	if paginationSubQuery != "" {
 		query += " " + paginationSubQuery
-		if pagination.Limit != nil {
-			args = append(args, *pagination.Limit)
+		if q.Pagination.Limit != nil {
+			args = append(args, *q.Pagination.Limit)
 		}
-		if pagination.Offset != nil {
-			args = append(args, *pagination.Offset)
+		if q.Pagination.Offset != nil {
+			args = append(args, *q.Pagination.Offset)
 		}
 	}
 
@@ -480,16 +481,14 @@ func (s *Store) ListCashAssets(
 	return PaginatedResult[CashAsset]{
 		Data:   cashAssets,
 		Count:  len(cashAssets),
-		Limit:  pagination.Limit,
-		Offset: pagination.Offset,
+		Limit:  q.Pagination.Limit,
+		Offset: q.Pagination.Offset,
 	}, nil
 }
 
 func (s *Store) ListLiabilities(
 	ctx context.Context,
-	userID string,
-	dateRangeOpts DateRangeOptions,
-	pagination PaginationParams,
+	q ListQuery,
 ) (PaginatedResult[Liability], error) {
 	query := `
 	SELECT id,
@@ -508,32 +507,32 @@ func (s *Store) ListLiabilities(
 	FROM finance_liabilities
 	WHERE user_id = $1`
 
-	args := []any{userID}
+	args := []any{q.UserID}
 	argIdx := 2
 
 	// Add dynamic date range filtering
-	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
+	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.StartDate != nil {
-			args = append(args, *dateRangeOpts.StartDate)
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
-		if dateRangeOpts.EndDate != nil {
-			args = append(args, *dateRangeOpts.EndDate)
+		if q.DateRange.EndDate != nil {
+			args = append(args, *q.DateRange.EndDate)
 		}
 	}
 
 	query += ` ORDER BY parent_id, start_date`
 
 	// Add pagination
-	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	paginationSubQuery, _ := addPaginationQuery(q.Pagination, argIdx)
 	if paginationSubQuery != "" {
 		query += " " + paginationSubQuery
-		if pagination.Limit != nil {
-			args = append(args, *pagination.Limit)
+		if q.Pagination.Limit != nil {
+			args = append(args, *q.Pagination.Limit)
 		}
-		if pagination.Offset != nil {
-			args = append(args, *pagination.Offset)
+		if q.Pagination.Offset != nil {
+			args = append(args, *q.Pagination.Offset)
 		}
 	}
 
@@ -563,21 +562,19 @@ func (s *Store) ListLiabilities(
 	return PaginatedResult[Liability]{
 		Data:   liabilities,
 		Count:  len(liabilities),
-		Limit:  pagination.Limit,
-		Offset: pagination.Offset,
+		Limit:  q.Pagination.Limit,
+		Offset: q.Pagination.Offset,
 	}, nil
 }
 
 func (s *Store) ListIncomes(
 	ctx context.Context,
-	userID string,
-	dateRangeOpts DateRangeOptions,
-	pagination PaginationParams,
+	q ListQuery,
 ) (PaginatedResult[Income], error) {
 	query := `
 	SELECT id,
 		COALESCE(parent_id, id) as parent_id,
-		source,
+		name,
 		amount,
 		frequency,
 		start_date,
@@ -592,32 +589,32 @@ func (s *Store) ListIncomes(
 	FROM finance_incomes
 	WHERE user_id = $1`
 
-	args := []any{userID}
+	args := []any{q.UserID}
 	argIdx := 2
 
 	// Add dynamic date range filtering
-	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
+	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.StartDate != nil {
-			args = append(args, *dateRangeOpts.StartDate)
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
-		if dateRangeOpts.EndDate != nil {
-			args = append(args, *dateRangeOpts.EndDate)
+		if q.DateRange.EndDate != nil {
+			args = append(args, *q.DateRange.EndDate)
 		}
 	}
 
 	query += ` ORDER BY parent_id, start_date`
 
 	// Add pagination
-	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	paginationSubQuery, _ := addPaginationQuery(q.Pagination, argIdx)
 	if paginationSubQuery != "" {
 		query += " " + paginationSubQuery
-		if pagination.Limit != nil {
-			args = append(args, *pagination.Limit)
+		if q.Pagination.Limit != nil {
+			args = append(args, *q.Pagination.Limit)
 		}
-		if pagination.Offset != nil {
-			args = append(args, *pagination.Offset)
+		if q.Pagination.Offset != nil {
+			args = append(args, *q.Pagination.Offset)
 		}
 	}
 
@@ -633,7 +630,7 @@ func (s *Store) ListIncomes(
 	for rows.Next() {
 		var i Income
 		err := rows.Scan(
-			&i.ID, &i.ParentID, &i.Source, &i.Amount, &i.Frequency,
+			&i.ID, &i.ParentID, &i.Name, &i.Amount, &i.Frequency,
 			&i.StartDate, &i.EndDate, &i.Category, &i.GrowthRate,
 			&i.Notes, &i.GrowthStrategy, &i.UpdatedAt,
 			&i.IncomeType, &i.CPFWageType,
@@ -647,21 +644,19 @@ func (s *Store) ListIncomes(
 	return PaginatedResult[Income]{
 		Data:   incomes,
 		Count:  len(incomes),
-		Limit:  pagination.Limit,
-		Offset: pagination.Offset,
+		Limit:  q.Pagination.Limit,
+		Offset: q.Pagination.Offset,
 	}, nil
 }
 
 func (s *Store) ListExpenses(
 	ctx context.Context,
-	userID string,
-	dateRangeOpts DateRangeOptions,
-	pagination PaginationParams,
+	q ListQuery,
 ) (PaginatedResult[Expense], error) {
 	query := `
 	SELECT id,
 		COALESCE(parent_id, id) as parent_id,
-		payee,
+		name,
 		amount,
 		frequency,
 		start_date,
@@ -675,32 +670,32 @@ func (s *Store) ListExpenses(
 	FROM finance_expenses
 	WHERE user_id = $1`
 
-	args := []any{userID}
+	args := []any{q.UserID}
 	argIdx := 2
 
 	// Add dynamic date range filtering
-	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(dateRangeOpts, argIdx)
+	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.StartDate != nil {
-			args = append(args, *dateRangeOpts.StartDate)
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
-		if dateRangeOpts.EndDate != nil {
-			args = append(args, *dateRangeOpts.EndDate)
+		if q.DateRange.EndDate != nil {
+			args = append(args, *q.DateRange.EndDate)
 		}
 	}
 
 	query += ` ORDER BY parent_id, start_date`
 
 	// Add pagination
-	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	paginationSubQuery, _ := addPaginationQuery(q.Pagination, argIdx)
 	if paginationSubQuery != "" {
 		query += " " + paginationSubQuery
-		if pagination.Limit != nil {
-			args = append(args, *pagination.Limit)
+		if q.Pagination.Limit != nil {
+			args = append(args, *q.Pagination.Limit)
 		}
-		if pagination.Offset != nil {
-			args = append(args, *pagination.Offset)
+		if q.Pagination.Offset != nil {
+			args = append(args, *q.Pagination.Offset)
 		}
 	}
 
@@ -716,7 +711,7 @@ func (s *Store) ListExpenses(
 	for rows.Next() {
 		var e Expense
 		err := rows.Scan(
-			&e.ID, &e.ParentID, &e.Payee, &e.Amount, &e.Frequency,
+			&e.ID, &e.ParentID, &e.Name, &e.Amount, &e.Frequency,
 			&e.StartDate, &e.EndDate, &e.Category, &e.GrowthRate,
 			&e.Notes, &e.GrowthStrategy, &e.UpdatedAt, &e.SourceLiabilityID,
 		)
@@ -729,8 +724,8 @@ func (s *Store) ListExpenses(
 	return PaginatedResult[Expense]{
 		Data:   expenses,
 		Count:  len(expenses),
-		Limit:  pagination.Limit,
-		Offset: pagination.Offset,
+		Limit:  q.Pagination.Limit,
+		Offset: q.Pagination.Offset,
 	}, nil
 }
 
@@ -852,7 +847,7 @@ func (s *Store) CreateLiability(ctx context.Context, userID string, li Liability
 	zero := decimal.Zero()
 	if created.MinimumPayment.Cmp(zero) > 0 {
 		_, _ = s.CreateExpense(ctx, userID, Expense{
-			Payee:             created.Name,
+			Name:              created.Name,
 			Amount:            created.MinimumPayment,
 			Frequency:         "monthly",
 			StartDate:         created.StartDate,
@@ -881,10 +876,10 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, exp Expense) (
 	}
 
 	query := `
-		INSERT INTO finance_expenses (user_id, parent_id, payee, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, source_liability_id)
+		INSERT INTO finance_expenses (user_id, parent_id, name, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, source_liability_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, ''), $12)
 		ON CONFLICT ON CONSTRAINT finance_expenses_parent_start_date_key DO UPDATE
-		SET payee=EXCLUDED.payee,
+		SET name=EXCLUDED.name,
 		    amount=EXCLUDED.amount,
 		    frequency=EXCLUDED.frequency,
 		    end_date=EXCLUDED.end_date,
@@ -894,10 +889,10 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, exp Expense) (
 		    notes=EXCLUDED.notes,
 		    source_liability_id=EXCLUDED.source_liability_id,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), payee, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(growth_strategy, '') as growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`
+		RETURNING id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, growth_rate, COALESCE(growth_strategy, '') as growth_strategy, COALESCE(notes, ''), updated_at, source_liability_id`
 
 	args := []any{
-		userID, nullIfEmpty(exp.ParentID), exp.Payee, exp.Amount, exp.Frequency,
+		userID, nullIfEmpty(exp.ParentID), exp.Name, exp.Amount, exp.Frequency,
 		startDate, exp.EndDate, exp.Category, exp.GrowthRate, growthStrategy,
 		exp.Notes, exp.SourceLiabilityID,
 	}
@@ -907,7 +902,7 @@ func (s *Store) CreateExpense(ctx context.Context, userID string, exp Expense) (
 
 	var created Expense
 	if err := row.Scan(
-		&created.ID, &created.ParentID, &created.Payee, &created.Amount, &created.Frequency,
+		&created.ID, &created.ParentID, &created.Name, &created.Amount, &created.Frequency,
 		&created.StartDate, &created.EndDate, &created.Category, &created.GrowthRate,
 		&created.GrowthStrategy, &created.Notes, &created.UpdatedAt, &created.SourceLiabilityID,
 	); err != nil {

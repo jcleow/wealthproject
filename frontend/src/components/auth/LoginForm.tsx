@@ -2,7 +2,7 @@
 
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import { signIn } from '@/lib/auth-client'
 import { loginSchema, type LoginFormData } from '@/lib/validations/auth'
@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input'
 
 export function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
   const [serverError, setServerError] = useState<string | null>(null)
 
   const {
@@ -28,7 +30,7 @@ export function LoginForm() {
       const result = await signIn.email({
         email: data.email,
         password: data.password,
-        callbackURL: '/dashboard',
+        callbackURL: callbackUrl,
       })
 
       if (result.error) {
@@ -36,7 +38,7 @@ export function LoginForm() {
         return
       }
 
-      router.push('/dashboard')
+      router.push(callbackUrl)
       router.refresh()
     } catch {
       setServerError('An unexpected error occurred. Please try again.')

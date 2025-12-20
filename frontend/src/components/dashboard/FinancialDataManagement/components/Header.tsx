@@ -56,6 +56,8 @@ export function Header({
   viewMode,
   onViewModeChange,
 }: HeaderProps) {
+  const [yearDisplayMode, setYearDisplayMode] = useState<'calendar' | 'relative'>('calendar')
+
   const { data: userSettings } = useQuery({
     queryKey: QUERY_KEYS.settings.user,
     queryFn: () => settingsApi.getUserSettings(),
@@ -174,7 +176,7 @@ export function Header({
           <p className="text-sm text-gray-400">{`${absoluteYear} (Age ${displayAge})`}</p>
         </div>
         {/* Unified timeline control bar */}
-        <div className="flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm">
+        <div className="relative z-[200] flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm">
           <div className="flex items-center gap-1 p-1">
             {resolution === 'monthly' && (
               <>
@@ -185,7 +187,7 @@ export function Header({
                   disabled={isTimelineLoading}
                   onChange={(val) => onViewModeChange(val as 'annualized' | 'monthly')}
                   options={[
-                    { value: 'annualized', label: 'Annualized' },
+                    { value: 'annualized', label: 'Yearly' },
                     { value: 'monthly', label: 'Monthly' },
                   ]}
                 />
@@ -199,8 +201,15 @@ export function Header({
               value={Math.max(0, Math.min(30, relativeYearIndex))}
               disabled={isTimelineLoading}
               onChange={(val) => handleYearInput(String(val))}
-              options={Array.from({ length: 31 }, (_, idx) => ({ value: idx, label: String(idx) }))}
+              options={Array.from({ length: 31 }, (_, idx) => ({
+                value: idx,
+                label: yearDisplayMode === 'calendar'
+                  ? String(resolvedAnchorYear + idx)
+                  : `+${idx}`
+              }))}
               className="w-16"
+              onLabelClick={() => setYearDisplayMode(m => m === 'calendar' ? 'relative' : 'calendar')}
+              labelTitle="Click to toggle year format"
             />
 
             {resolution === 'monthly' && (
@@ -221,7 +230,7 @@ export function Header({
           {shouldShowSlider && (
             <div className="border-t border-white/[0.08] px-3 py-2">
               <Slider.Root
-                className="relative flex items-center h-5 w-full select-none"
+                className="relative flex items-center h-5 w-full select-none px-[7px]"
                 min={0}
                 max={sliderMax}
                 step={1}
@@ -251,9 +260,11 @@ interface SelectFieldProps {
   onChange: (value: string | number) => void
   options: { value: string | number; label: string }[]
   className?: string
+  onLabelClick?: () => void
+  labelTitle?: string
 }
 
-function SelectField({ label, id, value, disabled, onChange, options, className }: SelectFieldProps) {
+function SelectField({ label, id, value, disabled, onChange, options, className, onLabelClick, labelTitle }: SelectFieldProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -271,7 +282,12 @@ function SelectField({ label, id, value, disabled, onChange, options, className 
 
   return (
     <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors" ref={containerRef}>
-      <label className="text-[10px] font-medium uppercase tracking-wider text-slate-500" htmlFor={id}>
+      <label
+        className={`text-[10px] font-medium uppercase tracking-wider text-slate-500 ${onLabelClick ? 'cursor-pointer hover:text-slate-300 transition-colors' : ''}`}
+        htmlFor={onLabelClick ? undefined : id}
+        onClick={onLabelClick}
+        title={labelTitle}
+      >
         {label}
       </label>
       <div className={`relative ${className ?? ''}`}>
@@ -281,7 +297,7 @@ function SelectField({ label, id, value, disabled, onChange, options, className 
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
           className={`
-            flex items-center gap-1
+            flex items-center justify-between gap-2 w-full
             appearance-none cursor-pointer
             bg-transparent
             text-sm font-medium text-white
@@ -291,7 +307,7 @@ function SelectField({ label, id, value, disabled, onChange, options, className 
           `}
         >
           <span>{selectedOption?.label ?? ''}</span>
-          <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {isOpen && (

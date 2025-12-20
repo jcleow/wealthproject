@@ -86,69 +86,9 @@ func BuildImpactContext(events []Event) *ImpactContext {
 //	  {ImpactKind: "delta", Amount: 5000},       // Adds $5k bonus
 //	]
 //	result = $150,000 + $5,000 = $155,000
-func ApplyImpactsToItem(
-	impacts []Impact,
-	baseValue *decimal.Decimal,
-	currentDate time.Time,
-	itemInfo ItemInfo,
-	eventsByID map[string]*Event,
-) *decimal.Decimal {
-	result := baseValue
-
-	// First pass: check for stop impacts
-	for _, impact := range impacts {
-		if impact.ImpactKind == ImpactKindStop && ImpactAppliesToMonth(impact, currentDate) {
-			return decimal.Zero()
-		}
-	}
-
-	// Second pass: find latest applicable override (by event updated_at)
-	var latestOverride *Impact
-	var latestOverrideTime time.Time
-
-	for i := range impacts {
-		impact := &impacts[i]
-		if impact.ImpactKind != ImpactKindOverride {
-			continue
-		}
-		if !ImpactAppliesToMonth(*impact, currentDate) {
-			continue
-		}
-
-		event := eventsByID[impact.EventID]
-		if event == nil {
-			continue
-		}
-
-		if latestOverride == nil || event.UpdatedAt.After(latestOverrideTime) {
-			latestOverride = impact
-			latestOverrideTime = event.UpdatedAt
-		}
-	}
-
-	if latestOverride != nil {
-		result = ConvertImpactAmount(latestOverride, itemInfo)
-	}
-
-	// Third pass: apply all delta impacts (cumulative)
-	for i := range impacts {
-		impact := &impacts[i]
-		if impact.ImpactKind != ImpactKindDelta {
-			continue
-		}
-		if !ImpactAppliesToMonth(*impact, currentDate) {
-			continue
-		}
-
-		deltaAmount := ConvertImpactAmount(impact, itemInfo)
-		result = result.Add(deltaAmount)
-	}
-
-	return result
-}
-
-// ApplyImpactsToItemWithTracking applies impacts and returns both the result and tracking info.
-// Same logic as ApplyImpactsToItem but also tracks which impacts were applied for API responses.
+//
+// ApplyImpactsToItem returns both the adjusted value and tracking info
+// (which impacts were applied, for API responses).
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 // WORKED EXAMPLE: Cash account with delta impact
@@ -256,7 +196,7 @@ func ApplyImpactsToItem(
 //	}
 //
 // ═══════════════════════════════════════════════════════════════════════════════
-func ApplyImpactsToItemWithTracking(
+func ApplyImpactsToItem(
 	impacts []Impact,
 	baseValue *decimal.Decimal,
 	currentDate time.Time,

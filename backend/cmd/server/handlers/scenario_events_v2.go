@@ -7,11 +7,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"financial-chat-system/backend/internal/common"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
-	"financial-chat-system/backend/internal/financial_v2/scenario"
 	"financial-chat-system/backend/internal/middleware"
 )
 
@@ -29,12 +27,19 @@ func NewScenarioEventV2Handler(store *repo.Store) *ScenarioEventV2Handler {
 
 type scenarioImpactV2DTO struct {
 	ImpactKind string           `json:"impactKind"`
-	Amount     int64            `json:"amount"`
-	Currency   string           `json:"currency"`
-	Cadence    common.Frequency `json:"cadence"`
-	StartDate  string           `json:"startDate"`
-	EndDate    *string          `json:"endDate,omitempty"`
-	Notes      *string          `json:"notes,omitempty"`
+	Amount     int64            `json:"amount"`                // Amount change for delta/override impacts (stored in DB)
+	Cadence    common.Frequency `json:"cadence"`               // Frequency for delta impacts (stored in DB)
+	Currency   string           `json:"currency"`              // Currency from the target financial item (derived)
+	StartDate  string           `json:"startDate"`             // Start date from the target financial item (derived)
+	EndDate    *string          `json:"endDate,omitempty"`     // End date from the target financial item (derived)
+	Name       *string          `json:"name,omitempty"`        // Name from the target financial item (derived)
+	Frequency  *string          `json:"frequency,omitempty"`   // Frequency from target item (derived, only for income/expense)
+	Notes      *string          `json:"notes,omitempty"`       // Notes from the target financial item (derived)
+
+	// Advanced fields for start impacts - used to configure the created financial item
+	Category       *string  `json:"category,omitempty"`       // Category for the created financial item
+	GrowthRate     *float64 `json:"growthRate,omitempty"`     // Growth rate (%) - applied based on growth strategy
+	GrowthStrategy *string  `json:"growthStrategy,omitempty"` // How growth is applied (none, annual_step, compound)
 
 	// Typed target IDs (only one should be set per impact)
 	TargetAssetID       *string `json:"targetAssetId,omitempty"`
@@ -60,62 +65,6 @@ type scenarioEventV2DTO struct {
 	ScenarioID   *string               `json:"scenarioId,omitempty"`
 	IsIncluded   bool                  `json:"isIncluded"`
 	Impacts      []scenarioImpactV2DTO `json:"impacts"`
-}
-
-func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
-	var end *string
-	if imp.EndDate != nil {
-		val := imp.EndDate.Format(time.DateOnly)
-		end = &val
-	}
-	var notes *string
-	if strings.TrimSpace(imp.Notes) != "" {
-		val := imp.Notes
-		notes = &val
-	}
-	targetID := imp.TargetID()
-	return scenarioImpactV2DTO{
-		ImpactKind:          imp.ImpactKind,
-		Amount:              imp.Amount,
-		Currency:            imp.Currency,
-		Cadence:             imp.Cadence,
-		StartDate:           imp.StartDate.Format(time.DateOnly),
-		EndDate:             end,
-		Notes:               notes,
-		TargetAssetID:       imp.TargetAssetID,
-		TargetLiabilityID:   imp.TargetLiabilityID,
-		TargetIncomeID:      imp.TargetIncomeID,
-		TargetExpenseID:     imp.TargetExpenseID,
-		TargetCashAccountID: imp.TargetCashAccountID,
-		TargetInvestmentID:  imp.TargetInvestmentID,
-		TargetType:          imp.TargetType(),
-		TargetID:            targetID,
-	}
-}
-
-func toScenarioEventV2DTO(ev repo.ScenarioEvent) scenarioEventV2DTO {
-	displayColor := ""
-	if ev.DisplayColor != nil {
-		displayColor = *ev.DisplayColor
-	}
-	dto := scenarioEventV2DTO{
-		ID:           ev.ID,
-		Name:         ev.Name,
-		Description:  ptrOrNil(ev.Description),
-		OccursOn:     ev.OccursOn.Format(time.DateOnly),
-		DisplayIcon:  ev.DisplayIcon,
-		DisplayColor: displayColor,
-		Tags:         ev.Tags,
-		ScenarioID:   ev.ScenarioID,
-		IsIncluded:   ev.IsIncluded,
-	}
-	if len(ev.Impacts) > 0 {
-		dto.Impacts = make([]scenarioImpactV2DTO, 0, len(ev.Impacts))
-		for _, imp := range ev.Impacts {
-			dto.Impacts = append(dto.Impacts, toScenarioImpactV2DTO(imp))
-		}
-	}
-	return dto
 }
 
 // --- Handler Methods ---
@@ -308,24 +257,12 @@ func (h *ScenarioEventV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Debug log the incoming payload
-	for i, imp := range payload.Impacts {
-		log.Printf("scenario v2 update: impact[%d] targetIncomeId=%v targetType=%s targetId=%v",
-			i, imp.TargetIncomeID, imp.TargetType, imp.TargetID)
-	}
-
 	ev, err := buildScenarioEventV2(userCtx.UserID, payload)
 	if err != nil {
 		badRequest(w, err)
 		return
 	}
 	ev.ID = id
-
-	// Debug log the built impacts
-	for i, imp := range ev.Impacts {
-		log.Printf("scenario v2 update: built impact[%d] TargetIncomeID=%v TargetType=%s",
-			i, imp.TargetIncomeID, imp.TargetType())
-	}
 
 	updated, err := h.store.UpdateScenarioEventV2(r.Context(), ev)
 	if err != nil {
@@ -414,214 +351,7 @@ func (h *ScenarioEventV2Handler) HandleToggle(w http.ResponseWriter, r *http.Req
 	writeJSON(w, map[string]bool{"isIncluded": val})
 }
 
-// --- Helper Functions ---
-
-func buildScenarioEventV2(userID string, dto scenarioEventV2DTO) (repo.ScenarioEvent, error) {
-	if strings.TrimSpace(dto.Name) == "" || strings.TrimSpace(dto.DisplayIcon) == "" || strings.TrimSpace(dto.OccursOn) == "" {
-		return repo.ScenarioEvent{}, errMissingFields("name, occursOn, displayIcon")
-	}
-	occursOn, err := scenario.ParseDateOrMonth(dto.OccursOn)
-	if err != nil {
-		return repo.ScenarioEvent{}, errors.New("invalid occursOn; expected YYYY-MM-DD or YYYY-MM")
-	}
-	impacts, err := buildImpactsV2FromDTO(dto.Impacts)
-	if err != nil {
-		return repo.ScenarioEvent{}, err
-	}
-	color := strings.TrimSpace(dto.DisplayColor)
-	if color == "" {
-		color = "#0ea5e9"
-	}
-	ev := repo.ScenarioEvent{
-		UserID:      userID,
-		Name:        strings.TrimSpace(dto.Name),
-		Description: strings.TrimSpace(scenario.PtrOrEmpty(dto.Description)),
-		OccursOn:    occursOn,
-		DisplayIcon: strings.TrimSpace(dto.DisplayIcon),
-		DisplayColor: func() *string {
-			c := color
-			return &c
-		}(),
-		Tags:       dto.Tags,
-		IsIncluded: dto.IsIncluded,
-		Impacts:    impacts,
-	}
-	if dto.ScenarioID != nil && strings.TrimSpace(*dto.ScenarioID) != "" {
-		val := strings.TrimSpace(*dto.ScenarioID)
-		ev.ScenarioID = &val
-	}
-	return ev, nil
-}
-
-type impactTarget struct {
-	targetType string
-	targetID   string
-}
-
-func resolveImpactTarget(in scenarioImpactV2DTO) (impactTarget, error) {
-	typedTargets := make([]impactTarget, 0, 1)
-
-	addTypedTarget := func(val *string, targetType string) {
-		if t := scenario.NonEmptyPtr(val); t != nil {
-			typedTargets = append(typedTargets, impactTarget{
-				targetType: targetType,
-				targetID:   strings.TrimSpace(*t),
-			})
-		}
-	}
-
-	addTypedTarget(in.TargetAssetID, "asset")
-	addTypedTarget(in.TargetLiabilityID, "liability")
-	addTypedTarget(in.TargetIncomeID, "income")
-	addTypedTarget(in.TargetExpenseID, "expense")
-	addTypedTarget(in.TargetCashAccountID, "cash")
-	addTypedTarget(in.TargetInvestmentID, "investment")
-
-	if len(typedTargets) > 1 {
-		return impactTarget{}, scenario.ErrInvalidTargetCount
-	}
-	if len(typedTargets) == 1 {
-		if !scenario.IsValidTargetType(typedTargets[0].targetType) {
-			return impactTarget{}, scenario.ErrInvalidTargetType
-		}
-		return typedTargets[0], nil
-	}
-
-	targetID := scenario.NonEmptyPtr(in.TargetID)
-	targetType := strings.ToLower(strings.TrimSpace(in.TargetType))
-	if targetID == nil || targetType == "" {
-		return impactTarget{}, scenario.ErrInvalidTargetCount
-	}
-	if !scenario.IsValidTargetType(targetType) {
-		return impactTarget{}, scenario.ErrInvalidTargetType
-	}
-
-	return impactTarget{
-		targetType: targetType,
-		targetID:   strings.TrimSpace(*targetID),
-	}, nil
-}
-
-func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, error) {
-	if len(reqs) == 0 {
-		return []repo.ScenarioImpact{}, nil
-	}
-
-	impacts := make([]repo.ScenarioImpact, 0, len(reqs))
-	for _, in := range reqs {
-		impact, err := buildImpactV2(in)
-		if err != nil {
-			return nil, err
-		}
-		impacts = append(impacts, impact)
-	}
-
-	return impacts, nil
-}
-
-func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
-	ik, cad, err := normalizeImpactKindAndCadence(in)
-	if err != nil {
-		return repo.ScenarioImpact{}, err
-	}
-
-	start, end, err := parseImpactDates(in)
-	if err != nil {
-		return repo.ScenarioImpact{}, err
-	}
-
-	target, err := resolveImpactTarget(in)
-	if err != nil {
-		return repo.ScenarioImpact{}, err
-	}
-
-	impact := repo.ScenarioImpact{
-		ImpactKind: ik,
-		Amount:     in.Amount,
-		Currency:   strings.ToUpper(strings.TrimSpace(in.Currency)),
-		Cadence:    cad,
-		StartDate:  start,
-		EndDate:    end,
-		Notes:      strings.TrimSpace(scenario.PtrOrEmpty(in.Notes)),
-	}
-
-	return impactWithTarget(impact, target)
-}
-
-func normalizeImpactKindAndCadence(in scenarioImpactV2DTO) (string, common.Frequency, error) {
-	ik, err := scenario.NormalizeImpactKind(in.ImpactKind)
-	if err != nil {
-		return "", "", err
-	}
-	cad, err := scenario.NormalizeCadence(in.Cadence)
-	if err != nil {
-		return "", "", err
-	}
-	// Validate cadence is appropriate for the impact kind
-	// Delta impacts require monthly/annual (recurring), others are implicitly one-time
-	if err := scenario.ValidateCadenceForImpactKind(ik, cad); err != nil {
-		return "", "", err
-	}
-	return ik, cad, nil
-}
-
-func parseImpactDates(in scenarioImpactV2DTO) (time.Time, *time.Time, error) {
-	if strings.TrimSpace(in.StartDate) == "" {
-		return time.Time{}, nil, scenario.ErrMissingStartDate
-	}
-
-	start, err := scenario.ParseMonthStart(in.StartDate)
-	if err != nil {
-		return time.Time{}, nil, scenario.ErrInvalidStartDate
-	}
-
-	endDateStr := scenario.PtrOrEmpty(in.EndDate)
-	if strings.TrimSpace(endDateStr) == "" {
-		log.Printf("parseImpactDates: startDate=%s endDate=nil (empty)", in.StartDate)
-		return start, nil, nil
-	}
-
-	val, err := scenario.ParseMonthStart(endDateStr)
-	if err != nil {
-		return time.Time{}, nil, scenario.ErrInvalidEndDate
-	}
-	log.Printf("parseImpactDates: startDate=%s (%v) endDate=%s (%v) before=%v",
-		in.StartDate, start, endDateStr, val, val.Before(start))
-	if val.Before(start) {
-		return time.Time{}, nil, scenario.ErrEndDateBeforeStart
-	}
-	return start, &val, nil
-}
-
-func assignImpactTarget(impact *repo.ScenarioImpact, target impactTarget) error {
-	id := target.targetID
-
-	switch target.targetType {
-	case "asset":
-		impact.TargetAssetID = &id
-	case "liability":
-		impact.TargetLiabilityID = &id
-	case "income":
-		impact.TargetIncomeID = &id
-	case "expense":
-		impact.TargetExpenseID = &id
-	case "cash":
-		impact.TargetCashAccountID = &id
-	case "investment":
-		impact.TargetInvestmentID = &id
-	default:
-		return scenario.ErrInvalidTargetType
-	}
-
-	return nil
-}
-
-func impactWithTarget(impact repo.ScenarioImpact, target impactTarget) (repo.ScenarioImpact, error) {
-	if err := assignImpactTarget(&impact, target); err != nil {
-		return repo.ScenarioImpact{}, err
-	}
-	return impact, nil
-}
+// --- Helper Functions (generic utilities only) ---
 
 func ptrOrNil(s string) *string {
 	trimmed := strings.TrimSpace(s)

@@ -474,7 +474,7 @@ func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit E
 	case ItemTypeIncome:
 		_, err := s.store.CreateIncome(ctx, userID, repository.Income{
 			ParentID:  parentID,
-			Source:    name,
+			Name:      name,
 			Amount:    edit.Amount,
 			Frequency: string(edit.Frequency),
 			StartDate: time.Date(absoluteStartYear, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -483,7 +483,7 @@ func (s *Service) applyEdit(ctx context.Context, userID string, year int, edit E
 	case ItemTypeExpense:
 		_, err := s.store.CreateExpense(ctx, userID, repository.Expense{
 			ParentID:          parentID,
-			Payee:             name,
+			Name:              name,
 			Amount:            edit.Amount,
 			Frequency:         string(edit.Frequency),
 			StartDate:         time.Date(absoluteStartYear, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -1250,7 +1250,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 		rows = append(rows, FinancialDataRow{
 			ID:         it.ID,
 			ParentID:   coalesceString(it.ParentID, it.ID),
-			Name:       it.Source,
+			Name:       it.Name,
 			Category:   it.Category,
 			Amount:     it.Amount,
 			Frequency:  normalizeFreq(it.Frequency),
@@ -1275,7 +1275,7 @@ func (s *Service) loadEffectiveRows(ctx context.Context, userID string) ([]Finan
 		rows = append(rows, FinancialDataRow{
 			ID:         it.ID,
 			ParentID:   coalesceString(it.ParentID, it.ID),
-			Name:       it.Payee,
+			Name:       it.Name,
 			Category:   it.Category,
 			Amount:     it.Amount,
 			Frequency:  normalizeFreq(it.Frequency),

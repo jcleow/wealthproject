@@ -70,7 +70,7 @@ export const toLiability = (item: any): Liability => ({
 export const toIncome = (item: any): Income => ({
   id: item.id ?? item.ID,
   parentId: item.parent_id ?? item.parentId ?? item.ParentID,
-  source: item.source ?? item.Source,
+  name: item.name ?? item.Name,
   amount: item.amount ?? item.Amount,
   frequency: item.frequency ?? item.Frequency,
   startDate: item.start_date ?? item.startDate ?? item.StartDate ?? new Date().toISOString(),
@@ -85,7 +85,7 @@ export const toIncome = (item: any): Income => ({
 export const toExpense = (item: any): Expense => ({
   id: item.id ?? item.ID,
   parentId: item.parent_id ?? item.parentId ?? item.ParentID,
-  payee: item.payee ?? item.Payee,
+  name: item.name ?? item.Name,
   amount: item.amount ?? item.Amount,
   frequency: item.frequency ?? item.Frequency,
   category: item.category ?? item.Category,
@@ -219,6 +219,8 @@ export const normalizeImpact = (impact: any): ScenarioImpactDto => ({
       : impact.EndDate
         ? impact.EndDate.slice(0, 10)
         : undefined,
+  name: impact.name ?? impact.Name ?? impact.target_name ?? impact.targetName ?? undefined,
+  frequency: impact.frequency ?? impact.Frequency ?? impact.target_frequency ?? impact.targetFrequency ?? undefined,
   notes: impact.notes ?? impact.Notes ?? '',
 })
 

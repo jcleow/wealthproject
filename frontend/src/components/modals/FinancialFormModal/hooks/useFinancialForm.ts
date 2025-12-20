@@ -193,10 +193,7 @@ export function useFinancialForm({
           }
         }
 
-        const itemName =
-          type === 'income'
-            ? (item as Income).source ?? (item as any).name ?? ''
-            : (item as Expense).payee ?? (item as any).name ?? ''
+        const itemName = (item as Income | Expense).name ?? ''
         const itemRate = (item as any).growthRate
         const effectiveRate =
           itemRate && itemRate !== 0
@@ -330,7 +327,7 @@ export function useFinancialForm({
         return {
           type,
           id: (data as Income | undefined)?.id,
-          source: formData.name.trim(),
+          name: formData.name.trim(),
           amount: toNumeric(formData.amount),
           frequency: formData.frequency,
           category: formData.category.trim() || 'other',
@@ -354,7 +351,7 @@ export function useFinancialForm({
         return {
           type,
           id: (data as Expense | undefined)?.id,
-          payee: formData.name.trim(),
+          name: formData.name.trim(),
           amount: toNumeric(formData.amount),
           frequency: formData.frequency,
           category: formData.category.trim() || 'other',

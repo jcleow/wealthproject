@@ -26,7 +26,7 @@ export async function listExpenses(params?: PaginationParams): Promise<Paginated
 export async function createExpense(payload: Omit<Expense, 'id' | 'updatedAt'> & { parentId?: string; sourceLiabilityId?: string }): Promise<Expense> {
   // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
-    payee: payload.payee,
+    name: payload.name,
     amount: payload.amount?.toString(),
     frequency: payload.frequency,
     category: payload.category,
@@ -50,25 +50,18 @@ export async function updateExpense(
     updateMode?: UpdateMode
   }
 ): Promise<Expense> {
-  // Use string for decimal values to avoid float64 precision loss
-  const body: Record<string, unknown> = {
-    payee: payload.payee,
-    amount: payload.amount?.toString(),
-    frequency: payload.frequency,
-    category: payload.category,
-    growthRate: payload.growthRate?.toString(),
-    notes: payload.notes,
-    startDate: payload.startDate,
-    endDate: payload.endDate,
-  }
-  // Preserve sourceLiabilityId for debt repayment expenses
-  if (payload.sourceLiabilityId !== undefined) {
-    body.sourceLiabilityId = payload.sourceLiabilityId
-  }
-  // Add updateMode for versioned updates
-  if (payload.updateMode !== undefined) {
-    body.updateMode = payload.updateMode
-  }
+  // Only include fields that are actually provided (partial update support)
+  const body: Record<string, unknown> = {}
+  if (payload.name !== undefined) body.name = payload.name
+  if (payload.amount !== undefined) body.amount = payload.amount.toString()
+  if (payload.frequency !== undefined) body.frequency = payload.frequency
+  if (payload.category !== undefined) body.category = payload.category
+  if (payload.growthRate !== undefined) body.growthRate = payload.growthRate.toString()
+  if (payload.notes !== undefined) body.notes = payload.notes
+  if (payload.startDate !== undefined) body.startDate = payload.startDate
+  if (payload.endDate !== undefined) body.endDate = payload.endDate
+  if (payload.sourceLiabilityId !== undefined) body.sourceLiabilityId = payload.sourceLiabilityId
+  if (payload.updateMode !== undefined) body.updateMode = payload.updateMode
 
   // Use v2 API for versioned update support
   const data = await apiClient.put<any>(`/cashflow/expenses/${id}`, body, { baseUrl: '/api/v2' })

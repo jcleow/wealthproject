@@ -21,27 +21,27 @@ type fullMockStore struct {
 	incomeAllocations []repo.IncomeAllocation
 }
 
-func (m *fullMockStore) ListNonCashAssets(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.NonCashAsset], error) {
+func (m *fullMockStore) ListNonCashAssets(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.NonCashAsset], error) {
 	return repo.PaginatedResult[repo.NonCashAsset]{Data: m.nonCashAssets, Count: len(m.nonCashAssets)}, nil
 }
 
-func (m *fullMockStore) ListInvestments(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.Investment], error) {
+func (m *fullMockStore) ListInvestments(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Investment], error) {
 	return repo.PaginatedResult[repo.Investment]{Data: m.investments, Count: len(m.investments)}, nil
 }
 
-func (m *fullMockStore) ListCashAssets(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.CashAsset], error) {
+func (m *fullMockStore) ListCashAssets(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.CashAsset], error) {
 	return repo.PaginatedResult[repo.CashAsset]{Data: m.cashAssets, Count: len(m.cashAssets)}, nil
 }
 
-func (m *fullMockStore) ListLiabilities(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.Liability], error) {
+func (m *fullMockStore) ListLiabilities(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Liability], error) {
 	return repo.PaginatedResult[repo.Liability]{Data: m.liabilities, Count: len(m.liabilities)}, nil
 }
 
-func (m *fullMockStore) ListIncomes(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.Income], error) {
+func (m *fullMockStore) ListIncomes(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Income], error) {
 	return repo.PaginatedResult[repo.Income]{Data: m.incomes, Count: len(m.incomes)}, nil
 }
 
-func (m *fullMockStore) ListExpenses(ctx context.Context, userID string, dateOpts repo.DateRangeOptions, paginationOpts repo.PaginationParams) (repo.PaginatedResult[repo.Expense], error) {
+func (m *fullMockStore) ListExpenses(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Expense], error) {
 	return repo.PaginatedResult[repo.Expense]{Data: m.expenses, Count: len(m.expenses)}, nil
 }
 
@@ -153,7 +153,7 @@ func TestSnapshotContract_AllItemTypesReturned(t *testing.T) {
 			{
 				ID:         "income-1",
 				ParentID:   "income-1",
-				Source:     "Salary",
+				Name:       "Salary",
 				Amount:     *decimal.MustFromString("8000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -163,7 +163,7 @@ func TestSnapshotContract_AllItemTypesReturned(t *testing.T) {
 			{
 				ID:         "income-2",
 				ParentID:   "income-2",
-				Source:     "Rental Income",
+				Name:       "Rental Income",
 				Amount:     *decimal.MustFromString("2000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -175,7 +175,7 @@ func TestSnapshotContract_AllItemTypesReturned(t *testing.T) {
 			{
 				ID:         "expense-1",
 				ParentID:   "expense-1",
-				Payee:      "Mortgage Payment",
+				Name:       "Mortgage Payment",
 				Amount:     *decimal.MustFromString("1500"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -185,7 +185,7 @@ func TestSnapshotContract_AllItemTypesReturned(t *testing.T) {
 			{
 				ID:         "expense-2",
 				ParentID:   "expense-2",
-				Payee:      "Groceries",
+				Name:       "Groceries",
 				Amount:     *decimal.MustFromString("600"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -195,7 +195,7 @@ func TestSnapshotContract_AllItemTypesReturned(t *testing.T) {
 			{
 				ID:         "expense-3",
 				ParentID:   "expense-3",
-				Payee:      "Utilities",
+				Name:       "Utilities",
 				Amount:     *decimal.MustFromString("200"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -595,7 +595,7 @@ func TestSnapshotContract_MonthMetadata(t *testing.T) {
 			{
 				ID:        "income-1",
 				ParentID:  "income-1",
-				Source:    "Salary",
+				Name:      "Salary",
 				Amount:    *decimal.MustFromString("5000"),
 				Frequency: "monthly",
 				StartDate: startDate,
@@ -682,7 +682,7 @@ func TestSnapshotContract_ItemsHaveStartYearAndMonth(t *testing.T) {
 			{
 				ID:        "income-1",
 				ParentID:  "income-1",
-				Source:    "Salary",
+				Name:      "Salary",
 				Amount:    *decimal.MustFromString("5000"),
 				Frequency: "monthly",
 				StartDate: startDate,
@@ -798,7 +798,7 @@ func TestSnapshotContract_LinkedExpensesIncludeSourceLiabilityID(t *testing.T) {
 			{
 				ID:                "cc-payment",
 				ParentID:          "cc-payment",
-				Payee:             "Credit Card",
+				Name:              "Credit Card",
 				Amount:            *decimal.MustFromString("300"),
 				Frequency:         "monthly",
 				StartDate:         startDate,
@@ -809,7 +809,7 @@ func TestSnapshotContract_LinkedExpensesIncludeSourceLiabilityID(t *testing.T) {
 			{
 				ID:        "groceries",
 				ParentID:  "groceries",
-				Payee:     "Groceries",
+				Name:      "Groceries",
 				Amount:    *decimal.MustFromString("500"),
 				Frequency: "monthly",
 				StartDate: startDate,

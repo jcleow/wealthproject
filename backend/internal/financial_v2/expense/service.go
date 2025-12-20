@@ -43,7 +43,7 @@ func IsValidationError(err error) bool {
 // CreateInput contains the parameters for creating an expense.
 // Uses decimal.Decimal for financial values to avoid precision loss.
 type CreateInput struct {
-	Payee             string
+	Name             string
 	Amount            decimal.Decimal
 	Frequency         string
 	Category          string
@@ -58,7 +58,7 @@ type CreateInput struct {
 
 // CreateParams is the raw input (strings) used by HTTP handlers.
 type CreateParams struct {
-	Payee             string
+	Name             string
 	Amount            string
 	Frequency         string
 	Category          string
@@ -75,7 +75,7 @@ type CreateParams struct {
 // Uses decimal.Decimal for financial values to avoid precision loss.
 type UpdateInput struct {
 	ID                string
-	Payee             string
+	Name             string
 	Amount            decimal.Decimal
 	Frequency         string
 	Category          string
@@ -89,7 +89,7 @@ type UpdateInput struct {
 
 // UpdateParams is the raw input (strings) used by HTTP handlers.
 type UpdateParams struct {
-	Payee             string
+	Name             string
 	Amount            string
 	Frequency         string
 	Category          string
@@ -118,7 +118,7 @@ func NewService(store *repo.Store) *Service {
 // Create creates a new expense with default values applied
 func (s *Service) Create(ctx context.Context, userID string, input CreateInput) (*repo.Expense, error) {
 	exp := repo.Expense{
-		Payee:             input.Payee,
+		Name:             input.Name,
 		Amount:            input.Amount,
 		Frequency:         input.Frequency,
 		Category:          input.Category,
@@ -190,7 +190,7 @@ func (s *Service) UpdateFromParams(ctx context.Context, userID, expenseID string
 
 func buildCreateInput(params CreateParams) (CreateInput, error) {
 	if err := requireFields(map[string]string{
-		"payee":     params.Payee,
+		"name":     params.Name,
 		"amount":    params.Amount,
 		"frequency": params.Frequency,
 		"category":  params.Category,
@@ -218,7 +218,7 @@ func buildCreateInput(params CreateParams) (CreateInput, error) {
 	}
 
 	return CreateInput{
-		Payee:             params.Payee,
+		Name:             params.Name,
 		Amount:            *amount,
 		Frequency:         params.Frequency,
 		Category:          params.Category,
@@ -234,7 +234,7 @@ func buildCreateInput(params CreateParams) (CreateInput, error) {
 
 func buildUpdateInput(expenseID string, params UpdateParams) (UpdateInput, error) {
 	if err := requireFields(map[string]string{
-		"payee":     params.Payee,
+		"name":     params.Name,
 		"amount":    params.Amount,
 		"frequency": params.Frequency,
 		"category":  params.Category,
@@ -258,7 +258,7 @@ func buildUpdateInput(expenseID string, params UpdateParams) (UpdateInput, error
 
 	return UpdateInput{
 		ID:                expenseID,
-		Payee:             params.Payee,
+		Name:             params.Name,
 		Amount:            *amount,
 		Frequency:         params.Frequency,
 		Category:          params.Category,
@@ -332,7 +332,7 @@ func (s *Service) versionedUpdate(ctx context.Context, userID, expenseID string,
 
 // updateExistingVersion updates an existing versioned expense
 func (s *Service) updateExistingVersion(ctx context.Context, userID string, existing *repo.Expense, input UpdateInput) (*repo.Expense, error) {
-	existing.Payee = input.Payee
+	existing.Name = input.Name
 	existing.Amount = input.Amount
 	existing.Frequency = input.Frequency
 	existing.Category = input.Category
@@ -351,7 +351,7 @@ func (s *Service) updateExistingVersion(ctx context.Context, userID string, exis
 func (s *Service) createNewVersion(ctx context.Context, userID, parentID string, current *repo.Expense, input UpdateInput) (*repo.Expense, error) {
 	newExp := repo.Expense{
 		ParentID:          parentID,
-		Payee:             input.Payee,
+		Name:             input.Name,
 		Amount:            input.Amount,
 		Frequency:         input.Frequency,
 		Category:          input.Category,
@@ -383,7 +383,7 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 func (s *Service) inPlaceUpdate(ctx context.Context, userID, expenseID string, input UpdateInput) (*repo.Expense, error) {
 	exp := repo.Expense{
 		ID:                expenseID,
-		Payee:             input.Payee,
+		Name:             input.Name,
 		Amount:            input.Amount,
 		Frequency:         input.Frequency,
 		Category:          input.Category,

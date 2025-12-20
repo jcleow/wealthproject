@@ -167,7 +167,11 @@ func (h *InvestmentV2Handler) HandleList(w http.ResponseWriter, r *http.Request)
 	}
 
 	pagination := parsePaginationV2(r)
-	result, err := h.store.ListInvestments(r.Context(), userID, repo.DateRangeOptions{}, pagination)
+	result, err := h.store.ListInvestments(r.Context(), repo.ListQuery{
+		UserID:     userID,
+		DateRange:  repo.DateRangeOptions{},
+		Pagination: pagination,
+	})
 	if err != nil {
 		log.Printf("investment.List error: %v", err)
 		internalError(w, err)

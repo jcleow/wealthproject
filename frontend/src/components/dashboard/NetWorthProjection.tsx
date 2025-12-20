@@ -2,8 +2,10 @@ import clsx from 'clsx'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Area,
+  Bar,
   ComposedChart,
   CartesianGrid,
+  Line,
   ResponsiveContainer,
   Scatter,
   Tooltip,
@@ -32,6 +34,16 @@ import {
   type AxisMode,
   type ProjectionPoint,
 } from './projections/types'
+import { ChartControls } from './projections/ChartControls'
+import {
+  type ChartType,
+  type MetricId,
+  getMetricConfig,
+} from './projections/chartOverlays'
+import { useChartOverlayData } from './projections/useChartOverlayData'
+
+// Feature flag for chart overlay controls (disabled until UI is refined)
+const ENABLE_CHART_OVERLAYS = false
 
 export interface NetWorthProjectionProps {
   timelineYears?: TimelineYear[]
@@ -88,6 +100,10 @@ export function NetWorthProjection({
 
   // Scroll mode: 'page' allows normal page scrolling, 'zoom' enables zoom on scroll
   const [scrollMode, setScrollMode] = useState<'page' | 'zoom'>('page')
+
+  // Chart overlay controls
+  const [chartType, setChartType] = useState<ChartType>('area')
+  const [selectedMetrics, setSelectedMetrics] = useState<MetricId[]>(['netWorth'])
 
   // Windowing state for zoom
   const [startIndex, setStartIndex] = useState<number | null>(null)
@@ -329,6 +345,9 @@ export function NetWorthProjection({
     // Return windowed subset of data
     return projection.slice(actualStartIndex, actualEndIndex + 1)
   }, [projection, effectiveResolution, actualStartIndex, actualEndIndex])
+
+  // Enhance display data with fake overlay metrics
+  const enhancedDisplayData = useChartOverlayData(displayData, selectedMetrics)
 
   // Calculate visible range in months
   const visibleRangeMonths = useMemo(() => {
@@ -741,7 +760,15 @@ border-b border-white/[0.04]`}>
             {chartSubtitle ?? defaultSubtitle}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          {ENABLE_CHART_OVERLAYS && (
+            <ChartControls
+              chartType={chartType}
+              onChartTypeChange={setChartType}
+              selectedMetrics={selectedMetrics}
+              onMetricsChange={setSelectedMetrics}
+            />
+          )}
           {onAddScenario && (
             <button
               onClick={onAddScenario}
@@ -813,14 +840,29 @@ w-full min-h-[250px] min-w-0
           >
             <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>
               <ComposedChart
-                data={displayData}
+                data={ENABLE_CHART_OVERLAYS ? enhancedDisplayData : displayData}
                 margin={{ top: 20, right: 8, left: 8, bottom: 12 }}
               >
                 <defs>
-                  <linearGradient id="netWorthGradient" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor={chartColors.gradientStart} stopOpacity={0.8} />
-                    <stop offset="90%" stopColor={chartColors.gradientEnd} stopOpacity={0.05} />
-                  </linearGradient>
+                  {ENABLE_CHART_OVERLAYS ? (
+                    // Generate gradients for all selected metrics
+                    selectedMetrics.map((metricId) => {
+                      const config = getMetricConfig(metricId)
+                      if (!config) return null
+                      return (
+                        <linearGradient key={config.gradientId} id={config.gradientId} x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor={config.color} stopOpacity={0.7} />
+                          <stop offset="90%" stopColor={config.color} stopOpacity={0.05} />
+                        </linearGradient>
+                      )
+                    })
+                  ) : (
+                    // Original single gradient
+                    <linearGradient id="netWorthGradient" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stopColor={chartColors.gradientStart} stopOpacity={0.8} />
+                      <stop offset="90%" stopColor={chartColors.gradientEnd} stopOpacity={0.05} />
+                    </linearGradient>
+                  )}
                 </defs>
                 <CartesianGrid
                   stroke={chartColors.grid}
@@ -870,25 +912,91 @@ w-full min-h-[250px] min-w-0
                   tickLine={false}
                 />
 
-                <Area
-                  data={displayData}
-                  activeDot={{ r: 5, fill: chartColors.stroke, strokeWidth: 0 }}
-                  dataKey="netWorth"
-                  dot={false}
-                  fill="url(#netWorthGradient)"
-                  stroke={chartColors.stroke}
-                  strokeWidth={2.5}
-                  strokeOpacity={0.85}
-                  type="monotone"
-                  name="Net Worth"
-                  isAnimationActive={areaAnimationEnabled}
-                  animationDuration={AREA_ANIMATION_MS}
-                  animationEasing="ease-out"
-                  animationBegin={0}
-                />
+                {/* Chart rendering - conditional based on feature flag */}
+                {ENABLE_CHART_OVERLAYS ? (
+                  // Dynamic chart elements based on selected metrics and chart type
+                  selectedMetrics.map((metricId, index) => {
+                    const config = getMetricConfig(metricId)
+                    if (!config) return null
+
+                    const commonProps = {
+                      dataKey: metricId,
+                      name: config.label,
+                      isAnimationActive: areaAnimationEnabled,
+                      animationDuration: AREA_ANIMATION_MS,
+                      animationEasing: 'ease-out' as const,
+                      animationBegin: index * 50,
+                    }
+
+                    if (chartType === 'bar') {
+                      return (
+                        <Bar
+                          key={metricId}
+                          {...commonProps}
+                          fill={config.color}
+                          fillOpacity={0.7}
+                          radius={[2, 2, 0, 0]}
+                        />
+                      )
+                    }
+
+                    if (chartType === 'line') {
+                      return (
+                        <Line
+                          key={metricId}
+                          {...commonProps}
+                          type="monotone"
+                          stroke={config.color}
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 4, fill: config.color, strokeWidth: 0 }}
+                        />
+                      )
+                    }
+
+                    // Default: area chart
+                    return (
+                      <Area
+                        key={metricId}
+                        {...commonProps}
+                        type="monotone"
+                        fill={`url(#${config.gradientId})`}
+                        stroke={config.color}
+                        strokeWidth={2}
+                        strokeOpacity={0.85}
+                        dot={false}
+                        activeDot={{ r: 4, fill: config.color, strokeWidth: 0 }}
+                      />
+                    )
+                  })
+                ) : (
+                  // Original single net worth area chart
+                  <Area
+                    data={displayData}
+                    activeDot={{ r: 5, fill: chartColors.stroke, strokeWidth: 0 }}
+                    dataKey="netWorth"
+                    dot={false}
+                    fill="url(#netWorthGradient)"
+                    stroke={chartColors.stroke}
+                    strokeWidth={2.5}
+                    strokeOpacity={0.85}
+                    type="monotone"
+                    name="Net Worth"
+                    isAnimationActive={areaAnimationEnabled}
+                    animationDuration={AREA_ANIMATION_MS}
+                    animationEasing="ease-out"
+                    animationBegin={0}
+                  />
+                )}
 
                 <Tooltip
-                  content={<CustomTooltip startingAge={userSettings?.startingAge} resolution={dataResolution} />}
+                  content={
+                    <CustomTooltip
+                      startingAge={userSettings?.startingAge}
+                      resolution={dataResolution}
+                      selectedMetrics={ENABLE_CHART_OVERLAYS ? selectedMetrics : undefined}
+                    />
+                  }
                   cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }}
                 />
 

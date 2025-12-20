@@ -64,7 +64,7 @@ func TestCreateLiability_WithoutEndDate(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	expenseRows := sqlmock.NewRows([]string{
-		"id", "parent_id", "payee", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
+		"id", "parent_id", "name", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
 	}).AddRow(
 		"expense-1", "expense-1", "Credit Card", 100.0, "monthly", monthStart, nil, "Debt Payment", 0.0, "annual_step", "Auto-generated payment for Credit Card", startDate, "liability-1",
 	)
@@ -163,7 +163,7 @@ func TestCreateLiability_WithNotes(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	expenseRows := sqlmock.NewRows([]string{
-		"id", "parent_id", "payee", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
+		"id", "parent_id", "name", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
 	}).AddRow(
 		"expense-cc", "expense-cc", "Credit Card", 50.0, "monthly", monthStart, nil, "Debt Payment", 0.0, "annual_step", "Auto-generated payment for Credit Card", startDate, "liability-cc",
 	)
@@ -263,7 +263,7 @@ func TestCreateLiability_WithEndDate(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	expenseRows := sqlmock.NewRows([]string{
-		"id", "parent_id", "payee", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
+		"id", "parent_id", "name", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
 	}).AddRow(
 		"expense-2", "expense-2", "Car Loan", 500.0, "monthly", monthStart, endDate, "Debt Payment", 0.0, "annual_step", "Auto-generated payment for Car Loan", startDate, "liability-2",
 	)
@@ -364,7 +364,7 @@ func TestCreateLiability_WithRepaymentStrategy(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	expenseRows := sqlmock.NewRows([]string{
-		"id", "parent_id", "payee", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
+		"id", "parent_id", "name", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "updated_at", "source_liability_id",
 	}).AddRow(
 		"expense-3", "expense-3", "Home Mortgage", 2000.0, "monthly", monthStart, endDate, "Debt Payment", 0.0, "annual_step", "Auto-generated payment for Home Mortgage", startDate, "liability-3",
 	)
