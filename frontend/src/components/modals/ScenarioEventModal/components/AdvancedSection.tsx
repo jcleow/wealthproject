@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ScenarioImpact, GrowthStrategy } from '@/types/scenario'
+import { ImpactKind, TargetType, Frequency } from '@/types/scenario'
 import { getCategoryOptionsForTarget, GROWTH_STRATEGY_OPTIONS } from './impactConfig'
 
 const ChevronDownIcon = LucideIcons.ChevronDown as LucideIcon | undefined
@@ -37,11 +38,14 @@ export function AdvancedSection({
   // - income/expense (unless explicitly one_time for start impacts)
   // - assets and investments always
   // For non-start impacts, we default to showing growth options since the target item likely has a recurring frequency
-  const isStartImpact = impact.impactKind === 'start'
-  const isOneTimeStart = isStartImpact && impact.frequency === 'one_time'
+  const isStartImpact = impact.impactKind === ImpactKind.Start
+  const isOneTimeStart = isStartImpact && impact.frequency === Frequency.OneTime
   const showGrowthOptions = (
-    (impact.targetType === 'income' || impact.targetType === 'expense') && !isOneTimeStart
-  ) || impact.targetType === 'asset' || impact.targetType === 'investment'
+    (impact.targetType === TargetType.Income || impact.targetType === TargetType.Expense) && !isOneTimeStart
+  ) || impact.targetType === TargetType.Asset || impact.targetType === TargetType.Investment
+
+  // Show liability options (Interest Rate, Min Payment) only for liability start impacts
+  const showLiabilityOptions = isStartImpact && impact.targetType === TargetType.Liability
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -181,7 +185,7 @@ export function AdvancedSection({
               </div>
 
               {/* Growth strategy - only for income/expense */}
-              {(impact.targetType === 'income' || impact.targetType === 'expense') && (
+              {(impact.targetType === TargetType.Income || impact.targetType === TargetType.Expense) && (
                 <div className="relative" ref={strategyRef}>
                   <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5 block">
                     Growth Strategy
@@ -252,6 +256,63 @@ export function AdvancedSection({
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Liability options - Interest Rate and Min Payment for start impacts */}
+          {showLiabilityOptions && (
+            <div className="grid grid-cols-2 gap-3">
+              {/* Interest Rate APR */}
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5 block">
+                  Interest Rate (APR %)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={impact.interestRate ?? ''}
+                  onChange={(e) => onUpdate(index, { interestRate: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  className={`
+                    w-full px-3 py-2
+                    rounded-lg
+                    border border-white/[0.08] hover:border-white/[0.15] focus:border-blue-500/40
+                    bg-white/[0.03] hover:bg-white/[0.05] focus:bg-white/[0.05]
+                    text-sm text-white placeholder:text-slate-600
+                    outline-none
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    transition-all duration-200
+                  `}
+                  placeholder="0.0"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Minimum Payment */}
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5 block">
+                  Minimum Payment
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={impact.minimumPayment ?? ''}
+                  onChange={(e) => onUpdate(index, { minimumPayment: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  className={`
+                    w-full px-3 py-2
+                    rounded-lg
+                    border border-white/[0.08] hover:border-white/[0.15] focus:border-blue-500/40
+                    bg-white/[0.03] hover:bg-white/[0.05] focus:bg-white/[0.05]
+                    text-sm text-white placeholder:text-slate-600
+                    outline-none
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    transition-all duration-200
+                  `}
+                  placeholder="0"
+                  disabled={loading}
+                />
+              </div>
             </div>
           )}
         </div>

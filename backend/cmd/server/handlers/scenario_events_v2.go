@@ -41,6 +41,10 @@ type scenarioImpactV2DTO struct {
 	GrowthRate     *float64 `json:"growthRate,omitempty"`     // Growth rate (%) - applied based on growth strategy
 	GrowthStrategy *string  `json:"growthStrategy,omitempty"` // How growth is applied (none, annual_step, compound)
 
+	// Liability-specific fields for start impacts
+	InterestRate   *float64 `json:"interestRate,omitempty"`   // APR % for liabilities
+	MinimumPayment *int64   `json:"minimumPayment,omitempty"` // Min payment for liabilities
+
 	// Typed target IDs (only one should be set per impact)
 	TargetAssetID       *string `json:"targetAssetId,omitempty"`
 	TargetLiabilityID   *string `json:"targetLiabilityId,omitempty"`

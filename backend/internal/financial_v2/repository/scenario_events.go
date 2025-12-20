@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/common"
+	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
 
 	"github.com/jackc/pgx/v5"
@@ -308,8 +309,14 @@ func (s *Store) updateStartImpactTarget(ctx context.Context, tx pgx.Tx, imp *Sce
 	}
 	if imp.TargetLiabilityID != nil {
 		_, err := tx.Exec(ctx, `
-			UPDATE finance_liabilities SET current_balance = $1, category = COALESCE(NULLIF($2, ''), category), updated_at = NOW() WHERE id = $3`,
-			imp.Amount, category, *imp.TargetLiabilityID)
+			UPDATE finance_liabilities SET
+				current_balance = $1,
+				category = COALESCE(NULLIF($2, ''), category),
+				interest_rate_apr = COALESCE($3, interest_rate_apr),
+				minimum_payment = COALESCE($4, minimum_payment),
+				updated_at = NOW()
+			WHERE id = $5`,
+			imp.Amount, category, imp.InterestRate, imp.MinimumPayment, *imp.TargetLiabilityID)
 		return err
 	}
 	if imp.TargetIncomeID != nil {
@@ -387,7 +394,10 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 			-- Advanced fields from financial item (ca uses account_type instead of category)
 			COALESCE(a.category, l.category, inc.category, exp.category, ca.account_type, inv.category, '') as target_category,
 			COALESCE(a.growth_rate, inv.growth_rate, inc.growth_rate, exp.growth_rate) as target_growth_rate,
-			COALESCE(inc.growth_strategy, exp.growth_strategy, '') as target_growth_strategy
+			COALESCE(inc.growth_strategy, exp.growth_strategy, '') as target_growth_strategy,
+			-- Liability-specific fields
+			l.interest_rate_apr as target_interest_rate,
+			l.minimum_payment as target_min_payment
 		FROM scenario_event_impacts sei
 		JOIN scenario_events ev ON sei.event_id = ev.id
 		LEFT JOIN finance_assets a ON sei.target_asset_id = a.id
@@ -406,14 +416,27 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 	var impacts []ScenarioImpact
 	for rows.Next() {
 		var imp ScenarioImpact
+		// Temporary variables for decimal scan
+		var interestRateAPR, minPayment *decimal.Decimal
 		// pgx scans NULL directly into pointer fields
 		if err := rows.Scan(
 			&imp.ID, &imp.EventID, &imp.ImpactKind, &imp.Amount, &imp.Cadence, &imp.CreatedAt,
 			&imp.TargetAssetID, &imp.TargetLiabilityID, &imp.TargetIncomeID, &imp.TargetExpenseID, &imp.TargetCashAccountID, &imp.TargetInvestmentID,
 			&imp.Name, &imp.Currency, &imp.Frequency, &imp.StartDate, &imp.EndDate, &imp.Notes,
 			&imp.Category, &imp.GrowthRate, &imp.GrowthStrategy,
+			&interestRateAPR, &minPayment,
 		); err != nil {
 			return nil, err
+		}
+		// Convert decimal to float64/int64
+		if interestRateAPR != nil {
+			val := interestRateAPR.ToFloat64()
+			imp.InterestRate = &val
+		}
+		if minPayment != nil {
+			// minimum_payment is stored as decimal, convert to int64
+			val := int64(minPayment.ToFloat64())
+			imp.MinimumPayment = &val
 		}
 
 		impacts = append(impacts, imp)
@@ -428,7 +451,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 // All impacts (including start) must have a pre-existing targetId - no auto-creation.
 // Stores: event_id, impact_kind, amount, cadence, and target FK columns.
 // Other values (name, currency, frequency, dates, notes) are derived from the linked financial item.
-func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, eventID string, impacts []ScenarioImpact) error {
+func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, _ string, eventID string, impacts []ScenarioImpact) error {
 	for i := range impacts {
 		imp := &impacts[i]
 

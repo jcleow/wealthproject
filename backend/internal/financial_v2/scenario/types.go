@@ -113,6 +113,10 @@ type Impact struct {
 	Category       string   // Category from the target financial item
 	GrowthRate     *float64 // Annual growth rate from the target financial item
 	GrowthStrategy string   // Growth strategy from the target financial item (income/expense only)
+
+	// Liability-specific fields derived from financial item (for start impacts)
+	InterestRate   *float64 // APR % for liabilities
+	MinimumPayment *int64   // Min payment for liabilities
 }
 
 // TargetType returns the type of target this impact references.
