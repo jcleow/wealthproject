@@ -213,6 +213,7 @@ transition-all`}
                       value={form.formData.frequency}
                       onChange={(val) => form.updateFormField('frequency', val as Frequency)}
                       options={[
+                        { value: 'one_time', label: 'One-time' },
                         { value: 'monthly', label: 'Monthly' },
                         { value: 'annual', label: 'Annual' },
                       ]}
