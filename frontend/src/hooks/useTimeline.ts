@@ -139,8 +139,23 @@ export function useTimeline(options?: UseTimelineOptions) {
   }, [timelineV2Query.data?.months, timelineQuery.data?.months])
 
   useEffect(() => {
-    if (!timelineQuery.data) return
+    // Already initialized
     if (selectedYear !== null) return
+
+    // When V2 is enabled, initialize from V2 snapshot data
+    if (useTimelineV2) {
+      const v2Months = timelineV2Query.data?.months
+      if (v2Months?.[0]) {
+        const initialYear = earliestMonth?.year ?? v2Months[0].year
+        const initialMonth = earliestMonth?.month ?? v2Months[0].month
+        setSelectedYear(initialYear)
+        setSelectedMonth(initialMonth)
+      }
+      return
+    }
+
+    // Legacy V1 path
+    if (!timelineQuery.data) return
 
     // Initialize based on resolution
     if (resolution === 'monthly' && timelineQuery.data.months?.[0]) {
@@ -151,7 +166,7 @@ export function useTimeline(options?: UseTimelineOptions) {
     } else if (resolution === 'yearly' && timelineQuery.data.years?.[0]) {
       setSelectedYear(timelineQuery.data.years[0].year)
     }
-  }, [selectedYear, timelineQuery.data, resolution, earliestMonth])
+  }, [selectedYear, timelineQuery.data, timelineV2Query.data, resolution, earliestMonth])
 
   useEffect(() => {
     if (!earliestMonth) return
@@ -169,6 +184,14 @@ export function useTimeline(options?: UseTimelineOptions) {
 
   // Extract years for navigation (works for both resolutions)
   const years = useMemo(() => {
+    if (useTimelineV2) {
+      // When V2 is enabled, get years from V2 snapshot data
+      const uniqueYears = new Set<number>()
+      timelineV2Query.data?.months?.forEach(m => uniqueYears.add(m.year))
+      return Array.from(uniqueYears).sort((a, b) => a - b)
+    }
+
+    // Legacy V1 path
     if (resolution === 'monthly') {
       // Get unique years from months
       const uniqueYears = new Set<number>()
@@ -176,7 +199,7 @@ export function useTimeline(options?: UseTimelineOptions) {
       return Array.from(uniqueYears).sort((a, b) => a - b)
     }
     return timelineQuery.data?.years?.map((entry) => entry.year) ?? []
-  }, [timelineQuery.data, resolution])
+  }, [timelineQuery.data, timelineV2Query.data, resolution])
 
   const selectedYearValue = selectedYear ?? years[0] ?? 0
   const selectedMonthValue = selectedMonth ?? 1
