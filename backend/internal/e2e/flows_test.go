@@ -49,7 +49,7 @@ func TestFlow_IncomeToAllocationToTimeline(t *testing.T) {
 		"currentValue":   "50000.00",
 		"growthRate":     "7.0",
 		"startDate":      "2025-01-01T00:00:00Z",
-		"growthStrategy": "compound",
+		"growthStrategy": "compound_monthly",
 	}
 
 	resp = ts.Request("POST", "/api/v2/investments").
@@ -242,7 +242,7 @@ func TestFlow_CreateUpdateDeleteAsset(t *testing.T) {
 		"currentValue":     "400000.00",
 		"annualGrowthRate": "3.0",
 		"startDate":        "2025-01-01T00:00:00Z",
-		"growthStrategy":   "compound",
+		"growthStrategy":   "compound_monthly",
 	}
 
 	resp := ts.Request("POST", "/api/v2/assets").
@@ -262,7 +262,7 @@ func TestFlow_CreateUpdateDeleteAsset(t *testing.T) {
 		"currentValue":     "450000.00",
 		"annualGrowthRate": "3.5",
 		"startDate":        "2025-01-01T00:00:00Z",
-		"growthStrategy":   "compound",
+		"growthStrategy":   "compound_monthly",
 	}
 
 	resp = ts.Request("PUT", "/api/v2/assets/"+assetID).
@@ -313,7 +313,7 @@ func TestFlow_StopAssetSetsEndDate(t *testing.T) {
 		"currentValue":     "30000.00",
 		"annualGrowthRate": "-15.0",
 		"startDate":        "2025-01-01T00:00:00Z",
-		"growthStrategy":   "compound",
+		"growthStrategy":   "compound_monthly",
 	}
 
 	resp := ts.Request("POST", "/api/v2/assets").

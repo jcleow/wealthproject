@@ -19,9 +19,11 @@ echo "Setting up test database..."
 PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -tc "SELECT 1 FROM pg_database WHERE datname = '$TEST_DB_NAME'" | grep -q 1 || \
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -c "CREATE DATABASE $TEST_DB_NAME;" 2>/dev/null
 
-# Run migrations
+# Run migrations (one by one to handle dependencies correctly)
 echo "Running migrations..."
-cat migrations/*.up.sql | PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$TEST_DB_NAME" -q 2>/dev/null || true
+for f in migrations/*.up.sql; do
+  PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$TEST_DB_NAME" -q -f "$f" 2>/dev/null || true
+done
 
 # Run unit tests
 echo ""

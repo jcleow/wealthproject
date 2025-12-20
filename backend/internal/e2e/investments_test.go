@@ -35,7 +35,7 @@ func TestV2Investments_Create_Success(t *testing.T) {
 		"currentValue":   "100000.00",
 		"growthRate":     "7.0",
 		"startDate":      "2025-01-01T00:00:00Z",
-		"growthStrategy": "compound",
+		"growthStrategy": "compound_monthly",
 	}
 
 	resp := ts.Request("POST", "/api/v2/investments").
@@ -114,7 +114,7 @@ func TestV2Investments_Update_Success(t *testing.T) {
 		"currentValue":   "120000.00",
 		"growthRate":     "5.0",
 		"startDate":      "2025-01-01T00:00:00Z",
-		"growthStrategy": "compound",
+		"growthStrategy": "compound_monthly",
 	}
 
 	resp := ts.Request("PUT", "/api/v2/investments/"+investmentID).

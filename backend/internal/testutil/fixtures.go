@@ -27,7 +27,7 @@ func CreateAssetFixture(t *testing.T, pool *pgxpool.Pool, userID, name string) s
 	var id string
 	err := pool.QueryRow(ctx, `
 		INSERT INTO finance_assets (user_id, name, category, current_value, growth_rate, start_date, growth_strategy)
-		VALUES ($1, $2, 'real_estate', 100000, 3.5, '2025-01-01', 'compound')
+		VALUES ($1, $2, 'real_estate', 100000, 3.5, '2025-01-01', 'compound_monthly')
 		RETURNING id
 	`, userID, name).Scan(&id)
 	require.NoError(t, err, "failed to create asset fixture")
@@ -87,7 +87,7 @@ func CreateInvestmentFixture(t *testing.T, pool *pgxpool.Pool, userID, name stri
 	var id string
 	err := pool.QueryRow(ctx, `
 		INSERT INTO finance_investments (user_id, name, category, current_value, growth_rate, start_date, growth_strategy)
-		VALUES ($1, $2, 'stocks', 50000, 7.0, '2025-01-01', 'compound')
+		VALUES ($1, $2, 'stocks', 50000, 7.0, '2025-01-01', 'compound_monthly')
 		RETURNING id
 	`, userID, name).Scan(&id)
 	require.NoError(t, err, "failed to create investment fixture")
@@ -169,7 +169,7 @@ func CreateAssetFixtureWithStore(t *testing.T, store *repository.Store, userID, 
 		CurrentValue:     *currentValue,
 		AnnualGrowthRate: *growthRate,
 		StartDate:        time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		GrowthStrategy:   "compound",
+		GrowthStrategy:   "compound_monthly",
 	})
 	require.NoError(t, err, "failed to create asset fixture")
 	return asset
@@ -255,7 +255,7 @@ func CreateInvestmentFixtureWithStore(t *testing.T, store *repository.Store, use
 		CurrentValue:   *currentValue,
 		GrowthRate:     *growthRate,
 		StartDate:      time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		GrowthStrategy: "compound",
+		GrowthStrategy: "compound_monthly",
 	})
 	require.NoError(t, err, "failed to create investment fixture")
 	return investment

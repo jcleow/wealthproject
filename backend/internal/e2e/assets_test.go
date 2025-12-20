@@ -36,7 +36,7 @@ func TestV2Assets_Create_Success(t *testing.T) {
 		"currentValue":     "500000.00",
 		"annualGrowthRate": "3.5",
 		"startDate":        "2025-01-01T00:00:00Z",
-		"growthStrategy":   "compound",
+		"growthStrategy":   "compound_monthly",
 	}
 
 	resp := ts.Request("POST", "/api/v2/assets").
@@ -116,7 +116,7 @@ func TestV2Assets_Update_Success(t *testing.T) {
 		"currentValue":     "600000.00",
 		"annualGrowthRate": "4.0",
 		"startDate":        "2025-01-01T00:00:00Z",
-		"growthStrategy":   "compound",
+		"growthStrategy":   "compound_monthly",
 	}
 
 	resp := ts.Request("PUT", "/api/v2/assets/"+assetID).
