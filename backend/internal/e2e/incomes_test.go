@@ -12,12 +12,15 @@ import (
 )
 
 func TestV2Incomes_List_Empty(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
+	// ===== ACT =====
 	resp := ts.Request("GET", "/api/v2/cashflow/incomes").
 		WithDefaultAuth().
 		Do(t)
 
+	// ===== ASSERT =====
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
@@ -27,6 +30,7 @@ func TestV2Incomes_List_Empty(t *testing.T) {
 }
 
 func TestV2Incomes_Create_Success(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
@@ -41,11 +45,13 @@ func TestV2Incomes_Create_Success(t *testing.T) {
 		"cpfWageType":    "ow",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("POST", "/api/v2/cashflow/incomes").
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
@@ -55,6 +61,7 @@ func TestV2Incomes_Create_Success(t *testing.T) {
 }
 
 func TestV2Incomes_Create_MissingName(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
@@ -62,15 +69,18 @@ func TestV2Incomes_Create_MissingName(t *testing.T) {
 		"frequency": "monthly",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("POST", "/api/v2/cashflow/incomes").
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	testutil.AssertBadRequest(t, resp)
 }
 
 func TestV2Incomes_Create_Unauthorized(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
@@ -79,25 +89,28 @@ func TestV2Incomes_Create_Unauthorized(t *testing.T) {
 		"frequency": "monthly",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("POST", "/api/v2/cashflow/incomes").
 		WithoutAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	testutil.AssertUnauthorized(t, resp)
 }
 
 func TestV2Incomes_List_WithData(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
-
-	// Create fixtures
 	testutil.CreateIncomeFixture(t, ts.Pool, ts.UserID, "Income 1")
 	testutil.CreateIncomeFixture(t, ts.Pool, ts.UserID, "Income 2")
 
+	// ===== ACT =====
 	resp := ts.Request("GET", "/api/v2/cashflow/incomes").
 		WithDefaultAuth().
 		Do(t)
 
+	// ===== ASSERT =====
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
@@ -107,9 +120,8 @@ func TestV2Incomes_List_WithData(t *testing.T) {
 }
 
 func TestV2Incomes_Update_Success(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
-
-	// Create a fixture
 	incomeID := testutil.CreateIncomeFixture(t, ts.Pool, ts.UserID, "Original Income")
 
 	payload := map[string]interface{}{
@@ -122,11 +134,13 @@ func TestV2Incomes_Update_Success(t *testing.T) {
 		"growthStrategy": "annual_step",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("PUT", "/api/v2/cashflow/incomes/"+incomeID).
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
@@ -134,6 +148,7 @@ func TestV2Incomes_Update_Success(t *testing.T) {
 }
 
 func TestV2Incomes_Update_NotFound(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
@@ -142,24 +157,27 @@ func TestV2Incomes_Update_NotFound(t *testing.T) {
 		"frequency": "monthly",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("PUT", "/api/v2/cashflow/incomes/nonexistent-id").
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	testutil.AssertNotFound(t, resp)
 }
 
 func TestV2Incomes_Delete_Success(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
-
-	// Create a fixture
 	incomeID := testutil.CreateIncomeFixture(t, ts.Pool, ts.UserID, "To Delete")
 
+	// ===== ACT =====
 	resp := ts.Request("DELETE", "/api/v2/cashflow/incomes/"+incomeID).
 		WithDefaultAuth().
 		Do(t)
 
+	// ===== ASSERT =====
 	testutil.AssertNoContent(t, resp)
 
 	// Verify it's deleted
@@ -175,30 +193,34 @@ func TestV2Incomes_Delete_Success(t *testing.T) {
 }
 
 func TestV2Incomes_Delete_NotFound(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
+	// ===== ACT =====
 	resp := ts.Request("DELETE", "/api/v2/cashflow/incomes/nonexistent-id").
 		WithDefaultAuth().
 		Do(t)
 
+	// ===== ASSERT =====
 	testutil.AssertNotFound(t, resp)
 }
 
 func TestV2Incomes_Stop_Success(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
-
-	// Create a fixture
 	incomeID := testutil.CreateIncomeFixture(t, ts.Pool, ts.UserID, "To Stop")
 
 	payload := map[string]interface{}{
 		"endDate": "2025-12-31T00:00:00Z",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("POST", "/api/v2/cashflow/incomes/"+incomeID+"/stop").
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 

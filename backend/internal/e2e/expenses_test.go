@@ -12,22 +12,25 @@ import (
 )
 
 func TestV2Expenses_List_Empty(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
+	// ===== ACT =====
 	resp := ts.Request("GET", "/api/v2/cashflow/expenses").
 		WithDefaultAuth().
 		Do(t)
 
+	// ===== ASSERT =====
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
-	// Should return grouped expenses structure
 	regular, ok := result["regularExpenses"].([]interface{})
 	require.True(t, ok, "expected regularExpenses to be an array")
 	require.Empty(t, regular)
 }
 
 func TestV2Expenses_Create_Success(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
@@ -40,11 +43,13 @@ func TestV2Expenses_Create_Success(t *testing.T) {
 		"growthStrategy": "annual_step",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("POST", "/api/v2/cashflow/expenses").
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
@@ -54,6 +59,7 @@ func TestV2Expenses_Create_Success(t *testing.T) {
 }
 
 func TestV2Expenses_Create_MissingName(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
@@ -62,15 +68,18 @@ func TestV2Expenses_Create_MissingName(t *testing.T) {
 		"category":  "utilities",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("POST", "/api/v2/cashflow/expenses").
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	testutil.AssertBadRequest(t, resp)
 }
 
 func TestV2Expenses_Create_Unauthorized(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
@@ -79,25 +88,28 @@ func TestV2Expenses_Create_Unauthorized(t *testing.T) {
 		"frequency": "monthly",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("POST", "/api/v2/cashflow/expenses").
 		WithoutAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	testutil.AssertUnauthorized(t, resp)
 }
 
 func TestV2Expenses_List_WithData(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
-
-	// Create fixtures
 	testutil.CreateExpenseFixture(t, ts.Pool, ts.UserID, "Expense 1")
 	testutil.CreateExpenseFixture(t, ts.Pool, ts.UserID, "Expense 2")
 
+	// ===== ACT =====
 	resp := ts.Request("GET", "/api/v2/cashflow/expenses").
 		WithDefaultAuth().
 		Do(t)
 
+	// ===== ASSERT =====
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
@@ -107,9 +119,8 @@ func TestV2Expenses_List_WithData(t *testing.T) {
 }
 
 func TestV2Expenses_Update_Success(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
-
-	// Create a fixture
 	expenseID := testutil.CreateExpenseFixture(t, ts.Pool, ts.UserID, "Original Name")
 
 	payload := map[string]interface{}{
@@ -122,11 +133,13 @@ func TestV2Expenses_Update_Success(t *testing.T) {
 		"growthStrategy": "annual_step",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("PUT", "/api/v2/cashflow/expenses/"+expenseID).
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
@@ -135,6 +148,7 @@ func TestV2Expenses_Update_Success(t *testing.T) {
 }
 
 func TestV2Expenses_Update_NotFound(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
@@ -143,24 +157,27 @@ func TestV2Expenses_Update_NotFound(t *testing.T) {
 		"frequency": "monthly",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("PUT", "/api/v2/cashflow/expenses/nonexistent-id").
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	testutil.AssertNotFound(t, resp)
 }
 
 func TestV2Expenses_Delete_Success(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
-
-	// Create a fixture
 	expenseID := testutil.CreateExpenseFixture(t, ts.Pool, ts.UserID, "To Delete")
 
+	// ===== ACT =====
 	resp := ts.Request("DELETE", "/api/v2/cashflow/expenses/"+expenseID).
 		WithDefaultAuth().
 		Do(t)
 
+	// ===== ASSERT =====
 	testutil.AssertNoContent(t, resp)
 
 	// Verify it's deleted
@@ -176,30 +193,34 @@ func TestV2Expenses_Delete_Success(t *testing.T) {
 }
 
 func TestV2Expenses_Delete_NotFound(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
 
+	// ===== ACT =====
 	resp := ts.Request("DELETE", "/api/v2/cashflow/expenses/nonexistent-id").
 		WithDefaultAuth().
 		Do(t)
 
+	// ===== ASSERT =====
 	testutil.AssertNotFound(t, resp)
 }
 
 func TestV2Expenses_Stop_Success(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
-
-	// Create a fixture
 	expenseID := testutil.CreateExpenseFixture(t, ts.Pool, ts.UserID, "To Stop")
 
 	payload := map[string]interface{}{
 		"endDate": "2025-12-31T00:00:00Z",
 	}
 
+	// ===== ACT =====
 	resp := ts.Request("POST", "/api/v2/cashflow/expenses/"+expenseID+"/stop").
 		WithDefaultAuth().
 		WithJSON(payload).
 		Do(t)
 
+	// ===== ASSERT =====
 	var result map[string]interface{}
 	testutil.AssertOK(t, resp, &result)
 
@@ -207,17 +228,17 @@ func TestV2Expenses_Stop_Success(t *testing.T) {
 }
 
 func TestV2Expenses_BulkDelete_Success(t *testing.T) {
+	// ===== ARRANGE =====
 	ts := testutil.NewTestServer(t)
-
-	// Create multiple fixtures
 	testutil.CreateExpenseFixture(t, ts.Pool, ts.UserID, "Expense 1")
 	testutil.CreateExpenseFixture(t, ts.Pool, ts.UserID, "Expense 2")
 
-	// Bulk delete
+	// ===== ACT =====
 	resp := ts.Request("DELETE", "/api/v2/cashflow/expenses").
 		WithDefaultAuth().
 		Do(t)
 
+	// ===== ASSERT =====
 	testutil.AssertOK(t, resp, nil)
 
 	// Verify all deleted
