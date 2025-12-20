@@ -35,3 +35,15 @@
 **Spec:** [api-openapi-codegen.md](./api-openapi-codegen.md)
 
 ---
+
+### Remove Defensive Transformers After Codegen
+
+**Problem:** `frontend/src/api/financial/transformers.ts` has mappers that check for `snake_case`, `camelCase`, AND `PascalCase` variations of every field (e.g., `item.id ?? item.ID`, `item.current_value ?? item.currentValue ?? item.CurrentValue`). This is defensive code to handle inconsistent API responses.
+
+**Solution:** After implementing OpenAPI codegen, standardize the API response format (prefer `camelCase`) and remove the multi-case fallbacks from transformers.
+
+**Effort:** ~1 hour (after codegen is in place)
+
+**Depends on:** OpenAPI TypeScript Codegen
+
+---
