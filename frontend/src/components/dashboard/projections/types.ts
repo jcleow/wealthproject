@@ -25,4 +25,10 @@ export type ProjectionPoint = {
   calendarMonth?: number
   hasNonAnnualSource?: boolean
   hasOverride?: boolean
+  // Additional overlay metrics (populated by useChartOverlayData)
+  cashBalance?: number
+  annualIncome?: number
+  annualExpenses?: number
+  investments?: number
+  cpf?: number
 }
