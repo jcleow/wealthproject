@@ -1829,7 +1829,7 @@ func (s *Service) GetTimeline(
 
 	if resolution == "yearly" {
 		// Aggregate monthly data into yearly summaries (use December of each year)
-		years := aggregateToYearly(snapshot.Months)
+		years := getYearlyBalances(snapshot.Months)
 		return TimelineAnnualChartResponse{
 			Resolution:  "yearly",
 			Years:       years,
@@ -1868,18 +1868,10 @@ func extractScenarioIDsFromImpacts(impacts *scenario.ImpactContext) []string {
 	return ids
 }
 
-// aggregateToYearly converts monthly snapshots to yearly summaries for the chart.
+// getYearlyBalances extracts year-end balances from monthly snapshots for the chart.
 // Uses December values (or last available month) as representative for each year.
-//
-// This aggregation is correct for:
-//   - NetWorth: a point-in-time balance best represented by year-end value
-//   - Assets/Liabilities: point-in-time balances
-//
-// Note: For cashflow items (income/expenses), the frontend handles annual totals
-// separately. If detailed item-level yearly aggregation is needed, income/expense
-// amounts should be summed across all 12 months to account for compounding growth
-// and mid-year scenario impacts.
-func aggregateToYearly(months []MonthDetailResponse) []TimelineYearlySummary {
+// This is appropriate for NetWorth and asset/liability balances (point-in-time values).
+func getYearlyBalances(months []MonthDetailResponse) []TimelineYearlySummary {
 	if len(months) == 0 {
 		return []TimelineYearlySummary{}
 	}
