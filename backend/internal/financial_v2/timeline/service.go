@@ -1604,6 +1604,8 @@ func buildMonthDetailResponse(
 		NetSavings:           *netSavings.Round(0),
 		NetCash:              *netCashFlow.Round(0),
 		NetInvestments:       *netInvestments.Round(0),
+		TotalAssets:          *totalAssets.Round(0),
+		TotalLiabilities:     *liabilityTotal.Round(0),
 		NetWorth:             *netWorth.Round(0),
 		AccumulatorAccountID: accumulatorID,
 	}
@@ -1777,6 +1779,9 @@ func (s *Service) computeSnapshotFromData(sgData SGFinancialDataRows, opts Timel
 		resultMonths = append(resultMonths, processMonth(mctx, allMonthsIndex, currentDate, isAnchorMonth))
 	}
 
+	// Calculate annual amounts for income/expenses by summing all months in each year
+	populateAnnualAmounts(resultMonths)
+
 	return TimelineV2Response{Months: resultMonths}
 }
 
@@ -1842,9 +1847,11 @@ func (s *Service) GetTimeline(
 	months := make([]TimelineMonthlySummary, len(snapshot.Months))
 	for i, m := range snapshot.Months {
 		months[i] = TimelineMonthlySummary{
-			Month:          m.Month,
-			AllMonthsIndex: m.AllMonthsIndex,
-			NetWorth:       m.NetWorth,
+			Month:            m.Month,
+			AllMonthsIndex:   m.AllMonthsIndex,
+			TotalAssets:      m.TotalAssets,
+			TotalLiabilities: m.TotalLiabilities,
+			NetWorth:         m.NetWorth,
 		}
 	}
 
@@ -1854,6 +1861,63 @@ func (s *Service) GetTimeline(
 		Months:      months,
 		ScenarioIds: scenarioIDs,
 	}, nil
+}
+
+// populateAnnualAmounts calculates annual amounts for income and expenses by summing
+// all 12 months of each calendar year. This accounts for growth and scenario impacts
+// that may change amounts throughout the year.
+func populateAnnualAmounts(months []MonthDetailResponse) {
+	// Group months by year
+	monthsByYear := make(map[int][]*MonthDetailResponse)
+	for i := range months {
+		year := months[i].Year
+		monthsByYear[year] = append(monthsByYear[year], &months[i])
+	}
+
+	// For each year, calculate annual totals for each income/expense item
+	for _, yearMonths := range monthsByYear {
+		// Build maps of item ID -> sum of monthly amounts
+		incomeAnnualTotals := make(map[string]decimal.Decimal)
+		incomeAdjAnnualTotals := make(map[string]decimal.Decimal)
+		expenseAnnualTotals := make(map[string]decimal.Decimal)
+		expenseAdjAnnualTotals := make(map[string]decimal.Decimal)
+
+		// Sum up all monthly amounts for each item
+		for _, m := range yearMonths {
+			for _, inc := range m.Income {
+				current := incomeAnnualTotals[inc.ID]
+				incomeAnnualTotals[inc.ID] = *current.Add(&inc.Amount)
+				currentAdj := incomeAdjAnnualTotals[inc.ID]
+				incomeAdjAnnualTotals[inc.ID] = *currentAdj.Add(&inc.EventAdjAmount)
+			}
+			for _, exp := range m.Expenses {
+				current := expenseAnnualTotals[exp.ID]
+				expenseAnnualTotals[exp.ID] = *current.Add(&exp.Amount)
+				currentAdj := expenseAdjAnnualTotals[exp.ID]
+				expenseAdjAnnualTotals[exp.ID] = *currentAdj.Add(&exp.EventAdjAmount)
+			}
+		}
+
+		// Apply the calculated annual totals back to each month's items
+		for _, m := range yearMonths {
+			for i := range m.Income {
+				if total, ok := incomeAnnualTotals[m.Income[i].ID]; ok {
+					m.Income[i].AnnualAmount = *total.Round(0)
+				}
+				if adjTotal, ok := incomeAdjAnnualTotals[m.Income[i].ID]; ok {
+					m.Income[i].EventAdjAnnualAmount = *adjTotal.Round(0)
+				}
+			}
+			for i := range m.Expenses {
+				if total, ok := expenseAnnualTotals[m.Expenses[i].ID]; ok {
+					m.Expenses[i].AnnualAmount = *total.Round(0)
+				}
+				if adjTotal, ok := expenseAdjAnnualTotals[m.Expenses[i].ID]; ok {
+					m.Expenses[i].EventAdjAnnualAmount = *adjTotal.Round(0)
+				}
+			}
+		}
+	}
 }
 
 // extractScenarioIDsFromImpacts extracts unique scenario event IDs from the impact context.
@@ -1889,9 +1953,11 @@ func getYearlyBalances(months []MonthDetailResponse) []TimelineYearlySummary {
 	years := make([]TimelineYearlySummary, 0, len(yearMap))
 	for year, m := range yearMap {
 		years = append(years, TimelineYearlySummary{
-			Year:          year,
-			AllYearsIndex: m.AllYearsIndex,
-			NetWorth:      m.NetWorth,
+			Year:             year,
+			AllYearsIndex:    m.AllYearsIndex,
+			TotalAssets:      m.TotalAssets,
+			TotalLiabilities: m.TotalLiabilities,
+			NetWorth:         m.NetWorth,
 		})
 	}
 

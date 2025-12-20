@@ -271,8 +271,10 @@ export interface IncomeResponseV2 {
   parentId: string
   name: string
   category: string
-  amount: string
-  eventAdjAmount: string
+  amount: string // Monthly amount
+  eventAdjAmount: string // Monthly amount with scenario impacts
+  annualAmount: string // Sum of 12 monthly amounts (accounts for growth)
+  eventAdjAnnualAmount: string // Sum of 12 monthly amounts with scenario impacts
   sourceFrequency: TimelineFrequency
   itemType: TimelineItemType
   startYear: number
@@ -306,8 +308,10 @@ export interface ExpenseResponseV2 {
   parentId: string
   name: string
   category: string
-  amount: string
-  eventAdjAmount: string
+  amount: string // Monthly amount
+  eventAdjAmount: string // Monthly amount with scenario impacts
+  annualAmount: string // Sum of 12 monthly amounts (accounts for growth)
+  eventAdjAnnualAmount: string // Sum of 12 monthly amounts with scenario impacts
   sourceFrequency: TimelineFrequency
   itemType: TimelineItemType
   startYear: number

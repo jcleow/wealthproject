@@ -127,22 +127,17 @@ export function liabilityV2ToTimelineItem(item: LiabilityResponseV2): TimelineIt
 }
 
 export function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
-  // V2 API returns monthly amounts for a specific month
-  // NOTE: amountAnnual = monthly * 12 is an approximation. For accurate annual totals
-  // with compounding growth or mid-year scenario impacts, the backend should provide
-  // pre-calculated annual amounts that sum all 12 months.
-  // TODO: Add annualAmount field to backend IncomeResponse and use it here.
-  const monthlyAmount = parseDecimal(item.amount)
-  const monthlyEventAdj = parseDecimal(item.eventAdjAmount)
+  // V2 API returns both monthly amounts and pre-calculated annual amounts
+  // Annual amounts are summed from all 12 months to account for growth and scenario impacts
   return {
     itemId: item.id,
     parentId: item.parentId,
     name: item.name,
     category: item.category,
-    amountAnnual: monthlyAmount * 12,
-    adjAnnualAmt: monthlyEventAdj * 12,
-    amountMonthly: monthlyAmount,
-    adjMonthlyAmt: monthlyEventAdj,
+    amountAnnual: parseDecimal(item.annualAmount),
+    adjAnnualAmt: parseDecimal(item.eventAdjAnnualAmount),
+    amountMonthly: parseDecimal(item.amount),
+    adjMonthlyAmt: parseDecimal(item.eventAdjAmount),
     sourceFrequency: item.sourceFrequency,
     itemType: item.itemType,
     startYear: item.startYear,
@@ -153,22 +148,17 @@ export function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
 }
 
 export function expenseV2ToTimelineItem(item: ExpenseResponseV2): TimelineItem {
-  // V2 API returns monthly amounts for a specific month
-  // NOTE: amountAnnual = monthly * 12 is an approximation. For accurate annual totals
-  // with compounding growth or mid-year scenario impacts, the backend should provide
-  // pre-calculated annual amounts that sum all 12 months.
-  // TODO: Add annualAmount field to backend ExpenseResponse and use it here.
-  const monthlyAmount = parseDecimal(item.amount)
-  const monthlyEventAdj = parseDecimal(item.eventAdjAmount)
+  // V2 API returns both monthly amounts and pre-calculated annual amounts
+  // Annual amounts are summed from all 12 months to account for growth and scenario impacts
   return {
     itemId: item.id,
     parentId: item.parentId,
     name: item.name,
     category: item.category,
-    amountAnnual: monthlyAmount * 12,
-    adjAnnualAmt: monthlyEventAdj * 12,
-    amountMonthly: monthlyAmount,
-    adjMonthlyAmt: monthlyEventAdj,
+    amountAnnual: parseDecimal(item.annualAmount),
+    adjAnnualAmt: parseDecimal(item.eventAdjAnnualAmount),
+    amountMonthly: parseDecimal(item.amount),
+    adjMonthlyAmt: parseDecimal(item.eventAdjAmount),
     sourceFrequency: item.sourceFrequency,
     itemType: item.itemType,
     startYear: item.startYear,

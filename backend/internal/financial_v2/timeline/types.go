@@ -23,17 +23,19 @@ const (
 )
 
 type TimelineYearlySummary struct {
-	Year          int             `json:"year"`
-	AllYearsIndex int             `json:"allYearsIndex"`
-	NetWorth      decimal.Decimal `json:"netWorth"`
+	Year             int             `json:"year"`
+	AllYearsIndex    int             `json:"allYearsIndex"`
+	TotalAssets      decimal.Decimal `json:"totalAssets"`
+	TotalLiabilities decimal.Decimal `json:"totalLiabilities"`
+	NetWorth         decimal.Decimal `json:"netWorth"`
 }
 
 type TimelineMonthlySummary struct {
-	Month          int             `json:"month"`
-	AllMonthsIndex int             `json:"allMonthsIndex"`
-	NetWorth       decimal.Decimal `json:"netWorth"`
-	// To add future stuff e.g Assets, CPF Balance, Liabilities, Net Cash etc
-
+	Month            int             `json:"month"`
+	AllMonthsIndex   int             `json:"allMonthsIndex"`
+	TotalAssets      decimal.Decimal `json:"totalAssets"`
+	TotalLiabilities decimal.Decimal `json:"totalLiabilities"`
+	NetWorth         decimal.Decimal `json:"netWorth"`
 }
 
 type TimelineAnnualChartResponse struct {
@@ -124,6 +126,8 @@ type MonthDetailResponse struct {
 	NetCash        decimal.Decimal `json:"netCash"`        // income - employee CPF - expenses - investments (monthly)
 	NetInvestments decimal.Decimal `json:"netInvestments"` // employee CPF contribution (monthly)
 	// Other totals
+	TotalAssets          decimal.Decimal `json:"totalAssets"`
+	TotalLiabilities     decimal.Decimal `json:"totalLiabilities"`
 	NetWorth             decimal.Decimal `json:"netWorth"`
 	AccumulatorAccountID string          `json:"accumulatorAccountId"`
 }
@@ -204,21 +208,23 @@ type LiabilityResponse struct {
 
 // IncomeResponse represents an income entry in the timeline response
 type IncomeResponse struct {
-	ID              string          `json:"id"`
-	ParentID        string          `json:"parentId"`
-	Name            string          `json:"name"`
-	Category        string          `json:"category"`
-	Amount          decimal.Decimal `json:"amount"`
-	EventAdjAmount  decimal.Decimal `json:"eventAdjAmount"`
-	SourceFrequency string          `json:"sourceFrequency"`
-	ItemType        string          `json:"itemType"`
-	StartYear       int             `json:"startYear"`
-	StartMonth      int             `json:"startMonth"`
-	GrowthRate      decimal.Decimal `json:"growthRate"`
-	EmployeeCPF     decimal.Decimal `json:"employeeCpf"`
-	EmployerCPF     decimal.Decimal `json:"employerCpf"`
-	TotalCPF        decimal.Decimal `json:"totalCpf"`
-	NetTakeHomePay  decimal.Decimal `json:"netTakeHomePay"`
+	ID                   string          `json:"id"`
+	ParentID             string          `json:"parentId"`
+	Name                 string          `json:"name"`
+	Category             string          `json:"category"`
+	Amount               decimal.Decimal `json:"amount"`               // Monthly amount
+	EventAdjAmount       decimal.Decimal `json:"eventAdjAmount"`       // Monthly amount with scenario impacts
+	AnnualAmount         decimal.Decimal `json:"annualAmount"`         // Sum of 12 monthly amounts (accounts for growth)
+	EventAdjAnnualAmount decimal.Decimal `json:"eventAdjAnnualAmount"` // Sum of 12 monthly amounts with scenario impacts
+	SourceFrequency      string          `json:"sourceFrequency"`
+	ItemType             string          `json:"itemType"`
+	StartYear            int             `json:"startYear"`
+	StartMonth           int             `json:"startMonth"`
+	GrowthRate           decimal.Decimal `json:"growthRate"`
+	EmployeeCPF          decimal.Decimal `json:"employeeCpf"`
+	EmployerCPF          decimal.Decimal `json:"employerCpf"`
+	TotalCPF             decimal.Decimal `json:"totalCpf"`
+	NetTakeHomePay       decimal.Decimal `json:"netTakeHomePay"`
 	// CPF allocation breakdown
 	AllocationOA decimal.Decimal `json:"allocationOa"`
 	AllocationSA decimal.Decimal `json:"allocationSa"`
@@ -248,18 +254,20 @@ type CPFContributionResponse struct {
 
 // ExpenseResponse represents an expense in the timeline response
 type ExpenseResponse struct {
-	ID                string          `json:"id"`
-	ParentID          string          `json:"parentId"`
-	Name              string          `json:"name"`
-	Category          string          `json:"category"`
-	Amount            decimal.Decimal `json:"amount"`
-	EventAdjAmount    decimal.Decimal `json:"eventAdjAmount"`
-	SourceFrequency   string          `json:"sourceFrequency"`
-	ItemType          string          `json:"itemType"`
-	StartYear         int             `json:"startYear"`
-	StartMonth        int             `json:"startMonth"`
-	SourceLiabilityID *string         `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
-	EventImpacts      []AppliedImpact `json:"eventImpacts,omitempty"`
+	ID                   string          `json:"id"`
+	ParentID             string          `json:"parentId"`
+	Name                 string          `json:"name"`
+	Category             string          `json:"category"`
+	Amount               decimal.Decimal `json:"amount"`               // Monthly amount
+	EventAdjAmount       decimal.Decimal `json:"eventAdjAmount"`       // Monthly amount with scenario impacts
+	AnnualAmount         decimal.Decimal `json:"annualAmount"`         // Sum of 12 monthly amounts (accounts for growth)
+	EventAdjAnnualAmount decimal.Decimal `json:"eventAdjAnnualAmount"` // Sum of 12 monthly amounts with scenario impacts
+	SourceFrequency      string          `json:"sourceFrequency"`
+	ItemType             string          `json:"itemType"`
+	StartYear            int             `json:"startYear"`
+	StartMonth           int             `json:"startMonth"`
+	SourceLiabilityID    *string         `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
+	EventImpacts         []AppliedImpact `json:"eventImpacts,omitempty"`
 }
 
 // IncomeAllocationResponse represents an income allocation in the timeline response

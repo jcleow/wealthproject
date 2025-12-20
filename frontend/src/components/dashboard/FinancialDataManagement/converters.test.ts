@@ -215,6 +215,8 @@ describe('incomeV2ToTimelineItem', () => {
       category: 'employment',
       amount: '8000.0000',
       eventAdjAmount: '8240.0000',
+      annualAmount: '96000.0000',
+      eventAdjAnnualAmount: '98880.0000',
       sourceFrequency: 'monthly',
       itemType: 'income',
       startYear: 2025,
@@ -228,8 +230,8 @@ describe('incomeV2ToTimelineItem', () => {
     expect(result.parentId).toBe('income-parent-1')
     expect(result.name).toBe('Salary')
     expect(result.category).toBe('employment')
-    expect(result.amountAnnual).toBe(8000)
-    expect(result.adjAnnualAmt).toBe(8240)
+    expect(result.amountAnnual).toBe(96000)
+    expect(result.adjAnnualAmt).toBe(98880)
     expect(result.amountMonthly).toBe(8000)
     expect(result.adjMonthlyAmt).toBe(8240)
     expect(result.sourceFrequency).toBe('monthly')
@@ -247,6 +249,8 @@ describe('expenseV2ToTimelineItem', () => {
       category: 'housing',
       amount: '2500.0000',
       eventAdjAmount: '2575.0000',
+      annualAmount: '30000.0000',
+      eventAdjAnnualAmount: '30900.0000',
       sourceFrequency: 'monthly',
       itemType: 'expense',
       startYear: 2025,
@@ -259,8 +263,8 @@ describe('expenseV2ToTimelineItem', () => {
     expect(result.parentId).toBe('expense-parent-1')
     expect(result.name).toBe('Rent')
     expect(result.category).toBe('housing')
-    expect(result.amountAnnual).toBe(2500)
-    expect(result.adjAnnualAmt).toBe(2575)
+    expect(result.amountAnnual).toBe(30000)
+    expect(result.adjAnnualAmt).toBe(30900)
     expect(result.amountMonthly).toBe(2500)
     expect(result.adjMonthlyAmt).toBe(2575)
     expect(result.sourceFrequency).toBe('monthly')
