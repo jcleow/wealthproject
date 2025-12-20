@@ -60,7 +60,7 @@ func (s *Store) CreateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 
 	if len(ev.Impacts) > 0 {
-		created.Impacts, _ = s.ListScenarioImpactsV2(ctx, created.ID)
+		created.Impacts, _ = s.ListScenarioImpactsV2(ctx, created.UserID, created.ID)
 	}
 	return created, nil
 }
@@ -80,7 +80,7 @@ func (s *Store) GetScenarioEventV2(ctx context.Context, userID, eventID string) 
 		return ScenarioEvent{}, err
 	}
 	ev.Tags = decodeStringArray(tagsJSON)
-	ev.Impacts, _ = s.ListScenarioImpactsV2(ctx, ev.ID)
+	ev.Impacts, _ = s.ListScenarioImpactsV2(ctx, userID, ev.ID)
 	return ev, nil
 }
 
@@ -268,7 +268,7 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	if err := tx.Commit(ctx); err != nil {
 		return ScenarioEvent{}, err
 	}
-	updated.Impacts, _ = s.ListScenarioImpactsV2(ctx, updated.ID)
+	updated.Impacts, _ = s.ListScenarioImpactsV2(ctx, updated.UserID, updated.ID)
 	return updated, nil
 }
 
@@ -370,7 +370,8 @@ func (s *Store) ToggleScenarioIncludedV2(ctx context.Context, userID, eventID st
 
 // ListScenarioImpactsV2 lists impacts for an event using typed FK columns.
 // Joins with target tables to derive name, currency, frequency, dates, and notes from the linked financial item.
-func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]ScenarioImpact, error) {
+// Requires userID for defense-in-depth ownership verification.
+func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID string) ([]ScenarioImpact, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT
 			sei.id, sei.event_id, sei.impact_kind, sei.amount, sei.cadence, sei.created_at,
@@ -388,14 +389,15 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 			COALESCE(a.growth_rate, inv.growth_rate, inc.growth_rate, exp.growth_rate) as target_growth_rate,
 			COALESCE(inc.growth_strategy, exp.growth_strategy, '') as target_growth_strategy
 		FROM scenario_event_impacts sei
+		JOIN scenario_events ev ON sei.event_id = ev.id
 		LEFT JOIN finance_assets a ON sei.target_asset_id = a.id
 		LEFT JOIN finance_liabilities l ON sei.target_liability_id = l.id
 		LEFT JOIN finance_incomes inc ON sei.target_income_id = inc.id
 		LEFT JOIN finance_expenses exp ON sei.target_expense_id = exp.id
 		LEFT JOIN finance_cash_accounts ca ON sei.target_cash_account_id = ca.id
 		LEFT JOIN finance_investments inv ON sei.target_investment_id = inv.id
-		WHERE sei.event_id = $1
-		ORDER BY sei.created_at ASC`, eventID)
+		WHERE sei.event_id = $1 AND ev.user_id = $2
+		ORDER BY sei.created_at ASC`, eventID, userID)
 	if err != nil {
 		return nil, err
 	}
