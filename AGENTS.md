@@ -5,6 +5,10 @@
 ### Testing
 - After relevant changes on the backend, please ensure to add or update tests
 - When adding or changing backend endpoints, regenerate Swagger (`swag init`) so docs stay in sync with the API
+- **All tests must be structured using the 3As pattern:**
+  1. **Arrange** - Set up test data, mocks, and preconditions
+  2. **Act** - Execute the code under test
+  3. **Assert** - Verify the expected outcomes
 - **Before every commit**, run the test script to ensure all tests pass:
   ```bash
   cd backend && ./scripts/run-tests.sh
