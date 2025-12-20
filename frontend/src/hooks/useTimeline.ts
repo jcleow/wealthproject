@@ -37,6 +37,13 @@ export function useTimeline(options?: UseTimelineOptions) {
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
 
+  // Debug: log feature flag status
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.debug('[useTimeline] V2 feature flag:', useTimelineV2)
+  }
+
+  // V1 timeline query - disabled when V2 feature flag is on
+  // When V2 is enabled, chart uses V2 chart endpoint and detail panels use V2 snapshot
   const timelineQuery = useQuery<TimelineResponse>({
     queryKey: [...QUERY_KEYS.financial.timeline, options?.resolution || 'default'],
     queryFn: () => timelineApi.getTimeline({
@@ -45,6 +52,7 @@ export function useTimeline(options?: UseTimelineOptions) {
     }),
     staleTime: 1000 * 60 * 5,
     retry: 1,
+    enabled: !useTimelineV2, // Disable when V2 is enabled
   })
 
   // V2 chart query - fetches simplified chart data when feature flag is on
@@ -57,10 +65,27 @@ export function useTimeline(options?: UseTimelineOptions) {
     enabled: useTimelineV2,
   })
 
-  const resolution = timelineQuery.data?.resolution || 'yearly'
+  // When V2 is enabled, use the option resolution; otherwise get from V1 data
+  const resolution = useTimelineV2
+    ? (options?.resolution || 'monthly')
+    : (timelineQuery.data?.resolution || 'yearly')
 
-  // Calculate date range for V2 query based on V1 data
+  // Calculate date range for V2 snapshot query
+  // When V2 is enabled, calculate independently (35-year planning horizon from current year)
+  // When V1 is used, derive from V1 data for backwards compatibility
   const v2DateRange = useMemo(() => {
+    if (useTimelineV2) {
+      // Calculate date range independently - 35 year planning horizon
+      const now = new Date()
+      const startYear = now.getFullYear()
+      const endYear = startYear + 35
+      return {
+        startDate: formatDateForV2(startYear, 1),
+        endDate: formatDateForV2(endYear, 12),
+      }
+    }
+
+    // Legacy: derive from V1 data (only used when V2 flag is off)
     if (!timelineQuery.data) return null
 
     if (resolution === 'monthly' && timelineQuery.data.months?.length) {
@@ -83,7 +108,7 @@ export function useTimeline(options?: UseTimelineOptions) {
     return null
   }, [timelineQuery.data, resolution])
 
-  // V2 snapshot query - only enabled when feature flag is on and we have V1 data
+  // V2 snapshot query - provides detailed item data for the detail panels
   const timelineV2Query = useQuery<TimelineV2Response>({
     queryKey: [
       'financial',
