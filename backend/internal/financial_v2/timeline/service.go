@@ -386,11 +386,10 @@ func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time, isAnchorM
 			continue
 		}
 
-		// Example: itemInfo = {ItemType: "cash_asset", Frequency: "monthly", StartDate: "2020-01-01"}
+		// Example: itemInfo = {ItemType: "cash_asset", Frequency: "monthly"}
 		itemInfo := scenario.ItemInfo{
 			ItemType:  string(itemState.Row.ItemType),
 			Frequency: itemState.Row.Frequency,
-			StartDate: itemState.Row.StartDate,
 		}
 
 		// ─────────────────────────────────────────────────────────────────────

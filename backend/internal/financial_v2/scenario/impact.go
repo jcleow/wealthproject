@@ -12,7 +12,6 @@ import (
 type ItemInfo struct {
 	ItemType  string           // e.g., "income", "expense", "asset", etc.
 	Frequency common.Frequency // The frequency of flow items (monthly, annual, etc.)
-	StartDate time.Time        // When the financial item started (impacts can't apply before this)
 }
 
 // AppliedImpactInfo contains information about an impact that was applied
@@ -226,8 +225,7 @@ func ApplyImpactsToItem(
 	//   RETURN immediately (skip override and delta passes)
 	// ─────────────────────────────────────────────────────────────────────────
 	for _, impact := range impacts {
-		event := eventsByID[impact.EventID]
-		if impact.ImpactKind == ImpactKindStop && ImpactAppliesToMonth(impact, currentDate, event, &itemInfo) {
+		if impact.ImpactKind == ImpactKindStop && ImpactAppliesToMonth(impact, currentDate) {
 			result.AdjustedValue = decimal.Zero()
 			result.AppliedImpacts = append(result.AppliedImpacts, AppliedImpactInfo{
 				EventID:       impact.EventID,
@@ -268,9 +266,9 @@ func ApplyImpactsToItem(
 			continue
 		}
 
-		// Example: event.OccursOn = "2026-06-01", currentDate = "2026-01-01"
-		//          → false (event hasn't occurred yet)
-		if !ImpactAppliesToMonth(*impact, currentDate, event, &itemInfo) {
+		// Example: impact.StartDate = "2026-06-01", currentDate = "2026-01-01"
+		//          → false (impact hasn't started yet)
+		if !ImpactAppliesToMonth(*impact, currentDate) {
 			continue
 		}
 
@@ -320,10 +318,9 @@ func ApplyImpactsToItem(
 			continue
 		}
 
-		event := eventsByID[impact.EventID]
-		// Example: event.OccursOn = future date, or impact.EndDate passed
-		//          → false (event hasn't occurred yet or impact has ended)
-		if !ImpactAppliesToMonth(*impact, currentDate, event, &itemInfo) {
+		// Example: impact.StartDate = future date, or impact.EndDate passed
+		//          → false (impact hasn't started yet or has ended)
+		if !ImpactAppliesToMonth(*impact, currentDate) {
 			continue
 		}
 
@@ -380,55 +377,37 @@ func computeImpactAmounts(impact *Impact) (monthlyAmt int64, annualAmt int64) {
 }
 
 // ImpactAppliesToMonth checks if an impact is active for the given month.
-// It uses the later of (event.OccursOn, item.StartDate) to determine when the impact takes effect.
-// This ensures impacts don't apply before the financial item exists OR before the event occurs.
+// It uses impact.StartDate (which comes from the target financial item via JOIN)
+// to determine when the impact takes effect.
 //
-// Example 1 - Future event:
+// NOTE: Event.OccursOn should never be later than any of its impact start dates.
+// This is enforced by validation (TODO: add validation for this constraint).
 //
-//	event.OccursOn = "2028-12-01" (Salary Promotion)
-//	item.StartDate = "2020-01-01" (job started in 2020)
-//	effectiveStart = 2028-12-01 (later of the two)
-//	currentDate = "2025-12-01" → false (event hasn't occurred yet)
+// Example 1 - Future impact:
 //
-// Example 2 - Item starts after event:
+//	impact.StartDate = "2028-12-01" (from job that starts Dec 2028)
+//	currentDate = "2025-12-01" → false (impact hasn't started yet)
 //
-//	event.OccursOn = "2025-01-01" (generic increase scenario)
-//	item.StartDate = "2028-06-01" (new job starts in future)
-//	effectiveStart = 2028-06-01 (later of the two)
-//	currentDate = "2026-01-01" → false (item doesn't exist yet)
+// Example 2 - Active impact:
+//
+//	impact.StartDate = "2025-01-01"
+//	currentDate = "2026-01-01" → true (impact is active)
 //
 // Example 3 - Time-bounded impact:
 //
-//	event.OccursOn = "2025-01-01", impact.EndDate = "2025-06-30"
+//	impact.StartDate = "2025-01-01", impact.EndDate = "2025-06-30"
 //	currentDate = "2025-03-01" → true  (within range)
 //	currentDate = "2025-07-01" → false (after end)
 //
 // Example 4 - One-time impact:
 //
-//	event.OccursOn = "2025-03-15", impact.Cadence = "one_time"
-//	currentDate = "2025-03-01" → true  (same month as event)
+//	impact.StartDate = "2025-03-15", impact.Cadence = "one_time"
+//	currentDate = "2025-03-01" → true  (same month)
 //	currentDate = "2025-04-01" → false (different month)
-func ImpactAppliesToMonth(impact Impact, currentDate time.Time, event *Event, itemInfo *ItemInfo) bool {
+func ImpactAppliesToMonth(impact Impact, currentDate time.Time) bool {
 	// Normalize to first of month for comparison
 	currentMonth := normalizeToMonthStart(currentDate)
-
-	// Determine effective start date: later of (event.OccursOn, item.StartDate)
-	// This ensures impact doesn't apply before the item exists or before the event occurs
-	var effectiveStart time.Time
-	if event != nil && !event.OccursOn.IsZero() {
-		effectiveStart = normalizeToMonthStart(event.OccursOn)
-	} else {
-		// Fallback to impact's StartDate if event is not available
-		effectiveStart = normalizeToMonthStart(impact.StartDate)
-	}
-
-	// If item has a start date, use the later of event/item start dates
-	if itemInfo != nil && !itemInfo.StartDate.IsZero() {
-		itemStart := normalizeToMonthStart(itemInfo.StartDate)
-		if itemStart.After(effectiveStart) {
-			effectiveStart = itemStart
-		}
-	}
+	effectiveStart := normalizeToMonthStart(impact.StartDate)
 
 	// Impact must have started on or before current month
 	if currentMonth.Before(effectiveStart) {
