@@ -142,7 +142,11 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 			COALESCE(inc.frequency, exp.frequency, '') as target_frequency,
 			COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as target_start_date,
 			COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as target_end_date,
-			COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as target_notes
+			COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as target_notes,
+			-- Advanced fields from financial item (ca uses account_type instead of category)
+			COALESCE(a.category, l.category, inc.category, exp.category, ca.account_type, inv.category, '') as target_category,
+			COALESCE(a.growth_rate, inv.growth_rate, inc.growth_rate, exp.growth_rate) as target_growth_rate,
+			COALESCE(inc.growth_strategy, exp.growth_strategy, '') as target_growth_strategy
 		FROM paginated_events e
 		LEFT JOIN scenario_event_impacts i ON i.event_id = e.id
 		LEFT JOIN finance_assets a ON i.target_asset_id = a.id
@@ -174,12 +178,15 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 		var impCreatedAt, targetStartDate, targetEndDate *time.Time
 		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID *string
 		var targetName, targetCurrency, targetFrequency, targetNotes *string // Derived from joined target tables
+		var targetCategory, targetGrowthStrategy *string
+		var targetGrowthRate *float64
 
 		if err := rows.Scan(
 			&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &ev.ScenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt,
 			&impID, &impKind, &impAmount, &impCadence, &impCreatedAt,
 			&targetAssetID, &targetLiabilityID, &targetIncomeID, &targetExpenseID, &targetCashAccountID, &targetInvestmentID,
 			&targetName, &targetCurrency, &targetFrequency, &targetStartDate, &targetEndDate, &targetNotes,
+			&targetCategory, &targetGrowthRate, &targetGrowthStrategy,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -200,6 +207,7 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 				ev.ID, impID, impKind, impAmount, impCadence, impCreatedAt,
 				targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID,
 				targetName, targetCurrency, targetFrequency, targetStartDate, targetEndDate, targetNotes,
+				targetCategory, targetGrowthRate, targetGrowthStrategy,
 			))
 		}
 	}
@@ -214,6 +222,7 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 }
 
 // UpdateScenarioEventV2 replaces metadata and impacts using typed FK columns.
+// For 'start' impacts, also updates the linked financial item's amount and frequency.
 func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (ScenarioEvent, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -239,6 +248,15 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 	updated.Tags = decodeStringArray(tagsBytes)
 
+	// For 'start' impacts, update the linked financial item's amount and frequency
+	for _, imp := range ev.Impacts {
+		if imp.ImpactKind == scenario.ImpactKindStart {
+			if err := s.updateStartImpactTarget(ctx, tx, &imp); err != nil {
+				return ScenarioEvent{}, fmt.Errorf("failed to update start impact target: %w", err)
+			}
+		}
+	}
+
 	if _, err := tx.Exec(ctx, `DELETE FROM scenario_event_impacts WHERE event_id=$1`, ev.ID); err != nil {
 		return ScenarioEvent{}, err
 	}
@@ -252,6 +270,70 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 	updated.Impacts, _ = s.ListScenarioImpactsV2(ctx, updated.ID)
 	return updated, nil
+}
+
+// updateStartImpactTarget updates the linked financial item for a 'start' impact.
+// This syncs the amount, frequency, category, growth_rate, and growth_strategy
+// from the impact to the actual financial record.
+func (s *Store) updateStartImpactTarget(ctx context.Context, tx pgx.Tx, imp *ScenarioImpact) error {
+	// Determine frequency string for income/expense tables
+	freq := string(imp.Cadence)
+	if freq == "" {
+		freq = "monthly"
+	}
+
+	// Get category (use empty string if not set)
+	category := imp.Category
+
+	// Get growth strategy (use empty string if not set, only for income/expense)
+	growthStrategy := imp.GrowthStrategy
+	if growthStrategy == "" {
+		growthStrategy = "none"
+	}
+
+	// Debug log
+	fmt.Printf("[updateStartImpactTarget] Amount=%d Cadence=%q freq=%q category=%q growthRate=%v growthStrategy=%q\n",
+		imp.Amount, imp.Cadence, freq, category, imp.GrowthRate, growthStrategy)
+
+	if imp.TargetAssetID != nil {
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_assets SET current_value = $1, category = COALESCE(NULLIF($2, ''), category), growth_rate = COALESCE($3, growth_rate), updated_at = NOW() WHERE id = $4`,
+			imp.Amount, category, imp.GrowthRate, *imp.TargetAssetID)
+		return err
+	}
+	if imp.TargetLiabilityID != nil {
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_liabilities SET current_balance = $1, category = COALESCE(NULLIF($2, ''), category), updated_at = NOW() WHERE id = $3`,
+			imp.Amount, category, *imp.TargetLiabilityID)
+		return err
+	}
+	if imp.TargetIncomeID != nil {
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_incomes SET amount = $1, frequency = $2, category = COALESCE(NULLIF($3, ''), category), growth_rate = COALESCE($4, growth_rate), growth_strategy = COALESCE(NULLIF($5, ''), growth_strategy), updated_at = NOW() WHERE id = $6`,
+			imp.Amount, freq, category, imp.GrowthRate, growthStrategy, *imp.TargetIncomeID)
+		return err
+	}
+	if imp.TargetExpenseID != nil {
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_expenses SET amount = $1, frequency = $2, category = COALESCE(NULLIF($3, ''), category), growth_rate = COALESCE($4, growth_rate), growth_strategy = COALESCE(NULLIF($5, ''), growth_strategy), updated_at = NOW() WHERE id = $6`,
+			imp.Amount, freq, category, imp.GrowthRate, growthStrategy, *imp.TargetExpenseID)
+		return err
+	}
+	if imp.TargetCashAccountID != nil {
+		// Cash accounts use account_type instead of category
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_cash_accounts SET balance = $1, account_type = COALESCE(NULLIF($2, ''), account_type), updated_at = NOW() WHERE id = $3`,
+			imp.Amount, category, *imp.TargetCashAccountID)
+		return err
+	}
+	if imp.TargetInvestmentID != nil {
+		// Investments use growth_rate (not annual_growth_rate)
+		_, err := tx.Exec(ctx, `
+			UPDATE finance_investments SET current_value = $1, category = COALESCE(NULLIF($2, ''), category), growth_rate = COALESCE($3, growth_rate), updated_at = NOW() WHERE id = $4`,
+			imp.Amount, category, imp.GrowthRate, *imp.TargetInvestmentID)
+		return err
+	}
+	return nil
 }
 
 // DeleteScenarioEventV2 removes an event for a user.
@@ -295,7 +377,11 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 			COALESCE(inc.frequency, exp.frequency, '') as target_frequency,
 			COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as target_start_date,
 			COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as target_end_date,
-			COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as target_notes
+			COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as target_notes,
+			-- Advanced fields from financial item (ca uses account_type instead of category)
+			COALESCE(a.category, l.category, inc.category, exp.category, ca.account_type, inv.category, '') as target_category,
+			COALESCE(a.growth_rate, inv.growth_rate, inc.growth_rate, exp.growth_rate) as target_growth_rate,
+			COALESCE(inc.growth_strategy, exp.growth_strategy, '') as target_growth_strategy
 		FROM scenario_event_impacts sei
 		LEFT JOIN finance_assets a ON sei.target_asset_id = a.id
 		LEFT JOIN finance_liabilities l ON sei.target_liability_id = l.id
@@ -318,6 +404,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, eventID string) ([]Sc
 			&imp.ID, &imp.EventID, &imp.ImpactKind, &imp.Amount, &imp.Cadence, &imp.CreatedAt,
 			&imp.TargetAssetID, &imp.TargetLiabilityID, &imp.TargetIncomeID, &imp.TargetExpenseID, &imp.TargetCashAccountID, &imp.TargetInvestmentID,
 			&imp.Name, &imp.Currency, &imp.Frequency, &imp.StartDate, &imp.EndDate, &imp.Notes,
+			&imp.Category, &imp.GrowthRate, &imp.GrowthStrategy,
 		); err != nil {
 			return nil, err
 		}
@@ -446,7 +533,8 @@ func decodeStringArray(b []byte) []string {
 
 // scanImpactPgx constructs a ScenarioImpact from nullable pointer scan results (pgx style).
 // Impact table stores: id, event_id, impact_kind, amount, cadence, created_at, and target FK columns.
-// Other fields (name, currency, frequency, dates, notes) are derived from the joined financial item tables.
+// Other fields (name, currency, frequency, dates, notes, category, growth_rate, growth_strategy)
+// are derived from the joined financial item tables.
 func scanImpactPgx(
 	eventID string,
 	impID, impKind *string,
@@ -457,6 +545,8 @@ func scanImpactPgx(
 	// Derived from financial item
 	targetName, targetCurrency, targetFrequency *string,
 	targetStartDate, targetEndDate *time.Time, targetNotes *string,
+	// Advanced fields from financial item
+	targetCategory *string, targetGrowthRate *float64, targetGrowthStrategy *string,
 ) ScenarioImpact {
 	imp := ScenarioImpact{
 		EventID:             eventID,
@@ -467,6 +557,7 @@ func scanImpactPgx(
 		TargetCashAccountID: targetCashAccountID,
 		TargetInvestmentID:  targetInvestmentID,
 		EndDate:             targetEndDate,
+		GrowthRate:          targetGrowthRate,
 	}
 	if impID != nil {
 		imp.ID = *impID
@@ -498,6 +589,13 @@ func scanImpactPgx(
 	}
 	if targetNotes != nil {
 		imp.Notes = *targetNotes
+	}
+	// Advanced fields from financial item
+	if targetCategory != nil {
+		imp.Category = *targetCategory
+	}
+	if targetGrowthStrategy != nil {
+		imp.GrowthStrategy = *targetGrowthStrategy
 	}
 	return imp
 }

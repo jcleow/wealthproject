@@ -60,6 +60,10 @@ export interface ScenarioImpactDto {
   name?: string | null       // Name from the target financial item (JOINed)
   frequency?: string | null  // Frequency from target item (only for income/expense, JOINed)
   notes?: string | null
+  // Advanced fields for start impacts
+  category?: string | null
+  growthRate?: number | null
+  growthStrategy?: string | null
 }
 
 export interface ScenarioEventDto {
@@ -78,6 +82,9 @@ export interface ScenarioEventDto {
 // Frequency for created financial items (used by start impacts)
 export type ItemFrequency = 'one_time' | 'monthly' | 'annual'
 
+// Growth strategy options for income/expense
+export type GrowthStrategy = 'none' | 'annual_step' | 'compound'
+
 // Frontend domain models (camelCase)
 export interface ScenarioImpact {
   targetType: ScenarioTargetType
@@ -91,6 +98,10 @@ export interface ScenarioImpact {
   name?: string  // Name for the financial item (used by start impacts)
   frequency?: ItemFrequency  // Frequency for start impacts (one_time, monthly, annual)
   notes?: string
+  // Advanced fields for start impacts - used to configure the created financial item
+  category?: string  // Category for the created financial item
+  growthRate?: number  // Annual growth rate (%)
+  growthStrategy?: GrowthStrategy  // How growth is applied
 }
 
 export interface ScenarioEvent {
@@ -162,6 +173,10 @@ export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact =>
     // For start impacts, use frequency from JOINed finance table (or fallback to cadence for backwards compat)
     frequency: isStartImpact ? ((dto.frequency as ItemFrequency) || (dto.cadence as ItemFrequency)) : undefined,
     notes: dto.notes ?? undefined,
+    // Advanced fields for start impacts
+    category: dto.category ?? undefined,
+    growthRate: dto.growthRate ?? undefined,
+    growthStrategy: (dto.growthStrategy as GrowthStrategy) ?? undefined,
   }
 }
 
@@ -180,6 +195,10 @@ export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto =
     endDate: impact.endMonth,
     name: impact.name,
     notes: impact.notes,
+    // Advanced fields for start impacts
+    category: impact.category,
+    growthRate: impact.growthRate,
+    growthStrategy: impact.growthStrategy,
   }
 }
 

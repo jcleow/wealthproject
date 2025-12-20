@@ -2,11 +2,18 @@
 
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { ScenarioImpact, ImpactVerb, ScenarioCadence, ItemFrequency } from '@/types/scenario'
+import type { ScenarioImpact, ImpactVerb, ScenarioCadence, ItemFrequency, GrowthStrategy } from '@/types/scenario'
 import { verbToImpact, impactToVerb } from '@/types/scenario'
 import { MonthPicker } from '@/components/ui/MonthPicker'
 import { LockedField } from './LockedField'
 import { useState, useRef, useEffect } from 'react'
+import {
+  assetCategoryOptions,
+  liabilityCategoryOptions,
+  incomeCategoryOptions,
+  expenseCategoryOptions,
+  investmentCategoryOptions,
+} from '@/components/modals/FinancialFormModal/config'
 
 const TrashIcon = LucideIcons.Trash2 as LucideIcon | undefined
 const ChevronDownIcon = LucideIcons.ChevronDown as LucideIcon | undefined
@@ -18,6 +25,26 @@ const TrendingDownIcon = LucideIcons.TrendingDown as LucideIcon | undefined
 const TargetIcon = LucideIcons.Target as LucideIcon | undefined
 const PlusCircleIcon = LucideIcons.PlusCircle as LucideIcon | undefined
 const XCircleIcon = LucideIcons.XCircle as LucideIcon | undefined
+const SettingsIcon = LucideIcons.Settings as LucideIcon | undefined
+
+// Get category options based on target type
+function getCategoryOptionsForTarget(targetType: string) {
+  switch (targetType) {
+    case 'asset': return assetCategoryOptions
+    case 'liability': return liabilityCategoryOptions
+    case 'income': return incomeCategoryOptions
+    case 'expense': return expenseCategoryOptions
+    case 'investment': return investmentCategoryOptions
+    default: return []
+  }
+}
+
+// Growth strategy options
+const GROWTH_STRATEGY_OPTIONS = [
+  { value: 'none', label: 'No growth' },
+  { value: 'annual_step', label: 'Annual step increase' },
+  { value: 'compound', label: 'Compound growth' },
+]
 
 // Target type options grouped by category
 const TARGET_TYPE_GROUPS = [
@@ -782,7 +809,6 @@ export function ImpactEditor({
               onChange={onNewItemNameChange}
               label="name"
               placeholder={`e.g., ${impact.targetType === 'income' ? 'Side Hustle' : impact.targetType === 'expense' ? 'New Subscription' : impact.targetType === 'asset' ? 'Investment Property' : impact.targetType === 'investment' ? 'New Fund' : impact.targetType === 'cash' ? 'Emergency Fund' : 'Car Loan'}`}
-              secondaryValue={impact.amount ? `$${new Intl.NumberFormat('en-US').format(Math.abs(impact.amount))}` : undefined}
               disabled={loading}
               isNew={false}
             />
@@ -814,6 +840,16 @@ export function ImpactEditor({
         </div>
       )}
 
+      {/* Advanced section for start impacts */}
+      {currentVerb === 'starts_at' && (
+        <AdvancedSection
+          impact={impact}
+          index={index}
+          loading={loading}
+          onUpdate={onUpdate}
+        />
+      )}
+
       {/* Notes */}
       <div className="mt-4">
         <input
@@ -834,6 +870,250 @@ export function ImpactEditor({
           disabled={loading}
         />
       </div>
+    </div>
+  )
+}
+
+// Advanced section component for start impacts
+function AdvancedSection({
+  impact,
+  index,
+  loading,
+  onUpdate,
+}: {
+  impact: ScenarioImpact
+  index: number
+  loading: boolean
+  onUpdate: (index: number, patch: Partial<ScenarioImpact>) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [categoryOpen, setCategoryOpen] = useState(false)
+  const [strategyOpen, setStrategyOpen] = useState(false)
+  const categoryRef = useRef<HTMLDivElement>(null)
+  const strategyRef = useRef<HTMLDivElement>(null)
+
+  const categoryOptions = getCategoryOptionsForTarget(impact.targetType)
+  const selectedCategory = categoryOptions.find(c => c.value === impact.category)
+  const selectedStrategy = GROWTH_STRATEGY_OPTIONS.find(s => s.value === impact.growthStrategy)
+
+  // Show growth options for income/expense (not one-time) and assets/investments
+  const showGrowthOptions = (
+    (impact.targetType === 'income' || impact.targetType === 'expense') && impact.frequency !== 'one_time'
+  ) || impact.targetType === 'asset' || impact.targetType === 'investment'
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
+        setCategoryOpen(false)
+      }
+      if (strategyRef.current && !strategyRef.current.contains(e.target as Node)) {
+        setStrategyOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div className="mt-4">
+      {/* Toggle button */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`
+          flex items-center gap-2
+          text-xs text-slate-500 hover:text-slate-400
+          transition-colors duration-200
+        `}
+      >
+        {SettingsIcon && <SettingsIcon className="h-3.5 w-3.5" />}
+        <span>Advanced options</span>
+        {ChevronDownIcon && (
+          <ChevronDownIcon className={`h-3 w-3 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        )}
+      </button>
+
+      {/* Advanced options panel */}
+      {isOpen && (
+        <div className="mt-3 pt-3 border-t border-white/[0.04] space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          {/* Category selector */}
+          {categoryOptions.length > 0 && (
+            <div className="relative" ref={categoryRef}>
+              <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5 block">
+                Category
+              </label>
+              <button
+                type="button"
+                onClick={() => !loading && setCategoryOpen(!categoryOpen)}
+                disabled={loading}
+                className={`
+                  flex items-center justify-between gap-2
+                  w-full px-3 py-2
+                  rounded-lg
+                  border border-white/[0.08] hover:border-white/[0.15]
+                  bg-white/[0.03] hover:bg-white/[0.05]
+                  text-sm text-white text-left
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  transition-all duration-200
+                  ${categoryOpen ? 'border-blue-500/40' : ''}
+                `}
+              >
+                <span className="truncate">{selectedCategory?.label || 'Select category...'}</span>
+                {ChevronDownIcon && (
+                  <ChevronDownIcon className={`h-3.5 w-3.5 text-slate-500 shrink-0 transition-transform duration-200 ${categoryOpen ? 'rotate-180' : ''}`} />
+                )}
+              </button>
+
+              {categoryOpen && (
+                <div className="
+                  absolute left-0 top-full z-[100] mt-1
+                  w-full max-h-48 overflow-y-auto
+                  rounded-xl
+                  border border-white/[0.12]
+                  bg-[#0c0c0c]
+                  shadow-2xl shadow-black/60
+                  animate-in fade-in slide-in-from-top-2 duration-150
+                ">
+                  {categoryOptions.map((option) => {
+                    const isSelected = option.value === impact.category
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          onUpdate(index, { category: option.value })
+                          setCategoryOpen(false)
+                        }}
+                        className={`
+                          w-full flex items-center gap-2
+                          px-3 py-2
+                          text-sm text-left
+                          transition-all duration-150
+                          ${isSelected
+                            ? 'bg-blue-500/15 text-white'
+                            : 'text-slate-300 hover:bg-white/[0.05]'
+                          }
+                        `}
+                      >
+                        <span className="w-4 shrink-0">
+                          {isSelected && CheckIcon && (
+                            <CheckIcon className="h-3.5 w-3.5 text-blue-400" />
+                          )}
+                        </span>
+                        <span className="truncate">{option.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Growth options - only for applicable types */}
+          {showGrowthOptions && (
+            <div className="grid grid-cols-2 gap-3">
+              {/* Growth rate */}
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5 block">
+                  Growth Rate (%)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={impact.growthRate ?? ''}
+                  onChange={(e) => onUpdate(index, { growthRate: e.target.value ? parseFloat(e.target.value) : undefined })}
+                  className={`
+                    w-full px-3 py-2
+                    rounded-lg
+                    border border-white/[0.08] hover:border-white/[0.15] focus:border-blue-500/40
+                    bg-white/[0.03] hover:bg-white/[0.05] focus:bg-white/[0.05]
+                    text-sm text-white placeholder:text-slate-600
+                    outline-none
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    transition-all duration-200
+                  `}
+                  placeholder="0.0"
+                  disabled={loading}
+                />
+              </div>
+
+              {/* Growth strategy - only for income/expense */}
+              {(impact.targetType === 'income' || impact.targetType === 'expense') && (
+                <div className="relative" ref={strategyRef}>
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5 block">
+                    Growth Strategy
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => !loading && setStrategyOpen(!strategyOpen)}
+                    disabled={loading}
+                    className={`
+                      flex items-center justify-between gap-2
+                      w-full px-3 py-2
+                      rounded-lg
+                      border border-white/[0.08] hover:border-white/[0.15]
+                      bg-white/[0.03] hover:bg-white/[0.05]
+                      text-sm text-white text-left
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                      transition-all duration-200
+                      ${strategyOpen ? 'border-blue-500/40' : ''}
+                    `}
+                  >
+                    <span className="truncate">{selectedStrategy?.label || 'Select...'}</span>
+                    {ChevronDownIcon && (
+                      <ChevronDownIcon className={`h-3.5 w-3.5 text-slate-500 shrink-0 transition-transform duration-200 ${strategyOpen ? 'rotate-180' : ''}`} />
+                    )}
+                  </button>
+
+                  {strategyOpen && (
+                    <div className="
+                      absolute left-0 top-full z-[100] mt-1
+                      w-full
+                      rounded-xl
+                      border border-white/[0.12]
+                      bg-[#0c0c0c]
+                      shadow-2xl shadow-black/60
+                      animate-in fade-in slide-in-from-top-2 duration-150
+                    ">
+                      {GROWTH_STRATEGY_OPTIONS.map((option) => {
+                        const isSelected = option.value === impact.growthStrategy
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                              onUpdate(index, { growthStrategy: option.value as GrowthStrategy })
+                              setStrategyOpen(false)
+                            }}
+                            className={`
+                              w-full flex items-center gap-2
+                              px-3 py-2
+                              text-sm text-left
+                              transition-all duration-150
+                              ${isSelected
+                                ? 'bg-blue-500/15 text-white'
+                                : 'text-slate-300 hover:bg-white/[0.05]'
+                              }
+                            `}
+                          >
+                            <span className="w-4 shrink-0">
+                              {isSelected && CheckIcon && (
+                                <CheckIcon className="h-3.5 w-3.5 text-blue-400" />
+                              )}
+                            </span>
+                            <span>{option.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

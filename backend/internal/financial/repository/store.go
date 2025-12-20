@@ -211,7 +211,7 @@ type PropertyLink struct {
 // GetAssetByNameAndCategory returns an asset by name/category if it exists for a user.
 func (s *Store) GetAssetByNameAndCategory(ctx context.Context, userID, name, category string) (Asset, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, name, category, current_value, annual_growth_rate, COALESCE(notes, ''), updated_at
+		SELECT id, name, category, current_value, growth_rate, COALESCE(notes, ''), updated_at
 		FROM finance_assets
 		WHERE user_id=$1 AND LOWER(name)=LOWER($2) AND category=$3
 		LIMIT 1`, userID, name, category)
@@ -260,7 +260,7 @@ func (s *Store) ListAssets(ctx context.Context, userID string, pagination Pagina
 		       name,
 		       category,
 		       current_value,
-		       annual_growth_rate,
+		       growth_rate,
 		       start_date,
 		       end_date,
 		       COALESCE(notes, '') as notes,
@@ -317,7 +317,7 @@ func (s *Store) ListAllAssets(ctx context.Context, userID string, opts DateRange
 		       name,
 		       category,
 		       current_value,
-		       annual_growth_rate,
+		       growth_rate,
 		       start_date,
 		       end_date,
 		       COALESCE(notes, '') as notes,
@@ -374,7 +374,7 @@ func (s *Store) GetAsset(ctx context.Context, userID, id string) (Asset, error) 
 		       name,
 		       category,
 		       current_value,
-		       annual_growth_rate,
+		       growth_rate,
 		       start_date,
 		       end_date,
 		       COALESCE(notes, '') as notes,
@@ -404,17 +404,17 @@ func (s *Store) CreateAsset(ctx context.Context, userID string, a Asset) (Asset,
 	endDate := a.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, start_date, end_date, notes)
+		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, growth_rate, start_date, end_date, notes)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''))
 		ON CONFLICT ON CONSTRAINT finance_assets_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
 		    current_value=EXCLUDED.current_value,
-		    annual_growth_rate=EXCLUDED.annual_growth_rate,
+		    growth_rate=EXCLUDED.growth_rate,
 		    end_date=EXCLUDED.end_date,
 		    notes=EXCLUDED.notes,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
 		userID, nullIfEmpty(a.ParentID), a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, startDate, endDate, a.Notes)
 
 	var created Asset
@@ -438,13 +438,13 @@ func (s *Store) UpdateAsset(ctx context.Context, userID string, a Asset) (Asset,
 		SET name=$3,
 		    category=$4,
 		    current_value=$5,
-		    annual_growth_rate=$6,
+		    growth_rate=$6,
 		    start_date=COALESCE($7, start_date),
 		    end_date=$8,
 		    notes=NULLIF($9, ''),
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), name, category, current_value, annual_growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
+		RETURNING id, COALESCE(parent_id,id), name, category, current_value, growth_rate, start_date, end_date, COALESCE(notes, ''), updated_at`,
 		userID, a.ID, a.Name, a.Category, a.CurrentValue, a.AnnualGrowthRate, startDate, endDate, a.Notes)
 
 	var updated Asset
@@ -756,7 +756,7 @@ func (s *Store) ConvertAssetToProperty(ctx context.Context, userID, id string) (
 		SET category='property',
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, name, category, current_value, annual_growth_rate, COALESCE(notes, ''), updated_at`, userID, id)
+		RETURNING id, name, category, current_value, growth_rate, COALESCE(notes, ''), updated_at`, userID, id)
 	var updated Asset
 	if err := row.Scan(&updated.ID, &updated.Name, &updated.Category, &updated.CurrentValue, &updated.AnnualGrowthRate, &updated.Notes, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

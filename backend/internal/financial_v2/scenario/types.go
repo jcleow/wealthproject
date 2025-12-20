@@ -87,12 +87,8 @@ type Impact struct {
 	ID         string
 	EventID    string
 	ImpactKind string
-	Amount     int64
-	Currency   string
-	Cadence    common.Frequency
-	StartDate  time.Time
-	EndDate    *time.Time
-	Notes      string
+	Amount     int64            // Amount for delta/override impacts (0 for start/stop)
+	Cadence    common.Frequency // Frequency for delta impacts (monthly/annually)
 	CreatedAt  time.Time
 
 	// Typed FK columns (only one is non-nil per row)
@@ -104,6 +100,19 @@ type Impact struct {
 	TargetExpenseID     *string
 	TargetCashAccountID *string
 	TargetInvestmentID  *string
+
+	// Derived from JOINed financial item (not stored in impact table)
+	Name      string     // Name from the target financial item
+	Currency  string     // Currency from the target financial item
+	Frequency string     // Frequency from the target financial item (only for income/expense)
+	StartDate time.Time  // Start date from the target financial item
+	EndDate   *time.Time // End date from the target financial item
+	Notes     string     // Notes from the target financial item
+
+	// Advanced fields derived from financial item (for start impacts)
+	Category       string   // Category from the target financial item
+	GrowthRate     *float64 // Annual growth rate from the target financial item
+	GrowthStrategy string   // Growth strategy from the target financial item (income/expense only)
 }
 
 // TargetType returns the type of target this impact references.
@@ -125,6 +134,7 @@ func (i *Impact) TargetType() string {
 		return ""
 	}
 }
+
 
 // TargetID returns the target ID regardless of type.
 func (i *Impact) TargetID() *string {

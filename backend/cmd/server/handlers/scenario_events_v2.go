@@ -29,14 +29,19 @@ func NewScenarioEventV2Handler(store *repo.Store) *ScenarioEventV2Handler {
 
 type scenarioImpactV2DTO struct {
 	ImpactKind string           `json:"impactKind"`
-	Amount     int64            `json:"amount"`
-	Currency   string           `json:"currency"`
-	Cadence    common.Frequency `json:"cadence"`
-	StartDate  string           `json:"startDate"`
-	EndDate    *string          `json:"endDate,omitempty"`
-	Name       *string          `json:"name,omitempty"`      // Name from the target financial item (JOINed)
-	Frequency  *string          `json:"frequency,omitempty"` // Frequency from target item (only for income/expense)
-	Notes      *string          `json:"notes,omitempty"`
+	Amount     int64            `json:"amount"`                // Amount change for delta/override impacts (stored in DB)
+	Cadence    common.Frequency `json:"cadence"`               // Frequency for delta impacts (stored in DB)
+	Currency   string           `json:"currency"`              // Currency from the target financial item (derived)
+	StartDate  string           `json:"startDate"`             // Start date from the target financial item (derived)
+	EndDate    *string          `json:"endDate,omitempty"`     // End date from the target financial item (derived)
+	Name       *string          `json:"name,omitempty"`        // Name from the target financial item (derived)
+	Frequency  *string          `json:"frequency,omitempty"`   // Frequency from target item (derived, only for income/expense)
+	Notes      *string          `json:"notes,omitempty"`       // Notes from the target financial item (derived)
+
+	// Advanced fields for start impacts - used to configure the created financial item
+	Category       *string  `json:"category,omitempty"`       // Category for the created financial item
+	GrowthRate     *float64 `json:"growthRate,omitempty"`     // Annual growth rate (%)
+	GrowthStrategy *string  `json:"growthStrategy,omitempty"` // How growth is applied (none, annual_step, compound)
 
 	// Typed target IDs (only one should be set per impact)
 	TargetAssetID       *string `json:"targetAssetId,omitempty"`
@@ -77,7 +82,7 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 	}
 	var frequency *string
 	if imp.Frequency != "" {
-		val := string(imp.Frequency)
+		val := imp.Frequency
 		frequency = &val
 	}
 	var notes *string
@@ -85,17 +90,31 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		val := imp.Notes
 		notes = &val
 	}
+	// Advanced fields
+	var category *string
+	if strings.TrimSpace(imp.Category) != "" {
+		val := imp.Category
+		category = &val
+	}
+	var growthStrategy *string
+	if strings.TrimSpace(imp.GrowthStrategy) != "" && imp.GrowthStrategy != "none" {
+		val := imp.GrowthStrategy
+		growthStrategy = &val
+	}
 	targetID := imp.TargetID()
 	return scenarioImpactV2DTO{
 		ImpactKind:          imp.ImpactKind,
 		Amount:              imp.Amount,
-		Currency:            imp.Currency,
 		Cadence:             imp.Cadence,
+		Currency:            imp.Currency,
 		StartDate:           imp.StartDate.Format(time.DateOnly),
 		EndDate:             end,
 		Name:                name,
 		Frequency:           frequency,
 		Notes:               notes,
+		Category:            category,
+		GrowthRate:          imp.GrowthRate,
+		GrowthStrategy:      growthStrategy,
 		TargetAssetID:       imp.TargetAssetID,
 		TargetLiabilityID:   imp.TargetLiabilityID,
 		TargetIncomeID:      imp.TargetIncomeID,
@@ -161,10 +180,26 @@ func (h *ScenarioEventV2Handler) HandleCreate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Debug log the incoming payload
+	for i, imp := range payload.Impacts {
+		freq := ""
+		if imp.Frequency != nil {
+			freq = *imp.Frequency
+		}
+		log.Printf("scenario v2 create: impact[%d] amount=%d cadence=%s frequency=%s impactKind=%s targetIncomeId=%v targetType=%s",
+			i, imp.Amount, imp.Cadence, freq, imp.ImpactKind, imp.TargetIncomeID, imp.TargetType)
+	}
+
 	ev, err := buildScenarioEventV2(userCtx.UserID, payload)
 	if err != nil {
 		badRequest(w, err)
 		return
+	}
+
+	// Debug log the built impacts
+	for i, imp := range ev.Impacts {
+		log.Printf("scenario v2 create: built impact[%d] Amount=%d Cadence=%s TargetIncomeID=%v TargetType=%s",
+			i, imp.Amount, imp.Cadence, imp.TargetIncomeID, imp.TargetType())
 	}
 
 	created, err := h.store.CreateScenarioEventV2(r.Context(), ev)
@@ -324,8 +359,12 @@ func (h *ScenarioEventV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Req
 
 	// Debug log the incoming payload
 	for i, imp := range payload.Impacts {
-		log.Printf("scenario v2 update: impact[%d] targetIncomeId=%v targetType=%s targetId=%v",
-			i, imp.TargetIncomeID, imp.TargetType, imp.TargetID)
+		freq := ""
+		if imp.Frequency != nil {
+			freq = *imp.Frequency
+		}
+		log.Printf("scenario v2 update: impact[%d] amount=%d cadence=%s frequency=%s impactKind=%s targetIncomeId=%v targetType=%s",
+			i, imp.Amount, imp.Cadence, freq, imp.ImpactKind, imp.TargetIncomeID, imp.TargetType)
 	}
 
 	ev, err := buildScenarioEventV2(userCtx.UserID, payload)
@@ -539,20 +578,40 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		return repo.ScenarioImpact{}, err
 	}
 
-	start, end, err := parseImpactDates(in)
+	// Parse start date (required for DB constraint)
+	startDate, err := scenario.ParseDateOrMonth(in.StartDate)
 	if err != nil {
-		return repo.ScenarioImpact{}, err
+		return repo.ScenarioImpact{}, errors.New("invalid startDate; expected YYYY-MM-DD or YYYY-MM")
 	}
 
+	// Parse optional end date
+	var endDate *time.Time
+	if in.EndDate != nil && strings.TrimSpace(*in.EndDate) != "" {
+		ed, err := scenario.ParseDateOrMonth(*in.EndDate)
+		if err != nil {
+			return repo.ScenarioImpact{}, errors.New("invalid endDate; expected YYYY-MM-DD or YYYY-MM")
+		}
+		endDate = &ed
+	}
+
+	// Impact table stores: impact_kind, amount, cadence, start_date, end_date, and target FK columns.
+	// Advanced fields (category, growth_rate, growth_strategy) are passed through
+	// to updateStartImpactTarget for syncing to the financial item.
 	impact := repo.ScenarioImpact{
-		ImpactKind: ik,
-		Amount:     in.Amount,
-		Currency:   strings.ToUpper(strings.TrimSpace(in.Currency)),
-		Cadence:    cad,
-		StartDate:  start,
-		EndDate:    end,
-		Name:       strings.TrimSpace(scenario.PtrOrEmpty(in.Name)),
-		Notes:      strings.TrimSpace(scenario.PtrOrEmpty(in.Notes)),
+		ImpactKind:     ik,
+		Amount:         in.Amount,
+		Cadence:        cad,
+		StartDate:      startDate,
+		EndDate:        endDate,
+		GrowthRate:     in.GrowthRate,
+	}
+	// Set category if provided
+	if in.Category != nil {
+		impact.Category = *in.Category
+	}
+	// Set growth strategy if provided
+	if in.GrowthStrategy != nil {
+		impact.GrowthStrategy = *in.GrowthStrategy
 	}
 
 	// All impacts (including start) must have a pre-existing target - resolve from DTO
@@ -579,34 +638,6 @@ func normalizeImpactKindAndCadence(in scenarioImpactV2DTO) (string, common.Frequ
 		return "", "", err
 	}
 	return ik, cad, nil
-}
-
-func parseImpactDates(in scenarioImpactV2DTO) (time.Time, *time.Time, error) {
-	if strings.TrimSpace(in.StartDate) == "" {
-		return time.Time{}, nil, scenario.ErrMissingStartDate
-	}
-
-	start, err := scenario.ParseMonthStart(in.StartDate)
-	if err != nil {
-		return time.Time{}, nil, scenario.ErrInvalidStartDate
-	}
-
-	endDateStr := scenario.PtrOrEmpty(in.EndDate)
-	if strings.TrimSpace(endDateStr) == "" {
-		log.Printf("parseImpactDates: startDate=%s endDate=nil (empty)", in.StartDate)
-		return start, nil, nil
-	}
-
-	val, err := scenario.ParseMonthStart(endDateStr)
-	if err != nil {
-		return time.Time{}, nil, scenario.ErrInvalidEndDate
-	}
-	log.Printf("parseImpactDates: startDate=%s (%v) endDate=%s (%v) before=%v",
-		in.StartDate, start, endDateStr, val, val.Before(start))
-	if val.Before(start) {
-		return time.Time{}, nil, scenario.ErrEndDateBeforeStart
-	}
-	return start, &val, nil
 }
 
 func assignImpactTarget(impact *repo.ScenarioImpact, target impactTarget) error {

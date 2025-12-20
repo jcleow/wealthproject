@@ -18,7 +18,7 @@ func (s *Store) GetNonCashAsset(ctx context.Context, userID, id string) (*NonCas
 		name,
 		category,
 		current_value,
-		annual_growth_rate,
+		growth_rate,
 		start_date,
 		end_date,
 		COALESCE(notes, '') as notes,
@@ -60,18 +60,18 @@ func (s *Store) CreateNonCashAsset(ctx context.Context, userID string, asset Non
 	}
 
 	query := `
-		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, annual_growth_rate, start_date, end_date, notes, growth_strategy)
+		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, growth_rate, start_date, end_date, notes, growth_strategy)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), $10)
 		ON CONFLICT ON CONSTRAINT finance_assets_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
 		    current_value=EXCLUDED.current_value,
-		    annual_growth_rate=EXCLUDED.annual_growth_rate,
+		    growth_rate=EXCLUDED.growth_rate,
 		    end_date=EXCLUDED.end_date,
 		    notes=EXCLUDED.notes,
 		    growth_strategy=EXCLUDED.growth_strategy,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id, id), name, category, current_value, annual_growth_rate, start_date, end_date, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
+		RETURNING id, COALESCE(parent_id, id), name, category, current_value, growth_rate, start_date, end_date, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
 
 	args := []any{
 		userID, nullIfEmpty(asset.ParentID), asset.Name, asset.Category, asset.CurrentValue,
@@ -100,14 +100,14 @@ func (s *Store) UpdateNonCashAsset(ctx context.Context, userID string, asset Non
 	SET name = $3,
 	    category = $4,
 	    current_value = $5,
-	    annual_growth_rate = COALESCE($6, annual_growth_rate),
+	    growth_rate = COALESCE($6, growth_rate),
 	    start_date = COALESCE($7, start_date),
 	    end_date = $8,
 	    notes = NULLIF($9, ''),
 	    growth_strategy = COALESCE(NULLIF($10, ''), growth_strategy, 'annual_step'),
 	    updated_at = NOW()
 	WHERE user_id = $1 AND id = $2
-	RETURNING id, COALESCE(parent_id, id), name, category, current_value, annual_growth_rate, start_date, end_date, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
+	RETURNING id, COALESCE(parent_id, id), name, category, current_value, growth_rate, start_date, end_date, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
 
 	var startDate *time.Time
 	if !asset.StartDate.IsZero() {
@@ -177,7 +177,7 @@ func (s *Store) StopNonCashAsset(ctx context.Context, userID, id string, endDate
 	UPDATE finance_assets
 	SET end_date = $3, updated_at = NOW()
 	WHERE user_id = $1 AND id = $2
-	RETURNING id, COALESCE(parent_id, id), name, category, current_value, annual_growth_rate, start_date, end_date, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
+	RETURNING id, COALESCE(parent_id, id), name, category, current_value, growth_rate, start_date, end_date, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
 
 	logQuery(query, []any{userID, id, endDate})
 
@@ -210,7 +210,7 @@ func (s *Store) FindNonCashAssetByParentAndStartDate(
 		name,
 		category,
 		current_value,
-		annual_growth_rate,
+		growth_rate,
 		start_date,
 		end_date,
 		COALESCE(notes, '') as notes,

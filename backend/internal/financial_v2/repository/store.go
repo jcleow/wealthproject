@@ -256,7 +256,7 @@ func (s *Store) ListNonCashAssets(
 		name,
 		category,
 		current_value,
-		annual_growth_rate,
+		growth_rate,
 		start_date,
 		end_date,
 		COALESCE(notes, '') as notes,
