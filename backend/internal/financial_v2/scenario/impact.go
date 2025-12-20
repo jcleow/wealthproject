@@ -393,6 +393,9 @@ func computeImpactAmounts(impact *Impact) (monthlyAmt int64, annualAmt int64) {
 //	impact.StartDate = "2025-03-15", impact.Cadence = "one_time"
 //	currentDate = "2025-03-01" → true  (same month)
 //	currentDate = "2025-04-01" → false (different month)
+//
+// IMPORTANT: This function uses impact.StartDate which should be set to the
+// event's occurs_on date when loading impacts from the database.
 func ImpactAppliesToMonth(impact Impact, currentDate time.Time) bool {
 	// Normalize to first of month for comparison
 	currentMonth := normalizeToMonthStart(currentDate)
