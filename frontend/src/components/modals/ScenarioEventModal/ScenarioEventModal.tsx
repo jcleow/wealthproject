@@ -67,9 +67,10 @@ interface ScenarioEventModalProps {
   event?: ScenarioEvent
   anchorYear?: number | null
   anchorMonth?: number | null
+  onJumpToDate?: (year: number, month: number) => void
 }
 
-export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event, anchorYear, anchorMonth }: ScenarioEventModalProps) {
+export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event, anchorYear, anchorMonth, onJumpToDate }: ScenarioEventModalProps) {
   const { data: fetchedEvent, isFetching } = useScenarioEvent(event?.id, isOpen && Boolean(event?.id), event)
   const hydratedEvent = fetchedEvent ?? event
 
@@ -242,6 +243,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
             disabled={loadingState}
             anchorYear={anchorYear}
             anchorMonth={anchorMonth}
+            onJumpToDate={onJumpToDate}
           />
 
           {form.occursOn ? (

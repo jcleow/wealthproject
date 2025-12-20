@@ -159,32 +159,7 @@ export function AdvancedSection({
           {/* Growth options - only for applicable types */}
           {showGrowthOptions && (
             <div className="grid grid-cols-2 gap-3">
-              {/* Growth rate */}
-              <div>
-                <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5 block">
-                  Growth Rate (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={impact.growthRate ?? ''}
-                  onChange={(e) => onUpdate(index, { growthRate: e.target.value ? parseFloat(e.target.value) : undefined })}
-                  className={`
-                    w-full px-3 py-2
-                    rounded-lg
-                    border border-white/[0.08] hover:border-white/[0.15] focus:border-blue-500/40
-                    bg-white/[0.03] hover:bg-white/[0.05] focus:bg-white/[0.05]
-                    text-sm text-white placeholder:text-slate-600
-                    outline-none
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                    transition-all duration-200
-                  `}
-                  placeholder="0.0"
-                  disabled={loading}
-                />
-              </div>
-
-              {/* Growth strategy - only for income/expense */}
+              {/* Growth strategy - only for income/expense (shown first/left) */}
               {(impact.targetType === TargetType.Income || impact.targetType === TargetType.Expense) && (
                 <div className="relative" ref={strategyRef}>
                   <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5 block">
@@ -254,6 +229,35 @@ export function AdvancedSection({
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Growth rate - shown second/right, only when growth strategy is not 'none' (for income/expense) or always for assets/investments */}
+              {((impact.targetType === TargetType.Income || impact.targetType === TargetType.Expense)
+                ? impact.growthStrategy && impact.growthStrategy !== 'none'
+                : true) && (
+                <div>
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5 block">
+                    Growth Rate (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={impact.growthRate ?? ''}
+                    onChange={(e) => onUpdate(index, { growthRate: e.target.value ? parseFloat(e.target.value) : undefined })}
+                    className={`
+                      w-full px-3 py-2
+                      rounded-lg
+                      border border-white/[0.08] hover:border-white/[0.15] focus:border-blue-500/40
+                      bg-white/[0.03] hover:bg-white/[0.05] focus:bg-white/[0.05]
+                      text-sm text-white placeholder:text-slate-600
+                      outline-none
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                      transition-all duration-200
+                    `}
+                    placeholder="0.0"
+                    disabled={loading}
+                  />
                 </div>
               )}
             </div>

@@ -156,3 +156,123 @@ The `updateFinancialItemName` function in ScenarioEventModal only updates the na
 
 ### Files
 - `frontend/src/components/modals/ScenarioEventModal/ScenarioEventModal.tsx:20-56`
+
+---
+
+## P2: UI - Growth strategy field ordering and conditional display
+
+### Description
+In the financial item form (income/expense/asset/liability modals), the Growth Strategy dropdown should be on the left and Growth Rate should only be shown when a growth strategy other than "No Growth" is selected.
+
+### Current Behavior
+- Growth Rate (%) is on the left, Growth Strategy is on the right
+- Growth Rate is always visible regardless of the selected strategy
+
+### Expected Behavior
+- Growth Strategy dropdown should be on the left
+- Growth Rate input should only appear when a growth strategy other than "No Growth" is selected (conditional display)
+
+### Screenshot Reference
+Form shows: GROWTH RATE (%) [0.0] | GROWTH STRATEGY [Select...]
+
+### Files to Investigate
+- `frontend/src/components/modals/` - Income/Expense/Asset/Liability modal components
+- Look for growth rate/strategy form field ordering
+
+---
+
+## P2: Feature - Add scenario icons to financial items created via scenarios
+
+### Description
+Financial data items that were created via scenario events (e.g., "starts" impact kind) should display scenario icons in the financial data management list. Clicking these icons should open the corresponding scenario modal.
+
+### Current Behavior
+- Items like "Retirement at 60" and "Salary Promotion" show small icons next to them in the expanded section
+- However, items that were entirely created via a scenario (not just modified) may not have visible scenario indicators
+
+### Expected Behavior
+- All financial items that originated from a scenario event should show a scenario icon
+- Clicking the icon should open the scenario event modal for editing
+
+### Screenshot Reference
+Shows "Software Engineer Salary" expanded with:
+- Original: $4,400
+- Retirement at 60 🏃: $2,000
+- Salary Promotion 📈: $2,400
+
+### Files to Investigate
+- `frontend/src/components/dashboard/FinancialDataManagement.tsx`
+- Look for `getAppliedImpacts` and how scenario indicators are rendered
+
+---
+
+## P2: Bug - Timeline slider shows future scenarios in past dates
+
+### Description
+When traversing the timeline slider backwards (moving to earlier dates), scenarios that are scheduled to occur in the future incorrectly appear as if they were applied in the past.
+
+### Current Behavior
+- Moving the timeline slider to past dates shows scenario impacts that shouldn't be visible yet
+- Future scenarios "leak" into past timeline positions
+
+### Expected Behavior
+- Scenarios should only appear in the timeline from their occurrence date forward
+- Moving slider to a date before a scenario's occurrence should not show that scenario's impacts
+
+### Screenshot Reference
+Shows list with scenario impacts visible even when viewing a past date
+
+### Root Cause Investigation
+- Timeline service may not be correctly filtering scenarios by the selected date
+- The `GetTimelineWithScenarios` function may be applying all scenarios regardless of the current slider position
+
+### Files to Investigate
+- `backend/internal/financial/timeline/service.go` - `GetTimelineWithScenarios()`
+- `backend/internal/financial/scenario/service.go` - `Apply()` function date filtering
+- `frontend/src/` - Timeline slider state and API calls
+
+---
+
+## P2: Feature - Deactivated scenarios should show grey icon, not disappear
+
+### Description
+When a scenario event is deactivated (toggled off), its icon should remain visible in the chart/timeline but appear greyed out. The icon should still be clickable to re-activate or edit.
+
+### Current Behavior
+- Deactivating a scenario causes it to completely disappear from the chart
+
+### Expected Behavior
+- Deactivated scenarios should show a grey/muted icon in the chart
+- The grey icon should still be clickable to open the scenario modal
+- This allows users to easily see where scenarios exist even when inactive
+
+### Screenshot Reference
+Edit Scenario modal shows "Active" toggle for "Wedding & ROM" event (December 2027)
+
+### Files to Investigate
+- `frontend/src/components/` - Chart component rendering scenario markers
+- Look for how `isActive` flag is handled in scenario display logic
+
+---
+
+## P2: Feature - Add "Jump to date" button in scenario modal
+
+### Description
+The scenario modal should include a button that allows users to quickly jump to the month (or year) when the scenario occurs on the timeline.
+
+### Current Behavior
+- The scenario modal shows the "Occurs On" date (e.g., "December 2027")
+- No way to quickly navigate the timeline to that date from the modal
+
+### Expected Behavior
+- Add a button (e.g., "Go to date" or calendar icon button) next to or near the "Occurs On" field
+- Clicking the button should:
+  1. Close the modal (or keep it open with overlay)
+  2. Navigate the timeline slider to the scenario's occurrence date
+
+### Screenshot Reference
+Edit Scenario modal shows "Occurs On: December 2027" - needs a jump/navigate button
+
+### Files to Investigate
+- `frontend/src/components/modals/ScenarioEventModal/ScenarioEventModal.tsx`
+- Timeline state management for programmatic navigation
