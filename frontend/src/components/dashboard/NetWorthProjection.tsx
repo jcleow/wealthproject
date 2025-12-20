@@ -698,7 +698,7 @@ export function NetWorthProjection({
     }
 
     scenarioEvents.forEach((event) => {
-      if (event.isIncluded === false) return
+      // Don't filter out inactive events - let them through so they appear greyed out
       const eventDate = parseEventDate(event.occursOn)
       if (eventDate === null) return
 
