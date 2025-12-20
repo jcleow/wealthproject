@@ -33,9 +33,14 @@ export function AdvancedSection({
   const selectedCategory = categoryOptions.find(c => c.value === impact.category)
   const selectedStrategy = GROWTH_STRATEGY_OPTIONS.find(s => s.value === impact.growthStrategy)
 
-  // Show growth options for income/expense (not one-time) and assets/investments
+  // Show growth options for:
+  // - income/expense (unless explicitly one_time for start impacts)
+  // - assets and investments always
+  // For non-start impacts, we default to showing growth options since the target item likely has a recurring frequency
+  const isStartImpact = impact.impactKind === 'start'
+  const isOneTimeStart = isStartImpact && impact.frequency === 'one_time'
   const showGrowthOptions = (
-    (impact.targetType === 'income' || impact.targetType === 'expense') && impact.frequency !== 'one_time'
+    (impact.targetType === 'income' || impact.targetType === 'expense') && !isOneTimeStart
   ) || impact.targetType === 'asset' || impact.targetType === 'investment'
 
   // Close dropdowns on outside click

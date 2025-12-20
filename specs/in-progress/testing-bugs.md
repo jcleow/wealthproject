@@ -130,14 +130,9 @@ Fixed by implementing Option 1: Set `hasOverride=true` when an item's `StartYear
 
 ---
 
-## P1: Refactor - Advanced sections for all impact kinds
+## ~~P1: Refactor - Advanced sections for all impact kinds~~ ✅ DONE
 
-### Description
-Currently, the Advanced section (category, growth rate, growth strategy) only shows for "starts_at" impacts. Should be available for all impact kinds to allow customizing the created/modified financial item.
-
-### Files
-- `frontend/src/components/modals/ScenarioEventModal/components/ImpactEditor.tsx:314-322`
-- `frontend/src/components/modals/ScenarioEventModal/components/AdvancedSection.tsx`
+Now shows Advanced section for all impact kinds except 'ends'. Growth options properly shown for income/expense (unless explicitly one-time start impact) and always for assets/investments.
 
 ---
 
