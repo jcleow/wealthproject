@@ -274,7 +274,7 @@ export function useTimeline(options?: UseTimelineOptions) {
   }, [timelineQuery.data, resolution])
 
   // Transform V2 chart data to TimelineYear[] format for chart rendering
-  // This provides minimal data needed for chart display (just net worth per year)
+  // This provides minimal data needed for chart display (net worth and totals per year)
   const chartYears: TimelineYear[] | undefined = useMemo(() => {
     const chartData = timelineChartQuery.data as TimelineChartResponse | undefined
     if (!useTimelineV2 || !chartData?.years) {
@@ -286,7 +286,9 @@ export function useTimeline(options?: UseTimelineOptions) {
     return chartData.years.map((chartYear) => ({
       year: chartYear.year,
       netWorth: parseFloat(chartYear.netWorth) || 0,
-      // Empty arrays for items - chart only needs netWorth
+      totalAssets: parseFloat(chartYear.totalAssets) || 0,
+      totalLiabilities: parseFloat(chartYear.totalLiabilities) || 0,
+      // Empty arrays for items - chart only needs totals
       assets: [],
       cashAccounts: [],
       liabilities: [],
@@ -313,7 +315,9 @@ export function useTimeline(options?: UseTimelineOptions) {
       yearIndex: Math.floor(index / 12),
       monthIndex: chartMonth.allMonthsIndex,
       netWorth: parseFloat(chartMonth.netWorth) || 0,
-      // Empty arrays for items - chart only needs netWorth
+      totalAssets: parseFloat(chartMonth.totalAssets) || 0,
+      totalLiabilities: parseFloat(chartMonth.totalLiabilities) || 0,
+      // Empty arrays for items - chart only needs totals
       assets: [],
       cashAccounts: [],
       liabilities: [],

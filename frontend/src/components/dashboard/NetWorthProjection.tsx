@@ -175,13 +175,12 @@ export function NetWorthProjection({
     // The zoom level only affects how we display the data (axis labels, windowing)
     if (timelineMonths && timelineMonths.length > 0) {
       const monthlyProjection = timelineMonths.map<ProjectionPoint>((month) => {
-        const assets = month.assets ?? []
-        const liabilities = month.liabilities ?? []
-
-        const totalAssets = assets.reduce((sum, item) => sum + (item.amountMonthly ?? item.amountAnnual ?? 0), 0)
-        const totalLiabilities = liabilities.reduce(
-          (sum, item) => sum + (item.amountMonthly ?? item.amountAnnual ?? 0),
-          0
+        // Use pre-calculated totals when available (V2 API), otherwise compute from items
+        const totalAssets = month.totalAssets ?? (month.assets ?? []).reduce(
+          (sum, item) => sum + (item.amountMonthly ?? item.amountAnnual ?? 0), 0
+        )
+        const totalLiabilities = month.totalLiabilities ?? (month.liabilities ?? []).reduce(
+          (sum, item) => sum + (item.amountMonthly ?? item.amountAnnual ?? 0), 0
         )
 
         // month.year is already an absolute calendar year (e.g., 2025)
@@ -209,19 +208,19 @@ export function NetWorthProjection({
     if (timelineYears && timelineYears.length > 0) {
       const baseCalendarYear = 2025
       const timelineProjection = timelineYears.map<ProjectionPoint>((year, i) => {
-        const assets = year.assets ?? []
-        const liabilities = year.liabilities ?? []
+        const assetsArray = year.assets ?? []
+        const liabilitiesArray = year.liabilities ?? []
         const incomes = year.income ?? []
         const expenses = year.expenses ?? []
 
-        const totalAssets = assets.reduce((sum, item) => sum + (item.amountAnnual ?? 0), 0)
-        const totalLiabilities = liabilities.reduce(
-          (sum, item) => sum + (item.amountAnnual ?? 0),
-          0
+        // Use pre-calculated totals when available (V2 API), otherwise compute from items
+        const totalAssets = year.totalAssets ?? assetsArray.reduce((sum, item) => sum + (item.amountAnnual ?? 0), 0)
+        const totalLiabilities = year.totalLiabilities ?? liabilitiesArray.reduce(
+          (sum, item) => sum + (item.amountAnnual ?? 0), 0
         )
         const hasNonAnnualSource = [
-          ...assets,
-          ...liabilities,
+          ...assetsArray,
+          ...liabilitiesArray,
           ...incomes,
           ...expenses,
         ].some((item) => item.sourceFrequency && item.sourceFrequency !== 'annual')

@@ -83,6 +83,10 @@ export interface TimelineYear {
   expenses: TimelineItem[]
   netCash: number
   netWorth: number
+  /** Pre-calculated total assets (when available from V2 chart API) */
+  totalAssets?: number
+  /** Pre-calculated total liabilities (when available from V2 chart API) */
+  totalLiabilities?: number
   hasOverrides: boolean
   growthApplied: GrowthApplied[]
   // Cash accumulation tracking
@@ -111,6 +115,10 @@ export interface TimelineMonth {
   /** Monthly net cash (income - CPF - expenses) */
   netCash: number
   netWorth: number
+  /** Pre-calculated total assets (when available from V2 chart API) */
+  totalAssets?: number
+  /** Pre-calculated total liabilities (when available from V2 chart API) */
+  totalLiabilities?: number
   hasOverrides: boolean
   growthApplied: GrowthApplied[]
   // Monthly cash accumulation tracking
@@ -327,6 +335,8 @@ export interface ExpenseResponseV2 {
 export interface TimelineChartYear {
   year: number
   allYearsIndex: number
+  totalAssets: string // decimal as string from backend
+  totalLiabilities: string // decimal as string from backend
   netWorth: string // decimal as string from backend
 }
 
@@ -334,6 +344,8 @@ export interface TimelineChartYear {
 export interface TimelineChartMonth {
   month: number
   allMonthsIndex: number
+  totalAssets: string // decimal as string from backend
+  totalLiabilities: string // decimal as string from backend
   netWorth: string // decimal as string from backend
 }
 
