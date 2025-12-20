@@ -9,19 +9,12 @@
   ```bash
   cd backend && ./scripts/run-tests.sh
   ```
-
-### Test Database Setup (One-time)
-Integration tests use a separate `financial_chat_test` database to avoid polluting dev data.
-
-**First-time setup:**
-```bash
-cd backend && ./scripts/setup-test-db.sh
-```
-
-**Run integration tests manually:**
-```bash
-cd backend && go test -tags=integration ./internal/financial_v2/repository/...
-```
+  This script automatically:
+  1. Creates the `financial_chat_test` database (if needed)
+  2. Runs migrations
+  3. Runs unit tests
+  4. Runs integration tests
+  5. Drops the test database when done
 
 ### Sensitive Credentials - NEVER COMMIT
 
