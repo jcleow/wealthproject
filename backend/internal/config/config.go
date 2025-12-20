@@ -39,7 +39,7 @@ type Config struct {
 func New() *Config {
 	return &Config{
 		Port:        getEnv("PORT", "8080"),
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat?sslmode=disable"),
+		DatabaseURL: getEnv("DATABASE_URL", "postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"),
 		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key"),
 		PrimaryLLM:  getEnv("PRIMARY_LLM", "openai"),
 

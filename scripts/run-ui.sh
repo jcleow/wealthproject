@@ -433,7 +433,7 @@ DB_PASSWORD="${DB_PASSWORD:-${POSTGRES_PASSWORD:-}}"
 DB_NAME="${DB_NAME:-${POSTGRES_DB:-financial_chat}}"
 # Final defaults if nothing provided
 POSTGRES_USER_DEFAULT="${DB_USER:-financial_user}"
-POSTGRES_PASSWORD_DEFAULT="${DB_PASSWORD:-financial_pass_dev_2024}"
+POSTGRES_PASSWORD_DEFAULT="${DB_PASSWORD:-${DB_PASSWORD}}"
 POSTGRES_DB_DEFAULT="${DB_NAME:-financial_chat}"
 
 if [[ -n "$REQUESTED_DB_PORT" ]]; then

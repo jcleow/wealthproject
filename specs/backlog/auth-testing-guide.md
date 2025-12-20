@@ -29,12 +29,12 @@ cd backend && go run cmd/server/main.go
 BETTERAUTH_SECRET="test_secret_change_in_production"
 BETTERAUTH_URL="https://verylocal:3000"
 NEXT_PUBLIC_BETTERAUTH_URL="https://verylocal:3000"
-DATABASE_URL="postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat?sslmode=disable"
+DATABASE_URL="postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"
 HTTPS=true
 
 # Backend .env
 BETTERAUTH_SECRET="test_secret_change_in_production"
-DATABASE_URL="postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat?sslmode=disable"
+DATABASE_URL="postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"
 PORT=8080
 ```
 
