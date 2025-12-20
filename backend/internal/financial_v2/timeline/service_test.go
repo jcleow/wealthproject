@@ -227,7 +227,7 @@ func TestComputeFinancialSnapshot_NetCashFlow(t *testing.T) {
 			{
 				ID:         "income-1",
 				ParentID:   "income-1",
-				Source:     "Salary",
+				Name:       "Salary",
 				Amount:     *decimal.MustFromString("5000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -239,7 +239,7 @@ func TestComputeFinancialSnapshot_NetCashFlow(t *testing.T) {
 			{
 				ID:         "expense-1",
 				ParentID:   "expense-1",
-				Payee:      "Rent",
+				Name:       "Rent",
 				Amount:     *decimal.MustFromString("2000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -294,7 +294,7 @@ func TestComputeFinancialSnapshot_AnchorMonthAllocationsReportedOnly(t *testing.
 			{
 				ID:         "income-1",
 				ParentID:   "income-1",
-				Source:     "Salary",
+				Name:       "Salary",
 				Amount:     *decimal.MustFromString("5000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -479,7 +479,7 @@ func TestComputeFinancialSnapshot_CashAccumulator(t *testing.T) {
 			{
 				ID:         "income-1",
 				ParentID:   "income-1",
-				Source:     "Salary",
+				Name:       "Salary",
 				Amount:     *decimal.MustFromString("5000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -491,7 +491,7 @@ func TestComputeFinancialSnapshot_CashAccumulator(t *testing.T) {
 			{
 				ID:         "expense-1",
 				ParentID:   "expense-1",
-				Payee:      "Rent",
+				Name:       "Rent",
 				Amount:     *decimal.MustFromString("2000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -557,7 +557,7 @@ func TestComputeFinancialSnapshot_NetCashAlwaysNetOfInvestments(t *testing.T) {
 			{
 				ID:         "income-1",
 				ParentID:   "income-1",
-				Source:     "Salary",
+				Name:       "Salary",
 				Amount:     *decimal.MustFromString("5000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -569,7 +569,7 @@ func TestComputeFinancialSnapshot_NetCashAlwaysNetOfInvestments(t *testing.T) {
 			{
 				ID:         "expense-1",
 				ParentID:   "expense-1",
-				Payee:      "Rent",
+				Name:       "Rent",
 				Amount:     *decimal.MustFromString("1000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -674,7 +674,7 @@ func TestComputeFinancialSnapshot_OpenEndedLiabilityWithLinkedExpense(t *testing
 			{
 				ID:                "expense-1",
 				ParentID:          "expense-1",
-				Payee:             "Credit Card Payment",
+				Name:              "Credit Card Payment",
 				Amount:            *decimal.MustFromString("500"), // $500/month payment
 				Frequency:         "monthly",
 				StartDate:         startDate,
@@ -787,7 +787,7 @@ func TestComputeFinancialSnapshot_LiabilityGrowsWhenPaymentLessThanInterest(t *t
 			{
 				ID:                "expense-1",
 				ParentID:          "expense-1",
-				Payee:             "Minimum Payment",
+				Name:              "Minimum Payment",
 				Amount:            *decimal.MustFromString("100"), // $100/month - less than interest!
 				Frequency:         "monthly",
 				StartDate:         startDate,
@@ -942,7 +942,7 @@ func TestComputeFinancialSnapshot_VersionedIncomeAllocations(t *testing.T) {
 			{
 				ID:         "income-v1",
 				ParentID:   "income-v1", // Original income is its own parent
-				Source:     "Salary",
+				Name:       "Salary",
 				Amount:     *decimal.MustFromString("5000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -953,7 +953,7 @@ func TestComputeFinancialSnapshot_VersionedIncomeAllocations(t *testing.T) {
 			{
 				ID:         "income-v2",
 				ParentID:   "income-v1", // Points to original income
-				Source:     "Salary",
+				Name:       "Salary",
 				Amount:     *decimal.MustFromString("6000"), // Increased in Feb
 				Frequency:  "monthly",
 				StartDate:  time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC),

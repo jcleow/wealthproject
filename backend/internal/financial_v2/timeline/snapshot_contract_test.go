@@ -153,7 +153,7 @@ func TestSnapshotContract_AllItemTypesReturned(t *testing.T) {
 			{
 				ID:         "income-1",
 				ParentID:   "income-1",
-				Source:     "Salary",
+				Name:       "Salary",
 				Amount:     *decimal.MustFromString("8000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -163,7 +163,7 @@ func TestSnapshotContract_AllItemTypesReturned(t *testing.T) {
 			{
 				ID:         "income-2",
 				ParentID:   "income-2",
-				Source:     "Rental Income",
+				Name:       "Rental Income",
 				Amount:     *decimal.MustFromString("2000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -175,7 +175,7 @@ func TestSnapshotContract_AllItemTypesReturned(t *testing.T) {
 			{
 				ID:         "expense-1",
 				ParentID:   "expense-1",
-				Payee:      "Mortgage Payment",
+				Name:       "Mortgage Payment",
 				Amount:     *decimal.MustFromString("1500"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -185,7 +185,7 @@ func TestSnapshotContract_AllItemTypesReturned(t *testing.T) {
 			{
 				ID:         "expense-2",
 				ParentID:   "expense-2",
-				Payee:      "Groceries",
+				Name:       "Groceries",
 				Amount:     *decimal.MustFromString("600"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -195,7 +195,7 @@ func TestSnapshotContract_AllItemTypesReturned(t *testing.T) {
 			{
 				ID:         "expense-3",
 				ParentID:   "expense-3",
-				Payee:      "Utilities",
+				Name:       "Utilities",
 				Amount:     *decimal.MustFromString("200"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -595,7 +595,7 @@ func TestSnapshotContract_MonthMetadata(t *testing.T) {
 			{
 				ID:        "income-1",
 				ParentID:  "income-1",
-				Source:    "Salary",
+				Name:      "Salary",
 				Amount:    *decimal.MustFromString("5000"),
 				Frequency: "monthly",
 				StartDate: startDate,
@@ -682,7 +682,7 @@ func TestSnapshotContract_ItemsHaveStartYearAndMonth(t *testing.T) {
 			{
 				ID:        "income-1",
 				ParentID:  "income-1",
-				Source:    "Salary",
+				Name:      "Salary",
 				Amount:    *decimal.MustFromString("5000"),
 				Frequency: "monthly",
 				StartDate: startDate,
@@ -798,7 +798,7 @@ func TestSnapshotContract_LinkedExpensesIncludeSourceLiabilityID(t *testing.T) {
 			{
 				ID:                "cc-payment",
 				ParentID:          "cc-payment",
-				Payee:             "Credit Card",
+				Name:              "Credit Card",
 				Amount:            *decimal.MustFromString("300"),
 				Frequency:         "monthly",
 				StartDate:         startDate,
@@ -809,7 +809,7 @@ func TestSnapshotContract_LinkedExpensesIncludeSourceLiabilityID(t *testing.T) {
 			{
 				ID:        "groceries",
 				ParentID:  "groceries",
-				Payee:     "Groceries",
+				Name:      "Groceries",
 				Amount:    *decimal.MustFromString("500"),
 				Frequency: "monthly",
 				StartDate: startDate,

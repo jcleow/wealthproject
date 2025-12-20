@@ -13,23 +13,16 @@ import (
 
 /*
 =============================================================================
-SYNTHETIC ITEMS TEST SUITE (TDD)
+START IMPACT ITEMS TEST SUITE
 =============================================================================
 
 These tests document the expected behavior of "start" impacts, which create
 financial items that only exist within scenarios.
 
-CORRECT IMPLEMENTATION APPROACH:
+IMPLEMENTATION:
 - Start impacts create REAL rows in finance_* tables (incomes, expenses, etc.)
 - The impact's target_*_id points to the newly created row
-- We use a LEFT JOIN to identify which items are synthetic (created by start impacts)
-- No new columns needed on finance_* tables
 - All metadata (name, category, amount, frequency, growth_rate) exists in finance_* tables
-
-KEY INSIGHT:
-Synthetic items are just regular finance_* rows that happen to be created by
-start impacts. The only difference is how they're identified (via JOIN with
-scenario_event_impacts WHERE impact_kind='start').
 
 FILTERING BEHAVIOR:
 - GetExcludedScenarioTargetIDs returns IDs of items from excluded events
@@ -39,8 +32,8 @@ FILTERING BEHAVIOR:
 =============================================================================
 */
 
-// syntheticTestStore extends mockStore with scenario event support
-type syntheticTestStore struct {
+// startImpactTestStore extends mockStore with scenario event support
+type startImpactTestStore struct {
 	nonCashAssets   []repo.NonCashAsset
 	investments     []repo.Investment
 	cashAssets      []repo.CashAsset
@@ -52,43 +45,43 @@ type syntheticTestStore struct {
 	excludedTargets repo.ExcludedTargets
 }
 
-func (m *syntheticTestStore) ListNonCashAssets(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.NonCashAsset], error) {
+func (m *startImpactTestStore) ListNonCashAssets(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.NonCashAsset], error) {
 	return repo.PaginatedResult[repo.NonCashAsset]{Data: m.nonCashAssets, Count: len(m.nonCashAssets)}, nil
 }
 
-func (m *syntheticTestStore) ListInvestments(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Investment], error) {
+func (m *startImpactTestStore) ListInvestments(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Investment], error) {
 	return repo.PaginatedResult[repo.Investment]{Data: m.investments, Count: len(m.investments)}, nil
 }
 
-func (m *syntheticTestStore) ListCashAssets(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.CashAsset], error) {
+func (m *startImpactTestStore) ListCashAssets(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.CashAsset], error) {
 	return repo.PaginatedResult[repo.CashAsset]{Data: m.cashAssets, Count: len(m.cashAssets)}, nil
 }
 
-func (m *syntheticTestStore) ListLiabilities(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Liability], error) {
+func (m *startImpactTestStore) ListLiabilities(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Liability], error) {
 	return repo.PaginatedResult[repo.Liability]{Data: m.liabilities, Count: len(m.liabilities)}, nil
 }
 
-func (m *syntheticTestStore) ListIncomes(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Income], error) {
+func (m *startImpactTestStore) ListIncomes(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Income], error) {
 	return repo.PaginatedResult[repo.Income]{Data: m.incomes, Count: len(m.incomes)}, nil
 }
 
-func (m *syntheticTestStore) ListExpenses(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Expense], error) {
+func (m *startImpactTestStore) ListExpenses(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.Expense], error) {
 	return repo.PaginatedResult[repo.Expense]{Data: m.expenses, Count: len(m.expenses)}, nil
 }
 
-func (m *syntheticTestStore) GetCPFAccount(ctx context.Context, userID string) (*repo.CPFAccount, error) {
+func (m *startImpactTestStore) GetCPFAccount(ctx context.Context, userID string) (*repo.CPFAccount, error) {
 	return nil, nil
 }
 
-func (m *syntheticTestStore) ListAllIncomeAllocations(ctx context.Context, userID string) ([]repo.IncomeAllocation, error) {
+func (m *startImpactTestStore) ListAllIncomeAllocations(ctx context.Context, userID string) ([]repo.IncomeAllocation, error) {
 	return m.incomeAllocs, nil
 }
 
-func (m *syntheticTestStore) GetExcludedScenarioTargetIDs(ctx context.Context, userID string) (repo.ExcludedTargets, error) {
+func (m *startImpactTestStore) GetExcludedScenarioTargetIDs(ctx context.Context, userID string) (repo.ExcludedTargets, error) {
 	return m.excludedTargets, nil
 }
 
-func (m *syntheticTestStore) ListIncludedScenarioEvents(ctx context.Context, userID string) ([]repo.ScenarioEvent, error) {
+func (m *startImpactTestStore) ListIncludedScenarioEvents(ctx context.Context, userID string) ([]repo.ScenarioEvent, error) {
 	return m.scenarioEvents, nil
 }
 
@@ -129,12 +122,12 @@ func TestComputeSnapshot_StartImpact_CreatesSyntheticIncome(t *testing.T) {
 	// The rental income is a REAL row in finance_incomes, created by the start impact
 	rentalIncomeID := "income-rental-123"
 
-	store := &syntheticTestStore{
+	store := &startImpactTestStore{
 		incomes: []repo.Income{
 			{
 				ID:         "income-salary",
 				ParentID:   "income-salary",
-				Source:     "Salary",
+				Name:       "Salary",
 				Amount:     *decimal.MustFromString("10000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -144,7 +137,7 @@ func TestComputeSnapshot_StartImpact_CreatesSyntheticIncome(t *testing.T) {
 			{
 				ID:         rentalIncomeID,
 				ParentID:   rentalIncomeID,
-				Source:     "Rental Income",
+				Name:       "Rental Income",
 				Amount:     *decimal.MustFromString("2000"),
 				Frequency:  "monthly",
 				StartDate:  startDate, // Same start as query
@@ -236,12 +229,12 @@ func TestComputeSnapshot_StartImpact_SyntheticItemRespectsDates(t *testing.T) {
 
 	consultingIncomeID := "income-consulting"
 
-	store := &syntheticTestStore{
+	store := &startImpactTestStore{
 		incomes: []repo.Income{
 			{
 				ID:         consultingIncomeID,
 				ParentID:   consultingIncomeID,
-				Source:     "Consulting Gig",
+				Name:       "Consulting Gig",
 				Amount:     *decimal.MustFromString("5000"),
 				Frequency:  "monthly",
 				StartDate:  consultingStartDate,
@@ -312,12 +305,12 @@ func TestComputeSnapshot_StartImpact_SyntheticItemGrows(t *testing.T) {
 	startDate := makeStartDate(2025, 1, 1)
 	rentalIncomeID := "income-rental"
 
-	store := &syntheticTestStore{
+	store := &startImpactTestStore{
 		incomes: []repo.Income{
 			{
 				ID:         rentalIncomeID,
 				ParentID:   rentalIncomeID,
-				Source:     "Rental Income",
+				Name:       "Rental Income",
 				Amount:     *decimal.MustFromString("2000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -394,12 +387,12 @@ func TestComputeSnapshot_StartImpact_ExcludedEvent_NoSyntheticItem(t *testing.T)
 	startDate := makeStartDate(2025, 1, 1)
 	rentalIncomeID := "income-rental-excluded"
 
-	store := &syntheticTestStore{
+	store := &startImpactTestStore{
 		incomes: []repo.Income{
 			{
 				ID:         rentalIncomeID,
 				ParentID:   rentalIncomeID,
-				Source:     "Rental Income",
+				Name:       "Rental Income",
 				Amount:     *decimal.MustFromString("2000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -449,12 +442,12 @@ func TestComputeSnapshot_StartImpact_TargetedByDelta(t *testing.T) {
 	rentIncreaseDate := makeStartDate(2025, 6, 1)
 	rentalIncomeID := "income-rental"
 
-	store := &syntheticTestStore{
+	store := &startImpactTestStore{
 		incomes: []repo.Income{
 			{
 				ID:         rentalIncomeID,
 				ParentID:   rentalIncomeID,
-				Source:     "Rental Income",
+				Name:       "Rental Income",
 				Amount:     *decimal.MustFromString("2000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -558,12 +551,12 @@ func TestComputeSnapshot_StartImpact_TargetedByStop(t *testing.T) {
 	stopDate := makeStartDate(2025, 6, 1)
 	businessIncomeID := "income-business"
 
-	store := &syntheticTestStore{
+	store := &startImpactTestStore{
 		incomes: []repo.Income{
 			{
 				ID:         businessIncomeID,
 				ParentID:   businessIncomeID,
-				Source:     "Side Business",
+				Name:       "Side Business",
 				Amount:     *decimal.MustFromString("3000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -686,12 +679,12 @@ func TestComputeSnapshot_SyntheticIncome_ContributesToNetCash(t *testing.T) {
 	startDate := makeStartDate(2025, 1, 1)
 	rentalIncomeID := "income-rental"
 
-	store := &syntheticTestStore{
+	store := &startImpactTestStore{
 		incomes: []repo.Income{
 			{
 				ID:         rentalIncomeID,
 				ParentID:   rentalIncomeID,
-				Source:     "Rental Income",
+				Name:       "Rental Income",
 				Amount:     *decimal.MustFromString("3000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -703,7 +696,7 @@ func TestComputeSnapshot_SyntheticIncome_ContributesToNetCash(t *testing.T) {
 			{
 				ID:         "expense-maintenance",
 				ParentID:   "expense-maintenance",
-				Payee:      "Property Maintenance",
+				Name:       "Property Maintenance",
 				Amount:     *decimal.MustFromString("1000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -763,7 +756,7 @@ func TestComputeSnapshot_SyntheticAsset_ContributesToNetWorth(t *testing.T) {
 	startDate := makeStartDate(2025, 1, 1)
 	carAssetID := "asset-car"
 
-	store := &syntheticTestStore{
+	store := &startImpactTestStore{
 		cashAssets: []repo.CashAsset{
 			{
 				ID:           "cash-1",
@@ -836,12 +829,12 @@ func TestComputeSnapshot_SyntheticExpense_AffectsNetSavings(t *testing.T) {
 	startDate := makeStartDate(2025, 1, 1)
 	childcareExpenseID := "expense-childcare"
 
-	store := &syntheticTestStore{
+	store := &startImpactTestStore{
 		incomes: []repo.Income{
 			{
 				ID:         "income-salary",
 				ParentID:   "income-salary",
-				Source:     "Salary",
+				Name:       "Salary",
 				Amount:     *decimal.MustFromString("10000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -853,7 +846,7 @@ func TestComputeSnapshot_SyntheticExpense_AffectsNetSavings(t *testing.T) {
 			{
 				ID:         childcareExpenseID,
 				ParentID:   childcareExpenseID,
-				Payee:      "Childcare",
+				Name:       "Childcare",
 				Amount:     *decimal.MustFromString("2000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -912,12 +905,12 @@ func TestComputeSnapshot_IncludeScenariosFalse_ExcludesScenarioItems(t *testing.
 	startDate := makeStartDate(2025, 1, 1)
 	rentalIncomeID := "income-rental-scenario"
 
-	store := &syntheticTestStore{
+	store := &startImpactTestStore{
 		incomes: []repo.Income{
 			{
 				ID:         "income-salary",
 				ParentID:   "income-salary",
-				Source:     "Salary",
+				Name:       "Salary",
 				Amount:     *decimal.MustFromString("10000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -927,7 +920,7 @@ func TestComputeSnapshot_IncludeScenariosFalse_ExcludesScenarioItems(t *testing.
 			{
 				ID:         rentalIncomeID,
 				ParentID:   rentalIncomeID,
-				Source:     "Rental Income (Scenario)",
+				Name:       "Rental Income (Scenario)",
 				Amount:     *decimal.MustFromString("2000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -1000,12 +993,12 @@ func TestComputeSnapshot_MultipleStartImpacts_SameEvent(t *testing.T) {
 	rentalIncomeID := "income-rental"
 	maintenanceExpenseID := "expense-maintenance"
 
-	store := &syntheticTestStore{
+	store := &startImpactTestStore{
 		incomes: []repo.Income{
 			{
 				ID:         rentalIncomeID,
 				ParentID:   rentalIncomeID,
-				Source:     "Rental Income",
+				Name:       "Rental Income",
 				Amount:     *decimal.MustFromString("2000"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
@@ -1017,7 +1010,7 @@ func TestComputeSnapshot_MultipleStartImpacts_SameEvent(t *testing.T) {
 			{
 				ID:         maintenanceExpenseID,
 				ParentID:   maintenanceExpenseID,
-				Payee:      "Property Maintenance",
+				Name:       "Property Maintenance",
 				Amount:     *decimal.MustFromString("300"),
 				Frequency:  "monthly",
 				StartDate:  startDate,
