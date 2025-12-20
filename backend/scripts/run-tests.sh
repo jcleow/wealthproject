@@ -33,6 +33,12 @@ echo ""
 echo "Running integration tests..."
 go test -tags=integration ./internal/financial_v2/repository/... 2>&1 | grep -E "^(ok|FAIL|---)" || true
 
+# Run E2E tests
+echo ""
+echo "Running E2E tests..."
+TEST_DATABASE_URL="postgres://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$TEST_DB_NAME?sslmode=disable" \
+  go test -tags=e2e ./internal/e2e/... 2>&1 | grep -E "^(ok|FAIL|---)" || true
+
 # Cleanup test database
 echo ""
 echo "Cleaning up test database..."

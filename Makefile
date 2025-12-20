@@ -1,11 +1,12 @@
-.PHONY: help build run test clean docker-up docker-down migrate
+.PHONY: help build run test test-e2e clean docker-up docker-down migrate
 
 # Default target
 help:
 	@echo "Available targets:"
 	@echo "  build      - Build the Go backend"
 	@echo "  run        - Run the Go backend locally"
-	@echo "  test       - Run tests"
+	@echo "  test       - Run unit tests"
+	@echo "  test-e2e   - Run E2E tests (requires test database)"
 	@echo "  clean      - Clean build artifacts"
 	@echo "  docker-up  - Start services with Docker Compose"
 	@echo "  docker-down - Stop Docker Compose services"
@@ -21,10 +22,23 @@ run: build
 	@echo "Starting backend server..."
 	./bin/server
 
-# Run tests
+# Run unit tests
 test:
-	@echo "Running tests..."
+	@echo "Running unit tests..."
 	cd backend && go test -v ./...
+
+# Run E2E tests (requires test database)
+# Start test database with: docker-compose -f docker-compose.test.yml up -d test-db
+test-e2e:
+	@echo "Starting test database..."
+	docker-compose -f docker-compose.test.yml up -d test-db
+	@echo "Waiting for database to be ready..."
+	@sleep 3
+	@echo "Running E2E tests..."
+	TEST_DATABASE_URL="postgres://testuser:testpass@localhost:5433/financial_chat_test?sslmode=disable" \
+		cd backend && go test -tags=e2e -v ./internal/e2e/... || (docker-compose -f docker-compose.test.yml down && exit 1)
+	@echo "Stopping test database..."
+	docker-compose -f docker-compose.test.yml down
 
 # Clean build artifacts
 clean:
