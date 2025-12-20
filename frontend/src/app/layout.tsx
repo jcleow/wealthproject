@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import '../styles/globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { AuthProvider } from '@/components/auth/AuthProvider'
+import { AuthenticationGuard } from '@/components/auth/AuthGuard'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -50,7 +51,10 @@ export default function RootLayout({
       </head>
       <body className="antialiased bg-black text-white">
         <QueryProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <AuthenticationGuard />
+            {children}
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

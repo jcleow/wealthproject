@@ -1,6 +1,16 @@
 # TODO
 
-## API Type Safety
+### Migrate Auth State from React Context to Zustand Store
+
+**Problem:** Current auth uses `useSession()` hook which can re-fetch on remounts and only works inside React components.
+
+**Solution:** Follow Rybbit's pattern - fetch session once at module load and store in Zustand.
+
+**Effort:** ~1-2 hours
+
+**Spec:** [auth-zustand-migration.md](./auth-zustand-migration.md)
+
+---
 
 ### Implement OpenAPI TypeScript Codegen
 
@@ -8,38 +18,8 @@
 
 **Solution:** Generate TypeScript types from the existing `swagger.json`.
 
-**Steps:**
-1. Install openapi-typescript:
-   ```bash
-   cd frontend && pnpm add -D openapi-typescript
-   ```
-
-2. Add generate script to `frontend/package.json`:
-   ```json
-   {
-     "scripts": {
-       "generate:api": "openapi-typescript ../backend/cmd/server/docs/swagger.json -o src/types/api.generated.ts"
-     }
-   }
-   ```
-
-3. Run generation:
-   ```bash
-   # Regenerate swagger.json from Go annotations
-   cd backend && swag init -g cmd/server/main.go -o cmd/server/docs
-
-   # Generate TypeScript types
-   cd frontend && pnpm generate:api
-   ```
-
-4. Use generated types in API files:
-   ```typescript
-   import type { components } from '@/types/api.generated'
-   type CreateInvestmentBody = components['schemas']['investmentCreateInput']
-   ```
-
 **Effort:** ~5 mins setup, 1-2 hours to migrate all API files (optional, can be gradual)
 
-**Benefit:** Type mismatches become compile-time errors instead of runtime errors.
+**Spec:** [api-openapi-codegen.md](./api-openapi-codegen.md)
 
 ---
