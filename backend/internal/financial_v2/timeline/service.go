@@ -386,10 +386,11 @@ func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time, isAnchorM
 			continue
 		}
 
-		// Example: itemInfo = {ItemType: "cash_asset", Frequency: "monthly"}
+		// Example: itemInfo = {ItemType: "cash_asset", Frequency: "monthly", StartDate: "2020-01-01"}
 		itemInfo := scenario.ItemInfo{
 			ItemType:  string(itemState.Row.ItemType),
 			Frequency: itemState.Row.Frequency,
+			StartDate: itemState.Row.StartDate,
 		}
 
 		// ─────────────────────────────────────────────────────────────────────
@@ -1652,8 +1653,8 @@ type MonthlyContext struct {
 	IncomeAllocations         []repo.IncomeAllocation
 	LinkedExpensesByLiability map[string]FinancialDataRow
 	// Scenario event support
-	ScenarioImpacts    *scenario.ImpactContext               // Pre-indexed impacts (nil if scenarios disabled)
-	EventAdjustedState map[string]*decimal.Decimal           // Temporary state with scenario impacts (recreated each month)
+	ScenarioImpacts    *scenario.ImpactContext                 // Pre-indexed impacts (nil if scenarios disabled)
+	EventAdjustedState map[string]*decimal.Decimal             // Temporary state with scenario impacts (recreated each month)
 	AppliedImpacts     map[string][]scenario.AppliedImpactInfo // Tracks which impacts were applied to each item
 }
 
@@ -1972,64 +1973,4 @@ func getYearlyBalances(months []MonthDetailResponse) []TimelineYearlySummary {
 	}
 
 	return years
-}
-
-// extractScenarioIDs collects unique scenario event IDs from applied impacts.
-func extractScenarioIDs(months []MonthDetailResponse) []string {
-	seen := make(map[string]bool)
-	var ids []string
-
-	for _, m := range months {
-		// Check all item types for impacts
-		for _, item := range m.NonCashAssets {
-			for _, impact := range item.EventImpacts {
-				if !seen[impact.EventID] {
-					seen[impact.EventID] = true
-					ids = append(ids, impact.EventID)
-				}
-			}
-		}
-		for _, item := range m.Investments {
-			for _, impact := range item.EventImpacts {
-				if !seen[impact.EventID] {
-					seen[impact.EventID] = true
-					ids = append(ids, impact.EventID)
-				}
-			}
-		}
-		for _, item := range m.CashAssets {
-			for _, impact := range item.EventImpacts {
-				if !seen[impact.EventID] {
-					seen[impact.EventID] = true
-					ids = append(ids, impact.EventID)
-				}
-			}
-		}
-		for _, item := range m.Liabilities {
-			for _, impact := range item.EventImpacts {
-				if !seen[impact.EventID] {
-					seen[impact.EventID] = true
-					ids = append(ids, impact.EventID)
-				}
-			}
-		}
-		for _, item := range m.Income {
-			for _, impact := range item.EventImpacts {
-				if !seen[impact.EventID] {
-					seen[impact.EventID] = true
-					ids = append(ids, impact.EventID)
-				}
-			}
-		}
-		for _, item := range m.Expenses {
-			for _, impact := range item.EventImpacts {
-				if !seen[impact.EventID] {
-					seen[impact.EventID] = true
-					ids = append(ids, impact.EventID)
-				}
-			}
-		}
-	}
-
-	return ids
 }

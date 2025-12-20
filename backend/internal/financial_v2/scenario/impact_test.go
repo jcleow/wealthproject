@@ -279,7 +279,7 @@ func TestImpactAppliesToMonth_BeforeStartDate(t *testing.T) {
 	}
 
 	// January 2025 is before March 2025 (event.OccursOn)
-	if ImpactAppliesToMonth(impact, date(2025, 1, 15), event) {
+	if ImpactAppliesToMonth(impact, date(2025, 1, 15), event, nil) {
 		t.Error("impact should NOT apply before event occurs_on date")
 	}
 }
@@ -306,7 +306,7 @@ func TestImpactAppliesToMonth_OnStartMonth(t *testing.T) {
 	}
 
 	// March 1, 2025 is in the same month
-	if !ImpactAppliesToMonth(impact, date(2025, 3, 1), event) {
+	if !ImpactAppliesToMonth(impact, date(2025, 3, 1), event, nil) {
 		t.Error("impact SHOULD apply in the start month")
 	}
 }
@@ -333,7 +333,7 @@ func TestImpactAppliesToMonth_AfterStartDate_NoEndDate(t *testing.T) {
 	}
 
 	// Far future date
-	if !ImpactAppliesToMonth(impact, date(2030, 12, 1), event) {
+	if !ImpactAppliesToMonth(impact, date(2030, 12, 1), event, nil) {
 		t.Error("impact with no end date SHOULD apply indefinitely")
 	}
 }
@@ -361,7 +361,7 @@ func TestImpactAppliesToMonth_AfterEndDate(t *testing.T) {
 	}
 
 	// July 2025 is after June 2025
-	if ImpactAppliesToMonth(impact, date(2025, 7, 1), event) {
+	if ImpactAppliesToMonth(impact, date(2025, 7, 1), event, nil) {
 		t.Error("impact should NOT apply after end date")
 	}
 }
@@ -385,7 +385,7 @@ func TestImpactAppliesToMonth_WithinDateRange(t *testing.T) {
 		OccursOn: date(2025, 3, 1),
 	}
 
-	if !ImpactAppliesToMonth(impact, date(2025, 4, 15), event) {
+	if !ImpactAppliesToMonth(impact, date(2025, 4, 15), event, nil) {
 		t.Error("impact SHOULD apply within its date range")
 	}
 }
@@ -410,7 +410,7 @@ func TestImpactAppliesToMonth_OneTime_SameMonth(t *testing.T) {
 		OccursOn: date(2025, 3, 15),
 	}
 
-	if !ImpactAppliesToMonth(impact, date(2025, 3, 1), event) {
+	if !ImpactAppliesToMonth(impact, date(2025, 3, 1), event, nil) {
 		t.Error("one-time impact SHOULD apply in its trigger month")
 	}
 }
@@ -435,8 +435,90 @@ func TestImpactAppliesToMonth_OneTime_DifferentMonth(t *testing.T) {
 		OccursOn: date(2025, 3, 15),
 	}
 
-	if ImpactAppliesToMonth(impact, date(2025, 4, 1), event) {
+	if ImpactAppliesToMonth(impact, date(2025, 4, 1), event, nil) {
 		t.Error("one-time impact should NOT apply in different month")
+	}
+}
+
+func TestImpactAppliesToMonth_ItemStartsAfterEvent(t *testing.T) {
+	/*
+		SCENARIO: Financial item starts after event occurs
+		────────────────────────────────────────────────────────────────────────
+		Given: A scenario event that occurs on 2025-01-01 (generic salary increase)
+		       A new job that starts on 2028-06-01
+		When:  We check if the impact applies to 2026-01-01
+		Then:  It should NOT apply (the item doesn't exist yet)
+
+		EXAMPLE: User creates a "10% salary increase" scenario that starts Jan 2025.
+		         But a planned new job only starts in June 2028.
+		         The increase shouldn't apply until June 2028 when the job starts.
+	*/
+	impact := Impact{
+		EventID:   "test-event",
+		StartDate: date(2025, 1, 1),
+		Cadence:   common.FrequencyMonthly,
+	}
+	event := &Event{
+		ID:       "test-event",
+		OccursOn: date(2025, 1, 1), // Event occurs Jan 2025
+	}
+	itemInfo := &ItemInfo{
+		ItemType:  "income",
+		Frequency: common.FrequencyMonthly,
+		StartDate: date(2028, 6, 1), // Item starts June 2028
+	}
+
+	// Before item starts - impact should NOT apply
+	if ImpactAppliesToMonth(impact, date(2026, 1, 1), event, itemInfo) {
+		t.Error("impact should NOT apply before item starts")
+	}
+
+	// In month item starts - impact SHOULD apply
+	if !ImpactAppliesToMonth(impact, date(2028, 6, 1), event, itemInfo) {
+		t.Error("impact SHOULD apply in month item starts")
+	}
+
+	// After item starts - impact SHOULD apply
+	if !ImpactAppliesToMonth(impact, date(2030, 1, 1), event, itemInfo) {
+		t.Error("impact SHOULD apply after item starts")
+	}
+}
+
+func TestImpactAppliesToMonth_EventAfterItemStart(t *testing.T) {
+	/*
+		SCENARIO: Event occurs after item already started
+		────────────────────────────────────────────────────────────────────────
+		Given: A job that started on 2020-01-01
+		       A scenario event (promotion) that occurs on 2028-12-01
+		When:  We check if the impact applies to 2025-01-01
+		Then:  It should NOT apply (event hasn't occurred yet)
+
+		EXAMPLE: User has a job since 2020 and models a future promotion in Dec 2028.
+		         The promotion impact shouldn't apply until Dec 2028.
+	*/
+	impact := Impact{
+		EventID:   "test-event",
+		StartDate: date(2028, 12, 1),
+		Cadence:   common.FrequencyMonthly,
+	}
+	event := &Event{
+		ID:       "test-event",
+		OccursOn: date(2028, 12, 1), // Event occurs Dec 2028
+	}
+	itemInfo := &ItemInfo{
+		ItemType:  "income",
+		Frequency: common.FrequencyMonthly,
+		StartDate: date(2020, 1, 1), // Item started Jan 2020
+	}
+
+	// Before event occurs - impact should NOT apply
+	if ImpactAppliesToMonth(impact, date(2025, 1, 1), event, itemInfo) {
+		t.Error("impact should NOT apply before event occurs")
+	}
+
+	// In month event occurs - impact SHOULD apply
+	if !ImpactAppliesToMonth(impact, date(2028, 12, 1), event, itemInfo) {
+		t.Error("impact SHOULD apply in month event occurs")
 	}
 }
 

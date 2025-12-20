@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { timelineApi } from '@/services/timelineApi'
+import { settingsApi } from '@/api/financial/settings'
 import type {
   TimelineEditRequest,
   TimelineResponse,
@@ -15,6 +16,9 @@ import type {
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { useTimelineV2 } from '@/lib/featureFlags'
 import { TIMELINE_CHART_QUERY_KEY } from '@/hooks/queries/useTimelineChartQuery'
+
+/** Default planning horizon in years if user settings not available */
+const DEFAULT_PLANNING_YEARS = 35
 
 /**
  * Format a date as DD-MM-YYYY for V2 API
@@ -36,6 +40,13 @@ export function useTimeline(options?: UseTimelineOptions) {
   const queryClient = useQueryClient()
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
+
+  // Fetch user settings to get terminal age for planning horizon
+  const { data: userSettings } = useQuery({
+    queryKey: QUERY_KEYS.settings.user,
+    queryFn: () => settingsApi.getUserSettings(),
+    staleTime: 5 * 60 * 1000,
+  })
 
   // V1 timeline query - disabled when V2 feature flag is on
   // When V2 is enabled, chart uses V2 chart endpoint and detail panels use V2 snapshot
@@ -66,14 +77,19 @@ export function useTimeline(options?: UseTimelineOptions) {
     : (timelineQuery.data?.resolution || 'yearly')
 
   // Calculate date range for V2 snapshot query
-  // When V2 is enabled, calculate independently (35-year planning horizon from current year)
+  // Uses user's terminal age from settings to determine planning horizon
   // When V1 is used, derive from V1 data for backwards compatibility
   const v2DateRange = useMemo(() => {
     if (useTimelineV2) {
-      // Calculate date range independently - 35 year planning horizon
+      // Calculate planning years from user settings (terminal age - starting age)
+      // Falls back to default if settings not yet loaded
+      const planningYears = userSettings
+        ? Math.max(1, userSettings.terminalAge - userSettings.startingAge)
+        : DEFAULT_PLANNING_YEARS
+
       const now = new Date()
       const startYear = now.getFullYear()
-      const endYear = startYear + 35
+      const endYear = startYear + planningYears
       return {
         startDate: formatDateForV2(startYear, 1),
         endDate: formatDateForV2(endYear, 12),
@@ -101,7 +117,7 @@ export function useTimeline(options?: UseTimelineOptions) {
       }
     }
     return null
-  }, [timelineQuery.data, resolution])
+  }, [timelineQuery.data, resolution, userSettings])
 
   // V2 snapshot query - provides detailed item data for the detail panels
   const timelineV2Query = useQuery<TimelineV2Response>({
