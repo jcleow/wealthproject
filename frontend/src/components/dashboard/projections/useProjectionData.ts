@@ -117,7 +117,13 @@ export function useProjectionData({
       return timelineProjection
     }
 
-    // Fallback: generate projection from current assets/liabilities
+    // =============================================================================
+    // FALLBACK PROJECTION (only used when V2 timeline API returns no data)
+    // =============================================================================
+    // This section only runs when both timelineMonths and timelineYears are empty.
+    // It generates a naive client-side projection using hardcoded growth assumptions.
+    // When V2 timeline API is active, the backend calculates projections using
+    // actual growth rates from each financial item stored in the database.
     const totalAssets = assets.reduce((sum, a) => sum + a.currentValue, 0)
     const totalLiabilities = liabilities.reduce((sum, l) => sum + l.currentBalance, 0)
     const monthlySavings = getMonthlySavings()
@@ -132,9 +138,9 @@ export function useProjectionData({
     const currentYear = BASE_CALENDAR_YEAR
     const data: ProjectionPoint[] = []
     const annualSavings = Math.max(monthlySavings, 0) * 12
-    // TODO: Retrieve these rates from the backend instead of hardcoding
-    const assetGrowthRate = 0.05
-    const liabilityDecayRate = 0.94
+    // Fallback growth assumptions (only used when V2 timeline API is unavailable)
+    const assetGrowthRate = 0.05       // 5% annual asset growth
+    const liabilityDecayRate = 0.94    // 6% annual liability reduction
 
     if (!hasAnyData) {
       for (let i = 0; i <= planningYears; i++) {
