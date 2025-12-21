@@ -675,7 +675,12 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			return scenario.ErrInvalidTargetCount
 		}
 
-		// Amount is already a decimal
+		// Default amount to 0 if nil to prevent SQL type inference error
+		amount := imp.Amount
+		if amount == nil {
+			amount = decimal.Zero()
+		}
+
 		impactFrequency := string(imp.Cadence)
 		if impactFrequency == "" {
 			impactFrequency = "monthly"
@@ -692,7 +697,7 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				SELECT user_id, id, name, $3, frequency, category, $4,
 				       growth_rate, growth_strategy, $5, $6, $7
 				FROM finance_incomes WHERE id = $2`,
-				userID, *imp.TargetIncomeID, imp.Amount, occursOn,
+				userID, *imp.TargetIncomeID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert income impact: %w", err)
@@ -707,7 +712,7 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				SELECT user_id, id, name, $3, frequency, category, $4,
 				       growth_rate, growth_strategy, $5, $6, $7
 				FROM finance_expenses WHERE id = $2`,
-				userID, *imp.TargetExpenseID, imp.Amount, occursOn,
+				userID, *imp.TargetExpenseID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert expense impact: %w", err)
@@ -722,7 +727,7 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				SELECT user_id, id, name, $3, category, $4,
 				       growth_rate, growth_strategy, $5, $6, $7
 				FROM finance_assets WHERE id = $2`,
-				userID, *imp.TargetAssetID, imp.Amount, occursOn,
+				userID, *imp.TargetAssetID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert asset impact: %w", err)
@@ -739,7 +744,7 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				       interest_rate_apr, minimum_payment, growth_strategy,
 				       $5, $6, $7
 				FROM finance_liabilities WHERE id = $2`,
-				userID, *imp.TargetLiabilityID, imp.Amount, occursOn,
+				userID, *imp.TargetLiabilityID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert liability impact: %w", err)
@@ -754,7 +759,7 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				SELECT user_id, id, name, $3, category, $4,
 				       growth_rate, growth_strategy, $5, $6, $7
 				FROM finance_investments WHERE id = $2`,
-				userID, *imp.TargetInvestmentID, imp.Amount, occursOn,
+				userID, *imp.TargetInvestmentID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert investment impact: %w", err)
@@ -771,7 +776,7 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				       interest_rate, growth_strategy, false,
 				       $5, $6, $7
 				FROM finance_cash_accounts WHERE id = $2`,
-				userID, *imp.TargetCashAccountID, imp.Amount, occursOn,
+				userID, *imp.TargetCashAccountID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert cash account impact: %w", err)
