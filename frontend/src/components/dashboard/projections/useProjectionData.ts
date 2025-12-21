@@ -4,6 +4,10 @@ import type { ScenarioEvent } from '@/types/scenario'
 import type { ProjectionPoint } from './types'
 import { BASE_CALENDAR_YEAR, DEFAULT_STARTING_AGE, DEFAULT_TERMINAL_AGE } from './types'
 
+// Fallback growth assumptions - only used when V2 timeline API is unavailable
+const FALLBACK_ASSET_GROWTH_RATE = 0.05      // 5% annual asset growth
+const FALLBACK_LIABILITY_DECAY_RATE = 0.94   // 6% annual liability reduction
+
 export interface UseProjectionDataOptions {
   timelineYears?: TimelineYear[]
   timelineMonths?: TimelineMonth[]
@@ -117,68 +121,15 @@ export function useProjectionData({
       return timelineProjection
     }
 
-    // =============================================================================
-    // FALLBACK PROJECTION (only used when V2 timeline API returns no data)
-    // =============================================================================
-    // This section only runs when both timelineMonths and timelineYears are empty.
-    // It generates a naive client-side projection using hardcoded growth assumptions.
-    // When V2 timeline API is active, the backend calculates projections using
-    // actual growth rates from each financial item stored in the database.
-    const totalAssets = assets.reduce((sum, a) => sum + a.currentValue, 0)
-    const totalLiabilities = liabilities.reduce((sum, l) => sum + l.currentBalance, 0)
-    const monthlySavings = getMonthlySavings()
-
-    const startingAge = userSettings?.startingAge ?? DEFAULT_STARTING_AGE
-    const terminalAge = userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE
-    const planningYears = Math.max(1, terminalAge - startingAge)
-
-    const hasAnyData =
-      assets.length > 0 || liabilities.length > 0 || expenses.length > 0 || incomes.length > 0
-
-    const currentYear = BASE_CALENDAR_YEAR
-    const data: ProjectionPoint[] = []
-    const annualSavings = Math.max(monthlySavings, 0) * 12
-    // Fallback growth assumptions (only used when V2 timeline API is unavailable)
-    const assetGrowthRate = 0.05       // 5% annual asset growth
-    const liabilityDecayRate = 0.94    // 6% annual liability reduction
-
-    if (!hasAnyData) {
-      for (let i = 0; i <= planningYears; i++) {
-        const year = currentYear + i
-        data.push({
-          yearIndex: i,
-          yearLabel: `Year ${year}`,
-          netWorth: 0,
-          totalAssets: 0,
-          totalLiabilities: 0,
-          calendarYear: year,
-        })
-      }
-      return data
-    }
-
-    for (let i = 0; i <= planningYears; i++) {
-      const year = currentYear + i
-      const projectedAssets = Math.round(
-        (totalAssets + annualSavings * i) * Math.pow(1 + assetGrowthRate, i)
-      )
-      const projectedLiabilities = Math.max(
-        0,
-        Math.round(totalLiabilities * Math.pow(liabilityDecayRate, i))
-      )
-      const netWorth = projectedAssets - projectedLiabilities
-
-      data.push({
-        yearIndex: i,
-        yearLabel: `Year ${year}`,
-        calendarYear: year,
-        netWorth,
-        totalAssets: projectedAssets,
-        totalLiabilities: projectedLiabilities,
-      })
-    }
-
-    return data
+    // No timeline data from backend - use client-side fallback projection
+    return buildFallbackProjection({
+      assets,
+      liabilities,
+      expenses,
+      incomes,
+      getMonthlySavings,
+      userSettings,
+    })
   }, [
     assets,
     expenses,
@@ -254,4 +205,71 @@ export function useScenarioMarkers(
       events: data.events,
     }))
   }, [scenarioEvents, displayData, dataResolution])
+}
+
+/**
+ * Fallback projection generator - used when V2 timeline API returns no data.
+ * Generates a naive client-side projection using hardcoded growth assumptions.
+ * This should only run when both timelineMonths and timelineYears are empty.
+ */
+function buildFallbackProjection({
+  assets,
+  liabilities,
+  expenses,
+  incomes,
+  getMonthlySavings,
+  userSettings,
+}: Omit<UseProjectionDataOptions, 'timelineYears' | 'timelineMonths'>): ProjectionPoint[] {
+  const totalAssets = assets.reduce((sum, a) => sum + a.currentValue, 0)
+  const totalLiabilities = liabilities.reduce((sum, l) => sum + l.currentBalance, 0)
+  const monthlySavings = getMonthlySavings()
+
+  const startingAge = userSettings?.startingAge ?? DEFAULT_STARTING_AGE
+  const terminalAge = userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE
+  const planningYears = Math.max(1, terminalAge - startingAge)
+
+  const hasAnyData =
+    assets.length > 0 || liabilities.length > 0 || expenses.length > 0 || incomes.length > 0
+
+  const currentYear = BASE_CALENDAR_YEAR
+  const data: ProjectionPoint[] = []
+  const annualSavings = Math.max(monthlySavings, 0) * 12
+
+  if (!hasAnyData) {
+    for (let i = 0; i <= planningYears; i++) {
+      const year = currentYear + i
+      data.push({
+        yearIndex: i,
+        yearLabel: `Year ${year}`,
+        netWorth: 0,
+        totalAssets: 0,
+        totalLiabilities: 0,
+        calendarYear: year,
+      })
+    }
+    return data
+  }
+
+  for (let i = 0; i <= planningYears; i++) {
+    const year = currentYear + i
+    const projectedAssets = Math.round(
+      (totalAssets + annualSavings * i) * Math.pow(1 + FALLBACK_ASSET_GROWTH_RATE, i)
+    )
+    const projectedLiabilities = Math.max(
+      0,
+      Math.round(totalLiabilities * Math.pow(FALLBACK_LIABILITY_DECAY_RATE, i))
+    )
+    const netWorth = projectedAssets - projectedLiabilities
+
+    data.push({
+      yearIndex: i,
+      yearLabel: `Year ${year}`,
+      calendarYear: year,
+      netWorth,
+      totalAssets: projectedAssets,
+      totalLiabilities: projectedLiabilities,
+    })
+  }
+
+  return data
 }
