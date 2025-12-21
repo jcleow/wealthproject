@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { timelineApi } from '@/services/timelineApi'
@@ -140,14 +140,28 @@ export function useTimeline(options?: UseTimelineOptions) {
     retry: 1,
   })
 
-  const earliestMonth = useMemo(() => {
-    // Months are already sorted by startDate from the backend; the first entry is the earliest.
+  // Extract earliest month values separately to avoid creating new object on every recalculation
+  const earliestMonthYear = useMemo(() => {
     const v2First = timelineV2Query.data?.months?.[0]
-    if (v2First) return { year: v2First.year, month: v2First.month }
+    if (v2First) return v2First.year
     const v1First = timelineQuery.data?.months?.[0]
-    if (v1First) return { year: v1First.year, month: v1First.month }
+    if (v1First) return v1First.year
     return null
   }, [timelineV2Query.data?.months, timelineQuery.data?.months])
+
+  const earliestMonthMonth = useMemo(() => {
+    const v2First = timelineV2Query.data?.months?.[0]
+    if (v2First) return v2First.month
+    const v1First = timelineQuery.data?.months?.[0]
+    if (v1First) return v1First.month
+    return null
+  }, [timelineV2Query.data?.months, timelineQuery.data?.months])
+
+  // Combine into object only for return value (consumers should use the individual values when possible)
+  const earliestMonth = useMemo(() => {
+    if (earliestMonthYear === null || earliestMonthMonth === null) return null
+    return { year: earliestMonthYear, month: earliestMonthMonth }
+  }, [earliestMonthYear, earliestMonthMonth])
 
   useEffect(() => {
     // Already initialized
@@ -157,8 +171,8 @@ export function useTimeline(options?: UseTimelineOptions) {
     if (useTimelineV2) {
       const v2Months = timelineV2Query.data?.months
       if (v2Months?.[0]) {
-        const initialYear = earliestMonth?.year ?? v2Months[0].year
-        const initialMonth = earliestMonth?.month ?? v2Months[0].month
+        const initialYear = earliestMonthYear ?? v2Months[0].year
+        const initialMonth = earliestMonthMonth ?? v2Months[0].month
         setSelectedYear(initialYear)
         setSelectedMonth(initialMonth)
       }
@@ -170,28 +184,39 @@ export function useTimeline(options?: UseTimelineOptions) {
 
     // Initialize based on resolution
     if (resolution === 'monthly' && timelineQuery.data.months?.[0]) {
-      const initialYear = earliestMonth?.year ?? timelineQuery.data.months[0].year
-      const initialMonth = earliestMonth?.month ?? timelineQuery.data.months[0].month
+      const initialYear = earliestMonthYear ?? timelineQuery.data.months[0].year
+      const initialMonth = earliestMonthMonth ?? timelineQuery.data.months[0].month
       setSelectedYear(initialYear)
       setSelectedMonth(initialMonth)
     } else if (resolution === 'yearly' && timelineQuery.data.years?.[0]) {
       setSelectedYear(timelineQuery.data.years[0].year)
     }
-  }, [selectedYear, timelineQuery.data, timelineV2Query.data, resolution, earliestMonth])
+  }, [selectedYear, timelineQuery.data, timelineV2Query.data, resolution, earliestMonthYear, earliestMonthMonth])
+
+  // Clamp selection to not go before the anchor date
+  // Use a ref to track if we're currently clamping to avoid loops
+  const isClampingRef = useRef(false)
 
   useEffect(() => {
-    if (!earliestMonth) return
-    const baseYear = earliestMonth.year
+    if (earliestMonthYear === null || earliestMonthMonth === null) return
     if (selectedYear === null) return
-    const effectiveYear = selectedYear >= 1900 ? selectedYear : baseYear + selectedYear
+    if (isClampingRef.current) return // Avoid loop from our own setState
+
+    const effectiveYear = selectedYear >= 1900 ? selectedYear : earliestMonthYear + selectedYear
     const isBeforeAnchor =
-      effectiveYear < earliestMonth.year ||
-      (effectiveYear === earliestMonth.year && (selectedMonth ?? 1) < earliestMonth.month)
+      effectiveYear < earliestMonthYear ||
+      (effectiveYear === earliestMonthYear && (selectedMonth ?? 1) < earliestMonthMonth)
+
     if (isBeforeAnchor) {
-      setSelectedYear(earliestMonth.year)
-      setSelectedMonth(earliestMonth.month)
+      isClampingRef.current = true
+      setSelectedYear(earliestMonthYear)
+      setSelectedMonth(earliestMonthMonth)
+      // Reset the flag after the state updates have been processed
+      Promise.resolve().then(() => {
+        isClampingRef.current = false
+      })
     }
-  }, [earliestMonth, selectedYear, selectedMonth])
+  }, [earliestMonthYear, earliestMonthMonth, selectedYear, selectedMonth])
 
   // Extract years for navigation (works for both resolutions)
   const years = useMemo(() => {
