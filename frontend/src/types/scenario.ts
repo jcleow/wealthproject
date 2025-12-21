@@ -62,22 +62,16 @@ export function impactToVerb(impactKind: ScenarioImpactKind, amount: number): Im
 
 // Wire DTO shapes (camelCase) for the Go API
 export interface ScenarioImpactDto {
-  targetType: ScenarioTargetType
-  targetId?: string | null
-  targetAssetId?: string | null
-  targetLiabilityId?: string | null
-  targetIncomeId?: string | null
-  targetExpenseId?: string | null
-  targetCashAccountId?: string | null
-  targetInvestmentId?: string | null
   impactKind: ScenarioImpactKind
-  amount: string  // Backend expects string for decimal precision
+  targetType: ScenarioTargetType
+  parentId?: string | null  // Required for delta/override/stop (ID of existing item to modify)
+  amount?: string | null  // Amount as string for decimal precision (optional for stop impacts)
   currency: string
   cadence: ScenarioCadence | ItemFrequency  // For start impacts, uses ItemFrequency (includes one_time)
   startDate: string
   endDate?: string | null
-  name?: string | null       // Name from the target financial item (JOINed)
-  frequency?: string | null  // Frequency from target item (only for income/expense, JOINed)
+  name?: string | null       // Name for start impacts (creates new item with this name)
+  frequency?: string | null  // Frequency for income/expense items
   notes?: string | null
   // Advanced fields for start impacts
   category?: string | null
@@ -116,9 +110,9 @@ export type GrowthStrategy = 'none' | 'annual_step' | 'compound'
 
 // Frontend domain models (camelCase)
 export interface ScenarioImpact {
-  targetType: ScenarioTargetType
-  targetId?: string
   impactKind: ScenarioImpactKind
+  targetType: ScenarioTargetType
+  parentId?: string  // Required for delta/override/stop (ID of existing item to modify)
   amount: number
   currency: string
   cadence: ScenarioCadence
@@ -149,53 +143,14 @@ export interface ScenarioEvent {
   impacts: ScenarioImpact[]
 }
 
-const pickTargetFromDto = (dto: ScenarioImpactDto): { targetType: ScenarioTargetType; targetId?: string } => {
-  const typed = [
-    ['asset', dto.targetAssetId],
-    ['liability', dto.targetLiabilityId],
-    ['income', dto.targetIncomeId],
-    ['expense', dto.targetExpenseId],
-    ['cash', dto.targetCashAccountId],
-    ['investment', dto.targetInvestmentId],
-  ] as const
-
-  const match = typed.find(([, id]) => Boolean(id?.trim()))
-  if (match) {
-    return { targetType: match[0] as ScenarioTargetType, targetId: match[1] ?? undefined }
-  }
-
-  return { targetType: dto.targetType, targetId: dto.targetId ?? undefined }
-}
-
-const mapTargetToDtoFields = (impact: ScenarioImpact): Pick<ScenarioImpactDto, 'targetType' | 'targetId' | 'targetAssetId' | 'targetLiabilityId' | 'targetIncomeId' | 'targetExpenseId' | 'targetCashAccountId' | 'targetInvestmentId'> => {
-  const targetId = impact.targetId
-  switch (impact.targetType) {
-    case 'asset':
-      return { targetType: 'asset', targetId, targetAssetId: targetId }
-    case 'liability':
-      return { targetType: 'liability', targetId, targetLiabilityId: targetId }
-    case 'income':
-      return { targetType: 'income', targetId, targetIncomeId: targetId }
-    case 'expense':
-      return { targetType: 'expense', targetId, targetExpenseId: targetId }
-    case 'cash':
-      return { targetType: 'cash', targetId, targetCashAccountId: targetId }
-    case 'investment':
-      return { targetType: 'investment', targetId, targetInvestmentId: targetId }
-    default:
-      return { targetType: impact.targetType, targetId }
-  }
-}
-
 export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact => {
-  const target = pickTargetFromDto(dto)
   const isStartImpact = dto.impactKind === 'start'
 
   return {
-    targetType: target.targetType,
-    targetId: target.targetId,
     impactKind: dto.impactKind,
-    amount: Number(dto.amount),  // Convert string from backend to number
+    targetType: dto.targetType,
+    parentId: dto.parentId ?? undefined,
+    amount: Number(dto.amount ?? 0),  // Convert string from backend to number
     currency: dto.currency,
     // For non-start impacts, use the impact's cadence
     cadence: isStartImpact ? 'monthly' : (dto.cadence as ScenarioCadence),
@@ -216,12 +171,12 @@ export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact =>
 }
 
 export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto => {
-  const targetFields = mapTargetToDtoFields(impact)
   const isStartImpact = impact.impactKind === 'start'
 
   return {
-    ...targetFields,
     impactKind: impact.impactKind,
+    targetType: impact.targetType,
+    parentId: impact.parentId,
     amount: String(impact.amount),  // Convert number to string for backend decimal handling
     currency: impact.currency,
     // For start impacts, send frequency as cadence (backend expects one_time/monthly/annual)
@@ -229,6 +184,7 @@ export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto =
     startDate: impact.startMonth,
     endDate: impact.endMonth,
     name: impact.name,
+    frequency: impact.frequency,
     notes: impact.notes,
     // Advanced fields for start impacts
     category: impact.category,

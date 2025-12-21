@@ -77,15 +77,15 @@ export function useImpactItemSelector({
     const initialNewItemNames: Record<number, string> = {}
 
     hydratedImpacts.forEach((impact, index) => {
-      // Only try to resolve if targetId exists
-      if (impact.targetId) {
+      // Only try to resolve if parentId exists (for delta/override/stop impacts)
+      if (impact.parentId) {
         const items = getItemsForType(impact.targetType)
-        const stable = resolveStableTargetId(impact.targetType, impact.targetId)
+        const stable = resolveStableTargetId(impact.targetType, impact.parentId)
 
         if (process.env.NODE_ENV === 'development') {
           console.debug(`[useImpactItemSelector] Impact ${index}:`, {
             targetType: impact.targetType,
-            targetId: impact.targetId,
+            parentId: impact.parentId,
             impactKind: impact.impactKind,
             resolvedStable: stable,
             availableItems: items.map(it => ({ id: it.id, name: it.name })),
@@ -104,6 +104,9 @@ export function useImpactItemSelector({
             }
           }
         }
+      } else if (impact.impactKind === 'start' && impact.name) {
+        // For 'start' impacts without parentId, populate newItemNames from impact.name
+        initialNewItemNames[index] = impact.name
       }
     })
 
