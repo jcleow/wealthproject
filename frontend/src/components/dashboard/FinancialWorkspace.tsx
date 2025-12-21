@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
@@ -29,6 +29,9 @@ interface FinancialWorkspaceProps {
   anchorMonth?: number | null
 }
 
+// Stable empty Set to use as default (avoids creating new Set on each render)
+const EMPTY_OVERRIDE_YEARS = new Set<number>()
+
 export function FinancialWorkspace({
   selectedYear,
   onSelectYear,
@@ -38,12 +41,18 @@ export function FinancialWorkspace({
   resolution = 'yearly',
   zoomLevel = 'yearly',
   onZoomLevelChange,
-  overrideYears = new Set<number>(),
+  overrideYears,
   timelineError = null,
   onOpenCPF,
   anchorYear,
   anchorMonth,
 }: FinancialWorkspaceProps) {
+  // Use stable empty set as fallback
+  const stableOverrideYears = useMemo(
+    () => overrideYears ?? EMPTY_OVERRIDE_YEARS,
+    [overrideYears]
+  )
+
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
   const [scenarioEventToEdit, setScenarioEventToEdit] = useState<ScenarioEvent | null>(null)
@@ -162,10 +171,16 @@ export function FinancialWorkspace({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isModuleMenuOpen])
 
-  const handleCreateScenario = () => {
+  const handleCreateScenario = useCallback(() => {
     setScenarioEventToEdit(null)
     setIsScenarioModalOpen(true)
-  }
+  }, [])
+
+  const handleScenarioSelect = useCallback((event: ScenarioEvent) => {
+    if (!event?.id) return
+    setScenarioEventToEdit(event)
+    setIsScenarioModalOpen(true)
+  }, [])
 
   return (
     <div className={`flex flex-col
@@ -441,15 +456,11 @@ text-slate-500`}>
               resolution={resolution}
               zoomLevel={zoomLevel}
               onZoomLevelChange={onZoomLevelChange}
-              overrideYears={overrideYears}
+              overrideYears={stableOverrideYears}
               selectedYear={selectedYear}
               scenarioEvents={scenarioEvents}
               onAddScenario={handleCreateScenario}
-              onScenarioSelect={async (event) => {
-                if (!event?.id) return
-                setScenarioEventToEdit(event)
-                setIsScenarioModalOpen(true)
-              }}
+              onScenarioSelect={handleScenarioSelect}
               onSelectYear={onSelectYear}
               onSelectMonth={onSelectMonth}
             />
