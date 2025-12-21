@@ -67,8 +67,8 @@ export function useProjectionData({
 
     // Handle yearly data
     if (timelineYears && timelineYears.length > 0) {
-      // TODO: Fetch baseCalendarYear from the backend instead of hardcoding
-      const baseCalendarYear = 2025
+      // Legacy fallback: used when backend returns relative year indices instead of actual calendar years
+      const baseCalendarYear = BASE_CALENDAR_YEAR
       const timelineProjection = timelineYears.map<ProjectionPoint>((year, i) => {
         const assetsArray = year.assets ?? []
         const liabilitiesArray = year.liabilities ?? []
