@@ -208,7 +208,7 @@ export const normalizeImpact = (impact: any): ScenarioImpactDto => ({
   targetCashAccountId: impact.targetCashAccountId ?? impact.target_cash_account_id ?? impact.TargetCashAccountId ?? undefined,
   targetInvestmentId: impact.targetInvestmentId ?? impact.target_investment_id ?? impact.TargetInvestmentId ?? undefined,
   impactKind: impact.impactKind ?? impact.impact_kind ?? impact.ImpactKind ?? 'delta',
-  amount: Number(impact.amount ?? impact.Amount ?? 0),
+  amount: String(impact.amount ?? impact.Amount ?? '0'),
   currency: impact.currency ?? impact.Currency ?? 'SGD',
   cadence: impact.cadence ?? impact.Cadence ?? 'monthly',
   startDate: (impact.startDate ?? impact.start_date ?? impact.StartDate ?? impact.start_month ?? impact.startMonth ?? '').slice(0, 10),

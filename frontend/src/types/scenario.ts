@@ -71,7 +71,7 @@ export interface ScenarioImpactDto {
   targetCashAccountId?: string | null
   targetInvestmentId?: string | null
   impactKind: ScenarioImpactKind
-  amount: number
+  amount: string  // Backend expects string for decimal precision
   currency: string
   cadence: ScenarioCadence | ItemFrequency  // For start impacts, uses ItemFrequency (includes one_time)
   startDate: string
@@ -195,7 +195,7 @@ export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact =>
     targetType: target.targetType,
     targetId: target.targetId,
     impactKind: dto.impactKind,
-    amount: dto.amount,
+    amount: Number(dto.amount),  // Convert string from backend to number
     currency: dto.currency,
     // For non-start impacts, use the impact's cadence
     cadence: isStartImpact ? 'monthly' : (dto.cadence as ScenarioCadence),
@@ -222,7 +222,7 @@ export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto =
   return {
     ...targetFields,
     impactKind: impact.impactKind,
-    amount: impact.amount,
+    amount: String(impact.amount),  // Convert number to string for backend decimal handling
     currency: impact.currency,
     // For start impacts, send frequency as cadence (backend expects one_time/monthly/annual)
     cadence: isStartImpact ? (impact.frequency ?? 'monthly') : impact.cadence,
