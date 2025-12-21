@@ -67,6 +67,7 @@ export function useProjectionData({
 
     // Handle yearly data
     if (timelineYears && timelineYears.length > 0) {
+      // TODO: Fetch baseCalendarYear from the backend instead of hardcoding
       const baseCalendarYear = 2025
       const timelineProjection = timelineYears.map<ProjectionPoint>((year, i) => {
         const assetsArray = year.assets ?? []
@@ -131,6 +132,7 @@ export function useProjectionData({
     const currentYear = BASE_CALENDAR_YEAR
     const data: ProjectionPoint[] = []
     const annualSavings = Math.max(monthlySavings, 0) * 12
+    // TODO: Retrieve these rates from the backend instead of hardcoding
     const assetGrowthRate = 0.05
     const liabilityDecayRate = 0.94
 
