@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/common"
+	"financial-chat-system/backend/internal/decimal"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
 )
@@ -57,9 +58,15 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		}
 	}
 	targetID := imp.TargetID()
+	// Convert decimal to string for DTO
+	var amountStr *string
+	if imp.Amount != nil {
+		s := imp.Amount.String()
+		amountStr = &s
+	}
 	return scenarioImpactV2DTO{
 		ImpactKind:          imp.ImpactKind,
-		Amount:              imp.Amount,
+		Amount:              amountStr,
 		Cadence:             imp.Cadence,
 		Currency:            imp.Currency,
 		StartDate:           imp.StartDate.Format(time.DateOnly),
@@ -248,12 +255,22 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		endDate = &ed
 	}
 
+	// Convert string amount to decimal
+	var amountDecimal *decimal.Decimal
+	if in.Amount != nil && *in.Amount != "" {
+		d, err := decimal.NewFromString(*in.Amount)
+		if err != nil {
+			return repo.ScenarioImpact{}, errors.New("invalid amount; expected numeric string")
+		}
+		amountDecimal = d
+	}
+
 	// Impact table stores: impact_kind, amount, cadence, start_date, end_date, and target FK columns.
 	// Advanced fields (category, growth_rate, growth_strategy) are passed through
 	// to updateStartImpactTarget for syncing to the financial item.
 	impact := repo.ScenarioImpact{
 		ImpactKind: ik,
-		Amount:     in.Amount,
+		Amount:     amountDecimal,
 		Cadence:    cad,
 		StartDate:  startDate,
 		EndDate:    endDate,

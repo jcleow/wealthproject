@@ -27,7 +27,7 @@ func NewScenarioEventV2Handler(store *repo.Store) *ScenarioEventV2Handler {
 
 type scenarioImpactV2DTO struct {
 	ImpactKind string           `json:"impactKind"`
-	Amount     int64            `json:"amount"`                // Amount change for delta/override impacts (stored in DB)
+	Amount     *string           `json:"amount"`                // Amount as string (e.g., "5000"), converted to decimal internally
 	Cadence    common.Frequency `json:"cadence"`               // Frequency for delta impacts (stored in DB)
 	Currency   string           `json:"currency"`              // Currency from the target financial item (derived)
 	StartDate  string           `json:"startDate"`             // Start date from the target financial item (derived)

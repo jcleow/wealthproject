@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/common"
+	"financial-chat-system/backend/internal/decimal"
 )
 
 // ErrNotFound indicates a scenario record was not found
@@ -87,7 +88,7 @@ type Impact struct {
 	ID         string
 	EventID    string
 	ImpactKind string
-	Amount     int64            // Amount for delta/override impacts (0 for start/stop)
+	Amount     *decimal.Decimal // Amount for delta/override impacts (nil for start/stop)
 	Cadence    common.Frequency // Frequency for delta impacts (monthly/annually)
 	CreatedAt  time.Time
 

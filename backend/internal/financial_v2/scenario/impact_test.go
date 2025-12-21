@@ -18,6 +18,10 @@ func mustDecimal(s string) *decimal.Decimal {
 	return decimal.MustFromString(s)
 }
 
+func decAmount(v int64) *decimal.Decimal {
+	return decimal.NewFromInt64(v, 0)
+}
+
 func date(year, month, day int) time.Time {
 	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
 }
@@ -74,7 +78,7 @@ func TestBuildImpactContext_SingleEventWithMultipleImpacts(t *testing.T) {
 				ID:             "impact-1",
 				EventID:        "event-1",
 				ImpactKind:     ImpactKindOverride,
-				Amount:         150000,
+				Amount:         decAmount(150000),
 				Cadence:    common.FrequencyAnnual,
 				TargetIncomeID: &incomeID,
 				StartDate:      date(2025, 6, 1),
@@ -83,7 +87,7 @@ func TestBuildImpactContext_SingleEventWithMultipleImpacts(t *testing.T) {
 				ID:             "impact-2",
 				EventID:        "event-1",
 				ImpactKind:     ImpactKindDelta,
-				Amount:         5000,
+				Amount:         decAmount(5000),
 				Cadence:    common.FrequencyAnnual,
 				TargetIncomeID: &incomeID,
 				StartDate:      date(2025, 6, 1),
@@ -134,7 +138,7 @@ func TestBuildImpactContext_MultipleEventsTargetingSameItem(t *testing.T) {
 					ID:             "impact-raise",
 					EventID:        "event-raise",
 					ImpactKind:     ImpactKindOverride,
-					Amount:         150000,
+					Amount:         decAmount(150000),
 					Cadence:    common.FrequencyAnnual,
 					TargetIncomeID: &incomeID,
 					StartDate:      date(2025, 2, 1),
@@ -150,7 +154,7 @@ func TestBuildImpactContext_MultipleEventsTargetingSameItem(t *testing.T) {
 					ID:             "impact-bonus",
 					EventID:        "event-bonus",
 					ImpactKind:     ImpactKindDelta,
-					Amount:         10000,
+					Amount:         decAmount(10000),
 					Cadence:    common.FrequencyAnnual,
 					TargetIncomeID: &incomeID,
 					StartDate:      date(2025, 12, 1),
@@ -230,7 +234,7 @@ func TestBuildImpactContext_ImpactWithNoTarget_Skipped(t *testing.T) {
 				ID:         "impact-orphan",
 				EventID:    "event-orphan",
 				ImpactKind: ImpactKindDelta,
-				Amount:     1000,
+				Amount:     decAmount(1000),
 				// ALL target fields are nil
 			},
 		},
@@ -573,7 +577,7 @@ func TestApplyImpactsToItem_StopImpact_TrumpsOtherImpacts(t *testing.T) {
 			ID:             "impact-raise",
 			EventID:        "event-raise",
 			ImpactKind:     ImpactKindOverride,
-			Amount:         15000,
+			Amount:         decAmount(15000),
 			Cadence:    common.FrequencyMonthly,
 			TargetIncomeID: &incomeID,
 			StartDate:      date(2025, 3, 1),
@@ -582,7 +586,7 @@ func TestApplyImpactsToItem_StopImpact_TrumpsOtherImpacts(t *testing.T) {
 			ID:             "impact-bonus",
 			EventID:        "event-bonus",
 			ImpactKind:     ImpactKindDelta,
-			Amount:         2000,
+			Amount:         decAmount(2000),
 			Cadence:    common.FrequencyMonthly,
 			TargetIncomeID: &incomeID,
 			StartDate:      date(2025, 3, 1),
@@ -640,7 +644,7 @@ func TestApplyImpactsToItem_OverrideImpact_ReplacesBaseValue(t *testing.T) {
 			ID:             "impact-raise",
 			EventID:        "event-raise",
 			ImpactKind:     ImpactKindOverride,
-			Amount:         150000,
+			Amount:         decAmount(150000),
 			Cadence:    common.FrequencyAnnual,
 			TargetIncomeID: &incomeID,
 			StartDate:      date(2025, 6, 1),
@@ -688,7 +692,7 @@ func TestApplyImpactsToItem_MultipleOverrides_LatestEventWins(t *testing.T) {
 			ID:             "impact-first-raise",
 			EventID:        "event-first",
 			ImpactKind:     ImpactKindOverride,
-			Amount:         140000,
+			Amount:         decAmount(140000),
 			Cadence:    common.FrequencyAnnual,
 			TargetIncomeID: &incomeID,
 			StartDate:      date(2025, 6, 1),
@@ -697,7 +701,7 @@ func TestApplyImpactsToItem_MultipleOverrides_LatestEventWins(t *testing.T) {
 			ID:             "impact-better-offer",
 			EventID:        "event-better",
 			ImpactKind:     ImpactKindOverride,
-			Amount:         160000,
+			Amount:         decAmount(160000),
 			Cadence:    common.FrequencyAnnual,
 			TargetIncomeID: &incomeID,
 			StartDate:      date(2025, 6, 1),
@@ -747,7 +751,7 @@ func TestApplyImpactsToItem_DeltaImpact_AddsToBaseValue(t *testing.T) {
 			ID:                  "impact-savings",
 			EventID:             "event-savings",
 			ImpactKind:          ImpactKindDelta,
-			Amount:              1000,
+			Amount:              decAmount(1000),
 			Cadence:             common.FrequencyMonthly,
 			TargetCashAccountID: &cashID,
 			StartDate:           date(2025, 3, 1),
@@ -794,7 +798,7 @@ func TestApplyImpactsToItem_MultipleDeltas_Stack(t *testing.T) {
 			ID:                  "impact-savings",
 			EventID:             "event-savings",
 			ImpactKind:          ImpactKindDelta,
-			Amount:              1000,
+			Amount:              decAmount(1000),
 			Cadence:             common.FrequencyMonthly,
 			TargetCashAccountID: &cashID,
 			StartDate:           date(2025, 3, 1),
@@ -803,7 +807,7 @@ func TestApplyImpactsToItem_MultipleDeltas_Stack(t *testing.T) {
 			ID:                  "impact-side-income",
 			EventID:             "event-side",
 			ImpactKind:          ImpactKindDelta,
-			Amount:              500,
+			Amount:              decAmount(500),
 			Cadence:             common.FrequencyMonthly,
 			TargetCashAccountID: &cashID,
 			StartDate:           date(2025, 3, 1),
@@ -850,7 +854,7 @@ func TestApplyImpactsToItem_NegativeDelta_Subtracts(t *testing.T) {
 			ID:              "impact-rent-increase",
 			EventID:         "event-rent",
 			ImpactKind:      ImpactKindDelta,
-			Amount:          200, // Rent increases by $200
+			Amount:          decAmount(200), // Rent increases by $200
 			Cadence:         common.FrequencyMonthly,
 			TargetExpenseID: &expenseID,
 			StartDate:       date(2025, 3, 1),
@@ -902,7 +906,7 @@ func TestApplyImpactsToItem_OverrideThenDelta(t *testing.T) {
 			ID:             "impact-raise",
 			EventID:        "event-job",
 			ImpactKind:     ImpactKindOverride,
-			Amount:         150000,
+			Amount:         decAmount(150000),
 			Cadence:    common.FrequencyAnnual,
 			TargetIncomeID: &incomeID,
 			StartDate:      date(2025, 6, 1),
@@ -911,7 +915,7 @@ func TestApplyImpactsToItem_OverrideThenDelta(t *testing.T) {
 			ID:             "impact-bonus",
 			EventID:        "event-job",
 			ImpactKind:     ImpactKindDelta,
-			Amount:         10000,
+			Amount:         decAmount(10000),
 			Cadence:    common.FrequencyAnnual,
 			TargetIncomeID: &incomeID,
 			StartDate:      date(2025, 6, 1),
@@ -955,7 +959,7 @@ func TestConvertImpactAmount_IncomeAnnual_ImpactMonthly(t *testing.T) {
 	incomeID := "salary-1"
 	impact := &Impact{
 		ImpactKind:     ImpactKindDelta,
-		Amount:         5000,
+		Amount:         decAmount(5000),
 		Cadence:    common.FrequencyMonthly,
 		TargetIncomeID: &incomeID,
 	}
@@ -984,7 +988,7 @@ func TestConvertImpactAmount_IncomeMonthly_ImpactAnnual(t *testing.T) {
 	incomeID := "salary-1"
 	impact := &Impact{
 		ImpactKind:     ImpactKindOverride,
-		Amount:         150000,
+		Amount:         decAmount(150000),
 		Cadence:    common.FrequencyAnnual,
 		TargetIncomeID: &incomeID,
 	}
@@ -1013,7 +1017,7 @@ func TestConvertImpactAmount_Asset_AnnualDelta_ToMonthly(t *testing.T) {
 	assetID := "investment-1"
 	impact := &Impact{
 		ImpactKind:    ImpactKindDelta,
-		Amount:        12000,
+		Amount:        decAmount(12000),
 		Cadence:       common.FrequencyAnnual,
 		TargetAssetID: &assetID,
 	}
@@ -1042,7 +1046,7 @@ func TestConvertImpactAmount_Asset_Override_NoConversion(t *testing.T) {
 	assetID := "investment-1"
 	impact := &Impact{
 		ImpactKind:    ImpactKindOverride,
-		Amount:        150000,
+		Amount:        decAmount(150000),
 		Cadence:       common.FrequencyAnnual, // Cadence doesn't matter for override
 		TargetAssetID: &assetID,
 	}
@@ -1084,7 +1088,7 @@ func TestApplyImpactsToItem_TracksAppliedImpacts(t *testing.T) {
 			ID:                  "impact-savings",
 			EventID:             "event-savings",
 			ImpactKind:          ImpactKindDelta,
-			Amount:              1000,
+			Amount:              decAmount(1000),
 			Cadence:             common.FrequencyMonthly,
 			TargetCashAccountID: &cashID,
 			StartDate:           date(2025, 3, 1),
@@ -1160,7 +1164,7 @@ func TestApplyImpactsToItem_StopReturnsEarly(t *testing.T) {
 			ID:             "impact-bonus",
 			EventID:        "event-bonus",
 			ImpactKind:     ImpactKindDelta,
-			Amount:         5000,
+			Amount:         decAmount(5000),
 			Cadence:    common.FrequencyMonthly,
 			TargetIncomeID: &incomeID,
 			StartDate:      date(2025, 3, 1),

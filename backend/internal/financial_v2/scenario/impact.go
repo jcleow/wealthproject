@@ -352,8 +352,11 @@ func ApplyImpactsToItem(
 
 // computeImpactAmounts converts impact amount to both monthly and annual terms (in dollars)
 func computeImpactAmounts(impact *Impact) (monthlyAmt int64, annualAmt int64) {
-	// Impact.Amount is stored as int64 (dollars, like all financial amounts in the DB)
-	amount := decimal.NewFromInt64(impact.Amount, 0)
+	if impact.Amount == nil {
+		return 0, 0
+	}
+	// Impact.Amount is now stored as *decimal.Decimal (dollars)
+	amount := impact.Amount
 
 	// Convert to monthly based on impact's cadence
 	switch impact.Cadence {
@@ -361,15 +364,15 @@ func computeImpactAmounts(impact *Impact) (monthlyAmt int64, annualAmt int64) {
 		// Annual: monthly = amount/12, annual = amount
 		monthly := amount.Div(decimal.NewFromInt64(12, 0))
 		monthlyAmt, _ = monthly.Int64()
-		annualAmt = impact.Amount
+		annualAmt, _ = amount.Int64()
 	case common.FrequencyMonthly:
 		// Monthly: monthly = amount, annual = amount*12
-		monthlyAmt = impact.Amount
+		monthlyAmt, _ = amount.Int64()
 		annual := amount.Mul(decimal.NewFromInt64(12, 0))
 		annualAmt, _ = annual.Int64()
 	default:
 		// Default to monthly treatment for other frequencies
-		monthlyAmt = impact.Amount
+		monthlyAmt, _ = amount.Int64()
 		annual := amount.Mul(decimal.NewFromInt64(12, 0))
 		annualAmt, _ = annual.Int64()
 	}
@@ -459,8 +462,11 @@ func ImpactAppliesToMonth(impact Impact, currentDate time.Time) bool {
 //	Step 2: keep as monthly = $1,000
 //	result = $1,000
 func ConvertImpactAmount(impact *Impact, itemInfo ItemInfo) *decimal.Decimal {
-	// Impact.Amount is stored as int64 (dollars, like all financial amounts in the DB)
-	amount := decimal.NewFromInt64(impact.Amount, 0)
+	if impact.Amount == nil {
+		return decimal.Zero()
+	}
+	// Impact.Amount is now stored as *decimal.Decimal (dollars)
+	amount := impact.Amount
 
 	// For flow items (income/expense), normalize to match the item's storage frequency
 	if itemInfo.ItemType == "income" || itemInfo.ItemType == "expense" {

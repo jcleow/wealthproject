@@ -52,8 +52,7 @@ export default function RootLayout({
       <body className="antialiased bg-black text-white">
         <QueryProvider>
           <AuthProvider>
-            <AuthenticationGuard />
-            {children}
+            <AuthenticationGuard>{children}</AuthenticationGuard>
           </AuthProvider>
         </QueryProvider>
       </body>

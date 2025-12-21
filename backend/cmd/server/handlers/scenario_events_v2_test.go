@@ -1,11 +1,24 @@
 package handlers
 
 import (
+	"strconv"
 	"testing"
 
+	"financial-chat-system/backend/internal/decimal"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
 )
+
+// decAmount creates a *decimal.Decimal for model-level tests
+func decAmount(v int64) *decimal.Decimal {
+	return decimal.NewFromInt64(v, 0)
+}
+
+// strAmount creates a *string for DTO-level tests (frontend sends amount as string)
+func strAmount(v int64) *string {
+	s := strconv.FormatInt(v, 10)
+	return &s
+}
 
 // Type alias for shorter test code
 type ScenarioImpact = repo.ScenarioImpact
@@ -27,7 +40,7 @@ func TestBuildImpactV2_StartImpact_RequiresTargetID(t *testing.T) {
 				TargetType:     "expense",
 				TargetID:       strPtr("valid-uuid-123"),
 				ImpactKind:     "start",
-				Amount:         50000,
+				Amount:         strAmount(50000),
 				Currency:       "SGD",
 				Cadence:        "one_time",
 				StartDate:      "2025-06",
@@ -41,7 +54,7 @@ func TestBuildImpactV2_StartImpact_RequiresTargetID(t *testing.T) {
 				TargetType: "expense",
 				// No TargetID, no TargetExpenseId
 				ImpactKind: "start",
-				Amount:     50000,
+				Amount:     strAmount(50000),
 				Currency:   "SGD",
 				Cadence:    "one_time",
 				StartDate:  "2025-06",
@@ -54,7 +67,7 @@ func TestBuildImpactV2_StartImpact_RequiresTargetID(t *testing.T) {
 				TargetType: "expense",
 				TargetID:   strPtr(""),
 				ImpactKind: "start",
-				Amount:     50000,
+				Amount:     strAmount(50000),
 				Currency:   "SGD",
 				Cadence:    "one_time",
 				StartDate:  "2025-06",
@@ -67,7 +80,7 @@ func TestBuildImpactV2_StartImpact_RequiresTargetID(t *testing.T) {
 				TargetType: "expense",
 				TargetID:   strPtr("   "),
 				ImpactKind: "start",
-				Amount:     50000,
+				Amount:     strAmount(50000),
 				Currency:   "SGD",
 				Cadence:    "one_time",
 				StartDate:  "2025-06",
@@ -80,7 +93,7 @@ func TestBuildImpactV2_StartImpact_RequiresTargetID(t *testing.T) {
 				TargetType:     "expense",
 				TargetID:       strPtr("valid-uuid-123"),
 				ImpactKind:     "delta",
-				Amount:         500,
+				Amount:         strAmount(500),
 				Currency:       "SGD",
 				Cadence:        "monthly",
 				StartDate:      "2025-06",
@@ -94,7 +107,7 @@ func TestBuildImpactV2_StartImpact_RequiresTargetID(t *testing.T) {
 				TargetType:     "income",
 				TargetID:       strPtr("valid-uuid-456"),
 				ImpactKind:     "override",
-				Amount:         2000,
+				Amount:         strAmount(2000),
 				Currency:       "SGD",
 				Cadence:        "monthly",
 				StartDate:      "2025-06",
@@ -108,7 +121,7 @@ func TestBuildImpactV2_StartImpact_RequiresTargetID(t *testing.T) {
 				TargetType:     "expense",
 				TargetID:       strPtr("valid-uuid-789"),
 				ImpactKind:     "stop",
-				Amount:         0,
+				Amount:         strAmount(0),
 				Currency:       "SGD",
 				Cadence:        "monthly",
 				StartDate:      "2025-06",
@@ -153,7 +166,7 @@ func TestBuildImpactV2_NeverCreatesPlaceholderTargetID(t *testing.T) {
 	dto := scenarioImpactV2DTO{
 		TargetType: "expense",
 		ImpactKind: "start",
-		Amount:     50000,
+		Amount:     strAmount(50000),
 		Currency:   "SGD",
 		Cadence:    "one_time",
 		StartDate:  "2025-06",
@@ -183,7 +196,7 @@ func TestBuildImpactV2_LiabilityStartImpact_WithInterestRateAndMinPayment(t *tes
 		TargetLiabilityID: strPtr("liability-uuid-123"),
 		TargetID:          strPtr("liability-uuid-123"),
 		ImpactKind:        "start",
-		Amount:            10000,
+		Amount:            strAmount(10000),
 		Currency:          "SGD",
 		Cadence:           "monthly",
 		StartDate:         "2025-06",
@@ -231,7 +244,7 @@ func TestToScenarioImpactV2DTO_LiabilityFields(t *testing.T) {
 	impact := ScenarioImpact{
 		EventID:           "event-123",
 		ImpactKind:        "start",
-		Amount:            15000,
+		Amount:            decAmount(15000),
 		Cadence:           "monthly",
 		TargetLiabilityID: strPtr("liability-456"),
 		Name:              "Credit Card",
@@ -282,7 +295,7 @@ func TestBuildImpactsV2FromDTO_UpdateScenarioWithModifiedImpacts(t *testing.T) {
 					TargetID:        strPtr("expense-uuid-123"),
 					TargetExpenseID: strPtr("expense-uuid-123"),
 					ImpactKind:      "start",
-					Amount:          75000, // Updated from 50000
+					Amount:          strAmount(75000), // Updated from 50000
 					Currency:        "SGD",
 					Cadence:         "monthly",
 					StartDate:       "2025-06",
@@ -300,7 +313,7 @@ func TestBuildImpactsV2FromDTO_UpdateScenarioWithModifiedImpacts(t *testing.T) {
 					TargetID:        strPtr("income-uuid-1"),
 					TargetIncomeID:  strPtr("income-uuid-1"),
 					ImpactKind:      "delta",
-					Amount:          1000,
+					Amount:          strAmount(1000),
 					Currency:        "SGD",
 					Cadence:         "monthly",
 					StartDate:       "2025-06",
@@ -310,7 +323,7 @@ func TestBuildImpactsV2FromDTO_UpdateScenarioWithModifiedImpacts(t *testing.T) {
 					TargetID:        strPtr("expense-uuid-2"),
 					TargetExpenseID: strPtr("expense-uuid-2"),
 					ImpactKind:      "override",
-					Amount:          2000,
+					Amount:          strAmount(2000),
 					Currency:        "SGD",
 					Cadence:         "monthly",
 					StartDate:       "2025-06",
@@ -327,7 +340,7 @@ func TestBuildImpactsV2FromDTO_UpdateScenarioWithModifiedImpacts(t *testing.T) {
 					TargetID:       strPtr("asset-uuid-new"),
 					TargetAssetID:  strPtr("asset-uuid-new"),
 					ImpactKind:     "start",
-					Amount:         100000,
+					Amount:         strAmount(100000),
 					Currency:       "SGD",
 					Cadence:        "one_time",
 					StartDate:      "2025-07",
@@ -346,7 +359,7 @@ func TestBuildImpactsV2FromDTO_UpdateScenarioWithModifiedImpacts(t *testing.T) {
 					TargetID:          strPtr("liability-uuid-123"),
 					TargetLiabilityID: strPtr("liability-uuid-123"),
 					ImpactKind:        "start",
-					Amount:            20000,
+					Amount:            strAmount(20000),
 					Currency:          "SGD",
 					Cadence:           "monthly",
 					StartDate:         "2025-06",
@@ -366,7 +379,7 @@ func TestBuildImpactsV2FromDTO_UpdateScenarioWithModifiedImpacts(t *testing.T) {
 					TargetID:        strPtr("expense-uuid-same"),
 					TargetExpenseID: strPtr("expense-uuid-same"),
 					ImpactKind:      "delta",
-					Amount:          100,
+					Amount:          strAmount(100),
 					Currency:        "SGD",
 					Cadence:         "monthly",
 					StartDate:       "2025-06",
@@ -376,7 +389,7 @@ func TestBuildImpactsV2FromDTO_UpdateScenarioWithModifiedImpacts(t *testing.T) {
 					TargetID:        strPtr("expense-uuid-same"), // Duplicate target
 					TargetExpenseID: strPtr("expense-uuid-same"),
 					ImpactKind:      "override",
-					Amount:          200,
+					Amount:          strAmount(200),
 					Currency:        "SGD",
 					Cadence:         "monthly",
 					StartDate:       "2025-06",
@@ -442,7 +455,7 @@ func TestBuildImpactV2_UpdatePreservesAdvancedFields(t *testing.T) {
 				TargetID:       strPtr("income-uuid"),
 				TargetIncomeID: strPtr("income-uuid"),
 				ImpactKind:     "start",
-				Amount:         5000,
+				Amount:         strAmount(5000),
 				Currency:       "SGD",
 				Cadence:        "monthly",
 				StartDate:      "2025-06",
@@ -469,7 +482,7 @@ func TestBuildImpactV2_UpdatePreservesAdvancedFields(t *testing.T) {
 				TargetID:        strPtr("expense-uuid"),
 				TargetExpenseID: strPtr("expense-uuid"),
 				ImpactKind:      "start",
-				Amount:          3000,
+				Amount:          strAmount(3000),
 				Currency:        "SGD",
 				Cadence:         "one_time",
 				StartDate:       "2025-06",
@@ -488,7 +501,7 @@ func TestBuildImpactV2_UpdatePreservesAdvancedFields(t *testing.T) {
 				TargetID:          strPtr("liability-uuid"),
 				TargetLiabilityID: strPtr("liability-uuid"),
 				ImpactKind:        "start",
-				Amount:            15000,
+				Amount:            strAmount(15000),
 				Currency:          "SGD",
 				Cadence:           "monthly",
 				StartDate:         "2025-06",
@@ -515,7 +528,7 @@ func TestBuildImpactV2_UpdatePreservesAdvancedFields(t *testing.T) {
 				TargetID:      strPtr("asset-uuid"),
 				TargetAssetID: strPtr("asset-uuid"),
 				ImpactKind:    "start",
-				Amount:        500000,
+				Amount:        strAmount(500000),
 				Currency:      "SGD",
 				Cadence:       "one_time",
 				StartDate:     "2025-06",
@@ -554,7 +567,7 @@ func TestToScenarioImpactV2DTO_RoundTrip(t *testing.T) {
 	original := ScenarioImpact{
 		EventID:           "event-123",
 		ImpactKind:        "start",
-		Amount:            25000,
+		Amount:            decAmount(25000),
 		Cadence:           "monthly",
 		TargetLiabilityID: strPtr("liability-789"),
 		Name:              "Home Loan",
@@ -572,8 +585,8 @@ func TestToScenarioImpactV2DTO_RoundTrip(t *testing.T) {
 	if dto.ImpactKind != "start" {
 		t.Errorf("DTO ImpactKind = %q, want %q", dto.ImpactKind, "start")
 	}
-	if dto.Amount != 25000 {
-		t.Errorf("DTO Amount = %d, want %d", dto.Amount, 25000)
+	if dto.Amount == nil || *dto.Amount != "25000" {
+		t.Errorf("DTO Amount = %v, want %q", dto.Amount, "25000")
 	}
 	if dto.TargetType != "liability" {
 		t.Errorf("DTO TargetType = %q, want %q", dto.TargetType, "liability")
@@ -601,8 +614,8 @@ func TestToScenarioImpactV2DTO_RoundTrip(t *testing.T) {
 	if rebuilt.ImpactKind != original.ImpactKind {
 		t.Errorf("Rebuilt ImpactKind = %q, want %q", rebuilt.ImpactKind, original.ImpactKind)
 	}
-	if rebuilt.Amount != original.Amount {
-		t.Errorf("Rebuilt Amount = %d, want %d", rebuilt.Amount, original.Amount)
+	if rebuilt.Amount == nil || original.Amount == nil || rebuilt.Amount.Cmp(original.Amount) != 0 {
+		t.Errorf("Rebuilt Amount = %v, want %v", rebuilt.Amount, original.Amount)
 	}
 	if rebuilt.TargetLiabilityID == nil || *rebuilt.TargetLiabilityID != *original.TargetLiabilityID {
 		t.Errorf("Rebuilt TargetLiabilityID = %v, want %v", rebuilt.TargetLiabilityID, original.TargetLiabilityID)
@@ -638,7 +651,7 @@ func TestBuildScenarioEventV2_UpdateWithImpacts(t *testing.T) {
 				TargetID:       strPtr("income-uuid-1"),
 				TargetIncomeID: strPtr("income-uuid-1"),
 				ImpactKind:     "start",
-				Amount:         8000,
+				Amount:         strAmount(8000),
 				Currency:       "SGD",
 				Cadence:        "monthly",
 				StartDate:      "2025-07",
@@ -651,7 +664,7 @@ func TestBuildScenarioEventV2_UpdateWithImpacts(t *testing.T) {
 				TargetID:        strPtr("expense-uuid-2"),
 				TargetExpenseID: strPtr("expense-uuid-2"),
 				ImpactKind:      "stop",
-				Amount:          0,
+				Amount:          strAmount(0),
 				Currency:        "SGD",
 				Cadence:         "monthly",
 				StartDate:       "2025-07",
@@ -684,8 +697,8 @@ func TestBuildScenarioEventV2_UpdateWithImpacts(t *testing.T) {
 	if event.Impacts[0].TargetIncomeID == nil || *event.Impacts[0].TargetIncomeID != "income-uuid-1" {
 		t.Errorf("Impact[0] TargetIncomeID = %v, want income-uuid-1", event.Impacts[0].TargetIncomeID)
 	}
-	if event.Impacts[0].Amount != 8000 {
-		t.Errorf("Impact[0] Amount = %d, want 8000", event.Impacts[0].Amount)
+	if event.Impacts[0].Amount == nil || event.Impacts[0].Amount.Cmp(decAmount(8000)) != 0 {
+		t.Errorf("Impact[0] Amount = %v, want 8000", event.Impacts[0].Amount)
 	}
 
 	// Verify second impact (stop expense)
@@ -739,7 +752,7 @@ func TestBuildImpactV2_AllImpactKinds(t *testing.T) {
 				TargetID:        strPtr("expense-uuid"),
 				TargetExpenseID: strPtr("expense-uuid"),
 				ImpactKind:      tt.impactKind,
-				Amount:          tt.amount,
+				Amount:          strAmount(tt.amount),
 				Currency:        "SGD",
 				Cadence:         "monthly",
 				StartDate:       "2025-06",
@@ -753,8 +766,8 @@ func TestBuildImpactV2_AllImpactKinds(t *testing.T) {
 			if impact.ImpactKind != tt.wantKind {
 				t.Errorf("ImpactKind = %q, want %q", impact.ImpactKind, tt.wantKind)
 			}
-			if impact.Amount != tt.amount {
-				t.Errorf("Amount = %d, want %d", impact.Amount, tt.amount)
+			if impact.Amount == nil || impact.Amount.Cmp(decAmount(tt.amount)) != 0 {
+				t.Errorf("Amount = %v, want %v", impact.Amount, tt.amount)
 			}
 		})
 	}

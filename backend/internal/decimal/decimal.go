@@ -180,12 +180,21 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler
+// Accepts both string ("123.45") and number (123.45) JSON values
 func (d *Decimal) UnmarshalJSON(data []byte) error {
+	// Try string first
 	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
+	if err := json.Unmarshal(data, &s); err == nil {
+		_, _, err := d.SetString(s)
 		return err
 	}
-	_, _, err := d.SetString(s)
+
+	// Try number (float64)
+	var f float64
+	if err := json.Unmarshal(data, &f); err != nil {
+		return err
+	}
+	_, err := d.SetFloat64(f)
 	return err
 }
 

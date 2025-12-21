@@ -88,6 +88,10 @@ type NonCashAsset struct {
 	Notes            string          `json:"notes"`
 	GrowthStrategy   string          `json:"growthStrategy"`
 	UpdatedAt        time.Time       `json:"updatedAt"`
+	// Scenario impact fields
+	ScenarioEventID *string `json:"scenarioEventId,omitempty"` // Links to scenario event if this is a scenario-driven row
+	ImpactKind      *string `json:"impactKind,omitempty"`      // NULL = base item, 'delta' = additive, 'override' = replaces
+	ImpactFrequency *string `json:"impactFrequency,omitempty"` // How often delta adds (NULL for base/override)
 }
 
 // Investment mirrors NonCashAsset but lives in finance_investments
@@ -103,16 +107,22 @@ type Investment struct {
 	Notes          string          `json:"notes"`
 	GrowthStrategy string          `json:"growthStrategy"`
 	UpdatedAt      time.Time       `json:"updatedAt"`
+	// Scenario impact fields
+	ScenarioEventID *string `json:"scenarioEventId,omitempty"` // Links to scenario event if this is a scenario-driven row
+	ImpactKind      *string `json:"impactKind,omitempty"`      // NULL = base item, 'delta' = additive, 'override' = replaces
+	ImpactFrequency *string `json:"impactFrequency,omitempty"` // How often delta adds (NULL for base/override)
 }
 
 type CashAsset struct {
 	ID             string          `json:"id"`
 	UserID         string          `json:"userId"`
+	ParentID       *string         `json:"parentId,omitempty"` // For versioning support
 	Name           string          `json:"name"`
 	Balance        decimal.Decimal `json:"balance"`
 	InterestRate   decimal.Decimal `json:"interestRate"`
 	BankName       string          `json:"bankName,omitempty"`
 	AccountType    string          `json:"accountType,omitempty"` // 'checking', 'savings', 'money_market'
+	Category       string          `json:"category,omitempty"`
 	IsAccumulator  bool            `json:"isAccumulator"`
 	StartDate      time.Time       `json:"startDate"`         // Precise start date (day-level)
 	EndDate        *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
@@ -120,6 +130,10 @@ type CashAsset struct {
 	GrowthStrategy string          `json:"growthStrategy"`
 	CreatedAt      time.Time       `json:"createdAt"`
 	UpdatedAt      time.Time       `json:"updatedAt"`
+	// Scenario impact fields
+	ScenarioEventID *string `json:"scenarioEventId,omitempty"` // Links to scenario event if this is a scenario-driven row
+	ImpactKind      *string `json:"impactKind,omitempty"`      // NULL = base item, 'delta' = additive, 'override' = replaces
+	ImpactFrequency *string `json:"impactFrequency,omitempty"` // How often delta adds (NULL for base/override)
 }
 
 // Liability represents a persisted liability record.
@@ -137,6 +151,10 @@ type Liability struct {
 	GrowthStrategy    string          `json:"growthStrategy"`
 	RepaymentStrategy string          `json:"repaymentStrategy"`
 	UpdatedAt         time.Time       `json:"updatedAt"`
+	// Scenario impact fields
+	ScenarioEventID *string `json:"scenarioEventId,omitempty"` // Links to scenario event if this is a scenario-driven row
+	ImpactKind      *string `json:"impactKind,omitempty"`      // NULL = base item, 'delta' = additive, 'override' = replaces
+	ImpactFrequency *string `json:"impactFrequency,omitempty"` // How often delta adds (NULL for base/override)
 }
 
 // Income represents a persisted income record.
@@ -156,6 +174,10 @@ type Income struct {
 	// CPF-related fields
 	IncomeType  string `json:"incomeType"`  // 'salary', 'bonus', 'commission', 'rental', 'dividend', 'freelance', 'other'
 	CPFWageType string `json:"cpfWageType"` // 'ow' (Ordinary Wages) or 'aw' (Additional Wages)
+	// Scenario impact fields
+	ScenarioEventID *string `json:"scenarioEventId,omitempty"` // Links to scenario event if this is a scenario-driven row
+	ImpactKind      *string `json:"impactKind,omitempty"`      // NULL = base item, 'delta' = additive, 'override' = replaces
+	ImpactFrequency *string `json:"impactFrequency,omitempty"` // How often delta adds (NULL for base/override)
 }
 
 // Expense represents a persisted expense record.
@@ -173,6 +195,10 @@ type Expense struct {
 	GrowthStrategy    string          `json:"growthStrategy"`
 	UpdatedAt         time.Time       `json:"updatedAt"`
 	SourceLiabilityID *string         `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
+	// Scenario impact fields
+	ScenarioEventID *string `json:"scenarioEventId,omitempty"` // Links to scenario event if this is a scenario-driven row
+	ImpactKind      *string `json:"impactKind,omitempty"`      // NULL = base item, 'delta' = additive, 'override' = replaces
+	ImpactFrequency *string `json:"impactFrequency,omitempty"` // How often delta adds (NULL for base/override)
 }
 
 // CPFAccount represents a user's CPF account with balances and profile data.

@@ -97,6 +97,10 @@ func makeStartDate(year, month, day int) time.Time {
 	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
 }
 
+func decAmount(v int64) *decimal.Decimal {
+	return decimal.NewFromInt64(v, 0)
+}
+
 // =============================================================================
 // START IMPACT TESTS - Creating Synthetic Items
 // =============================================================================
@@ -158,7 +162,7 @@ func TestComputeSnapshot_StartImpact_CreatesSyntheticIncome(t *testing.T) {
 						EventID:        "event-rental",
 						ImpactKind:     scenario.ImpactKindStart,
 						TargetIncomeID: ptrString(rentalIncomeID),
-						Amount:         200000, // cents
+						Amount:         decAmount(200000), // cents
 						StartDate:      startDate,
 					},
 				},
@@ -255,7 +259,7 @@ func TestComputeSnapshot_StartImpact_SyntheticItemRespectsDates(t *testing.T) {
 						EventID:        "event-consulting",
 						ImpactKind:     scenario.ImpactKindStart,
 						TargetIncomeID: ptrString(consultingIncomeID),
-						Amount:         500000, // cents
+						Amount:         decAmount(500000), // cents
 						StartDate:      consultingStartDate,
 					},
 				},
@@ -331,7 +335,7 @@ func TestComputeSnapshot_StartImpact_SyntheticItemGrows(t *testing.T) {
 						EventID:        "event-rental",
 						ImpactKind:     scenario.ImpactKindStart,
 						TargetIncomeID: ptrString(rentalIncomeID),
-						Amount:         200000, // cents
+						Amount:         decAmount(200000), // cents
 						StartDate:      startDate,
 					},
 				},
@@ -468,7 +472,7 @@ func TestComputeSnapshot_StartImpact_TargetedByDelta(t *testing.T) {
 						EventID:        "event-rental",
 						ImpactKind:     scenario.ImpactKindStart,
 						TargetIncomeID: ptrString(rentalIncomeID),
-						Amount:         200000, // $2,000 in cents
+						Amount:         decAmount(200000), // $2,000 in cents
 						StartDate:      startDate,
 					},
 				},
@@ -485,7 +489,7 @@ func TestComputeSnapshot_StartImpact_TargetedByDelta(t *testing.T) {
 						EventID:        "event-rent-increase",
 						ImpactKind:     scenario.ImpactKindDelta,
 						TargetIncomeID: ptrString(rentalIncomeID),
-						Amount:         200, // +$200 (Amount is in dollars)
+						Amount:         decAmount(200), // +$200 (Amount is in dollars)
 						Cadence:        common.FrequencyMonthly,
 						StartDate:      rentIncreaseDate,
 					},
@@ -577,7 +581,7 @@ func TestComputeSnapshot_StartImpact_TargetedByStop(t *testing.T) {
 						EventID:        "event-start-business",
 						ImpactKind:     scenario.ImpactKindStart,
 						TargetIncomeID: ptrString(businessIncomeID),
-						Amount:         300000, // $3,000 in cents
+						Amount:         decAmount(300000), // $3,000 in cents
 						StartDate:      startDate,
 					},
 				},
@@ -717,7 +721,7 @@ func TestComputeSnapshot_SyntheticIncome_ContributesToNetCash(t *testing.T) {
 						EventID:        "event-rental",
 						ImpactKind:     scenario.ImpactKindStart,
 						TargetIncomeID: ptrString(rentalIncomeID),
-						Amount:         300000, // $3,000 in cents
+						Amount:         decAmount(300000), // $3,000 in cents
 						StartDate:      startDate,
 					},
 				},
@@ -790,7 +794,7 @@ func TestComputeSnapshot_SyntheticAsset_ContributesToNetWorth(t *testing.T) {
 						EventID:       "event-buy-car",
 						ImpactKind:    scenario.ImpactKindStart,
 						TargetAssetID: ptrString(carAssetID),
-						Amount:        5000000, // $50,000 in cents
+						Amount:        decAmount(5000000), // $50,000 in cents
 						StartDate:     startDate,
 					},
 				},
@@ -867,7 +871,7 @@ func TestComputeSnapshot_SyntheticExpense_AffectsNetSavings(t *testing.T) {
 						EventID:         "event-childcare",
 						ImpactKind:      scenario.ImpactKindStart,
 						TargetExpenseID: ptrString(childcareExpenseID),
-						Amount:          200000, // $2,000 in cents
+						Amount:          decAmount(200000), // $2,000 in cents
 						StartDate:       startDate,
 					},
 				},
@@ -941,7 +945,7 @@ func TestComputeSnapshot_IncludeScenariosFalse_ExcludesScenarioItems(t *testing.
 						EventID:        "event-rental",
 						ImpactKind:     scenario.ImpactKindStart,
 						TargetIncomeID: ptrString(rentalIncomeID),
-						Amount:         200000,
+						Amount:         decAmount(200000),
 						StartDate:      startDate,
 					},
 				},
@@ -1031,7 +1035,7 @@ func TestComputeSnapshot_MultipleStartImpacts_SameEvent(t *testing.T) {
 						EventID:        "event-rental",
 						ImpactKind:     scenario.ImpactKindStart,
 						TargetIncomeID: ptrString(rentalIncomeID),
-						Amount:         200000, // $2,000 in cents
+						Amount:         decAmount(200000), // $2,000 in cents
 						StartDate:      startDate,
 					},
 					{
@@ -1039,7 +1043,7 @@ func TestComputeSnapshot_MultipleStartImpacts_SameEvent(t *testing.T) {
 						EventID:         "event-rental",
 						ImpactKind:      scenario.ImpactKindStart,
 						TargetExpenseID: ptrString(maintenanceExpenseID),
-						Amount:          30000, // $300 in cents
+						Amount:          decAmount(30000), // $300 in cents
 						StartDate:       startDate,
 					},
 				},

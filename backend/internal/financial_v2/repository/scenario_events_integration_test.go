@@ -8,11 +8,16 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/common"
+	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func decAmount(v int64) *decimal.Decimal {
+	return decimal.NewFromInt64(v, 0)
+}
 
 // Integration tests for scenario events with real database.
 // Run with: go test -tags=integration ./internal/financial_v2/repository/...
@@ -48,7 +53,7 @@ func TestIntegration_CreateAndUpdateScenarioEvent_WithImpacts(t *testing.T) {
 		Impacts: []ScenarioImpact{
 			{
 				ImpactKind:      "delta",
-				Amount:          1000,
+				Amount:          decAmount(1000),
 				Cadence:         common.FrequencyMonthly,
 				StartDate:       startDate,
 				TargetIncomeID:  &incomeID,
@@ -62,21 +67,21 @@ func TestIntegration_CreateAndUpdateScenarioEvent_WithImpacts(t *testing.T) {
 	require.NotEmpty(t, created.ID, "Created event should have an ID")
 	assert.Equal(t, "Career Change", created.Name)
 	assert.Len(t, created.Impacts, 1, "Should have 1 impact")
-	assert.Equal(t, int64(1000), created.Impacts[0].Amount)
+	assert.Equal(t, 0, created.Impacts[0].Amount.Cmp(decAmount(1000)))
 
 	// Now update the event with modified impacts
 	created.Name = "Updated Career Change"
 	created.Impacts = []ScenarioImpact{
 		{
 			ImpactKind:      "delta",
-			Amount:          1500, // Changed amount
+			Amount:          decAmount(1500), // Changed amount
 			Cadence:         common.FrequencyMonthly,
 			StartDate:       startDate,
 			TargetIncomeID:  &incomeID,
 		},
 		{
 			ImpactKind:      "override",
-			Amount:          2500, // New impact on expense
+			Amount:          decAmount(2500), // New impact on expense
 			Cadence:         common.FrequencyMonthly,
 			StartDate:       startDate,
 			TargetExpenseID: &expenseID,
@@ -99,12 +104,12 @@ func TestIntegration_CreateAndUpdateScenarioEvent_WithImpacts(t *testing.T) {
 	for _, imp := range fetched.Impacts {
 		if imp.TargetIncomeID != nil && *imp.TargetIncomeID == incomeID {
 			foundIncome = true
-			assert.Equal(t, int64(1500), imp.Amount, "Income impact amount should be 1500")
+			assert.Equal(t, 0, imp.Amount.Cmp(decAmount(1500)), "Income impact amount should be 1500")
 			assert.Equal(t, "delta", imp.ImpactKind)
 		}
 		if imp.TargetExpenseID != nil && *imp.TargetExpenseID == expenseID {
 			foundExpense = true
-			assert.Equal(t, int64(2500), imp.Amount, "Expense impact amount should be 2500")
+			assert.Equal(t, 0, imp.Amount.Cmp(decAmount(2500)), "Expense impact amount should be 2500")
 			assert.Equal(t, "override", imp.ImpactKind)
 		}
 	}
@@ -137,14 +142,14 @@ func TestIntegration_UpdateScenarioEvent_RemovesImpacts(t *testing.T) {
 		Impacts: []ScenarioImpact{
 			{
 				ImpactKind:      "delta",
-				Amount:          100,
+				Amount:          decAmount(100),
 				Cadence:         common.FrequencyMonthly,
 				StartDate:       startDate,
 				TargetExpenseID: &expenseID1,
 			},
 			{
 				ImpactKind:      "delta",
-				Amount:          200,
+				Amount:          decAmount(200),
 				Cadence:         common.FrequencyMonthly,
 				StartDate:       startDate,
 				TargetExpenseID: &expenseID2,
@@ -160,7 +165,7 @@ func TestIntegration_UpdateScenarioEvent_RemovesImpacts(t *testing.T) {
 	created.Impacts = []ScenarioImpact{
 		{
 			ImpactKind:      "delta",
-			Amount:          150, // Changed
+			Amount:          decAmount(150), // Changed
 			Cadence:         common.FrequencyMonthly,
 			StartDate:       startDate,
 			TargetExpenseID: &expenseID1,
@@ -176,7 +181,7 @@ func TestIntegration_UpdateScenarioEvent_RemovesImpacts(t *testing.T) {
 	fetched, err := store.GetScenarioEventV2(ctx, userID, created.ID)
 	require.NoError(t, err)
 	assert.Len(t, fetched.Impacts, 1, "Fetched event should have 1 impact")
-	assert.Equal(t, int64(150), fetched.Impacts[0].Amount)
+	assert.Equal(t, 0, fetched.Impacts[0].Amount.Cmp(decAmount(150)))
 }
 
 func TestIntegration_UpdateScenarioEvent_StartImpact_UpdatesFinancialItem(t *testing.T) {
@@ -204,7 +209,7 @@ func TestIntegration_UpdateScenarioEvent_StartImpact_UpdatesFinancialItem(t *tes
 		Impacts: []ScenarioImpact{
 			{
 				ImpactKind:      "start",
-				Amount:          2000, // New rent amount
+				Amount:          decAmount(2000), // New rent amount
 				Cadence:         common.FrequencyMonthly,
 				StartDate:       startDate,
 				TargetExpenseID: &expenseID,
@@ -225,7 +230,7 @@ func TestIntegration_UpdateScenarioEvent_StartImpact_UpdatesFinancialItem(t *tes
 	assert.Equal(t, "housing", expenseCategory, "Expense category should be updated")
 
 	// Now update the impact with a different amount
-	created.Impacts[0].Amount = 2500
+	created.Impacts[0].Amount = decAmount(2500)
 	created.Impacts[0].Category = "rent"
 
 	_, err = store.UpdateScenarioEventV2(ctx, created)
@@ -294,7 +299,7 @@ func TestIntegration_UpdateScenarioEvent_LiabilityStartImpact_WithInterestAndMin
 	// Update with new values
 	newInterestRate := 15.0
 	newMinPayment := int64(250)
-	created.Impacts[0].Amount = 6000
+	created.Impacts[0].Amount = decAmount(6000)
 	created.Impacts[0].InterestRate = &newInterestRate
 	created.Impacts[0].MinimumPayment = &newMinPayment
 
@@ -335,7 +340,7 @@ func TestIntegration_DeleteScenarioEvent_CascadesImpacts(t *testing.T) {
 		Impacts: []ScenarioImpact{
 			{
 				ImpactKind:      "delta",
-				Amount:          100,
+				Amount:          decAmount(100),
 				Cadence:         common.FrequencyMonthly,
 				StartDate:       startDate,
 				TargetExpenseID: &expenseID,

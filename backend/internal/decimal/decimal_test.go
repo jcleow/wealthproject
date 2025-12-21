@@ -137,15 +137,42 @@ func TestJSONMarshal(t *testing.T) {
 }
 
 func TestJSONUnmarshal(t *testing.T) {
+	// Test string format
 	data := []byte(`"100.50"`)
 	var d Decimal
 	err := json.Unmarshal(data, &d)
 	if err != nil {
-		t.Fatalf("failed to unmarshal: %v", err)
+		t.Fatalf("failed to unmarshal string: %v", err)
 	}
 
 	if d.String() != "100.50" {
 		t.Errorf("expected 100.50, got %s", d.String())
+	}
+}
+
+func TestJSONUnmarshalNumber(t *testing.T) {
+	// Test number format (from frontend)
+	data := []byte(`100.50`)
+	var d Decimal
+	err := json.Unmarshal(data, &d)
+	if err != nil {
+		t.Fatalf("failed to unmarshal number: %v", err)
+	}
+
+	if d.String() != "100.5" {
+		t.Errorf("expected 100.5, got %s", d.String())
+	}
+
+	// Test integer number
+	data2 := []byte(`5000`)
+	var d2 Decimal
+	err = json.Unmarshal(data2, &d2)
+	if err != nil {
+		t.Fatalf("failed to unmarshal integer: %v", err)
+	}
+
+	if d2.String() != "5000" {
+		t.Errorf("expected 5000, got %s", d2.String())
 	}
 }
 

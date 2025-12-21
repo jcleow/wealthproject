@@ -134,38 +134,14 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 		return nil, 0, err
 	}
 
-	// Single JOIN query using CTE: paginate events first, then join impacts and target tables for derived values
+	// NEW ARCHITECTURE: First get paginated events, then fetch impacts separately
+	// This avoids the complex JOIN with the now-removed scenario_event_impacts table
 	query := fmt.Sprintf(`
-		WITH paginated_events AS (
-			SELECT * FROM scenario_events
-			WHERE %s
-			ORDER BY occurs_on ASC, created_at DESC
-			LIMIT $%d OFFSET $%d
-		)
-		SELECT
-			e.id, e.user_id, e.name, e.description, e.occurs_on, e.display_icon, e.display_color, e.tags, e.scenario_id, e.is_included, e.created_at, e.updated_at,
-			i.id, i.impact_kind, i.amount, i.cadence, i.created_at,
-			i.target_asset_id, i.target_liability_id, i.target_income_id, i.target_expense_id, i.target_cash_account_id, i.target_investment_id,
-			-- Derived from financial item
-			COALESCE(a.name, l.name, inc.name, exp.name, ca.name, inv.name, '') as target_name,
-			'SGD' as target_currency,
-			COALESCE(inc.frequency, exp.frequency, '') as target_frequency,
-			COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as target_start_date,
-			COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as target_end_date,
-			COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as target_notes,
-			-- Advanced fields from financial item (ca uses account_type instead of category)
-			COALESCE(a.category, l.category, inc.category, exp.category, ca.account_type, inv.category, '') as target_category,
-			COALESCE(a.growth_rate, inv.growth_rate, inc.growth_rate, exp.growth_rate) as target_growth_rate,
-			COALESCE(inc.growth_strategy, exp.growth_strategy, '') as target_growth_strategy
-		FROM paginated_events e
-		LEFT JOIN scenario_event_impacts i ON i.event_id = e.id
-		LEFT JOIN finance_assets a ON i.target_asset_id = a.id
-		LEFT JOIN finance_liabilities l ON i.target_liability_id = l.id
-		LEFT JOIN finance_incomes inc ON i.target_income_id = inc.id
-		LEFT JOIN finance_expenses exp ON i.target_expense_id = exp.id
-		LEFT JOIN finance_cash_accounts ca ON i.target_cash_account_id = ca.id
-		LEFT JOIN finance_investments inv ON i.target_investment_id = inv.id
-		ORDER BY e.occurs_on ASC, e.created_at DESC, i.created_at ASC`,
+		SELECT id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at
+		FROM scenario_events
+		WHERE %s
+		ORDER BY occurs_on ASC, created_at DESC
+		LIMIT $%d OFFSET $%d`,
 		whereClause, len(args)+1, len(args)+2)
 
 	rows, err := s.pool.Query(ctx, query, append(args, limit, offset)...)
@@ -174,58 +150,27 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 	}
 	defer rows.Close()
 
-	// Group results by event ID preserving order
-	eventMap := make(map[string]*ScenarioEvent)
-	var eventOrder []string
-
+	var events []ScenarioEvent
 	for rows.Next() {
 		var ev ScenarioEvent
 		var tagsJSON []byte
-
-		// Impact fields (nullable due to LEFT JOIN)
-		var impID, impKind, impCadence *string
-		var impAmount *int64
-		var impCreatedAt, targetStartDate, targetEndDate *time.Time
-		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID *string
-		var targetName, targetCurrency, targetFrequency, targetNotes *string // Derived from joined target tables
-		var targetCategory, targetGrowthStrategy *string
-		var targetGrowthRate *float64
-
 		if err := rows.Scan(
 			&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &ev.ScenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt,
-			&impID, &impKind, &impAmount, &impCadence, &impCreatedAt,
-			&targetAssetID, &targetLiabilityID, &targetIncomeID, &targetExpenseID, &targetCashAccountID, &targetInvestmentID,
-			&targetName, &targetCurrency, &targetFrequency, &targetStartDate, &targetEndDate, &targetNotes,
-			&targetCategory, &targetGrowthRate, &targetGrowthStrategy,
 		); err != nil {
 			return nil, 0, err
 		}
-
-		// Get or create event entry
-		existing, seen := eventMap[ev.ID]
-		if !seen {
-			ev.Tags = decodeStringArray(tagsJSON)
-			ev.Impacts = []ScenarioImpact{}
-			eventMap[ev.ID] = &ev
-			eventOrder = append(eventOrder, ev.ID)
-			existing = &ev
-		}
-
-		// Add impact if present (LEFT JOIN may produce NULL impact rows)
-		if impID != nil {
-			existing.Impacts = append(existing.Impacts, scanImpactPgx(
-				ev.ID, impID, impKind, impAmount, impCadence, impCreatedAt,
-				targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID,
-				targetName, targetCurrency, targetFrequency, targetStartDate, targetEndDate, targetNotes,
-				targetCategory, targetGrowthRate, targetGrowthStrategy,
-			))
-		}
+		ev.Tags = decodeStringArray(tagsJSON)
+		ev.Impacts = []ScenarioImpact{} // Will be populated below
+		events = append(events, ev)
 	}
 
-	// Build result slice preserving order
-	events := make([]ScenarioEvent, 0, len(eventOrder))
-	for _, id := range eventOrder {
-		events = append(events, *eventMap[id])
+	// Fetch impacts for each event from finance tables
+	for i := range events {
+		impacts, err := s.ListScenarioImpactsV2(ctx, userID, events[i].ID)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to fetch impacts for event %s: %w", events[i].ID, err)
+		}
+		events[i].Impacts = impacts
 	}
 
 	return events, total, nil
@@ -267,9 +212,26 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 		}
 	}
 
-	if _, err := tx.Exec(ctx, `DELETE FROM scenario_event_impacts WHERE event_id=$1`, ev.ID); err != nil {
-		return ScenarioEvent{}, err
+	// Delete existing scenario impacts from all finance tables
+	if _, err := tx.Exec(ctx, `DELETE FROM finance_incomes WHERE scenario_event_id = $1`, ev.ID); err != nil {
+		return ScenarioEvent{}, fmt.Errorf("failed to delete income impacts: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `DELETE FROM finance_expenses WHERE scenario_event_id = $1`, ev.ID); err != nil {
+		return ScenarioEvent{}, fmt.Errorf("failed to delete expense impacts: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM finance_assets WHERE scenario_event_id = $1`, ev.ID); err != nil {
+		return ScenarioEvent{}, fmt.Errorf("failed to delete asset impacts: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM finance_liabilities WHERE scenario_event_id = $1`, ev.ID); err != nil {
+		return ScenarioEvent{}, fmt.Errorf("failed to delete liability impacts: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM finance_investments WHERE scenario_event_id = $1`, ev.ID); err != nil {
+		return ScenarioEvent{}, fmt.Errorf("failed to delete investment impacts: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM finance_cash_accounts WHERE scenario_event_id = $1`, ev.ID); err != nil {
+		return ScenarioEvent{}, fmt.Errorf("failed to delete cash account impacts: %w", err)
+	}
+
 	if len(ev.Impacts) > 0 {
 		if err := s.insertImpactsV2(ctx, tx, ev.UserID, ev.ID, ev.Impacts); err != nil {
 			return ScenarioEvent{}, err
@@ -388,83 +350,320 @@ func (s *Store) ToggleScenarioIncludedV2(ctx context.Context, userID, eventID st
 	return nil
 }
 
-// ListScenarioImpactsV2 lists impacts for an event using typed FK columns.
-// Joins with target tables to derive name, currency, frequency, dates, and notes from the linked financial item.
-// Requires userID for defense-in-depth ownership verification.
+// ListScenarioImpactsV2 lists impacts for an event by querying finance tables for rows
+// with the given scenario_event_id.
+// NEW ARCHITECTURE: Impacts are now stored directly in finance_* tables with scenario_event_id FK.
 func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID string) ([]ScenarioImpact, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT
-			sei.id, sei.event_id, sei.impact_kind, sei.amount, sei.cadence, sei.created_at,
-			sei.target_asset_id, sei.target_liability_id, sei.target_income_id,
-			sei.target_expense_id, sei.target_cash_account_id, sei.target_investment_id,
-			-- Derived from financial item
-			COALESCE(a.name, l.name, inc.name, exp.name, ca.name, inv.name, '') as target_name,
-			'SGD' as target_currency,
-			COALESCE(inc.frequency, exp.frequency, '') as target_frequency,
-			COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as target_start_date,
-			COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as target_end_date,
-			COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as target_notes,
-			-- Advanced fields from financial item (ca uses account_type instead of category)
-			COALESCE(a.category, l.category, inc.category, exp.category, ca.account_type, inv.category, '') as target_category,
-			COALESCE(a.growth_rate, inv.growth_rate, inc.growth_rate, exp.growth_rate) as target_growth_rate,
-			COALESCE(inc.growth_strategy, exp.growth_strategy, '') as target_growth_strategy,
-			-- Liability-specific fields
-			l.interest_rate_apr as target_interest_rate,
-			l.minimum_payment as target_min_payment
-		FROM scenario_event_impacts sei
-		JOIN scenario_events ev ON sei.event_id = ev.id
-		LEFT JOIN finance_assets a ON sei.target_asset_id = a.id
-		LEFT JOIN finance_liabilities l ON sei.target_liability_id = l.id
-		LEFT JOIN finance_incomes inc ON sei.target_income_id = inc.id
-		LEFT JOIN finance_expenses exp ON sei.target_expense_id = exp.id
-		LEFT JOIN finance_cash_accounts ca ON sei.target_cash_account_id = ca.id
-		LEFT JOIN finance_investments inv ON sei.target_investment_id = inv.id
-		WHERE sei.event_id = $1 AND ev.user_id = $2
-		ORDER BY sei.created_at ASC`, eventID, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
 	var impacts []ScenarioImpact
-	for rows.Next() {
-		var imp ScenarioImpact
-		// Temporary variables for decimal scan
-		var interestRateAPR, minPayment *decimal.Decimal
-		// pgx scans NULL directly into pointer fields
-		if err := rows.Scan(
-			&imp.ID, &imp.EventID, &imp.ImpactKind, &imp.Amount, &imp.Cadence, &imp.CreatedAt,
-			&imp.TargetAssetID, &imp.TargetLiabilityID, &imp.TargetIncomeID, &imp.TargetExpenseID, &imp.TargetCashAccountID, &imp.TargetInvestmentID,
-			&imp.Name, &imp.Currency, &imp.Frequency, &imp.StartDate, &imp.EndDate, &imp.Notes,
-			&imp.Category, &imp.GrowthRate, &imp.GrowthStrategy,
-			&interestRateAPR, &minPayment,
-		); err != nil {
+
+	// Query each finance table for rows linked to this scenario event
+	// Income impacts
+	incomeRows, err := s.pool.Query(ctx, `
+		SELECT id, parent_id, name, amount, frequency, category, start_date, end_date,
+		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
+		FROM finance_incomes
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query income impacts: %w", err)
+	}
+	defer incomeRows.Close()
+	for incomeRows.Next() {
+		var id, parentID, name, frequency, category string
+		var amount decimal.Decimal
+		var startDate time.Time
+		var endDate *time.Time
+		var growthRate decimal.Decimal
+		var growthStrategy, impactKind, impactFrequency *string
+		var updatedAt time.Time
+		if err := incomeRows.Scan(&id, &parentID, &name, &amount, &frequency, &category,
+			&startDate, &endDate, &growthRate, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
 			return nil, err
 		}
-		// Convert decimal to float64/int64
-		if interestRateAPR != nil {
-			val := interestRateAPR.ToFloat64()
-			imp.InterestRate = &val
+		growthRateFloat := growthRate.ToFloat64()
+		imp := ScenarioImpact{
+			ID:             id,
+			EventID:        eventID,
+			TargetIncomeID: &parentID,
+			Name:           name,
+			Amount:         &amount,
+			Frequency:      frequency,
+			Category:       category,
+			StartDate:      startDate,
+			EndDate:        endDate,
+			GrowthRate:     &growthRateFloat,
+			Currency:       "SGD",
+			CreatedAt:      updatedAt,
 		}
-		if minPayment != nil {
-			// minimum_payment is stored as decimal, convert to int64
-			val := int64(minPayment.ToFloat64())
-			imp.MinimumPayment = &val
+		if impactKind != nil {
+			imp.ImpactKind = *impactKind
 		}
-
+		if impactFrequency != nil {
+			imp.Cadence = common.Frequency(*impactFrequency)
+		}
+		if growthStrategy != nil {
+			imp.GrowthStrategy = *growthStrategy
+		}
 		impacts = append(impacts, imp)
 	}
+
+	// Expense impacts
+	expenseRows, err := s.pool.Query(ctx, `
+		SELECT id, parent_id, name, amount, frequency, category, start_date, end_date,
+		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
+		FROM finance_expenses
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query expense impacts: %w", err)
+	}
+	defer expenseRows.Close()
+	for expenseRows.Next() {
+		var id, parentID, name, frequency, category string
+		var amount decimal.Decimal
+		var startDate time.Time
+		var endDate *time.Time
+		var growthRate decimal.Decimal
+		var growthStrategy, impactKind, impactFrequency *string
+		var updatedAt time.Time
+		if err := expenseRows.Scan(&id, &parentID, &name, &amount, &frequency, &category,
+			&startDate, &endDate, &growthRate, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			return nil, err
+		}
+		growthRateFloat := growthRate.ToFloat64()
+		imp := ScenarioImpact{
+			ID:              id,
+			EventID:         eventID,
+			TargetExpenseID: &parentID,
+			Name:            name,
+			Amount:          &amount,
+			Frequency:       frequency,
+			Category:        category,
+			StartDate:       startDate,
+			EndDate:         endDate,
+			GrowthRate:      &growthRateFloat,
+			Currency:        "SGD",
+			CreatedAt:       updatedAt,
+		}
+		if impactKind != nil {
+			imp.ImpactKind = *impactKind
+		}
+		if impactFrequency != nil {
+			imp.Cadence = common.Frequency(*impactFrequency)
+		}
+		if growthStrategy != nil {
+			imp.GrowthStrategy = *growthStrategy
+		}
+		impacts = append(impacts, imp)
+	}
+
+	// Asset impacts
+	assetRows, err := s.pool.Query(ctx, `
+		SELECT id, parent_id, name, current_value, category, start_date, end_date,
+		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
+		FROM finance_assets
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query asset impacts: %w", err)
+	}
+	defer assetRows.Close()
+	for assetRows.Next() {
+		var id, parentID, name, category string
+		var currentValue decimal.Decimal
+		var startDate time.Time
+		var endDate *time.Time
+		var growthRate decimal.Decimal
+		var growthStrategy, impactKind, impactFrequency *string
+		var updatedAt time.Time
+		if err := assetRows.Scan(&id, &parentID, &name, &currentValue, &category,
+			&startDate, &endDate, &growthRate, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			return nil, err
+		}
+		growthRateFloat := growthRate.ToFloat64()
+		imp := ScenarioImpact{
+			ID:            id,
+			EventID:       eventID,
+			TargetAssetID: &parentID,
+			Name:          name,
+			Amount:        &currentValue,
+			Category:      category,
+			StartDate:     startDate,
+			EndDate:       endDate,
+			GrowthRate:    &growthRateFloat,
+			Currency:      "SGD",
+			CreatedAt:     updatedAt,
+		}
+		if impactKind != nil {
+			imp.ImpactKind = *impactKind
+		}
+		if impactFrequency != nil {
+			imp.Cadence = common.Frequency(*impactFrequency)
+		}
+		if growthStrategy != nil {
+			imp.GrowthStrategy = *growthStrategy
+		}
+		impacts = append(impacts, imp)
+	}
+
+	// Liability impacts
+	liabilityRows, err := s.pool.Query(ctx, `
+		SELECT id, parent_id, name, current_balance, category, start_date, end_date,
+		       interest_rate_apr, growth_strategy, impact_kind, impact_frequency, updated_at
+		FROM finance_liabilities
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query liability impacts: %w", err)
+	}
+	defer liabilityRows.Close()
+	for liabilityRows.Next() {
+		var id, parentID, name, category string
+		var currentBalance decimal.Decimal
+		var startDate time.Time
+		var endDate *time.Time
+		var interestRateAPR decimal.Decimal
+		var growthStrategy, impactKind, impactFrequency *string
+		var updatedAt time.Time
+		if err := liabilityRows.Scan(&id, &parentID, &name, &currentBalance, &category,
+			&startDate, &endDate, &interestRateAPR, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			return nil, err
+		}
+		interestRate := interestRateAPR.ToFloat64()
+		imp := ScenarioImpact{
+			ID:                id,
+			EventID:           eventID,
+			TargetLiabilityID: &parentID,
+			Name:              name,
+			Amount:            &currentBalance,
+			Category:          category,
+			StartDate:         startDate,
+			EndDate:           endDate,
+			InterestRate:      &interestRate,
+			Currency:          "SGD",
+			CreatedAt:         updatedAt,
+		}
+		if impactKind != nil {
+			imp.ImpactKind = *impactKind
+		}
+		if impactFrequency != nil {
+			imp.Cadence = common.Frequency(*impactFrequency)
+		}
+		if growthStrategy != nil {
+			imp.GrowthStrategy = *growthStrategy
+		}
+		impacts = append(impacts, imp)
+	}
+
+	// Investment impacts
+	investmentRows, err := s.pool.Query(ctx, `
+		SELECT id, parent_id, name, current_value, category, start_date, end_date,
+		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
+		FROM finance_investments
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query investment impacts: %w", err)
+	}
+	defer investmentRows.Close()
+	for investmentRows.Next() {
+		var id, parentID, name, category string
+		var currentValue decimal.Decimal
+		var startDate time.Time
+		var endDate *time.Time
+		var growthRate decimal.Decimal
+		var growthStrategy, impactKind, impactFrequency *string
+		var updatedAt time.Time
+		if err := investmentRows.Scan(&id, &parentID, &name, &currentValue, &category,
+			&startDate, &endDate, &growthRate, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			return nil, err
+		}
+		growthRateFloat := growthRate.ToFloat64()
+		imp := ScenarioImpact{
+			ID:                 id,
+			EventID:            eventID,
+			TargetInvestmentID: &parentID,
+			Name:               name,
+			Amount:             &currentValue,
+			Category:           category,
+			StartDate:          startDate,
+			EndDate:            endDate,
+			GrowthRate:         &growthRateFloat,
+			Currency:           "SGD",
+			CreatedAt:          updatedAt,
+		}
+		if impactKind != nil {
+			imp.ImpactKind = *impactKind
+		}
+		if impactFrequency != nil {
+			imp.Cadence = common.Frequency(*impactFrequency)
+		}
+		if growthStrategy != nil {
+			imp.GrowthStrategy = *growthStrategy
+		}
+		impacts = append(impacts, imp)
+	}
+
+	// Cash account impacts
+	cashRows, err := s.pool.Query(ctx, `
+		SELECT id, COALESCE(parent_id, id), name, balance, COALESCE(category, 'savings'), start_date, end_date,
+		       interest_rate, growth_strategy, impact_kind, impact_frequency, updated_at
+		FROM finance_cash_accounts
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query cash account impacts: %w", err)
+	}
+	defer cashRows.Close()
+	for cashRows.Next() {
+		var id, parentID, name, category string
+		var balance decimal.Decimal
+		var startDate time.Time
+		var endDate *time.Time
+		var interestRate decimal.Decimal
+		var growthStrategy, impactKind, impactFrequency *string
+		var updatedAt time.Time
+		if err := cashRows.Scan(&id, &parentID, &name, &balance, &category,
+			&startDate, &endDate, &interestRate, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			return nil, err
+		}
+		interestRateFloat := interestRate.ToFloat64()
+		imp := ScenarioImpact{
+			ID:                  id,
+			EventID:             eventID,
+			TargetCashAccountID: &parentID,
+			Name:                name,
+			Amount:              &balance,
+			Category:            category,
+			StartDate:           startDate,
+			EndDate:             endDate,
+			GrowthRate:          &interestRateFloat,
+			Currency:            "SGD",
+			CreatedAt:           updatedAt,
+		}
+		if impactKind != nil {
+			imp.ImpactKind = *impactKind
+		}
+		if impactFrequency != nil {
+			imp.Cadence = common.Frequency(*impactFrequency)
+		}
+		if growthStrategy != nil {
+			imp.GrowthStrategy = *growthStrategy
+		}
+		impacts = append(impacts, imp)
+	}
+
 	if impacts == nil {
 		impacts = []ScenarioImpact{}
 	}
-	return impacts, rows.Err()
+	return impacts, nil
 }
 
-// insertImpactsV2 inserts impacts using typed FK columns.
-// All impacts (including start) must have a pre-existing targetId - no auto-creation.
-// Stores: event_id, impact_kind, amount, cadence, and target FK columns.
-// Other values (name, currency, frequency, dates, notes) are derived from the linked financial item.
-func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, _ string, eventID string, impacts []ScenarioImpact) error {
+// insertImpactsV2 inserts impacts by creating new rows in the appropriate finance table.
+// NEW ARCHITECTURE: Instead of inserting into scenario_event_impacts, we create new rows
+// in finance_* tables with scenario_event_id, impact_kind, and impact_frequency set.
+func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, eventID string, impacts []ScenarioImpact) error {
+	// Get event's occurs_on date for impact start date
+	var occursOn time.Time
+	err := tx.QueryRow(ctx, `SELECT occurs_on FROM scenario_events WHERE id = $1`, eventID).Scan(&occursOn)
+	if err != nil {
+		return fmt.Errorf("failed to get event occurs_on: %w", err)
+	}
+
 	for i := range impacts {
 		imp := &impacts[i]
 
@@ -476,43 +675,115 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, _ string, eventI
 			return scenario.ErrInvalidTargetCount
 		}
 
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO scenario_event_impacts
-			(event_id, impact_kind, amount, cadence,
-			 target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-			eventID, imp.ImpactKind, imp.Amount, imp.Cadence,
-			imp.TargetAssetID, imp.TargetLiabilityID, imp.TargetIncomeID, imp.TargetExpenseID, imp.TargetCashAccountID, imp.TargetInvestmentID,
-		); err != nil {
-			return err
+		// Amount is already a decimal
+		impactFrequency := string(imp.Cadence)
+		if impactFrequency == "" {
+			impactFrequency = "monthly"
+		}
+
+		// Insert into the appropriate finance table based on target type
+		switch targetType {
+		case "income":
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO finance_incomes (
+					user_id, parent_id, name, amount, frequency, category, start_date,
+					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+				)
+				SELECT user_id, id, name, $3, frequency, category, $4,
+				       growth_rate, growth_strategy, $5, $6, $7
+				FROM finance_incomes WHERE id = $2`,
+				userID, *imp.TargetIncomeID, imp.Amount, occursOn,
+				eventID, imp.ImpactKind, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to insert income impact: %w", err)
+			}
+
+		case "expense":
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO finance_expenses (
+					user_id, parent_id, name, amount, frequency, category, start_date,
+					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+				)
+				SELECT user_id, id, name, $3, frequency, category, $4,
+				       growth_rate, growth_strategy, $5, $6, $7
+				FROM finance_expenses WHERE id = $2`,
+				userID, *imp.TargetExpenseID, imp.Amount, occursOn,
+				eventID, imp.ImpactKind, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to insert expense impact: %w", err)
+			}
+
+		case "asset":
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO finance_assets (
+					user_id, parent_id, name, current_value, category, start_date,
+					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+				)
+				SELECT user_id, id, name, $3, category, $4,
+				       growth_rate, growth_strategy, $5, $6, $7
+				FROM finance_assets WHERE id = $2`,
+				userID, *imp.TargetAssetID, imp.Amount, occursOn,
+				eventID, imp.ImpactKind, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to insert asset impact: %w", err)
+			}
+
+		case "liability":
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO finance_liabilities (
+					user_id, parent_id, name, current_balance, category, start_date,
+					interest_rate_apr, minimum_payment, growth_strategy,
+					scenario_event_id, impact_kind, impact_frequency
+				)
+				SELECT user_id, id, name, $3, category, $4,
+				       interest_rate_apr, minimum_payment, growth_strategy,
+				       $5, $6, $7
+				FROM finance_liabilities WHERE id = $2`,
+				userID, *imp.TargetLiabilityID, imp.Amount, occursOn,
+				eventID, imp.ImpactKind, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to insert liability impact: %w", err)
+			}
+
+		case "investment":
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO finance_investments (
+					user_id, parent_id, name, current_value, category, start_date,
+					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+				)
+				SELECT user_id, id, name, $3, category, $4,
+				       growth_rate, growth_strategy, $5, $6, $7
+				FROM finance_investments WHERE id = $2`,
+				userID, *imp.TargetInvestmentID, imp.Amount, occursOn,
+				eventID, imp.ImpactKind, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to insert investment impact: %w", err)
+			}
+
+		case "cash":
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO finance_cash_accounts (
+					user_id, parent_id, name, balance, category, start_date,
+					interest_rate, growth_strategy, is_accumulator,
+					scenario_event_id, impact_kind, impact_frequency
+				)
+				SELECT user_id, id, name, $3, COALESCE(category, 'savings'), $4,
+				       interest_rate, growth_strategy, false,
+				       $5, $6, $7
+				FROM finance_cash_accounts WHERE id = $2`,
+				userID, *imp.TargetCashAccountID, imp.Amount, occursOn,
+				eventID, imp.ImpactKind, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to insert cash account impact: %w", err)
+			}
 		}
 	}
 	return nil
 }
 
-// GetExcludedScenarioTargetIDs returns IDs of financial items created by excluded scenarios.
-// These should be filtered out from timeline queries.
+// GetExcludedScenarioTargetIDs returns IDs of financial items linked to excluded scenarios.
+// NEW ARCHITECTURE: Query finance tables for items with scenario_event_id linked to excluded events.
 func (s *Store) GetExcludedScenarioTargetIDs(ctx context.Context, userID string) (ExcludedTargets, error) {
-	query := `
-		SELECT
-			sei.target_asset_id,
-			sei.target_liability_id,
-			sei.target_income_id,
-			sei.target_expense_id,
-			sei.target_cash_account_id,
-			sei.target_investment_id
-		FROM scenario_event_impacts sei
-		JOIN scenario_events se ON se.id = sei.event_id
-		WHERE se.user_id = $1
-		  AND se.is_included = false
-		  AND sei.impact_kind = 'start'`
-
-	rows, err := s.pool.Query(ctx, query, userID)
-	if err != nil {
-		return ExcludedTargets{}, err
-	}
-	defer rows.Close()
-
 	result := ExcludedTargets{
 		AssetIDs:       make(map[string]struct{}),
 		LiabilityIDs:   make(map[string]struct{}),
@@ -522,33 +793,110 @@ func (s *Store) GetExcludedScenarioTargetIDs(ctx context.Context, userID string)
 		InvestmentIDs:  make(map[string]struct{}),
 	}
 
-	for rows.Next() {
-		// pgx scans NULL directly into *string
-		var assetID, liabilityID, incomeID, expenseID, cashAccountID, investmentID *string
-		if err := rows.Scan(&assetID, &liabilityID, &incomeID, &expenseID, &cashAccountID, &investmentID); err != nil {
+	// Query each finance table for items linked to excluded scenario events
+	// Income impacts from excluded events
+	incomeRows, err := s.pool.Query(ctx, `
+		SELECT fi.id FROM finance_incomes fi
+		JOIN scenario_events se ON fi.scenario_event_id = se.id
+		WHERE fi.user_id = $1 AND se.is_included = false`, userID)
+	if err != nil {
+		return ExcludedTargets{}, err
+	}
+	defer incomeRows.Close()
+	for incomeRows.Next() {
+		var id string
+		if err := incomeRows.Scan(&id); err != nil {
 			return ExcludedTargets{}, err
 		}
-		if assetID != nil {
-			result.AssetIDs[*assetID] = struct{}{}
-		}
-		if liabilityID != nil {
-			result.LiabilityIDs[*liabilityID] = struct{}{}
-		}
-		if incomeID != nil {
-			result.IncomeIDs[*incomeID] = struct{}{}
-		}
-		if expenseID != nil {
-			result.ExpenseIDs[*expenseID] = struct{}{}
-		}
-		if cashAccountID != nil {
-			result.CashAccountIDs[*cashAccountID] = struct{}{}
-		}
-		if investmentID != nil {
-			result.InvestmentIDs[*investmentID] = struct{}{}
-		}
+		result.IncomeIDs[id] = struct{}{}
 	}
 
-	return result, rows.Err()
+	// Expense impacts from excluded events
+	expenseRows, err := s.pool.Query(ctx, `
+		SELECT fe.id FROM finance_expenses fe
+		JOIN scenario_events se ON fe.scenario_event_id = se.id
+		WHERE fe.user_id = $1 AND se.is_included = false`, userID)
+	if err != nil {
+		return ExcludedTargets{}, err
+	}
+	defer expenseRows.Close()
+	for expenseRows.Next() {
+		var id string
+		if err := expenseRows.Scan(&id); err != nil {
+			return ExcludedTargets{}, err
+		}
+		result.ExpenseIDs[id] = struct{}{}
+	}
+
+	// Asset impacts from excluded events
+	assetRows, err := s.pool.Query(ctx, `
+		SELECT fa.id FROM finance_assets fa
+		JOIN scenario_events se ON fa.scenario_event_id = se.id
+		WHERE fa.user_id = $1 AND se.is_included = false`, userID)
+	if err != nil {
+		return ExcludedTargets{}, err
+	}
+	defer assetRows.Close()
+	for assetRows.Next() {
+		var id string
+		if err := assetRows.Scan(&id); err != nil {
+			return ExcludedTargets{}, err
+		}
+		result.AssetIDs[id] = struct{}{}
+	}
+
+	// Liability impacts from excluded events
+	liabilityRows, err := s.pool.Query(ctx, `
+		SELECT fl.id FROM finance_liabilities fl
+		JOIN scenario_events se ON fl.scenario_event_id = se.id
+		WHERE fl.user_id = $1 AND se.is_included = false`, userID)
+	if err != nil {
+		return ExcludedTargets{}, err
+	}
+	defer liabilityRows.Close()
+	for liabilityRows.Next() {
+		var id string
+		if err := liabilityRows.Scan(&id); err != nil {
+			return ExcludedTargets{}, err
+		}
+		result.LiabilityIDs[id] = struct{}{}
+	}
+
+	// Investment impacts from excluded events
+	investmentRows, err := s.pool.Query(ctx, `
+		SELECT finv.id FROM finance_investments finv
+		JOIN scenario_events se ON finv.scenario_event_id = se.id
+		WHERE finv.user_id = $1 AND se.is_included = false`, userID)
+	if err != nil {
+		return ExcludedTargets{}, err
+	}
+	defer investmentRows.Close()
+	for investmentRows.Next() {
+		var id string
+		if err := investmentRows.Scan(&id); err != nil {
+			return ExcludedTargets{}, err
+		}
+		result.InvestmentIDs[id] = struct{}{}
+	}
+
+	// Cash account impacts from excluded events
+	cashRows, err := s.pool.Query(ctx, `
+		SELECT fca.id FROM finance_cash_accounts fca
+		JOIN scenario_events se ON fca.scenario_event_id = se.id
+		WHERE fca.user_id = $1 AND se.is_included = false`, userID)
+	if err != nil {
+		return ExcludedTargets{}, err
+	}
+	defer cashRows.Close()
+	for cashRows.Next() {
+		var id string
+		if err := cashRows.Scan(&id); err != nil {
+			return ExcludedTargets{}, err
+		}
+		result.CashAccountIDs[id] = struct{}{}
+	}
+
+	return result, nil
 }
 
 // ListIncludedScenarioEvents returns all included (is_included=true) scenario events
@@ -574,71 +922,3 @@ func decodeStringArray(b []byte) []string {
 	return arr
 }
 
-// scanImpactPgx constructs a ScenarioImpact from nullable pointer scan results (pgx style).
-// Impact table stores: id, event_id, impact_kind, amount, cadence, created_at, and target FK columns.
-// Other fields (name, currency, frequency, dates, notes, category, growth_rate, growth_strategy)
-// are derived from the joined financial item tables.
-func scanImpactPgx(
-	eventID string,
-	impID, impKind *string,
-	impAmount *int64,
-	impCadence *string,
-	impCreatedAt *time.Time,
-	targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID *string,
-	// Derived from financial item
-	targetName, targetCurrency, targetFrequency *string,
-	targetStartDate, targetEndDate *time.Time, targetNotes *string,
-	// Advanced fields from financial item
-	targetCategory *string, targetGrowthRate *float64, targetGrowthStrategy *string,
-) ScenarioImpact {
-	imp := ScenarioImpact{
-		EventID:             eventID,
-		TargetAssetID:       targetAssetID,
-		TargetLiabilityID:   targetLiabilityID,
-		TargetIncomeID:      targetIncomeID,
-		TargetExpenseID:     targetExpenseID,
-		TargetCashAccountID: targetCashAccountID,
-		TargetInvestmentID:  targetInvestmentID,
-		EndDate:             targetEndDate,
-		GrowthRate:          targetGrowthRate,
-	}
-	if impID != nil {
-		imp.ID = *impID
-	}
-	if impKind != nil {
-		imp.ImpactKind = *impKind
-	}
-	if impAmount != nil {
-		imp.Amount = *impAmount
-	}
-	if impCadence != nil {
-		imp.Cadence = common.Frequency(*impCadence)
-	}
-	if impCreatedAt != nil {
-		imp.CreatedAt = *impCreatedAt
-	}
-	// Derived fields from financial item
-	if targetName != nil {
-		imp.Name = *targetName
-	}
-	if targetCurrency != nil {
-		imp.Currency = *targetCurrency
-	}
-	if targetFrequency != nil {
-		imp.Frequency = *targetFrequency
-	}
-	if targetStartDate != nil {
-		imp.StartDate = *targetStartDate
-	}
-	if targetNotes != nil {
-		imp.Notes = *targetNotes
-	}
-	// Advanced fields from financial item
-	if targetCategory != nil {
-		imp.Category = *targetCategory
-	}
-	if targetGrowthStrategy != nil {
-		imp.GrowthStrategy = *targetGrowthStrategy
-	}
-	return imp
-}
