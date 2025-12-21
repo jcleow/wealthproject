@@ -42,9 +42,9 @@ type ToolDefinition struct {
 
 // FunctionSchema defines the schema for a function
 type FunctionSchema struct {
-	Name        string                 `json:"name"`        // Function name
-	Description string                 `json:"description"` // Human-readable description
-	Parameters  map[string]interface{} `json:"parameters"`  // JSON Schema object
+	Name        string     `json:"name"`        // Function name
+	Description string     `json:"description"` // Human-readable description
+	Parameters  JSONSchema `json:"parameters"`  // JSON Schema object
 }
 
 // ChatRequest represents a request to generate tool calls
@@ -72,6 +72,8 @@ type ToolCallResponse struct {
 type TokenUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
+	CachedTokens     int `json:"cached_tokens,omitempty"`
+	ThoughtsTokens   int `json:"thoughts_tokens,omitempty"`
 	TotalTokens      int `json:"total_tokens"`
 }
 

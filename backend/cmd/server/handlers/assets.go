@@ -22,6 +22,7 @@ func (h *AssetHandler) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("/assets/", h.handleItem)
 }
 
+// GET|POST /api/v1/assets
 func (h *AssetHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -33,6 +34,8 @@ func (h *AssetHandler) handleCollection(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// GET /api/v1/assets/{id}
+// PUT /api/v1/assets/{id}/convert-to-property
 func (h *AssetHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/assets/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
@@ -55,51 +58,69 @@ func (h *AssetHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		h.get(w, r, id)
-	case http.MethodPut:
-		h.update(w, r, id)
-	case http.MethodDelete:
-		h.delete(w, r, id)
+	// PUT and DELETE moved to v2 API with versioning support
 	default:
 		methodNotAllowed(w)
 	}
 }
 
+// PUT /api/v1/assets/{id}/convert-to-property
 func (h *AssetHandler) convertToProperty(w http.ResponseWriter, r *http.Request, id string) {
-	updated, err := h.store.ConvertAssetToProperty(r.Context(), id)
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	updated, err := h.store.ConvertAssetToProperty(r.Context(), userID, id)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, updated)
 }
 
+// GET /api/v1/assets
 func (h *AssetHandler) list(w http.ResponseWriter, r *http.Request) {
-	items, err := h.store.ListAssets(r.Context())
-	if err != nil {
-		internalError(w)
+	userID, ok := requireUserID(w, r)
+	if !ok {
 		return
 	}
-	writeJSON(w, items)
+	pagination := parsePagination(r)
+	result, err := h.store.ListAssets(r.Context(), userID, pagination)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, result)
 }
 
+// GET /api/v1/assets/{id}
 func (h *AssetHandler) get(w http.ResponseWriter, r *http.Request, id string) {
-	item, err := h.store.GetAsset(r.Context(), id)
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	item, err := h.store.GetAsset(r.Context(), userID, id)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, item)
 }
 
+// POST /api/v1/assets
 func (h *AssetHandler) create(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload repository.Asset
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
@@ -109,41 +130,12 @@ func (h *AssetHandler) create(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, errMissingFields("name, category, current_value"))
 		return
 	}
-	created, err := h.store.CreateAsset(r.Context(), payload)
+	created, err := h.store.CreateAsset(r.Context(), userID, payload)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, created)
 }
 
-func (h *AssetHandler) update(w http.ResponseWriter, r *http.Request, id string) {
-	var payload repository.Asset
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		badRequest(w, err)
-		return
-	}
-	payload.ID = id
-	updated, err := h.store.UpdateAsset(r.Context(), payload)
-	if err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w)
-		return
-	}
-	writeJSON(w, updated)
-}
-
-func (h *AssetHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
-	if err := h.store.DeleteAsset(r.Context(), id); err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
+// update and delete methods moved to v2 API (assets_v2.go) with versioning support

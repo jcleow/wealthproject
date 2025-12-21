@@ -28,6 +28,7 @@ type propertyScenarioRequest struct {
 	LiabilityID string `json:"liability_id"`
 }
 
+// GET|POST /api/v1/property-planner/scenarios
 func (h *PropertyScenarioHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -39,6 +40,7 @@ func (h *PropertyScenarioHandler) handleCollection(w http.ResponseWriter, r *htt
 	}
 }
 
+// GET|PUT|DELETE /api/v1/property-planner/scenarios/{id}
 func (h *PropertyScenarioHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/property-planner/scenarios/")
 	if id == "" {
@@ -58,29 +60,44 @@ func (h *PropertyScenarioHandler) handleItem(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// GET /api/v1/property-planner/scenarios
 func (h *PropertyScenarioHandler) list(w http.ResponseWriter, r *http.Request) {
-	items, err := h.store.ListPropertyScenarios(r.Context())
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.store.ListPropertyScenarios(r.Context(), userID)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, items)
 }
 
+// GET /api/v1/property-planner/scenarios/{id}
 func (h *PropertyScenarioHandler) get(w http.ResponseWriter, r *http.Request, id string) {
-	item, err := h.store.GetPropertyScenario(r.Context(), id)
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	item, err := h.store.GetPropertyScenario(r.Context(), userID, id)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, item)
 }
 
+// POST /api/v1/property-planner/scenarios
 func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload propertyScenarioRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
@@ -90,36 +107,36 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 		badRequest(w, errMissingFields("property_type, headline, property_price, loan_amount, interest_rate, loan_tenure"))
 		return
 	}
-	created, err := h.store.CreatePropertyScenario(r.Context(), payload.PropertyScenario)
+	created, err := h.store.CreatePropertyScenario(r.Context(), userID, payload.PropertyScenario)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
 	// If asset_id and liability_id provided, enforce property category and create link.
 	if payload.AssetID != "" && payload.LiabilityID != "" {
-		if _, err := h.store.ConvertAssetToProperty(r.Context(), payload.AssetID); err != nil {
+		if _, err := h.store.ConvertAssetToProperty(r.Context(), userID, payload.AssetID); err != nil {
 			if err == repository.ErrNotFound {
 				notFound(w)
 				return
 			}
-			internalError(w)
+			internalError(w, err)
 			return
 		}
-		if _, err := h.store.ConvertLiabilityToProperty(r.Context(), payload.LiabilityID); err != nil {
+		if _, err := h.store.ConvertLiabilityToProperty(r.Context(), userID, payload.LiabilityID); err != nil {
 			if err == repository.ErrNotFound {
 				notFound(w)
 				return
 			}
-			internalError(w)
+			internalError(w, err)
 			return
 		}
-		if _, err := h.store.CreateOrReplacePropertyLink(r.Context(), repository.PropertyLink{
+		if _, err := h.store.CreateOrReplacePropertyLink(r.Context(), userID, repository.PropertyLink{
 			PropertyScenarioID: created.ID,
 			AssetID:            payload.AssetID,
 			LiabilityID:        payload.LiabilityID,
 		}); err != nil {
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 	} else if payload.AssetID != "" || payload.LiabilityID != "" {
@@ -130,32 +147,42 @@ func (h *PropertyScenarioHandler) create(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, created)
 }
 
+// PUT /api/v1/property-planner/scenarios/{id}
 func (h *PropertyScenarioHandler) update(w http.ResponseWriter, r *http.Request, id string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload repository.PropertyScenario
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
 		return
 	}
 	payload.ID = id
-	updated, err := h.store.UpdatePropertyScenario(r.Context(), payload)
+	updated, err := h.store.UpdatePropertyScenario(r.Context(), userID, payload)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, updated)
 }
 
+// DELETE /api/v1/property-planner/scenarios/{id}
 func (h *PropertyScenarioHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
-	if err := h.store.DeletePropertyScenario(r.Context(), id); err != nil {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.store.DeletePropertyScenario(r.Context(), userID, id); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

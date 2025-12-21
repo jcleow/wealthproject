@@ -31,12 +31,15 @@ type Config struct {
 	// Session management
 	SessionTTLHours               int
 	SessionCleanupIntervalMinutes int
+
+	// Usage tracking
+	UsageTrackingEnabled bool
 }
 
 func New() *Config {
 	return &Config{
 		Port:        getEnv("PORT", "8080"),
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://financial_user:financial_pass_dev_2024@localhost:5432/financial_chat?sslmode=disable"),
+		DatabaseURL: getEnv("DATABASE_URL", "postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"),
 		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key"),
 		PrimaryLLM:  getEnv("PRIMARY_LLM", "openai"),
 
@@ -48,7 +51,7 @@ func New() *Config {
 		AnthropicModel:     getEnv("ANTHROPIC_MODEL", "claude-3-sonnet-20240229"),
 		AnthropicMaxTokens: getEnvAsInt("ANTHROPIC_MAX_TOKENS", 0),
 		GeminiAPIKey:       getEnv("GEMINI_API_KEY", ""),
-		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-1.5-flash"),
+		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-1.5-flash-latest"),
 		GeminiTemperature:  getEnvAsFloat64("GEMINI_TEMPERATURE", 0.1),
 		GeminiMaxTokens:    getEnvAsInt("GEMINI_MAX_TOKENS", 0),
 
@@ -60,6 +63,9 @@ func New() *Config {
 		// Session management
 		SessionTTLHours:               getEnvAsInt("SESSION_TTL_HOURS", 24),
 		SessionCleanupIntervalMinutes: getEnvAsInt("SESSION_CLEANUP_INTERVAL_MINUTES", 60),
+
+		// Usage tracking
+		UsageTrackingEnabled: getEnvAsBool("USAGE_TRACKING_ENABLED", true),
 	}
 }
 
@@ -92,6 +98,15 @@ func getEnvAsFloat64(key string, defaultValue float64) float64 {
 	if value := os.Getenv(key); value != "" {
 		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
 			return floatValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
 		}
 	}
 	return defaultValue

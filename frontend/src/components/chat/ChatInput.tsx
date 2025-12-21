@@ -36,7 +36,7 @@ function ChatInputBase({
     setInput('')
 
     if (textareaRef.current) {
-      textareaRef.current.style.height = '44px'
+      textareaRef.current.style.height = 'auto'
       textareaRef.current.focus()
     }
   }
@@ -51,13 +51,18 @@ function ChatInputBase({
   const adjustHeight = () => {
     const textarea = textareaRef.current
     if (textarea) {
-      textarea.style.height = '44px'
+      textarea.style.height = 'auto'
       textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`
     }
   }
 
   return (
-    <div className="flex w-full items-end gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-xl shadow-black/30">
+    <div className={`flex items-center
+w-full
+gap-3 px-4 py-3
+rounded-2xl border border-white/10
+bg-white/5
+shadow-xl shadow-black/30`}>
       <Textarea
         ref={textareaRef}
         value={input}
@@ -70,7 +75,13 @@ function ChatInputBase({
           status === 'loading' ? 'Processing...' : 'Ask about your finances...'
         }
         className={cn(
-          '!min-h-[44px] max-h-[160px] flex-1 resize-none rounded-none border-none bg-transparent px-0 py-0 text-base text-white placeholder:text-gray-500 focus-visible:outline-none focus:outline-none focus-visible:ring-0 focus:ring-0 focus-visible:ring-offset-0 focus:ring-offset-0 focus-visible:outline-offset-0',
+          `flex-1
+min-h-0 max-h-[160px]
+px-0 py-0
+rounded-none border-none focus-visible:outline-none focus:outline-none focus-visible:ring-0 focus:ring-0 focus-visible:ring-offset-0 focus:ring-offset-0 focus-visible:outline-offset-0
+bg-transparent
+text-sm leading-8 text-white placeholder:text-slate-500
+resize-none`,
           status === 'loading' && 'opacity-50'
         )}
         disabled={isLoading}
@@ -80,7 +91,11 @@ function ChatInputBase({
       <div className="flex items-center gap-2">
         {status === 'loading' ? (
           <button
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-gray-300 transition hover:bg-white/10"
+            className={`p-2
+rounded-lg
+bg-white/10 hover:bg-white
+text-slate-300 hover:text-black
+transition-all`}
             onClick={() => {}}
             type="button"
           >
@@ -88,7 +103,12 @@ function ChatInputBase({
           </button>
         ) : (
           <button
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 text-white transition disabled:opacity-40"
+            className={`p-2
+rounded-lg
+bg-white/10 hover:bg-white disabled:hover:bg-white/10
+text-slate-300 hover:text-black disabled:hover:text-slate-300
+disabled:opacity-50
+transition-all`}
             onClick={handleSubmit}
             disabled={!input.trim() || isLoading}
             type="button"

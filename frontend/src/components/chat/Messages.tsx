@@ -57,12 +57,12 @@ export default function Messages({
 
   return (
     <div className="flex-1 overflow-y-auto" ref={containerRef}>
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">
+      <div className={`flex flex-col
+w-full max-w-3xl
+mx-auto gap-4 px-2 py-4 md:gap-6 md:px-4`}>
         {combinedItems.length === 0 && (
           <div className="flex items-center justify-center py-12 text-center">
             <div className="space-y-2">
-              <div className="text-3xl">💡</div>
-              <h3 className="text-xl font-semibold text-white">Welcome to Financial Chat</h3>
               <p className="text-sm text-gray-400">
                 Tell me about your financial goals or ask questions about your finances to get started.
               </p>

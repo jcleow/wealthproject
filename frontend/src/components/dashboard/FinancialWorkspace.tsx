@@ -1,45 +1,67 @@
-import { useState } from 'react'
-import { Building2, Loader2, Sparkles, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet } from 'lucide-react'
 
-import { useFinancialData } from '@/hooks/useFinancialData'
-import { financialApi } from '@/services/financialApi'
-import { TimelineEditDrawer } from '../financial/TimelineEditDrawer'
-import { PropertyPlannerModal } from '../modals/PropertyPlannerModal'
+import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
+import { useScenarioEvents } from '@/hooks/useScenarioEvents'
+import { assetsApi, liabilitiesApi, propertyApi } from '@/api/financial'
+import { PropertyPlannerModal } from '../modals/PropertyPlannerModal/PropertyPlannerModal'
+import { ScenarioEventModal } from '../modals/ScenarioEventModal/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
-import type { TimelineEditRequest, TimelineYear } from '@/types/timeline'
+import { UserMenu } from '../auth/UserMenu'
+import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
+import type { ScenarioEvent } from '@/types/scenario'
+import type { ZoomLevel } from '@/components/timeline/ZoomControls'
+import clsx from 'clsx'
 
 interface FinancialWorkspaceProps {
   selectedYear: number
   onSelectYear: (year: number) => void
+  onSelectMonth?: (month: number) => void
   timelineYears?: TimelineYear[]
-  timelineYear?: TimelineYear
+  timelineMonths?: TimelineMonth[]
+  resolution?: TimeResolution
+  zoomLevel?: ZoomLevel
+  onZoomLevelChange?: (level: ZoomLevel) => void
   overrideYears?: Set<number>
-  onSaveTimelineEdits: (payload: TimelineEditRequest) => Promise<void>
-  isTimelineLoading?: boolean
-  isSavingTimeline?: boolean
   timelineError?: string | null
+  onOpenCPF?: () => void
+  anchorYear?: number | null
+  anchorMonth?: number | null
 }
+
+// Stable empty Set to use as default (avoids creating new Set on each render)
+const EMPTY_OVERRIDE_YEARS = new Set<number>()
 
 export function FinancialWorkspace({
   selectedYear,
   onSelectYear,
+  onSelectMonth,
   timelineYears,
-  timelineYear,
-  overrideYears = new Set<number>(),
-  onSaveTimelineEdits,
-  isTimelineLoading = false,
-  isSavingTimeline = false,
+  timelineMonths,
+  resolution = 'yearly',
+  zoomLevel = 'yearly',
+  onZoomLevelChange,
+  overrideYears,
   timelineError = null,
+  onOpenCPF,
+  anchorYear,
+  anchorMonth,
 }: FinancialWorkspaceProps) {
+  // Use stable empty set as fallback
+  const stableOverrideYears = useMemo(
+    () => overrideYears ?? EMPTY_OVERRIDE_YEARS,
+    [overrideYears]
+  )
+
   const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
+  const [scenarioEventToEdit, setScenarioEventToEdit] = useState<ScenarioEvent | null>(null)
   const [isClearing, setIsClearing] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
-  const [isTimelineDrawerOpen, setIsTimelineDrawerOpen] = useState(false)
-  const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialData()
-
-  const handleAction = (label: string) => {
-    console.log(`${label} clicked`)
-  }
+  const [isModuleMenuOpen, setIsModuleMenuOpen] = useState(false)
+  const { events: scenarioEvents } = useScenarioEvents()
+  const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialDataContext()
+  const moduleMenuRef = useRef<HTMLDivElement | null>(null)
 
   const clearPropertyData = async () => {
     if (typeof window === 'undefined') return
@@ -49,7 +71,7 @@ export function FinancialWorkspace({
 
     if (scenarioId) {
       try {
-        await financialApi.deletePropertyScenario(scenarioId)
+        await propertyApi.deletePropertyScenario(scenarioId)
       } catch (error) {
         console.warn('Unable to delete property scenario', error)
       }
@@ -78,13 +100,13 @@ export function FinancialWorkspace({
 
   const seedPropertyScenario = async () => {
     try {
-      const existingAssets = await financialApi.listAssets()
-      const existingLiabilities = await financialApi.listLiabilities()
-      const propertyAsset = existingAssets.find((a) => a.name === 'Sample Condo') ?? existingAssets.find((a) => a.category === 'property')
-      const propertyLiability = existingLiabilities.find((l) => l.name === 'Sample Condo Mortgage') ?? existingLiabilities.find((l) => l.category === 'property')
+      const assetsResult = await assetsApi.listAssets({ limit: -1 })
+      const liabilitiesResult = await liabilitiesApi.listLiabilities({ limit: -1 })
+      const propertyAsset = assetsResult.data.find((a) => a.name === 'Sample Condo') ?? assetsResult.data.find((a) => a.category === 'property')
+      const propertyLiability = liabilitiesResult.data.find((l) => l.name === 'Sample Condo Mortgage') ?? liabilitiesResult.data.find((l) => l.category === 'property')
       if (!propertyAsset || !propertyLiability) return null
 
-      const scenario = await financialApi.createPropertyScenario({
+      const scenario = await propertyApi.createPropertyScenario({
         propertyType: 'condo',
         headline: propertyAsset.name || 'Property scenario',
         propertyPrice: Math.max(1, propertyAsset.currentValue || 750000),
@@ -138,100 +160,343 @@ export function FinancialWorkspace({
     setIsPropertyPlannerOpen(true)
   }
 
-  const handleSaveTimelineEdits = async (payload: TimelineEditRequest) => {
-    try {
-      await onSaveTimelineEdits(payload)
-      setIsTimelineDrawerOpen(false)
-    } catch (error) {
-      console.error('Failed to save timeline edits', error)
-      if (typeof window !== 'undefined') {
-        window.alert('Unable to save timeline edits right now.')
+  useEffect(() => {
+    if (!isModuleMenuOpen) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moduleMenuRef.current && !moduleMenuRef.current.contains(event.target as Node)) {
+        setIsModuleMenuOpen(false)
       }
     }
-  }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isModuleMenuOpen])
+
+  const handleCreateScenario = useCallback(() => {
+    setScenarioEventToEdit(null)
+    setIsScenarioModalOpen(true)
+  }, [])
+
+  const handleScenarioSelect = useCallback((event: ScenarioEvent) => {
+    if (!event?.id) return
+    setScenarioEventToEdit(event)
+    setIsScenarioModalOpen(true)
+  }, [])
 
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-col border-0 bg-midnight-900 text-white">
-      <div className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h3 className="text-2xl font-semibold text-white">Financial Workspace</h3>
-          <p className="text-sm text-gray-400">
-            Track projections, run scenarios, and launch planning tools.
-          </p>
+    <div className={`flex flex-col
+h-full min-h-0 w-full min-w-0
+bg-transparent
+text-slate-200`}>
+      {/* Compact Header */}
+      <header className={`relative z-[100]
+flex items-center justify-between
+h-14
+px-6
+shrink-0`}>
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col">
+            {/* <h2 className="text-lg font-medium tracking-tight text-slate-100">Workspace</h2> */}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="hidden items-center gap-2 md:flex">
+
+        {/* Glass pill control group */}
+        <div className={clsx(
+          "flex items-center gap-3",
+          "px-3 py-1.5",
+          "border border-white/[0.06] rounded-full",
+          "bg-white/[0.02]",
+          "backdrop-blur-sm",
+        )}>
+          {/* Search */}
+          <div className="flex items-center gap-2 border-r border-white/[0.06] pr-3">
+            <Search className="h-3.5 w-3.5 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search..."
+              className={`w-48
+placeholder-slate-600
+focus:outline-none
+bg-transparent
+text-[13px] text-slate-300`}
+            />
+          </div>
+
+          <div className="hidden items-center gap-1 md:flex">
             <button
               onClick={handleLoadDefaults}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
+              className={clsx(
+                "flex items-center justify-center",
+                "h-7 w-7",
+                "rounded-full",
+                "hover:bg-white/5",
+                "hover:text-slate-300 text-slate-500",
+                "disabled:opacity-60",
+                "transition",
+              )}
               title="Load defaults"
               type="button"
               disabled={isSeeding}
             >
-              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {isSeeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
             </button>
             <button
               onClick={handleClearAllData}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-600/10 text-rose-100 transition hover:bg-rose-600/20 hover:text-white disabled:opacity-60"
+              className={clsx(
+                "flex items-center justify-center",
+                "h-7 w-7",
+                "rounded-full",
+                "hover:bg-rose-500/10",
+                "hover:text-rose-300 text-rose-400/70",
+                "disabled:opacity-60",
+                "transition",
+              )}
               title="Delete all data"
               type="button"
               disabled={isClearing}
             >
-              {isClearing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {isClearing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             </button>
           </div>
+
+          <div className="h-4 w-px bg-white/[0.06]" />
+
+          <div className="relative z-[100]" ref={moduleMenuRef}>
+            <button
+              onClick={() => setIsModuleMenuOpen((prev) => !prev)}
+              className={clsx(
+                "flex items-center gap-1.5",
+                "px-2 py-1",
+                "rounded-lg",
+                "hover:bg-white/5",
+                "font-medium hover:text-slate-200 text-[11px] text-slate-400",
+                "transition",
+              )}
+              type="button"
+            >
+              <Sparkles className="h-3 w-3 text-blue-400/70" />
+              <span className="text-[13px] hidden md:inline">Modules</span>
+              <ChevronDown className={`h-2.5 w-2.5 transition ${isModuleMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isModuleMenuOpen && (
+              <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-[99]"
+                onClick={() => setIsModuleMenuOpen(false)}
+              />
+              <div className={clsx(
+                "absolute right-0 z-[100]",
+                "w-64",
+                "mt-2",
+                "border border-white/[0.08] rounded-xl",
+                "bg-[#0a0a0a]",
+                "shadow-2xl",
+                "overflow-hidden",
+              )} style={{ isolation: 'isolate' }}>
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    handlePropertyPlanner()
+                  }}
+                  className={clsx(
+                    "flex items-start gap-3",
+                    "w-full",
+                    "px-4 py-3",
+                    "border-b border-white/[0.04]",
+                    "hover:bg-white/5",
+                    "text-left text-slate-200 text-sm",
+                    "transition",
+                  )}
+                  type="button"
+                >
+                  <span className={`mt-0.5 p-2
+rounded-lg border border-blue-500/20
+bg-blue-500/10
+text-blue-400`}>
+                    <Building2 className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">Property Planner</div>
+                    <p className="text-xs text-slate-400">Model affordability, mortgages, and cash flow.</p>
+                  </div>
+                </button>
+                {/* CPF Simulation */}
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    onOpenCPF?.()
+                  }}
+                  className={clsx(
+                    "flex items-start gap-3",
+                    "w-full",
+                    "px-4 py-3",
+                    "border-b border-white/[0.04]",
+                    "hover:bg-white/5",
+                    "text-left text-slate-200 text-sm",
+                    "transition",
+                  )}
+                  type="button"
+                >
+                  <span className={`mt-0.5 p-2
+rounded-lg border border-emerald-500/20
+bg-emerald-500/10
+text-emerald-400`}>
+                    <Wallet className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">CPF</div>
+                    <p className="text-xs text-slate-400">Simulate balances, investments, and retirement.</p>
+                  </div>
+                </button>
+                {/* Coming Soon Modules */}
+                <div className="cursor-not-allowed opacity-60">
+                  <div className={`flex items-start
+w-full
+gap-3 px-4 py-3
+text-left text-sm`}>
+                    <span className={`mt-0.5 p-2
+rounded-lg border border-white/[0.06]
+bg-white/[0.02]
+text-slate-500`}>
+                      <Car className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-0.5">
+                      <div className="font-medium text-slate-400">Vehicle Purchase</div>
+                      <p className="text-xs text-slate-500">Coming soon</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="cursor-not-allowed opacity-60">
+                  <div className={`flex items-start
+w-full
+gap-3 px-4 py-3
+text-left text-sm`}>
+                    <span className={`mt-0.5 p-2
+rounded-lg border border-white/[0.06]
+bg-white/[0.02]
+text-slate-500`}>
+                      <Receipt className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-0.5">
+                      <div className="font-medium text-slate-400">Tax Module</div>
+                      <p className="text-xs text-slate-500">Coming soon</p>
+                    </div>
+                  </div>                                    
+                </div>
+                <div className="cursor-not-allowed opacity-60">
+                  <div className={`flex items-start
+w-full
+gap-3 px-4 py-3
+text-left text-sm`}>
+                    <span className={`mt-0.5 p-2
+rounded-lg border border-white/[0.06]
+bg-white/[0.02]
+text-slate-500`}>
+                      <Receipt className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-0.5">
+                      <div className="font-medium text-slate-400">Insurance Coverage</div>
+                      <p className="text-xs text-slate-500">Coming soon</p>
+                    </div>
+                  </div>                                    
+                </div>
+              </div>
+              </>
+            )}
+          </div>
+
+          <div className="h-4 w-px bg-white/[0.06]" />
+
+          {/* Notification bell */}
           <button
-            onClick={handlePropertyPlanner}
-            className="flex items-center gap-3 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
             type="button"
+            className={clsx(
+              "flex items-center justify-center",
+              "h-7 w-7",
+              "rounded-full",
+              "hover:bg-white/5",
+              "hover:text-slate-300 text-slate-500",
+              "transition",
+            )}
           >
-            <Sparkles className="h-4 w-4 text-blue-200" />
-            <span className="hidden md:inline">Property Planner</span>
-            <span className="flex items-center gap-1 rounded-full bg-black/30 px-2 py-1 text-xs text-blue-100">
-              <Building2 className="h-3 w-3" />
-              HDB (BTO / Resale)
-            </span>
+            <Bell className="h-3.5 w-3.5" />
           </button>
-          <button
-            onClick={() => setIsTimelineDrawerOpen(true)}
-            className="rounded-full bg-blue-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:opacity-60"
-            title="Edit selected year"
-            disabled={isTimelineLoading}
-          >
-            {isSavingTimeline ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Edit year'}
-          </button>
+
+          <UserMenu />
         </div>
-      </div>
+      </header>
+
       {timelineError && (
-        <div className="mx-6 mb-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-sm text-rose-100">
+        <div className={clsx(
+          "mt-4 mx-6 px-4 py-2",
+          "border border-rose-500/20 rounded-lg",
+          "bg-rose-500/5",
+          "text-rose-300 text-xs",
+        )}>
           Timeline unavailable: {timelineError}
         </div>
       )}
-      <div className="p-6 h-[320px] flex-none">
-        <NetWorthProjection
-          timelineYears={timelineYears}
-          overrideYears={overrideYears}
-          selectedYear={selectedYear}
-          onSelectYear={(year) => {
-            onSelectYear(year)
-            const target = document.getElementById('financial-data-section')
-            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          }}
-        />
+
+      {/* Chart Section */}
+      <div className="flex-1 p-6">
+        <section className={clsx(
+          "relative",
+          "h-full",
+          "border border-white/[0.1] hover:border-white/[0.15] rounded-2xl",
+          "bg-[#0a0a0a]/60",
+          "transition-all",
+          "overflow-hidden",
+        )}>
+          {/* Chart Container - NetWorthProjection has its own header */}
+          <div className="h-full">
+            <NetWorthProjection
+              chartTitle="Net Worth Projection"
+              timelineYears={timelineYears}
+              timelineMonths={timelineMonths}
+              resolution={resolution}
+              zoomLevel={zoomLevel}
+              onZoomLevelChange={onZoomLevelChange}
+              overrideYears={stableOverrideYears}
+              selectedYear={selectedYear}
+              scenarioEvents={scenarioEvents}
+              onAddScenario={handleCreateScenario}
+              onScenarioSelect={handleScenarioSelect}
+              onSelectYear={onSelectYear}
+              onSelectMonth={onSelectMonth}
+            />
+          </div>
+        </section>
       </div>
 
       <PropertyPlannerModal
         isOpen={isPropertyPlannerOpen}
         onClose={() => setIsPropertyPlannerOpen(false)}
       />
-      <TimelineEditDrawer
-        isOpen={isTimelineDrawerOpen}
-        onClose={() => setIsTimelineDrawerOpen(false)}
-        year={selectedYear}
-        timelineYear={timelineYear}
-        onSave={handleSaveTimelineEdits}
-        saving={isSavingTimeline}
-      />
+      {isScenarioModalOpen && (
+        <ScenarioEventModal
+          isOpen={isScenarioModalOpen}
+          event={scenarioEventToEdit ?? undefined}
+          anchorYear={anchorYear}
+          anchorMonth={anchorMonth}
+          onClose={() => {
+            setIsScenarioModalOpen(false)
+            setScenarioEventToEdit(null)
+          }}
+          onSaved={() => {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('financial-data-refresh'))
+            }
+            setScenarioEventToEdit(null)
+            setIsScenarioModalOpen(false)
+          }}
+          onJumpToDate={(year, month) => {
+            onSelectYear(year)
+            onSelectMonth?.(month)
+            setIsScenarioModalOpen(false)
+            setScenarioEventToEdit(null)
+          }}
+        />
+      )}
     </div>
   )
 }

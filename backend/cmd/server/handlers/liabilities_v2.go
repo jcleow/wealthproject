@@ -1,0 +1,272 @@
+package handlers
+
+import (
+	"encoding/json"
+	"log"
+	"net/http"
+	"time"
+
+	"financial-chat-system/backend/internal/financial_v2/liability"
+	repo "financial-chat-system/backend/internal/financial_v2/repository"
+	"financial-chat-system/backend/internal/middleware"
+)
+
+// liabilityInput is the JSON-friendly input struct for liability update.
+// Uses string for decimal values to avoid float64 precision loss.
+type liabilityInput struct {
+	ID                string  `json:"id"`
+	ParentID          string  `json:"parentId"`
+	Name              string  `json:"name"`
+	Category          string  `json:"category"`
+	CurrentBalance    string  `json:"currentBalance"`
+	InterestRateAPR   *string `json:"interestRateApr"`
+	MinimumPayment    *string `json:"minimumPayment"`
+	GrowthStrategy    string  `json:"growthStrategy"`
+	RepaymentStrategy string  `json:"repaymentStrategy"`
+	Notes             string  `json:"notes"`
+	StartDate         *string `json:"startDate"`
+	UpdateMode        string  `json:"updateMode,omitempty"`
+}
+
+// LiabilityV2Handler serves liability CRUD endpoints for v2 API.
+type LiabilityV2Handler struct {
+	store   *repo.Store
+	service *liability.Service
+}
+
+// NewLiabilityV2Handler creates a new v2 liability handler.
+func NewLiabilityV2Handler(store *repo.Store) *LiabilityV2Handler {
+	return &LiabilityV2Handler{
+		store:   store,
+		service: liability.NewService(store),
+	}
+}
+
+// GET /api/v2/liabilities
+// HandleList lists liabilities for the user.
+// @Summary List liabilities (v2)
+// @Description Returns paginated liabilities for the authenticated user
+// @Tags Liabilities V2
+// @Produce json
+// @Param limit query int false "Max items to return (-1 for all)"
+// @Param offset query int false "Number of items to skip"
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/liabilities [get]
+func (h *LiabilityV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	pagination := parsePaginationV2(r)
+	result, err := h.store.ListLiabilities(r.Context(), repo.ListQuery{
+		UserID:     userID,
+		DateRange:  repo.DateRangeOptions{},
+		Pagination: pagination,
+	})
+	if err != nil {
+		log.Printf("liability.List error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
+// liabilityCreateInput is the JSON input for creating a liability
+type liabilityCreateInput struct {
+	Name              string  `json:"name"`
+	Category          string  `json:"category"`
+	CurrentBalance    string  `json:"currentBalance"`
+	InterestRateAPR   *string `json:"interestRateApr"`
+	MinimumPayment    *string `json:"minimumPayment"`
+	GrowthStrategy    string  `json:"growthStrategy"`
+	RepaymentStrategy string  `json:"repaymentStrategy"`
+	Notes             string  `json:"notes"`
+	StartDate         *string `json:"startDate"`
+	EndDate           *string `json:"endDate"`
+}
+
+// POST /api/v2/liabilities
+// HandleCreate creates a new liability and auto-creates a linked expense.
+// @Summary Create a liability (v2)
+// @Description Creates a new liability. If minimumPayment > 0, automatically creates a linked expense for debt repayment.
+// @Tags Liabilities V2
+// @Accept json
+// @Produce json
+// @Param liability body liabilityCreateInput true "Liability to create"
+// @Success 201 {object} repo.Liability
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/liabilities [post]
+func (h *LiabilityV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w)
+		return
+	}
+
+	userCtx := middleware.GetUserContext(r.Context())
+
+	var input liabilityCreateInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	created, err := h.service.CreateFromParams(r.Context(), userCtx.UserID, liability.CreateParams{
+		Name:              input.Name,
+		Category:          input.Category,
+		CurrentBalance:    input.CurrentBalance,
+		InterestRateAPR:   input.InterestRateAPR,
+		MinimumPayment:    input.MinimumPayment,
+		GrowthStrategy:    input.GrowthStrategy,
+		RepaymentStrategy: input.RepaymentStrategy,
+		Notes:             input.Notes,
+		StartDate:         input.StartDate,
+		EndDate:           input.EndDate,
+	})
+	if err != nil {
+		if liability.IsValidationError(err) {
+			badRequest(w, err)
+			return
+		}
+		log.Printf("liability.Create error: %v", err)
+		internalError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, created)
+}
+
+// PUT /api/v2/liabilities/{id}
+// HandleUpdate updates a liability with versioning.
+// @Summary Update a liability (v2)
+// @Description Updates a liability with versioning support
+// @Tags Liabilities V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Liability ID"
+// @Param liability body liabilityInput true "Liability data"
+// @Success 200 {object} repo.Liability
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/liabilities/{id} [put]
+func (h *LiabilityV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id string) {
+	userCtx := middleware.GetUserContext(r.Context())
+
+	var input liabilityInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	result, err := h.service.UpdateFromParams(r.Context(), userCtx.UserID, id, liability.UpdateParams{
+		Name:              input.Name,
+		Category:          input.Category,
+		CurrentBalance:    input.CurrentBalance,
+		InterestRateAPR:   input.InterestRateAPR,
+		MinimumPayment:    input.MinimumPayment,
+		GrowthStrategy:    input.GrowthStrategy,
+		RepaymentStrategy: input.RepaymentStrategy,
+		Notes:             input.Notes,
+		StartDate:         input.StartDate,
+		UpdateMode:        input.UpdateMode,
+	})
+	if err != nil {
+		if liability.IsValidationError(err) {
+			badRequest(w, err)
+			return
+		}
+		if err == repo.ErrNotFound {
+			notFound(w)
+			return
+		}
+		log.Printf("liability.Update error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, result)
+}
+
+// DELETE /api/v2/liabilities/{id}
+// HandleDelete removes a liability.
+// @Summary Delete a liability (v2)
+// @Description Deletes a liability and all descendant versions
+// @Tags Liabilities V2
+// @Param id path string true "Liability ID"
+// @Success 204 "No Content"
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/liabilities/{id} [delete]
+func (h *LiabilityV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, id string) {
+	userCtx := middleware.GetUserContext(r.Context())
+
+	if err := h.store.DeleteLiability(r.Context(), userCtx.UserID, id); err != nil {
+		if err == repo.ErrNotFound {
+			notFound(w)
+			return
+		}
+		log.Printf("liability.Delete error: %v", err)
+		internalError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// POST /api/v2/liabilities/{id}/stop
+// HandleStop sets an end date for a liability.
+// @Summary Stop a liability (v2)
+// @Description Sets the endDate on a liability (soft delete)
+// @Tags Liabilities V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Liability ID"
+// @Param body body stopInput true "Stop input with endDate"
+// @Success 200 {object} repo.Liability
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/liabilities/{id}/stop [post]
+func (h *LiabilityV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id string) {
+	userCtx := middleware.GetUserContext(r.Context())
+
+	var input stopInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+	if input.EndDate == "" {
+		badRequest(w, errMissingFields("endDate"))
+		return
+	}
+
+	endDate, err := time.Parse(time.RFC3339, input.EndDate)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	updated, err := h.store.StopLiability(r.Context(), userCtx.UserID, id, endDate)
+	if err != nil {
+		if err == repo.ErrNotFound {
+			notFound(w)
+			return
+		}
+		log.Printf("liability.Stop error: %v", err)
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, updated)
+}

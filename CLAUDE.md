@@ -1,0 +1,1 @@
+- always use descriptive variable namings

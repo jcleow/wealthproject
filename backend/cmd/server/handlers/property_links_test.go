@@ -10,7 +10,17 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
+	"financial-chat-system/backend/internal/middleware"
 )
+
+const testUserID = "test-user-123"
+
+func addAuthContext(req *http.Request) *http.Request {
+	ctx := middleware.WithUserContext(req.Context(), middleware.UserContext{
+		UserID: testUserID,
+	})
+	return req.WithContext(ctx)
+}
 
 type fakePropertyLinkStore struct {
 	assets      map[string]repository.Asset
@@ -28,7 +38,7 @@ func newFakePropertyLinkStore() *fakePropertyLinkStore {
 	}
 }
 
-func (f *fakePropertyLinkStore) GetAsset(_ context.Context, id string) (repository.Asset, error) {
+func (f *fakePropertyLinkStore) GetAsset(_ context.Context, userID, id string) (repository.Asset, error) {
 	a, ok := f.assets[id]
 	if !ok {
 		return repository.Asset{}, repository.ErrNotFound
@@ -36,7 +46,7 @@ func (f *fakePropertyLinkStore) GetAsset(_ context.Context, id string) (reposito
 	return a, nil
 }
 
-func (f *fakePropertyLinkStore) ConvertAssetToProperty(_ context.Context, id string) (repository.Asset, error) {
+func (f *fakePropertyLinkStore) ConvertAssetToProperty(_ context.Context, userID, id string) (repository.Asset, error) {
 	a, ok := f.assets[id]
 	if !ok {
 		return repository.Asset{}, repository.ErrNotFound
@@ -46,7 +56,7 @@ func (f *fakePropertyLinkStore) ConvertAssetToProperty(_ context.Context, id str
 	return a, nil
 }
 
-func (f *fakePropertyLinkStore) GetLiability(_ context.Context, id string) (repository.Liability, error) {
+func (f *fakePropertyLinkStore) GetLiability(_ context.Context, userID, id string) (repository.Liability, error) {
 	li, ok := f.liabilities[id]
 	if !ok {
 		return repository.Liability{}, repository.ErrNotFound
@@ -54,7 +64,7 @@ func (f *fakePropertyLinkStore) GetLiability(_ context.Context, id string) (repo
 	return li, nil
 }
 
-func (f *fakePropertyLinkStore) ConvertLiabilityToProperty(_ context.Context, id string) (repository.Liability, error) {
+func (f *fakePropertyLinkStore) ConvertLiabilityToProperty(_ context.Context, userID, id string) (repository.Liability, error) {
 	li, ok := f.liabilities[id]
 	if !ok {
 		return repository.Liability{}, repository.ErrNotFound
@@ -64,7 +74,7 @@ func (f *fakePropertyLinkStore) ConvertLiabilityToProperty(_ context.Context, id
 	return li, nil
 }
 
-func (f *fakePropertyLinkStore) GetPropertyScenario(_ context.Context, id string) (repository.PropertyScenario, error) {
+func (f *fakePropertyLinkStore) GetPropertyScenario(_ context.Context, userID, id string) (repository.PropertyScenario, error) {
 	s, ok := f.scenarios[id]
 	if !ok {
 		return repository.PropertyScenario{}, repository.ErrNotFound
@@ -72,7 +82,7 @@ func (f *fakePropertyLinkStore) GetPropertyScenario(_ context.Context, id string
 	return s, nil
 }
 
-func (f *fakePropertyLinkStore) CreatePropertyScenario(_ context.Context, ps repository.PropertyScenario) (repository.PropertyScenario, error) {
+func (f *fakePropertyLinkStore) CreatePropertyScenario(_ context.Context, userID string, ps repository.PropertyScenario) (repository.PropertyScenario, error) {
 	id := "scn-" + time.Now().Format("150405.000000")
 	ps.ID = id
 	ps.UpdatedAt = time.Now()
@@ -80,7 +90,7 @@ func (f *fakePropertyLinkStore) CreatePropertyScenario(_ context.Context, ps rep
 	return ps, nil
 }
 
-func (f *fakePropertyLinkStore) CreateOrReplacePropertyLink(_ context.Context, link repository.PropertyLink) (repository.PropertyLink, error) {
+func (f *fakePropertyLinkStore) CreateOrReplacePropertyLink(_ context.Context, userID string, link repository.PropertyLink) (repository.PropertyLink, error) {
 	for _, existing := range f.links {
 		if existing.PropertyScenarioID == link.PropertyScenarioID && existing.AssetID == link.AssetID {
 			existing.LiabilityID = link.LiabilityID
@@ -96,7 +106,7 @@ func (f *fakePropertyLinkStore) CreateOrReplacePropertyLink(_ context.Context, l
 	return link, nil
 }
 
-func (f *fakePropertyLinkStore) UpdatePropertyLink(_ context.Context, link repository.PropertyLink) (repository.PropertyLink, error) {
+func (f *fakePropertyLinkStore) UpdatePropertyLink(_ context.Context, userID string, link repository.PropertyLink) (repository.PropertyLink, error) {
 	if _, ok := f.links[link.ID]; !ok {
 		return repository.PropertyLink{}, repository.ErrNotFound
 	}
@@ -106,7 +116,7 @@ func (f *fakePropertyLinkStore) UpdatePropertyLink(_ context.Context, link repos
 	return link, nil
 }
 
-func (f *fakePropertyLinkStore) ListPropertyLinksByScenario(_ context.Context, scenarioID string) ([]repository.PropertyLink, error) {
+func (f *fakePropertyLinkStore) ListPropertyLinksByScenario(_ context.Context, userID, scenarioID string) ([]repository.PropertyLink, error) {
 	var out []repository.PropertyLink
 	for _, l := range f.links {
 		if l.PropertyScenarioID == scenarioID {
@@ -116,7 +126,7 @@ func (f *fakePropertyLinkStore) ListPropertyLinksByScenario(_ context.Context, s
 	return out, nil
 }
 
-func (f *fakePropertyLinkStore) ListPropertyLinksByAsset(_ context.Context, assetID string) ([]repository.PropertyLink, error) {
+func (f *fakePropertyLinkStore) ListPropertyLinksByAsset(_ context.Context, userID, assetID string) ([]repository.PropertyLink, error) {
 	var out []repository.PropertyLink
 	for _, l := range f.links {
 		if l.AssetID == assetID {
@@ -126,7 +136,7 @@ func (f *fakePropertyLinkStore) ListPropertyLinksByAsset(_ context.Context, asse
 	return out, nil
 }
 
-func (f *fakePropertyLinkStore) ListPropertyLinksByLiability(_ context.Context, liabilityID string) ([]repository.PropertyLink, error) {
+func (f *fakePropertyLinkStore) ListPropertyLinksByLiability(_ context.Context, userID, liabilityID string) ([]repository.PropertyLink, error) {
 	var out []repository.PropertyLink
 	for _, l := range f.links {
 		if l.LiabilityID == liabilityID {
@@ -134,6 +144,20 @@ func (f *fakePropertyLinkStore) ListPropertyLinksByLiability(_ context.Context, 
 		}
 	}
 	return out, nil
+}
+
+func (f *fakePropertyLinkStore) ListAllPropertyLinks(_ context.Context, userID string, pagination repository.PaginationParams) (repository.PaginatedResult[repository.PropertyLink], error) {
+	var out []repository.PropertyLink
+	for _, l := range f.links {
+		out = append(out, l)
+	}
+	return repository.PaginatedResult[repository.PropertyLink]{
+		Data:    out,
+		Total:   len(out),
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+		HasMore: false,
+	}, nil
 }
 
 func TestPropertyLinkCreateCreatesScenarioAndConverts(t *testing.T) {
@@ -146,7 +170,7 @@ func TestPropertyLinkCreateCreatesScenarioAndConverts(t *testing.T) {
 	handler.RegisterRoutes(mux)
 
 	body := bytes.NewBufferString(`{"asset_id":"a1","liability_id":"l1"}`)
-	req := httptest.NewRequest(http.MethodPost, "/property-links", body)
+	req := addAuthContext(httptest.NewRequest(http.MethodPost, "/property-links", body))
 	rr := httptest.NewRecorder()
 
 	mux.ServeHTTP(rr, req)
@@ -194,7 +218,7 @@ func TestPropertyLinkUpdate(t *testing.T) {
 	handler.RegisterRoutes(mux)
 
 	body := bytes.NewBufferString(`{"property_scenario_id":"s1","asset_id":"a1","liability_id":"l2"}`)
-	req := httptest.NewRequest(http.MethodPut, "/property-links/link-1", body)
+	req := addAuthContext(httptest.NewRequest(http.MethodPut, "/property-links/link-1", body))
 	rr := httptest.NewRecorder()
 
 	mux.ServeHTTP(rr, req)
@@ -220,7 +244,7 @@ func TestPropertyLinkList(t *testing.T) {
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 
-	req := httptest.NewRequest(http.MethodGet, "/property-links?property_scenario_id=s1", nil)
+	req := addAuthContext(httptest.NewRequest(http.MethodGet, "/property-links?property_scenario_id=s1", nil))
 	rr := httptest.NewRecorder()
 
 	mux.ServeHTTP(rr, req)
@@ -250,7 +274,7 @@ func TestPropertyLinkCreateOverwrites(t *testing.T) {
 
 	// First create
 	body1 := bytes.NewBufferString(`{"property_scenario_id":"s1","asset_id":"a1","liability_id":"l1"}`)
-	req1 := httptest.NewRequest(http.MethodPost, "/property-links", body1)
+	req1 := addAuthContext(httptest.NewRequest(http.MethodPost, "/property-links", body1))
 	rr1 := httptest.NewRecorder()
 	mux.ServeHTTP(rr1, req1)
 	if rr1.Code != http.StatusOK {
@@ -259,7 +283,7 @@ func TestPropertyLinkCreateOverwrites(t *testing.T) {
 
 	// Overwrite with new liability; expect 200 and liability updated
 	body2 := bytes.NewBufferString(`{"property_scenario_id":"s1","asset_id":"a1","liability_id":"l2"}`)
-	req2 := httptest.NewRequest(http.MethodPost, "/property-links", body2)
+	req2 := addAuthContext(httptest.NewRequest(http.MethodPost, "/property-links", body2))
 	rr2 := httptest.NewRecorder()
 	mux.ServeHTTP(rr2, req2)
 	if rr2.Code != http.StatusOK {

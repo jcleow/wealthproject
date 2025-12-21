@@ -1,368 +1,396 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+
+import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
+import type { ScenarioEvent } from '@/types/scenario'
+import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
+import { settingsApi } from '@/api/financial'
+import { QUERY_KEYS } from '@/lib/queryKeys'
+import type { ZoomLevel } from '@/components/timeline/ZoomControls'
+
+// Sub-components
+import { ChartHeader } from './projections/ChartHeader'
+import { ChartZoomControls } from './projections/ChartZoomControls'
+import { ProjectionChart } from './projections/ProjectionChart'
+import { AxisModeToggle } from './projections/AxisModeToggle'
+
+// Hooks
+import { useProjectionData, useScenarioMarkers } from './projections/useProjectionData'
+import { useChartZoom } from './projections/useChartZoom'
+import { useContainerSize } from './projections/useContainerSize'
+import { useChartOverlayData } from './projections/useChartOverlayData'
+
+// Types and constants
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+  DEFAULT_STARTING_AGE,
+  DEFAULT_TERMINAL_AGE,
+  BASE_CALENDAR_YEAR,
+  AREA_ANIMATION_MS,
+  MARKER_BUFFER_MS,
+  type AxisMode,
+} from './projections/types'
+import type { ChartType, MetricId } from './projections/chartOverlays'
 
-import { useFinancialData } from '@/hooks/useFinancialData'
-import type { TimelineYear } from '@/types/timeline'
-import { formatCurrency } from '@/lib/format'
-
-const chartColors = {
-  axis: '#aeb6c9',
-  grid: 'rgba(86, 91, 100, 0.6)',
-  gradientStart: '#4f81ff',
-  gradientEnd: 'rgba(59, 130, 246, 0.08)',
-  stroke: '#7db0ff',
-}
-
-const YEARS = 20
-const DEFAULT_AGE = 33
-
-type ProjectionPoint = {
-  yearIndex: number
-  yearLabel: string
-  netWorth: number
-  totalAssets: number
-  totalLiabilities: number
-  hasNonAnnualSource?: boolean
-  hasOverride?: boolean
-}
-
-function CustomTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean
-  payload?: Array<{ payload: ProjectionPoint }>
-}) {
-  if (!active || !payload || !payload.length) return null
-  const data = payload[0].payload
-  return (
-    <div className="rounded-xl border border-white/10 bg-[#0f1728]/90 px-4 py-3 shadow-2xl backdrop-blur">
-      <p className="text-xs uppercase tracking-wide text-slate-300">{data.yearLabel}</p>
-      <p className="mt-1 font-semibold text-blue-300">
-        Net Worth: {formatCurrency(data.netWorth)}
-      </p>
-      <p className="text-emerald-300 text-sm">Assets {formatCurrency(data.totalAssets)}</p>
-      <p className="text-rose-300 text-sm">
-        Liabilities {formatCurrency(data.totalLiabilities)}
-      </p>
-      {data.hasNonAnnualSource && (
-        <p className="mt-1 text-[11px] uppercase tracking-wide text-sky-200">
-          Annualized from source frequency
-        </p>
-      )}
-      {data.hasOverride && (
-        <p className="text-[11px] uppercase tracking-wide text-blue-300">
-          Override applied
-        </p>
-      )}
-    </div>
-  )
-}
-
-function YearTick({
-  x = 0,
-  y = 0,
-  payload,
-  overrideYears,
-  onSelectYear,
-  selectedYear,
-  mode,
-}: {
-  x?: number
-  y?: number
-  payload?: { value: number }
-  overrideYears: Set<number>
-  onSelectYear?: (year: number) => void
-  selectedYear?: number
-  mode: AxisMode
-}) {
-  if (!payload) return null
-  const isOverride = overrideYears.has(payload.value)
-  const isSelected = selectedYear === payload.value
-  const labelValue = mode === 'age' ? DEFAULT_AGE + payload.value : payload.value
-  const handleClick = () => {
-    if (onSelectYear) onSelectYear(payload.value)
-  }
-
-  return (
-    <g
-      transform={`translate(${x},${y})`}
-      className="cursor-pointer"
-      onClick={handleClick}
-      aria-label={`Year ${payload.value}`}
-    >
-      <text
-        dy={12}
-        fill={isSelected ? '#a5b4fc' : '#cbd5e1'}
-        fontSize={12}
-        fontWeight={isSelected ? 700 : 400}
-        textAnchor="middle"
-      >
-        {labelValue}
-      </text>
-      {isOverride && (
-        <path
-          d="M0,14 L7,28 L-7,28 Z"
-          fill="#38bdf8"
-          data-testid={`override-marker-${payload.value}`}
-        />
-      )}
-    </g>
-  )
-}
+// Feature flag for chart overlay controls (disabled until UI is refined)
+const ENABLE_CHART_OVERLAYS = false
 
 export interface NetWorthProjectionProps {
   timelineYears?: TimelineYear[]
+  timelineMonths?: TimelineMonth[]
+  resolution?: TimeResolution
+  zoomLevel?: ZoomLevel
+  onZoomLevelChange?: (level: ZoomLevel) => void
   overrideYears?: Set<number>
   selectedYear?: number
   onSelectYear?: (year: number) => void
+  onSelectMonth?: (month: number) => void
+  scenarioEvents?: ScenarioEvent[]
+  onScenarioSelect?: (event: ScenarioEvent) => void
+  onAddScenario?: () => void
+  chartTitle?: string
+  chartSubtitle?: string
 }
 
 export function NetWorthProjection({
   timelineYears,
+  timelineMonths,
+  resolution,
+  zoomLevel: externalZoomLevel,
+  onZoomLevelChange,
   overrideYears,
   selectedYear,
   onSelectYear,
+  onSelectMonth,
+  scenarioEvents,
+  onScenarioSelect,
+  onAddScenario,
+  chartTitle,
+  chartSubtitle,
 }: NetWorthProjectionProps) {
+  // Get financial data from context
   const {
     assets,
     liabilities,
     expenses,
     incomes,
     getMonthlySavings,
-  } = useFinancialData()
+  } = useFinancialDataContext()
 
+  // Fetch user settings
+  const { data: userSettings } = useQuery({
+    queryKey: QUERY_KEYS.settings.user,
+    queryFn: () => settingsApi.getUserSettings(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // X-axis display mode (age vs year)
   const [xAxisMode, setXAxisMode] = useState<AxisMode>('age')
-  const [hasSize, setHasSize] = useState(false)
-  const [containerWidth, setContainerWidth] = useState(0)
-  const chartContainerRef = useRef<HTMLDivElement>(null)
+  const [xAxisModeInitialized, setXAxisModeInitialized] = useState(false)
 
-  const projection = useMemo(() => {
-    if (timelineYears && timelineYears.length > 0) {
-      return timelineYears.map<ProjectionPoint>((year) => {
-        const assets = year.assets ?? []
-        const liabilities = year.liabilities ?? []
-        const incomes = year.income ?? []
-        const expenses = year.expenses ?? []
+  // Scroll mode for zoom behavior
+  const [scrollMode, setScrollMode] = useState<'page' | 'zoom'>('page')
 
-        const totalAssets = assets.reduce((sum, item) => sum + (item.amount_annual ?? 0), 0)
-        const totalLiabilities = liabilities.reduce(
-          (sum, item) => sum + (item.amount_annual ?? 0),
-          0
-        )
-        const hasNonAnnualSource = [
-          ...assets,
-          ...liabilities,
-          ...incomes,
-          ...expenses,
-        ].some((item) => item?.source_frequency && item.source_frequency !== 'annual')
+  // Chart overlay controls (feature-flagged)
+  const [chartType, setChartType] = useState<ChartType>('area')
+  const [selectedMetrics, setSelectedMetrics] = useState<MetricId[]>(['netWorth'])
 
-        return {
-          yearIndex: year.year ?? 0,
-          yearLabel: `Year ${year.year ?? 0}`,
-          netWorth: year.net_worth ?? 0,
-          totalAssets,
-          totalLiabilities,
-          hasNonAnnualSource,
-          hasOverride: !!year.has_overrides,
-        }
-      })
-    }
+  // Animation preferences
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+  const [markersReady, setMarkersReady] = useState(false)
+  const markersReadyRef = useRef(false)
 
-    const totalAssets = assets.reduce((sum, a) => sum + a.currentValue, 0)
-    const totalLiabilities = liabilities.reduce((sum, l) => sum + l.currentBalance, 0)
-    const monthlySavings = getMonthlySavings()
+  // Chart wrapper ref for zoom/pan interactions
+  const chartWrapperRef = useRef<HTMLDivElement>(null)
 
-    // If no data, return empty array so we render placeholder
-    const hasAnyData =
-      assets.length > 0 || liabilities.length > 0 || expenses.length > 0 || incomes.length > 0
+  // Container size observation
+  const { hasSize, containerWidth, containerRef } = useContainerSize()
 
-    const currentYear = new Date().getFullYear()
-    const data: ProjectionPoint[] = []
-    const annualSavings = Math.max(monthlySavings, 0) * 12
-    const assetGrowthRate = 0.05 // conservative 5% annual
-    const liabilityDecayRate = 0.94 // 6% annual paydown
+  // Projection data transformation
+  const { projection, dataResolution } = useProjectionData({
+    timelineYears,
+    timelineMonths,
+    assets,
+    liabilities,
+    expenses,
+    incomes,
+    getMonthlySavings,
+    userSettings,
+  })
 
-    if (!hasAnyData) {
-      for (let i = 0; i <= YEARS; i++) {
-        const year = currentYear + i
-        data.push({
-          yearIndex: i,
-          yearLabel: `Year ${year}`,
-          netWorth: 0,
-          totalAssets: 0,
-          totalLiabilities: 0,
-        })
-      }
-      return data
-    }
+  // Effective resolution based on available data and user preference
+  const effectiveResolution: TimeResolution = resolution ?? dataResolution
 
-    for (let i = 0; i <= YEARS; i++) {
-      const year = currentYear + i
-      const projectedAssets = Math.round((totalAssets + annualSavings * i) * Math.pow(1 + assetGrowthRate, i))
-      const projectedLiabilities = Math.max(
-        0,
-        Math.round(totalLiabilities * Math.pow(liabilityDecayRate, i))
-      )
-      const netWorth = projectedAssets - projectedLiabilities
+  // Zoom and pan state management
+  const {
+    zoomLevel,
+    setZoomLevel,
+    actualStartIndex,
+    actualEndIndex,
+    canZoomIn,
+    canZoomOut,
+    handleZoomIn,
+    handleZoomOut,
+  } = useChartZoom({
+    externalZoomLevel,
+    onZoomLevelChange,
+    effectiveResolution,
+    projectionLength: projection.length,
+    chartWrapperRef,
+    scrollMode,
+  })
 
-      data.push({
-        yearIndex: i,
-        yearLabel: `Year ${year}`,
-        netWorth,
-        totalAssets: projectedAssets,
-        totalLiabilities: projectedLiabilities,
-      })
-    }
-
-    return data
-  }, [assets, expenses, getMonthlySavings, incomes, liabilities, timelineYears])
-
+  // Sync xAxisMode with user settings ONCE when settings first load
   useEffect(() => {
-    const element = chartContainerRef.current
-    if (!element) return
+    if (userSettings?.yearDisplayFormat && !xAxisModeInitialized) {
+      setXAxisMode(userSettings.yearDisplayFormat)
+      setXAxisModeInitialized(true)
+    }
+  }, [userSettings?.yearDisplayFormat, xAxisModeInitialized])
 
-    const observer = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect
-      setHasSize(width > 0 && height > 0)
-      setContainerWidth(width)
-    })
-
-    observer.observe(element)
-    return () => observer.disconnect()
+  // Detect reduced motion preference
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const listener = () => setPrefersReducedMotion(media.matches)
+    listener()
+    media.addEventListener('change', listener)
+    return () => media.removeEventListener('change', listener)
   }, [])
 
+  // Window data based on zoom level
+  const displayData = useMemo(() => {
+    if (effectiveResolution !== 'monthly' || actualStartIndex === null || actualEndIndex === null) {
+      return projection
+    }
+    return projection.slice(actualStartIndex, actualEndIndex + 1)
+  }, [projection, effectiveResolution, actualStartIndex, actualEndIndex])
+
+  // Enhance display data with overlay metrics
+  const enhancedDisplayData = useChartOverlayData(displayData, selectedMetrics)
+
+  // Calculate visible range in months
+  const visibleRangeMonths = useMemo(() => {
+    if (effectiveResolution !== 'monthly' || actualStartIndex === null || actualEndIndex === null) {
+      return projection.length
+    }
+    return actualEndIndex - actualStartIndex + 1
+  }, [effectiveResolution, actualStartIndex, actualEndIndex, projection.length])
+
+  // Prevent page scroll when mouse is over chart container
+  useEffect(() => {
+    const chartContainer = containerRef.current
+    if (!chartContainer) return
+
+    const preventScroll = (e: WheelEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    chartContainer.addEventListener('wheel', preventScroll, { passive: false })
+    return () => chartContainer.removeEventListener('wheel', preventScroll)
+  }, [containerRef])
+
+  // Animation state for markers
+  const areaAnimationEnabled = !prefersReducedMotion && displayData.length > 0
+
+  useEffect(() => {
+    if (!areaAnimationEnabled) {
+      if (!markersReadyRef.current) {
+        markersReadyRef.current = true
+        setMarkersReady(true)
+      }
+      return
+    }
+
+    markersReadyRef.current = false
+    setMarkersReady(false)
+
+    const timer = window.setTimeout(() => {
+      markersReadyRef.current = true
+      setMarkersReady(true)
+    }, AREA_ANIMATION_MS + MARKER_BUFFER_MS + 300)
+
+    return () => window.clearTimeout(timer)
+  }, [areaAnimationEnabled])
+
+  // Calculate base calendar year for tick labels
+  const baseCalendarYear = useMemo(() => {
+    if (displayData.length === 0) return BASE_CALENDAR_YEAR
+
+    const firstPoint = displayData[0]
+    if (dataResolution === 'monthly') {
+      const yearOffset = Math.floor(firstPoint.yearIndex / 12)
+      return firstPoint.calendarYear - yearOffset
+    } else {
+      return firstPoint.calendarYear - firstPoint.yearIndex
+    }
+  }, [displayData, dataResolution])
+
+  // Calculate X-axis ticks
   const ticks = useMemo(() => {
-    const totalPoints = projection.length
+    const totalPoints = displayData.length
     if (totalPoints === 0) return [] as number[]
+
     const minSpacingPx = 60
     const width = Math.max(containerWidth, 1)
     const maxTicks = Math.max(6, Math.floor(width / minSpacingPx))
+
+    const showingYears = dataResolution === 'monthly' && visibleRangeMonths >= 24
+
+    if (showingYears) {
+      // Collect all unique year ticks first
+      const seenYears = new Set<number>()
+      const allYearTicks: number[] = []
+
+      for (let i = 0; i < totalPoints; i++) {
+        const point = displayData[i]
+        const year = Math.floor(point.yearIndex / 12)
+
+        if (!seenYears.has(year)) {
+          seenYears.add(year)
+          allYearTicks.push(point.yearIndex)
+        }
+      }
+
+      // If too many year ticks, sample them to avoid overlap
+      if (allYearTicks.length <= maxTicks) {
+        return allYearTicks
+      }
+
+      const step = Math.ceil(allYearTicks.length / maxTicks)
+      const values: number[] = []
+      for (let i = 0; i < allYearTicks.length; i += step) {
+        values.push(allYearTicks[i])
+      }
+      // Always include the last tick
+      const lastTick = allYearTicks[allYearTicks.length - 1]
+      if (values[values.length - 1] !== lastTick) {
+        values.push(lastTick)
+      }
+      return values
+    }
+
     const step = Math.max(1, Math.floor(totalPoints / maxTicks))
     const values: number[] = []
     for (let i = 0; i < totalPoints; i += step) {
-      values.push(projection[i].yearIndex)
+      values.push(displayData[i].yearIndex)
     }
-    const last = projection[totalPoints - 1]?.yearIndex ?? 0
+    const last = displayData[totalPoints - 1]?.yearIndex ?? 0
     if (values[values.length - 1] !== last) values.push(last)
-    const first = projection[0]?.yearIndex ?? 0
+    const first = displayData[0]?.yearIndex ?? 0
     if (values[0] !== first) values.unshift(first)
     return values
-  }, [containerWidth, projection])
+  }, [displayData, dataResolution, visibleRangeMonths, containerWidth])
+
+  // Override years set
+  const overrideYearsSet = useMemo(
+    () =>
+      overrideYears ??
+      new Set(
+        projection.filter((point) => point.hasOverride).map((point) => point.yearIndex)
+      ),
+    [overrideYears, projection]
+  )
+
+  // Scenario markers
+  const scenarioMarkers = useScenarioMarkers(scenarioEvents, displayData, dataResolution)
+
+  // Age range for subtitle
+  const ageRange = useMemo(() => {
+    const startingAge = userSettings?.startingAge ?? DEFAULT_STARTING_AGE
+    const terminalAge = userSettings?.terminalAge ?? DEFAULT_TERMINAL_AGE
+    const startAge = startingAge
+    const endAge = Math.max(startAge, terminalAge)
+    const years = Math.max(1, endAge - startAge)
+    return { startAge, endAge, years }
+  }, [userSettings?.startingAge, userSettings?.terminalAge])
+
+  const defaultTitle = 'Net Worth Projection'
+  const defaultSubtitle = `Age ${ageRange.startAge} to ${ageRange.endAge} (${ageRange.years} years)`
+
+  const handleScrollModeToggle = useCallback(() => {
+    setScrollMode((prev) => (prev === 'page' ? 'zoom' : 'page'))
+  }, [])
+
+  const handleAxisModeToggle = useCallback(() => {
+    setXAxisMode((prev) => (prev === 'age' ? 'actual_year' : 'age'))
+  }, [])
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <div className="mb-4 flex flex-shrink-0 items-center justify-between">
-        <div>
-          <h3 className="mb-1 font-semibold text-lg text-white">
-            Net Worth Projection
-          </h3>
-          <p className="text-gray-400 text-sm">Next 20 Years</p>
-        </div>
-      </div>
+    <div className="flex h-full min-h-0 min-w-0 flex-col p-5">
+      <ChartHeader
+        title={chartTitle ?? defaultTitle}
+        subtitle={chartSubtitle ?? defaultSubtitle}
+        onAddScenario={onAddScenario}
+        enableChartOverlays={ENABLE_CHART_OVERLAYS}
+        chartType={chartType}
+        onChartTypeChange={setChartType}
+        selectedMetrics={selectedMetrics}
+        onMetricsChange={setSelectedMetrics}
+      />
 
       <div
-        ref={chartContainerRef}
-        className="relative w-full flex-none h-58 min-w-0 overflow-hidden [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
+        ref={containerRef}
+        className="relative min-h-[250px] min-w-0 w-full flex-1 overflow-hidden [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
       >
-        {hasSize && projection.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>
-            <AreaChart
-              data={projection}
-              margin={{ top: 6, right: 8, left: 8, bottom: 12 }}
-              focusable="false"
-              tabIndex={-1}
-              role="presentation"
-            >
-              <defs>
-                <linearGradient id="netWorthGradient" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor={chartColors.gradientStart} stopOpacity={0.8} />
-                  <stop offset="90%" stopColor={chartColors.gradientEnd} stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                stroke={chartColors.grid}
-                strokeDasharray="2 12"
-                horizontal={false}
-                fillOpacity={0}
-              />
-              <XAxis
-                axisLine={false}
-                dataKey="yearIndex"
-                fontSize={12}
-                interval={0}
-                ticks={ticks}
-                stroke={chartColors.axis}
-                tickLine={false}
-                tick={
-                  <YearTick
-                    overrideYears={
-                      overrideYears ??
-                      new Set(
-                        projection.filter((point) => point.hasOverride).map((point) => point.yearIndex)
-                      )
-                    }
-                    onSelectYear={onSelectYear}
-                    selectedYear={selectedYear}
-                    mode={xAxisMode}
-                  />
-                }
-              />
-              <YAxis
-                axisLine={false}
-                domain={[
-                  (projection.at(-1)?.netWorth || 0) > 0 ? 0 : -500000,
-                  (projection.at(-1)?.netWorth || 0) > 0 ? 'dataMax' : 500000,
-                ]}
-                fontSize={12}
-                stroke={chartColors.axis}
-                tickFormatter={(value) => {
-                  if (value <= 0) return ''
-                  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
-                  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`
-                  return `$${value}`
-                }}
-                tickLine={false}
-              />
+        <ChartZoomControls
+          scrollMode={scrollMode}
+          onScrollModeToggle={handleScrollModeToggle}
+          zoomLevel={zoomLevel}
+          onZoomLevelChange={setZoomLevel}
+          canZoomIn={canZoomIn}
+          canZoomOut={canZoomOut}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+        />
 
-              <Area
-                activeDot={{ r: 5, fill: chartColors.stroke, strokeWidth: 0 }}
-                dataKey="netWorth"
-                dot={false}
-                fill="url(#netWorthGradient)"
-                stroke={chartColors.stroke}
-                strokeWidth={2.5}
-                strokeOpacity={0.85}
-                type="monotone"
-                name="Net Worth"
-              />
-
-              <Tooltip content={<CustomTooltip />} cursor={false} />
-            </AreaChart>
-          </ResponsiveContainer>
+        {hasSize && displayData.length > 0 ? (
+          <div
+            ref={chartWrapperRef}
+            className="h-full w-full"
+            style={{ touchAction: 'none' }}
+          >
+            <ProjectionChart
+              displayData={displayData}
+              enhancedDisplayData={enhancedDisplayData}
+              enableChartOverlays={ENABLE_CHART_OVERLAYS}
+              chartType={chartType}
+              selectedMetrics={selectedMetrics}
+              areaAnimationEnabled={areaAnimationEnabled}
+              ticks={ticks}
+              overrideYearsSet={overrideYearsSet}
+              onSelectYear={onSelectYear}
+              onSelectMonth={onSelectMonth}
+              selectedYear={selectedYear}
+              xAxisMode={xAxisMode}
+              startingAge={userSettings?.startingAge}
+              dataResolution={dataResolution}
+              visibleRangeMonths={visibleRangeMonths}
+              baseCalendarYear={baseCalendarYear}
+              scenarioMarkers={scenarioMarkers}
+              onScenarioSelect={onScenarioSelect}
+              markersReady={markersReady}
+              prefersReducedMotion={prefersReducedMotion}
+            />
+          </div>
         ) : (
           <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-slate-400">
             Add assets or liabilities to view your net worth projection.
           </div>
         )}
       </div>
-      <div className="mt-2 text-center text-xs text-slate-300">
-        <button
-          type="button"
-          className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200 transition hover:bg-white/10"
-          onClick={() => setXAxisMode((prev) => (prev === 'age' ? 'year' : 'age'))}
-        >
-          {xAxisMode === 'age' ? 'Age' : 'Year'}
-        </button>
-      </div>
+
+      <AxisModeToggle mode={xAxisMode} onToggle={handleAxisModeToggle} />
+
+      {overrideYearsSet.size > 0 && (
+        <div className="sr-only">
+          {Array.from(overrideYearsSet).map((year) => (
+            <span key={year} data-testid={`override-marker-${year}`}>
+              Override applied in year {year}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

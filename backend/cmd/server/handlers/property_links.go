@@ -10,17 +10,18 @@ import (
 )
 
 type propertyLinkStore interface {
-	GetAsset(ctx context.Context, id string) (repository.Asset, error)
-	ConvertAssetToProperty(ctx context.Context, id string) (repository.Asset, error)
-	GetLiability(ctx context.Context, id string) (repository.Liability, error)
-	ConvertLiabilityToProperty(ctx context.Context, id string) (repository.Liability, error)
-	GetPropertyScenario(ctx context.Context, id string) (repository.PropertyScenario, error)
-	CreatePropertyScenario(ctx context.Context, ps repository.PropertyScenario) (repository.PropertyScenario, error)
-	CreateOrReplacePropertyLink(ctx context.Context, link repository.PropertyLink) (repository.PropertyLink, error)
-	UpdatePropertyLink(ctx context.Context, link repository.PropertyLink) (repository.PropertyLink, error)
-	ListPropertyLinksByScenario(ctx context.Context, scenarioID string) ([]repository.PropertyLink, error)
-	ListPropertyLinksByAsset(ctx context.Context, assetID string) ([]repository.PropertyLink, error)
-	ListPropertyLinksByLiability(ctx context.Context, liabilityID string) ([]repository.PropertyLink, error)
+	GetAsset(ctx context.Context, userID, id string) (repository.Asset, error)
+	ConvertAssetToProperty(ctx context.Context, userID, id string) (repository.Asset, error)
+	GetLiability(ctx context.Context, userID, id string) (repository.Liability, error)
+	ConvertLiabilityToProperty(ctx context.Context, userID, id string) (repository.Liability, error)
+	GetPropertyScenario(ctx context.Context, userID, id string) (repository.PropertyScenario, error)
+	CreatePropertyScenario(ctx context.Context, userID string, ps repository.PropertyScenario) (repository.PropertyScenario, error)
+	CreateOrReplacePropertyLink(ctx context.Context, userID string, link repository.PropertyLink) (repository.PropertyLink, error)
+	UpdatePropertyLink(ctx context.Context, userID string, link repository.PropertyLink) (repository.PropertyLink, error)
+	ListPropertyLinksByScenario(ctx context.Context, userID, scenarioID string) ([]repository.PropertyLink, error)
+	ListPropertyLinksByAsset(ctx context.Context, userID, assetID string) ([]repository.PropertyLink, error)
+	ListPropertyLinksByLiability(ctx context.Context, userID, liabilityID string) ([]repository.PropertyLink, error)
+	ListAllPropertyLinks(ctx context.Context, userID string, pagination repository.PaginationParams) (repository.PaginatedResult[repository.PropertyLink], error)
 }
 
 // PropertyLinkHandler serves property link endpoints.
@@ -43,6 +44,7 @@ type propertyLinkRequest struct {
 	LiabilityID        string `json:"liability_id"`
 }
 
+// GET|POST /api/v1/property-links
 func (h *PropertyLinkHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
@@ -54,6 +56,7 @@ func (h *PropertyLinkHandler) handleCollection(w http.ResponseWriter, r *http.Re
 	}
 }
 
+// PUT /api/v1/property-links/{id}
 func (h *PropertyLinkHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/property-links/")
 	if id == "" {
@@ -68,7 +71,12 @@ func (h *PropertyLinkHandler) handleItem(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// POST /api/v1/property-links
 func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload propertyLinkRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
@@ -80,39 +88,39 @@ func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Ensure asset/liability exist and are category property (convert if needed).
-	if _, err := h.store.GetAsset(r.Context(), payload.AssetID); err != nil {
+	if _, err := h.store.GetAsset(r.Context(), userID, payload.AssetID); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
-	asset, err := h.store.ConvertAssetToProperty(r.Context(), payload.AssetID)
+	asset, err := h.store.ConvertAssetToProperty(r.Context(), userID, payload.AssetID)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
-	if _, err := h.store.GetLiability(r.Context(), payload.LiabilityID); err != nil {
+	if _, err := h.store.GetLiability(r.Context(), userID, payload.LiabilityID); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
-	liability, err := h.store.ConvertLiabilityToProperty(r.Context(), payload.LiabilityID)
+	liability, err := h.store.ConvertLiabilityToProperty(r.Context(), userID, payload.LiabilityID)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
@@ -137,27 +145,27 @@ func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
 			Milestones:    map[string]interface{}{},
 			Insights:      map[string]interface{}{},
 		}
-		createdScenario, err := h.store.CreatePropertyScenario(r.Context(), newScenario)
+		createdScenario, err := h.store.CreatePropertyScenario(r.Context(), userID, newScenario)
 		if err != nil {
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		scenario = createdScenario
 		scenarioID = createdScenario.ID
 	} else {
-		existing, err := h.store.GetPropertyScenario(r.Context(), scenarioID)
+		existing, err := h.store.GetPropertyScenario(r.Context(), userID, scenarioID)
 		if err != nil {
 			if err == repository.ErrNotFound {
 				notFound(w)
 				return
 			}
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		scenario = existing
 	}
 
-	link, err := h.store.CreateOrReplacePropertyLink(r.Context(), repository.PropertyLink{
+	link, err := h.store.CreateOrReplacePropertyLink(r.Context(), userID, repository.PropertyLink{
 		PropertyScenarioID: scenarioID,
 		AssetID:            asset.ID,
 		LiabilityID:        liability.ID,
@@ -184,7 +192,12 @@ func (h *PropertyLinkHandler) create(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// PUT /api/v1/property-links/{id}
 func (h *PropertyLinkHandler) update(w http.ResponseWriter, r *http.Request, id string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload propertyLinkRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
@@ -196,33 +209,33 @@ func (h *PropertyLinkHandler) update(w http.ResponseWriter, r *http.Request, id 
 	}
 
 	// Ensure existence and categories.
-	if _, err := h.store.ConvertAssetToProperty(r.Context(), payload.AssetID); err != nil {
+	if _, err := h.store.ConvertAssetToProperty(r.Context(), userID, payload.AssetID); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
-	if _, err := h.store.ConvertLiabilityToProperty(r.Context(), payload.LiabilityID); err != nil {
+	if _, err := h.store.ConvertLiabilityToProperty(r.Context(), userID, payload.LiabilityID); err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
-		return
-	}
-
-	if _, err := h.store.GetPropertyScenario(r.Context(), payload.PropertyScenarioID); err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 
-	link, err := h.store.UpdatePropertyLink(r.Context(), repository.PropertyLink{
+	if _, err := h.store.GetPropertyScenario(r.Context(), userID, payload.PropertyScenarioID); err != nil {
+		if err == repository.ErrNotFound {
+			notFound(w)
+			return
+		}
+		internalError(w, err)
+		return
+	}
+
+	link, err := h.store.UpdatePropertyLink(r.Context(), userID, repository.PropertyLink{
 		ID:                 id,
 		PropertyScenarioID: payload.PropertyScenarioID,
 		AssetID:            payload.AssetID,
@@ -233,42 +246,52 @@ func (h *PropertyLinkHandler) update(w http.ResponseWriter, r *http.Request, id 
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, link)
 }
 
+// GET /api/v1/property-links
 func (h *PropertyLinkHandler) list(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	scenarioID := r.URL.Query().Get("property_scenario_id")
 	assetID := r.URL.Query().Get("asset_id")
 	liabilityID := r.URL.Query().Get("liability_id")
-	if scenarioID == "" && assetID == "" && liabilityID == "" {
-		badRequest(w, errMissingFields("property_scenario_id or asset_id or liability_id"))
-		return
-	}
 
 	switch {
 	case scenarioID != "":
-		links, err := h.store.ListPropertyLinksByScenario(r.Context(), scenarioID)
+		links, err := h.store.ListPropertyLinksByScenario(r.Context(), userID, scenarioID)
 		if err != nil {
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		writeJSON(w, links)
 	case assetID != "":
-		links, err := h.store.ListPropertyLinksByAsset(r.Context(), assetID)
+		links, err := h.store.ListPropertyLinksByAsset(r.Context(), userID, assetID)
 		if err != nil {
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		writeJSON(w, links)
 	case liabilityID != "":
-		links, err := h.store.ListPropertyLinksByLiability(r.Context(), liabilityID)
+		links, err := h.store.ListPropertyLinksByLiability(r.Context(), userID, liabilityID)
 		if err != nil {
-			internalError(w)
+			internalError(w, err)
 			return
 		}
 		writeJSON(w, links)
+	default:
+		// No filter provided - return all links for the user with pagination
+		pagination := parsePagination(r)
+		result, err := h.store.ListAllPropertyLinks(r.Context(), userID, pagination)
+		if err != nil {
+			internalError(w, err)
+			return
+		}
+		writeJSON(w, result)
 	}
 }

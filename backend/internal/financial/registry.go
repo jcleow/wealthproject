@@ -66,31 +66,10 @@ func (r *FinancialToolRegistry) GetStats() RegistryStats {
 		category := categorizeToolByName(name)
 		stats.CategoryCounts[category]++
 
-		// Extract required and optional fields
-		if parameters, ok := tool.Function.Parameters["properties"].(map[string]interface{}); ok {
-			var required []string
-			var optional []string
-
-			if requiredList, ok := tool.Function.Parameters["required"].([]string); ok {
-				required = requiredList
-			}
-
-			for fieldName := range parameters {
-				isRequired := false
-				for _, req := range required {
-					if req == fieldName {
-						isRequired = true
-						break
-					}
-				}
-				if !isRequired {
-					optional = append(optional, fieldName)
-				}
-			}
-
-			stats.RequiredFields[name] = required
-			stats.OptionalFields[name] = optional
-		}
+		// Extract required and optional fields directly from PropertySchema.Required flag
+		params := tool.Function.Parameters
+		stats.RequiredFields[name] = params.GetRequiredFields()
+		stats.OptionalFields[name] = params.GetOptionalFields()
 	}
 
 	return stats

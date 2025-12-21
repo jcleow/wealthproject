@@ -29,6 +29,23 @@ type FinancialExecutor interface {
 	DeleteExpense(ctx context.Context, params financial.DeleteExpenseParams) (*string, error)
 	CreatePropertyScenario(ctx context.Context, params financial.PropertyScenarioParams) (*string, error)
 	RollbackAction(ctx context.Context, toolName string, entityID *string) error
+
+	// Analysis tools (Agent 3) - read-only, execute immediately
+	GetNetWorthSummary(ctx context.Context, userID string, params financial.GetNetWorthSummaryParams) (*string, error)
+	AnalyzeNetWorthTrends(ctx context.Context, userID string, params financial.AnalyzeNetWorthTrendsParams) (*string, error)
+	CompareScenarioImpact(ctx context.Context, userID string, params financial.CompareScenarioImpactParams) (*string, error)
+	ProjectNetWorthAtYear(ctx context.Context, userID string, params financial.ProjectNetWorthAtYearParams) (*string, error)
+	IdentifyNetWorthLevers(ctx context.Context, userID string, params financial.IdentifyNetWorthLeversParams) (*string, error)
+
+	// Scenario CRUD tools (Agent 2)
+	CreateScenarioEvent(ctx context.Context, params financial.CreateScenarioEventParams) (*string, error)
+	StopFinancialItem(ctx context.Context, params financial.StopFinancialItemParams) (*string, error)
+	StartFinancialItem(ctx context.Context, params financial.StartFinancialItemParams) (*string, error)
+	ModifyFinancialItem(ctx context.Context, params financial.ModifyFinancialItemParams) (*string, error)
+	UpdateScenarioEvent(ctx context.Context, params financial.UpdateScenarioEventParams) (*string, error)
+	DeleteScenarioEvent(ctx context.Context, params financial.DeleteScenarioEventParams) (*string, error)
+	ListScenarioEvents(ctx context.Context, userID string, params financial.ListScenarioEventsParams) (*string, error)
+	ToggleScenarioIncluded(ctx context.Context, params financial.ToggleScenarioIncludedParams) (*string, error)
 }
 
 // DispatchSessionStore defines the session store contract used by dispatch
@@ -96,7 +113,21 @@ type ExecutionSummary struct {
 	Status             string `json:"status"` // "success", "partial_success", "failed"
 }
 
+// POST /api/v1/financial/actions/dispatch
 // HandleDispatch executes approved financial actions
+// @Summary Execute financial actions
+// @Description Execute approved financial actions from a chat session
+// @Tags Actions
+// @Accept json
+// @Produce json
+// @Param body body DispatchRequest true "Actions to execute"
+// @Success 200 {object} DispatchResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 409 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v1/financial/actions/dispatch [post]
 func (h *DispatchHandler) HandleDispatch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	startTime := time.Now()
@@ -472,6 +503,48 @@ func (h *DispatchHandler) executeAction(ctx context.Context, action ExecutionAct
 			return nil, fmt.Errorf("invalid createPropertyScenario parameters: %w", err)
 		}
 		return h.financialClient.CreatePropertyScenario(ctx, typed)
+	case "createScenarioEvent":
+		typed, err := financial.DecodeParams[financial.CreateScenarioEventParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid createScenarioEvent parameters: %w", err)
+		}
+		return h.financialClient.CreateScenarioEvent(ctx, typed)
+	case "stopFinancialItem":
+		typed, err := financial.DecodeParams[financial.StopFinancialItemParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid stopFinancialItem parameters: %w", err)
+		}
+		return h.financialClient.StopFinancialItem(ctx, typed)
+	case "startFinancialItem":
+		typed, err := financial.DecodeParams[financial.StartFinancialItemParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid startFinancialItem parameters: %w", err)
+		}
+		return h.financialClient.StartFinancialItem(ctx, typed)
+	case "modifyFinancialItem":
+		typed, err := financial.DecodeParams[financial.ModifyFinancialItemParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid modifyFinancialItem parameters: %w", err)
+		}
+		return h.financialClient.ModifyFinancialItem(ctx, typed)
+	case "updateScenarioEvent":
+		typed, err := financial.DecodeParams[financial.UpdateScenarioEventParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid updateScenarioEvent parameters: %w", err)
+		}
+		return h.financialClient.UpdateScenarioEvent(ctx, typed)
+	case "deleteScenarioEvent":
+		typed, err := financial.DecodeParams[financial.DeleteScenarioEventParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid deleteScenarioEvent parameters: %w", err)
+		}
+		return h.financialClient.DeleteScenarioEvent(ctx, typed)
+	case "toggleScenarioIncluded":
+		typed, err := financial.DecodeParams[financial.ToggleScenarioIncludedParams](params)
+		if err != nil {
+			return nil, fmt.Errorf("invalid toggleScenarioIncluded parameters: %w", err)
+		}
+		return h.financialClient.ToggleScenarioIncluded(ctx, typed)
 	default:
 		return nil, fmt.Errorf("unknown tool: %s", action.ToolName)
 	}
@@ -647,15 +720,6 @@ func (h *DispatchHandler) rollbackExecuted(ctx context.Context, executed []execu
 	return failures
 }
 
-// isCriticalFailure determines if a failure should stop further execution
-func (h *DispatchHandler) isCriticalFailure(toolName string, err error) bool {
-	criticalTools := map[string]bool{
-		"createAsset":     true,
-		"createLiability": true,
-	}
-	return criticalTools[toolName]
-}
-
 func cloneParams(params map[string]interface{}) map[string]interface{} {
 	clone := make(map[string]interface{}, len(params))
 	for k, v := range params {
@@ -670,6 +734,7 @@ func writeJSON(w http.ResponseWriter, payload interface{}) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
+// POST /api/v1/financial/actions/dispatch/batch
 // HandleBatchDispatch handles multiple dispatch requests in batch
 func (h *DispatchHandler) HandleBatchDispatch(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotImplemented, "not_implemented", "Batch dispatch not yet implemented")

@@ -140,6 +140,101 @@ func (m *mockFinancialClient) RollbackAction(ctx context.Context, toolName strin
 	return nil
 }
 
+// Analysis tools (Agent 3) - read-only mock implementations
+func (m *mockFinancialClient) GetNetWorthSummary(ctx context.Context, userID string, params financial.GetNetWorthSummaryParams) (*string, error) {
+	result := "Mock net worth summary"
+	return &result, nil
+}
+
+func (m *mockFinancialClient) AnalyzeNetWorthTrends(ctx context.Context, userID string, params financial.AnalyzeNetWorthTrendsParams) (*string, error) {
+	result := "Mock net worth trends"
+	return &result, nil
+}
+
+func (m *mockFinancialClient) CompareScenarioImpact(ctx context.Context, userID string, params financial.CompareScenarioImpactParams) (*string, error) {
+	result := "Mock scenario impact"
+	return &result, nil
+}
+
+func (m *mockFinancialClient) ProjectNetWorthAtYear(ctx context.Context, userID string, params financial.ProjectNetWorthAtYearParams) (*string, error) {
+	result := "Mock net worth projection"
+	return &result, nil
+}
+
+func (m *mockFinancialClient) IdentifyNetWorthLevers(ctx context.Context, userID string, params financial.IdentifyNetWorthLeversParams) (*string, error) {
+	result := "Mock net worth levers"
+	return &result, nil
+}
+
+// Scenario CRUD tools (Agent 2) - mock implementations
+func (m *mockFinancialClient) CreateScenarioEvent(ctx context.Context, params financial.CreateScenarioEventParams) (*string, error) {
+	m.actions = append(m.actions, "createScenarioEvent")
+	if m.failOnTool == "createScenarioEvent" {
+		return nil, errMockFailure
+	}
+	id := "scenario-event-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) StopFinancialItem(ctx context.Context, params financial.StopFinancialItemParams) (*string, error) {
+	m.actions = append(m.actions, "stopFinancialItem")
+	if m.failOnTool == "stopFinancialItem" {
+		return nil, errMockFailure
+	}
+	id := "scenario-event-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) StartFinancialItem(ctx context.Context, params financial.StartFinancialItemParams) (*string, error) {
+	m.actions = append(m.actions, "startFinancialItem")
+	if m.failOnTool == "startFinancialItem" {
+		return nil, errMockFailure
+	}
+	id := "scenario-event-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) ModifyFinancialItem(ctx context.Context, params financial.ModifyFinancialItemParams) (*string, error) {
+	m.actions = append(m.actions, "modifyFinancialItem")
+	if m.failOnTool == "modifyFinancialItem" {
+		return nil, errMockFailure
+	}
+	id := "scenario-event-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) UpdateScenarioEvent(ctx context.Context, params financial.UpdateScenarioEventParams) (*string, error) {
+	m.actions = append(m.actions, "updateScenarioEvent")
+	if m.failOnTool == "updateScenarioEvent" {
+		return nil, errMockFailure
+	}
+	id := "scenario-event-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) DeleteScenarioEvent(ctx context.Context, params financial.DeleteScenarioEventParams) (*string, error) {
+	m.actions = append(m.actions, "deleteScenarioEvent")
+	if m.failOnTool == "deleteScenarioEvent" {
+		return nil, errMockFailure
+	}
+	id := "scenario-event-123"
+	return &id, nil
+}
+
+func (m *mockFinancialClient) ListScenarioEvents(ctx context.Context, userID string, params financial.ListScenarioEventsParams) (*string, error) {
+	result := "Mock scenario events list"
+	return &result, nil
+}
+
+func (m *mockFinancialClient) ToggleScenarioIncluded(ctx context.Context, params financial.ToggleScenarioIncludedParams) (*string, error) {
+	m.actions = append(m.actions, "toggleScenarioIncluded")
+	if m.failOnTool == "toggleScenarioIncluded" {
+		return nil, errMockFailure
+	}
+	id := "scenario-event-123"
+	return &id, nil
+}
+
 var errMockFailure = fmt.Errorf("mock failure")
 
 type mockSessionStore struct {

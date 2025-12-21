@@ -80,6 +80,10 @@ func (f *fakeSessionStore) GetConversationHistory(ctx context.Context, sessionID
 	return f.state.Messages, nil
 }
 
+func (f *fakeSessionStore) SaveConversationHistory(ctx context.Context, sessionID string, messages []llm.ChatMessage) error {
+	return nil
+}
+
 // Lightweight preview service that echoes tool calls into ProposedActions
 type fakePreviewService struct{}
 

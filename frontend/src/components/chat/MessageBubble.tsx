@@ -21,7 +21,12 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
       )}
     >
       {!isUser && (
-        <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5">
+        <div className={`flex items-center justify-center
+h-9 w-9
+mt-1
+rounded-full border border-white/10
+bg-white/5
+shrink-0`}>
           <Sparkles className="h-4 w-4 text-blue-200" />
         </div>
       )}
@@ -34,20 +39,30 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
       >
         <div
           className={cn(
-            'rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-lg shadow-black/40',
+            `px-4 py-3
+rounded-2xl
+text-sm leading-relaxed
+shadow-lg shadow-black/40`,
             isUser
               ? 'bg-[#006cff] text-white'
               : 'border border-white/10 bg-white/5 text-gray-100'
           )}
         >
           <div className="whitespace-pre-wrap break-words">
-            {message.content}
+            {message.content || (!isUser && (
+              <span className="italic text-gray-400">
+                Sorry, something went wrong. Please try again.
+              </span>
+            ))}
           </div>
         </div>
 
         <div
           className={cn(
-            'mt-1 text-[11px] text-gray-500 transition-opacity group-hover:opacity-100',
+            `mt-1
+text-[11px] text-gray-500
+group-hover:opacity-100
+transition-opacity`,
             isUser ? 'text-right' : 'text-left'
           )}
         >

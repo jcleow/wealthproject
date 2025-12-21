@@ -6,7 +6,7 @@ services:
     container_name: financial-chat-postgres
     environment:
       POSTGRES_USER: financial_user
-      POSTGRES_PASSWORD: financial_pass_dev_2024
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: financial_chat
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
@@ -48,7 +48,7 @@ services:
   #     - DB_PORT=5432
   #     - DB_NAME=financial_chat
   #     - DB_USER=financial_user
-  #     - DB_PASSWORD=financial_pass_dev_2024
+  #     - DB_PASSWORD=${DB_PASSWORD}
   #     - REDIS_URL=redis://redis:6379
   #   depends_on:
   #     postgres:

@@ -34,6 +34,7 @@ export function useChat({ chatId, sessionId, initialMessages = [] }: UseChatProp
       })
     },
     onSuccess: (response, content) => {
+      console.log('[useChat] Response received:', JSON.stringify(response, null, 2))
       const now = Date.now()
 
       // If there are proposed actions, create action review
@@ -61,6 +62,15 @@ export function useChat({ chatId, sessionId, initialMessages = [] }: UseChatProp
           timestamp: new Date(proposedActions.length > 0 ? now + 1 : now),
         }
       ])
+
+      // If actions were auto-executed, trigger data refresh
+      if (response.actions_executed && response.actions_executed > 0) {
+        console.log('[useChat] Auto-executed actions detected:', response.actions_executed)
+        if (typeof window !== 'undefined') {
+          console.log('[useChat] Dispatching financial-data-refresh event')
+          window.dispatchEvent(new Event('financial-data-refresh'))
+        }
+      }
     },
     onError: (error: ApiError) => {
       // Add error message to chat

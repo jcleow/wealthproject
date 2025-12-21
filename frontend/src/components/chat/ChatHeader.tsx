@@ -1,19 +1,77 @@
+import { useState } from 'react'
+import { Sparkles, LayoutDashboard, History, PanelLeftClose } from 'lucide-react'
+
 interface ChatHeaderProps {
   chatId: string
   onToggleHistory?: () => void
   isHistoryOpen?: boolean
+  onCollapse?: () => void
 }
 
-export default function ChatHeader({ chatId, onToggleHistory, isHistoryOpen }: ChatHeaderProps) {
+export default function ChatHeader({ onToggleHistory, isHistoryOpen: _isHistoryOpen, onCollapse }: ChatHeaderProps) {
+  const [activeTab, setActiveTab] = useState<'chat' | 'history'>('chat')
+
   return (
-    <div className="border-b border-white/5 px-6 py-6">
-      <div className="relative">
-        {/* <div className="space-y-2 pt-1 pl-12">
-          <h2 className="text-3xl font-semibold text-white">Hello there!</h2>
-          <p className="text-base text-gray-400">How can I help you today?</p>
-        </div> */}
+    <div className="relative z-10 p-6 pb-2">
+      {/* Header with branding */}
+      <div className="mb-6 flex items-start justify-between">
+        <div className="flex items-center gap-4">
+          <div className={`flex items-center justify-center
+h-10 w-10
+rounded-2xl border border-white/5
+bg-gradient-to-br from-zinc-800 to-black
+shadow-glow`}>
+            <Sparkles className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold tracking-tight text-white">Assetra Chat</h1>            
+          </div>
+        </div>
+        {onCollapse && (
+          <button
+            onClick={onCollapse}
+            className="p-1 text-slate-500 transition-colors hover:text-white"
+            title="Collapse chat"
+          >
+            <PanelLeftClose className="h-5 w-5" />
+          </button>
+        )}
       </div>
-      {/* Chat ID hidden label removed to avoid hydration mismatch */}
+
+      {/* Navigation tabs */}
+      <nav className={`flex
+gap-1 p-1
+rounded-xl border border-white/5
+bg-white/5
+backdrop-blur-md`}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('chat')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium transition ${
+            activeTab === 'chat'
+              ? 'border border-white/5 bg-white/10 text-white shadow-sm'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <LayoutDashboard className="h-3 w-3" />
+          Chat
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('history')
+            onToggleHistory?.()
+          }}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium transition ${
+            activeTab === 'history'
+              ? 'border border-white/5 bg-white/10 text-white shadow-sm'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <History className="h-3 w-3" />
+          History
+        </button>
+      </nav>
     </div>
   )
 }

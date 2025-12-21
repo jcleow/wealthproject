@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"financial-chat-system/backend/internal/financial/repository"
 )
@@ -22,6 +24,7 @@ func (h *LiabilityHandler) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("/liabilities/", h.handleItem)
 }
 
+// GET|POST /api/v1/liabilities
 func (h *LiabilityHandler) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -33,6 +36,8 @@ func (h *LiabilityHandler) handleCollection(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// GET /api/v1/liabilities/{id}
+// PUT /api/v1/liabilities/{id}/convert-to-property
 func (h *LiabilityHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/liabilities/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
@@ -55,51 +60,69 @@ func (h *LiabilityHandler) handleItem(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		h.get(w, r, id)
-	case http.MethodPut:
-		h.update(w, r, id)
-	case http.MethodDelete:
-		h.delete(w, r, id)
+	// PUT and DELETE moved to v2 API with versioning support
 	default:
 		methodNotAllowed(w)
 	}
 }
 
+// PUT /api/v1/liabilities/{id}/convert-to-property
 func (h *LiabilityHandler) convertToProperty(w http.ResponseWriter, r *http.Request, id string) {
-	updated, err := h.store.ConvertLiabilityToProperty(r.Context(), id)
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	updated, err := h.store.ConvertLiabilityToProperty(r.Context(), userID, id)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, updated)
 }
 
+// GET /api/v1/liabilities
 func (h *LiabilityHandler) list(w http.ResponseWriter, r *http.Request) {
-	items, err := h.store.ListLiabilities(r.Context())
-	if err != nil {
-		internalError(w)
+	userID, ok := requireUserID(w, r)
+	if !ok {
 		return
 	}
-	writeJSON(w, items)
+	pagination := parsePagination(r)
+	result, err := h.store.ListLiabilities(r.Context(), userID, pagination)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, result)
 }
 
+// GET /api/v1/liabilities/{id}
 func (h *LiabilityHandler) get(w http.ResponseWriter, r *http.Request, id string) {
-	item, err := h.store.GetLiability(r.Context(), id)
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	item, err := h.store.GetLiability(r.Context(), userID, id)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			notFound(w)
 			return
 		}
-		internalError(w)
+		internalError(w, err)
 		return
 	}
 	writeJSON(w, item)
 }
 
+// POST /api/v1/liabilities
 func (h *LiabilityHandler) create(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
 	var payload repository.Liability
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		badRequest(w, err)
@@ -109,41 +132,47 @@ func (h *LiabilityHandler) create(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, errMissingFields("name, category, current_balance"))
 		return
 	}
-	created, err := h.store.CreateLiability(r.Context(), payload)
+
+	created, err := h.store.CreateLiability(r.Context(), userID, payload)
 	if err != nil {
-		internalError(w)
+		internalError(w, err)
 		return
 	}
+
+	if created.MinimumPayment > 0 {
+		// If no repayment expense exists for this liability, auto-create one.
+		if _, err := h.store.GetExpenseBySourceLiability(r.Context(), userID, created.ID); err != nil {
+			if err != repository.ErrNotFound {
+				internalError(w, err)
+				return
+			}
+
+			monthStart := created.StartDate
+			if monthStart.IsZero() {
+				monthStart = time.Now().UTC()
+			}
+			monthStart = time.Date(monthStart.Year(), monthStart.Month(), 1, 0, 0, 0, 0, monthStart.Location())
+			expense := repository.Expense{
+				Name:              created.Name,
+				Amount:            created.MinimumPayment,
+				Frequency:         "monthly",
+				StartDate:         monthStart,
+				EndDate:           created.EndDate,
+				Category:          "Debt Payment",
+				GrowthRate:        0,
+				GrowthStrategy:    "annual_step",
+				Notes:             fmt.Sprintf("Auto-generated payment for %s", created.Name),
+				SourceLiabilityID: &created.ID,
+			}
+
+			if _, err := h.store.CreateExpense(r.Context(), userID, expense); err != nil {
+				internalError(w, err)
+				return
+			}
+		}
+	}
+
 	writeJSON(w, created)
 }
 
-func (h *LiabilityHandler) update(w http.ResponseWriter, r *http.Request, id string) {
-	var payload repository.Liability
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		badRequest(w, err)
-		return
-	}
-	payload.ID = id
-	updated, err := h.store.UpdateLiability(r.Context(), payload)
-	if err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w)
-		return
-	}
-	writeJSON(w, updated)
-}
-
-func (h *LiabilityHandler) delete(w http.ResponseWriter, r *http.Request, id string) {
-	if err := h.store.DeleteLiability(r.Context(), id); err != nil {
-		if err == repository.ErrNotFound {
-			notFound(w)
-			return
-		}
-		internalError(w)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
+// update and delete methods moved to v2 API (liabilities_v2.go) with versioning support
