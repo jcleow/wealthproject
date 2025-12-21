@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAssetsQuery, useCreateAssetMutation, useUpdateAssetMutation, useDeleteAssetMutation } from './queries/useAssetsQuery'
 import { useLiabilitiesQuery, useCreateLiabilityMutation, useUpdateLiabilityMutation, useDeleteLiabilityMutation } from './queries/useLiabilitiesQuery'
@@ -69,20 +69,16 @@ export function useFinancialData() {
                 incomesQuery.error || expensesQuery.error
   const errorMessage = error instanceof Error ? error.message : error ? String(error) : null
 
-  // Computed values
-  const getTotalAssets = () => {
+  // Computed values - memoized to prevent infinite loops when used in dependency arrays
+  const totalAssets = useMemo(() => {
     return assets.reduce((sum, asset) => sum + asset.currentValue, 0)
-  }
+  }, [assets])
 
-  const getTotalLiabilities = () => {
+  const totalLiabilities = useMemo(() => {
     return liabilities.reduce((sum, liability) => sum + liability.currentBalance, 0)
-  }
+  }, [liabilities])
 
-  const getNetWorth = () => {
-    return getTotalAssets() - getTotalLiabilities()
-  }
-
-  const getMonthlyIncome = () => {
+  const monthlyIncome = useMemo(() => {
     return incomes.reduce((sum, income) => {
       const monthlyAmount = income.frequency === 'monthly'
         ? income.amount
@@ -95,9 +91,9 @@ export function useFinancialData() {
         : 0
       return sum + monthlyAmount
     }, 0)
-  }
+  }, [incomes])
 
-  const getMonthlyExpenses = () => {
+  const monthlyExpenses = useMemo(() => {
     return expenses.reduce((sum, expense) => {
       const monthlyAmount = expense.frequency === 'monthly'
         ? expense.amount
@@ -110,11 +106,19 @@ export function useFinancialData() {
         : 0
       return sum + monthlyAmount
     }, 0)
-  }
+  }, [expenses])
 
-  const getMonthlySavings = () => {
-    return getMonthlyIncome() - getMonthlyExpenses()
-  }
+  const monthlySavings = useMemo(() => {
+    return monthlyIncome - monthlyExpenses
+  }, [monthlyIncome, monthlyExpenses])
+
+  // Stable getter functions using useCallback
+  const getTotalAssets = useCallback(() => totalAssets, [totalAssets])
+  const getTotalLiabilities = useCallback(() => totalLiabilities, [totalLiabilities])
+  const getNetWorth = useCallback(() => totalAssets - totalLiabilities, [totalAssets, totalLiabilities])
+  const getMonthlyIncome = useCallback(() => monthlyIncome, [monthlyIncome])
+  const getMonthlyExpenses = useCallback(() => monthlyExpenses, [monthlyExpenses])
+  const getMonthlySavings = useCallback(() => monthlySavings, [monthlySavings])
 
   // Refresh function - invalidates all financial queries with single call
   const refresh = async () => {
