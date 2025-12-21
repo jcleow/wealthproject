@@ -75,3 +75,8 @@ frontend/.env.*
 # pnpm
 .pnpm-store/
 frontend/.pnpm-store/
+
+# Playwright e2e
+frontend/e2e/*-snapshots/
+frontend/playwright-report/
+frontend/test-results/
