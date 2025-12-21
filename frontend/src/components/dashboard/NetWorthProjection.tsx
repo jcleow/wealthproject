@@ -231,11 +231,16 @@ export function NetWorthProjection({
     const totalPoints = displayData.length
     if (totalPoints === 0) return [] as number[]
 
+    const minSpacingPx = 60
+    const width = Math.max(containerWidth, 1)
+    const maxTicks = Math.max(6, Math.floor(width / minSpacingPx))
+
     const showingYears = dataResolution === 'monthly' && visibleRangeMonths >= 24
 
     if (showingYears) {
+      // Collect all unique year ticks first
       const seenYears = new Set<number>()
-      const values: number[] = []
+      const allYearTicks: number[] = []
 
       for (let i = 0; i < totalPoints; i++) {
         const point = displayData[i]
@@ -243,16 +248,28 @@ export function NetWorthProjection({
 
         if (!seenYears.has(year)) {
           seenYears.add(year)
-          values.push(point.yearIndex)
+          allYearTicks.push(point.yearIndex)
         }
       }
 
+      // If too many year ticks, sample them to avoid overlap
+      if (allYearTicks.length <= maxTicks) {
+        return allYearTicks
+      }
+
+      const step = Math.ceil(allYearTicks.length / maxTicks)
+      const values: number[] = []
+      for (let i = 0; i < allYearTicks.length; i += step) {
+        values.push(allYearTicks[i])
+      }
+      // Always include the last tick
+      const lastTick = allYearTicks[allYearTicks.length - 1]
+      if (values[values.length - 1] !== lastTick) {
+        values.push(lastTick)
+      }
       return values
     }
 
-    const minSpacingPx = 60
-    const width = Math.max(containerWidth, 1)
-    const maxTicks = Math.max(6, Math.floor(width / minSpacingPx))
     const step = Math.max(1, Math.floor(totalPoints / maxTicks))
     const values: number[] = []
     for (let i = 0; i < totalPoints; i += step) {
