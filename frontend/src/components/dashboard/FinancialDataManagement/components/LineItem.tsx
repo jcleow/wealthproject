@@ -426,10 +426,14 @@ text-[10px] font-bold text-white`}
                 // Use percentage sign for color if present, otherwise use amount sign
                 const isNegative = hasPercentage ? impact.growthRate! < 0 : impactAmt < 0
                 const colorClass = isNegative ? 'text-rose-400' : 'text-emerald-400'
+                // Format with brackets for negative values instead of minus sign
+                const formattedAmt = isNegative
+                  ? `(${formatCurrency(Math.abs(impactAmt))})`
+                  : formatCurrency(impactAmt)
 
                 return (
                   <span className={`text-xs italic ${colorClass}`}>
-                    {formatCurrency(impactAmt)}
+                    {formattedAmt}
                     {hasPercentage && (
                       <span className="ml-1">
                         ({impact.growthRate! >= 0 ? '+' : ''}{impact.growthRate}%)
