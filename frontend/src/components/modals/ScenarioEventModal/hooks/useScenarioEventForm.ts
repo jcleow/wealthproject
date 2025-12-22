@@ -87,16 +87,31 @@ export function useScenarioEventForm({
   }, [hydratedEvent, isOpen])
 
   // Keep impacts aligned to occurs_on unless user overrides
+  // Also clamp any dates that are now before the new occursOn
   useEffect(() => {
     if (!form.occursOn) return
     const month = form.occursOn.slice(0, 7)
     setForm((prev) => ({
       ...prev,
       impacts: prev.impacts.map((impact) => {
+        let updatedStartMonth = impact.startMonth
+        let updatedEndMonth = impact.endMonth
+
+        // If startMonth is empty or matches the previous occursOn, sync it
         if (!impact.startMonth || impact.startMonth === prevOccursOn.current.slice(0, 7)) {
-          return { ...impact, startMonth: month }
+          updatedStartMonth = month
         }
-        return impact
+        // If startMonth is before the new occursOn, clamp it
+        else if (impact.startMonth < month) {
+          updatedStartMonth = month
+        }
+
+        // If endMonth exists and is before the new startMonth, clamp it
+        if (updatedEndMonth && updatedEndMonth < updatedStartMonth) {
+          updatedEndMonth = updatedStartMonth
+        }
+
+        return { ...impact, startMonth: updatedStartMonth, endMonth: updatedEndMonth }
       }),
     }))
     prevOccursOn.current = form.occursOn
