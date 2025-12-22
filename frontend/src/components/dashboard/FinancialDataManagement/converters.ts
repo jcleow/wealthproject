@@ -27,6 +27,7 @@ function convertAppliedImpacts(impacts?: AppliedImpactV2[]): TimelineEventImpact
     amountMonthly: parseDecimal(imp.amountMonthly),
     impactKind: imp.impactKind,
     notes: imp.notes,
+    growthRate: imp.growthRate,
   }))
 }
 

@@ -364,15 +364,24 @@ text-[10px] font-bold text-white`}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               {(() => {
                 const impactAmt = showMonthlyData
                   ? (impact.amountMonthly ?? (impact.amountAnnual ?? 0) / 12)
                   : (impact.amountAnnual ?? 0)
-                const impactClass = impactAmt < 0 ? 'text-rose-400' : 'text-emerald-400'
+                const hasPercentage = impact.growthRate != null && impact.growthRate !== 0
+                // Use percentage sign for color if present, otherwise use amount sign
+                const isNegative = hasPercentage ? impact.growthRate! < 0 : impactAmt < 0
+                const colorClass = isNegative ? 'text-rose-400' : 'text-emerald-400'
+
                 return (
-                  <span className={`text-xs italic ${impactClass}`}>
+                  <span className={`text-xs italic ${colorClass}`}>
                     {formatCurrency(impactAmt)}
+                    {hasPercentage && (
+                      <span className="ml-1">
+                        ({impact.growthRate! >= 0 ? '+' : ''}{impact.growthRate}%)
+                      </span>
+                    )}
                   </span>
                 )
               })()}

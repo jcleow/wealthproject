@@ -1143,6 +1143,7 @@ func convertAppliedImpacts(infos []scenario.AppliedImpactInfo) []AppliedImpact {
 			AmountMonthly: *monthlyAmt.Round(0),
 			ImpactKind:    info.ImpactKind,
 			Notes:         info.Notes,
+			GrowthRate:    info.GrowthRate,
 		})
 	}
 	return result

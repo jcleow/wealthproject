@@ -216,6 +216,13 @@ export const normalizeImpact = (impact: any): ScenarioImpactDto => ({
   name: impact.name ?? impact.Name ?? impact.target_name ?? impact.targetName ?? undefined,
   frequency: impact.frequency ?? impact.Frequency ?? impact.target_frequency ?? impact.targetFrequency ?? undefined,
   notes: impact.notes ?? impact.Notes ?? '',
+  // Advanced fields for start impacts (growthRate also used for percentage deltas)
+  category: impact.category ?? impact.Category ?? undefined,
+  growthRate: impact.growthRate ?? impact.growth_rate ?? impact.GrowthRate ?? undefined,
+  growthStrategy: impact.growthStrategy ?? impact.growth_strategy ?? impact.GrowthStrategy ?? undefined,
+  // Liability-specific fields
+  interestRate: impact.interestRate ?? impact.interest_rate ?? impact.InterestRate ?? undefined,
+  minimumPayment: impact.minimumPayment ?? impact.minimum_payment ?? impact.MinimumPayment ?? undefined,
 })
 
 export const normalizeScenarioEvent = (data: any): ScenarioEvent => {

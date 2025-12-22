@@ -82,21 +82,14 @@ type Event struct {
 	Impacts      []Impact
 }
 
-// DeltaType constants define how a delta impact amount is interpreted.
-const (
-	DeltaTypeAbsolute   = "absolute"   // Amount is absolute value (e.g., +$10,000)
-	DeltaTypePercentage = "percentage" // Amount is percentage of current value (e.g., +5%)
-)
-
 // Impact represents a financial impact with typed FK columns.
 // Only one of the target FK fields will be non-nil per impact.
 type Impact struct {
 	ID         string
 	EventID    string
 	ImpactKind string
-	Amount     *decimal.Decimal // Amount for delta/override impacts (nil for start/stop)
+	Amount     *decimal.Decimal // Amount for absolute delta/override impacts (nil for percentage deltas)
 	Cadence    common.Frequency // Frequency for delta impacts (monthly/annually)
-	DeltaType  string           // 'absolute' or 'percentage' - only for delta impacts
 	CreatedAt  time.Time
 
 	// Typed FK columns (only one is non-nil per row)

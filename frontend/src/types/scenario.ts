@@ -27,9 +27,6 @@ export type ScenarioCadence = 'monthly' | 'annual'
 // Default cadence for recurring impacts - explicitly named to indicate it's monthly
 export const DEFAULT_MONTHLY_CADENCE: ScenarioCadence = 'monthly'
 
-// Delta type for delta impacts: absolute ($) or percentage (%)
-export type DeltaType = 'absolute' | 'percentage'
-
 // UI verb type for sentence-builder pattern
 // Includes percentage variants for increase/decrease
 export type ImpactVerb =
@@ -41,40 +38,45 @@ export type ImpactVerb =
   | 'starts_at'
   | 'ends'
 
-// Convert UI verb to internal impactKind, deltaType, and normalize amount sign
+// Convert UI verb to internal impactKind and amount/growthRate
+// For percentage deltas, amount is 0 and growthRate holds the percentage
+// For absolute deltas, amount holds the value and growthRate is undefined
 export function verbToImpact(
   verb: ImpactVerb,
-  amount: number
-): { impactKind: ScenarioImpactKind; amount: number; deltaType?: DeltaType } {
+  value: number
+): { impactKind: ScenarioImpactKind; amount: number; growthRate?: number } {
   switch (verb) {
     case 'increases_by':
-      return { impactKind: 'delta', amount: Math.abs(amount), deltaType: 'absolute' }
+      return { impactKind: 'delta', amount: Math.abs(value) }
     case 'increases_by_percent':
-      return { impactKind: 'delta', amount: Math.abs(amount), deltaType: 'percentage' }
+      return { impactKind: 'delta', amount: 0, growthRate: Math.abs(value) }
     case 'decreases_by':
-      return { impactKind: 'delta', amount: -Math.abs(amount), deltaType: 'absolute' }
+      return { impactKind: 'delta', amount: -Math.abs(value) }
     case 'decreases_by_percent':
-      return { impactKind: 'delta', amount: -Math.abs(amount), deltaType: 'percentage' }
+      return { impactKind: 'delta', amount: 0, growthRate: -Math.abs(value) }
     case 'becomes':
-      return { impactKind: 'override', amount }
+      return { impactKind: 'override', amount: value }
     case 'starts_at':
-      return { impactKind: 'start', amount }
+      return { impactKind: 'start', amount: value }
     case 'ends':
       return { impactKind: 'stop', amount: 0 }
   }
 }
 
-// Convert internal impactKind and deltaType back to UI verb
+// Convert internal impactKind and amount/growthRate back to UI verb
+// If growthRate is set and amount is 0, it's a percentage delta
 export function impactToVerb(
   impactKind: ScenarioImpactKind,
   amount: number,
-  deltaType?: DeltaType
+  growthRate?: number
 ): ImpactVerb {
   switch (impactKind) {
     case 'delta':
-      if (deltaType === 'percentage') {
-        return amount >= 0 ? 'increases_by_percent' : 'decreases_by_percent'
+      // Percentage delta: amount is 0, growthRate has the percentage
+      if (amount === 0 && growthRate !== undefined) {
+        return growthRate >= 0 ? 'increases_by_percent' : 'decreases_by_percent'
       }
+      // Absolute delta: amount has the value
       return amount >= 0 ? 'increases_by' : 'decreases_by'
     case 'override':
       return 'becomes'
@@ -98,8 +100,7 @@ export interface ScenarioImpactDto {
   name?: string | null       // Name for start impacts (creates new item with this name)
   frequency?: string | null  // Frequency for income/expense items
   notes?: string | null
-  deltaType?: DeltaType | null  // 'absolute' or 'percentage' - only for delta impacts
-  // Advanced fields for start impacts
+  // Advanced fields for start impacts (growthRate also used for percentage deltas)
   category?: string | null
   growthRate?: number | null
   growthStrategy?: string | null
@@ -148,8 +149,7 @@ export interface ScenarioImpact {
   name?: string  // Name for the financial item (used by start impacts)
   frequency?: ItemFrequency  // Frequency for start impacts (one_time, monthly, annual)
   notes?: string
-  deltaType?: DeltaType  // 'absolute' or 'percentage' - only for delta impacts
-  // Advanced fields for start impacts - used to configure the created financial item
+  // Advanced fields for start impacts (growthRate also used for percentage deltas)
   category?: string  // Category for the created financial item
   growthRate?: number  // Annual growth rate (%)
   growthStrategy?: GrowthStrategy  // How growth is applied
@@ -173,7 +173,6 @@ export interface ScenarioEvent {
 
 export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact => {
   const isStartImpact = dto.impactKind === 'start'
-  const isDeltaImpact = dto.impactKind === 'delta'
 
   return {
     impactKind: dto.impactKind,
@@ -189,9 +188,7 @@ export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact =>
     // For start impacts, use frequency from JOINed finance table (or fallback to cadence for backwards compat)
     frequency: isStartImpact ? ((dto.frequency as ItemFrequency) || (dto.cadence as ItemFrequency)) : undefined,
     notes: dto.notes ?? undefined,
-    // Delta type for delta impacts (defaults to 'absolute' if not specified)
-    deltaType: isDeltaImpact ? (dto.deltaType ?? 'absolute') : undefined,
-    // Advanced fields for start impacts
+    // Advanced fields (growthRate used for both start impacts growth and percentage deltas)
     category: dto.category ?? undefined,
     growthRate: dto.growthRate ?? undefined,
     growthStrategy: (dto.growthStrategy as GrowthStrategy) ?? undefined,
@@ -203,7 +200,6 @@ export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact =>
 
 export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto => {
   const isStartImpact = impact.impactKind === 'start'
-  const isDeltaImpact = impact.impactKind === 'delta'
 
   return {
     impactKind: impact.impactKind,
@@ -220,9 +216,7 @@ export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto =
     name: impact.name,
     frequency: impact.frequency,
     notes: impact.notes,
-    // Delta type for delta impacts (only sent for delta impacts)
-    deltaType: isDeltaImpact ? impact.deltaType : undefined,
-    // Advanced fields for start impacts
+    // Advanced fields (growthRate used for both start impacts growth and percentage deltas)
     category: impact.category,
     growthRate: impact.growthRate,
     growthStrategy: impact.growthStrategy,

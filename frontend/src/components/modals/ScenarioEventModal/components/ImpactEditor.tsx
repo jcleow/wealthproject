@@ -86,14 +86,14 @@ export function ImpactEditor({
   items,
   isLoadingItems,
 }: ImpactEditorProps) {
-  const currentVerb = impactToVerb(impact.impactKind, impact.amount, impact.deltaType)
+  const currentVerb = impactToVerb(impact.impactKind, impact.amount, impact.growthRate)
   const VerbIcon = getVerbIcon(currentVerb)
   const verbColor = getVerbColor(currentVerb)
   const isPercentageVerb = currentVerb === 'increases_by_percent' || currentVerb === 'decreases_by_percent'
 
   const handleVerbChange = (verb: ImpactVerb) => {
-    const { impactKind, amount, deltaType } = verbToImpact(verb, Math.abs(impact.amount) || 0)
-    onUpdate(index, { impactKind, amount, deltaType })
+    const { impactKind, amount, growthRate } = verbToImpact(verb, Math.abs(impact.amount) || 0)
+    onUpdate(index, { impactKind, amount, growthRate })
   }
 
   // Determine whether to show cadence/frequency selector based on item type and verb
@@ -203,19 +203,21 @@ export function ImpactEditor({
               <input
                 type="text"
                 inputMode="numeric"
-                value={Number.isFinite(impact.amount)
-                  ? (isPercentageVerb
-                      ? String(Math.abs(impact.amount))  // Plain number for percentages
-                      : new Intl.NumberFormat('en-US').format(Math.abs(impact.amount)))  // Formatted for dollars
-                  : ''}
+                value={isPercentageVerb
+                  ? (Number.isFinite(impact.growthRate) ? String(Math.abs(impact.growthRate!)) : '')
+                  : (Number.isFinite(impact.amount) ? new Intl.NumberFormat('en-US').format(Math.abs(impact.amount)) : '')}
                 onChange={(e) => {
                   // For percentages, allow decimals; for dollars, only integers
                   const rawValue = isPercentageVerb
                     ? e.target.value.replace(/[^0-9.]/g, '')
                     : e.target.value.replace(/[^0-9]/g, '')
-                  const numeric = Number(rawValue)
-                  const { impactKind, amount, deltaType } = verbToImpact(currentVerb, Number.isNaN(numeric) ? 0 : numeric)
-                  onUpdate(index, { impactKind, amount, deltaType })
+                  let numeric = Number(rawValue)
+                  // Clamp percentage values to -1000% to +1000% range
+                  if (isPercentageVerb && !Number.isNaN(numeric)) {
+                    numeric = Math.min(1000, Math.max(0, numeric))
+                  }
+                  const { impactKind, amount, growthRate } = verbToImpact(currentVerb, Number.isNaN(numeric) ? 0 : numeric)
+                  onUpdate(index, { impactKind, amount, growthRate })
                 }}
                 className={`
                   px-3 py-2 ${isPercentageVerb ? 'w-20' : 'w-28'}

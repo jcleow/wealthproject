@@ -58,13 +58,6 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 	// For 'start' impacts, parentId will be nil
 	parentID := imp.TargetID()
 
-	// Get delta type for delta impacts
-	var deltaType *string
-	if imp.ImpactKind == scenario.ImpactKindDelta && imp.DeltaType != "" {
-		val := imp.DeltaType
-		deltaType = &val
-	}
-
 	return scenarioImpactV2DTO{
 		ImpactKind:     imp.ImpactKind,
 		TargetType:     imp.TargetType(),
@@ -77,7 +70,6 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		Name:           name,
 		Frequency:      frequency,
 		Notes:          notes,
-		DeltaType:      deltaType,
 		Category:       category,
 		GrowthRate:     imp.GrowthRate,
 		GrowthStrategy: growthStrategy,
@@ -247,6 +239,13 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		amountDecimal = d
 	}
 
+	// Validate growthRate for percentage deltas (limit to reasonable range: -1000% to +1000%)
+	if in.GrowthRate != nil {
+		if *in.GrowthRate < -1000 || *in.GrowthRate > 1000 {
+			return repo.ScenarioImpact{}, errors.New("growthRate must be between -1000 and 1000 (percent)")
+		}
+	}
+
 	// Resolve target type and parent ID
 	targetType, parentID, err := resolveImpactTarget(in)
 	if err != nil {
@@ -261,11 +260,6 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		StartDate:  startDate,
 		EndDate:    endDate,
 		GrowthRate: in.GrowthRate,
-	}
-
-	// Set delta type for delta impacts (defaults to 'absolute' if not specified)
-	if ik == scenario.ImpactKindDelta && in.DeltaType != nil {
-		impact.DeltaType = *in.DeltaType
 	}
 
 	// Set category if provided

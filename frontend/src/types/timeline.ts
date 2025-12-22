@@ -30,6 +30,7 @@ export interface TimelineEventImpact {
   amountMonthly?: number
   impactKind?: 'delta' | 'override' | 'start' | 'stop'
   notes?: string
+  growthRate?: number  // Percentage delta (e.g., 5 for +5%)
 }
 
 /** Applied impact in V2 response (decimal values as strings from backend) */
@@ -39,6 +40,7 @@ export interface AppliedImpactV2 {
   amountMonthly: string
   impactKind: 'delta' | 'override' | 'start' | 'stop'
   notes?: string
+  growthRate?: number  // Percentage delta (e.g., 5 for +5%)
 }
 
 export interface TimelineItem {

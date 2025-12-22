@@ -99,6 +99,7 @@ type AppliedImpact struct {
 	AmountMonthly decimal.Decimal `json:"amountMonthly"`
 	ImpactKind    string          `json:"impactKind"` // delta, override, start, stop
 	Notes         string          `json:"notes,omitempty"`
+	GrowthRate    *float64        `json:"growthRate,omitempty"` // Percentage delta (e.g., 5 for +5%)
 }
 
 // TimelineV2Response is the top-level response for the timeline v2 API
