@@ -3,6 +3,7 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 import type { TimelineItem } from '@/types/timeline'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
+import type { ScenarioEvent } from '@/types/scenario'
 import { formatCurrency } from '@/lib/format'
 import { numericStyles } from '@/lib/utils'
 import { getIconByName, getItemId, getAnnualizationLabel } from '../utils'
@@ -22,6 +23,7 @@ interface LineItemProps {
   onManageAllocations?: (item: TimelineItem) => void
   cashAccounts: CashAccount[]
   scenarioImpacts: AppliedImpact[]
+  scenarioEvents: ScenarioEvent[]
   isExpanded: boolean
   onToggleExpand: (itemId: string) => void
   showMonthlyData: boolean
@@ -46,6 +48,7 @@ export function LineItem({
   onManageAllocations,
   cashAccounts,
   scenarioImpacts,
+  scenarioEvents,
   isExpanded,
   onToggleExpand,
   showMonthlyData,
@@ -58,6 +61,14 @@ export function LineItem({
   const itemId = getItemId(item) || `${category}-${index}`
   const hasScenarios = scenarioImpacts.length > 0
   const annualizationLabel = getAnnualizationLabel(item)
+
+  // Check if this item was created by a scenario event (start impact)
+  // First check if item has scenarioEventId (for items created by start impacts)
+  // Then fall back to looking for a start impact in the eventImpacts array
+  const startImpact = scenarioImpacts.find(({ impact }) => impact.impactKind === 'start')
+  const startEvent = item.scenarioEventId
+    ? scenarioEvents.find(ev => ev.id === item.scenarioEventId) ?? startImpact?.event
+    : startImpact?.event
 
   const handleItemClick = () => {
     onSelect(isSelected ? null : itemId)
@@ -145,8 +156,49 @@ shadow-lg`}
               </Tooltip.Root>
             </Tooltip.Provider>
           )}
-          {/* Scenario indicator */}
-          {hasScenarios && <span className="h-1 w-1 flex-shrink-0 rounded-full bg-amber-400" />}
+          {/* Scenario indicator - show event icon for start impacts, amber dot for others */}
+          {startEvent ? (
+            <Tooltip.Provider delayDuration={0}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      window.dispatchEvent(new CustomEvent('open-scenario-event', { detail: startEvent }))
+                    }}
+                    className="flex-shrink-0 rounded p-0.5 transition hover:bg-white/10"
+                  >
+                    {(() => {
+                      const Icon = getIconByName(startEvent.displayIcon ?? '')
+                      return Icon ? (
+                        <Icon
+                          className="h-3.5 w-3.5"
+                          style={{ color: startEvent.displayColor ?? '#f59e0b' }}
+                        />
+                      ) : (
+                        <span
+                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold text-white"
+                          style={{ backgroundColor: startEvent.displayColor ?? '#f59e0b' }}
+                        >
+                          {(startEvent.displayIcon ?? '?').slice(0, 1).toUpperCase()}
+                        </span>
+                      )
+                    })()}
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Content
+                  side="top"
+                  sideOffset={6}
+                  className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+                >
+                  Created by: {startEvent.name}
+                </Tooltip.Content>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+          ) : hasScenarios ? (
+            <span className="h-1 w-1 flex-shrink-0 rounded-full bg-amber-400" />
+          ) : null}
           {/* Annualization info */}
           {annualizationLabel && (
             <Tooltip.Provider delayDuration={0}>
@@ -336,8 +388,9 @@ text-sm text-gray-300`}>
             key={`${event.id}-${impact.eventId}`}
             type="button"
             onClick={() => {
-              // TODO: Open scenario modal for editing
-              console.log('Edit scenario:', event)
+              if (event) {
+                window.dispatchEvent(new CustomEvent('open-scenario-event', { detail: event }))
+              }
             }}
             className={`flex w-full items-center justify-between rounded pl-4 pr-2 py-1.5 text-sm transition hover:bg-white/5 ${
               isDisabled ? 'opacity-50' : ''
@@ -364,15 +417,28 @@ text-[10px] font-bold text-white`}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               {(() => {
                 const impactAmt = showMonthlyData
                   ? (impact.amountMonthly ?? (impact.amountAnnual ?? 0) / 12)
                   : (impact.amountAnnual ?? 0)
-                const impactClass = impactAmt < 0 ? 'text-rose-400' : 'text-emerald-400'
+                const hasPercentage = impact.growthRate != null && impact.growthRate !== 0
+                // Use percentage sign for color if present, otherwise use amount sign
+                const isNegative = hasPercentage ? impact.growthRate! < 0 : impactAmt < 0
+                const colorClass = isNegative ? 'text-rose-400' : 'text-emerald-400'
+                // Format with brackets for negative values instead of minus sign
+                const formattedAmt = isNegative
+                  ? `(${formatCurrency(Math.abs(impactAmt))})`
+                  : formatCurrency(impactAmt)
+
                 return (
-                  <span className={`text-xs italic ${impactClass}`}>
-                    {formatCurrency(impactAmt)}
+                  <span className={`text-xs italic ${colorClass}`}>
+                    {formattedAmt}
+                    {hasPercentage && (
+                      <span className="ml-1">
+                        ({impact.growthRate! >= 0 ? '+' : ''}{impact.growthRate}%)
+                      </span>
+                    )}
                   </span>
                 )
               })()}

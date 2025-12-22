@@ -591,7 +591,7 @@ text-center`}>
 // Sub-components for V2 sections
 
 // Helper to format category names for display
-function formatCategoryName(category: string): string {
+function formatCategoryName(category: string, financialCategory?: FinancialCategory): string {
   // Map common category values to friendly display names
   const categoryMap: Record<string, string> = {
     'bank_account': 'Bank Accounts',
@@ -601,12 +601,23 @@ function formatCategoryName(category: string): string {
     'property': 'Property',
     'real_estate': 'Real Estate',
     'vehicle': 'Vehicles',
-    'other': 'Other Assets',
     'investment': 'Investments',
     'cpf': 'CPF',
     'stocks': 'Stocks',
     'bonds': 'Bonds',
     'crypto': 'Crypto',
+  }
+
+  // Handle "Other" category dynamically based on financial type
+  if (category.toLowerCase() === 'other') {
+    const financialTypeLabels: Record<string, string> = {
+      'asset': 'Other Assets',
+      'liability': 'Other Liabilities',
+      'income': 'Other Income',
+      'expense': 'Other Expenses',
+      'investment': 'Other Investments',
+    }
+    return financialCategory ? (financialTypeLabels[financialCategory] ?? 'Other') : 'Other'
   }
 
   // Check if we have a mapping, otherwise format the category string
@@ -702,7 +713,7 @@ function GroupedItemsSection({
         }
 
         return (
-          <CollapsibleSection key={cat} title={formatCategoryName(cat)} total={categoryTotal}>
+          <CollapsibleSection key={cat} title={formatCategoryName(cat, financialCategory)} total={categoryTotal}>
             {categoryItems.map((item, index) => {
               const itemId = getItemId(item) || `${financialCategory}-${cat}-${index}`
               const scenarioImpacts = getAppliedImpacts(item, financialCategory, scenarioEvents)
@@ -725,6 +736,7 @@ function GroupedItemsSection({
                   onManageAllocations={financialCategory === 'income' ? onManageAllocations : undefined}
                   cashAccounts={cashAccounts}
                   scenarioImpacts={scenarioImpacts}
+                  scenarioEvents={scenarioEvents}
                   isExpanded={isExpanded}
                   onToggleExpand={onToggleScenarioExpanded}
                   showMonthlyData={showMonthlyData}
@@ -846,6 +858,7 @@ function FlatItemsSection({
             onManageAllocations={financialCategory === 'income' ? onManageAllocations : undefined}
             cashAccounts={cashAccounts}
             scenarioImpacts={scenarioImpacts}
+            scenarioEvents={scenarioEvents}
             isExpanded={isExpanded}
             onToggleExpand={onToggleScenarioExpanded}
             showMonthlyData={showMonthlyData}

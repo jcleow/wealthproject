@@ -1,5 +1,6 @@
 import type { ScenarioImpact } from '@/types/scenario'
 import { impactToVerb } from '@/types/scenario'
+import { GROWTH_RATE_MIN_PERCENT, GROWTH_RATE_MAX_PERCENT } from '../components/impactConfig'
 
 export type FinancialItem = { id: string; name: string; amount: number; frequency?: string }
 
@@ -70,6 +71,19 @@ export function validateScenarioEvent({
         return {
           valid: false,
           error: `Impact ${i + 1}: Please select a ${getTargetTypeLabel(impact.targetType)} to affect.`,
+        }
+      }
+    }
+
+    // Validate growth rate for percentage delta impacts
+    // A percentage delta has amount === 0 and growthRate set (growthRate can be negative for decreases)
+    const isPercentageDelta = impact.impactKind === 'delta' && impact.amount === 0 && impact.growthRate !== undefined
+    if (isPercentageDelta) {
+      const rate = impact.growthRate!
+      if (rate < GROWTH_RATE_MIN_PERCENT || rate > GROWTH_RATE_MAX_PERCENT) {
+        return {
+          valid: false,
+          error: `Impact ${i + 1}: Percentage must be between ${GROWTH_RATE_MIN_PERCENT}% and ${GROWTH_RATE_MAX_PERCENT}%.`,
         }
       }
     }

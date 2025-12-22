@@ -88,7 +88,7 @@ type Impact struct {
 	ID         string
 	EventID    string
 	ImpactKind string
-	Amount     *decimal.Decimal // Amount for delta/override impacts (nil for start/stop)
+	Amount     *decimal.Decimal // Amount for absolute delta/override impacts (nil for percentage deltas)
 	Cadence    common.Frequency // Frequency for delta impacts (monthly/annually)
 	CreatedAt  time.Time
 

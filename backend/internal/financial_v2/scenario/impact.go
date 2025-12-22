@@ -22,6 +22,7 @@ type AppliedImpactInfo struct {
 	AmountAnnual  int64            // Amount in annual terms (cents)
 	Cadence       common.Frequency // Original cadence
 	Notes         string
+	GrowthRate    *float64 // Percentage delta (e.g., 5 for +5%), nil for absolute deltas
 }
 
 // ApplyImpactsResult contains both the adjusted value and the impacts that were applied
@@ -310,11 +311,20 @@ func ApplyImpactsToItem(
 	// Unlike override (only latest wins), ALL applicable deltas are summed.
 	// This allows multiple additive adjustments.
 	//
+	// Delta impacts can be absolute (Amount set) or percentage-based (GrowthRate set):
+	// - Amount set: add/subtract the absolute dollar amount
+	// - GrowthRate set (Amount nil): multiply current value by percentage
+	//
 	// Example: Two delta impacts (no override)
 	//   base = $100,000
 	//   delta1 = {Amount: 10000, Cadence: "monthly"}  // +$10k/month raise
 	//   delta2 = {Amount: 5000, Cadence: "monthly"}   // +$5k/month bonus
 	//   Both apply: result.AdjustedValue = $100,000 + $10,000 + $5,000 = $115,000
+	//
+	// Example with percentage:
+	//   base = $100,000
+	//   delta = {GrowthRate: 5}  // +5%
+	//   result.AdjustedValue = $100,000 + ($100,000 × 0.05) = $105,000
 	// ─────────────────────────────────────────────────────────────────────────
 	for i := range impacts {
 		impact := &impacts[i]
@@ -329,24 +339,72 @@ func ApplyImpactsToItem(
 			continue
 		}
 
-		// Example: impact.Amount = 100000, Cadence = "monthly", ItemType = "cash_asset"
-		//          deltaAmount = $100,000 (no conversion needed for assets)
-		deltaAmount := ConvertImpactAmount(impact, itemInfo)
+		// Calculate delta amount based on whether Amount or GrowthRate is set
+		// Percentage delta: Amount is 0 (or nil) AND GrowthRate is non-zero
+		// Absolute delta: Amount is non-zero (GrowthRate ignored)
+		var deltaAmount *decimal.Decimal
+		isPercentageDelta := impact.GrowthRate != nil && *impact.GrowthRate != 0 &&
+			(impact.Amount == nil || impact.Amount.IsZero())
+		if isPercentageDelta {
+			// Percentage-based delta: GrowthRate is the percentage of current value
+			// Example: growthRate = 5, current = $100,000 → delta = $5,000
+			if result.AdjustedValue != nil {
+				pct, err := decimal.NewFromFloat64(*impact.GrowthRate)
+				if err != nil {
+					deltaAmount = decimal.Zero()
+				} else {
+					percentage := pct.Div(decimal.NewFromInt64(100, 0))
+					deltaAmount = result.AdjustedValue.Mul(percentage)
+				}
+			} else {
+				deltaAmount = decimal.Zero()
+			}
+		} else {
+			// Absolute delta (default): use ConvertImpactAmount for cadence normalization
+			// Example: impact.Amount = 100000, Cadence = "monthly", ItemType = "cash_asset"
+			//          deltaAmount = $100,000 (no conversion needed for assets)
+			deltaAmount = ConvertImpactAmount(impact, itemInfo)
+		}
 
 		// Example: result.AdjustedValue = $125,051 + $100,000 = $225,051
 		result.AdjustedValue = result.AdjustedValue.Add(deltaAmount)
 
 		// Track this impact for API response
-		// Example: monthlyAmt = 100000, annualAmt = 1200000
-		monthlyAmt, annualAmt := computeImpactAmounts(impact)
-		result.AppliedImpacts = append(result.AppliedImpacts, AppliedImpactInfo{
+		// For percentage deltas, use the calculated deltaAmount instead of impact.Amount
+		var monthlyAmt, annualAmt int64
+		if isPercentageDelta && deltaAmount != nil {
+			// deltaAmount is already in the item's native frequency (monthly for income/expense)
+			// Convert to monthly/annual based on item type
+			// Round to whole dollars before converting to int64 (apd.Int64 fails on fractional values)
+			if itemInfo.ItemType == "income" || itemInfo.ItemType == "expense" {
+				// Flow items: deltaAmount is monthly
+				rounded := deltaAmount.Round(0)
+				monthlyAmt, _ = rounded.Int64()
+				annual := deltaAmount.Mul(decimal.NewFromInt64(12, 0)).Round(0)
+				annualAmt, _ = annual.Int64()
+			} else {
+				// Balance sheet items: deltaAmount is total (treat as monthly for display)
+				rounded := deltaAmount.Round(0)
+				monthlyAmt, _ = rounded.Int64()
+				annualAmt = monthlyAmt * 12
+			}
+		} else {
+			monthlyAmt, annualAmt = computeImpactAmounts(impact)
+		}
+
+		appliedInfo := AppliedImpactInfo{
 			EventID:       impact.EventID,
 			ImpactKind:    impact.ImpactKind,
 			AmountMonthly: monthlyAmt,
 			AmountAnnual:  annualAmt,
 			Cadence:       impact.Cadence,
 			Notes:         impact.Notes,
-		})
+		}
+		// Include GrowthRate for percentage deltas (so frontend can display "+5%" instead of "$0")
+		if isPercentageDelta {
+			appliedInfo.GrowthRate = impact.GrowthRate
+		}
+		result.AppliedImpacts = append(result.AppliedImpacts, appliedInfo)
 	}
 
 	// Example final result:

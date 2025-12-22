@@ -28,29 +28,66 @@ export type ScenarioCadence = 'monthly' | 'annual'
 export const DEFAULT_MONTHLY_CADENCE: ScenarioCadence = 'monthly'
 
 // UI verb type for sentence-builder pattern
-export type ImpactVerb = 'increases_by' | 'decreases_by' | 'becomes' | 'starts_at' | 'ends'
+// Includes percentage variants for increase/decrease
+export type ImpactVerb =
+  | 'increases_by'
+  | 'increases_by_percent'
+  | 'decreases_by'
+  | 'decreases_by_percent'
+  | 'becomes'
+  | 'starts_at'
+  | 'ends'
 
-// Convert UI verb to internal impactKind and normalize amount sign
-export function verbToImpact(verb: ImpactVerb, amount: number): { impactKind: ScenarioImpactKind; amount: number } {
+// Convert UI verb to internal impactKind and amount/growthRate
+// For percentage deltas, amount is 0 and growthRate holds the percentage
+// For absolute deltas, amount holds the value and growthRate is undefined
+// Uses -0 for decreases with value 0 to preserve the verb selection
+export function verbToImpact(
+  verb: ImpactVerb,
+  value: number
+): { impactKind: ScenarioImpactKind; amount: number; growthRate?: number } {
+  const absValue = Math.abs(value)
   switch (verb) {
     case 'increases_by':
-      return { impactKind: 'delta', amount: Math.abs(amount) }
+      return { impactKind: 'delta', amount: absValue }
+    case 'increases_by_percent':
+      return { impactKind: 'delta', amount: 0, growthRate: absValue }
     case 'decreases_by':
-      return { impactKind: 'delta', amount: -Math.abs(amount) }
+      // Use -0 when value is 0 to distinguish from increases_by
+      return { impactKind: 'delta', amount: absValue === 0 ? -0 : -absValue }
+    case 'decreases_by_percent':
+      // Use -0 when value is 0 to distinguish from increases_by_percent
+      return { impactKind: 'delta', amount: 0, growthRate: absValue === 0 ? -0 : -absValue }
     case 'becomes':
-      return { impactKind: 'override', amount }
+      return { impactKind: 'override', amount: value }
     case 'starts_at':
-      return { impactKind: 'start', amount }
+      return { impactKind: 'start', amount: value }
     case 'ends':
       return { impactKind: 'stop', amount: 0 }
   }
 }
 
-// Convert internal impactKind back to UI verb
-export function impactToVerb(impactKind: ScenarioImpactKind, amount: number): ImpactVerb {
+// Convert internal impactKind and amount/growthRate back to UI verb
+// If growthRate is set and amount is 0, it's a percentage delta
+export function impactToVerb(
+  impactKind: ScenarioImpactKind,
+  amount: number,
+  growthRate?: number
+): ImpactVerb {
   switch (impactKind) {
     case 'delta':
-      return amount >= 0 ? 'increases_by' : 'decreases_by'
+      // Percentage delta: amount is 0, growthRate has the percentage
+      if (amount === 0 && growthRate !== undefined) {
+        // Use Object.is to distinguish -0 from +0
+        return (growthRate > 0 || (growthRate === 0 && !Object.is(growthRate, -0)))
+          ? 'increases_by_percent'
+          : 'decreases_by_percent'
+      }
+      // Absolute delta: amount has the value
+      // Use Object.is to distinguish -0 from +0
+      return (amount > 0 || (amount === 0 && !Object.is(amount, -0)))
+        ? 'increases_by'
+        : 'decreases_by'
     case 'override':
       return 'becomes'
     case 'start':
@@ -62,6 +99,7 @@ export function impactToVerb(impactKind: ScenarioImpactKind, amount: number): Im
 
 // Wire DTO shapes (camelCase) for the Go API
 export interface ScenarioImpactDto {
+  id?: string | null  // Impact ID (returned by server, sent back for updates)
   impactKind: ScenarioImpactKind
   targetType: ScenarioTargetType
   parentId?: string | null  // Required for delta/override/stop (ID of existing item to modify)
@@ -73,7 +111,7 @@ export interface ScenarioImpactDto {
   name?: string | null       // Name for start impacts (creates new item with this name)
   frequency?: string | null  // Frequency for income/expense items
   notes?: string | null
-  // Advanced fields for start impacts
+  // Advanced fields for start impacts (growthRate also used for percentage deltas)
   category?: string | null
   growthRate?: number | null
   growthStrategy?: string | null
@@ -111,6 +149,7 @@ export type GrowthStrategy = 'fixed' | 'annual_step' | 'compound_monthly'
 
 // Frontend domain models (camelCase)
 export interface ScenarioImpact {
+  id?: string  // Impact ID (returned by server, sent back for updates)
   impactKind: ScenarioImpactKind
   targetType: ScenarioTargetType
   parentId?: string  // Required for delta/override/stop (ID of existing item to modify)
@@ -122,7 +161,7 @@ export interface ScenarioImpact {
   name?: string  // Name for the financial item (used by start impacts)
   frequency?: ItemFrequency  // Frequency for start impacts (one_time, monthly, annual)
   notes?: string
-  // Advanced fields for start impacts - used to configure the created financial item
+  // Advanced fields for start impacts (growthRate also used for percentage deltas)
   category?: string  // Category for the created financial item
   growthRate?: number  // Annual growth rate (%)
   growthStrategy?: GrowthStrategy  // How growth is applied
@@ -148,6 +187,7 @@ export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact =>
   const isStartImpact = dto.impactKind === 'start'
 
   return {
+    id: dto.id ?? undefined,
     impactKind: dto.impactKind,
     targetType: dto.targetType,
     parentId: dto.parentId ?? undefined,
@@ -161,7 +201,7 @@ export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact =>
     // For start impacts, use frequency from JOINed finance table (or fallback to cadence for backwards compat)
     frequency: isStartImpact ? ((dto.frequency as ItemFrequency) || (dto.cadence as ItemFrequency)) : undefined,
     notes: dto.notes ?? undefined,
-    // Advanced fields for start impacts
+    // Advanced fields (growthRate used for both start impacts growth and percentage deltas)
     category: dto.category ?? undefined,
     growthRate: dto.growthRate ?? undefined,
     growthStrategy: (dto.growthStrategy as GrowthStrategy) ?? undefined,
@@ -175,6 +215,7 @@ export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto =
   const isStartImpact = impact.impactKind === 'start'
 
   return {
+    id: impact.id,  // Send ID back for updates
     impactKind: impact.impactKind,
     targetType: impact.targetType,
     // Start impacts should NOT have parentId (they create new items)
@@ -189,7 +230,7 @@ export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto =
     name: impact.name,
     frequency: impact.frequency,
     notes: impact.notes,
-    // Advanced fields for start impacts
+    // Advanced fields (growthRate used for both start impacts growth and percentage deltas)
     category: impact.category,
     growthRate: impact.growthRate,
     growthStrategy: impact.growthStrategy,

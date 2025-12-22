@@ -17,6 +17,8 @@ interface ImpactListProps {
   loading: boolean
   itemSelector: UseImpactItemSelectorReturn
   financialItems: UseFinancialItemsReturn
+  /** The "Occurs On" date from the parent scenario, used as minDate for impact dates. Format: YYYY-MM */
+  occursOn?: string
 }
 
 export function ImpactList({
@@ -27,6 +29,7 @@ export function ImpactList({
   loading,
   itemSelector,
   financialItems,
+  occursOn,
 }: ImpactListProps) {
   const {
     selectedItemId,
@@ -109,6 +112,7 @@ export function ImpactList({
               onNewItemNameChange={(name) => setNewItemName(index, name)}
               items={items}
               isLoadingItems={isLoadingItems}
+              occursOn={occursOn}
             />
           )
         })}

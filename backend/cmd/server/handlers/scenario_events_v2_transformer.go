@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -9,6 +10,12 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
+)
+
+// Growth rate validation limits for percentage-based delta impacts
+const (
+	GrowthRateMinPercent = -1000 // Minimum allowed growth rate percentage
+	GrowthRateMaxPercent = 1000  // Maximum allowed growth rate percentage
 )
 
 // --- DTO to Model Transformers ---
@@ -58,7 +65,14 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 	// For 'start' impacts, parentId will be nil
 	parentID := imp.TargetID()
 
+	// Include ID if present (for existing impacts)
+	var id *string
+	if imp.ID != "" {
+		id = &imp.ID
+	}
+
 	return scenarioImpactV2DTO{
+		ID:             id,
 		ImpactKind:     imp.ImpactKind,
 		TargetType:     imp.TargetType(),
 		ParentID:       parentID,
@@ -239,6 +253,13 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		amountDecimal = d
 	}
 
+	// Validate growthRate for percentage deltas
+	if in.GrowthRate != nil {
+		if *in.GrowthRate < GrowthRateMinPercent || *in.GrowthRate > GrowthRateMaxPercent {
+			return repo.ScenarioImpact{}, fmt.Errorf("growthRate must be between %d and %d (percent)", GrowthRateMinPercent, GrowthRateMaxPercent)
+		}
+	}
+
 	// Resolve target type and parent ID
 	targetType, parentID, err := resolveImpactTarget(in)
 	if err != nil {
@@ -253,6 +274,11 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		StartDate:  startDate,
 		EndDate:    endDate,
 		GrowthRate: in.GrowthRate,
+	}
+
+	// Include ID if sent back (for updates)
+	if in.ID != nil && *in.ID != "" {
+		impact.ID = *in.ID
 	}
 
 	// Set category if provided

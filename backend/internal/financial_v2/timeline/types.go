@@ -99,6 +99,7 @@ type AppliedImpact struct {
 	AmountMonthly decimal.Decimal `json:"amountMonthly"`
 	ImpactKind    string          `json:"impactKind"` // delta, override, start, stop
 	Notes         string          `json:"notes,omitempty"`
+	GrowthRate    *float64        `json:"growthRate,omitempty"` // Percentage delta (e.g., 5 for +5%)
 }
 
 // TimelineV2Response is the top-level response for the timeline v2 API
@@ -145,6 +146,7 @@ type NonCashAssetResponse struct {
 	StartYear       int             `json:"startYear"`
 	StartMonth      int             `json:"startMonth"`
 	EventImpacts    []AppliedImpact `json:"eventImpacts,omitempty"`
+	ScenarioEventID *string         `json:"scenarioEventId,omitempty"` // If set, this item was created by a start impact
 }
 
 // InvestmentResponse keeps investments separate from non-cash assets
@@ -161,6 +163,7 @@ type InvestmentResponse struct {
 	StartYear       int             `json:"startYear"`
 	StartMonth      int             `json:"startMonth"`
 	EventImpacts    []AppliedImpact `json:"eventImpacts,omitempty"`
+	ScenarioEventID *string         `json:"scenarioEventId,omitempty"` // If set, this item was created by a start impact
 }
 
 // CashAssetResponse represents a cash asset in the timeline response
@@ -204,6 +207,7 @@ type LiabilityResponse struct {
 	StartYear       int             `json:"startYear"`
 	StartMonth      int             `json:"startMonth"`
 	EventImpacts    []AppliedImpact `json:"eventImpacts,omitempty"`
+	ScenarioEventID *string         `json:"scenarioEventId,omitempty"` // If set, this item was created by a start impact
 }
 
 // IncomeResponse represents an income entry in the timeline response
@@ -226,11 +230,12 @@ type IncomeResponse struct {
 	TotalCPF             decimal.Decimal `json:"totalCpf"`
 	NetTakeHomePay       decimal.Decimal `json:"netTakeHomePay"`
 	// CPF allocation breakdown
-	AllocationOA decimal.Decimal `json:"allocationOa"`
-	AllocationSA decimal.Decimal `json:"allocationSa"`
-	AllocationMA decimal.Decimal `json:"allocationMa"`
-	AllocationRA decimal.Decimal `json:"allocationRa"`
-	EventImpacts []AppliedImpact `json:"eventImpacts,omitempty"`
+	AllocationOA    decimal.Decimal `json:"allocationOa"`
+	AllocationSA    decimal.Decimal `json:"allocationSa"`
+	AllocationMA    decimal.Decimal `json:"allocationMa"`
+	AllocationRA    decimal.Decimal `json:"allocationRa"`
+	EventImpacts    []AppliedImpact `json:"eventImpacts,omitempty"`
+	ScenarioEventID *string         `json:"scenarioEventId,omitempty"` // If set, this item was created by a start impact
 }
 
 // CPFContributionResponse represents a CPF contribution in the timeline response
@@ -268,6 +273,7 @@ type ExpenseResponse struct {
 	StartMonth           int             `json:"startMonth"`
 	SourceLiabilityID    *string         `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
 	EventImpacts         []AppliedImpact `json:"eventImpacts,omitempty"`
+	ScenarioEventID      *string         `json:"scenarioEventId,omitempty"` // If set, this item was created by a start impact
 }
 
 // IncomeAllocationResponse represents an income allocation in the timeline response

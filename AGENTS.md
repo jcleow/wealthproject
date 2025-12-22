@@ -682,6 +682,27 @@ When migrating handlers from v1 to v2:
 
 **NEVER use `float64` for monetary values in JSON input structs.** Float64 causes precision loss.
 
+**NEVER use `float64` for ANY numeric values in structs that represent financial data.** This includes:
+- Monetary amounts (balances, amounts, payments)
+- Rates and percentages (growth rates, interest rates, allocation percentages)
+- Any numeric field that could be used in financial calculations
+
+**Always use `decimal.Decimal` (or `*decimal.Decimal` for optional fields) from `internal/decimal`.**
+
+```go
+// WRONG: Never use float64 for any financial numeric field
+type AppliedImpact struct {
+    Amount     float64  `json:"amount"`
+    GrowthRate *float64 `json:"growthRate"` // BAD - should be *decimal.Decimal
+}
+
+// CORRECT: Use decimal.Decimal for all financial numerics
+type AppliedImpact struct {
+    Amount     decimal.Decimal  `json:"amount"`
+    GrowthRate *decimal.Decimal `json:"growthRate"` // GOOD - pointer for optional
+}
+```
+
 ### Correct Pattern for JSON Input Structs
 
 Use `string` type for all decimal fields (amounts, rates, percentages):

@@ -27,6 +27,7 @@ function convertAppliedImpacts(impacts?: AppliedImpactV2[]): TimelineEventImpact
     amountMonthly: parseDecimal(imp.amountMonthly),
     impactKind: imp.impactKind,
     notes: imp.notes,
+    growthRate: imp.growthRate,
   }))
 }
 
@@ -46,6 +47,7 @@ export function nonCashAssetV2ToTimelineItem(item: NonCashAssetResponseV2): Time
     startYear: item.startYear,
     startMonth: item.startMonth,
     eventImpacts: convertAppliedImpacts(item.eventImpacts),
+    scenarioEventId: item.scenarioEventId,
   }
 }
 
@@ -66,6 +68,7 @@ export function investmentV2ToTimelineItem(item: InvestmentResponseV2): Timeline
     startMonth: item.startMonth,
     growthRate: parseDecimal(item.growthRate),
     eventImpacts: convertAppliedImpacts(item.eventImpacts),
+    scenarioEventId: item.scenarioEventId,
   }
 }
 
@@ -123,6 +126,7 @@ export function liabilityV2ToTimelineItem(item: LiabilityResponseV2): TimelineIt
     startYear: item.startYear,
     startMonth: item.startMonth,
     eventImpacts: convertAppliedImpacts(item.eventImpacts),
+    scenarioEventId: item.scenarioEventId,
   }
 }
 
@@ -144,6 +148,7 @@ export function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
     startMonth: item.startMonth,
     growthRate: parseDecimal(item.growthRate),
     eventImpacts: convertAppliedImpacts(item.eventImpacts),
+    scenarioEventId: item.scenarioEventId,
   }
 }
 
@@ -165,5 +170,6 @@ export function expenseV2ToTimelineItem(item: ExpenseResponseV2): TimelineItem {
     startMonth: item.startMonth,
     sourceLiabilityId: item.sourceLiabilityId,
     eventImpacts: convertAppliedImpacts(item.eventImpacts),
+    scenarioEventId: item.scenarioEventId,
   }
 }

@@ -26,6 +26,7 @@ func NewScenarioEventV2Handler(store *repo.Store) *ScenarioEventV2Handler {
 // --- V2 DTOs with typed target fields ---
 
 type scenarioImpactV2DTO struct {
+	ID         *string          `json:"id,omitempty"`        // Impact ID (returned by server, sent back for updates)
 	ImpactKind string           `json:"impactKind"`          // Required: start, delta, override, stop
 	TargetType string           `json:"targetType"`          // Required: asset, liability, income, expense, cash, investment
 	ParentID   *string          `json:"parentId,omitempty"`  // Required for delta/override/stop (ID of existing item to modify)

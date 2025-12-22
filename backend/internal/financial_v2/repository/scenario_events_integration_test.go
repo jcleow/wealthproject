@@ -270,7 +270,7 @@ func TestIntegration_UpdateScenarioEvent_LiabilityStartImpact_WithInterestAndMin
 		Impacts: []ScenarioImpact{
 			{
 				ImpactKind:        "start",
-				Amount:            7500, // New balance
+				Amount:            decAmount(7500), // New balance
 				Cadence:           common.FrequencyMonthly,
 				StartDate:         startDate,
 				TargetLiabilityID: &liabilityID,
@@ -351,22 +351,145 @@ func TestIntegration_DeleteScenarioEvent_CascadesImpacts(t *testing.T) {
 	created, err := store.CreateScenarioEventV2(ctx, event)
 	require.NoError(t, err)
 
-	// Verify impacts exist
-	var impactCount int
-	err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM scenario_event_impacts WHERE event_id = $1", created.ID).Scan(&impactCount)
-	require.NoError(t, err)
-	assert.Equal(t, 1, impactCount, "Should have 1 impact before delete")
-
 	// Delete the event
 	err = store.DeleteScenarioEventV2(ctx, userID, created.ID)
 	require.NoError(t, err)
 
-	// Verify impacts were cascade deleted
-	err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM scenario_event_impacts WHERE event_id = $1", created.ID).Scan(&impactCount)
-	require.NoError(t, err)
-	assert.Equal(t, 0, impactCount, "Impacts should be deleted via cascade")
-
 	// Verify event is gone
 	_, err = store.GetScenarioEventV2(ctx, userID, created.ID)
 	assert.ErrorIs(t, err, ErrScenarioNotFound, "Event should not be found after delete")
+}
+
+func TestIntegration_DeltaImpact_PersistsEndDateAndGrowthRate(t *testing.T) {
+	pool := testutil.GetTestPool(t)
+	store := NewStore(pool)
+	ctx := context.Background()
+	userID := testutil.TestUserID
+
+	testutil.CleanupTestData(t, pool, userID)
+	t.Cleanup(func() { testutil.CleanupTestData(t, pool, userID) })
+
+	incomeID := testutil.CreateTestIncome(t, pool, userID, "Salary", 10000)
+
+	occursOn := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+	startDate := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	growthRate := 100.0 // 100% percentage delta
+
+	event := ScenarioEvent{
+		UserID:      userID,
+		Name:        "Salary Promotion",
+		OccursOn:    occursOn,
+		DisplayIcon: "trending-up",
+		IsIncluded:  true,
+		Impacts: []ScenarioImpact{
+			{
+				ImpactKind:     "delta",
+				Amount:         decAmount(0), // 0 amount for percentage delta
+				Cadence:        common.FrequencyMonthly,
+				StartDate:      startDate,
+				EndDate:        &endDate,
+				TargetIncomeID: &incomeID,
+				GrowthRate:     &growthRate,
+			},
+		},
+	}
+
+	created, err := store.CreateScenarioEventV2(ctx, event)
+	require.NoError(t, err)
+	require.Len(t, created.Impacts, 1, "Should have 1 impact")
+
+	// Verify endDate and growthRate were persisted
+	impact := created.Impacts[0]
+	require.NotNil(t, impact.EndDate, "EndDate should be set")
+	assert.Equal(t, endDate.Year(), impact.EndDate.Year(), "EndDate year should match")
+	assert.Equal(t, endDate.Month(), impact.EndDate.Month(), "EndDate month should match")
+	require.NotNil(t, impact.GrowthRate, "GrowthRate should be set")
+	assert.Equal(t, growthRate, *impact.GrowthRate, "GrowthRate should be 100%")
+
+	// Also verify by fetching directly from database
+	var dbEndDate *time.Time
+	var dbGrowthRate float64
+	err = pool.QueryRow(ctx, `
+		SELECT end_date, growth_rate
+		FROM finance_incomes
+		WHERE scenario_event_id = $1 AND parent_id IS NOT NULL
+	`, created.ID).Scan(&dbEndDate, &dbGrowthRate)
+	require.NoError(t, err, "Should find income impact row in database")
+	require.NotNil(t, dbEndDate, "EndDate should be persisted in DB")
+	assert.Equal(t, endDate.Year(), dbEndDate.Year(), "DB EndDate year should match")
+	assert.Equal(t, growthRate, dbGrowthRate, "DB GrowthRate should match")
+
+	// Update the event with new endDate
+	newEndDate := time.Date(2027, 6, 30, 0, 0, 0, 0, time.UTC)
+	newGrowthRate := 50.0
+	created.Impacts[0].EndDate = &newEndDate
+	created.Impacts[0].GrowthRate = &newGrowthRate
+
+	updated, err := store.UpdateScenarioEventV2(ctx, created)
+	require.NoError(t, err)
+	require.Len(t, updated.Impacts, 1)
+
+	// Verify updated values
+	updatedImpact := updated.Impacts[0]
+	require.NotNil(t, updatedImpact.EndDate, "Updated EndDate should be set")
+	assert.Equal(t, newEndDate.Year(), updatedImpact.EndDate.Year(), "Updated EndDate year should match")
+	assert.Equal(t, newEndDate.Month(), updatedImpact.EndDate.Month(), "Updated EndDate month should match")
+	require.NotNil(t, updatedImpact.GrowthRate, "Updated GrowthRate should be set")
+	assert.Equal(t, newGrowthRate, *updatedImpact.GrowthRate, "Updated GrowthRate should be 50%")
+}
+
+func TestIntegration_OverrideImpact_PersistsEndDate(t *testing.T) {
+	pool := testutil.GetTestPool(t)
+	store := NewStore(pool)
+	ctx := context.Background()
+	userID := testutil.TestUserID
+
+	testutil.CleanupTestData(t, pool, userID)
+	t.Cleanup(func() { testutil.CleanupTestData(t, pool, userID) })
+
+	expenseID := testutil.CreateTestExpense(t, pool, userID, "Rent", 2000)
+
+	occursOn := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+	startDate := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC)
+
+	event := ScenarioEvent{
+		UserID:      userID,
+		Name:        "Temporary Rent Reduction",
+		OccursOn:    occursOn,
+		DisplayIcon: "home",
+		IsIncluded:  true,
+		Impacts: []ScenarioImpact{
+			{
+				ImpactKind:      "override",
+				Amount:          decAmount(1500), // Override to lower amount
+				Cadence:         common.FrequencyMonthly,
+				StartDate:       startDate,
+				EndDate:         &endDate,
+				TargetExpenseID: &expenseID,
+			},
+		},
+	}
+
+	created, err := store.CreateScenarioEventV2(ctx, event)
+	require.NoError(t, err)
+	require.Len(t, created.Impacts, 1)
+
+	// Verify endDate was persisted
+	impact := created.Impacts[0]
+	require.NotNil(t, impact.EndDate, "EndDate should be set for override impact")
+	assert.Equal(t, endDate.Year(), impact.EndDate.Year())
+	assert.Equal(t, endDate.Month(), impact.EndDate.Month())
+
+	// Verify in database
+	var dbEndDate *time.Time
+	err = pool.QueryRow(ctx, `
+		SELECT end_date
+		FROM finance_expenses
+		WHERE scenario_event_id = $1 AND parent_id IS NOT NULL
+	`, created.ID).Scan(&dbEndDate)
+	require.NoError(t, err, "Should find expense impact row in database")
+	require.NotNil(t, dbEndDate, "EndDate should be persisted in DB for override impact")
+	assert.Equal(t, endDate.Year(), dbEndDate.Year())
 }

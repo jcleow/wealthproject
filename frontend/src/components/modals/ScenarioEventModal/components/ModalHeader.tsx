@@ -4,7 +4,6 @@ import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 const CloseIcon = LucideIcons.X as LucideIcon | undefined
-const SparklesIcon = LucideIcons.Sparkles as LucideIcon | undefined
 const ZapIcon = LucideIcons.Zap as LucideIcon | undefined
 
 interface HeaderTitleProps {
@@ -95,35 +94,6 @@ function ToggleButton({ isIncluded, onToggle, disabled }: ToggleButtonProps) {
   )
 }
 
-interface ExampleButtonProps {
-  onClick: () => void
-  disabled?: boolean
-}
-
-function ExampleButton({ onClick, disabled }: ExampleButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`
-        group inline-flex items-center gap-2
-        px-3 py-2
-        rounded-xl
-        border border-white/[0.06] hover:border-blue-500/30
-        bg-white/[0.02] hover:bg-blue-500/5
-        text-xs font-medium text-slate-500 hover:text-blue-400
-        disabled:opacity-50 disabled:cursor-not-allowed
-        transition-all duration-200
-      `}
-    >
-      {SparklesIcon && (
-        <SparklesIcon className="h-3.5 w-3.5 text-blue-400/70 group-hover:text-blue-400 transition-colors" />
-      )}
-      <span>Try Example</span>
-    </button>
-  )
-}
 
 interface CloseButtonProps {
   onClick: () => void
@@ -151,7 +121,6 @@ function CloseButton({ onClick }: CloseButtonProps) {
 
 interface ModalHeaderProps {
   isEditing: boolean
-  onExample: () => void
   onClose: () => void
   disabled?: boolean
   isIncluded: boolean
@@ -160,7 +129,6 @@ interface ModalHeaderProps {
 
 export function ModalHeader({
   isEditing,
-  onExample,
   onClose,
   disabled,
   isIncluded,
@@ -175,7 +143,6 @@ export function ModalHeader({
           onToggle={onToggleIncluded}
           disabled={disabled}
         />
-        <ExampleButton onClick={onExample} disabled={disabled} />
         <CloseButton onClick={onClose} />
       </div>
     </div>

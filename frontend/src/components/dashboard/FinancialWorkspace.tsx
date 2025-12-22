@@ -171,6 +171,18 @@ export function FinancialWorkspace({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isModuleMenuOpen])
 
+  // Listen for open-scenario-event from financial data cards
+  useEffect(() => {
+    const handleOpenScenarioEvent = (e: CustomEvent<ScenarioEvent>) => {
+      if (e.detail?.id) {
+        setScenarioEventToEdit(e.detail)
+        setIsScenarioModalOpen(true)
+      }
+    }
+    window.addEventListener('open-scenario-event', handleOpenScenarioEvent as EventListener)
+    return () => window.removeEventListener('open-scenario-event', handleOpenScenarioEvent as EventListener)
+  }, [])
+
   const handleCreateScenario = useCallback(() => {
     setScenarioEventToEdit(null)
     setIsScenarioModalOpen(true)

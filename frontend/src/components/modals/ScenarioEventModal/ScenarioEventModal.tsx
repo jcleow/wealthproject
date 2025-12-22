@@ -180,14 +180,6 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
     catch (e) { setError(e instanceof Error ? e.message : 'Unable to delete.') }
   }
 
-  const fillExample = () => {
-    const d = new Date(); d.setFullYear(d.getFullYear() + 3); const m = d.toISOString().slice(0, 7)
-    setForm(p => ({ ...p, name: 'Job Loss', description: 'Unexpected layoff.', occursOn: m,
-      displayIcon: 'briefcase-business', iconColor: '#ef4444', isIncluded: true, iconSearch: 'briefcase-business',
-      impacts: [{ targetType: 'income', impactKind: 'override', amount: 0, currency: 'SGD', cadence: 'monthly', startMonth: m, notes: '' }]
-    }))
-  }
-
   return (
     <Modal isOpen={isOpen} onClose={onClose} overlayClassName="bg-black/80 backdrop-blur-sm p-4 sm:p-6">
       <div className="
@@ -230,7 +222,6 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
 
           <ModalHeader
             isEditing={!!event}
-            onExample={fillExample}
             onClose={onClose}
             disabled={loadingState}
             isIncluded={form.isIncluded}
@@ -255,6 +246,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
               loading={loadingState}
               itemSelector={itemSelector}
               financialItems={financialItems}
+              occursOn={form.occursOn}
             />
           ) : (
             <div className="

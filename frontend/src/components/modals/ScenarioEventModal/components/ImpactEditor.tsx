@@ -32,8 +32,12 @@ const XCircleIcon = LucideIcons.XCircle as LucideIcon | undefined
 // Get icon for verb
 function getVerbIcon(verb: ImpactVerb) {
   switch (verb) {
-    case 'increases_by': return TrendingUpIcon
-    case 'decreases_by': return TrendingDownIcon
+    case 'increases_by':
+    case 'increases_by_percent':
+      return TrendingUpIcon
+    case 'decreases_by':
+    case 'decreases_by_percent':
+      return TrendingDownIcon
     case 'becomes': return TargetIcon
     case 'starts_at': return PlusCircleIcon
     case 'ends': return XCircleIcon
@@ -61,6 +65,8 @@ export interface ImpactEditorProps {
   // Data
   items: FinancialItem[]
   isLoadingItems: boolean
+  /** The "Occurs On" date from the parent scenario, used as minDate for impact dates. Format: YYYY-MM */
+  occursOn?: string
 }
 
 export function ImpactEditor({
@@ -81,21 +87,24 @@ export function ImpactEditor({
   onNewItemNameChange,
   items,
   isLoadingItems,
+  occursOn,
 }: ImpactEditorProps) {
-  const currentVerb = impactToVerb(impact.impactKind, impact.amount)
+  const currentVerb = impactToVerb(impact.impactKind, impact.amount, impact.growthRate)
   const VerbIcon = getVerbIcon(currentVerb)
   const verbColor = getVerbColor(currentVerb)
+  const isPercentageVerb = currentVerb === 'increases_by_percent' || currentVerb === 'decreases_by_percent'
 
   const handleVerbChange = (verb: ImpactVerb) => {
-    const { impactKind, amount } = verbToImpact(verb, Math.abs(impact.amount) || 0)
-    onUpdate(index, { impactKind, amount })
+    const { impactKind, amount, growthRate } = verbToImpact(verb, Math.abs(impact.amount) || 0)
+    onUpdate(index, { impactKind, amount, growthRate })
   }
 
   // Determine whether to show cadence/frequency selector based on item type and verb
   const isCashFlowItem = impact.targetType === 'income' || impact.targetType === 'expense'
   const isBalanceSheetItem = impact.targetType === 'asset' || impact.targetType === 'liability' ||
                              impact.targetType === 'cash' || impact.targetType === 'investment'
-  const isDeltaVerb = currentVerb === 'increases_by' || currentVerb === 'decreases_by'
+  const isDeltaVerb = currentVerb === 'increases_by' || currentVerb === 'decreases_by' ||
+                      currentVerb === 'increases_by_percent' || currentVerb === 'decreases_by_percent'
   const isStartImpact = currentVerb === 'starts_at'
 
   // Show frequency selector for start impacts on cash flow items
@@ -192,18 +201,29 @@ export function ImpactEditor({
           {/* Amount input - hidden when verb is 'ends' */}
           {currentVerb !== 'ends' && (
             <div className="flex items-center gap-1">
-              <span className="text-slate-500 text-sm font-medium">$</span>
+              {/* Show $ prefix for absolute amounts, % suffix for percentages */}
+              {!isPercentageVerb && <span className="text-slate-500 text-sm font-medium">$</span>}
               <input
                 type="text"
                 inputMode="numeric"
-                value={Number.isFinite(impact.amount) ? new Intl.NumberFormat('en-US').format(Math.abs(impact.amount)) : ''}
+                value={isPercentageVerb
+                  ? (Number.isFinite(impact.growthRate) ? String(Math.abs(impact.growthRate!)) : '')
+                  : (Number.isFinite(impact.amount) ? new Intl.NumberFormat('en-US').format(Math.abs(impact.amount)) : '')}
                 onChange={(e) => {
-                  const numeric = Number(e.target.value.replace(/[^0-9]/g, ''))
-                  const { impactKind, amount } = verbToImpact(currentVerb, Number.isNaN(numeric) ? 0 : numeric)
-                  onUpdate(index, { impactKind, amount })
+                  // For percentages, allow decimals; for dollars, only integers
+                  const rawValue = isPercentageVerb
+                    ? e.target.value.replace(/[^0-9.]/g, '')
+                    : e.target.value.replace(/[^0-9]/g, '')
+                  let numeric = Number(rawValue)
+                  // Clamp percentage values to -1000% to +1000% range
+                  if (isPercentageVerb && !Number.isNaN(numeric)) {
+                    numeric = Math.min(1000, Math.max(0, numeric))
+                  }
+                  const { impactKind, amount, growthRate } = verbToImpact(currentVerb, Number.isNaN(numeric) ? 0 : numeric)
+                  onUpdate(index, { impactKind, amount, growthRate })
                 }}
                 className={`
-                  px-3 py-2 w-28
+                  px-3 py-2 ${isPercentageVerb ? 'w-20' : 'w-28'}
                   rounded-lg font-mono
                   border border-white/[0.08] hover:border-white/[0.15] focus:border-blue-500/40
                   bg-white/[0.03] hover:bg-white/[0.05] focus:bg-white/[0.05]
@@ -212,9 +232,10 @@ export function ImpactEditor({
                   disabled:opacity-50 disabled:cursor-not-allowed
                   transition-all duration-200
                 `}
-                placeholder="5,000"
+                placeholder={isPercentageVerb ? '5' : '5,000'}
                 disabled={loading}
               />
+              {isPercentageVerb && <span className="text-slate-500 text-sm font-medium">%</span>}
             </div>
           )}
 
@@ -249,6 +270,7 @@ export function ImpactEditor({
           disabled={loading}
           onStartChange={(value) => onUpdate(index, { startMonth: value })}
           onEndChange={(value) => onUpdate(index, { endMonth: value })}
+          minStartDate={occursOn}
         />
       </div>
 

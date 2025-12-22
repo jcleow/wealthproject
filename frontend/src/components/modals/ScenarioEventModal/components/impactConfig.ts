@@ -19,6 +19,10 @@ export function getCategoryOptionsForTarget(targetType: string) {
   }
 }
 
+// Growth rate validation limits for percentage-based delta impacts (must match backend)
+export const GROWTH_RATE_MIN_PERCENT = -1000
+export const GROWTH_RATE_MAX_PERCENT = 1000
+
 // Growth strategy options (values match DB: fixed, annual_step, compound_monthly)
 export const GROWTH_STRATEGY_OPTIONS = [
   { value: 'fixed', label: 'No growth' },
@@ -52,9 +56,12 @@ export const TARGET_TYPE_GROUPS = [
 ]
 
 // Verb options for dropdown
+// Includes absolute ($) and percentage (%) variants for delta impacts
 export const VERB_OPTIONS: { value: ImpactVerb; label: string }[] = [
-  { value: 'increases_by', label: 'increases by' },
-  { value: 'decreases_by', label: 'decreases by' },
+  { value: 'increases_by', label: 'increases by $' },
+  { value: 'increases_by_percent', label: 'increases by %' },
+  { value: 'decreases_by', label: 'decreases by $' },
+  { value: 'decreases_by_percent', label: 'decreases by %' },
   { value: 'becomes', label: 'becomes' },
   { value: 'starts_at', label: 'starts at' },
   { value: 'ends', label: 'ends' },
@@ -95,19 +102,27 @@ export function getTargetTypeLabel(targetType: string): string {
   }
 }
 
-// Format amount display based on frequency
-export function formatAmount(amount: number, frequency?: string) {
-  const formatted = new Intl.NumberFormat('en-US').format(amount)
-  if (!frequency) return `$${formatted}`
+// Format amount display based on frequency and delta type
+// Negative amounts are shown in brackets e.g. ($5,000) instead of -$5,000
+export function formatAmount(amount: number, frequency?: string, deltaType?: string) {
+  const isNegative = amount < 0
+  const formatted = new Intl.NumberFormat('en-US').format(Math.abs(amount))
+  const prefix = deltaType === 'percentage' ? '' : '$'
+  const suffix = deltaType === 'percentage' ? '%' : ''
   const freqLabel = frequency === 'monthly' ? '/mo' : frequency === 'annual' ? '/yr' : frequency === 'weekly' ? '/wk' : ''
-  return `$${formatted}${freqLabel}`
+  const amountStr = `${prefix}${formatted}${suffix}${freqLabel}`
+  return isNegative ? `(${amountStr})` : amountStr
 }
 
 // Get verb color class
 export function getVerbColor(verb: ImpactVerb) {
   switch (verb) {
-    case 'increases_by': return 'text-emerald-400'
-    case 'decreases_by': return 'text-rose-400'
+    case 'increases_by':
+    case 'increases_by_percent':
+      return 'text-emerald-400'
+    case 'decreases_by':
+    case 'decreases_by_percent':
+      return 'text-rose-400'
     case 'becomes': return 'text-blue-400'
     case 'starts_at': return 'text-violet-400'
     case 'ends': return 'text-orange-400'
