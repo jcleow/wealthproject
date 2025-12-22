@@ -19,11 +19,11 @@ export function getCategoryOptionsForTarget(targetType: string) {
   }
 }
 
-// Growth strategy options
+// Growth strategy options (values match DB: fixed, annual_step, compound_monthly)
 export const GROWTH_STRATEGY_OPTIONS = [
-  { value: 'none', label: 'No growth' },
+  { value: 'fixed', label: 'No growth' },
   { value: 'annual_step', label: 'Annual step increase' },
-  { value: 'compound', label: 'Compound growth' },
+  { value: 'compound_monthly', label: 'Compound growth' },
 ]
 
 // Target type options grouped by category

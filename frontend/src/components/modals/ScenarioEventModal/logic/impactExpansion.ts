@@ -44,6 +44,7 @@ export function expandImpactsForPayload({
       expandedImpacts.push({
         ...baseImpact,
         name: itemName || baseImpact.name,  // Store name in the name field
+        parentId: undefined,  // Start impacts must NOT have parentId (they create new items)
         // Keep notes separate (don't duplicate name in notes)
       })
     } else {
