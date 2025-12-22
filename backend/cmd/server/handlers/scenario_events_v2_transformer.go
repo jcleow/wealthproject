@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -9,6 +10,12 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
+)
+
+// Growth rate validation limits for percentage-based delta impacts
+const (
+	GrowthRateMinPercent = -1000 // Minimum allowed growth rate percentage
+	GrowthRateMaxPercent = 1000  // Maximum allowed growth rate percentage
 )
 
 // --- DTO to Model Transformers ---
@@ -246,10 +253,10 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		amountDecimal = d
 	}
 
-	// Validate growthRate for percentage deltas (limit to reasonable range: -1000% to +1000%)
+	// Validate growthRate for percentage deltas
 	if in.GrowthRate != nil {
-		if *in.GrowthRate < -1000 || *in.GrowthRate > 1000 {
-			return repo.ScenarioImpact{}, errors.New("growthRate must be between -1000 and 1000 (percent)")
+		if *in.GrowthRate < GrowthRateMinPercent || *in.GrowthRate > GrowthRateMaxPercent {
+			return repo.ScenarioImpact{}, fmt.Errorf("growthRate must be between %d and %d (percent)", GrowthRateMinPercent, GrowthRateMaxPercent)
 		}
 	}
 

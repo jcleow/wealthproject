@@ -19,6 +19,10 @@ export function getCategoryOptionsForTarget(targetType: string) {
   }
 }
 
+// Growth rate validation limits for percentage-based delta impacts (must match backend)
+export const GROWTH_RATE_MIN_PERCENT = -1000
+export const GROWTH_RATE_MAX_PERCENT = 1000
+
 // Growth strategy options (values match DB: fixed, annual_step, compound_monthly)
 export const GROWTH_STRATEGY_OPTIONS = [
   { value: 'fixed', label: 'No growth' },
