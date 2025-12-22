@@ -65,6 +65,8 @@ export interface ImpactEditorProps {
   // Data
   items: FinancialItem[]
   isLoadingItems: boolean
+  /** The "Occurs On" date from the parent scenario, used as minDate for impact dates. Format: YYYY-MM */
+  occursOn?: string
 }
 
 export function ImpactEditor({
@@ -85,6 +87,7 @@ export function ImpactEditor({
   onNewItemNameChange,
   items,
   isLoadingItems,
+  occursOn,
 }: ImpactEditorProps) {
   const currentVerb = impactToVerb(impact.impactKind, impact.amount, impact.growthRate)
   const VerbIcon = getVerbIcon(currentVerb)
@@ -267,6 +270,7 @@ export function ImpactEditor({
           disabled={loading}
           onStartChange={(value) => onUpdate(index, { startMonth: value })}
           onEndChange={(value) => onUpdate(index, { endMonth: value })}
+          minStartDate={occursOn}
         />
       </div>
 

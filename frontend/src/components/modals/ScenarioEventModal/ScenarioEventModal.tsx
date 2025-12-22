@@ -246,6 +246,7 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
               loading={loadingState}
               itemSelector={itemSelector}
               financialItems={financialItems}
+              occursOn={form.occursOn}
             />
           ) : (
             <div className="
