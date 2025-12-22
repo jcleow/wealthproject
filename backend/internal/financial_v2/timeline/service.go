@@ -116,9 +116,10 @@ func (s *Service) loadEffectiveRows(
 	g, gctx := errgroup.WithContext(ctx)
 
 	listQuery := repo.ListQuery{
-		UserID:     userID,
-		DateRange:  dateOpts,
-		Pagination: paginationOpts,
+		UserID:               userID,
+		DateRange:            dateOpts,
+		Pagination:           paginationOpts,
+		IncludeScenarioItems: includeScenarios,
 	}
 
 	g.Go(func() error {
@@ -365,118 +366,164 @@ func applyScenarioImpacts(mctx *MonthlyContext, currentDate time.Time, isAnchorM
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
+	// STEP 1.5: Build ParentID → []ItemID map for versioned items
+	//
+	// When an item is edited for a future month, a new version is created with:
+	//   - Different ID (e.g., "income-v2")
+	//   - Same ParentID as the original (e.g., "income-v1")
+	//
+	// Impacts target the ParentID, so we need to apply them to ALL versions
+	// that share that ParentID. This map enables that lookup.
+	//
+	// Example:
+	//   ItemStates = {"income-v1": {..., ParentID: "income-v1"},
+	//                 "income-v2": {..., ParentID: "income-v1"}}
+	//   itemsByParent = {"income-v1": ["income-v1", "income-v2"]}
+	// ─────────────────────────────────────────────────────────────────────────
+	itemsByParent := make(map[string][]string)
+	for itemID, itemState := range mctx.ItemStates {
+		parentID := itemState.Row.ParentID
+		itemsByParent[parentID] = append(itemsByParent[parentID], itemID)
+	}
+
+	// Track which items we've already processed to avoid double-processing
+	processedItems := make(map[string]bool)
+
+	// ─────────────────────────────────────────────────────────────────────────
 	// STEP 2-5: Process each item that has impacts
 	//
-	// Example iteration:
-	//   itemID = "cash-123"
-	//   impacts = [{EventID: "event-abc", ImpactKind: "delta", Amount: 100000}]
+	// For each target in ImpactsByTarget (which is keyed by ParentID),
+	// find ALL items that share that ParentID and apply impacts to each.
+	//
+	// Example:
+	//   ImpactsByTarget["income-v1"] = [{override, $150k}]
+	//   itemsByParent["income-v1"] = ["income-v1", "income-v2"]
+	//   → Apply override to both income-v1 and income-v2
 	// ─────────────────────────────────────────────────────────────────────────
-	for itemID, impacts := range mctx.ScenarioImpacts.ImpactsByTarget {
-		// Example: itemID = "cash-123"
-		//          impacts = [{ImpactKind: "delta", Amount: 100000, Cadence: "monthly"}]
-
-		itemState, exists := mctx.ItemStates[itemID]
-		if !exists {
-			continue // Item may be from excluded scenario or not in loaded data
+	for targetID, impacts := range mctx.ScenarioImpacts.ImpactsByTarget {
+		// Find all items that share this ParentID (handles versioned items)
+		// If no items found by ParentID, try the targetID directly (for non-versioned items)
+		itemIDs := itemsByParent[targetID]
+		if len(itemIDs) == 0 {
+			// Fallback: try to find the item directly by ID
+			if _, exists := mctx.ItemStates[targetID]; exists {
+				itemIDs = []string{targetID}
+			} else {
+				continue // Item may be from excluded scenario or not in loaded data
+			}
 		}
 
-		// Example: baseValue = $125,051 (from State after growth)
-		baseValue := mctx.State[itemID]
-		if baseValue == nil {
-			continue
-		}
+		// Apply impacts to each version of the item
+		for _, itemID := range itemIDs {
+			// Skip if already processed (e.g., if impacts target multiple related items)
+			if processedItems[itemID] {
+				continue
+			}
+			processedItems[itemID] = true
 
-		// Example: itemInfo = {ItemType: "cash_asset", Frequency: "monthly"}
-		itemInfo := scenario.ItemInfo{
-			ItemType:  string(itemState.Row.ItemType),
-			Frequency: itemState.Row.Frequency,
-		}
+			itemState, exists := mctx.ItemStates[itemID]
+			if !exists {
+				continue
+			}
 
-		// ─────────────────────────────────────────────────────────────────────
-		// STEP 3: Apply impacts using priority order (stop → override → delta)
-		//
-		// Example:
-		//   Input:  baseValue = $125,051, impacts = [{delta, $100k}]
-		//   Output: result.AdjustedValue = $225,051
-		//           result.AppliedImpacts = [{EventID: "event-abc", ImpactKind: "delta", ...}]
-		// ─────────────────────────────────────────────────────────────────────
-		result := scenario.ApplyImpactsToItem(
-			impacts,
-			baseValue,
-			currentDate,
-			itemInfo,
-			mctx.ScenarioImpacts.EventsByID,
-		)
+			// Example: baseValue = $125,051 (from State after growth)
+			baseValue := mctx.State[itemID]
+			if baseValue == nil {
+				continue
+			}
 
-		// ─────────────────────────────────────────────────────────────────────
-		// STEP 4: Store adjusted value for response building
-		//
-		// Example:
-		//   mctx.EventAdjustedState["cash-123"] = $225,051
-		//   mctx.AppliedImpacts["cash-123"] = [{EventID: "event-abc", ...}]
-		// ─────────────────────────────────────────────────────────────────────
-		mctx.EventAdjustedState[itemID] = result.AdjustedValue
-		if len(result.AppliedImpacts) > 0 {
-			mctx.AppliedImpacts[itemID] = result.AppliedImpacts
-		}
+			// Example: itemInfo = {ItemType: "cash_asset", Frequency: "monthly"}
+			itemInfo := scenario.ItemInfo{
+				ItemType:  string(itemState.Row.ItemType),
+				Frequency: itemState.Row.Frequency,
+			}
 
-		// ─────────────────────────────────────────────────────────────────────
-		// STEP 5: Persist impacts to State for accumulation
-		//
-		// BALANCE SHEET ITEMS (asset, liability, cash, investment):
-		//   - delta:    ✅ Accumulates (+$100k/month compounds over time)
-		//   - override: ✅ Replaces balance (account becomes $150k)
-		//   - start:    ✅ Item begins with new value (then grows)
-		//   - stop:     ❌ No persistence (value is $0)
-		//
-		// FLOW ITEMS (income, expense):
-		//   - delta:    ❌ Does NOT accumulate (each month = base + delta)
-		//   - override: ✅ Replaces base value (salary becomes $150k, then grows)
-		//   - start:    ✅ Item begins with new value (then grows)
-		//   - stop:     ❌ No persistence (value is $0)
-		//
-		// Why? Balances carry forward; flows are recurring per-period amounts.
-		// If you get a $1k/month raise, your monthly income is base + $1k,
-		// NOT previous month's income + $1k.
-		//
-		// Example - Delta on cash account (isAnchorMonth = false):
-		//   State["cash-123"] = $125,051
-		//   Delta +$100k applied → AdjustedValue = $225,051
-		//   Persist → State["cash-123"] = $225,051 (carries to next month)
-		//
-		// Example - Delta on income (isAnchorMonth = false):
-		//   State["income-456"] = $10,000 (monthly salary)
-		//   Delta +$1k applied → AdjustedValue = $11,000
-		//   NO persist → State stays $10,000 (delta reapplied each month)
-		//
-		// Example - Override on income (isAnchorMonth = false):
-		//   State["income-456"] = $10,000 (old monthly salary)
-		//   Override to $12k → AdjustedValue = $12,000
-		//   Persist → State["income-456"] = $12,000 (new base salary)
-		// ─────────────────────────────────────────────────────────────────────
-		if !isAnchorMonth && len(result.AppliedImpacts) > 0 {
-			// Determine if this item type should persist delta impacts
-			isFlowItem := itemState.Row.ItemType == FinIncome || itemState.Row.ItemType == FinExpense
+			// ─────────────────────────────────────────────────────────────────────
+			// STEP 3: Apply impacts using priority order (stop → override → delta)
+			//
+			// Example:
+			//   Input:  baseValue = $125,051, impacts = [{delta, $100k}]
+			//   Output: result.AdjustedValue = $225,051
+			//           result.AppliedImpacts = [{EventID: "event-abc", ImpactKind: "delta", ...}]
+			// ─────────────────────────────────────────────────────────────────────
+			result := scenario.ApplyImpactsToItem(
+				impacts,
+				baseValue,
+				currentDate,
+				itemInfo,
+				mctx.ScenarioImpacts.EventsByID,
+			)
 
-			// Check which impact types were applied
-			shouldPersist := false
-			for _, appliedImpact := range result.AppliedImpacts {
-				switch appliedImpact.ImpactKind {
-				case scenario.ImpactKindStop:
-					// Stop never persists
-					continue
-				case scenario.ImpactKindDelta:
-					// Delta only persists for balance sheet items
-					if !isFlowItem {
+			// ─────────────────────────────────────────────────────────────────────
+			// STEP 4: Store adjusted value for response building
+			//
+			// Example:
+			//   mctx.EventAdjustedState["cash-123"] = $225,051
+			//   mctx.AppliedImpacts["cash-123"] = [{EventID: "event-abc", ...}]
+			// ─────────────────────────────────────────────────────────────────────
+			mctx.EventAdjustedState[itemID] = result.AdjustedValue
+			if len(result.AppliedImpacts) > 0 {
+				mctx.AppliedImpacts[itemID] = result.AppliedImpacts
+			}
+
+			// ─────────────────────────────────────────────────────────────────────
+			// STEP 5: Persist impacts to State for accumulation
+			//
+			// BALANCE SHEET ITEMS (asset, liability, cash, investment):
+			//   - delta:    ✅ Accumulates (+$100k/month compounds over time)
+			//   - override: ✅ Replaces balance (account becomes $150k)
+			//   - start:    ✅ Item begins with new value (then grows)
+			//   - stop:     ❌ No persistence (value is $0)
+			//
+			// FLOW ITEMS (income, expense):
+			//   - delta:    ❌ Does NOT accumulate (each month = base + delta)
+			//   - override: ✅ Replaces base value (salary becomes $150k, then grows)
+			//   - start:    ✅ Item begins with new value (then grows)
+			//   - stop:     ❌ No persistence (value is $0)
+			//
+			// Why? Balances carry forward; flows are recurring per-period amounts.
+			// If you get a $1k/month raise, your monthly income is base + $1k,
+			// NOT previous month's income + $1k.
+			//
+			// Example - Delta on cash account (isAnchorMonth = false):
+			//   State["cash-123"] = $125,051
+			//   Delta +$100k applied → AdjustedValue = $225,051
+			//   Persist → State["cash-123"] = $225,051 (carries to next month)
+			//
+			// Example - Delta on income (isAnchorMonth = false):
+			//   State["income-456"] = $10,000 (monthly salary)
+			//   Delta +$1k applied → AdjustedValue = $11,000
+			//   NO persist → State stays $10,000 (delta reapplied each month)
+			//
+			// Example - Override on income (isAnchorMonth = false):
+			//   State["income-456"] = $10,000 (old monthly salary)
+			//   Override to $12k → AdjustedValue = $12,000
+			//   Persist → State["income-456"] = $12,000 (new base salary)
+			// ─────────────────────────────────────────────────────────────────────
+			if !isAnchorMonth && len(result.AppliedImpacts) > 0 {
+				// Determine if this item type should persist delta impacts
+				isFlowItem := itemState.Row.ItemType == FinIncome || itemState.Row.ItemType == FinExpense
+
+				// Check which impact types were applied
+				shouldPersist := false
+				for _, appliedImpact := range result.AppliedImpacts {
+					switch appliedImpact.ImpactKind {
+					case scenario.ImpactKindStop:
+						// Stop never persists
+						continue
+					case scenario.ImpactKindDelta:
+						// Delta only persists for balance sheet items
+						if !isFlowItem {
+							shouldPersist = true
+						}
+					default:
+						// Override and start always persist
 						shouldPersist = true
 					}
-				default:
-					// Override and start always persist
-					shouldPersist = true
 				}
-			}
-			if shouldPersist {
-				mctx.State[itemID] = result.AdjustedValue
+				if shouldPersist {
+					mctx.State[itemID] = result.AdjustedValue
+				}
 			}
 		}
 	}

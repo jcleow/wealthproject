@@ -6,7 +6,7 @@ export interface ExpandImpactsParams {
   occursOn: string
   selectedItemId: Record<number, string | undefined>
   newItemNames: Record<number, string>
-  resolveStableTargetId: (targetType: string, targetId?: string) => string | undefined
+  resolveStableTargetId: (targetType: string, parentId?: string) => string | undefined
 }
 
 /**
@@ -16,8 +16,8 @@ export interface ExpandImpactsParams {
  * Handles:
  * - Setting default currency
  * - Normalizing start month
- * - Processing 'starts_at' verb (new items with name in notes)
- * - Resolving target IDs to stable IDs
+ * - Processing 'starts_at' verb (new items with name - no parentId needed)
+ * - Resolving parent IDs to stable IDs for delta/override/stop impacts
  */
 export function expandImpactsForPayload({
   impacts,
@@ -38,7 +38,8 @@ export function expandImpactsForPayload({
     }
 
     if (verb === 'starts_at') {
-      // For new items, set the name field for the created financial item
+      // For new items (start impacts), set the name field for the created financial item
+      // No parentId needed - backend creates the item
       const itemName = newItemNames[index]?.trim() || ''
       expandedImpacts.push({
         ...baseImpact,
@@ -46,13 +47,14 @@ export function expandImpactsForPayload({
         // Keep notes separate (don't duplicate name in notes)
       })
     } else {
-      const targetId = selectedItemId[index]
-      if (!targetId) {
-        // No selection - try to use existing targetId normalized to stable id
-        const stable = resolveStableTargetId(impact.targetType, impact.targetId)
-        expandedImpacts.push({ ...baseImpact, targetId: stable })
+      // For delta/override/stop impacts, resolve the parentId
+      const parentId = selectedItemId[index]
+      if (!parentId) {
+        // No selection - try to use existing parentId normalized to stable id
+        const stable = resolveStableTargetId(impact.targetType, impact.parentId)
+        expandedImpacts.push({ ...baseImpact, parentId: stable })
       } else {
-        expandedImpacts.push({ ...baseImpact, targetId })
+        expandedImpacts.push({ ...baseImpact, parentId })
       }
     }
   })

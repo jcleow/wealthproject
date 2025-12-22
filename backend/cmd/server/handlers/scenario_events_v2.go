@@ -26,15 +26,17 @@ func NewScenarioEventV2Handler(store *repo.Store) *ScenarioEventV2Handler {
 // --- V2 DTOs with typed target fields ---
 
 type scenarioImpactV2DTO struct {
-	ImpactKind string           `json:"impactKind"`
-	Amount     *string           `json:"amount"`                // Amount as string (e.g., "5000"), converted to decimal internally
-	Cadence    common.Frequency `json:"cadence"`               // Frequency for delta impacts (stored in DB)
-	Currency   string           `json:"currency"`              // Currency from the target financial item (derived)
-	StartDate  string           `json:"startDate"`             // Start date from the target financial item (derived)
-	EndDate    *string          `json:"endDate,omitempty"`     // End date from the target financial item (derived)
-	Name       *string          `json:"name,omitempty"`        // Name from the target financial item (derived)
-	Frequency  *string          `json:"frequency,omitempty"`   // Frequency from target item (derived, only for income/expense)
-	Notes      *string          `json:"notes,omitempty"`       // Notes from the target financial item (derived)
+	ImpactKind string           `json:"impactKind"`          // Required: start, delta, override, stop
+	TargetType string           `json:"targetType"`          // Required: asset, liability, income, expense, cash, investment
+	ParentID   *string          `json:"parentId,omitempty"`  // Required for delta/override/stop (ID of existing item to modify)
+	Amount     *string          `json:"amount,omitempty"`    // Amount as string (e.g., "5000"), converted to decimal internally
+	Cadence    common.Frequency `json:"cadence,omitempty"`   // Frequency for delta impacts (stored in DB)
+	Currency   string           `json:"currency,omitempty"`  // Currency (derived field for response)
+	StartDate  string           `json:"startDate,omitempty"` // Start date for the item
+	EndDate    *string          `json:"endDate,omitempty"`   // End date for the item
+	Name       *string          `json:"name,omitempty"`      // Name for start impacts (creates new item with this name)
+	Frequency  *string          `json:"frequency,omitempty"` // Frequency for income/expense items
+	Notes      *string          `json:"notes,omitempty"`     // Notes for the financial item
 
 	// Advanced fields for start impacts - used to configure the created financial item
 	Category       *string  `json:"category,omitempty"`       // Category for the created financial item
@@ -44,18 +46,6 @@ type scenarioImpactV2DTO struct {
 	// Liability-specific fields for start impacts
 	InterestRate   *float64 `json:"interestRate,omitempty"`   // APR % for liabilities
 	MinimumPayment *int64   `json:"minimumPayment,omitempty"` // Min payment for liabilities
-
-	// Typed target IDs (only one should be set per impact)
-	TargetAssetID       *string `json:"targetAssetId,omitempty"`
-	TargetLiabilityID   *string `json:"targetLiabilityId,omitempty"`
-	TargetIncomeID      *string `json:"targetIncomeId,omitempty"`
-	TargetExpenseID     *string `json:"targetExpenseId,omitempty"`
-	TargetCashAccountID *string `json:"targetCashAccountId,omitempty"`
-	TargetInvestmentID  *string `json:"targetInvestmentId,omitempty"`
-
-	// Computed field for convenience (read-only in response)
-	TargetType string  `json:"targetType,omitempty"`
-	TargetID   *string `json:"targetId,omitempty"`
 }
 
 type scenarioEventV2DTO struct {

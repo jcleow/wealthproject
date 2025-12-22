@@ -1078,3 +1078,114 @@ func TestComputeSnapshot_MultipleStartImpacts_SameEvent(t *testing.T) {
 		t.Errorf("expected net savings $1700, got %s", result.Months[0].NetSavings.String())
 	}
 }
+
+// =============================================================================
+// OVERRIDE IMPACT TESTS - Versioned Items
+// =============================================================================
+
+func TestComputeSnapshot_OverrideImpact_AppliesToVersionedItems(t *testing.T) {
+	/*
+		SCENARIO: User has a versioned income and creates an override impact
+
+		SETUP:
+		- Income v1: $5,000/month from Jan 1 - Jan 31 (ID: "income-v1", ParentID: "income-v1")
+		- Income v2: $6,000/month from Feb 1 onwards (ID: "income-v2", ParentID: "income-v1")
+		- Override impact: targets income-v1, overrides to $8,000/month starting Jan 1
+
+		EXPECTED BEHAVIOR:
+		When computing the timeline with scenarios enabled:
+		1. January: income-v1 is active → EventAdjAmount should be $8,000
+		2. February: income-v2 is active → EventAdjAmount should ALSO be $8,000
+		   (because impact targets ParentID="income-v1" which income-v2 shares)
+
+		This test verifies that override impacts properly apply to all versions
+		of an item, not just the original.
+	*/
+	startDate := makeStartDate(2025, 1, 1)
+	endDate := makeStartDate(2025, 3, 1)
+	incomeV1EndDate := time.Date(2025, 1, 31, 23, 59, 59, 0, time.UTC)
+
+	store := &startImpactTestStore{
+		incomes: []repo.Income{
+			{
+				ID:         "income-v1",
+				ParentID:   "income-v1", // Original income is its own parent
+				Name:       "Salary",
+				Amount:     *decimal.MustFromString("5000"),
+				Frequency:  "monthly",
+				StartDate:  startDate,
+				EndDate:    &incomeV1EndDate, // Ended at end of January
+				Category:   "Employment",
+				GrowthRate: *decimal.MustFromString("0"),
+			},
+			{
+				ID:         "income-v2",
+				ParentID:   "income-v1", // Points to original income
+				Name:       "Salary",
+				Amount:     *decimal.MustFromString("6000"), // Increased in Feb
+				Frequency:  "monthly",
+				StartDate:  time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC),
+				EndDate:    nil, // Still ongoing
+				Category:   "Employment",
+				GrowthRate: *decimal.MustFromString("0"),
+			},
+		},
+		scenarioEvents: []repo.ScenarioEvent{
+			{
+				ID:         "event-raise",
+				UserID:     "user-1",
+				Name:       "Big Raise",
+				OccursOn:   startDate,
+				IsIncluded: true,
+				UpdatedAt:  startDate,
+				Impacts: []repo.ScenarioImpact{
+					{
+						ID:             "impact-override",
+						EventID:        "event-raise",
+						ImpactKind:     scenario.ImpactKindOverride,
+						Amount:         decAmount(8000), // Override to $8,000
+						Cadence:        common.FrequencyMonthly,
+						TargetIncomeID: ptrString("income-v1"), // Targets the original/parent
+						StartDate:      startDate,
+					},
+				},
+			},
+		},
+	}
+
+	service := NewService(store)
+
+	opts := TimelineOptions{
+		StartDate:        startDate,
+		EndDate:          endDate,
+		IncludeScenarios: true,
+	}
+
+	result, err := service.ComputeFinancialSnapshot(context.Background(), "user-1", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result.Months) != 3 {
+		t.Fatalf("expected 3 months, got %d", len(result.Months))
+	}
+
+	// All months should have the override applied ($8,000/month)
+	expectedOverrideAmount := decimal.MustFromString("8000")
+
+	for i, month := range result.Months {
+		if len(month.Income) != 1 {
+			t.Fatalf("month %d: expected 1 income, got %d", i+1, len(month.Income))
+		}
+
+		income := month.Income[0]
+		t.Logf("Month %d: Income ID=%s, ParentID=%s, Amount=%s, EventAdjAmount=%s",
+			i+1, income.ID, income.ParentID, income.Amount.String(), income.EventAdjAmount.String())
+
+		// The EventAdjAmount should be $8,000 in all months (override applied)
+		if income.EventAdjAmount.Cmp(expectedOverrideAmount) != 0 {
+			t.Errorf("month %d: expected EventAdjAmount $8,000, got %s",
+				i+1, income.EventAdjAmount.String())
+		}
+	}
+}

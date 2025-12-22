@@ -1,19 +1,9 @@
 import { renderHook } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { useProjectionData, useScenarioMarkers } from '../useProjectionData'
 import type { TimelineMonth, TimelineYear } from '@/types/timeline'
 
 describe('useProjectionData', () => {
-  // Default props for the hook
-  const defaultProps = {
-    assets: [],
-    liabilities: [],
-    expenses: [],
-    incomes: [],
-    getMonthlySavings: () => 0,
-    userSettings: { startingAge: 30, terminalAge: 65 },
-  }
-
   // ============================================
   // DATA RESOLUTION TESTS
   // ============================================
@@ -40,7 +30,7 @@ describe('useProjectionData', () => {
     ]
 
     const { result } = renderHook(() =>
-      useProjectionData({ ...defaultProps, timelineMonths })
+      useProjectionData({ timelineMonths })
     )
 
     expect(result.current.dataResolution).toBe('monthly')
@@ -65,7 +55,7 @@ describe('useProjectionData', () => {
     ]
 
     const { result } = renderHook(() =>
-      useProjectionData({ ...defaultProps, timelineYears })
+      useProjectionData({ timelineYears })
     )
 
     expect(result.current.dataResolution).toBe('yearly')
@@ -114,7 +104,7 @@ describe('useProjectionData', () => {
     ]
 
     const { result } = renderHook(() =>
-      useProjectionData({ ...defaultProps, timelineMonths })
+      useProjectionData({ timelineMonths })
     )
 
     expect(result.current.projection).toHaveLength(2)
@@ -132,25 +122,10 @@ describe('useProjectionData', () => {
     })
   })
 
-  it('generates fallback projection when no timeline data provided', () => {
-    const { result } = renderHook(() =>
-      useProjectionData({
-        ...defaultProps,
-        assets: [{ currentValue: 100000 }],
-        liabilities: [{ currentBalance: 20000 }],
-      })
-    )
+  it('returns empty projection when no timeline data provided', () => {
+    const { result } = renderHook(() => useProjectionData({}))
 
-    // Should generate points for 35 years (age 30 to 65)
-    expect(result.current.projection.length).toBeGreaterThan(0)
-    expect(result.current.projection[0].netWorth).toBe(80000) // 100000 - 20000
-  })
-
-  it('returns empty projection points with zero values when no data', () => {
-    const { result } = renderHook(() => useProjectionData(defaultProps))
-
-    expect(result.current.projection.length).toBeGreaterThan(0)
-    expect(result.current.projection[0].netWorth).toBe(0)
+    expect(result.current.projection).toHaveLength(0)
   })
 })
 

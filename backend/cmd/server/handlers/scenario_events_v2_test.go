@@ -6,7 +6,6 @@ import (
 
 	"financial-chat-system/backend/internal/decimal"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
-	"financial-chat-system/backend/internal/financial_v2/scenario"
 )
 
 // decAmount creates a *decimal.Decimal for model-level tests
@@ -23,111 +22,83 @@ func strAmount(v int64) *string {
 // Type alias for shorter test code
 type ScenarioImpact = repo.ScenarioImpact
 
-// TestBuildImpactV2_StartImpact_RequiresTargetID ensures that start impacts
-// require a pre-existing targetId and cannot use placeholder values like "pending".
-// This prevents the bug where the backend would auto-create finance rows with
-// generic names like "Scenario Item".
-func TestBuildImpactV2_StartImpact_RequiresTargetID(t *testing.T) {
+// TestBuildImpactV2_StartImpact_NoParentIDRequired ensures that start impacts
+// do NOT require a parentId - they create new items, not modify existing ones.
+func TestBuildImpactV2_StartImpact_NoParentIDRequired(t *testing.T) {
 	tests := []struct {
-		name      string
-		dto       scenarioImpactV2DTO
-		wantErr   error
-		wantErrNil bool
+		name       string
+		dto        scenarioImpactV2DTO
+		wantErr    bool
+		errContains string
 	}{
 		{
-			name: "start impact with valid targetId succeeds",
+			name: "start impact without parentId succeeds",
 			dto: scenarioImpactV2DTO{
-				TargetType:     "expense",
-				TargetID:       strPtr("valid-uuid-123"),
+				ImpactKind: "start",
+				TargetType: "expense",
+				// No ParentID - start impacts create new items
+				Amount:    strAmount(50000),
+				Currency:  "SGD",
+				Cadence:   "one_time",
+				StartDate: "2025-06",
+				Name:      strPtr("Wedding Expenses"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "start impact with parentId should fail",
+			dto: scenarioImpactV2DTO{
+				ImpactKind: "start",
+				TargetType: "expense",
+				ParentID:   strPtr("some-parent-id"), // Start impacts should NOT have parentId
+				Amount:     strAmount(50000),
+				Currency:   "SGD",
+				Cadence:    "one_time",
+				StartDate:  "2025-06",
+			},
+			wantErr:     true,
+			errContains: "start impacts should not have parentId (they create new items)",
+		},
+		{
+			name: "start impact for income succeeds",
+			dto: scenarioImpactV2DTO{
+				ImpactKind: "start",
+				TargetType: "income",
+				Amount:     strAmount(8000),
+				Currency:   "SGD",
+				Cadence:    "monthly",
+				StartDate:  "2025-06",
+				Name:       strPtr("New Job Salary"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "start impact for asset succeeds",
+			dto: scenarioImpactV2DTO{
+				ImpactKind: "start",
+				TargetType: "asset",
+				Amount:     strAmount(450000),
+				Currency:   "SGD",
+				Cadence:    "one_time",
+				StartDate:  "2025-06",
+				Name:       strPtr("BTO Flat"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "start impact for liability succeeds",
+			dto: scenarioImpactV2DTO{
 				ImpactKind:     "start",
-				Amount:         strAmount(50000),
-				Currency:       "SGD",
-				Cadence:        "one_time",
-				StartDate:      "2025-06",
-				TargetExpenseID: strPtr("valid-uuid-123"),
-			},
-			wantErrNil: true,
-		},
-		{
-			name: "start impact without targetId fails",
-			dto: scenarioImpactV2DTO{
-				TargetType: "expense",
-				// No TargetID, no TargetExpenseId
-				ImpactKind: "start",
-				Amount:     strAmount(50000),
-				Currency:   "SGD",
-				Cadence:    "one_time",
-				StartDate:  "2025-06",
-			},
-			wantErr: scenario.ErrInvalidTargetCount,
-		},
-		{
-			name: "start impact with empty targetId fails",
-			dto: scenarioImpactV2DTO{
-				TargetType: "expense",
-				TargetID:   strPtr(""),
-				ImpactKind: "start",
-				Amount:     strAmount(50000),
-				Currency:   "SGD",
-				Cadence:    "one_time",
-				StartDate:  "2025-06",
-			},
-			wantErr: scenario.ErrInvalidTargetCount,
-		},
-		{
-			name: "start impact with whitespace-only targetId fails",
-			dto: scenarioImpactV2DTO{
-				TargetType: "expense",
-				TargetID:   strPtr("   "),
-				ImpactKind: "start",
-				Amount:     strAmount(50000),
-				Currency:   "SGD",
-				Cadence:    "one_time",
-				StartDate:  "2025-06",
-			},
-			wantErr: scenario.ErrInvalidTargetCount,
-		},
-		{
-			name: "delta impact with valid targetId succeeds",
-			dto: scenarioImpactV2DTO{
-				TargetType:     "expense",
-				TargetID:       strPtr("valid-uuid-123"),
-				ImpactKind:     "delta",
-				Amount:         strAmount(500),
+				TargetType:     "liability",
+				Amount:         strAmount(350000),
 				Currency:       "SGD",
 				Cadence:        "monthly",
 				StartDate:      "2025-06",
-				TargetExpenseID: strPtr("valid-uuid-123"),
+				Name:           strPtr("HDB Loan"),
+				InterestRate:   floatPtr(2.6),
+				MinimumPayment: int64Ptr(1500),
 			},
-			wantErrNil: true,
-		},
-		{
-			name: "override impact with valid targetId succeeds",
-			dto: scenarioImpactV2DTO{
-				TargetType:     "income",
-				TargetID:       strPtr("valid-uuid-456"),
-				ImpactKind:     "override",
-				Amount:         strAmount(2000),
-				Currency:       "SGD",
-				Cadence:        "monthly",
-				StartDate:      "2025-06",
-				TargetIncomeID: strPtr("valid-uuid-456"),
-			},
-			wantErrNil: true,
-		},
-		{
-			name: "stop impact with valid targetId succeeds",
-			dto: scenarioImpactV2DTO{
-				TargetType:     "expense",
-				TargetID:       strPtr("valid-uuid-789"),
-				ImpactKind:     "stop",
-				Amount:         strAmount(0),
-				Currency:       "SGD",
-				Cadence:        "monthly",
-				StartDate:      "2025-06",
-				TargetExpenseID: strPtr("valid-uuid-789"),
-			},
-			wantErrNil: true,
+			wantErr: false,
 		},
 	}
 
@@ -135,53 +106,147 @@ func TestBuildImpactV2_StartImpact_RequiresTargetID(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			impact, err := buildImpactV2(tt.dto)
 
-			if tt.wantErrNil {
-				if err != nil {
-					t.Errorf("buildImpactV2() error = %v, want nil", err)
-					return
-				}
-				// Verify the impact has a valid target
-				targetID := impact.TargetID()
-				if targetID == nil || *targetID == "" {
-					t.Errorf("buildImpactV2() returned impact with nil/empty targetId")
-				}
-			} else {
+			if tt.wantErr {
 				if err == nil {
-					t.Errorf("buildImpactV2() error = nil, want %v", tt.wantErr)
+					t.Errorf("buildImpactV2() error = nil, want error containing %q", tt.errContains)
 					return
 				}
-				if err != tt.wantErr {
-					t.Errorf("buildImpactV2() error = %v, want %v", err, tt.wantErr)
+				if tt.errContains != "" && err.Error() != tt.errContains {
+					t.Errorf("buildImpactV2() error = %q, want %q", err.Error(), tt.errContains)
 				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("buildImpactV2() error = %v, want nil", err)
+				return
+			}
+
+			// Verify the impact has targetType set correctly
+			targetType := impact.TargetType()
+			if targetType != tt.dto.TargetType {
+				t.Errorf("buildImpactV2() TargetType = %q, want %q", targetType, tt.dto.TargetType)
 			}
 		})
 	}
 }
 
-// TestBuildImpactV2_NeverCreatesPlaceholderTargetID ensures that the "pending"
-// placeholder bug cannot resurface. The buildImpactV2 function should never
-// set a targetId to "pending" or any other placeholder value.
-func TestBuildImpactV2_NeverCreatesPlaceholderTargetID(t *testing.T) {
-	// This DTO has only targetType but no targetId - should fail, not use "pending"
-	dto := scenarioImpactV2DTO{
-		TargetType: "expense",
-		ImpactKind: "start",
-		Amount:     strAmount(50000),
-		Currency:   "SGD",
-		Cadence:    "one_time",
-		StartDate:  "2025-06",
+// TestBuildImpactV2_DeltaOverrideStop_RequireParentID ensures that
+// delta, override, and stop impacts require a parentId to reference the existing item.
+func TestBuildImpactV2_DeltaOverrideStop_RequireParentID(t *testing.T) {
+	tests := []struct {
+		name        string
+		dto         scenarioImpactV2DTO
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "delta impact with valid parentId succeeds",
+			dto: scenarioImpactV2DTO{
+				ImpactKind: "delta",
+				TargetType: "income",
+				ParentID:   strPtr("income-uuid-123"),
+				Amount:     strAmount(2000),
+				Currency:   "SGD",
+				Cadence:    "monthly",
+				StartDate:  "2025-06",
+			},
+			wantErr: false,
+		},
+		{
+			name: "delta impact without parentId fails",
+			dto: scenarioImpactV2DTO{
+				ImpactKind: "delta",
+				TargetType: "income",
+				// No ParentID
+				Amount:    strAmount(2000),
+				Currency:  "SGD",
+				Cadence:   "monthly",
+				StartDate: "2025-06",
+			},
+			wantErr:     true,
+			errContains: "parentId is required for delta/override/stop impacts",
+		},
+		{
+			name: "override impact with valid parentId succeeds",
+			dto: scenarioImpactV2DTO{
+				ImpactKind: "override",
+				TargetType: "income",
+				ParentID:   strPtr("income-uuid-456"),
+				Amount:     strAmount(2000),
+				Currency:   "SGD",
+				Cadence:    "monthly",
+				StartDate:  "2025-06",
+			},
+			wantErr: false,
+		},
+		{
+			name: "override impact without parentId fails",
+			dto: scenarioImpactV2DTO{
+				ImpactKind: "override",
+				TargetType: "income",
+				Amount:     strAmount(2000),
+				Currency:   "SGD",
+				Cadence:    "monthly",
+				StartDate:  "2025-06",
+			},
+			wantErr:     true,
+			errContains: "parentId is required for delta/override/stop impacts",
+		},
+		{
+			name: "stop impact with valid parentId succeeds",
+			dto: scenarioImpactV2DTO{
+				ImpactKind: "stop",
+				TargetType: "expense",
+				ParentID:   strPtr("expense-uuid-789"),
+				Amount:     strAmount(0),
+				Currency:   "SGD",
+				Cadence:    "monthly",
+				StartDate:  "2025-06",
+			},
+			wantErr: false,
+		},
+		{
+			name: "stop impact without parentId fails",
+			dto: scenarioImpactV2DTO{
+				ImpactKind: "stop",
+				TargetType: "expense",
+				Amount:     strAmount(0),
+				Currency:   "SGD",
+				Cadence:    "monthly",
+				StartDate:  "2025-06",
+			},
+			wantErr:     true,
+			errContains: "parentId is required for delta/override/stop impacts",
+		},
 	}
 
-	impact, err := buildImpactV2(dto)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			impact, err := buildImpactV2(tt.dto)
 
-	// Should error because no targetId provided
-	if err == nil {
-		// If no error, check that it didn't use "pending" as a placeholder
-		targetID := impact.TargetID()
-		if targetID != nil && *targetID == "pending" {
-			t.Errorf("buildImpactV2() used 'pending' as placeholder targetId - this is a regression!")
-		}
-		t.Errorf("buildImpactV2() should have returned error for start impact without targetId")
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("buildImpactV2() error = nil, want error containing %q", tt.errContains)
+					return
+				}
+				if tt.errContains != "" && err.Error() != tt.errContains {
+					t.Errorf("buildImpactV2() error = %q, want %q", err.Error(), tt.errContains)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("buildImpactV2() error = %v, want nil", err)
+				return
+			}
+
+			// Verify the impact has targetId (parentId) set correctly
+			targetID := impact.TargetID()
+			if targetID == nil || *targetID != *tt.dto.ParentID {
+				t.Errorf("buildImpactV2() TargetID = %v, want %v", targetID, tt.dto.ParentID)
+			}
+		})
 	}
 }
 
@@ -192,17 +257,16 @@ func TestBuildImpactV2_LiabilityStartImpact_WithInterestRateAndMinPayment(t *tes
 	minPayment := int64(500)
 
 	dto := scenarioImpactV2DTO{
-		TargetType:        "liability",
-		TargetLiabilityID: strPtr("liability-uuid-123"),
-		TargetID:          strPtr("liability-uuid-123"),
-		ImpactKind:        "start",
-		Amount:            strAmount(10000),
-		Currency:          "SGD",
-		Cadence:           "monthly",
-		StartDate:         "2025-06",
-		Category:          strPtr("debt"),
-		InterestRate:      &interestRate,
-		MinimumPayment:    &minPayment,
+		ImpactKind:     "start",
+		TargetType:     "liability",
+		Amount:         strAmount(10000),
+		Currency:       "SGD",
+		Cadence:        "monthly",
+		StartDate:      "2025-06",
+		Name:           strPtr("Car Loan"),
+		Category:       strPtr("debt"),
+		InterestRate:   &interestRate,
+		MinimumPayment: &minPayment,
 	}
 
 	impact, err := buildImpactV2(dto)
@@ -210,9 +274,9 @@ func TestBuildImpactV2_LiabilityStartImpact_WithInterestRateAndMinPayment(t *tes
 		t.Fatalf("buildImpactV2() error = %v, want nil", err)
 	}
 
-	// Verify target ID
-	if impact.TargetLiabilityID == nil || *impact.TargetLiabilityID != "liability-uuid-123" {
-		t.Errorf("buildImpactV2() TargetLiabilityID = %v, want liability-uuid-123", impact.TargetLiabilityID)
+	// Verify target type
+	if impact.TargetType() != "liability" {
+		t.Errorf("buildImpactV2() TargetType = %v, want liability", impact.TargetType())
 	}
 
 	// Verify interest rate is passed through
@@ -274,12 +338,16 @@ func TestToScenarioImpactV2DTO_LiabilityFields(t *testing.T) {
 	if dto.TargetType != "liability" {
 		t.Errorf("toScenarioImpactV2DTO() TargetType = %v, want liability", dto.TargetType)
 	}
+
+	// Verify parentId is set from TargetLiabilityID
+	if dto.ParentID == nil || *dto.ParentID != "liability-456" {
+		t.Errorf("toScenarioImpactV2DTO() ParentID = %v, want liability-456", dto.ParentID)
+	}
 }
 
-// TestBuildImpactsV2FromDTO_UpdateScenarioWithModifiedImpacts tests that
-// when updating a scenario event, impacts can be modified (amount, category, etc.)
-// and the buildImpactsV2FromDTO function correctly processes them.
-func TestBuildImpactsV2FromDTO_UpdateScenarioWithModifiedImpacts(t *testing.T) {
+// TestBuildImpactsV2FromDTO_ValidatesDuplicateParentIDs tests that
+// multiple impacts targeting the same parent are rejected.
+func TestBuildImpactsV2FromDTO_ValidatesDuplicateParentIDs(t *testing.T) {
 	tests := []struct {
 		name       string
 		dtos       []scenarioImpactV2DTO
@@ -288,111 +356,50 @@ func TestBuildImpactsV2FromDTO_UpdateScenarioWithModifiedImpacts(t *testing.T) {
 		errMessage string
 	}{
 		{
-			name: "update single impact with new amount",
+			name: "multiple start impacts allowed (no parentId)",
 			dtos: []scenarioImpactV2DTO{
 				{
-					TargetType:      "expense",
-					TargetID:        strPtr("expense-uuid-123"),
-					TargetExpenseID: strPtr("expense-uuid-123"),
-					ImpactKind:      "start",
-					Amount:          strAmount(75000), // Updated from 50000
-					Currency:        "SGD",
-					Cadence:         "monthly",
-					StartDate:       "2025-06",
-					Category:        strPtr("housing"),
-				},
-			},
-			wantCount: 1,
-			wantErr:   false,
-		},
-		{
-			name: "update multiple impacts",
-			dtos: []scenarioImpactV2DTO{
-				{
-					TargetType:      "income",
-					TargetID:        strPtr("income-uuid-1"),
-					TargetIncomeID:  strPtr("income-uuid-1"),
-					ImpactKind:      "delta",
-					Amount:          strAmount(1000),
-					Currency:        "SGD",
-					Cadence:         "monthly",
-					StartDate:       "2025-06",
+					ImpactKind: "start",
+					TargetType: "expense",
+					Amount:     strAmount(50000),
+					Currency:   "SGD",
+					Cadence:    "one_time",
+					StartDate:  "2025-06",
+					Name:       strPtr("Wedding"),
 				},
 				{
-					TargetType:      "expense",
-					TargetID:        strPtr("expense-uuid-2"),
-					TargetExpenseID: strPtr("expense-uuid-2"),
-					ImpactKind:      "override",
-					Amount:          strAmount(2000),
-					Currency:        "SGD",
-					Cadence:         "monthly",
-					StartDate:       "2025-06",
+					ImpactKind: "start",
+					TargetType: "expense",
+					Amount:     strAmount(30000),
+					Currency:   "SGD",
+					Cadence:    "one_time",
+					StartDate:  "2025-06",
+					Name:       strPtr("Honeymoon"),
 				},
 			},
 			wantCount: 2,
 			wantErr:   false,
 		},
 		{
-			name: "add new impact during update",
+			name: "reject duplicate parentIds in same event",
 			dtos: []scenarioImpactV2DTO{
 				{
-					TargetType:     "asset",
-					TargetID:       strPtr("asset-uuid-new"),
-					TargetAssetID:  strPtr("asset-uuid-new"),
-					ImpactKind:     "start",
-					Amount:         strAmount(100000),
-					Currency:       "SGD",
-					Cadence:        "one_time",
-					StartDate:      "2025-07",
-					Category:       strPtr("real_estate"),
-					GrowthRate:     floatPtr(3.5),
-				},
-			},
-			wantCount: 1,
-			wantErr:   false,
-		},
-		{
-			name: "update with liability impact including interest rate and min payment",
-			dtos: []scenarioImpactV2DTO{
-				{
-					TargetType:        "liability",
-					TargetID:          strPtr("liability-uuid-123"),
-					TargetLiabilityID: strPtr("liability-uuid-123"),
-					ImpactKind:        "start",
-					Amount:            strAmount(20000),
-					Currency:          "SGD",
-					Cadence:           "monthly",
-					StartDate:         "2025-06",
-					Category:          strPtr("credit_card"),
-					InterestRate:      floatPtr(18.5),
-					MinimumPayment:    int64Ptr(300),
-				},
-			},
-			wantCount: 1,
-			wantErr:   false,
-		},
-		{
-			name: "reject duplicate targets in same update",
-			dtos: []scenarioImpactV2DTO{
-				{
-					TargetType:      "expense",
-					TargetID:        strPtr("expense-uuid-same"),
-					TargetExpenseID: strPtr("expense-uuid-same"),
-					ImpactKind:      "delta",
-					Amount:          strAmount(100),
-					Currency:        "SGD",
-					Cadence:         "monthly",
-					StartDate:       "2025-06",
+					ImpactKind: "delta",
+					TargetType: "expense",
+					ParentID:   strPtr("expense-uuid-same"),
+					Amount:     strAmount(100),
+					Currency:   "SGD",
+					Cadence:    "monthly",
+					StartDate:  "2025-06",
 				},
 				{
-					TargetType:      "expense",
-					TargetID:        strPtr("expense-uuid-same"), // Duplicate target
-					TargetExpenseID: strPtr("expense-uuid-same"),
-					ImpactKind:      "override",
-					Amount:          strAmount(200),
-					Currency:        "SGD",
-					Cadence:         "monthly",
-					StartDate:       "2025-06",
+					ImpactKind: "override",
+					TargetType: "expense",
+					ParentID:   strPtr("expense-uuid-same"), // Duplicate parent
+					Amount:     strAmount(200),
+					Currency:   "SGD",
+					Cadence:    "monthly",
+					StartDate:  "2025-06",
 				},
 			},
 			wantCount:  0,
@@ -435,30 +442,25 @@ func TestBuildImpactsV2FromDTO_UpdateScenarioWithModifiedImpacts(t *testing.T) {
 	}
 }
 
-// TestBuildImpactV2_UpdatePreservesAdvancedFields verifies that when updating
-// an impact, all advanced fields (category, growthRate, growthStrategy, etc.)
-// are correctly preserved in the built impact.
-func TestBuildImpactV2_UpdatePreservesAdvancedFields(t *testing.T) {
+// TestBuildImpactV2_AdvancedFields tests that advanced fields are correctly passed through.
+func TestBuildImpactV2_AdvancedFields(t *testing.T) {
 	growthRate := 5.0
-	interestRate := 12.5
-	minPayment := int64(200)
 
 	tests := []struct {
-		name           string
-		dto            scenarioImpactV2DTO
-		checkImpact    func(t *testing.T, imp ScenarioImpact)
+		name        string
+		dto         scenarioImpactV2DTO
+		checkImpact func(t *testing.T, imp ScenarioImpact)
 	}{
 		{
 			name: "income with growth rate and strategy",
 			dto: scenarioImpactV2DTO{
-				TargetType:     "income",
-				TargetID:       strPtr("income-uuid"),
-				TargetIncomeID: strPtr("income-uuid"),
 				ImpactKind:     "start",
+				TargetType:     "income",
 				Amount:         strAmount(5000),
 				Currency:       "SGD",
 				Cadence:        "monthly",
 				StartDate:      "2025-06",
+				Name:           strPtr("Salary"),
 				Category:       strPtr("salary"),
 				GrowthRate:     &growthRate,
 				GrowthStrategy: strPtr("annual_step"),
@@ -478,15 +480,14 @@ func TestBuildImpactV2_UpdatePreservesAdvancedFields(t *testing.T) {
 		{
 			name: "expense with category only",
 			dto: scenarioImpactV2DTO{
-				TargetType:      "expense",
-				TargetID:        strPtr("expense-uuid"),
-				TargetExpenseID: strPtr("expense-uuid"),
-				ImpactKind:      "start",
-				Amount:          strAmount(3000),
-				Currency:        "SGD",
-				Cadence:         "one_time",
-				StartDate:       "2025-06",
-				Category:        strPtr("entertainment"),
+				ImpactKind: "start",
+				TargetType: "expense",
+				Amount:     strAmount(3000),
+				Currency:   "SGD",
+				Cadence:    "one_time",
+				StartDate:  "2025-06",
+				Name:       strPtr("Entertainment"),
+				Category:   strPtr("entertainment"),
 			},
 			checkImpact: func(t *testing.T, imp ScenarioImpact) {
 				if imp.Category != "entertainment" {
@@ -495,45 +496,17 @@ func TestBuildImpactV2_UpdatePreservesAdvancedFields(t *testing.T) {
 			},
 		},
 		{
-			name: "liability with interest rate and min payment",
-			dto: scenarioImpactV2DTO{
-				TargetType:        "liability",
-				TargetID:          strPtr("liability-uuid"),
-				TargetLiabilityID: strPtr("liability-uuid"),
-				ImpactKind:        "start",
-				Amount:            strAmount(15000),
-				Currency:          "SGD",
-				Cadence:           "monthly",
-				StartDate:         "2025-06",
-				Category:          strPtr("mortgage"),
-				InterestRate:      &interestRate,
-				MinimumPayment:    &minPayment,
-			},
-			checkImpact: func(t *testing.T, imp ScenarioImpact) {
-				if imp.Category != "mortgage" {
-					t.Errorf("Category = %q, want %q", imp.Category, "mortgage")
-				}
-				if imp.InterestRate == nil || *imp.InterestRate != interestRate {
-					t.Errorf("InterestRate = %v, want %v", imp.InterestRate, interestRate)
-				}
-				if imp.MinimumPayment == nil || *imp.MinimumPayment != minPayment {
-					t.Errorf("MinimumPayment = %v, want %v", imp.MinimumPayment, minPayment)
-				}
-			},
-		},
-		{
 			name: "asset with growth rate",
 			dto: scenarioImpactV2DTO{
-				TargetType:    "asset",
-				TargetID:      strPtr("asset-uuid"),
-				TargetAssetID: strPtr("asset-uuid"),
-				ImpactKind:    "start",
-				Amount:        strAmount(500000),
-				Currency:      "SGD",
-				Cadence:       "one_time",
-				StartDate:     "2025-06",
-				Category:      strPtr("real_estate"),
-				GrowthRate:    &growthRate,
+				ImpactKind: "start",
+				TargetType: "asset",
+				Amount:     strAmount(500000),
+				Currency:   "SGD",
+				Cadence:    "one_time",
+				StartDate:  "2025-06",
+				Name:       strPtr("Property"),
+				Category:   strPtr("real_estate"),
+				GrowthRate: &growthRate,
 			},
 			checkImpact: func(t *testing.T, imp ScenarioImpact) {
 				if imp.Category != "real_estate" {
@@ -558,7 +531,7 @@ func TestBuildImpactV2_UpdatePreservesAdvancedFields(t *testing.T) {
 }
 
 // TestToScenarioImpactV2DTO_RoundTrip tests that impacts can be converted
-// to DTOs and back without losing information. This is critical for updates.
+// to DTOs and back without losing information.
 func TestToScenarioImpactV2DTO_RoundTrip(t *testing.T) {
 	interestRate := 8.5
 	minPayment := int64(150)
@@ -566,7 +539,7 @@ func TestToScenarioImpactV2DTO_RoundTrip(t *testing.T) {
 
 	original := ScenarioImpact{
 		EventID:           "event-123",
-		ImpactKind:        "start",
+		ImpactKind:        "delta",
 		Amount:            decAmount(25000),
 		Cadence:           "monthly",
 		TargetLiabilityID: strPtr("liability-789"),
@@ -582,8 +555,8 @@ func TestToScenarioImpactV2DTO_RoundTrip(t *testing.T) {
 	dto := toScenarioImpactV2DTO(original)
 
 	// Verify DTO fields
-	if dto.ImpactKind != "start" {
-		t.Errorf("DTO ImpactKind = %q, want %q", dto.ImpactKind, "start")
+	if dto.ImpactKind != "delta" {
+		t.Errorf("DTO ImpactKind = %q, want %q", dto.ImpactKind, "delta")
 	}
 	if dto.Amount == nil || *dto.Amount != "25000" {
 		t.Errorf("DTO Amount = %v, want %q", dto.Amount, "25000")
@@ -591,8 +564,8 @@ func TestToScenarioImpactV2DTO_RoundTrip(t *testing.T) {
 	if dto.TargetType != "liability" {
 		t.Errorf("DTO TargetType = %q, want %q", dto.TargetType, "liability")
 	}
-	if dto.TargetLiabilityID == nil || *dto.TargetLiabilityID != "liability-789" {
-		t.Errorf("DTO TargetLiabilityID = %v, want liability-789", dto.TargetLiabilityID)
+	if dto.ParentID == nil || *dto.ParentID != "liability-789" {
+		t.Errorf("DTO ParentID = %v, want liability-789", dto.ParentID)
 	}
 	if dto.Category == nil || *dto.Category != "mortgage" {
 		t.Errorf("DTO Category = %v, want mortgage", dto.Category)
@@ -631,15 +604,15 @@ func TestToScenarioImpactV2DTO_RoundTrip(t *testing.T) {
 	}
 }
 
-// TestBuildScenarioEventV2_UpdateWithImpacts tests that buildScenarioEventV2
-// correctly builds an event with impacts for update operations.
-func TestBuildScenarioEventV2_UpdateWithImpacts(t *testing.T) {
+// TestBuildScenarioEventV2_WithMixedImpacts tests that buildScenarioEventV2
+// correctly builds an event with both start and non-start impacts.
+func TestBuildScenarioEventV2_WithMixedImpacts(t *testing.T) {
 	userID := "user-123"
 
 	dto := scenarioEventV2DTO{
 		ID:           "event-456",
-		Name:         "Updated Career Change",
-		Description:  strPtr("Updated description"),
+		Name:         "Career Change",
+		Description:  strPtr("New job with higher salary"),
 		OccursOn:     "2025-07-01",
 		DisplayIcon:  "briefcase",
 		DisplayColor: "#10b981",
@@ -647,27 +620,25 @@ func TestBuildScenarioEventV2_UpdateWithImpacts(t *testing.T) {
 		IsIncluded:   true,
 		Impacts: []scenarioImpactV2DTO{
 			{
-				TargetType:     "income",
-				TargetID:       strPtr("income-uuid-1"),
-				TargetIncomeID: strPtr("income-uuid-1"),
 				ImpactKind:     "start",
+				TargetType:     "income",
 				Amount:         strAmount(8000),
 				Currency:       "SGD",
 				Cadence:        "monthly",
 				StartDate:      "2025-07",
+				Name:           strPtr("New Job Salary"),
 				Category:       strPtr("salary"),
 				GrowthRate:     floatPtr(3.0),
 				GrowthStrategy: strPtr("annual_step"),
 			},
 			{
-				TargetType:      "expense",
-				TargetID:        strPtr("expense-uuid-2"),
-				TargetExpenseID: strPtr("expense-uuid-2"),
-				ImpactKind:      "stop",
-				Amount:          strAmount(0),
-				Currency:        "SGD",
-				Cadence:         "monthly",
-				StartDate:       "2025-07",
+				ImpactKind: "stop",
+				TargetType: "expense",
+				ParentID:   strPtr("expense-uuid-commute"),
+				Amount:     strAmount(0),
+				Currency:   "SGD",
+				Cadence:    "monthly",
+				StartDate:  "2025-07",
 			},
 		},
 	}
@@ -678,8 +649,8 @@ func TestBuildScenarioEventV2_UpdateWithImpacts(t *testing.T) {
 	}
 
 	// Verify event metadata
-	if event.Name != "Updated Career Change" {
-		t.Errorf("Event Name = %q, want %q", event.Name, "Updated Career Change")
+	if event.Name != "Career Change" {
+		t.Errorf("Event Name = %q, want %q", event.Name, "Career Change")
 	}
 	if event.UserID != userID {
 		t.Errorf("Event UserID = %q, want %q", event.UserID, userID)
@@ -690,84 +661,62 @@ func TestBuildScenarioEventV2_UpdateWithImpacts(t *testing.T) {
 		t.Fatalf("Event has %d impacts, want 2", len(event.Impacts))
 	}
 
-	// Verify first impact (start income)
+	// Verify first impact (start income - should have empty string for targetId marker)
 	if event.Impacts[0].ImpactKind != "start" {
 		t.Errorf("Impact[0] ImpactKind = %q, want %q", event.Impacts[0].ImpactKind, "start")
 	}
-	if event.Impacts[0].TargetIncomeID == nil || *event.Impacts[0].TargetIncomeID != "income-uuid-1" {
-		t.Errorf("Impact[0] TargetIncomeID = %v, want income-uuid-1", event.Impacts[0].TargetIncomeID)
+	if event.Impacts[0].TargetType() != "income" {
+		t.Errorf("Impact[0] TargetType = %q, want %q", event.Impacts[0].TargetType(), "income")
 	}
 	if event.Impacts[0].Amount == nil || event.Impacts[0].Amount.Cmp(decAmount(8000)) != 0 {
 		t.Errorf("Impact[0] Amount = %v, want 8000", event.Impacts[0].Amount)
 	}
 
-	// Verify second impact (stop expense)
+	// Verify second impact (stop expense - should have parentId)
 	if event.Impacts[1].ImpactKind != "stop" {
 		t.Errorf("Impact[1] ImpactKind = %q, want %q", event.Impacts[1].ImpactKind, "stop")
 	}
-	if event.Impacts[1].TargetExpenseID == nil || *event.Impacts[1].TargetExpenseID != "expense-uuid-2" {
-		t.Errorf("Impact[1] TargetExpenseID = %v, want expense-uuid-2", event.Impacts[1].TargetExpenseID)
+	if event.Impacts[1].TargetExpenseID == nil || *event.Impacts[1].TargetExpenseID != "expense-uuid-commute" {
+		t.Errorf("Impact[1] TargetExpenseID = %v, want expense-uuid-commute", event.Impacts[1].TargetExpenseID)
 	}
 }
 
-// TestBuildImpactV2_AllImpactKinds tests that all impact kinds can be built
-// during an update operation.
-func TestBuildImpactV2_AllImpactKinds(t *testing.T) {
+// TestBuildImpactV2_TargetTypeValidation tests that invalid target types are rejected.
+func TestBuildImpactV2_TargetTypeValidation(t *testing.T) {
 	tests := []struct {
 		name       string
-		impactKind string
-		amount     int64
-		wantKind   string
+		targetType string
+		wantErr    bool
 	}{
-		{
-			name:       "delta impact",
-			impactKind: "delta",
-			amount:     500,
-			wantKind:   "delta",
-		},
-		{
-			name:       "override impact",
-			impactKind: "override",
-			amount:     3000,
-			wantKind:   "override",
-		},
-		{
-			name:       "start impact",
-			impactKind: "start",
-			amount:     10000,
-			wantKind:   "start",
-		},
-		{
-			name:       "stop impact",
-			impactKind: "stop",
-			amount:     0,
-			wantKind:   "stop",
-		},
+		{"valid asset", "asset", false},
+		{"valid liability", "liability", false},
+		{"valid income", "income", false},
+		{"valid expense", "expense", false},
+		{"valid cash", "cash", false},
+		{"valid investment", "investment", false},
+		{"invalid type", "invalid", true},
+		{"empty type", "", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dto := scenarioImpactV2DTO{
-				TargetType:      "expense",
-				TargetID:        strPtr("expense-uuid"),
-				TargetExpenseID: strPtr("expense-uuid"),
-				ImpactKind:      tt.impactKind,
-				Amount:          strAmount(tt.amount),
-				Currency:        "SGD",
-				Cadence:         "monthly",
-				StartDate:       "2025-06",
+				ImpactKind: "start",
+				TargetType: tt.targetType,
+				Amount:     strAmount(1000),
+				Currency:   "SGD",
+				Cadence:    "monthly",
+				StartDate:  "2025-06",
+				Name:       strPtr("Test Item"),
 			}
 
-			impact, err := buildImpactV2(dto)
-			if err != nil {
-				t.Fatalf("buildImpactV2() error = %v", err)
-			}
+			_, err := buildImpactV2(dto)
 
-			if impact.ImpactKind != tt.wantKind {
-				t.Errorf("ImpactKind = %q, want %q", impact.ImpactKind, tt.wantKind)
+			if tt.wantErr && err == nil {
+				t.Errorf("buildImpactV2() error = nil, want error")
 			}
-			if impact.Amount == nil || impact.Amount.Cmp(decAmount(tt.amount)) != 0 {
-				t.Errorf("Amount = %v, want %v", impact.Amount, tt.amount)
+			if !tt.wantErr && err != nil {
+				t.Errorf("buildImpactV2() error = %v, want nil", err)
 			}
 		})
 	}

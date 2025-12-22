@@ -13,6 +13,7 @@ import (
 	"financial-chat-system/backend/internal/financial_v2/scenario"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // Type aliases for scenario types - allows repository to use scenario types
@@ -50,15 +51,7 @@ func (s *Store) CreateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 	created.Tags = decodeStringArray(tagsBytes)
 
-	// For 'start' impacts, update the linked financial item's amount and frequency
-	for _, imp := range ev.Impacts {
-		if imp.ImpactKind == scenario.ImpactKindStart {
-			if err := s.updateStartImpactTarget(ctx, tx, &imp); err != nil {
-				return ScenarioEvent{}, fmt.Errorf("failed to update start impact target: %w", err)
-			}
-		}
-	}
-
+	// Insert impacts - for 'start' impacts, insertStartImpact creates the financial items
 	if len(ev.Impacts) > 0 {
 		if err := s.insertImpactsV2(ctx, tx, ev.UserID, created.ID, ev.Impacts); err != nil {
 			return ScenarioEvent{}, err
@@ -359,7 +352,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 	// Query each finance table for rows linked to this scenario event
 	// Income impacts
 	incomeRows, err := s.pool.Query(ctx, `
-		SELECT id, parent_id, name, amount, frequency, category, start_date, end_date,
+		SELECT id, COALESCE(parent_id, id), name, amount, frequency, category, start_date, end_date,
 		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
 		FROM finance_incomes
 		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
@@ -408,7 +401,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 
 	// Expense impacts
 	expenseRows, err := s.pool.Query(ctx, `
-		SELECT id, parent_id, name, amount, frequency, category, start_date, end_date,
+		SELECT id, COALESCE(parent_id, id), name, amount, frequency, category, start_date, end_date,
 		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
 		FROM finance_expenses
 		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
@@ -457,7 +450,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 
 	// Asset impacts
 	assetRows, err := s.pool.Query(ctx, `
-		SELECT id, parent_id, name, current_value, category, start_date, end_date,
+		SELECT id, COALESCE(parent_id, id), name, current_value, category, start_date, end_date,
 		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
 		FROM finance_assets
 		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
@@ -505,7 +498,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 
 	// Liability impacts
 	liabilityRows, err := s.pool.Query(ctx, `
-		SELECT id, parent_id, name, current_balance, category, start_date, end_date,
+		SELECT id, COALESCE(parent_id, id), name, current_balance, category, start_date, end_date,
 		       interest_rate_apr, growth_strategy, impact_kind, impact_frequency, updated_at
 		FROM finance_liabilities
 		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
@@ -553,7 +546,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 
 	// Investment impacts
 	investmentRows, err := s.pool.Query(ctx, `
-		SELECT id, parent_id, name, current_value, category, start_date, end_date,
+		SELECT id, COALESCE(parent_id, id), name, current_value, category, start_date, end_date,
 		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
 		FROM finance_investments
 		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
@@ -656,6 +649,9 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 // insertImpactsV2 inserts impacts by creating new rows in the appropriate finance table.
 // NEW ARCHITECTURE: Instead of inserting into scenario_event_impacts, we create new rows
 // in finance_* tables with scenario_event_id, impact_kind, and impact_frequency set.
+//
+// For 'start' impacts: Creates a NEW financial item directly from impact data (no targetId needed)
+// For 'delta'/'override'/'stop' impacts: Creates a child row referencing an existing item via targetId
 func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, eventID string, impacts []ScenarioImpact) error {
 	// Get event's occurs_on date for impact start date
 	var occursOn time.Time
@@ -666,19 +662,18 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 
 	for i := range impacts {
 		imp := &impacts[i]
-
-		targetID := imp.TargetID()
 		targetType := imp.TargetType()
 
-		// All impacts must have a valid target (pre-created by frontend)
-		if targetID == nil || strings.TrimSpace(*targetID) == "" || !scenario.IsValidTargetType(targetType) {
-			return scenario.ErrInvalidTargetCount
+		if !scenario.IsValidTargetType(targetType) {
+			return scenario.ErrInvalidTargetType
 		}
 
-		// Default amount to 0 if nil to prevent SQL type inference error
-		amount := imp.Amount
-		if amount == nil {
-			amount = decimal.Zero()
+		// Convert decimal.Decimal to pgtype.Numeric for SQL compatibility
+		var amount pgtype.Numeric
+		if imp.Amount != nil {
+			amount, _ = imp.Amount.NumericValue()
+		} else {
+			amount, _ = decimal.Zero().NumericValue()
 		}
 
 		impactFrequency := string(imp.Cadence)
@@ -686,7 +681,22 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			impactFrequency = "monthly"
 		}
 
+		// Handle 'start' impacts differently - create new financial items directly
+		if imp.ImpactKind == scenario.ImpactKindStart {
+			if err := s.insertStartImpact(ctx, tx, userID, eventID, imp, amount, occursOn, impactFrequency); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// For delta/override/stop impacts, we need a valid target (existing item)
+		targetID := imp.TargetID()
+		if targetID == nil || strings.TrimSpace(*targetID) == "" {
+			return scenario.ErrInvalidTargetCount
+		}
+
 		// Insert into the appropriate finance table based on target type
+		// Creates a child row referencing the existing item via parent_id
 		switch targetType {
 		case "income":
 			if _, err := tx.Exec(ctx, `
@@ -696,8 +706,8 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				)
 				SELECT user_id, id, name, $3, frequency, category, $4,
 				       growth_rate, growth_strategy, $5, $6, $7
-				FROM finance_incomes WHERE id = $2`,
-				userID, *imp.TargetIncomeID, amount, occursOn,
+				FROM finance_incomes WHERE id = $1 AND user_id = $2`,
+				*imp.TargetIncomeID, userID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert income impact: %w", err)
@@ -711,8 +721,8 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				)
 				SELECT user_id, id, name, $3, frequency, category, $4,
 				       growth_rate, growth_strategy, $5, $6, $7
-				FROM finance_expenses WHERE id = $2`,
-				userID, *imp.TargetExpenseID, amount, occursOn,
+				FROM finance_expenses WHERE id = $1 AND user_id = $2`,
+				*imp.TargetExpenseID, userID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert expense impact: %w", err)
@@ -726,8 +736,8 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				)
 				SELECT user_id, id, name, $3, category, $4,
 				       growth_rate, growth_strategy, $5, $6, $7
-				FROM finance_assets WHERE id = $2`,
-				userID, *imp.TargetAssetID, amount, occursOn,
+				FROM finance_assets WHERE id = $1 AND user_id = $2`,
+				*imp.TargetAssetID, userID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert asset impact: %w", err)
@@ -743,8 +753,8 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				SELECT user_id, id, name, $3, category, $4,
 				       interest_rate_apr, minimum_payment, growth_strategy,
 				       $5, $6, $7
-				FROM finance_liabilities WHERE id = $2`,
-				userID, *imp.TargetLiabilityID, amount, occursOn,
+				FROM finance_liabilities WHERE id = $1 AND user_id = $2`,
+				*imp.TargetLiabilityID, userID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert liability impact: %w", err)
@@ -758,8 +768,8 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				)
 				SELECT user_id, id, name, $3, category, $4,
 				       growth_rate, growth_strategy, $5, $6, $7
-				FROM finance_investments WHERE id = $2`,
-				userID, *imp.TargetInvestmentID, amount, occursOn,
+				FROM finance_investments WHERE id = $1 AND user_id = $2`,
+				*imp.TargetInvestmentID, userID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert investment impact: %w", err)
@@ -775,14 +785,144 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				SELECT user_id, id, name, $3, COALESCE(category, 'savings'), $4,
 				       interest_rate, growth_strategy, false,
 				       $5, $6, $7
-				FROM finance_cash_accounts WHERE id = $2`,
-				userID, *imp.TargetCashAccountID, amount, occursOn,
+				FROM finance_cash_accounts WHERE id = $1 AND user_id = $2`,
+				*imp.TargetCashAccountID, userID, amount, occursOn,
 				eventID, imp.ImpactKind, impactFrequency,
 			); err != nil {
 				return fmt.Errorf("failed to insert cash account impact: %w", err)
 			}
 		}
 	}
+	return nil
+}
+
+// insertStartImpact creates a NEW financial item for a 'start' impact.
+// Unlike delta/override/stop, start impacts don't reference an existing item.
+// The financial item data comes directly from the impact fields.
+func (s *Store) insertStartImpact(ctx context.Context, tx pgx.Tx, userID string, eventID string, imp *ScenarioImpact, amount pgtype.Numeric, startDate time.Time, impactFrequency string) error {
+	targetType := imp.TargetType()
+
+	// Use impact fields for the new financial item
+	name := imp.Name
+	if name == "" {
+		name = "Unnamed Item"
+	}
+	category := imp.Category
+	if category == "" {
+		category = "other"
+	}
+	frequency := imp.Frequency
+	if frequency == "" {
+		frequency = impactFrequency
+	}
+	growthRate := float64(0)
+	if imp.GrowthRate != nil {
+		growthRate = *imp.GrowthRate
+	}
+	growthStrategy := imp.GrowthStrategy
+	if growthStrategy == "" {
+		growthStrategy = "fixed"
+	}
+
+	switch targetType {
+	case "income":
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO finance_incomes (
+				user_id, name, amount, frequency, category, start_date, end_date,
+				growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			userID, name, amount, frequency, category, startDate, imp.EndDate,
+			growthRate, growthStrategy, eventID, imp.ImpactKind, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to insert start income: %w", err)
+		}
+
+	case "expense":
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO finance_expenses (
+				user_id, name, amount, frequency, category, start_date, end_date,
+				growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			userID, name, amount, frequency, category, startDate, imp.EndDate,
+			growthRate, growthStrategy, eventID, imp.ImpactKind, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to insert start expense: %w", err)
+		}
+
+	case "asset":
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO finance_assets (
+				user_id, name, current_value, category, start_date, end_date,
+				growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			userID, name, amount, category, startDate, imp.EndDate,
+			growthRate, growthStrategy, eventID, imp.ImpactKind, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to insert start asset: %w", err)
+		}
+
+	case "liability":
+		interestRate := float64(0)
+		if imp.InterestRate != nil {
+			interestRate = *imp.InterestRate
+		}
+		minimumPayment := int64(0)
+		if imp.MinimumPayment != nil {
+			minimumPayment = *imp.MinimumPayment
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO finance_liabilities (
+				user_id, name, current_balance, category, start_date, end_date,
+				interest_rate_apr, minimum_payment, growth_strategy,
+				scenario_event_id, impact_kind, impact_frequency
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			userID, name, amount, category, startDate, imp.EndDate,
+			interestRate, minimumPayment, growthStrategy,
+			eventID, imp.ImpactKind, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to insert start liability: %w", err)
+		}
+
+	case "investment":
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO finance_investments (
+				user_id, name, current_value, category, start_date, end_date,
+				growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			userID, name, amount, category, startDate, imp.EndDate,
+			growthRate, growthStrategy, eventID, imp.ImpactKind, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to insert start investment: %w", err)
+		}
+
+	case "cash":
+		interestRate := float64(0)
+		if imp.InterestRate != nil {
+			interestRate = *imp.InterestRate
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO finance_cash_accounts (
+				user_id, name, balance, category, start_date, end_date,
+				interest_rate, growth_strategy, is_accumulator,
+				scenario_event_id, impact_kind, impact_frequency
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, $9, $10, $11)`,
+			userID, name, amount, category, startDate, imp.EndDate,
+			interestRate, growthStrategy,
+			eventID, imp.ImpactKind, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to insert start cash account: %w", err)
+		}
+
+	default:
+		return fmt.Errorf("unsupported target type for start impact: %s", targetType)
+	}
+
 	return nil
 }
 

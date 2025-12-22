@@ -4,8 +4,10 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/cockroachdb/apd/v3"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // Common precision contexts for different use cases
@@ -275,4 +277,63 @@ func (d *Decimal) ToBasisPoints() int64 {
 func (d *Decimal) ToFloat64() float64 {
 	f, _ := d.Decimal.Float64()
 	return f
+}
+
+// NumericValue implements pgtype.NumericValuer for pgx v5.
+// This allows Decimal to be used directly in pgx queries without type casting.
+func (d Decimal) NumericValue() (pgtype.Numeric, error) {
+	// Convert apd.Decimal coefficient to big.Int
+	coeff := d.Decimal.Coeff.MathBigInt()
+	if d.Decimal.Negative {
+		coeff = new(big.Int).Neg(coeff)
+	}
+
+	// apd uses positive exponent for scale (e.g., 123.45 = 12345 * 10^-2, exp=-2)
+	// pgtype.Numeric expects exponent in the same format
+	return pgtype.Numeric{
+		Int:   coeff,
+		Exp:   d.Decimal.Exponent,
+		Valid: true,
+	}, nil
+}
+
+// ScanNumeric implements pgtype.NumericScanner for pgx v5.
+// This allows Decimal to be scanned directly from pgx query results.
+func (d *Decimal) ScanNumeric(n pgtype.Numeric) error {
+	if !n.Valid {
+		d.Decimal = *apd.New(0, 0)
+		return nil
+	}
+
+	if n.Int == nil {
+		d.Decimal = *apd.New(0, 0)
+		return nil
+	}
+
+	// Handle NaN and Inf
+	if n.NaN {
+		return fmt.Errorf("cannot convert NaN to Decimal")
+	}
+	if n.InfinityModifier != pgtype.Finite {
+		return fmt.Errorf("cannot convert Infinity to Decimal")
+	}
+
+	// Convert big.Int to apd.BigInt
+	var coeff apd.BigInt
+	coeff.SetMathBigInt(n.Int)
+
+	// Handle negative numbers - big.Int stores sign, apd stores it separately
+	negative := n.Int.Sign() < 0
+	if negative {
+		coeff.Abs(&coeff)
+	}
+
+	d.Decimal = apd.Decimal{
+		Form:     apd.Finite,
+		Negative: negative,
+		Exponent: n.Exp,
+		Coeff:    coeff,
+	}
+
+	return nil
 }

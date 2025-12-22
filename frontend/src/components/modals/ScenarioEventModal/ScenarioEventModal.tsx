@@ -110,8 +110,8 @@ export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event,
       itemSelector.setSelectedItemId(prev => ({ ...prev, [index]: undefined }))
       itemSelector.setItemSearchQuery(prev => ({ ...prev, [index]: '' }))
     }
-    if ('targetId' in update && update.targetId) {
-      const stable = financialItems.resolveStableTargetId(update.targetType || '', update.targetId) ?? update.targetId
+    if ('parentId' in update && update.parentId) {
+      const stable = financialItems.resolveStableTargetId(update.targetType || '', update.parentId) ?? update.parentId
       itemSelector.setSelectedItemId(prev => ({ ...prev, [index]: stable }))
     }
   }, [updateImpact, financialItems.resolveStableTargetId, itemSelector])

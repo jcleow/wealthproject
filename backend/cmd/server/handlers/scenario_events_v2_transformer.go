@@ -57,36 +57,35 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 			growthStrategy = &val
 		}
 	}
-	targetID := imp.TargetID()
+
 	// Convert decimal to string for DTO
 	var amountStr *string
 	if imp.Amount != nil {
 		s := imp.Amount.String()
 		amountStr = &s
 	}
+
+	// Get parentId from the typed target ID field (for delta/override/stop impacts)
+	// For 'start' impacts, parentId will be nil
+	parentID := imp.TargetID()
+
 	return scenarioImpactV2DTO{
-		ImpactKind:          imp.ImpactKind,
-		Amount:              amountStr,
-		Cadence:             imp.Cadence,
-		Currency:            imp.Currency,
-		StartDate:           imp.StartDate.Format(time.DateOnly),
-		EndDate:             end,
-		Name:                name,
-		Frequency:           frequency,
-		Notes:               notes,
-		Category:            category,
-		GrowthRate:          imp.GrowthRate,
-		GrowthStrategy:      growthStrategy,
-		InterestRate:        imp.InterestRate,
-		MinimumPayment:      imp.MinimumPayment,
-		TargetAssetID:       imp.TargetAssetID,
-		TargetLiabilityID:   imp.TargetLiabilityID,
-		TargetIncomeID:      imp.TargetIncomeID,
-		TargetExpenseID:     imp.TargetExpenseID,
-		TargetCashAccountID: imp.TargetCashAccountID,
-		TargetInvestmentID:  imp.TargetInvestmentID,
-		TargetType:          imp.TargetType(),
-		TargetID:            targetID,
+		ImpactKind:     imp.ImpactKind,
+		TargetType:     imp.TargetType(),
+		ParentID:       parentID,
+		Amount:         amountStr,
+		Cadence:        imp.Cadence,
+		Currency:       imp.Currency,
+		StartDate:      imp.StartDate.Format(time.DateOnly),
+		EndDate:        end,
+		Name:           name,
+		Frequency:      frequency,
+		Notes:          notes,
+		Category:       category,
+		GrowthRate:     imp.GrowthRate,
+		GrowthStrategy: growthStrategy,
+		InterestRate:   imp.InterestRate,
+		MinimumPayment: imp.MinimumPayment,
 	}
 }
 
@@ -154,53 +153,39 @@ func buildScenarioEventV2(userID string, dto scenarioEventV2DTO) (repo.ScenarioE
 	return ev, nil
 }
 
-type impactTarget struct {
-	targetType string
-	targetID   string
-}
-
-func resolveImpactTarget(in scenarioImpactV2DTO) (impactTarget, error) {
-	typedTargets := make([]impactTarget, 0, 1)
-
-	addTypedTarget := func(val *string, targetType string) {
-		if t := scenario.NonEmptyPtr(val); t != nil {
-			typedTargets = append(typedTargets, impactTarget{
-				targetType: targetType,
-				targetID:   strings.TrimSpace(*t),
-			})
-		}
-	}
-
-	addTypedTarget(in.TargetAssetID, "asset")
-	addTypedTarget(in.TargetLiabilityID, "liability")
-	addTypedTarget(in.TargetIncomeID, "income")
-	addTypedTarget(in.TargetExpenseID, "expense")
-	addTypedTarget(in.TargetCashAccountID, "cash")
-	addTypedTarget(in.TargetInvestmentID, "investment")
-
-	if len(typedTargets) > 1 {
-		return impactTarget{}, scenario.ErrInvalidTargetCount
-	}
-	if len(typedTargets) == 1 {
-		if !scenario.IsValidTargetType(typedTargets[0].targetType) {
-			return impactTarget{}, scenario.ErrInvalidTargetType
-		}
-		return typedTargets[0], nil
-	}
-
-	targetID := scenario.NonEmptyPtr(in.TargetID)
-	targetType := strings.ToLower(strings.TrimSpace(in.TargetType))
-	if targetID == nil || targetType == "" {
-		return impactTarget{}, scenario.ErrInvalidTargetCount
+// resolveImpactTarget validates and extracts the target type and parent ID from the DTO.
+// - For 'start' impacts: only targetType is required (parentId should be nil/empty)
+// - For 'delta'/'override'/'stop' impacts: both targetType and parentId are required
+func resolveImpactTarget(in scenarioImpactV2DTO) (targetType string, parentID *string, err error) {
+	targetType = strings.ToLower(strings.TrimSpace(in.TargetType))
+	if targetType == "" {
+		return "", nil, errors.New("targetType is required")
 	}
 	if !scenario.IsValidTargetType(targetType) {
-		return impactTarget{}, scenario.ErrInvalidTargetType
+		return "", nil, scenario.ErrInvalidTargetType
 	}
 
-	return impactTarget{
-		targetType: targetType,
-		targetID:   strings.TrimSpace(*targetID),
-	}, nil
+	// Normalize parentId
+	if in.ParentID != nil && strings.TrimSpace(*in.ParentID) != "" {
+		trimmedParentID := strings.TrimSpace(*in.ParentID)
+		parentID = &trimmedParentID
+	}
+
+	// Validate based on impact kind
+	impactKind := strings.ToLower(strings.TrimSpace(in.ImpactKind))
+	if impactKind == scenario.ImpactKindStart {
+		// Start impacts should NOT have a parentId (they create new items)
+		if parentID != nil {
+			return "", nil, errors.New("start impacts should not have parentId (they create new items)")
+		}
+	} else {
+		// Delta/override/stop impacts REQUIRE a parentId (they modify existing items)
+		if parentID == nil {
+			return "", nil, errors.New("parentId is required for delta/override/stop impacts")
+		}
+	}
+
+	return targetType, parentID, nil
 }
 
 func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, error) {
@@ -208,8 +193,8 @@ func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, e
 		return nil, errors.New("scenario event must have at least one impact")
 	}
 
-	// Track target IDs to enforce one impact per financial item per event
-	seenTargets := make(map[string]bool)
+	// Track parent IDs to enforce one impact per financial item per event
+	seenParentIDs := make(map[string]bool)
 
 	impacts := make([]repo.ScenarioImpact, 0, len(reqs))
 	for _, in := range reqs {
@@ -218,13 +203,13 @@ func buildImpactsV2FromDTO(reqs []scenarioImpactV2DTO) ([]repo.ScenarioImpact, e
 			return nil, err
 		}
 
-		// Check for duplicate targets within this event
-		targetID := impact.TargetID()
-		if targetID != nil && *targetID != "" {
-			if seenTargets[*targetID] {
+		// Check for duplicate parent IDs within this event (only for non-start impacts)
+		parentID := impact.TargetID()
+		if parentID != nil && *parentID != "" {
+			if seenParentIDs[*parentID] {
 				return nil, errors.New("only one impact per financial item is allowed per event")
 			}
-			seenTargets[*targetID] = true
+			seenParentIDs[*parentID] = true
 		}
 
 		impacts = append(impacts, impact)
@@ -265,9 +250,13 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		amountDecimal = d
 	}
 
-	// Impact table stores: impact_kind, amount, cadence, start_date, end_date, and target FK columns.
-	// Advanced fields (category, growth_rate, growth_strategy) are passed through
-	// to updateStartImpactTarget for syncing to the financial item.
+	// Resolve target type and parent ID
+	targetType, parentID, err := resolveImpactTarget(in)
+	if err != nil {
+		return repo.ScenarioImpact{}, err
+	}
+
+	// Build impact with resolved target info
 	impact := repo.ScenarioImpact{
 		ImpactKind: ik,
 		Amount:     amountDecimal,
@@ -276,6 +265,7 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		EndDate:    endDate,
 		GrowthRate: in.GrowthRate,
 	}
+
 	// Set category if provided
 	if in.Category != nil {
 		impact.Category = *in.Category
@@ -288,13 +278,51 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 	impact.InterestRate = in.InterestRate
 	impact.MinimumPayment = in.MinimumPayment
 
-	// All impacts (including start) must have a pre-existing target - resolve from DTO
-	target, err := resolveImpactTarget(in)
-	if err != nil {
-		return repo.ScenarioImpact{}, err
+	// Set name and other fields for start impacts
+	if in.Name != nil {
+		impact.Name = *in.Name
+	}
+	if in.Frequency != nil {
+		impact.Frequency = *in.Frequency
+	}
+	if in.Notes != nil {
+		impact.Notes = *in.Notes
 	}
 
-	return impactWithTarget(impact, target)
+	// Assign target type to the appropriate typed FK field on the impact
+	// For start impacts, parentID is nil so target IDs remain nil
+	// For delta/override/stop, parentID points to the existing item
+	assignTargetToImpact(&impact, targetType, parentID)
+
+	return impact, nil
+}
+
+// assignTargetToImpact sets the appropriate typed target ID field on the impact based on targetType.
+// For start impacts, parentID is nil, but we still set an empty string pointer so TargetType() works.
+// For delta/override/stop, parentID is the ID of the existing item to modify.
+func assignTargetToImpact(impact *repo.ScenarioImpact, targetType string, parentID *string) {
+	// For start impacts, parentID is nil but we need TargetType() to return the correct type.
+	// We use an empty string as a marker that means "create new item of this type".
+	effectiveID := parentID
+	if effectiveID == nil {
+		empty := ""
+		effectiveID = &empty
+	}
+
+	switch targetType {
+	case "asset":
+		impact.TargetAssetID = effectiveID
+	case "liability":
+		impact.TargetLiabilityID = effectiveID
+	case "income":
+		impact.TargetIncomeID = effectiveID
+	case "expense":
+		impact.TargetExpenseID = effectiveID
+	case "cash":
+		impact.TargetCashAccountID = effectiveID
+	case "investment":
+		impact.TargetInvestmentID = effectiveID
+	}
 }
 
 func normalizeImpactKindAndCadence(in scenarioImpactV2DTO) (string, common.Frequency, error) {
@@ -314,32 +342,3 @@ func normalizeImpactKindAndCadence(in scenarioImpactV2DTO) (string, common.Frequ
 	return ik, cad, nil
 }
 
-func assignImpactTarget(impact *repo.ScenarioImpact, target impactTarget) error {
-	id := target.targetID
-
-	switch target.targetType {
-	case "asset":
-		impact.TargetAssetID = &id
-	case "liability":
-		impact.TargetLiabilityID = &id
-	case "income":
-		impact.TargetIncomeID = &id
-	case "expense":
-		impact.TargetExpenseID = &id
-	case "cash":
-		impact.TargetCashAccountID = &id
-	case "investment":
-		impact.TargetInvestmentID = &id
-	default:
-		return scenario.ErrInvalidTargetType
-	}
-
-	return nil
-}
-
-func impactWithTarget(impact repo.ScenarioImpact, target impactTarget) (repo.ScenarioImpact, error) {
-	if err := assignImpactTarget(&impact, target); err != nil {
-		return repo.ScenarioImpact{}, err
-	}
-	return impact, nil
-}

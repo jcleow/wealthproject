@@ -5,12 +5,6 @@ import { useFinancialData } from '../hooks/useFinancialData'
 import type { Asset, Expense, Income, Liability } from '../types/financial'
 
 interface FinancialDataContextType {
-  assets: Asset[]
-  incomes: Income[]
-  liabilities: Liability[]
-  expenses: Expense[]
-  loading: boolean
-  error: string | null
   addAsset: (asset: Omit<Asset, 'id' | 'updatedAt'>) => Promise<Asset>
   addIncome: (income: Omit<Income, 'id' | 'updatedAt'>) => Promise<Income>
   addLiability: (liability: Omit<Liability, 'id' | 'updatedAt'>) => Promise<Liability>
@@ -24,12 +18,6 @@ interface FinancialDataContextType {
   deleteLiability: (id: string) => Promise<void>
   deleteExpense: (id: string) => Promise<void>
   refresh: () => Promise<void>
-  getTotalAssets: () => number
-  getTotalLiabilities: () => number
-  getNetWorth: () => number
-  getMonthlyIncome: () => number
-  getMonthlyExpenses: () => number
-  getMonthlySavings: () => number
   deleteAllFinancialData: () => Promise<void>
   loadSampleData: () => Promise<void>
 }

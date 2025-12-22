@@ -506,95 +506,54 @@ export function useLoadSampleDataMutation() {
       const expenses = expensesResult.data
 
       // Create scenario events with properly linked impacts
-      // For 'start' impacts: create new financial items and link them
-      // For 'delta'/'override' impacts: link to existing items by name match
+      // For 'start' impacts: backend creates the financial item (no parentId needed)
+      // For 'delta'/'override' impacts: link to existing items by name match via parentId
       const scenarioEvents: ScenarioEvent[] = []
 
       for (const event of sampleScenarioEvents) {
         const linkedImpacts = []
 
         for (const impact of event.impacts ?? []) {
-          let targetId: string | undefined = undefined
+          let parentId: string | undefined = undefined
 
           if (impact.impactKind === 'start') {
-            // Create a new financial item for this start impact
+            // For 'start' impacts, the backend will create the financial item
+            // We just need to pass the impact data with targetType set
+            // No parentId needed - backend handles creation
+
+            // For one-time items, set endMonth to same month as startMonth
             const startMonth = impact.startMonth ?? event.occursOn
-            // Use the impact amount (must be positive for income/expense schemas)
-            const impactAmount = Math.abs(impact.amount ?? 1)
-            // Use explicit frequency from impact, default to monthly
             const frequency = impact.frequency || 'monthly'
             const isOneTime = frequency === 'one_time'
-            const startDateIso = startMonth ? new Date(startMonth).toISOString() : new Date().toISOString()
-            // For one-time items, set endDate to end of same month so they only appear once
-            const endDateIso = isOneTime ? (() => {
-              const d = startMonth ? new Date(startMonth) : new Date()
-              // Set to last day of the month
-              d.setMonth(d.getMonth() + 1, 0)
-              d.setHours(23, 59, 59, 999)
-              return d.toISOString()
-            })() : undefined
+            const endMonth = isOneTime ? startMonth : undefined
 
-            if (impact.targetType === 'asset') {
-              // Assets persist indefinitely - don't set endDate even for one-time
-              const newAsset = await financialApi.createAsset({
-                name: impact.name || `${event.name} - Asset`,
-                category: 'other_asset',
-                currentValue: impactAmount,
-                annualGrowthRate: 3.0,
-                notes: '',
-                startDate: startDateIso,
-                // No endDate - assets persist (e.g., property doesn't disappear)
-              })
-              targetId = newAsset.id
-            } else if (impact.targetType === 'liability') {
-              // Liabilities persist until paid off - don't set endDate for one-time
-              const newLiability = await financialApi.createLiability({
-                name: impact.name || `${event.name} - Liability`,
-                category: 'Loan',
-                currentBalance: impactAmount,
-                interestRateApr: 3.0,
-                minimumPayment: 0,
-                notes: '',
-                startDate: startDateIso,
-                // No endDate - liabilities persist until paid off
-              })
-              targetId = newLiability.id
-            } else if (impact.targetType === 'income') {
-              const newIncome = await financialApi.createIncome({
-                name: impact.name || `${event.name} - Income`,
-                category: 'Other',
-                amount: impactAmount,
-                frequency: frequency,
-                startDate: startDateIso,
-                endDate: endDateIso,
-                growthRate: 0,
-                notes: '',
-              })
-              targetId = newIncome.id
-            } else if (impact.targetType === 'expense') {
-              const newExpense = await financialApi.createExpense({
-                name: impact.name || `${event.name} - Expense`,
-                category: 'Other',
-                amount: impactAmount,
-                frequency: frequency,
-                startDate: startDateIso,
-                endDate: endDateIso,
-                growthRate: 0,
-                notes: '',
-              })
-              targetId = newExpense.id
-            }
+            linkedImpacts.push({
+              ...impact,
+              // No parentId for start impacts - backend creates the item
+              endMonth,
+            })
+            continue
           } else if (impact.impactKind === 'delta' || impact.impactKind === 'override') {
-            // Link to existing items based on targetType
-            // For delta/override, we try to find a matching existing item
+            // Link to existing items based on targetType via parentId
+            // For delta/override, we find a matching existing item to modify
             if (impact.targetType === 'income') {
               // Look for the main salary income for income-related impacts
-              targetId = incomeBySource.get('Software Engineer Salary') ?? undefined
+              parentId = incomeBySource.get('Software Engineer Salary')
+              if (!parentId) {
+                console.error(`[loadSampleData] Failed to find income "Software Engineer Salary" for ${impact.impactKind} impact in event "${event.name}"`)
+                console.error('[loadSampleData] Available incomes:', Array.from(incomeBySource.keys()))
+                throw new Error(`Cannot create ${impact.impactKind} impact: income "Software Engineer Salary" not found`)
+              }
             } else if (impact.targetType === 'expense') {
               // For expense deltas, use the first expense as a generic target
               // (In real usage, the user would select the specific item)
-              const firstExpenseId = expenses[0]?.id
-              targetId = firstExpenseId ?? undefined
+              parentId = expenses[0]?.id
+              if (!parentId) {
+                console.error(`[loadSampleData] No expenses available for ${impact.impactKind} impact in event "${event.name}"`)
+                throw new Error(`Cannot create ${impact.impactKind} impact: no expenses available to target`)
+              }
+            } else {
+              throw new Error(`Unsupported targetType "${impact.targetType}" for ${impact.impactKind} impact in event "${event.name}"`)
             }
           }
 
@@ -602,18 +561,18 @@ export function useLoadSampleDataMutation() {
             console.debug(`[loadSampleData] Impact for ${event.name}:`, {
               targetType: impact.targetType,
               impactKind: impact.impactKind,
-              targetId,
+              parentId,
             })
           }
 
           linkedImpacts.push({
             ...impact,
-            targetId,
+            parentId,
           })
         }
 
         if (process.env.NODE_ENV === 'development') {
-          console.debug(`[loadSampleData] Creating scenario event "${event.name}" with impacts:`, linkedImpacts.map(i => ({ targetType: i.targetType, targetId: i.targetId })))
+          console.debug(`[loadSampleData] Creating scenario event "${event.name}" with impacts:`, linkedImpacts.map(i => ({ targetType: i.targetType, parentId: i.parentId })))
         }
 
         const createdEvent = await financialApi.createScenarioEvent({
