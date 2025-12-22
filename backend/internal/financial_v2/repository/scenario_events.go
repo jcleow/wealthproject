@@ -212,7 +212,7 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 
 	// Delete impacts that are no longer in the incoming list
 	// (impacts that existed before but aren't in the new set)
-	if err := s.deleteRemovedImpacts(ctx, tx, ev.ID, incomingIDs); err != nil {
+	if err := s.deleteRemovedImpacts(ctx, tx, ev.UserID, ev.ID, incomingIDs); err != nil {
 		return ScenarioEvent{}, err
 	}
 
@@ -860,56 +860,38 @@ func (s *Store) insertStartImpact(ctx context.Context, tx pgx.Tx, userID string,
 
 // deleteRemovedImpacts deletes impacts that are no longer in the incoming list.
 // It deletes from each finance table where the impact ID is NOT in the incoming set.
-func (s *Store) deleteRemovedImpacts(ctx context.Context, tx pgx.Tx, eventID string, keepIDs map[string]bool) error {
-	// Build list of IDs to keep
+func (s *Store) deleteRemovedImpacts(ctx context.Context, tx pgx.Tx, userID, eventID string, keepIDs map[string]bool) error {
+	tables := []string{
+		"finance_incomes",
+		"finance_expenses",
+		"finance_assets",
+		"finance_liabilities",
+		"finance_investments",
+		"finance_cash_accounts",
+	}
+
 	var keepIDsList []string
 	for id := range keepIDs {
 		keepIDsList = append(keepIDsList, id)
 	}
 
-	// Delete from each finance table where scenario_event_id matches but id is NOT in keep list
-	// If keepIDsList is empty, delete all; otherwise use NOT IN clause
-	if len(keepIDsList) == 0 {
-		// Delete all impacts for this event
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_incomes WHERE scenario_event_id = $1`, eventID); err != nil {
-			return fmt.Errorf("failed to delete income impacts: %w", err)
+	for _, table := range tables {
+		var query string
+		var args []any
+
+		if len(keepIDsList) == 0 {
+			query = fmt.Sprintf(`DELETE FROM %s WHERE user_id = $1 AND scenario_event_id = $2`, table)
+			args = []any{userID, eventID}
+		} else {
+			query = fmt.Sprintf(`DELETE FROM %s WHERE user_id = $1 AND scenario_event_id = $2 AND id != ALL($3::uuid[])`, table)
+			args = []any{userID, eventID, keepIDsList}
 		}
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_expenses WHERE scenario_event_id = $1`, eventID); err != nil {
-			return fmt.Errorf("failed to delete expense impacts: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_assets WHERE scenario_event_id = $1`, eventID); err != nil {
-			return fmt.Errorf("failed to delete asset impacts: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_liabilities WHERE scenario_event_id = $1`, eventID); err != nil {
-			return fmt.Errorf("failed to delete liability impacts: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_investments WHERE scenario_event_id = $1`, eventID); err != nil {
-			return fmt.Errorf("failed to delete investment impacts: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_cash_accounts WHERE scenario_event_id = $1`, eventID); err != nil {
-			return fmt.Errorf("failed to delete cash account impacts: %w", err)
-		}
-	} else {
-		// Delete only impacts not in keep list
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_incomes WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
-			return fmt.Errorf("failed to delete removed income impacts: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_expenses WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
-			return fmt.Errorf("failed to delete removed expense impacts: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_assets WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
-			return fmt.Errorf("failed to delete removed asset impacts: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_liabilities WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
-			return fmt.Errorf("failed to delete removed liability impacts: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_investments WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
-			return fmt.Errorf("failed to delete removed investment impacts: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM finance_cash_accounts WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
-			return fmt.Errorf("failed to delete removed cash account impacts: %w", err)
+
+		if _, err := tx.Exec(ctx, query, args...); err != nil {
+			return fmt.Errorf("failed to delete from %s: %w", table, err)
 		}
 	}
+
 	return nil
 }
 
