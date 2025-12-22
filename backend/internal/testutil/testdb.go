@@ -98,8 +98,8 @@ func CleanupTestData(t *testing.T, pool *pgxpool.Pool, userID string) {
 	ctx := context.Background()
 
 	// Delete in order respecting foreign key constraints
+	// Note: scenario_event_impacts table was removed - impacts are now stored in finance_* tables
 	queries := []string{
-		"DELETE FROM scenario_event_impacts WHERE event_id IN (SELECT id FROM scenario_events WHERE user_id = $1)",
 		"DELETE FROM scenario_events WHERE user_id = $1",
 		"DELETE FROM income_allocations WHERE income_id IN (SELECT id FROM finance_incomes WHERE user_id = $1)",
 		"DELETE FROM finance_expenses WHERE user_id = $1",

@@ -41,19 +41,23 @@ export type ImpactVerb =
 // Convert UI verb to internal impactKind and amount/growthRate
 // For percentage deltas, amount is 0 and growthRate holds the percentage
 // For absolute deltas, amount holds the value and growthRate is undefined
+// Uses -0 for decreases with value 0 to preserve the verb selection
 export function verbToImpact(
   verb: ImpactVerb,
   value: number
 ): { impactKind: ScenarioImpactKind; amount: number; growthRate?: number } {
+  const absValue = Math.abs(value)
   switch (verb) {
     case 'increases_by':
-      return { impactKind: 'delta', amount: Math.abs(value) }
+      return { impactKind: 'delta', amount: absValue }
     case 'increases_by_percent':
-      return { impactKind: 'delta', amount: 0, growthRate: Math.abs(value) }
+      return { impactKind: 'delta', amount: 0, growthRate: absValue }
     case 'decreases_by':
-      return { impactKind: 'delta', amount: -Math.abs(value) }
+      // Use -0 when value is 0 to distinguish from increases_by
+      return { impactKind: 'delta', amount: absValue === 0 ? -0 : -absValue }
     case 'decreases_by_percent':
-      return { impactKind: 'delta', amount: 0, growthRate: -Math.abs(value) }
+      // Use -0 when value is 0 to distinguish from increases_by_percent
+      return { impactKind: 'delta', amount: 0, growthRate: absValue === 0 ? -0 : -absValue }
     case 'becomes':
       return { impactKind: 'override', amount: value }
     case 'starts_at':
@@ -74,10 +78,16 @@ export function impactToVerb(
     case 'delta':
       // Percentage delta: amount is 0, growthRate has the percentage
       if (amount === 0 && growthRate !== undefined) {
-        return growthRate >= 0 ? 'increases_by_percent' : 'decreases_by_percent'
+        // Use Object.is to distinguish -0 from +0
+        return (growthRate > 0 || (growthRate === 0 && !Object.is(growthRate, -0)))
+          ? 'increases_by_percent'
+          : 'decreases_by_percent'
       }
       // Absolute delta: amount has the value
-      return amount >= 0 ? 'increases_by' : 'decreases_by'
+      // Use Object.is to distinguish -0 from +0
+      return (amount > 0 || (amount === 0 && !Object.is(amount, -0)))
+        ? 'increases_by'
+        : 'decreases_by'
     case 'override':
       return 'becomes'
     case 'start':

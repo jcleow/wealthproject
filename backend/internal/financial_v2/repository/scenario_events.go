@@ -623,14 +623,14 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 		case "income":
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_incomes (
-					user_id, parent_id, name, amount, frequency, category, start_date,
+					user_id, parent_id, name, amount, frequency, category, start_date, end_date,
 					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
 				)
-				SELECT user_id, id, name, $3, frequency, category, $4,
+				SELECT user_id, id, name, $3, frequency, category, $4, $9,
 				       COALESCE($8, growth_rate), growth_strategy, $5, $6, $7
 				FROM finance_incomes WHERE id = $1 AND user_id = $2`,
 				*imp.TargetIncomeID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate,
+				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate,
 			); err != nil {
 				return fmt.Errorf("failed to insert income impact: %w", err)
 			}
@@ -638,14 +638,14 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 		case "expense":
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_expenses (
-					user_id, parent_id, name, amount, frequency, category, start_date,
+					user_id, parent_id, name, amount, frequency, category, start_date, end_date,
 					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
 				)
-				SELECT user_id, id, name, $3, frequency, category, $4,
+				SELECT user_id, id, name, $3, frequency, category, $4, $9,
 				       COALESCE($8, growth_rate), growth_strategy, $5, $6, $7
 				FROM finance_expenses WHERE id = $1 AND user_id = $2`,
 				*imp.TargetExpenseID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate,
+				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate,
 			); err != nil {
 				return fmt.Errorf("failed to insert expense impact: %w", err)
 			}
@@ -653,14 +653,14 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 		case "asset":
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_assets (
-					user_id, parent_id, name, current_value, category, start_date,
+					user_id, parent_id, name, current_value, category, start_date, end_date,
 					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
 				)
-				SELECT user_id, id, name, $3, category, $4,
+				SELECT user_id, id, name, $3, category, $4, $9,
 				       COALESCE($8, growth_rate), growth_strategy, $5, $6, $7
 				FROM finance_assets WHERE id = $1 AND user_id = $2`,
 				*imp.TargetAssetID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate,
+				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate,
 			); err != nil {
 				return fmt.Errorf("failed to insert asset impact: %w", err)
 			}
@@ -668,16 +668,16 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 		case "liability":
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_liabilities (
-					user_id, parent_id, name, current_balance, category, start_date,
+					user_id, parent_id, name, current_balance, category, start_date, end_date,
 					interest_rate_apr, minimum_payment, growth_strategy,
 					scenario_event_id, impact_kind, impact_frequency
 				)
-				SELECT user_id, id, name, $3, category, $4,
+				SELECT user_id, id, name, $3, category, $4, $8,
 				       interest_rate_apr, minimum_payment, growth_strategy,
 				       $5, $6, $7
 				FROM finance_liabilities WHERE id = $1 AND user_id = $2`,
 				*imp.TargetLiabilityID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency,
+				eventID, imp.ImpactKind, impactFrequency, imp.EndDate,
 			); err != nil {
 				return fmt.Errorf("failed to insert liability impact: %w", err)
 			}
@@ -685,14 +685,14 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 		case "investment":
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_investments (
-					user_id, parent_id, name, current_value, category, start_date,
+					user_id, parent_id, name, current_value, category, start_date, end_date,
 					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
 				)
-				SELECT user_id, id, name, $3, category, $4,
+				SELECT user_id, id, name, $3, category, $4, $9,
 				       COALESCE($8, growth_rate), growth_strategy, $5, $6, $7
 				FROM finance_investments WHERE id = $1 AND user_id = $2`,
 				*imp.TargetInvestmentID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate,
+				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate,
 			); err != nil {
 				return fmt.Errorf("failed to insert investment impact: %w", err)
 			}
@@ -700,16 +700,16 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 		case "cash":
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_cash_accounts (
-					user_id, parent_id, name, balance, category, start_date,
+					user_id, parent_id, name, balance, category, start_date, end_date,
 					interest_rate, growth_strategy, is_accumulator,
 					scenario_event_id, impact_kind, impact_frequency
 				)
-				SELECT user_id, id, name, $3, COALESCE(category, 'savings'), $4,
+				SELECT user_id, id, name, $3, COALESCE(category, 'savings'), $4, $9,
 				       COALESCE($8, interest_rate), growth_strategy, false,
 				       $5, $6, $7
 				FROM finance_cash_accounts WHERE id = $1 AND user_id = $2`,
 				*imp.TargetCashAccountID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate,
+				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate,
 			); err != nil {
 				return fmt.Errorf("failed to insert cash account impact: %w", err)
 			}
