@@ -232,9 +232,9 @@ export function AdvancedSection({
                 </div>
               )}
 
-              {/* Growth rate - shown second/right, only when growth strategy is not 'none' (for income/expense) or always for assets/investments */}
+              {/* Growth rate - shown second/right, only when growth strategy is not 'fixed' (for income/expense) or always for assets/investments */}
               {((impact.targetType === TargetType.Income || impact.targetType === TargetType.Expense)
-                ? impact.growthStrategy && impact.growthStrategy !== 'none'
+                ? impact.growthStrategy && impact.growthStrategy !== 'fixed'
                 : true) && (
                 <div>
                   <label className="text-[10px] text-slate-500 uppercase tracking-wide mb-1.5 block">

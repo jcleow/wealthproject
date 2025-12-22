@@ -106,7 +106,8 @@ export enum Frequency {
 export type ItemFrequency = `${Frequency}`
 
 // Growth strategy options for income/expense
-export type GrowthStrategy = 'none' | 'annual_step' | 'compound'
+// Uses DB values directly: fixed (no growth), annual_step, compound_monthly
+export type GrowthStrategy = 'fixed' | 'annual_step' | 'compound_monthly'
 
 // Frontend domain models (camelCase)
 export interface ScenarioImpact {

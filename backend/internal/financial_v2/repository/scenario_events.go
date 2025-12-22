@@ -196,19 +196,6 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 	updated.Tags = decodeStringArray(tagsBytes)
 
-	// For 'start' impacts with an existing target ID, update the linked financial item.
-	// Skip if target ID is empty (new item being created, not an existing one to update).
-	for _, imp := range ev.Impacts {
-		if imp.ImpactKind == scenario.ImpactKindStart {
-			targetID := imp.TargetID()
-			if targetID != nil && *targetID != "" {
-				if err := s.updateStartImpactTarget(ctx, tx, &imp); err != nil {
-					return ScenarioEvent{}, fmt.Errorf("failed to update start impact target: %w", err)
-				}
-			}
-		}
-	}
-
 	// Delete existing scenario impacts from all finance tables
 	if _, err := tx.Exec(ctx, `DELETE FROM finance_incomes WHERE scenario_event_id = $1`, ev.ID); err != nil {
 		return ScenarioEvent{}, fmt.Errorf("failed to delete income impacts: %w", err)
@@ -239,81 +226,6 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 	updated.Impacts, _ = s.ListScenarioImpactsV2(ctx, updated.UserID, updated.ID)
 	return updated, nil
-}
-
-// updateStartImpactTarget updates the linked financial item for a 'start' impact.
-// This syncs the amount, frequency, category, growth_rate, and growth_strategy
-// from the impact to the actual financial record.
-func (s *Store) updateStartImpactTarget(ctx context.Context, tx pgx.Tx, imp *ScenarioImpact) error {
-	// Determine frequency string for income/expense tables
-	freq := string(imp.Cadence)
-	if freq == "" {
-		freq = "monthly"
-	}
-
-	// Get category (use empty string if not set)
-	category := imp.Category
-
-	// Get growth strategy - map frontend values to DB values
-	// Frontend: none, annual_step, compound → DB: fixed, annual_step, compound_monthly
-	growthStrategy := imp.GrowthStrategy
-	switch growthStrategy {
-	case "none", "":
-		growthStrategy = "fixed"
-	case "compound":
-		growthStrategy = "compound_monthly"
-	// annual_step stays as is
-	}
-
-	// Debug log
-	fmt.Printf("[updateStartImpactTarget] Amount=%d Cadence=%q freq=%q category=%q growthRate=%v growthStrategy=%q\n",
-		imp.Amount, imp.Cadence, freq, category, imp.GrowthRate, growthStrategy)
-
-	if imp.TargetAssetID != nil {
-		_, err := tx.Exec(ctx, `
-			UPDATE finance_assets SET current_value = $1, category = COALESCE(NULLIF($2, ''), category), growth_rate = COALESCE($3, growth_rate), updated_at = NOW() WHERE id = $4`,
-			imp.Amount, category, imp.GrowthRate, *imp.TargetAssetID)
-		return err
-	}
-	if imp.TargetLiabilityID != nil {
-		_, err := tx.Exec(ctx, `
-			UPDATE finance_liabilities SET
-				current_balance = $1,
-				category = COALESCE(NULLIF($2, ''), category),
-				interest_rate_apr = COALESCE($3, interest_rate_apr),
-				minimum_payment = COALESCE($4, minimum_payment),
-				updated_at = NOW()
-			WHERE id = $5`,
-			imp.Amount, category, imp.InterestRate, imp.MinimumPayment, *imp.TargetLiabilityID)
-		return err
-	}
-	if imp.TargetIncomeID != nil {
-		_, err := tx.Exec(ctx, `
-			UPDATE finance_incomes SET amount = $1, frequency = $2, category = COALESCE(NULLIF($3, ''), category), growth_rate = COALESCE($4, growth_rate), growth_strategy = COALESCE(NULLIF($5, ''), growth_strategy), updated_at = NOW() WHERE id = $6`,
-			imp.Amount, freq, category, imp.GrowthRate, growthStrategy, *imp.TargetIncomeID)
-		return err
-	}
-	if imp.TargetExpenseID != nil {
-		_, err := tx.Exec(ctx, `
-			UPDATE finance_expenses SET amount = $1, frequency = $2, category = COALESCE(NULLIF($3, ''), category), growth_rate = COALESCE($4, growth_rate), growth_strategy = COALESCE(NULLIF($5, ''), growth_strategy), updated_at = NOW() WHERE id = $6`,
-			imp.Amount, freq, category, imp.GrowthRate, growthStrategy, *imp.TargetExpenseID)
-		return err
-	}
-	if imp.TargetCashAccountID != nil {
-		// Cash accounts use account_type instead of category
-		_, err := tx.Exec(ctx, `
-			UPDATE finance_cash_accounts SET balance = $1, account_type = COALESCE(NULLIF($2, ''), account_type), updated_at = NOW() WHERE id = $3`,
-			imp.Amount, category, *imp.TargetCashAccountID)
-		return err
-	}
-	if imp.TargetInvestmentID != nil {
-		// Investments use growth_rate (not annual_growth_rate)
-		_, err := tx.Exec(ctx, `
-			UPDATE finance_investments SET current_value = $1, category = COALESCE(NULLIF($2, ''), category), growth_rate = COALESCE($3, growth_rate), updated_at = NOW() WHERE id = $4`,
-			imp.Amount, category, imp.GrowthRate, *imp.TargetInvestmentID)
-		return err
-	}
-	return nil
 }
 
 // DeleteScenarioEventV2 removes an event for a user.

@@ -40,22 +40,11 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		val := imp.Category
 		category = &val
 	}
-	// Map DB growth strategy values back to frontend values
-	// DB: fixed, annual_step, compound_monthly → Frontend: none, annual_step, compound
+	// Pass growth strategy directly (frontend now uses DB values: fixed, annual_step, compound_monthly)
 	var growthStrategy *string
-	if strings.TrimSpace(imp.GrowthStrategy) != "" {
-		var val string
-		switch imp.GrowthStrategy {
-		case "fixed":
-			val = "none"
-		case "compound_monthly":
-			val = "compound"
-		default:
-			val = imp.GrowthStrategy // annual_step stays as is
-		}
-		if val != "none" { // Only include if not "none"
-			growthStrategy = &val
-		}
+	if strings.TrimSpace(imp.GrowthStrategy) != "" && imp.GrowthStrategy != "fixed" {
+		val := imp.GrowthStrategy
+		growthStrategy = &val
 	}
 
 	// Convert decimal to string for DTO
