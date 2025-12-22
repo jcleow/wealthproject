@@ -99,13 +99,15 @@ export function getTargetTypeLabel(targetType: string): string {
 }
 
 // Format amount display based on frequency and delta type
+// Negative amounts are shown in brackets e.g. ($5,000) instead of -$5,000
 export function formatAmount(amount: number, frequency?: string, deltaType?: string) {
+  const isNegative = amount < 0
   const formatted = new Intl.NumberFormat('en-US').format(Math.abs(amount))
   const prefix = deltaType === 'percentage' ? '' : '$'
   const suffix = deltaType === 'percentage' ? '%' : ''
-  if (!frequency) return `${prefix}${formatted}${suffix}`
   const freqLabel = frequency === 'monthly' ? '/mo' : frequency === 'annual' ? '/yr' : frequency === 'weekly' ? '/wk' : ''
-  return `${prefix}${formatted}${suffix}${freqLabel}`
+  const amountStr = `${prefix}${formatted}${suffix}${freqLabel}`
+  return isNegative ? `(${amountStr})` : amountStr
 }
 
 // Get verb color class
