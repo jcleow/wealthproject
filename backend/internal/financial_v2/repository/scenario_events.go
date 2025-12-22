@@ -169,7 +169,7 @@ func (s *Store) ListScenarioEventsV2(ctx context.Context, userID string, filters
 	return events, total, nil
 }
 
-// UpdateScenarioEventV2 replaces metadata and impacts using typed FK columns.
+// UpdateScenarioEventV2 replaces metadata and uses UPDATE/INSERT/DELETE for impacts.
 // For 'start' impacts, also updates the linked financial item's amount and frequency.
 func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (ScenarioEvent, error) {
 	tx, err := s.pool.Begin(ctx)
@@ -196,31 +196,40 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 	updated.Tags = decodeStringArray(tagsBytes)
 
-	// Delete existing scenario impacts from all finance tables
-	if _, err := tx.Exec(ctx, `DELETE FROM finance_incomes WHERE scenario_event_id = $1`, ev.ID); err != nil {
-		return ScenarioEvent{}, fmt.Errorf("failed to delete income impacts: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM finance_expenses WHERE scenario_event_id = $1`, ev.ID); err != nil {
-		return ScenarioEvent{}, fmt.Errorf("failed to delete expense impacts: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM finance_assets WHERE scenario_event_id = $1`, ev.ID); err != nil {
-		return ScenarioEvent{}, fmt.Errorf("failed to delete asset impacts: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM finance_liabilities WHERE scenario_event_id = $1`, ev.ID); err != nil {
-		return ScenarioEvent{}, fmt.Errorf("failed to delete liability impacts: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM finance_investments WHERE scenario_event_id = $1`, ev.ID); err != nil {
-		return ScenarioEvent{}, fmt.Errorf("failed to delete investment impacts: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM finance_cash_accounts WHERE scenario_event_id = $1`, ev.ID); err != nil {
-		return ScenarioEvent{}, fmt.Errorf("failed to delete cash account impacts: %w", err)
+	// Separate impacts into those with IDs (update) and those without (insert)
+	var impactsToUpdate []ScenarioImpact
+	var impactsToInsert []ScenarioImpact
+	incomingIDs := make(map[string]bool)
+
+	for _, imp := range ev.Impacts {
+		if imp.ID != "" {
+			impactsToUpdate = append(impactsToUpdate, imp)
+			incomingIDs[imp.ID] = true
+		} else {
+			impactsToInsert = append(impactsToInsert, imp)
+		}
 	}
 
-	if len(ev.Impacts) > 0 {
-		if err := s.insertImpactsV2(ctx, tx, ev.UserID, ev.ID, ev.Impacts); err != nil {
+	// Delete impacts that are no longer in the incoming list
+	// (impacts that existed before but aren't in the new set)
+	if err := s.deleteRemovedImpacts(ctx, tx, ev.ID, incomingIDs); err != nil {
+		return ScenarioEvent{}, err
+	}
+
+	// Update existing impacts
+	if len(impactsToUpdate) > 0 {
+		if err := s.updateImpactsV2(ctx, tx, ev.UserID, ev.ID, impactsToUpdate); err != nil {
 			return ScenarioEvent{}, err
 		}
 	}
+
+	// Insert new impacts
+	if len(impactsToInsert) > 0 {
+		if err := s.insertImpactsV2(ctx, tx, ev.UserID, ev.ID, impactsToInsert); err != nil {
+			return ScenarioEvent{}, err
+		}
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return ScenarioEvent{}, err
 	}
@@ -624,13 +633,13 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_incomes (
 					user_id, parent_id, name, amount, frequency, category, start_date, end_date,
-					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+					growth_rate, growth_strategy, notes, scenario_event_id, impact_kind, impact_frequency
 				)
 				SELECT user_id, id, name, $3, frequency, category, $4, $9,
-				       COALESCE($8, growth_rate), growth_strategy, $5, $6, $7
+				       COALESCE($8, growth_rate), growth_strategy, NULLIF($10, ''), $5, $6, $7
 				FROM finance_incomes WHERE id = $1 AND user_id = $2`,
 				*imp.TargetIncomeID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate,
+				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate, imp.Notes,
 			); err != nil {
 				return fmt.Errorf("failed to insert income impact: %w", err)
 			}
@@ -639,13 +648,13 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_expenses (
 					user_id, parent_id, name, amount, frequency, category, start_date, end_date,
-					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+					growth_rate, growth_strategy, notes, scenario_event_id, impact_kind, impact_frequency
 				)
 				SELECT user_id, id, name, $3, frequency, category, $4, $9,
-				       COALESCE($8, growth_rate), growth_strategy, $5, $6, $7
+				       COALESCE($8, growth_rate), growth_strategy, NULLIF($10, ''), $5, $6, $7
 				FROM finance_expenses WHERE id = $1 AND user_id = $2`,
 				*imp.TargetExpenseID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate,
+				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate, imp.Notes,
 			); err != nil {
 				return fmt.Errorf("failed to insert expense impact: %w", err)
 			}
@@ -654,13 +663,13 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_assets (
 					user_id, parent_id, name, current_value, category, start_date, end_date,
-					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+					growth_rate, growth_strategy, notes, scenario_event_id, impact_kind, impact_frequency
 				)
 				SELECT user_id, id, name, $3, category, $4, $9,
-				       COALESCE($8, growth_rate), growth_strategy, $5, $6, $7
+				       COALESCE($8, growth_rate), growth_strategy, NULLIF($10, ''), $5, $6, $7
 				FROM finance_assets WHERE id = $1 AND user_id = $2`,
 				*imp.TargetAssetID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate,
+				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate, imp.Notes,
 			); err != nil {
 				return fmt.Errorf("failed to insert asset impact: %w", err)
 			}
@@ -669,15 +678,15 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_liabilities (
 					user_id, parent_id, name, current_balance, category, start_date, end_date,
-					interest_rate_apr, minimum_payment, growth_strategy,
+					interest_rate_apr, minimum_payment, growth_strategy, notes,
 					scenario_event_id, impact_kind, impact_frequency
 				)
 				SELECT user_id, id, name, $3, category, $4, $8,
-				       interest_rate_apr, minimum_payment, growth_strategy,
+				       interest_rate_apr, minimum_payment, growth_strategy, NULLIF($9, ''),
 				       $5, $6, $7
 				FROM finance_liabilities WHERE id = $1 AND user_id = $2`,
 				*imp.TargetLiabilityID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency, imp.EndDate,
+				eventID, imp.ImpactKind, impactFrequency, imp.EndDate, imp.Notes,
 			); err != nil {
 				return fmt.Errorf("failed to insert liability impact: %w", err)
 			}
@@ -686,13 +695,13 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_investments (
 					user_id, parent_id, name, current_value, category, start_date, end_date,
-					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+					growth_rate, growth_strategy, notes, scenario_event_id, impact_kind, impact_frequency
 				)
 				SELECT user_id, id, name, $3, category, $4, $9,
-				       COALESCE($8, growth_rate), growth_strategy, $5, $6, $7
+				       COALESCE($8, growth_rate), growth_strategy, NULLIF($10, ''), $5, $6, $7
 				FROM finance_investments WHERE id = $1 AND user_id = $2`,
 				*imp.TargetInvestmentID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate,
+				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate, imp.Notes,
 			); err != nil {
 				return fmt.Errorf("failed to insert investment impact: %w", err)
 			}
@@ -701,15 +710,15 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_cash_accounts (
 					user_id, parent_id, name, balance, category, start_date, end_date,
-					interest_rate, growth_strategy, is_accumulator,
+					interest_rate, growth_strategy, notes, is_accumulator,
 					scenario_event_id, impact_kind, impact_frequency
 				)
 				SELECT user_id, id, name, $3, COALESCE(category, 'savings'), $4, $9,
-				       COALESCE($8, interest_rate), growth_strategy, false,
+				       COALESCE($8, interest_rate), growth_strategy, NULLIF($10, ''), false,
 				       $5, $6, $7
 				FROM finance_cash_accounts WHERE id = $1 AND user_id = $2`,
 				*imp.TargetCashAccountID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate,
+				eventID, imp.ImpactKind, impactFrequency, imp.GrowthRate, imp.EndDate, imp.Notes,
 			); err != nil {
 				return fmt.Errorf("failed to insert cash account impact: %w", err)
 			}
@@ -844,6 +853,291 @@ func (s *Store) insertStartImpact(ctx context.Context, tx pgx.Tx, userID string,
 
 	default:
 		return fmt.Errorf("unsupported target type for start impact: %s", targetType)
+	}
+
+	return nil
+}
+
+// deleteRemovedImpacts deletes impacts that are no longer in the incoming list.
+// It deletes from each finance table where the impact ID is NOT in the incoming set.
+func (s *Store) deleteRemovedImpacts(ctx context.Context, tx pgx.Tx, eventID string, keepIDs map[string]bool) error {
+	// Build list of IDs to keep
+	var keepIDsList []string
+	for id := range keepIDs {
+		keepIDsList = append(keepIDsList, id)
+	}
+
+	// Delete from each finance table where scenario_event_id matches but id is NOT in keep list
+	// If keepIDsList is empty, delete all; otherwise use NOT IN clause
+	if len(keepIDsList) == 0 {
+		// Delete all impacts for this event
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_incomes WHERE scenario_event_id = $1`, eventID); err != nil {
+			return fmt.Errorf("failed to delete income impacts: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_expenses WHERE scenario_event_id = $1`, eventID); err != nil {
+			return fmt.Errorf("failed to delete expense impacts: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_assets WHERE scenario_event_id = $1`, eventID); err != nil {
+			return fmt.Errorf("failed to delete asset impacts: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_liabilities WHERE scenario_event_id = $1`, eventID); err != nil {
+			return fmt.Errorf("failed to delete liability impacts: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_investments WHERE scenario_event_id = $1`, eventID); err != nil {
+			return fmt.Errorf("failed to delete investment impacts: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_cash_accounts WHERE scenario_event_id = $1`, eventID); err != nil {
+			return fmt.Errorf("failed to delete cash account impacts: %w", err)
+		}
+	} else {
+		// Delete only impacts not in keep list
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_incomes WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
+			return fmt.Errorf("failed to delete removed income impacts: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_expenses WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
+			return fmt.Errorf("failed to delete removed expense impacts: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_assets WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
+			return fmt.Errorf("failed to delete removed asset impacts: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_liabilities WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
+			return fmt.Errorf("failed to delete removed liability impacts: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_investments WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
+			return fmt.Errorf("failed to delete removed investment impacts: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM finance_cash_accounts WHERE scenario_event_id = $1 AND id != ALL($2::uuid[])`, eventID, keepIDsList); err != nil {
+			return fmt.Errorf("failed to delete removed cash account impacts: %w", err)
+		}
+	}
+	return nil
+}
+
+// updateImpactsV2 updates existing impacts in place using their IDs.
+func (s *Store) updateImpactsV2(ctx context.Context, tx pgx.Tx, userID string, eventID string, impacts []ScenarioImpact) error {
+	// Get event's occurs_on date for impact start date
+	var occursOn time.Time
+	err := tx.QueryRow(ctx, `SELECT occurs_on FROM scenario_events WHERE id = $1`, eventID).Scan(&occursOn)
+	if err != nil {
+		return fmt.Errorf("failed to get event occurs_on: %w", err)
+	}
+
+	for i := range impacts {
+		imp := &impacts[i]
+		targetType := imp.TargetType()
+
+		// Convert decimal.Decimal to pgtype.Numeric for SQL compatibility
+		var amount pgtype.Numeric
+		if imp.Amount != nil {
+			amount, _ = imp.Amount.NumericValue()
+		} else {
+			amount, _ = decimal.Zero().NumericValue()
+		}
+
+		impactFrequency := string(imp.Cadence)
+		if impactFrequency == "" {
+			impactFrequency = "monthly"
+		}
+
+		// Handle 'start' impacts differently - update the financial item directly
+		if imp.ImpactKind == scenario.ImpactKindStart {
+			if err := s.updateStartImpact(ctx, tx, imp, amount, occursOn, impactFrequency); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// For delta/override/stop impacts, update the existing row
+		switch targetType {
+		case "income":
+			if _, err := tx.Exec(ctx, `
+				UPDATE finance_incomes
+				SET amount = $2, start_date = $3, end_date = $4,
+				    growth_rate = COALESCE($5, growth_rate), notes = NULLIF($6, ''),
+				    impact_frequency = $7, updated_at = NOW()
+				WHERE id = $1`,
+				imp.ID, amount, occursOn, imp.EndDate, imp.GrowthRate, imp.Notes, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to update income impact: %w", err)
+			}
+
+		case "expense":
+			if _, err := tx.Exec(ctx, `
+				UPDATE finance_expenses
+				SET amount = $2, start_date = $3, end_date = $4,
+				    growth_rate = COALESCE($5, growth_rate), notes = NULLIF($6, ''),
+				    impact_frequency = $7, updated_at = NOW()
+				WHERE id = $1`,
+				imp.ID, amount, occursOn, imp.EndDate, imp.GrowthRate, imp.Notes, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to update expense impact: %w", err)
+			}
+
+		case "asset":
+			if _, err := tx.Exec(ctx, `
+				UPDATE finance_assets
+				SET current_value = $2, start_date = $3, end_date = $4,
+				    growth_rate = COALESCE($5, growth_rate), notes = NULLIF($6, ''),
+				    impact_frequency = $7, updated_at = NOW()
+				WHERE id = $1`,
+				imp.ID, amount, occursOn, imp.EndDate, imp.GrowthRate, imp.Notes, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to update asset impact: %w", err)
+			}
+
+		case "liability":
+			if _, err := tx.Exec(ctx, `
+				UPDATE finance_liabilities
+				SET current_balance = $2, start_date = $3, end_date = $4,
+				    notes = NULLIF($5, ''), impact_frequency = $6, updated_at = NOW()
+				WHERE id = $1`,
+				imp.ID, amount, occursOn, imp.EndDate, imp.Notes, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to update liability impact: %w", err)
+			}
+
+		case "investment":
+			if _, err := tx.Exec(ctx, `
+				UPDATE finance_investments
+				SET current_value = $2, start_date = $3, end_date = $4,
+				    growth_rate = COALESCE($5, growth_rate), notes = NULLIF($6, ''),
+				    impact_frequency = $7, updated_at = NOW()
+				WHERE id = $1`,
+				imp.ID, amount, occursOn, imp.EndDate, imp.GrowthRate, imp.Notes, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to update investment impact: %w", err)
+			}
+
+		case "cash":
+			if _, err := tx.Exec(ctx, `
+				UPDATE finance_cash_accounts
+				SET balance = $2, start_date = $3, end_date = $4,
+				    interest_rate = COALESCE($5, interest_rate), notes = NULLIF($6, ''),
+				    impact_frequency = $7, updated_at = NOW()
+				WHERE id = $1`,
+				imp.ID, amount, occursOn, imp.EndDate, imp.GrowthRate, imp.Notes, impactFrequency,
+			); err != nil {
+				return fmt.Errorf("failed to update cash account impact: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+// updateStartImpact updates an existing 'start' impact financial item.
+func (s *Store) updateStartImpact(ctx context.Context, tx pgx.Tx, imp *ScenarioImpact, amount pgtype.Numeric, startDate time.Time, impactFrequency string) error {
+	targetType := imp.TargetType()
+
+	name := imp.Name
+	if name == "" {
+		name = "Unnamed Item"
+	}
+	category := imp.Category
+	if category == "" {
+		category = "other"
+	}
+	frequency := imp.Frequency
+	if frequency == "" {
+		frequency = impactFrequency
+	}
+	growthRate := float64(0)
+	if imp.GrowthRate != nil {
+		growthRate = *imp.GrowthRate
+	}
+	growthStrategy := imp.GrowthStrategy
+	if growthStrategy == "" {
+		growthStrategy = "fixed"
+	}
+	notes := imp.Notes
+
+	switch targetType {
+	case "income":
+		if _, err := tx.Exec(ctx, `
+			UPDATE finance_incomes
+			SET name = $2, amount = $3, frequency = $4, category = $5, start_date = $6, end_date = $7,
+			    growth_rate = $8, growth_strategy = $9, notes = NULLIF($10, ''), impact_frequency = $11, updated_at = NOW()
+			WHERE id = $1`,
+			imp.ID, name, amount, frequency, category, startDate, imp.EndDate,
+			growthRate, growthStrategy, notes, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to update start income: %w", err)
+		}
+
+	case "expense":
+		if _, err := tx.Exec(ctx, `
+			UPDATE finance_expenses
+			SET name = $2, amount = $3, frequency = $4, category = $5, start_date = $6, end_date = $7,
+			    growth_rate = $8, growth_strategy = $9, notes = NULLIF($10, ''), impact_frequency = $11, updated_at = NOW()
+			WHERE id = $1`,
+			imp.ID, name, amount, frequency, category, startDate, imp.EndDate,
+			growthRate, growthStrategy, notes, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to update start expense: %w", err)
+		}
+
+	case "asset":
+		if _, err := tx.Exec(ctx, `
+			UPDATE finance_assets
+			SET name = $2, current_value = $3, category = $4, start_date = $5, end_date = $6,
+			    growth_rate = $7, growth_strategy = $8, notes = NULLIF($9, ''), impact_frequency = $10, updated_at = NOW()
+			WHERE id = $1`,
+			imp.ID, name, amount, category, startDate, imp.EndDate,
+			growthRate, growthStrategy, notes, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to update start asset: %w", err)
+		}
+
+	case "liability":
+		interestRate := float64(0)
+		if imp.InterestRate != nil {
+			interestRate = *imp.InterestRate
+		}
+		minimumPayment := int64(0)
+		if imp.MinimumPayment != nil {
+			minimumPayment = *imp.MinimumPayment
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE finance_liabilities
+			SET name = $2, current_balance = $3, category = $4, start_date = $5, end_date = $6,
+			    interest_rate_apr = $7, minimum_payment = $8, growth_strategy = $9, notes = NULLIF($10, ''),
+			    impact_frequency = $11, updated_at = NOW()
+			WHERE id = $1`,
+			imp.ID, name, amount, category, startDate, imp.EndDate,
+			interestRate, minimumPayment, growthStrategy, notes, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to update start liability: %w", err)
+		}
+
+	case "investment":
+		if _, err := tx.Exec(ctx, `
+			UPDATE finance_investments
+			SET name = $2, current_value = $3, category = $4, start_date = $5, end_date = $6,
+			    growth_rate = $7, growth_strategy = $8, notes = NULLIF($9, ''), impact_frequency = $10, updated_at = NOW()
+			WHERE id = $1`,
+			imp.ID, name, amount, category, startDate, imp.EndDate,
+			growthRate, growthStrategy, notes, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to update start investment: %w", err)
+		}
+
+	case "cash":
+		interestRate := float64(0)
+		if imp.InterestRate != nil {
+			interestRate = *imp.InterestRate
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE finance_cash_accounts
+			SET name = $2, balance = $3, category = $4, start_date = $5, end_date = $6,
+			    interest_rate = $7, growth_strategy = $8, notes = NULLIF($9, ''), impact_frequency = $10, updated_at = NOW()
+			WHERE id = $1`,
+			imp.ID, name, amount, category, startDate, imp.EndDate,
+			interestRate, growthStrategy, notes, impactFrequency,
+		); err != nil {
+			return fmt.Errorf("failed to update start cash account: %w", err)
+		}
+
+	default:
+		return fmt.Errorf("unsupported target type for start impact update: %s", targetType)
 	}
 
 	return nil

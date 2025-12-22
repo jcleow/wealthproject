@@ -99,6 +99,7 @@ export function impactToVerb(
 
 // Wire DTO shapes (camelCase) for the Go API
 export interface ScenarioImpactDto {
+  id?: string | null  // Impact ID (returned by server, sent back for updates)
   impactKind: ScenarioImpactKind
   targetType: ScenarioTargetType
   parentId?: string | null  // Required for delta/override/stop (ID of existing item to modify)
@@ -148,6 +149,7 @@ export type GrowthStrategy = 'fixed' | 'annual_step' | 'compound_monthly'
 
 // Frontend domain models (camelCase)
 export interface ScenarioImpact {
+  id?: string  // Impact ID (returned by server, sent back for updates)
   impactKind: ScenarioImpactKind
   targetType: ScenarioTargetType
   parentId?: string  // Required for delta/override/stop (ID of existing item to modify)
@@ -185,6 +187,7 @@ export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact =>
   const isStartImpact = dto.impactKind === 'start'
 
   return {
+    id: dto.id ?? undefined,
     impactKind: dto.impactKind,
     targetType: dto.targetType,
     parentId: dto.parentId ?? undefined,
@@ -212,6 +215,7 @@ export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto =
   const isStartImpact = impact.impactKind === 'start'
 
   return {
+    id: impact.id,  // Send ID back for updates
     impactKind: impact.impactKind,
     targetType: impact.targetType,
     // Start impacts should NOT have parentId (they create new items)

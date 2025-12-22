@@ -58,7 +58,14 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 	// For 'start' impacts, parentId will be nil
 	parentID := imp.TargetID()
 
+	// Include ID if present (for existing impacts)
+	var id *string
+	if imp.ID != "" {
+		id = &imp.ID
+	}
+
 	return scenarioImpactV2DTO{
+		ID:             id,
 		ImpactKind:     imp.ImpactKind,
 		TargetType:     imp.TargetType(),
 		ParentID:       parentID,
@@ -260,6 +267,11 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		StartDate:  startDate,
 		EndDate:    endDate,
 		GrowthRate: in.GrowthRate,
+	}
+
+	// Include ID if sent back (for updates)
+	if in.ID != nil && *in.ID != "" {
+		impact.ID = *in.ID
 	}
 
 	// Set category if provided
