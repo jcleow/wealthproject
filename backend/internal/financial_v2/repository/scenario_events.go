@@ -196,11 +196,15 @@ func (s *Store) UpdateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 	updated.Tags = decodeStringArray(tagsBytes)
 
-	// For 'start' impacts, update the linked financial item's amount and frequency
+	// For 'start' impacts with an existing target ID, update the linked financial item.
+	// Skip if target ID is empty (new item being created, not an existing one to update).
 	for _, imp := range ev.Impacts {
 		if imp.ImpactKind == scenario.ImpactKindStart {
-			if err := s.updateStartImpactTarget(ctx, tx, &imp); err != nil {
-				return ScenarioEvent{}, fmt.Errorf("failed to update start impact target: %w", err)
+			targetID := imp.TargetID()
+			if targetID != nil && *targetID != "" {
+				if err := s.updateStartImpactTarget(ctx, tx, &imp); err != nil {
+					return ScenarioEvent{}, fmt.Errorf("failed to update start impact target: %w", err)
+				}
 			}
 		}
 	}

@@ -176,7 +176,9 @@ export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto =
   return {
     impactKind: impact.impactKind,
     targetType: impact.targetType,
-    parentId: impact.parentId,
+    // Start impacts should NOT have parentId (they create new items)
+    // Only delta/override/stop impacts need parentId to reference existing items
+    parentId: isStartImpact ? undefined : impact.parentId,
     amount: String(impact.amount),  // Convert number to string for backend decimal handling
     currency: impact.currency,
     // For start impacts, send frequency as cadence (backend expects one_time/monthly/annual)
