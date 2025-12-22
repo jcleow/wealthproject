@@ -610,13 +610,14 @@ function formatCategoryName(category: string, financialCategory?: FinancialCateg
 
   // Handle "Other" category dynamically based on financial type
   if (category.toLowerCase() === 'other') {
-    const financialTypeLabels: Record<FinancialCategory, string> = {
+    const financialTypeLabels: Record<string, string> = {
       'asset': 'Other Assets',
       'liability': 'Other Liabilities',
       'income': 'Other Income',
       'expense': 'Other Expenses',
+      'investment': 'Other Investments',
     }
-    return financialCategory ? financialTypeLabels[financialCategory] : 'Other'
+    return financialCategory ? (financialTypeLabels[financialCategory] ?? 'Other') : 'Other'
   }
 
   // Check if we have a mapping, otherwise format the category string
@@ -735,6 +736,7 @@ function GroupedItemsSection({
                   onManageAllocations={financialCategory === 'income' ? onManageAllocations : undefined}
                   cashAccounts={cashAccounts}
                   scenarioImpacts={scenarioImpacts}
+                  scenarioEvents={scenarioEvents}
                   isExpanded={isExpanded}
                   onToggleExpand={onToggleScenarioExpanded}
                   showMonthlyData={showMonthlyData}
@@ -856,6 +858,7 @@ function FlatItemsSection({
             onManageAllocations={financialCategory === 'income' ? onManageAllocations : undefined}
             cashAccounts={cashAccounts}
             scenarioImpacts={scenarioImpacts}
+            scenarioEvents={scenarioEvents}
             isExpanded={isExpanded}
             onToggleExpand={onToggleScenarioExpanded}
             showMonthlyData={showMonthlyData}

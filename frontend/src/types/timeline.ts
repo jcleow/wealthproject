@@ -69,6 +69,8 @@ export interface TimelineItem {
   isAccumulator?: boolean
   /** Link to liability this expense pays down (expenses only - identifies debt repayments) */
   sourceLiabilityId?: string
+  /** If set, this item was created by a scenario start impact */
+  scenarioEventId?: string
 }
 
 export interface GrowthApplied {
@@ -230,6 +232,8 @@ export interface InvestmentResponseV2 {
   startYear: number
   startMonth: number
   eventImpacts?: AppliedImpactV2[]
+  /** If set, this item was created by a scenario start impact */
+  scenarioEventId?: string
 }
 
 /** Cash asset in V2 response (decimal values come as strings from backend) */
@@ -273,6 +277,8 @@ export interface LiabilityResponseV2 {
   startYear: number
   startMonth: number
   eventImpacts?: AppliedImpactV2[]
+  /** If set, this item was created by a scenario start impact */
+  scenarioEventId?: string
 }
 
 /** Income in V2 response (decimal values come as strings from backend) */
@@ -291,6 +297,8 @@ export interface IncomeResponseV2 {
   startMonth: number
   growthRate: string
   eventImpacts?: AppliedImpactV2[]
+  /** If set, this item was created by a scenario start impact */
+  scenarioEventId?: string
 }
 
 /** CPF contribution in V2 response (decimal values come as strings from backend) */
@@ -329,6 +337,8 @@ export interface ExpenseResponseV2 {
   /** Link to liability this expense pays down (debt repayment) */
   sourceLiabilityId?: string
   eventImpacts?: AppliedImpactV2[]
+  /** If set, this item was created by a scenario start impact */
+  scenarioEventId?: string
 }
 
 // ========== Timeline V2 Chart Types ==========

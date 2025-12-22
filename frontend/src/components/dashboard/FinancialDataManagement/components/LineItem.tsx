@@ -3,6 +3,7 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 import type { TimelineItem } from '@/types/timeline'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
+import type { ScenarioEvent } from '@/types/scenario'
 import { formatCurrency } from '@/lib/format'
 import { numericStyles } from '@/lib/utils'
 import { getIconByName, getItemId, getAnnualizationLabel } from '../utils'
@@ -22,6 +23,7 @@ interface LineItemProps {
   onManageAllocations?: (item: TimelineItem) => void
   cashAccounts: CashAccount[]
   scenarioImpacts: AppliedImpact[]
+  scenarioEvents: ScenarioEvent[]
   isExpanded: boolean
   onToggleExpand: (itemId: string) => void
   showMonthlyData: boolean
@@ -46,6 +48,7 @@ export function LineItem({
   onManageAllocations,
   cashAccounts,
   scenarioImpacts,
+  scenarioEvents,
   isExpanded,
   onToggleExpand,
   showMonthlyData,
@@ -59,9 +62,13 @@ export function LineItem({
   const hasScenarios = scenarioImpacts.length > 0
   const annualizationLabel = getAnnualizationLabel(item)
 
-  // Check if this item was created by a 'start' impact - show the scenario icon inline
+  // Check if this item was created by a scenario event (start impact)
+  // First check if item has scenarioEventId (for items created by start impacts)
+  // Then fall back to looking for a start impact in the eventImpacts array
   const startImpact = scenarioImpacts.find(({ impact }) => impact.impactKind === 'start')
-  const startEvent = startImpact?.event
+  const startEvent = item.scenarioEventId
+    ? scenarioEvents.find(ev => ev.id === item.scenarioEventId) ?? startImpact?.event
+    : startImpact?.event
 
   const handleItemClick = () => {
     onSelect(isSelected ? null : itemId)

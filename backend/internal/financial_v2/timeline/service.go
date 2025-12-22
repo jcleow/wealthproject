@@ -46,6 +46,8 @@ type FinancialDataRow struct {
 	SourceLiabilityID *string // For expenses - link to liability this expense pays down
 	// Liability repayment
 	RepaymentStrategy string // Repayment strategy for liabilities (standard_amortization, interest_only, etc.)
+	// Scenario fields
+	ScenarioEventID *string // If set, this item was created by a start impact
 }
 
 // EffectiveRows holds all financial data organized by type
@@ -1222,6 +1224,7 @@ func buildInvestmentResponses(rows []FinancialDataRow, itemStates ItemStateMap, 
 			StartDate:       row.StartDate.Format("2006-01-02"),
 			StartYear:       state.StartYear,
 			StartMonth:      state.StartMonth,
+			ScenarioEventID: row.ScenarioEventID,
 		}
 		// Add applied impacts if any
 		if impacts, ok := appliedImpacts[row.ID]; ok {
@@ -1328,6 +1331,7 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, e
 			ItemType:        string(row.ItemType),
 			StartYear:       state.StartYear,
 			StartMonth:      state.StartMonth,
+			ScenarioEventID: row.ScenarioEventID,
 		}
 		// Add applied impacts if any
 		if impacts, ok := appliedImpacts[row.ID]; ok {
@@ -1372,6 +1376,7 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, even
 			StartYear:       state.StartYear,
 			StartMonth:      state.StartMonth,
 			GrowthRate:      *row.GrowthRate.Round(0),
+			ScenarioEventID: row.ScenarioEventID,
 		}
 
 		// Populate CPF breakdown if available
@@ -1438,6 +1443,7 @@ func buildExpenseResponses(rows []FinancialDataRow, itemStates ItemStateMap, eve
 			StartYear:         state.StartYear,
 			StartMonth:        state.StartMonth,
 			SourceLiabilityID: row.SourceLiabilityID,
+			ScenarioEventID:   row.ScenarioEventID,
 		}
 		// Add applied impacts if any
 		if impacts, ok := appliedImpacts[row.ID]; ok {
