@@ -310,11 +310,18 @@ func ApplyImpactsToItem(
 	// Unlike override (only latest wins), ALL applicable deltas are summed.
 	// This allows multiple additive adjustments.
 	//
+	// Delta impacts can be absolute (e.g., +$10,000) or percentage-based (e.g., +5%).
+	//
 	// Example: Two delta impacts (no override)
 	//   base = $100,000
 	//   delta1 = {Amount: 10000, Cadence: "monthly"}  // +$10k/month raise
 	//   delta2 = {Amount: 5000, Cadence: "monthly"}   // +$5k/month bonus
 	//   Both apply: result.AdjustedValue = $100,000 + $10,000 + $5,000 = $115,000
+	//
+	// Example with percentage:
+	//   base = $100,000
+	//   delta = {Amount: 5, DeltaType: "percentage"}  // +5%
+	//   result.AdjustedValue = $100,000 + ($100,000 × 0.05) = $105,000
 	// ─────────────────────────────────────────────────────────────────────────
 	for i := range impacts {
 		impact := &impacts[i]
@@ -329,9 +336,23 @@ func ApplyImpactsToItem(
 			continue
 		}
 
-		// Example: impact.Amount = 100000, Cadence = "monthly", ItemType = "cash_asset"
-		//          deltaAmount = $100,000 (no conversion needed for assets)
-		deltaAmount := ConvertImpactAmount(impact, itemInfo)
+		// Calculate delta amount based on delta type
+		var deltaAmount *decimal.Decimal
+		if impact.DeltaType == DeltaTypePercentage {
+			// Percentage-based delta: amount is percentage of current value
+			// Example: amount = 5, current = $100,000 → delta = $5,000
+			if impact.Amount != nil && result.AdjustedValue != nil {
+				percentage := impact.Amount.Div(decimal.NewFromInt64(100, 0))
+				deltaAmount = result.AdjustedValue.Mul(percentage)
+			} else {
+				deltaAmount = decimal.Zero()
+			}
+		} else {
+			// Absolute delta (default): use ConvertImpactAmount for cadence normalization
+			// Example: impact.Amount = 100000, Cadence = "monthly", ItemType = "cash_asset"
+			//          deltaAmount = $100,000 (no conversion needed for assets)
+			deltaAmount = ConvertImpactAmount(impact, itemInfo)
+		}
 
 		// Example: result.AdjustedValue = $125,051 + $100,000 = $225,051
 		result.AdjustedValue = result.AdjustedValue.Add(deltaAmount)

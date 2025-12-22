@@ -269,7 +269,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 	// Income impacts
 	incomeRows, err := s.pool.Query(ctx, `
 		SELECT id, COALESCE(parent_id, id), name, amount, frequency, category, start_date, end_date,
-		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
+		       growth_rate, growth_strategy, COALESCE(notes, ''), impact_kind, impact_frequency, delta_type, updated_at
 		FROM finance_incomes
 		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
 	if err != nil {
@@ -277,15 +277,15 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 	}
 	defer incomeRows.Close()
 	for incomeRows.Next() {
-		var id, parentID, name, frequency, category string
+		var id, parentID, name, frequency, category, notes string
 		var amount decimal.Decimal
 		var startDate time.Time
 		var endDate *time.Time
 		var growthRate decimal.Decimal
-		var growthStrategy, impactKind, impactFrequency *string
+		var growthStrategy, impactKind, impactFrequency, deltaType *string
 		var updatedAt time.Time
 		if err := incomeRows.Scan(&id, &parentID, &name, &amount, &frequency, &category,
-			&startDate, &endDate, &growthRate, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			&startDate, &endDate, &growthRate, &growthStrategy, &notes, &impactKind, &impactFrequency, &deltaType, &updatedAt); err != nil {
 			return nil, err
 		}
 		growthRateFloat := growthRate.ToFloat64()
@@ -300,6 +300,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 			StartDate:      startDate,
 			EndDate:        endDate,
 			GrowthRate:     &growthRateFloat,
+			Notes:          notes,
 			Currency:       "SGD",
 			CreatedAt:      updatedAt,
 		}
@@ -312,13 +313,16 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 		if growthStrategy != nil {
 			imp.GrowthStrategy = *growthStrategy
 		}
+		if deltaType != nil {
+			imp.DeltaType = *deltaType
+		}
 		impacts = append(impacts, imp)
 	}
 
 	// Expense impacts
 	expenseRows, err := s.pool.Query(ctx, `
 		SELECT id, COALESCE(parent_id, id), name, amount, frequency, category, start_date, end_date,
-		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
+		       growth_rate, growth_strategy, COALESCE(notes, ''), impact_kind, impact_frequency, delta_type, updated_at
 		FROM finance_expenses
 		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
 	if err != nil {
@@ -326,15 +330,15 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 	}
 	defer expenseRows.Close()
 	for expenseRows.Next() {
-		var id, parentID, name, frequency, category string
+		var id, parentID, name, frequency, category, notes string
 		var amount decimal.Decimal
 		var startDate time.Time
 		var endDate *time.Time
 		var growthRate decimal.Decimal
-		var growthStrategy, impactKind, impactFrequency *string
+		var growthStrategy, impactKind, impactFrequency, deltaType *string
 		var updatedAt time.Time
 		if err := expenseRows.Scan(&id, &parentID, &name, &amount, &frequency, &category,
-			&startDate, &endDate, &growthRate, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			&startDate, &endDate, &growthRate, &growthStrategy, &notes, &impactKind, &impactFrequency, &deltaType, &updatedAt); err != nil {
 			return nil, err
 		}
 		growthRateFloat := growthRate.ToFloat64()
@@ -349,6 +353,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 			StartDate:       startDate,
 			EndDate:         endDate,
 			GrowthRate:      &growthRateFloat,
+			Notes:           notes,
 			Currency:        "SGD",
 			CreatedAt:       updatedAt,
 		}
@@ -361,13 +366,16 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 		if growthStrategy != nil {
 			imp.GrowthStrategy = *growthStrategy
 		}
+		if deltaType != nil {
+			imp.DeltaType = *deltaType
+		}
 		impacts = append(impacts, imp)
 	}
 
 	// Asset impacts
 	assetRows, err := s.pool.Query(ctx, `
 		SELECT id, COALESCE(parent_id, id), name, current_value, category, start_date, end_date,
-		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
+		       growth_rate, growth_strategy, COALESCE(notes, ''), impact_kind, impact_frequency, delta_type, updated_at
 		FROM finance_assets
 		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
 	if err != nil {
@@ -375,15 +383,15 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 	}
 	defer assetRows.Close()
 	for assetRows.Next() {
-		var id, parentID, name, category string
+		var id, parentID, name, category, notes string
 		var currentValue decimal.Decimal
 		var startDate time.Time
 		var endDate *time.Time
 		var growthRate decimal.Decimal
-		var growthStrategy, impactKind, impactFrequency *string
+		var growthStrategy, impactKind, impactFrequency, deltaType *string
 		var updatedAt time.Time
 		if err := assetRows.Scan(&id, &parentID, &name, &currentValue, &category,
-			&startDate, &endDate, &growthRate, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			&startDate, &endDate, &growthRate, &growthStrategy, &notes, &impactKind, &impactFrequency, &deltaType, &updatedAt); err != nil {
 			return nil, err
 		}
 		growthRateFloat := growthRate.ToFloat64()
@@ -397,6 +405,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 			StartDate:     startDate,
 			EndDate:       endDate,
 			GrowthRate:    &growthRateFloat,
+			Notes:         notes,
 			Currency:      "SGD",
 			CreatedAt:     updatedAt,
 		}
@@ -409,13 +418,16 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 		if growthStrategy != nil {
 			imp.GrowthStrategy = *growthStrategy
 		}
+		if deltaType != nil {
+			imp.DeltaType = *deltaType
+		}
 		impacts = append(impacts, imp)
 	}
 
 	// Liability impacts
 	liabilityRows, err := s.pool.Query(ctx, `
 		SELECT id, COALESCE(parent_id, id), name, current_balance, category, start_date, end_date,
-		       interest_rate_apr, growth_strategy, impact_kind, impact_frequency, updated_at
+		       interest_rate_apr, growth_strategy, COALESCE(notes, ''), impact_kind, impact_frequency, delta_type, updated_at
 		FROM finance_liabilities
 		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
 	if err != nil {
@@ -423,15 +435,15 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 	}
 	defer liabilityRows.Close()
 	for liabilityRows.Next() {
-		var id, parentID, name, category string
+		var id, parentID, name, category, notes string
 		var currentBalance decimal.Decimal
 		var startDate time.Time
 		var endDate *time.Time
 		var interestRateAPR decimal.Decimal
-		var growthStrategy, impactKind, impactFrequency *string
+		var growthStrategy, impactKind, impactFrequency, deltaType *string
 		var updatedAt time.Time
 		if err := liabilityRows.Scan(&id, &parentID, &name, &currentBalance, &category,
-			&startDate, &endDate, &interestRateAPR, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			&startDate, &endDate, &interestRateAPR, &growthStrategy, &notes, &impactKind, &impactFrequency, &deltaType, &updatedAt); err != nil {
 			return nil, err
 		}
 		interestRate := interestRateAPR.ToFloat64()
@@ -445,6 +457,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 			StartDate:         startDate,
 			EndDate:           endDate,
 			InterestRate:      &interestRate,
+			Notes:             notes,
 			Currency:          "SGD",
 			CreatedAt:         updatedAt,
 		}
@@ -457,13 +470,16 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 		if growthStrategy != nil {
 			imp.GrowthStrategy = *growthStrategy
 		}
+		if deltaType != nil {
+			imp.DeltaType = *deltaType
+		}
 		impacts = append(impacts, imp)
 	}
 
 	// Investment impacts
 	investmentRows, err := s.pool.Query(ctx, `
 		SELECT id, COALESCE(parent_id, id), name, current_value, category, start_date, end_date,
-		       growth_rate, growth_strategy, impact_kind, impact_frequency, updated_at
+		       growth_rate, growth_strategy, COALESCE(notes, ''), impact_kind, impact_frequency, delta_type, updated_at
 		FROM finance_investments
 		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
 	if err != nil {
@@ -471,15 +487,15 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 	}
 	defer investmentRows.Close()
 	for investmentRows.Next() {
-		var id, parentID, name, category string
+		var id, parentID, name, category, notes string
 		var currentValue decimal.Decimal
 		var startDate time.Time
 		var endDate *time.Time
 		var growthRate decimal.Decimal
-		var growthStrategy, impactKind, impactFrequency *string
+		var growthStrategy, impactKind, impactFrequency, deltaType *string
 		var updatedAt time.Time
 		if err := investmentRows.Scan(&id, &parentID, &name, &currentValue, &category,
-			&startDate, &endDate, &growthRate, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			&startDate, &endDate, &growthRate, &growthStrategy, &notes, &impactKind, &impactFrequency, &deltaType, &updatedAt); err != nil {
 			return nil, err
 		}
 		growthRateFloat := growthRate.ToFloat64()
@@ -493,6 +509,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 			StartDate:          startDate,
 			EndDate:            endDate,
 			GrowthRate:         &growthRateFloat,
+			Notes:              notes,
 			Currency:           "SGD",
 			CreatedAt:          updatedAt,
 		}
@@ -505,13 +522,16 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 		if growthStrategy != nil {
 			imp.GrowthStrategy = *growthStrategy
 		}
+		if deltaType != nil {
+			imp.DeltaType = *deltaType
+		}
 		impacts = append(impacts, imp)
 	}
 
 	// Cash account impacts
 	cashRows, err := s.pool.Query(ctx, `
 		SELECT id, COALESCE(parent_id, id), name, balance, COALESCE(category, 'savings'), start_date, end_date,
-		       interest_rate, growth_strategy, impact_kind, impact_frequency, updated_at
+		       interest_rate, growth_strategy, COALESCE(notes, ''), impact_kind, impact_frequency, delta_type, updated_at
 		FROM finance_cash_accounts
 		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
 	if err != nil {
@@ -519,15 +539,15 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 	}
 	defer cashRows.Close()
 	for cashRows.Next() {
-		var id, parentID, name, category string
+		var id, parentID, name, category, notes string
 		var balance decimal.Decimal
 		var startDate time.Time
 		var endDate *time.Time
 		var interestRate decimal.Decimal
-		var growthStrategy, impactKind, impactFrequency *string
+		var growthStrategy, impactKind, impactFrequency, deltaType *string
 		var updatedAt time.Time
 		if err := cashRows.Scan(&id, &parentID, &name, &balance, &category,
-			&startDate, &endDate, &interestRate, &growthStrategy, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			&startDate, &endDate, &interestRate, &growthStrategy, &notes, &impactKind, &impactFrequency, &deltaType, &updatedAt); err != nil {
 			return nil, err
 		}
 		interestRateFloat := interestRate.ToFloat64()
@@ -541,6 +561,7 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 			StartDate:           startDate,
 			EndDate:             endDate,
 			GrowthRate:          &interestRateFloat,
+			Notes:               notes,
 			Currency:            "SGD",
 			CreatedAt:           updatedAt,
 		}
@@ -552,6 +573,9 @@ func (s *Store) ListScenarioImpactsV2(ctx context.Context, userID, eventID strin
 		}
 		if growthStrategy != nil {
 			imp.GrowthStrategy = *growthStrategy
+		}
+		if deltaType != nil {
+			imp.DeltaType = *deltaType
 		}
 		impacts = append(impacts, imp)
 	}
@@ -611,6 +635,12 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			return scenario.ErrInvalidTargetCount
 		}
 
+		// Get delta type for delta impacts (nil for others)
+		var deltaType *string
+		if imp.ImpactKind == scenario.ImpactKindDelta && imp.DeltaType != "" {
+			deltaType = &imp.DeltaType
+		}
+
 		// Insert into the appropriate finance table based on target type
 		// Creates a child row referencing the existing item via parent_id
 		switch targetType {
@@ -618,13 +648,13 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_incomes (
 					user_id, parent_id, name, amount, frequency, category, start_date,
-					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency, delta_type
 				)
 				SELECT user_id, id, name, $3, frequency, category, $4,
-				       growth_rate, growth_strategy, $5, $6, $7
+				       growth_rate, growth_strategy, $5, $6, $7, $8
 				FROM finance_incomes WHERE id = $1 AND user_id = $2`,
 				*imp.TargetIncomeID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency,
+				eventID, imp.ImpactKind, impactFrequency, deltaType,
 			); err != nil {
 				return fmt.Errorf("failed to insert income impact: %w", err)
 			}
@@ -633,13 +663,13 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_expenses (
 					user_id, parent_id, name, amount, frequency, category, start_date,
-					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency, delta_type
 				)
 				SELECT user_id, id, name, $3, frequency, category, $4,
-				       growth_rate, growth_strategy, $5, $6, $7
+				       growth_rate, growth_strategy, $5, $6, $7, $8
 				FROM finance_expenses WHERE id = $1 AND user_id = $2`,
 				*imp.TargetExpenseID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency,
+				eventID, imp.ImpactKind, impactFrequency, deltaType,
 			); err != nil {
 				return fmt.Errorf("failed to insert expense impact: %w", err)
 			}
@@ -648,13 +678,13 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_assets (
 					user_id, parent_id, name, current_value, category, start_date,
-					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency, delta_type
 				)
 				SELECT user_id, id, name, $3, category, $4,
-				       growth_rate, growth_strategy, $5, $6, $7
+				       growth_rate, growth_strategy, $5, $6, $7, $8
 				FROM finance_assets WHERE id = $1 AND user_id = $2`,
 				*imp.TargetAssetID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency,
+				eventID, imp.ImpactKind, impactFrequency, deltaType,
 			); err != nil {
 				return fmt.Errorf("failed to insert asset impact: %w", err)
 			}
@@ -664,14 +694,14 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				INSERT INTO finance_liabilities (
 					user_id, parent_id, name, current_balance, category, start_date,
 					interest_rate_apr, minimum_payment, growth_strategy,
-					scenario_event_id, impact_kind, impact_frequency
+					scenario_event_id, impact_kind, impact_frequency, delta_type
 				)
 				SELECT user_id, id, name, $3, category, $4,
 				       interest_rate_apr, minimum_payment, growth_strategy,
-				       $5, $6, $7
+				       $5, $6, $7, $8
 				FROM finance_liabilities WHERE id = $1 AND user_id = $2`,
 				*imp.TargetLiabilityID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency,
+				eventID, imp.ImpactKind, impactFrequency, deltaType,
 			); err != nil {
 				return fmt.Errorf("failed to insert liability impact: %w", err)
 			}
@@ -680,13 +710,13 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_investments (
 					user_id, parent_id, name, current_value, category, start_date,
-					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+					growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency, delta_type
 				)
 				SELECT user_id, id, name, $3, category, $4,
-				       growth_rate, growth_strategy, $5, $6, $7
+				       growth_rate, growth_strategy, $5, $6, $7, $8
 				FROM finance_investments WHERE id = $1 AND user_id = $2`,
 				*imp.TargetInvestmentID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency,
+				eventID, imp.ImpactKind, impactFrequency, deltaType,
 			); err != nil {
 				return fmt.Errorf("failed to insert investment impact: %w", err)
 			}
@@ -696,14 +726,14 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 				INSERT INTO finance_cash_accounts (
 					user_id, parent_id, name, balance, category, start_date,
 					interest_rate, growth_strategy, is_accumulator,
-					scenario_event_id, impact_kind, impact_frequency
+					scenario_event_id, impact_kind, impact_frequency, delta_type
 				)
 				SELECT user_id, id, name, $3, COALESCE(category, 'savings'), $4,
 				       interest_rate, growth_strategy, false,
-				       $5, $6, $7
+				       $5, $6, $7, $8
 				FROM finance_cash_accounts WHERE id = $1 AND user_id = $2`,
 				*imp.TargetCashAccountID, userID, amount, occursOn,
-				eventID, imp.ImpactKind, impactFrequency,
+				eventID, imp.ImpactKind, impactFrequency, deltaType,
 			); err != nil {
 				return fmt.Errorf("failed to insert cash account impact: %w", err)
 			}
@@ -739,17 +769,18 @@ func (s *Store) insertStartImpact(ctx context.Context, tx pgx.Tx, userID string,
 	if growthStrategy == "" {
 		growthStrategy = "fixed"
 	}
+	notes := imp.Notes
 
 	switch targetType {
 	case "income":
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO finance_incomes (
 				user_id, name, amount, frequency, category, start_date, end_date,
-				growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+				growth_rate, growth_strategy, notes, scenario_event_id, impact_kind, impact_frequency
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11, $12, $13)`,
 			userID, name, amount, frequency, category, startDate, imp.EndDate,
-			growthRate, growthStrategy, eventID, imp.ImpactKind, impactFrequency,
+			growthRate, growthStrategy, notes, eventID, imp.ImpactKind, impactFrequency,
 		); err != nil {
 			return fmt.Errorf("failed to insert start income: %w", err)
 		}
@@ -758,11 +789,11 @@ func (s *Store) insertStartImpact(ctx context.Context, tx pgx.Tx, userID string,
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO finance_expenses (
 				user_id, name, amount, frequency, category, start_date, end_date,
-				growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+				growth_rate, growth_strategy, notes, scenario_event_id, impact_kind, impact_frequency
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11, $12, $13)`,
 			userID, name, amount, frequency, category, startDate, imp.EndDate,
-			growthRate, growthStrategy, eventID, imp.ImpactKind, impactFrequency,
+			growthRate, growthStrategy, notes, eventID, imp.ImpactKind, impactFrequency,
 		); err != nil {
 			return fmt.Errorf("failed to insert start expense: %w", err)
 		}
@@ -771,11 +802,11 @@ func (s *Store) insertStartImpact(ctx context.Context, tx pgx.Tx, userID string,
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO finance_assets (
 				user_id, name, current_value, category, start_date, end_date,
-				growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+				growth_rate, growth_strategy, notes, scenario_event_id, impact_kind, impact_frequency
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), $10, $11, $12)`,
 			userID, name, amount, category, startDate, imp.EndDate,
-			growthRate, growthStrategy, eventID, imp.ImpactKind, impactFrequency,
+			growthRate, growthStrategy, notes, eventID, imp.ImpactKind, impactFrequency,
 		); err != nil {
 			return fmt.Errorf("failed to insert start asset: %w", err)
 		}
@@ -792,12 +823,12 @@ func (s *Store) insertStartImpact(ctx context.Context, tx pgx.Tx, userID string,
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO finance_liabilities (
 				user_id, name, current_balance, category, start_date, end_date,
-				interest_rate_apr, minimum_payment, growth_strategy,
+				interest_rate_apr, minimum_payment, growth_strategy, notes,
 				scenario_event_id, impact_kind, impact_frequency
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11, $12, $13)`,
 			userID, name, amount, category, startDate, imp.EndDate,
-			interestRate, minimumPayment, growthStrategy,
+			interestRate, minimumPayment, growthStrategy, notes,
 			eventID, imp.ImpactKind, impactFrequency,
 		); err != nil {
 			return fmt.Errorf("failed to insert start liability: %w", err)
@@ -807,11 +838,11 @@ func (s *Store) insertStartImpact(ctx context.Context, tx pgx.Tx, userID string,
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO finance_investments (
 				user_id, name, current_value, category, start_date, end_date,
-				growth_rate, growth_strategy, scenario_event_id, impact_kind, impact_frequency
+				growth_rate, growth_strategy, notes, scenario_event_id, impact_kind, impact_frequency
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), $10, $11, $12)`,
 			userID, name, amount, category, startDate, imp.EndDate,
-			growthRate, growthStrategy, eventID, imp.ImpactKind, impactFrequency,
+			growthRate, growthStrategy, notes, eventID, imp.ImpactKind, impactFrequency,
 		); err != nil {
 			return fmt.Errorf("failed to insert start investment: %w", err)
 		}
@@ -824,12 +855,12 @@ func (s *Store) insertStartImpact(ctx context.Context, tx pgx.Tx, userID string,
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO finance_cash_accounts (
 				user_id, name, balance, category, start_date, end_date,
-				interest_rate, growth_strategy, is_accumulator,
+				interest_rate, growth_strategy, notes, is_accumulator,
 				scenario_event_id, impact_kind, impact_frequency
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, $9, $10, $11)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), false, $10, $11, $12)`,
 			userID, name, amount, category, startDate, imp.EndDate,
-			interestRate, growthStrategy,
+			interestRate, growthStrategy, notes,
 			eventID, imp.ImpactKind, impactFrequency,
 		); err != nil {
 			return fmt.Errorf("failed to insert start cash account: %w", err)

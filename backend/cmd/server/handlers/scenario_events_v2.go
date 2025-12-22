@@ -37,6 +37,7 @@ type scenarioImpactV2DTO struct {
 	Name       *string          `json:"name,omitempty"`      // Name for start impacts (creates new item with this name)
 	Frequency  *string          `json:"frequency,omitempty"` // Frequency for income/expense items
 	Notes      *string          `json:"notes,omitempty"`     // Notes for the financial item
+	DeltaType  *string          `json:"deltaType,omitempty"` // 'absolute' or 'percentage' - only for delta impacts
 
 	// Advanced fields for start impacts - used to configure the created financial item
 	Category       *string  `json:"category,omitempty"`       // Category for the created financial item

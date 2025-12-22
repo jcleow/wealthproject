@@ -35,14 +35,19 @@ export function AdvancedSection({
   const selectedStrategy = GROWTH_STRATEGY_OPTIONS.find(s => s.value === impact.growthStrategy)
 
   // Show growth options for:
+  // - start and override impacts only (not delta - delta uses deltaType for percentage changes)
   // - income/expense (unless explicitly one_time for start impacts)
   // - assets and investments always
-  // For non-start impacts, we default to showing growth options since the target item likely has a recurring frequency
   const isStartImpact = impact.impactKind === ImpactKind.Start
+  const isDeltaImpact = impact.impactKind === ImpactKind.Delta
   const isOneTimeStart = isStartImpact && impact.frequency === Frequency.OneTime
-  const showGrowthOptions = (
-    (impact.targetType === TargetType.Income || impact.targetType === TargetType.Expense) && !isOneTimeStart
-  ) || impact.targetType === TargetType.Asset || impact.targetType === TargetType.Investment
+
+  // Delta impacts don't show growth options (they have their own percentage option via deltaType)
+  const showGrowthOptions = !isDeltaImpact && (
+    ((impact.targetType === TargetType.Income || impact.targetType === TargetType.Expense) && !isOneTimeStart) ||
+    impact.targetType === TargetType.Asset ||
+    impact.targetType === TargetType.Investment
+  )
 
   // Show liability options (Interest Rate, Min Payment) only for liability start impacts
   const showLiabilityOptions = isStartImpact && impact.targetType === TargetType.Liability

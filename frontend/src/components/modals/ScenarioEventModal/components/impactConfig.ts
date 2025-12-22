@@ -52,9 +52,12 @@ export const TARGET_TYPE_GROUPS = [
 ]
 
 // Verb options for dropdown
+// Includes absolute ($) and percentage (%) variants for delta impacts
 export const VERB_OPTIONS: { value: ImpactVerb; label: string }[] = [
-  { value: 'increases_by', label: 'increases by' },
-  { value: 'decreases_by', label: 'decreases by' },
+  { value: 'increases_by', label: 'increases by $' },
+  { value: 'increases_by_percent', label: 'increases by %' },
+  { value: 'decreases_by', label: 'decreases by $' },
+  { value: 'decreases_by_percent', label: 'decreases by %' },
   { value: 'becomes', label: 'becomes' },
   { value: 'starts_at', label: 'starts at' },
   { value: 'ends', label: 'ends' },
@@ -95,19 +98,25 @@ export function getTargetTypeLabel(targetType: string): string {
   }
 }
 
-// Format amount display based on frequency
-export function formatAmount(amount: number, frequency?: string) {
-  const formatted = new Intl.NumberFormat('en-US').format(amount)
-  if (!frequency) return `$${formatted}`
+// Format amount display based on frequency and delta type
+export function formatAmount(amount: number, frequency?: string, deltaType?: string) {
+  const formatted = new Intl.NumberFormat('en-US').format(Math.abs(amount))
+  const prefix = deltaType === 'percentage' ? '' : '$'
+  const suffix = deltaType === 'percentage' ? '%' : ''
+  if (!frequency) return `${prefix}${formatted}${suffix}`
   const freqLabel = frequency === 'monthly' ? '/mo' : frequency === 'annual' ? '/yr' : frequency === 'weekly' ? '/wk' : ''
-  return `$${formatted}${freqLabel}`
+  return `${prefix}${formatted}${suffix}${freqLabel}`
 }
 
 // Get verb color class
 export function getVerbColor(verb: ImpactVerb) {
   switch (verb) {
-    case 'increases_by': return 'text-emerald-400'
-    case 'decreases_by': return 'text-rose-400'
+    case 'increases_by':
+    case 'increases_by_percent':
+      return 'text-emerald-400'
+    case 'decreases_by':
+    case 'decreases_by_percent':
+      return 'text-rose-400'
     case 'becomes': return 'text-blue-400'
     case 'starts_at': return 'text-violet-400'
     case 'ends': return 'text-orange-400'
