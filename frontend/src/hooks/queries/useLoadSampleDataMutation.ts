@@ -521,21 +521,16 @@ export function useLoadSampleDataMutation() {
             // We just need to pass the impact data with targetType set
             // No parentId needed - backend handles creation
 
-            // Calculate endDate for one-time items
+            // For one-time items, set endMonth to same month as startMonth
             const startMonth = impact.startMonth ?? event.occursOn
             const frequency = impact.frequency || 'monthly'
             const isOneTime = frequency === 'one_time'
-            const endDateIso = isOneTime ? (() => {
-              const d = startMonth ? new Date(startMonth) : new Date()
-              d.setMonth(d.getMonth() + 1, 0)
-              d.setHours(23, 59, 59, 999)
-              return d.toISOString()
-            })() : undefined
+            const endMonth = isOneTime ? startMonth : undefined
 
             linkedImpacts.push({
               ...impact,
               // No parentId for start impacts - backend creates the item
-              endDate: endDateIso,
+              endMonth,
             })
             continue
           } else if (impact.impactKind === 'delta' || impact.impactKind === 'override') {
@@ -543,12 +538,22 @@ export function useLoadSampleDataMutation() {
             // For delta/override, we find a matching existing item to modify
             if (impact.targetType === 'income') {
               // Look for the main salary income for income-related impacts
-              parentId = incomeBySource.get('Software Engineer Salary') ?? undefined
+              parentId = incomeBySource.get('Software Engineer Salary')
+              if (!parentId) {
+                console.error(`[loadSampleData] Failed to find income "Software Engineer Salary" for ${impact.impactKind} impact in event "${event.name}"`)
+                console.error('[loadSampleData] Available incomes:', Array.from(incomeBySource.keys()))
+                throw new Error(`Cannot create ${impact.impactKind} impact: income "Software Engineer Salary" not found`)
+              }
             } else if (impact.targetType === 'expense') {
               // For expense deltas, use the first expense as a generic target
               // (In real usage, the user would select the specific item)
-              const firstExpenseId = expenses[0]?.id
-              parentId = firstExpenseId ?? undefined
+              parentId = expenses[0]?.id
+              if (!parentId) {
+                console.error(`[loadSampleData] No expenses available for ${impact.impactKind} impact in event "${event.name}"`)
+                throw new Error(`Cannot create ${impact.impactKind} impact: no expenses available to target`)
+              }
+            } else {
+              throw new Error(`Unsupported targetType "${impact.targetType}" for ${impact.impactKind} impact in event "${event.name}"`)
             }
           }
 

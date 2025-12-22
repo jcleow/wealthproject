@@ -229,9 +229,10 @@ type DateRangeOptions struct {
 
 // ListQuery consolidates common query parameters for list operations.
 type ListQuery struct {
-	UserID     string
-	DateRange  DateRangeOptions
-	Pagination PaginationParams
+	UserID               string
+	DateRange            DateRangeOptions
+	Pagination           PaginationParams
+	IncludeScenarioItems bool // When true, include items created by scenario start impacts
 }
 
 func addDateRangeFilterQuery(opts DateRangeOptions, argIdx int) (string, int) {
@@ -288,8 +289,17 @@ func (s *Store) ListNonCashAssets(
 		COALESCE(notes, '') as notes,
 		updated_at
 	FROM finance_assets
-	WHERE user_id = $1
-	`
+	WHERE user_id = $1`
+
+	// Filter scenario items:
+	// - When IncludeScenarioItems=false: exclude all scenario items
+	// - When IncludeScenarioItems=true: include regular items AND 'start' impact items only
+	//   (delta/override/stop rows are impact DATA, not items to display)
+	if !q.IncludeScenarioItems {
+		query += ` AND scenario_event_id IS NULL`
+	} else {
+		query += ` AND (scenario_event_id IS NULL OR impact_kind = 'start')`
+	}
 
 	args := []any{q.UserID}
 	argIdx := 2 // i.e start 2
@@ -369,8 +379,16 @@ func (s *Store) ListInvestments(
 	COALESCE(notes, '') as notes,
 	updated_at
 FROM finance_investments
-	WHERE user_id = $1
-	`
+	WHERE user_id = $1`
+
+	// Filter scenario items:
+	// - When IncludeScenarioItems=false: exclude all scenario items
+	// - When IncludeScenarioItems=true: include regular items AND 'start' impact items only
+	if !q.IncludeScenarioItems {
+		query += ` AND scenario_event_id IS NULL`
+	} else {
+		query += ` AND (scenario_event_id IS NULL OR impact_kind = 'start')`
+	}
 
 	args := []any{q.UserID}
 	argIdx := 2
@@ -452,6 +470,15 @@ func (s *Store) ListCashAssets(
 	FROM finance_cash_accounts
 	WHERE user_id = $1`
 
+	// Filter scenario items:
+	// - When IncludeScenarioItems=false: exclude all scenario items
+	// - When IncludeScenarioItems=true: include regular items AND 'start' impact items only
+	if !q.IncludeScenarioItems {
+		query += ` AND scenario_event_id IS NULL`
+	} else {
+		query += ` AND (scenario_event_id IS NULL OR impact_kind = 'start')`
+	}
+
 	args := []any{q.UserID}
 	argIdx := 2
 
@@ -532,6 +559,15 @@ func (s *Store) ListLiabilities(
 		updated_at
 	FROM finance_liabilities
 	WHERE user_id = $1`
+
+	// Filter scenario items:
+	// - When IncludeScenarioItems=false: exclude all scenario items
+	// - When IncludeScenarioItems=true: include regular items AND 'start' impact items only
+	if !q.IncludeScenarioItems {
+		query += ` AND scenario_event_id IS NULL`
+	} else {
+		query += ` AND (scenario_event_id IS NULL OR impact_kind = 'start')`
+	}
 
 	args := []any{q.UserID}
 	argIdx := 2
@@ -615,6 +651,15 @@ func (s *Store) ListIncomes(
 	FROM finance_incomes
 	WHERE user_id = $1`
 
+	// Filter scenario items:
+	// - When IncludeScenarioItems=false: exclude all scenario items
+	// - When IncludeScenarioItems=true: include regular items AND 'start' impact items only
+	if !q.IncludeScenarioItems {
+		query += ` AND scenario_event_id IS NULL`
+	} else {
+		query += ` AND (scenario_event_id IS NULL OR impact_kind = 'start')`
+	}
+
 	args := []any{q.UserID}
 	argIdx := 2
 
@@ -695,6 +740,15 @@ func (s *Store) ListExpenses(
 		source_liability_id
 	FROM finance_expenses
 	WHERE user_id = $1`
+
+	// Filter scenario items:
+	// - When IncludeScenarioItems=false: exclude all scenario items
+	// - When IncludeScenarioItems=true: include regular items AND 'start' impact items only
+	if !q.IncludeScenarioItems {
+		query += ` AND scenario_event_id IS NULL`
+	} else {
+		query += ` AND (scenario_event_id IS NULL OR impact_kind = 'start')`
+	}
 
 	args := []any{q.UserID}
 	argIdx := 2

@@ -51,15 +51,7 @@ func (s *Store) CreateScenarioEventV2(ctx context.Context, ev ScenarioEvent) (Sc
 	}
 	created.Tags = decodeStringArray(tagsBytes)
 
-	// For 'start' impacts, update the linked financial item's amount and frequency
-	for _, imp := range ev.Impacts {
-		if imp.ImpactKind == scenario.ImpactKindStart {
-			if err := s.updateStartImpactTarget(ctx, tx, &imp); err != nil {
-				return ScenarioEvent{}, fmt.Errorf("failed to update start impact target: %w", err)
-			}
-		}
-	}
-
+	// Insert impacts - for 'start' impacts, insertStartImpact creates the financial items
 	if len(ev.Impacts) > 0 {
 		if err := s.insertImpactsV2(ctx, tx, ev.UserID, created.ID, ev.Impacts); err != nil {
 			return ScenarioEvent{}, err

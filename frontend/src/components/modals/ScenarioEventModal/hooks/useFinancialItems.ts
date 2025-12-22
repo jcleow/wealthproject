@@ -1,17 +1,23 @@
 import { useMemo, useCallback } from 'react'
-import { useFinancialData } from '@/hooks/useFinancialDataWithQueries'
+import { useAssetsQuery } from '@/hooks/queries/useAssetsQuery'
+import { useLiabilitiesQuery } from '@/hooks/queries/useLiabilitiesQuery'
+import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
+import { useExpensesQuery } from '@/hooks/queries/useExpensesQuery'
 import { useInvestmentsQuery } from '@/hooks/queries/useInvestmentsQuery'
 import { useCashAccountsQuery } from '@/hooks/queries/useCashAccountsQuery'
+import type { Asset, Liability, Income, Expense } from '@/types/financial'
+import type { Investment } from '@/api/financial/investments'
+import type { CashAccount } from '@/api/financial/cashAccounts'
 
 export type FinancialItem = { id: string; name: string; amount: number; frequency?: string }
 
 export interface UseFinancialItemsReturn {
-  assets: ReturnType<typeof useFinancialData>['assets']
-  liabilities: ReturnType<typeof useFinancialData>['liabilities']
-  incomes: ReturnType<typeof useFinancialData>['incomes']
-  expenses: ReturnType<typeof useFinancialData>['expenses']
-  investments: ReturnType<typeof useInvestmentsQuery>['data']
-  cashAccounts: ReturnType<typeof useCashAccountsQuery>['data']
+  assets: Asset[]
+  liabilities: Liability[]
+  incomes: Income[]
+  expenses: Expense[]
+  investments: Investment[]
+  cashAccounts: CashAccount[]
   financialDataLoading: boolean
   investmentsLoading: boolean
   cashAccountsLoading: boolean
@@ -21,12 +27,28 @@ export interface UseFinancialItemsReturn {
   isLoadingForType: (targetType: string, items: FinancialItem[]) => boolean
 }
 
+/**
+ * Hook for accessing financial items in the ScenarioEventModal.
+ * Lazily fetches v1 financial data only when this modal is rendered.
+ */
 export function useFinancialItems(): UseFinancialItemsReturn {
-  const { assets, liabilities, incomes, expenses, loading: financialDataLoading } = useFinancialData()
+  // These queries are only triggered when this hook is used (i.e., modal is open)
+  const assetsQuery = useAssetsQuery()
+  const liabilitiesQuery = useLiabilitiesQuery()
+  const incomesQuery = useIncomesQuery()
+  const expensesQuery = useExpensesQuery()
   const investmentsQuery = useInvestmentsQuery({ enabled: true })
   const cashAccountsQuery = useCashAccountsQuery()
+
+  const assets = assetsQuery.data ?? []
+  const liabilities = liabilitiesQuery.data ?? []
+  const incomes = incomesQuery.data ?? []
+  const expenses = expensesQuery.data ?? []
   const investments = investmentsQuery.data ?? []
   const cashAccounts = cashAccountsQuery.data ?? []
+
+  const financialDataLoading = assetsQuery.isLoading || liabilitiesQuery.isLoading ||
+                                incomesQuery.isLoading || expensesQuery.isLoading
   const investmentsLoading = investmentsQuery.isLoading
   const cashAccountsLoading = cashAccountsQuery.isLoading
   const allFinancialDataLoading = financialDataLoading || investmentsLoading || cashAccountsLoading

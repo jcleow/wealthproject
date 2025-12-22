@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
-import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
 import { settingsApi } from '@/api/financial'
@@ -67,15 +66,6 @@ export function NetWorthProjection({
   chartTitle,
   chartSubtitle,
 }: NetWorthProjectionProps) {
-  // Get financial data from context
-  const {
-    assets,
-    liabilities,
-    expenses,
-    incomes,
-    getMonthlySavings,
-  } = useFinancialDataContext()
-
   // Fetch user settings
   const { data: userSettings } = useQuery({
     queryKey: QUERY_KEYS.settings.user,
@@ -109,12 +99,6 @@ export function NetWorthProjection({
   const { projection, dataResolution } = useProjectionData({
     timelineYears,
     timelineMonths,
-    assets,
-    liabilities,
-    expenses,
-    incomes,
-    getMonthlySavings,
-    userSettings,
   })
 
   // Effective resolution based on available data and user preference
