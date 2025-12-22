@@ -5,9 +5,8 @@ import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
 import { useExpensesQuery } from '@/hooks/queries/useExpensesQuery'
 import { useInvestmentsQuery } from '@/hooks/queries/useInvestmentsQuery'
 import { useCashAccountsQuery } from '@/hooks/queries/useCashAccountsQuery'
-import type { Asset, Liability, Income, Expense } from '@/types/financial'
+import type { Asset, Liability, Income, Expense, CashAccount } from '@/types/financial'
 import type { Investment } from '@/api/financial/investments'
-import type { CashAccount } from '@/api/financial/cashAccounts'
 
 export type FinancialItem = { id: string; name: string; amount: number; frequency?: string }
 
