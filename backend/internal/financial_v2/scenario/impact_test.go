@@ -885,17 +885,20 @@ func TestApplyImpactsToItem_NegativeDelta_Subtracts(t *testing.T) {
 
 func TestApplyImpactsToItem_OverrideThenDelta(t *testing.T) {
 	/*
-		SCENARIO: Salary raise with additional signing bonus
+		SCENARIO: Override ignores delta impacts
 		────────────────────────────────────────────────────────────────────────
 		Given: User has $120,000/year salary
-		       User creates "New job" event with:
-		       1. OVERRIDE salary to $150,000/year (new base salary)
-		       2. DELTA +$10,000/year (signing bonus paid out annually)
+		       User creates "Retirement" event with:
+		       1. OVERRIDE salary to $150,000/year (pension income)
+		       User also has a separate "Raise" event with:
+		       2. DELTA +$10,000/year (raise from old job)
 		When:  We compute the salary value
-		Then:  The salary should be $160,000 ($150,000 + $10,000)
+		Then:  The salary should be $150,000 (override only, delta ignored)
 
-		WHY: The override sets the new base, then deltas add on top.
-		     This is the correct order: base replacement first, then additions.
+		WHY: Override is the final word - it completely replaces the value
+		     and ignores any delta impacts. This allows scenarios like
+		     "retirement" to set a fixed income that isn't affected by
+		     other adjustments from the original job.
 	*/
 	incomeID := "salary-1"
 	baseValue := mustDecimal("120000")
@@ -907,7 +910,7 @@ func TestApplyImpactsToItem_OverrideThenDelta(t *testing.T) {
 			EventID:        "event-job",
 			ImpactKind:     ImpactKindOverride,
 			Amount:         decAmount(150000),
-			Cadence:    common.FrequencyAnnual,
+			Cadence:        common.FrequencyAnnual,
 			TargetIncomeID: &incomeID,
 			StartDate:      date(2025, 6, 1),
 		},
@@ -916,7 +919,7 @@ func TestApplyImpactsToItem_OverrideThenDelta(t *testing.T) {
 			EventID:        "event-job",
 			ImpactKind:     ImpactKindDelta,
 			Amount:         decAmount(10000),
-			Cadence:    common.FrequencyAnnual,
+			Cadence:        common.FrequencyAnnual,
 			TargetIncomeID: &incomeID,
 			StartDate:      date(2025, 6, 1),
 		},
@@ -934,9 +937,18 @@ func TestApplyImpactsToItem_OverrideThenDelta(t *testing.T) {
 		eventsByID,
 	)
 
-	expected := mustDecimal("160000")
+	// Override is final - delta is ignored
+	expected := mustDecimal("150000")
 	if result.AdjustedValue.Cmp(expected) != 0 {
-		t.Errorf("expected %s (override + delta), got %s", expected.String(), result.AdjustedValue.String())
+		t.Errorf("expected %s (override only, delta ignored), got %s", expected.String(), result.AdjustedValue.String())
+	}
+
+	// Only override should be in applied impacts (delta was skipped)
+	if len(result.AppliedImpacts) != 1 {
+		t.Errorf("expected 1 applied impact (override only), got %d", len(result.AppliedImpacts))
+	}
+	if result.AppliedImpacts[0].ImpactKind != ImpactKindOverride {
+		t.Errorf("expected override impact, got %s", result.AppliedImpacts[0].ImpactKind)
 	}
 }
 

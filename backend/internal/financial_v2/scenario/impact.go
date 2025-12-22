@@ -282,6 +282,10 @@ func ApplyImpactsToItem(
 
 	// Example: latestOverride = {Amount: 150000, Cadence: "annual"}
 	//          result.AdjustedValue = $150,000 (base value completely replaced)
+	//
+	// IMPORTANT: Override is the final word - it replaces the base value AND
+	// ignores any delta impacts. This allows scenarios like "retirement" to
+	// set a fixed income that isn't affected by other adjustments.
 	if latestOverride != nil {
 		result.AdjustedValue = ConvertImpactAmount(latestOverride, itemInfo)
 		monthlyAmt, annualAmt := computeImpactAmounts(latestOverride)
@@ -293,23 +297,24 @@ func ApplyImpactsToItem(
 			Cadence:       latestOverride.Cadence,
 			Notes:         latestOverride.Notes,
 		})
+		// Override is final - skip delta pass
+		return result
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// PASS 3: Apply all delta impacts (cumulative - all deltas stack)
 	//
+	// Only reached if NO override is active. When an override is present,
+	// it takes precedence and deltas are ignored.
+	//
 	// Unlike override (only latest wins), ALL applicable deltas are summed.
 	// This allows multiple additive adjustments.
 	//
-	// Example: Two delta impacts
-	//   delta1 = {Amount: 100000, Cadence: "monthly"}  // +$100k/month
-	//   delta2 = {Amount: 5000, Cadence: "monthly"}    // +$5k/month bonus
-	//   Both apply: result.AdjustedValue += $100,000 += $5,000
-	//
-	// Example with prior override:
-	//   After PASS 2: result.AdjustedValue = $150,000 (from override)
-	//   delta = {Amount: 5000}
-	//   result.AdjustedValue = $150,000 + $5,000 = $155,000
+	// Example: Two delta impacts (no override)
+	//   base = $100,000
+	//   delta1 = {Amount: 10000, Cadence: "monthly"}  // +$10k/month raise
+	//   delta2 = {Amount: 5000, Cadence: "monthly"}   // +$5k/month bonus
+	//   Both apply: result.AdjustedValue = $100,000 + $10,000 + $5,000 = $115,000
 	// ─────────────────────────────────────────────────────────────────────────
 	for i := range impacts {
 		impact := &impacts[i]
