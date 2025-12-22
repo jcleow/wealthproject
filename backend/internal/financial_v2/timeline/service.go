@@ -1182,6 +1182,7 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 			StartDate:       row.StartDate.Format("2006-01-02"),
 			StartYear:       state.StartYear,
 			StartMonth:      state.StartMonth,
+			ScenarioEventID: row.ScenarioEventID,
 		}
 		// Add applied impacts if any
 		if impacts, ok := appliedImpacts[row.ID]; ok {

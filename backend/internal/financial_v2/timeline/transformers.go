@@ -14,15 +14,16 @@ func transformNonCashAssets(assets []repo.NonCashAsset) []FinancialDataRow {
 	rows := make([]FinancialDataRow, 0, len(assets))
 	for _, a := range assets {
 		rows = append(rows, FinancialDataRow{
-			ID:         a.ID,
-			ParentID:   a.ParentID, // Already coalesced in SQL
-			Name:       a.Name,
-			Category:   a.Category,
-			Amount:     a.CurrentValue,
-			StartDate:  a.StartDate,
-			EndDate:    a.EndDate,
-			ItemType:   FinNonCashAsset,
-			GrowthRate: a.AnnualGrowthRate,
+			ID:              a.ID,
+			ParentID:        a.ParentID, // Already coalesced in SQL
+			Name:            a.Name,
+			Category:        a.Category,
+			Amount:          a.CurrentValue,
+			StartDate:       a.StartDate,
+			EndDate:         a.EndDate,
+			ItemType:        FinNonCashAsset,
+			GrowthRate:      a.AnnualGrowthRate,
+			ScenarioEventID: a.ScenarioEventID,
 		})
 	}
 	return rows

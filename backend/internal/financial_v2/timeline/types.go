@@ -146,6 +146,7 @@ type NonCashAssetResponse struct {
 	StartYear       int             `json:"startYear"`
 	StartMonth      int             `json:"startMonth"`
 	EventImpacts    []AppliedImpact `json:"eventImpacts,omitempty"`
+	ScenarioEventID *string         `json:"scenarioEventId,omitempty"` // If set, this item was created by a start impact
 }
 
 // InvestmentResponse keeps investments separate from non-cash assets

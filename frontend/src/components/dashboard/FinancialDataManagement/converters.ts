@@ -47,6 +47,7 @@ export function nonCashAssetV2ToTimelineItem(item: NonCashAssetResponseV2): Time
     startYear: item.startYear,
     startMonth: item.startMonth,
     eventImpacts: convertAppliedImpacts(item.eventImpacts),
+    scenarioEventId: item.scenarioEventId,
   }
 }
 

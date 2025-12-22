@@ -287,7 +287,8 @@ func (s *Store) ListNonCashAssets(
 		start_date,
 		end_date,
 		COALESCE(notes, '') as notes,
-		updated_at
+		updated_at,
+		scenario_event_id
 	FROM finance_assets
 	WHERE user_id = $1`
 
@@ -348,7 +349,7 @@ func (s *Store) ListNonCashAssets(
 	for rows.Next() {
 		var a NonCashAsset
 		// pgx can scan NULL directly into *time.Time
-		err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.Notes, &a.UpdatedAt)
+		err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.Notes, &a.UpdatedAt, &a.ScenarioEventID)
 		if err != nil {
 			return PaginatedResult[NonCashAsset]{}, err
 		}
@@ -377,7 +378,8 @@ func (s *Store) ListInvestments(
 	start_date,
 	end_date,
 	COALESCE(notes, '') as notes,
-	updated_at
+	updated_at,
+	scenario_event_id
 FROM finance_investments
 	WHERE user_id = $1`
 
@@ -433,7 +435,7 @@ FROM finance_investments
 	investments := []Investment{}
 	for rows.Next() {
 		var inv Investment
-		err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.GrowthRate, &inv.StartDate, &inv.EndDate, &inv.Notes, &inv.UpdatedAt)
+		err := rows.Scan(&inv.ID, &inv.ParentID, &inv.Name, &inv.Category, &inv.CurrentValue, &inv.GrowthRate, &inv.StartDate, &inv.EndDate, &inv.Notes, &inv.UpdatedAt, &inv.ScenarioEventID)
 		if err != nil {
 			return PaginatedResult[Investment]{}, err
 		}
@@ -556,7 +558,8 @@ func (s *Store) ListLiabilities(
 		COALESCE(notes, '') as notes,
 		COALESCE(growth_strategy, '') as growth_strategy,
 		COALESCE(repayment_strategy, 'standard_amortization') as repayment_strategy,
-		updated_at
+		updated_at,
+		scenario_event_id
 	FROM finance_liabilities
 	WHERE user_id = $1`
 
@@ -613,7 +616,7 @@ func (s *Store) ListLiabilities(
 			&l.ID, &l.ParentID, &l.Name, &l.Category,
 			&l.CurrentBalance, &l.InterestRateAPR, &l.MinimumPayment,
 			&l.StartDate, &l.EndDate, &l.Notes, &l.GrowthStrategy,
-			&l.RepaymentStrategy, &l.UpdatedAt,
+			&l.RepaymentStrategy, &l.UpdatedAt, &l.ScenarioEventID,
 		)
 		if err != nil {
 			return PaginatedResult[Liability]{}, err
@@ -647,7 +650,8 @@ func (s *Store) ListIncomes(
 		COALESCE(growth_strategy, '') as growth_strategy,
 		updated_at,
 		COALESCE(income_type, 'other') as income_type,
-		COALESCE(cpf_wage_type, '') as cpf_wage_type
+		COALESCE(cpf_wage_type, '') as cpf_wage_type,
+		scenario_event_id
 	FROM finance_incomes
 	WHERE user_id = $1`
 
@@ -704,7 +708,7 @@ func (s *Store) ListIncomes(
 			&i.ID, &i.ParentID, &i.Name, &i.Amount, &i.Frequency,
 			&i.StartDate, &i.EndDate, &i.Category, &i.GrowthRate,
 			&i.Notes, &i.GrowthStrategy, &i.UpdatedAt,
-			&i.IncomeType, &i.CPFWageType,
+			&i.IncomeType, &i.CPFWageType, &i.ScenarioEventID,
 		)
 		if err != nil {
 			return PaginatedResult[Income]{}, err
@@ -737,7 +741,8 @@ func (s *Store) ListExpenses(
 		COALESCE(notes, '') as notes,
 		COALESCE(growth_strategy, '') as growth_strategy,
 		updated_at,
-		source_liability_id
+		source_liability_id,
+		scenario_event_id
 	FROM finance_expenses
 	WHERE user_id = $1`
 
@@ -793,7 +798,7 @@ func (s *Store) ListExpenses(
 		err := rows.Scan(
 			&e.ID, &e.ParentID, &e.Name, &e.Amount, &e.Frequency,
 			&e.StartDate, &e.EndDate, &e.Category, &e.GrowthRate,
-			&e.Notes, &e.GrowthStrategy, &e.UpdatedAt, &e.SourceLiabilityID,
+			&e.Notes, &e.GrowthStrategy, &e.UpdatedAt, &e.SourceLiabilityID, &e.ScenarioEventID,
 		)
 		if err != nil {
 			return PaginatedResult[Expense]{}, err

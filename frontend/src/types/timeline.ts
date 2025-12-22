@@ -216,6 +216,8 @@ export interface NonCashAssetResponseV2 {
   startYear: number
   startMonth: number
   eventImpacts?: AppliedImpactV2[]
+  /** If set, this item was created by a scenario start impact */
+  scenarioEventId?: string
 }
 
 /** Investment in V2 response (decimal values come as strings from backend) */
