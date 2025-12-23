@@ -1,17 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import dynamic from 'next/dynamic'
 
 import type { ScenarioEvent } from '@/types/scenario'
 import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import type { ZoomLevel } from '@/components/timeline/ZoomControls'
+import { useChartJS } from '@/lib/featureFlags'
 
 // Sub-components
 import { ChartHeader } from './projections/ChartHeader'
 import { ChartZoomControls } from './projections/ChartZoomControls'
 import { ProjectionChart } from './projections/ProjectionChart'
 import { AxisModeToggle } from './projections/AxisModeToggle'
+import { ChartLoadingSkeleton } from './projections/ChartLoadingSkeleton'
+
+// Lazy-load Chart.js implementation to reduce bundle size
+const ProjectionChartJS = dynamic(
+  () => import('./projections/ProjectionChartJS').then((mod) => mod.ProjectionChartJS),
+  {
+    ssr: false,
+    loading: () => <ChartLoadingSkeleton />,
+  }
+)
 
 // Hooks
 import { useProjectionData, useScenarioMarkers } from './projections/useProjectionData'
@@ -334,28 +346,55 @@ export function NetWorthProjection({
             className="h-full w-full"
             style={{ touchAction: 'none' }}
           >
-            <ProjectionChart
-              displayData={displayData}
-              enhancedDisplayData={enhancedDisplayData}
-              enableChartOverlays={ENABLE_CHART_OVERLAYS}
-              chartType={chartType}
-              selectedMetrics={selectedMetrics}
-              areaAnimationEnabled={areaAnimationEnabled}
-              ticks={ticks}
-              overrideYearsSet={overrideYearsSet}
-              onSelectYear={onSelectYear}
-              onSelectMonth={onSelectMonth}
-              selectedYear={selectedYear}
-              xAxisMode={xAxisMode}
-              startingAge={userSettings?.startingAge}
-              dataResolution={dataResolution}
-              visibleRangeMonths={visibleRangeMonths}
-              baseCalendarYear={baseCalendarYear}
-              scenarioMarkers={scenarioMarkers}
-              onScenarioSelect={onScenarioSelect}
-              markersReady={markersReady}
-              prefersReducedMotion={prefersReducedMotion}
-            />
+            {useChartJS ? (
+              <ProjectionChartJS
+                displayData={displayData}
+                enhancedDisplayData={enhancedDisplayData}
+                enableChartOverlays={ENABLE_CHART_OVERLAYS}
+                areaAnimationEnabled={areaAnimationEnabled}
+                ticks={ticks}
+                overrideYearsSet={overrideYearsSet}
+                onSelectYear={onSelectYear}
+                onSelectMonth={onSelectMonth}
+                selectedYear={selectedYear}
+                xAxisMode={xAxisMode}
+                startingAge={userSettings?.startingAge}
+                dataResolution={dataResolution}
+                visibleRangeMonths={visibleRangeMonths}
+                baseCalendarYear={baseCalendarYear}
+                scenarioMarkers={scenarioMarkers}
+                onScenarioSelect={onScenarioSelect}
+                markersReady={markersReady}
+                prefersReducedMotion={prefersReducedMotion}
+                scrollMode={scrollMode}
+                projectionLength={projection.length}
+                startIndex={actualStartIndex}
+                endIndex={actualEndIndex}
+              />
+            ) : (
+              <ProjectionChart
+                displayData={displayData}
+                enhancedDisplayData={enhancedDisplayData}
+                enableChartOverlays={ENABLE_CHART_OVERLAYS}
+                chartType={chartType}
+                selectedMetrics={selectedMetrics}
+                areaAnimationEnabled={areaAnimationEnabled}
+                ticks={ticks}
+                overrideYearsSet={overrideYearsSet}
+                onSelectYear={onSelectYear}
+                onSelectMonth={onSelectMonth}
+                selectedYear={selectedYear}
+                xAxisMode={xAxisMode}
+                startingAge={userSettings?.startingAge}
+                dataResolution={dataResolution}
+                visibleRangeMonths={visibleRangeMonths}
+                baseCalendarYear={baseCalendarYear}
+                scenarioMarkers={scenarioMarkers}
+                onScenarioSelect={onScenarioSelect}
+                markersReady={markersReady}
+                prefersReducedMotion={prefersReducedMotion}
+              />
+            )}
           </div>
         ) : (
           <div className="flex h-full min-h-[240px] items-center justify-center text-sm text-slate-400">
