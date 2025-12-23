@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from './AuthProvider'
 
-const PUBLIC_ROUTES = ['/', '/home', '/login', '/signup', '/reset-password']
+const PUBLIC_ROUTES = ['/', '/home', '/login', '/signup', '/reset-password', '/property-planner']
 
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))

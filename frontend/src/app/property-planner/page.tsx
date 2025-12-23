@@ -31,6 +31,9 @@ import {
   Plus,
   X,
   ChevronDown,
+  ChevronRight,
+  Trash2,
+  Pencil,
 } from 'lucide-react'
 
 // ============================================
@@ -148,6 +151,17 @@ interface SaleResult {
   grossProceeds: number        // Sale price - outstanding loan
   netCashProceeds: number      // After all deductions
   cpfRefundedToOa: number      // Amount going back to CPF
+}
+
+// Property scenario for the list view
+interface PropertyScenario {
+  id: string
+  name: string
+  propertyType: PropertyType
+  inputs: MortgageInputs
+  saleInputs: SaleInputs
+  isIncluded: boolean  // Whether to include in financial planning
+  createdAt: number
 }
 
 // Default sale fees
@@ -1445,6 +1459,7 @@ function FormInput({
   min,
   max,
   step,
+  helperText,
 }: {
   label: string
   value: string | number
@@ -1456,13 +1471,14 @@ function FormInput({
   min?: number
   max?: number
   step?: number
+  helperText?: string
 }) {
   return (
     <div className="space-y-1.5">
       <label className="text-xs font-medium text-slate-400 block">{label}</label>
       <div className="relative">
         {prefix && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">
             {prefix}
           </span>
         )}
@@ -1475,20 +1491,24 @@ function FormInput({
           max={max}
           step={step}
           className={cn(
-            "w-full rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm",
+            "w-full rounded-xl bg-white/[0.05] border border-white/[0.10] text-white text-sm",
             "py-2.5 transition-all duration-200",
-            "focus:outline-none focus:border-white/20 focus:bg-white/[0.05]",
-            "placeholder:text-slate-600",
+            "hover:border-white/[0.15] hover:bg-white/[0.06]",
+            "focus:outline-none focus:border-white/30 focus:bg-white/[0.08] focus:ring-1 focus:ring-white/10",
+            "placeholder:text-slate-500",
             prefix ? "pl-7" : "px-3",
             suffix ? "pr-10" : "pr-3"
           )}
         />
         {suffix && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
             {suffix}
           </span>
         )}
       </div>
+      {helperText && (
+        <p className="text-[10px] text-slate-500">{helperText}</p>
+      )}
     </div>
   )
 }
@@ -1499,7 +1519,7 @@ const FORM_STEPS: { id: FormStep; label: string; icon: string }[] = [
   { id: 'property', label: 'Property', icon: '🏠' },
   { id: 'borrowers', label: 'Borrowers', icon: '👥' },
   { id: 'financing', label: 'Financing', icon: '💰' },
-  { id: 'terms', label: 'Terms', icon: '📋' },
+  { id: 'terms', label: 'Others', icon: '📋' },
 ]
 
 function MortgageForm({
@@ -1536,6 +1556,32 @@ function MortgageForm({
 
   const currentStepIndex = FORM_STEPS.findIndex(s => s.id === currentStep)
 
+  // Step validation - check if each step has required fields filled
+  const isStep1Valid = inputs.propertyPrice > 0 && inputs.loanAmount > 0
+  const isStep2Valid = inputs.householdIncome > 0
+  const isStep3Valid = inputs.loanTermYears > 0 && (inputs.fixedRate > 0 || inputs.floatingRate > 0)
+  const isStep4Valid = true // Others step is always valid (optional fields only)
+
+  const getStepValidation = (stepIndex: number): boolean => {
+    switch (stepIndex) {
+      case 0: return true // Property step is always accessible
+      case 1: return isStep1Valid // Need property filled to access borrowers
+      case 2: return isStep1Valid && isStep2Valid // Need property + borrowers to access financing
+      case 3: return isStep1Valid && isStep2Valid && isStep3Valid // Need all previous to access terms
+      default: return false
+    }
+  }
+
+  const isCurrentStepValid = (): boolean => {
+    switch (currentStep) {
+      case 'property': return isStep1Valid
+      case 'borrowers': return isStep2Valid
+      case 'financing': return isStep3Valid
+      case 'terms': return isStep4Valid
+      default: return false
+    }
+  }
+
   const goToNextStep = () => {
     const nextIndex = currentStepIndex + 1
     if (nextIndex < FORM_STEPS.length) {
@@ -1550,29 +1596,45 @@ function MortgageForm({
     }
   }
 
+  const getNextStepLabel = (): string => {
+    if (currentStepIndex >= FORM_STEPS.length - 1) return ''
+    return FORM_STEPS[currentStepIndex + 1].label
+  }
+
   return (
     <div className="space-y-4">
       {/* Progress Tabs */}
-      <div className="flex items-center gap-1 p-1 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+      <div className="flex items-center gap-1 p-1.5 bg-white/[0.02] border border-white/[0.08] rounded-xl">
         {FORM_STEPS.map((step, index) => {
           const isActive = step.id === currentStep
           const isPast = index < currentStepIndex
+          const isAccessible = getStepValidation(index)
+          const isLocked = !isAccessible && index > currentStepIndex
           return (
             <button
               key={step.id}
-              onClick={() => setCurrentStep(step.id)}
+              onClick={() => isAccessible && setCurrentStep(step.id)}
+              disabled={isLocked}
               className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all duration-200",
+                "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs font-medium transition-all duration-200",
                 isActive
-                  ? "bg-white/10 text-white"
+                  ? "bg-white/[0.12] text-white shadow-sm"
                   : isPast
-                    ? "text-emerald-400 hover:bg-white/[0.03]"
-                    : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.03]"
+                    ? "text-white/80 hover:bg-white/[0.05]"
+                    : isLocked
+                      ? "text-slate-600 cursor-not-allowed opacity-50"
+                      : "text-slate-400 hover:text-slate-300 hover:bg-white/[0.03]"
               )}
             >
               <span className={cn(
-                "w-5 h-5 rounded-full flex items-center justify-center text-[10px]",
-                isActive ? "bg-white/20" : isPast ? "bg-emerald-500/20" : "bg-white/[0.04]"
+                "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold",
+                isActive
+                  ? "bg-white/20 text-white"
+                  : isPast
+                    ? "bg-white/15 text-white"
+                    : isLocked
+                      ? "bg-white/[0.02] text-slate-600"
+                      : "bg-white/[0.06] text-slate-400"
               )}>
                 {isPast ? '✓' : index + 1}
               </span>
@@ -1624,9 +1686,10 @@ function MortgageForm({
                           onChange('loanAmount', clampedLoanAmount)
                         }}
                         className={cn(
-                          "w-full rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm",
+                          "w-full rounded-xl bg-white/[0.05] border border-white/[0.10] text-white text-sm",
                           "py-2.5 pl-7 pr-3 transition-all duration-200",
-                          "focus:outline-none focus:border-white/20 focus:bg-white/[0.05]"
+                          "hover:border-white/[0.15] hover:bg-white/[0.06]",
+                          "focus:outline-none focus:border-white/30 focus:bg-white/[0.08] focus:ring-1 focus:ring-white/10"
                         )}
                       />
                     </div>
@@ -1847,6 +1910,71 @@ function MortgageForm({
             {/* ========== STEP 3: FINANCING ========== */}
             {currentStep === 'financing' && (
               <div className="space-y-4">
+                {/* Start Date & Term */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-400 block">Start Date</label>
+                    <input
+                      type="month"
+                      value={inputs.loanStartMonth}
+                      onChange={(e) => onChange('loanStartMonth', e.target.value)}
+                      className="w-full rounded-xl bg-white/[0.05] border border-white/[0.10] text-white text-sm py-2.5 px-3 hover:border-white/[0.15] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-400 block">Term</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={inputs.loanTermYears}
+                        onChange={(e) => onChange('loanTermYears', Number(e.target.value))}
+                        min={1}
+                        max={35}
+                        className="w-full rounded-xl bg-white/[0.05] border border-white/[0.10] text-white text-sm py-2.5 px-3 pr-10 hover:border-white/[0.15] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 transition-all"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">yrs</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Interest Rates */}
+                <div className={cn("grid gap-4", isHDB ? "grid-cols-1" : "grid-cols-2")}>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-400 block">
+                      {isHDB ? 'Interest Rate' : 'Fixed Rate'}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={inputs.fixedRate}
+                        onChange={(e) => onChange('fixedRate', Number(e.target.value))}
+                        step={0.1}
+                        min={0}
+                        max={10}
+                        className="w-full rounded-xl bg-white/[0.05] border border-white/[0.10] text-white text-sm py-2.5 px-3 pr-8 hover:border-white/[0.15] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 transition-all"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
+                    </div>
+                  </div>
+                  {!isHDB && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-400 block">Floating Rate</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={inputs.floatingRate}
+                          onChange={(e) => onChange('floatingRate', Number(e.target.value))}
+                          step={0.1}
+                          min={0}
+                          max={10}
+                          className="w-full rounded-xl bg-white/[0.05] border border-white/[0.10] text-white text-sm py-2.5 px-3 pr-8 hover:border-white/[0.15] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 transition-all"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">%</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Grants */}
                 <FormInput
                   label="Housing Grants"
@@ -1975,74 +2103,9 @@ function MortgageForm({
               </div>
             )}
 
-            {/* ========== STEP 4: TERMS ========== */}
+            {/* ========== STEP 4: OTHERS ========== */}
             {currentStep === 'terms' && (
               <div className="space-y-4">
-                {/* Start Date & Term */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-400 block">Start Date</label>
-                    <input
-                      type="month"
-                      value={inputs.loanStartMonth}
-                      onChange={(e) => onChange('loanStartMonth', e.target.value)}
-                      className="w-full rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm py-2.5 px-3 focus:outline-none focus:border-white/20 transition-colors"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-400 block">Term</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={inputs.loanTermYears}
-                        onChange={(e) => onChange('loanTermYears', Number(e.target.value))}
-                        min={1}
-                        max={35}
-                        className="w-full rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm py-2.5 px-3 pr-10 focus:outline-none focus:border-white/20 transition-colors"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">yrs</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Interest Rates */}
-                <div className={cn("grid gap-4", isHDB ? "grid-cols-1" : "grid-cols-2")}>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-slate-400 block">
-                      {isHDB ? 'Interest Rate' : 'Fixed Rate'}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={inputs.fixedRate}
-                        onChange={(e) => onChange('fixedRate', Number(e.target.value))}
-                        step={0.1}
-                        min={0}
-                        max={10}
-                        className="w-full rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm py-2.5 px-3 pr-8 focus:outline-none focus:border-white/20 transition-colors"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">%</span>
-                    </div>
-                  </div>
-                  {!isHDB && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-slate-400 block">Floating Rate</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={inputs.floatingRate}
-                          onChange={(e) => onChange('floatingRate', Number(e.target.value))}
-                          step={0.1}
-                          min={0}
-                          max={10}
-                          className="w-full rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm py-2.5 px-3 pr-8 focus:outline-none focus:border-white/20 transition-colors"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">%</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
                 {/* ABSD - Only for non-HDB */}
                 {!isHDB && (
                   <div className="space-y-2">
@@ -2098,33 +2161,51 @@ function MortgageForm({
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex items-center justify-between pt-4 border-t border-white/[0.04]">
         <button
           onClick={goToPrevStep}
           disabled={currentStepIndex === 0}
           className={cn(
-            "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+            "px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2",
             currentStepIndex === 0
               ? "text-slate-700 cursor-not-allowed"
-              : "text-slate-400 hover:text-white hover:bg-white/[0.05]"
+              : "text-slate-400 hover:text-white hover:bg-white/[0.05] border border-white/[0.06]"
           )}
         >
-          ← Back
+          <ArrowLeft className="w-4 h-4" />
+          Back
         </button>
         {currentStepIndex < FORM_STEPS.length - 1 ? (
           <button
             onClick={goToNextStep}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 text-white hover:bg-white/15 transition-all"
+            disabled={!isCurrentStepValid()}
+            className={cn(
+              "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2",
+              isCurrentStepValid()
+                ? "bg-white/[0.12] text-white hover:bg-white/[0.18] border border-white/[0.1]"
+                : "bg-white/[0.04] text-slate-500 cursor-not-allowed border border-white/[0.04]"
+            )}
           >
-            Next →
+            Next: {getNextStepLabel()}
+            <ChevronRight className="w-4 h-4" />
           </button>
         ) : (
-          <span className="text-xs text-emerald-400">All steps complete</span>
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <CheckCircle2 className="w-4 h-4 text-white/70" />
+            <span className="text-sm text-white/70">Ready to save</span>
+          </div>
         )}
       </div>
     </div>
   )
 }
+
+type SaleFormStep = 'timing' | 'fees'
+
+const SALE_FORM_STEPS: { id: SaleFormStep; label: string }[] = [
+  { id: 'timing', label: 'Sale Details' },
+  { id: 'fees', label: 'Fees & Notices' },
+]
 
 function SaleParametersForm({
   saleInputs,
@@ -2139,137 +2220,281 @@ function SaleParametersForm({
   propertyPrice: number
   propertyType: PropertyType
 }) {
+  const [currentStep, setCurrentStep] = useState<SaleFormStep>('timing')
   const isHDB = propertyType.includes('hdb')
   const displaySalePrice = saleInputs.expectedSalePrice || Math.round(propertyPrice * 1.2)
 
+  const currentStepIndex = SALE_FORM_STEPS.findIndex(s => s.id === currentStep)
+
+  // Step validation
+  const isStep1Valid = saleInputs.expectedSaleDate.length > 0
+  const isStep2Valid = true // Fees are optional
+
+  const getStepValidation = (stepIndex: number): boolean => {
+    switch (stepIndex) {
+      case 0: return true
+      case 1: return isStep1Valid
+      default: return false
+    }
+  }
+
+  const isCurrentStepValid = (): boolean => {
+    switch (currentStep) {
+      case 'timing': return isStep1Valid
+      case 'fees': return isStep2Valid
+      default: return false
+    }
+  }
+
+  const goToNextStep = () => {
+    const nextIndex = currentStepIndex + 1
+    if (nextIndex < SALE_FORM_STEPS.length) {
+      setCurrentStep(SALE_FORM_STEPS[nextIndex].id)
+    }
+  }
+
+  const goToPrevStep = () => {
+    const prevIndex = currentStepIndex - 1
+    if (prevIndex >= 0) {
+      setCurrentStep(SALE_FORM_STEPS[prevIndex].id)
+    }
+  }
+
+  const getNextStepLabel = (): string => {
+    if (currentStepIndex >= SALE_FORM_STEPS.length - 1) return ''
+    return SALE_FORM_STEPS[currentStepIndex + 1].label
+  }
+
+  // Check if there are any warnings to show
+  const hasWarnings = saleResult.ssd.applicable ||
+    (saleResult.holdingPeriodMonths < 60 && (isHDB || propertyType === 'ec')) ||
+    (saleResult.holdingPeriodMonths < 120 && propertyType === 'ec')
+
   return (
-    <div className="space-y-6">
-      {/* Sale Timing & Price */}
-      <FormAccordion title="Sale Details" subtitle="When and how much" color="amber" defaultOpen>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-400 block">Expected Sale Date</label>
-              <input
-                type="month"
-                value={saleInputs.expectedSaleDate}
-                onChange={(e) => onSaleInputChange('expectedSaleDate', e.target.value)}
-                className="w-full rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm py-2.5 px-3 focus:outline-none focus:border-orange-500/30 transition-colors"
-              />
-            </div>
-            <FormInput
-              label="Expected Sale Price"
-              prefix="$"
-              value={displaySalePrice.toLocaleString()}
-              onChange={(v) => onSaleInputChange('expectedSalePrice', Number(v.replace(/[^0-9]/g, '')) || 0)}
-            />
-          </div>
-
-          {/* Holding period info */}
-          <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-slate-500">Holding Period</span>
-              <span className="text-sm text-white font-medium">
-                {saleResult.holdingPeriodYears.toFixed(1)} years ({saleResult.holdingPeriodMonths} months)
+    <div className="space-y-4">
+      {/* Progress Tabs */}
+      <div className="flex items-center gap-1 p-1.5 bg-white/[0.02] border border-white/[0.08] rounded-xl">
+        {SALE_FORM_STEPS.map((step, index) => {
+          const isActive = step.id === currentStep
+          const isPast = index < currentStepIndex
+          const isAccessible = getStepValidation(index)
+          const isLocked = !isAccessible && index > currentStepIndex
+          return (
+            <button
+              key={step.id}
+              onClick={() => isAccessible && setCurrentStep(step.id)}
+              disabled={isLocked}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs font-medium transition-all duration-200",
+                isActive
+                  ? "bg-white/[0.12] text-white shadow-sm"
+                  : isPast
+                    ? "text-white/80 hover:bg-white/[0.05]"
+                    : isLocked
+                      ? "text-slate-600 cursor-not-allowed opacity-50"
+                      : "text-slate-400 hover:text-slate-300 hover:bg-white/[0.03]"
+              )}
+            >
+              <span className={cn(
+                "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold",
+                isActive
+                  ? "bg-white/20 text-white"
+                  : isPast
+                    ? "bg-white/15 text-white"
+                    : isLocked
+                      ? "bg-white/[0.02] text-slate-600"
+                      : "bg-white/[0.06] text-slate-400"
+              )}>
+                {isPast ? '✓' : index + 1}
               </span>
-            </div>
+              <span className="hidden sm:inline">{step.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Step Content */}
+      <div className="min-h-[250px]">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentStep}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+          >
+            {/* ========== STEP 1: TIMING ========== */}
+            {currentStep === 'timing' && (
+              <div className="space-y-4">
+                {/* Sale Date & Price */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-400 block">Expected Sale Date</label>
+                    <input
+                      type="month"
+                      value={saleInputs.expectedSaleDate}
+                      onChange={(e) => onSaleInputChange('expectedSaleDate', e.target.value)}
+                      className="w-full rounded-xl bg-white/[0.05] border border-white/[0.10] text-white text-sm py-2.5 px-3 hover:border-white/[0.15] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 transition-all"
+                    />
+                  </div>
+                  <FormInput
+                    label="Expected Sale Price"
+                    prefix="$"
+                    value={displaySalePrice.toLocaleString()}
+                    onChange={(v) => onSaleInputChange('expectedSalePrice', Number(v.replace(/[^0-9]/g, '')) || 0)}
+                  />
+                </div>
+
+                {/* Holding period info */}
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-500">Holding Period</span>
+                    <span className="text-sm text-white font-medium">
+                      {saleResult.holdingPeriodYears.toFixed(1)} years ({saleResult.holdingPeriodMonths} months)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick warnings preview */}
+                {hasWarnings && (
+                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-500" />
+                      <span className="text-xs text-slate-400">
+                        {saleResult.ssd.applicable && `SSD applies (${saleResult.ssd.rate}%)`}
+                        {saleResult.holdingPeriodMonths < 60 && isHDB && 'MOP not met'}
+                        {saleResult.holdingPeriodMonths < 60 && propertyType === 'ec' && 'EC MOP not met'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ========== STEP 2: FEES & NOTICES ========== */}
+            {currentStep === 'fees' && (
+              <div className="space-y-4">
+                {/* Sale Fees */}
+                <FeeEditor
+                  fees={saleInputs.fees}
+                  onFeesChange={(fees) => onSaleInputChange('fees', fees)}
+                  basePrice={displaySalePrice}
+                  title="Sale Fees"
+                />
+
+                {/* Warnings - muted styling */}
+                {hasWarnings && (
+                  <div className="space-y-3 pt-4 border-t border-white/[0.04]">
+                    <span className="text-xs font-medium text-slate-500 block">Important Notices</span>
+
+                    {/* SSD Warning */}
+                    {saleResult.ssd.applicable && (
+                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                        <div className="flex items-center gap-2 text-slate-300 mb-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          <span className="text-xs font-medium">Seller&apos;s Stamp Duty</span>
+                        </div>
+                        <p className="text-xs text-slate-500 pl-3.5">
+                          {saleResult.ssd.rate}% SSD = {formatCurrency(saleResult.ssd.amount)}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* MOP Warning for HDB */}
+                    {saleResult.holdingPeriodMonths < 60 && isHDB && (
+                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                        <div className="flex items-center gap-2 text-slate-300 mb-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          <span className="text-xs font-medium">MOP Not Met (HDB)</span>
+                        </div>
+                        <p className="text-xs text-slate-500 pl-3.5">
+                          {60 - saleResult.holdingPeriodMonths} months remaining before you can sell.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* MOP Warning for EC (5 years) */}
+                    {saleResult.holdingPeriodMonths < 60 && propertyType === 'ec' && (
+                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                        <div className="flex items-center gap-2 text-slate-300 mb-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          <span className="text-xs font-medium">MOP Not Met (EC)</span>
+                        </div>
+                        <p className="text-xs text-slate-500 pl-3.5">
+                          {60 - saleResult.holdingPeriodMonths} months remaining. Can only sell to SC/PR.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* EC Privatization Info (5-10 years) */}
+                    {saleResult.holdingPeriodMonths >= 60 && saleResult.holdingPeriodMonths < 120 && propertyType === 'ec' && (
+                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                        <div className="flex items-center gap-2 text-slate-300 mb-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                          <span className="text-xs font-medium">EC Not Privatized</span>
+                        </div>
+                        <p className="text-xs text-slate-500 pl-3.5">
+                          {120 - saleResult.holdingPeriodMonths} months until privatization. Can only sell to SC/PR.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* EC Privatization Complete (10+ years) */}
+                    {saleResult.holdingPeriodMonths >= 120 && propertyType === 'ec' && (
+                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                        <div className="flex items-center gap-2 text-slate-300 mb-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-white/50" />
+                          <span className="text-xs font-medium">EC Privatized</span>
+                        </div>
+                        <p className="text-xs text-slate-500 pl-3.5">
+                          Can be sold to anyone including foreigners.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Navigation Buttons */}
+      <div className="flex items-center justify-between pt-4 border-t border-white/[0.04]">
+        <button
+          onClick={goToPrevStep}
+          disabled={currentStepIndex === 0}
+          className={cn(
+            "px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2",
+            currentStepIndex === 0
+              ? "text-slate-700 cursor-not-allowed"
+              : "text-slate-400 hover:text-white hover:bg-white/[0.05] border border-white/[0.06]"
+          )}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+        {currentStepIndex < SALE_FORM_STEPS.length - 1 ? (
+          <button
+            onClick={goToNextStep}
+            disabled={!isCurrentStepValid()}
+            className={cn(
+              "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2",
+              isCurrentStepValid()
+                ? "bg-white/[0.12] text-white hover:bg-white/[0.18] border border-white/[0.1]"
+                : "bg-white/[0.04] text-slate-500 cursor-not-allowed border border-white/[0.04]"
+            )}
+          >
+            Next: {getNextStepLabel()}
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        ) : (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <CheckCircle2 className="w-4 h-4 text-white/70" />
+            <span className="text-sm text-white/70">Ready to save</span>
           </div>
-        </div>
-      </FormAccordion>
-
-      {/* Sale Fees */}
-      <FormAccordion title="Fees & Expenses" subtitle="Selling costs" color="rose" defaultOpen>
-        <FeeEditor
-          fees={saleInputs.fees}
-          onFeesChange={(fees) => onSaleInputChange('fees', fees)}
-          basePrice={displaySalePrice}
-          title="Sale Fees"
-        />
-      </FormAccordion>
-
-      {/* Warnings */}
-      {(saleResult.ssd.applicable || (saleResult.holdingPeriodMonths < 60 && (isHDB || propertyType === 'ec')) || (saleResult.holdingPeriodMonths < 120 && propertyType === 'ec')) && (
-        <FormAccordion title="Warnings" subtitle="Important notices" color="rose" defaultOpen>
-          <div className="space-y-3">
-            {/* SSD Warning */}
-            {saleResult.ssd.applicable && (
-              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
-                <div className="flex items-center gap-2 text-red-400 mb-1">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span className="text-sm font-medium">Seller&apos;s Stamp Duty Applies</span>
-                </div>
-                <p className="text-sm text-red-300/80">
-                  Selling within {Math.ceil(4 - saleResult.holdingPeriodYears)} year(s) incurs {saleResult.ssd.rate}% SSD = {formatCurrency(saleResult.ssd.amount)}
-                </p>
-              </div>
-            )}
-
-            {/* MOP Warning for HDB */}
-            {saleResult.holdingPeriodMonths < 60 && isHDB && (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <div className="flex items-center gap-2 text-amber-400 mb-1">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm font-medium">Minimum Occupation Period (HDB)</span>
-                </div>
-                <p className="text-sm text-amber-300/80">
-                  HDB flats require 5-year MOP before selling. {60 - saleResult.holdingPeriodMonths} months remaining.
-                </p>
-              </div>
-            )}
-
-            {/* MOP Warning for EC (5 years) */}
-            {saleResult.holdingPeriodMonths < 60 && propertyType === 'ec' && (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <div className="flex items-center gap-2 text-amber-400 mb-1">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm font-medium">Minimum Occupation Period (EC)</span>
-                </div>
-                <p className="text-sm text-amber-300/80">
-                  ECs require 5-year MOP before selling. {60 - saleResult.holdingPeriodMonths} months remaining.
-                  Can only sell to SC/PR buyers during this period.
-                </p>
-              </div>
-            )}
-
-            {/* EC Privatization Info (5-10 years) */}
-            {saleResult.holdingPeriodMonths >= 60 && saleResult.holdingPeriodMonths < 120 && propertyType === 'ec' && (
-              <div className="p-4 rounded-xl bg-teal-500/10 border border-teal-500/20">
-                <div className="flex items-center gap-2 text-teal-400 mb-1">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm font-medium">EC Not Yet Privatized</span>
-                </div>
-                <p className="text-sm text-teal-300/80">
-                  ECs privatize after 10 years ({120 - saleResult.holdingPeriodMonths} months remaining).
-                  Before privatization, can only sell to SC/PR buyers.
-                </p>
-              </div>
-            )}
-
-            {/* EC Privatization Complete (10+ years) - Info only */}
-            {saleResult.holdingPeriodMonths >= 120 && propertyType === 'ec' && (
-              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <div className="flex items-center gap-2 text-emerald-400 mb-1">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm font-medium">EC Fully Privatized</span>
-                </div>
-                <p className="text-sm text-emerald-300/80">
-                  Your EC has privatized and can be sold to anyone including foreigners.
-                </p>
-              </div>
-            )}
-          </div>
-        </FormAccordion>
-      )}
+        )}
+      </div>
     </div>
   )
 }
@@ -2300,68 +2525,9 @@ function TabbedResultsPanel({
   const tdsrLimit = 0.55
   const msrWithinLimit = calculation.msrRatio <= msrLimit
   const tdsrWithinLimit = calculation.tdsrRatio <= tdsrLimit
-  const [costsView, setCostsView] = useState<'list' | 'chart'>('list')
 
   // Default sale price to property price + 20% appreciation if not set
   const displaySalePrice = saleInputs.expectedSalePrice || Math.round(propertyPrice * 1.2)
-
-  // Build waterfall chart data
-  const waterfallItems: WaterfallItem[] = useMemo(() => {
-    const items: WaterfallItem[] = []
-
-    // Cash downpayment
-    if (calculation.downpaymentBreakdown.cash > 0) {
-      items.push({
-        name: 'Downpayment (Cash)',
-        amount: calculation.downpaymentBreakdown.cash,
-        color: 'bg-blue-500',
-      })
-    }
-
-    // COV
-    if (calculation.cov > 0) {
-      items.push({
-        name: 'Cash Over Valuation',
-        amount: calculation.cov,
-        color: 'bg-amber-500',
-      })
-    }
-
-    // BSD
-    items.push({
-      name: "Buyer's Stamp Duty",
-      amount: calculation.bsdAmount,
-      color: 'bg-violet-500',
-    })
-
-    // ABSD (if applicable)
-    if (calculation.absdAmount > 0) {
-      items.push({
-        name: "Additional BSD (ABSD)",
-        amount: calculation.absdAmount,
-        color: 'bg-rose-500',
-      })
-    }
-
-    // Purchase fees
-    calculation.calculatedPurchaseFees.forEach(({ item, amount }) => {
-      items.push({
-        name: item.name,
-        amount,
-        color: 'bg-slate-500',
-      })
-    })
-
-    // Total
-    items.push({
-      name: 'Total Cash Needed',
-      amount: calculation.totalUpfrontCash,
-      color: 'bg-[#f5f5f0]',
-      isTotal: true,
-    })
-
-    return items
-  }, [calculation])
 
   return (
     <div className="space-y-6">
@@ -2464,80 +2630,57 @@ function TabbedResultsPanel({
 
               {/* Bottom Left: Upfront Costs Breakdown */}
               <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl overflow-hidden">
-                <div className="px-5 py-3 border-b border-white/[0.04] flex items-center justify-between">
+                <div className="px-5 py-3 border-b border-white/[0.04]">
                   <h3 className="text-sm font-medium text-white">Upfront Costs</h3>
-                  <div className="flex items-center gap-1 p-0.5 bg-white/[0.03] rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => setCostsView('list')}
-                      className={cn(
-                        "px-2 py-0.5 text-[10px] font-medium rounded transition-all",
-                        costsView === 'list'
-                          ? "bg-white/10 text-white"
-                          : "text-slate-500 hover:text-slate-300"
-                      )}
-                    >
-                      List
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCostsView('chart')}
-                      className={cn(
-                        "px-2 py-0.5 text-[10px] font-medium rounded transition-all",
-                        costsView === 'chart'
-                          ? "bg-white/10 text-white"
-                          : "text-slate-500 hover:text-slate-300"
-                      )}
-                    >
-                      Chart
-                    </button>
-                  </div>
                 </div>
 
                 <div className="p-5">
-                  {costsView === 'list' ? (
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-400">Downpayment (CPF OA)</span>
-                        <span className="text-emerald-400">{formatCurrency(calculation.downpaymentBreakdown.cpfOa)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-400">Downpayment (Cash)</span>
-                        <span className="text-white">{formatCurrency(calculation.downpaymentBreakdown.cash)}</span>
-                      </div>
-                      {calculation.cov > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-400">Cash Over Valuation</span>
-                          <span className="text-amber-400">{formatCurrency(calculation.cov)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-400">BSD</span>
-                        <span className="text-white">{formatCurrency(calculation.bsdAmount)}</span>
-                      </div>
-                      {calculation.absdAmount > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-400">ABSD ({absdRate}%)</span>
-                          <span className="text-rose-400">{formatCurrency(calculation.absdAmount)}</span>
-                        </div>
-                      )}
-                      {calculation.calculatedPurchaseFees.map(({ item, amount }) => (
-                        <div key={item.id} className="flex justify-between text-xs">
-                          <span className="text-slate-400">{item.name}</span>
-                          <span className="text-slate-300">{formatCurrency(amount)}</span>
-                        </div>
-                      ))}
-                      <div className="h-px bg-white/[0.06] my-2" />
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-slate-300 font-medium">Total Cash Needed</span>
-                        <span className="text-lg font-semibold text-white">
-                          {formatCurrency(calculation.totalUpfrontCash)}
-                        </span>
-                      </div>
+                  <div className="space-y-2">
+                    {/* CPF-funded items - use blue for CPF category */}
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">Downpayment (CPF OA)</span>
+                      <span className="text-blue-400">{formatCurrency(calculation.downpaymentBreakdown.cpfOa)}</span>
                     </div>
-                  ) : (
-                    <UpfrontCostsWaterfall items={waterfallItems} />
-                  )}
+                    {/* Cash items - use white/neutral for standard costs */}
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">Downpayment (Cash)</span>
+                      <span className="text-white">{formatCurrency(calculation.downpaymentBreakdown.cash)}</span>
+                    </div>
+                    {/* COV - use amber as warning (must be cash) */}
+                    {calculation.cov > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          Cash Over Valuation
+                          <span className="text-[9px] text-amber-500 font-medium">(cash only)</span>
+                        </span>
+                        <span className="text-amber-400">{formatCurrency(calculation.cov)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">BSD</span>
+                      <span className="text-slate-300">{formatCurrency(calculation.bsdAmount)}</span>
+                    </div>
+                    {/* ABSD - use rose/red as it's an additional cost constraint */}
+                    {calculation.absdAmount > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">ABSD ({absdRate}%)</span>
+                        <span className="text-rose-400">{formatCurrency(calculation.absdAmount)}</span>
+                      </div>
+                    )}
+                    {calculation.calculatedPurchaseFees.map(({ item, amount }) => (
+                      <div key={item.id} className="flex justify-between text-xs">
+                        <span className="text-slate-400">{item.name}</span>
+                        <span className="text-slate-300">{formatCurrency(amount)}</span>
+                      </div>
+                    ))}
+                    <div className="h-px bg-white/[0.06] my-2" />
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-300 font-medium">Total Cash Needed</span>
+                      <span className="text-lg font-semibold text-white">
+                        {formatCurrency(calculation.totalUpfrontCash)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2572,7 +2715,7 @@ function TabbedResultsPanel({
                   </div>
                   <div>
                     <p className="text-xs font-medium text-slate-500 mb-2">CPF Refunded</p>
-                    <p className="text-3xl font-semibold text-emerald-400 tracking-tight">
+                    <p className="text-3xl font-semibold text-blue-400 tracking-tight">
                       {formatCurrency(saleResult.cpfRefundedToOa)}
                     </p>
                   </div>
@@ -2629,15 +2772,15 @@ function TabbedResultsPanel({
                 <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-3">
                   <span className="text-xs text-slate-500 font-medium block">Deductions</span>
 
-                  {/* CPF Refund */}
+                  {/* CPF Refund - use blue for CPF category */}
                   <div className="space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-400">CPF Principal Used</span>
-                      <span className="text-emerald-400">-{formatCurrency(saleResult.cpfRefund.principalUsed)}</span>
+                      <span className="text-blue-400">-{formatCurrency(saleResult.cpfRefund.principalUsed)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-500 pl-3 text-xs">+ Accrued Interest (2.5% p.a.)</span>
-                      <span className="text-emerald-400">-{formatCurrency(saleResult.cpfRefund.accruedInterest)}</span>
+                      <span className="text-blue-400">-{formatCurrency(saleResult.cpfRefund.accruedInterest)}</span>
                     </div>
                   </div>
 
@@ -2674,7 +2817,7 @@ function TabbedResultsPanel({
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-slate-300">CPF Refunded to OA</span>
-                  <span className="text-xl font-semibold text-emerald-400">
+                  <span className="text-xl font-semibold text-blue-400">
                     {formatCurrency(saleResult.cpfRefundedToOa)}
                   </span>
                 </div>
@@ -2710,6 +2853,17 @@ function getDefaultSaleInputs(loanStartMonth: string, propertyPrice: number): Sa
 
 // Embeddable Property Planner V2 View Component
 export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
+  // Scenario list state
+  const [scenarios, setScenarios] = useState<PropertyScenario[]>([])
+  const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null)
+
+  // Inline new row state
+  const [isCreatingNew, setIsCreatingNew] = useState(false)
+  const [newRowName, setNewRowName] = useState('')
+  const [newRowType, setNewRowType] = useState<PropertyType>('hdb-resale')
+  const [newRowPrice, setNewRowPrice] = useState('')
+
+  // Current editing state (for detail view)
   const [selectedType, setSelectedType] = useState<PropertyType | null>(null)
   const [inputs, setInputs] = useState<MortgageInputs>(defaultInputsByType['hdb-resale'])
   const [saleInputs, setSaleInputs] = useState<SaleInputs>(() =>
@@ -2717,14 +2871,107 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
   )
   const [activeResultsTab, setActiveResultsTab] = useState<ResultsTab>('purchase')
 
-  // Update inputs when property type changes
-  useEffect(() => {
-    if (selectedType) {
-      const defaults = defaultInputsByType[selectedType]
-      setInputs(defaults)
-      setSaleInputs(getDefaultSaleInputs(defaults.loanStartMonth, defaults.propertyPrice))
+  // Get current editing scenario
+  const editingScenario = editingScenarioId
+    ? scenarios.find(s => s.id === editingScenarioId)
+    : null
+
+  // Start creating a new row
+  const handleStartNewRow = useCallback(() => {
+    const defaultType: PropertyType = 'hdb-resale'
+    const defaults = defaultInputsByType[defaultType]
+    setNewRowName(`Property ${scenarios.length + 1}`)
+    setNewRowType(defaultType)
+    setNewRowPrice(defaults.propertyPrice.toString())
+    setIsCreatingNew(true)
+  }, [scenarios.length])
+
+  // Confirm and save the new row
+  const handleConfirmNewRow = useCallback(() => {
+    const price = parseInt(newRowPrice.replace(/[^0-9]/g, '')) || defaultInputsByType[newRowType].propertyPrice
+    const defaults = defaultInputsByType[newRowType]
+
+    // Calculate loan amount based on price (maintaining same LTV ratio)
+    const originalLtv = defaults.loanAmount / defaults.propertyPrice
+    const newLoanAmount = Math.floor(price * originalLtv)
+
+    const newScenario: PropertyScenario = {
+      id: `scenario-${Date.now()}`,
+      name: newRowName || `Property ${scenarios.length + 1}`,
+      propertyType: newRowType,
+      inputs: {
+        ...defaults,
+        propertyPrice: price,
+        valuationPrice: price, // Simplified: assume valuation = price
+        loanAmount: newLoanAmount,
+      },
+      saleInputs: getDefaultSaleInputs(defaults.loanStartMonth, price),
+      isIncluded: true,
+      createdAt: Date.now(),
     }
-  }, [selectedType])
+    setScenarios(prev => [...prev, newScenario])
+    setIsCreatingNew(false)
+    setNewRowName('')
+    setNewRowPrice('')
+  }, [newRowName, newRowType, newRowPrice, scenarios.length])
+
+  // Cancel new row creation
+  const handleCancelNewRow = useCallback(() => {
+    setIsCreatingNew(false)
+    setNewRowName('')
+    setNewRowPrice('')
+  }, [])
+
+  // Edit an existing scenario
+  const handleEditScenario = useCallback((scenario: PropertyScenario) => {
+    setEditingScenarioId(scenario.id)
+    setSelectedType(scenario.propertyType)
+    setInputs(scenario.inputs)
+    setSaleInputs(scenario.saleInputs)
+  }, [])
+
+  // Save current changes back to scenario
+  const handleSaveAndClose = useCallback(() => {
+    if (editingScenarioId) {
+      setScenarios(prev => prev.map(s =>
+        s.id === editingScenarioId
+          ? { ...s, inputs, saleInputs, propertyType: selectedType! }
+          : s
+      ))
+    }
+    setEditingScenarioId(null)
+    setSelectedType(null)
+  }, [editingScenarioId, inputs, saleInputs, selectedType])
+
+  // Delete a scenario
+  const handleDeleteScenario = useCallback((id: string) => {
+    setScenarios(prev => prev.filter(s => s.id !== id))
+  }, [])
+
+  // Toggle include in planning
+  const handleToggleInclude = useCallback((id: string) => {
+    setScenarios(prev => prev.map(s =>
+      s.id === id ? { ...s, isIncluded: !s.isIncluded } : s
+    ))
+  }, [])
+
+  // Update scenario name
+  const handleUpdateName = useCallback((id: string, name: string) => {
+    setScenarios(prev => prev.map(s =>
+      s.id === id ? { ...s, name } : s
+    ))
+  }, [])
+
+  // Sync changes to editing scenario in real-time
+  useEffect(() => {
+    if (editingScenarioId && selectedType) {
+      setScenarios(prev => prev.map(s =>
+        s.id === editingScenarioId
+          ? { ...s, inputs, saleInputs, propertyType: selectedType }
+          : s
+      ))
+    }
+  }, [editingScenarioId, inputs, saleInputs, selectedType])
 
   const handleInputChange = useCallback((field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | null) => {
     setInputs(prev => ({ ...prev, [field]: value }))
@@ -2758,24 +3005,14 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
         </>
       )}
 
-      {/* Header for embedded mode */}
+      {/* Simple header for embedded mode */}
       {isEmbedded && (
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-rose-500/20">
-              <Home className="h-5 w-5 text-rose-400" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-white">Property Planner</h1>
-              <p className="text-xs text-slate-400">
-                {selectedOption ? selectedOption.title : 'Select property type'}
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center justify-between px-6 py-4 shrink-0">
+          <h2 className="text-lg font-semibold text-white">Property Scenarios</h2>
           <button
             onClick={onClose}
             className="flex items-center justify-center h-8 w-8 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition"
-            title="Close Property Planner"
+            title="Close"
           >
             <X className="h-4 w-4" />
           </button>
@@ -2813,48 +3050,213 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                 </motion.div>
               )}
 
-              <div className={cn("text-center", isEmbedded ? "mb-8" : "mb-16")}>
-                <motion.h1
-                  className={cn(
-                    "font-semibold text-white mb-4 tracking-tight",
-                    isEmbedded ? "text-2xl md:text-3xl" : "text-4xl md:text-5xl"
-                  )}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  Property Purchase Planner
-                </motion.h1>
-                <motion.p
-                  className="text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  Select your property type to calculate mortgage payments and affordability
-                </motion.p>
-              </div>
-
-              <motion.div
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                {propertyOptions.map((option, index) => (
-                  <motion.div
-                    key={option.id}
+              {/* Header - only for standalone mode */}
+              {!isEmbedded && (
+                <div className="mb-8">
+                  <motion.h1
+                    className="text-3xl md:text-4xl font-semibold text-white mb-2 tracking-tight"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 + index * 0.05 }}
+                    transition={{ delay: 0.1 }}
                   >
-                    <PropertyCard
-                      option={option}
-                      isSelected={selectedType === option.id}
-                      onClick={() => setSelectedType(option.id)}
-                    />
-                  </motion.div>
-                ))}
+                    Property Scenarios
+                  </motion.h1>
+                  <motion.p
+                    className="text-sm text-slate-500"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                  >
+                    Create and compare different property purchase scenarios
+                  </motion.p>
+                </div>
+              )}
+
+              {/* Scenario List */}
+              <motion.div
+                className="space-y-2"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                {/* Existing Scenarios */}
+                {scenarios.map((scenario, index) => {
+                  const option = propertyOptions.find(o => o.id === scenario.propertyType)
+                  return (
+                    <motion.div
+                      key={scenario.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.05 * index }}
+                      className={cn(
+                        "group flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer",
+                        scenario.isIncluded
+                          ? "bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.05]"
+                          : "bg-white/[0.01] border-white/[0.04] opacity-60 hover:opacity-80"
+                      )}
+                      onClick={() => handleEditScenario(scenario)}
+                    >
+                      {/* Include Toggle */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleToggleInclude(scenario.id)
+                        }}
+                        className={cn(
+                          "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors shrink-0",
+                          scenario.isIncluded
+                            ? "bg-emerald-500 border-emerald-500"
+                            : "bg-transparent border-slate-600 hover:border-slate-500"
+                        )}
+                      >
+                        {scenario.isIncluded && <Check className="w-3 h-3 text-white" />}
+                      </button>
+
+                      {/* Icon */}
+                      <div className={cn(
+                        "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                        "bg-gradient-to-br",
+                        option?.color || 'from-slate-500/20 to-slate-600/5'
+                      )}>
+                        <span className={option?.accentColor || 'text-slate-400'}>
+                          {option?.icon || <Home className="w-5 h-5" />}
+                        </span>
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-sm font-medium text-white truncate">
+                            {scenario.name}
+                          </span>
+                          <span className={cn(
+                            "text-xs px-2 py-0.5 rounded-md",
+                            option?.accentColor || 'text-slate-400',
+                            "bg-white/[0.04]"
+                          )}>
+                            {option?.title}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {formatCurrency(scenario.inputs.propertyPrice)} · {scenario.inputs.loanTermYears}yr loan
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditScenario(scenario)
+                          }}
+                          className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                          title="Edit details"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteScenario(scenario.id)
+                          }}
+                          className="p-2 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  )
+                })}
+
+                {/* Inline New Row */}
+                <AnimatePresence>
+                  {isCreatingNew && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="flex items-center gap-3 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                        {/* Placeholder checkbox */}
+                        <div className="w-5 h-5 rounded border-2 border-emerald-500/50 bg-emerald-500/20 flex items-center justify-center shrink-0">
+                          <Check className="w-3 h-3 text-emerald-400" />
+                        </div>
+
+                        {/* Name input */}
+                        <input
+                          type="text"
+                          value={newRowName}
+                          onChange={(e) => setNewRowName(e.target.value)}
+                          placeholder="Scenario name"
+                          className="w-40 rounded-lg bg-white/[0.05] border border-white/[0.1] text-white text-sm py-2 px-3 focus:outline-none focus:border-emerald-500/50 placeholder:text-slate-500"
+                          autoFocus
+                        />
+
+                        {/* Type select */}
+                        <select
+                          value={newRowType}
+                          onChange={(e) => {
+                            const type = e.target.value as PropertyType
+                            setNewRowType(type)
+                            setNewRowPrice(defaultInputsByType[type].propertyPrice.toString())
+                          }}
+                          className="w-44 rounded-lg bg-white/[0.05] border border-white/[0.1] text-white text-sm py-2 px-3 focus:outline-none focus:border-emerald-500/50"
+                        >
+                          {propertyOptions.map(option => (
+                            <option key={option.id} value={option.id} className="bg-gray-900">
+                              {option.title}
+                            </option>
+                          ))}
+                        </select>
+
+                        {/* Price input */}
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+                          <input
+                            type="text"
+                            value={newRowPrice}
+                            onChange={(e) => setNewRowPrice(e.target.value.replace(/[^0-9]/g, ''))}
+                            placeholder="Price"
+                            className="w-32 rounded-lg bg-white/[0.05] border border-white/[0.1] text-white text-sm py-2 pl-7 pr-3 focus:outline-none focus:border-emerald-500/50 placeholder:text-slate-500"
+                          />
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 ml-auto">
+                          <button
+                            onClick={handleConfirmNewRow}
+                            className="p-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 transition-colors"
+                            title="Save"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={handleCancelNewRow}
+                            className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Add New Button */}
+                {!isCreatingNew && (
+                  <motion.button
+                    onClick={handleStartNewRow}
+                    className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border border-dashed border-white/[0.08] text-slate-500 hover:text-slate-300 hover:border-white/[0.15] hover:bg-white/[0.02] transition-all"
+                    whileHover={{ scale: 1.005 }}
+                    whileTap={{ scale: 0.995 }}
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="text-sm font-medium">Add Property Scenario</span>
+                  </motion.button>
+                )}
               </motion.div>
             </motion.div>
           ) : (
@@ -2881,19 +3283,21 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                     </Link>
                     <span className="text-slate-700">/</span>
                     <button
-                      onClick={() => setSelectedType(null)}
+                      onClick={handleSaveAndClose}
                       className="text-slate-500 hover:text-slate-300 transition-colors font-medium"
                     >
-                      Property Planner
+                      Property Scenarios
                     </button>
                     <span className="text-slate-700">/</span>
-                    <span className="text-slate-300 font-medium">{selectedOption?.title}</span>
+                    <span className="text-slate-300 font-medium">
+                      {editingScenario?.name || selectedOption?.title}
+                    </span>
                   </div>
                 )}
 
                 <div className="flex items-center gap-4">
                   <button
-                    onClick={() => setSelectedType(null)}
+                    onClick={handleSaveAndClose}
                     className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all"
                   >
                     <ArrowLeft className="w-5 h-5" />
@@ -2909,93 +3313,100 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                   </div>
                   <div>
                     <h1 className="text-2xl font-semibold text-white tracking-tight">
-                      {selectedOption?.title}
+                      {editingScenario?.name || selectedOption?.title}
                     </h1>
                     <p className="text-sm text-slate-500">
-                      {selectedOption?.subtitle} · {selectedOption?.priceRange}
+                      {selectedOption?.title} · {selectedOption?.priceRange}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Purchase/Sale Tab Toggle */}
-              <div className="flex items-center gap-1 p-1 bg-white/[0.02] border border-white/[0.06] rounded-xl w-fit mb-6">
-                <button
-                  onClick={() => setActiveResultsTab('purchase')}
-                  className={cn(
-                    "py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2",
-                    activeResultsTab === 'purchase'
-                      ? "bg-white/[0.08] text-white shadow-sm"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]"
-                  )}
-                >
-                  <Home className="w-4 h-4" />
-                  Purchase
-                </button>
-                <button
-                  onClick={() => setActiveResultsTab('sale')}
-                  className={cn(
-                    "py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2",
-                    activeResultsTab === 'sale'
-                      ? "bg-orange-500/15 text-orange-400 shadow-sm"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]"
-                  )}
-                >
-                  <Banknote className="w-4 h-4" />
-                  Sale
-                </button>
+              {/* Prominent Purchase/Sale Segmented Control */}
+              <div className="flex items-center justify-center mb-8">
+                <div className="flex items-center gap-2 p-2 bg-white/[0.03] border border-white/[0.08] rounded-2xl">
+                  <button
+                    onClick={() => setActiveResultsTab('purchase')}
+                    className={cn(
+                      "py-3.5 px-8 rounded-xl text-base font-semibold transition-all duration-200 flex items-center gap-3",
+                      activeResultsTab === 'purchase'
+                        ? "bg-white/[0.12] text-white shadow-lg border border-white/[0.1]"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+                    )}
+                  >
+                    <Home className="w-5 h-5" />
+                    Purchase Planning
+                  </button>
+                  <button
+                    onClick={() => setActiveResultsTab('sale')}
+                    className={cn(
+                      "py-3.5 px-8 rounded-xl text-base font-semibold transition-all duration-200 flex items-center gap-3",
+                      activeResultsTab === 'sale'
+                        ? "bg-orange-500/20 text-orange-400 shadow-lg border border-orange-500/20"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+                    )}
+                  >
+                    <Banknote className="w-5 h-5" />
+                    Sale Planning
+                  </button>
+                </div>
               </div>
 
-              {/* Results Panel (top) */}
-              <TabbedResultsPanel
-                calculation={calculation}
-                accentColor={selectedOption?.accentColor || 'text-white'}
-                propertyType={selectedType}
-                saleInputs={saleInputs}
-                saleResult={saleResult}
-                propertyPrice={inputs.propertyPrice}
-                activeTab={activeResultsTab}
-                absdRate={inputs.absdRate}
-              />
+              {/* 2-Column Layout: Form on LEFT, Results on RIGHT */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* LEFT Column: Form Panel */}
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6">
+                  {/* Form Content */}
+                  <AnimatePresence mode="wait">
+                    {activeResultsTab === 'purchase' ? (
+                      <motion.div
+                        key="mortgage-form"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <MortgageForm
+                          inputs={inputs}
+                          onChange={handleInputChange}
+                          propertyType={selectedType}
+                          accentColor={selectedOption?.accentColor || 'text-white'}
+                        />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="sale-form"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <h2 className="text-lg font-semibold text-white mb-6">Sale Parameters</h2>
+                        <SaleParametersForm
+                          saleInputs={saleInputs}
+                          onSaleInputChange={handleSaleInputChange}
+                          saleResult={saleResult}
+                          propertyPrice={inputs.propertyPrice}
+                          propertyType={selectedType}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
 
-              {/* Form Panel (bottom) - switches between Mortgage and Sale forms */}
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6 mt-8">
-                <AnimatePresence mode="wait">
-                  {activeResultsTab === 'purchase' ? (
-                    <motion.div
-                      key="mortgage-form"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <h2 className="text-lg font-semibold text-white mb-6">Mortgage Details</h2>
-                      <MortgageForm
-                        inputs={inputs}
-                        onChange={handleInputChange}
-                        propertyType={selectedType}
-                        accentColor={selectedOption?.accentColor || 'text-white'}
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="sale-form"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <h2 className="text-lg font-semibold text-white mb-6">Sale Parameters</h2>
-                      <SaleParametersForm
-                        saleInputs={saleInputs}
-                        onSaleInputChange={handleSaleInputChange}
-                        saleResult={saleResult}
-                        propertyPrice={inputs.propertyPrice}
-                        propertyType={selectedType}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {/* RIGHT Column: Results Panel */}
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6">
+                  <TabbedResultsPanel
+                    calculation={calculation}
+                    accentColor={selectedOption?.accentColor || 'text-white'}
+                    propertyType={selectedType}
+                    saleInputs={saleInputs}
+                    saleResult={saleResult}
+                    propertyPrice={inputs.propertyPrice}
+                    activeTab={activeResultsTab}
+                    absdRate={inputs.absdRate}
+                  />
+                </div>
               </div>
             </motion.div>
           )}

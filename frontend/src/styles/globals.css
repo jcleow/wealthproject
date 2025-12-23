@@ -143,7 +143,39 @@
   stroke: none !important;
 }
 
-/* Landing page design tokens */
+/* Landing page design tokens - Linear/Modern style with blue accent */
+.linear-landing {
+  /* Background layers */
+  --linear-bg-deep: #020203;
+  --linear-bg-base: #050506;
+  --linear-bg-elevated: #0a0a0c;
+
+  /* Surfaces */
+  --linear-surface: rgba(255, 255, 255, 0.05);
+  --linear-surface-hover: rgba(255, 255, 255, 0.08);
+
+  /* Text colors */
+  --linear-foreground: #EDEDEF;
+  --linear-foreground-muted: #8A8F98;
+  --linear-foreground-subtle: rgba(255, 255, 255, 0.60);
+
+  /* Blue accent (instead of purple) */
+  --linear-accent: #3B82F6;
+  --linear-accent-bright: #60A5FA;
+  --linear-accent-glow: rgba(59, 130, 246, 0.3);
+  --linear-accent-muted: rgba(59, 130, 246, 0.15);
+
+  /* Borders */
+  --linear-border: rgba(255, 255, 255, 0.06);
+  --linear-border-hover: rgba(255, 255, 255, 0.10);
+  --linear-border-accent: rgba(59, 130, 246, 0.30);
+
+  /* Status colors */
+  --linear-emerald: #10B981;
+  --linear-rose: #F43F5E;
+}
+
+/* Legacy landing tokens (for gradual migration) */
 .landing-wrapper {
   --landing-bg: #070B14;
   --landing-surface: #0C1119;
@@ -334,6 +366,217 @@
     var(--landing-gold-muted) 20%,
     var(--landing-gold) 50%,
     var(--landing-gold-muted) 80%,
+    transparent 100%
+  );
+}
+
+/* ============================================
+   LINEAR DESIGN SYSTEM - Animations & Utilities
+   ============================================ */
+
+/* Blob float animation */
+@keyframes linear-blob-float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-20px) rotate(1deg);
+  }
+}
+
+@keyframes linear-blob-float-reverse {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(20px) rotate(-1deg);
+  }
+}
+
+@keyframes linear-pulse-glow {
+  0%, 100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes linear-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes linear-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes linear-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Linear card with multi-layer shadow */
+.linear-card {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  border: 1px solid var(--linear-border);
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 2px 20px rgba(0, 0, 0, 0.4),
+    0 0 40px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.linear-card:hover {
+  border-color: var(--linear-border-hover);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 8px 40px rgba(0, 0, 0, 0.5),
+    0 0 80px rgba(59, 130, 246, 0.1);
+  transform: translateY(-4px);
+}
+
+/* Linear button with accent glow */
+.linear-button-primary {
+  background: var(--linear-accent);
+  color: white;
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.5),
+    0 4px 12px rgba(59, 130, 246, 0.3),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.linear-button-primary:hover {
+  background: var(--linear-accent-bright);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.6),
+    0 8px 20px rgba(59, 130, 246, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+}
+
+.linear-button-primary:active {
+  transform: scale(0.98);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.5),
+    0 2px 8px rgba(59, 130, 246, 0.2),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Linear secondary button */
+.linear-button-secondary {
+  background: var(--linear-surface);
+  color: var(--linear-foreground);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.linear-button-secondary:hover {
+  background: var(--linear-surface-hover);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 0 20px rgba(59, 130, 246, 0.1);
+}
+
+/* Gradient text - white fade */
+.linear-text-gradient {
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    rgba(255, 255, 255, 0.95) 50%,
+    rgba(255, 255, 255, 0.70) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient text - accent shimmer */
+.linear-text-accent {
+  background: linear-gradient(
+    90deg,
+    #3B82F6 0%,
+    #60A5FA 25%,
+    #3B82F6 50%,
+    #60A5FA 75%,
+    #3B82F6 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: linear-shimmer 4s linear infinite;
+}
+
+/* Noise texture overlay */
+.linear-noise::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  z-index: 1;
+}
+
+/* Grid overlay */
+.linear-grid::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.02;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 64px 64px;
+  z-index: 1;
+}
+
+/* Accent rule line */
+.linear-rule {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--linear-border) 20%,
+    var(--linear-border) 80%,
+    transparent 100%
+  );
+}
+
+.linear-rule-accent {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--linear-accent-muted) 20%,
+    var(--linear-accent) 50%,
+    var(--linear-accent-muted) 80%,
     transparent 100%
   );
 }

@@ -10,6 +10,7 @@ import { FinancialDataManagement } from './FinancialDataManagement'
 import { FinancialWorkspace } from './FinancialWorkspace'
 import { MiniChart } from './MiniChart'
 import { CPFSimulationView } from '../cpf/CPFSimulationView'
+import { PropertyPlannerV2View } from '@/app/property-planner/page'
 import { useTimeline } from '@/hooks/useTimeline'
 import { usePictureInPicture } from '@/hooks/usePictureInPicture'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -25,6 +26,7 @@ export function Dashboard() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isChatCollapsed, setIsChatCollapsed] = useState(true)
   const [showCPFView, setShowCPFView] = useState(false)
+  const [showPropertyPlannerV2, setShowPropertyPlannerV2] = useState(false)
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('yearly')
   const timeline = useTimeline({ resolution: 'monthly' })
   const timelineError =
@@ -159,13 +161,44 @@ bg-[#0a0a0a]/40`}
 h-screen
 gap-6 p-6`}>
             {showCPFView ? (
-              /* CPF Simulation View */
+              /* CPF Simulation View - takes over entire area */
               <div className={`flex flex-1 flex-col overflow-hidden
 min-h-0
 rounded-2xl border border-white/[0.06]
 bg-[#0a0a0a]/80`}>
                 <CPFSimulationView onClose={() => setShowCPFView(false)} />
               </div>
+            ) : showPropertyPlannerV2 ? (
+              /* Property Planner V2 View - shows header + property planner */
+              <>
+                {/* Header bar only - no chart */}
+                <div className="shrink-0">
+                  <FinancialWorkspace
+                    selectedYear={timeline.selectedYear}
+                    onSelectYear={timeline.setSelectedYear}
+                    onSelectMonth={timeline.setSelectedMonth}
+                    timelineYears={timeline.chartYears}
+                    timelineMonths={timeline.chartMonths}
+                    resolution={timeline.resolution}
+                    zoomLevel={zoomLevel}
+                    onZoomLevelChange={setZoomLevel}
+                    overrideYears={timeline.overrideYears}
+                    timelineError={timelineError}
+                    onOpenCPF={() => setShowCPFView(true)}
+                    onOpenPropertyPlannerV2={() => setShowPropertyPlannerV2(true)}
+                    anchorYear={timeline.anchorYear}
+                    anchorMonth={timeline.anchorMonth}
+                    headerOnly
+                  />
+                </div>
+                {/* Property Planner content */}
+                <div className={`flex flex-1 flex-col overflow-hidden
+min-h-0
+rounded-2xl border border-white/[0.06]
+bg-[#0a0a0a]/80`}>
+                  <PropertyPlannerV2View onClose={() => setShowPropertyPlannerV2(false)} />
+                </div>
+              </>
             ) : (
               <>
                 {/* Top workspace with chart */}
@@ -189,6 +222,7 @@ shrink-0`}
                     overrideYears={timeline.overrideYears}
                     timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
+                    onOpenPropertyPlannerV2={() => setShowPropertyPlannerV2(true)}
                     anchorYear={timeline.anchorYear}
                     anchorMonth={timeline.anchorMonth}
                   />
@@ -225,7 +259,7 @@ shrink-0`}
       </div>
 
       {/* Picture-in-Picture mini chart */}
-      {showPiP && !showCPFView && (
+      {showPiP && !showCPFView && !showPropertyPlannerV2 && (
         <MiniChart
           timelineYears={timeline.chartYears}
           timelineMonths={timeline.chartMonths}
