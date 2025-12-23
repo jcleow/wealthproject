@@ -1391,13 +1391,13 @@ function AmortizationChart({
                           )}
                         >
                           <td className="px-4 py-2 text-white font-medium">{year.year}</td>
-                          <td className="px-4 py-2 text-right text-blue-400">
+                          <td className="px-4 py-2 text-right text-slate-300">
                             {formatCurrency(year.principal)}
                           </td>
-                          <td className="px-4 py-2 text-right text-red-400">
+                          <td className="px-4 py-2 text-right text-slate-400">
                             {formatCurrency(year.interest)}
                           </td>
-                          <td className="px-4 py-2 text-right text-slate-400">
+                          <td className="px-4 py-2 text-right text-slate-500">
                             {formatCurrency(year.balance)}
                           </td>
                         </tr>
@@ -1780,7 +1780,7 @@ function MortgageForm({
 
                   <div className="grid grid-cols-2 gap-3 mt-3">
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500/60 text-xs font-medium">OA</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-medium">OA</span>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -1792,7 +1792,7 @@ function MortgageForm({
                             ? newBalance + inputs.borrower2OaBalance
                             : newBalance)
                         }}
-                        className="w-full rounded-lg bg-white/[0.02] border border-white/[0.06] text-white text-sm py-2 pl-10 pr-3 focus:outline-none focus:border-emerald-500/30 transition-colors"
+                        className="w-full rounded-lg bg-white/[0.02] border border-white/[0.06] text-white text-sm py-2 pl-10 pr-3 focus:outline-none focus:border-white/20 transition-colors"
                       />
                     </div>
                     <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] text-slate-500 text-xs py-2 px-3 flex items-center">
@@ -1875,7 +1875,7 @@ function MortgageForm({
                   </div>
                   <div className="flex justify-between text-xs mt-1">
                     <span className="text-slate-500">Combined CPF OA</span>
-                    <span className="text-emerald-400">${inputs.cpfOaBalance.toLocaleString()}</span>
+                    <span className="text-white">${inputs.cpfOaBalance.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -1973,7 +1973,7 @@ function MortgageForm({
                       className={cn(
                         "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all",
                         inputs.loanType === 'hdb'
-                          ? "bg-emerald-500/15 text-emerald-400"
+                          ? "bg-white/10 text-white"
                           : !isHDB ? "text-slate-700 cursor-not-allowed" : "text-slate-400 hover:text-slate-200"
                       )}
                     >
@@ -1991,7 +1991,7 @@ function MortgageForm({
                       className={cn(
                         "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all",
                         inputs.loanType === 'bank'
-                          ? "bg-blue-500/15 text-blue-400"
+                          ? "bg-white/10 text-white"
                           : "text-slate-400 hover:text-slate-200"
                       )}
                     >
@@ -2010,37 +2010,25 @@ function MortgageForm({
                   </div>
 
                   {/* Visual bar */}
-                  <div className="h-2.5 rounded-full overflow-hidden bg-white/[0.04] flex mb-3">
+                  <div className="h-2 rounded-full overflow-hidden bg-white/[0.04] flex mb-3">
                     {inputs.downpaymentCpfOa > 0 && (
                       <div
-                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400"
+                        className="h-full bg-slate-400"
                         style={{ width: `${(inputs.downpaymentCpfOa / (downpaymentOnValuation + cashOverValuation)) * 100}%` }}
                       />
                     )}
                     {inputs.downpaymentCash > 0 && (
                       <div
-                        className="h-full bg-gradient-to-r from-amber-500 to-amber-400"
+                        className="h-full bg-slate-600"
                         style={{ width: `${(inputs.downpaymentCash / (downpaymentOnValuation + cashOverValuation)) * 100}%` }}
                       />
                     )}
                   </div>
 
-                  {/* Legend */}
-                  <div className="flex items-center gap-4 text-xs mb-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                      <span className="text-slate-400">${inputs.downpaymentCpfOa.toLocaleString()} CPF</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                      <span className="text-slate-400">${inputs.downpaymentCash.toLocaleString()} Cash</span>
-                    </div>
-                  </div>
-
                   {/* Editable CPF/Cash */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500/60 text-xs font-medium">CPF</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-medium">CPF</span>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -2053,11 +2041,11 @@ function MortgageForm({
                           onChange('downpaymentCpfOa', Math.max(0, clampedCpfOa))
                           onChange('downpaymentCash', Math.max(0, downpaymentOnValuation - clampedCpfOa))
                         }}
-                        className="w-full rounded-lg bg-white/[0.02] border border-white/[0.06] text-white text-sm py-2 pl-11 pr-3 focus:outline-none focus:border-emerald-500/30 transition-colors"
+                        className="w-full rounded-lg bg-white/[0.02] border border-white/[0.06] text-white text-sm py-2 pl-11 pr-3 focus:outline-none focus:border-white/20 transition-colors"
                       />
                     </div>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500/60 text-xs font-medium">Cash</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-medium">Cash</span>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -2069,7 +2057,7 @@ function MortgageForm({
                           onChange('downpaymentCash', clampedCash)
                           onChange('downpaymentCpfOa', Math.max(0, downpaymentOnValuation - clampedCash))
                         }}
-                        className="w-full rounded-lg bg-white/[0.02] border border-white/[0.06] text-white text-sm py-2 pl-12 pr-3 focus:outline-none focus:border-amber-500/30 transition-colors"
+                        className="w-full rounded-lg bg-white/[0.02] border border-white/[0.06] text-white text-sm py-2 pl-12 pr-3 focus:outline-none focus:border-white/20 transition-colors"
                       />
                     </div>
                   </div>
@@ -2552,7 +2540,7 @@ function TabbedResultsPanel({
               <div className="grid grid-cols-4 gap-3">
                 <div>
                   <p className="text-[10px] text-slate-500">CPF OA</p>
-                  <p className="text-xs font-medium text-blue-400">{formatCurrency(calculation.downpaymentBreakdown.cpfOa)}</p>
+                  <p className="text-xs font-medium text-white">{formatCurrency(calculation.downpaymentBreakdown.cpfOa)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-500">Monthly</p>
@@ -2638,7 +2626,7 @@ function TabbedResultsPanel({
                       <p className="text-[10px] font-medium text-slate-500 mb-2">Upfront Costs</p>
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-400">CPF OA</span>
-                        <span className="text-blue-400">{formatCurrency(calculation.downpaymentBreakdown.cpfOa)}</span>
+                        <span className="text-white">{formatCurrency(calculation.downpaymentBreakdown.cpfOa)}</span>
                       </div>
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-400">Cash</span>
@@ -2647,7 +2635,7 @@ function TabbedResultsPanel({
                       {calculation.cov > 0 && (
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-400">COV</span>
-                          <span className="text-amber-400">{formatCurrency(calculation.cov)}</span>
+                          <span className="text-slate-300">{formatCurrency(calculation.cov)}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-xs">
@@ -2657,7 +2645,7 @@ function TabbedResultsPanel({
                       {calculation.absdAmount > 0 && (
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-400">ABSD ({absdRate}%)</span>
-                          <span className="text-rose-400">{formatCurrency(calculation.absdAmount)}</span>
+                          <span className="text-slate-300">{formatCurrency(calculation.absdAmount)}</span>
                         </div>
                       )}
                       {calculation.calculatedPurchaseFees.map(({ item, amount }) => (
@@ -2733,7 +2721,7 @@ function TabbedResultsPanel({
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] font-medium text-slate-500 mb-0.5">CPF Refund</p>
-                  <p className="text-lg font-semibold text-blue-400">
+                  <p className="text-lg font-semibold text-white">
                     {formatCurrency(saleResult.cpfRefundedToOa)}
                   </p>
                 </div>
@@ -2806,7 +2794,7 @@ function TabbedResultsPanel({
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-slate-400">CPF Refund</span>
-                  <span className="text-sm font-semibold text-blue-400">{formatCurrency(saleResult.cpfRefundedToOa)}</span>
+                  <span className="text-sm font-semibold text-white">{formatCurrency(saleResult.cpfRefundedToOa)}</span>
                 </div>
               </div>
             </div>
