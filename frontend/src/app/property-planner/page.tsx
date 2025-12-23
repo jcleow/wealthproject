@@ -22,10 +22,9 @@ import {
   Landmark,
   ArrowLeft,
   Banknote,
-  Percent,
   Hammer,
-  TrendingDown,
   CheckCircle2,
+  AlertTriangle,
   HelpCircle,
   Check,
   Plus,
@@ -1216,69 +1215,45 @@ function AmortizationChart({
   ]
 
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl overflow-hidden">
-      <div className="px-6 py-4 border-b border-white/[0.04]">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              {chartView === 'balance' ? (
-                <TrendingDown className="w-4 h-4 text-slate-500" />
-              ) : (
-                <Percent className="w-4 h-4 text-slate-500" />
-              )}
-              <h4 className="text-sm font-medium text-white">
-                {chartView === 'balance' ? 'Loan Balance Over Time' : 'Interest vs Principal'}
-              </h4>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              {chartView === 'balance'
-                ? `${formatCurrency(maxBalance)} → $0`
-                : 'Annual payment composition breakdown'
-              }
-            </p>
-          </div>
-
-          {/* Toggle */}
-          <div className="flex items-center gap-1 p-0.5 bg-white/[0.04] rounded-lg">
-            <button
-              onClick={() => setChartView('balance')}
-              className={cn(
-                "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
-                chartView === 'balance'
-                  ? "bg-white/10 text-white"
-                  : "text-slate-500 hover:text-slate-300"
-              )}
-            >
-              Balance
-            </button>
-            <button
-              onClick={() => setChartView('composition')}
-              className={cn(
-                "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
-                chartView === 'composition'
-                  ? "bg-white/10 text-white"
-                  : "text-slate-500 hover:text-slate-300"
-              )}
-            >
-              Breakdown
-            </button>
-            <button
-              onClick={() => setChartView('schedule')}
-              className={cn(
-                "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
-                chartView === 'schedule'
-                  ? "bg-white/10 text-white"
-                  : "text-slate-500 hover:text-slate-300"
-              )}
-            >
-              Schedule
-            </button>
-          </div>
+    <div className="space-y-3">
+      {/* Header with toggle */}
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-medium text-slate-500">
+          {chartView === 'balance' ? `Balance: ${formatCurrency(maxBalance)} → $0` : chartView === 'composition' ? 'Principal vs Interest' : 'Schedule'}
+        </p>
+        <div className="flex items-center gap-0.5 p-0.5 bg-white/[0.04] rounded-md">
+          <button
+            onClick={() => setChartView('balance')}
+            className={cn(
+              "px-2 py-0.5 text-[10px] font-medium rounded transition-colors",
+              chartView === 'balance' ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"
+            )}
+          >
+            Balance
+          </button>
+          <button
+            onClick={() => setChartView('composition')}
+            className={cn(
+              "px-2 py-0.5 text-[10px] font-medium rounded transition-colors",
+              chartView === 'composition' ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"
+            )}
+          >
+            Breakdown
+          </button>
+          <button
+            onClick={() => setChartView('schedule')}
+            className={cn(
+              "px-2 py-0.5 text-[10px] font-medium rounded transition-colors",
+              chartView === 'schedule' ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"
+            )}
+          >
+            Schedule
+          </button>
         </div>
       </div>
 
-      <div className="p-4">
-        <div className="rounded-xl bg-black/20 p-3" style={{ minHeight: 220 }}>
+      {/* Chart content - no extra wrapper */}
+      <div style={{ minHeight: 180 }}>
           <AnimatePresence mode="wait">
             {chartView === 'balance' && (
               <motion.div
@@ -1441,7 +1416,6 @@ function AmortizationChart({
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
       </div>
     </div>
   )
@@ -2501,6 +2475,8 @@ function SaleParametersForm({
 
 type ResultsTab = 'purchase' | 'sale'
 
+type PurchaseDetailTab = 'breakdown' | 'chart'
+
 function TabbedResultsPanel({
   calculation,
   accentColor,
@@ -2520,17 +2496,19 @@ function TabbedResultsPanel({
   activeTab: ResultsTab
   absdRate: number
 }) {
+  const [purchaseDetailTab, setPurchaseDetailTab] = useState<PurchaseDetailTab>('breakdown')
   const isHDB = propertyType.includes('hdb')
   const msrLimit = isHDB ? 0.30 : 0.55
   const tdsrLimit = 0.55
   const msrWithinLimit = calculation.msrRatio <= msrLimit
   const tdsrWithinLimit = calculation.tdsrRatio <= tdsrLimit
+  const bothWithinLimit = msrWithinLimit && tdsrWithinLimit
 
   // Default sale price to property price + 20% appreciation if not set
   const displaySalePrice = saleInputs.expectedSalePrice || Math.round(propertyPrice * 1.2)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <AnimatePresence mode="wait">
         {activeTab === 'purchase' ? (
           <motion.div
@@ -2539,157 +2517,201 @@ function TabbedResultsPanel({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
+            className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl overflow-hidden"
           >
-            {/* 2x2 Grid Layout */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* Top Left: Loan Summary */}
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl overflow-hidden">
-                <div className="p-5">
-                  <div className="flex items-baseline justify-between mb-4">
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 mb-1">Monthly Payment</p>
-                      <p className="text-2xl font-semibold tracking-tight text-white">
-                        {formatCurrency(calculation.monthlyPayment)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-medium text-slate-500 mb-1">Tenure</p>
-                      <p className="text-lg font-semibold text-white">
-                        {calculation.loanTermYears} yrs
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/[0.04]">
-                    <div>
-                      <p className="text-[10px] font-medium text-slate-500 mb-0.5">Total Interest</p>
-                      <p className="text-sm font-medium text-slate-300">
-                        {formatCurrency(calculation.totalInterest)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-medium text-slate-500 mb-0.5">Loan Period</p>
-                      <p className="text-sm font-medium text-slate-300">
-                        {formatMonthYear(calculation.loanStartDate)} - {formatMonthYear(calculation.loanEndDate)}
-                      </p>
-                    </div>
-                  </div>
+            {/* Cash Needed Summary - Top Section */}
+            <div className="p-5 border-b border-white/[0.06]">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-[10px] font-medium text-slate-500 mb-0.5">Total Cash Needed</p>
+                  <p className="text-2xl font-bold tracking-tight text-white">
+                    {formatCurrency(calculation.totalUpfrontCash)}
+                  </p>
+                </div>
+                <div className={cn(
+                  "px-2.5 py-1 rounded-full text-[10px] font-semibold flex items-center gap-1",
+                  bothWithinLimit
+                    ? "bg-emerald-500/15 text-emerald-400"
+                    : "bg-amber-500/15 text-amber-400"
+                )}>
+                  {bothWithinLimit ? (
+                    <>
+                      <CheckCircle2 className="w-3 h-3" />
+                      Eligible
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-3 h-3" />
+                      Over Limit
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Top Right: MSR/TDSR Ratios */}
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl overflow-hidden">
-                <div className="p-5 space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-slate-500">MSR Ratio</span>
-                      <span className={cn(
-                        "text-xs font-semibold",
-                        msrWithinLimit ? "text-emerald-400" : "text-amber-400"
-                      )}>
-                        {(calculation.msrRatio * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-white/[0.04] overflow-hidden">
+              {/* Metrics Row */}
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[10px] text-slate-500">CPF OA</p>
+                  <p className="text-xs font-medium text-blue-400">{formatCurrency(calculation.downpaymentBreakdown.cpfOa)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500">Monthly</p>
+                  <p className="text-xs font-medium text-white">{formatCurrency(calculation.monthlyPayment)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500">MSR</p>
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
                       <div
                         className={cn(
-                          "h-full rounded-full transition-all duration-500",
-                          msrWithinLimit
-                            ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
-                            : "bg-gradient-to-r from-amber-500 to-amber-400"
+                          "h-full rounded-full",
+                          msrWithinLimit ? "bg-emerald-400" : "bg-amber-400"
                         )}
                         style={{ width: `${Math.min((calculation.msrRatio / msrLimit) * 100, 100)}%` }}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-600 mt-1">Limit: {(msrLimit * 100).toFixed(0)}%</p>
+                    <span className={cn("text-[10px] font-medium", msrWithinLimit ? "text-emerald-400" : "text-amber-400")}>
+                      {(calculation.msrRatio * 100).toFixed(0)}%
+                    </span>
                   </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-slate-500">TDSR Ratio</span>
-                      <span className={cn(
-                        "text-xs font-semibold",
-                        tdsrWithinLimit ? "text-emerald-400" : "text-amber-400"
-                      )}>
-                        {(calculation.tdsrRatio * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-white/[0.04] overflow-hidden">
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500">TDSR</p>
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
                       <div
                         className={cn(
-                          "h-full rounded-full transition-all duration-500",
-                          tdsrWithinLimit
-                            ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
-                            : "bg-gradient-to-r from-amber-500 to-amber-400"
+                          "h-full rounded-full",
+                          tdsrWithinLimit ? "bg-emerald-400" : "bg-amber-400"
                         )}
                         style={{ width: `${Math.min((calculation.tdsrRatio / tdsrLimit) * 100, 100)}%` }}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-600 mt-1">Limit: {(tdsrLimit * 100).toFixed(0)}%</p>
+                    <span className={cn("text-[10px] font-medium", tdsrWithinLimit ? "text-emerald-400" : "text-amber-400")}>
+                      {(calculation.tdsrRatio * 100).toFixed(0)}%
+                    </span>
                   </div>
                 </div>
               </div>
-
-              {/* Bottom Left: Upfront Costs Breakdown */}
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl overflow-hidden">
-                <div className="px-5 py-3 border-b border-white/[0.04]">
-                  <h3 className="text-sm font-medium text-white">Upfront Costs</h3>
-                </div>
-
-                <div className="p-5">
-                  <div className="space-y-2">
-                    {/* CPF-funded items - use blue for CPF category */}
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-400">Downpayment (CPF OA)</span>
-                      <span className="text-blue-400">{formatCurrency(calculation.downpaymentBreakdown.cpfOa)}</span>
-                    </div>
-                    {/* Cash items - use white/neutral for standard costs */}
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-400">Downpayment (Cash)</span>
-                      <span className="text-white">{formatCurrency(calculation.downpaymentBreakdown.cash)}</span>
-                    </div>
-                    {/* COV - use amber as warning (must be cash) */}
-                    {calculation.cov > 0 && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-400 flex items-center gap-1">
-                          Cash Over Valuation
-                          <span className="text-[9px] text-amber-500 font-medium">(cash only)</span>
-                        </span>
-                        <span className="text-amber-400">{formatCurrency(calculation.cov)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-400">BSD</span>
-                      <span className="text-slate-300">{formatCurrency(calculation.bsdAmount)}</span>
-                    </div>
-                    {/* ABSD - use rose/red as it's an additional cost constraint */}
-                    {calculation.absdAmount > 0 && (
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-400">ABSD ({absdRate}%)</span>
-                        <span className="text-rose-400">{formatCurrency(calculation.absdAmount)}</span>
-                      </div>
-                    )}
-                    {calculation.calculatedPurchaseFees.map(({ item, amount }) => (
-                      <div key={item.id} className="flex justify-between text-xs">
-                        <span className="text-slate-400">{item.name}</span>
-                        <span className="text-slate-300">{formatCurrency(amount)}</span>
-                      </div>
-                    ))}
-                    <div className="h-px bg-white/[0.06] my-2" />
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-slate-300 font-medium">Total Cash Needed</span>
-                      <span className="text-lg font-semibold text-white">
-                        {formatCurrency(calculation.totalUpfrontCash)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bottom Right: Amortization Chart */}
-              <AmortizationChart
-                amortization={calculation.amortization}
-                accentColor={accentColor}
-              />
             </div>
+
+            {/* Tab Header */}
+            <div className="px-4 py-2 border-b border-white/[0.04] flex items-center gap-1">
+              <button
+                onClick={() => setPurchaseDetailTab('breakdown')}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                  purchaseDetailTab === 'breakdown'
+                    ? "bg-white/[0.08] text-white"
+                    : "text-slate-500 hover:text-slate-300"
+                )}
+              >
+                Breakdown
+              </button>
+              <button
+                onClick={() => setPurchaseDetailTab('chart')}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
+                  purchaseDetailTab === 'chart'
+                    ? "bg-white/[0.08] text-white"
+                    : "text-slate-500 hover:text-slate-300"
+                )}
+              >
+                Amortization
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <AnimatePresence mode="wait">
+              {purchaseDetailTab === 'breakdown' ? (
+                <motion.div
+                  key="breakdown"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1 }}
+                  className="p-4"
+                >
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Upfront Costs */}
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-medium text-slate-500 mb-2">Upfront Costs</p>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">CPF OA</span>
+                        <span className="text-blue-400">{formatCurrency(calculation.downpaymentBreakdown.cpfOa)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">Cash</span>
+                        <span className="text-white">{formatCurrency(calculation.downpaymentBreakdown.cash)}</span>
+                      </div>
+                      {calculation.cov > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">COV</span>
+                          <span className="text-amber-400">{formatCurrency(calculation.cov)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">BSD</span>
+                        <span className="text-slate-300">{formatCurrency(calculation.bsdAmount)}</span>
+                      </div>
+                      {calculation.absdAmount > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">ABSD ({absdRate}%)</span>
+                          <span className="text-rose-400">{formatCurrency(calculation.absdAmount)}</span>
+                        </div>
+                      )}
+                      {calculation.calculatedPurchaseFees.map(({ item, amount }) => (
+                        <div key={item.id} className="flex justify-between text-xs">
+                          <span className="text-slate-400">{item.name}</span>
+                          <span className="text-slate-300">{formatCurrency(amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Loan Details */}
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-medium text-slate-500 mb-2">Loan Details</p>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">Amount</span>
+                        <span className="text-white">{formatCurrency(propertyPrice - calculation.downpayment)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">Tenure</span>
+                        <span className="text-slate-300">{calculation.loanTermYears} yrs</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">Period</span>
+                        <span className="text-slate-300">
+                          {formatMonthYear(calculation.loanStartDate)} - {formatMonthYear(calculation.loanEndDate)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">Interest</span>
+                        <span className="text-slate-300">{formatCurrency(calculation.totalInterest)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">Total</span>
+                        <span className="text-slate-300">{formatCurrency(calculation.monthlyPayment * calculation.loanTermYears * 12)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="chart"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1 }}
+                  className="p-4"
+                >
+                  <AmortizationChart
+                    amortization={calculation.amortization}
+                    accentColor={accentColor}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         ) : (
           <motion.div
@@ -2698,137 +2720,96 @@ function TabbedResultsPanel({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.2 }}
-            className="space-y-6"
+            className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl overflow-hidden"
           >
-            {/* Sale Hero Metrics */}
-            <div className="rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-orange-600/[0.02] backdrop-blur-xl overflow-hidden">
-              <div className="p-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-xs font-medium text-slate-500 mb-2">Net Cash Proceeds</p>
-                    <p className={cn(
-                      "text-3xl font-semibold tracking-tight",
-                      saleResult.netCashProceeds >= 0 ? "text-orange-400" : "text-red-400"
-                    )}>
-                      {formatCurrency(saleResult.netCashProceeds)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-slate-500 mb-2">CPF Refunded</p>
-                    <p className="text-3xl font-semibold text-blue-400 tracking-tight">
-                      {formatCurrency(saleResult.cpfRefundedToOa)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 px-6 py-4 bg-white/[0.02] border-t border-white/[0.04]">
+            {/* Sale Summary - Top Section */}
+            <div className="p-5 border-b border-white/[0.06]">
+              <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Holding Period</p>
-                  <p className="text-lg font-semibold text-white">
-                    {saleResult.holdingPeriodYears.toFixed(1)} yrs
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Outstanding Loan</p>
-                  <p className="text-lg font-semibold text-slate-300">
-                    {formatCurrency(saleResult.outstandingLoanAtSale)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Sale Price</p>
-                  <p className="text-lg font-semibold text-white">
-                    {formatCurrency(displaySalePrice)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Proceeds Breakdown */}
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-white/[0.04]">
-                <h3 className="text-sm font-medium text-white">Proceeds Breakdown</h3>
-              </div>
-
-              <div className="p-6 space-y-4">
-                {/* Gross calculation */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Sale Price</span>
-                    <span className="text-white font-medium">{formatCurrency(displaySalePrice)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Outstanding Loan</span>
-                    <span className="text-red-400">-{formatCurrency(saleResult.outstandingLoanAtSale)}</span>
-                  </div>
-                  <div className="h-px bg-white/[0.06]" />
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-300 font-medium">Gross Proceeds</span>
-                    <span className="text-white font-medium">{formatCurrency(saleResult.grossProceeds)}</span>
-                  </div>
-                </div>
-
-                {/* Deductions */}
-                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-3">
-                  <span className="text-xs text-slate-500 font-medium block">Deductions</span>
-
-                  {/* CPF Refund - use blue for CPF category */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">CPF Principal Used</span>
-                      <span className="text-blue-400">-{formatCurrency(saleResult.cpfRefund.principalUsed)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500 pl-3 text-xs">+ Accrued Interest (2.5% p.a.)</span>
-                      <span className="text-blue-400">-{formatCurrency(saleResult.cpfRefund.accruedInterest)}</span>
-                    </div>
-                  </div>
-
-                  {/* SSD */}
-                  {saleResult.ssd.applicable && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">Seller&apos;s Stamp Duty ({saleResult.ssd.rate}%)</span>
-                      <span className="text-red-400">-{formatCurrency(saleResult.ssd.amount)}</span>
-                    </div>
-                  )}
-
-                  {/* Custom Fees */}
-                  {saleResult.calculatedFees.filter(f => f.amount > 0).map(({ item, amount }) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-slate-400">
-                        {item.name}
-                        {item.type === 'percentage' && ` (${item.value}%)`}
-                      </span>
-                      <span className="text-orange-400">-{formatCurrency(amount)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Final summary */}
-                <div className="h-px bg-white/[0.06]" />
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-300">Net Cash to Bank</span>
-                  <span className={cn(
-                    "text-xl font-semibold",
-                    saleResult.netCashProceeds >= 0 ? "text-orange-400" : "text-red-400"
-                  )}>
+                  <p className="text-[10px] font-medium text-slate-500 mb-0.5">Net Cash Proceeds</p>
+                  <p className="text-2xl font-bold tracking-tight text-white">
                     {formatCurrency(saleResult.netCashProceeds)}
-                  </span>
+                  </p>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-300">CPF Refunded to OA</span>
-                  <span className="text-xl font-semibold text-blue-400">
+                <div className="text-right">
+                  <p className="text-[10px] font-medium text-slate-500 mb-0.5">CPF Refund</p>
+                  <p className="text-lg font-semibold text-blue-400">
                     {formatCurrency(saleResult.cpfRefundedToOa)}
-                  </span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Metrics Row */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-[10px] text-slate-500">Holding</p>
+                  <p className="text-xs font-medium text-white">{saleResult.holdingPeriodYears.toFixed(1)} yrs</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500">Outstanding</p>
+                  <p className="text-xs font-medium text-slate-300">{formatCurrency(saleResult.outstandingLoanAtSale)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500">Sale Price</p>
+                  <p className="text-xs font-medium text-white">{formatCurrency(displaySalePrice)}</p>
                 </div>
               </div>
             </div>
 
-            {/* Explanation */}
-            <p className="text-xs text-slate-600 leading-relaxed px-1">
-              Net cash proceeds is what you receive in your bank account. CPF refund goes back to your
-              CPF OA account (available for next property or retirement).
-            </p>
+            {/* Breakdown */}
+            <div className="p-4 space-y-3">
+              <p className="text-[10px] font-medium text-slate-500">Proceeds Breakdown</p>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Sale Price</span>
+                  <span className="text-white">{formatCurrency(displaySalePrice)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">Outstanding Loan</span>
+                  <span className="text-slate-300">-{formatCurrency(saleResult.outstandingLoanAtSale)}</span>
+                </div>
+                <div className="flex justify-between text-xs pt-1 border-t border-white/[0.04]">
+                  <span className="text-slate-300">Gross Proceeds</span>
+                  <span className="text-white">{formatCurrency(saleResult.grossProceeds)}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-2">
+                <p className="text-[10px] text-slate-500">Deductions</p>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-400">CPF Principal</span>
+                  <span className="text-slate-300">-{formatCurrency(saleResult.cpfRefund.principalUsed)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">+ Accrued Interest</span>
+                  <span className="text-slate-400">-{formatCurrency(saleResult.cpfRefund.accruedInterest)}</span>
+                </div>
+                {saleResult.ssd.applicable && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">SSD ({saleResult.ssd.rate}%)</span>
+                    <span className="text-slate-300">-{formatCurrency(saleResult.ssd.amount)}</span>
+                  </div>
+                )}
+                {saleResult.calculatedFees.filter(f => f.amount > 0).map(({ item, amount }) => (
+                  <div key={item.id} className="flex justify-between text-xs">
+                    <span className="text-slate-400">{item.name}</span>
+                    <span className="text-slate-300">-{formatCurrency(amount)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2 border-t border-white/[0.06] space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-400">Net Cash</span>
+                  <span className="text-sm font-semibold text-white">{formatCurrency(saleResult.netCashProceeds)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-400">CPF Refund</span>
+                  <span className="text-sm font-semibold text-blue-400">{formatCurrency(saleResult.cpfRefundedToOa)}</span>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -3322,32 +3303,32 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                 </div>
               </div>
 
-              {/* Prominent Purchase/Sale Segmented Control */}
-              <div className="flex items-center justify-center mb-8">
-                <div className="flex items-center gap-2 p-2 bg-white/[0.03] border border-white/[0.08] rounded-2xl">
+              {/* Purchase/Sale Toggle - Compact, Left-aligned */}
+              <div className="flex items-center mb-6">
+                <div className="inline-flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-lg">
                   <button
                     onClick={() => setActiveResultsTab('purchase')}
                     className={cn(
-                      "py-3.5 px-8 rounded-xl text-base font-semibold transition-all duration-200 flex items-center gap-3",
+                      "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2",
                       activeResultsTab === 'purchase'
-                        ? "bg-white/[0.12] text-white shadow-lg border border-white/[0.1]"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+                        ? "bg-white/10 text-white"
+                        : "text-slate-500 hover:text-slate-300"
                     )}
                   >
-                    <Home className="w-5 h-5" />
-                    Purchase Planning
+                    <Home className="w-3.5 h-3.5" />
+                    Purchase
                   </button>
                   <button
                     onClick={() => setActiveResultsTab('sale')}
                     className={cn(
-                      "py-3.5 px-8 rounded-xl text-base font-semibold transition-all duration-200 flex items-center gap-3",
+                      "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2",
                       activeResultsTab === 'sale'
-                        ? "bg-orange-500/20 text-orange-400 shadow-lg border border-orange-500/20"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+                        ? "bg-white/10 text-white"
+                        : "text-slate-500 hover:text-slate-300"
                     )}
                   >
-                    <Banknote className="w-5 h-5" />
-                    Sale Planning
+                    <Banknote className="w-3.5 h-3.5" />
+                    Sale
                   </button>
                 </div>
               </div>
@@ -3381,7 +3362,6 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                         exit={{ opacity: 0, y: 10 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <h2 className="text-lg font-semibold text-white mb-6">Sale Parameters</h2>
                         <SaleParametersForm
                           saleInputs={saleInputs}
                           onSaleInputChange={handleSaleInputChange}
@@ -3394,19 +3374,17 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                   </AnimatePresence>
                 </div>
 
-                {/* RIGHT Column: Results Panel */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6">
-                  <TabbedResultsPanel
-                    calculation={calculation}
-                    accentColor={selectedOption?.accentColor || 'text-white'}
-                    propertyType={selectedType}
-                    saleInputs={saleInputs}
-                    saleResult={saleResult}
-                    propertyPrice={inputs.propertyPrice}
-                    activeTab={activeResultsTab}
-                    absdRate={inputs.absdRate}
-                  />
-                </div>
+                {/* RIGHT Column: Results Panel - No outer wrapper */}
+                <TabbedResultsPanel
+                  calculation={calculation}
+                  accentColor={selectedOption?.accentColor || 'text-white'}
+                  propertyType={selectedType}
+                  saleInputs={saleInputs}
+                  saleResult={saleResult}
+                  propertyPrice={inputs.propertyPrice}
+                  activeTab={activeResultsTab}
+                  absdRate={inputs.absdRate}
+                />
               </div>
             </motion.div>
           )}
