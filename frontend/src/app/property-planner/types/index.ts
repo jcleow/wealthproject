@@ -1,0 +1,232 @@
+/**
+ * Property Planner Types
+ *
+ * Centralized type definitions for the property planner feature.
+ */
+
+// ============================================
+// PROPERTY TYPES
+// ============================================
+
+export type PropertyType = 'hdb-resale' | 'hdb-bto' | 'ec' | 'private-resale' | 'private-new'
+export type BorrowerType = 'single' | 'joint'
+export type LoanType = 'bank' | 'hdb'
+export type ChartView = 'balance' | 'composition' | 'schedule'
+export type FormStep = 'property' | 'borrowers' | 'financing' | 'terms'
+export type SaleFormStep = 'timing' | 'fees'
+export type AccordionColor = 'rose' | 'violet' | 'emerald' | 'amber'
+
+// ============================================
+// FEE & EXPENSE TYPES
+// ============================================
+
+export interface FeeItem {
+  id: string
+  name: string
+  type: 'percentage' | 'fixed'
+  value: number  // percentage (e.g., 2 for 2%) or fixed amount
+  enabled: boolean
+  dueOffset?: number  // Months relative to purchase (0 = at purchase, -1 = 1 month before, 1 = 1 month after)
+  icon?: string       // lucide icon name (kebab-case)
+  iconColor?: string  // hex color
+}
+
+// ============================================
+// APPRECIATION & LOAN TYPES
+// ============================================
+
+export interface AppreciationPeriod {
+  id: string
+  startYear: number    // Year 1, 2, 3, etc.
+  endYear: number | null  // null = until end ("onwards")
+  rate: number         // Annual % (e.g., 3 for 3%)
+}
+
+export interface LoanSegment {
+  id: string
+  startMonth: string   // YYYY-MM when this segment starts
+  termYears: number    // Duration of this segment
+  fixedYears: number   // Fixed period within segment
+  fixedRate: number
+  floatingRate: number
+}
+
+// ============================================
+// MORTGAGE INPUTS
+// ============================================
+
+export interface MortgageInputs {
+  propertyPrice: number
+  valuationPrice: number // Bank/HDB valuation (for resale properties)
+  loanAmount: number
+  loanType: LoanType // Bank loan vs HDB loan - affects downpayment CPF/cash split
+  // Downpayment breakdown
+  downpaymentCpfOa: number // Amount to pay from CPF OA
+  downpaymentCash: number // Amount to pay in cash (excluding COV)
+  loanTermYears: number
+  loanStartMonth: string
+  fixedYears: number
+  fixedRate: number
+  floatingRate: number
+  householdIncome: number
+  otherDebt: number // Computed from selected liabilities
+  borrowerType: BorrowerType
+  cpfOaBalance: number
+  monthlyCpfOa: number
+  grants: number
+  // Borrower selection fields
+  borrower1IncomeId: string
+  borrower1OaBalance: number
+  borrower1LiabilityIds: string[] // IDs of liabilities assigned to borrower 1
+  borrower2IncomeId: string | null
+  borrower2OaBalance: number
+  borrower2LiabilityIds: string[] // IDs of liabilities assigned to borrower 2
+  // Purchase fees/expenses
+  purchaseFees: FeeItem[]
+  // ABSD (Additional Buyer's Stamp Duty) - user-entered percentage
+  absdRate: number // e.g., 0 for SC 1st property, 20 for SC 2nd, 60 for foreigner
+  // Property appreciation (period-based rates)
+  appreciationPeriods: AppreciationPeriod[]
+  // Loan chain for refinancing scenarios
+  loanSegments: LoanSegment[]
+}
+
+// ============================================
+// AMORTIZATION & CALCULATION TYPES
+// ============================================
+
+export interface AmortizationYear {
+  year: number
+  principal: number
+  interest: number
+  balance: number
+  totalPaid: number
+}
+
+export interface DownpaymentBreakdown {
+  cpfOa: number
+  cash: number
+  minCashRequired: number
+  maxCpfAllowed: number
+}
+
+export interface CalculatedFee {
+  item: FeeItem
+  amount: number
+}
+
+export interface MortgageCalculationResult {
+  monthlyPayment: number
+  totalInterest: number
+  msrRatio: number
+  tdsrRatio: number
+  loanStartDate: string
+  loanEndDate: string
+  loanTermYears: number
+  amortization: AmortizationYear[]
+  downpayment: number
+  downpaymentBreakdown: DownpaymentBreakdown
+  cpfRunsOutMonth: number | null
+  // Purchase costs
+  bsdAmount: number
+  absdAmount: number
+  calculatedPurchaseFees: CalculatedFee[]
+  totalPurchaseFees: number
+  cov: number
+  totalUpfrontCash: number
+}
+
+// ============================================
+// SALE TYPES
+// ============================================
+
+export interface SaleInputs {
+  expectedSaleDate: string  // YYYY-MM format
+  expectedSalePrice: number
+  fees: FeeItem[]  // Flexible fees list
+}
+
+export interface CpfRefund {
+  principalUsed: number      // downpaymentCpfOa + cumulative monthly CPF payments
+  accruedInterest: number    // 2.5% compound interest
+  total: number
+}
+
+export interface SsdInfo {
+  applicable: boolean
+  rate: number               // 0-16%
+  amount: number
+}
+
+export interface SaleResult {
+  holdingPeriodMonths: number
+  holdingPeriodYears: number
+  outstandingLoanAtSale: number
+  cpfRefund: CpfRefund
+  ssd: SsdInfo
+  calculatedFees: CalculatedFee[]
+  totalFees: number
+  grossProceeds: number        // Sale price - outstanding loan
+  netCashProceeds: number      // After all deductions
+  cpfRefundedToOa: number      // Amount going back to CPF
+}
+
+// ============================================
+// SCENARIO TYPES
+// ============================================
+
+export interface PropertyScenario {
+  id: string
+  name: string
+  propertyType: PropertyType
+  inputs: MortgageInputs
+  saleInputs: SaleInputs
+  isIncluded: boolean  // Whether to include in financial planning
+  createdAt: number
+  icon?: string       // lucide icon name (kebab-case)
+  iconColor?: string  // hex color
+}
+
+// ============================================
+// UI TYPES
+// ============================================
+
+export interface PropertyOption {
+  id: PropertyType
+  title: string
+  subtitle: string
+  description: string
+  icon: React.ReactNode
+  color: string
+  accentColor: string
+  priceRange: string
+  highlights: string[]
+}
+
+export interface WaterfallItem {
+  name: string
+  amount: number
+  color: string
+  isTotal?: boolean
+}
+
+export interface MockIncome {
+  id: string
+  name: string
+  monthlyAmount: number
+}
+
+// ============================================
+// FORM STEP TYPES
+// ============================================
+
+export interface FormStepConfig {
+  id: FormStep
+  label: string
+  icon: string
+}
+
+export interface SaleFormStepConfig {
+  id: SaleFormStep
+  label: string
+}
