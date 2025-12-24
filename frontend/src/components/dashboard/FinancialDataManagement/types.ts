@@ -67,4 +67,6 @@ export interface FinancialDataManagementProps {
   zoomLevel?: ZoomLevel
   isTimelineLoading?: boolean
   onSaveTimelineEdits?: (payload: TimelineEditRequest) => Promise<void>
+  /** When true, show Tax Mode panel instead of cashflow cards */
+  showTaxMode?: boolean
 }

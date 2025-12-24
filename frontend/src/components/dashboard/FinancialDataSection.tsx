@@ -1,8 +1,6 @@
 'use client'
 
-import { AnimatePresence, motion } from 'framer-motion'
 import { FinancialDataManagement } from './FinancialDataManagement'
-import { TaxModePanel } from './TaxModePanel'
 import { useTaxModeOptional } from '@/contexts/TaxModeContext'
 import type { TimelineYear, TimelineMonth, TimeResolution, MonthDetailResponseV2, TimelineEditRequest } from '@/types/timeline'
 import type { ZoomLevel } from '@/components/timeline/ZoomControls'
@@ -46,45 +44,26 @@ export function FinancialDataSection({
   const isTaxModeEnabled = taxMode?.isTaxModeEnabled ?? false
 
   return (
-    <div className="min-h-0 min-w-0 shrink-0 space-y-4">
-      {/* Main row: Financial cards + Tax panel */}
-      <div className="flex gap-4">
-        {/* Financial data cards - shrink when tax mode is on */}
-        <div className={isTaxModeEnabled ? 'flex-1 min-w-0' : 'w-full'}>
-          <FinancialDataManagement
-            selectedYear={selectedYear}
-            onSelectYear={onSelectYear}
-            selectedMonth={selectedMonth}
-            onSelectMonth={onSelectMonth}
-            timelineYear={timelineYear}
-            timelineMonth={timelineMonth}
-            timelineMonths={timelineMonths}
-            timelineMonthV2={timelineMonthV2}
-            timelineYears={timelineYears}
-            anchorYear={anchorYear}
-            anchorMonth={anchorMonth}
-            resolution={resolution}
-            zoomLevel={zoomLevel}
-            isTimelineLoading={isTimelineLoading}
-            onSaveTimelineEdits={onSaveTimelineEdits}
-          />
-        </div>
-
-        {/* Tax Mode Panel - appears on the right when enabled */}
-        <AnimatePresence>
-          {isTaxModeEnabled && (
-            <motion.div
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: 380 }}
-              exit={{ opacity: 0, width: 0 }}
-              transition={{ duration: 0.2 }}
-              className="shrink-0 overflow-hidden"
-            >
-              <TaxModePanel />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+    <div className="min-h-[400px] min-w-0 shrink-0">
+      {/* FinancialDataManagement renders the header + conditionally the cashflow OR tax content */}
+      <FinancialDataManagement
+        selectedYear={selectedYear}
+        onSelectYear={onSelectYear}
+        selectedMonth={selectedMonth}
+        onSelectMonth={onSelectMonth}
+        timelineYear={timelineYear}
+        timelineMonth={timelineMonth}
+        timelineMonths={timelineMonths}
+        timelineMonthV2={timelineMonthV2}
+        timelineYears={timelineYears}
+        anchorYear={anchorYear}
+        anchorMonth={anchorMonth}
+        resolution={resolution}
+        zoomLevel={zoomLevel}
+        isTimelineLoading={isTimelineLoading}
+        onSaveTimelineEdits={onSaveTimelineEdits}
+        showTaxMode={isTaxModeEnabled}
+      />
     </div>
   )
 }

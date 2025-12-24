@@ -3,7 +3,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  X,
   ChevronDown,
   ChevronUp,
   DollarSign,
@@ -25,7 +24,6 @@ import {
   formatPercent,
   PERSONAL_RELIEF_CAP,
   type TaxRelief,
-  type TaxResidencyStatus,
   type TaxCalculationResult,
 } from '@/lib/taxCalculations'
 
@@ -114,17 +112,17 @@ function ReliefRow({ relief, onUpdate }: ReliefRowProps) {
             onBlur={handleBlur}
             onKeyDown={(e) => e.key === 'Enter' && handleBlur()}
             autoFocus
-            className="w-24 px-2 py-1 text-right text-sm rounded-lg bg-white/[0.05] border border-white/[0.1] text-white focus:outline-none focus:border-amber-500/50"
+            className="w-28 px-3 py-1.5 text-right text-sm rounded-xl bg-white/[0.03] border border-white/[0.06] text-white focus:outline-none focus:border-white/20 transition-colors"
           />
         ) : (
           <button
             onClick={() => setIsEditing(true)}
-            className="text-sm text-slate-400 hover:text-white transition-colors"
+            className="text-sm text-white hover:text-amber-400 transition-colors font-medium"
           >
             {formatCurrency(relief.claimedAmount)}
           </button>
         )}
-        <span className="text-xs text-slate-600">
+        <span className="text-xs text-slate-500">
           / {formatCurrency(relief.maxAmount)}
         </span>
       </div>
@@ -136,7 +134,13 @@ function ReliefRow({ relief, onUpdate }: ReliefRowProps) {
 // MAIN COMPONENT
 // ============================================
 
-export function TaxModePanel() {
+interface TaxModePanelProps {
+  fullWidth?: boolean
+  /** When true, hide the Cashflow/Tax toggle (used when toggle is in parent Header) */
+  hideToggle?: boolean
+}
+
+export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModePanelProps) {
   const {
     isTaxModeEnabled,
     disableTaxMode,
@@ -235,24 +239,24 @@ export function TaxModePanel() {
   if (!isTaxModeEnabled) return null
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      className="h-full flex flex-col rounded-2xl border border-white/[0.06] bg-[#0a0a0a]/90 backdrop-blur-xl overflow-hidden"
+    <div
+      className={clsx(
+        "flex flex-col rounded-2xl border border-white/[0.06] bg-[#0a0a0a]/90 backdrop-blur-xl overflow-hidden",
+        fullWidth ? "w-full" : "h-full"
+      )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-        <div className="flex items-center gap-2">
-          <span className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
-            <Receipt className="h-4 w-4" />
-          </span>
-          <div>
-            <h3 className="text-sm font-medium text-white">Tax Estimate</h3>
-            <p className="text-xs text-slate-500">YA {assessmentYear}</p>
+      <div className="px-4 py-3 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+              <Receipt className="h-4 w-4" />
+            </span>
+            <div>
+              <h3 className="text-sm font-medium text-white">Tax Estimate</h3>
+              <p className="text-xs text-slate-500">YA {assessmentYear}</p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
           <button
             onClick={() => setViewMode(viewMode === 'summary' ? 'detailed' : 'summary')}
             className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-slate-300 hover:bg-white/5 transition-colors"
@@ -260,56 +264,35 @@ export function TaxModePanel() {
             {viewMode === 'summary' ? 'Details' : 'Summary'}
             {viewMode === 'summary' ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
           </button>
-          <button
-            onClick={disableTaxMode}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
+
+        {/* Cashflow / Tax Toggle - only shown if not hidden */}
+        {!hideToggle && (
+          <div className="flex rounded-lg border border-white/[0.08] overflow-hidden mt-3">
+            <button
+              type="button"
+              onClick={disableTaxMode}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-all duration-200 text-slate-500 hover:text-slate-400 hover:bg-white/[0.02]"
+            >
+              <span>Cashflow</span>
+            </button>
+            <div className="w-px bg-white/[0.08]" />
+            <button
+              type="button"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium transition-all duration-200 bg-amber-500/10 text-amber-400"
+            >
+              <Receipt className="h-3 w-3" />
+              <span>Tax</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Summary Stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard
-            label="Tax Payable"
-            value={formatCurrency(taxResult.taxPayable)}
-            subValue={`${formatPercent(taxResult.effectiveRate)} effective`}
-            icon={<DollarSign className="h-4 w-4" />}
-            color="rose"
-          />
-          <StatCard
-            label="Chargeable Income"
-            value={formatCurrency(taxResult.chargeableIncome)}
-            subValue={`${formatPercent(taxResult.marginalRate)} marginal`}
-            icon={<TrendingUp className="h-4 w-4" />}
-            color="blue"
-          />
-        </div>
-
-        {/* Residency Status */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-          <label className="text-xs text-slate-500 mb-2 block">Residency Status</label>
-          <div className="flex gap-2">
-            {(['resident', 'non-resident'] as TaxResidencyStatus[]).map((status) => (
-              <button
-                key={status}
-                onClick={() => setResidencyStatus(status)}
-                className={clsx(
-                  'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all',
-                  residencyStatus === status
-                    ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
-                    : 'bg-white/[0.02] text-slate-400 border border-white/[0.06] hover:bg-white/[0.04]'
-                )}
-              >
-                {status === 'resident' ? 'Resident' : 'Non-Resident'}
-              </button>
-            ))}
-          </div>
-        </div>
-
+      <div className={clsx(
+        "flex-1 overflow-y-auto p-4",
+        fullWidth ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-4"
+      )}>
         {/* Income Section */}
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
           <div className="flex items-center justify-between mb-3">
@@ -319,20 +302,27 @@ export function TaxModePanel() {
             </div>
             <button
               onClick={handleAddIncome}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 text-xs font-medium transition-colors border border-white/[0.06]"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3.5 w-3.5" />
               Add
             </button>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             {incomes.map((income) => (
-              <div key={income.id} className="flex items-center gap-2 p-2 rounded-lg bg-black/20">
+              <div key={income.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
                 <select
                   value={income.type}
                   onChange={(e) => handleUpdateIncome(income.id, { type: e.target.value as IncomeEntry['type'] })}
-                  className="bg-transparent text-xs text-slate-400 border-none focus:outline-none cursor-pointer"
+                  className="rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm py-2 px-3 focus:outline-none focus:border-white/20 transition-colors appearance-none cursor-pointer"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 0.5rem center',
+                    backgroundSize: '0.875rem',
+                    paddingRight: '2rem'
+                  }}
                 >
                   <option value="employment">Employment</option>
                   <option value="rental">Rental</option>
@@ -345,22 +335,24 @@ export function TaxModePanel() {
                   type="text"
                   value={income.name}
                   onChange={(e) => handleUpdateIncome(income.id, { name: e.target.value })}
-                  className="flex-1 bg-transparent text-sm text-white border-none focus:outline-none"
+                  className="flex-1 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm py-2 px-3 focus:outline-none focus:border-white/20 transition-colors placeholder:text-slate-500"
                   placeholder="Income name"
                 />
-                <span className="text-slate-500">$</span>
-                <input
-                  type="number"
-                  value={income.amount}
-                  onChange={(e) => handleUpdateIncome(income.id, { amount: parseFloat(e.target.value) || 0 })}
-                  className="w-24 text-right bg-transparent text-sm text-white border-none focus:outline-none"
-                  placeholder="0"
-                />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">$</span>
+                  <input
+                    type="number"
+                    value={income.amount}
+                    onChange={(e) => handleUpdateIncome(income.id, { amount: parseFloat(e.target.value) || 0 })}
+                    className="w-32 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm py-2 pl-7 pr-3 text-right focus:outline-none focus:border-white/20 transition-colors placeholder:text-slate-500"
+                    placeholder="0"
+                  />
+                </div>
                 <button
                   onClick={() => handleDeleteIncome(income.id)}
-                  className="p-1 text-slate-600 hover:text-rose-400 transition-colors"
+                  className="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ))}
@@ -461,7 +453,28 @@ export function TaxModePanel() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Summary Stats - at the end as aggregation/results */}
+        <div className={clsx(
+          "gap-3",
+          fullWidth ? "grid grid-cols-2 col-span-full" : "grid grid-cols-2"
+        )}>
+          <StatCard
+            label="Chargeable Income"
+            value={formatCurrency(taxResult.chargeableIncome)}
+            subValue={`${formatPercent(taxResult.marginalRate)} marginal rate`}
+            icon={<TrendingUp className="h-4 w-4" />}
+            color="blue"
+          />
+          <StatCard
+            label="Tax Payable"
+            value={formatCurrency(taxResult.taxPayable)}
+            subValue={`${formatPercent(taxResult.effectiveRate)} effective rate`}
+            icon={<DollarSign className="h-4 w-4" />}
+            color="rose"
+          />
+        </div>
       </div>
-    </motion.div>
+    </div>
   )
 }

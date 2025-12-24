@@ -63,6 +63,7 @@ import { Header } from './components/Header'
 import { CategoryCard } from './components/CategoryCard'
 import { ResizableCard } from './components/ResizableCard'
 import { SummaryCards } from './components/SummaryCards'
+import { TaxModePanel } from '../TaxModePanel'
 
 export type { FinancialDataManagementProps }
 
@@ -80,6 +81,7 @@ export function FinancialDataManagement({
   anchorMonth,
   resolution,
   isTimelineLoading = false,
+  showTaxMode = false,
 }: FinancialDataManagementProps) {
   // V2 data is available when the feature flag is enabled and data is loaded
   const hasV2Data = !!timelineMonthV2
@@ -860,12 +862,22 @@ export function FinancialDataManagement({
     }
   }
 
+  const taxPanel = useMemo(()=>{
+    if (!showTaxMode) return null
+    return (
+      <TaxModePanel
+        fullWidth
+        hideToggle
+      />
+    )
+  },[showTaxMode])
+
   // ========== Render ==========
   return (
     <>
       <div
         id="financial-data-section"
-        className="flex h-full flex-col bg-transparent text-white"
+        className="flex flex-col bg-transparent text-white h-full"
         onClick={(e) => {
           if (selectedItemId && (e.target as HTMLElement).closest('[data-line-item]') === null) {
             setSelectedItemId(null)
@@ -887,76 +899,86 @@ export function FinancialDataManagement({
           onViewModeChange={setViewMode}
         />
 
-        <div className="flex-1 overflow-auto px-6 py-6">
-          <div className="flex h-full flex-col gap-6">
-            <div className="grid gap-4 lg:grid-cols-2">
-              {(Object.keys(categoryConfig) as FinancialCategory[]).filter((key) => key !== 'investment').map((key) => (
-                <ResizableCard key={key} id={key}>
-                <CategoryCard
-                  category={key}
-                  data={getDataForCategory(key)}
-                  sortDirection={sortDirections[key]}
-                  onToggleSortDirection={() =>
-                    setSortDirections((prev) => ({
-                      ...prev,
-                      [key]: prev[key] === 'desc' ? 'asc' : 'desc',
-                    }))
-                  }
-                  onAddItem={() => handleAddItem(key)}
-                  onEditItem={handleEditItem}
-                  onDeleteItem={handleDeleteItem}
-                  selectedItemId={selectedItemId}
-                  onSelectItem={setSelectedItemId}
-                  expandedScenarioItems={expandedScenarioItems}
-                  onToggleScenarioExpanded={toggleScenarioExpanded}
-                  scenarioEvents={scenarioEvents}
-                  showMonthlyData={!!showMonthlyData}
-                  getDisplayAmount={getDisplayAmount}
-                  summarizeAmount={summarizeAmount}
-                  activeAnnualizationId={activeAnnualizationId}
-                  setActiveAnnualizationId={setActiveAnnualizationId}
-                  cashAccounts={cashAccounts}
-                  onSetAccumulator={(id) => setAccumulatorMutation.mutate(id)}
-                  onOpenCashAccountEdit={(cashAccount) =>
-                    setCashAccountModalState({ isOpen: true, mode: 'edit', data: cashAccount })
-                  }
-                  onDeleteCashAccount={(id) => deleteCashAccountMutation.mutate(id)}
-                  mergedLinks={mergedLinks}
-                  assetLinks={assetLinks}
-                  liabilityLinks={liabilityLinks}
-                  firstLink={firstLink}
-                  onOpenPropertyPlanner={openPlannerFromLink}
-                  investmentAssets={key === 'asset' ? investmentAssets : undefined}
-                  cpfAssets={key === 'asset' ? cpfAssets : undefined}
-                  cpfContributionsRaw={key === 'income' ? cpfContributionsRaw : undefined}
-                  hasInvestmentsSection={key === 'income' ? hasInvestmentsSection : false}
-                  monthlyInvestments={key === 'income' ? monthlyInvestments : 0}
-                  onAddInvestment={key === 'asset' ? handleAddInvestment : undefined}
-                  onAddCpf={key === 'asset' ? handleAddCpf : undefined}
-                  onEditInvestment={key === 'asset' ? handleEditInvestment : undefined}
-                  onDeleteInvestment={key === 'asset' ? handleDeleteInvestment : undefined}
-                  onManageAllocations={key === 'income' ? handleManageAllocations : undefined}
-                  investmentAllocations={key === 'income' ? investmentAllocations : undefined}
-                  investments={key === 'income' ? investmentAssets : undefined}
-                  onEditAllocation={key === 'income' ? handleEditAllocation : undefined}
-                  onDeleteAllocation={key === 'income' ? handleDeleteAllocation : undefined}
-                  onDeleteDebtRepayment={key === 'expense' ? handleDeleteDebtRepayment : undefined}
-                  onEditCpf={key === 'asset' ? handleEditCpf : undefined}
-                  onDeleteCpf={key === 'asset' ? handleDeleteCpf : undefined}
-                  groupItemsByCategory={groupItemsByCategory}
-                />
-                </ResizableCard>
-              ))}
-            </div>
-
-            <SummaryCards
-              netWorth={getNetWorthForYear()}
-              annualSavings={getAnnualSavingsForYear()}
-              hasV2Data={hasV2Data}
-              timelineMonthV2={timelineMonthV2}
-            />
+        {/* Tax panel - render when in tax mode */}
+        {showTaxMode && (
+          <div className="w-full px-6 pb-6">
+            {taxPanel}
           </div>
-        </div>
+        )}
+
+        {/* Cashflow cards - render when not in tax mode */}
+        {!showTaxMode && (
+          <div className="flex-1 overflow-auto px-6 py-6">
+            <div className="flex h-full flex-col gap-6">
+              <div className="grid gap-4 lg:grid-cols-2">
+                {(Object.keys(categoryConfig) as FinancialCategory[]).filter((key) => key !== 'investment').map((key) => (
+                  <ResizableCard key={key} id={key}>
+                  <CategoryCard
+                    category={key}
+                    data={getDataForCategory(key)}
+                    sortDirection={sortDirections[key]}
+                    onToggleSortDirection={() =>
+                      setSortDirections((prev) => ({
+                        ...prev,
+                        [key]: prev[key] === 'desc' ? 'asc' : 'desc',
+                      }))
+                    }
+                    onAddItem={() => handleAddItem(key)}
+                    onEditItem={handleEditItem}
+                    onDeleteItem={handleDeleteItem}
+                    selectedItemId={selectedItemId}
+                    onSelectItem={setSelectedItemId}
+                    expandedScenarioItems={expandedScenarioItems}
+                    onToggleScenarioExpanded={toggleScenarioExpanded}
+                    scenarioEvents={scenarioEvents}
+                    showMonthlyData={!!showMonthlyData}
+                    getDisplayAmount={getDisplayAmount}
+                    summarizeAmount={summarizeAmount}
+                    activeAnnualizationId={activeAnnualizationId}
+                    setActiveAnnualizationId={setActiveAnnualizationId}
+                    cashAccounts={cashAccounts}
+                    onSetAccumulator={(id) => setAccumulatorMutation.mutate(id)}
+                    onOpenCashAccountEdit={(cashAccount) =>
+                      setCashAccountModalState({ isOpen: true, mode: 'edit', data: cashAccount })
+                    }
+                    onDeleteCashAccount={(id) => deleteCashAccountMutation.mutate(id)}
+                    mergedLinks={mergedLinks}
+                    assetLinks={assetLinks}
+                    liabilityLinks={liabilityLinks}
+                    firstLink={firstLink}
+                    onOpenPropertyPlanner={openPlannerFromLink}
+                    investmentAssets={key === 'asset' ? investmentAssets : undefined}
+                    cpfAssets={key === 'asset' ? cpfAssets : undefined}
+                    cpfContributionsRaw={key === 'income' ? cpfContributionsRaw : undefined}
+                    hasInvestmentsSection={key === 'income' ? hasInvestmentsSection : false}
+                    monthlyInvestments={key === 'income' ? monthlyInvestments : 0}
+                    onAddInvestment={key === 'asset' ? handleAddInvestment : undefined}
+                    onAddCpf={key === 'asset' ? handleAddCpf : undefined}
+                    onEditInvestment={key === 'asset' ? handleEditInvestment : undefined}
+                    onDeleteInvestment={key === 'asset' ? handleDeleteInvestment : undefined}
+                    onManageAllocations={key === 'income' ? handleManageAllocations : undefined}
+                    investmentAllocations={key === 'income' ? investmentAllocations : undefined}
+                    investments={key === 'income' ? investmentAssets : undefined}
+                    onEditAllocation={key === 'income' ? handleEditAllocation : undefined}
+                    onDeleteAllocation={key === 'income' ? handleDeleteAllocation : undefined}
+                    onDeleteDebtRepayment={key === 'expense' ? handleDeleteDebtRepayment : undefined}
+                    onEditCpf={key === 'asset' ? handleEditCpf : undefined}
+                    onDeleteCpf={key === 'asset' ? handleDeleteCpf : undefined}
+                    groupItemsByCategory={groupItemsByCategory}
+                  />
+                  </ResizableCard>
+                ))}
+              </div>
+
+              <SummaryCards
+                netWorth={getNetWorthForYear()}
+                annualSavings={getAnnualSavingsForYear()}
+                hasV2Data={hasV2Data}
+                timelineMonthV2={timelineMonthV2}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <FinancialFormModal

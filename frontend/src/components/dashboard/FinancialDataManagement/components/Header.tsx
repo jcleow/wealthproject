@@ -253,25 +253,43 @@ export function Header({
             </div>
           )}
 
-          {/* Reveal Taxes button */}
-          <button
-            type="button"
-            onClick={toggleTaxMode}
-            className={`
-              flex items-center justify-center gap-2 w-full
-              px-3 py-2
-              border-t border-white/[0.08]
-              text-xs font-medium
-              transition-all duration-200
-              ${isTaxModeEnabled
-                ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/15'
-                : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'
-              }
-            `}
-          >
-            <Receipt className="h-3.5 w-3.5" />
-            <span>{isTaxModeEnabled ? 'Hide Taxes' : 'Reveal Taxes'}</span>
-          </button>
+          {/* Cashflow / Tax Toggle */}
+          <div className="flex border-t border-white/[0.08]">
+            <button
+              type="button"
+              onClick={() => isTaxModeEnabled && toggleTaxMode?.()}
+              className={`
+                flex-1 flex items-center justify-center gap-1.5
+                px-3 py-2
+                text-xs font-medium
+                transition-all duration-200
+                ${!isTaxModeEnabled
+                  ? 'bg-blue-500/10 text-blue-400'
+                  : 'text-slate-500 hover:text-slate-400 hover:bg-white/[0.02]'
+                }
+              `}
+            >
+              <span>Cashflow</span>
+            </button>
+            <div className="w-px bg-white/[0.08]" />
+            <button
+              type="button"
+              onClick={() => !isTaxModeEnabled && toggleTaxMode?.()}
+              className={`
+                flex-1 flex items-center justify-center gap-1.5
+                px-3 py-2
+                text-xs font-medium
+                transition-all duration-200
+                ${isTaxModeEnabled
+                  ? 'bg-amber-500/10 text-amber-400'
+                  : 'text-slate-500 hover:text-slate-400 hover:bg-white/[0.02]'
+                }
+              `}
+            >
+              <Receipt className="h-3 w-3" />
+              <span>Tax</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
