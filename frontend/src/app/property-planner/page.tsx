@@ -4,6 +4,28 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { IconPicker } from '@/components/modals/ScenarioEventModal/components/IconPicker'
+import * as LucideIcons from 'lucide-react'
+import type { ComponentType } from 'react'
+
+// Helper to render a lucide icon by kebab-case name
+function LucideIcon({ name, className }: { name: string; className?: string }) {
+  // Convert kebab-case to PascalCase
+  const pascalName = name
+    .split('-')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const IconComponent = (LucideIcons as any)[pascalName] as ComponentType<{ className?: string }> | undefined
+
+  if (!IconComponent) {
+    // Fallback to Home icon
+    return <LucideIcons.Home className={className} />
+  }
+
+  return <IconComponent className={className} />
+}
 import {
   ResponsiveContainer,
   AreaChart,
@@ -93,6 +115,10 @@ interface MortgageInputs {
   purchaseFees: FeeItem[]
   // ABSD (Additional Buyer's Stamp Duty) - user-entered percentage
   absdRate: number // e.g., 0 for SC 1st property, 20 for SC 2nd, 60 for foreigner
+  // Property appreciation (period-based rates)
+  appreciationPeriods: AppreciationPeriod[]
+  // Loan chain for refinancing scenarios
+  loanSegments: LoanSegment[]
 }
 
 interface AmortizationYear {
@@ -111,6 +137,26 @@ export interface FeeItem {
   value: number  // percentage (e.g., 2 for 2%) or fixed amount
   enabled: boolean
   dueOffset?: number  // Months relative to purchase (0 = at purchase, -1 = 1 month before, 1 = 1 month after)
+  icon?: string       // lucide icon name (kebab-case)
+  iconColor?: string  // hex color
+}
+
+// Period-based property appreciation
+interface AppreciationPeriod {
+  id: string
+  startYear: number    // Year 1, 2, 3, etc.
+  endYear: number | null  // null = until end ("onwards")
+  rate: number         // Annual % (e.g., 3 for 3%)
+}
+
+// Loan segment for refinancing chain
+interface LoanSegment {
+  id: string
+  startMonth: string   // YYYY-MM when this segment starts
+  termYears: number    // Duration of this segment
+  fixedYears: number   // Fixed period within segment
+  fixedRate: number
+  floatingRate: number
 }
 
 // Sale planning types
@@ -161,24 +207,43 @@ interface PropertyScenario {
   saleInputs: SaleInputs
   isIncluded: boolean  // Whether to include in financial planning
   createdAt: number
+  icon?: string       // lucide icon name (kebab-case)
+  iconColor?: string  // hex color
 }
 
 // Default sale fees
 export const DEFAULT_SALE_FEES: FeeItem[] = [
-  { id: 'agent-commission', name: 'Agent Commission', type: 'percentage', value: 2, enabled: true },
-  { id: 'legal-fees', name: 'Legal/Conveyancing', type: 'fixed', value: 3000, enabled: true },
-  { id: 'discharge-fee', name: 'Mortgage Discharge', type: 'fixed', value: 500, enabled: true },
+  { id: 'agent-commission', name: 'Agent Commission', type: 'percentage', value: 2, enabled: true, icon: 'user', iconColor: '#3b82f6' },
+  { id: 'legal-fees', name: 'Legal/Conveyancing', type: 'fixed', value: 3000, enabled: true, icon: 'file-text', iconColor: '#6366f1' },
+  { id: 'discharge-fee', name: 'Mortgage Discharge', type: 'fixed', value: 500, enabled: true, icon: 'file-check', iconColor: '#22c55e' },
 ]
 
 // Default purchase fees (buyer's expenses)
 // dueOffset: months relative to purchase date (0 = at completion, negative = before)
 export const DEFAULT_PURCHASE_FEES: FeeItem[] = [
-  { id: 'legal-fees', name: 'Legal/Conveyancing', type: 'fixed', value: 3000, enabled: true, dueOffset: 0 },
-  { id: 'valuation-fee', name: 'Valuation Fee', type: 'fixed', value: 500, enabled: true, dueOffset: -2 },
-  { id: 'agent-fee', name: 'Agent Fee (if any)', type: 'percentage', value: 1, enabled: false, dueOffset: 0 },
-  { id: 'renovation', name: 'Renovation/Repairs', type: 'fixed', value: 30000, enabled: false, dueOffset: 1 },
-  { id: 'moving-costs', name: 'Moving Costs', type: 'fixed', value: 2000, enabled: false, dueOffset: 1 },
+  { id: 'legal-fees', name: 'Legal/Conveyancing', type: 'fixed', value: 3000, enabled: true, dueOffset: 0, icon: 'file-text', iconColor: '#6366f1' },
+  { id: 'valuation-fee', name: 'Valuation Fee', type: 'fixed', value: 500, enabled: true, dueOffset: -2, icon: 'search', iconColor: '#f97316' },
+  { id: 'agent-fee', name: 'Agent Fee (if any)', type: 'percentage', value: 1, enabled: false, dueOffset: 0, icon: 'user', iconColor: '#3b82f6' },
+  { id: 'renovation', name: 'Renovation/Repairs', type: 'fixed', value: 30000, enabled: false, dueOffset: 1, icon: 'hammer', iconColor: '#eab308' },
+  { id: 'moving-costs', name: 'Moving Costs', type: 'fixed', value: 2000, enabled: false, dueOffset: 1, icon: 'truck', iconColor: '#14b8a6' },
 ]
+
+// Default appreciation periods
+export const DEFAULT_APPRECIATION_PERIODS: AppreciationPeriod[] = [
+  { id: 'default-1', startYear: 1, endYear: null, rate: 3 },
+]
+
+// Default loan segment (initial loan)
+function createDefaultLoanSegment(startMonth: string, termYears: number, fixedYears: number, fixedRate: number, floatingRate: number): LoanSegment {
+  return {
+    id: 'initial',
+    startMonth,
+    termYears,
+    fixedYears,
+    fixedRate,
+    floatingRate,
+  }
+}
 
 // ============================================
 // MOCK INCOME DATA (for visual mockup)
@@ -289,6 +354,8 @@ const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2LiabilityIds: [],
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
+    appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
+    loanSegments: [createDefaultLoanSegment('2025-06', 25, 0, 2.6, 2.6)],
   },
   'hdb-bto': {
     // BTO: No COV (valuation = price)
@@ -318,6 +385,8 @@ const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2LiabilityIds: [],
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
+    appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
+    loanSegments: [createDefaultLoanSegment('2029-06', 25, 0, 2.6, 2.6)],
   },
   'ec': {
     // EC (new): No COV (valuation = price)
@@ -347,6 +416,8 @@ const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2LiabilityIds: ['liability-4'],
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
+    appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
+    loanSegments: [createDefaultLoanSegment('2028-06', 30, 3, 3.0, 4.0)],
   },
   'private-resale': {
     // $1.8M price, $1.75M valuation ($50K COV)
@@ -376,6 +447,8 @@ const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2LiabilityIds: ['liability-4'],
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
+    appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
+    loanSegments: [createDefaultLoanSegment('2025-06', 30, 3, 3.2, 4.0)],
   },
   'private-new': {
     // New launch: No COV (valuation = price)
@@ -405,6 +478,8 @@ const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2LiabilityIds: ['liability-4'],
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
+    appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
+    loanSegments: [createDefaultLoanSegment('2028-06', 30, 3, 3.2, 4.0)],
   },
 }
 
@@ -714,16 +789,38 @@ function FeeEditor({
   fees,
   onFeesChange,
   basePrice,
-  title = "Fees & Expenses"
+  title = "Fees & Expenses",
+  purchaseDate,
 }: {
   fees: FeeItem[]
   onFeesChange: (fees: FeeItem[]) => void
   basePrice: number
   title?: string
+  purchaseDate?: string // YYYY-MM format
 }) {
   const [newFeeName, setNewFeeName] = useState('')
-  const [newFeeType, setNewFeeType] = useState<'percentage' | 'fixed'>('fixed')
+  const [newFeeType] = useState<'percentage' | 'fixed'>('fixed')
   const [newFeeValue, setNewFeeValue] = useState('')
+  const [newFeeDueOffset, setNewFeeDueOffset] = useState(0)
+  const [newFeeIcon, setNewFeeIcon] = useState('circle-dot')
+  const [newFeeIconColor, setNewFeeIconColor] = useState('#6366f1')
+  const [iconSearchQuery, setIconSearchQuery] = useState('')
+
+  // Helper to get month input value from offset
+  const getMonthValueFromOffset = (offset: number): string => {
+    if (!purchaseDate) return ''
+    const [year, month] = purchaseDate.split('-').map(Number)
+    const date = new Date(year, month - 1 + offset, 1)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  // Helper to convert month value to offset
+  const getOffsetFromMonthValue = (monthValue: string): number => {
+    if (!purchaseDate || !monthValue) return 0
+    const [purchaseYear, purchaseMonth] = purchaseDate.split('-').map(Number)
+    const [targetYear, targetMonth] = monthValue.split('-').map(Number)
+    return (targetYear - purchaseYear) * 12 + (targetMonth - purchaseMonth)
+  }
 
   const handleToggleFee = (id: string) => {
     onFeesChange(fees.map(fee =>
@@ -742,18 +839,33 @@ function FeeEditor({
   }
 
   const handleAddFee = () => {
-    if (!newFeeName.trim() || !newFeeValue) return
+    if (!newFeeName.trim()) return
 
     const newFee: FeeItem = {
       id: `custom-${Date.now()}`,
       name: newFeeName.trim(),
       type: newFeeType,
-      value: parseFloat(newFeeValue),
-      enabled: true
+      value: newFeeValue ? parseFloat(newFeeValue) : 0,
+      enabled: true,
+      dueOffset: newFeeDueOffset,
+      icon: newFeeIcon,
+      iconColor: newFeeIconColor,
     }
     onFeesChange([...fees, newFee])
     setNewFeeName('')
     setNewFeeValue('')
+    setNewFeeDueOffset(0)
+    setNewFeeIcon('circle-dot')
+    setNewFeeIconColor('#6366f1')
+    setIconSearchQuery('')
+  }
+
+  // Helper to format date for display
+  const formatDateDisplay = (monthValue: string): string => {
+    if (!monthValue) return ''
+    const [year, month] = monthValue.split('-').map(Number)
+    const date = new Date(year, month - 1, 1)
+    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
   }
 
   const totalFees = fees.reduce((sum, fee) => {
@@ -783,8 +895,19 @@ function FeeEditor({
                   : "bg-white/[0.02] border-white/5"
               )}
             >
-              {/* Top row: toggle, name, delete */}
-              <div className="flex items-center gap-3 mb-2">
+              {/* Top row: icon, toggle, name, date badge, delete */}
+              <div className="flex items-center gap-2 mb-2">
+                {/* Icon Picker */}
+                <IconPicker
+                  iconName={fee.icon || 'circle-dot'}
+                  iconColor={fee.iconColor || '#6366f1'}
+                  searchQuery=""
+                  onIconChange={(name) => handleUpdateFee(fee.id, { icon: name })}
+                  onColorChange={(color) => handleUpdateFee(fee.id, { iconColor: color })}
+                  onSearchChange={() => {}}
+                  disabled={!fee.enabled}
+                />
+
                 {/* Toggle - always clickable */}
                 <button
                   type="button"
@@ -811,6 +934,13 @@ function FeeEditor({
                   )}
                 />
 
+                {/* Date badge - show if purchaseDate is set */}
+                {purchaseDate && fee.dueOffset !== undefined && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-white/5 text-white/50 shrink-0">
+                    {formatDateDisplay(getMonthValueFromOffset(fee.dueOffset))}
+                  </span>
+                )}
+
                 {/* Delete button */}
                 <button
                   type="button"
@@ -821,9 +951,18 @@ function FeeEditor({
                 </button>
               </div>
 
-              {/* Bottom row: type, value, calculated amount */}
+              {/* Bottom row: date, type, value, calculated amount */}
               {fee.enabled && (
                 <div className="flex items-center gap-2 pl-8">
+                  {/* Due date input */}
+                  {purchaseDate && (
+                    <input
+                      type="month"
+                      value={getMonthValueFromOffset(fee.dueOffset || 0)}
+                      onChange={(e) => handleUpdateFee(fee.id, { dueOffset: getOffsetFromMonthValue(e.target.value) })}
+                      className="bg-white/10 text-xs text-white/70 rounded px-2 py-1 border border-white/10 w-28"
+                    />
+                  )}
                   {/* Type selector */}
                   <select
                     value={fee.type}
@@ -857,42 +996,37 @@ function FeeEditor({
         })}
       </div>
 
-      {/* Add new fee */}
-      <div className="space-y-2 pt-2 border-t border-white/10">
-        <input
-          type="text"
-          value={newFeeName}
-          onChange={(e) => setNewFeeName(e.target.value)}
-          placeholder="New fee name..."
-          className="w-full bg-white/5 text-sm text-white placeholder:text-white/30 rounded-lg px-3 py-2 border border-white/10"
-        />
+      {/* Add new fee - simplified: just icon + name + add button */}
+      <div className="pt-2 border-t border-white/10">
         <div className="flex items-center gap-2">
-          <select
-            value={newFeeType}
-            onChange={(e) => setNewFeeType(e.target.value as 'percentage' | 'fixed')}
-            className="bg-white/10 text-xs text-white/70 rounded px-2 py-2 border border-white/10"
-          >
-            <option value="percentage">%</option>
-            <option value="fixed">Fixed</option>
-          </select>
-          <div className="flex items-center gap-1 flex-1">
-            {newFeeType === 'fixed' && <span className="text-white/50 text-sm">$</span>}
-            <input
-              type="number"
-              value={newFeeValue}
-              onChange={(e) => setNewFeeValue(e.target.value)}
-              placeholder="0"
-              className="w-full bg-white/5 text-sm text-white text-right rounded-lg px-2 py-2 border border-white/10"
-            />
-            {newFeeType === 'percentage' && <span className="text-white/50 text-sm">%</span>}
-          </div>
+          {/* Icon Picker for new fee */}
+          <IconPicker
+            iconName={newFeeIcon}
+            iconColor={newFeeIconColor}
+            searchQuery={iconSearchQuery}
+            onIconChange={setNewFeeIcon}
+            onColorChange={setNewFeeIconColor}
+            onSearchChange={setIconSearchQuery}
+          />
+
+          {/* Fee name input */}
+          <input
+            type="text"
+            value={newFeeName}
+            onChange={(e) => setNewFeeName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddFee()}
+            placeholder="Add new expense..."
+            className="flex-1 bg-white/5 text-sm text-white placeholder:text-white/30 rounded-lg px-3 py-2 border border-white/10"
+          />
+
+          {/* Add button */}
           <button
             type="button"
             onClick={handleAddFee}
-            disabled={!newFeeName.trim() || !newFeeValue}
+            disabled={!newFeeName.trim()}
             className={cn(
               "p-2 rounded-lg transition-colors shrink-0",
-              newFeeName.trim() && newFeeValue
+              newFeeName.trim()
                 ? "bg-indigo-500 hover:bg-indigo-600 text-white"
                 : "bg-white/5 text-white/30 cursor-not-allowed"
             )}
@@ -900,6 +1034,314 @@ function FeeEditor({
             <Plus className="w-4 h-4" />
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Appreciation Period Editor Component
+function AppreciationEditor({
+  periods,
+  onPeriodsChange,
+}: {
+  periods: AppreciationPeriod[]
+  onPeriodsChange: (periods: AppreciationPeriod[]) => void
+}) {
+  const handleAddPeriod = () => {
+    const lastPeriod = periods[periods.length - 1]
+    const newStartYear = lastPeriod ? (lastPeriod.endYear ?? lastPeriod.startYear) + 1 : 1
+
+    // Update the previous period's endYear if it was null
+    const updatedPeriods = periods.map((p, i) =>
+      i === periods.length - 1 && p.endYear === null
+        ? { ...p, endYear: newStartYear - 1 }
+        : p
+    )
+
+    const newPeriod: AppreciationPeriod = {
+      id: `period-${Date.now()}`,
+      startYear: newStartYear,
+      endYear: null, // "onwards"
+      rate: 3,
+    }
+    onPeriodsChange([...updatedPeriods, newPeriod])
+  }
+
+  const handleUpdatePeriod = (id: string, updates: Partial<AppreciationPeriod>) => {
+    onPeriodsChange(periods.map(p => (p.id === id ? { ...p, ...updates } : p)))
+  }
+
+  const handleDeletePeriod = (id: string) => {
+    const index = periods.findIndex(p => p.id === id)
+    if (index === -1 || periods.length <= 1) return
+
+    const newPeriods = periods.filter(p => p.id !== id)
+    // If deleting non-last period, adjust subsequent periods
+    if (index < newPeriods.length) {
+      // Update the period that was after the deleted one
+      const prevPeriod = index > 0 ? newPeriods[index - 1] : null
+      if (prevPeriod) {
+        newPeriods[index] = {
+          ...newPeriods[index],
+          startYear: (prevPeriod.endYear ?? prevPeriod.startYear) + 1,
+        }
+      }
+    }
+    // Make the last period's endYear null (onwards)
+    if (newPeriods.length > 0) {
+      newPeriods[newPeriods.length - 1] = {
+        ...newPeriods[newPeriods.length - 1],
+        endYear: null,
+      }
+    }
+    onPeriodsChange(newPeriods)
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium text-white/80">Property Appreciation</h4>
+        <button
+          type="button"
+          onClick={handleAddPeriod}
+          className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+        >
+          <Plus className="w-3 h-3" />
+          Add Period
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        {periods.map((period) => (
+          <div
+            key={period.id}
+            className="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/10"
+          >
+            {/* Year range */}
+            <span className="text-xs text-white/50 w-8">Year</span>
+            <input
+              type="number"
+              value={period.startYear}
+              onChange={(e) => handleUpdatePeriod(period.id, { startYear: parseInt(e.target.value) || 1 })}
+              min={1}
+              className="w-12 bg-white/10 text-sm text-white text-center rounded px-1 py-1 border border-white/10"
+            />
+            <span className="text-white/30">-</span>
+            {period.endYear !== null ? (
+              <input
+                type="number"
+                value={period.endYear}
+                onChange={(e) => handleUpdatePeriod(period.id, { endYear: parseInt(e.target.value) || period.startYear })}
+                min={period.startYear}
+                className="w-12 bg-white/10 text-sm text-white text-center rounded px-1 py-1 border border-white/10"
+              />
+            ) : (
+              <span className="w-12 text-xs text-white/40 text-center">onwards</span>
+            )}
+
+            {/* Rate input */}
+            <div className="flex items-center gap-1 ml-auto">
+              <input
+                type="number"
+                value={period.rate}
+                onChange={(e) => handleUpdatePeriod(period.id, { rate: parseFloat(e.target.value) || 0 })}
+                step={0.1}
+                className="w-14 bg-white/10 text-sm text-white text-right rounded px-2 py-1 border border-white/10"
+              />
+              <span className="text-white/50 text-xs">%/yr</span>
+            </div>
+
+            {/* Delete button (not for first/only period) */}
+            {periods.length > 1 && (
+              <button
+                type="button"
+                onClick={() => handleDeletePeriod(period.id)}
+                className="p-1 hover:bg-white/10 rounded transition-colors"
+              >
+                <X className="w-3.5 h-3.5 text-white/40 hover:text-red-400" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Loan Segment Editor Component for Refinancing
+function LoanSegmentEditor({
+  segments,
+  onSegmentsChange,
+  initialStartMonth,
+}: {
+  segments: LoanSegment[]
+  onSegmentsChange: (segments: LoanSegment[]) => void
+  initialStartMonth: string
+}) {
+  // Calculate the end month of a segment
+  const getSegmentEndMonth = (startMonth: string, termYears: number): string => {
+    const [year, month] = startMonth.split('-').map(Number)
+    const endDate = new Date(year, month - 1 + termYears * 12, 1)
+    return `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  const handleAddSegment = () => {
+    const lastSegment = segments[segments.length - 1]
+    const newStartMonth = lastSegment
+      ? getSegmentEndMonth(lastSegment.startMonth, lastSegment.termYears)
+      : initialStartMonth
+
+    const newSegment: LoanSegment = {
+      id: `segment-${Date.now()}`,
+      startMonth: newStartMonth,
+      termYears: 5,
+      fixedYears: 2,
+      fixedRate: 3.5,
+      floatingRate: 4.0,
+    }
+    onSegmentsChange([...segments, newSegment])
+  }
+
+  const handleUpdateSegment = (id: string, updates: Partial<LoanSegment>) => {
+    onSegmentsChange(segments.map(s => (s.id === id ? { ...s, ...updates } : s)))
+  }
+
+  const handleDeleteSegment = (id: string) => {
+    if (segments.length <= 1) return
+    onSegmentsChange(segments.filter(s => s.id !== id))
+  }
+
+  // Format month for display
+  const formatMonth = (monthStr: string): string => {
+    const [year, month] = monthStr.split('-').map(Number)
+    const date = new Date(year, month - 1, 1)
+    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium text-white/80">Loan Schedule</h4>
+        <button
+          type="button"
+          onClick={handleAddSegment}
+          className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+        >
+          <Plus className="w-3 h-3" />
+          Add Refinancing
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {segments.map((segment, index) => (
+          <div
+            key={segment.id}
+            className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-3"
+          >
+            {/* Segment header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium",
+                  index === 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-indigo-500/20 text-indigo-400"
+                )}>
+                  {index + 1}
+                </span>
+                <span className="text-sm text-white/80">
+                  {index === 0 ? 'Initial Loan' : `Refinancing #${index}`}
+                </span>
+              </div>
+              {segments.length > 1 && index > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteSegment(segment.id)}
+                  className="p-1 hover:bg-white/10 rounded transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-white/40 hover:text-red-400" />
+                </button>
+              )}
+            </div>
+
+            {/* Start date and term */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-white/50 block mb-1">Start Date</label>
+                <input
+                  type="month"
+                  value={segment.startMonth}
+                  onChange={(e) => handleUpdateSegment(segment.id, { startMonth: e.target.value })}
+                  disabled={index === 0} // Can't change initial loan start
+                  className={cn(
+                    "w-full bg-white/10 text-sm text-white rounded px-2 py-1.5 border border-white/10",
+                    index === 0 && "opacity-50 cursor-not-allowed"
+                  )}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-white/50 block mb-1">Term (years)</label>
+                <input
+                  type="number"
+                  value={segment.termYears}
+                  onChange={(e) => handleUpdateSegment(segment.id, { termYears: parseInt(e.target.value) || 1 })}
+                  min={1}
+                  max={35}
+                  className="w-full bg-white/10 text-sm text-white rounded px-2 py-1.5 border border-white/10"
+                />
+              </div>
+            </div>
+
+            {/* Fixed period and rates */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-xs text-white/50 block mb-1">Fixed Period</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={segment.fixedYears}
+                    onChange={(e) => handleUpdateSegment(segment.id, { fixedYears: parseInt(e.target.value) || 0 })}
+                    min={0}
+                    max={segment.termYears}
+                    className="w-full bg-white/10 text-sm text-white rounded px-2 py-1.5 border border-white/10"
+                  />
+                  <span className="text-xs text-white/40">yr</span>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-white/50 block mb-1">Fixed Rate</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={segment.fixedRate}
+                    onChange={(e) => handleUpdateSegment(segment.id, { fixedRate: parseFloat(e.target.value) || 0 })}
+                    step={0.1}
+                    min={0}
+                    className="w-full bg-white/10 text-sm text-white rounded px-2 py-1.5 border border-white/10"
+                  />
+                  <span className="text-xs text-white/40">%</span>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-white/50 block mb-1">Floating Rate</label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={segment.floatingRate}
+                    onChange={(e) => handleUpdateSegment(segment.id, { floatingRate: parseFloat(e.target.value) || 0 })}
+                    step={0.1}
+                    min={0}
+                    className="w-full bg-white/10 text-sm text-white rounded px-2 py-1.5 border border-white/10"
+                  />
+                  <span className="text-xs text-white/40">%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Timeline indicator */}
+            <div className="text-xs text-white/40 pt-1 border-t border-white/5">
+              {formatMonth(segment.startMonth)} → {formatMonth(getSegmentEndMonth(segment.startMonth, segment.termYears))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -1502,7 +1944,7 @@ function MortgageForm({
   propertyType,
 }: {
   inputs: MortgageInputs
-  onChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | null) => void
+  onChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | null) => void
   propertyType: PropertyType
   accentColor: string
 }) {
@@ -2062,6 +2504,17 @@ function MortgageForm({
                     </div>
                   </div>
                 </div>
+
+                {/* Loan Schedule / Refinancing - Only for bank loans */}
+                {!isHDB && (
+                  <div className="pt-4 border-t border-white/[0.04]">
+                    <LoanSegmentEditor
+                      segments={inputs.loanSegments}
+                      onSegmentsChange={(segments) => onChange('loanSegments', segments)}
+                      initialStartMonth={inputs.loanStartMonth}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -2114,6 +2567,15 @@ function MortgageForm({
                     onFeesChange={(fees) => onChange('purchaseFees', fees)}
                     basePrice={inputs.propertyPrice}
                     title="Additional Expenses"
+                    purchaseDate={inputs.loanStartMonth}
+                  />
+                </div>
+
+                {/* Property Appreciation */}
+                <div className="pt-4 border-t border-white/[0.04]">
+                  <AppreciationEditor
+                    periods={inputs.appreciationPeriods}
+                    onPeriodsChange={(periods) => onChange('appreciationPeriods', periods)}
                   />
                 </div>
               </div>
@@ -2342,6 +2804,7 @@ function SaleParametersForm({
                   onFeesChange={(fees) => onSaleInputChange('fees', fees)}
                   basePrice={displaySalePrice}
                   title="Sale Fees"
+                  purchaseDate={saleInputs.expectedSaleDate}
                 />
 
                 {/* Warnings - muted styling */}
@@ -2831,6 +3294,9 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
   const [newRowName, setNewRowName] = useState('')
   const [newRowType, setNewRowType] = useState<PropertyType>('hdb-resale')
   const [newRowPrice, setNewRowPrice] = useState('')
+  const [newRowIcon, setNewRowIcon] = useState('home')
+  const [newRowIconColor, setNewRowIconColor] = useState('#6366f1')
+  const [newRowIconSearch, setNewRowIconSearch] = useState('')
 
   // Current editing state (for detail view)
   const [selectedType, setSelectedType] = useState<PropertyType | null>(null)
@@ -2852,6 +3318,9 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
     setNewRowName(`Property ${scenarios.length + 1}`)
     setNewRowType(defaultType)
     setNewRowPrice(defaults.propertyPrice.toString())
+    setNewRowIcon('home')
+    setNewRowIconColor('#6366f1')
+    setNewRowIconSearch('')
     setIsCreatingNew(true)
   }, [scenarios.length])
 
@@ -2877,18 +3346,26 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
       saleInputs: getDefaultSaleInputs(defaults.loanStartMonth, price),
       isIncluded: true,
       createdAt: Date.now(),
+      icon: newRowIcon,
+      iconColor: newRowIconColor,
     }
     setScenarios(prev => [...prev, newScenario])
     setIsCreatingNew(false)
     setNewRowName('')
     setNewRowPrice('')
-  }, [newRowName, newRowType, newRowPrice, scenarios.length])
+    setNewRowIcon('home')
+    setNewRowIconColor('#6366f1')
+    setNewRowIconSearch('')
+  }, [newRowName, newRowType, newRowPrice, newRowIcon, newRowIconColor, scenarios.length])
 
   // Cancel new row creation
   const handleCancelNewRow = useCallback(() => {
     setIsCreatingNew(false)
     setNewRowName('')
     setNewRowPrice('')
+    setNewRowIcon('home')
+    setNewRowIconColor('#6366f1')
+    setNewRowIconSearch('')
   }, [])
 
   // Edit an existing scenario
@@ -2942,7 +3419,7 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
     }
   }, [editingScenarioId, inputs, saleInputs, selectedType])
 
-  const handleInputChange = useCallback((field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | null) => {
+  const handleInputChange = useCallback((field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | null) => {
     setInputs(prev => ({ ...prev, [field]: value }))
   }, [])
 
@@ -3081,16 +3558,25 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                         {scenario.isIncluded && <Check className="w-3 h-3 text-white" />}
                       </button>
 
-                      {/* Icon */}
-                      <div className={cn(
-                        "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                        "bg-gradient-to-br",
-                        option?.color || 'from-slate-500/20 to-slate-600/5'
-                      )}>
-                        <span className={option?.accentColor || 'text-slate-400'}>
-                          {option?.icon || <Home className="w-5 h-5" />}
-                        </span>
-                      </div>
+                      {/* Icon - use custom icon if available, otherwise property type default */}
+                      {scenario.icon ? (
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: scenario.iconColor || '#6366f1' }}
+                        >
+                          <LucideIcon name={scenario.icon} className="w-5 h-5 text-white" />
+                        </div>
+                      ) : (
+                        <div className={cn(
+                          "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                          "bg-gradient-to-br",
+                          option?.color || 'from-slate-500/20 to-slate-600/5'
+                        )}>
+                          <span className={option?.accentColor || 'text-slate-400'}>
+                            {option?.icon || <Home className="w-5 h-5" />}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
@@ -3148,10 +3634,15 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                       className="overflow-hidden"
                     >
                       <div className="flex items-center gap-3 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
-                        {/* Placeholder checkbox */}
-                        <div className="w-5 h-5 rounded border-2 border-emerald-500/50 bg-emerald-500/20 flex items-center justify-center shrink-0">
-                          <Check className="w-3 h-3 text-emerald-400" />
-                        </div>
+                        {/* Icon Picker */}
+                        <IconPicker
+                          iconName={newRowIcon}
+                          iconColor={newRowIconColor}
+                          searchQuery={newRowIconSearch}
+                          onIconChange={setNewRowIcon}
+                          onColorChange={setNewRowIconColor}
+                          onSearchChange={setNewRowIconSearch}
+                        />
 
                         {/* Name input */}
                         <input
