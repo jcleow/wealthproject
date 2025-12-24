@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import * as Slider from '@radix-ui/react-slider'
 import { useQuery } from '@tanstack/react-query'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, Receipt } from 'lucide-react'
 
 import type { TimeResolution, TimelineYear, TimelineMonth } from '@/types/timeline'
+import { useTaxModeOptional } from '@/contexts/TaxModeContext'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { DEFAULT_STARTING_AGE } from '@/components/dashboard/projections/types'
@@ -168,6 +169,11 @@ export function Header({
   const shouldShowSlider = resolution === 'monthly' && !!monthRange
   const isSliderDisabled = isTimelineLoading || sliderMax === 0
 
+  // Tax mode state
+  const taxMode = useTaxModeOptional()
+  const isTaxModeEnabled = taxMode?.isTaxModeEnabled ?? false
+  const toggleTaxMode = taxMode?.toggleTaxMode
+
   return (
     <div className="px-6 py-4">
       <div className="flex items-start justify-between gap-3">
@@ -246,6 +252,26 @@ export function Header({
               </Slider.Root>
             </div>
           )}
+
+          {/* Reveal Taxes button */}
+          <button
+            type="button"
+            onClick={toggleTaxMode}
+            className={`
+              flex items-center justify-center gap-2 w-full
+              px-3 py-2
+              border-t border-white/[0.08]
+              text-xs font-medium
+              transition-all duration-200
+              ${isTaxModeEnabled
+                ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/15'
+                : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.04]'
+              }
+            `}
+          >
+            <Receipt className="h-3.5 w-3.5" />
+            <span>{isTaxModeEnabled ? 'Hide Taxes' : 'Reveal Taxes'}</span>
+          </button>
         </div>
       </div>
     </div>

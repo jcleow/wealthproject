@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Home } from 'lucide-react'
+import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Home, Shield } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -26,6 +26,8 @@ interface FinancialWorkspaceProps {
   timelineError?: string | null
   onOpenCPF?: () => void
   onOpenPropertyPlannerV2?: () => void
+  onOpenTax?: () => void
+  onOpenInsurance?: () => void
   anchorYear?: number | null
   anchorMonth?: number | null
   headerOnly?: boolean
@@ -47,6 +49,8 @@ export function FinancialWorkspace({
   timelineError = null,
   onOpenCPF,
   onOpenPropertyPlannerV2,
+  onOpenTax,
+  onOpenInsurance,
   anchorYear,
   anchorMonth,
   headerOnly = false,
@@ -410,40 +414,61 @@ text-slate-500`}>
                     </div>
                   </div>
                 </div>
-                <div className="cursor-not-allowed opacity-60">
-                  <div className={`flex items-start
-w-full
-gap-3 px-4 py-3
-text-left text-sm`}>
-                    <span className={`mt-0.5 p-2
-rounded-lg border border-white/[0.06]
-bg-white/[0.02]
-text-slate-500`}>
-                      <Receipt className="h-4 w-4" />
-                    </span>
-                    <div className="space-y-0.5">
-                      <div className="font-medium text-slate-400">Tax Module</div>
-                      <p className="text-xs text-slate-500">Coming soon</p>
-                    </div>
-                  </div>                                    
-                </div>
-                <div className="cursor-not-allowed opacity-60">
-                  <div className={`flex items-start
-w-full
-gap-3 px-4 py-3
-text-left text-sm`}>
-                    <span className={`mt-0.5 p-2
-rounded-lg border border-white/[0.06]
-bg-white/[0.02]
-text-slate-500`}>
-                      <Receipt className="h-4 w-4" />
-                    </span>
-                    <div className="space-y-0.5">
-                      <div className="font-medium text-slate-400">Insurance Coverage</div>
-                      <p className="text-xs text-slate-500">Coming soon</p>
-                    </div>
-                  </div>                                    
-                </div>
+                {/* Tax Module */}
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    onOpenTax?.()
+                  }}
+                  className={clsx(
+                    "flex items-start gap-3",
+                    "w-full",
+                    "px-4 py-3",
+                    "border-b border-white/[0.04]",
+                    "hover:bg-white/5",
+                    "text-left text-slate-200 text-sm",
+                    "transition",
+                  )}
+                  type="button"
+                >
+                  <span className={`mt-0.5 p-2
+rounded-lg border border-amber-500/20
+bg-amber-500/10
+text-amber-400`}>
+                    <Receipt className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">Tax Planner</div>
+                    <p className="text-xs text-slate-400">Singapore tax calculations and scenario planning.</p>
+                  </div>
+                </button>
+                {/* Insurance Planner */}
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    onOpenInsurance?.()
+                  }}
+                  className={clsx(
+                    "flex items-start gap-3",
+                    "w-full",
+                    "px-4 py-3",
+                    "hover:bg-white/5",
+                    "text-left text-slate-200 text-sm",
+                    "transition",
+                  )}
+                  type="button"
+                >
+                  <span className={`mt-0.5 p-2
+rounded-lg border border-purple-500/20
+bg-purple-500/10
+text-purple-400`}>
+                    <Shield className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">Insurance Planner</div>
+                    <p className="text-xs text-slate-400">Analyze coverage gaps and plan your protection.</p>
+                  </div>
+                </button>
               </div>
               </>
             )}
