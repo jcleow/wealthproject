@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
+import { useTaxModeOptional } from '@/contexts/TaxModeContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import {
   useCashAccountsQuery,
@@ -63,7 +64,7 @@ import { Header } from './components/Header'
 import { CategoryCard } from './components/CategoryCard'
 import { ResizableCard } from './components/ResizableCard'
 import { SummaryCards } from './components/SummaryCards'
-import { TaxModePanel } from '../TaxModePanel'
+import { TaxModeModal } from '../TaxModePanel/TaxModeModal'
 
 export type { FinancialDataManagementProps }
 
@@ -86,14 +87,6 @@ export function FinancialDataManagement({
   // V2 data is available when the feature flag is enabled and data is loaded
   const hasV2Data = !!timelineMonthV2
   const [viewMode, setViewMode] = useState<'annualized' | 'monthly'>('monthly')
-
-  // Auto-switch to annualized (yearly) view when Tax Mode is enabled
-  // Tax calculations work on annual income, so yearly view makes more sense
-  useEffect(() => {
-    if (showTaxMode) {
-      setViewMode('annualized')
-    }
-  }, [showTaxMode])
 
   // Determine if we should show monthly data
   // For V2: use timelineMonthV2, for V1: use timelineMonth
@@ -870,15 +863,10 @@ export function FinancialDataManagement({
     }
   }
 
-  const taxPanel = useMemo(()=>{
-    if (!showTaxMode) return null
-    return (
-      <TaxModePanel
-        fullWidth
-        hideToggle
-      />
-    )
-  },[showTaxMode])
+  // Tax modal - use context directly so Header button can control it
+  const taxModeContext = useTaxModeOptional()
+  const isTaxModalOpen = taxModeContext?.isTaxModeEnabled ?? false
+  const closeTaxModal = taxModeContext?.disableTaxMode
 
   // ========== Render ==========
   return (
@@ -907,16 +895,8 @@ export function FinancialDataManagement({
           onViewModeChange={setViewMode}
         />
 
-        {/* Tax panel - render when in tax mode */}
-        {showTaxMode && (
-          <div className="w-full px-6 pb-6">
-            {taxPanel}
-          </div>
-        )}
-
-        {/* Cashflow cards - render when not in tax mode */}
-        {!showTaxMode && (
-          <div className="flex-1 overflow-auto px-6 py-6">
+        {/* Cashflow cards - always visible */}
+        <div className="flex-1 overflow-auto px-6 py-6">
             <div className="flex h-full flex-col gap-6">
               <div className="grid gap-4 lg:grid-cols-2">
                 {(Object.keys(categoryConfig) as FinancialCategory[]).filter((key) => key !== 'investment').map((key) => (
@@ -986,7 +966,6 @@ export function FinancialDataManagement({
               />
             </div>
           </div>
-        )}
       </div>
 
       <FinancialFormModal
@@ -1077,6 +1056,10 @@ export function FinancialDataManagement({
         selectedYear={selectedYear}
         selectedMonth={selectedMonth}
         anchorYear={anchorYear}
+      />
+      <TaxModeModal
+        isOpen={isTaxModalOpen}
+        onClose={() => closeTaxModal?.()}
       />
     </>
   )

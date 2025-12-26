@@ -169,10 +169,9 @@ export function Header({
   const shouldShowSlider = resolution === 'monthly' && !!monthRange
   const isSliderDisabled = isTimelineLoading || sliderMax === 0
 
-  // Tax mode state
+  // Tax mode - just need the toggle to open the modal
   const taxMode = useTaxModeOptional()
-  const isTaxModeEnabled = taxMode?.isTaxModeEnabled ?? false
-  const toggleTaxMode = taxMode?.toggleTaxMode
+  const toggleTaxMode = taxMode?.enableTaxMode
 
   return (
     <div className="px-6 py-4">
@@ -253,43 +252,22 @@ export function Header({
             </div>
           )}
 
-          {/* Cashflow / Tax Toggle */}
-          <div className="flex border-t border-white/[0.08]">
-            <button
-              type="button"
-              onClick={() => isTaxModeEnabled && toggleTaxMode?.()}
-              className={`
-                flex-1 flex items-center justify-center gap-1.5
-                px-3 py-2
-                text-xs font-medium
-                transition-all duration-200
-                ${!isTaxModeEnabled
-                  ? 'bg-blue-500/10 text-blue-400'
-                  : 'text-slate-500 hover:text-slate-400 hover:bg-white/[0.02]'
-                }
-              `}
-            >
-              <span>Cashflow</span>
-            </button>
-            <div className="w-px bg-white/[0.08]" />
-            <button
-              type="button"
-              onClick={() => !isTaxModeEnabled && toggleTaxMode?.()}
-              className={`
-                flex-1 flex items-center justify-center gap-1.5
-                px-3 py-2
-                text-xs font-medium
-                transition-all duration-200
-                ${isTaxModeEnabled
-                  ? 'bg-amber-500/10 text-amber-400'
-                  : 'text-slate-500 hover:text-slate-400 hover:bg-white/[0.02]'
-                }
-              `}
-            >
-              <Receipt className="h-3 w-3" />
-              <span>Tax</span>
-            </button>
-          </div>
+          {/* Tax Estimate Button */}
+          <button
+            type="button"
+            onClick={() => toggleTaxMode?.()}
+            className="
+              flex items-center justify-center gap-1.5
+              w-full px-3 py-2
+              border-t border-white/[0.08]
+              text-xs font-medium
+              text-slate-400 hover:text-amber-400 hover:bg-amber-500/5
+              transition-all duration-200
+            "
+          >
+            <Receipt className="h-3 w-3" />
+            <span>Tax Estimate</span>
+          </button>
         </div>
       </div>
     </div>
