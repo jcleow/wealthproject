@@ -80,6 +80,68 @@ export const SG_TAX_BRACKETS_RESIDENT = [
 export const NON_RESIDENT_RATE = 0.24
 export const PERSONAL_RELIEF_CAP = 80000
 
+// Tax data versioning - update when tax laws change
+export const TAX_DATA_VERSION = {
+  version: '2025.1',
+  lastUpdated: '2025-01-01',
+  validForYA: ['2025', '2026'] as const,
+  source: 'IRAS',
+  sourceUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-residency-and-tax-rates/individual-income-tax-rates',
+  notes: 'Based on Singapore resident tax rates effective YA2024 onwards. Relief amounts may be subject to annual updates.',
+}
+
+// Relief information with descriptions and IRAS links
+export const RELIEF_INFO: Record<string, { description: string; irasUrl: string }> = {
+  'earned-income': {
+    description: 'Automatic relief for individuals who earned income from employment, trade, business, profession or vocation.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/earned-income-relief',
+  },
+  'cpf-employee': {
+    description: 'Relief for mandatory CPF contributions deducted from your employment income.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/cpf-cash-top-up-relief',
+  },
+  'cpf-cash': {
+    description: 'Voluntary cash top-ups to your own or family members\' CPF Special/Retirement/MediSave Account.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/cpf-cash-top-up-relief',
+  },
+  'srs': {
+    description: 'Contributions to your Supplementary Retirement Scheme (SRS) account for retirement savings.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/srs-relief',
+  },
+  'life-insurance': {
+    description: 'Premiums paid on life insurance policies for yourself. Only claimable if CPF contributions are below $5,000.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/life-insurance-relief',
+  },
+  'course-fees': {
+    description: 'Fees for courses, seminars or conferences to maintain or upgrade skills for employment.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/course-fees-relief',
+  },
+  'nsman': {
+    description: 'Relief for NSmen who completed NS activities during the year. Amount varies by rank and activity.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/nsman-relief-(self-wife-and-parents)',
+  },
+  'spouse-relief': {
+    description: 'Relief if your spouse had little or no income (below $4,000) and is not claiming other reliefs.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/spouse-relief-handicapped-spouse-relief',
+  },
+  'child-relief': {
+    description: 'Relief for each unmarried child who was below 16, or studying full-time at any institution.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/qualifying-child-relief-(qcr)-handicapped-child-relief-(hcr)',
+  },
+  'parent-relief': {
+    description: 'Relief for supporting parents/grandparents aged 55+ who lived with you and had income below $4,000.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/parent-relief-handicapped-parent-relief',
+  },
+  'handicapped-parent': {
+    description: 'Enhanced relief for supporting handicapped parents/grandparents with physical or mental disability.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/parent-relief-handicapped-parent-relief',
+  },
+  'foreign-domestic': {
+    description: 'Relief for levy paid on a foreign domestic worker. Claimable by married women, divorcees, or widowers.',
+    irasUrl: 'https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/tax-reliefs-rebates-and-deductions/tax-reliefs/foreign-domestic-worker-levy-(fdwl)-relief',
+  },
+}
+
 // Default reliefs catalog (user can customize claimed amounts)
 export const DEFAULT_RELIEFS: TaxRelief[] = [
   { id: 'earned-income', name: 'Earned Income Relief', code: 'EIR', maxAmount: 1000, claimedAmount: 1000, autoCalculated: true, category: 'personal' },

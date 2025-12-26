@@ -36,6 +36,7 @@ import type { Income } from '@/types/financial'
 
 type PersonId = 'person1' | 'person2'
 type TaxView = 'summary' | 'by-bracket'
+type PaymentMethod = 'lump-sum' | 'giro'
 
 interface IncomeAssignment {
   incomeId: string
@@ -262,6 +263,7 @@ export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModeP
   // Local state
   const [selectedPerson, setSelectedPerson] = useState<PersonId>('person1')
   const [taxView, setTaxView] = useState<TaxView>('summary')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('lump-sum')
 
   // Income assignments - which person each income belongs to
   const [incomeAssignments, setIncomeAssignments] = useState<IncomeAssignment[]>([])
@@ -576,40 +578,56 @@ export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModeP
 
           {/* ===== CHARGEABLE INCOME ===== */}
           <section>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="h-4 w-4 text-blue-400" />
               <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Chargeable Income</span>
             </div>
-            <div className="text-2xl font-semibold text-white font-mono tabular-nums">
-              {formatCurrency(taxResult.chargeableIncome)}
+
+            {/* Step-by-step derivation */}
+            <div className="space-y-1.5 text-sm mb-3">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Gross Income</span>
+                <span className={numericStyles.base}>{formatCurrency(currentGrossIncome)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">CPF Deduction</span>
+                <span className={numericStyles.muted}>({formatCurrency(cpfDeduction)})</span>
+              </div>
+              <div className="flex justify-between pb-1.5 border-b border-white/[0.04]">
+                <span className="text-slate-400">Assessable Income</span>
+                <span className={numericStyles.base}>{formatCurrency(currentGrossIncome - cpfDeduction)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Reliefs</span>
+                <span className={numericStyles.muted}>({formatCurrency(totalReliefs)})</span>
+              </div>
             </div>
-            <div className="text-sm text-slate-500">
-              {formatPercent(taxResult.marginalRate)} marginal
+
+            <div className="flex justify-between pt-2 border-t border-white/[0.06]">
+              <span className="text-sm text-slate-300 font-medium">Chargeable Income</span>
+              <span className={numericStyles.medium}>{formatCurrency(taxResult.chargeableIncome)}</span>
             </div>
           </section>
 
           {/* ===== TAX ===== */}
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-rose-400" />
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Tax</span>
-              </div>
-              <SegmentedControl
-                value={taxView}
-                onChange={setTaxView}
-                options={[
-                  { value: 'summary', label: 'Summary' },
-                  { value: 'by-bracket', label: 'By Bracket' },
-                ]}
-              />
+          <section className="space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-300 font-medium">Tax Payable</span>
+              <span className="text-sm font-medium text-rose-400 font-mono tabular-nums">
+                ({formatCurrency(taxResult.taxPayable)})
+              </span>
             </div>
-
-            <div className="text-2xl font-semibold text-rose-400 font-mono tabular-nums">
-              {formatCurrency(taxResult.taxPayable)}
-            </div>
-            <div className="text-sm text-slate-500">
-              {formatPercent(taxResult.effectiveRate)} effective | {formatPercent(taxResult.marginalRate)} marginal
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-slate-500">
+                {formatPercent(taxResult.effectiveRate)} effective | {formatPercent(taxResult.marginalRate)} marginal
+              </span>
+              <button
+                type="button"
+                onClick={() => setTaxView(taxView === 'summary' ? 'by-bracket' : 'summary')}
+                className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                {taxView === 'summary' ? 'Show details' : 'Hide details'}
+              </button>
             </div>
 
             <AnimatePresence>
@@ -620,16 +638,16 @@ export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModeP
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="pt-3 mt-3 border-t border-white/[0.06] space-y-1">
+                  <div className="pt-2 mt-2 border-t border-white/[0.04] space-y-1">
                     {taxResult.taxBreakdown.map((bracket, idx) => (
                       <div key={idx} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm text-slate-500 w-10 font-mono tabular-nums">
+                          <span className="text-xs text-slate-500 w-8 font-mono tabular-nums">
                             {formatPercent(bracket.rate)}
                           </span>
-                          <span className="text-sm text-slate-500">{bracket.bracket}</span>
+                          <span className="text-xs text-slate-500">{bracket.bracket}</span>
                         </div>
-                        <span className={numericStyles.base}>
+                        <span className="text-xs text-slate-400 font-mono tabular-nums">
                           {formatCurrency(bracket.amount)}
                         </span>
                       </div>
@@ -640,26 +658,36 @@ export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModeP
             </AnimatePresence>
           </section>
 
-          {/* ===== SUMMARY ===== */}
-          <section className="pt-4 border-t border-white/[0.06]">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Summary</div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Gross Income</span>
-                <span className={numericStyles.base}>{formatCurrency(currentGrossIncome)}</span>
+          {/* ===== NET INCOME ===== */}
+          <section className="pt-4 border-t border-white/[0.06] space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-300 font-medium">Net Income</span>
+              <span className="text-sm font-medium text-emerald-400 font-mono tabular-nums">
+                {formatCurrency(taxResult.chargeableIncome - taxResult.taxPayable)}
+              </span>
+            </div>
+
+            {/* Payment Method */}
+            <div className="mt-3 pt-3 border-t border-white/[0.06]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-slate-500">Payment</span>
+                <SegmentedControl
+                  value={paymentMethod}
+                  onChange={setPaymentMethod}
+                  options={[
+                    { value: 'lump-sum', label: 'One-Time' },
+                    { value: 'giro', label: 'Monthly' },
+                  ]}
+                />
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">CPF Deduction</span>
-                <span className={numericStyles.muted}>({formatCurrency(cpfDeduction)})</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Reliefs</span>
-                <span className={numericStyles.muted}>({formatCurrency(totalReliefs)})</span>
-              </div>
-              <div className="flex justify-between pt-2 border-t border-white/[0.04]">
-                <span className="text-slate-400 font-medium">Net Income</span>
-                <span className={numericStyles.medium}>{formatCurrency(currentGrossIncome - taxResult.taxPayable)}</span>
-              </div>
+              {paymentMethod === 'giro' && taxResult.taxPayable > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">Monthly (12 instalments)</span>
+                  <span className={numericStyles.base}>
+                    ({formatCurrency(Math.ceil(taxResult.taxPayable / 12))})
+                  </span>
+                </div>
+              )}
             </div>
           </section>
         </div>

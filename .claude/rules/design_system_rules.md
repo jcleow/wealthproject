@@ -437,3 +437,150 @@ frontend/
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 ```
+
+---
+
+## 10. Reusable Components & Utilities
+
+**IMPORTANT:** Always check for and reuse existing components before creating new ones. This ensures visual consistency across the app.
+
+### Dropdown Component
+**Location:** `@/components/modals/ScenarioEventModal/components/CustomDropdown`
+
+```typescript
+import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
+
+// Basic usage
+<CustomDropdown
+  value={selectedValue}
+  onChange={(value) => setSelectedValue(value)}
+  options={[
+    { value: 'option1', label: 'Option 1' },
+    { value: 'option2', label: 'Option 2' },
+  ]}
+  minWidth="140px"
+/>
+
+// With grouped options
+<CustomDropdown
+  value={selectedValue}
+  onChange={handleChange}
+  groups={[
+    { label: 'Group A', options: [{ value: 'a1', label: 'A1' }] },
+    { label: 'Group B', options: [{ value: 'b1', label: 'B1' }] },
+  ]}
+/>
+
+// With icons
+<CustomDropdown
+  value={selectedValue}
+  onChange={handleChange}
+  options={options}
+  showIcon
+  icon={<IconComponent className="h-4 w-4" />}
+  iconColor="text-emerald-400"
+/>
+```
+
+### Numeric Display Styles
+**Location:** `@/lib/utils`
+
+Use `numericStyles` for all currency/number displays to ensure consistent monospace font and tabular numbers:
+
+```typescript
+import { numericStyles } from '@/lib/utils'
+
+// Standard numeric display - amounts in lists
+<span className={numericStyles.base}>{formatCurrency(amount)}</span>
+
+// Emphasized - row values
+<span className={numericStyles.medium}>{formatCurrency(amount)}</span>
+
+// De-emphasized - secondary values
+<span className={numericStyles.muted}>{formatCurrency(amount)}</span>
+```
+
+Values:
+- `base`: `'font-mono tabular-nums text-sm text-slate-300'`
+- `medium`: `'font-mono tabular-nums text-sm font-medium text-slate-200'`
+- `muted`: `'font-mono tabular-nums text-sm text-slate-400'`
+
+### Segmented Control / Toggle Tabs
+**Pattern from:** `@/components/dashboard/projections/ChartControls`
+
+```tsx
+// Segmented control container
+<div className="inline-flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.08]">
+  {options.map((option) => (
+    <button
+      key={option.value}
+      type="button"
+      onClick={() => onChange(option.value)}
+      className={clsx(
+        'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150',
+        isActive
+          ? 'bg-white/[0.1] text-white shadow-sm'
+          : 'text-slate-500 hover:text-slate-300'
+      )}
+    >
+      {option.label}
+    </button>
+  ))}
+</div>
+```
+
+### Common Utility Functions
+**Location:** `@/lib/utils`
+
+```typescript
+import { cn, numericStyles, generateUUID } from '@/lib/utils'
+
+// Class name merging (clsx + tailwind-merge)
+cn('base-class', isActive && 'active-class', className)
+
+// Generate unique IDs
+const id = generateUUID()
+```
+
+### Currency Formatting
+**Location:** `@/lib/format`
+
+```typescript
+import { formatCurrency, formatCompactCurrency, formatPercent } from '@/lib/format'
+
+formatCurrency(1234)      // "$1,234"
+formatCurrency(1234567)   // "$1.23M"
+formatPercent(0.075)      // "7.5%"
+```
+
+### Negative Number Formatting
+**Convention:** Use accounting-style brackets for negative numbers instead of minus signs.
+
+```typescript
+// ✓ Correct - use brackets
+($16,320)
+
+// ✗ Incorrect - don't use minus sign
+-$16,320
+−$16,320
+```
+
+This applies to all financial displays: deductions, losses, negative balances, etc.
+
+---
+
+## 11. Component Checklist for New Features
+
+Before building a new component, check if these exist:
+
+| Need | Check First |
+|------|-------------|
+| Dropdown/Select | `CustomDropdown` in modals/ScenarioEventModal/components |
+| Toggle/Tabs | Segmented control pattern in ChartControls |
+| Number display | `numericStyles` from lib/utils |
+| Currency format | `formatCurrency` from lib/format |
+| Class merging | `cn()` from lib/utils |
+| Icons | Lucide React (check existing usage patterns) |
+| Cards | Glassmorphic card pattern in design system |
+| Form inputs | Input pattern in Section 7 |
+| Modals | React Portal pattern in modals/ |

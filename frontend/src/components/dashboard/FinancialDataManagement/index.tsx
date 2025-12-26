@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -86,6 +86,14 @@ export function FinancialDataManagement({
   // V2 data is available when the feature flag is enabled and data is loaded
   const hasV2Data = !!timelineMonthV2
   const [viewMode, setViewMode] = useState<'annualized' | 'monthly'>('monthly')
+
+  // Auto-switch to annualized (yearly) view when Tax Mode is enabled
+  // Tax calculations work on annual income, so yearly view makes more sense
+  useEffect(() => {
+    if (showTaxMode) {
+      setViewMode('annualized')
+    }
+  }, [showTaxMode])
 
   // Determine if we should show monthly data
   // For V2: use timelineMonthV2, for V1: use timelineMonth
