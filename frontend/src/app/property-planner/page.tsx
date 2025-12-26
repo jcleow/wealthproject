@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Trash2,
   Pencil,
+  TrendingUp,
 } from 'lucide-react'
 
 // Import types
@@ -50,6 +51,7 @@ import {
   AmortizationChart,
   LucideIcon,
   InfoTooltip,
+  PropertyAppreciationPanel,
 } from './components'
 
 // Import hooks and constants
@@ -1083,7 +1085,7 @@ function SaleParametersForm({
 // RESULTS PANEL
 // ============================================
 
-type ResultsTab = 'purchase' | 'sale'
+type ResultsTab = 'purchase' | 'sale' | 'appreciation'
 type PurchaseDetailTab = 'breakdown' | 'chart'
 
 function TabbedResultsPanel({
@@ -1094,6 +1096,9 @@ function TabbedResultsPanel({
   propertyPrice,
   activeTab,
   absdRate,
+  appreciationPeriods,
+  onPeriodsChange,
+  purchaseDate,
 }: {
   calculation: ReturnType<typeof calculateMortgage>
   propertyType: PropertyType
@@ -1102,6 +1107,9 @@ function TabbedResultsPanel({
   propertyPrice: number
   activeTab: ResultsTab
   absdRate: number
+  appreciationPeriods: AppreciationPeriod[]
+  onPeriodsChange: (periods: AppreciationPeriod[]) => void
+  purchaseDate: string
 }) {
   const [purchaseDetailTab, setPurchaseDetailTab] = useState<PurchaseDetailTab>('breakdown')
   const isHDB = propertyType.includes('hdb')
@@ -1306,7 +1314,7 @@ function TabbedResultsPanel({
               )}
             </AnimatePresence>
           </motion.div>
-        ) : (
+        ) : activeTab === 'sale' ? (
           <motion.div
             key="sale"
             initial={{ opacity: 0, x: 20 }}
@@ -1401,7 +1409,23 @@ function TabbedResultsPanel({
               </div>
             </div>
           </motion.div>
-        )}
+        ) : activeTab === 'appreciation' ? (
+          <motion.div
+            key="appreciation"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+          >
+            <PropertyAppreciationPanel
+              propertyPrice={propertyPrice}
+              purchaseDate={purchaseDate}
+              saleDate={saleInputs.expectedSaleDate}
+              appreciationPeriods={appreciationPeriods}
+              onPeriodsChange={onPeriodsChange}
+            />
+          </motion.div>
+        ) : null}
       </AnimatePresence>
     </div>
   )
@@ -1780,23 +1804,39 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                     <Banknote className="w-3.5 h-3.5" />
                     Sale
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveResultsTab('appreciation')}
+                    className={cn(
+                      "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2",
+                      activeResultsTab === 'appreciation' ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"
+                    )}
+                  >
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    Projection
+                  </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6">
-                  <AnimatePresence mode="wait">
-                    {activeResultsTab === 'purchase' ? (
-                      <motion.div key="mortgage-form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
-                        <MortgageForm inputs={inputs} onChange={handleInputChange} propertyType={selectedType} />
-                      </motion.div>
-                    ) : (
-                      <motion.div key="sale-form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
-                        <SaleParametersForm saleInputs={saleInputs} onSaleInputChange={handleSaleInputChange} saleResult={saleResult} propertyPrice={inputs.propertyPrice} propertyType={selectedType} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+              <div className={cn(
+                "grid gap-6",
+                activeResultsTab === 'appreciation' ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"
+              )}>
+                {activeResultsTab !== 'appreciation' && (
+                  <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6">
+                    <AnimatePresence mode="wait">
+                      {activeResultsTab === 'purchase' ? (
+                        <motion.div key="mortgage-form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
+                          <MortgageForm inputs={inputs} onChange={handleInputChange} propertyType={selectedType} />
+                        </motion.div>
+                      ) : activeResultsTab === 'sale' ? (
+                        <motion.div key="sale-form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
+                          <SaleParametersForm saleInputs={saleInputs} onSaleInputChange={handleSaleInputChange} saleResult={saleResult} propertyPrice={inputs.propertyPrice} propertyType={selectedType} />
+                        </motion.div>
+                      ) : null}
+                    </AnimatePresence>
+                  </div>
+                )}
 
                 <TabbedResultsPanel
                   calculation={calculation}
@@ -1806,6 +1846,9 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                   propertyPrice={inputs.propertyPrice}
                   activeTab={activeResultsTab}
                   absdRate={inputs.absdRate}
+                  appreciationPeriods={inputs.appreciationPeriods}
+                  onPeriodsChange={(periods) => handleInputChange('appreciationPeriods', periods)}
+                  purchaseDate={inputs.loanStartMonth}
                 />
               </div>
             </motion.div>

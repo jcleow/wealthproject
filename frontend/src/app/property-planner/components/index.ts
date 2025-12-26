@@ -18,7 +18,11 @@ export { LoanSegmentEditor } from './LoanSegmentEditor'
 
 // Chart Components
 export { AmortizationChart } from './AmortizationChart'
+export { AppreciationChart } from './AppreciationChart'
 export { UpfrontCostsWaterfall } from './UpfrontCostsWaterfall'
+
+// Panel Components
+export { PropertyAppreciationPanel } from './PropertyAppreciationPanel'
 
 // Card Components
 export { PropertyCard } from './PropertyCard'
