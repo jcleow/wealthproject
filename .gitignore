@@ -80,3 +80,6 @@ frontend/.pnpm-store/
 frontend/e2e/*-snapshots/
 frontend/playwright-report/
 frontend/test-results/
+
+# Playwright MCP screenshots
+.playwright-mcp/
