@@ -52,6 +52,20 @@ export interface LoanSegment {
 }
 
 // ============================================
+// BTO STAGGERED DOWNPAYMENT SCHEME (SDS)
+// ============================================
+
+// The SDS allows BTO buyers to pay downpayment in 2 instalments:
+// 1. First instalment at Agreement for Lease signing
+// 2. Second instalment at key collection
+export interface StaggeredDownpayment {
+  enabled: boolean                    // Whether SDS is enabled
+  firstInstalmentPercent: number      // 2.5% (young couples) or 5% (standard)
+  firstInstalmentMonth: string        // YYYY-MM - typically ~9 months after booking
+  secondInstalmentMonth: string       // YYYY-MM - at key collection
+}
+
+// ============================================
 // MORTGAGE INPUTS
 // ============================================
 
@@ -89,6 +103,8 @@ export interface MortgageInputs {
   appreciationPeriods: AppreciationPeriod[]
   // Loan chain for refinancing scenarios
   loanSegments: LoanSegment[]
+  // BTO-specific: Staggered Downpayment Scheme (SDS)
+  staggeredDownpayment: StaggeredDownpayment | null
 }
 
 // ============================================

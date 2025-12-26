@@ -6,6 +6,7 @@ import type {
   LoanSegment,
   FormStepConfig,
   SaleFormStepConfig,
+  StaggeredDownpayment,
 } from '../types'
 
 // ============================================
@@ -39,6 +40,41 @@ export const DEFAULT_PURCHASE_FEES: FeeItem[] = [
 export const DEFAULT_APPRECIATION_PERIODS: AppreciationPeriod[] = [
   { id: 'default-1', startYear: 1, endYear: null, rate: 3 },
 ]
+
+/**
+ * Create default Staggered Downpayment Scheme (SDS) configuration for BTO
+ *
+ * The SDS allows BTO buyers to split their downpayment into 2 instalments:
+ * 1. First instalment at Agreement for Lease signing (~9 months after booking)
+ * 2. Second instalment at key collection
+ *
+ * First instalment percentage options:
+ * - 2.5% for young couples (NSFs, students, recently completed NS/studies)
+ * - 5% for standard eligible buyers
+ *
+ * Total downpayment is 25% (as of Aug 2024 LTV changes)
+ */
+export function createDefaultStaggeredDownpayment(
+  bookingMonth: string,
+  keyCollectionMonth: string
+): StaggeredDownpayment {
+  // Calculate first instalment month (~9 months after booking)
+  const [bookYear, bookMonth] = bookingMonth.split('-').map(Number)
+  let firstMonth = bookMonth + 9
+  let firstYear = bookYear
+  while (firstMonth > 12) {
+    firstMonth -= 12
+    firstYear += 1
+  }
+  const firstInstalmentMonth = `${firstYear}-${String(firstMonth).padStart(2, '0')}`
+
+  return {
+    enabled: true,
+    firstInstalmentPercent: 5, // Default to 5%, user can change to 2.5% if eligible
+    firstInstalmentMonth,
+    secondInstalmentMonth: keyCollectionMonth,
+  }
+}
 
 // ============================================
 // FORM STEP CONFIGURATIONS
@@ -113,14 +149,15 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
     loanSegments: [createDefaultLoanSegment('2025-06', 25, 0, 2.6, 2.6)],
+    staggeredDownpayment: null,
   },
   'hdb-bto': {
     propertyPrice: 450000,
     valuationPrice: 450000,
-    loanAmount: 360000,
+    loanAmount: 337500, // 75% LTV (updated Aug 2024)
     loanType: 'hdb',
-    downpaymentCpfOa: 85000,
-    downpaymentCash: 5000,
+    downpaymentCpfOa: 90000,
+    downpaymentCash: 22500, // 25% downpayment total
     loanTermYears: 25,
     loanStartMonth: '2029-06',
     fixedYears: 0,
@@ -142,6 +179,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
     loanSegments: [createDefaultLoanSegment('2029-06', 25, 0, 2.6, 2.6)],
+    staggeredDownpayment: createDefaultStaggeredDownpayment('2025-06', '2029-06'),
   },
   'ec': {
     propertyPrice: 1200000,
@@ -171,6 +209,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
     loanSegments: [createDefaultLoanSegment('2028-06', 30, 3, 3.0, 4.0)],
+    staggeredDownpayment: null,
   },
   'private-resale': {
     propertyPrice: 1800000,
@@ -200,6 +239,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
     loanSegments: [createDefaultLoanSegment('2025-06', 30, 3, 3.2, 4.0)],
+    staggeredDownpayment: null,
   },
   'private-new': {
     propertyPrice: 2000000,
@@ -229,6 +269,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
     loanSegments: [createDefaultLoanSegment('2028-06', 30, 3, 3.2, 4.0)],
+    staggeredDownpayment: null,
   },
 }
 

@@ -3,75 +3,142 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ChevronDown,
-  ChevronUp,
-  DollarSign,
-  TrendingUp,
-  Receipt,
   Wallet,
-  Plus,
-  Trash2,
-  HelpCircle,
   CheckCircle2,
   RotateCcw,
+  Receipt,
+  TrendingUp,
+  Info,
+  ExternalLink,
 } from 'lucide-react'
-import clsx from 'clsx'
+import * as Tooltip from '@radix-ui/react-tooltip'
+import { clsx } from 'clsx'
 import { useTaxMode } from '@/contexts/TaxModeContext'
 import { useTaxReliefStorage } from '@/hooks/useTaxReliefStorage'
+import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
+import { numericStyles } from '@/lib/utils'
+import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import {
   calculateTaxSimple,
   formatCurrency,
   formatPercent,
   PERSONAL_RELIEF_CAP,
+  RELIEF_INFO,
+  TAX_DATA_VERSION,
   type TaxRelief,
   type TaxCalculationResult,
 } from '@/lib/taxCalculations'
+import type { Income } from '@/types/financial'
 
 // ============================================
 // TYPES
 // ============================================
 
-interface IncomeEntry {
-  id: string
-  name: string
-  amount: number
-  type: 'employment' | 'rental' | 'dividend' | 'interest' | 'business' | 'other'
+type PersonId = 'person1' | 'person2'
+type TaxView = 'summary' | 'by-bracket'
+
+interface IncomeAssignment {
+  incomeId: string
+  assignedTo: PersonId
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Annualize income based on frequency
+ */
+function annualizeIncome(amount: number, frequency: string): number {
+  switch (frequency) {
+    case 'monthly':
+      return amount * 12
+    case 'quarterly':
+      return amount * 4
+    case 'yearly':
+    case 'one_time':
+      return amount
+    default:
+      return amount * 12 // Default to monthly
+  }
+}
+
+/**
+ * Map income category to tax income type
+ */
+function mapCategoryToTaxType(category: string): 'employment' | 'rental' | 'dividend' | 'interest' | 'business' | 'other' {
+  const categoryLower = category.toLowerCase()
+  if (categoryLower.includes('salary') || categoryLower.includes('employment') || categoryLower.includes('bonus')) {
+    return 'employment'
+  }
+  if (categoryLower.includes('rental') || categoryLower.includes('rent')) {
+    return 'rental'
+  }
+  if (categoryLower.includes('dividend')) {
+    return 'dividend'
+  }
+  if (categoryLower.includes('interest')) {
+    return 'interest'
+  }
+  if (categoryLower.includes('business') || categoryLower.includes('freelance')) {
+    return 'business'
+  }
+  return 'other'
 }
 
 // ============================================
 // SUB-COMPONENTS
 // ============================================
 
-interface StatCardProps {
-  label: string
-  value: string
-  subValue?: string
-  icon: React.ReactNode
-  color: 'amber' | 'emerald' | 'blue' | 'rose'
+interface SegmentedControlProps<T extends string> {
+  value: T
+  onChange: (value: T) => void
+  options: { value: T; label: string; icon?: React.ReactNode }[]
 }
 
-function StatCard({ label, value, subValue, icon, color }: StatCardProps) {
-  const colorClasses = {
-    amber: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
-    emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-    blue: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
-    rose: 'bg-rose-500/10 border-rose-500/20 text-rose-400',
-  }
+function SegmentedControl<T extends string>({ value, onChange, options }: SegmentedControlProps<T>) {
+  return (
+    <div className="inline-flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.08]">
+      {options.map((option) => {
+        const isActive = option.value === value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={clsx(
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150',
+              isActive
+                ? 'bg-white/[0.1] text-white shadow-sm'
+                : 'text-slate-500 hover:text-slate-300'
+            )}
+          >
+            {option.icon}
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+interface IncomeRowProps {
+  income: Income
+  annualAmount: number
+}
+
+function IncomeRow({ income, annualAmount }: IncomeRowProps) {
+  const taxType = mapCategoryToTaxType(income.category)
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs text-slate-500 mb-1">{label}</p>
-          <p className="text-lg font-semibold text-white">{value}</p>
-          {subValue && (
-            <p className="text-xs text-slate-400 mt-0.5">{subValue}</p>
-          )}
-        </div>
-        <span className={clsx('p-2 rounded-lg border', colorClasses[color])}>
-          {icon}
-        </span>
+    <div className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
+      <div className="flex flex-col min-w-0 mr-4">
+        <span className="text-sm text-slate-300 truncate">{income.name}</span>
+        <span className="text-xs text-slate-500 capitalize">{taxType}</span>
       </div>
+      <span className={numericStyles.medium}>
+        {formatCurrency(annualAmount)}
+      </span>
     </div>
   )
 }
@@ -84,6 +151,8 @@ interface ReliefRowProps {
 function ReliefRow({ relief, onUpdate }: ReliefRowProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [inputValue, setInputValue] = useState(relief.claimedAmount.toString())
+  const isUsed = relief.claimedAmount > 0
+  const reliefInfo = RELIEF_INFO[relief.id]
 
   const handleBlur = () => {
     const parsed = parseFloat(inputValue) || 0
@@ -95,15 +164,48 @@ function ReliefRow({ relief, onUpdate }: ReliefRowProps) {
 
   return (
     <div className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-slate-300">{relief.name}</span>
+      <div className="flex items-center gap-2 min-w-0 mr-4">
+        <span className={clsx('text-sm truncate', isUsed ? 'text-slate-300' : 'text-slate-500')}>
+          {relief.name}
+        </span>
         {relief.autoCalculated && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <span className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
             Auto
           </span>
         )}
+        {reliefInfo && (
+          <Tooltip.Provider delayDuration={200}>
+            <Tooltip.Root>
+              <Tooltip.Trigger asChild>
+                <button type="button" className="shrink-0 text-slate-500 hover:text-slate-300 transition-colors">
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  side="top"
+                  align="start"
+                  sideOffset={4}
+                  className="z-50 max-w-xs px-3 py-2 text-xs leading-relaxed text-slate-200 bg-[#1a1a1a] border border-white/[0.1] rounded-lg shadow-xl"
+                >
+                  <p className="mb-2">{reliefInfo.description}</p>
+                  <a
+                    href={reliefInfo.irasUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    Learn more on IRAS
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <Tooltip.Arrow className="fill-[#1a1a1a]" />
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+          </Tooltip.Provider>
+        )}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 shrink-0">
         {isEditing ? (
           <input
             type="number"
@@ -112,17 +214,21 @@ function ReliefRow({ relief, onUpdate }: ReliefRowProps) {
             onBlur={handleBlur}
             onKeyDown={(e) => e.key === 'Enter' && handleBlur()}
             autoFocus
-            className="w-28 px-3 py-1.5 text-right text-sm rounded-xl bg-white/[0.03] border border-white/[0.06] text-white focus:outline-none focus:border-white/20 transition-colors"
+            className="w-24 px-2 py-1 text-right text-sm rounded-lg bg-white/[0.03] border border-white/[0.06] text-white font-mono tabular-nums focus:outline-none focus:border-white/20 transition-colors"
           />
         ) : (
           <button
             onClick={() => setIsEditing(true)}
-            className="text-sm text-white hover:text-amber-400 transition-colors font-medium"
+            className={clsx(
+              numericStyles.medium,
+              'transition-colors hover:text-amber-400',
+              !isUsed && 'text-slate-500'
+            )}
           >
             {formatCurrency(relief.claimedAmount)}
           </button>
         )}
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-slate-500 font-mono tabular-nums">
           / {formatCurrency(relief.maxAmount)}
         </span>
       </div>
@@ -136,7 +242,6 @@ function ReliefRow({ relief, onUpdate }: ReliefRowProps) {
 
 interface TaxModePanelProps {
   fullWidth?: boolean
-  /** When true, hide the Cashflow/Tax toggle (used when toggle is in parent Header) */
   hideToggle?: boolean
 }
 
@@ -144,32 +249,77 @@ export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModeP
   const {
     isTaxModeEnabled,
     disableTaxMode,
-    viewMode,
-    setViewMode,
     residencyStatus,
-    setResidencyStatus,
   } = useTaxMode()
 
   const { loadReliefs, saveReliefs } = useTaxReliefStorage()
+  const { data: incomes = [], isLoading: incomesLoading } = useIncomesQuery()
 
   // Current year for tax calculation
   const currentYear = new Date().getFullYear()
-  const assessmentYear = currentYear + 1 // Tax is filed for previous year
+  const assessmentYear = currentYear + 1
 
-  // Local state for income entries
-  const [incomes, setIncomes] = useState<IncomeEntry[]>([
-    { id: '1', name: 'Employment', amount: 80000, type: 'employment' },
-  ])
+  // Local state
+  const [selectedPerson, setSelectedPerson] = useState<PersonId>('person1')
+  const [taxView, setTaxView] = useState<TaxView>('summary')
+
+  // Income assignments - which person each income belongs to
+  const [incomeAssignments, setIncomeAssignments] = useState<IncomeAssignment[]>([])
+
+  // Initialize income assignments when incomes load
+  useEffect(() => {
+    if (incomes.length > 0 && incomeAssignments.length === 0) {
+      // Default: assign all incomes to person1
+      setIncomeAssignments(incomes.map(inc => ({
+        incomeId: inc.id,
+        assignedTo: 'person1' as PersonId,
+      })))
+    }
+  }, [incomes, incomeAssignments.length])
+
+  // Get assignment for an income
+  const getAssignment = useCallback((incomeId: string): PersonId => {
+    const assignment = incomeAssignments.find(a => a.incomeId === incomeId)
+    return assignment?.assignedTo ?? 'person1'
+  }, [incomeAssignments])
+
+
+  // Calculate income totals for each person
+  const { person1Total, person2Total } = useMemo(() => {
+    let p1Total = 0
+    let p2Total = 0
+
+    for (const income of incomes) {
+      const annual = annualizeIncome(income.amount, income.frequency)
+      const assignment = getAssignment(income.id)
+
+      if (assignment === 'person1') {
+        p1Total += annual
+      } else {
+        p2Total += annual
+      }
+    }
+
+    return { person1Total: p1Total, person2Total: p2Total }
+  }, [incomes, getAssignment])
+
+  // Current person's income for tax calculation
+  const currentGrossIncome = useMemo(() => {
+    return selectedPerson === 'person1' ? person1Total : person2Total
+  }, [selectedPerson, person1Total, person2Total])
 
   // CPF deduction (20% of employment income, capped at OW ceiling)
   const cpfDeduction = useMemo(() => {
-    const employmentIncome = incomes
-      .filter(i => i.type === 'employment')
-      .reduce((sum, i) => sum + i.amount, 0)
-    // CPF OW ceiling is $6,800/month = $81,600/year, employee contribution ~20%
-    const maxCpf = 81600 * 0.20
+    // Filter to employment incomes for the selected person
+    const relevantIncomes = incomes.filter(inc => getAssignment(inc.id) === selectedPerson)
+
+    const employmentIncome = relevantIncomes
+      .filter(inc => mapCategoryToTaxType(inc.category) === 'employment')
+      .reduce((sum, inc) => sum + annualizeIncome(inc.amount, inc.frequency), 0)
+
+    const maxCpf = 81600 * 0.20 // OW ceiling
     return Math.min(employmentIncome * 0.20, maxCpf)
-  }, [incomes])
+  }, [incomes, selectedPerson, getAssignment])
 
   // Load reliefs from storage
   const [reliefs, setReliefs] = useState<TaxRelief[]>(() =>
@@ -185,12 +335,6 @@ export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModeP
     ))
   }, [cpfDeduction])
 
-  // Calculate totals
-  const grossIncome = useMemo(() =>
-    incomes.reduce((sum, i) => sum + i.amount, 0),
-    [incomes]
-  )
-
   const totalReliefs = useMemo(() =>
     reliefs.reduce((sum, r) => sum + r.claimedAmount, 0),
     [reliefs]
@@ -198,29 +342,15 @@ export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModeP
 
   // Calculate tax
   const taxResult = useMemo<TaxCalculationResult>(() =>
-    calculateTaxSimple(grossIncome, cpfDeduction, totalReliefs, residencyStatus),
-    [grossIncome, cpfDeduction, totalReliefs, residencyStatus]
+    calculateTaxSimple(currentGrossIncome, cpfDeduction, totalReliefs, residencyStatus),
+    [currentGrossIncome, cpfDeduction, totalReliefs, residencyStatus]
   )
 
+  // Split reliefs into used and available
+  const usedReliefs = useMemo(() => reliefs.filter(r => r.claimedAmount > 0), [reliefs])
+  const availableReliefs = useMemo(() => reliefs.filter(r => r.claimedAmount === 0), [reliefs])
+
   // Handlers
-  const handleAddIncome = useCallback(() => {
-    const newIncome: IncomeEntry = {
-      id: Date.now().toString(),
-      name: 'New Income',
-      amount: 0,
-      type: 'other',
-    }
-    setIncomes(prev => [...prev, newIncome])
-  }, [])
-
-  const handleUpdateIncome = useCallback((id: string, updates: Partial<IncomeEntry>) => {
-    setIncomes(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i))
-  }, [])
-
-  const handleDeleteIncome = useCallback((id: string) => {
-    setIncomes(prev => prev.filter(i => i.id !== id))
-  }, [])
-
   const handleUpdateRelief = useCallback((reliefId: string, amount: number) => {
     setReliefs(prev => prev.map(r =>
       r.id === reliefId ? { ...r, claimedAmount: amount } : r
@@ -236,37 +366,86 @@ export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModeP
     saveReliefs(assessmentYear, reliefs, residencyStatus)
   }, [reliefs, residencyStatus, assessmentYear, saveReliefs])
 
+  // Incomes for selected person
+  const selectedPersonIncomes = useMemo(() => {
+    return incomes
+      .filter(inc => getAssignment(inc.id) === selectedPerson)
+      .map(inc => ({
+        income: inc,
+        annual: annualizeIncome(inc.amount, inc.frequency),
+      }))
+  }, [incomes, selectedPerson, getAssignment])
+
   if (!isTaxModeEnabled) return null
 
   return (
-    <div
-      className={clsx(
-        "flex flex-col rounded-2xl border border-white/[0.06] bg-[#0a0a0a]/90 backdrop-blur-xl overflow-hidden",
-        fullWidth ? "w-full" : "h-full"
-      )}
-    >
-      {/* Header */}
+    <div className={clsx(
+      'flex flex-col rounded-2xl border border-white/[0.06] bg-[#0a0a0a]/90 backdrop-blur-xl overflow-hidden',
+      fullWidth ? 'w-full' : 'h-full'
+    )}>
+      {/* ===== TOP CONTROLS ===== */}
       <div className="px-4 py-3 border-b border-white/[0.06]">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          {/* Left side: Title + YA + Version */}
           <div className="flex items-center gap-2">
             <span className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
               <Receipt className="h-4 w-4" />
             </span>
-            <div>
-              <h3 className="text-sm font-medium text-white">Tax Estimate</h3>
-              <p className="text-xs text-slate-500">YA {assessmentYear}</p>
-            </div>
+            <span className="text-sm font-medium text-white">Tax Estimate</span>
+            <span className="text-xs text-slate-500">— YA {assessmentYear}</span>
+            <Tooltip.Provider delayDuration={200}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    className="text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="bottom"
+                    align="start"
+                    sideOffset={4}
+                    className="z-50 max-w-xs px-3 py-2 text-xs leading-relaxed text-slate-200 bg-[#1a1a1a] border border-white/[0.1] rounded-lg shadow-xl"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between gap-4">
+                        <span className="text-slate-500">Version</span>
+                        <span className="font-mono">{TAX_DATA_VERSION.version}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-slate-500">Last updated</span>
+                        <span>{TAX_DATA_VERSION.lastUpdated}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-slate-500">Valid for</span>
+                        <span>YA {TAX_DATA_VERSION.validForYA.join(', ')}</span>
+                      </div>
+                      <div className="pt-1.5 border-t border-white/[0.06] text-slate-400">
+                        {TAX_DATA_VERSION.notes}
+                      </div>
+                      <a
+                        href={TAX_DATA_VERSION.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors pt-1"
+                      >
+                        View IRAS tax rates
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                    <Tooltip.Arrow className="fill-[#1a1a1a]" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
           </div>
-          <button
-            onClick={() => setViewMode(viewMode === 'summary' ? 'detailed' : 'summary')}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-slate-300 hover:bg-white/5 transition-colors"
-          >
-            {viewMode === 'summary' ? 'Details' : 'Summary'}
-            {viewMode === 'summary' ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
-          </button>
+
         </div>
 
-        {/* Cashflow / Tax Toggle - only shown if not hidden */}
+        {/* Cashflow / Tax Toggle */}
         {!hideToggle && (
           <div className="flex rounded-lg border border-white/[0.08] overflow-hidden mt-3">
             <button
@@ -288,116 +467,78 @@ export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModeP
         )}
       </div>
 
-      {/* Content */}
-      <div className={clsx(
-        "flex-1 overflow-y-auto p-4",
-        fullWidth ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-4"
-      )}>
-        {/* Income Section */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-emerald-400" />
-              <span className="text-sm font-medium text-white">Income</span>
-            </div>
-            <button
-              onClick={handleAddIncome}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 text-xs font-medium transition-colors border border-white/[0.06]"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add
-            </button>
-          </div>
+      {/* ===== MAIN TWO-COLUMN LAYOUT ===== */}
+      <div className="flex-1 flex justify-center overflow-hidden">
+        {/* LEFT COLUMN - Inputs */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 border-r border-white/[0.06] max-w-xl">
 
-          <div className="space-y-3">
-            {incomes.map((income) => (
-              <div key={income.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                <select
-                  value={income.type}
-                  onChange={(e) => handleUpdateIncome(income.id, { type: e.target.value as IncomeEntry['type'] })}
-                  className="rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm py-2 px-3 focus:outline-none focus:border-white/20 transition-colors appearance-none cursor-pointer"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 0.5rem center',
-                    backgroundSize: '0.875rem',
-                    paddingRight: '2rem'
-                  }}
-                >
-                  <option value="employment">Employment</option>
-                  <option value="rental">Rental</option>
-                  <option value="dividend">Dividend</option>
-                  <option value="interest">Interest</option>
-                  <option value="business">Business</option>
-                  <option value="other">Other</option>
-                </select>
-                <input
-                  type="text"
-                  value={income.name}
-                  onChange={(e) => handleUpdateIncome(income.id, { name: e.target.value })}
-                  className="flex-1 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm py-2 px-3 focus:outline-none focus:border-white/20 transition-colors placeholder:text-slate-500"
-                  placeholder="Income name"
-                />
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">$</span>
-                  <input
-                    type="number"
-                    value={income.amount}
-                    onChange={(e) => handleUpdateIncome(income.id, { amount: parseFloat(e.target.value) || 0 })}
-                    className="w-32 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white text-sm py-2 pl-7 pr-3 text-right focus:outline-none focus:border-white/20 transition-colors placeholder:text-slate-500"
-                    placeholder="0"
-                  />
-                </div>
+          {/* ===== INCOME SECTION ===== */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-emerald-400" />
+                <span className="text-sm font-medium text-white">Income (Annual)</span>
+              </div>
+              <CustomDropdown
+                value={selectedPerson}
+                onChange={(v) => setSelectedPerson(v as PersonId)}
+                options={[
+                  { value: 'person1', label: 'Person 1' },
+                  { value: 'person2', label: 'Person 2' },
+                ]}
+                minWidth="100px"
+              />
+            </div>
+
+            {incomesLoading ? (
+              <div className="py-4 text-center text-sm text-slate-500">Loading incomes...</div>
+            ) : selectedPersonIncomes.length === 0 ? (
+              <div className="py-4 text-center text-sm text-slate-500">
+                No income assigned to {selectedPerson === 'person1' ? 'Person 1' : 'Person 2'}
+              </div>
+            ) : (
+              selectedPersonIncomes.map(({ income, annual }) => (
+                <IncomeRow key={income.id} income={income} annualAmount={annual} />
+              ))
+            )}
+
+            <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-sm text-slate-400">Gross Income</span>
+                <span className={numericStyles.medium}>{formatCurrency(currentGrossIncome)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-slate-500">CPF Deduction</span>
+                <span className={numericStyles.muted}>({formatCurrency(cpfDeduction)})</span>
+              </div>
+            </div>
+          </section>
+
+          {/* ===== DEDUCTIONS & RELIEFS SECTION ===== */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-blue-400" />
+                <span className="text-sm font-medium text-white">Deductions & Reliefs</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-mono tabular-nums">
+                  {formatCurrency(totalReliefs)} / {formatCurrency(PERSONAL_RELIEF_CAP)}
+                </span>
                 <button
-                  onClick={() => handleDeleteIncome(income.id)}
-                  className="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  onClick={handleResetReliefs}
+                  className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+                  title="Reset reliefs"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <RotateCcw className="h-3.5 w-3.5" />
                 </button>
               </div>
-            ))}
-          </div>
+            </div>
 
-          <div className="mt-3 pt-3 border-t border-white/[0.06] flex justify-between">
-            <span className="text-sm text-slate-400">Gross Income</span>
-            <span className="text-sm font-medium text-white">{formatCurrency(grossIncome)}</span>
-          </div>
-          <div className="flex justify-between mt-1">
-            <span className="text-sm text-slate-400">CPF Deduction</span>
-            <span className="text-sm text-slate-400">-{formatCurrency(cpfDeduction)}</span>
-          </div>
-        </div>
-
-        {/* Detailed View - Reliefs */}
-        <AnimatePresence>
-          {viewMode === 'detailed' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 overflow-hidden"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-blue-400" />
-                  <span className="text-sm font-medium text-white">Tax Reliefs</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500">
-                    {formatCurrency(totalReliefs)} / {formatCurrency(PERSONAL_RELIEF_CAP)} cap
-                  </span>
-                  <button
-                    onClick={handleResetReliefs}
-                    className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
-                    title="Reset reliefs"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-0">
-                {reliefs.map((relief) => (
+            {usedReliefs.length > 0 && (
+              <div className="mb-4">
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Used</div>
+                {usedReliefs.map((relief) => (
                   <ReliefRow
                     key={relief.id}
                     relief={relief}
@@ -405,74 +546,122 @@ export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModeP
                   />
                 ))}
               </div>
+            )}
 
-              {totalReliefs >= PERSONAL_RELIEF_CAP && (
-                <div className="mt-3 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-xs text-amber-400 flex items-center gap-1">
-                    <HelpCircle className="h-3 w-3" />
-                    Relief cap of {formatCurrency(PERSONAL_RELIEF_CAP)} reached
-                  </p>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Tax Breakdown */}
-        <AnimatePresence>
-          {viewMode === 'detailed' && taxResult.taxBreakdown.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 overflow-hidden"
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <Receipt className="h-4 w-4 text-rose-400" />
-                <span className="text-sm font-medium text-white">Tax Breakdown</span>
-              </div>
-
-              <div className="space-y-1">
-                {taxResult.taxBreakdown.map((bracket, idx) => (
-                  <div key={idx} className="flex items-center justify-between py-1.5 border-b border-white/[0.04] last:border-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500 w-12">
-                        {formatPercent(bracket.rate)}
-                      </span>
-                      <span className="text-sm text-slate-400">{bracket.bracket}</span>
-                    </div>
-                    <span className="text-sm text-white">{formatCurrency(bracket.amount)}</span>
-                  </div>
+            {availableReliefs.length > 0 && (
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Available</div>
+                {availableReliefs.map((relief) => (
+                  <ReliefRow
+                    key={relief.id}
+                    relief={relief}
+                    onUpdate={(amount) => handleUpdateRelief(relief.id, amount)}
+                  />
                 ))}
               </div>
+            )}
 
-              <div className="mt-3 pt-3 border-t border-white/[0.06] flex justify-between">
-                <span className="text-sm font-medium text-white">Total Tax</span>
-                <span className="text-sm font-semibold text-rose-400">{formatCurrency(taxResult.taxPayable)}</span>
+            {totalReliefs >= PERSONAL_RELIEF_CAP && (
+              <div className="mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <p className="text-xs text-amber-400">
+                  Relief cap of {formatCurrency(PERSONAL_RELIEF_CAP)} reached
+                </p>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </section>
+        </div>
 
-        {/* Summary Stats - at the end as aggregation/results */}
-        <div className={clsx(
-          "gap-3",
-          fullWidth ? "grid grid-cols-2 col-span-full" : "grid grid-cols-2"
-        )}>
-          <StatCard
-            label="Chargeable Income"
-            value={formatCurrency(taxResult.chargeableIncome)}
-            subValue={`${formatPercent(taxResult.marginalRate)} marginal rate`}
-            icon={<TrendingUp className="h-4 w-4" />}
-            color="blue"
-          />
-          <StatCard
-            label="Tax Payable"
-            value={formatCurrency(taxResult.taxPayable)}
-            subValue={`${formatPercent(taxResult.effectiveRate)} effective rate`}
-            icon={<DollarSign className="h-4 w-4" />}
-            color="rose"
-          />
+        {/* RIGHT COLUMN - Results */}
+        <div className="w-64 shrink-0 p-4 space-y-6 overflow-y-auto bg-white/[0.01]">
+
+          {/* ===== CHARGEABLE INCOME ===== */}
+          <section>
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="h-4 w-4 text-blue-400" />
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Chargeable Income</span>
+            </div>
+            <div className="text-2xl font-semibold text-white font-mono tabular-nums">
+              {formatCurrency(taxResult.chargeableIncome)}
+            </div>
+            <div className="text-sm text-slate-500">
+              {formatPercent(taxResult.marginalRate)} marginal
+            </div>
+          </section>
+
+          {/* ===== TAX ===== */}
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-rose-400" />
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Tax</span>
+              </div>
+              <SegmentedControl
+                value={taxView}
+                onChange={setTaxView}
+                options={[
+                  { value: 'summary', label: 'Summary' },
+                  { value: 'by-bracket', label: 'By Bracket' },
+                ]}
+              />
+            </div>
+
+            <div className="text-2xl font-semibold text-rose-400 font-mono tabular-nums">
+              {formatCurrency(taxResult.taxPayable)}
+            </div>
+            <div className="text-sm text-slate-500">
+              {formatPercent(taxResult.effectiveRate)} effective | {formatPercent(taxResult.marginalRate)} marginal
+            </div>
+
+            <AnimatePresence>
+              {taxView === 'by-bracket' && taxResult.taxBreakdown.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-3 mt-3 border-t border-white/[0.06] space-y-1">
+                    {taxResult.taxBreakdown.map((bracket, idx) => (
+                      <div key={idx} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-slate-500 w-10 font-mono tabular-nums">
+                            {formatPercent(bracket.rate)}
+                          </span>
+                          <span className="text-sm text-slate-500">{bracket.bracket}</span>
+                        </div>
+                        <span className={numericStyles.base}>
+                          {formatCurrency(bracket.amount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
+
+          {/* ===== SUMMARY ===== */}
+          <section className="pt-4 border-t border-white/[0.06]">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Summary</div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Gross Income</span>
+                <span className={numericStyles.base}>{formatCurrency(currentGrossIncome)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">CPF Deduction</span>
+                <span className={numericStyles.muted}>({formatCurrency(cpfDeduction)})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Reliefs</span>
+                <span className={numericStyles.muted}>({formatCurrency(totalReliefs)})</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-white/[0.04]">
+                <span className="text-slate-400 font-medium">Net Income</span>
+                <span className={numericStyles.medium}>{formatCurrency(currentGrossIncome - taxResult.taxPayable)}</span>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>

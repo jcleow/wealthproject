@@ -38,6 +38,7 @@ import type {
   PropertyOption,
   FormStep,
   SaleFormStep,
+  StaggeredDownpayment,
 } from './types'
 
 // Import components
@@ -66,6 +67,7 @@ import {
   SALE_FORM_STEPS,
   defaultInputsByType,
   mockIncomes,
+  createDefaultStaggeredDownpayment,
 } from './hooks/constants'
 
 // ============================================
@@ -140,11 +142,12 @@ function MortgageForm({
   propertyType,
 }: {
   inputs: MortgageInputs
-  onChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | null) => void
+  onChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | null) => void
   propertyType: PropertyType
 }) {
   const [currentStep, setCurrentStep] = useState<FormStep>('property')
   const isHDB = propertyType.includes('hdb')
+  const isBTO = propertyType === 'hdb-bto'
   const isEC = propertyType === 'ec'
   const isResale = propertyType === 'hdb-resale' || propertyType === 'private-resale'
 
@@ -238,7 +241,7 @@ function MortgageForm({
               )}
             >
               <span className={cn(
-                "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold",
+                "w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold",
                 isActive
                   ? "bg-white/20 text-white"
                   : isPast
@@ -283,22 +286,31 @@ function MortgageForm({
                   />
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-400 block">Downpayment</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">$</span>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        value={downpaymentOnValuation.toLocaleString()}
-                        onChange={(e) => {
-                          const newDownpayment = Number(e.target.value.replace(/[^0-9]/g, '')) || 0
-                          const newLoanAmount = Math.max(0, effectivePrice - newDownpayment)
-                          const clampedLoanAmount = Math.min(newLoanAmount, maxLoanAmount)
-                          onChange('loanAmount', clampedLoanAmount)
-                        }}
-                        className="w-full rounded-xl bg-white/[0.05] border-white/[0.10] text-white text-sm py-2.5 pl-7 pr-3 hover:border-white/[0.15] focus:border-white/30 focus:bg-white/[0.08] focus:ring-1 focus:ring-white/10"
-                      />
-                    </div>
-                    <p className="text-[10px] text-slate-600">
+                    {isBTO && inputs.staggeredDownpayment?.enabled ? (
+                      /* Read-only total when SDS is enabled */
+                      <div className="rounded-xl bg-white/[0.02] border border-white/[0.06] py-2.5 px-3">
+                        <span className="text-white text-sm font-mono tabular-nums">${downpaymentOnValuation.toLocaleString()}</span>
+                        <span className="text-slate-500 text-xs ml-2">(25% total)</span>
+                      </div>
+                    ) : (
+                      /* Editable input when SDS is disabled */
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">$</span>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          value={downpaymentOnValuation.toLocaleString()}
+                          onChange={(e) => {
+                            const newDownpayment = Number(e.target.value.replace(/[^0-9]/g, '')) || 0
+                            const newLoanAmount = Math.max(0, effectivePrice - newDownpayment)
+                            const clampedLoanAmount = Math.min(newLoanAmount, maxLoanAmount)
+                            onChange('loanAmount', clampedLoanAmount)
+                          }}
+                          className="w-full rounded-xl bg-white/[0.05] border-white/[0.10] text-white text-sm py-2.5 pl-7 pr-3 hover:border-white/[0.15] focus:border-white/30 focus:bg-white/[0.08] focus:ring-1 focus:ring-white/10"
+                        />
+                      </div>
+                    )}
+                    <p className="text-xs text-slate-500">
                       Min {((1 - maxLtv) * 100).toFixed(0)}% = ${Math.ceil(effectivePrice * (1 - maxLtv)).toLocaleString()}
                     </p>
                   </div>
@@ -330,9 +342,130 @@ function MortgageForm({
                         className="[&>label]:hidden"
                       />
                       {cashOverValuation > 0 && (
-                        <p className="text-[10px] text-amber-500">Must be paid in cash</p>
+                        <p className="text-xs text-amber-500">Must be paid in cash</p>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* Staggered Downpayment Scheme (SDS) - Only for BTO */}
+                {isBTO && (
+                  <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                          <Building2 className="w-3.5 h-3.5 text-blue-400" />
+                        </div>
+                        <span className="text-xs font-medium text-blue-300">Staggered Downpayment</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (inputs.staggeredDownpayment?.enabled) {
+                            onChange('staggeredDownpayment', { ...inputs.staggeredDownpayment, enabled: false })
+                          } else {
+                            onChange('staggeredDownpayment', createDefaultStaggeredDownpayment('2025-06', inputs.loanStartMonth))
+                          }
+                        }}
+                        className={cn(
+                          "relative w-10 h-5 rounded-full transition-colors duration-200",
+                          inputs.staggeredDownpayment?.enabled ? "bg-blue-500" : "bg-white/[0.1]"
+                        )}
+                      >
+                        <div className={cn(
+                          "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200",
+                          inputs.staggeredDownpayment?.enabled ? "translate-x-5" : "translate-x-0.5"
+                        )} />
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-slate-500 mb-3">
+                      Split your downpayment: pay a smaller amount at lease signing (~9 months after booking), then the rest at key collection.
+                    </p>
+
+                    {inputs.staggeredDownpayment?.enabled && (
+                      <>
+                        {/* First Instalment Rate Input */}
+                        <FormInput
+                          label="First Instalment Rate"
+                          value={inputs.staggeredDownpayment.firstInstalmentPercent}
+                          onChange={(v) => {
+                            const value = parseFloat(v) || 0
+                            const clamped = Math.min(Math.max(0, value), 25)
+                            onChange('staggeredDownpayment', { ...inputs.staggeredDownpayment!, firstInstalmentPercent: clamped })
+                          }}
+                          type="number"
+                          step={0.5}
+                          min={0}
+                          max={25}
+                          suffix="%"
+                          helperText="Common rates: 5% (standard) or 2.5% (NSFs, students)"
+                          className="mb-3"
+                        />
+
+                        {/* Payment Timeline */}
+                        <div className="space-y-3">
+                          {/* First Instalment */}
+                          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-2.5 h-2.5 rounded-full bg-blue-400" />
+                              <span className="text-xs font-medium text-white">1st Instalment (Lease Signing)</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-xs text-slate-400 block mb-1">When</label>
+                                <MonthPicker
+                                  value={inputs.staggeredDownpayment.firstInstalmentMonth}
+                                  onChange={(value) => onChange('staggeredDownpayment', { ...inputs.staggeredDownpayment!, firstInstalmentMonth: value })}
+                                  className="w-full text-xs"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-slate-400 block mb-1">Amount ({inputs.staggeredDownpayment.firstInstalmentPercent}%)</label>
+                                <div className="h-[38px] flex items-center px-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white">
+                                  ${Math.round(inputs.propertyPrice * inputs.staggeredDownpayment.firstInstalmentPercent / 100).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Second Instalment */}
+                          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                              <span className="text-xs font-medium text-white">2nd Instalment (Key Collection)</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-xs text-slate-400 block mb-1">When</label>
+                                <MonthPicker
+                                  value={inputs.staggeredDownpayment.secondInstalmentMonth}
+                                  onChange={(value) => {
+                                    onChange('staggeredDownpayment', { ...inputs.staggeredDownpayment!, secondInstalmentMonth: value })
+                                    onChange('loanStartMonth', value) // Sync loan start with key collection
+                                  }}
+                                  className="w-full text-xs"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-slate-400 block mb-1">Amount ({25 - inputs.staggeredDownpayment.firstInstalmentPercent}%)</label>
+                                <div className="h-[38px] flex items-center px-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white">
+                                  ${Math.round(inputs.propertyPrice * (25 - inputs.staggeredDownpayment.firstInstalmentPercent) / 100).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Total */}
+                        <div className="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between">
+                          <span className="text-xs text-slate-500">Total Downpayment (25%)</span>
+                          <span className="text-xs font-medium text-white">
+                            ${Math.round(inputs.propertyPrice * 0.25).toLocaleString()}
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -343,9 +476,9 @@ function MortgageForm({
                     <span className="text-sm font-medium text-white">${inputs.loanAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-[10px] text-slate-600">LTV Ratio</span>
+                    <span className="text-xs text-slate-500">LTV Ratio</span>
                     <span className={cn(
-                      "text-[10px] font-medium",
+                      "text-xs font-medium",
                       inputs.loanAmount / effectivePrice <= maxLtv ? "text-emerald-400" : "text-red-400"
                     )}>
                       {((inputs.loanAmount / effectivePrice) * 100).toFixed(1)}% / {(maxLtv * 100).toFixed(0)}% max
@@ -364,7 +497,7 @@ function MortgageForm({
                     <p className="text-xs font-medium text-amber-400">
                       {exceedsHdbIncomeCeiling ? 'HDB Income Ceiling Notice' : 'EC Income Ceiling Notice'}
                     </p>
-                    <p className="text-[10px] text-amber-300/70 mt-1">
+                    <p className="text-xs text-amber-300/70 mt-1">
                       Income exceeds typical ceiling. Please verify eligibility.
                     </p>
                   </div>
@@ -462,7 +595,7 @@ function MortgageForm({
                             onChange('cpfOaBalance', inputs.borrower1OaBalance)
                           }
                         }}
-                        className="text-xs text-slate-600 hover:text-red-400 transition-colors"
+                        className="text-xs text-slate-500 hover:text-red-400 transition-colors"
                       >
                         Remove
                       </button>
@@ -691,7 +824,7 @@ function MortgageForm({
                         href="https://www.iras.gov.sg/taxes/stamp-duty/for-property/buying-or-acquiring-property/additional-buyer's-stamp-duty-(absd)"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[10px] text-indigo-400 hover:text-indigo-300"
+                        className="text-xs text-indigo-400 hover:text-indigo-300"
                       >
                         Check rates →
                       </a>
@@ -834,7 +967,7 @@ function SaleParametersForm({
               )}
             >
               <span className={cn(
-                "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold",
+                "w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold",
                 isActive ? "bg-white/20 text-white" : isPast ? "bg-white/15 text-white" : "bg-white/[0.06] text-slate-400"
               )}>
                 {isPast ? '✓' : index + 1}
@@ -996,13 +1129,13 @@ function TabbedResultsPanel({
             <div className="p-5 border-b border-white/[0.06]">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-[10px] font-medium text-slate-500 mb-0.5">Total Cash Needed</p>
+                  <p className="text-xs font-medium text-slate-500 mb-0.5">Total Cash Needed</p>
                   <p className="text-2xl font-bold tracking-tight text-white">
                     {formatCurrency(calculation.totalUpfrontCash)}
                   </p>
                 </div>
                 <div className={cn(
-                  "px-2.5 py-1 rounded-full text-[10px] font-semibold flex items-center gap-1",
+                  "px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1",
                   bothWithinLimit
                     ? "bg-emerald-500/15 text-emerald-400"
                     : "bg-amber-500/15 text-amber-400"
@@ -1024,15 +1157,15 @@ function TabbedResultsPanel({
               {/* Metrics Row */}
               <div className="grid grid-cols-4 gap-3">
                 <div>
-                  <p className="text-[10px] text-slate-500">CPF OA</p>
+                  <p className="text-xs text-slate-500">CPF OA</p>
                   <p className="text-xs font-medium text-white">{formatCurrency(calculation.downpaymentBreakdown.cpfOa)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-500">Monthly</p>
+                  <p className="text-xs text-slate-500">Monthly</p>
                   <p className="text-xs font-medium text-white">{formatCurrency(calculation.monthlyPayment)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-500">MSR</p>
+                  <p className="text-xs text-slate-500">MSR</p>
                   <div className="flex items-center gap-1.5">
                     <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
                       <div
@@ -1040,13 +1173,13 @@ function TabbedResultsPanel({
                         style={{ width: `${Math.min((calculation.msrRatio / msrLimit) * 100, 100)}%` }}
                       />
                     </div>
-                    <span className={cn("text-[10px] font-medium", msrWithinLimit ? "text-emerald-400" : "text-amber-400")}>
+                    <span className={cn("text-xs font-medium", msrWithinLimit ? "text-emerald-400" : "text-amber-400")}>
                       {(calculation.msrRatio * 100).toFixed(0)}%
                     </span>
                   </div>
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-500">TDSR</p>
+                  <p className="text-xs text-slate-500">TDSR</p>
                   <div className="flex items-center gap-1.5">
                     <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
                       <div
@@ -1054,7 +1187,7 @@ function TabbedResultsPanel({
                         style={{ width: `${Math.min((calculation.tdsrRatio / tdsrLimit) * 100, 100)}%` }}
                       />
                     </div>
-                    <span className={cn("text-[10px] font-medium", tdsrWithinLimit ? "text-emerald-400" : "text-amber-400")}>
+                    <span className={cn("text-xs font-medium", tdsrWithinLimit ? "text-emerald-400" : "text-amber-400")}>
                       {(calculation.tdsrRatio * 100).toFixed(0)}%
                     </span>
                   </div>
@@ -1099,7 +1232,7 @@ function TabbedResultsPanel({
                 >
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <p className="text-[10px] font-medium text-slate-500 mb-2">Upfront Costs</p>
+                      <p className="text-xs font-medium text-slate-500 mb-2">Upfront Costs</p>
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-400">CPF OA</span>
                         <span className="text-white">{formatCurrency(calculation.downpaymentBreakdown.cpfOa)}</span>
@@ -1133,7 +1266,7 @@ function TabbedResultsPanel({
                     </div>
 
                     <div className="space-y-1.5">
-                      <p className="text-[10px] font-medium text-slate-500 mb-2">Loan Details</p>
+                      <p className="text-xs font-medium text-slate-500 mb-2">Loan Details</p>
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-400">Amount</span>
                         <span className="text-white">{formatCurrency(propertyPrice - calculation.downpayment)}</span>
@@ -1185,13 +1318,13 @@ function TabbedResultsPanel({
             <div className="p-5 border-b border-white/[0.06]">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-[10px] font-medium text-slate-500 mb-0.5">Net Cash Proceeds</p>
+                  <p className="text-xs font-medium text-slate-500 mb-0.5">Net Cash Proceeds</p>
                   <p className="text-2xl font-bold tracking-tight text-white">
                     {formatCurrency(saleResult.netCashProceeds)}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-medium text-slate-500 mb-0.5">CPF Refund</p>
+                  <p className="text-xs font-medium text-slate-500 mb-0.5">CPF Refund</p>
                   <p className="text-lg font-semibold text-white">
                     {formatCurrency(saleResult.cpfRefundedToOa)}
                   </p>
@@ -1200,22 +1333,22 @@ function TabbedResultsPanel({
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <p className="text-[10px] text-slate-500">Holding</p>
+                  <p className="text-xs text-slate-500">Holding</p>
                   <p className="text-xs font-medium text-white">{saleResult.holdingPeriodYears.toFixed(1)} yrs</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-500">Outstanding</p>
+                  <p className="text-xs text-slate-500">Outstanding</p>
                   <p className="text-xs font-medium text-slate-300">{formatCurrency(saleResult.outstandingLoanAtSale)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-slate-500">Sale Price</p>
+                  <p className="text-xs text-slate-500">Sale Price</p>
                   <p className="text-xs font-medium text-white">{formatCurrency(displaySalePrice)}</p>
                 </div>
               </div>
             </div>
 
             <div className="p-4 space-y-3">
-              <p className="text-[10px] font-medium text-slate-500">Proceeds Breakdown</p>
+              <p className="text-xs font-medium text-slate-500">Proceeds Breakdown</p>
 
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs">
@@ -1233,7 +1366,7 @@ function TabbedResultsPanel({
               </div>
 
               <div className="space-y-1.5 pt-2">
-                <p className="text-[10px] text-slate-500">Deductions</p>
+                <p className="text-xs text-slate-500">Deductions</p>
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-400">CPF Principal</span>
                   <span className="text-slate-300">-{formatCurrency(saleResult.cpfRefund.principalUsed)}</span>
@@ -1306,6 +1439,7 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
     getDefaultSaleInputs(defaultInputsByType['hdb-resale'].loanStartMonth, defaultInputsByType['hdb-resale'].propertyPrice)
   )
   const [activeResultsTab, setActiveResultsTab] = useState<ResultsTab>('purchase')
+  const [editingScenarioName, setEditingScenarioName] = useState('')
 
   const editingScenario = editingScenarioId ? scenarios.find(s => s.id === editingScenarioId) : null
 
@@ -1352,6 +1486,7 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
 
   const handleEditScenario = useCallback((scenario: PropertyScenario) => {
     setEditingScenarioId(scenario.id)
+    setEditingScenarioName(scenario.name)
     setSelectedType(scenario.propertyType)
     setInputs(scenario.inputs)
     setSaleInputs(scenario.saleInputs)
@@ -1360,12 +1495,13 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
   const handleSaveAndClose = useCallback(() => {
     if (editingScenarioId) {
       setScenarios(prev => prev.map(s =>
-        s.id === editingScenarioId ? { ...s, inputs, saleInputs, propertyType: selectedType! } : s
+        s.id === editingScenarioId ? { ...s, name: editingScenarioName, inputs, saleInputs, propertyType: selectedType! } : s
       ))
     }
     setEditingScenarioId(null)
+    setEditingScenarioName('')
     setSelectedType(null)
-  }, [editingScenarioId, inputs, saleInputs, selectedType])
+  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType])
 
   const handleDeleteScenario = useCallback((id: string) => {
     setScenarios(prev => prev.filter(s => s.id !== id))
@@ -1378,12 +1514,12 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
     if (editingScenarioId && selectedType) {
       setScenarios(prev => prev.map(s =>
-        s.id === editingScenarioId ? { ...s, inputs, saleInputs, propertyType: selectedType } : s
+        s.id === editingScenarioId ? { ...s, name: editingScenarioName, inputs, saleInputs, propertyType: selectedType } : s
       ))
     }
-  }, [editingScenarioId, inputs, saleInputs, selectedType])
+  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType])
 
-  const handleInputChange = useCallback((field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | null) => {
+  const handleInputChange = useCallback((field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | null) => {
     setInputs(prev => ({ ...prev, [field]: value }))
   }, [])
 
@@ -1511,7 +1647,12 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
 
                 <AnimatePresence>
                   {isCreatingNew && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                    <motion.div
+                      initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                      animate={{ opacity: 1, height: 'auto', overflow: 'visible' }}
+                      exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                      transition={{ overflow: { delay: 0.15 } }}
+                    >
                       <div className="flex items-center gap-3 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
                         <IconPicker
                           iconName={newRowIcon}
@@ -1602,9 +1743,15 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                   <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br shadow-lg", selectedOption?.color)}>
                     <span className={selectedOption?.accentColor}>{selectedOption?.icon}</span>
                   </div>
-                  <div>
-                    <h1 className="text-2xl font-semibold text-white tracking-tight">{editingScenario?.name || selectedOption?.title}</h1>
-                    <p className="text-sm text-slate-500">{selectedOption?.title} · {selectedOption?.priceRange}</p>
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={editingScenarioName}
+                      onChange={(e) => setEditingScenarioName(e.target.value)}
+                      className="w-full text-2xl font-semibold text-white tracking-tight bg-transparent border-none outline-none focus:ring-0 placeholder:text-slate-600 hover:bg-white/[0.03] focus:bg-white/[0.05] rounded-lg px-2 py-1 -ml-2 transition-colors"
+                      placeholder="Scenario name"
+                    />
+                    <p className="text-sm text-slate-500 px-2">{selectedOption?.title} · {selectedOption?.priceRange}</p>
                   </div>
                 </div>
               </div>
