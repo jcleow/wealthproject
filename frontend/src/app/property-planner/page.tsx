@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { IconPicker } from '@/components/modals/ScenarioEventModal/components/IconPicker'
+import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import { Input } from '@/components/ui/input'
 import { MonthPicker } from '@/components/ui/MonthPicker'
 import { CustomSelect } from '@/components/ui/CustomSelect'
@@ -1452,7 +1453,6 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
   const [isCreatingNew, setIsCreatingNew] = useState(false)
   const [newRowName, setNewRowName] = useState('')
   const [newRowType, setNewRowType] = useState<PropertyType>('hdb-resale')
-  const [newRowPrice, setNewRowPrice] = useState('')
   const [newRowIcon, setNewRowIcon] = useState('home')
   const [newRowIconColor, setNewRowIconColor] = useState('#6366f1')
   const [newRowIconSearch, setNewRowIconSearch] = useState('')
@@ -1464,15 +1464,16 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
   )
   const [activeResultsTab, setActiveResultsTab] = useState<ResultsTab>('purchase')
   const [editingScenarioName, setEditingScenarioName] = useState('')
+  const [editingScenarioIcon, setEditingScenarioIcon] = useState('home')
+  const [editingScenarioIconColor, setEditingScenarioIconColor] = useState('#6366f1')
+  const [editingScenarioIconSearch, setEditingScenarioIconSearch] = useState('')
 
   const editingScenario = editingScenarioId ? scenarios.find(s => s.id === editingScenarioId) : null
 
   const handleStartNewRow = useCallback(() => {
     const defaultType: PropertyType = 'hdb-resale'
-    const defaults = defaultInputsByType[defaultType]
     setNewRowName(`Property ${scenarios.length + 1}`)
     setNewRowType(defaultType)
-    setNewRowPrice(defaults.propertyPrice.toString())
     setNewRowIcon('home')
     setNewRowIconColor('#6366f1')
     setNewRowIconSearch('')
@@ -1480,7 +1481,7 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
   }, [scenarios.length])
 
   const handleConfirmNewRow = useCallback(() => {
-    const price = parseInt(newRowPrice.replace(/[^0-9]/g, '')) || defaultInputsByType[newRowType].propertyPrice
+    const price = defaultInputsByType[newRowType].propertyPrice
     const defaults = defaultInputsByType[newRowType]
     const originalLtv = defaults.loanAmount / defaults.propertyPrice
     const newLoanAmount = Math.floor(price * originalLtv)
@@ -1499,13 +1500,11 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
     setScenarios(prev => [...prev, newScenario])
     setIsCreatingNew(false)
     setNewRowName('')
-    setNewRowPrice('')
-  }, [newRowName, newRowType, newRowPrice, newRowIcon, newRowIconColor, scenarios.length])
+  }, [newRowName, newRowType, newRowIcon, newRowIconColor, scenarios.length])
 
   const handleCancelNewRow = useCallback(() => {
     setIsCreatingNew(false)
     setNewRowName('')
-    setNewRowPrice('')
   }, [])
 
   const handleEditScenario = useCallback((scenario: PropertyScenario) => {
@@ -1514,18 +1513,21 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
     setSelectedType(scenario.propertyType)
     setInputs(scenario.inputs)
     setSaleInputs(scenario.saleInputs)
+    setEditingScenarioIcon(scenario.icon || 'home')
+    setEditingScenarioIconColor(scenario.iconColor || '#6366f1')
+    setEditingScenarioIconSearch('')
   }, [])
 
   const handleSaveAndClose = useCallback(() => {
     if (editingScenarioId) {
       setScenarios(prev => prev.map(s =>
-        s.id === editingScenarioId ? { ...s, name: editingScenarioName, inputs, saleInputs, propertyType: selectedType! } : s
+        s.id === editingScenarioId ? { ...s, name: editingScenarioName, inputs, saleInputs, propertyType: selectedType!, icon: editingScenarioIcon, iconColor: editingScenarioIconColor } : s
       ))
     }
     setEditingScenarioId(null)
     setEditingScenarioName('')
     setSelectedType(null)
-  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType])
+  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor])
 
   const handleDeleteScenario = useCallback((id: string) => {
     setScenarios(prev => prev.filter(s => s.id !== id))
@@ -1538,10 +1540,10 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
     if (editingScenarioId && selectedType) {
       setScenarios(prev => prev.map(s =>
-        s.id === editingScenarioId ? { ...s, name: editingScenarioName, inputs, saleInputs, propertyType: selectedType } : s
+        s.id === editingScenarioId ? { ...s, name: editingScenarioName, inputs, saleInputs, propertyType: selectedType, icon: editingScenarioIcon, iconColor: editingScenarioIconColor } : s
       ))
     }
-  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType])
+  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor])
 
   const handleInputChange = useCallback((field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | null) => {
     setInputs(prev => ({ ...prev, [field]: value }))
@@ -1612,6 +1614,11 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
               )}
 
               <motion.div className="space-y-2" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                {scenarios.length > 0 && (
+                  <div className="flex items-center gap-4 px-4 pb-1">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-600 font-medium w-5 text-center" title="Include in timeline projections">Active</span>
+                  </div>
+                )}
                 {scenarios.map((scenario, index) => {
                   const option = propertyOptions.find(o => o.id === scenario.propertyType)
                   return (
@@ -1699,21 +1706,10 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                           onChange={(value) => {
                             const type = value as PropertyType
                             setNewRowType(type)
-                            setNewRowPrice(defaultInputsByType[type].propertyPrice.toString())
                           }}
                           options={propertyOptions.map(option => ({ value: option.id, label: option.title }))}
                           className="w-44"
                         />
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
-                          <Input
-                            type="text"
-                            value={newRowPrice}
-                            onChange={(e) => setNewRowPrice(e.target.value.replace(/[^0-9]/g, ''))}
-                            placeholder="Price"
-                            className="w-32 rounded-lg bg-white/[0.05] border-white/[0.1] text-white text-sm py-2 pl-7 pr-3 focus:border-emerald-500/50 placeholder:text-slate-500"
-                          />
-                        </div>
                         <div className="flex items-center gap-1 ml-auto">
                           <button type="button" onClick={handleConfirmNewRow} className="p-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 transition-colors">
                             <Check className="w-4 h-4" />
@@ -1764,18 +1760,31 @@ export function PropertyPlannerV2View({ onClose }: { onClose?: () => void }) {
                   <button type="button" onClick={handleSaveAndClose} className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all">
                     <ArrowLeft className="w-5 h-5" />
                   </button>
-                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br shadow-lg", selectedOption?.color)}>
-                    <span className={selectedOption?.accentColor}>{selectedOption?.icon}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
+                  <IconPicker
+                    iconName={editingScenarioIcon}
+                    iconColor={editingScenarioIconColor}
+                    searchQuery={editingScenarioIconSearch}
+                    onIconChange={setEditingScenarioIcon}
+                    onColorChange={setEditingScenarioIconColor}
+                    onSearchChange={setEditingScenarioIconSearch}
+                  />
+                  <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
                     <input
                       type="text"
                       value={editingScenarioName}
                       onChange={(e) => setEditingScenarioName(e.target.value)}
-                      className="w-full text-2xl font-semibold text-white tracking-tight bg-transparent border-none outline-none focus:ring-0 placeholder:text-slate-600 hover:bg-white/[0.03] focus:bg-white/[0.05] rounded-lg px-2 py-1 -ml-2 transition-colors"
+                      className="text-2xl font-semibold text-white tracking-tight bg-transparent border-none outline-none focus:ring-0 placeholder:text-slate-600 hover:bg-white/[0.03] focus:bg-white/[0.05] rounded-lg px-2 py-1 -ml-2 transition-colors"
                       placeholder="Scenario name"
                     />
-                    <p className="text-sm text-slate-500 px-2">{selectedOption?.title} · {selectedOption?.priceRange}</p>
+                    <CustomDropdown
+                      value={selectedType || 'hdb-resale'}
+                      onChange={(value) => setSelectedType(value as PropertyType)}
+                      options={propertyOptions.map(opt => ({
+                        value: opt.id,
+                        label: opt.title,
+                      }))}
+                      minWidth="140px"
+                    />
                   </div>
                 </div>
               </div>

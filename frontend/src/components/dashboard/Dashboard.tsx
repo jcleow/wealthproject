@@ -10,7 +10,7 @@ import { FinancialDataSection } from './FinancialDataSection'
 import { FinancialWorkspace } from './FinancialWorkspace'
 import { MiniChart } from './MiniChart'
 import { CPFSimulationView } from '../cpf/CPFSimulationView'
-import { PropertyPlannerV2View } from '@/app/property-planner/page'
+import { PropertyPlannerV2Modal } from '@/components/modals/PropertyPlannerV2Modal/PropertyPlannerV2Modal'
 import { TaxPlannerV2View } from '@/app/tax-planner/page'
 import { InsurancePlannerView } from '@/app/insurance-planner/page'
 import { useTimeline } from '@/hooks/useTimeline'
@@ -174,39 +174,6 @@ rounded-2xl border border-white/[0.06]
 bg-[#0a0a0a]/80`}>
                 <CPFSimulationView onClose={() => setShowCPFView(false)} />
               </div>
-            ) : showPropertyPlannerV2 ? (
-              /* Property Planner V2 View - shows header + property planner */
-              <>
-                {/* Header bar only - no chart */}
-                <div className="shrink-0">
-                  <FinancialWorkspace
-                    selectedYear={timeline.selectedYear}
-                    onSelectYear={timeline.setSelectedYear}
-                    onSelectMonth={timeline.setSelectedMonth}
-                    timelineYears={timeline.chartYears}
-                    timelineMonths={timeline.chartMonths}
-                    resolution={timeline.resolution}
-                    zoomLevel={zoomLevel}
-                    onZoomLevelChange={setZoomLevel}
-                    overrideYears={timeline.overrideYears}
-                    timelineError={timelineError}
-                    onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlannerV2={() => setShowPropertyPlannerV2(true)}
-                    onOpenTax={() => setShowTaxPlanner(true)}
-                    onOpenInsurance={() => setShowInsurancePlanner(true)}
-                    anchorYear={timeline.anchorYear}
-                    anchorMonth={timeline.anchorMonth}
-                    headerOnly
-                  />
-                </div>
-                {/* Property Planner content */}
-                <div className={`flex flex-1 flex-col overflow-hidden
-min-h-0
-rounded-2xl border border-white/[0.06]
-bg-[#0a0a0a]/80`}>
-                  <PropertyPlannerV2View onClose={() => setShowPropertyPlannerV2(false)} />
-                </div>
-              </>
             ) : showTaxPlanner ? (
               /* Tax Planner View - shows header + tax planner */
               <>
@@ -333,7 +300,7 @@ shrink-0`}
       </div>
 
       {/* Picture-in-Picture mini chart */}
-      {showPiP && !showCPFView && !showPropertyPlannerV2 && !showTaxPlanner && !showInsurancePlanner && (
+      {showPiP && !showCPFView && !showTaxPlanner && !showInsurancePlanner && (
         <MiniChart
           timelineYears={timeline.chartYears}
           timelineMonths={timeline.chartMonths}
@@ -342,6 +309,12 @@ shrink-0`}
           onScrollToChart={scrollToChart}
         />
       )}
+
+      {/* Property Planner V2 Modal */}
+      <PropertyPlannerV2Modal
+        isOpen={showPropertyPlannerV2}
+        onClose={() => setShowPropertyPlannerV2(false)}
+      />
       </TaxModeProvider>
     </FinancialDataProvider>
   )
