@@ -195,7 +195,7 @@ export function FeeEditor({
                     <MonthPicker
                       value={getMonthValueFromOffset(fee.dueOffset || 0)}
                       onChange={(value) => handleUpdateFee(fee.id, { dueOffset: getOffsetFromMonthValue(value) })}
-                      className="w-28"
+                      className="w-36"
                     />
                   )}
 
