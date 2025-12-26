@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet } from 'lucide-react'
+import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Home, Shield } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -25,8 +25,12 @@ interface FinancialWorkspaceProps {
   overrideYears?: Set<number>
   timelineError?: string | null
   onOpenCPF?: () => void
+  onOpenPropertyPlannerV2?: () => void
+  onOpenTax?: () => void
+  onOpenInsurance?: () => void
   anchorYear?: number | null
   anchorMonth?: number | null
+  headerOnly?: boolean
 }
 
 // Stable empty Set to use as default (avoids creating new Set on each render)
@@ -44,8 +48,12 @@ export function FinancialWorkspace({
   overrideYears,
   timelineError = null,
   onOpenCPF,
+  onOpenPropertyPlannerV2,
+  onOpenTax,
+  onOpenInsurance,
   anchorYear,
   anchorMonth,
+  headerOnly = false,
 }: FinancialWorkspaceProps) {
   // Use stable empty set as fallback
   const stableOverrideYears = useMemo(
@@ -332,6 +340,34 @@ text-blue-400`}>
                     <p className="text-xs text-slate-400">Model affordability, mortgages, and cash flow.</p>
                   </div>
                 </button>
+                {/* Property Planner v2 */}
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    onOpenPropertyPlannerV2?.()
+                  }}
+                  className={clsx(
+                    "flex items-start gap-3",
+                    "w-full",
+                    "px-4 py-3",
+                    "border-b border-white/[0.04]",
+                    "hover:bg-white/5",
+                    "text-left text-slate-200 text-sm",
+                    "transition",
+                  )}
+                  type="button"
+                >
+                  <span className={`mt-0.5 p-2
+rounded-lg border border-rose-500/20
+bg-rose-500/10
+text-rose-400`}>
+                    <Home className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">Property Planner v2</div>
+                    <p className="text-xs text-slate-400">Enhanced mortgage calculator with sale projections.</p>
+                  </div>
+                </button>
                 {/* CPF Simulation */}
                 <button
                   onClick={() => {
@@ -378,40 +414,61 @@ text-slate-500`}>
                     </div>
                   </div>
                 </div>
-                <div className="cursor-not-allowed opacity-60">
-                  <div className={`flex items-start
-w-full
-gap-3 px-4 py-3
-text-left text-sm`}>
-                    <span className={`mt-0.5 p-2
-rounded-lg border border-white/[0.06]
-bg-white/[0.02]
-text-slate-500`}>
-                      <Receipt className="h-4 w-4" />
-                    </span>
-                    <div className="space-y-0.5">
-                      <div className="font-medium text-slate-400">Tax Module</div>
-                      <p className="text-xs text-slate-500">Coming soon</p>
-                    </div>
-                  </div>                                    
-                </div>
-                <div className="cursor-not-allowed opacity-60">
-                  <div className={`flex items-start
-w-full
-gap-3 px-4 py-3
-text-left text-sm`}>
-                    <span className={`mt-0.5 p-2
-rounded-lg border border-white/[0.06]
-bg-white/[0.02]
-text-slate-500`}>
-                      <Receipt className="h-4 w-4" />
-                    </span>
-                    <div className="space-y-0.5">
-                      <div className="font-medium text-slate-400">Insurance Coverage</div>
-                      <p className="text-xs text-slate-500">Coming soon</p>
-                    </div>
-                  </div>                                    
-                </div>
+                {/* Tax Module */}
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    onOpenTax?.()
+                  }}
+                  className={clsx(
+                    "flex items-start gap-3",
+                    "w-full",
+                    "px-4 py-3",
+                    "border-b border-white/[0.04]",
+                    "hover:bg-white/5",
+                    "text-left text-slate-200 text-sm",
+                    "transition",
+                  )}
+                  type="button"
+                >
+                  <span className={`mt-0.5 p-2
+rounded-lg border border-amber-500/20
+bg-amber-500/10
+text-amber-400`}>
+                    <Receipt className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">Tax Planner</div>
+                    <p className="text-xs text-slate-400">Singapore tax calculations and scenario planning.</p>
+                  </div>
+                </button>
+                {/* Insurance Planner */}
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    onOpenInsurance?.()
+                  }}
+                  className={clsx(
+                    "flex items-start gap-3",
+                    "w-full",
+                    "px-4 py-3",
+                    "hover:bg-white/5",
+                    "text-left text-slate-200 text-sm",
+                    "transition",
+                  )}
+                  type="button"
+                >
+                  <span className={`mt-0.5 p-2
+rounded-lg border border-purple-500/20
+bg-purple-500/10
+text-purple-400`}>
+                    <Shield className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">Insurance Planner</div>
+                    <p className="text-xs text-slate-400">Analyze coverage gaps and plan your protection.</p>
+                  </div>
+                </button>
               </div>
               </>
             )}
@@ -438,47 +495,52 @@ text-slate-500`}>
         </div>
       </header>
 
-      {timelineError && (
-        <div className={clsx(
-          "mt-4 mx-6 px-4 py-2",
-          "border border-rose-500/20 rounded-lg",
-          "bg-rose-500/5",
-          "text-rose-300 text-xs",
-        )}>
-          Timeline unavailable: {timelineError}
-        </div>
-      )}
+      {/* Only show chart and timeline error when not in headerOnly mode */}
+      {!headerOnly && (
+        <>
+          {timelineError && (
+            <div className={clsx(
+              "mt-4 mx-6 px-4 py-2",
+              "border border-rose-500/20 rounded-lg",
+              "bg-rose-500/5",
+              "text-rose-300 text-xs",
+            )}>
+              Timeline unavailable: {timelineError}
+            </div>
+          )}
 
-      {/* Chart Section */}
-      <div className="flex-1 p-6">
-        <section className={clsx(
-          "relative",
-          "h-full",
-          "border border-white/[0.1] hover:border-white/[0.15] rounded-2xl",
-          "bg-[#0a0a0a]/60",
-          "transition-all",
-          "overflow-hidden",
-        )}>
-          {/* Chart Container - NetWorthProjection has its own header */}
-          <div className="h-full">
-            <NetWorthProjection
-              chartTitle="Net Worth Projection"
-              timelineYears={timelineYears}
-              timelineMonths={timelineMonths}
-              resolution={resolution}
-              zoomLevel={zoomLevel}
-              onZoomLevelChange={onZoomLevelChange}
-              overrideYears={stableOverrideYears}
-              selectedYear={selectedYear}
-              scenarioEvents={scenarioEvents}
-              onAddScenario={handleCreateScenario}
-              onScenarioSelect={handleScenarioSelect}
-              onSelectYear={onSelectYear}
-              onSelectMonth={onSelectMonth}
-            />
+          {/* Chart Section */}
+          <div className="flex-1 p-6">
+            <section className={clsx(
+              "relative",
+              "h-full",
+              "border border-white/[0.1] hover:border-white/[0.15] rounded-2xl",
+              "bg-[#0a0a0a]/60",
+              "transition-all",
+              "overflow-hidden",
+            )}>
+              {/* Chart Container - NetWorthProjection has its own header */}
+              <div className="h-full">
+                <NetWorthProjection
+                  chartTitle="Net Worth Projection"
+                  timelineYears={timelineYears}
+                  timelineMonths={timelineMonths}
+                  resolution={resolution}
+                  zoomLevel={zoomLevel}
+                  onZoomLevelChange={onZoomLevelChange}
+                  overrideYears={stableOverrideYears}
+                  selectedYear={selectedYear}
+                  scenarioEvents={scenarioEvents}
+                  onAddScenario={handleCreateScenario}
+                  onScenarioSelect={handleScenarioSelect}
+                  onSelectYear={onSelectYear}
+                  onSelectMonth={onSelectMonth}
+                />
+              </div>
+            </section>
           </div>
-        </section>
-      </div>
+        </>
+      )}
 
       <PropertyPlannerModal
         isOpen={isPropertyPlannerOpen}

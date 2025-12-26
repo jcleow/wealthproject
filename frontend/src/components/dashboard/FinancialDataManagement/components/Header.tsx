@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import * as Slider from '@radix-ui/react-slider'
 import { useQuery } from '@tanstack/react-query'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, Receipt } from 'lucide-react'
 
 import type { TimeResolution, TimelineYear, TimelineMonth } from '@/types/timeline'
+import { useTaxModeOptional } from '@/contexts/TaxModeContext'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { DEFAULT_STARTING_AGE } from '@/components/dashboard/projections/types'
@@ -168,6 +169,10 @@ export function Header({
   const shouldShowSlider = resolution === 'monthly' && !!monthRange
   const isSliderDisabled = isTimelineLoading || sliderMax === 0
 
+  // Tax mode - just need the toggle to open the modal
+  const taxMode = useTaxModeOptional()
+  const toggleTaxMode = taxMode?.enableTaxMode
+
   return (
     <div className="px-6 py-4">
       <div className="flex items-start justify-between gap-3">
@@ -246,6 +251,23 @@ export function Header({
               </Slider.Root>
             </div>
           )}
+
+          {/* Tax Estimate Button */}
+          <button
+            type="button"
+            onClick={() => toggleTaxMode?.()}
+            className="
+              flex items-center justify-center gap-1.5
+              w-full px-3 py-2
+              border-t border-white/[0.08]
+              text-xs font-medium
+              text-slate-400 hover:text-amber-400 hover:bg-amber-500/5
+              transition-all duration-200
+            "
+          >
+            <Receipt className="h-3 w-3" />
+            <span>Tax Estimate</span>
+          </button>
         </div>
       </div>
     </div>
