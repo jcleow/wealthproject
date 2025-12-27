@@ -435,7 +435,8 @@ erDiagram
         uuid borrower_1_cpf_account_id FK
         uuid borrower_2_income_id FK
         uuid borrower_2_cpf_account_id FK
-        numeric absd_rate
+        varchar buyer_type
+        int property_count
     }
 
     property_my_details {
@@ -750,8 +751,9 @@ interface SGDetails {
   borrower2IncomeId: string | null
   borrower2CpfAccountId: string | null
 
-  // Stamp duties
-  absdRate: number
+  // Buyer details (for ABSD calculation)
+  buyerType: 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+  propertyCount: number  // Existing properties owned (0 = first property)
 
   // Sale planning
   // Note: BTO staggered downpayment schedule is stored in liability_rate_periods
@@ -1149,7 +1151,8 @@ type PropertyPlannerScenario struct {
     CpfOaBalance           decimal.Decimal
     MonthlyCpfOa           decimal.Decimal
     Grants                 decimal.Decimal
-    AbsdRate               decimal.Decimal
+    BuyerType              string           // 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+    PropertyCount          int              // Existing properties owned (for ABSD calculation)
     Borrower1IncomeId      *string
     Borrower1OaBalance     decimal.Decimal
     Borrower1LiabilityIds  []string  // JSONB
@@ -1867,7 +1870,8 @@ var TestScenarios = []PropertyPlannerScenario{
         Name:          "High-End Private Condo",
         PropertyType:  "private-new",
         PropertyPrice: decimal.MustFromString("2500000"),
-        AbsdRate:      decimal.MustFromString("17"), // SC buying 2nd property
+        BuyerType:     "singapore_citizen",
+        PropertyCount: 1,  // SC buying 2nd property = 17% ABSD
         // Expected: ABSD = $425,000
     },
     {
@@ -2552,7 +2556,8 @@ func TestE2E_SaleProceeds(t *testing.T) {
 | `cpf_oa_balance` | NUMERIC(15,4) | NO | `0` | Total CPF OA balance available |
 | `monthly_cpf_oa` | NUMERIC(15,4) | NO | `0` | Monthly CPF OA contribution |
 | `grants` | NUMERIC(15,4) | NO | `0` | HDB grants received |
-| `absd_rate` | NUMERIC(10,4) | NO | `0` | ABSD percentage (0-60%) |
+| `buyer_type` | VARCHAR(30) | NO | `singapore_citizen` | Buyer profile for ABSD calculation |
+| `property_count` | INT | NO | `0` | Existing properties owned (for ABSD) |
 | `borrower_1_income_id` | UUID | YES | NULL | FK to finance_incomes |
 | `borrower_1_oa_balance` | NUMERIC(15,4) | YES | `0` | Borrower 1 CPF OA balance |
 | `borrower_2_income_id` | UUID | YES | NULL | FK to finance_incomes (joint) |
@@ -2749,7 +2754,8 @@ interface CreatePropertyPlannerScenarioRequest {
   borrowerType: "single" | "joint"
   otherDebt: string               // Monthly debt obligations for TDSR
   grants: string
-  absdRate: string
+  buyerType: "singapore_citizen" | "permanent_resident" | "foreigner"
+  propertyCount: number           // Existing properties owned (for ABSD calculation)
 
   // Borrower 1 (FK to existing records)
   borrower1IncomeId?: string      // FK to finance_incomes
@@ -2812,7 +2818,8 @@ interface PropertyPlannerScenario {
   borrowerType: string
   otherDebt: string
   grants: string
-  absdRate: string
+  buyerType: string               // 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+  propertyCount: number           // Existing properties owned (for ABSD calculation)
 
   // Borrower FKs
   borrower1IncomeId: string | null
@@ -2920,7 +2927,8 @@ flowchart TB
         end
 
         subgraph FEES["Fees & Duties"]
-            ABSD[absdRate]
+            BT_TYPE[buyerType]
+            PC[propertyCount]
             PF[purchaseFees]
         end
 
@@ -3101,7 +3109,7 @@ flowchart LR
     end
 
     subgraph ABSD_CALC["ABSD Calculation"]
-        ABSD_IN[absdRate<br/>e.g., 0%]
+        ABSD_IN[buyerType + propertyCount<br/>e.g., SC + 0 = 0%]
         ABSD_OUT[absdAmount<br/>e.g., $0]
     end
 
@@ -3454,7 +3462,8 @@ This table describes the conceptual inputs used in property calculations. Note t
 | `cpfOaBalance` | Linked `cpf_accounts.oa_balance` | cpfRefund, downpaymentBreakdown | Total CPF OA available |
 | `monthlyCpfOa` | Linked `cpf_accounts.monthly_oa_contribution` | (used by timeline projection) | Monthly CPF contribution |
 | `grants` | `property_sg_details` | downpaymentBreakdown, loanAmount | HDB grants |
-| `absdRate` | `property_sg_details` | absdAmount, totalUpfrontCash | ABSD percentage |
+| `buyerType` | `property_sg_details` | absdAmount (via ABSD rate lookup) | Buyer profile (SC/PR/foreigner) |
+| `propertyCount` | `property_sg_details` | absdAmount (via ABSD rate lookup) | Existing properties owned |
 | `purchaseFees` | `property_fees` (context='purchase') | calculatedPurchaseFees, totalPurchaseFees, totalUpfrontCash | One-time purchase fees |
 | `recurringFees` | `property_fees` (context='recurring') | monthlyPropertyCosts, totalHoldingCosts | Property tax, maintenance, insurance |
 | `growthPeriods` | `growth_periods` | appreciation projection | Growth rates by period |

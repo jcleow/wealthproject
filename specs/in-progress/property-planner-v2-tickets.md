@@ -1941,7 +1941,6 @@ func TestPropertyPlannerStore(t *testing.T) {
                 ValuationPrice:    decimal.MustFromString("850000"),
                 LoanType:          "bank",
                 DownpaymentCpfOa:  decimal.MustFromString("150000"),
-                DownpaymentCpfSa:  decimal.MustFromString("0"),
                 DownpaymentCash:   decimal.MustFromString("20100"),
                 BorrowerType:      "single",
                 BuyerType:         "singapore_citizen",
@@ -3239,7 +3238,7 @@ func (h *PropertyPlannerV2Handler) computeAll(s *repository.PropertyScenarioFull
     details := s.SGDetails
 
     // Calculate loan amount
-    downpaymentTotal := details.DownpaymentCpfOa.Add(details.DownpaymentCpfSa).Add(details.DownpaymentCash)
+    downpaymentTotal := details.DownpaymentCpfOa.Add(details.DownpaymentCash)
     if details.Grants != nil {
         downpaymentTotal = downpaymentTotal.Add(details.Grants)
     }
