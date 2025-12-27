@@ -42,7 +42,7 @@ COMMENT ON COLUMN finance_incomes.earner IS
     'Identifies who earns this income: self (primary user), spouse, or other household member';
 
 COMMENT ON COLUMN finance_incomes.residency_status IS
-    'Residency status of the income earner. Used to derive buyerType for ABSD calculation in property scenarios.';
+    'Residency status of the income earner. Used to derive residency for ABSD calculation in property scenarios.';
 ```
 
 **Residency Status Values:**
@@ -52,8 +52,8 @@ COMMENT ON COLUMN finance_incomes.residency_status IS
 | `permanent_resident` | Permanent Resident | 5% (1st), 30% (2nd), 35% (3rd+) |
 | `foreigner` | Foreigner / Non-resident | 60% (all properties) |
 
-**Note:** This replaces the need for `buyerType` as a stored field in `property_sg_details`. The backend derives `buyerType` from the linked income's `residency_status`:
-- `borrower_1_income_id` → `finance_incomes.residency_status` → `buyerType`
+**Note:** This replaces the need for `residency` as a stored field in `property_sg_details`. The backend derives `residency` from the linked income's `residency_status`:
+- `borrower_1_income_id` → `finance_incomes.residency_status` → `residency`
 
 | Migration File | Purpose |
 |----------------|---------|
@@ -158,7 +158,7 @@ CREATE TABLE property_sg_details (
     grants NUMERIC(15,4) NOT NULL DEFAULT 0,
 
     -- ABSD calculation inputs
-    -- Note: buyerType is DERIVED from borrower_1_income_id → finance_incomes.residency_status
+    -- Note: residency is DERIVED from borrower_1_income_id → finance_incomes.residency_status
     property_count INT NOT NULL DEFAULT 0,                -- Number of existing properties (0 = first property)
 
     -- Borrower 1 (FK to finance_incomes and cpf_accounts)
@@ -171,7 +171,7 @@ CREATE TABLE property_sg_details (
 
     -- Stamp duties (SG-specific)
     -- Note: BSD is COMPUTED using IRAS tiered rates, not stored
-    -- Note: ABSD is COMPUTED from (derived buyerType) + property_count, not stored
+    -- Note: ABSD is COMPUTED from (derived residency) + property_count, not stored
 
     -- Sale planning inputs
     sale_expected_date VARCHAR(7),            -- 'YYYY-MM'
@@ -769,7 +769,7 @@ interface SGDetails {
   borrower2CpfAccountId: string | null
 
   // ABSD calculation
-  // Note: buyerType is DERIVED from borrower1IncomeId → finance_incomes.residency_status (not stored)
+  // Note: residency is DERIVED from borrower1IncomeId → finance_incomes.residency_status (not stored)
   propertyCount: number  // Existing properties owned (0 = first property)
 
   // Sale planning
@@ -1168,7 +1168,7 @@ type PropertyPlannerScenario struct {
     CpfOaBalance           decimal.Decimal
     MonthlyCpfOa           decimal.Decimal
     Grants                 decimal.Decimal
-    BuyerType              string           // 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+    Residency              string           // 'singapore_citizen' | 'permanent_resident' | 'foreigner'
     PropertyCount          int              // Existing properties owned (for ABSD calculation)
     Borrower1IncomeId      *string
     Borrower1OaBalance     decimal.Decimal
@@ -1887,7 +1887,7 @@ var TestScenarios = []PropertyPlannerScenario{
         Name:          "High-End Private Condo",
         PropertyType:  "private-new",
         PropertyPrice: decimal.MustFromString("2500000"),
-        BuyerType:     "singapore_citizen",
+        Residency:     "singapore_citizen",
         PropertyCount: 1,  // SC buying 2nd property = 17% ABSD
         // Expected: ABSD = $425,000
     },
@@ -2275,7 +2275,7 @@ func TestE2E_FullPropertyScenario(t *testing.T) {
                 LoanToValue:     decimal.MustFromString("80"),
                 LoanTermYears:   25,
                 SGDetails: &SGDetailsInput{
-                    BuyerType:        "singapore_citizen",
+                    Residency:        "singapore_citizen",
                     PropertyCount:    0,
                     OaUsed:           decimal.MustFromString("150000"),
                     SaUsed:           decimal.MustFromString("50000"),
@@ -2309,7 +2309,7 @@ func TestE2E_FullPropertyScenario(t *testing.T) {
                 LoanToValue:     decimal.MustFromString("75"),
                 LoanTermYears:   30,
                 SGDetails: &SGDetailsInput{
-                    BuyerType:        "singapore_citizen",
+                    Residency:        "singapore_citizen",
                     PropertyCount:    1, // Already owns 1 property
                     OaUsed:           decimal.MustFromString("0"),
                     SaUsed:           decimal.MustFromString("0"),
@@ -2338,7 +2338,7 @@ func TestE2E_FullPropertyScenario(t *testing.T) {
                 LoanToValue:     decimal.MustFromString("75"),
                 LoanTermYears:   25,
                 SGDetails: &SGDetailsInput{
-                    BuyerType:        "permanent_resident",
+                    Residency:        "permanent_resident",
                     PropertyCount:    0,
                     OaUsed:           decimal.MustFromString("200000"),
                     SaUsed:           decimal.MustFromString("0"),
@@ -2574,7 +2574,7 @@ func TestE2E_SaleProceeds(t *testing.T) {
 | `monthly_cpf_oa` | NUMERIC(15,4) | NO | `0` | Monthly CPF OA contribution |
 | `grants` | NUMERIC(15,4) | NO | `0` | HDB grants received |
 | `property_count` | INT | NO | `0` | Existing properties owned (for ABSD) |
-| _(derived)_ `buyerType` | - | - | - | DERIVED from `borrower_1_income_id` → `finance_incomes.residency_status` |
+| _(derived)_ `residency` | - | - | - | DERIVED from `borrower_1_income_id` → `finance_incomes.residency_status` |
 | `borrower_1_income_id` | UUID | YES | NULL | FK to finance_incomes |
 | `borrower_1_oa_balance` | NUMERIC(15,4) | YES | `0` | Borrower 1 CPF OA balance |
 | `borrower_2_income_id` | UUID | YES | NULL | FK to finance_incomes (joint) |
@@ -2771,7 +2771,7 @@ interface CreatePropertyPlannerScenarioRequest {
   borrowerType: "single" | "joint"
   otherDebt: string               // Monthly debt obligations for TDSR
   grants: string
-  // Note: buyerType is NOT in request - DERIVED from borrower1IncomeId → finance_incomes.residency_status
+  // Note: residency is NOT in request - DERIVED from borrower1IncomeId → finance_incomes.residency_status
   propertyCount: number           // Existing properties owned (for ABSD calculation)
 
   // Borrower 1 (FK to existing records)
@@ -2835,7 +2835,7 @@ interface PropertyPlannerScenario {
   borrowerType: string
   otherDebt: string
   grants: string
-  buyerType: string               // DERIVED from borrower1IncomeId → finance_incomes.residency_status (returned in response)
+  residency: string               // DERIVED from borrower1IncomeId → finance_incomes.residency_status (returned in response)
   propertyCount: number           // Existing properties owned (for ABSD calculation)
 
   // Borrower FKs
@@ -2944,7 +2944,7 @@ flowchart TB
         end
 
         subgraph FEES["Fees & Duties"]
-            BT_TYPE[buyerType]
+            BT_TYPE[residency]
             PC[propertyCount]
             PF[purchaseFees]
         end
@@ -3126,7 +3126,7 @@ flowchart LR
     end
 
     subgraph ABSD_CALC["ABSD Calculation"]
-        ABSD_IN[buyerType + propertyCount<br/>e.g., SC + 0 = 0%]
+        ABSD_IN[residency + propertyCount<br/>e.g., SC + 0 = 0%]
         ABSD_OUT[absdAmount<br/>e.g., $0]
     end
 
@@ -3479,7 +3479,7 @@ This table describes the conceptual inputs used in property calculations. Note t
 | `cpfOaBalance` | Linked `cpf_accounts.oa_balance` | cpfRefund, downpaymentBreakdown | Total CPF OA available |
 | `monthlyCpfOa` | Linked `cpf_accounts.monthly_oa_contribution` | (used by timeline projection) | Monthly CPF contribution |
 | `grants` | `property_sg_details` | downpaymentBreakdown, loanAmount | HDB grants |
-| `buyerType` | DERIVED: `finance_incomes.residency_status` | absdAmount (via ABSD rate lookup) | Buyer profile (SC/PR/foreigner) |
+| `residency` | DERIVED: `finance_incomes.residency_status` | absdAmount (via ABSD rate lookup) | Buyer profile (SC/PR/foreigner) |
 | `propertyCount` | `property_sg_details` | absdAmount (via ABSD rate lookup) | Existing properties owned |
 | `purchaseFees` | `property_fees` (context='purchase') | calculatedPurchaseFees, totalPurchaseFees, totalUpfrontCash | One-time purchase fees |
 | `recurringFees` | `property_fees` (context='recurring') | monthlyPropertyCosts, totalHoldingCosts | Property tax, maintenance, insurance |

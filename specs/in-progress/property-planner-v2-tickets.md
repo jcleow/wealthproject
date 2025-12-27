@@ -44,7 +44,7 @@ type PropertyType = 'hdb' | 'private'
 type PropertySubtype = 'bto' | 'resale' | 'ec' | 'new'
 type LoanType = 'bank' | 'hdb'
 type BorrowerType = 'single' | 'joint'
-type BuyerType = 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+type Residency = 'singapore_citizen' | 'permanent_resident' | 'foreigner'
 type FeeContext = 'purchase' | 'sale' | 'recurring'
 type FeeFrequency = 'one_time' | 'monthly' | 'yearly'
 type GrowthStrategy = 'fixed' | 'annual_step' | 'compound_monthly' | 'tiered_adb'
@@ -77,7 +77,7 @@ interface CreateScenarioRequest {
     borrower2IncomeId?: string            // optional, UUID (for joint)
     borrower2CpfAccountId?: string        // optional, UUID (for joint)
     otherDebt?: string                    // default: "0"
-    // Note: buyerType is DERIVED from borrower1IncomeId → finance_incomes.residency_status
+    // Note: residency is DERIVED from borrower1IncomeId → finance_incomes.residency_status
     propertyCount?: number                // default: 0 (existing properties owned)
     grants?: string                       // default: "0"
     btoLaunchDate?: string                // optional, YYYY-MM
@@ -142,7 +142,7 @@ interface ScenarioResponse {
     borrower2IncomeId: string | null
     borrower2CpfAccountId: string | null
     otherDebt: string
-    buyerType: BuyerType                  // DERIVED from borrower1IncomeId → finance_incomes.residency_status
+    residency: Residency                  // DERIVED from borrower1IncomeId → finance_incomes.residency_status
     propertyCount: number
     grants: string
     btoLaunchDate: string | null
@@ -373,7 +373,7 @@ const mockScenarioResponse: ScenarioResponse = {
     borrower2IncomeId: null,
     borrower2CpfAccountId: null,
     otherDebt: "0",
-    buyerType: "singapore_citizen",
+    residency: "singapore_citizen",
     propertyCount: 0,
     grants: "0",
     btoLaunchDate: null,
@@ -599,7 +599,7 @@ definitions:
       - propertyPrice
       - loanType
       - borrowerType
-      # Note: buyerType is NOT required in request - it's DERIVED from borrower1IncomeId → finance_incomes.residency_status
+      # Note: residency is NOT required in request - it's DERIVED from borrower1IncomeId → finance_incomes.residency_status
     properties:
       name:
         type: string
@@ -654,7 +654,7 @@ definitions:
       otherDebt:
         type: string
         default: "0"
-      # buyerType is DERIVED from borrower1IncomeId → finance_incomes.residency_status (not in request)
+      # residency is DERIVED from borrower1IncomeId → finance_incomes.residency_status (not in request)
       propertyCount:
         type: integer
         minimum: 0
@@ -843,7 +843,7 @@ definitions:
         type: string
       otherDebt:
         type: string
-      buyerType:
+      residency:
         type: string
       propertyCount:
         type: integer
@@ -1465,7 +1465,7 @@ CREATE TABLE property_sg_details (
     -- Other Debt (for TDSR)
     other_debt NUMERIC(15,4) NOT NULL DEFAULT 0,
 
-    -- ABSD inputs (buyerType is DERIVED from borrower_1_income_id → finance_incomes.residency_status)
+    -- ABSD inputs (residency is DERIVED from borrower_1_income_id → finance_incomes.residency_status)
     property_count INT NOT NULL DEFAULT 0,  -- Existing properties owned (0 = first property)
 
     -- HDB Grants
@@ -1499,7 +1499,7 @@ ALTER TABLE property_sg_details
     ADD CONSTRAINT property_sg_details_borrower_type_check
     CHECK (borrower_type IN ('single', 'joint'));
 
--- Note: buyer_type is not stored - it's DERIVED from linked finance_incomes.residency_status
+-- Note: residency is not stored - it's DERIVED from linked finance_incomes.residency_status
 
 -- DOWN
 DROP TABLE property_sg_details;
@@ -1718,7 +1718,7 @@ type PropertySGDetails struct {
     Borrower2IncomeID     *string          `db:"borrower2_income_id" json:"borrower2IncomeId"`
     Borrower2CpfAccountID *string          `db:"borrower2_cpf_account_id" json:"borrower2CpfAccountId"`
     OtherDebt             *decimal.Decimal `db:"other_debt" json:"otherDebt"`
-    // Note: BuyerType is DERIVED from Borrower1IncomeID → finance_incomes.residency_status (not stored)
+    // Note: Residency is DERIVED from Borrower1IncomeID → finance_incomes.residency_status (not stored)
     PropertyCount         int              `db:"property_count" json:"propertyCount"`
     Grants                *decimal.Decimal `db:"grants" json:"grants"`
     BtoLaunchDate         *string          `db:"bto_launch_date" json:"btoLaunchDate"`
@@ -1938,7 +1938,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 DownpaymentCpfOa:  decimal.MustFromString("150000"),
                 DownpaymentCash:   decimal.MustFromString("20100"),
                 BorrowerType:      "single",
-                BuyerType:         "singapore_citizen",
+                Residency:         "singapore_citizen",
                 PropertyCount:     0,
             },
             RatePeriods: []CreateRatePeriodInput{
@@ -1978,7 +1978,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 PropertyPrice:   decimal.MustFromString("500000"),
                 LoanType:        "hdb",
                 BorrowerType:    "single",
-                BuyerType:       "singapore_citizen",
+                Residency:       "singapore_citizen",
             },
             Fees: []CreateFeeInput{
                 {
@@ -2018,7 +2018,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 PropertyPrice:   decimal.MustFromString("600000"),
                 LoanType:        "bank",
                 BorrowerType:    "single",
-                BuyerType:       "singapore_citizen",
+                Residency:       "singapore_citizen",
             },
             GrowthPeriods: []CreateGrowthPeriodInput{
                 {StartYear: 2025, EndYear: ptrInt(2030), GrowthRate: decimal.MustFromString("3.0"), GrowthStrategy: "annual_step"},
@@ -2048,7 +2048,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 PropertyPrice:   decimal.MustFromString("700000"),
                 LoanType:        "bank",
                 BorrowerType:    "single",
-                BuyerType:       "singapore_citizen",
+                Residency:       "singapore_citizen",
             },
             RatePeriods: []CreateRatePeriodInput{
                 {StartMonth: "2025-01", TermYears: 5, FixedYears: 2, FixedRate: decimal.MustFromString("2.6"), FloatingRate: decimal.MustFromString("3.5")},
@@ -2076,7 +2076,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 PropertyPrice:   decimal.MustFromString("500000"),
                 LoanType:        "bank",
                 BorrowerType:    "single",
-                BuyerType:       "singapore_citizen",
+                Residency:       "singapore_citizen",
             },
             RatePeriods: []CreateRatePeriodInput{}, // Empty!
         }
@@ -2098,7 +2098,7 @@ func TestPropertyPlannerStore(t *testing.T) {
             SGDetails: &CreateSGDetailsInput{
                 Name: "Get Test", PropertyType: "hdb", PropertySubtype: "resale",
                 PropertyPrice: decimal.MustFromString("500000"), LoanType: "bank",
-                BorrowerType: "single", BuyerType: "singapore_citizen",
+                BorrowerType: "single", Residency: "singapore_citizen",
             },
             RatePeriods: []CreateRatePeriodInput{
                 {StartMonth: "2025-01", TermYears: 25, FixedRate: decimal.MustFromString("2.6"), FloatingRate: decimal.MustFromString("3.5")},
@@ -2120,7 +2120,7 @@ func TestPropertyPlannerStore(t *testing.T) {
             SGDetails: &CreateSGDetailsInput{
                 Name: "Owner Only", PropertyType: "hdb", PropertySubtype: "resale",
                 PropertyPrice: decimal.MustFromString("500000"), LoanType: "bank",
-                BorrowerType: "single", BuyerType: "singapore_citizen",
+                BorrowerType: "single", Residency: "singapore_citizen",
             },
             RatePeriods: []CreateRatePeriodInput{
                 {StartMonth: "2025-01", TermYears: 25, FixedRate: decimal.MustFromString("2.6"), FloatingRate: decimal.MustFromString("3.5")},
@@ -2152,7 +2152,7 @@ func TestPropertyPlannerStore(t *testing.T) {
             SGDetails: &CreateSGDetailsInput{
                 Name: "Delete Test", PropertyType: "hdb", PropertySubtype: "resale",
                 PropertyPrice: decimal.MustFromString("500000"), LoanType: "bank",
-                BorrowerType: "single", BuyerType: "singapore_citizen",
+                BorrowerType: "single", Residency: "singapore_citizen",
             },
             Fees: []CreateFeeInput{
                 {FeeContext: "purchase", FeeType: "legal", Amount: decimal.MustFromString("3000"), Currency: "SGD"},
@@ -2193,7 +2193,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 SGDetails: &CreateSGDetailsInput{
                     Name: fmt.Sprintf("User A Scenario %d", i), PropertyType: "hdb", PropertySubtype: "resale",
                     PropertyPrice: decimal.MustFromString("500000"), LoanType: "bank",
-                    BorrowerType: "single", BuyerType: "singapore_citizen",
+                    BorrowerType: "single", Residency: "singapore_citizen",
                 },
                 RatePeriods: []CreateRatePeriodInput{
                     {StartMonth: "2025-01", TermYears: 25, FixedRate: decimal.MustFromString("2.6"), FloatingRate: decimal.MustFromString("3.5")},
@@ -2208,7 +2208,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 SGDetails: &CreateSGDetailsInput{
                     Name: fmt.Sprintf("User B Scenario %d", i), PropertyType: "private", PropertySubtype: "new",
                     PropertyPrice: decimal.MustFromString("1500000"), LoanType: "bank",
-                    BorrowerType: "joint", BuyerType: "singapore_citizen",
+                    BorrowerType: "joint", Residency: "singapore_citizen",
                 },
                 RatePeriods: []CreateRatePeriodInput{
                     {StartMonth: "2025-01", TermYears: 30, FixedRate: decimal.MustFromString("2.8"), FloatingRate: decimal.MustFromString("3.8")},
@@ -2450,8 +2450,8 @@ var ABSDRates = map[string]map[int]*decimal.Decimal{
 }
 
 // CalculateABSD computes Additional Buyer's Stamp Duty
-func (c *Calculator) CalculateABSD(propertyPrice *decimal.Decimal, buyerType string, propertyCount int) *decimal.Decimal {
-    rates, ok := ABSDRates[buyerType]
+func (c *Calculator) CalculateABSD(propertyPrice *decimal.Decimal, residency string, propertyCount int) *decimal.Decimal {
+    rates, ok := ABSDRates[residency]
     if !ok {
         return decimal.Zero()
     }
@@ -2812,7 +2812,7 @@ func TestCalculateABSD(t *testing.T) {
     price := decimal.MustFromString("1000000")
 
     testCases := []struct {
-        buyerType     string
+        residency     string
         propertyCount int
         expected      string
         description   string
@@ -2836,7 +2836,7 @@ func TestCalculateABSD(t *testing.T) {
 
     for _, tc := range testCases {
         t.Run(tc.description, func(t *testing.T) {
-            result := calc.CalculateABSD(price, tc.buyerType, tc.propertyCount)
+            result := calc.CalculateABSD(price, tc.residency, tc.propertyCount)
 
             assert.Equal(t, tc.expected, result.String())
         })
@@ -3124,7 +3124,7 @@ type CreateSGDetailsRequest struct {
     Borrower2IncomeID *string `json:"borrower2IncomeId"`
     Borrower2CpfAccountID *string `json:"borrower2CpfAccountId"`
     OtherDebt         string  `json:"otherDebt"`
-    // Note: BuyerType is DERIVED from Borrower1IncomeID → finance_incomes.residency_status (not in request)
+    // Note: Residency is DERIVED from Borrower1IncomeID → finance_incomes.residency_status (not in request)
     PropertyCount     int     `json:"propertyCount" validate:"min=0"`
     Grants            string  `json:"grants"`
     SaleExpectedDate  *string `json:"saleExpectedDate"`
@@ -3261,7 +3261,7 @@ func (h *PropertyPlannerV2Handler) computeAll(s *repository.PropertyScenarioFull
 
     // Calculate stamp duties
     bsd := h.calculator.CalculateBSD(details.PropertyPrice)
-    absd := h.calculator.CalculateABSD(details.PropertyPrice, details.BuyerType, details.PropertyCount)
+    absd := h.calculator.CalculateABSD(details.PropertyPrice, details.Residency, details.PropertyCount)
 
     result.Mortgage.BsdAmount = bsd.String()
     result.Mortgage.AbsdAmount = absd.String()
@@ -3327,7 +3327,7 @@ func TestPropertyPlannerV2Handler(t *testing.T) {
                 "downpaymentCpfOa": "150000",
                 "downpaymentCash": "20100",
                 "borrowerType": "single",
-                "buyerType": "singapore_citizen",
+                "residency": "singapore_citizen",
                 "propertyCount": 0
             },
             "ratePeriods": [{
@@ -3436,7 +3436,7 @@ export interface PropertySGDetails {
   borrower2IncomeId?: string
   borrower2CpfAccountId?: string
   otherDebt: string
-  buyerType: 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+  residency: 'singapore_citizen' | 'permanent_resident' | 'foreigner'
   propertyCount: number
   grants: string
   btoLaunchDate?: string
@@ -3579,7 +3579,7 @@ export interface CreateSGDetailsInput {
   borrower2IncomeId?: string
   borrower2CpfAccountId?: string
   otherDebt?: string
-  buyerType: 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+  residency: 'singapore_citizen' | 'permanent_resident' | 'foreigner'
   propertyCount?: number
   grants?: string
   saleExpectedDate?: string
@@ -4112,7 +4112,7 @@ interface FormState {
   otherDebt: string
 
   // Buyer details
-  buyerType: 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+  residency: 'singapore_citizen' | 'permanent_resident' | 'foreigner'
   propertyCount: number
   grants: string
 
@@ -4138,7 +4138,7 @@ const defaultFormState: FormState = {
   downpaymentCash: '0',
   borrowerType: 'single',
   otherDebt: '0',
-  buyerType: 'singapore_citizen',
+  residency: 'singapore_citizen',
   propertyCount: 0,
   grants: '0',
   ratePeriods: [
@@ -4195,7 +4195,7 @@ export function usePropertyPlannerFormV2() {
       borrower2IncomeId: details.borrower2IncomeId || undefined,
       borrower2CpfAccountId: details.borrower2CpfAccountId || undefined,
       otherDebt: details.otherDebt,
-      buyerType: details.buyerType as 'singapore_citizen' | 'permanent_resident' | 'foreigner',
+      residency: details.residency as 'singapore_citizen' | 'permanent_resident' | 'foreigner',
       propertyCount: details.propertyCount,
       grants: details.grants,
       saleExpectedDate: details.saleExpectedDate || undefined,
@@ -4241,7 +4241,7 @@ export function usePropertyPlannerFormV2() {
       borrower2IncomeId: formState.borrower2IncomeId,
       borrower2CpfAccountId: formState.borrower2CpfAccountId,
       otherDebt: formState.otherDebt,
-      buyerType: formState.buyerType,
+      residency: formState.residency,
       propertyCount: formState.propertyCount,
       grants: formState.grants,
       saleExpectedDate: formState.saleExpectedDate,
