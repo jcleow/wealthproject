@@ -19,28 +19,46 @@ This document specifies the persistence layer for Property Planner V2, replacing
 
 ## Database Schema
 
-### Prerequisite: Add `earner` Column to `finance_incomes`
+### Prerequisite: Add `earner` and `residency_status` Columns to `finance_incomes`
 
-The user can add income for multiple household members (self, spouse). To identify who earns each income:
+The user can add income for multiple household members (self, spouse). To identify who earns each income and their residency status:
 
 ```sql
--- Migration: Add earner column to finance_incomes
+-- Migration: Add earner and residency_status columns to finance_incomes
 ALTER TABLE finance_incomes
-    ADD COLUMN earner VARCHAR(20) DEFAULT 'self';
+    ADD COLUMN earner VARCHAR(20) DEFAULT 'self',
+    ADD COLUMN residency_status VARCHAR(30) DEFAULT 'singapore_citizen';
 
--- Constraint to ensure valid values
+-- Constraints to ensure valid values
 ALTER TABLE finance_incomes
     ADD CONSTRAINT finance_incomes_earner_check
     CHECK (earner IN ('self', 'spouse', 'other'));
 
+ALTER TABLE finance_incomes
+    ADD CONSTRAINT finance_incomes_residency_status_check
+    CHECK (residency_status IN ('singapore_citizen', 'permanent_resident', 'foreigner'));
+
 COMMENT ON COLUMN finance_incomes.earner IS
     'Identifies who earns this income: self (primary user), spouse, or other household member';
+
+COMMENT ON COLUMN finance_incomes.residency_status IS
+    'Residency status of the income earner. Used to derive buyerType for ABSD calculation in property scenarios.';
 ```
+
+**Residency Status Values:**
+| Value | Description | ABSD Impact |
+|-------|-------------|-------------|
+| `singapore_citizen` | Singapore Citizen | 0% (1st), 20% (2nd), 30% (3rd+) |
+| `permanent_resident` | Permanent Resident | 5% (1st), 30% (2nd), 35% (3rd+) |
+| `foreigner` | Foreigner / Non-resident | 60% (all properties) |
+
+**Note:** This replaces the need for `buyerType` as a stored field in `property_sg_details`. The backend derives `buyerType` from the linked income's `residency_status`:
+- `borrower_1_income_id` → `finance_incomes.residency_status` → `buyerType`
 
 | Migration File | Purpose |
 |----------------|---------|
-| `backend/migrations/20251227000_add_earner_to_incomes.up.sql` | Adds `earner` column |
-| `backend/migrations/20251227000_add_earner_to_incomes.down.sql` | Removes `earner` column |
+| `backend/migrations/20251227000_add_earner_to_incomes.up.sql` | Adds `earner` and `residency_status` columns |
+| `backend/migrations/20251227000_add_earner_to_incomes.down.sql` | Removes `earner` and `residency_status` columns |
 
 ---
 
@@ -139,9 +157,9 @@ CREATE TABLE property_sg_details (
     other_debt NUMERIC(15,4) NOT NULL DEFAULT 0,          -- Monthly debt obligations for TDSR
     grants NUMERIC(15,4) NOT NULL DEFAULT 0,
 
-    -- Buyer details (for ABSD calculation)
-    buyer_type VARCHAR(30) NOT NULL DEFAULT 'singapore_citizen',  -- 'singapore_citizen' | 'permanent_resident' | 'foreigner'
-    property_count INT NOT NULL DEFAULT 0,                        -- Number of existing properties (0 = first property)
+    -- ABSD calculation inputs
+    -- Note: buyerType is DERIVED from borrower_1_income_id → finance_incomes.residency_status
+    property_count INT NOT NULL DEFAULT 0,                -- Number of existing properties (0 = first property)
 
     -- Borrower 1 (FK to finance_incomes and cpf_accounts)
     borrower_1_income_id UUID REFERENCES finance_incomes(id) ON DELETE SET NULL,
@@ -152,8 +170,8 @@ CREATE TABLE property_sg_details (
     borrower_2_cpf_account_id UUID REFERENCES cpf_accounts(id) ON DELETE SET NULL,
 
     -- Stamp duties (SG-specific)
-    -- Note: BSD (Buyer's Stamp Duty) is NOT stored - computed in backend using standard IRAS tiered rates
-    -- Note: ABSD is COMPUTED from buyer_type + property_count, not stored
+    -- Note: BSD is COMPUTED using IRAS tiered rates, not stored
+    -- Note: ABSD is COMPUTED from (derived buyerType) + property_count, not stored
 
     -- Sale planning inputs
     sale_expected_date VARCHAR(7),            -- 'YYYY-MM'
@@ -435,7 +453,6 @@ erDiagram
         uuid borrower_1_cpf_account_id FK
         uuid borrower_2_income_id FK
         uuid borrower_2_cpf_account_id FK
-        varchar buyer_type
         int property_count
     }
 
@@ -751,8 +768,8 @@ interface SGDetails {
   borrower2IncomeId: string | null
   borrower2CpfAccountId: string | null
 
-  // Buyer details (for ABSD calculation)
-  buyerType: 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+  // ABSD calculation
+  // Note: buyerType is DERIVED from borrower1IncomeId → finance_incomes.residency_status (not stored)
   propertyCount: number  // Existing properties owned (0 = first property)
 
   // Sale planning
@@ -2556,8 +2573,8 @@ func TestE2E_SaleProceeds(t *testing.T) {
 | `cpf_oa_balance` | NUMERIC(15,4) | NO | `0` | Total CPF OA balance available |
 | `monthly_cpf_oa` | NUMERIC(15,4) | NO | `0` | Monthly CPF OA contribution |
 | `grants` | NUMERIC(15,4) | NO | `0` | HDB grants received |
-| `buyer_type` | VARCHAR(30) | NO | `singapore_citizen` | Buyer profile for ABSD calculation |
 | `property_count` | INT | NO | `0` | Existing properties owned (for ABSD) |
+| _(derived)_ `buyerType` | - | - | - | DERIVED from `borrower_1_income_id` → `finance_incomes.residency_status` |
 | `borrower_1_income_id` | UUID | YES | NULL | FK to finance_incomes |
 | `borrower_1_oa_balance` | NUMERIC(15,4) | YES | `0` | Borrower 1 CPF OA balance |
 | `borrower_2_income_id` | UUID | YES | NULL | FK to finance_incomes (joint) |
@@ -2754,7 +2771,7 @@ interface CreatePropertyPlannerScenarioRequest {
   borrowerType: "single" | "joint"
   otherDebt: string               // Monthly debt obligations for TDSR
   grants: string
-  buyerType: "singapore_citizen" | "permanent_resident" | "foreigner"
+  // Note: buyerType is NOT in request - DERIVED from borrower1IncomeId → finance_incomes.residency_status
   propertyCount: number           // Existing properties owned (for ABSD calculation)
 
   // Borrower 1 (FK to existing records)
@@ -2818,7 +2835,7 @@ interface PropertyPlannerScenario {
   borrowerType: string
   otherDebt: string
   grants: string
-  buyerType: string               // 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+  buyerType: string               // DERIVED from borrower1IncomeId → finance_incomes.residency_status (returned in response)
   propertyCount: number           // Existing properties owned (for ABSD calculation)
 
   // Borrower FKs
@@ -3462,7 +3479,7 @@ This table describes the conceptual inputs used in property calculations. Note t
 | `cpfOaBalance` | Linked `cpf_accounts.oa_balance` | cpfRefund, downpaymentBreakdown | Total CPF OA available |
 | `monthlyCpfOa` | Linked `cpf_accounts.monthly_oa_contribution` | (used by timeline projection) | Monthly CPF contribution |
 | `grants` | `property_sg_details` | downpaymentBreakdown, loanAmount | HDB grants |
-| `buyerType` | `property_sg_details` | absdAmount (via ABSD rate lookup) | Buyer profile (SC/PR/foreigner) |
+| `buyerType` | DERIVED: `finance_incomes.residency_status` | absdAmount (via ABSD rate lookup) | Buyer profile (SC/PR/foreigner) |
 | `propertyCount` | `property_sg_details` | absdAmount (via ABSD rate lookup) | Existing properties owned |
 | `purchaseFees` | `property_fees` (context='purchase') | calculatedPurchaseFees, totalPurchaseFees, totalUpfrontCash | One-time purchase fees |
 | `recurringFees` | `property_fees` (context='recurring') | monthlyPropertyCosts, totalHoldingCosts | Property tax, maintenance, insurance |

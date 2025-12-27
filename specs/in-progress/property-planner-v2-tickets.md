@@ -77,8 +77,8 @@ interface CreateScenarioRequest {
     borrower2IncomeId?: string            // optional, UUID (for joint)
     borrower2CpfAccountId?: string        // optional, UUID (for joint)
     otherDebt?: string                    // default: "0"
-    buyerType: BuyerType                  // required
-    propertyCount?: number                // default: 0
+    // Note: buyerType is DERIVED from borrower1IncomeId → finance_incomes.residency_status
+    propertyCount?: number                // default: 0 (existing properties owned)
     grants?: string                       // default: "0"
     btoLaunchDate?: string                // optional, YYYY-MM
     btoKeyCollectionDate?: string         // optional, YYYY-MM
@@ -142,7 +142,7 @@ interface ScenarioResponse {
     borrower2IncomeId: string | null
     borrower2CpfAccountId: string | null
     otherDebt: string
-    buyerType: BuyerType
+    buyerType: BuyerType                  // DERIVED from borrower1IncomeId → finance_incomes.residency_status
     propertyCount: number
     grants: string
     btoLaunchDate: string | null
@@ -599,7 +599,7 @@ definitions:
       - propertyPrice
       - loanType
       - borrowerType
-      - buyerType
+      # Note: buyerType is NOT required in request - it's DERIVED from borrower1IncomeId → finance_incomes.residency_status
     properties:
       name:
         type: string
@@ -654,9 +654,7 @@ definitions:
       otherDebt:
         type: string
         default: "0"
-      buyerType:
-        type: string
-        enum: [singapore_citizen, permanent_resident, foreigner]
+      # buyerType is DERIVED from borrower1IncomeId → finance_incomes.residency_status (not in request)
       propertyCount:
         type: integer
         minimum: 0
@@ -1467,9 +1465,8 @@ CREATE TABLE property_sg_details (
     -- Other Debt (for TDSR)
     other_debt NUMERIC(15,4) NOT NULL DEFAULT 0,
 
-    -- Buyer Details (for stamp duty)
-    buyer_type VARCHAR(30) NOT NULL DEFAULT 'singapore_citizen',
-    property_count INT NOT NULL DEFAULT 0,
+    -- ABSD inputs (buyerType is DERIVED from borrower_1_income_id → finance_incomes.residency_status)
+    property_count INT NOT NULL DEFAULT 0,  -- Existing properties owned (0 = first property)
 
     -- HDB Grants
     grants NUMERIC(15,4) NOT NULL DEFAULT 0,
@@ -1502,9 +1499,7 @@ ALTER TABLE property_sg_details
     ADD CONSTRAINT property_sg_details_borrower_type_check
     CHECK (borrower_type IN ('single', 'joint'));
 
-ALTER TABLE property_sg_details
-    ADD CONSTRAINT property_sg_details_buyer_type_check
-    CHECK (buyer_type IN ('singapore_citizen', 'permanent_resident', 'foreigner'));
+-- Note: buyer_type is not stored - it's DERIVED from linked finance_incomes.residency_status
 
 -- DOWN
 DROP TABLE property_sg_details;
@@ -1723,7 +1718,7 @@ type PropertySGDetails struct {
     Borrower2IncomeID     *string          `db:"borrower2_income_id" json:"borrower2IncomeId"`
     Borrower2CpfAccountID *string          `db:"borrower2_cpf_account_id" json:"borrower2CpfAccountId"`
     OtherDebt             *decimal.Decimal `db:"other_debt" json:"otherDebt"`
-    BuyerType             string           `db:"buyer_type" json:"buyerType"`
+    // Note: BuyerType is DERIVED from Borrower1IncomeID → finance_incomes.residency_status (not stored)
     PropertyCount         int              `db:"property_count" json:"propertyCount"`
     Grants                *decimal.Decimal `db:"grants" json:"grants"`
     BtoLaunchDate         *string          `db:"bto_launch_date" json:"btoLaunchDate"`
@@ -3129,7 +3124,7 @@ type CreateSGDetailsRequest struct {
     Borrower2IncomeID *string `json:"borrower2IncomeId"`
     Borrower2CpfAccountID *string `json:"borrower2CpfAccountId"`
     OtherDebt         string  `json:"otherDebt"`
-    BuyerType         string  `json:"buyerType" validate:"required,oneof=singapore_citizen permanent_resident foreigner"`
+    // Note: BuyerType is DERIVED from Borrower1IncomeID → finance_incomes.residency_status (not in request)
     PropertyCount     int     `json:"propertyCount" validate:"min=0"`
     Grants            string  `json:"grants"`
     SaleExpectedDate  *string `json:"saleExpectedDate"`
