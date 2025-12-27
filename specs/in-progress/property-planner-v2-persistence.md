@@ -139,6 +139,10 @@ CREATE TABLE property_sg_details (
     other_debt NUMERIC(15,4) NOT NULL DEFAULT 0,          -- Monthly debt obligations for TDSR
     grants NUMERIC(15,4) NOT NULL DEFAULT 0,
 
+    -- Buyer details (for ABSD calculation)
+    buyer_type VARCHAR(30) NOT NULL DEFAULT 'singapore_citizen',  -- 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+    property_count INT NOT NULL DEFAULT 0,                        -- Number of existing properties (0 = first property)
+
     -- Borrower 1 (FK to finance_incomes and cpf_accounts)
     borrower_1_income_id UUID REFERENCES finance_incomes(id) ON DELETE SET NULL,
     borrower_1_cpf_account_id UUID REFERENCES cpf_accounts(id) ON DELETE SET NULL,
@@ -149,7 +153,7 @@ CREATE TABLE property_sg_details (
 
     -- Stamp duties (SG-specific)
     -- Note: BSD (Buyer's Stamp Duty) is NOT stored - computed in backend using standard IRAS tiered rates
-    absd_rate NUMERIC(10,4) NOT NULL DEFAULT 0,  -- ABSD varies by buyer profile (citizen/PR/foreigner, property count)
+    -- Note: ABSD is COMPUTED from buyer_type + property_count, not stored
 
     -- Sale planning inputs
     sale_expected_date VARCHAR(7),            -- 'YYYY-MM'

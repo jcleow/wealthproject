@@ -70,7 +70,6 @@ interface CreateScenarioRequest {
     valuationPrice?: string               // optional, for COV calc
     loanType: LoanType                    // required
     downpaymentCpfOa?: string             // default: "0"
-    downpaymentCpfSa?: string             // default: "0"
     downpaymentCash?: string              // default: "0"
     borrowerType: BorrowerType            // required
     borrower1IncomeId?: string            // optional, UUID
@@ -136,7 +135,6 @@ interface ScenarioResponse {
     valuationPrice: string | null
     loanType: LoanType
     downpaymentCpfOa: string
-    downpaymentCpfSa: string
     downpaymentCash: string
     borrowerType: BorrowerType
     borrower1IncomeId: string | null
@@ -368,7 +366,6 @@ const mockScenarioResponse: ScenarioResponse = {
     valuationPrice: "850000",
     loanType: "bank",
     downpaymentCpfOa: "150000",
-    downpaymentCpfSa: "0",
     downpaymentCash: "20100",
     borrowerType: "single",
     borrower1IncomeId: null,
@@ -636,9 +633,6 @@ definitions:
       downpaymentCpfOa:
         type: string
         default: "0"
-      downpaymentCpfSa:
-        type: string
-        default: "0"
       downpaymentCash:
         type: string
         default: "0"
@@ -836,8 +830,6 @@ definitions:
       loanType:
         type: string
       downpaymentCpfOa:
-        type: string
-      downpaymentCpfSa:
         type: string
       downpaymentCash:
         type: string
@@ -1463,7 +1455,6 @@ CREATE TABLE property_sg_details (
 
     -- Downpayment
     downpayment_cpf_oa NUMERIC(15,4) NOT NULL DEFAULT 0,
-    downpayment_cpf_sa NUMERIC(15,4) NOT NULL DEFAULT 0,
     downpayment_cash NUMERIC(15,4) NOT NULL DEFAULT 0,
 
     -- Borrower Configuration
@@ -1725,7 +1716,6 @@ type PropertySGDetails struct {
     ValuationPrice        *decimal.Decimal `db:"valuation_price" json:"valuationPrice"`
     LoanType              string           `db:"loan_type" json:"loanType"`
     DownpaymentCpfOa      *decimal.Decimal `db:"downpayment_cpf_oa" json:"downpaymentCpfOa"`
-    DownpaymentCpfSa      *decimal.Decimal `db:"downpayment_cpf_sa" json:"downpaymentCpfSa"`
     DownpaymentCash       *decimal.Decimal `db:"downpayment_cash" json:"downpaymentCash"`
     BorrowerType          string           `db:"borrower_type" json:"borrowerType"`
     Borrower1IncomeID     *string          `db:"borrower1_income_id" json:"borrower1IncomeId"`
@@ -3133,7 +3123,6 @@ type CreateSGDetailsRequest struct {
     ValuationPrice    *string `json:"valuationPrice"`
     LoanType          string  `json:"loanType" validate:"required,oneof=bank hdb"`
     DownpaymentCpfOa  string  `json:"downpaymentCpfOa" validate:"decimal"`
-    DownpaymentCpfSa  string  `json:"downpaymentCpfSa" validate:"decimal"`
     DownpaymentCash   string  `json:"downpaymentCash" validate:"decimal"`
     BorrowerType      string  `json:"borrowerType" validate:"required,oneof=single joint"`
     Borrower1IncomeID *string `json:"borrower1IncomeId"`
@@ -3446,7 +3435,6 @@ export interface PropertySGDetails {
   valuationPrice?: string
   loanType: 'bank' | 'hdb'
   downpaymentCpfOa: string
-  downpaymentCpfSa: string
   downpaymentCash: string
   borrowerType: 'single' | 'joint'
   borrower1IncomeId?: string
@@ -3590,7 +3578,6 @@ export interface CreateSGDetailsInput {
   valuationPrice?: string
   loanType: 'bank' | 'hdb'
   downpaymentCpfOa?: string
-  downpaymentCpfSa?: string
   downpaymentCash?: string
   borrowerType: 'single' | 'joint'
   borrower1IncomeId?: string
@@ -4120,7 +4107,6 @@ interface FormState {
   // Loan
   loanType: 'bank' | 'hdb'
   downpaymentCpfOa: string
-  downpaymentCpfSa: string
   downpaymentCash: string
 
   // Borrower
@@ -4155,7 +4141,6 @@ const defaultFormState: FormState = {
   valuationPrice: '',
   loanType: 'bank',
   downpaymentCpfOa: '0',
-  downpaymentCpfSa: '0',
   downpaymentCash: '0',
   borrowerType: 'single',
   otherDebt: '0',
@@ -4209,7 +4194,6 @@ export function usePropertyPlannerFormV2() {
       valuationPrice: details.valuationPrice || '',
       loanType: details.loanType as 'bank' | 'hdb',
       downpaymentCpfOa: details.downpaymentCpfOa,
-      downpaymentCpfSa: details.downpaymentCpfSa,
       downpaymentCash: details.downpaymentCash,
       borrowerType: details.borrowerType as 'single' | 'joint',
       borrower1IncomeId: details.borrower1IncomeId || undefined,
@@ -4256,7 +4240,6 @@ export function usePropertyPlannerFormV2() {
       valuationPrice: formState.valuationPrice || undefined,
       loanType: formState.loanType,
       downpaymentCpfOa: formState.downpaymentCpfOa,
-      downpaymentCpfSa: formState.downpaymentCpfSa,
       downpaymentCash: formState.downpaymentCash,
       borrowerType: formState.borrowerType,
       borrower1IncomeId: formState.borrower1IncomeId,
