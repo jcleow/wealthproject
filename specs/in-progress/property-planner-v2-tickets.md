@@ -1718,7 +1718,9 @@ type PropertySGDetails struct {
     Borrower2IncomeID     *string          `db:"borrower2_income_id" json:"borrower2IncomeId"`
     Borrower2CpfAccountID *string          `db:"borrower2_cpf_account_id" json:"borrower2CpfAccountId"`
     OtherDebt             *decimal.Decimal `db:"other_debt" json:"otherDebt"`
-    // Note: Residency is DERIVED from Borrower1IncomeID → finance_incomes.residency_status (not stored)
+    // Residency is DERIVED from Borrower1IncomeID → finance_incomes.residency_status (not stored in DB)
+    // This field is populated by GetScenario after lookup
+    Residency             string           `db:"-" json:"residency"`
     PropertyCount         int              `db:"property_count" json:"propertyCount"`
     Grants                *decimal.Decimal `db:"grants" json:"grants"`
     BtoLaunchDate         *string          `db:"bto_launch_date" json:"btoLaunchDate"`
@@ -1863,6 +1865,10 @@ func (s *Store) GetScenario(ctx context.Context, userID, scenarioID string) (*Pr
         if err != nil {
             return nil, fmt.Errorf("get sg details: %w", err)
         }
+
+        // 2b. Derive residency from borrower1_income_id → finance_incomes.residency_status
+        sgDetails.Residency = s.deriveResidency(ctx, sgDetails.Borrower1IncomeID)
+
         result.SGDetails = &sgDetails
     }
 
@@ -1891,6 +1897,29 @@ func (s *Store) GetScenario(ctx context.Context, userID, scenarioID string) (*Pr
     }
 
     return result, nil
+}
+
+// deriveResidency looks up residency_status from finance_incomes table
+// Returns "singapore_citizen" as default if incomeID is nil or lookup fails
+func (s *Store) deriveResidency(ctx context.Context, incomeID *string) string {
+    const defaultResidency = "singapore_citizen"
+
+    if incomeID == nil {
+        return defaultResidency
+    }
+
+    var residencyStatus string
+    err := s.db.GetContext(ctx, &residencyStatus, `
+        SELECT COALESCE(residency_status, 'singapore_citizen')
+        FROM finance_incomes
+        WHERE id = $1
+    `, *incomeID)
+    if err != nil {
+        // Log error but don't fail - return default
+        return defaultResidency
+    }
+
+    return residencyStatus
 }
 ```
 
@@ -1938,7 +1967,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 DownpaymentCpfOa:  decimal.MustFromString("150000"),
                 DownpaymentCash:   decimal.MustFromString("20100"),
                 BorrowerType:      "single",
-                Residency:         "singapore_citizen",
+                // Note: Residency is NOT in input - it's DERIVED from Borrower1IncomeID
                 PropertyCount:     0,
             },
             RatePeriods: []CreateRatePeriodInput{
@@ -1978,7 +2007,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 PropertyPrice:   decimal.MustFromString("500000"),
                 LoanType:        "hdb",
                 BorrowerType:    "single",
-                Residency:       "singapore_citizen",
+                // Residency is DERIVED - not in input
             },
             Fees: []CreateFeeInput{
                 {
@@ -2018,7 +2047,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 PropertyPrice:   decimal.MustFromString("600000"),
                 LoanType:        "bank",
                 BorrowerType:    "single",
-                Residency:       "singapore_citizen",
+                // Residency is DERIVED - not in input
             },
             GrowthPeriods: []CreateGrowthPeriodInput{
                 {StartYear: 2025, EndYear: ptrInt(2030), GrowthRate: decimal.MustFromString("3.0"), GrowthStrategy: "annual_step"},
@@ -2048,7 +2077,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 PropertyPrice:   decimal.MustFromString("700000"),
                 LoanType:        "bank",
                 BorrowerType:    "single",
-                Residency:       "singapore_citizen",
+                // Residency is DERIVED - not in input
             },
             RatePeriods: []CreateRatePeriodInput{
                 {StartMonth: "2025-01", TermYears: 5, FixedYears: 2, FixedRate: decimal.MustFromString("2.6"), FloatingRate: decimal.MustFromString("3.5")},
@@ -2076,7 +2105,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 PropertyPrice:   decimal.MustFromString("500000"),
                 LoanType:        "bank",
                 BorrowerType:    "single",
-                Residency:       "singapore_citizen",
+                // Residency is DERIVED - not in input
             },
             RatePeriods: []CreateRatePeriodInput{}, // Empty!
         }
@@ -2098,7 +2127,7 @@ func TestPropertyPlannerStore(t *testing.T) {
             SGDetails: &CreateSGDetailsInput{
                 Name: "Get Test", PropertyType: "hdb", PropertySubtype: "resale",
                 PropertyPrice: decimal.MustFromString("500000"), LoanType: "bank",
-                BorrowerType: "single", Residency: "singapore_citizen",
+                BorrowerType: "single", // Residency is DERIVED
             },
             RatePeriods: []CreateRatePeriodInput{
                 {StartMonth: "2025-01", TermYears: 25, FixedRate: decimal.MustFromString("2.6"), FloatingRate: decimal.MustFromString("3.5")},
@@ -2120,7 +2149,7 @@ func TestPropertyPlannerStore(t *testing.T) {
             SGDetails: &CreateSGDetailsInput{
                 Name: "Owner Only", PropertyType: "hdb", PropertySubtype: "resale",
                 PropertyPrice: decimal.MustFromString("500000"), LoanType: "bank",
-                BorrowerType: "single", Residency: "singapore_citizen",
+                BorrowerType: "single", // Residency is DERIVED
             },
             RatePeriods: []CreateRatePeriodInput{
                 {StartMonth: "2025-01", TermYears: 25, FixedRate: decimal.MustFromString("2.6"), FloatingRate: decimal.MustFromString("3.5")},
@@ -2152,7 +2181,7 @@ func TestPropertyPlannerStore(t *testing.T) {
             SGDetails: &CreateSGDetailsInput{
                 Name: "Delete Test", PropertyType: "hdb", PropertySubtype: "resale",
                 PropertyPrice: decimal.MustFromString("500000"), LoanType: "bank",
-                BorrowerType: "single", Residency: "singapore_citizen",
+                BorrowerType: "single", // Residency is DERIVED
             },
             Fees: []CreateFeeInput{
                 {FeeContext: "purchase", FeeType: "legal", Amount: decimal.MustFromString("3000"), Currency: "SGD"},
@@ -2193,7 +2222,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 SGDetails: &CreateSGDetailsInput{
                     Name: fmt.Sprintf("User A Scenario %d", i), PropertyType: "hdb", PropertySubtype: "resale",
                     PropertyPrice: decimal.MustFromString("500000"), LoanType: "bank",
-                    BorrowerType: "single", Residency: "singapore_citizen",
+                    BorrowerType: "single", // Residency is DERIVED
                 },
                 RatePeriods: []CreateRatePeriodInput{
                     {StartMonth: "2025-01", TermYears: 25, FixedRate: decimal.MustFromString("2.6"), FloatingRate: decimal.MustFromString("3.5")},
@@ -2208,7 +2237,7 @@ func TestPropertyPlannerStore(t *testing.T) {
                 SGDetails: &CreateSGDetailsInput{
                     Name: fmt.Sprintf("User B Scenario %d", i), PropertyType: "private", PropertySubtype: "new",
                     PropertyPrice: decimal.MustFromString("1500000"), LoanType: "bank",
-                    BorrowerType: "joint", Residency: "singapore_citizen",
+                    BorrowerType: "joint", // Residency is DERIVED
                 },
                 RatePeriods: []CreateRatePeriodInput{
                     {StartMonth: "2025-01", TermYears: 30, FixedRate: decimal.MustFromString("2.8"), FloatingRate: decimal.MustFromString("3.8")},
@@ -2227,6 +2256,86 @@ func TestPropertyPlannerStore(t *testing.T) {
         require.NoError(t, err)
         assert.Len(t, resultsB, 2)
     })
+
+    // ========================================
+    // RESIDENCY DERIVATION TESTS
+    // ========================================
+
+    t.Run("DeriveResidency_WithLinkedIncome_ReturnsPR", func(t *testing.T) {
+        // Create an income with PR status
+        incomeID := createTestIncome(t, db, "list-user-a", "permanent_resident")
+
+        // Create scenario linked to that income
+        input := CreateScenarioInput{
+            Country: "SG",
+            SGDetails: &CreateSGDetailsInput{
+                Name: "PR Buyer", PropertyType: "private", PropertySubtype: "new",
+                PropertyPrice: decimal.MustFromString("2000000"), LoanType: "bank",
+                BorrowerType: "single",
+                Borrower1IncomeID: &incomeID, // Link to PR income
+            },
+            RatePeriods: []CreateRatePeriodInput{
+                {StartMonth: "2025-01", TermYears: 25, FixedRate: decimal.MustFromString("3.0"), FloatingRate: decimal.MustFromString("3.5")},
+            },
+        }
+        result, err := store.CreateScenario(ctx, "list-user-a", input)
+
+        require.NoError(t, err)
+        assert.Equal(t, "permanent_resident", result.SGDetails.Residency)
+    })
+
+    t.Run("DeriveResidency_NoLinkedIncome_DefaultsCitizen", func(t *testing.T) {
+        // Create scenario WITHOUT linked income
+        input := CreateScenarioInput{
+            Country: "SG",
+            SGDetails: &CreateSGDetailsInput{
+                Name: "No Income Link", PropertyType: "hdb", PropertySubtype: "resale",
+                PropertyPrice: decimal.MustFromString("500000"), LoanType: "bank",
+                BorrowerType: "single",
+                // Borrower1IncomeID not set - should default to singapore_citizen
+            },
+            RatePeriods: []CreateRatePeriodInput{
+                {StartMonth: "2025-01", TermYears: 25, FixedRate: decimal.MustFromString("2.6"), FloatingRate: decimal.MustFromString("3.5")},
+            },
+        }
+        result, err := store.CreateScenario(ctx, "default-user", input)
+
+        require.NoError(t, err)
+        assert.Equal(t, "singapore_citizen", result.SGDetails.Residency)
+    })
+
+    t.Run("DeriveResidency_WithForeigner_ReturnsForeigner", func(t *testing.T) {
+        // Create an income with foreigner status
+        incomeID := createTestIncome(t, db, "foreigner-user", "foreigner")
+
+        input := CreateScenarioInput{
+            Country: "SG",
+            SGDetails: &CreateSGDetailsInput{
+                Name: "Foreign Buyer", PropertyType: "private", PropertySubtype: "new",
+                PropertyPrice: decimal.MustFromString("3000000"), LoanType: "bank",
+                BorrowerType: "single",
+                Borrower1IncomeID: &incomeID,
+            },
+            RatePeriods: []CreateRatePeriodInput{
+                {StartMonth: "2025-01", TermYears: 25, FixedRate: decimal.MustFromString("3.0"), FloatingRate: decimal.MustFromString("3.5")},
+            },
+        }
+        result, err := store.CreateScenario(ctx, "foreigner-user", input)
+
+        require.NoError(t, err)
+        assert.Equal(t, "foreigner", result.SGDetails.Residency)
+    })
+}
+
+// Helper to create test income with specific residency status
+func createTestIncome(t *testing.T, db *sqlx.DB, userID, residencyStatus string) string {
+    id := uuid.New().String()
+    _, err := db.Exec(`
+        INSERT INTO finance_incomes (id, user_id, name, amount, currency, frequency, residency_status)
+        VALUES ($1, $2, 'Test Income', 10000, 'SGD', 'monthly', $3)
+    `, id, userID, residencyStatus)
+    require.NoError(t, err)
+    return id
 }
 
 func ptrInt(i int) *int { return &i }
@@ -3327,7 +3436,6 @@ func TestPropertyPlannerV2Handler(t *testing.T) {
                 "downpaymentCpfOa": "150000",
                 "downpaymentCash": "20100",
                 "borrowerType": "single",
-                "residency": "singapore_citizen",
                 "propertyCount": 0
             },
             "ratePeriods": [{
