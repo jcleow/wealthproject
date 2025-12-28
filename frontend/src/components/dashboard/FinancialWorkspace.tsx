@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
+import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -30,6 +30,7 @@ interface FinancialWorkspaceProps {
   anchorYear?: number | null
   anchorMonth?: number | null
   headerOnly?: boolean
+  onOpenLayoutModal?: () => void
 }
 
 // Stable empty Set to use as default (avoids creating new Set on each render)
@@ -53,6 +54,7 @@ export function FinancialWorkspace({
   anchorYear,
   anchorMonth,
   headerOnly = false,
+  onOpenLayoutModal,
 }: FinancialWorkspaceProps) {
   // Use stable empty set as fallback
   const stableOverrideYears = useMemo(
@@ -442,6 +444,25 @@ text-purple-400`}>
           </div>
 
           <div className="h-4 w-px bg-white/[0.06]" />
+
+          {/* Layout toggle */}
+          {onOpenLayoutModal && (
+            <button
+              type="button"
+              onClick={onOpenLayoutModal}
+              className={clsx(
+                "flex items-center justify-center",
+                "h-7 w-7",
+                "rounded-full",
+                "hover:bg-white/5",
+                "hover:text-slate-300 text-slate-500",
+                "transition",
+              )}
+              title="Change layout"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+          )}
 
           {/* Notification bell */}
           <button

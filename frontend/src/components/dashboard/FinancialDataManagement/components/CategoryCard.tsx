@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import type { TimelineItem, CPFContributionResponseV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CashAccount } from '@/types/financial'
@@ -77,6 +78,7 @@ interface CategoryCardProps {
   onDeleteCpf?: (id: string) => void
   // Display settings
   groupItemsByCategory?: boolean
+  compact?: boolean
 }
 
 export function CategoryCard({
@@ -124,6 +126,7 @@ export function CategoryCard({
   onEditCpf,
   onDeleteCpf,
   groupItemsByCategory = true,
+  compact = false,
 }: CategoryCardProps) {
   const config = categoryConfig[category]
 
@@ -193,7 +196,10 @@ export function CategoryCard({
   }
 
   return (
-    <div className="flex flex-col overflow-hidden h-full w-full min-w-0 rounded-2xl border border-white/[0.1] hover:border-white/[0.15] bg-[#0a0a0a]/60 transition-all">
+    <div className={clsx(
+      'flex flex-col overflow-hidden w-full min-w-0 rounded-2xl border border-white/[0.1] hover:border-white/[0.15] bg-[#0a0a0a]/60 transition-all',
+      compact ? 'max-h-64' : 'h-full'
+    )}>
       <CategoryCardHeader
         category={category}
         showMonthlyData={showMonthlyData}

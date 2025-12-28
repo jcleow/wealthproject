@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import clsx from 'clsx'
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useTaxModeOptional } from '@/contexts/TaxModeContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -81,7 +82,8 @@ export function FinancialDataManagement({
   anchorMonth,
   resolution,
   isTimelineLoading = false,
-  showTaxMode = false,
+  showTaxMode: _showTaxMode = false,
+  compact = false,
 }: FinancialDataManagementProps) {
   // V2 data is available when the feature flag is enabled and data is loaded
   const hasV2Data = !!timelineMonthV2
@@ -884,11 +886,17 @@ export function FinancialDataManagement({
         />
 
         {/* Cashflow cards - always visible */}
-        <div className="flex-1 overflow-auto px-6 py-6">
-            <div className="flex h-full flex-col gap-6">
-              <div className="grid gap-4 lg:grid-cols-2">
+        <div className={clsx(
+          'flex-1 overflow-auto',
+          compact ? 'px-4 py-4' : 'px-6 py-6'
+        )}>
+            <div className={clsx('flex h-full flex-col', compact ? 'gap-4' : 'gap-6')}>
+              <div className={clsx(
+                'grid',
+                compact ? 'grid-cols-1 gap-3' : 'gap-4 lg:grid-cols-2'
+              )}>
                 {(Object.keys(categoryConfig) as FinancialCategory[]).filter((key) => key !== 'investment').map((key) => (
-                  <ResizableCard key={key} id={key}>
+                  <ResizableCard key={key} id={key} disabled={compact}>
                   <CategoryCard
                     category={key}
                     data={getDataForCategory(key)}
@@ -940,6 +948,7 @@ export function FinancialDataManagement({
                     onEditCpf={key === 'asset' ? handleEditCpf : undefined}
                     onDeleteCpf={key === 'asset' ? handleDeleteCpf : undefined}
                     groupItemsByCategory={groupItemsByCategory}
+                    compact={compact}
                   />
                   </ResizableCard>
                 ))}
@@ -950,6 +959,7 @@ export function FinancialDataManagement({
                 annualSavings={getAnnualSavingsForYear()}
                 hasV2Data={hasV2Data}
                 timelineMonthV2={timelineMonthV2}
+                compact={compact}
               />
             </div>
           </div>

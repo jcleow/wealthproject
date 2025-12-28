@@ -69,4 +69,6 @@ export interface FinancialDataManagementProps {
   onSaveTimelineEdits?: (payload: TimelineEditRequest) => Promise<void>
   /** When true, show Tax Mode panel instead of cashflow cards */
   showTaxMode?: boolean
+  /** When true, use compact layout for side-by-side view */
+  compact?: boolean
 }

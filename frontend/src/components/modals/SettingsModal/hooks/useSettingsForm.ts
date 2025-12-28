@@ -59,6 +59,7 @@ export function useSettingsForm({ isOpen, onClose }: UseSettingsFormOptions): Us
     autoExecuteTools: false,
     groupItemsByCategory: true,
     chartPictureInPicture: false,
+    dashboardLayout: 'stacked',
   })
   const [hasSettingsChanges, setHasSettingsChanges] = useState(false)
 

@@ -12,6 +12,7 @@ const STORAGE_KEY = 'financial-card-heights'
 interface ResizableCardProps {
   id: string
   children: ReactNode
+  disabled?: boolean
 }
 
 function getStoredHeights(): Record<string, number> {
@@ -34,7 +35,7 @@ function setStoredHeight(id: string, height: number) {
   }
 }
 
-export function ResizableCard({ id, children }: ResizableCardProps) {
+export function ResizableCard({ id, children, disabled = false }: ResizableCardProps) {
   // Initialize with default to match server render, then sync with localStorage
   const [height, setHeight] = useState(DEFAULT_HEIGHT)
   const [mounted, setMounted] = useState(false)
@@ -54,6 +55,11 @@ export function ResizableCard({ id, children }: ResizableCardProps) {
     },
     [id]
   )
+
+  // In compact mode, don't use resizable box - just render children directly
+  if (disabled) {
+    return <div className="group/card relative">{children}</div>
+  }
 
   return (
     <ResizableBox
