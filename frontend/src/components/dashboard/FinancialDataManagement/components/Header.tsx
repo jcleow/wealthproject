@@ -184,7 +184,7 @@ export function Header({
           <p className={compact ? 'text-xs text-gray-400' : 'text-sm text-gray-400'}>{`${absoluteYear} (Age ${displayAge})`}</p>
         </div>
         {/* Unified timeline control bar */}
-        <div className={`relative z-[200] flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm ${compact ? 'w-full' : ''}`}>
+        <div className={`relative z-[50] flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm ${compact ? 'w-full' : ''}`}>
           <div className="flex items-center gap-1 p-1">
             {resolution === 'monthly' && (
               <>
