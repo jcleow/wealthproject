@@ -300,11 +300,11 @@ text-[13px] text-slate-300`}
               <>
               {/* Backdrop */}
               <div
-                className="fixed inset-0 z-[99]"
+                className="fixed inset-0 z-[299]"
                 onClick={() => setIsModuleMenuOpen(false)}
               />
               <div className={clsx(
-                "absolute right-0 z-[100]",
+                "absolute right-0 z-[300]",
                 "w-64",
                 "mt-2",
                 "border border-white/[0.08] rounded-xl",
