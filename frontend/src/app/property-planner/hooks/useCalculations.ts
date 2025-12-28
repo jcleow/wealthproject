@@ -1,3 +1,15 @@
+/**
+ * Property Planner Local Calculations
+ *
+ * These calculations provide real-time preview while editing scenarios.
+ * When scenarios are saved, the backend computes definitive values.
+ *
+ * Usage:
+ * - Use these for immediate feedback during form editing
+ * - Use API computed values (scenario.computed) for saved scenarios
+ * - TabbedResultsPanel falls back to these when API data isn't available
+ */
+
 import type {
   MortgageInputs,
   MortgageCalculationResult,
