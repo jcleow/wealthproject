@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, type ReactNode } from 'react'
+import { useState, useCallback, useEffect, forwardRef, type ReactNode } from 'react'
 import { ResizableBox, type ResizeCallbackData } from 'react-resizable'
 import 'react-resizable/css/styles.css'
 
@@ -14,6 +14,26 @@ interface ResizableCardProps {
   children: ReactNode
   disabled?: boolean
 }
+
+// Custom resize handle that works with react-resizable
+const ResizeHandle = forwardRef<HTMLDivElement, { handleAxis?: string }>(
+  function ResizeHandle({ handleAxis, ...props }, ref) {
+    return (
+      <div
+        ref={ref}
+        className={`react-resizable-handle react-resizable-handle-${handleAxis}
+          absolute bottom-0 left-0 right-0
+          flex items-center justify-center
+          h-4 z-10
+          opacity-0 hover:opacity-100 group-hover/card:opacity-60
+          cursor-ns-resize transition-opacity`}
+        {...props}
+      >
+        <div className="h-1 w-12 rounded-full bg-white/30" />
+      </div>
+    )
+  }
+)
 
 function getStoredHeights(): Record<string, number> {
   if (typeof window === 'undefined') return {}
@@ -70,15 +90,7 @@ export function ResizableCard({ id, children, disabled = false }: ResizableCardP
       maxConstraints={[10000, MAX_HEIGHT]}
       onResizeStop={handleResizeStop}
       resizeHandles={['s']}
-      handle={
-        <div className={`absolute bottom-0 left-0 right-0
-flex items-center justify-center
-h-3
-opacity-0 hover:opacity-100 group-hover/card:opacity-50
-cursor-ns-resize transition-opacity`}>
-          <div className="h-1 w-12 rounded-full bg-white/20" />
-        </div>
-      }
+      handle={<ResizeHandle />}
       className={mounted ? '!w-full' : '!w-full transition-none'}
     >
       <div className="group/card relative h-full">{children}</div>
