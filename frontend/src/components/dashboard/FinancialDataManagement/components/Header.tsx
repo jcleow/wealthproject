@@ -179,10 +179,17 @@ export function Header({
   return (
     <div className={compact ? 'px-4 py-3' : 'px-6 py-4'}>
       <div className={compact ? 'flex flex-col gap-3' : 'flex items-start justify-between gap-3'}>
-        <div>
-          <h3 className={compact ? 'text-base font-semibold text-white' : 'text-lg font-semibold text-white'}>Financial Data</h3>
-          <p className="text-sm text-gray-400">{`${absoluteYear} (Age ${displayAge})`}</p>
-        </div>
+        {compact ? (
+          <div>
+            <h3 className="text-base font-semibold text-white">Financial Data</h3>
+            <p className="text-sm text-gray-400">{`${absoluteYear} (Age ${displayAge})`}</p>
+          </div>
+        ) : (
+          <div className="flex items-baseline gap-3">
+            <h3 className="text-lg font-semibold text-white">Financial Data</h3>
+            <p className="text-sm text-gray-400">{`${absoluteYear} (Age ${displayAge})`}</p>
+          </div>
+        )}
         {/* Unified timeline control bar */}
         <div className={`relative z-[200] flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm ${compact ? 'w-full' : ''}`}>
           <div className="flex items-center gap-1 p-1">
