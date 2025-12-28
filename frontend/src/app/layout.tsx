@@ -1,6 +1,7 @@
 import { ReactNode } from 'react'
 import Script from 'next/script'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { Toaster } from 'sonner'
 import '../styles/globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { AuthProvider } from '@/components/auth/AuthProvider'
@@ -55,6 +56,7 @@ export default function RootLayout({
             <AuthenticationGuard>{children}</AuthenticationGuard>
           </AuthProvider>
         </QueryProvider>
+        <Toaster theme="dark" position="bottom-right" richColors />
       </body>
     </html>
   )

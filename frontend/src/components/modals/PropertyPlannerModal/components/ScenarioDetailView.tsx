@@ -11,6 +11,7 @@ import {
   Home,
   Banknote,
   TrendingUp,
+  Loader2,
 } from 'lucide-react'
 
 import type {
@@ -23,6 +24,8 @@ import type {
   LoanSegment,
   StaggeredDownpayment,
 } from '@/app/property-planner/types'
+
+import type { ComputedValues } from '@/types/propertyPlannerV2'
 
 import {
   calculateMortgage,
@@ -45,6 +48,8 @@ interface ScenarioDetailViewProps {
   editingScenarioIconColor: string
   editingScenarioIconSearch: string
   isEmbedded: boolean
+  isSaving?: boolean
+  computedValues?: ComputedValues | null
   onInputChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | null) => void
   onSaleInputChange: (field: keyof SaleInputs, value: string | number | boolean | FeeItem[]) => void
   onActiveResultsTabChange: (tab: ResultsTab) => void
@@ -67,6 +72,8 @@ export function ScenarioDetailView({
   editingScenarioIconColor,
   editingScenarioIconSearch,
   isEmbedded,
+  isSaving = false,
+  computedValues = null,
   onInputChange,
   onSaleInputChange,
   onActiveResultsTabChange,
@@ -116,13 +123,21 @@ export function ScenarioDetailView({
             onSearchChange={onEditingScenarioIconSearchChange}
           />
           <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
-            <input
-              type="text"
-              value={editingScenarioName}
-              onChange={(e) => onEditingScenarioNameChange(e.target.value)}
-              className="text-2xl font-semibold text-white tracking-tight bg-transparent border-none outline-none focus:ring-0 placeholder:text-slate-600 hover:bg-white/[0.03] focus:bg-white/[0.05] rounded-lg px-2 py-1 -ml-2 transition-colors"
-              placeholder="Scenario name"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={editingScenarioName}
+                onChange={(e) => onEditingScenarioNameChange(e.target.value)}
+                className="text-2xl font-semibold text-white tracking-tight bg-transparent border-none outline-none focus:ring-0 placeholder:text-slate-600 hover:bg-white/[0.03] focus:bg-white/[0.05] rounded-lg px-2 py-1 -ml-2 transition-colors"
+                placeholder="Scenario name"
+              />
+              {isSaving && (
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-xs">Saving...</span>
+                </div>
+              )}
+            </div>
             <CustomDropdown
               value={selectedType}
               onChange={(value) => onSelectedTypeChange(value as PropertyType)}
@@ -205,6 +220,7 @@ export function ScenarioDetailView({
           appreciationPeriods={inputs.appreciationPeriods}
           onPeriodsChange={(periods) => onInputChange('appreciationPeriods', periods)}
           purchaseDate={inputs.loanStartMonth}
+          computedValues={computedValues}
         />
       </div>
     </motion.div>

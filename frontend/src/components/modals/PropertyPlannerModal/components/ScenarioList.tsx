@@ -15,6 +15,7 @@ import {
   X,
   Trash2,
   Pencil,
+  Loader2,
 } from 'lucide-react'
 
 import type {
@@ -34,6 +35,7 @@ interface ScenarioListProps {
   onToggleInclude: (id: string) => void
   onAddScenario: (scenario: PropertyScenario) => void
   isEmbedded: boolean
+  isLoading?: boolean
 }
 
 function getDefaultSaleInputs(loanStartMonth: string, propertyPrice: number) {
@@ -54,6 +56,7 @@ export function ScenarioList({
   onToggleInclude,
   onAddScenario,
   isEmbedded,
+  isLoading = false,
 }: ScenarioListProps) {
   const [isCreatingNew, setIsCreatingNew] = useState(false)
   const [newRowName, setNewRowName] = useState('')
@@ -127,12 +130,21 @@ export function ScenarioList({
       )}
 
       <motion.div className="space-y-2" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-        {scenarios.length > 0 && (
-          <div className="flex items-center gap-4 px-4 pb-1">
-            <span className="text-[10px] uppercase tracking-wider text-slate-600 font-medium w-5 text-center" title="Include in timeline projections">Active</span>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
           </div>
-        )}
-        {scenarios.map((scenario, index) => {
+        ) : scenarios.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-sm text-slate-500 mb-4">No property scenarios yet</p>
+            <p className="text-xs text-slate-600">Create your first scenario to start planning</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-4 px-4 pb-1">
+              <span className="text-[10px] uppercase tracking-wider text-slate-600 font-medium w-5 text-center" title="Include in timeline projections">Active</span>
+            </div>
+            {scenarios.map((scenario, index) => {
           const option = propertyOptions.find(o => o.id === scenario.propertyType)
           return (
             <motion.div
@@ -188,6 +200,8 @@ export function ScenarioList({
             </motion.div>
           )
         })}
+          </>
+        )}
 
         <AnimatePresence>
           {isCreatingNew && (
@@ -236,7 +250,7 @@ export function ScenarioList({
           )}
         </AnimatePresence>
 
-        {!isCreatingNew && (
+        {!isCreatingNew && !isLoading && (
           <motion.button
             type="button"
             onClick={handleStartNewRow}
