@@ -3579,7 +3579,7 @@ export interface CreateSGDetailsInput {
   borrower2IncomeId?: string
   borrower2CpfAccountId?: string
   otherDebt?: string
-  residency: 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+  // Note: residency is NOT in request - it's DERIVED from borrower1IncomeId → finance_incomes.residency_status
   propertyCount?: number
   grants?: string
   saleExpectedDate?: string
@@ -4112,7 +4112,7 @@ interface FormState {
   otherDebt: string
 
   // Buyer details
-  residency: 'singapore_citizen' | 'permanent_resident' | 'foreigner'
+  // Note: residency is NOT stored in form - it's DERIVED and displayed from API response
   propertyCount: number
   grants: string
 
@@ -4138,7 +4138,7 @@ const defaultFormState: FormState = {
   downpaymentCash: '0',
   borrowerType: 'single',
   otherDebt: '0',
-  residency: 'singapore_citizen',
+  // residency is NOT in form state - derived from API response
   propertyCount: 0,
   grants: '0',
   ratePeriods: [
@@ -4195,7 +4195,7 @@ export function usePropertyPlannerFormV2() {
       borrower2IncomeId: details.borrower2IncomeId || undefined,
       borrower2CpfAccountId: details.borrower2CpfAccountId || undefined,
       otherDebt: details.otherDebt,
-      residency: details.residency as 'singapore_citizen' | 'permanent_resident' | 'foreigner',
+      // Note: residency is NOT loaded into form - it's displayed from savedScenario.sgDetails.residency
       propertyCount: details.propertyCount,
       grants: details.grants,
       saleExpectedDate: details.saleExpectedDate || undefined,
@@ -4241,7 +4241,7 @@ export function usePropertyPlannerFormV2() {
       borrower2IncomeId: formState.borrower2IncomeId,
       borrower2CpfAccountId: formState.borrower2CpfAccountId,
       otherDebt: formState.otherDebt,
-      residency: formState.residency,
+      // Note: residency is NOT sent - it's derived by backend from borrower1IncomeId
       propertyCount: formState.propertyCount,
       grants: formState.grants,
       saleExpectedDate: formState.saleExpectedDate,
