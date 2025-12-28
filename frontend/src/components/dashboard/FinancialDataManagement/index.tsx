@@ -883,6 +883,7 @@ export function FinancialDataManagement({
           isTimelineLoading={isTimelineLoading}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          compact={compact}
         />
 
         {/* Cashflow cards - always visible */}
