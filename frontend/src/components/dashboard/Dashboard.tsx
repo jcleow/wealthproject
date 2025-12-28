@@ -289,17 +289,9 @@ bg-[#0a0a0a]/80`}>
               </>
             ) : isSideBySide ? (
               /* Side-by-side layout: chart-left or chart-right */
-              <div
-                className={clsx(
-                  'flex flex-1 gap-6 overflow-hidden',
-                  effectiveLayout === 'chart-right' && 'flex-row-reverse'
-                )}
-              >
-                {/* Chart section */}
-                <div
-                  ref={chartRef}
-                  className="flex w-[65%] shrink-0 flex-col overflow-hidden rounded-2xl bg-transparent"
-                >
+              <>
+                {/* Full-width header/navbar */}
+                <div className="shrink-0">
                   <FinancialWorkspace
                     selectedYear={timeline.selectedYear}
                     onSelectYear={timeline.setSelectedYear}
@@ -318,31 +310,67 @@ bg-[#0a0a0a]/80`}>
                     anchorYear={timeline.anchorYear}
                     anchorMonth={timeline.anchorMonth}
                     onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
+                    headerOnly
                   />
                 </div>
 
-                {/* Cards section - compact mode */}
-                <div className="w-[35%] overflow-y-auto">
-                  <FinancialDataSection
-                    selectedYear={timeline.selectedYear}
-                    onSelectYear={timeline.setSelectedYear}
-                    selectedMonth={timeline.selectedMonth}
-                    onSelectMonth={timeline.setSelectedMonth}
-                    timelineYear={timeline.selectedYearData}
-                    timelineMonth={timeline.selectedMonthData}
-                    timelineMonths={timeline.sliderMonths}
-                    timelineMonthV2={timeline.selectedMonthDataV2}
-                    timelineYears={timeline.sliderYears}
-                    anchorYear={timeline.anchorYear}
-                    anchorMonth={timeline.anchorMonth}
-                    resolution={timeline.resolution}
-                    zoomLevel={zoomLevel}
-                    isTimelineLoading={timeline.isLoading}
-                    onSaveTimelineEdits={timeline.saveEdits}
-                    compact
-                  />
+                {/* Side-by-side content area */}
+                <div
+                  className={clsx(
+                    'flex flex-1 gap-6 overflow-hidden',
+                    effectiveLayout === 'chart-right' && 'flex-row-reverse'
+                  )}
+                >
+                  {/* Chart section */}
+                  <div
+                    ref={chartRef}
+                    className="flex w-[65%] shrink-0 flex-col overflow-hidden rounded-2xl bg-transparent"
+                  >
+                    <FinancialWorkspace
+                      selectedYear={timeline.selectedYear}
+                      onSelectYear={timeline.setSelectedYear}
+                      onSelectMonth={timeline.setSelectedMonth}
+                      timelineYears={timeline.chartYears}
+                      timelineMonths={timeline.chartMonths}
+                      resolution={timeline.resolution}
+                      zoomLevel={zoomLevel}
+                      onZoomLevelChange={setZoomLevel}
+                      overrideYears={timeline.overrideYears}
+                      timelineError={timelineError}
+                      onOpenCPF={() => setShowCPFView(true)}
+                      onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
+                      onOpenTax={() => setShowTaxPlanner(true)}
+                      onOpenInsurance={() => setShowInsurancePlanner(true)}
+                      anchorYear={timeline.anchorYear}
+                      anchorMonth={timeline.anchorMonth}
+                      onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
+                      chartOnly
+                    />
+                  </div>
+
+                  {/* Cards section - compact mode */}
+                  <div className="w-[35%] overflow-y-auto">
+                    <FinancialDataSection
+                      selectedYear={timeline.selectedYear}
+                      onSelectYear={timeline.setSelectedYear}
+                      selectedMonth={timeline.selectedMonth}
+                      onSelectMonth={timeline.setSelectedMonth}
+                      timelineYear={timeline.selectedYearData}
+                      timelineMonth={timeline.selectedMonthData}
+                      timelineMonths={timeline.sliderMonths}
+                      timelineMonthV2={timeline.selectedMonthDataV2}
+                      timelineYears={timeline.sliderYears}
+                      anchorYear={timeline.anchorYear}
+                      anchorMonth={timeline.anchorMonth}
+                      resolution={timeline.resolution}
+                      zoomLevel={zoomLevel}
+                      isTimelineLoading={timeline.isLoading}
+                      onSaveTimelineEdits={timeline.saveEdits}
+                      compact
+                    />
+                  </div>
                 </div>
-              </div>
+              </>
             ) : (
               /* Stacked layout (default) */
               <>

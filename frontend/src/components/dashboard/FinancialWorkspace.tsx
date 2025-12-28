@@ -30,6 +30,7 @@ interface FinancialWorkspaceProps {
   anchorYear?: number | null
   anchorMonth?: number | null
   headerOnly?: boolean
+  chartOnly?: boolean
   onOpenLayoutModal?: () => void
 }
 
@@ -54,6 +55,7 @@ export function FinancialWorkspace({
   anchorYear,
   anchorMonth,
   headerOnly = false,
+  chartOnly = false,
   onOpenLayoutModal,
 }: FinancialWorkspaceProps) {
   // Use stable empty set as fallback
@@ -203,7 +205,8 @@ export function FinancialWorkspace({
 h-full min-h-0 w-full min-w-0
 bg-transparent
 text-slate-200`}>
-      {/* Compact Header */}
+      {/* Compact Header - hidden when chartOnly */}
+      {!chartOnly && (
       <header className={`relative z-[100]
 flex items-center justify-between
 h-14
@@ -482,9 +485,10 @@ text-purple-400`}>
           <UserMenu />
         </div>
       </header>
+      )}
 
       {/* Only show chart and timeline error when not in headerOnly mode */}
-      {!headerOnly && (
+      {(chartOnly || !headerOnly) && (
         <>
           {timelineError && (
             <div className={clsx(
