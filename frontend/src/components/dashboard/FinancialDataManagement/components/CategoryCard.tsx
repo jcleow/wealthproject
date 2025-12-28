@@ -129,7 +129,8 @@ export function CategoryCard({
   groupItemsByCategory = true,
   compact = false,
 }: CategoryCardProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  // Start collapsed in compact mode (side-by-side layout)
+  const [isCollapsed, setIsCollapsed] = useState(compact)
   const config = categoryConfig[category]
 
   // For expenses, split into regular expenses and debt repayments
