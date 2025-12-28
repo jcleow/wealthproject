@@ -10,7 +10,7 @@ import { FinancialDataSection } from './FinancialDataSection'
 import { FinancialWorkspace } from './FinancialWorkspace'
 import { MiniChart } from './MiniChart'
 import { CPFSimulationView } from '../cpf/CPFSimulationView'
-import { PropertyPlannerV2Modal } from '@/components/modals/PropertyPlannerV2Modal/PropertyPlannerV2Modal'
+import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
 import { TaxPlannerV2View } from '@/app/tax-planner/page'
 import { InsurancePlannerView } from '@/app/insurance-planner/page'
 import { useTimeline } from '@/hooks/useTimeline'
@@ -29,7 +29,7 @@ export function Dashboard() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isChatCollapsed, setIsChatCollapsed] = useState(true)
   const [showCPFView, setShowCPFView] = useState(false)
-  const [showPropertyPlannerV2, setShowPropertyPlannerV2] = useState(false)
+  const [showPropertyPlanner, setShowPropertyPlanner] = useState(false)
   const [showTaxPlanner, setShowTaxPlanner] = useState(false)
   const [showInsurancePlanner, setShowInsurancePlanner] = useState(false)
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('yearly')
@@ -191,7 +191,7 @@ bg-[#0a0a0a]/80`}>
                     overrideYears={timeline.overrideYears}
                     timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlannerV2={() => setShowPropertyPlannerV2(true)}
+                    onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
                     onOpenTax={() => setShowTaxPlanner(true)}
                     onOpenInsurance={() => setShowInsurancePlanner(true)}
                     anchorYear={timeline.anchorYear}
@@ -224,7 +224,7 @@ bg-[#0a0a0a]/80`}>
                     overrideYears={timeline.overrideYears}
                     timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlannerV2={() => setShowPropertyPlannerV2(true)}
+                    onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
                     onOpenTax={() => setShowTaxPlanner(true)}
                     onOpenInsurance={() => setShowInsurancePlanner(true)}
                     anchorYear={timeline.anchorYear}
@@ -263,7 +263,7 @@ shrink-0`}
                     overrideYears={timeline.overrideYears}
                     timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlannerV2={() => setShowPropertyPlannerV2(true)}
+                    onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
                     onOpenTax={() => setShowTaxPlanner(true)}
                     onOpenInsurance={() => setShowInsurancePlanner(true)}
                     anchorYear={timeline.anchorYear}
@@ -310,10 +310,10 @@ shrink-0`}
         />
       )}
 
-      {/* Property Planner V2 Modal */}
-      <PropertyPlannerV2Modal
-        isOpen={showPropertyPlannerV2}
-        onClose={() => setShowPropertyPlannerV2(false)}
+      {/* Property Planner Modal */}
+      <PropertyPlannerModal
+        isOpen={showPropertyPlanner}
+        onClose={() => setShowPropertyPlanner(false)}
       />
       </TaxModeProvider>
     </FinancialDataProvider>

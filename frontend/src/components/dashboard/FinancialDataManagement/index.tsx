@@ -39,7 +39,6 @@ import {
 } from '@/types/financial'
 import { DeleteConfirmationModal } from '@/components/modals/FinancialFormModal/DeleteConfirmationModal'
 import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal/CashAccountFormModal'
-import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
 import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal/IncomeAllocationModal'
 import { CpfAccountFormModal } from '@/components/modals/CpfAccountFormModal/CpfAccountFormModal'
 import { settingsApi } from '@/api/financial'
@@ -249,8 +248,6 @@ export function FinancialDataManagement({
   })
   const [expandedScenarioItems, setExpandedScenarioItems] = useState<Set<string>>(new Set())
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
-  const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
-  const [prefill, setPrefill] = useState<{ scenarioId?: string; assetId?: string; liabilityId?: string } | null>(null)
   const [allocationModalState, setAllocationModalState] = useState<{
     isOpen: boolean
     incomeId: string
@@ -671,15 +668,6 @@ export function FinancialDataManagement({
     handleModalClose()
   }
 
-  const openPlannerFromLink = (link: PropertyLinkRecord) => {
-    setPrefill({
-      scenarioId: link.propertyScenarioId,
-      assetId: link.assetId,
-      liabilityId: link.liabilityId,
-    })
-    setIsPropertyPlannerOpen(true)
-  }
-
   const handleManageAllocations = (item: TimelineItem) => {
     const id = getItemId(item)
     if (!id) return
@@ -934,7 +922,6 @@ export function FinancialDataManagement({
                     assetLinks={assetLinks}
                     liabilityLinks={liabilityLinks}
                     firstLink={firstLink}
-                    onOpenPropertyPlanner={openPlannerFromLink}
                     investmentAssets={key === 'asset' ? investmentAssets : undefined}
                     cpfAssets={key === 'asset' ? cpfAssets : undefined}
                     cpfContributionsRaw={key === 'income' ? cpfContributionsRaw : undefined}
@@ -997,14 +984,6 @@ export function FinancialDataManagement({
                       : undefined
             : undefined
         }
-      />
-      <PropertyPlannerModal
-        isOpen={isPropertyPlannerOpen}
-        onClose={() => {
-          setIsPropertyPlannerOpen(false)
-          setPrefill(null)
-        }}
-        prefill={prefill ?? undefined}
       />
       <CashAccountFormModal
         mode={cashAccountModalState.mode}

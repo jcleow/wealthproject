@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Home, Shield } from 'lucide-react'
+import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import { assetsApi, liabilitiesApi, propertyApi } from '@/api/financial'
-import { PropertyPlannerModal } from '../modals/PropertyPlannerModal/PropertyPlannerModal'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { UserMenu } from '../auth/UserMenu'
@@ -25,7 +24,7 @@ interface FinancialWorkspaceProps {
   overrideYears?: Set<number>
   timelineError?: string | null
   onOpenCPF?: () => void
-  onOpenPropertyPlannerV2?: () => void
+  onOpenPropertyPlanner?: () => void
   onOpenTax?: () => void
   onOpenInsurance?: () => void
   anchorYear?: number | null
@@ -48,7 +47,7 @@ export function FinancialWorkspace({
   overrideYears,
   timelineError = null,
   onOpenCPF,
-  onOpenPropertyPlannerV2,
+  onOpenPropertyPlanner,
   onOpenTax,
   onOpenInsurance,
   anchorYear,
@@ -61,7 +60,6 @@ export function FinancialWorkspace({
     [overrideYears]
   )
 
-  const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
   const [scenarioEventToEdit, setScenarioEventToEdit] = useState<ScenarioEvent | null>(null)
   const [isClearing, setIsClearing] = useState(false)
@@ -162,10 +160,6 @@ export function FinancialWorkspace({
     } finally {
       setIsSeeding(false)
     }
-  }
-
-  const handlePropertyPlanner = () => {
-    setIsPropertyPlannerOpen(true)
   }
 
   useEffect(() => {
@@ -313,10 +307,11 @@ text-[13px] text-slate-300`}
                 "shadow-2xl",
                 "overflow-hidden",
               )} style={{ isolation: 'isolate' }}>
+                {/* Property Planner */}
                 <button
                   onClick={() => {
                     setIsModuleMenuOpen(false)
-                    handlePropertyPlanner()
+                    onOpenPropertyPlanner?.()
                   }}
                   className={clsx(
                     "flex items-start gap-3",
@@ -330,42 +325,14 @@ text-[13px] text-slate-300`}
                   type="button"
                 >
                   <span className={`mt-0.5 p-2
-rounded-lg border border-blue-500/20
-bg-blue-500/10
-text-blue-400`}>
+rounded-lg border border-violet-500/20
+bg-violet-500/10
+text-violet-400`}>
                     <Building2 className="h-4 w-4" />
                   </span>
                   <div className="space-y-0.5">
                     <div className="font-medium">Property Planner</div>
-                    <p className="text-xs text-slate-400">Model affordability, mortgages, and cash flow.</p>
-                  </div>
-                </button>
-                {/* Property Planner v2 */}
-                <button
-                  onClick={() => {
-                    setIsModuleMenuOpen(false)
-                    onOpenPropertyPlannerV2?.()
-                  }}
-                  className={clsx(
-                    "flex items-start gap-3",
-                    "w-full",
-                    "px-4 py-3",
-                    "border-b border-white/[0.04]",
-                    "hover:bg-white/5",
-                    "text-left text-slate-200 text-sm",
-                    "transition",
-                  )}
-                  type="button"
-                >
-                  <span className={`mt-0.5 p-2
-rounded-lg border border-rose-500/20
-bg-rose-500/10
-text-rose-400`}>
-                    <Home className="h-4 w-4" />
-                  </span>
-                  <div className="space-y-0.5">
-                    <div className="font-medium">Property Planner v2</div>
-                    <p className="text-xs text-slate-400">Enhanced mortgage calculator with sale projections.</p>
+                    <p className="text-xs text-slate-400">Create and compare property purchase scenarios.</p>
                   </div>
                 </button>
                 {/* CPF Simulation */}
@@ -542,10 +509,6 @@ text-purple-400`}>
         </>
       )}
 
-      <PropertyPlannerModal
-        isOpen={isPropertyPlannerOpen}
-        onClose={() => setIsPropertyPlannerOpen(false)}
-      />
       {isScenarioModalOpen && (
         <ScenarioEventModal
           isOpen={isScenarioModalOpen}
