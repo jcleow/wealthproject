@@ -317,7 +317,7 @@ bg-[#0a0a0a]/80`}>
                 {/* Side-by-side content area */}
                 <div
                   className={clsx(
-                    'flex flex-1 gap-6 overflow-hidden',
+                    'flex flex-1 gap-4 overflow-hidden -mt-2',
                     effectiveLayout === 'chart-right' && 'flex-row-reverse'
                   )}
                 >
