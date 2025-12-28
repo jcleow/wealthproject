@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import clsx from 'clsx'
 import type { TimelineItem, CPFContributionResponseV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
@@ -128,6 +129,7 @@ export function CategoryCard({
   groupItemsByCategory = true,
   compact = false,
 }: CategoryCardProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const config = categoryConfig[category]
 
   // For expenses, split into regular expenses and debt repayments
@@ -198,7 +200,8 @@ export function CategoryCard({
   return (
     <div className={clsx(
       'flex flex-col overflow-hidden w-full min-w-0 rounded-2xl border border-white/[0.1] hover:border-white/[0.15] bg-[#0a0a0a]/60 transition-all',
-      compact ? 'max-h-64' : 'h-full'
+      compact && !isCollapsed ? 'max-h-64' : '',
+      !compact && !isCollapsed ? 'h-full' : ''
     )}>
       <CategoryCardHeader
         category={category}
@@ -208,16 +211,23 @@ export function CategoryCard({
         onAddItem={onAddItem}
         onAddInvestment={onAddInvestment}
         onAddCpf={onAddCpf}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
       />
 
-      <CategoryCardTotal
-        category={category}
-        total={categoryTotal}
-        showMonthlyData={showMonthlyData}
-      />
+      {/* Collapsible content */}
+      <div className={clsx(
+        'flex flex-col transition-all duration-200 overflow-hidden',
+        isCollapsed ? 'h-0' : 'flex-1'
+      )}>
+        <CategoryCardTotal
+          category={category}
+          total={categoryTotal}
+          showMonthlyData={showMonthlyData}
+        />
 
-      {/* List Items */}
-      <div className="scrollbar-hide flex-1 overflow-y-auto px-3 py-2">
+        {/* List Items */}
+        <div className="scrollbar-hide flex-1 overflow-y-auto px-3 py-2">
         {hasData || (category === 'asset' && (investmentAssets.length > 0 || cpfAssets.length > 0)) ? (
           <>
             {/* Asset items */}
@@ -351,6 +361,7 @@ export function CategoryCard({
             <p className="text-[10px] text-slate-600">Click + to add</p>
           </div>
         )}
+        </div>
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, ArrowDownWideNarrow, Wallet, BarChart3, Shield } from 'lucide-react'
+import { Plus, ArrowDownWideNarrow, Wallet, BarChart3, Shield, ChevronDown } from 'lucide-react'
 import { categoryConfig } from '../../config'
 import type { FinancialCategory } from '../../types'
 
@@ -11,6 +11,8 @@ interface CategoryCardHeaderProps {
   onAddItem: () => void
   onAddInvestment?: () => void
   onAddCpf?: () => void
+  isCollapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 export function CategoryCardHeader({
@@ -21,6 +23,8 @@ export function CategoryCardHeader({
   onAddItem,
   onAddInvestment,
   onAddCpf,
+  isCollapsed = false,
+  onToggleCollapse,
 }: CategoryCardHeaderProps) {
   const config = categoryConfig[category]
   const [showAssetMenu, setShowAssetMenu] = useState(false)
@@ -54,12 +58,21 @@ export function CategoryCardHeader({
 
   return (
     <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04]">
-      <div className="flex items-center gap-2.5">
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+      >
         <div className={`rounded-lg border p-1.5 ${config.gradientBg}`}>
           <IconComponent className={`h-4 w-4 ${config.textColor}`} />
         </div>
         <h4 className="text-sm font-medium text-slate-200">{getTitle()}</h4>
-      </div>
+        {onToggleCollapse && (
+          <ChevronDown
+            className={`h-3.5 w-3.5 text-slate-500 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
+          />
+        )}
+      </button>
       <div className="flex items-center gap-0.5">
         <button
           type="button"
