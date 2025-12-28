@@ -251,4 +251,21 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		id := vars["id"]
 		cpfHandler.HandleStop(w, r, id)
 	}).Methods("POST")
+
+	// Property planner v2 endpoints (with computed values)
+	propertyPlannerHandler := handlers.NewPropertyPlannerV2Handler(deps.FinStore)
+	router.HandleFunc("/property-planner/scenarios", propertyPlannerHandler.HandleList).Methods("GET")
+	router.HandleFunc("/property-planner/scenarios", propertyPlannerHandler.HandleCreate).Methods("POST")
+	router.HandleFunc("/property-planner/scenarios/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "GET":
+			propertyPlannerHandler.HandleGet(w, r, id)
+		case "PUT":
+			propertyPlannerHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			propertyPlannerHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("GET", "PUT", "DELETE")
 }
