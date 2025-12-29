@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/property"
@@ -528,6 +529,26 @@ func (h *PropertyPlannerV2Handler) convertFee(req createFeeRequest) (repo.Create
 		return repo.CreateFeeInput{}, err
 	}
 
+	// Parse start date (supports YYYY-MM or YYYY-MM-DD or full ISO8601)
+	var startDate *time.Time
+	if req.StartDate != nil && *req.StartDate != "" {
+		t, err := parseFlexibleDate(*req.StartDate)
+		if err != nil {
+			return repo.CreateFeeInput{}, err
+		}
+		startDate = &t
+	}
+
+	// Parse end date
+	var endDate *time.Time
+	if req.EndDate != nil && *req.EndDate != "" {
+		t, err := parseFlexibleDate(*req.EndDate)
+		if err != nil {
+			return repo.CreateFeeInput{}, err
+		}
+		endDate = &t
+	}
+
 	return repo.CreateFeeInput{
 		FeeContext:   req.FeeContext,
 		FeeType:      req.FeeType,
@@ -536,11 +557,38 @@ func (h *PropertyPlannerV2Handler) convertFee(req createFeeRequest) (repo.Create
 		Currency:     req.Currency,
 		IsPercentage: req.IsPercentage,
 		Frequency:    req.Frequency,
-		StartDate:    req.StartDate,
-		EndDate:      req.EndDate,
+		StartDate:    startDate,
+		EndDate:      endDate,
 		Icon:         req.Icon,
 		IconColor:    req.IconColor,
 	}, nil
+}
+
+// parseFlexibleDate parses dates in various formats: YYYY-MM, YYYY-MM-DD, or ISO8601
+func parseFlexibleDate(s string) (time.Time, error) {
+	// Try YYYY-MM format first (most common for property fees)
+	if len(s) == 7 {
+		t, err := time.Parse("2006-01", s)
+		if err == nil {
+			return t, nil
+		}
+	}
+
+	// Try YYYY-MM-DD format
+	if len(s) == 10 {
+		t, err := time.Parse("2006-01-02", s)
+		if err == nil {
+			return t, nil
+		}
+	}
+
+	// Try full ISO8601 format
+	t, err := time.Parse(time.RFC3339, s)
+	if err == nil {
+		return t, nil
+	}
+
+	return time.Time{}, err
 }
 
 func (h *PropertyPlannerV2Handler) convertGrowthPeriod(req createGrowthPeriodRequest) (repo.CreateGrowthPeriodInput, error) {

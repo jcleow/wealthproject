@@ -64,8 +64,8 @@ type PropertyFee struct {
 	Currency     string          `json:"currency"`
 	IsPercentage bool            `json:"isPercentage"`
 	Frequency    string          `json:"frequency"` // 'one_time' | 'monthly' | 'yearly'
-	StartDate    *string         `json:"startDate"`
-	EndDate      *string         `json:"endDate"`
+	StartDate    *time.Time      `json:"startDate"`
+	EndDate      *time.Time      `json:"endDate"`
 	Icon         string          `json:"icon"`
 	IconColor    string          `json:"iconColor"`
 	CreatedAt    time.Time       `json:"createdAt"`
@@ -160,8 +160,8 @@ type CreateFeeInput struct {
 	Currency     string          `json:"currency"`
 	IsPercentage *bool           `json:"isPercentage"`
 	Frequency    string          `json:"frequency"`
-	StartDate    *string         `json:"startDate"`
-	EndDate      *string         `json:"endDate"`
+	StartDate    *time.Time      `json:"startDate"`
+	EndDate      *time.Time      `json:"endDate"`
 	Icon         *string         `json:"icon"`
 	IconColor    *string         `json:"iconColor"`
 }
