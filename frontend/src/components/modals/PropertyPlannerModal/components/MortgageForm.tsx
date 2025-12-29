@@ -16,13 +16,14 @@ import type {
   LoanSegment,
   FormStep,
   StaggeredDownpayment,
+  GrantItem,
 } from '@/app/property-planner/types'
 
 import {
   FormInput,
   FeeEditor,
   InfoTooltip,
-  AppreciationEditor,
+  GrantsEditor,
 } from '@/app/property-planner/components'
 
 import {
@@ -38,7 +39,7 @@ import {
 
 interface MortgageFormProps {
   inputs: MortgageInputs
-  onChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | null) => void
+  onChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null) => void
   propertyType: PropertyType
 }
 
@@ -713,11 +714,9 @@ function FinancingStep({
       </div>
 
       {/* Grants */}
-      <FormInput
-        label="Housing Grants"
-        prefix="$"
-        value={inputs.grants.toLocaleString()}
-        onChange={(v) => onChange('grants', Number(v.replace(/[^0-9]/g, '')) || 0)}
+      <GrantsEditor
+        grants={inputs.grants}
+        onGrantsChange={(grants) => onChange('grants', grants)}
       />
 
       {/* Loan Type Toggle */}
@@ -829,14 +828,6 @@ function TermsStep({
           basePrice={inputs.propertyPrice}
           title="Additional Expenses"
           purchaseDate={inputs.loanStartMonth}
-        />
-      </div>
-
-      {/* Property Appreciation */}
-      <div className="pt-4 border-t border-white/[0.04]">
-        <AppreciationEditor
-          periods={inputs.appreciationPeriods}
-          onPeriodsChange={(periods) => onChange('appreciationPeriods', periods)}
         />
       </div>
     </div>

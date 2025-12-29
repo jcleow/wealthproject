@@ -15,6 +15,7 @@ export { FormAccordion } from './FormAccordion'
 export { FeeEditor, calculateFeeAmount } from './FeeEditor'
 export { AppreciationEditor } from './AppreciationEditor'
 export { LoanSegmentEditor } from './LoanSegmentEditor'
+export { GrantsEditor } from './GrantsEditor'
 
 // Chart Components
 export { AmortizationChart } from './AmortizationChart'

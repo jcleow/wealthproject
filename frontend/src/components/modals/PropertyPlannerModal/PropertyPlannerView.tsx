@@ -13,6 +13,7 @@ import type {
   AppreciationPeriod,
   LoanSegment,
   StaggeredDownpayment,
+  GrantItem,
 } from '@/app/property-planner/types'
 
 import type {
@@ -134,6 +135,13 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
       enabled: true,
     }))
 
+  // Map grants from the API grants array
+  const grants: GrantItem[] = (apiScenario.grants || []).map(g => ({
+    id: g.id,
+    name: g.name,
+    amount: parseFloat(g.amount),
+  }))
+
   const inputs: MortgageInputs = {
     propertyPrice: parseFloat(sgDetails.propertyPrice),
     valuationPrice: parseFloat(sgDetails.valuationPrice || sgDetails.propertyPrice),
@@ -151,7 +159,7 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     borrowerType: sgDetails.borrowerType,
     cpfOaBalance: 0, // Will be derived from CPF account ID
     monthlyCpfOa: 0,
-    grants: parseFloat(sgDetails.grants),
+    grants,
     borrower1IncomeId: sgDetails.borrower1IncomeId || '',
     borrower1OaBalance: 0,
     borrower1LiabilityIds: [],
@@ -227,10 +235,14 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
       borrower2IncomeId,
       otherDebt: String(scenario.inputs.otherDebt),
       propertyCount: 0,
-      grants: String(scenario.inputs.grants),
       saleExpectedDate: scenario.saleInputs.expectedSaleDate,
       saleExpectedPrice: String(scenario.saleInputs.expectedSalePrice),
     },
+    // Transform grants array to API format
+    grants: scenario.inputs.grants.map(g => ({
+      name: g.name,
+      amount: String(g.amount),
+    })),
     fees: [
       ...scenario.inputs.purchaseFees.filter(f => f.enabled).map(f => ({
         feeContext: 'purchase' as const,
@@ -475,7 +487,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     createMutation.mutate(apiInput)
   }, [createMutation])
 
-  const handleInputChange = useCallback((field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | null) => {
+  const handleInputChange = useCallback((field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null) => {
     setInputs(prev => ({ ...prev, [field]: value }))
   }, [])
 

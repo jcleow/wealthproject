@@ -15,6 +15,10 @@ export { FlatItemsSection } from './FlatItemsSection'
 // Asset subsections
 export { InvestmentsAssetsSection } from './InvestmentsAssetsSection'
 export { CPFAssetsSection } from './CPFAssetsSection'
+export { PropertiesAssetsSection } from './PropertiesAssetsSection'
+
+// Liability subsections
+export { PropertiesMortgagesSection } from './PropertiesMortgagesSection'
 
 // Income subsections
 export { CPFContributionsSection } from './CPFContributionsSection'

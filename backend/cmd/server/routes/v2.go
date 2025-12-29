@@ -268,4 +268,27 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 			propertyPlannerHandler.HandleDelete(w, r, id)
 		}
 	}).Methods("GET", "PUT", "DELETE")
+
+	// Property planner grants (nested under scenarios)
+	router.HandleFunc("/property-planner/scenarios/{id}/grants", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		scenarioID := vars["id"]
+		switch r.Method {
+		case "GET":
+			propertyPlannerHandler.HandleListGrants(w, r, scenarioID)
+		case "POST":
+			propertyPlannerHandler.HandleCreateGrant(w, r, scenarioID)
+		}
+	}).Methods("GET", "POST")
+	router.HandleFunc("/property-planner/scenarios/{id}/grants/{grantId}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		scenarioID := vars["id"]
+		grantID := vars["grantId"]
+		switch r.Method {
+		case "PUT":
+			propertyPlannerHandler.HandleUpdateGrant(w, r, scenarioID, grantID)
+		case "DELETE":
+			propertyPlannerHandler.HandleDeleteGrant(w, r, scenarioID, grantID)
+		}
+	}).Methods("PUT", "DELETE")
 }

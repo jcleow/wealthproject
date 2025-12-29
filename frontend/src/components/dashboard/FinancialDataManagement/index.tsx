@@ -187,6 +187,14 @@ export function FinancialDataManagement({
     return []
   }, [hasV2Data, timelineMonthV2])
 
+  // Property snapshots from V2 timeline
+  const propertySnapshots = useMemo(() => {
+    if (hasV2Data && timelineMonthV2) {
+      return timelineMonthV2.properties ?? []
+    }
+    return []
+  }, [hasV2Data, timelineMonthV2])
+
   const yearLiabilities = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
       return timelineMonthV2.liabilities.map(liabilityV2ToTimelineItem)
@@ -933,6 +941,7 @@ export function FinancialDataManagement({
                     firstLink={firstLink}
                     investmentAssets={key === 'asset' ? investmentAssets : undefined}
                     cpfAssets={key === 'asset' ? cpfAssets : undefined}
+                    propertySnapshots={(key === 'asset' || key === 'liability') ? propertySnapshots : undefined}
                     cpfContributionsRaw={key === 'income' ? cpfContributionsRaw : undefined}
                     hasInvestmentsSection={key === 'income' ? hasInvestmentsSection : false}
                     monthlyInvestments={key === 'income' ? monthlyInvestments : 0}

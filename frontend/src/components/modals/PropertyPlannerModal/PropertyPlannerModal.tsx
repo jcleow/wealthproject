@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { PropertyPlannerView, type FooterState } from './PropertyPlannerView'
-import { Building2, Save, Loader2 } from 'lucide-react'
+import { Building2, Save, Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface PropertyPlannerModalProps {
@@ -29,14 +29,24 @@ export function PropertyPlannerModal({ isOpen, onClose, initialScenarioId }: Pro
     >
       {/* Modal Header */}
       <div className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-white/[0.06]">
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-violet-500/20 to-violet-600/5 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-            <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-violet-500/20 to-violet-600/5 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+              <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight">Property Scenarios</h2>
+              <p className="text-xs sm:text-sm text-slate-500 truncate">Create and compare different property purchase scenarios</p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight">Property Scenarios</h2>
-            <p className="text-xs sm:text-sm text-slate-500 truncate">Create and compare different property purchase scenarios</p>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
       </div>
 

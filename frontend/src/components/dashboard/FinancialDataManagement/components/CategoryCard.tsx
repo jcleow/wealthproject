@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import clsx from 'clsx'
-import type { TimelineItem, CPFContributionResponseV2 } from '@/types/timeline'
+import type { TimelineItem, CPFContributionResponseV2, PropertySnapshotV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
 import type { IncomeAllocation } from '@/api/financial/incomes'
 import { categoryConfig } from '../config'
 import { getItemId, sortItems } from '../utils'
+import { parseDecimal } from '../converters'
 import type { FinancialCategory } from '../types'
 
 import {
@@ -20,6 +21,8 @@ import {
   CPFContributionsSection,
   InvestmentsIncomeSection,
   DebtRepaymentsSection,
+  PropertiesAssetsSection,
+  PropertiesMortgagesSection,
 } from './CategoryCard/index'
 
 interface CategoryCardProps {
@@ -56,6 +59,8 @@ interface CategoryCardProps {
   // CPF specific (V2)
   cpfAssets?: TimelineItem[]
   cpfContributionsRaw?: CPFContributionResponseV2[]
+  // Property snapshots (V2)
+  propertySnapshots?: PropertySnapshotV2[]
   // Investments income (V2)
   hasInvestmentsSection?: boolean
   monthlyInvestments?: number
@@ -112,6 +117,7 @@ export function CategoryCard({
   investmentAssets = [],
   cpfAssets = [],
   cpfContributionsRaw = [],
+  propertySnapshots = [],
   hasInvestmentsSection = false,
   monthlyInvestments = 0,
   onAddInvestment,
@@ -152,7 +158,14 @@ export function CategoryCard({
   const debtRepaymentsTotal = sortedDebtRepayments.reduce((sum, item) => sum + summarizeAmount(item), 0)
   const investmentAssetsTotal = category === 'asset' ? investmentAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0) : 0
   const cpfAssetsTotal = category === 'asset' ? cpfAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0) : 0
-  const categoryTotal = baseTotal + debtRepaymentsTotal + investmentAssetsTotal + cpfAssetsTotal
+  // Property totals: values for assets, mortgages for liabilities
+  const propertyAssetsTotal = category === 'asset'
+    ? propertySnapshots.reduce((sum, p) => sum + parseDecimal(p.propertyValue), 0)
+    : 0
+  const propertyMortgagesTotal = category === 'liability'
+    ? propertySnapshots.reduce((sum, p) => sum + parseDecimal(p.mortgageBalance), 0)
+    : 0
+  const categoryTotal = baseTotal + debtRepaymentsTotal + investmentAssetsTotal + cpfAssetsTotal + propertyAssetsTotal + propertyMortgagesTotal
 
   const getPropertyLink = (item: TimelineItem, _index: number): PropertyLinkRecord | null => {
     if (category === 'income' || category === 'expense') return null
@@ -319,6 +332,22 @@ export function CategoryCard({
                 getDisplayAmount={getDisplayAmount}
                 onEdit={onEditCpf}
                 onDelete={onDeleteCpf}
+                groupItems={groupItemsByCategory}
+              />
+            )}
+
+            {/* Property assets subsection (Real Estate) */}
+            {category === 'asset' && propertySnapshots.length > 0 && (
+              <PropertiesAssetsSection
+                properties={propertySnapshots}
+                groupItems={groupItemsByCategory}
+              />
+            )}
+
+            {/* Property mortgages subsection */}
+            {category === 'liability' && propertySnapshots.length > 0 && (
+              <PropertiesMortgagesSection
+                properties={propertySnapshots}
                 groupItems={groupItemsByCategory}
               />
             )}

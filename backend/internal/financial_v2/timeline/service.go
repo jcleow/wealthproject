@@ -69,6 +69,8 @@ type SGFinancialDataRows struct {
 	LinkedExpensesByLiability map[string]FinancialDataRow
 	// ScenarioImpacts holds pre-indexed scenario impacts (nil if includeScenarios=false)
 	ScenarioImpacts *scenario.ImpactContext
+	// Properties holds included property scenarios for timeline projection
+	Properties []repo.PropertyScenarioFull
 }
 
 // ItemState tracks the current computed state of a financial item
@@ -113,6 +115,7 @@ func (s *Service) loadEffectiveRows(
 		incomeAllocations []repo.IncomeAllocation
 		excludedTargets   repo.ExcludedTargets
 		scenarioEvents    []repo.ScenarioEvent
+		properties        []repo.PropertyScenarioFull
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -188,6 +191,16 @@ func (s *Service) loadEffectiveRows(
 		return err
 	})
 
+	// Load included property scenarios if scenarios are requested
+	g.Go(func() error {
+		if !includeScenarios {
+			return nil
+		}
+		var err error
+		properties, err = s.store.ListIncludedPropertyScenarios(gctx, userID)
+		return err
+	})
+
 	if err := g.Wait(); err != nil {
 		return SGFinancialDataRows{}, err
 	}
@@ -214,6 +227,7 @@ func (s *Service) loadEffectiveRows(
 		CPFAccount:        mapToCPFAccount(cpfAccount),
 		IncomeAllocations: incomeAllocations,
 		ScenarioImpacts:   impactCtx,
+		Properties:        properties,
 	}, nil
 }
 
@@ -1601,6 +1615,220 @@ func buildIncomeAllocationResponses(allocations []repo.IncomeAllocation, date ti
 	return responses
 }
 
+// buildPropertySnapshots builds property snapshot responses for the given month.
+// Only includes properties where the purchase date is on or before the current date
+// and either no sale date or sale date is after the current date.
+func buildPropertySnapshots(properties []repo.PropertyScenarioFull, date time.Time) ([]PropertySnapshot, *decimal.Decimal, *decimal.Decimal) {
+	snapshots := make([]PropertySnapshot, 0)
+	propertyTotal := decimal.Zero()
+	mortgageTotal := decimal.Zero()
+
+	dateStr := date.Format("2006-01")
+
+	for _, prop := range properties {
+		if prop.SGDetails == nil {
+			continue
+		}
+		details := prop.SGDetails
+
+		// Get purchase date from first rate period
+		var purchaseDate string
+		if len(prop.RatePeriods) > 0 {
+			purchaseDate = prop.RatePeriods[0].StartMonth
+		} else {
+			// No rate periods means no mortgage, use first day of current month as fallback
+			purchaseDate = dateStr
+		}
+
+		// Parse purchase date
+		purchaseTime, err := time.Parse("2006-01", purchaseDate)
+		if err != nil {
+			continue
+		}
+
+		// Skip if property not yet purchased
+		if date.Before(purchaseTime) {
+			continue
+		}
+
+		// Check if property has been sold
+		var saleDate *string
+		if details.SaleExpectedDate != nil && *details.SaleExpectedDate != "" {
+			saleDate = details.SaleExpectedDate
+			saleTime, err := time.Parse("2006-01", *details.SaleExpectedDate)
+			if err == nil && !date.Before(saleTime) {
+				// Property has been sold, skip it
+				continue
+			}
+		}
+
+		// Calculate property value with appreciation
+		propertyValue := &details.PropertyPrice
+		if len(prop.GrowthPeriods) > 0 {
+			propertyValue = calculatePropertyValueAtDate(&details.PropertyPrice, prop.GrowthPeriods, purchaseTime, date)
+		}
+
+		// Calculate total grants
+		grantsTotal := decimal.Zero()
+		for _, g := range prop.Grants {
+			grantsTotal = grantsTotal.Add(&g.Amount)
+		}
+
+		// Calculate mortgage balance at this date
+		mortgageBalance := calculateMortgageBalanceAtDate(prop.RatePeriods, details, grantsTotal, purchaseTime, date)
+
+		// Build fee snapshots for fees applicable to this month
+		feeSnapshots := buildPropertyFeeSnapshots(prop.Fees, details, dateStr)
+
+		netEquity := propertyValue.Sub(mortgageBalance)
+
+		snapshot := PropertySnapshot{
+			ID:              prop.Scenario.ID,
+			Name:            details.Name,
+			Icon:            details.Icon,
+			IconColor:       details.IconColor,
+			PropertyValue:   *propertyValue.Round(0),
+			MortgageBalance: *mortgageBalance.Round(0),
+			NetEquity:       *netEquity.Round(0),
+			PurchaseDate:    purchaseDate,
+			SaleDate:        saleDate,
+			Fees:            feeSnapshots,
+		}
+		snapshots = append(snapshots, snapshot)
+
+		propertyTotal = propertyTotal.Add(propertyValue)
+		mortgageTotal = mortgageTotal.Add(mortgageBalance)
+	}
+
+	return snapshots, propertyTotal, mortgageTotal
+}
+
+// calculatePropertyValueAtDate applies growth periods to get property value at a specific date
+func calculatePropertyValueAtDate(initialPrice *decimal.Decimal, periods []repo.GrowthPeriod, purchaseDate, targetDate time.Time) *decimal.Decimal {
+	value := initialPrice
+
+	// Growth periods use StartYear, not StartMonth
+	for _, period := range periods {
+		if targetDate.Year() < period.StartYear {
+			continue
+		}
+		if period.EndYear != nil && targetDate.Year() > *period.EndYear {
+			continue
+		}
+
+		startYear := period.StartYear
+		if purchaseDate.Year() > startYear {
+			startYear = purchaseDate.Year()
+		}
+
+		yearsOfGrowth := targetDate.Year() - startYear
+		if yearsOfGrowth <= 0 {
+			continue
+		}
+
+		rateFloat, _ := period.GrowthRate.Float64()
+		annualRate := rateFloat / 100.0
+		multiplier := decimal.MustFromFloat64(1.0 + annualRate)
+		for i := 0; i < yearsOfGrowth; i++ {
+			value = value.Mul(multiplier)
+		}
+	}
+
+	return value
+}
+
+// calculateMortgageBalanceAtDate calculates the outstanding mortgage balance at a specific date
+func calculateMortgageBalanceAtDate(periods []repo.LiabilityRatePeriod, details *repo.PropertySGDetails, grantsTotal *decimal.Decimal, purchaseDate, targetDate time.Time) *decimal.Decimal {
+	if len(periods) == 0 {
+		return decimal.Zero()
+	}
+
+	// Calculate initial loan amount: PropertyPrice - Downpayment - Grants
+	loanAmount := details.PropertyPrice.Sub(&details.DownpaymentCash).Sub(&details.DownpaymentCpfOa).Sub(grantsTotal)
+	if loanAmount.Sign() <= 0 {
+		return decimal.Zero()
+	}
+
+	months := monthsBetween(purchaseDate, targetDate)
+	if months <= 0 {
+		return loanAmount
+	}
+
+	totalMonths := 0
+	for _, period := range periods {
+		totalMonths += period.TermYears * 12
+	}
+
+	if totalMonths == 0 {
+		return loanAmount
+	}
+
+	loanFloat, _ := loanAmount.Float64()
+	monthlyPrincipal := loanFloat / float64(totalMonths)
+	paidPrincipal := monthlyPrincipal * float64(months)
+
+	if paidPrincipal >= loanFloat {
+		return decimal.Zero()
+	}
+
+	return decimal.MustFromFloat64(loanFloat - paidPrincipal)
+}
+
+// buildPropertyFeeSnapshots builds fee snapshots for fees applicable to a specific month
+func buildPropertyFeeSnapshots(fees []repo.PropertyFee, details *repo.PropertySGDetails, dateStr string) []PropertyFeeSnapshot {
+	snapshots := make([]PropertyFeeSnapshot, 0)
+
+	for _, fee := range fees {
+		var feeDate string
+		switch fee.FeeContext {
+		case "purchase":
+			continue
+		case "recurring":
+			feeDate = dateStr
+		case "sale":
+			if details.SaleExpectedDate != nil {
+				feeDate = *details.SaleExpectedDate
+			} else {
+				continue
+			}
+		default:
+			continue
+		}
+
+		var amount decimal.Decimal
+		if fee.IsPercentage {
+			feeFloat, _ := fee.Amount.Float64()
+			priceFloat, _ := details.PropertyPrice.Float64()
+			percentage := feeFloat / 100.0
+			amount = *decimal.MustFromFloat64(priceFloat * percentage)
+		} else {
+			amount = fee.Amount
+		}
+
+		name := fee.FeeType
+		if fee.Description != nil && *fee.Description != "" {
+			name = *fee.Description
+		}
+
+		snapshots = append(snapshots, PropertyFeeSnapshot{
+			ID:         fee.ID,
+			Name:       name,
+			FeeContext: fee.FeeContext,
+			Amount:     amount,
+			Date:       feeDate,
+		})
+	}
+
+	return snapshots
+}
+
+// monthsBetween calculates the number of months between two dates
+func monthsBetween(start, end time.Time) int {
+	years := end.Year() - start.Year()
+	months := int(end.Month()) - int(start.Month())
+	return years*12 + months
+}
+
 // buildMonthDetailResponse creates a detailed response for a single month
 func buildMonthDetailResponse(
 	allMonthsIndex int,
@@ -1617,6 +1845,7 @@ func buildMonthDetailResponse(
 	cpfContributions map[string]*cpfProcessor.ContributionResult,
 	cpfCtx *CPFContext,
 	incomeAllocations []repo.IncomeAllocation,
+	properties []repo.PropertyScenarioFull,
 ) MonthDetailResponse {
 	yearIndex := date.Year() - baseYear
 	month := int(date.Month())
@@ -1631,6 +1860,9 @@ func buildMonthDetailResponse(
 	cpfContributionResponses := buildCPFContributionResponses(data.Incomes, itemStates, date, cpfContributions)
 	incomeAllocationResponses := buildIncomeAllocationResponses(incomeAllocations, date)
 
+	// Build property snapshots
+	propertySnapshots, propertyTotal, mortgageTotal := buildPropertySnapshots(properties, date)
+
 	// Build CPF assets from accumulated balances
 	cpfAssets := buildCPFAssetResponses(cpfCtx, yearIndex, month, date)
 	cpfTotal := decimal.Zero()
@@ -1638,9 +1870,10 @@ func buildMonthDetailResponse(
 		cpfTotal = cpfTotal.Add(&asset.Balance)
 	}
 
-	// Calculate totals
-	totalAssets := decimal.Zero().Add(nonCashTotal).Add(investmentTotal).Add(cashTotal).Add(cashAccumulator).Add(cpfTotal)
-	netWorth := totalAssets.Sub(liabilityTotal)
+	// Calculate totals (including property values and mortgages)
+	totalAssets := decimal.Zero().Add(nonCashTotal).Add(investmentTotal).Add(cashTotal).Add(cashAccumulator).Add(cpfTotal).Add(propertyTotal)
+	totalLiabilities := liabilityTotal.Add(mortgageTotal)
+	netWorth := totalAssets.Sub(totalLiabilities)
 
 	return MonthDetailResponse{
 		Year:                 baseYear + yearIndex,
@@ -1656,11 +1889,12 @@ func buildMonthDetailResponse(
 		CPFContributions:     cpfContributionResponses,
 		Expenses:             expenses,
 		IncomeAllocations:    incomeAllocationResponses,
+		Properties:           propertySnapshots,
 		NetSavings:           *netSavings.Round(0),
 		NetCash:              *netCashFlow.Round(0),
 		NetInvestments:       *netInvestments.Round(0),
 		TotalAssets:          *totalAssets.Round(0),
-		TotalLiabilities:     *liabilityTotal.Round(0),
+		TotalLiabilities:     *totalLiabilities.Round(0),
 		NetWorth:             *netWorth.Round(0),
 		AccumulatorAccountID: accumulatorID,
 	}
@@ -1710,6 +1944,8 @@ type MonthlyContext struct {
 	ScenarioImpacts    *scenario.ImpactContext                 // Pre-indexed impacts (nil if scenarios disabled)
 	EventAdjustedState map[string]*decimal.Decimal             // Temporary state with scenario impacts (recreated each month)
 	AppliedImpacts     map[string][]scenario.AppliedImpactInfo // Tracks which impacts were applied to each item
+	// Property scenarios for timeline projection
+	Properties []repo.PropertyScenarioFull
 }
 
 // processMonth handles all calculations for a single month and returns the response
@@ -1783,6 +2019,7 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 		mctx.AppliedImpacts,     // Pass applied impacts for EventImpacts field
 		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFCtx,
 		mctx.IncomeAllocations,
+		mctx.Properties,
 	)
 }
 
@@ -1821,6 +2058,7 @@ func (s *Service) computeSnapshotFromData(sgData SGFinancialDataRows, opts Timel
 		IncomeAllocations:         sgData.IncomeAllocations,
 		LinkedExpensesByLiability: linkedExpenses,
 		ScenarioImpacts:           sgData.ScenarioImpacts,
+		Properties:                sgData.Properties,
 	}
 	mctx.State = extractBalanceMap(mctx.ItemStates)
 

@@ -32,6 +32,12 @@ type createScenarioRequest struct {
 	Fees          []createFeeRequest          `json:"fees"`
 	GrowthPeriods []createGrowthPeriodRequest `json:"growthPeriods"`
 	RatePeriods   []createRatePeriodRequest   `json:"ratePeriods"`
+	Grants        []createGrantRequest        `json:"grants"`
+}
+
+type createGrantRequest struct {
+	Name   string `json:"name"`
+	Amount string `json:"amount"`
 }
 
 type createSGDetailsRequest struct {
@@ -53,7 +59,6 @@ type createSGDetailsRequest struct {
 	Borrower2CpfAccountID *string `json:"borrower2CpfAccountId"`
 	OtherDebt             string  `json:"otherDebt"`
 	PropertyCount         *int    `json:"propertyCount"`
-	Grants                string  `json:"grants"`
 	BtoLaunchDate         *string `json:"btoLaunchDate"`
 	BtoKeyCollectionDate  *string `json:"btoKeyCollectionDate"`
 	SaleExpectedDate      *string `json:"saleExpectedDate"`
@@ -95,6 +100,7 @@ type scenarioResponse struct {
 	Fees          []repo.PropertyFee         `json:"fees"`
 	GrowthPeriods []repo.GrowthPeriod        `json:"growthPeriods"`
 	RatePeriods   []repo.LiabilityRatePeriod `json:"ratePeriods"`
+	Grants        []repo.PropertySGGrant     `json:"grants"`
 	Computed      *computedValues            `json:"computed,omitempty"`
 }
 
@@ -158,6 +164,7 @@ func (h *PropertyPlannerV2Handler) HandleCreate(w http.ResponseWriter, r *http.R
 		Fees:          scenario.Fees,
 		GrowthPeriods: scenario.GrowthPeriods,
 		RatePeriods:   scenario.RatePeriods,
+		Grants:        scenario.Grants,
 		Computed:      computed,
 	}
 
@@ -189,6 +196,7 @@ func (h *PropertyPlannerV2Handler) HandleList(w http.ResponseWriter, r *http.Req
 			Fees:          s.Fees,
 			GrowthPeriods: s.GrowthPeriods,
 			RatePeriods:   s.RatePeriods,
+			Grants:        s.Grants,
 			Computed:      computed,
 		})
 	}
@@ -222,6 +230,7 @@ func (h *PropertyPlannerV2Handler) HandleGet(w http.ResponseWriter, r *http.Requ
 		Fees:          scenario.Fees,
 		GrowthPeriods: scenario.GrowthPeriods,
 		RatePeriods:   scenario.RatePeriods,
+		Grants:        scenario.Grants,
 		Computed:      computed,
 	}
 
@@ -259,6 +268,7 @@ func (h *PropertyPlannerV2Handler) HandleUpdate(w http.ResponseWriter, r *http.R
 		Fees:          createInput.Fees,
 		GrowthPeriods: createInput.GrowthPeriods,
 		RatePeriods:   createInput.RatePeriods,
+		Grants:        createInput.Grants,
 	}
 
 	scenario, err := h.store.UpdatePropertyScenario(r.Context(), userID, scenarioID, updateInput)
@@ -280,6 +290,7 @@ func (h *PropertyPlannerV2Handler) HandleUpdate(w http.ResponseWriter, r *http.R
 		Fees:          scenario.Fees,
 		GrowthPeriods: scenario.GrowthPeriods,
 		RatePeriods:   scenario.RatePeriods,
+		Grants:        scenario.Grants,
 		Computed:      computed,
 	}
 
@@ -347,6 +358,15 @@ func (h *PropertyPlannerV2Handler) convertCreateRequest(req createScenarioReques
 		input.RatePeriods = append(input.RatePeriods, period)
 	}
 
+	// Convert grants
+	for _, g := range req.Grants {
+		grant, err := h.convertGrant(g)
+		if err != nil {
+			return input, err
+		}
+		input.Grants = append(input.Grants, grant)
+	}
+
 	return input, nil
 }
 
@@ -392,15 +412,6 @@ func (h *PropertyPlannerV2Handler) convertSGDetails(req *createSGDetailsRequest)
 		otherDebt = d
 	}
 
-	var grants *decimal.Decimal
-	if req.Grants != "" {
-		g, err := decimal.NewFromString(req.Grants)
-		if err != nil {
-			return nil, err
-		}
-		grants = g
-	}
-
 	var saleExpectedPrice *decimal.Decimal
 	if req.SaleExpectedPrice != nil && *req.SaleExpectedPrice != "" {
 		sep, err := decimal.NewFromString(*req.SaleExpectedPrice)
@@ -429,11 +440,22 @@ func (h *PropertyPlannerV2Handler) convertSGDetails(req *createSGDetailsRequest)
 		Borrower2CpfAccountID: req.Borrower2CpfAccountID,
 		OtherDebt:             otherDebt,
 		PropertyCount:         req.PropertyCount,
-		Grants:                grants,
 		BtoLaunchDate:         req.BtoLaunchDate,
 		BtoKeyCollectionDate:  req.BtoKeyCollectionDate,
 		SaleExpectedDate:      req.SaleExpectedDate,
 		SaleExpectedPrice:     saleExpectedPrice,
+	}, nil
+}
+
+func (h *PropertyPlannerV2Handler) convertGrant(req createGrantRequest) (repo.CreateGrantInput, error) {
+	amount, err := decimal.NewFromString(req.Amount)
+	if err != nil {
+		return repo.CreateGrantInput{}, err
+	}
+
+	return repo.CreateGrantInput{
+		Name:   req.Name,
+		Amount: *amount,
 	}, nil
 }
 
@@ -499,9 +521,15 @@ func (h *PropertyPlannerV2Handler) computeValues(s *repo.PropertyScenarioFull) *
 	details := s.SGDetails
 	zero := decimal.Zero()
 
+	// Sum all grants from the grants array
+	grantsTotal := zero
+	for _, g := range s.Grants {
+		grantsTotal = grantsTotal.Add(&g.Amount)
+	}
+
 	// Calculate downpayment total
 	downpaymentTotal := details.DownpaymentCpfOa.Add(&details.DownpaymentCash)
-	downpaymentTotal = downpaymentTotal.Add(&details.Grants)
+	downpaymentTotal = downpaymentTotal.Add(grantsTotal)
 
 	// Calculate loan amount
 	loanAmount := details.PropertyPrice.Sub(downpaymentTotal)
@@ -541,4 +569,117 @@ func (h *PropertyPlannerV2Handler) computeValues(s *repo.PropertyScenarioFull) *
 		TotalStampDuty:   totalStampDuty.String(),
 		TotalUpfrontCash: totalUpfrontCash.String(),
 	}
+}
+
+// ============================================================================
+// Grant CRUD Handlers
+// ============================================================================
+
+// HandleListGrants handles GET /api/v2/property-planner/scenarios/{id}/grants
+func (h *PropertyPlannerV2Handler) HandleListGrants(w http.ResponseWriter, r *http.Request, scenarioID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	grants, err := h.store.ListGrants(r.Context(), userID, scenarioID)
+	if err == repo.ErrNotFound {
+		notFound(w)
+		return
+	}
+	if err != nil {
+		log.Printf("PropertyPlanner.ListGrants error: %v", err)
+		internalError(w, err)
+		return
+	}
+
+	writeJSON(w, grants)
+}
+
+// HandleCreateGrant handles POST /api/v2/property-planner/scenarios/{id}/grants
+func (h *PropertyPlannerV2Handler) HandleCreateGrant(w http.ResponseWriter, r *http.Request, scenarioID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var req createGrantRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	grantInput, err := h.convertGrant(req)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	grant, err := h.store.CreateGrant(r.Context(), userID, scenarioID, grantInput)
+	if err == repo.ErrNotFound {
+		notFound(w)
+		return
+	}
+	if err != nil {
+		log.Printf("PropertyPlanner.CreateGrant error: %v", err)
+		internalError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, grant)
+}
+
+// HandleUpdateGrant handles PUT /api/v2/property-planner/scenarios/{id}/grants/{grantId}
+func (h *PropertyPlannerV2Handler) HandleUpdateGrant(w http.ResponseWriter, r *http.Request, scenarioID, grantID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var req createGrantRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	grantInput, err := h.convertGrant(req)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	grant, err := h.store.UpdateGrant(r.Context(), userID, scenarioID, grantID, grantInput)
+	if err == repo.ErrNotFound {
+		notFound(w)
+		return
+	}
+	if err != nil {
+		log.Printf("PropertyPlanner.UpdateGrant error: %v", err)
+		internalError(w, err)
+		return
+	}
+
+	writeJSON(w, grant)
+}
+
+// HandleDeleteGrant handles DELETE /api/v2/property-planner/scenarios/{id}/grants/{grantId}
+func (h *PropertyPlannerV2Handler) HandleDeleteGrant(w http.ResponseWriter, r *http.Request, scenarioID, grantID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	err := h.store.DeleteGrant(r.Context(), userID, scenarioID, grantID)
+	if err == repo.ErrNotFound {
+		notFound(w)
+		return
+	}
+	if err != nil {
+		log.Printf("PropertyPlanner.DeleteGrant error: %v", err)
+		internalError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

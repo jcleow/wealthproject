@@ -69,6 +69,15 @@ export interface StaggeredDownpayment {
 // MORTGAGE INPUTS
 // ============================================
 
+/**
+ * Grant item for form state
+ */
+export interface GrantItem {
+  id?: string  // Optional - only present for persisted grants
+  name: string
+  amount: number
+}
+
 export interface MortgageInputs {
   propertyPrice: number
   valuationPrice: number // Bank/HDB valuation (for resale properties)
@@ -87,7 +96,7 @@ export interface MortgageInputs {
   borrowerType: BorrowerType
   cpfOaBalance: number
   monthlyCpfOa: number
-  grants: number
+  grants: GrantItem[]
   // Borrower selection fields
   borrower1IncomeId: string
   borrower1OaBalance: number

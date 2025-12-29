@@ -3,7 +3,7 @@ import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Search, Spar
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
-import { assetsApi, liabilitiesApi, propertyApi } from '@/api/financial'
+import { propertyApi } from '@/api/financial'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { UserMenu } from '../auth/UserMenu'
@@ -110,53 +110,11 @@ export function FinancialWorkspace({
     }
   }
 
-  const seedPropertyScenario = async () => {
-    try {
-      const assetsResult = await assetsApi.listAssets({ limit: -1 })
-      const liabilitiesResult = await liabilitiesApi.listLiabilities({ limit: -1 })
-      const propertyAsset = assetsResult.data.find((a) => a.name === 'Sample Condo') ?? assetsResult.data.find((a) => a.category === 'property')
-      const propertyLiability = liabilitiesResult.data.find((l) => l.name === 'Sample Condo Mortgage') ?? liabilitiesResult.data.find((l) => l.category === 'property')
-      if (!propertyAsset || !propertyLiability) return null
-
-      const scenario = await propertyApi.createPropertyScenario({
-        propertyType: 'condo',
-        headline: propertyAsset.name || 'Property scenario',
-        propertyPrice: Math.max(1, propertyAsset.currentValue || 750000),
-        downPayment: 200000,
-        loanAmount: Math.max(1, propertyLiability.currentBalance || 550000),
-        interestRate: Math.max(0.01, propertyLiability.interestRateApr || 3.2),
-        loanTenure: 25,
-        notes: 'Sample scenario for testing',
-        assetId: propertyAsset.id,
-        liabilityId: propertyLiability.id,
-      })
-      if (scenario?.id && typeof window !== 'undefined') {
-        localStorage.setItem('property_planner_scenario_id', scenario.id)
-        localStorage.setItem('property_planner_draft', JSON.stringify({
-          propertyType: 'condo',
-          loanAmount: scenario.loanAmount,
-          loanTermYears: scenario.loanTenure,
-          borrowerType: 'single',
-          loanStartMonth: '2024-06',
-          fixedYears: 5,
-          fixedRate: scenario.interestRate,
-          floatingRate: scenario.interestRate,
-          householdIncome: 8200,
-          otherDebt: 1200,
-        }))
-      }
-      return scenario
-    } catch (error) {
-      console.warn('Unable to seed property scenario', error)
-      return null
-    }
-  }
-
   const handleLoadDefaults = async () => {
     setIsSeeding(true)
     try {
       await loadSampleData()
-      await seedPropertyScenario()
+      // Property scenario is now created via Property Planner V2 API in useLoadSampleDataMutation
       await refresh()
     } catch (error) {
       console.error('Failed to load sample data', error)

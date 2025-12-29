@@ -22,6 +22,7 @@ import type {
   AppreciationPeriod,
   LoanSegment,
   StaggeredDownpayment,
+  GrantItem,
 } from '@/app/property-planner/types'
 
 import type { ComputedValues } from '@/types/propertyPlannerV2'
@@ -50,7 +51,7 @@ interface ScenarioDetailViewProps {
   /** @deprecated Use modal footer hasChanges indicator instead */
   hasChanges?: boolean
   computedValues?: ComputedValues | null
-  onInputChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | null) => void
+  onInputChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null) => void
   onSaleInputChange: (field: keyof SaleInputs, value: string | number | boolean | FeeItem[]) => void
   onActiveResultsTabChange: (tab: ResultsTab) => void
   onSelectedTypeChange: (type: PropertyType) => void

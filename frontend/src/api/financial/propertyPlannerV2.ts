@@ -8,8 +8,10 @@
 import { apiClient } from '../client'
 import type {
   PropertyScenarioFull,
+  PropertySGGrant,
   CreateScenarioInput,
   UpdateScenarioInput,
+  CreateGrantInput,
 } from '@/types/propertyPlannerV2'
 
 const BASE_PATH = '/property-planner'
@@ -77,6 +79,53 @@ export async function toggleScenarioIncluded(id: string, isIncluded: boolean): P
   return apiClient.patch<PropertyScenarioFull>(
     `${BASE_PATH}/scenarios/${id}`,
     { sgDetails: { isIncluded } },
+    { baseUrl: V2_BASE_URL }
+  )
+}
+
+// =============================================================================
+// GRANTS CRUD
+// =============================================================================
+
+/**
+ * List all grants for a scenario
+ */
+export async function listGrants(scenarioId: string): Promise<PropertySGGrant[]> {
+  return apiClient.get<PropertySGGrant[]>(
+    `${BASE_PATH}/scenarios/${scenarioId}/grants`,
+    undefined,
+    { baseUrl: V2_BASE_URL }
+  )
+}
+
+/**
+ * Create a new grant for a scenario
+ */
+export async function createGrant(scenarioId: string, input: CreateGrantInput): Promise<PropertySGGrant> {
+  return apiClient.post<PropertySGGrant>(
+    `${BASE_PATH}/scenarios/${scenarioId}/grants`,
+    input,
+    { baseUrl: V2_BASE_URL }
+  )
+}
+
+/**
+ * Update an existing grant
+ */
+export async function updateGrant(scenarioId: string, grantId: string, input: CreateGrantInput): Promise<PropertySGGrant> {
+  return apiClient.put<PropertySGGrant>(
+    `${BASE_PATH}/scenarios/${scenarioId}/grants/${grantId}`,
+    input,
+    { baseUrl: V2_BASE_URL }
+  )
+}
+
+/**
+ * Delete a grant
+ */
+export async function deleteGrant(scenarioId: string, grantId: string): Promise<void> {
+  return apiClient.delete<void>(
+    `${BASE_PATH}/scenarios/${scenarioId}/grants/${grantId}`,
     { baseUrl: V2_BASE_URL }
   )
 }

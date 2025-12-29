@@ -7,6 +7,7 @@ import type {
   FormStepConfig,
   SaleFormStepConfig,
   StaggeredDownpayment,
+  GrantItem,
 } from '../types'
 
 // ============================================
@@ -40,6 +41,25 @@ export const DEFAULT_PURCHASE_FEES: FeeItem[] = [
 export const DEFAULT_APPRECIATION_PERIODS: AppreciationPeriod[] = [
   { id: 'default-1', startYear: 1, endYear: null, rate: 3 },
 ]
+
+/**
+ * Default grants for HDB properties
+ */
+export const DEFAULT_HDB_GRANTS: GrantItem[] = [
+  { name: 'EHG', amount: 50000 },
+]
+
+/**
+ * Default grants for EC properties
+ */
+export const DEFAULT_EC_GRANTS: GrantItem[] = [
+  { name: 'Family Grant', amount: 30000 },
+]
+
+/**
+ * No grants for private properties
+ */
+export const DEFAULT_NO_GRANTS: GrantItem[] = []
 
 /**
  * Create default Staggered Downpayment Scheme (SDS) configuration for BTO
@@ -138,7 +158,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrowerType: 'single',
     cpfOaBalance: 85000,
     monthlyCpfOa: 1785,
-    grants: 50000,
+    grants: DEFAULT_HDB_GRANTS.map(g => ({ ...g })),
     borrower1IncomeId: '',
     borrower1OaBalance: 85000,
     borrower1LiabilityIds: [],
@@ -168,7 +188,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrowerType: 'single',
     cpfOaBalance: 85000,
     monthlyCpfOa: 1785,
-    grants: 80000,
+    grants: [{ name: 'EHG', amount: 50000 }, { name: 'Family Grant', amount: 30000 }],
     borrower1IncomeId: '',
     borrower1OaBalance: 85000,
     borrower1LiabilityIds: [],
@@ -198,7 +218,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrowerType: 'joint',
     cpfOaBalance: 147400,
     monthlyCpfOa: 3087,
-    grants: 30000,
+    grants: DEFAULT_EC_GRANTS.map(g => ({ ...g })),
     borrower1IncomeId: '',
     borrower1OaBalance: 85000,
     borrower1LiabilityIds: [],
@@ -228,7 +248,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrowerType: 'joint',
     cpfOaBalance: 147400,
     monthlyCpfOa: 3087,
-    grants: 0,
+    grants: [],
     borrower1IncomeId: '',
     borrower1OaBalance: 85000,
     borrower1LiabilityIds: [],
@@ -258,7 +278,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrowerType: 'joint',
     cpfOaBalance: 147400,
     monthlyCpfOa: 3087,
-    grants: 0,
+    grants: [],
     borrower1IncomeId: '',
     borrower1OaBalance: 85000,
     borrower1LiabilityIds: [],

@@ -692,12 +692,12 @@ func TestE2E_PropertyPlanner_MultipleRatePeriods_Refinancing(t *testing.T) {
 	// Verify first period
 	assert.Equal(t, "2025-06", result.RatePeriods[0].StartMonth)
 	assert.Equal(t, 30, result.RatePeriods[0].TermYears)
-	assert.Equal(t, "2.8", result.RatePeriods[0].FixedRate)
+	assertDecimalEqual(t, "2.8", result.RatePeriods[0].FixedRate, "FixedRate1")
 
 	// Verify second period
 	assert.Equal(t, "2028-06", result.RatePeriods[1].StartMonth)
 	assert.Equal(t, 27, result.RatePeriods[1].TermYears)
-	assert.Equal(t, "3.0", result.RatePeriods[1].FixedRate)
+	assertDecimalEqual(t, "3.0", result.RatePeriods[1].FixedRate, "FixedRate2")
 }
 
 // ============================================================================
@@ -895,7 +895,7 @@ func TestE2E_PropertyPlanner_CRUD_Create_Get_Update_Delete(t *testing.T) {
 	testutil.AssertStatus(t, getResp, http.StatusOK)
 	fetched := parseResponse(t, getResp)
 	assert.Equal(t, "CRUD Test Scenario", fetched.SGDetails.Name)
-	assert.Equal(t, "500000", fetched.SGDetails.PropertyPrice)
+	assertDecimalEqual(t, "500000", fetched.SGDetails.PropertyPrice, "PropertyPrice")
 
 	// UPDATE
 	updateRequest := map[string]interface{}{
@@ -928,9 +928,9 @@ func TestE2E_PropertyPlanner_CRUD_Create_Get_Update_Delete(t *testing.T) {
 	testutil.AssertStatus(t, updateResp, http.StatusOK)
 	updated := parseResponse(t, updateResp)
 	assert.Equal(t, "CRUD Test Scenario Updated", updated.SGDetails.Name)
-	assert.Equal(t, "550000", updated.SGDetails.PropertyPrice)
-	assert.Equal(t, "married", updated.SGDetails.BorrowerType)
-	assert.Equal(t, "2.8", updated.RatePeriods[0].FixedRate)
+	assertDecimalEqual(t, "550000", updated.SGDetails.PropertyPrice, "UpdatedPropertyPrice")
+	assert.Equal(t, "joint", updated.SGDetails.BorrowerType)
+	assertDecimalEqual(t, "2.8", updated.RatePeriods[0].FixedRate, "UpdatedFixedRate")
 
 	// LIST
 	listResp := ts.Request("GET", propertyPlannerBasePath).
@@ -1212,8 +1212,8 @@ func TestE2E_PropertyPlanner_BSD_EdgeCases(t *testing.T) {
 				Do(t)
 			result := parseResponse(t, resp)
 
-			assert.Equal(t, tc.expectedBSD, result.Computed.BsdAmount,
-				"BSD for %s should be %s", tc.propertyPrice, tc.expectedBSD)
+			assertDecimalEqual(t, tc.expectedBSD, result.Computed.BsdAmount,
+				fmt.Sprintf("BSD for %s should be %s", tc.propertyPrice, tc.expectedBSD))
 		})
 	}
 }

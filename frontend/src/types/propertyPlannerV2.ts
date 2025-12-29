@@ -46,7 +46,6 @@ export interface PropertySGDetails {
   otherDebt: string
   residency: Residency  // Derived from borrower1IncomeId -> finance_incomes.residency_status
   propertyCount: number
-  grants: string
   btoLaunchDate?: string | null
   btoKeyCollectionDate?: string | null
   saleExpectedDate?: string | null
@@ -112,6 +111,17 @@ export interface LiabilityRatePeriod {
   fixedYears: number
   fixedRate: string
   floatingRate: string
+  createdAt: string
+}
+
+/**
+ * Singapore-specific grant (1:M with property_sg_details)
+ */
+export interface PropertySGGrant {
+  id: string
+  sgDetailsId: string
+  name: string
+  amount: string
   createdAt: string
 }
 
@@ -243,6 +253,7 @@ export interface PropertyScenarioFull {
   fees: PropertyFee[]
   growthPeriods: GrowthPeriod[]
   ratePeriods: LiabilityRatePeriod[]
+  grants: PropertySGGrant[]
   computed: ComputedValues
 }
 
@@ -278,7 +289,6 @@ export interface CreateSGDetailsInput {
   otherDebt?: string
   // Note: residency is NOT in request - it's DERIVED from borrower1IncomeId
   propertyCount?: number
-  grants?: string
   btoLaunchDate?: string
   btoKeyCollectionDate?: string
   saleExpectedDate?: string
@@ -312,12 +322,18 @@ export interface CreateRatePeriodInput {
   floatingRate: string
 }
 
+export interface CreateGrantInput {
+  name: string
+  amount: string
+}
+
 export interface CreateScenarioInput {
   country: 'SG' | 'MY'
   sgDetails?: CreateSGDetailsInput
   fees?: CreateFeeInput[]
   growthPeriods?: CreateGrowthPeriodInput[]
   ratePeriods: CreateRatePeriodInput[]
+  grants?: CreateGrantInput[]
 }
 
 export interface UpdateScenarioInput extends Partial<CreateScenarioInput> {}

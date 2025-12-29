@@ -70,6 +70,8 @@ type Store interface {
 	GetExcludedScenarioTargetIDs(context.Context, string) (repository.ExcludedTargets, error)
 	// ListIncludedScenarioEvents returns scenario events where is_included=true with their impacts
 	ListIncludedScenarioEvents(context.Context, string) ([]repository.ScenarioEvent, error)
+	// ListIncludedPropertyScenarios returns property scenarios where is_included=true for timeline projection
+	ListIncludedPropertyScenarios(context.Context, string) ([]repository.PropertyScenarioFull, error)
 }
 
 // ScenarioStore provides scenario-specific operations
@@ -122,6 +124,7 @@ type MonthDetailResponse struct {
 	CPFContributions  []CPFContributionResponse  `json:"cpfContributions"`
 	Expenses          []ExpenseResponse          `json:"expenses"`
 	IncomeAllocations []IncomeAllocationResponse `json:"incomeAllocations"`
+	Properties        []PropertySnapshot         `json:"properties"`
 	// Savings breakdown
 	NetSavings     decimal.Decimal `json:"netSavings"`     // income - employee CPF - expenses (monthly)
 	NetCash        decimal.Decimal `json:"netCash"`        // income - employee CPF - expenses - investments (monthly)
@@ -287,4 +290,29 @@ type IncomeAllocationResponse struct {
 	TargetInvestmentID  *string         `json:"targetInvestmentId,omitempty"`
 	AllocationType      string          `json:"allocationType"`
 	AllocationValue     decimal.Decimal `json:"allocationValue"`
+}
+
+// ========== Property Snapshot Types ==========
+
+// PropertySnapshot represents a property scenario in the timeline
+type PropertySnapshot struct {
+	ID              string                 `json:"id"`
+	Name            string                 `json:"name"`
+	Icon            *string                `json:"icon"`
+	IconColor       *string                `json:"iconColor"`
+	PropertyValue   decimal.Decimal        `json:"propertyValue"`   // Current/projected value at this point
+	MortgageBalance decimal.Decimal        `json:"mortgageBalance"` // Current/projected outstanding balance
+	NetEquity       decimal.Decimal        `json:"netEquity"`       // PropertyValue - MortgageBalance
+	PurchaseDate    string                 `json:"purchaseDate"`    // First rate period start_month
+	SaleDate        *string                `json:"saleDate,omitempty"`
+	Fees            []PropertyFeeSnapshot  `json:"fees"`
+}
+
+// PropertyFeeSnapshot represents a fee associated with a property event
+type PropertyFeeSnapshot struct {
+	ID         string          `json:"id"`
+	Name       string          `json:"name"`
+	FeeContext string          `json:"feeContext"` // "purchase", "recurring", "sale"
+	Amount     decimal.Decimal `json:"amount"`     // Computed amount
+	Date       string          `json:"date"`       // When the fee is due
 }
