@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -137,7 +137,7 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
   const inputs: MortgageInputs = {
     propertyPrice: parseFloat(sgDetails.propertyPrice),
     valuationPrice: parseFloat(sgDetails.valuationPrice || sgDetails.propertyPrice),
-    loanAmount: parseFloat(apiScenario.computed.mortgage.loanAmount),
+    loanAmount: parseFloat(apiScenario.computed?.loanAmount ?? '0'),
     loanType: sgDetails.loanType,
     downpaymentCpfOa: parseFloat(sgDetails.downpaymentCpfOa),
     downpaymentCash: parseFloat(sgDetails.downpaymentCash),
@@ -185,10 +185,28 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
 }
 
 /**
+ * Check if a string is a valid UUID
+ */
+function isValidUUID(value: string | null | undefined): boolean {
+  if (!value) return false
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(value)
+}
+
+/**
  * Convert frontend PropertyScenario to API CreateScenarioInput
  */
 function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInput {
   const { propertyType: apiType, propertySubtype } = mapPropertyTypeToApi(scenario.propertyType)
+
+  // Only pass income IDs if they are valid UUIDs (filter out placeholder values like 'income-1')
+  // Use || undefined to ensure null values become undefined (API expects string | undefined)
+  const borrower1IncomeId = isValidUUID(scenario.inputs.borrower1IncomeId)
+    ? scenario.inputs.borrower1IncomeId
+    : undefined
+  const borrower2IncomeId = isValidUUID(scenario.inputs.borrower2IncomeId)
+    ? (scenario.inputs.borrower2IncomeId || undefined)
+    : undefined
 
   return {
     country: 'SG',
@@ -205,8 +223,8 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
       downpaymentCpfOa: String(scenario.inputs.downpaymentCpfOa),
       downpaymentCash: String(scenario.inputs.downpaymentCash),
       borrowerType: scenario.inputs.borrowerType,
-      borrower1IncomeId: scenario.inputs.borrower1IncomeId || undefined,
-      borrower2IncomeId: scenario.inputs.borrower2IncomeId || undefined,
+      borrower1IncomeId,
+      borrower2IncomeId,
       otherDebt: String(scenario.inputs.otherDebt),
       propertyCount: 0,
       grants: String(scenario.inputs.grants),
@@ -269,7 +287,22 @@ function getDefaultSaleDate(loanStartMonth: string): string {
 // MAIN COMPONENT
 // =============================================================================
 
-export function PropertyPlannerView({ onClose }: { onClose?: () => void }) {
+export interface FooterState {
+  hasChanges: boolean
+  isSaving: boolean
+  onSave: () => void
+  isEditing: boolean
+}
+
+interface PropertyPlannerViewProps {
+  onClose?: () => void
+  /** Optional scenario ID to directly open in edit mode */
+  initialScenarioId?: string
+  /** Callback to report footer state to parent */
+  onFooterStateChange?: (state: FooterState | null) => void
+}
+
+export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateChange }: PropertyPlannerViewProps) {
   // API hooks
   const { data: apiScenarios, isLoading } = usePropertyPlannerV2ScenariosQuery()
   const createMutation = useCreatePropertyPlannerV2ScenarioMutation()
@@ -295,12 +328,45 @@ export function PropertyPlannerView({ onClose }: { onClose?: () => void }) {
   const [editingScenarioIcon, setEditingScenarioIcon] = useState('home')
   const [editingScenarioIconColor, setEditingScenarioIconColor] = useState('#6366f1')
   const [editingScenarioIconSearch, setEditingScenarioIconSearch] = useState('')
+  const [hasChanges, setHasChanges] = useState(false)
+
+  // Track initial values to detect changes
+  const initialValuesRef = useRef<{
+    name: string
+    type: PropertyType | null
+    inputs: MortgageInputs
+    saleInputs: SaleInputs
+    icon: string
+    iconColor: string
+  } | null>(null)
 
   const editingScenario = editingScenarioId ? scenarios.find(s => s.id === editingScenarioId) : null
+
+  // Track if we've handled the initial scenario to avoid re-triggering
+  const initialScenarioHandledRef = useRef(false)
 
   // Get computed values from the API scenario (not the transformed frontend scenario)
   const editingApiScenario = editingScenarioId ? apiScenarios?.find(s => s.scenario.id === editingScenarioId) : null
   const computedValues: ComputedValues | null = editingApiScenario?.computed ?? null
+
+  // Detect changes by comparing current values to initial values
+  useEffect(() => {
+    if (!initialValuesRef.current) {
+      setHasChanges(false)
+      return
+    }
+
+    const initial = initialValuesRef.current
+    const changed =
+      initial.name !== editingScenarioName ||
+      initial.type !== selectedType ||
+      initial.icon !== editingScenarioIcon ||
+      initial.iconColor !== editingScenarioIconColor ||
+      JSON.stringify(initial.inputs) !== JSON.stringify(inputs) ||
+      JSON.stringify(initial.saleInputs) !== JSON.stringify(saleInputs)
+
+    setHasChanges(changed)
+  }, [editingScenarioName, selectedType, editingScenarioIcon, editingScenarioIconColor, inputs, saleInputs])
 
   const handleEditScenario = useCallback((scenario: PropertyScenario) => {
     setEditingScenarioId(scenario.id)
@@ -311,7 +377,64 @@ export function PropertyPlannerView({ onClose }: { onClose?: () => void }) {
     setEditingScenarioIcon(scenario.icon || 'home')
     setEditingScenarioIconColor(scenario.iconColor || '#6366f1')
     setEditingScenarioIconSearch('')
+
+    // Store initial values for dirty tracking
+    initialValuesRef.current = {
+      name: scenario.name,
+      type: scenario.propertyType,
+      inputs: scenario.inputs,
+      saleInputs: scenario.saleInputs,
+      icon: scenario.icon || 'home',
+      iconColor: scenario.iconColor || '#6366f1',
+    }
+    setHasChanges(false)
   }, [])
+
+  // Handle initial scenario ID - open edit mode when data is loaded
+  useEffect(() => {
+    if (
+      initialScenarioId &&
+      !initialScenarioHandledRef.current &&
+      scenarios.length > 0 &&
+      !isLoading
+    ) {
+      const scenarioToEdit = scenarios.find(s => s.id === initialScenarioId)
+      if (scenarioToEdit) {
+        handleEditScenario(scenarioToEdit)
+        initialScenarioHandledRef.current = true
+      }
+    }
+  }, [initialScenarioId, scenarios, isLoading, handleEditScenario])
+
+  // Save without closing - updates initial values ref to reset dirty state
+  const handleSave = useCallback(() => {
+    if (editingScenarioId && selectedType) {
+      const updatedScenario: PropertyScenario = {
+        id: editingScenarioId,
+        name: editingScenarioName,
+        propertyType: selectedType,
+        inputs,
+        saleInputs,
+        isIncluded: editingScenario?.isIncluded ?? true,
+        createdAt: editingScenario?.createdAt ?? Date.now(),
+        icon: editingScenarioIcon,
+        iconColor: editingScenarioIconColor,
+      }
+      const apiInput = frontendToApiCreateInput(updatedScenario)
+      updateMutation.mutate({ id: editingScenarioId, input: apiInput })
+
+      // Update initial values ref to mark as saved
+      initialValuesRef.current = {
+        name: editingScenarioName,
+        type: selectedType,
+        inputs,
+        saleInputs,
+        icon: editingScenarioIcon,
+        iconColor: editingScenarioIconColor,
+      }
+      setHasChanges(false)
+    }
+  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor, editingScenario, updateMutation])
 
   const handleSaveAndClose = useCallback(() => {
     if (editingScenarioId && selectedType) {
@@ -332,6 +455,8 @@ export function PropertyPlannerView({ onClose }: { onClose?: () => void }) {
     setEditingScenarioId(null)
     setEditingScenarioName('')
     setSelectedType(null)
+    initialValuesRef.current = null
+    setHasChanges(false)
   }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor, editingScenario, updateMutation])
 
   const handleDeleteScenario = useCallback((id: string) => {
@@ -357,6 +482,35 @@ export function PropertyPlannerView({ onClose }: { onClose?: () => void }) {
   const handleSaleInputChange = useCallback((field: keyof SaleInputs, value: string | number | boolean | FeeItem[]) => {
     setSaleInputs(prev => ({ ...prev, [field]: value }))
   }, [])
+
+  // Tab change with unsaved changes confirmation
+  const handleTabChangeWithConfirmation = useCallback((newTab: ResultsTab) => {
+    if (hasChanges) {
+      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to switch tabs? Changes will be lost.')
+      if (!confirmed) return
+    }
+    setActiveResultsTab(newTab)
+  }, [hasChanges])
+
+  // Use ref to store handleSave to avoid infinite loop in useEffect
+  const handleSaveRef = useRef(handleSave)
+  handleSaveRef.current = handleSave
+
+  // Report footer state to parent for modal footer rendering
+  useEffect(() => {
+    if (onFooterStateChange) {
+      if (selectedType) {
+        onFooterStateChange({
+          hasChanges,
+          isSaving: updateMutation.isPending,
+          onSave: () => handleSaveRef.current(),
+          isEditing: true,
+        })
+      } else {
+        onFooterStateChange(null)
+      }
+    }
+  }, [onFooterStateChange, selectedType, hasChanges, updateMutation.isPending])
 
   const isEmbedded = !!onClose
 
@@ -398,14 +552,14 @@ export function PropertyPlannerView({ onClose }: { onClose?: () => void }) {
               computedValues={computedValues}
               onInputChange={handleInputChange}
               onSaleInputChange={handleSaleInputChange}
-              onActiveResultsTabChange={setActiveResultsTab}
+              onActiveResultsTabChange={handleTabChangeWithConfirmation}
               onSelectedTypeChange={setSelectedType}
               onEditingScenarioNameChange={setEditingScenarioName}
               onEditingScenarioIconChange={setEditingScenarioIcon}
               onEditingScenarioIconColorChange={setEditingScenarioIconColor}
               onEditingScenarioIconSearchChange={setEditingScenarioIconSearch}
               onSaveAndClose={handleSaveAndClose}
-              isSaving={updateMutation.isPending}
+              hasChanges={hasChanges}
             />
           )}
         </AnimatePresence>

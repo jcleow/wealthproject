@@ -8,7 +8,6 @@
 import { apiClient } from '../client'
 import type {
   PropertyScenarioFull,
-  ListScenariosResponse,
   CreateScenarioInput,
   UpdateScenarioInput,
 } from '@/types/propertyPlannerV2'
@@ -18,14 +17,14 @@ const V2_BASE_URL = '/api/v2'
 
 /**
  * List all property scenarios for the current user
+ * Note: Backend returns array directly, not wrapped in { scenarios: [...] }
  */
 export async function listScenarios(): Promise<PropertyScenarioFull[]> {
-  const response = await apiClient.get<ListScenariosResponse>(
+  return apiClient.get<PropertyScenarioFull[]>(
     `${BASE_PATH}/scenarios`,
     undefined,
     { baseUrl: V2_BASE_URL }
   )
-  return response.scenarios
 }
 
 /**

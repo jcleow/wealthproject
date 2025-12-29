@@ -36,6 +36,7 @@ export function Dashboard() {
   const [isChatCollapsed, setIsChatCollapsed] = useState(true)
   const [showCPFView, setShowCPFView] = useState(false)
   const [showPropertyPlanner, setShowPropertyPlanner] = useState(false)
+  const [propertyScenarioToEdit, setPropertyScenarioToEdit] = useState<string | null>(null)
   const [showTaxPlanner, setShowTaxPlanner] = useState(false)
   const [showInsurancePlanner, setShowInsurancePlanner] = useState(false)
   const [isLayoutModalOpen, setIsLayoutModalOpen] = useState(false)
@@ -107,6 +108,12 @@ export function Dashboard() {
     chartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     dismissPiP()
   }, [chartRef, dismissPiP])
+
+  // Handle property scenario edit from chart marker click
+  const handlePropertyScenarioEdit = useCallback((scenarioId: string) => {
+    setPropertyScenarioToEdit(scenarioId)
+    setShowPropertyPlanner(true)
+  }, [])
 
   // Keyboard shortcut: Cmd+B to toggle chat
   useEffect(() => {
@@ -344,6 +351,7 @@ bg-[#0a0a0a]/80`}>
                       anchorYear={timeline.anchorYear}
                       anchorMonth={timeline.anchorMonth}
                       onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
+                      onPropertyScenarioEdit={handlePropertyScenarioEdit}
                       chartOnly
                     />
                   </div>
@@ -401,6 +409,7 @@ shrink-0`}
                     anchorYear={timeline.anchorYear}
                     anchorMonth={timeline.anchorMonth}
                     onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
+                    onPropertyScenarioEdit={handlePropertyScenarioEdit}
                   />
                 </div>
 
@@ -446,7 +455,11 @@ shrink-0`}
       {/* Property Planner Modal */}
       <PropertyPlannerModal
         isOpen={showPropertyPlanner}
-        onClose={() => setShowPropertyPlanner(false)}
+        onClose={() => {
+          setShowPropertyPlanner(false)
+          setPropertyScenarioToEdit(null)
+        }}
+        initialScenarioId={propertyScenarioToEdit ?? undefined}
       />
 
       {/* Layout Preview Modal */}

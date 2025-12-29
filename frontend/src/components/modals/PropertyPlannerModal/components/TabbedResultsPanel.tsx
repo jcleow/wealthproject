@@ -29,11 +29,11 @@ export type ResultsTab = 'purchase' | 'sale' | 'appreciation'
 type PurchaseDetailTab = 'breakdown' | 'chart'
 
 interface TabbedResultsPanelProps {
-  /** Local calculation (fallback when API not available) */
+  /** Local calculation (always used - API computed values are for display validation only) */
   calculation: ReturnType<typeof calculateMortgage>
   propertyType: PropertyType
   saleInputs: SaleInputs
-  /** Local sale result (fallback when API not available) */
+  /** Local sale result */
   saleResult: SaleResult
   propertyPrice: number
   activeTab: ResultsTab
@@ -41,7 +41,11 @@ interface TabbedResultsPanelProps {
   appreciationPeriods: AppreciationPeriod[]
   onPeriodsChange: (periods: AppreciationPeriod[]) => void
   purchaseDate: string
-  /** Computed values from API (preferred over local calculation) */
+  /**
+   * Computed values from API (flat structure).
+   * Currently not used for display - local calculation is always used.
+   * This prop is reserved for future use when we want to display API-computed values.
+   */
   computedValues?: ComputedValues | null
 }
 
@@ -56,73 +60,58 @@ export function TabbedResultsPanel({
   appreciationPeriods,
   onPeriodsChange,
   purchaseDate,
-  computedValues = null,
+  // Reserved for future use when backend returns full nested ComputedValuesFull structure
+  computedValues: _computedValues = null,
 }: TabbedResultsPanelProps) {
   const [purchaseDetailTab, setPurchaseDetailTab] = useState<PurchaseDetailTab>('breakdown')
 
-  // Use API computed values if available, otherwise fall back to local calculation
-  const mortgage = computedValues?.mortgage
-  const sale = computedValues?.sale
+  // Currently we always use local calculation for display.
+  // The API returns a flat ComputedValues structure which we store but don't display yet.
+  // When backend is updated to return full nested structure (ComputedValuesFull),
+  // we can switch to using API values for mortgage/sale displays.
 
-  // Mortgage values (prefer API)
-  const totalUpfrontCash = mortgage ? Number(mortgage.totalUpfrontCash) : calculation.totalUpfrontCash
-  const monthlyPayment = mortgage ? Number(mortgage.monthlyPayment) : calculation.monthlyPayment
-  const cpfOaUsed = mortgage ? Number(mortgage.downpaymentBreakdown.cpfOa) : calculation.downpaymentBreakdown.cpfOa
-  const cashUsed = mortgage ? Number(mortgage.downpaymentBreakdown.cash) : calculation.downpaymentBreakdown.cash
-  const bsdAmount = mortgage ? Number(mortgage.bsdAmount) : calculation.bsdAmount
-  const absdAmount = mortgage ? Number(mortgage.absdAmount) : calculation.absdAmount
-  const cov = mortgage ? Number(mortgage.cov) : calculation.cov
-  const loanAmount = mortgage ? Number(mortgage.loanAmount) : (propertyPrice - calculation.downpayment)
-  const totalInterest = mortgage ? Number(mortgage.totalInterest) : calculation.totalInterest
-  const loanStartDate = mortgage?.loanStartDate || calculation.loanStartDate
-  const loanEndDate = mortgage?.loanEndDate || calculation.loanEndDate
-  const msrRatio = mortgage ? Number(mortgage.msrRatio) : calculation.msrRatio
-  const tdsrRatio = mortgage ? Number(mortgage.tdsrRatio) : calculation.tdsrRatio
-  const msrPasses = mortgage ? mortgage.msrPasses : calculation.msrRatio <= (propertyType.includes('hdb') ? 0.30 : 0.55)
-  const tdsrPasses = mortgage ? mortgage.tdsrPasses : calculation.tdsrRatio <= 0.55
-
-  // Purchase fees (prefer API) - normalize to common format
-  const purchaseFees: Array<{ name: string; amount: number }> = mortgage?.calculatedPurchaseFees
-    ? mortgage.calculatedPurchaseFees.map(f => ({ name: f.feeType, amount: Number(f.amount) }))
-    : calculation.calculatedPurchaseFees.map(f => ({ name: f.item.name, amount: f.amount }))
-
-  // Amortization (prefer API - need to convert format)
-  // API format: { year, startingBalance, totalPrincipal, totalInterest, endingBalance } (all strings)
-  // Local format: { year, principal, interest, balance, totalPaid } (all numbers)
-  const amortization = mortgage?.amortization
-    ? mortgage.amortization.map((a, idx) => ({
-        year: a.year,
-        principal: Number(a.totalPrincipal),
-        interest: Number(a.totalInterest),
-        balance: Number(a.endingBalance),
-        totalPaid: mortgage.amortization.slice(0, idx + 1).reduce(
-          (sum, row) => sum + Number(row.totalPrincipal) + Number(row.totalInterest), 0
-        ),
-      }))
-    : calculation.amortization
-
-  // Sale values (prefer API)
-  const netCashProceeds = sale ? Number(sale.netCashProceeds) : saleResult.netCashProceeds
-  const cpfRefundedToOa = sale ? Number(sale.cpfRefund) : saleResult.cpfRefundedToOa
-  const holdingPeriodYears = sale ? (sale.holdingPeriodMonths / 12) : saleResult.holdingPeriodYears
-  const outstandingLoanAtSale = sale ? Number(sale.outstandingLoanAtSale) : saleResult.outstandingLoanAtSale
-  const grossProceeds = sale ? Number(sale.grossProceeds) : saleResult.grossProceeds
-  const cpfPrincipalUsed = sale ? Number(sale.cpfRefund) : saleResult.cpfRefund.principalUsed
-  const cpfAccruedInterest = sale ? Number(sale.cpfAccruedInterest) : saleResult.cpfRefund.accruedInterest
-  const ssdApplicable = sale ? Number(sale.ssdAmount) > 0 : saleResult.ssd.applicable
-  const ssdRate = sale ? sale.ssdRate : String(saleResult.ssd.rate)
-  const ssdAmount = sale ? Number(sale.ssdAmount) : saleResult.ssd.amount
-
-  // Sale fees (prefer API) - normalize to common format
-  const saleFees: Array<{ name: string; amount: number }> = sale
-    ? [
-        { name: 'Agent Fee', amount: Number(sale.agentFee) },
-        { name: 'Legal Fee', amount: Number(sale.legalFee) },
-      ].filter(f => f.amount > 0)
-    : saleResult.calculatedFees.filter(f => f.amount > 0).map(f => ({ name: f.item.name, amount: f.amount }))
-
+  // Mortgage values - always use local calculation
+  const totalUpfrontCash = calculation.totalUpfrontCash
+  const monthlyPayment = calculation.monthlyPayment
+  const cpfOaUsed = calculation.downpaymentBreakdown.cpfOa
+  const cashUsed = calculation.downpaymentBreakdown.cash
+  const bsdAmount = calculation.bsdAmount
+  const absdAmount = calculation.absdAmount
+  const cov = calculation.cov
+  const loanAmount = propertyPrice - calculation.downpayment
+  const totalInterest = calculation.totalInterest
+  const loanStartDate = calculation.loanStartDate
+  const loanEndDate = calculation.loanEndDate
+  const msrRatio = calculation.msrRatio
+  const tdsrRatio = calculation.tdsrRatio
   const isHDB = propertyType.includes('hdb')
   const msrLimit = isHDB ? 0.30 : 0.55
+  const msrPasses = msrRatio <= msrLimit
+  const tdsrPasses = tdsrRatio <= 0.55
+
+  // Purchase fees - use local calculation
+  const purchaseFees: Array<{ name: string; amount: number }> =
+    calculation.calculatedPurchaseFees.map(f => ({ name: f.item.name, amount: f.amount }))
+
+  // Amortization - use local calculation
+  const amortization = calculation.amortization
+
+  // Sale values - use local calculation
+  const netCashProceeds = saleResult.netCashProceeds
+  const cpfRefundedToOa = saleResult.cpfRefundedToOa
+  const holdingPeriodYears = saleResult.holdingPeriodYears
+  const outstandingLoanAtSale = saleResult.outstandingLoanAtSale
+  const grossProceeds = saleResult.grossProceeds
+  const cpfPrincipalUsed = saleResult.cpfRefund.principalUsed
+  const cpfAccruedInterest = saleResult.cpfRefund.accruedInterest
+  const ssdApplicable = saleResult.ssd.applicable
+  const ssdRate = String(saleResult.ssd.rate)
+  const ssdAmount = saleResult.ssd.amount
+
+  // Sale fees - use local calculation
+  const saleFees: Array<{ name: string; amount: number }> =
+    saleResult.calculatedFees.filter(f => f.amount > 0).map(f => ({ name: f.item.name, amount: f.amount }))
+
   const tdsrLimit = 0.55
   const bothWithinLimit = msrPasses && tdsrPasses
 

@@ -203,7 +203,26 @@ export interface RecurringCosts {
   totalMonthlyRecurring: string
 }
 
+/**
+ * Actual computed values structure from the backend API
+ * Note: This is a flat structure, not nested under 'mortgage'
+ */
 export interface ComputedValues {
+  loanAmount: string
+  monthlyPayment: string
+  totalInterest: string
+  totalAmountPaid: string
+  bsdAmount: string
+  absdAmount: string
+  totalStampDuty: string
+  totalUpfrontCash: string
+}
+
+/**
+ * Full computed values structure (for future expansion)
+ * Currently the backend returns a simpler flat structure
+ */
+export interface ComputedValuesFull {
   mortgage: MortgageComputed
   sale: SaleComputed | null
   appreciation: AppreciationYear[]

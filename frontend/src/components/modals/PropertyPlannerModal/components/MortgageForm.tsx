@@ -665,10 +665,10 @@ function FinancingStep({
 }) {
   return (
     <div className="space-y-4">
-      {/* Start Date & Term */}
+      {/* Purchase Date & Term */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-slate-400 block">Start Date</label>
+          <label className="text-xs font-medium text-slate-400 block">Purchase Date</label>
           <MonthPicker
             value={inputs.loanStartMonth}
             onChange={(value) => onChange('loanStartMonth', value)}

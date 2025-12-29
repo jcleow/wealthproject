@@ -1,15 +1,25 @@
 "use client"
 
+import { useState, useCallback } from 'react'
 import { Modal } from '@/components/ui/Modal'
-import { PropertyPlannerView } from './PropertyPlannerView'
-import { Building2 } from 'lucide-react'
+import { PropertyPlannerView, type FooterState } from './PropertyPlannerView'
+import { Building2, Save, Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface PropertyPlannerModalProps {
   isOpen: boolean
   onClose: () => void
+  /** Optional scenario ID to directly open in edit mode */
+  initialScenarioId?: string
 }
 
-export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalProps) {
+export function PropertyPlannerModal({ isOpen, onClose, initialScenarioId }: PropertyPlannerModalProps) {
+  const [footerState, setFooterState] = useState<FooterState | null>(null)
+
+  const handleFooterStateChange = useCallback((state: FooterState | null) => {
+    setFooterState(state)
+  }, [])
+
   return (
     <Modal
       isOpen={isOpen}
@@ -32,8 +42,41 @@ export function PropertyPlannerModal({ isOpen, onClose }: PropertyPlannerModalPr
 
       {/* Modal Content */}
       <div className="flex-1 overflow-y-auto">
-        <PropertyPlannerView onClose={onClose} />
+        <PropertyPlannerView
+          onClose={onClose}
+          initialScenarioId={initialScenarioId}
+          onFooterStateChange={handleFooterStateChange}
+        />
       </div>
+
+      {/* Modal Footer - only show when editing */}
+      {footerState?.isEditing && (
+        <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-white/[0.06] bg-[#0a0a0a]">
+          <div className="flex items-center justify-end">
+            {footerState.isSaving ? (
+              <div className="flex items-center gap-2 px-4 py-2 text-slate-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm font-medium">Saving...</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={footerState.onSave}
+                disabled={!footerState.hasChanges}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                  footerState.hasChanges
+                    ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/25"
+                    : "bg-white/[0.03] text-slate-500 border border-white/[0.06] cursor-not-allowed"
+                )}
+              >
+                <Save className="w-4 h-4" />
+                Save Changes
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </Modal>
   )
 }

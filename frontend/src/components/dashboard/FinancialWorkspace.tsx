@@ -32,6 +32,7 @@ interface FinancialWorkspaceProps {
   headerOnly?: boolean
   chartOnly?: boolean
   onOpenLayoutModal?: () => void
+  onPropertyScenarioEdit?: (scenarioId: string) => void
 }
 
 // Stable empty Set to use as default (avoids creating new Set on each render)
@@ -57,6 +58,7 @@ export function FinancialWorkspace({
   headerOnly = false,
   chartOnly = false,
   onOpenLayoutModal,
+  onPropertyScenarioEdit,
 }: FinancialWorkspaceProps) {
   // Use stable empty set as fallback
   const stableOverrideYears = useMemo(
@@ -527,6 +529,7 @@ text-purple-400`}>
                   onScenarioSelect={handleScenarioSelect}
                   onSelectYear={onSelectYear}
                   onSelectMonth={onSelectMonth}
+                  onPropertyScenarioEdit={onPropertyScenarioEdit}
                 />
               </div>
             </section>

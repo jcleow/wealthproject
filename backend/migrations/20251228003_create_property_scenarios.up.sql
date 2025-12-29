@@ -1,18 +1,43 @@
--- Rename legacy property_scenarios table to make room for v2 structure
--- First drop constraints that reference it (will be recreated or replaced)
-ALTER TABLE growth_periods DROP CONSTRAINT IF EXISTS growth_periods_property_scenario_id_fkey;
-ALTER TABLE liability_rate_periods DROP CONSTRAINT IF EXISTS liability_rate_periods_property_scenario_id_fkey;
-ALTER TABLE property_fees DROP CONSTRAINT IF EXISTS property_fees_scenario_id_fkey;
-ALTER TABLE property_links DROP CONSTRAINT IF EXISTS property_links_property_scenario_id_fkey;
+-- Migrate property_scenarios to v2 structure
+-- This migration handles both fresh db and existing db with legacy data
 
--- Rename legacy table
-ALTER TABLE property_scenarios RENAME TO property_scenarios_legacy;
-ALTER INDEX IF EXISTS property_scenarios_pkey RENAME TO property_scenarios_legacy_pkey;
-ALTER INDEX IF EXISTS idx_property_scenarios_user_id RENAME TO idx_property_scenarios_legacy_user_id;
-ALTER INDEX IF EXISTS property_scenarios_type_idx RENAME TO property_scenarios_legacy_type_idx;
+-- First, check if we have the legacy table structure (has property_type column)
+-- and need to migrate it to the new v2 structure
+DO $$
+BEGIN
+    -- Check if property_scenarios has the legacy structure (property_type column)
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'property_scenarios' AND column_name = 'property_type'
+    ) THEN
+        -- Drop constraints from tables that reference the legacy property_scenarios
+        -- Only drop if those tables actually exist (for existing db migration)
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'growth_periods') THEN
+            ALTER TABLE growth_periods DROP CONSTRAINT IF EXISTS growth_periods_property_scenario_id_fkey;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'liability_rate_periods') THEN
+            ALTER TABLE liability_rate_periods DROP CONSTRAINT IF EXISTS liability_rate_periods_property_scenario_id_fkey;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'property_fees') THEN
+            ALTER TABLE property_fees DROP CONSTRAINT IF EXISTS property_fees_scenario_id_fkey;
+        END IF;
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'property_links') THEN
+            ALTER TABLE property_links DROP CONSTRAINT IF EXISTS property_links_property_scenario_id_fkey;
+        END IF;
 
--- Create new property_scenarios v2 header table (one per user scenario)
-CREATE TABLE property_scenarios (
+        -- Drop any existing legacy table from previous failed migration
+        DROP TABLE IF EXISTS property_scenarios_legacy CASCADE;
+
+        -- Rename legacy table
+        ALTER TABLE property_scenarios RENAME TO property_scenarios_legacy;
+        ALTER INDEX IF EXISTS property_scenarios_pkey RENAME TO property_scenarios_legacy_pkey;
+        ALTER INDEX IF EXISTS idx_property_scenarios_user_id RENAME TO idx_property_scenarios_legacy_user_id;
+        ALTER INDEX IF EXISTS property_scenarios_type_idx RENAME TO property_scenarios_legacy_type_idx;
+    END IF;
+END $$;
+
+-- Create new property_scenarios v2 header table if it doesn't exist
+CREATE TABLE IF NOT EXISTS property_scenarios (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id VARCHAR(36) NOT NULL,
 
@@ -28,4 +53,4 @@ CREATE TABLE property_scenarios (
     )
 );
 
-CREATE INDEX idx_property_scenarios_user ON property_scenarios(user_id);
+CREATE INDEX IF NOT EXISTS idx_property_scenarios_user ON property_scenarios(user_id);

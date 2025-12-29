@@ -11,7 +11,6 @@ import {
   Home,
   Banknote,
   TrendingUp,
-  Loader2,
 } from 'lucide-react'
 
 import type {
@@ -48,7 +47,8 @@ interface ScenarioDetailViewProps {
   editingScenarioIconColor: string
   editingScenarioIconSearch: string
   isEmbedded: boolean
-  isSaving?: boolean
+  /** @deprecated Use modal footer hasChanges indicator instead */
+  hasChanges?: boolean
   computedValues?: ComputedValues | null
   onInputChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | null) => void
   onSaleInputChange: (field: keyof SaleInputs, value: string | number | boolean | FeeItem[]) => void
@@ -72,7 +72,7 @@ export function ScenarioDetailView({
   editingScenarioIconColor,
   editingScenarioIconSearch,
   isEmbedded,
-  isSaving = false,
+  hasChanges = false,
   computedValues = null,
   onInputChange,
   onSaleInputChange,
@@ -131,11 +131,8 @@ export function ScenarioDetailView({
                 className="text-2xl font-semibold text-white tracking-tight bg-transparent border-none outline-none focus:ring-0 placeholder:text-slate-600 hover:bg-white/[0.03] focus:bg-white/[0.05] rounded-lg px-2 py-1 -ml-2 transition-colors"
                 placeholder="Scenario name"
               />
-              {isSaving && (
-                <div className="flex items-center gap-1.5 text-slate-400">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-xs">Saving...</span>
-                </div>
+              {hasChanges && (
+                <span className="text-xs text-amber-400/80 font-medium">Unsaved changes</span>
               )}
             </div>
             <CustomDropdown
