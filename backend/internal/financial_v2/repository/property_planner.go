@@ -1016,6 +1016,55 @@ func (s *Store) ListGrants(ctx context.Context, userID, scenarioID string) ([]Pr
 	return s.getPropertyGrants(ctx, *sgDetailsID)
 }
 
+// DeleteAllPropertyScenarios deletes all property scenarios for a user
+func (s *Store) DeleteAllPropertyScenarios(ctx context.Context, userID string) (int64, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Get all sg_details_ids for the user's scenarios
+	rows, err := tx.Query(ctx, `
+		SELECT sg_details_id FROM property_scenarios
+		WHERE user_id = $1 AND sg_details_id IS NOT NULL
+	`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("get sg_details_ids: %w", err)
+	}
+
+	var sgDetailsIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("scan sg_details_id: %w", err)
+		}
+		sgDetailsIDs = append(sgDetailsIDs, id)
+	}
+	rows.Close()
+
+	// Delete all property scenarios (cascades to child tables via FK)
+	tag, err := tx.Exec(ctx, `DELETE FROM property_scenarios WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("delete scenarios: %w", err)
+	}
+	rowsAffected := tag.RowsAffected()
+
+	// Delete sg_details records (not cascaded from scenario deletion)
+	for _, sgDetailsID := range sgDetailsIDs {
+		if _, err := tx.Exec(ctx, `DELETE FROM property_sg_details WHERE id = $1`, sgDetailsID); err != nil {
+			return 0, fmt.Errorf("delete sg details %s: %w", sgDetailsID, err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return rowsAffected, nil
+}
+
 // ListIncludedPropertyScenarios returns property scenarios where is_included=true
 // for use in timeline projections. Only returns scenarios with SG details currently.
 func (s *Store) ListIncludedPropertyScenarios(ctx context.Context, userID string) ([]PropertyScenarioFull, error) {

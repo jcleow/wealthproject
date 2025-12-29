@@ -115,7 +115,20 @@ type computedValues struct {
 	TotalUpfrontCash string `json:"totalUpfrontCash"`
 }
 
-// HandleCreate handles POST /api/v2/property-planner/scenarios
+// POST /api/v2/property-planner/scenarios
+// HandleCreate creates a new property scenario.
+// @Summary Create a property scenario (v2)
+// @Description Creates a new property scenario for the authenticated user with computed values
+// @Tags Property Planner V2
+// @Accept json
+// @Produce json
+// @Param scenario body createScenarioRequest true "Property scenario data"
+// @Success 201 {object} scenarioResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/property-planner/scenarios [post]
 func (h *PropertyPlannerV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -172,7 +185,17 @@ func (h *PropertyPlannerV2Handler) HandleCreate(w http.ResponseWriter, r *http.R
 	writeJSON(w, response)
 }
 
-// HandleList handles GET /api/v2/property-planner/scenarios
+// GET /api/v2/property-planner/scenarios
+// HandleList returns all property scenarios for the authenticated user.
+// @Summary List property scenarios (v2)
+// @Description Returns all property scenarios for the authenticated user with computed values
+// @Tags Property Planner V2
+// @Produce json
+// @Success 200 {array} scenarioResponse
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/property-planner/scenarios [get]
 func (h *PropertyPlannerV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -204,7 +227,19 @@ func (h *PropertyPlannerV2Handler) HandleList(w http.ResponseWriter, r *http.Req
 	writeJSON(w, responses)
 }
 
-// HandleGet handles GET /api/v2/property-planner/scenarios/{id}
+// GET /api/v2/property-planner/scenarios/{id}
+// HandleGet returns a single property scenario by ID.
+// @Summary Get a property scenario (v2)
+// @Description Returns a property scenario by ID with computed values
+// @Tags Property Planner V2
+// @Produce json
+// @Param id path string true "Scenario ID"
+// @Success 200 {object} scenarioResponse
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/property-planner/scenarios/{id} [get]
 func (h *PropertyPlannerV2Handler) HandleGet(w http.ResponseWriter, r *http.Request, scenarioID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -237,7 +272,22 @@ func (h *PropertyPlannerV2Handler) HandleGet(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, response)
 }
 
-// HandleUpdate handles PUT /api/v2/property-planner/scenarios/{id}
+// PUT /api/v2/property-planner/scenarios/{id}
+// HandleUpdate updates a property scenario by ID.
+// @Summary Update a property scenario (v2)
+// @Description Updates a property scenario by ID with new data and returns computed values
+// @Tags Property Planner V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Scenario ID"
+// @Param scenario body createScenarioRequest true "Property scenario data"
+// @Success 200 {object} scenarioResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/property-planner/scenarios/{id} [put]
 func (h *PropertyPlannerV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, scenarioID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -297,7 +347,18 @@ func (h *PropertyPlannerV2Handler) HandleUpdate(w http.ResponseWriter, r *http.R
 	writeJSON(w, response)
 }
 
-// HandleDelete handles DELETE /api/v2/property-planner/scenarios/{id}
+// DELETE /api/v2/property-planner/scenarios/{id}
+// HandleDelete deletes a property scenario by ID.
+// @Summary Delete a property scenario (v2)
+// @Description Deletes a property scenario by ID and all related data
+// @Tags Property Planner V2
+// @Param id path string true "Scenario ID"
+// @Success 204 "No Content"
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/property-planner/scenarios/{id} [delete]
 func (h *PropertyPlannerV2Handler) HandleDelete(w http.ResponseWriter, r *http.Request, scenarioID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -575,7 +636,19 @@ func (h *PropertyPlannerV2Handler) computeValues(s *repo.PropertyScenarioFull) *
 // Grant CRUD Handlers
 // ============================================================================
 
-// HandleListGrants handles GET /api/v2/property-planner/scenarios/{id}/grants
+// GET /api/v2/property-planner/scenarios/{id}/grants
+// HandleListGrants returns all grants for a property scenario.
+// @Summary List grants for a property scenario (v2)
+// @Description Returns all grants for a property scenario by ID
+// @Tags Property Planner V2
+// @Produce json
+// @Param id path string true "Scenario ID"
+// @Success 200 {array} repo.PropertySGGrant
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/property-planner/scenarios/{id}/grants [get]
 func (h *PropertyPlannerV2Handler) HandleListGrants(w http.ResponseWriter, r *http.Request, scenarioID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -596,7 +669,22 @@ func (h *PropertyPlannerV2Handler) HandleListGrants(w http.ResponseWriter, r *ht
 	writeJSON(w, grants)
 }
 
-// HandleCreateGrant handles POST /api/v2/property-planner/scenarios/{id}/grants
+// POST /api/v2/property-planner/scenarios/{id}/grants
+// HandleCreateGrant creates a new grant for a property scenario.
+// @Summary Create a grant for a property scenario (v2)
+// @Description Creates a new grant for a property scenario by ID
+// @Tags Property Planner V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Scenario ID"
+// @Param grant body createGrantRequest true "Grant data"
+// @Success 201 {object} repo.PropertySGGrant
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/property-planner/scenarios/{id}/grants [post]
 func (h *PropertyPlannerV2Handler) HandleCreateGrant(w http.ResponseWriter, r *http.Request, scenarioID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -630,7 +718,23 @@ func (h *PropertyPlannerV2Handler) HandleCreateGrant(w http.ResponseWriter, r *h
 	writeJSON(w, grant)
 }
 
-// HandleUpdateGrant handles PUT /api/v2/property-planner/scenarios/{id}/grants/{grantId}
+// PUT /api/v2/property-planner/scenarios/{id}/grants/{grantId}
+// HandleUpdateGrant updates a grant by ID.
+// @Summary Update a grant (v2)
+// @Description Updates a grant by ID
+// @Tags Property Planner V2
+// @Accept json
+// @Produce json
+// @Param id path string true "Scenario ID"
+// @Param grantId path string true "Grant ID"
+// @Param grant body createGrantRequest true "Grant data"
+// @Success 200 {object} repo.PropertySGGrant
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/property-planner/scenarios/{id}/grants/{grantId} [put]
 func (h *PropertyPlannerV2Handler) HandleUpdateGrant(w http.ResponseWriter, r *http.Request, scenarioID, grantID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -663,7 +767,19 @@ func (h *PropertyPlannerV2Handler) HandleUpdateGrant(w http.ResponseWriter, r *h
 	writeJSON(w, grant)
 }
 
-// HandleDeleteGrant handles DELETE /api/v2/property-planner/scenarios/{id}/grants/{grantId}
+// DELETE /api/v2/property-planner/scenarios/{id}/grants/{grantId}
+// HandleDeleteGrant deletes a grant by ID.
+// @Summary Delete a grant (v2)
+// @Description Deletes a grant by ID
+// @Tags Property Planner V2
+// @Param id path string true "Scenario ID"
+// @Param grantId path string true "Grant ID"
+// @Success 204 "No Content"
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/property-planner/scenarios/{id}/grants/{grantId} [delete]
 func (h *PropertyPlannerV2Handler) HandleDeleteGrant(w http.ResponseWriter, r *http.Request, scenarioID, grantID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {

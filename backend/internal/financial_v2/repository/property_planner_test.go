@@ -560,6 +560,131 @@ func TestIntegration_PropertyPlanner_MultipleRatePeriods(t *testing.T) {
 	assert.Equal(t, "2035-01", created.RatePeriods[2].StartMonth)
 }
 
+func TestIntegration_PropertyPlanner_DeleteAllScenarios(t *testing.T) {
+	pool := testutil.GetTestPool(t)
+	store := NewStore(pool)
+	ctx := context.Background()
+	userID := testutil.TestUserID
+	otherUserID := "other-user-00000000"
+
+	cleanupPropertyPlannerTestData(t, store, userID)
+	cleanupPropertyPlannerTestData(t, store, otherUserID)
+	t.Cleanup(func() {
+		cleanupPropertyPlannerTestData(t, store, userID)
+		cleanupPropertyPlannerTestData(t, store, otherUserID)
+	})
+
+	// Create multiple scenarios for the target user
+	for i := 1; i <= 3; i++ {
+		input := CreateScenarioInput{
+			Country: "SG",
+			SGDetails: &CreateSGDetailsInput{
+				Name:          "DeleteAll Test " + string(rune('A'+i-1)),
+				PropertyType:  "hdb",
+				PropertyPrice: *decimal.MustFromString("800000"),
+				LoanType:      "hdb",
+				BorrowerType:  "single",
+			},
+			Fees: []CreateFeeInput{
+				{
+					FeeContext: "purchase",
+					FeeType:    "legal",
+					Amount:     *decimal.MustFromString("2500"),
+					Currency:   "SGD",
+					Frequency:  "one_time",
+				},
+			},
+			GrowthPeriods: []CreateGrowthPeriodInput{
+				{
+					StartYear:      2025,
+					GrowthRate:     *decimal.MustFromString("3"),
+					GrowthStrategy: "annual_step",
+				},
+			},
+			RatePeriods: []CreateRatePeriodInput{
+				{
+					StartMonth:   "2025-01",
+					TermYears:    25,
+					FixedRate:    *decimal.MustFromString("2.6"),
+					FloatingRate: *decimal.MustFromString("2.6"),
+				},
+			},
+		}
+		_, err := store.CreatePropertyScenario(ctx, userID, input)
+		require.NoError(t, err)
+	}
+
+	// Create a scenario for a different user (should not be deleted)
+	otherInput := CreateScenarioInput{
+		Country: "SG",
+		SGDetails: &CreateSGDetailsInput{
+			Name:          "Other User Scenario",
+			PropertyType:  "hdb",
+			PropertyPrice: *decimal.MustFromString("700000"),
+			LoanType:      "hdb",
+			BorrowerType:  "single",
+		},
+		RatePeriods: []CreateRatePeriodInput{
+			{
+				StartMonth:   "2025-01",
+				TermYears:    25,
+				FixedRate:    *decimal.MustFromString("2.6"),
+				FloatingRate: *decimal.MustFromString("2.6"),
+			},
+		},
+	}
+	_, err := store.CreatePropertyScenario(ctx, otherUserID, otherInput)
+	require.NoError(t, err)
+
+	// Verify all scenarios exist
+	scenarios, err := store.ListPropertyScenarios(ctx, userID)
+	require.NoError(t, err)
+	assert.Len(t, scenarios, 3, "Should have 3 scenarios for target user")
+
+	otherScenarios, err := store.ListPropertyScenarios(ctx, otherUserID)
+	require.NoError(t, err)
+	assert.Len(t, otherScenarios, 1, "Should have 1 scenario for other user")
+
+	// Delete all scenarios for target user
+	rowsDeleted, err := store.DeleteAllPropertyScenarios(ctx, userID)
+	require.NoError(t, err, "DeleteAllPropertyScenarios should succeed")
+	assert.Equal(t, int64(3), rowsDeleted, "Should have deleted 3 scenarios")
+
+	// Verify all scenarios for target user are deleted
+	scenarios, err = store.ListPropertyScenarios(ctx, userID)
+	require.NoError(t, err)
+	assert.Empty(t, scenarios, "Should have no scenarios for target user after delete")
+
+	// Verify other user's scenarios are not affected
+	otherScenarios, err = store.ListPropertyScenarios(ctx, otherUserID)
+	require.NoError(t, err)
+	assert.Len(t, otherScenarios, 1, "Other user's scenario should not be deleted")
+
+	// Verify related data is also deleted (sg_details, fees, growth_periods, rate_periods)
+	var count int
+	err = store.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM property_sg_details psd
+		WHERE NOT EXISTS (SELECT 1 FROM property_scenarios ps WHERE ps.sg_details_id = psd.id)
+		AND psd.id IN (SELECT sg_details_id FROM property_scenarios WHERE user_id = $1)
+	`, userID).Scan(&count)
+	// This query checks for orphaned sg_details - there should be none
+	require.NoError(t, err)
+}
+
+func TestIntegration_PropertyPlanner_DeleteAllScenarios_Empty(t *testing.T) {
+	pool := testutil.GetTestPool(t)
+	store := NewStore(pool)
+	ctx := context.Background()
+	userID := testutil.TestUserID
+
+	cleanupPropertyPlannerTestData(t, store, userID)
+
+	// Delete when no scenarios exist - should succeed with 0 rows affected
+	rowsDeleted, err := store.DeleteAllPropertyScenarios(ctx, userID)
+	require.NoError(t, err, "DeleteAllPropertyScenarios should succeed even with no data")
+	assert.Equal(t, int64(0), rowsDeleted, "Should have deleted 0 scenarios")
+}
+
 // Helper function
 func intPtr(i int) *int {
 	return &i

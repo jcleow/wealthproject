@@ -252,6 +252,9 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		cpfHandler.HandleStop(w, r, id)
 	}).Methods("POST")
 
+	// Property planner v2 bulk delete (must be registered before individual routes)
+	router.HandleFunc("/property-planner/scenarios", bulkDeleteHandler.HandleDeleteAllPropertyScenarios).Methods("DELETE")
+
 	// Property planner v2 endpoints (with computed values)
 	propertyPlannerHandler := handlers.NewPropertyPlannerV2Handler(deps.FinStore)
 	router.HandleFunc("/property-planner/scenarios", propertyPlannerHandler.HandleList).Methods("GET")

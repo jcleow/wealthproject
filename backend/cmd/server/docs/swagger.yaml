@@ -3,21 +3,34 @@ definitions:
   common.Frequency:
     enum:
     - one_time
+    - monthly
+    - annual
     - weekly
     - bi_weekly
-    - monthly
     - quarterly
     - semi_annual
-    - annual
     type: string
+    x-enum-comments:
+      FrequencyBiweekly: deprecated
+      FrequencyQuarterly: deprecated
+      FrequencySemiannual: deprecated
+      FrequencyWeekly: deprecated
+    x-enum-descriptions:
+    - ""
+    - ""
+    - ""
+    - deprecated
+    - deprecated
+    - deprecated
+    - deprecated
     x-enum-varnames:
     - FrequencyOneTime
+    - FrequencyMonthly
+    - FrequencyAnnual
     - FrequencyWeekly
     - FrequencyBiweekly
-    - FrequencyMonthly
     - FrequencyQuarterly
     - FrequencySemiannual
-    - FrequencyAnnual
   financial-chat-system_backend_internal_financial_v2_repository.Expense:
     properties:
       amount:
@@ -35,11 +48,20 @@ definitions:
         type: string
       id:
         type: string
+      impactFrequency:
+        description: How often delta adds (NULL for base/override)
+        type: string
+      impactKind:
+        description: NULL = base item, 'delta' = additive, 'override' = replaces
+        type: string
+      name:
+        type: string
       notes:
         type: string
       parentId:
         type: string
-      payee:
+      scenarioEventId:
+        description: Scenario impact fields
         type: string
       sourceLiabilityId:
         description: Link to liability this expense pays down
@@ -87,14 +109,23 @@ definitions:
         type: string
       id:
         type: string
+      impactFrequency:
+        description: How often delta adds (NULL for base/override)
+        type: string
+      impactKind:
+        description: NULL = base item, 'delta' = additive, 'override' = replaces
+        type: string
       incomeType:
         description: CPF-related fields
+        type: string
+      name:
         type: string
       notes:
         type: string
       parentId:
         type: string
-      source:
+      scenarioEventId:
+        description: Scenario impact fields
         type: string
       startDate:
         description: Precise start date (day-level) - now required
@@ -117,11 +148,20 @@ definitions:
         type: string
       id:
         type: string
+      impactFrequency:
+        description: How often delta adds (NULL for base/override)
+        type: string
+      impactKind:
+        description: NULL = base item, 'delta' = additive, 'override' = replaces
+        type: string
       name:
         type: string
       notes:
         type: string
       parentId:
+        type: string
+      scenarioEventId:
+        description: Scenario impact fields
         type: string
       startDate:
         description: Precise start date (day-level)
@@ -142,6 +182,12 @@ definitions:
         type: string
       id:
         type: string
+      impactFrequency:
+        description: How often delta adds (NULL for base/override)
+        type: string
+      impactKind:
+        description: NULL = base item, 'delta' = additive, 'override' = replaces
+        type: string
       interestRateApr:
         type: number
       minimumPayment:
@@ -154,10 +200,28 @@ definitions:
         type: string
       repaymentStrategy:
         type: string
+      scenarioEventId:
+        description: Scenario impact fields
+        type: string
       startDate:
         description: Precise start date (day-level)
         type: string
       updatedAt:
+        type: string
+    type: object
+  financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      myDetailsId:
+        type: string
+      sgDetailsId:
+        type: string
+      updatedAt:
+        type: string
+      userId:
         type: string
     type: object
   financial.ImpactEstimate:
@@ -319,6 +383,36 @@ definitions:
     required:
     - call_id
     type: object
+  handlers.TokenResponse:
+    properties:
+      expires:
+        type: string
+      token:
+        type: string
+      usage:
+        type: string
+      userId:
+        type: string
+    type: object
+  handlers.assetCreateInput:
+    properties:
+      annualGrowthRate:
+        type: string
+      category:
+        type: string
+      currentValue:
+        type: string
+      endDate:
+        type: string
+      growthStrategy:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      startDate:
+        type: string
+    type: object
   handlers.assetInput:
     properties:
       annualGrowthRate:
@@ -363,6 +457,25 @@ definitions:
       startDate:
         type: string
       updateMode:
+        type: string
+    type: object
+  handlers.computedValues:
+    properties:
+      absdAmount:
+        type: string
+      bsdAmount:
+        type: string
+      loanAmount:
+        type: string
+      monthlyPayment:
+        type: string
+      totalAmountPaid:
+        type: string
+      totalInterest:
+        type: string
+      totalStampDuty:
+        type: string
+      totalUpfrontCash:
         type: string
     type: object
   handlers.cpfV2CreateInput:
@@ -417,6 +530,129 @@ definitions:
       updateMode:
         type: string
     type: object
+  handlers.createFeeRequest:
+    properties:
+      amount:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      endDate:
+        type: string
+      feeContext:
+        type: string
+      feeType:
+        type: string
+      frequency:
+        type: string
+      isPercentage:
+        type: boolean
+      startDate:
+        type: string
+    type: object
+  handlers.createGrantRequest:
+    properties:
+      amount:
+        type: string
+      name:
+        type: string
+    type: object
+  handlers.createGrowthPeriodRequest:
+    properties:
+      endYear:
+        type: integer
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      startYear:
+        type: integer
+    type: object
+  handlers.createRatePeriodRequest:
+    properties:
+      fixedRate:
+        type: string
+      fixedYears:
+        type: integer
+      floatingRate:
+        type: string
+      startMonth:
+        type: string
+      termYears:
+        type: integer
+    type: object
+  handlers.createSGDetailsRequest:
+    properties:
+      borrower1CpfAccountId:
+        type: string
+      borrower1IncomeId:
+        type: string
+      borrower2CpfAccountId:
+        type: string
+      borrower2IncomeId:
+        type: string
+      borrowerType:
+        type: string
+      btoKeyCollectionDate:
+        type: string
+      btoLaunchDate:
+        type: string
+      downpaymentCash:
+        type: string
+      downpaymentCpfOa:
+        type: string
+      icon:
+        type: string
+      iconColor:
+        type: string
+      isIncluded:
+        type: boolean
+      loanType:
+        type: string
+      name:
+        type: string
+      otherDebt:
+        type: string
+      propertyCount:
+        type: integer
+      propertyPrice:
+        type: string
+      propertySubtype:
+        type: string
+      propertyType:
+        type: string
+      saleExpectedDate:
+        type: string
+      saleExpectedPrice:
+        type: string
+      valuationPrice:
+        type: string
+    type: object
+  handlers.createScenarioRequest:
+    properties:
+      country:
+        description: '"SG" | "MY"'
+        type: string
+      fees:
+        items:
+          $ref: '#/definitions/handlers.createFeeRequest'
+        type: array
+      grants:
+        items:
+          $ref: '#/definitions/handlers.createGrantRequest'
+        type: array
+      growthPeriods:
+        items:
+          $ref: '#/definitions/handlers.createGrowthPeriodRequest'
+        type: array
+      ratePeriods:
+        items:
+          $ref: '#/definitions/handlers.createRatePeriodRequest'
+        type: array
+      sgDetails:
+        $ref: '#/definitions/handlers.createSGDetailsRequest'
+    type: object
   handlers.expenseCreateInput:
     properties:
       amount:
@@ -431,11 +667,11 @@ definitions:
         type: string
       growthStrategy:
         type: string
+      name:
+        type: string
       notes:
         type: string
       parentId:
-        type: string
-      payee:
         type: string
       sourceLiabilityId:
         type: string
@@ -456,11 +692,11 @@ definitions:
         type: string
       id:
         type: string
+      name:
+        type: string
       notes:
         type: string
       parentId:
-        type: string
-      payee:
         type: string
       sourceLiabilityId:
         type: string
@@ -503,6 +739,29 @@ definitions:
       targetInvestmentId:
         type: string
     type: object
+  handlers.incomeV2CreateInput:
+    properties:
+      amount:
+        type: string
+      category:
+        type: string
+      cpfWageType:
+        type: string
+      endDate:
+        type: string
+      frequency:
+        type: string
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      startDate:
+        type: string
+    type: object
   handlers.incomeV2Input:
     properties:
       amount:
@@ -517,15 +776,34 @@ definitions:
         type: string
       id:
         type: string
+      name:
+        type: string
       notes:
         type: string
       parentId:
         type: string
-      source:
-        type: string
       startDate:
         type: string
       updateMode:
+        type: string
+    type: object
+  handlers.investmentCreateInput:
+    properties:
+      annualGrowthRate:
+        type: string
+      category:
+        type: string
+      currentValue:
+        type: string
+      endDate:
+        type: string
+      growthStrategy:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      startDate:
         type: string
     type: object
   handlers.investmentV2Input:
@@ -631,37 +909,83 @@ definitions:
   handlers.scenarioImpactV2DTO:
     properties:
       amount:
-        type: integer
+        description: Amount as string (e.g., "5000"), converted to decimal internally
+        type: string
       cadence:
-        $ref: '#/definitions/common.Frequency'
+        allOf:
+        - $ref: '#/definitions/common.Frequency'
+        description: Frequency for delta impacts (stored in DB)
+      category:
+        description: Advanced fields for start impacts - used to configure the created
+          financial item
+        type: string
       currency:
+        description: Currency (derived field for response)
         type: string
       endDate:
+        description: End date for the item
+        type: string
+      frequency:
+        description: Frequency for income/expense items
+        type: string
+      growthRate:
+        description: Growth rate (%) - applied based on growth strategy
+        type: number
+      growthStrategy:
+        description: How growth is applied (none, annual_step, compound)
+        type: string
+      id:
+        description: Impact ID (returned by server, sent back for updates)
         type: string
       impactKind:
+        description: 'Required: start, delta, override, stop'
+        type: string
+      interestRate:
+        description: Liability-specific fields for start impacts
+        type: number
+      minimumPayment:
+        description: Min payment for liabilities
+        type: integer
+      name:
+        description: Name for start impacts (creates new item with this name)
         type: string
       notes:
+        description: Notes for the financial item
+        type: string
+      parentId:
+        description: Required for delta/override/stop (ID of existing item to modify)
         type: string
       startDate:
-        type: string
-      targetAssetId:
-        description: Typed target IDs (only one should be set per impact)
-        type: string
-      targetCashAccountId:
-        type: string
-      targetExpenseId:
-        type: string
-      targetId:
-        type: string
-      targetIncomeId:
-        type: string
-      targetInvestmentId:
-        type: string
-      targetLiabilityId:
+        description: Start date for the item
         type: string
       targetType:
-        description: Computed field for convenience (read-only in response)
+        description: 'Required: asset, liability, income, expense, cash, investment'
         type: string
+    type: object
+  handlers.scenarioResponse:
+    properties:
+      computed:
+        $ref: '#/definitions/handlers.computedValues'
+      fees:
+        items:
+          $ref: '#/definitions/repository.PropertyFee'
+        type: array
+      grants:
+        items:
+          $ref: '#/definitions/repository.PropertySGGrant'
+        type: array
+      growthPeriods:
+        items:
+          $ref: '#/definitions/repository.GrowthPeriod'
+        type: array
+      ratePeriods:
+        items:
+          $ref: '#/definitions/repository.LiabilityRatePeriod'
+        type: array
+      scenario:
+        $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario'
+      sgDetails:
+        $ref: '#/definitions/repository.PropertySGDetails'
     type: object
   handlers.stopAllocationDTO:
     properties:
@@ -769,6 +1093,8 @@ definitions:
         type: number
       bankName:
         type: string
+      category:
+        type: string
       createdAt:
         type: string
       endDate:
@@ -778,6 +1104,12 @@ definitions:
         type: string
       id:
         type: string
+      impactFrequency:
+        description: How often delta adds (NULL for base/override)
+        type: string
+      impactKind:
+        description: NULL = base item, 'delta' = additive, 'override' = replaces
+        type: string
       interestRate:
         type: number
       isAccumulator:
@@ -786,6 +1118,12 @@ definitions:
         type: string
       notes:
         type: string
+      parentId:
+        description: For versioning support
+        type: string
+      scenarioEventId:
+        description: Scenario impact fields
+        type: string
       startDate:
         description: Precise start date (day-level)
         type: string
@@ -793,6 +1131,48 @@ definitions:
         type: string
       userId:
         type: string
+    type: object
+  repository.GrowthPeriod:
+    properties:
+      assetId:
+        type: string
+      createdAt:
+        type: string
+      endYear:
+        type: integer
+      growthRate:
+        type: number
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      sgDetailsId:
+        type: string
+      startYear:
+        type: integer
+    type: object
+  repository.LiabilityRatePeriod:
+    properties:
+      createdAt:
+        type: string
+      fixedRate:
+        type: number
+      fixedYears:
+        type: integer
+      floatingRate:
+        type: number
+      id:
+        type: string
+      liabilityId:
+        type: string
+      periodOrder:
+        type: integer
+      sgDetailsId:
+        type: string
+      startMonth:
+        type: string
+      termYears:
+        type: integer
     type: object
   repository.NonCashAsset:
     properties:
@@ -809,16 +1189,126 @@ definitions:
         type: string
       id:
         type: string
+      impactFrequency:
+        description: How often delta adds (NULL for base/override)
+        type: string
+      impactKind:
+        description: NULL = base item, 'delta' = additive, 'override' = replaces
+        type: string
       name:
         type: string
       notes:
         type: string
       parentId:
         type: string
+      scenarioEventId:
+        description: Scenario impact fields
+        type: string
       startDate:
         description: Precise start date (day-level)
         type: string
       updatedAt:
+        type: string
+    type: object
+  repository.PropertyFee:
+    properties:
+      amount:
+        type: number
+      createdAt:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      endDate:
+        type: string
+      feeContext:
+        description: '''purchase'' | ''sale'' | ''recurring'''
+        type: string
+      feeType:
+        type: string
+      frequency:
+        description: '''one_time'' | ''monthly'' | ''yearly'''
+        type: string
+      id:
+        type: string
+      isPercentage:
+        type: boolean
+      myDetailsId:
+        type: string
+      sgDetailsId:
+        type: string
+      startDate:
+        type: string
+    type: object
+  repository.PropertySGDetails:
+    properties:
+      borrower1CpfAccountId:
+        type: string
+      borrower1IncomeId:
+        type: string
+      borrower2CpfAccountId:
+        type: string
+      borrower2IncomeId:
+        type: string
+      borrowerType:
+        type: string
+      btoKeyCollectionDate:
+        type: string
+      btoLaunchDate:
+        type: string
+      createdAt:
+        type: string
+      downpaymentCash:
+        type: number
+      downpaymentCpfOa:
+        type: number
+      icon:
+        type: string
+      iconColor:
+        type: string
+      id:
+        type: string
+      isIncluded:
+        type: boolean
+      loanType:
+        type: string
+      name:
+        type: string
+      otherDebt:
+        type: number
+      propertyCount:
+        type: integer
+      propertyPrice:
+        type: number
+      propertySubtype:
+        type: string
+      propertyType:
+        type: string
+      residency:
+        description: Residency is DERIVED from Borrower1IncomeID → finance_incomes.residency_status
+          (not stored in DB)
+        type: string
+      saleExpectedDate:
+        type: string
+      saleExpectedPrice:
+        type: number
+      updatedAt:
+        type: string
+      valuationPrice:
+        type: number
+    type: object
+  repository.PropertySGGrant:
+    properties:
+      amount:
+        type: number
+      createdAt:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      sgDetailsId:
         type: string
     type: object
   session.ConversationStep:
@@ -1117,6 +1607,23 @@ definitions:
       year:
         type: integer
     type: object
+  timeline_v2.AppliedImpact:
+    properties:
+      amountAnnual:
+        type: number
+      amountMonthly:
+        type: number
+      eventId:
+        type: string
+      growthRate:
+        description: Percentage delta (e.g., 5 for +5%)
+        type: number
+      impactKind:
+        description: delta, override, start, stop
+        type: string
+      notes:
+        type: string
+    type: object
   timeline_v2.CPFAssetResponse:
     properties:
       balance:
@@ -1181,6 +1688,10 @@ definitions:
         type: string
       eventAdjBalance:
         type: number
+      eventImpacts:
+        items:
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
+        type: array
       isAccumulator:
         type: boolean
       itemId:
@@ -1197,11 +1708,23 @@ definitions:
   timeline_v2.ExpenseResponse:
     properties:
       amount:
+        description: Monthly amount
+        type: number
+      annualAmount:
+        description: Sum of 12 monthly amounts (accounts for growth)
         type: number
       category:
         type: string
       eventAdjAmount:
+        description: Monthly amount with scenario impacts
         type: number
+      eventAdjAnnualAmount:
+        description: Sum of 12 monthly amounts with scenario impacts
+        type: number
+      eventImpacts:
+        items:
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
+        type: array
       id:
         type: string
       itemType:
@@ -1209,6 +1732,9 @@ definitions:
       name:
         type: string
       parentId:
+        type: string
+      scenarioEventId:
+        description: If set, this item was created by a start impact
         type: string
       sourceFrequency:
         type: string
@@ -1253,6 +1779,10 @@ definitions:
       allocationSa:
         type: number
       amount:
+        description: Monthly amount
+        type: number
+      annualAmount:
+        description: Sum of 12 monthly amounts (accounts for growth)
         type: number
       category:
         type: string
@@ -1261,7 +1791,15 @@ definitions:
       employerCpf:
         type: number
       eventAdjAmount:
+        description: Monthly amount with scenario impacts
         type: number
+      eventAdjAnnualAmount:
+        description: Sum of 12 monthly amounts with scenario impacts
+        type: number
+      eventImpacts:
+        items:
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
+        type: array
       growthRate:
         type: number
       id:
@@ -1273,6 +1811,9 @@ definitions:
       netTakeHomePay:
         type: number
       parentId:
+        type: string
+      scenarioEventId:
+        description: If set, this item was created by a start impact
         type: string
       sourceFrequency:
         type: string
@@ -1291,6 +1832,10 @@ definitions:
         type: string
       eventAdjBalance:
         type: number
+      eventImpacts:
+        items:
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
+        type: array
       growthRate:
         type: number
       id:
@@ -1300,6 +1845,9 @@ definitions:
       name:
         type: string
       parentId:
+        type: string
+      scenarioEventId:
+        description: If set, this item was created by a start impact
         type: string
       startDate:
         type: string
@@ -1318,6 +1866,10 @@ definitions:
       eventAdjBalance:
         description: Adjusted balance with scenario events
         type: number
+      eventImpacts:
+        items:
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
+        type: array
       id:
         type: string
       itemType:
@@ -1325,6 +1877,9 @@ definitions:
       name:
         type: string
       parentId:
+        type: string
+      scenarioEventId:
+        description: If set, this item was created by a start impact
         type: string
       sourceAmount:
         type: number
@@ -1385,12 +1940,20 @@ definitions:
         description: Savings breakdown
         type: number
       netWorth:
-        description: Other totals
         type: number
       nonCashAssets:
         items:
           $ref: '#/definitions/timeline_v2.NonCashAssetResponse'
         type: array
+      properties:
+        items:
+          $ref: '#/definitions/timeline_v2.PropertySnapshot'
+        type: array
+      totalAssets:
+        description: Other totals
+        type: number
+      totalLiabilities:
+        type: number
       year:
         type: integer
     type: object
@@ -1402,6 +1965,10 @@ definitions:
         type: string
       eventAdjBalance:
         type: number
+      eventImpacts:
+        items:
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
+        type: array
       id:
         type: string
       itemType:
@@ -1410,12 +1977,60 @@ definitions:
         type: string
       parentId:
         type: string
+      scenarioEventId:
+        description: If set, this item was created by a start impact
+        type: string
       startDate:
         type: string
       startMonth:
         type: integer
       startYear:
         type: integer
+    type: object
+  timeline_v2.PropertyFeeSnapshot:
+    properties:
+      amount:
+        description: Computed amount
+        type: number
+      date:
+        description: When the fee is due
+        type: string
+      feeContext:
+        description: '"purchase", "recurring", "sale"'
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  timeline_v2.PropertySnapshot:
+    properties:
+      fees:
+        items:
+          $ref: '#/definitions/timeline_v2.PropertyFeeSnapshot'
+        type: array
+      icon:
+        type: string
+      iconColor:
+        type: string
+      id:
+        type: string
+      mortgageBalance:
+        description: Current/projected outstanding balance
+        type: number
+      name:
+        type: string
+      netEquity:
+        description: PropertyValue - MortgageBalance
+        type: number
+      propertyValue:
+        description: Current/projected value at this point
+        type: number
+      purchaseDate:
+        description: First rate period start_month
+        type: string
+      saleDate:
+        type: string
     type: object
   timeline_v2.TimelineAnnualChartResponse:
     properties:
@@ -1442,6 +2057,10 @@ definitions:
         type: integer
       netWorth:
         type: number
+      totalAssets:
+        type: number
+      totalLiabilities:
+        type: number
     type: object
   timeline_v2.TimelineV2Response:
     properties:
@@ -1455,6 +2074,10 @@ definitions:
       allYearsIndex:
         type: integer
       netWorth:
+        type: number
+      totalAssets:
+        type: number
+      totalLiabilities:
         type: number
       year:
         type: integer
@@ -1472,6 +2095,34 @@ info:
   title: Financial Chat System API
   version: "1.0"
 paths:
+  /dev/token:
+    get:
+      description: Generates a signed JWT for testing. Only available in development
+        mode.
+      parameters:
+      - description: User ID to generate token for
+        in: query
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+      summary: Generate dev auth token
+      tags:
+      - Dev
   /v1/chat:
     post:
       consumes:
@@ -1702,6 +2353,40 @@ paths:
       - SessionID: []
       - AuthToken: []
       summary: List assets (v2)
+      tags:
+      - Assets V2
+    post:
+      consumes:
+      - application/json
+      description: Creates a new non-cash asset for the authenticated user
+      parameters:
+      - description: Asset data
+        in: body
+        name: asset
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.assetCreateInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.NonCashAsset'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Create an asset (v2)
       tags:
       - Assets V2
   /v2/assets/{id}:
@@ -2231,6 +2916,40 @@ paths:
       - SessionID: []
       - AuthToken: []
       summary: List incomes (v2)
+      tags:
+      - Incomes V2
+    post:
+      consumes:
+      - application/json
+      description: Creates a new income for the authenticated user
+      parameters:
+      - description: Income data
+        in: body
+        name: income
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.incomeV2CreateInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Income'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Create an income (v2)
       tags:
       - Incomes V2
   /v2/cashflow/incomes/{id}:
@@ -2886,6 +3605,40 @@ paths:
       summary: List investments (v2)
       tags:
       - Investments V2
+    post:
+      consumes:
+      - application/json
+      description: Creates a new investment for the authenticated user
+      parameters:
+      - description: Investment data
+        in: body
+        name: investment
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.investmentCreateInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Investment'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Create an investment (v2)
+      tags:
+      - Investments V2
   /v2/investments/{id}:
     delete:
       description: Deletes an investment and its descendant versions
@@ -3204,6 +3957,346 @@ paths:
       summary: Stop a liability (v2)
       tags:
       - Liabilities V2
+  /v2/property-planner/scenarios:
+    delete:
+      description: Bulk deletes all property scenarios for the authenticated user
+        in a single query.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete all property scenarios (v2)
+      tags:
+      - Bulk Delete V2
+    get:
+      description: Returns all property scenarios for the authenticated user with
+        computed values
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.scenarioResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: List property scenarios (v2)
+      tags:
+      - Property Planner V2
+    post:
+      consumes:
+      - application/json
+      description: Creates a new property scenario for the authenticated user with
+        computed values
+      parameters:
+      - description: Property scenario data
+        in: body
+        name: scenario
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createScenarioRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.scenarioResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Create a property scenario (v2)
+      tags:
+      - Property Planner V2
+  /v2/property-planner/scenarios/{id}:
+    delete:
+      description: Deletes a property scenario by ID and all related data
+      parameters:
+      - description: Scenario ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete a property scenario (v2)
+      tags:
+      - Property Planner V2
+    get:
+      description: Returns a property scenario by ID with computed values
+      parameters:
+      - description: Scenario ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.scenarioResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Get a property scenario (v2)
+      tags:
+      - Property Planner V2
+    put:
+      consumes:
+      - application/json
+      description: Updates a property scenario by ID with new data and returns computed
+        values
+      parameters:
+      - description: Scenario ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Property scenario data
+        in: body
+        name: scenario
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createScenarioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.scenarioResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Update a property scenario (v2)
+      tags:
+      - Property Planner V2
+  /v2/property-planner/scenarios/{id}/grants:
+    get:
+      description: Returns all grants for a property scenario by ID
+      parameters:
+      - description: Scenario ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/repository.PropertySGGrant'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: List grants for a property scenario (v2)
+      tags:
+      - Property Planner V2
+    post:
+      consumes:
+      - application/json
+      description: Creates a new grant for a property scenario by ID
+      parameters:
+      - description: Scenario ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Grant data
+        in: body
+        name: grant
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createGrantRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/repository.PropertySGGrant'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Create a grant for a property scenario (v2)
+      tags:
+      - Property Planner V2
+  /v2/property-planner/scenarios/{id}/grants/{grantId}:
+    delete:
+      description: Deletes a grant by ID
+      parameters:
+      - description: Scenario ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Grant ID
+        in: path
+        name: grantId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Delete a grant (v2)
+      tags:
+      - Property Planner V2
+    put:
+      consumes:
+      - application/json
+      description: Updates a grant by ID
+      parameters:
+      - description: Scenario ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Grant ID
+        in: path
+        name: grantId
+        required: true
+        type: string
+      - description: Grant data
+        in: body
+        name: grant
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createGrantRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/repository.PropertySGGrant'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionID: []
+      - AuthToken: []
+      summary: Update a grant (v2)
+      tags:
+      - Property Planner V2
   /v2/scenario-events:
     get:
       description: List all scenario events with pagination and filtering
@@ -3441,13 +4534,9 @@ schemes:
 - https
 securityDefinitions:
   AuthToken:
-    description: JWT token for production authentication (HMAC-signed with BACKEND_SHARED_SECRET)
+    description: JWT token for authentication (HMAC-signed with BACKEND_SHARED_SECRET).
+      In dev mode, use GET /api/dev/token?user_id=<uuid> to generate one.
     in: header
     name: X-Auth-Token
-    type: apiKey
-  SessionID:
-    description: User/Session ID for development mode authentication
-    in: header
-    name: X-Session-ID
     type: apiKey
 swagger: "2.0"

@@ -179,3 +179,30 @@ func (h *BulkDeleteV2Handler) HandleDeleteAllCPFAccounts(w http.ResponseWriter, 
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// DELETE /api/v2/property-planner/scenarios
+// HandleDeleteAllPropertyScenarios deletes all property scenarios for the authenticated user.
+// @Summary Delete all property scenarios (v2)
+// @Description Bulk deletes all property scenarios for the authenticated user in a single query.
+// @Tags Bulk Delete V2
+// @Success 204 "No Content"
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/property-planner/scenarios [delete]
+func (h *BulkDeleteV2Handler) HandleDeleteAllPropertyScenarios(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		methodNotAllowed(w)
+		return
+	}
+
+	userCtx := middleware.GetUserContext(r.Context())
+
+	_, err := h.store.DeleteAllPropertyScenarios(r.Context(), userCtx.UserID)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

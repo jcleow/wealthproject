@@ -1351,3 +1351,157 @@ func TestE2E_PropertyPlanner_WithSaleDetails(t *testing.T) {
 	// Just verify scenario was created successfully
 	require.NotEmpty(t, result.Scenario.ID)
 }
+
+// ============================================================================
+// BULK DELETE
+// ============================================================================
+
+func TestE2E_PropertyPlanner_BulkDelete_Success(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+
+	// Create multiple scenarios
+	scenarios := []map[string]interface{}{
+		{
+			"country": "SG",
+			"sgDetails": map[string]interface{}{
+				"name":             "Bulk Delete Test 1",
+				"propertyType":     "hdb",
+				"propertySubtype":  "resale",
+				"propertyPrice":    "500000",
+				"loanType":         "bank",
+				"borrowerType":     "single",
+				"downpaymentCpfOa": "75000",
+				"downpaymentCash":  "50000",
+			},
+			"ratePeriods": []map[string]interface{}{
+				{"startMonth": "2025-06", "termYears": 25, "fixedRate": "2.6", "floatingRate": "3.5"},
+			},
+		},
+		{
+			"country": "SG",
+			"sgDetails": map[string]interface{}{
+				"name":             "Bulk Delete Test 2",
+				"propertyType":     "hdb",
+				"propertySubtype":  "resale",
+				"propertyPrice":    "600000",
+				"loanType":         "hdb",
+				"borrowerType":     "joint",
+				"downpaymentCpfOa": "90000",
+				"downpaymentCash":  "60000",
+			},
+			"ratePeriods": []map[string]interface{}{
+				{"startMonth": "2025-06", "termYears": 25, "fixedRate": "2.6", "floatingRate": "2.6"},
+			},
+		},
+		{
+			"country": "SG",
+			"sgDetails": map[string]interface{}{
+				"name":             "Bulk Delete Test 3",
+				"propertyType":     "private",
+				"propertySubtype":  "resale",
+				"propertyPrice":    "1200000",
+				"loanType":         "bank",
+				"borrowerType":     "single",
+				"downpaymentCpfOa": "200000",
+				"downpaymentCash":  "100000",
+			},
+			"ratePeriods": []map[string]interface{}{
+				{"startMonth": "2025-06", "termYears": 30, "fixedRate": "3.0", "floatingRate": "3.8"},
+			},
+		},
+	}
+
+	// Create all scenarios
+	for _, scenario := range scenarios {
+		resp := ts.Request("POST", propertyPlannerBasePath).
+			WithDefaultAuth().
+			WithJSON(scenario).
+			Do(t)
+		testutil.AssertStatus(t, resp, http.StatusCreated)
+		resp.Body.Close()
+	}
+
+	// Verify they exist
+	listResp := ts.Request("GET", propertyPlannerBasePath).
+		WithDefaultAuth().
+		Do(t)
+	testutil.AssertStatus(t, listResp, http.StatusOK)
+	list := parseListResponse(t, listResp)
+	require.GreaterOrEqual(t, len(list), 3, "Should have at least 3 scenarios before bulk delete")
+
+	// Bulk delete all scenarios
+	deleteResp := ts.Request("DELETE", propertyPlannerBasePath).
+		WithDefaultAuth().
+		Do(t)
+	testutil.AssertNoContent(t, deleteResp)
+
+	// Verify all deleted
+	listResp = ts.Request("GET", propertyPlannerBasePath).
+		WithDefaultAuth().
+		Do(t)
+	testutil.AssertStatus(t, listResp, http.StatusOK)
+	list = parseListResponse(t, listResp)
+	assert.Empty(t, list, "Should have no scenarios after bulk delete")
+}
+
+func TestE2E_PropertyPlanner_BulkDelete_Empty(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+
+	// Bulk delete when no scenarios exist - should succeed
+	deleteResp := ts.Request("DELETE", propertyPlannerBasePath).
+		WithDefaultAuth().
+		Do(t)
+	testutil.AssertNoContent(t, deleteResp)
+}
+
+func TestE2E_PropertyPlanner_BulkDelete_UserIsolation(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+
+	// Create scenario as default user
+	request := map[string]interface{}{
+		"country": "SG",
+		"sgDetails": map[string]interface{}{
+			"name":             "User A Bulk Delete Test",
+			"propertyType":     "hdb",
+			"propertySubtype":  "resale",
+			"propertyPrice":    "500000",
+			"loanType":         "bank",
+			"borrowerType":     "single",
+			"downpaymentCpfOa": "75000",
+			"downpaymentCash":  "50000",
+		},
+		"ratePeriods": []map[string]interface{}{
+			{"startMonth": "2025-06", "termYears": 25, "fixedRate": "2.6", "floatingRate": "3.5"},
+		},
+	}
+
+	createResp := ts.Request("POST", propertyPlannerBasePath).
+		WithDefaultAuth().
+		WithJSON(request).
+		Do(t)
+	testutil.AssertStatus(t, createResp, http.StatusCreated)
+	createResp.Body.Close()
+
+	// Bulk delete as different user
+	deleteResp := ts.Request("DELETE", propertyPlannerBasePath).
+		WithAuth("other-user-00000000-0000-0002").
+		Do(t)
+	testutil.AssertNoContent(t, deleteResp)
+
+	// Original user's scenario should still exist
+	listResp := ts.Request("GET", propertyPlannerBasePath).
+		WithDefaultAuth().
+		Do(t)
+	testutil.AssertStatus(t, listResp, http.StatusOK)
+	list := parseListResponse(t, listResp)
+	assert.GreaterOrEqual(t, len(list), 1, "Default user's scenario should not be deleted by other user")
+}
+
+func TestE2E_PropertyPlanner_BulkDelete_Unauthorized(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+
+	deleteResp := ts.Request("DELETE", propertyPlannerBasePath).
+		WithoutAuth().
+		Do(t)
+	testutil.AssertUnauthorized(t, deleteResp)
+}

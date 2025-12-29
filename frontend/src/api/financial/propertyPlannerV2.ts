@@ -73,6 +73,16 @@ export async function deleteScenario(id: string): Promise<void> {
 }
 
 /**
+ * Delete all property scenarios for the current user
+ */
+export async function deleteAllScenarios(): Promise<void> {
+  return apiClient.delete<void>(
+    `${BASE_PATH}/scenarios`,
+    { baseUrl: V2_BASE_URL }
+  )
+}
+
+/**
  * Toggle scenario inclusion (for timeline projections)
  */
 export async function toggleScenarioIncluded(id: string, isIncluded: boolean): Promise<PropertyScenarioFull> {

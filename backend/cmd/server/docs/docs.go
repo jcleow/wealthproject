@@ -23,6 +23,47 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/dev/token": {
+            "get": {
+                "description": "Generates a signed JWT for testing. Only available in development mode.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Dev"
+                ],
+                "summary": "Generate dev auth token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID to generate token for",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.TokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
         "/v1/chat": {
             "post": {
                 "security": [
@@ -344,6 +385,60 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Creates a new non-cash asset for the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Assets V2"
+                ],
+                "summary": "Create an asset (v2)",
+                "parameters": [
+                    {
+                        "description": "Asset data",
+                        "name": "asset",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.assetCreateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.NonCashAsset"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1177,6 +1272,60 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Creates a new income for the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Incomes V2"
+                ],
+                "summary": "Create an income (v2)",
+                "parameters": [
+                    {
+                        "description": "Income data",
+                        "name": "income",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.incomeV2CreateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Income"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2217,6 +2366,60 @@ const docTemplate = `{
                     }
                 }
             },
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Creates a new investment for the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Investments V2"
+                ],
+                "summary": "Create an investment (v2)",
+                "parameters": [
+                    {
+                        "description": "Investment data",
+                        "name": "investment",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.investmentCreateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Investment"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
             "delete": {
                 "security": [
                     {
@@ -2742,6 +2945,536 @@ const docTemplate = `{
                 }
             }
         },
+        "/v2/property-planner/scenarios": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns all property scenarios for the authenticated user with computed values",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Property Planner V2"
+                ],
+                "summary": "List property scenarios (v2)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.scenarioResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Creates a new property scenario for the authenticated user with computed values",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Property Planner V2"
+                ],
+                "summary": "Create a property scenario (v2)",
+                "parameters": [
+                    {
+                        "description": "Property scenario data",
+                        "name": "scenario",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.createScenarioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.scenarioResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Bulk deletes all property scenarios for the authenticated user in a single query.",
+                "tags": [
+                    "Bulk Delete V2"
+                ],
+                "summary": "Delete all property scenarios (v2)",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/property-planner/scenarios/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns a property scenario by ID with computed values",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Property Planner V2"
+                ],
+                "summary": "Get a property scenario (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Scenario ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.scenarioResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Updates a property scenario by ID with new data and returns computed values",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Property Planner V2"
+                ],
+                "summary": "Update a property scenario (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Scenario ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Property scenario data",
+                        "name": "scenario",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.createScenarioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.scenarioResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Deletes a property scenario by ID and all related data",
+                "tags": [
+                    "Property Planner V2"
+                ],
+                "summary": "Delete a property scenario (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Scenario ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/property-planner/scenarios/{id}/grants": {
+            "get": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Returns all grants for a property scenario by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Property Planner V2"
+                ],
+                "summary": "List grants for a property scenario (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Scenario ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/repository.PropertySGGrant"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Creates a new grant for a property scenario by ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Property Planner V2"
+                ],
+                "summary": "Create a grant for a property scenario (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Scenario ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Grant data",
+                        "name": "grant",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.createGrantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/repository.PropertySGGrant"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/property-planner/scenarios/{id}/grants/{grantId}": {
+            "put": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Updates a grant by ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Property Planner V2"
+                ],
+                "summary": "Update a grant (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Scenario ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Grant ID",
+                        "name": "grantId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Grant data",
+                        "name": "grant",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.createGrantRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/repository.PropertySGGrant"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "SessionID": []
+                    },
+                    {
+                        "AuthToken": []
+                    }
+                ],
+                "description": "Deletes a grant by ID",
+                "tags": [
+                    "Property Planner V2"
+                ],
+                "summary": "Delete a grant (v2)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Scenario ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Grant ID",
+                        "name": "grantId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/v2/scenario-events": {
             "get": {
                 "security": [
@@ -3111,21 +3844,36 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "one_time",
+                "monthly",
+                "annual",
                 "weekly",
                 "bi_weekly",
-                "monthly",
                 "quarterly",
-                "semi_annual",
-                "annual"
+                "semi_annual"
+            ],
+            "x-enum-comments": {
+                "FrequencyBiweekly": "deprecated",
+                "FrequencyQuarterly": "deprecated",
+                "FrequencySemiannual": "deprecated",
+                "FrequencyWeekly": "deprecated"
+            },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "deprecated",
+                "deprecated",
+                "deprecated",
+                "deprecated"
             ],
             "x-enum-varnames": [
                 "FrequencyOneTime",
+                "FrequencyMonthly",
+                "FrequencyAnnual",
                 "FrequencyWeekly",
                 "FrequencyBiweekly",
-                "FrequencyMonthly",
                 "FrequencyQuarterly",
-                "FrequencySemiannual",
-                "FrequencyAnnual"
+                "FrequencySemiannual"
             ]
         },
         "financial-chat-system_backend_internal_financial_v2_repository.Expense": {
@@ -3153,13 +3901,25 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "impactFrequency": {
+                    "description": "How often delta adds (NULL for base/override)",
+                    "type": "string"
+                },
+                "impactKind": {
+                    "description": "NULL = base item, 'delta' = additive, 'override' = replaces",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
                 "notes": {
                     "type": "string"
                 },
                 "parentId": {
                     "type": "string"
                 },
-                "payee": {
+                "scenarioEventId": {
+                    "description": "Scenario impact fields",
                     "type": "string"
                 },
                 "sourceLiabilityId": {
@@ -3230,8 +3990,19 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "impactFrequency": {
+                    "description": "How often delta adds (NULL for base/override)",
+                    "type": "string"
+                },
+                "impactKind": {
+                    "description": "NULL = base item, 'delta' = additive, 'override' = replaces",
+                    "type": "string"
+                },
                 "incomeType": {
                     "description": "CPF-related fields",
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "notes": {
@@ -3240,7 +4011,8 @@ const docTemplate = `{
                 "parentId": {
                     "type": "string"
                 },
-                "source": {
+                "scenarioEventId": {
+                    "description": "Scenario impact fields",
                     "type": "string"
                 },
                 "startDate": {
@@ -3274,6 +4046,14 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "impactFrequency": {
+                    "description": "How often delta adds (NULL for base/override)",
+                    "type": "string"
+                },
+                "impactKind": {
+                    "description": "NULL = base item, 'delta' = additive, 'override' = replaces",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -3281,6 +4061,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "parentId": {
+                    "type": "string"
+                },
+                "scenarioEventId": {
+                    "description": "Scenario impact fields",
                     "type": "string"
                 },
                 "startDate": {
@@ -3311,6 +4095,14 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "impactFrequency": {
+                    "description": "How often delta adds (NULL for base/override)",
+                    "type": "string"
+                },
+                "impactKind": {
+                    "description": "NULL = base item, 'delta' = additive, 'override' = replaces",
+                    "type": "string"
+                },
                 "interestRateApr": {
                     "type": "number"
                 },
@@ -3329,11 +4121,38 @@ const docTemplate = `{
                 "repaymentStrategy": {
                     "type": "string"
                 },
+                "scenarioEventId": {
+                    "description": "Scenario impact fields",
+                    "type": "string"
+                },
                 "startDate": {
                     "description": "Precise start date (day-level)",
                     "type": "string"
                 },
                 "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "myDetailsId": {
+                    "type": "string"
+                },
+                "sgDetailsId": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
                     "type": "string"
                 }
             }
@@ -3578,6 +4397,52 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.TokenResponse": {
+            "type": "object",
+            "properties": {
+                "expires": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "usage": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.assetCreateInput": {
+            "type": "object",
+            "properties": {
+                "annualGrowthRate": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "currentValue": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.assetInput": {
             "type": "object",
             "properties": {
@@ -3644,6 +4509,35 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.computedValues": {
+            "type": "object",
+            "properties": {
+                "absdAmount": {
+                    "type": "string"
+                },
+                "bsdAmount": {
+                    "type": "string"
+                },
+                "loanAmount": {
+                    "type": "string"
+                },
+                "monthlyPayment": {
+                    "type": "string"
+                },
+                "totalAmountPaid": {
+                    "type": "string"
+                },
+                "totalInterest": {
+                    "type": "string"
+                },
+                "totalStampDuty": {
+                    "type": "string"
+                },
+                "totalUpfrontCash": {
                     "type": "string"
                 }
             }
@@ -3720,6 +4614,193 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.createFeeRequest": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "feeContext": {
+                    "type": "string"
+                },
+                "feeType": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "isPercentage": {
+                    "type": "boolean"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.createGrantRequest": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.createGrowthPeriodRequest": {
+            "type": "object",
+            "properties": {
+                "endYear": {
+                    "type": "integer"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "startYear": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.createRatePeriodRequest": {
+            "type": "object",
+            "properties": {
+                "fixedRate": {
+                    "type": "string"
+                },
+                "fixedYears": {
+                    "type": "integer"
+                },
+                "floatingRate": {
+                    "type": "string"
+                },
+                "startMonth": {
+                    "type": "string"
+                },
+                "termYears": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.createSGDetailsRequest": {
+            "type": "object",
+            "properties": {
+                "borrower1CpfAccountId": {
+                    "type": "string"
+                },
+                "borrower1IncomeId": {
+                    "type": "string"
+                },
+                "borrower2CpfAccountId": {
+                    "type": "string"
+                },
+                "borrower2IncomeId": {
+                    "type": "string"
+                },
+                "borrowerType": {
+                    "type": "string"
+                },
+                "btoKeyCollectionDate": {
+                    "type": "string"
+                },
+                "btoLaunchDate": {
+                    "type": "string"
+                },
+                "downpaymentCash": {
+                    "type": "string"
+                },
+                "downpaymentCpfOa": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "iconColor": {
+                    "type": "string"
+                },
+                "isIncluded": {
+                    "type": "boolean"
+                },
+                "loanType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "otherDebt": {
+                    "type": "string"
+                },
+                "propertyCount": {
+                    "type": "integer"
+                },
+                "propertyPrice": {
+                    "type": "string"
+                },
+                "propertySubtype": {
+                    "type": "string"
+                },
+                "propertyType": {
+                    "type": "string"
+                },
+                "saleExpectedDate": {
+                    "type": "string"
+                },
+                "saleExpectedPrice": {
+                    "type": "string"
+                },
+                "valuationPrice": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.createScenarioRequest": {
+            "type": "object",
+            "properties": {
+                "country": {
+                    "description": "\"SG\" | \"MY\"",
+                    "type": "string"
+                },
+                "fees": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.createFeeRequest"
+                    }
+                },
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.createGrantRequest"
+                    }
+                },
+                "growthPeriods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.createGrowthPeriodRequest"
+                    }
+                },
+                "ratePeriods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.createRatePeriodRequest"
+                    }
+                },
+                "sgDetails": {
+                    "$ref": "#/definitions/handlers.createSGDetailsRequest"
+                }
+            }
+        },
         "handlers.expenseCreateInput": {
             "type": "object",
             "properties": {
@@ -3741,13 +4822,13 @@ const docTemplate = `{
                 "growthStrategy": {
                     "type": "string"
                 },
+                "name": {
+                    "type": "string"
+                },
                 "notes": {
                     "type": "string"
                 },
                 "parentId": {
-                    "type": "string"
-                },
-                "payee": {
                     "type": "string"
                 },
                 "sourceLiabilityId": {
@@ -3779,13 +4860,13 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "name": {
+                    "type": "string"
+                },
                 "notes": {
                     "type": "string"
                 },
                 "parentId": {
-                    "type": "string"
-                },
-                "payee": {
                     "type": "string"
                 },
                 "sourceLiabilityId": {
@@ -3851,6 +4932,41 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.incomeV2CreateInput": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "cpfWageType": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.incomeV2Input": {
             "type": "object",
             "properties": {
@@ -3872,19 +4988,48 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "name": {
+                    "type": "string"
+                },
                 "notes": {
                     "type": "string"
                 },
                 "parentId": {
                     "type": "string"
                 },
-                "source": {
-                    "type": "string"
-                },
                 "startDate": {
                     "type": "string"
                 },
                 "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.investmentCreateInput": {
+            "type": "object",
+            "properties": {
+                "annualGrowthRate": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "currentValue": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "startDate": {
                     "type": "string"
                 }
             }
@@ -4045,51 +5190,114 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "amount": {
-                    "type": "integer"
+                    "description": "Amount as string (e.g., \"5000\"), converted to decimal internally",
+                    "type": "string"
                 },
                 "cadence": {
-                    "$ref": "#/definitions/common.Frequency"
+                    "description": "Frequency for delta impacts (stored in DB)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/common.Frequency"
+                        }
+                    ]
+                },
+                "category": {
+                    "description": "Advanced fields for start impacts - used to configure the created financial item",
+                    "type": "string"
                 },
                 "currency": {
+                    "description": "Currency (derived field for response)",
                     "type": "string"
                 },
                 "endDate": {
+                    "description": "End date for the item",
+                    "type": "string"
+                },
+                "frequency": {
+                    "description": "Frequency for income/expense items",
+                    "type": "string"
+                },
+                "growthRate": {
+                    "description": "Growth rate (%) - applied based on growth strategy",
+                    "type": "number"
+                },
+                "growthStrategy": {
+                    "description": "How growth is applied (none, annual_step, compound)",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Impact ID (returned by server, sent back for updates)",
                     "type": "string"
                 },
                 "impactKind": {
+                    "description": "Required: start, delta, override, stop",
+                    "type": "string"
+                },
+                "interestRate": {
+                    "description": "Liability-specific fields for start impacts",
+                    "type": "number"
+                },
+                "minimumPayment": {
+                    "description": "Min payment for liabilities",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "Name for start impacts (creates new item with this name)",
                     "type": "string"
                 },
                 "notes": {
+                    "description": "Notes for the financial item",
+                    "type": "string"
+                },
+                "parentId": {
+                    "description": "Required for delta/override/stop (ID of existing item to modify)",
                     "type": "string"
                 },
                 "startDate": {
-                    "type": "string"
-                },
-                "targetAssetId": {
-                    "description": "Typed target IDs (only one should be set per impact)",
-                    "type": "string"
-                },
-                "targetCashAccountId": {
-                    "type": "string"
-                },
-                "targetExpenseId": {
-                    "type": "string"
-                },
-                "targetId": {
-                    "type": "string"
-                },
-                "targetIncomeId": {
-                    "type": "string"
-                },
-                "targetInvestmentId": {
-                    "type": "string"
-                },
-                "targetLiabilityId": {
+                    "description": "Start date for the item",
                     "type": "string"
                 },
                 "targetType": {
-                    "description": "Computed field for convenience (read-only in response)",
+                    "description": "Required: asset, liability, income, expense, cash, investment",
                     "type": "string"
+                }
+            }
+        },
+        "handlers.scenarioResponse": {
+            "type": "object",
+            "properties": {
+                "computed": {
+                    "$ref": "#/definitions/handlers.computedValues"
+                },
+                "fees": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repository.PropertyFee"
+                    }
+                },
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repository.PropertySGGrant"
+                    }
+                },
+                "growthPeriods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repository.GrowthPeriod"
+                    }
+                },
+                "ratePeriods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repository.LiabilityRatePeriod"
+                    }
+                },
+                "scenario": {
+                    "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario"
+                },
+                "sgDetails": {
+                    "$ref": "#/definitions/repository.PropertySGDetails"
                 }
             }
         },
@@ -4247,6 +5455,9 @@ const docTemplate = `{
                 "bankName": {
                     "type": "string"
                 },
+                "category": {
+                    "type": "string"
+                },
                 "createdAt": {
                     "type": "string"
                 },
@@ -4258,6 +5469,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "impactFrequency": {
+                    "description": "How often delta adds (NULL for base/override)",
+                    "type": "string"
+                },
+                "impactKind": {
+                    "description": "NULL = base item, 'delta' = additive, 'override' = replaces",
                     "type": "string"
                 },
                 "interestRate": {
@@ -4272,6 +5491,14 @@ const docTemplate = `{
                 "notes": {
                     "type": "string"
                 },
+                "parentId": {
+                    "description": "For versioning support",
+                    "type": "string"
+                },
+                "scenarioEventId": {
+                    "description": "Scenario impact fields",
+                    "type": "string"
+                },
                 "startDate": {
                     "description": "Precise start date (day-level)",
                     "type": "string"
@@ -4281,6 +5508,70 @@ const docTemplate = `{
                 },
                 "userId": {
                     "type": "string"
+                }
+            }
+        },
+        "repository.GrowthPeriod": {
+            "type": "object",
+            "properties": {
+                "assetId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "endYear": {
+                    "type": "integer"
+                },
+                "growthRate": {
+                    "type": "number"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "sgDetailsId": {
+                    "type": "string"
+                },
+                "startYear": {
+                    "type": "integer"
+                }
+            }
+        },
+        "repository.LiabilityRatePeriod": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "fixedRate": {
+                    "type": "number"
+                },
+                "fixedYears": {
+                    "type": "integer"
+                },
+                "floatingRate": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "liabilityId": {
+                    "type": "string"
+                },
+                "periodOrder": {
+                    "type": "integer"
+                },
+                "sgDetailsId": {
+                    "type": "string"
+                },
+                "startMonth": {
+                    "type": "string"
+                },
+                "termYears": {
+                    "type": "integer"
                 }
             }
         },
@@ -4306,6 +5597,14 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "impactFrequency": {
+                    "description": "How often delta adds (NULL for base/override)",
+                    "type": "string"
+                },
+                "impactKind": {
+                    "description": "NULL = base item, 'delta' = additive, 'override' = replaces",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -4315,11 +5614,165 @@ const docTemplate = `{
                 "parentId": {
                     "type": "string"
                 },
+                "scenarioEventId": {
+                    "description": "Scenario impact fields",
+                    "type": "string"
+                },
                 "startDate": {
                     "description": "Precise start date (day-level)",
                     "type": "string"
                 },
                 "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.PropertyFee": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "feeContext": {
+                    "description": "'purchase' | 'sale' | 'recurring'",
+                    "type": "string"
+                },
+                "feeType": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "description": "'one_time' | 'monthly' | 'yearly'",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isPercentage": {
+                    "type": "boolean"
+                },
+                "myDetailsId": {
+                    "type": "string"
+                },
+                "sgDetailsId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.PropertySGDetails": {
+            "type": "object",
+            "properties": {
+                "borrower1CpfAccountId": {
+                    "type": "string"
+                },
+                "borrower1IncomeId": {
+                    "type": "string"
+                },
+                "borrower2CpfAccountId": {
+                    "type": "string"
+                },
+                "borrower2IncomeId": {
+                    "type": "string"
+                },
+                "borrowerType": {
+                    "type": "string"
+                },
+                "btoKeyCollectionDate": {
+                    "type": "string"
+                },
+                "btoLaunchDate": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "downpaymentCash": {
+                    "type": "number"
+                },
+                "downpaymentCpfOa": {
+                    "type": "number"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "iconColor": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isIncluded": {
+                    "type": "boolean"
+                },
+                "loanType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "otherDebt": {
+                    "type": "number"
+                },
+                "propertyCount": {
+                    "type": "integer"
+                },
+                "propertyPrice": {
+                    "type": "number"
+                },
+                "propertySubtype": {
+                    "type": "string"
+                },
+                "propertyType": {
+                    "type": "string"
+                },
+                "residency": {
+                    "description": "Residency is DERIVED from Borrower1IncomeID → finance_incomes.residency_status (not stored in DB)",
+                    "type": "string"
+                },
+                "saleExpectedDate": {
+                    "type": "string"
+                },
+                "saleExpectedPrice": {
+                    "type": "number"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "valuationPrice": {
+                    "type": "number"
+                }
+            }
+        },
+        "repository.PropertySGGrant": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sgDetailsId": {
                     "type": "string"
                 }
             }
@@ -4748,6 +6201,31 @@ const docTemplate = `{
                 }
             }
         },
+        "timeline_v2.AppliedImpact": {
+            "type": "object",
+            "properties": {
+                "amountAnnual": {
+                    "type": "number"
+                },
+                "amountMonthly": {
+                    "type": "number"
+                },
+                "eventId": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "description": "Percentage delta (e.g., 5 for +5%)",
+                    "type": "number"
+                },
+                "impactKind": {
+                    "description": "delta, override, start, stop",
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                }
+            }
+        },
         "timeline_v2.CPFAssetResponse": {
             "type": "object",
             "properties": {
@@ -4845,6 +6323,12 @@ const docTemplate = `{
                 "eventAdjBalance": {
                     "type": "number"
                 },
+                "eventImpacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
+                    }
+                },
                 "isAccumulator": {
                     "type": "boolean"
                 },
@@ -4869,13 +6353,29 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "amount": {
+                    "description": "Monthly amount",
+                    "type": "number"
+                },
+                "annualAmount": {
+                    "description": "Sum of 12 monthly amounts (accounts for growth)",
                     "type": "number"
                 },
                 "category": {
                     "type": "string"
                 },
                 "eventAdjAmount": {
+                    "description": "Monthly amount with scenario impacts",
                     "type": "number"
+                },
+                "eventAdjAnnualAmount": {
+                    "description": "Sum of 12 monthly amounts with scenario impacts",
+                    "type": "number"
+                },
+                "eventImpacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
+                    }
                 },
                 "id": {
                     "type": "string"
@@ -4887,6 +6387,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "parentId": {
+                    "type": "string"
+                },
+                "scenarioEventId": {
+                    "description": "If set, this item was created by a start impact",
                     "type": "string"
                 },
                 "sourceFrequency": {
@@ -4953,6 +6457,11 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "amount": {
+                    "description": "Monthly amount",
+                    "type": "number"
+                },
+                "annualAmount": {
+                    "description": "Sum of 12 monthly amounts (accounts for growth)",
                     "type": "number"
                 },
                 "category": {
@@ -4965,7 +6474,18 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "eventAdjAmount": {
+                    "description": "Monthly amount with scenario impacts",
                     "type": "number"
+                },
+                "eventAdjAnnualAmount": {
+                    "description": "Sum of 12 monthly amounts with scenario impacts",
+                    "type": "number"
+                },
+                "eventImpacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
+                    }
                 },
                 "growthRate": {
                     "type": "number"
@@ -4983,6 +6503,10 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "parentId": {
+                    "type": "string"
+                },
+                "scenarioEventId": {
+                    "description": "If set, this item was created by a start impact",
                     "type": "string"
                 },
                 "sourceFrequency": {
@@ -5011,6 +6535,12 @@ const docTemplate = `{
                 "eventAdjBalance": {
                     "type": "number"
                 },
+                "eventImpacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
+                    }
+                },
                 "growthRate": {
                     "type": "number"
                 },
@@ -5024,6 +6554,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "parentId": {
+                    "type": "string"
+                },
+                "scenarioEventId": {
+                    "description": "If set, this item was created by a start impact",
                     "type": "string"
                 },
                 "startDate": {
@@ -5051,6 +6585,12 @@ const docTemplate = `{
                     "description": "Adjusted balance with scenario events",
                     "type": "number"
                 },
+                "eventImpacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
+                    }
+                },
                 "id": {
                     "type": "string"
                 },
@@ -5061,6 +6601,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "parentId": {
+                    "type": "string"
+                },
+                "scenarioEventId": {
+                    "description": "If set, this item was created by a start impact",
                     "type": "string"
                 },
                 "sourceAmount": {
@@ -5150,7 +6694,6 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "netWorth": {
-                    "description": "Other totals",
                     "type": "number"
                 },
                 "nonCashAssets": {
@@ -5158,6 +6701,19 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/timeline_v2.NonCashAssetResponse"
                     }
+                },
+                "properties": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.PropertySnapshot"
+                    }
+                },
+                "totalAssets": {
+                    "description": "Other totals",
+                    "type": "number"
+                },
+                "totalLiabilities": {
+                    "type": "number"
                 },
                 "year": {
                     "type": "integer"
@@ -5176,6 +6732,12 @@ const docTemplate = `{
                 "eventAdjBalance": {
                     "type": "number"
                 },
+                "eventImpacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
+                    }
+                },
                 "id": {
                     "type": "string"
                 },
@@ -5188,6 +6750,10 @@ const docTemplate = `{
                 "parentId": {
                     "type": "string"
                 },
+                "scenarioEventId": {
+                    "description": "If set, this item was created by a start impact",
+                    "type": "string"
+                },
                 "startDate": {
                     "type": "string"
                 },
@@ -5196,6 +6762,71 @@ const docTemplate = `{
                 },
                 "startYear": {
                     "type": "integer"
+                }
+            }
+        },
+        "timeline_v2.PropertyFeeSnapshot": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "Computed amount",
+                    "type": "number"
+                },
+                "date": {
+                    "description": "When the fee is due",
+                    "type": "string"
+                },
+                "feeContext": {
+                    "description": "\"purchase\", \"recurring\", \"sale\"",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "timeline_v2.PropertySnapshot": {
+            "type": "object",
+            "properties": {
+                "fees": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.PropertyFeeSnapshot"
+                    }
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "iconColor": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mortgageBalance": {
+                    "description": "Current/projected outstanding balance",
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "netEquity": {
+                    "description": "PropertyValue - MortgageBalance",
+                    "type": "number"
+                },
+                "propertyValue": {
+                    "description": "Current/projected value at this point",
+                    "type": "number"
+                },
+                "purchaseDate": {
+                    "description": "First rate period start_month",
+                    "type": "string"
+                },
+                "saleDate": {
+                    "type": "string"
                 }
             }
         },
@@ -5236,6 +6867,12 @@ const docTemplate = `{
                 },
                 "netWorth": {
                     "type": "number"
+                },
+                "totalAssets": {
+                    "type": "number"
+                },
+                "totalLiabilities": {
+                    "type": "number"
                 }
             }
         },
@@ -5259,6 +6896,12 @@ const docTemplate = `{
                 "netWorth": {
                     "type": "number"
                 },
+                "totalAssets": {
+                    "type": "number"
+                },
+                "totalLiabilities": {
+                    "type": "number"
+                },
                 "year": {
                     "type": "integer"
                 }
@@ -5267,15 +6910,9 @@ const docTemplate = `{
     },
     "securityDefinitions": {
         "AuthToken": {
-            "description": "JWT token for production authentication (HMAC-signed with BACKEND_SHARED_SECRET)",
+            "description": "JWT token for authentication (HMAC-signed with BACKEND_SHARED_SECRET). In dev mode, use GET /api/dev/token?user_id=\u003cuuid\u003e to generate one.",
             "type": "apiKey",
             "name": "X-Auth-Token",
-            "in": "header"
-        },
-        "SessionID": {
-            "description": "User/Session ID for development mode authentication",
-            "type": "apiKey",
-            "name": "X-Session-ID",
             "in": "header"
         }
     }
