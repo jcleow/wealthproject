@@ -231,8 +231,7 @@ export function CategoryCard({
   return (
     <div className={clsx(
       'flex flex-col overflow-hidden w-full min-w-0 rounded-2xl border border-white/[0.1] hover:border-white/[0.15] bg-[#0a0a0a]/60 transition-all',
-      compact && !isCollapsed ? 'max-h-64' : '',
-      !compact && !isCollapsed ? 'h-full' : ''
+      !isCollapsed ? 'h-full' : ''
     )}>
       <CategoryCardHeader
         category={category}
