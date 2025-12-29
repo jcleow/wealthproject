@@ -259,7 +259,9 @@ export function CategoryCard({
 
         {/* List Items */}
         <div className="scrollbar-hide flex-1 overflow-y-auto px-3 py-2">
-        {hasData || (category === 'asset' && (investmentAssets.length > 0 || cpfAssets.length > 0)) ? (
+        {hasData ||
+          (category === 'asset' && (investmentAssets.length > 0 || cpfAssets.length > 0 || propertySnapshots.length > 0)) ||
+          (category === 'liability' && propertySnapshots.length > 0) ? (
           <>
             {/* Asset items */}
             {category === 'asset' && sortedData.length > 0 && (
