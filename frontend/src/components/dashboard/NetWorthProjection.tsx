@@ -401,6 +401,8 @@ export function NetWorthProjection({
                 onScenarioSelect={onScenarioSelect}
                 markersReady={markersReady}
                 prefersReducedMotion={prefersReducedMotion}
+                propertyMarkers={propertyMarkers}
+                onPropertyScenarioEdit={onPropertyScenarioEdit}
               />
             )}
           </div>

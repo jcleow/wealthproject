@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import clsx from 'clsx'
 import type { TimelineItem, CPFContributionResponseV2, PropertySnapshotV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
@@ -85,6 +85,8 @@ interface CategoryCardProps {
   // Display settings
   groupItemsByCategory?: boolean
   compact?: boolean
+  // Collapse state callback for parent components
+  onCollapseChange?: (isCollapsed: boolean) => void
 }
 
 export function CategoryCard({
@@ -134,9 +136,24 @@ export function CategoryCard({
   onDeleteCpf,
   groupItemsByCategory = true,
   compact = false,
+  onCollapseChange,
 }: CategoryCardProps) {
   // Start collapsed in compact mode (side-by-side layout)
   const [isCollapsed, setIsCollapsed] = useState(compact)
+
+  // Notify parent of initial collapse state when in compact mode
+  useEffect(() => {
+    if (compact) {
+      onCollapseChange?.(true)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Notify parent of collapse state changes
+  const handleToggleCollapse = () => {
+    const newCollapsedState = !isCollapsed
+    setIsCollapsed(newCollapsedState)
+    onCollapseChange?.(newCollapsedState)
+  }
   const config = categoryConfig[category]
 
   // For expenses, split into regular expenses and debt repayments
@@ -226,7 +243,7 @@ export function CategoryCard({
         onAddInvestment={onAddInvestment}
         onAddCpf={onAddCpf}
         isCollapsed={isCollapsed}
-        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+        onToggleCollapse={handleToggleCollapse}
       />
 
       {/* Collapsible content */}

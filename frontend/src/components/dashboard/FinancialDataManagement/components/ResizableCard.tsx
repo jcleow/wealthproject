@@ -7,12 +7,14 @@ import 'react-resizable/css/styles.css'
 const DEFAULT_HEIGHT = 350
 const MIN_HEIGHT = 200
 const MAX_HEIGHT = 800
+const COLLAPSED_HEIGHT = 52 // Height of just the header when collapsed
 const STORAGE_KEY = 'financial-card-heights'
 
 interface ResizableCardProps {
   id: string
   children: ReactNode
   disabled?: boolean
+  isCollapsed?: boolean
 }
 
 // Custom resize handle that works with react-resizable
@@ -55,41 +57,47 @@ function setStoredHeight(id: string, height: number) {
   }
 }
 
-export function ResizableCard({ id, children, disabled = false }: ResizableCardProps) {
+export function ResizableCard({ id, children, disabled = false, isCollapsed = false }: ResizableCardProps) {
   // Initialize with default to match server render, then sync with localStorage
-  const [height, setHeight] = useState(DEFAULT_HEIGHT)
+  const [expandedHeight, setExpandedHeight] = useState(DEFAULT_HEIGHT)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     const storedHeight = getStoredHeights()[id]
     if (storedHeight) {
-      setHeight(storedHeight)
+      setExpandedHeight(storedHeight)
     }
     setMounted(true)
   }, [id])
 
   const handleResizeStop = useCallback(
     (_e: React.SyntheticEvent, data: ResizeCallbackData) => {
-      setHeight(data.size.height)
-      setStoredHeight(id, data.size.height)
+      // Only save expanded height, not collapsed height
+      if (!isCollapsed) {
+        setExpandedHeight(data.size.height)
+        setStoredHeight(id, data.size.height)
+      }
     },
-    [id]
+    [id, isCollapsed]
   )
 
-  // In compact mode, don't use resizable box - just render children directly
+  // In disabled mode, don't use resizable box - just render children directly
   if (disabled) {
     return <div className="group/card relative">{children}</div>
   }
 
+  // When collapsed, use fixed collapsed height; when expanded, use stored/default height
+  const currentHeight = isCollapsed ? COLLAPSED_HEIGHT : expandedHeight
+
   return (
     <ResizableBox
-      height={height}
+      height={currentHeight}
       width={10000}
       axis="y"
-      minConstraints={[10000, MIN_HEIGHT]}
-      maxConstraints={[10000, MAX_HEIGHT]}
+      minConstraints={[10000, isCollapsed ? COLLAPSED_HEIGHT : MIN_HEIGHT]}
+      maxConstraints={[10000, isCollapsed ? COLLAPSED_HEIGHT : MAX_HEIGHT]}
       onResizeStop={handleResizeStop}
-      resizeHandles={['s']}
+      resizeHandles={isCollapsed ? [] : ['s']} // Hide resize handle when collapsed
       handle={<ResizeHandle />}
       className={mounted ? '!w-full' : '!w-full transition-none'}
     >

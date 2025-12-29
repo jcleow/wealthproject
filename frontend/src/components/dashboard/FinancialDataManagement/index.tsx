@@ -258,6 +258,14 @@ export function FinancialDataManagement({
   })
   const [expandedScenarioItems, setExpandedScenarioItems] = useState<Set<string>>(new Set())
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  // Track collapse state for each category card (for ResizableCard height management)
+  const [cardCollapseStates, setCardCollapseStates] = useState<Record<FinancialCategory, boolean>>({
+    asset: compact,
+    income: compact,
+    liability: compact,
+    expense: compact,
+    investment: compact,
+  })
   const [allocationModalState, setAllocationModalState] = useState<{
     isOpen: boolean
     incomeId: string
@@ -905,7 +913,7 @@ export function FinancialDataManagement({
                 compact ? 'grid-cols-1 gap-3' : 'gap-4 lg:grid-cols-2'
               )}>
                 {(Object.keys(categoryConfig) as FinancialCategory[]).filter((key) => key !== 'investment').map((key) => (
-                  <ResizableCard key={key} id={key} disabled={compact}>
+                  <ResizableCard key={key} id={key} isCollapsed={cardCollapseStates[key]}>
                   <CategoryCard
                     category={key}
                     data={getDataForCategory(key)}
@@ -959,6 +967,9 @@ export function FinancialDataManagement({
                     onDeleteCpf={key === 'asset' ? handleDeleteCpf : undefined}
                     groupItemsByCategory={groupItemsByCategory}
                     compact={compact}
+                    onCollapseChange={(isCollapsed) =>
+                      setCardCollapseStates((prev) => ({ ...prev, [key]: isCollapsed }))
+                    }
                   />
                   </ResizableCard>
                 ))}
