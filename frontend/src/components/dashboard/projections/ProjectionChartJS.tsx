@@ -119,17 +119,22 @@ export function ProjectionChartJS({
 
   // Pre-load icons when markers change
   useEffect(() => {
-    const iconNames = scenarioMarkers.flatMap((marker) =>
+    const scenarioIconNames = scenarioMarkers.flatMap((marker) =>
       marker.events.map((event) => event.displayIcon).filter(Boolean)
     ) as string[]
 
-    if (iconNames.length > 0) {
+    // Also preload property marker icons
+    const propertyIconNames = propertyMarkers.map((marker) => marker.icon).filter(Boolean)
+
+    const allIconNames = [...scenarioIconNames, ...propertyIconNames]
+
+    if (allIconNames.length > 0) {
       setIconsLoaded(false)
-      preloadIcons(iconNames).then(() => setIconsLoaded(true))
+      preloadIcons(allIconNames).then(() => setIconsLoaded(true))
     } else {
       setIconsLoaded(true)
     }
-  }, [scenarioMarkers])
+  }, [scenarioMarkers, propertyMarkers])
 
   // Markers are shown immediately (opacity 1) so they animate with the chart line
   // They only need icons to be loaded first

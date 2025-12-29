@@ -103,8 +103,16 @@ func (ts *TestServer) Request(method, path string) *RequestBuilder {
 func CleanupAllTables(ctx context.Context, pool *pgxpool.Pool) error {
 	// Order matters due to foreign key constraints
 	tables := []string{
+		// Property planner tables (order matters for FK constraints)
+		"liability_rate_periods",
+		"growth_periods",
+		"property_fees",
+		"property_scenarios",
+		"property_sg_details",
+		// Scenario events
 		"scenario_event_impacts",
 		"scenario_events",
+		// Financial tables
 		"income_allocations",
 		"finance_expenses",
 		"finance_incomes",

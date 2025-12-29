@@ -15,6 +15,9 @@ export function usePropertyScenarioMarkers(
   const { data: scenarios } = usePropertyPlannerV2ScenariosQuery()
 
   return useMemo(() => {
+    // Debug logging
+    console.log('[PropertyMarkers] Scenarios:', scenarios?.length ?? 0, 'DisplayData:', displayData.length, 'Resolution:', dataResolution)
+
     if (!scenarios || scenarios.length === 0 || displayData.length === 0) {
       return []
     }
@@ -23,11 +26,19 @@ export function usePropertyScenarioMarkers(
 
     for (const scenario of scenarios) {
       const sgDetails = scenario.sgDetails
-      if (!sgDetails) continue
+      if (!sgDetails) {
+        console.log('[PropertyMarkers] Skipping scenario - no sgDetails:', scenario.scenario.id)
+        continue
+      }
 
       // Get purchase date from rate periods (first period's startMonth)
       const purchaseDate = scenario.ratePeriods?.[0]?.startMonth
-      if (!purchaseDate) continue
+      if (!purchaseDate) {
+        console.log('[PropertyMarkers] Skipping scenario - no purchaseDate:', scenario.scenario.id, 'ratePeriods:', scenario.ratePeriods)
+        continue
+      }
+
+      console.log('[PropertyMarkers] Processing scenario:', sgDetails.name, 'purchaseDate:', purchaseDate)
 
       // Parse purchase date (YYYY-MM format)
       const [yearStr, monthStr] = purchaseDate.split('-')
@@ -57,7 +68,12 @@ export function usePropertyScenarioMarkers(
       }
 
       // Skip if we couldn't find a matching data point (outside chart range)
-      if (yearIndex === null || netWorth === null) continue
+      if (yearIndex === null || netWorth === null) {
+        console.log('[PropertyMarkers] No matching point found for year:', purchaseYear, 'month:', purchaseMonth, 'displayData years:', displayData.slice(0, 5).map(p => p.calendarYear))
+        continue
+      }
+
+      console.log('[PropertyMarkers] Found match at yearIndex:', yearIndex, 'netWorth:', netWorth)
 
       // Build nested milestones
       const nestedMilestones: PropertyMilestone[] = []
@@ -100,6 +116,7 @@ export function usePropertyScenarioMarkers(
       })
     }
 
+    console.log('[PropertyMarkers] Total markers created:', markers.length, markers)
     return markers
   }, [scenarios, displayData, dataResolution])
 }
