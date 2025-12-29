@@ -576,14 +576,14 @@ export function useLoadSampleDataMutation() {
               startMonth: btoKeyCollectionDate,
               termYears: 25,
               fixedYears: 0, // HDB loan has no fixed period
-              fixedRate: '0.026', // HDB concessionary rate 2.6%
+              fixedRate: '2.6', // HDB concessionary rate 2.6%
               floatingRate: '0.026',
             },
           ],
           growthPeriods: [
             {
               startYear: 0,
-              growthRate: '0.03', // 3% annual appreciation
+              growthRate: '3.0', // 3% annual appreciation
               growthStrategy: 'compound_monthly',
             },
           ],
@@ -595,6 +595,8 @@ export function useLoadSampleDataMutation() {
               amount: '50000',
               isPercentage: false,
               frequency: 'one_time',
+              startDate: btoKeyCollectionDate,
+              endDate: btoKeyCollectionDate, // One-time fee occurs at key collection
             },
           ],
         }
