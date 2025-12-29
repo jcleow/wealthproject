@@ -149,6 +149,17 @@ export function FinancialWorkspace({
     return () => window.removeEventListener('open-scenario-event', handleOpenScenarioEvent as EventListener)
   }, [])
 
+  // Listen for open-property-scenario from financial data cards
+  useEffect(() => {
+    const handleOpenPropertyScenario = (e: CustomEvent<{ scenarioId: string }>) => {
+      if (e.detail?.scenarioId && onPropertyScenarioEdit) {
+        onPropertyScenarioEdit(e.detail.scenarioId)
+      }
+    }
+    window.addEventListener('open-property-scenario', handleOpenPropertyScenario as EventListener)
+    return () => window.removeEventListener('open-property-scenario', handleOpenPropertyScenario as EventListener)
+  }, [onPropertyScenarioEdit])
+
   const handleCreateScenario = useCallback(() => {
     setScenarioEventToEdit(null)
     setIsScenarioModalOpen(true)

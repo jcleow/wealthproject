@@ -66,6 +66,8 @@ type PropertyFee struct {
 	Frequency    string          `json:"frequency"` // 'one_time' | 'monthly' | 'yearly'
 	StartDate    *string         `json:"startDate"`
 	EndDate      *string         `json:"endDate"`
+	Icon         string          `json:"icon"`
+	IconColor    string          `json:"iconColor"`
 	CreatedAt    time.Time       `json:"createdAt"`
 }
 
@@ -160,6 +162,8 @@ type CreateFeeInput struct {
 	Frequency    string          `json:"frequency"`
 	StartDate    *string         `json:"startDate"`
 	EndDate      *string         `json:"endDate"`
+	Icon         *string         `json:"icon"`
+	IconColor    *string         `json:"iconColor"`
 }
 
 // CreateGrowthPeriodInput is the input for creating a growth period
@@ -348,16 +352,27 @@ func (s *Store) createPropertyFees(ctx context.Context, tx pgx.Tx, sgDetailsID s
 			frequency = "one_time"
 		}
 
+		// Default icon values
+		icon := "receipt"
+		if fee.Icon != nil && *fee.Icon != "" {
+			icon = *fee.Icon
+		}
+
+		iconColor := "#64748b"
+		if fee.IconColor != nil && *fee.IconColor != "" {
+			iconColor = *fee.IconColor
+		}
+
 		_, err := tx.Exec(ctx, `
 			INSERT INTO property_fees (
 				sg_details_id, fee_context, fee_type, description,
 				amount, currency, is_percentage, frequency,
-				start_date, end_date
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+				start_date, end_date, icon, icon_color
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		`,
 			sgDetailsID, fee.FeeContext, fee.FeeType, fee.Description,
 			fee.Amount, currency, isPercentage, frequency,
-			fee.StartDate, fee.EndDate,
+			fee.StartDate, fee.EndDate, icon, iconColor,
 		)
 		if err != nil {
 			return fmt.Errorf("insert fee: %w", err)
@@ -541,7 +556,7 @@ func (s *Store) getPropertyFees(ctx context.Context, sgDetailsID string) ([]Prop
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, sg_details_id, my_details_id, fee_context, fee_type, description,
 			amount, currency, is_percentage, frequency,
-			start_date, end_date, created_at
+			start_date, end_date, icon, icon_color, created_at
 		FROM property_fees
 		WHERE sg_details_id = $1
 		ORDER BY created_at
@@ -557,7 +572,7 @@ func (s *Store) getPropertyFees(ctx context.Context, sgDetailsID string) ([]Prop
 		err := rows.Scan(
 			&fee.ID, &fee.SGDetailsID, &fee.MYDetailsID, &fee.FeeContext, &fee.FeeType, &fee.Description,
 			&fee.Amount, &fee.Currency, &fee.IsPercentage, &fee.Frequency,
-			&fee.StartDate, &fee.EndDate, &fee.CreatedAt,
+			&fee.StartDate, &fee.EndDate, &fee.Icon, &fee.IconColor, &fee.CreatedAt,
 		)
 		if err != nil {
 			return nil, err

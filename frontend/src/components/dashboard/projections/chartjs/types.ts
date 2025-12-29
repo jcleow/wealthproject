@@ -109,6 +109,8 @@ export interface PropertyMilestone {
   label: string
   icon: string
   iconColor: string
+  /** Amount for fee milestones (optional, displayed in popover) */
+  amount?: string
 }
 
 /**

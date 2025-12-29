@@ -5,11 +5,10 @@ import { createPortal } from 'react-dom'
 import * as LucideIcons from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { PropertyMarkerData, PropertyMilestone } from './chartjs/types'
+import { numericStyles } from '@/lib/utils'
+import { formatCurrency } from '@/lib/format'
 
 const EditIcon = LucideIcons.Pencil as ComponentType<{ className?: string }>
-const KeyIcon = LucideIcons.Key as ComponentType<{ className?: string }>
-const BanknoteIcon = LucideIcons.Banknote as ComponentType<{ className?: string }>
-const ReceiptIcon = LucideIcons.Receipt as ComponentType<{ className?: string }>
 
 // Build a map of icon name to component for dynamic rendering
 const ICON_MAP: Record<string, ComponentType<{ className?: string; style?: React.CSSProperties }>> = {}
@@ -29,16 +28,28 @@ function getIconComponent(iconName: string): ComponentType<{ className?: string;
   return ICON_MAP[iconName] || LucideIcons.HelpCircle as ComponentType<{ className?: string; style?: React.CSSProperties }>
 }
 
-function getMilestoneIcon(type: PropertyMilestone['type']): ComponentType<{ className?: string }> {
-  switch (type) {
+/**
+ * Get the icon component for a milestone based on its icon field or fallback to type
+ */
+function getMilestoneIconComponent(milestone: PropertyMilestone): ComponentType<{ className?: string; style?: React.CSSProperties }> {
+  // First, try to get the icon from the milestone's icon field
+  if (milestone.icon) {
+    const dynamicIcon = getIconComponent(milestone.icon)
+    if (dynamicIcon !== LucideIcons.HelpCircle) {
+      return dynamicIcon
+    }
+  }
+
+  // Fallback based on type
+  switch (milestone.type) {
     case 'purchase':
-      return KeyIcon
+      return LucideIcons.Key as ComponentType<{ className?: string; style?: React.CSSProperties }>
     case 'sale':
-      return BanknoteIcon
+      return LucideIcons.Banknote as ComponentType<{ className?: string; style?: React.CSSProperties }>
     case 'fee':
-      return ReceiptIcon
+      return LucideIcons.Receipt as ComponentType<{ className?: string; style?: React.CSSProperties }>
     default:
-      return KeyIcon
+      return LucideIcons.Key as ComponentType<{ className?: string; style?: React.CSSProperties }>
   }
 }
 
@@ -185,7 +196,7 @@ export function PropertyMarkerPopover({
           ) : (
             <div className="space-y-0.5">
               {marker.nestedMilestones.map((milestone) => {
-                const MilestoneIcon = getMilestoneIcon(milestone.type)
+                const MilestoneIcon = getMilestoneIconComponent(milestone)
                 return (
                   <button
                     key={milestone.id}
@@ -197,10 +208,18 @@ export function PropertyMarkerPopover({
                       className="flex h-7 w-7 items-center justify-center rounded-md"
                       style={{ backgroundColor: `${milestone.iconColor}15` }}
                     >
-                      <MilestoneIcon className="h-3.5 w-3.5" />
+                      <MilestoneIcon
+                        className="h-3.5 w-3.5"
+                        style={{ color: milestone.iconColor }}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-slate-200">{milestone.label}</p>
+                      {milestone.amount && (
+                        <p className={numericStyles.muted}>
+                          {formatCurrency(parseFloat(milestone.amount))}
+                        </p>
+                      )}
                     </div>
                     <span className="text-[10px] font-medium text-slate-500">
                       {formatMilestoneDate(milestone.date)}

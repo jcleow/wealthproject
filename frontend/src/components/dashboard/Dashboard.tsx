@@ -10,6 +10,7 @@ import { ChatFloatingLauncher } from './ChatFloatingLauncher'
 import { FinancialDataSection } from './FinancialDataSection'
 import { FinancialWorkspace } from './FinancialWorkspace'
 import { MiniChart } from './MiniChart'
+import { ResizableChartSection } from './ResizableChartSection'
 import { CPFSimulationView } from '../cpf/CPFSimulationView'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
 import { LayoutPreviewModal } from '@/components/modals/LayoutPreviewModal'
@@ -382,15 +383,8 @@ bg-[#0a0a0a]/80`}>
             ) : (
               /* Stacked layout (default) */
               <>
-                {/* Top workspace with chart */}
-                <div
-                  ref={chartRef}
-                  className={`flex flex-col overflow-hidden
-min-h-[60vh] min-w-0
-rounded-2xl
-bg-transparent
-shrink-0`}
-                >
+                {/* Top workspace with chart - resizable */}
+                <ResizableChartSection chartRef={chartRef}>
                   <FinancialWorkspace
                     selectedYear={timeline.selectedYear}
                     onSelectYear={timeline.setSelectedYear}
@@ -411,7 +405,7 @@ shrink-0`}
                     onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
                     onPropertyScenarioEdit={handlePropertyScenarioEdit}
                   />
-                </div>
+                </ResizableChartSection>
 
                 {/* Financial data cards + Tax Mode Panel */}
                 <FinancialDataSection

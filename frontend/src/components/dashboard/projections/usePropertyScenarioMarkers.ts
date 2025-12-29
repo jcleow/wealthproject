@@ -100,8 +100,43 @@ export function usePropertyScenarioMarkers(
         })
       }
 
-      // Fee milestones (for fees with specific dates and icons - recurring fees could be added here)
-      // For now, we don't have icons on fees, but structure is ready for expansion
+      // Fee milestones
+      if (scenario.fees && scenario.fees.length > 0) {
+        for (const fee of scenario.fees) {
+          // Determine the fee date:
+          // - For purchase fees: use startDate if set, otherwise use purchaseDate
+          // - For sale fees: use startDate if set, otherwise use saleExpectedDate
+          // - For recurring fees: use startDate
+          let feeDate: string | null = null
+
+          if (fee.startDate) {
+            feeDate = fee.startDate
+          } else if (fee.feeContext === 'purchase' && purchaseDate) {
+            feeDate = purchaseDate
+          } else if (fee.feeContext === 'sale' && sgDetails.saleExpectedDate) {
+            feeDate = sgDetails.saleExpectedDate
+          }
+
+          // Skip fees without a valid date
+          if (!feeDate) {
+            console.log('[PropertyMarkers] Skipping fee - no date:', fee.id, fee.feeType)
+            continue
+          }
+
+          // Use description as label if available, otherwise capitalize fee type
+          const label = fee.description ?? fee.feeType.charAt(0).toUpperCase() + fee.feeType.slice(1).replace(/_/g, ' ')
+
+          nestedMilestones.push({
+            id: fee.id,
+            type: 'fee',
+            date: feeDate,
+            label,
+            icon: fee.icon,
+            iconColor: fee.iconColor,
+            amount: fee.amount,
+          })
+        }
+      }
 
       markers.push({
         yearIndex,

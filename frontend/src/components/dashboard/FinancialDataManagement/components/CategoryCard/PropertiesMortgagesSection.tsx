@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { CollapsibleSection, CollapsibleItem, useCollapsibleSelection } from '../CollapsibleSection'
 import type { PropertySnapshotV2 } from '@/types/timeline'
 import { parseDecimal } from '../../converters'
@@ -16,6 +17,10 @@ export function PropertiesMortgagesSection({
   const total = propertiesWithMortgage.reduce((sum, p) => sum + parseDecimal(p.mortgageBalance), 0)
   const { selectedId, handleSelect, sectionRef } = useCollapsibleSelection()
 
+  const handleOpenPropertyScenario = useCallback((scenarioId: string) => {
+    window.dispatchEvent(new CustomEvent('open-property-scenario', { detail: { scenarioId } }))
+  }, [])
+
   if (propertiesWithMortgage.length === 0) {
     return null
   }
@@ -30,7 +35,10 @@ export function PropertiesMortgagesSection({
         amount={parseDecimal(property.mortgageBalance)}
         isSelected={selectedId === propertyId}
         onSelect={handleSelect}
-        // Property items are read-only from timeline view - edit via Property Planner modal
+        icon={property.icon ?? 'home'}
+        iconColor={property.iconColor ?? '#6366f1'}
+        tooltipLabel="Open property scenario"
+        onIconClick={() => handleOpenPropertyScenario(property.id)}
       />
     )
   })

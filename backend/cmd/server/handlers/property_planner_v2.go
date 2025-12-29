@@ -75,6 +75,8 @@ type createFeeRequest struct {
 	Frequency    string  `json:"frequency"`
 	StartDate    *string `json:"startDate"`
 	EndDate      *string `json:"endDate"`
+	Icon         *string `json:"icon"`
+	IconColor    *string `json:"iconColor"`
 }
 
 type createGrowthPeriodRequest struct {
@@ -536,6 +538,8 @@ func (h *PropertyPlannerV2Handler) convertFee(req createFeeRequest) (repo.Create
 		Frequency:    req.Frequency,
 		StartDate:    req.StartDate,
 		EndDate:      req.EndDate,
+		Icon:         req.Icon,
+		IconColor:    req.IconColor,
 	}, nil
 }
 

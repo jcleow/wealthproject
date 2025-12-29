@@ -81,6 +81,8 @@ export interface PropertyFee {
   frequency: FeeFrequency
   startDate?: string | null
   endDate?: string | null
+  icon: string
+  iconColor: string
   createdAt: string
 }
 
@@ -305,6 +307,8 @@ export interface CreateFeeInput {
   frequency?: FeeFrequency
   startDate?: string
   endDate?: string
+  icon?: string
+  iconColor?: string
 }
 
 export interface CreateGrowthPeriodInput {
