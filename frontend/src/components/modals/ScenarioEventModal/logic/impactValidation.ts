@@ -64,6 +64,13 @@ export function validateScenarioEvent({
           error: `Impact ${i + 1}: Please provide a name for the new ${getTargetTypeLabel(impact.targetType)}.`,
         }
       }
+      // Require personId for income start impacts
+      if (impact.targetType === 'income' && !impact.personId) {
+        return {
+          valid: false,
+          error: `Impact ${i + 1}: Please select a person for the new income.`,
+        }
+      }
     } else {
       // Require an item to be selected (only if items exist)
       const selected = selectedItemId[i]

@@ -274,6 +274,14 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		return repo.ScenarioImpact{}, err
 	}
 
+	// Validate personId is required for income start impacts
+	impactKind := strings.ToLower(strings.TrimSpace(in.ImpactKind))
+	if targetType == "income" && impactKind == scenario.ImpactKindStart {
+		if in.PersonID == nil || strings.TrimSpace(*in.PersonID) == "" {
+			return repo.ScenarioImpact{}, errors.New("personId is required for income start impacts")
+		}
+	}
+
 	// Build impact with resolved target info
 	impact := repo.ScenarioImpact{
 		ImpactKind: ik,

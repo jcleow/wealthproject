@@ -86,8 +86,8 @@ func (h *IncomeV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Name == "" || input.Amount == "" || input.Frequency == "" || input.Category == "" {
-		badRequest(w, errMissingFields("name, amount, frequency, category"))
+	if input.Name == "" || input.Amount == "" || input.Frequency == "" || input.Category == "" || input.PersonID == "" {
+		badRequest(w, errMissingFields("name, amount, frequency, category, personId"))
 		return
 	}
 
