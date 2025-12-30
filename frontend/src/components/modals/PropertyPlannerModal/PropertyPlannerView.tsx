@@ -108,11 +108,10 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
   // Map rate periods to loan segments
   const loanSegments: LoanSegment[] = apiScenario.ratePeriods.map((rp) => ({
     id: rp.id,
-    startMonth: rp.startMonth,
+    startMonth: rp.startDate.slice(0, 7), // Extract YYYY-MM from ISO date
     termYears: rp.termYears,
-    fixedYears: rp.fixedYears,
-    fixedRate: parseFloat(rp.fixedRate),
-    floatingRate: parseFloat(rp.floatingRate),
+    rate: parseFloat(rp.rate),
+    rateType: rp.rateType,
   }))
 
   // Map fees
@@ -151,10 +150,10 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     downpaymentCpfOa: parseFloat(sgDetails.downpaymentCpfOa),
     downpaymentCash: parseFloat(sgDetails.downpaymentCash),
     loanTermYears: ratePeriod?.termYears ?? 25,
-    loanStartMonth: ratePeriod?.startMonth ?? new Date().toISOString().slice(0, 7),
-    fixedYears: ratePeriod?.fixedYears ?? 0,
-    fixedRate: parseFloat(ratePeriod?.fixedRate ?? '2.6'),
-    floatingRate: parseFloat(ratePeriod?.floatingRate ?? '3.5'),
+    loanStartMonth: ratePeriod?.startDate?.slice(0, 7) ?? new Date().toISOString().slice(0, 7),
+    fixedYears: 0, // Deprecated - use loanSegments with rateType
+    fixedRate: parseFloat(ratePeriod?.rate ?? '2.6'),
+    floatingRate: parseFloat(ratePeriod?.rate ?? '2.6'), // Same as fixedRate for backwards compat
     householdIncome: 0, // Will be derived from income IDs
     otherDebt: parseFloat(sgDetails.otherDebt),
     borrowerType: sgDetails.borrowerType,
@@ -175,7 +174,7 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
   }
 
   const saleInputs: SaleInputs = {
-    expectedSaleDate: sgDetails.saleExpectedDate || getDefaultSaleDate(ratePeriod?.startMonth || new Date().toISOString().slice(0, 7)),
+    expectedSaleDate: sgDetails.saleExpectedDate || getDefaultSaleDate(ratePeriod?.startDate?.slice(0, 7) || new Date().toISOString().slice(0, 7)),
     expectedSalePrice: parseFloat(sgDetails.saleExpectedPrice || String(parseFloat(sgDetails.propertyPrice) * 1.3)),
     fees: saleFees.length > 0 ? saleFees : DEFAULT_SALE_FEES.map(f => ({ ...f })),
   }
@@ -268,16 +267,14 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
       ? scenario.inputs.loanSegments.map(ls => ({
           startMonth: ls.startMonth,
           termYears: ls.termYears,
-          fixedYears: ls.fixedYears,
-          fixedRate: String(ls.fixedRate),
-          floatingRate: String(ls.floatingRate),
+          rate: String(ls.rate),
+          rateType: ls.rateType,
         }))
       : [{
           startMonth: scenario.inputs.loanStartMonth,
           termYears: scenario.inputs.loanTermYears,
-          fixedYears: scenario.inputs.fixedYears,
-          fixedRate: String(scenario.inputs.fixedRate),
-          floatingRate: String(scenario.inputs.floatingRate),
+          rate: String(scenario.inputs.fixedRate),
+          rateType: 'fixed' as const,
         }],
   }
 }

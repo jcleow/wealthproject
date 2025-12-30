@@ -31,8 +31,8 @@ export function usePropertyScenarioMarkers(
         continue
       }
 
-      // Get purchase date from rate periods (first period's startMonth)
-      const purchaseDate = scenario.ratePeriods?.[0]?.startMonth
+      // Get purchase date from rate periods (first period's startDate)
+      const purchaseDate = scenario.ratePeriods?.[0]?.startDate?.slice(0, 7)
       if (!purchaseDate) {
         console.log('[PropertyMarkers] Skipping scenario - no purchaseDate:', scenario.scenario.id, 'ratePeriods:', scenario.ratePeriods)
         continue

@@ -122,17 +122,15 @@ export const SALE_FORM_STEPS: SaleFormStepConfig[] = [
 export function createDefaultLoanSegment(
   startMonth: string,
   termYears: number,
-  fixedYears: number,
-  fixedRate: number,
-  floatingRate: number
+  rate: number,
+  rateType: 'fixed' | 'floating' = 'fixed'
 ): LoanSegment {
   return {
     id: 'initial',
     startMonth,
     termYears,
-    fixedYears,
-    fixedRate,
-    floatingRate,
+    rate,
+    rateType,
   }
 }
 
@@ -168,7 +166,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
-    loanSegments: [createDefaultLoanSegment('2025-06', 25, 0, 2.6, 2.6)],
+    loanSegments: [createDefaultLoanSegment('2025-06', 25, 2.6, 'fixed')],
     staggeredDownpayment: null,
   },
   'hdb-bto': {
@@ -198,7 +196,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
-    loanSegments: [createDefaultLoanSegment('2029-06', 25, 0, 2.6, 2.6)],
+    loanSegments: [createDefaultLoanSegment('2029-06', 25, 2.6, 'fixed')],
     staggeredDownpayment: createDefaultStaggeredDownpayment('2025-06', '2029-06'),
   },
   'ec': {
@@ -228,7 +226,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
-    loanSegments: [createDefaultLoanSegment('2028-06', 30, 3, 3.0, 4.0)],
+    loanSegments: [createDefaultLoanSegment('2028-06', 30, 3.0, 'fixed')],
     staggeredDownpayment: null,
   },
   'private-resale': {
@@ -258,7 +256,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
-    loanSegments: [createDefaultLoanSegment('2025-06', 30, 3, 3.2, 4.0)],
+    loanSegments: [createDefaultLoanSegment('2025-06', 30, 3.2, 'fixed')],
     staggeredDownpayment: null,
   },
   'private-new': {
@@ -288,7 +286,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
-    loanSegments: [createDefaultLoanSegment('2028-06', 30, 3, 3.2, 4.0)],
+    loanSegments: [createDefaultLoanSegment('2028-06', 30, 3.2, 'fixed')],
     staggeredDownpayment: null,
   },
 }

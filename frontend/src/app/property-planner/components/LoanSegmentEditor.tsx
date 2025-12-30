@@ -10,6 +10,7 @@ interface LoanSegmentEditorProps {
   segments: LoanSegment[]
   onSegmentsChange: (segments: LoanSegment[]) => void
   initialStartMonth: string
+  loanType: 'bank' | 'hdb'
 }
 
 /**
@@ -32,12 +33,15 @@ function formatMonth(monthStr: string): string {
 
 /**
  * LoanSegmentEditor - A component for managing loan segments/refinancing scenarios.
- * Allows users to plan multiple loan periods with different rates.
+ *
+ * For HDB loans: Shows a single rate input with FIXED label (HDB loans are always fixed at 2.6%)
+ * For Bank loans: Allows multiple rate tranches with rate type selector (fixed or floating)
  */
 export function LoanSegmentEditor({
   segments,
   onSegmentsChange,
   initialStartMonth,
+  loanType,
 }: LoanSegmentEditorProps) {
   const handleAddSegment = () => {
     const lastSegment = segments[segments.length - 1]
@@ -49,9 +53,8 @@ export function LoanSegmentEditor({
       id: `segment-${Date.now()}`,
       startMonth: newStartMonth,
       termYears: 5,
-      fixedYears: 2,
-      fixedRate: 3.5,
-      floatingRate: 4.0,
+      rate: 3.5,
+      rateType: 'fixed',
     }
     onSegmentsChange([...segments, newSegment])
   }
@@ -65,6 +68,72 @@ export function LoanSegmentEditor({
     onSegmentsChange(segments.filter(segment => segment.id !== id))
   }
 
+  // For HDB loans, show simplified single-rate view
+  if (loanType === 'hdb') {
+    const segment = segments[0]
+    if (!segment) return null
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium text-white/80">Loan Schedule</h4>
+          <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium">
+            HDB FIXED
+          </span>
+        </div>
+
+        <div className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-3">
+          {/* Start date and term */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-white/50 block mb-1">Start Date</label>
+              <div className={cn(
+                "w-full bg-white/10 text-sm text-white/50 rounded px-2 py-1.5 border border-white/10",
+                "opacity-50 cursor-not-allowed"
+              )}>
+                {formatMonth(segment.startMonth)}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-white/50 block mb-1">Term (years)</label>
+              <Input
+                type="number"
+                value={segment.termYears}
+                onChange={(e) => handleUpdateSegment(segment.id, { termYears: parseInt(e.target.value) || 1 })}
+                min={1}
+                max={35}
+                className="w-full bg-white/10 text-sm text-white rounded px-2 py-1.5 border-white/10 h-auto"
+              />
+            </div>
+          </div>
+
+          {/* HDB Rate (fixed at 2.6%) */}
+          <div>
+            <label className="text-xs text-white/50 block mb-1">Interest Rate (Fixed)</label>
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                value={segment.rate}
+                onChange={(e) => handleUpdateSegment(segment.id, { rate: parseFloat(e.target.value) || 0 })}
+                step={0.1}
+                min={0}
+                className="w-full bg-white/10 text-sm text-white rounded px-2 py-1.5 border-white/10 h-auto"
+              />
+              <span className="text-xs text-white/40">%</span>
+            </div>
+            <p className="text-xs text-white/40 mt-1">HDB concessionary rate: 2.6% p.a.</p>
+          </div>
+
+          {/* Timeline indicator */}
+          <div className="text-xs text-white/40 pt-1 border-t border-white/5">
+            {formatMonth(segment.startMonth)} → {formatMonth(getSegmentEndMonth(segment.startMonth, segment.termYears))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // For Bank loans, show full multi-tranche editor
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -141,43 +210,46 @@ export function LoanSegmentEditor({
               </div>
             </div>
 
-            {/* Fixed period and rates */}
-            <div className="grid grid-cols-3 gap-2">
+            {/* Rate type toggle and rate input */}
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs text-white/50 block mb-1">Fixed Period</label>
-                <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    value={segment.fixedYears}
-                    onChange={(e) => handleUpdateSegment(segment.id, { fixedYears: parseInt(e.target.value) || 0 })}
-                    min={0}
-                    max={segment.termYears}
-                    className="w-full bg-white/10 text-sm text-white rounded px-2 py-1.5 border-white/10 h-auto"
-                  />
-                  <span className="text-xs text-white/40">yr</span>
+                <label className="text-xs text-white/50 block mb-1">Rate Type</label>
+                <div className="flex items-center gap-1 p-0.5 bg-white/[0.03] border border-white/[0.08] rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateSegment(segment.id, { rateType: 'fixed' })}
+                    className={cn(
+                      'flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all duration-150',
+                      segment.rateType === 'fixed'
+                        ? 'bg-white/[0.1] text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-300'
+                    )}
+                  >
+                    Fixed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateSegment(segment.id, { rateType: 'floating' })}
+                    className={cn(
+                      'flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all duration-150',
+                      segment.rateType === 'floating'
+                        ? 'bg-white/[0.1] text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-300'
+                    )}
+                  >
+                    Floating
+                  </button>
                 </div>
               </div>
               <div>
-                <label className="text-xs text-white/50 block mb-1">Fixed Rate</label>
+                <label className="text-xs text-white/50 block mb-1">
+                  {segment.rateType === 'fixed' ? 'Fixed Rate' : 'Floating Rate'}
+                </label>
                 <div className="flex items-center gap-1">
                   <Input
                     type="number"
-                    value={segment.fixedRate}
-                    onChange={(e) => handleUpdateSegment(segment.id, { fixedRate: parseFloat(e.target.value) || 0 })}
-                    step={0.1}
-                    min={0}
-                    className="w-full bg-white/10 text-sm text-white rounded px-2 py-1.5 border-white/10 h-auto"
-                  />
-                  <span className="text-xs text-white/40">%</span>
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-white/50 block mb-1">Floating Rate</label>
-                <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    value={segment.floatingRate}
-                    onChange={(e) => handleUpdateSegment(segment.id, { floatingRate: parseFloat(e.target.value) || 0 })}
+                    value={segment.rate}
+                    onChange={(e) => handleUpdateSegment(segment.id, { rate: parseFloat(e.target.value) || 0 })}
                     step={0.1}
                     min={0}
                     className="w-full bg-white/10 text-sm text-white rounded px-2 py-1.5 border-white/10 h-auto"

@@ -46,9 +46,8 @@ export interface LoanSegment {
   id: string
   startMonth: string   // YYYY-MM when this segment starts
   termYears: number    // Duration of this segment
-  fixedYears: number   // Fixed period within segment
-  fixedRate: number
-  floatingRate: number
+  rate: number         // Interest rate for this segment
+  rateType: 'fixed' | 'floating'  // Type of rate
 }
 
 // ============================================

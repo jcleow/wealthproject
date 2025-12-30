@@ -88,23 +88,47 @@ type createGrowthPeriodRequest struct {
 }
 
 type createRatePeriodRequest struct {
-	StartMonth   string `json:"startMonth"`
-	TermYears    int    `json:"termYears"`
-	FixedYears   int    `json:"fixedYears"`
-	FixedRate    string `json:"fixedRate"`
-	FloatingRate string `json:"floatingRate"`
+	StartMonth string `json:"startMonth"` // YYYY-MM format - for backwards compatibility
+	TermYears  int    `json:"termYears"`
+	Rate       string `json:"rate"`     // Interest rate (percentage)
+	RateType   string `json:"rateType"` // "fixed" or "floating"
 }
 
-// Response types
+// Response types - use custom types for API backwards compatibility
 
 type scenarioResponse struct {
-	Scenario      repo.PropertyScenario      `json:"scenario"`
-	SGDetails     *repo.PropertySGDetails    `json:"sgDetails,omitempty"`
-	Fees          []repo.PropertyFee         `json:"fees"`
-	GrowthPeriods []repo.GrowthPeriod        `json:"growthPeriods"`
-	RatePeriods   []repo.LiabilityRatePeriod `json:"ratePeriods"`
-	Grants        []repo.PropertySGGrant     `json:"grants"`
-	Computed      *computedValues            `json:"computed,omitempty"`
+	Scenario      repo.PropertyScenario       `json:"scenario"`
+	SGDetails     *repo.PropertySG            `json:"sgDetails,omitempty"`
+	Fees          []repo.PropertyFee          `json:"fees"`
+	GrowthPeriods []growthPeriodResponse      `json:"growthPeriods"`
+	RatePeriods   []liabilityRatePeriodResponse `json:"ratePeriods"`
+	Grants        []repo.PropertySGGrant      `json:"grants"`
+	Computed      *computedValues             `json:"computed,omitempty"`
+}
+
+// growthPeriodResponse is the API response format (uses years, not dates)
+type growthPeriodResponse struct {
+	ID             string  `json:"id"`
+	PropertySGID   *string `json:"propertySgId"`
+	AssetID        *string `json:"assetId"`
+	StartYear      int     `json:"startYear"`
+	EndYear        *int    `json:"endYear"`
+	GrowthRate     string  `json:"growthRate"`
+	GrowthStrategy string  `json:"growthStrategy"`
+	CreatedAt      string  `json:"createdAt"`
+}
+
+// liabilityRatePeriodResponse is the API response format
+type liabilityRatePeriodResponse struct {
+	ID           string  `json:"id"`
+	PropertySGID *string `json:"propertySgId"`
+	LiabilityID  *string `json:"liabilityId"`
+	PeriodOrder  int     `json:"periodOrder"`
+	StartDate    string  `json:"startDate"` // ISO date string format
+	TermYears    int     `json:"termYears"`
+	Rate         string  `json:"rate"`
+	RateType     string  `json:"rateType"`
+	CreatedAt    string  `json:"createdAt"`
 }
 
 type computedValues struct {
@@ -178,8 +202,8 @@ func (h *PropertyPlannerV2Handler) HandleCreate(w http.ResponseWriter, r *http.R
 		Scenario:      scenario.Scenario,
 		SGDetails:     scenario.SGDetails,
 		Fees:          scenario.Fees,
-		GrowthPeriods: scenario.GrowthPeriods,
-		RatePeriods:   scenario.RatePeriods,
+		GrowthPeriods: toGrowthPeriodsResponse(scenario.GrowthPeriods),
+		RatePeriods:   toRatePeriodsResponse(scenario.RatePeriods),
 		Grants:        scenario.Grants,
 		Computed:      computed,
 	}
@@ -220,8 +244,8 @@ func (h *PropertyPlannerV2Handler) HandleList(w http.ResponseWriter, r *http.Req
 			Scenario:      s.Scenario,
 			SGDetails:     s.SGDetails,
 			Fees:          s.Fees,
-			GrowthPeriods: s.GrowthPeriods,
-			RatePeriods:   s.RatePeriods,
+			GrowthPeriods: toGrowthPeriodsResponse(s.GrowthPeriods),
+			RatePeriods:   toRatePeriodsResponse(s.RatePeriods),
 			Grants:        s.Grants,
 			Computed:      computed,
 		})
@@ -266,8 +290,8 @@ func (h *PropertyPlannerV2Handler) HandleGet(w http.ResponseWriter, r *http.Requ
 		Scenario:      scenario.Scenario,
 		SGDetails:     scenario.SGDetails,
 		Fees:          scenario.Fees,
-		GrowthPeriods: scenario.GrowthPeriods,
-		RatePeriods:   scenario.RatePeriods,
+		GrowthPeriods: toGrowthPeriodsResponse(scenario.GrowthPeriods),
+		RatePeriods:   toRatePeriodsResponse(scenario.RatePeriods),
 		Grants:        scenario.Grants,
 		Computed:      computed,
 	}
@@ -341,8 +365,8 @@ func (h *PropertyPlannerV2Handler) HandleUpdate(w http.ResponseWriter, r *http.R
 		Scenario:      scenario.Scenario,
 		SGDetails:     scenario.SGDetails,
 		Fees:          scenario.Fees,
-		GrowthPeriods: scenario.GrowthPeriods,
-		RatePeriods:   scenario.RatePeriods,
+		GrowthPeriods: toGrowthPeriodsResponse(scenario.GrowthPeriods),
+		RatePeriods:   toRatePeriodsResponse(scenario.RatePeriods),
 		Grants:        scenario.Grants,
 		Computed:      computed,
 	}
@@ -597,32 +621,100 @@ func (h *PropertyPlannerV2Handler) convertGrowthPeriod(req createGrowthPeriodReq
 		return repo.CreateGrowthPeriodInput{}, err
 	}
 
+	// Convert StartYear (int) to StartDate (time.Time) - use January 1st of the year
+	startDate := time.Date(req.StartYear, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+	// Convert EndYear to EndDate if present
+	var endDate *time.Time
+	if req.EndYear != nil {
+		ed := time.Date(*req.EndYear, time.December, 31, 23, 59, 59, 0, time.UTC)
+		endDate = &ed
+	}
+
 	return repo.CreateGrowthPeriodInput{
-		StartYear:      req.StartYear,
-		EndYear:        req.EndYear,
+		StartDate:      startDate,
+		EndDate:        endDate,
 		GrowthRate:     *growthRate,
 		GrowthStrategy: req.GrowthStrategy,
 	}, nil
 }
 
 func (h *PropertyPlannerV2Handler) convertRatePeriod(req createRatePeriodRequest) (repo.CreateRatePeriodInput, error) {
-	fixedRate, err := decimal.NewFromString(req.FixedRate)
+	rate, err := decimal.NewFromString(req.Rate)
 	if err != nil {
 		return repo.CreateRatePeriodInput{}, err
 	}
 
-	floatingRate, err := decimal.NewFromString(req.FloatingRate)
+	// Convert StartMonth (YYYY-MM) to StartDate (time.Time)
+	startDate, err := time.Parse("2006-01", req.StartMonth)
 	if err != nil {
 		return repo.CreateRatePeriodInput{}, err
+	}
+
+	// Default to "fixed" if not specified
+	rateType := req.RateType
+	if rateType == "" {
+		rateType = "fixed"
 	}
 
 	return repo.CreateRatePeriodInput{
-		StartMonth:   req.StartMonth,
-		TermYears:    req.TermYears,
-		FixedYears:   req.FixedYears,
-		FixedRate:    *fixedRate,
-		FloatingRate: *floatingRate,
+		StartDate: startDate,
+		TermYears: req.TermYears,
+		Rate:      *rate,
+		RateType:  rateType,
 	}, nil
+}
+
+// toGrowthPeriodResponse converts repo.GrowthPeriod to API response format
+func toGrowthPeriodResponse(g repo.GrowthPeriod) growthPeriodResponse {
+	var endYear *int
+	if g.EndDate != nil {
+		ey := g.EndDate.Year()
+		endYear = &ey
+	}
+	return growthPeriodResponse{
+		ID:             g.ID,
+		PropertySGID:   g.PropertySGID,
+		AssetID:        g.AssetID,
+		StartYear:      g.StartDate.Year(),
+		EndYear:        endYear,
+		GrowthRate:     g.GrowthRate.String(),
+		GrowthStrategy: g.GrowthStrategy,
+		CreatedAt:      g.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+// toGrowthPeriodsResponse converts a slice of repo.GrowthPeriod to API response format
+func toGrowthPeriodsResponse(periods []repo.GrowthPeriod) []growthPeriodResponse {
+	result := make([]growthPeriodResponse, len(periods))
+	for i, p := range periods {
+		result[i] = toGrowthPeriodResponse(p)
+	}
+	return result
+}
+
+// toLiabilityRatePeriodResponse converts repo.LiabilityRatePeriod to API response format
+func toLiabilityRatePeriodResponse(r repo.LiabilityRatePeriod) liabilityRatePeriodResponse {
+	return liabilityRatePeriodResponse{
+		ID:           r.ID,
+		PropertySGID: r.PropertySGID,
+		LiabilityID:  r.LiabilityID,
+		PeriodOrder:  r.PeriodOrder,
+		StartDate:    r.StartDate.Format(time.RFC3339), // ISO date string format
+		TermYears:    r.TermYears,
+		Rate:         r.Rate.String(),
+		RateType:     r.RateType,
+		CreatedAt:    r.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+// toRatePeriodsResponse converts a slice of repo.LiabilityRatePeriod to API response format
+func toRatePeriodsResponse(periods []repo.LiabilityRatePeriod) []liabilityRatePeriodResponse {
+	result := make([]liabilityRatePeriodResponse, len(periods))
+	for i, p := range periods {
+		result[i] = toLiabilityRatePeriodResponse(p)
+	}
+	return result
 }
 
 // computeValues calculates all derived values for a scenario
@@ -654,10 +746,7 @@ func (h *PropertyPlannerV2Handler) computeValues(s *repo.PropertyScenarioFull) *
 	}
 
 	// Use first rate period for initial mortgage calculation
-	firstRate := s.RatePeriods[0].FixedRate
-	if s.RatePeriods[0].FixedYears == 0 {
-		firstRate = s.RatePeriods[0].FloatingRate
-	}
+	firstRate := s.RatePeriods[0].Rate
 
 	mortgageResult := h.calculator.CalculateMortgage(loanAmount, totalTermMonths, &firstRate)
 

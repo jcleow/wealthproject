@@ -127,7 +127,7 @@ func (b *SnapshotBuilder) BuildPropertySnapshots(properties []repo.PropertyScena
 		// Get purchase date from first rate period
 		var purchaseDate string
 		if len(prop.RatePeriods) > 0 {
-			purchaseDate = prop.RatePeriods[0].StartMonth
+			purchaseDate = prop.RatePeriods[0].StartDate.Format("2006-01")
 		} else {
 			// No rate periods means no mortgage, use first day of current month as fallback
 			purchaseDate = dateStr
@@ -200,16 +200,17 @@ func (b *SnapshotBuilder) BuildPropertySnapshots(properties []repo.PropertyScena
 func (b *SnapshotBuilder) calculatePropertyValueAtDate(initialPrice *decimal.Decimal, periods []repo.GrowthPeriod, purchaseDate, targetDate time.Time) *decimal.Decimal {
 	value := initialPrice
 
-	// Growth periods use StartYear, not StartMonth
+	// Growth periods use StartDate/EndDate (timestamptz)
 	for _, period := range periods {
-		if targetDate.Year() < period.StartYear {
+		periodStartYear := period.StartDate.Year()
+		if targetDate.Year() < periodStartYear {
 			continue
 		}
-		if period.EndYear != nil && targetDate.Year() > *period.EndYear {
+		if period.EndDate != nil && targetDate.Year() > period.EndDate.Year() {
 			continue
 		}
 
-		startYear := period.StartYear
+		startYear := periodStartYear
 		if purchaseDate.Year() > startYear {
 			startYear = purchaseDate.Year()
 		}
@@ -231,7 +232,7 @@ func (b *SnapshotBuilder) calculatePropertyValueAtDate(initialPrice *decimal.Dec
 }
 
 // calculateMortgageBalanceAtDate calculates the outstanding mortgage balance at a specific date
-func (b *SnapshotBuilder) calculateMortgageBalanceAtDate(periods []repo.LiabilityRatePeriod, details *repo.PropertySGDetails, grantsTotal *decimal.Decimal, purchaseDate, targetDate time.Time) *decimal.Decimal {
+func (b *SnapshotBuilder) calculateMortgageBalanceAtDate(periods []repo.LiabilityRatePeriod, details *repo.PropertySG, grantsTotal *decimal.Decimal, purchaseDate, targetDate time.Time) *decimal.Decimal {
 	if len(periods) == 0 {
 		return decimal.Zero()
 	}
@@ -268,7 +269,7 @@ func (b *SnapshotBuilder) calculateMortgageBalanceAtDate(periods []repo.Liabilit
 }
 
 // BuildPropertyFeeSnapshots builds fee snapshots for fees applicable to a specific month
-func (b *SnapshotBuilder) BuildPropertyFeeSnapshots(fees []repo.PropertyFee, details *repo.PropertySGDetails, dateStr string) []PropertyFeeSnapshot {
+func (b *SnapshotBuilder) BuildPropertyFeeSnapshots(fees []repo.PropertyFee, details *repo.PropertySG, dateStr string) []PropertyFeeSnapshot {
 	snapshots := make([]PropertyFeeSnapshot, 0)
 
 	for _, fee := range fees {

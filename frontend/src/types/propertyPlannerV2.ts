@@ -91,10 +91,10 @@ export interface PropertyFee {
  */
 export interface GrowthPeriod {
   id: string
-  propertyScenarioId?: string | null
+  propertySgId?: string | null
   assetId?: string | null
-  startYear: number
-  endYear?: number | null
+  startYear: number   // Year (extracted from backend StartDate)
+  endYear?: number | null  // Year (extracted from backend EndDate)
   growthRate: string
   growthStrategy: GrowthStrategy
   createdAt: string
@@ -102,17 +102,17 @@ export interface GrowthPeriod {
 
 /**
  * Loan rate period (for refinancing scenarios)
+ * Each rate tranche is a separate row with its own rate and rate type
  */
 export interface LiabilityRatePeriod {
   id: string
-  propertyScenarioId?: string | null
+  propertySgId?: string | null
   liabilityId?: string | null
   periodOrder: number
-  startMonth: string
+  startDate: string  // ISO date string (from backend time.Time)
   termYears: number
-  fixedYears: number
-  fixedRate: string
-  floatingRate: string
+  rate: string       // The interest rate for this period
+  rateType: 'fixed' | 'floating'  // Type of rate
   createdAt: string
 }
 
@@ -321,9 +321,8 @@ export interface CreateGrowthPeriodInput {
 export interface CreateRatePeriodInput {
   startMonth: string
   termYears: number
-  fixedYears?: number
-  fixedRate: string
-  floatingRate: string
+  rate: string
+  rateType: 'fixed' | 'floating'
 }
 
 export interface CreateGrantInput {
