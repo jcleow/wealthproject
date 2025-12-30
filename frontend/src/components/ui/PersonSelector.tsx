@@ -98,10 +98,11 @@ export function PersonSelector({
         className={`
           flex items-center justify-between gap-2 w-full
           px-3.5 py-2.5
-          rounded-lg border border-white/[0.08]
+          rounded-lg border
           bg-white/[0.03]
           text-left text-sm
           transition-all
+          ${error ? 'border-red-500/50' : 'border-white/[0.08]'}
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/[0.15] focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20'}
           ${isOpen ? 'border-emerald-500 ring-1 ring-emerald-500/20' : ''}
         `}
@@ -128,23 +129,25 @@ export function PersonSelector({
       {isOpen && (
         <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-white/[0.12] bg-[#0c0c0c] shadow-xl shadow-black/50 overflow-hidden">
           <div className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
-            {/* Unassigned option */}
-            <button
-              type="button"
-              onClick={() => handleSelect(null)}
-              className={`
-                w-full flex items-center gap-2
-                px-3 py-2
-                text-sm text-left
-                transition-all
-                ${!value ? 'bg-emerald-500/15 text-white' : 'text-slate-300 hover:bg-white/[0.05]'}
-              `}
-            >
-              <span className="w-4 flex-shrink-0">
-                {!value && <Check className="h-4 w-4 text-emerald-400" />}
-              </span>
-              <span className="text-gray-400 italic">Unassigned</span>
-            </button>
+            {/* Unassigned option - only show if not required */}
+            {!required && (
+              <button
+                type="button"
+                onClick={() => handleSelect(null)}
+                className={`
+                  w-full flex items-center gap-2
+                  px-3 py-2
+                  text-sm text-left
+                  transition-all
+                  ${!value ? 'bg-emerald-500/15 text-white' : 'text-slate-300 hover:bg-white/[0.05]'}
+                `}
+              >
+                <span className="w-4 flex-shrink-0">
+                  {!value && <Check className="h-4 w-4 text-emerald-400" />}
+                </span>
+                <span className="text-gray-400 italic">Unassigned</span>
+              </button>
+            )}
 
             {/* Person options */}
             {includedPersons.map((person) => {

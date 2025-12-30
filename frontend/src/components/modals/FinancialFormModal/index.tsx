@@ -232,10 +232,17 @@ transition-all`}
                     onChange={(personId) => form.updateFormField('personId', personId)}
                     placeholder="Select person"
                     required
+                    error={form.formErrors.personId}
                   />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Who earns this income?
-                  </p>
+                  {form.formErrors.personId ? (
+                    <p className="mt-1 text-xs text-red-400">
+                      Please select a person for this income
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Who earns this income?
+                    </p>
+                  )}
                 </div>
               )}
 

@@ -78,6 +78,8 @@ export function useFinancialForm({
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [deleteMode, setDeleteMode] = useState<'stop' | 'delete'>('stop')
   const [applyFromThisMonthOnly, setApplyFromThisMonthOnly] = useState(true)
+  const [formErrors, setFormErrors] = useState<{ personId?: boolean }>({})
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
 
   // Derived values
   const isFutureMonth = (selectedYear ?? 0) > 0 || (selectedMonth ?? 1) > 1
@@ -110,6 +112,8 @@ export function useFinancialForm({
     setApplyFromThisMonthOnly(true)
     setShowDeleteConfirmation(false)
     setDeleteMode('stop')
+    setFormErrors({})
+    setHasAttemptedSubmit(false)
 
     if (!data) {
       setFormData(buildDefaultFormState(type, growthConfigs))
@@ -444,9 +448,18 @@ export function useFinancialForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setHasAttemptedSubmit(true)
+
     if (isCpfMode && type === 'asset' && mode === 'create') {
       if (!validateCpfFields()) return
     }
+
+    // Validate personId is required for income
+    if (type === 'income' && !formData.personId) {
+      setFormErrors({ personId: true })
+      return
+    }
+    setFormErrors({})
 
     const payload = isCpfMode && type === 'asset' && mode === 'create' ? buildCpfPayload() : buildPayload()
 
@@ -572,6 +585,8 @@ export function useFinancialForm({
     isFutureMonth,
     isDebtRepayment,
     growthConfigs,
+    formErrors,
+    hasAttemptedSubmit,
     handleSubmit,
     handleDelete,
     handleConfirmDelete,
