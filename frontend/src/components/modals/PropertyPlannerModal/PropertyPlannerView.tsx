@@ -36,6 +36,7 @@ import {
 import {
   ScenarioList,
   ScenarioDetailView,
+  ScenarioDetailSkeleton,
   type ResultsTab,
 } from './components'
 
@@ -471,6 +472,15 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     setHasChanges(false)
   }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor, editingScenario, updateMutation])
 
+  // Back button handler - discards changes without saving
+  const handleBack = useCallback(() => {
+    setEditingScenarioId(null)
+    setEditingScenarioName('')
+    setSelectedType(null)
+    initialValuesRef.current = null
+    setHasChanges(false)
+  }, [])
+
   const handleDeleteScenario = useCallback((id: string) => {
     deleteMutation.mutate(id)
   }, [deleteMutation])
@@ -537,7 +547,10 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
 
       <div className={cn("relative", isEmbedded ? "flex-1" : "z-10")}>
         <AnimatePresence mode="wait">
-          {!selectedType ? (
+          {/* Show skeleton only on initial load when opening directly to edit mode */}
+          {initialScenarioId && !selectedType && !initialScenarioHandledRef.current ? (
+            <ScenarioDetailSkeleton key="skeleton" isEmbedded={isEmbedded} />
+          ) : !selectedType ? (
             <ScenarioList
               key="scenario-list"
               scenarios={scenarios}
@@ -571,6 +584,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
               onEditingScenarioIconColorChange={setEditingScenarioIconColor}
               onEditingScenarioIconSearchChange={setEditingScenarioIconSearch}
               onSaveAndClose={handleSaveAndClose}
+              onBack={handleBack}
               hasChanges={hasChanges}
             />
           )}
