@@ -2,6 +2,7 @@
 
 import { Modal } from '@/components/ui/Modal'
 import { CustomSelect } from '@/components/ui/CustomSelect'
+import { PersonSelector } from '@/components/ui/PersonSelector'
 import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload } from '@/types/cpf'
 
 import { useCpfAccountForm, RESIDENCY_OPTIONS } from './hooks'
@@ -61,6 +62,16 @@ transition`}
       </div>
 
       <form className="space-y-4" onSubmit={form.handleSubmit}>
+        {/* Person Selector */}
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-gray-200">Person</label>
+          <PersonSelector
+            value={form.fields.personId}
+            onChange={form.handlePersonChange}
+            placeholder="Select person (optional)"
+          />
+        </div>
+
         {/* Account Balances */}
         <div className="grid grid-cols-2 gap-4">
           <FormField

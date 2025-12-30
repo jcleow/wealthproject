@@ -20,6 +20,7 @@ type UpdateInput struct {
 	ID             string
 	Name           string
 	Earner         string
+	PersonID       string // Required FK to persons table
 	Category       string
 	Amount         decimal.Decimal
 	Frequency      string
@@ -76,6 +77,7 @@ func (s *Service) versionedUpdate(ctx context.Context, userID, incomeID string, 
 func (s *Service) updateExistingVersion(ctx context.Context, userID string, existing *repo.Income, input UpdateInput) (*repo.Income, error) {
 	existing.Name = input.Name
 	existing.Earner = input.Earner
+	existing.PersonID = input.PersonID
 	existing.Category = input.Category
 	existing.Amount = input.Amount
 	existing.Frequency = input.Frequency
@@ -97,10 +99,17 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 		earner = current.Earner
 	}
 
+	// Use input.PersonID if provided, otherwise preserve current
+	personID := input.PersonID
+	if personID == "" {
+		personID = current.PersonID
+	}
+
 	newIncome := repo.Income{
 		ParentID:       parentID,
 		Name:           input.Name,
 		Earner:         earner,
+		PersonID:       personID,
 		Category:       input.Category,
 		Amount:         input.Amount,
 		Frequency:      input.Frequency,
@@ -131,6 +140,7 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, incomeID string, in
 		ID:             incomeID,
 		Name:           input.Name,
 		Earner:         input.Earner,
+		PersonID:       input.PersonID,
 		Category:       input.Category,
 		Amount:         input.Amount,
 		Frequency:      input.Frequency,

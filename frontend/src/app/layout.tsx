@@ -6,6 +6,8 @@ import '../styles/globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { AuthProvider } from '@/components/auth/AuthProvider'
 import { AuthenticationGuard } from '@/components/auth/AuthGuard'
+import { PersonFilterProvider } from '@/contexts/PersonFilterContext'
+import { PersonsModalContainer } from '@/components/modals/PersonsModal'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -53,7 +55,12 @@ export default function RootLayout({
       <body className="antialiased bg-black text-white">
         <QueryProvider>
           <AuthProvider>
-            <AuthenticationGuard>{children}</AuthenticationGuard>
+            <AuthenticationGuard>
+              <PersonFilterProvider>
+                {children}
+                <PersonsModalContainer />
+              </PersonFilterProvider>
+            </AuthenticationGuard>
           </AuthProvider>
         </QueryProvider>
         <Toaster theme="dark" position="bottom-right" richColors />

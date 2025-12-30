@@ -50,6 +50,7 @@ export interface TimelineItem {
   parentId?: string
   name: string
   earner?: string
+  personId?: string | null
   category: string
   amountAnnual: number
   adjAnnualAmt?: number
@@ -299,6 +300,7 @@ export interface IncomeResponseV2 {
   parentId: string
   name: string
   earner?: string
+  personId?: string | null
   category: string
   amount: string // Monthly amount
   eventAdjAmount: string // Monthly amount with scenario impacts

@@ -253,6 +253,28 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		cpfHandler.HandleStop(w, r, id)
 	}).Methods("POST")
 
+	// Person v2 endpoints (for multi-person household support)
+	personHandler := handlers.NewPersonV2Handler(deps.FinStore)
+	router.HandleFunc("/persons", personHandler.HandleList).Methods("GET")
+	router.HandleFunc("/persons", personHandler.HandleCreate).Methods("POST")
+	router.HandleFunc("/persons/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "GET":
+			personHandler.HandleGet(w, r, id)
+		case "PUT":
+			personHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			personHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("GET", "PUT", "DELETE")
+	router.HandleFunc("/persons/{id}/toggle", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		personHandler.HandleToggle(w, r, id)
+	}).Methods("PATCH")
+
 	// Property planner v2 bulk delete (must be registered before individual routes)
 	router.HandleFunc("/property-planner/scenarios", bulkDeleteHandler.HandleDeleteAllPropertyScenarios).Methods("DELETE")
 

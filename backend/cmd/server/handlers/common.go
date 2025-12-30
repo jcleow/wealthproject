@@ -61,6 +61,13 @@ func methodNotAllowed(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }
 
+// jsonResponse writes a JSON response with the given status code and data.
+func jsonResponse(w http.ResponseWriter, statusCode int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(data)
+}
+
 func notFound(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNotFound)
 }

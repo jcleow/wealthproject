@@ -1,13 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi, propertyPlannerV2Api } from '@/api/financial'
+import { financialApi, propertyPlannerV2Api, personsApi } from '@/api/financial'
 import type { Income, Expense } from '@/types/financial'
 import type { CPFAccount, CPFAccountCreatePayload } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CreateScenarioInput, PropertyScenarioFull } from '@/types/propertyPlannerV2'
+import type { Person } from '@/types/person'
+import { PERSON_COLORS } from '@/types/person'
 import { DEFAULT_MONTHLY_CADENCE } from '@/types/scenario'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { CPF_QUERY_KEY } from './useCpfQuery'
 import { propertyPlannerV2Keys } from './usePropertyPlannerV2Query'
+import { PERSONS_QUERY_KEY } from './usePersonsQuery'
 
 // Helper to generate YYYY-MM format date strings
 function getMonthString(yearsFromNow: number, monthOffset = 0): string {
@@ -24,7 +27,7 @@ export function useLoadSampleDataMutation() {
     mutationFn: async () => {
       let cpfAccount: CPFAccount | null = null
 
-      // First clear all data including CPF and property scenarios
+      // First clear all data including CPF, property scenarios, and persons
       // Use V2 bulk delete endpoints where available for better cleanup
       // Delete property V2 scenarios (no bulk delete, so list and delete each)
       const deletePropertyV2Scenarios = async () => {
@@ -33,6 +36,16 @@ export function useLoadSampleDataMutation() {
           await Promise.all(scenarios.map(s => propertyPlannerV2Api.deleteScenario(s.scenario.id)))
         } catch {
           // Ignore errors if no scenarios exist
+        }
+      }
+
+      // Delete all persons (no bulk delete, so list and delete each)
+      const deleteAllPersons = async () => {
+        try {
+          const persons = await personsApi.listPersons()
+          await Promise.all(persons.map(p => personsApi.deletePerson(p.id)))
+        } catch {
+          // Ignore errors if no persons exist
         }
       }
 
@@ -46,12 +59,32 @@ export function useLoadSampleDataMutation() {
         financialApi.deleteAllScenarioEvents(),
         financialApi.deleteCurrentCPFAccount().catch(() => {}), // Ignore if no CPF account exists
         deletePropertyV2Scenarios(),
+        deleteAllPersons(),
       ])
 
+      // Create persons first so we can link CPF accounts and incomes to them
+      let alexPerson: Person | null = null
+      let sarahPerson: Person | null = null
+
+      try {
+        alexPerson = await personsApi.createPerson({
+          name: 'Alex',
+          displayColor: PERSON_COLORS[0], // blue
+        })
+        sarahPerson = await personsApi.createPerson({
+          name: 'Sarah',
+          displayColor: PERSON_COLORS[1], // emerald
+        })
+        console.debug('[loadSampleData] Created persons:', { alexId: alexPerson.id, sarahId: sarahPerson.id })
+      } catch (error) {
+        console.error('[loadSampleData] Failed to create persons', error)
+      }
+
       // Ensure CPF profile exists so timeline v2 can show CPF assets and contributions
-      // This is Alex's CPF account
+      // This is Alex's CPF account - linked to Alex person
       const sampleCPFAccount: CPFAccountCreatePayload = {
         earner: 'Alex',
+        personId: alexPerson?.id ?? null,
         oaBalance: 85000,
         saBalance: 45000,
         maBalance: 32000,
@@ -72,9 +105,10 @@ export function useLoadSampleDataMutation() {
         console.error('[loadSampleData] Failed to upsert CPF account', error)
       }
 
-      // Create Jordan's CPF account (spouse)
-      const jordanCPFAccount: CPFAccountCreatePayload = {
-        earner: 'Jordan',
+      // Create Sarah's CPF account (spouse) - linked to Sarah person
+      const sarahCPFAccount: CPFAccountCreatePayload = {
+        earner: 'Sarah',
+        personId: sarahPerson?.id ?? null,
         oaBalance: 65000,
         saBalance: 35000,
         maBalance: 25000,
@@ -85,9 +119,9 @@ export function useLoadSampleDataMutation() {
       }
 
       try {
-        await financialApi.createCPFAccount(jordanCPFAccount)
+        await financialApi.createCPFAccount(sarahCPFAccount)
       } catch (error) {
-        console.error('[loadSampleData] Failed to create Jordan CPF account', error)
+        console.error('[loadSampleData] Failed to create Sarah CPF account', error)
       }
 
       // Sample data for a 32-year-old Singaporean professional
@@ -158,7 +192,8 @@ export function useLoadSampleDataMutation() {
       const sampleIncomes: Array<Omit<Income, 'id' | 'updatedAt'>> = [
         {
           name: 'Software Engineer Salary',
-          earner: 'Alex', // Primary earner
+          earner: 'Alex', // Primary earner (kept for backward compatibility)
+          personId: alexPerson?.id ?? null, // Link to Alex person
           category: 'Employment',
           amount: 7500,
           frequency: 'monthly',
@@ -169,7 +204,8 @@ export function useLoadSampleDataMutation() {
         },
         {
           name: 'Marketing Manager Salary',
-          earner: 'Jordan', // Spouse
+          earner: 'Sarah', // Spouse (kept for backward compatibility)
+          personId: sarahPerson?.id ?? null, // Link to Sarah person
           category: 'Employment',
           amount: 5000,
           frequency: 'monthly',
@@ -619,7 +655,12 @@ export function useLoadSampleDataMutation() {
         // Non-fatal: continue even if property scenario creation fails
       }
 
-      return { assets, investments, liabilities, incomes, expenses: expensesResult.data, scenarioEvents, cpfAccount, propertyScenario }
+      // Build persons array for cache
+      const persons: Person[] = []
+      if (alexPerson) persons.push(alexPerson)
+      if (sarahPerson) persons.push(sarahPerson)
+
+      return { assets, investments, liabilities, incomes, expenses: expensesResult.data, scenarioEvents, cpfAccount, propertyScenario, persons }
     },
     onSuccess: (data) => {
       // Update all caches with the new data - this immediately updates the UI
@@ -629,6 +670,8 @@ export function useLoadSampleDataMutation() {
       queryClient.setQueryData(QUERY_KEYS.financial.incomes, data.incomes)
       queryClient.setQueryData(QUERY_KEYS.financial.expenses, data.expenses)
       queryClient.setQueryData(QUERY_KEYS.financial.scenarioEvents, data.scenarioEvents)
+      // Set persons cache
+      queryClient.setQueryData(PERSONS_QUERY_KEY, data.persons)
       if (data.cpfAccount) {
         queryClient.setQueryData(CPF_QUERY_KEY, data.cpfAccount)
       }

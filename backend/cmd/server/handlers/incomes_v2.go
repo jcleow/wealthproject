@@ -14,11 +14,12 @@ import (
 // incomeV2Input is the JSON-friendly input struct for income v2 update.
 // Uses string for decimal values to avoid float64 precision loss.
 type incomeV2Input struct {
-	ID             string  `json:"id"`
-	ParentID       string  `json:"parentId"`
-	Name           string  `json:"name"`
-	Earner         string  `json:"earner"`
-	Category       string  `json:"category"`
+	ID             string `json:"id"`
+	ParentID       string `json:"parentId"`
+	Name           string `json:"name"`
+	Earner         string `json:"earner"`
+	PersonID       string `json:"personId"` // Required FK to persons table
+	Category       string `json:"category"`
 	Amount         string  `json:"amount"`
 	Frequency      string  `json:"frequency"`
 	GrowthRate     *string `json:"growthRate"`
@@ -45,9 +46,10 @@ func NewIncomeV2Handler(store *repo.Store) *IncomeV2Handler {
 // incomeV2CreateInput is the JSON-friendly input struct for income v2 create.
 // Uses string for decimal values to avoid float64 precision loss.
 type incomeV2CreateInput struct {
-	Name           string  `json:"name"`
-	Earner         string  `json:"earner"`
-	Category       string  `json:"category"`
+	Name           string `json:"name"`
+	Earner         string `json:"earner"`
+	PersonID       string `json:"personId"` // Required FK to persons table
+	Category       string `json:"category"`
 	Amount         string  `json:"amount"`
 	Frequency      string  `json:"frequency"`
 	GrowthRate     *string `json:"growthRate"`
@@ -133,6 +135,7 @@ func (h *IncomeV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	inc := repo.Income{
 		Name:           input.Name,
 		Earner:         input.Earner,
+		PersonID:       input.PersonID,
 		Category:       input.Category,
 		Amount:         *amount,
 		Frequency:      input.Frequency,
@@ -249,6 +252,7 @@ func (h *IncomeV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, i
 		ID:             id,
 		Name:           input.Name,
 		Earner:         input.Earner,
+		PersonID:       input.PersonID,
 		Category:       input.Category,
 		Amount:         *amount,
 		Frequency:      input.Frequency,

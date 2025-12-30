@@ -13,7 +13,8 @@ export interface CPFBalances {
 export interface CPFAccount {
   id: string
   userId: string
-  earner?: string // Person who owns this CPF account (e.g., "John", "Sarah")
+  earner?: string // Deprecated: kept for backward compatibility, use personId
+  personId?: string | null // FK to persons table
   parentId: string // Groups versions of same logical account
   startDate: string // When this version starts
   endDate?: string // When this version ends (null = ongoing)
@@ -32,6 +33,7 @@ export interface CPFAccount {
 
 export interface CPFAccountCreatePayload {
   earner?: string
+  personId?: string | null
   oaBalance?: number
   saBalance?: number
   maBalance?: number
@@ -47,6 +49,7 @@ export type UpdateMode = 'in_place' | 'versioned'
 
 export interface CPFAccountUpdatePayload {
   earner?: string
+  personId?: string | null
   oaBalance?: number
   saBalance?: number
   maBalance?: number

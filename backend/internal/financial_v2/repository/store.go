@@ -164,7 +164,8 @@ type Income struct {
 	ID             string          `json:"id"`
 	ParentID       string          `json:"parentId"`
 	Name           string          `json:"name"`
-	Earner         string          `json:"earner"` // Person who earns this income (e.g., "John", "Sarah")
+	Earner         string          `json:"earner"`   // Deprecated: kept for backward compatibility, use PersonID
+	PersonID       string          `json:"personId"` // FK to persons table (required)
 	Amount         decimal.Decimal `json:"amount"`
 	Frequency      string          `json:"frequency"`
 	StartDate      time.Time       `json:"startDate"`         // Precise start date (day-level) - now required
@@ -209,7 +210,8 @@ type Expense struct {
 type CPFAccount struct {
 	ID               string          `json:"id"`
 	UserID           string          `json:"userId"`
-	Earner           string          `json:"earner,omitempty"`  // Person who owns this CPF account
+	Earner           string          `json:"earner,omitempty"`  // Deprecated: kept for backward compatibility, use PersonID
+	PersonID         string          `json:"personId"`          // FK to persons table (required)
 	ParentID         string          `json:"parentId"`          // Groups versions of same logical account
 	StartDate        time.Time       `json:"startDate"`         // When this version starts
 	EndDate          *time.Time      `json:"endDate,omitempty"` // When this version ends (NULL = ongoing)
@@ -224,6 +226,20 @@ type CPFAccount struct {
 	PRGrantDate      *time.Time      `json:"prGrantDate,omitempty"`
 	CreatedAt        time.Time       `json:"createdAt"`
 	UpdatedAt        time.Time       `json:"updatedAt"`
+}
+
+// Person represents a household member for income/CPF ownership and filtering.
+type Person struct {
+	ID           string    `json:"id"`
+	UserID       string    `json:"userId"`
+	Name         string    `json:"name"`
+	DisplayColor *string   `json:"displayColor,omitempty"`
+	IsIncluded   bool      `json:"isIncluded"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+	// Stats populated by GetPersonsWithStats
+	IncomeCount int `json:"incomeCount,omitempty"`
+	CPFCount    int `json:"cpfCount,omitempty"`
 }
 
 type DateRangeOptions struct {
@@ -647,6 +663,7 @@ func (s *Store) ListIncomes(
 		COALESCE(parent_id, id) as parent_id,
 		name,
 		COALESCE(earner, '') as earner,
+		person_id,
 		amount,
 		frequency,
 		start_date,
@@ -712,7 +729,7 @@ func (s *Store) ListIncomes(
 	for rows.Next() {
 		var i Income
 		err := rows.Scan(
-			&i.ID, &i.ParentID, &i.Name, &i.Earner, &i.Amount, &i.Frequency,
+			&i.ID, &i.ParentID, &i.Name, &i.Earner, &i.PersonID, &i.Amount, &i.Frequency,
 			&i.StartDate, &i.EndDate, &i.Category, &i.GrowthRate,
 			&i.Notes, &i.GrowthStrategy, &i.UpdatedAt,
 			&i.IncomeType, &i.CPFWageType, &i.ScenarioEventID,

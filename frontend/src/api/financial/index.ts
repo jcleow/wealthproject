@@ -11,6 +11,7 @@ export * as timelineApi from './timeline'
 export * as growthApi from './growth'
 export * as settingsApi from './settings'
 export * as cpfApi from './cpf'
+export * as personsApi from './persons'
 
 import * as assets from './assets'
 import * as investments from './investments'
@@ -25,6 +26,7 @@ import * as timeline from './timeline'
 import * as growth from './growth'
 import * as settings from './settings'
 import * as cpf from './cpf'
+import * as persons from './persons'
 
 export const financialApi = {
   ...assets,
@@ -40,4 +42,5 @@ export const financialApi = {
   ...growth,
   ...settings,
   ...cpf,
+  ...persons,
 }

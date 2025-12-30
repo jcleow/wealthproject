@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useTaxModeOptional } from '@/contexts/TaxModeContext'
+import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import {
   useCashAccountsQuery,
@@ -111,6 +112,9 @@ export function FinancialDataManagement({
     refresh,
   } = useFinancialDataContext()
 
+  // Person filtering
+  const { shouldShowData } = usePersonFilter()
+
   const { events: scenarioEvents } = useScenarioEvents()
 
   // User settings for display preferences
@@ -204,10 +208,13 @@ export function FinancialDataManagement({
 
   const yearIncomes = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
-      return timelineMonthV2.income.map(incomeV2ToTimelineItem)
+      return timelineMonthV2.income
+        .map(incomeV2ToTimelineItem)
+        .filter((item) => shouldShowData(item.personId))
     }
-    return showMonthlyData ? (timelineMonth?.income ?? []) : (timelineYear?.income ?? [])
-  }, [hasV2Data, timelineMonthV2, showMonthlyData, timelineMonth, timelineYear])
+    const items = showMonthlyData ? (timelineMonth?.income ?? []) : (timelineYear?.income ?? [])
+    return items.filter((item) => shouldShowData(item.personId))
+  }, [hasV2Data, timelineMonthV2, showMonthlyData, timelineMonth, timelineYear, shouldShowData])
 
   const cpfContributionsRaw = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {

@@ -36,6 +36,7 @@ export async function createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): P
   const body: Record<string, unknown> = {
     name: payload.name,
     earner: payload.earner ?? '',
+    personId: payload.personId,
     amount: String(payload.amount),
     frequency: payload.frequency,
     startDate: payload.startDate ?? new Date().toISOString(),
@@ -61,6 +62,7 @@ export async function updateIncome(
   const body: Record<string, unknown> = {
     name: payload.name,
     earner: payload.earner ?? '',
+    personId: payload.personId,
     amount: payload.amount?.toString(),
     frequency: payload.frequency,
     startDate: payload.startDate,

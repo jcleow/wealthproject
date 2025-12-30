@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload, ResidencyStatus } from '@/types/cpf'
 
 export interface FormFields {
+  personId: string | null
   oaBalance: string
   saBalance: string
   maBalance: string
@@ -25,6 +26,7 @@ export const RESIDENCY_OPTIONS: { value: ResidencyStatus; label: string }[] = [
 ]
 
 const EMPTY_FIELDS: FormFields = {
+  personId: null,
   oaBalance: '',
   saBalance: '',
   maBalance: '',
@@ -70,6 +72,7 @@ export interface UseCpfAccountFormReturn {
   submitting: boolean
   submitError: string | null
   handleFieldChange: (key: keyof FormFields, value: string) => void
+  handlePersonChange: (personId: string | null) => void
   handleSubmit: (event: React.FormEvent) => Promise<void>
 }
 
@@ -94,6 +97,7 @@ export function useCpfAccountForm({
 
     if (cpfAccount) {
       setFields({
+        personId: cpfAccount.personId ?? null,
         oaBalance: toDisplayString(cpfAccount.oaBalance),
         saBalance: toDisplayString(cpfAccount.saBalance),
         maBalance: toDisplayString(cpfAccount.maBalance),
@@ -125,7 +129,7 @@ export function useCpfAccountForm({
     ]
 
     for (const key of numericFields) {
-      const value = fields[key]
+      const value = fields[key] as string
       if (value && Number.isNaN(Number.parseFloat(value))) {
         nextErrors[key] = 'Enter a valid number'
       } else if (Number.parseFloat(value) < 0) {
@@ -151,6 +155,7 @@ export function useCpfAccountForm({
           return
         }
         const payload: CPFAccountCreatePayload = {
+          personId: fields.personId || undefined,
           oaBalance: parseDisplayValue(fields.oaBalance),
           saBalance: parseDisplayValue(fields.saBalance),
           maBalance: parseDisplayValue(fields.maBalance),
@@ -169,6 +174,7 @@ export function useCpfAccountForm({
         }
 
         const updates: CPFAccountUpdatePayload = {
+          personId: fields.personId || undefined,
           oaBalance: parseDisplayValue(fields.oaBalance),
           saBalance: parseDisplayValue(fields.saBalance),
           maBalance: parseDisplayValue(fields.maBalance),
@@ -204,12 +210,17 @@ export function useCpfAccountForm({
     }
   }, [errors])
 
+  const handlePersonChange = useCallback((personId: string | null) => {
+    setFields((prev) => ({ ...prev, personId }))
+  }, [])
+
   return {
     fields,
     errors,
     submitting,
     submitError,
     handleFieldChange,
+    handlePersonChange,
     handleSubmit,
   }
 }
