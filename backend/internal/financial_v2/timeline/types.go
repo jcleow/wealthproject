@@ -6,6 +6,7 @@ import (
 
 	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/decimal"
+	"financial-chat-system/backend/internal/financial_v2/property"
 	"financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
 )
@@ -70,6 +71,8 @@ type Store interface {
 	GetExcludedScenarioTargetIDs(context.Context, string) (repository.ExcludedTargets, error)
 	// ListIncludedScenarioEvents returns scenario events where is_included=true with their impacts
 	ListIncludedScenarioEvents(context.Context, string) ([]repository.ScenarioEvent, error)
+	// ListIncludedPropertyScenarios returns property scenarios where is_included=true for timeline projection
+	ListIncludedPropertyScenarios(context.Context, string) ([]repository.PropertyScenarioFull, error)
 }
 
 // ScenarioStore provides scenario-specific operations
@@ -122,6 +125,7 @@ type MonthDetailResponse struct {
 	CPFContributions  []CPFContributionResponse  `json:"cpfContributions"`
 	Expenses          []ExpenseResponse          `json:"expenses"`
 	IncomeAllocations []IncomeAllocationResponse `json:"incomeAllocations"`
+	Properties        []property.PropertySnapshot         `json:"properties"`
 	// Savings breakdown
 	NetSavings     decimal.Decimal `json:"netSavings"`     // income - employee CPF - expenses (monthly)
 	NetCash        decimal.Decimal `json:"netCash"`        // income - employee CPF - expenses - investments (monthly)
@@ -274,6 +278,9 @@ type ExpenseResponse struct {
 	SourceLiabilityID    *string         `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
 	EventImpacts         []AppliedImpact `json:"eventImpacts,omitempty"`
 	ScenarioEventID      *string         `json:"scenarioEventId,omitempty"` // If set, this item was created by a start impact
+	// Property fee specific fields
+	Icon      *string `json:"icon,omitempty"`      // Icon name for property fees
+	IconColor *string `json:"iconColor,omitempty"` // Icon color for property fees
 }
 
 // IncomeAllocationResponse represents an income allocation in the timeline response
@@ -288,3 +295,8 @@ type IncomeAllocationResponse struct {
 	AllocationType      string          `json:"allocationType"`
 	AllocationValue     decimal.Decimal `json:"allocationValue"`
 }
+
+// ========== Property Snapshot Types ==========
+// Property snapshot types are defined in the property package:
+// - property.PropertySnapshot
+// - property.PropertyFeeSnapshot

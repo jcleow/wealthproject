@@ -206,6 +206,7 @@ export const GrowthConfigCategoryLabels: Record<string, string> = {
 export type YearDisplayFormat = 'year_number' | 'actual_year'
 export type TimeResolution = 'yearly' | 'monthly'
 export type CompoundingFrequency = 'monthly' | 'annual'
+export type DashboardLayout = 'stacked' | 'chart-left' | 'chart-right'
 
 export type UserSettings = {
   id?: string
@@ -219,5 +220,7 @@ export type UserSettings = {
   groupItemsByCategory: boolean
   /** Whether to show a mini floating chart when scrolled out of view */
   chartPictureInPicture: boolean
+  /** Dashboard layout preference: stacked (default), chart-left, or chart-right */
+  dashboardLayout: DashboardLayout
   updatedAt?: string
 }

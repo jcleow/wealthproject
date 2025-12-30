@@ -27,6 +27,7 @@ const ProjectionChartJS = dynamic(
 
 // Hooks
 import { useProjectionData, useScenarioMarkers } from './projections/useProjectionData'
+import { usePropertyScenarioMarkers } from './projections/usePropertyScenarioMarkers'
 import { useChartZoom } from './projections/useChartZoom'
 import { useContainerSize } from './projections/useContainerSize'
 import { useChartOverlayData } from './projections/useChartOverlayData'
@@ -58,6 +59,7 @@ export interface NetWorthProjectionProps {
   scenarioEvents?: ScenarioEvent[]
   onScenarioSelect?: (event: ScenarioEvent) => void
   onAddScenario?: () => void
+  onPropertyScenarioEdit?: (scenarioId: string) => void
   chartTitle?: string
   chartSubtitle?: string
 }
@@ -75,6 +77,7 @@ export function NetWorthProjection({
   scenarioEvents,
   onScenarioSelect,
   onAddScenario,
+  onPropertyScenarioEdit,
   chartTitle,
   chartSubtitle,
 }: NetWorthProjectionProps) {
@@ -291,6 +294,9 @@ export function NetWorthProjection({
   // Scenario markers
   const scenarioMarkers = useScenarioMarkers(scenarioEvents, displayData, dataResolution)
 
+  // Property scenario markers (compound ring markers on chart)
+  const propertyMarkers = usePropertyScenarioMarkers(displayData, dataResolution)
+
   // Age range for subtitle
   const ageRange = useMemo(() => {
     const startingAge = userSettings?.startingAge ?? DEFAULT_STARTING_AGE
@@ -370,6 +376,8 @@ export function NetWorthProjection({
                 projectionLength={projection.length}
                 startIndex={actualStartIndex}
                 endIndex={actualEndIndex}
+                propertyMarkers={propertyMarkers}
+                onPropertyScenarioEdit={onPropertyScenarioEdit}
               />
             ) : (
               <ProjectionChart
@@ -393,6 +401,8 @@ export function NetWorthProjection({
                 onScenarioSelect={onScenarioSelect}
                 markersReady={markersReady}
                 prefersReducedMotion={prefersReducedMotion}
+                propertyMarkers={propertyMarkers}
+                onPropertyScenarioEdit={onPropertyScenarioEdit}
               />
             )}
           </div>

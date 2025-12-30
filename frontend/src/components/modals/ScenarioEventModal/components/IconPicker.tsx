@@ -1,7 +1,8 @@
 "use client"
 
 import * as LucideIcons from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import type { ComponentType, RefObject } from 'react'
 
 const ChevronDownIcon = LucideIcons.ChevronDown as ComponentType<{ className?: string }>
@@ -65,10 +66,36 @@ export function IconPicker({
 }: IconPickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'icon' | 'color'>('icon')
+  const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 })
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Update popover position based on trigger button location
+  const updatePosition = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setPopoverPosition({
+        top: rect.bottom + 8, // 8px gap below trigger
+        left: rect.left,
+      })
+    }
+  }, [])
+
   useClickOutside(popoverRef, () => setIsOpen(false))
+
+  // Update position when opening and on scroll/resize
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition()
+      window.addEventListener('scroll', updatePosition, true)
+      window.addEventListener('resize', updatePosition)
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true)
+        window.removeEventListener('resize', updatePosition)
+      }
+    }
+  }, [isOpen, updatePosition])
 
   const SelectedIcon = ICON_OPTIONS.find((opt) => opt.name === iconName)?.Icon
   const searchTerm = searchQuery.trim().toLowerCase()
@@ -91,9 +118,10 @@ export function IconPicker({
   }
 
   return (
-    <div className="relative" ref={popoverRef}>
+    <div className="relative">
       {/* Trigger Button - Icon badge that sits inline */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
@@ -137,18 +165,26 @@ export function IconPicker({
         </div>
       </button>
 
-      {/* Popover */}
-      {isOpen && (
-        <div className={`
-          absolute left-0 top-full z-[100] mt-2
-          w-72
-          rounded-2xl
-          border border-white/[0.12]
-          bg-[#0c0c0c]
-          shadow-2xl shadow-black/60
-          overflow-hidden
-          animate-in fade-in slide-in-from-top-2 duration-200
-        `}>
+      {/* Popover - rendered via portal to avoid clipping in scrollable containers */}
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={popoverRef}
+          style={{
+            position: 'fixed',
+            top: popoverPosition.top,
+            left: popoverPosition.left,
+            zIndex: 9999,
+          }}
+          className={`
+            w-72
+            rounded-2xl
+            border border-white/[0.12]
+            bg-[#0c0c0c]
+            shadow-2xl shadow-black/60
+            overflow-hidden
+            animate-in fade-in slide-in-from-top-2 duration-200
+          `}
+        >
           {/* Tab Header */}
           <div className="flex border-b border-white/[0.08]">
             <button
@@ -315,7 +351,8 @@ export function IconPicker({
               </div>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

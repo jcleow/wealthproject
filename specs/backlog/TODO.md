@@ -1,17 +1,5 @@
 # TODO
 
-## High Priority - UI/UX Bugs & Improvements
-
-### P2: Growth Strategy Field Ordering and Conditional Display
-
-**Problem:** In financial item forms, Growth Rate (%) is on the left and Growth Strategy is on the right. Growth Rate is always visible regardless of strategy selection.
-
-**Solution:** Move Growth Strategy dropdown to the left. Only show Growth Rate input when a growth strategy other than "No Growth" is selected.
-
-**Spec:** [testing-bugs.md](../in-progress/testing-bugs.md#p2-ui---growth-strategy-field-ordering-and-conditional-display)
-
----
-
 ### P2: Add Scenario Icons to Financial Items Created via Scenarios
 
 **Problem:** Financial items created via scenario events (e.g., "starts" impact) don't show scenario icons in the financial data list. Users can't easily identify which items originated from scenarios.
@@ -20,35 +8,6 @@
 
 **Spec:** [testing-bugs.md](../in-progress/testing-bugs.md#p2-feature---add-scenario-icons-to-financial-items-created-via-scenarios)
 
----
-
-### P2: Bug - Timeline Slider Shows Future Scenarios in Past Dates
-
-**Problem:** When moving the timeline slider backwards, future scenarios incorrectly appear as if applied in the past. Scenarios "leak" into earlier timeline positions.
-
-**Solution:** Fix timeline service to correctly filter scenarios by the selected date. Scenarios should only appear from their occurrence date forward.
-
-**Spec:** [testing-bugs.md](../in-progress/testing-bugs.md#p2-bug---timeline-slider-shows-future-scenarios-in-past-dates)
-
----
-
-### P2: Deactivated Scenarios Should Show Grey Icon
-
-**Problem:** Deactivating a scenario causes it to completely disappear from the chart/timeline.
-
-**Solution:** Show a grey/muted icon for deactivated scenarios. Keep the icon clickable to re-activate or edit the scenario.
-
-**Spec:** [testing-bugs.md](../in-progress/testing-bugs.md#p2-feature---deactivated-scenarios-should-show-grey-icon-not-disappear)
-
----
-
-### P2: Add "Jump to Date" Button in Scenario Modal
-
-**Problem:** The scenario modal shows the occurrence date but there's no way to quickly navigate the timeline to that date.
-
-**Solution:** Add a "Go to date" button near the "Occurs On" field that navigates the timeline slider to the scenario's occurrence date.
-
-**Spec:** [testing-bugs.md](../in-progress/testing-bugs.md#p2-feature---add-jump-to-date-button-in-scenario-modal)
 
 ---
 

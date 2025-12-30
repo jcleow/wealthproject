@@ -156,49 +156,8 @@ shadow-lg`}
               </Tooltip.Root>
             </Tooltip.Provider>
           )}
-          {/* Scenario indicator - show event icon for start impacts, amber dot for others */}
-          {startEvent ? (
-            <Tooltip.Provider delayDuration={0}>
-              <Tooltip.Root>
-                <Tooltip.Trigger asChild>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      window.dispatchEvent(new CustomEvent('open-scenario-event', { detail: startEvent }))
-                    }}
-                    className="flex-shrink-0 rounded p-0.5 transition hover:bg-white/10"
-                  >
-                    {(() => {
-                      const Icon = getIconByName(startEvent.displayIcon ?? '')
-                      return Icon ? (
-                        <Icon
-                          className="h-3.5 w-3.5"
-                          style={{ color: startEvent.displayColor ?? '#f59e0b' }}
-                        />
-                      ) : (
-                        <span
-                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold text-white"
-                          style={{ backgroundColor: startEvent.displayColor ?? '#f59e0b' }}
-                        >
-                          {(startEvent.displayIcon ?? '?').slice(0, 1).toUpperCase()}
-                        </span>
-                      )
-                    })()}
-                  </button>
-                </Tooltip.Trigger>
-                <Tooltip.Content
-                  side="top"
-                  sideOffset={6}
-                  className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
-                >
-                  Created by: {startEvent.name}
-                </Tooltip.Content>
-              </Tooltip.Root>
-            </Tooltip.Provider>
-          ) : hasScenarios ? (
-            <span className="h-1 w-1 flex-shrink-0 rounded-full bg-amber-400" />
-          ) : null}
+          {/* Scenario indicator */}
+          <ScenarioIndicator item={item} startEvent={startEvent} hasScenarios={hasScenarios} />
           {/* Annualization info */}
           {annualizationLabel && (
             <Tooltip.Provider delayDuration={0}>
@@ -356,6 +315,106 @@ transition-colors`}
       )}
     </div>
   )
+}
+
+// Subcomponent for rendering scenario indicator icons (property fee, start event, or generic dot)
+interface ScenarioIndicatorProps {
+  item: TimelineItem
+  startEvent: ScenarioEvent | null | undefined
+  hasScenarios: boolean
+}
+
+function ScenarioIndicator({ item, startEvent, hasScenarios }: ScenarioIndicatorProps) {
+  // Property fee indicator
+  if (item.itemType === 'property_fee' && item.icon && item.scenarioEventId) {
+    const Icon = getIconByName(item.icon)
+    return (
+      <Tooltip.Provider delayDuration={0}>
+        <Tooltip.Root>
+          <Tooltip.Trigger asChild>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                window.dispatchEvent(new CustomEvent('open-property-scenario', { detail: { scenarioId: item.scenarioEventId } }))
+              }}
+              className="flex-shrink-0 rounded p-0.5 transition hover:bg-white/10"
+            >
+              {Icon ? (
+                <Icon
+                  className="h-3.5 w-3.5"
+                  style={{ color: item.iconColor ?? '#10b981' }}
+                />
+              ) : (
+                <span
+                  className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold text-white"
+                  style={{ backgroundColor: item.iconColor ?? '#10b981' }}
+                >
+                  {item.icon.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+            </button>
+          </Tooltip.Trigger>
+          <Tooltip.Content
+            side="top"
+            sideOffset={6}
+            className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+          >
+            Property fee - click to edit property
+          </Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
+    )
+  }
+
+  // Start event indicator
+  if (startEvent) {
+    const Icon = getIconByName(startEvent.displayIcon ?? '')
+    return (
+      <Tooltip.Provider delayDuration={0}>
+        <Tooltip.Root>
+          <Tooltip.Trigger asChild>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                window.dispatchEvent(new CustomEvent('open-scenario-event', { detail: startEvent }))
+              }}
+              className="flex-shrink-0 rounded p-0.5 transition hover:bg-white/10"
+            >
+              {Icon ? (
+                <Icon
+                  className="h-3.5 w-3.5"
+                  style={{ color: startEvent.displayColor ?? '#f59e0b' }}
+                />
+              ) : (
+                <span
+                  className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold text-white"
+                  style={{ backgroundColor: startEvent.displayColor ?? '#f59e0b' }}
+                >
+                  {(startEvent.displayIcon ?? '?').slice(0, 1).toUpperCase()}
+                </span>
+              )}
+            </button>
+          </Tooltip.Trigger>
+          <Tooltip.Content
+            side="top"
+            sideOffset={6}
+            className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+          >
+            Created by: {startEvent.name}
+          </Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
+    )
+  }
+
+  // Generic scenario dot
+  if (hasScenarios) {
+    return <span className="h-1 w-1 flex-shrink-0 rounded-full bg-amber-400" />
+  }
+
+  return null
 }
 
 interface ScenarioImpactsListProps {

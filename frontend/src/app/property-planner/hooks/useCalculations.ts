@@ -1,3 +1,15 @@
+/**
+ * Property Planner Local Calculations
+ *
+ * These calculations provide real-time preview while editing scenarios.
+ * When scenarios are saved, the backend computes definitive values.
+ *
+ * Usage:
+ * - Use these for immediate feedback during form editing
+ * - Use API computed values (scenario.computed) for saved scenarios
+ * - TabbedResultsPanel falls back to these when API data isn't available
+ */
+
 import type {
   MortgageInputs,
   MortgageCalculationResult,
@@ -63,6 +75,9 @@ export function calculateMortgage(inputs: MortgageInputs): MortgageCalculationRe
     downpaymentCash,
     loanType,
   } = inputs
+
+  // Sum total grants from array
+  const totalGrants = grants.reduce((sum, g) => sum + g.amount, 0)
 
   // Cash Over Valuation (only for resale properties where price > valuation)
   const cov = Math.max(0, propertyPrice - valuationPrice)
@@ -135,7 +150,7 @@ export function calculateMortgage(inputs: MortgageInputs): MortgageCalculationRe
   }
 
   // Estimate CPF depletion
-  let cpfBalance = cpfOaBalance + grants
+  let cpfBalance = cpfOaBalance + totalGrants
   let cpfRunsOutMonth: number | null = null
 
   for (let month = 1; month <= totalMonths; month++) {

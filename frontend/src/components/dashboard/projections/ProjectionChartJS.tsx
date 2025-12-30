@@ -19,7 +19,8 @@ import zoomPlugin from 'chartjs-plugin-zoom'
 
 import { milestonePlugin, preloadIcons } from './chartjs/milestonePlugin'
 import { ChartJSTooltip, useChartJSTooltip } from './chartjs/ChartJSTooltip'
-import type { ChartJSMarkerData } from './chartjs/types'
+import { PropertyMarkerPopover } from './PropertyMarkerPopover'
+import type { ChartJSMarkerData, PropertyMarkerData } from './chartjs/types'
 import { chartColors, AREA_ANIMATION_MS, type AxisMode, type ProjectionPoint } from './types'
 import type { ScenarioMarkerData } from './useProjectionData'
 import type { ScenarioEvent } from '@/types/scenario'
@@ -62,6 +63,8 @@ export interface ProjectionChartJSProps {
   projectionLength: number
   startIndex: number | null
   endIndex: number | null
+  propertyMarkers?: PropertyMarkerData[]
+  onPropertyScenarioEdit?: (scenarioId: string) => void
 }
 
 /**
@@ -90,6 +93,8 @@ export function ProjectionChartJS({
   projectionLength,
   startIndex,
   endIndex,
+  propertyMarkers = [],
+  onPropertyScenarioEdit,
 }: ProjectionChartJSProps) {
   const chartRef = useRef<ChartJS<'line'> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -106,19 +111,30 @@ export function ProjectionChartJS({
   // Track if icons are loaded
   const [iconsLoaded, setIconsLoaded] = useState(false)
 
+  // Property marker popover state
+  const [expandedPropertyMarker, setExpandedPropertyMarker] = useState<{
+    marker: PropertyMarkerData
+    position: { x: number; y: number }
+  } | null>(null)
+
   // Pre-load icons when markers change
   useEffect(() => {
-    const iconNames = scenarioMarkers.flatMap((marker) =>
+    const scenarioIconNames = scenarioMarkers.flatMap((marker) =>
       marker.events.map((event) => event.displayIcon).filter(Boolean)
     ) as string[]
 
-    if (iconNames.length > 0) {
+    // Also preload property marker icons
+    const propertyIconNames = propertyMarkers.map((marker) => marker.icon).filter(Boolean)
+
+    const allIconNames = [...scenarioIconNames, ...propertyIconNames]
+
+    if (allIconNames.length > 0) {
       setIconsLoaded(false)
-      preloadIcons(iconNames).then(() => setIconsLoaded(true))
+      preloadIcons(allIconNames).then(() => setIconsLoaded(true))
     } else {
       setIconsLoaded(true)
     }
-  }, [scenarioMarkers])
+  }, [scenarioMarkers, propertyMarkers])
 
   // Markers are shown immediately (opacity 1) so they animate with the chart line
   // They only need icons to be loaded first
@@ -142,6 +158,22 @@ export function ProjectionChartJS({
     },
     [onScenarioSelect]
   )
+
+  // Handle property marker click - show popover
+  const handlePropertyMarkerClick = useCallback(
+    (marker: PropertyMarkerData, x: number, y: number) => {
+      setExpandedPropertyMarker({ marker, position: { x, y } })
+    },
+    []
+  )
+
+  // Handle edit scenario from popover
+  const handleEditScenarioFromPopover = useCallback(() => {
+    if (expandedPropertyMarker && onPropertyScenarioEdit) {
+      onPropertyScenarioEdit(expandedPropertyMarker.marker.propertyScenarioId)
+      setExpandedPropertyMarker(null)
+    }
+  }, [expandedPropertyMarker, onPropertyScenarioEdit])
 
   // Generate X-axis labels based on mode
   const getXAxisLabel = useCallback(
@@ -331,10 +363,12 @@ export function ProjectionChartJS({
         },
         milestoneMarkers: {
           markers: chartJSMarkers,
+          propertyMarkers: propertyMarkers,
           visible: true, // Always visible, opacity controls actual visibility
           animate: !prefersReducedMotion,
           opacity: markerOpacity,
           onMarkerClick: handleMarkerClick,
+          onPropertyMarkerClick: handlePropertyMarkerClick,
         },
       },
       onClick: (_event, elements) => {
@@ -361,9 +395,11 @@ export function ProjectionChartJS({
     getXAxisLabel,
     projectionLength,
     chartJSMarkers,
+    propertyMarkers,
     prefersReducedMotion,
     markerOpacity,
     handleMarkerClick,
+    handlePropertyMarkerClick,
     displayData,
     onSelectMonth,
     onSelectYear,
@@ -386,6 +422,17 @@ export function ProjectionChartJS({
         startingAge={startingAge}
         resolution={dataResolution}
       />
+
+      {/* Property marker popover */}
+      {expandedPropertyMarker && (
+        <PropertyMarkerPopover
+          marker={expandedPropertyMarker.marker}
+          position={expandedPropertyMarker.position}
+          chartContainerRef={containerRef}
+          onClose={() => setExpandedPropertyMarker(null)}
+          onEditScenario={handleEditScenarioFromPopover}
+        />
+      )}
     </div>
   )
 }

@@ -18,6 +18,7 @@ export type TimelineItemType =
   | 'expense'
   | 'cpf_contribution'
   | 'cpf_account'
+  | 'property_fee'
   // Normalized values used in UI logic
   | 'asset'
   | 'liability'
@@ -71,6 +72,10 @@ export interface TimelineItem {
   sourceLiabilityId?: string
   /** If set, this item was created by a scenario start impact */
   scenarioEventId?: string
+  /** Icon name for property fee items */
+  icon?: string
+  /** Icon color for property fee items */
+  iconColor?: string
 }
 
 export interface GrowthApplied {
@@ -181,11 +186,14 @@ export interface MonthDetailResponseV2 {
   cpfContributions: CPFContributionResponseV2[]
   expenses: ExpenseResponseV2[]
   incomeAllocations: IncomeAllocationResponseV2[]
+  properties: PropertySnapshotV2[]
   // Savings breakdown
   netSavings: string      // income - employee CPF - expenses (monthly)
   netCash: string         // income - employee CPF - expenses - investments (monthly)
   netInvestments: string  // employee CPF contribution (monthly)
   // Other totals
+  totalAssets: string
+  totalLiabilities: string
   netWorth: string
   accumulatorAccountId: string
 }
@@ -341,6 +349,10 @@ export interface ExpenseResponseV2 {
   eventImpacts?: AppliedImpactV2[]
   /** If set, this item was created by a scenario start impact */
   scenarioEventId?: string
+  /** Icon name for property fee items */
+  icon?: string
+  /** Icon color for property fee items */
+  iconColor?: string
 }
 
 // ========== Timeline V2 Chart Types ==========
@@ -369,4 +381,29 @@ export interface TimelineChartResponse {
   years?: TimelineChartYear[]
   months?: TimelineChartMonth[]
   scenarioIds: string[]
+}
+
+// ========== Property Snapshot Types ==========
+
+/** Fee associated with a property event (purchase, recurring, or sale) */
+export interface PropertyFeeSnapshotV2 {
+  id: string
+  name: string
+  feeContext: 'purchase' | 'recurring' | 'sale'
+  amount: string
+  date: string
+}
+
+/** Property scenario snapshot in timeline V2 response */
+export interface PropertySnapshotV2 {
+  id: string
+  name: string
+  icon?: string
+  iconColor?: string
+  propertyValue: string   // Current/projected value at this point
+  mortgageBalance: string // Current/projected outstanding balance
+  netEquity: string       // PropertyValue - MortgageBalance
+  purchaseDate: string    // First rate period start_month
+  saleDate?: string
+  fees: PropertyFeeSnapshotV2[]
 }

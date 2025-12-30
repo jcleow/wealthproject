@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Home, Shield } from 'lucide-react'
+import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
-import { assetsApi, liabilitiesApi, propertyApi } from '@/api/financial'
-import { PropertyPlannerModal } from '../modals/PropertyPlannerModal/PropertyPlannerModal'
+import { propertyApi } from '@/api/financial'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { UserMenu } from '../auth/UserMenu'
@@ -25,12 +24,15 @@ interface FinancialWorkspaceProps {
   overrideYears?: Set<number>
   timelineError?: string | null
   onOpenCPF?: () => void
-  onOpenPropertyPlannerV2?: () => void
+  onOpenPropertyPlanner?: () => void
   onOpenTax?: () => void
   onOpenInsurance?: () => void
   anchorYear?: number | null
   anchorMonth?: number | null
   headerOnly?: boolean
+  chartOnly?: boolean
+  onOpenLayoutModal?: () => void
+  onPropertyScenarioEdit?: (scenarioId: string) => void
 }
 
 // Stable empty Set to use as default (avoids creating new Set on each render)
@@ -48,12 +50,15 @@ export function FinancialWorkspace({
   overrideYears,
   timelineError = null,
   onOpenCPF,
-  onOpenPropertyPlannerV2,
+  onOpenPropertyPlanner,
   onOpenTax,
   onOpenInsurance,
   anchorYear,
   anchorMonth,
   headerOnly = false,
+  chartOnly = false,
+  onOpenLayoutModal,
+  onPropertyScenarioEdit,
 }: FinancialWorkspaceProps) {
   // Use stable empty set as fallback
   const stableOverrideYears = useMemo(
@@ -61,7 +66,6 @@ export function FinancialWorkspace({
     [overrideYears]
   )
 
-  const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
   const [scenarioEventToEdit, setScenarioEventToEdit] = useState<ScenarioEvent | null>(null)
   const [isClearing, setIsClearing] = useState(false)
@@ -106,53 +110,11 @@ export function FinancialWorkspace({
     }
   }
 
-  const seedPropertyScenario = async () => {
-    try {
-      const assetsResult = await assetsApi.listAssets({ limit: -1 })
-      const liabilitiesResult = await liabilitiesApi.listLiabilities({ limit: -1 })
-      const propertyAsset = assetsResult.data.find((a) => a.name === 'Sample Condo') ?? assetsResult.data.find((a) => a.category === 'property')
-      const propertyLiability = liabilitiesResult.data.find((l) => l.name === 'Sample Condo Mortgage') ?? liabilitiesResult.data.find((l) => l.category === 'property')
-      if (!propertyAsset || !propertyLiability) return null
-
-      const scenario = await propertyApi.createPropertyScenario({
-        propertyType: 'condo',
-        headline: propertyAsset.name || 'Property scenario',
-        propertyPrice: Math.max(1, propertyAsset.currentValue || 750000),
-        downPayment: 200000,
-        loanAmount: Math.max(1, propertyLiability.currentBalance || 550000),
-        interestRate: Math.max(0.01, propertyLiability.interestRateApr || 3.2),
-        loanTenure: 25,
-        notes: 'Sample scenario for testing',
-        assetId: propertyAsset.id,
-        liabilityId: propertyLiability.id,
-      })
-      if (scenario?.id && typeof window !== 'undefined') {
-        localStorage.setItem('property_planner_scenario_id', scenario.id)
-        localStorage.setItem('property_planner_draft', JSON.stringify({
-          propertyType: 'condo',
-          loanAmount: scenario.loanAmount,
-          loanTermYears: scenario.loanTenure,
-          borrowerType: 'single',
-          loanStartMonth: '2024-06',
-          fixedYears: 5,
-          fixedRate: scenario.interestRate,
-          floatingRate: scenario.interestRate,
-          householdIncome: 8200,
-          otherDebt: 1200,
-        }))
-      }
-      return scenario
-    } catch (error) {
-      console.warn('Unable to seed property scenario', error)
-      return null
-    }
-  }
-
   const handleLoadDefaults = async () => {
     setIsSeeding(true)
     try {
       await loadSampleData()
-      await seedPropertyScenario()
+      // Property scenario is now created via Property Planner V2 API in useLoadSampleDataMutation
       await refresh()
     } catch (error) {
       console.error('Failed to load sample data', error)
@@ -162,10 +124,6 @@ export function FinancialWorkspace({
     } finally {
       setIsSeeding(false)
     }
-  }
-
-  const handlePropertyPlanner = () => {
-    setIsPropertyPlannerOpen(true)
   }
 
   useEffect(() => {
@@ -191,6 +149,17 @@ export function FinancialWorkspace({
     return () => window.removeEventListener('open-scenario-event', handleOpenScenarioEvent as EventListener)
   }, [])
 
+  // Listen for open-property-scenario from financial data cards
+  useEffect(() => {
+    const handleOpenPropertyScenario = (e: CustomEvent<{ scenarioId: string }>) => {
+      if (e.detail?.scenarioId && onPropertyScenarioEdit) {
+        onPropertyScenarioEdit(e.detail.scenarioId)
+      }
+    }
+    window.addEventListener('open-property-scenario', handleOpenPropertyScenario as EventListener)
+    return () => window.removeEventListener('open-property-scenario', handleOpenPropertyScenario as EventListener)
+  }, [onPropertyScenarioEdit])
+
   const handleCreateScenario = useCallback(() => {
     setScenarioEventToEdit(null)
     setIsScenarioModalOpen(true)
@@ -207,7 +176,8 @@ export function FinancialWorkspace({
 h-full min-h-0 w-full min-w-0
 bg-transparent
 text-slate-200`}>
-      {/* Compact Header */}
+      {/* Compact Header - hidden when chartOnly */}
+      {!chartOnly && (
       <header className={`relative z-[100]
 flex items-center justify-between
 h-14
@@ -301,11 +271,11 @@ text-[13px] text-slate-300`}
               <>
               {/* Backdrop */}
               <div
-                className="fixed inset-0 z-[99]"
+                className="fixed inset-0 z-[299]"
                 onClick={() => setIsModuleMenuOpen(false)}
               />
               <div className={clsx(
-                "absolute right-0 z-[100]",
+                "absolute right-0 z-[300]",
                 "w-64",
                 "mt-2",
                 "border border-white/[0.08] rounded-xl",
@@ -313,10 +283,11 @@ text-[13px] text-slate-300`}
                 "shadow-2xl",
                 "overflow-hidden",
               )} style={{ isolation: 'isolate' }}>
+                {/* Property Planner */}
                 <button
                   onClick={() => {
                     setIsModuleMenuOpen(false)
-                    handlePropertyPlanner()
+                    onOpenPropertyPlanner?.()
                   }}
                   className={clsx(
                     "flex items-start gap-3",
@@ -330,42 +301,14 @@ text-[13px] text-slate-300`}
                   type="button"
                 >
                   <span className={`mt-0.5 p-2
-rounded-lg border border-blue-500/20
-bg-blue-500/10
-text-blue-400`}>
+rounded-lg border border-violet-500/20
+bg-violet-500/10
+text-violet-400`}>
                     <Building2 className="h-4 w-4" />
                   </span>
                   <div className="space-y-0.5">
                     <div className="font-medium">Property Planner</div>
-                    <p className="text-xs text-slate-400">Model affordability, mortgages, and cash flow.</p>
-                  </div>
-                </button>
-                {/* Property Planner v2 */}
-                <button
-                  onClick={() => {
-                    setIsModuleMenuOpen(false)
-                    onOpenPropertyPlannerV2?.()
-                  }}
-                  className={clsx(
-                    "flex items-start gap-3",
-                    "w-full",
-                    "px-4 py-3",
-                    "border-b border-white/[0.04]",
-                    "hover:bg-white/5",
-                    "text-left text-slate-200 text-sm",
-                    "transition",
-                  )}
-                  type="button"
-                >
-                  <span className={`mt-0.5 p-2
-rounded-lg border border-rose-500/20
-bg-rose-500/10
-text-rose-400`}>
-                    <Home className="h-4 w-4" />
-                  </span>
-                  <div className="space-y-0.5">
-                    <div className="font-medium">Property Planner v2</div>
-                    <p className="text-xs text-slate-400">Enhanced mortgage calculator with sale projections.</p>
+                    <p className="text-xs text-slate-400">Create and compare property purchase scenarios.</p>
                   </div>
                 </button>
                 {/* CPF Simulation */}
@@ -476,6 +419,25 @@ text-purple-400`}>
 
           <div className="h-4 w-px bg-white/[0.06]" />
 
+          {/* Layout toggle */}
+          {onOpenLayoutModal && (
+            <button
+              type="button"
+              onClick={onOpenLayoutModal}
+              className={clsx(
+                "flex items-center justify-center",
+                "h-7 w-7",
+                "rounded-full",
+                "hover:bg-white/5",
+                "hover:text-slate-300 text-slate-500",
+                "transition",
+              )}
+              title="Change layout"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+          )}
+
           {/* Notification bell */}
           <button
             type="button"
@@ -494,9 +456,10 @@ text-purple-400`}>
           <UserMenu />
         </div>
       </header>
+      )}
 
       {/* Only show chart and timeline error when not in headerOnly mode */}
-      {!headerOnly && (
+      {(chartOnly || !headerOnly) && (
         <>
           {timelineError && (
             <div className={clsx(
@@ -535,6 +498,7 @@ text-purple-400`}>
                   onScenarioSelect={handleScenarioSelect}
                   onSelectYear={onSelectYear}
                   onSelectMonth={onSelectMonth}
+                  onPropertyScenarioEdit={onPropertyScenarioEdit}
                 />
               </div>
             </section>
@@ -542,10 +506,6 @@ text-purple-400`}>
         </>
       )}
 
-      <PropertyPlannerModal
-        isOpen={isPropertyPlannerOpen}
-        onClose={() => setIsPropertyPlannerOpen(false)}
-      />
       {isScenarioModalOpen && (
         <ScenarioEventModal
           isOpen={isScenarioModalOpen}

@@ -11,6 +11,7 @@ import (
 	cpfProcessor "financial-chat-system/backend/internal/cpf/processor"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/growth"
+	"financial-chat-system/backend/internal/financial_v2/property"
 	"financial-chat-system/backend/internal/financial_v2/repayment"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
@@ -69,6 +70,8 @@ type SGFinancialDataRows struct {
 	LinkedExpensesByLiability map[string]FinancialDataRow
 	// ScenarioImpacts holds pre-indexed scenario impacts (nil if includeScenarios=false)
 	ScenarioImpacts *scenario.ImpactContext
+	// Properties holds included property scenarios for timeline projection
+	Properties []repo.PropertyScenarioFull
 }
 
 // ItemState tracks the current computed state of a financial item
@@ -113,6 +116,7 @@ func (s *Service) loadEffectiveRows(
 		incomeAllocations []repo.IncomeAllocation
 		excludedTargets   repo.ExcludedTargets
 		scenarioEvents    []repo.ScenarioEvent
+		properties        []repo.PropertyScenarioFull
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -188,6 +192,16 @@ func (s *Service) loadEffectiveRows(
 		return err
 	})
 
+	// Load included property scenarios if scenarios are requested
+	g.Go(func() error {
+		if !includeScenarios {
+			return nil
+		}
+		var err error
+		properties, err = s.store.ListIncludedPropertyScenarios(gctx, userID)
+		return err
+	})
+
 	if err := g.Wait(); err != nil {
 		return SGFinancialDataRows{}, err
 	}
@@ -214,6 +228,7 @@ func (s *Service) loadEffectiveRows(
 		CPFAccount:        mapToCPFAccount(cpfAccount),
 		IncomeAllocations: incomeAllocations,
 		ScenarioImpacts:   impactCtx,
+		Properties:        properties,
 	}, nil
 }
 
@@ -1617,6 +1632,7 @@ func buildMonthDetailResponse(
 	cpfContributions map[string]*cpfProcessor.ContributionResult,
 	cpfCtx *CPFContext,
 	incomeAllocations []repo.IncomeAllocation,
+	properties []repo.PropertyScenarioFull,
 ) MonthDetailResponse {
 	yearIndex := date.Year() - baseYear
 	month := int(date.Month())
@@ -1631,6 +1647,34 @@ func buildMonthDetailResponse(
 	cpfContributionResponses := buildCPFContributionResponses(data.Incomes, itemStates, date, cpfContributions)
 	incomeAllocationResponses := buildIncomeAllocationResponses(incomeAllocations, date)
 
+	// Build property snapshots
+	propertyBuilder := property.NewSnapshotBuilder()
+	propertySnapshots, propertyTotal, mortgageTotal := propertyBuilder.BuildPropertySnapshots(properties, date)
+
+	// Convert property fees to expense responses using the property module
+	for i := range propertySnapshots {
+		propExpenses := propertySnapshots[i].ToExpenses(date)
+		for _, pfe := range propExpenses {
+			expenses = append(expenses, ExpenseResponse{
+				ID:                   pfe.ID,
+				ParentID:             pfe.ParentID,
+				Name:                 pfe.Name,
+				Category:             pfe.Category,
+				Amount:               pfe.Amount,
+				EventAdjAmount:       pfe.EventAdjAmount,
+				AnnualAmount:         pfe.AnnualAmount,
+				EventAdjAnnualAmount: pfe.EventAdjAnnualAmount,
+				SourceFrequency:      pfe.SourceFrequency,
+				ItemType:             pfe.ItemType,
+				StartYear:            pfe.StartYear,
+				StartMonth:           pfe.StartMonth,
+				ScenarioEventID:      pfe.ScenarioEventID,
+				Icon:                 pfe.Icon,
+				IconColor:            pfe.IconColor,
+			})
+		}
+	}
+
 	// Build CPF assets from accumulated balances
 	cpfAssets := buildCPFAssetResponses(cpfCtx, yearIndex, month, date)
 	cpfTotal := decimal.Zero()
@@ -1638,9 +1682,10 @@ func buildMonthDetailResponse(
 		cpfTotal = cpfTotal.Add(&asset.Balance)
 	}
 
-	// Calculate totals
-	totalAssets := decimal.Zero().Add(nonCashTotal).Add(investmentTotal).Add(cashTotal).Add(cashAccumulator).Add(cpfTotal)
-	netWorth := totalAssets.Sub(liabilityTotal)
+	// Calculate totals (including property values and mortgages)
+	totalAssets := decimal.Zero().Add(nonCashTotal).Add(investmentTotal).Add(cashTotal).Add(cashAccumulator).Add(cpfTotal).Add(propertyTotal)
+	totalLiabilities := liabilityTotal.Add(mortgageTotal)
+	netWorth := totalAssets.Sub(totalLiabilities)
 
 	return MonthDetailResponse{
 		Year:                 baseYear + yearIndex,
@@ -1656,11 +1701,12 @@ func buildMonthDetailResponse(
 		CPFContributions:     cpfContributionResponses,
 		Expenses:             expenses,
 		IncomeAllocations:    incomeAllocationResponses,
+		Properties:           propertySnapshots,
 		NetSavings:           *netSavings.Round(0),
 		NetCash:              *netCashFlow.Round(0),
 		NetInvestments:       *netInvestments.Round(0),
 		TotalAssets:          *totalAssets.Round(0),
-		TotalLiabilities:     *liabilityTotal.Round(0),
+		TotalLiabilities:     *totalLiabilities.Round(0),
 		NetWorth:             *netWorth.Round(0),
 		AccumulatorAccountID: accumulatorID,
 	}
@@ -1710,6 +1756,8 @@ type MonthlyContext struct {
 	ScenarioImpacts    *scenario.ImpactContext                 // Pre-indexed impacts (nil if scenarios disabled)
 	EventAdjustedState map[string]*decimal.Decimal             // Temporary state with scenario impacts (recreated each month)
 	AppliedImpacts     map[string][]scenario.AppliedImpactInfo // Tracks which impacts were applied to each item
+	// Property scenarios for timeline projection
+	Properties []repo.PropertyScenarioFull
 }
 
 // processMonth handles all calculations for a single month and returns the response
@@ -1783,6 +1831,7 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 		mctx.AppliedImpacts,     // Pass applied impacts for EventImpacts field
 		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFCtx,
 		mctx.IncomeAllocations,
+		mctx.Properties,
 	)
 }
 
@@ -1821,6 +1870,7 @@ func (s *Service) computeSnapshotFromData(sgData SGFinancialDataRows, opts Timel
 		IncomeAllocations:         sgData.IncomeAllocations,
 		LinkedExpensesByLiability: linkedExpenses,
 		ScenarioImpacts:           sgData.ScenarioImpacts,
+		Properties:                sgData.Properties,
 	}
 	mctx.State = extractBalanceMap(mctx.ItemStates)
 

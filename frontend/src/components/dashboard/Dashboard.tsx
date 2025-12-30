@@ -2,36 +2,47 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { PanelLeftOpen } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import clsx from 'clsx'
 
 import { Chat } from '../chat/Chat'
 import { ChatFloatingLauncher } from './ChatFloatingLauncher'
 import { FinancialDataSection } from './FinancialDataSection'
 import { FinancialWorkspace } from './FinancialWorkspace'
 import { MiniChart } from './MiniChart'
+import { ResizableChartSection } from './ResizableChartSection'
 import { CPFSimulationView } from '../cpf/CPFSimulationView'
-import { PropertyPlannerV2View } from '@/app/property-planner/page'
+import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
+import { LayoutPreviewModal } from '@/components/modals/LayoutPreviewModal'
 import { TaxPlannerV2View } from '@/app/tax-planner/page'
 import { InsurancePlannerView } from '@/app/insurance-planner/page'
 import { useTimeline } from '@/hooks/useTimeline'
 import { usePictureInPicture } from '@/hooks/usePictureInPicture'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
+import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { generateUUID } from '@/lib/utils'
 import { FinancialDataProvider } from '@/contexts/FinancialDataContext'
 import { TaxModeProvider } from '@/contexts/TaxModeContext'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import type { ZoomLevel } from '@/components/timeline/ZoomControls'
+import type { DashboardLayout } from '@/types/financial'
 
 export function Dashboard() {
   const chatIdRef = useRef<string>(generateUUID())
   const chatId = chatIdRef.current
+  const queryClient = useQueryClient()
+  const windowWidth = useWindowWidth()
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isChatCollapsed, setIsChatCollapsed] = useState(true)
   const [showCPFView, setShowCPFView] = useState(false)
-  const [showPropertyPlannerV2, setShowPropertyPlannerV2] = useState(false)
+  const [showPropertyPlanner, setShowPropertyPlanner] = useState(false)
+  const [propertyScenarioToEdit, setPropertyScenarioToEdit] = useState<string | null>(null)
   const [showTaxPlanner, setShowTaxPlanner] = useState(false)
   const [showInsurancePlanner, setShowInsurancePlanner] = useState(false)
+  const [isLayoutModalOpen, setIsLayoutModalOpen] = useState(false)
+  const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>('stacked')
+  const [hasUserChangedLayout, setHasUserChangedLayout] = useState(false)
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('yearly')
   const timeline = useTimeline({ resolution: 'monthly' })
   const timelineError =
@@ -39,12 +50,50 @@ export function Dashboard() {
       ? timeline.timelineQuery.error.message
       : null
 
-  // Fetch user settings for PiP preference
+  // Fetch user settings for PiP preference and layout
   const { data: userSettings } = useQuery({
     queryKey: QUERY_KEYS.settings.user,
     queryFn: () => settingsApi.getUserSettings(),
     staleTime: 5 * 60 * 1000,
   })
+
+  // Initialize layout from settings (only on first load, not after user changes)
+  useEffect(() => {
+    if (userSettings?.dashboardLayout && !hasUserChangedLayout) {
+      setDashboardLayout(userSettings.dashboardLayout)
+    }
+  }, [userSettings?.dashboardLayout, hasUserChangedLayout])
+
+  // Mutation for updating layout preference
+  const updateLayoutMutation = useMutation({
+    mutationFn: (layout: DashboardLayout) =>
+      settingsApi.updateUserSettings({
+        ...userSettings!,
+        dashboardLayout: layout,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings.user })
+    },
+    onError: () => {
+      // Silently fail - layout state already updated optimistically
+    },
+  })
+
+  // Handle layout change with optimistic update
+  const handleLayoutChange = useCallback(
+    (layout: DashboardLayout) => {
+      setDashboardLayout(layout)
+      setHasUserChangedLayout(true)
+      if (userSettings) {
+        updateLayoutMutation.mutate(layout)
+      }
+    },
+    [userSettings, updateLayoutMutation]
+  )
+
+  // Force stacked layout on smaller screens
+  const effectiveLayout = windowWidth >= 1280 ? dashboardLayout : 'stacked'
+  const isSideBySide = effectiveLayout !== 'stacked'
 
   // Fetch scenario events for mini chart
   const { events: scenarioEvents } = useScenarioEvents()
@@ -60,6 +109,12 @@ export function Dashboard() {
     chartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     dismissPiP()
   }, [chartRef, dismissPiP])
+
+  // Handle property scenario edit from chart marker click
+  const handlePropertyScenarioEdit = useCallback((scenarioId: string) => {
+    setPropertyScenarioToEdit(scenarioId)
+    setShowPropertyPlanner(true)
+  }, [])
 
   // Keyboard shortcut: Cmd+B to toggle chat
   useEffect(() => {
@@ -174,39 +229,6 @@ rounded-2xl border border-white/[0.06]
 bg-[#0a0a0a]/80`}>
                 <CPFSimulationView onClose={() => setShowCPFView(false)} />
               </div>
-            ) : showPropertyPlannerV2 ? (
-              /* Property Planner V2 View - shows header + property planner */
-              <>
-                {/* Header bar only - no chart */}
-                <div className="shrink-0">
-                  <FinancialWorkspace
-                    selectedYear={timeline.selectedYear}
-                    onSelectYear={timeline.setSelectedYear}
-                    onSelectMonth={timeline.setSelectedMonth}
-                    timelineYears={timeline.chartYears}
-                    timelineMonths={timeline.chartMonths}
-                    resolution={timeline.resolution}
-                    zoomLevel={zoomLevel}
-                    onZoomLevelChange={setZoomLevel}
-                    overrideYears={timeline.overrideYears}
-                    timelineError={timelineError}
-                    onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlannerV2={() => setShowPropertyPlannerV2(true)}
-                    onOpenTax={() => setShowTaxPlanner(true)}
-                    onOpenInsurance={() => setShowInsurancePlanner(true)}
-                    anchorYear={timeline.anchorYear}
-                    anchorMonth={timeline.anchorMonth}
-                    headerOnly
-                  />
-                </div>
-                {/* Property Planner content */}
-                <div className={`flex flex-1 flex-col overflow-hidden
-min-h-0
-rounded-2xl border border-white/[0.06]
-bg-[#0a0a0a]/80`}>
-                  <PropertyPlannerV2View onClose={() => setShowPropertyPlannerV2(false)} />
-                </div>
-              </>
             ) : showTaxPlanner ? (
               /* Tax Planner View - shows header + tax planner */
               <>
@@ -224,7 +246,7 @@ bg-[#0a0a0a]/80`}>
                     overrideYears={timeline.overrideYears}
                     timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlannerV2={() => setShowPropertyPlannerV2(true)}
+                    onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
                     onOpenTax={() => setShowTaxPlanner(true)}
                     onOpenInsurance={() => setShowInsurancePlanner(true)}
                     anchorYear={timeline.anchorYear}
@@ -257,7 +279,7 @@ bg-[#0a0a0a]/80`}>
                     overrideYears={timeline.overrideYears}
                     timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlannerV2={() => setShowPropertyPlannerV2(true)}
+                    onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
                     onOpenTax={() => setShowTaxPlanner(true)}
                     onOpenInsurance={() => setShowInsurancePlanner(true)}
                     anchorYear={timeline.anchorYear}
@@ -273,17 +295,11 @@ bg-[#0a0a0a]/80`}>
                   <InsurancePlannerView onClose={() => setShowInsurancePlanner(false)} />
                 </div>
               </>
-            ) : (
+            ) : isSideBySide ? (
+              /* Side-by-side layout: chart-left or chart-right */
               <>
-                {/* Top workspace with chart */}
-                <div
-                  ref={chartRef}
-                  className={`flex flex-col overflow-hidden
-min-h-[60vh] min-w-0
-rounded-2xl
-bg-transparent
-shrink-0`}
-                >
+                {/* Full-width header/navbar */}
+                <div className="shrink-0">
                   <FinancialWorkspace
                     selectedYear={timeline.selectedYear}
                     onSelectYear={timeline.setSelectedYear}
@@ -296,13 +312,100 @@ shrink-0`}
                     overrideYears={timeline.overrideYears}
                     timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlannerV2={() => setShowPropertyPlannerV2(true)}
+                    onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
                     onOpenTax={() => setShowTaxPlanner(true)}
                     onOpenInsurance={() => setShowInsurancePlanner(true)}
                     anchorYear={timeline.anchorYear}
                     anchorMonth={timeline.anchorMonth}
+                    onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
+                    headerOnly
                   />
                 </div>
+
+                {/* Side-by-side content area */}
+                <div
+                  className={clsx(
+                    'flex flex-1 gap-4 overflow-hidden -mt-2',
+                    effectiveLayout === 'chart-right' && 'flex-row-reverse'
+                  )}
+                >
+                  {/* Chart section */}
+                  <div
+                    ref={chartRef}
+                    className="flex w-[65%] shrink-0 flex-col overflow-hidden rounded-2xl bg-transparent"
+                  >
+                    <FinancialWorkspace
+                      selectedYear={timeline.selectedYear}
+                      onSelectYear={timeline.setSelectedYear}
+                      onSelectMonth={timeline.setSelectedMonth}
+                      timelineYears={timeline.chartYears}
+                      timelineMonths={timeline.chartMonths}
+                      resolution={timeline.resolution}
+                      zoomLevel={zoomLevel}
+                      onZoomLevelChange={setZoomLevel}
+                      overrideYears={timeline.overrideYears}
+                      timelineError={timelineError}
+                      onOpenCPF={() => setShowCPFView(true)}
+                      onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
+                      onOpenTax={() => setShowTaxPlanner(true)}
+                      onOpenInsurance={() => setShowInsurancePlanner(true)}
+                      anchorYear={timeline.anchorYear}
+                      anchorMonth={timeline.anchorMonth}
+                      onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
+                      onPropertyScenarioEdit={handlePropertyScenarioEdit}
+                      chartOnly
+                    />
+                  </div>
+
+                  {/* Cards section - compact mode */}
+                  <div className="w-[35%] overflow-y-auto">
+                    <FinancialDataSection
+                      selectedYear={timeline.selectedYear}
+                      onSelectYear={timeline.setSelectedYear}
+                      selectedMonth={timeline.selectedMonth}
+                      onSelectMonth={timeline.setSelectedMonth}
+                      timelineYear={timeline.selectedYearData}
+                      timelineMonth={timeline.selectedMonthData}
+                      timelineMonths={timeline.sliderMonths}
+                      timelineMonthV2={timeline.selectedMonthDataV2}
+                      timelineYears={timeline.sliderYears}
+                      anchorYear={timeline.anchorYear}
+                      anchorMonth={timeline.anchorMonth}
+                      resolution={timeline.resolution}
+                      zoomLevel={zoomLevel}
+                      isTimelineLoading={timeline.isLoading}
+                      onSaveTimelineEdits={timeline.saveEdits}
+                      compact
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* Stacked layout (default) */
+              <>
+                {/* Top workspace with chart - resizable */}
+                <ResizableChartSection chartRef={chartRef}>
+                  <FinancialWorkspace
+                    selectedYear={timeline.selectedYear}
+                    onSelectYear={timeline.setSelectedYear}
+                    onSelectMonth={timeline.setSelectedMonth}
+                    timelineYears={timeline.chartYears}
+                    timelineMonths={timeline.chartMonths}
+                    resolution={timeline.resolution}
+                    zoomLevel={zoomLevel}
+                    onZoomLevelChange={setZoomLevel}
+                    overrideYears={timeline.overrideYears}
+                    timelineError={timelineError}
+                    onOpenCPF={() => setShowCPFView(true)}
+                    onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
+                    onOpenTax={() => setShowTaxPlanner(true)}
+                    onOpenInsurance={() => setShowInsurancePlanner(true)}
+                    anchorYear={timeline.anchorYear}
+                    anchorMonth={timeline.anchorMonth}
+                    onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
+                    onPropertyScenarioEdit={handlePropertyScenarioEdit}
+                  />
+                </ResizableChartSection>
 
                 {/* Financial data cards + Tax Mode Panel */}
                 <FinancialDataSection
@@ -332,8 +435,8 @@ shrink-0`}
         <ChatFloatingLauncher chatId={chatId} />
       </div>
 
-      {/* Picture-in-Picture mini chart */}
-      {showPiP && !showCPFView && !showPropertyPlannerV2 && !showTaxPlanner && !showInsurancePlanner && (
+      {/* Picture-in-Picture mini chart - disabled in side-by-side layouts */}
+      {showPiP && !showCPFView && !showTaxPlanner && !showInsurancePlanner && !isSideBySide && (
         <MiniChart
           timelineYears={timeline.chartYears}
           timelineMonths={timeline.chartMonths}
@@ -342,6 +445,24 @@ shrink-0`}
           onScrollToChart={scrollToChart}
         />
       )}
+
+      {/* Property Planner Modal */}
+      <PropertyPlannerModal
+        isOpen={showPropertyPlanner}
+        onClose={() => {
+          setShowPropertyPlanner(false)
+          setPropertyScenarioToEdit(null)
+        }}
+        initialScenarioId={propertyScenarioToEdit ?? undefined}
+      />
+
+      {/* Layout Preview Modal */}
+      <LayoutPreviewModal
+        isOpen={isLayoutModalOpen}
+        onClose={() => setIsLayoutModalOpen(false)}
+        currentLayout={dashboardLayout}
+        onLayoutChange={handleLayoutChange}
+      />
       </TaxModeProvider>
     </FinancialDataProvider>
   )

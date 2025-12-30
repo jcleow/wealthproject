@@ -632,3 +632,31 @@ select option {
   color: #e2e8f0;
   padding: 8px 12px;
 }
+
+/* React-resizable custom styles - override library defaults */
+.react-resizable {
+  position: relative;
+}
+
+.react-resizable-handle {
+  position: absolute;
+  box-sizing: border-box;
+  background-image: none !important;
+}
+
+/* Override the library's centered handle positioning */
+.react-resizable-handle-s,
+.react-resizable-handle-n,
+.react-resizable-handle-s {
+  left: 0 !important;
+  right: 0 !important;
+  margin-left: 0 !important;
+  width: auto !important;
+  height: 16px !important;
+  transform: none !important;
+  cursor: ns-resize;
+}
+
+.react-resizable-handle-s {
+  bottom: 0;
+}

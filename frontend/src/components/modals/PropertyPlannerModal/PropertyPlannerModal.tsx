@@ -2,185 +2,100 @@
 
 import { useState, useCallback } from 'react'
 import { Modal } from '@/components/ui/Modal'
-import { calculateMortgage } from '@/utils/mortgage-calculations'
-
-import { usePropertyPlannerForm, useAssetLiabilitySelector, areInputsValid } from './hooks'
-import { ModalHeader, StepForm, MortgageOverview, FormFooter } from './components'
-import { handleSaveLink, handleApplyPlan, saveDraft } from './logic'
+import { PropertyPlannerView, type FooterState } from './PropertyPlannerView'
+import { Building2, Save, Loader2, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface PropertyPlannerModalProps {
   isOpen: boolean
   onClose: () => void
-  prefill?: { scenarioId?: string; assetId?: string; liabilityId?: string }
+  /** Optional scenario ID to directly open in edit mode */
+  initialScenarioId?: string
 }
 
-export function PropertyPlannerModal({ isOpen, onClose, prefill }: PropertyPlannerModalProps) {
-  const [helperMessage, setHelperMessage] = useState<string | null>(null)
-  const [, setIsLinking] = useState(false)
+export function PropertyPlannerModal({ isOpen, onClose, initialScenarioId }: PropertyPlannerModalProps) {
+  const [footerState, setFooterState] = useState<FooterState | null>(null)
 
-  const form = usePropertyPlannerForm({ isOpen, prefill })
-  const selector = useAssetLiabilitySelector({
-    isOpen,
-    selectedType: form.selectedType,
-    prefillScenario: form.prefillScenario,
-    setInputs: form.setInputs,
-    setOverrideFlags: form.setOverrideFlags,
-    setLocationDraft: form.setLocationDraft,
-    setHelperMessage,
-  })
+  const handleFooterStateChange = useCallback((state: FooterState | null) => {
+    setFooterState(state)
+  }, [])
 
-  const calculation = calculateMortgage(form.inputs)
-  const msrWithinLimit = calculation.msrRatio <= 0.3
-
-  const formattedLoanEnd = (() => {
-    if (!calculation.loanEndDate) return ''
-    const [year, month] = calculation.loanEndDate.split('-').map(Number)
-    if (!year || !month) return calculation.loanEndDate
-    return new Date(year, month - 1).toLocaleDateString('en-SG', { year: 'numeric', month: 'short' })
-  })()
-
-  const handleGenerate = useCallback(() => {
-    if (!areInputsValid(form.inputs)) return
-    form.setIsComplete(true)
-  }, [form])
-
-  const handleEdit = useCallback(() => form.setIsComplete(false), [form])
-
-  const handleSavePlan = useCallback(async () => {
-    if (!selector.selectedAssetId || !selector.selectedLiabilityId) {
-      setHelperMessage('Select both asset and loan before saving.')
-      return
-    }
-    if (!areInputsValid(form.inputs)) {
-      setHelperMessage('Fill in property price, loan, tenure, and rates before saving.')
-      return
-    }
-    form.setIsSavingDraft(true)
-    setIsLinking(true)
-    try {
-      await handleSaveLink({
-        assetInput: selector.assetInput,
-        liabilityInput: selector.liabilityInput,
-        inputs: form.inputs,
-        selectedAssetId: selector.selectedAssetId,
-        selectedLiabilityId: selector.selectedLiabilityId,
-        assets: selector.assets,
-        liabilities: selector.liabilities,
-        selectedType: form.selectedType,
-        locationDraft: form.locationDraft,
-        calculation,
-        setAssets: selector.setAssets,
-        setLiabilities: selector.setLiabilities,
-        setSelectedAssetId: selector.setSelectedAssetId,
-        setSelectedLiabilityId: selector.setSelectedLiabilityId,
-        setScenarioId: form.setScenarioId,
-        setHelperMessage,
-      })
-      form.setLastSavedAt(saveDraft(form.inputs))
-    } finally {
-      form.setIsSavingDraft(false)
-      setIsLinking(false)
-    }
-  }, [form, selector, calculation])
-
-  const handleApply = useCallback(async () => {
-    setIsLinking(true)
-    try {
-      await handleApplyPlan({
-        selectedAssetId: selector.selectedAssetId,
-        selectedLiabilityId: selector.selectedLiabilityId,
-        inputs: form.inputs,
-        assets: selector.assets,
-        liabilities: selector.liabilities,
-        calculation,
-        setHelperMessage,
-        onClose,
-      })
-    } finally {
-      setIsLinking(false)
-    }
-  }, [form.inputs, selector, calculation, onClose])
-
+  // Handle close with unsaved changes confirmation
   const handleClose = useCallback(() => {
-    form.setIsComplete(false)
+    if (footerState?.hasChanges) {
+      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to close? Changes will be lost.')
+      if (!confirmed) return
+    }
     onClose()
-  }, [form, onClose])
+  }, [footerState?.hasChanges, onClose])
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
-      overlayClassName="bg-black/90"
-      className={`relative
-overflow-hidden
-h-[96vh] w-full max-w-6xl
-mx-4
-rounded-3xl border border-white/10
-bg-gray-950
-shadow-[0_25px_80px_rgba(0,0,0,0.6)]`}
+      onClose={handleClose}
+      overlayClassName="bg-black/60 backdrop-blur-sm"
+      className="w-full max-w-[1022px] min-h-[50vh] max-h-[90vh] mx-4 sm:mx-6 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] overflow-hidden flex flex-col"
     >
-      <ModalHeader
-        assetInput={selector.assetInput}
-        onAssetInputChange={selector.handleAssetInput}
-        onAssetFocus={selector.handleAssetFocus}
-        onAssetBlur={selector.handleAssetBlur}
-        assets={selector.assets}
-        selectedAssetId={selector.selectedAssetId}
-        onClose={handleClose}
-      />
-
-      <div className="flex h-full overflow-hidden">
-        <div
-          className={`flex-1 overflow-auto
-px-6 py-6 sm:px-8
-bg-gradient-to-b from-[#0f1a2f] via-[#0c1528] to-[#0a1122]`}
-          style={{ paddingBottom: '10rem' }}
-        >
-          {!form.isComplete ? (
-            <div className="space-y-6">
-              <section className={`p-6
-rounded-3xl border border-white/10
-bg-[#030712]
-shadow-xl`}>
-                <StepForm
-                  inputs={form.inputs}
-                  onChange={form.handleInputChange}
-                  calculation={calculation}
-                  selectedAssetId={selector.selectedAssetId}
-                  assets={selector.assets}
-                  selectedLiabilityId={selector.selectedLiabilityId}
-                  liabilities={selector.liabilities}
-                  liabilityInput={selector.liabilityInput}
-                  onChangeLiabilityInput={selector.handleLiabilityInput}
-                  onLiabilityFocus={selector.handleLiabilityFocus}
-                  onLiabilityBlur={selector.handleLiabilityBlur}
-                  overrideFlags={form.overrideFlags}
-                />
-                <FormFooter
-                  lastSavedAt={form.lastSavedAt}
-                  isSavingDraft={form.isSavingDraft}
-                  onSavePlan={handleSavePlan}
-                  onGenerate={handleGenerate}
-                  isValid={form.hasValidInputs}
-                  assetInput={selector.assetInput}
-                  liabilityInput={selector.liabilityInput}
-                  scenarioId={form.scenarioId}
-                  helperMessage={helperMessage}
-                />
-              </section>
+      {/* Modal Header */}
+      <div className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-violet-500/20 to-violet-600/5 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+              <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400" />
             </div>
-          ) : (
-            <MortgageOverview
-              calculation={calculation}
-              onEdit={handleEdit}
-              loanAmount={form.inputs.loanAmount}
-              formattedLoanEnd={formattedLoanEnd}
-              msrWithinLimit={msrWithinLimit}
-              handleApplyPlan={handleApply}
-            />
-          )}
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight">Property Scenarios</h2>
+              <p className="text-xs sm:text-sm text-slate-500 truncate">Create and compare different property purchase scenarios</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="p-1.5 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
       </div>
+
+      {/* Modal Content */}
+      <div className="flex-1 overflow-y-auto">
+        <PropertyPlannerView
+          onClose={handleClose}
+          initialScenarioId={initialScenarioId}
+          onFooterStateChange={handleFooterStateChange}
+        />
+      </div>
+
+      {/* Modal Footer - only show when editing */}
+      {footerState?.isEditing && (
+        <div className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-white/[0.06] bg-[#0a0a0a]">
+          <div className="flex items-center justify-end">
+            {footerState.isSaving ? (
+              <div className="flex items-center gap-2 px-4 py-2 text-slate-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm font-medium">Saving...</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={footerState.onSave}
+                disabled={!footerState.hasChanges}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                  footerState.hasChanges
+                    ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/25"
+                    : "bg-white/[0.03] text-slate-500 border border-white/[0.06] cursor-not-allowed"
+                )}
+              >
+                <Save className="w-4 h-4" />
+                Save Changes
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </Modal>
   )
 }

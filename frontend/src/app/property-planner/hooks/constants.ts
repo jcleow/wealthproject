@@ -7,6 +7,7 @@ import type {
   FormStepConfig,
   SaleFormStepConfig,
   StaggeredDownpayment,
+  GrantItem,
 } from '../types'
 
 // ============================================
@@ -40,6 +41,25 @@ export const DEFAULT_PURCHASE_FEES: FeeItem[] = [
 export const DEFAULT_APPRECIATION_PERIODS: AppreciationPeriod[] = [
   { id: 'default-1', startYear: 1, endYear: null, rate: 3 },
 ]
+
+/**
+ * Default grants for HDB properties
+ */
+export const DEFAULT_HDB_GRANTS: GrantItem[] = [
+  { name: 'EHG', amount: 50000 },
+]
+
+/**
+ * Default grants for EC properties
+ */
+export const DEFAULT_EC_GRANTS: GrantItem[] = [
+  { name: 'Family Grant', amount: 30000 },
+]
+
+/**
+ * No grants for private properties
+ */
+export const DEFAULT_NO_GRANTS: GrantItem[] = []
 
 /**
  * Create default Staggered Downpayment Scheme (SDS) configuration for BTO
@@ -102,17 +122,15 @@ export const SALE_FORM_STEPS: SaleFormStepConfig[] = [
 export function createDefaultLoanSegment(
   startMonth: string,
   termYears: number,
-  fixedYears: number,
-  fixedRate: number,
-  floatingRate: number
+  rate: number,
+  rateType: 'fixed' | 'floating' = 'fixed'
 ): LoanSegment {
   return {
     id: 'initial',
     startMonth,
     termYears,
-    fixedYears,
-    fixedRate,
-    floatingRate,
+    rate,
+    rateType,
   }
 }
 
@@ -138,8 +156,8 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrowerType: 'single',
     cpfOaBalance: 85000,
     monthlyCpfOa: 1785,
-    grants: 50000,
-    borrower1IncomeId: 'income-1',
+    grants: DEFAULT_HDB_GRANTS.map(g => ({ ...g })),
+    borrower1IncomeId: '',
     borrower1OaBalance: 85000,
     borrower1LiabilityIds: [],
     borrower2IncomeId: null,
@@ -148,7 +166,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
-    loanSegments: [createDefaultLoanSegment('2025-06', 25, 0, 2.6, 2.6)],
+    loanSegments: [createDefaultLoanSegment('2025-06', 25, 2.6, 'fixed')],
     staggeredDownpayment: null,
   },
   'hdb-bto': {
@@ -168,8 +186,8 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrowerType: 'single',
     cpfOaBalance: 85000,
     monthlyCpfOa: 1785,
-    grants: 80000,
-    borrower1IncomeId: 'income-1',
+    grants: [{ name: 'EHG', amount: 50000 }, { name: 'Family Grant', amount: 30000 }],
+    borrower1IncomeId: '',
     borrower1OaBalance: 85000,
     borrower1LiabilityIds: [],
     borrower2IncomeId: null,
@@ -178,7 +196,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
-    loanSegments: [createDefaultLoanSegment('2029-06', 25, 0, 2.6, 2.6)],
+    loanSegments: [createDefaultLoanSegment('2029-06', 25, 2.6, 'fixed')],
     staggeredDownpayment: createDefaultStaggeredDownpayment('2025-06', '2029-06'),
   },
   'ec': {
@@ -198,17 +216,17 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrowerType: 'joint',
     cpfOaBalance: 147400,
     monthlyCpfOa: 3087,
-    grants: 30000,
-    borrower1IncomeId: 'income-1',
+    grants: DEFAULT_EC_GRANTS.map(g => ({ ...g })),
+    borrower1IncomeId: '',
     borrower1OaBalance: 85000,
-    borrower1LiabilityIds: ['liability-2', 'liability-3'],
-    borrower2IncomeId: 'income-2',
+    borrower1LiabilityIds: [],
+    borrower2IncomeId: null,
     borrower2OaBalance: 62400,
-    borrower2LiabilityIds: ['liability-4'],
+    borrower2LiabilityIds: [],
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
-    loanSegments: [createDefaultLoanSegment('2028-06', 30, 3, 3.0, 4.0)],
+    loanSegments: [createDefaultLoanSegment('2028-06', 30, 3.0, 'fixed')],
     staggeredDownpayment: null,
   },
   'private-resale': {
@@ -228,17 +246,17 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrowerType: 'joint',
     cpfOaBalance: 147400,
     monthlyCpfOa: 3087,
-    grants: 0,
-    borrower1IncomeId: 'income-1',
+    grants: [],
+    borrower1IncomeId: '',
     borrower1OaBalance: 85000,
-    borrower1LiabilityIds: ['liability-2', 'liability-3'],
-    borrower2IncomeId: 'income-2',
+    borrower1LiabilityIds: [],
+    borrower2IncomeId: null,
     borrower2OaBalance: 62400,
-    borrower2LiabilityIds: ['liability-4'],
+    borrower2LiabilityIds: [],
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
-    loanSegments: [createDefaultLoanSegment('2025-06', 30, 3, 3.2, 4.0)],
+    loanSegments: [createDefaultLoanSegment('2025-06', 30, 3.2, 'fixed')],
     staggeredDownpayment: null,
   },
   'private-new': {
@@ -258,17 +276,17 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrowerType: 'joint',
     cpfOaBalance: 147400,
     monthlyCpfOa: 3087,
-    grants: 0,
-    borrower1IncomeId: 'income-1',
+    grants: [],
+    borrower1IncomeId: '',
     borrower1OaBalance: 85000,
-    borrower1LiabilityIds: ['liability-2', 'liability-3'],
-    borrower2IncomeId: 'income-2',
+    borrower1LiabilityIds: [],
+    borrower2IncomeId: null,
     borrower2OaBalance: 62400,
-    borrower2LiabilityIds: ['liability-4'],
+    borrower2LiabilityIds: [],
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
-    loanSegments: [createDefaultLoanSegment('2028-06', 30, 3, 3.2, 4.0)],
+    loanSegments: [createDefaultLoanSegment('2028-06', 30, 3.2, 'fixed')],
     staggeredDownpayment: null,
   },
 }

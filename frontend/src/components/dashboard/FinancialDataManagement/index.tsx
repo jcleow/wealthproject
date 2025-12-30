@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import clsx from 'clsx'
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useTaxModeOptional } from '@/contexts/TaxModeContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -39,7 +40,6 @@ import {
 } from '@/types/financial'
 import { DeleteConfirmationModal } from '@/components/modals/FinancialFormModal/DeleteConfirmationModal'
 import { CashAccountFormModal } from '@/components/modals/CashAccountFormModal/CashAccountFormModal'
-import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
 import { IncomeAllocationModal } from '@/components/modals/IncomeAllocationModal/IncomeAllocationModal'
 import { CpfAccountFormModal } from '@/components/modals/CpfAccountFormModal/CpfAccountFormModal'
 import { settingsApi } from '@/api/financial'
@@ -82,7 +82,8 @@ export function FinancialDataManagement({
   anchorMonth,
   resolution,
   isTimelineLoading = false,
-  showTaxMode = false,
+  showTaxMode: _showTaxMode = false,
+  compact = false,
 }: FinancialDataManagementProps) {
   // V2 data is available when the feature flag is enabled and data is loaded
   const hasV2Data = !!timelineMonthV2
@@ -186,6 +187,14 @@ export function FinancialDataManagement({
     return []
   }, [hasV2Data, timelineMonthV2])
 
+  // Property snapshots from V2 timeline
+  const propertySnapshots = useMemo(() => {
+    if (hasV2Data && timelineMonthV2) {
+      return timelineMonthV2.properties ?? []
+    }
+    return []
+  }, [hasV2Data, timelineMonthV2])
+
   const yearLiabilities = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
       return timelineMonthV2.liabilities.map(liabilityV2ToTimelineItem)
@@ -249,8 +258,14 @@ export function FinancialDataManagement({
   })
   const [expandedScenarioItems, setExpandedScenarioItems] = useState<Set<string>>(new Set())
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
-  const [isPropertyPlannerOpen, setIsPropertyPlannerOpen] = useState(false)
-  const [prefill, setPrefill] = useState<{ scenarioId?: string; assetId?: string; liabilityId?: string } | null>(null)
+  // Track collapse state for each category card (for ResizableCard height management)
+  const [cardCollapseStates, setCardCollapseStates] = useState<Record<FinancialCategory, boolean>>({
+    asset: compact,
+    income: compact,
+    liability: compact,
+    expense: compact,
+    investment: compact,
+  })
   const [allocationModalState, setAllocationModalState] = useState<{
     isOpen: boolean
     incomeId: string
@@ -671,15 +686,6 @@ export function FinancialDataManagement({
     handleModalClose()
   }
 
-  const openPlannerFromLink = (link: PropertyLinkRecord) => {
-    setPrefill({
-      scenarioId: link.propertyScenarioId,
-      assetId: link.assetId,
-      liabilityId: link.liabilityId,
-    })
-    setIsPropertyPlannerOpen(true)
-  }
-
   const handleManageAllocations = (item: TimelineItem) => {
     const id = getItemId(item)
     if (!id) return
@@ -893,14 +899,21 @@ export function FinancialDataManagement({
           isTimelineLoading={isTimelineLoading}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          compact={compact}
         />
 
         {/* Cashflow cards - always visible */}
-        <div className="flex-1 overflow-auto px-6 py-6">
-            <div className="flex h-full flex-col gap-6">
-              <div className="grid gap-4 lg:grid-cols-2">
+        <div className={clsx(
+          'flex-1 overflow-auto',
+          compact ? 'px-4 py-4' : 'px-6 py-6'
+        )}>
+            <div className={clsx('flex h-full flex-col', compact ? 'gap-4' : 'gap-6')}>
+              <div className={clsx(
+                'grid',
+                compact ? 'grid-cols-1 gap-3' : 'gap-4 lg:grid-cols-2'
+              )}>
                 {(Object.keys(categoryConfig) as FinancialCategory[]).filter((key) => key !== 'investment').map((key) => (
-                  <ResizableCard key={key} id={key}>
+                  <ResizableCard key={key} id={key} isCollapsed={cardCollapseStates[key]}>
                   <CategoryCard
                     category={key}
                     data={getDataForCategory(key)}
@@ -934,9 +947,9 @@ export function FinancialDataManagement({
                     assetLinks={assetLinks}
                     liabilityLinks={liabilityLinks}
                     firstLink={firstLink}
-                    onOpenPropertyPlanner={openPlannerFromLink}
                     investmentAssets={key === 'asset' ? investmentAssets : undefined}
                     cpfAssets={key === 'asset' ? cpfAssets : undefined}
+                    propertySnapshots={(key === 'asset' || key === 'liability') ? propertySnapshots : undefined}
                     cpfContributionsRaw={key === 'income' ? cpfContributionsRaw : undefined}
                     hasInvestmentsSection={key === 'income' ? hasInvestmentsSection : false}
                     monthlyInvestments={key === 'income' ? monthlyInvestments : 0}
@@ -953,6 +966,10 @@ export function FinancialDataManagement({
                     onEditCpf={key === 'asset' ? handleEditCpf : undefined}
                     onDeleteCpf={key === 'asset' ? handleDeleteCpf : undefined}
                     groupItemsByCategory={groupItemsByCategory}
+                    compact={compact}
+                    onCollapseChange={(isCollapsed) =>
+                      setCardCollapseStates((prev) => ({ ...prev, [key]: isCollapsed }))
+                    }
                   />
                   </ResizableCard>
                 ))}
@@ -963,6 +980,7 @@ export function FinancialDataManagement({
                 annualSavings={getAnnualSavingsForYear()}
                 hasV2Data={hasV2Data}
                 timelineMonthV2={timelineMonthV2}
+                compact={compact}
               />
             </div>
           </div>
@@ -997,14 +1015,6 @@ export function FinancialDataManagement({
                       : undefined
             : undefined
         }
-      />
-      <PropertyPlannerModal
-        isOpen={isPropertyPlannerOpen}
-        onClose={() => {
-          setIsPropertyPlannerOpen(false)
-          setPrefill(null)
-        }}
-        prefill={prefill ?? undefined}
       />
       <CashAccountFormModal
         mode={cashAccountModalState.mode}

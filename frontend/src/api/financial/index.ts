@@ -6,6 +6,7 @@ export * as expensesApi from './expenses'
 export * as cashAccountsApi from './cashAccounts'
 export * as scenarioEventsApi from './scenarioEvents'
 export * as propertyApi from './property'
+export * as propertyPlannerV2Api from './propertyPlannerV2'
 export * as timelineApi from './timeline'
 export * as growthApi from './growth'
 export * as settingsApi from './settings'
@@ -19,6 +20,7 @@ import * as expenses from './expenses'
 import * as cashAccounts from './cashAccounts'
 import * as scenarioEvents from './scenarioEvents'
 import * as property from './property'
+import * as propertyPlannerV2 from './propertyPlannerV2'
 import * as timeline from './timeline'
 import * as growth from './growth'
 import * as settings from './settings'
@@ -33,6 +35,7 @@ export const financialApi = {
   ...cashAccounts,
   ...scenarioEvents,
   ...property,
+  ...propertyPlannerV2,
   ...timeline,
   ...growth,
   ...settings,

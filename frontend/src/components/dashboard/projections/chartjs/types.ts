@@ -21,8 +21,12 @@ export interface ChartJSMarkerData {
 export interface MilestonePluginOptions {
   /** Array of markers to render */
   markers: ChartJSMarkerData[]
+  /** Array of property scenario markers (compound ring style) */
+  propertyMarkers?: PropertyMarkerData[]
   /** Callback when a marker is clicked */
   onMarkerClick?: (event: ScenarioEvent, markerData: ChartJSMarkerData) => void
+  /** Callback when a property marker is clicked */
+  onPropertyMarkerClick?: (marker: PropertyMarkerData, x: number, y: number) => void
   /** Whether markers should be visible */
   visible: boolean
   /** Whether to animate marker opacity */
@@ -89,6 +93,75 @@ export interface ChartJSTooltipProps {
   context: ExternalTooltipContext | null
   startingAge?: number
   resolution?: 'yearly' | 'monthly'
+}
+
+// =============================================================================
+// PROPERTY SCENARIO MARKER TYPES
+// =============================================================================
+
+/**
+ * Nested milestone within a property scenario marker
+ */
+export interface PropertyMilestone {
+  id: string
+  type: 'purchase' | 'sale' | 'fee'
+  date: string  // YYYY-MM format
+  label: string
+  icon: string
+  iconColor: string
+  /** Amount for fee milestones (optional, displayed in popover) */
+  amount?: string
+}
+
+/**
+ * Property scenario marker with compound visualization (double ring)
+ */
+export interface PropertyMarkerData {
+  /** X-axis value (yearIndex or month index) */
+  yearIndex: number
+  /** Y-axis value (net worth at this point) */
+  netWorth: number
+  /** Marker type - property markers get compound ring rendering */
+  type: 'property'
+  /** Property scenario ID for navigation */
+  propertyScenarioId: string
+  /** Display name of the property scenario */
+  name: string
+  /** Icon name (lucide icon) */
+  icon: string
+  /** Icon/ring color */
+  iconColor: string
+  /** Whether the scenario is included in projections */
+  isIncluded: boolean
+  /** Nested milestones (purchase, sale, fees with icons) */
+  nestedMilestones: PropertyMilestone[]
+  /** Pre-loaded icon image for canvas drawing */
+  iconImage?: HTMLImageElement
+}
+
+/**
+ * Configuration for compound marker rendering (property scenarios)
+ */
+export const COMPOUND_MARKER_CONFIG = {
+  /** Inner marker radius (same as regular markers) */
+  innerRadius: 14,
+  /** First outer ring radius */
+  ring1Radius: 18,
+  /** Second outer ring radius */
+  ring2Radius: 22,
+  /** Stroke width for outer rings */
+  ringStrokeWidth: 2,
+  /** Color for the first ring (white/neutral) */
+  ring1Color: 'rgba(255,255,255,0.15)',
+  /** Hit test uses outer ring radius */
+  hitRadius: 22,
+} as const
+
+/**
+ * Hit test result for property marker click detection
+ */
+export interface PropertyMarkerHitTestResult {
+  marker: PropertyMarkerData
 }
 
 /**

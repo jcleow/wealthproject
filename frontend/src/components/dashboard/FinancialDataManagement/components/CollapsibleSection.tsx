@@ -1,7 +1,91 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import { ChevronDown, Pencil, Trash2 } from 'lucide-react'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import { formatCurrency } from '@/lib/format'
 import { numericStyles } from '@/lib/utils'
+import { getIconByName } from '../utils'
+
+// Subcomponent for rendering item icons with optional tooltip and click handler
+interface ItemIconProps {
+  icon: string
+  iconColor?: string
+  tooltipLabel?: string
+  onIconClick?: () => void
+}
+
+function ItemIcon({ icon, iconColor, tooltipLabel, onIconClick }: ItemIconProps) {
+  const IconComponent = getIconByName(icon)
+
+  const iconElement = IconComponent ? (
+    <IconComponent
+      className="h-3.5 w-3.5"
+      style={{ color: iconColor ?? '#6366f1' }}
+    />
+  ) : (
+    <span
+      className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold text-white"
+      style={{ backgroundColor: iconColor ?? '#6366f1' }}
+    >
+      {icon.slice(0, 1).toUpperCase()}
+    </span>
+  )
+
+  if (onIconClick) {
+    const button = (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onIconClick()
+        }}
+        className="flex-shrink-0 rounded p-0.5 transition hover:bg-white/10"
+      >
+        {iconElement}
+      </button>
+    )
+
+    if (tooltipLabel) {
+      return (
+        <Tooltip.Provider delayDuration={0}>
+          <Tooltip.Root>
+            <Tooltip.Trigger asChild>
+              {button}
+            </Tooltip.Trigger>
+            <Tooltip.Content
+              side="top"
+              sideOffset={6}
+              className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+            >
+              {tooltipLabel}
+            </Tooltip.Content>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      )
+    }
+    return button
+  }
+
+  if (tooltipLabel) {
+    return (
+      <Tooltip.Provider delayDuration={0}>
+        <Tooltip.Root>
+          <Tooltip.Trigger asChild>
+            <span className="flex-shrink-0">{iconElement}</span>
+          </Tooltip.Trigger>
+          <Tooltip.Content
+            side="top"
+            sideOffset={6}
+            className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+          >
+            {tooltipLabel}
+          </Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
+    )
+  }
+
+  return <span className="flex-shrink-0">{iconElement}</span>
+}
 
 interface CollapsibleSectionProps {
   title: string
@@ -50,6 +134,10 @@ interface CollapsibleItemProps {
   onSelect: (id: string) => void
   onEdit?: () => void
   onDelete?: () => void
+  icon?: string  // Lucide icon name (kebab-case)
+  iconColor?: string  // Hex color for icon
+  tooltipLabel?: string  // Optional tooltip text when hovering icon
+  onIconClick?: () => void  // Optional click handler for icon (e.g., open modal)
 }
 
 export function CollapsibleItem({
@@ -62,6 +150,10 @@ export function CollapsibleItem({
   onSelect,
   onEdit,
   onDelete,
+  icon,
+  iconColor,
+  tooltipLabel,
+  onIconClick,
 }: CollapsibleItemProps) {
   // For percentage suffix, don't format as currency
   const shouldFormatAsCurrency = formatAsCurrency && amountSuffix !== '%'
@@ -72,7 +164,17 @@ export function CollapsibleItem({
       onClick={() => onSelect(id)}
       className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
     >
-      <span className="truncate text-sm text-slate-300">{name}</span>
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="truncate text-sm text-slate-300">{name}</span>
+        {icon && (
+          <ItemIcon
+            icon={icon}
+            iconColor={iconColor}
+            tooltipLabel={tooltipLabel}
+            onIconClick={onIconClick}
+          />
+        )}
+      </div>
       <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
         {displayAmount}
         {amountSuffix && <span className="ml-1 text-xs text-slate-400">{amountSuffix}</span>}

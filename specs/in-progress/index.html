@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Specs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify/themes/vue.css">
+</head>
+<body>
+  <div id="app"></div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: false });
+
+    window.$docsify = {
+      name: 'Specs',
+      loadSidebar: false,
+      homepage: 'property-planner-v2-persistence.md',
+      markdown: {
+        renderer: {
+          code: function(code, lang) {
+            if (lang === 'mermaid') {
+              return '<div class="mermaid">' + code + '</div>';
+            }
+            return this.origin.code.apply(this, arguments);
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
+  <script>
+    // Render mermaid after docsify loads content
+    const observer = new MutationObserver(() => {
+      mermaid.run({ querySelector: '.mermaid' });
+    });
+    observer.observe(document.getElementById('app'), { childList: true, subtree: true });
+  </script>
+</body>
+</html>

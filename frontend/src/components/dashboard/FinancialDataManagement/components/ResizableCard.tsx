@@ -1,81 +1,118 @@
 'use client'
 
-import { useState, useCallback, useEffect, type ReactNode } from 'react'
-import { ResizableBox, type ResizeCallbackData } from 'react-resizable'
-import 'react-resizable/css/styles.css'
+import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 
-const DEFAULT_HEIGHT = 350
-const MIN_HEIGHT = 200
-const MAX_HEIGHT = 800
-const STORAGE_KEY = 'financial-card-heights'
+const MIN_HEIGHT = 100
+const MAX_HEIGHT = 1200
 
 interface ResizableCardProps {
   id: string
   children: ReactNode
+  disabled?: boolean
+  isCollapsed?: boolean
 }
 
-function getStoredHeights(): Record<string, number> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : {}
-  } catch {
-    return {}
-  }
-}
+export function ResizableCard({ id, children, disabled = false, isCollapsed = false }: ResizableCardProps) {
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [userHeight, setUserHeight] = useState<number | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartY = useRef(0)
+  const dragStartHeight = useRef(0)
+  const currentHeightRef = useRef<number | null>(null)
 
-function setStoredHeight(id: string, height: number) {
-  try {
-    const heights = getStoredHeights()
-    heights[id] = height
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(heights))
-  } catch {
-    // ignore storage errors
-  }
-}
-
-export function ResizableCard({ id, children }: ResizableCardProps) {
-  // Initialize with default to match server render, then sync with localStorage
-  const [height, setHeight] = useState(DEFAULT_HEIGHT)
-  const [mounted, setMounted] = useState(false)
-
+  // Keep ref in sync with state
   useEffect(() => {
-    const storedHeight = getStoredHeights()[id]
-    if (storedHeight) {
-      setHeight(storedHeight)
+    currentHeightRef.current = userHeight
+  }, [userHeight])
+
+  // Save height to localStorage
+  const saveHeight = useCallback((height: number) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`card-height-${id}`, height.toString())
     }
-    setMounted(true)
   }, [id])
 
-  const handleResizeStop = useCallback(
-    (_e: React.SyntheticEvent, data: ResizeCallbackData) => {
-      setHeight(data.size.height)
-      setStoredHeight(id, data.size.height)
-    },
-    [id]
-  )
+  // Get current content height for drag constraints
+  const getContentHeight = useCallback(() => {
+    return contentRef.current?.scrollHeight ?? MIN_HEIGHT
+  }, [])
+
+  // Handle drag start
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (disabled || isCollapsed) return
+
+    e.preventDefault()
+    e.stopPropagation()
+    const target = e.currentTarget as HTMLElement
+    target.setPointerCapture(e.pointerId)
+    setIsDragging(true)
+    dragStartY.current = e.clientY
+    dragStartHeight.current = currentHeightRef.current ?? getContentHeight()
+  }, [disabled, isCollapsed, getContentHeight])
+
+  // Handle pointer move during drag
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging) return
+    const deltaY = e.clientY - dragStartY.current
+    // Use MIN_HEIGHT as the minimum, not content height - allows shrinking below content
+    const newHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, dragStartHeight.current + deltaY))
+    setUserHeight(newHeight)
+    currentHeightRef.current = newHeight
+  }, [isDragging])
+
+  // Handle pointer up to end drag
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!isDragging) return
+    const target = e.currentTarget as HTMLElement
+    target.releasePointerCapture(e.pointerId)
+    setIsDragging(false)
+    if (currentHeightRef.current !== null) {
+      saveHeight(currentHeightRef.current)
+    }
+  }, [isDragging, saveHeight])
+
+  // Prevent click events from bubbling
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+  }, [])
+
+  // If disabled, just render children with no wrapper at all
+  if (disabled) {
+    return <>{children}</>
+  }
+
+  // Show drag handle only when expanded and has content
+  const showDragHandle = !isCollapsed
+
+  // Calculate style - use userHeight if set, otherwise auto
+  const style = !isCollapsed && userHeight !== null ? { height: userHeight } : undefined
 
   return (
-    <ResizableBox
-      height={height}
-      width={10000}
-      axis="y"
-      minConstraints={[10000, MIN_HEIGHT]}
-      maxConstraints={[10000, MAX_HEIGHT]}
-      onResizeStop={handleResizeStop}
-      resizeHandles={['s']}
-      handle={
-        <div className={`absolute bottom-0 left-0 right-0
-flex items-center justify-center
-h-3
-opacity-0 hover:opacity-100 group-hover/card:opacity-50
-cursor-ns-resize transition-opacity`}>
-          <div className="h-1 w-12 rounded-full bg-white/20" />
-        </div>
-      }
-      className={mounted ? '!w-full' : '!w-full transition-none'}
+    <div
+      ref={contentRef}
+      className={`group/card relative h-full ${!isCollapsed && userHeight !== null ? 'overflow-hidden' : ''}`}
+      style={style}
     >
-      <div className="group/card relative h-full">{children}</div>
-    </ResizableBox>
+      {children}
+      {showDragHandle && (
+        <div
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onClick={handleClick}
+          className={`
+            absolute bottom-0 left-0 right-0
+            flex items-center justify-center
+            h-5 z-10
+            opacity-0 group-hover/card:opacity-100 hover:!opacity-100
+            cursor-ns-resize transition-opacity
+            touch-none
+            ${isDragging ? '!opacity-100' : ''}`}
+        >
+          <div className="h-1 w-12 rounded-full bg-white/30 hover:bg-white/50 transition-colors" />
+        </div>
+      )}
+    </div>
   )
 }

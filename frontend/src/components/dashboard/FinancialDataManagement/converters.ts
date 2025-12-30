@@ -171,5 +171,7 @@ export function expenseV2ToTimelineItem(item: ExpenseResponseV2): TimelineItem {
     sourceLiabilityId: item.sourceLiabilityId,
     eventImpacts: convertAppliedImpacts(item.eventImpacts),
     scenarioEventId: item.scenarioEventId,
+    icon: item.icon,
+    iconColor: item.iconColor,
   }
 }

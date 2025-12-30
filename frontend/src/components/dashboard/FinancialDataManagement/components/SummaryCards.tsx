@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { formatCurrency } from '@/lib/format'
 import { numericStyles } from '@/lib/utils'
 import type { MonthDetailResponseV2 } from '@/types/timeline'
@@ -8,6 +9,7 @@ interface SummaryCardsProps {
   annualSavings: number
   hasV2Data: boolean
   timelineMonthV2?: MonthDetailResponseV2
+  compact?: boolean
 }
 
 export function SummaryCards({
@@ -15,14 +17,19 @@ export function SummaryCards({
   annualSavings,
   hasV2Data,
   timelineMonthV2,
+  compact = false,
 }: SummaryCardsProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <NetWorthCard netWorth={netWorth} />
+    <div className={clsx(
+      'grid',
+      compact ? 'grid-cols-1 gap-3' : 'gap-4 md:grid-cols-2'
+    )}>
+      <NetWorthCard netWorth={netWorth} compact={compact} />
       <SavingsCard
         annualSavings={annualSavings}
         hasV2Data={hasV2Data}
         timelineMonthV2={timelineMonthV2}
+        compact={compact}
       />
     </div>
   )
@@ -30,22 +37,26 @@ export function SummaryCards({
 
 interface NetWorthCardProps {
   netWorth: number
+  compact?: boolean
 }
 
-function NetWorthCard({ netWorth }: NetWorthCardProps) {
+function NetWorthCard({ netWorth, compact = false }: NetWorthCardProps) {
   return (
-    <div className={`p-4
-rounded-2xl border border-white/[0.1] hover:border-white/[0.15]
-bg-[#0a0a0a]/60
-transition-all`}>
+    <div className={clsx(
+      'rounded-2xl border border-white/[0.1] hover:border-white/[0.15] bg-[#0a0a0a]/60 transition-all',
+      compact ? 'p-3' : 'p-4'
+    )}>
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-sm font-medium text-slate-200">Net Worth</h4>
-          <p className="text-xs text-slate-500">Assets minus liabilities</p>
+          <h4 className={clsx('font-medium text-slate-200', compact ? 'text-xs' : 'text-sm')}>Net Worth</h4>
+          {!compact && <p className="text-xs text-slate-500">Assets minus liabilities</p>}
         </div>
         <div className="h-2 w-2 rounded-full bg-blue-400" />
       </div>
-      <p className="mt-3 text-2xl font-light tracking-tight text-slate-100">
+      <p className={clsx(
+        'font-light tracking-tight text-slate-100',
+        compact ? 'mt-2 text-lg' : 'mt-3 text-2xl'
+      )}>
         {formatCurrency(netWorth)}
       </p>
     </div>
@@ -56,29 +67,33 @@ interface SavingsCardProps {
   annualSavings: number
   hasV2Data: boolean
   timelineMonthV2?: MonthDetailResponseV2
+  compact?: boolean
 }
 
-function SavingsCard({ annualSavings, hasV2Data, timelineMonthV2 }: SavingsCardProps) {
+function SavingsCard({ annualSavings, hasV2Data, timelineMonthV2, compact = false }: SavingsCardProps) {
   const displaySavings = hasV2Data && timelineMonthV2
     ? parseDecimal(timelineMonthV2.netSavings)
     : annualSavings
 
   return (
-    <div className={`p-4
-rounded-2xl border border-white/[0.1] hover:border-white/[0.15]
-bg-[#0a0a0a]/60
-transition-all`}>
+    <div className={clsx(
+      'rounded-2xl border border-white/[0.1] hover:border-white/[0.15] bg-[#0a0a0a]/60 transition-all',
+      compact ? 'p-3' : 'p-4'
+    )}>
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="text-sm font-medium text-slate-200">Savings</h4>
-          <p className="text-xs text-slate-500">Income minus CPF minus expenses</p>
+          <h4 className={clsx('font-medium text-slate-200', compact ? 'text-xs' : 'text-sm')}>Savings</h4>
+          {!compact && <p className="text-xs text-slate-500">Income minus CPF minus expenses</p>}
         </div>
         <div className="h-2 w-2 rounded-full bg-emerald-400" />
       </div>
-      <p className="mt-2 text-2xl font-light tracking-tight text-slate-100">
+      <p className={clsx(
+        'font-light tracking-tight text-slate-100',
+        compact ? 'mt-2 text-lg' : 'mt-2 text-2xl'
+      )}>
         {formatCurrency(displaySavings)}
       </p>
-      {hasV2Data && timelineMonthV2 && (
+      {!compact && hasV2Data && timelineMonthV2 && (
         <SavingsBreakdown timelineMonthV2={timelineMonthV2} />
       )}
     </div>

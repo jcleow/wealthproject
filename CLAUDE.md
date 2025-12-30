@@ -1,1 +1,2 @@
 - always use descriptive variable namings
+- please kill the background tasks after spinning them up after every iteration

@@ -1,6 +1,129 @@
-### Deprecation Notice
-- backend/financial is deprecated unless working on maintenance issues.
-- All new changes should be made in backend/financial_v2
+---
+
+## DEPRECATED CODE - DO NOT USE
+
+### Backend Packages
+
+| Deprecated | Use Instead | Notes |
+|------------|-------------|-------|
+| `internal/financial/` | `internal/financial_v2/` | v1 uses float64, v2 uses decimal.Decimal |
+| `internal/financial/repository/store.go` | `internal/financial_v2/repository/` | v1 store is deprecated |
+| `internal/financial/timeline/` | `internal/financial_v2/timeline/` | v1 timeline service |
+| `internal/financial/scenario/` | `internal/financial_v2/scenario/` | v1 scenario service |
+
+### API Handlers
+
+| Deprecated Handler | Use Instead | Notes |
+|-------------------|-------------|-------|
+| `handlers/assets.go` | `handlers/assets_v2.go` | v1 CRUD |
+| `handlers/cash_accounts.go` | `handlers/cash_accounts_v2.go` | v1 CRUD |
+| `handlers/investments.go` | `handlers/investments_v2.go` | v1 CRUD |
+| `handlers/liabilities.go` | `handlers/liabilities_v2.go` | v1 CRUD |
+| `handlers/incomes.go` | `handlers/incomes_v2.go` | v1 CRUD |
+| `handlers/timeline.go` | `handlers/timeline_v2.go` | v1 timeline API |
+
+### Deprecated Frequencies
+
+These frequencies are kept for migration compatibility only - **do not use in new code**:
+
+| Deprecated | Convert To |
+|------------|------------|
+| `weekly` | `monthly` (multiply by ~4.33) |
+| `bi_weekly` | `monthly` (multiply by ~2.17) |
+| `quarterly` | `monthly` (divide by 3) |
+| `semi_annual` | `monthly` (divide by 6) |
+
+**Valid frequencies for new code:** `monthly`, `yearly`, `one_time`
+
+---
+
+## CRITICAL: Service ↔ Repository Architecture & Code Reuse
+
+For PRD templates, epic/ticket structure, and full code templates, use the `feature-planning` skill.
+
+### Why This Architecture Matters
+
+Understanding and respecting the service-repository pattern is essential for maintainability, testability, and avoiding bugs.
+
+**The Three-Tier Pattern (MANDATORY):**
+```
+HTTP Handler (handlers/*_v2.go)
+    ↓ (parse JSON, validate required fields, error handling)
+Module Service (internal/financial_v2/{module}/service.go)
+    ↓ (business logic, validation, computation)
+Repository (internal/financial_v2/repository)
+    ↓ (data persistence)
+```
+
+**Why This Structure Matters:**
+
+1. **Separation of Concerns**
+   - Handlers: HTTP concerns only (request/response, status codes)
+   - Services: Business logic, validation, computation
+   - Repository: Data persistence, SQL queries
+
+2. **Testability**
+   - Services can be tested without HTTP overhead
+   - Repository can be mocked for service tests
+   - Business logic is isolated and unit-testable
+
+3. **Reusability**
+   - Services can be called from handlers, background jobs, CLI tools, etc.
+   - The same business logic works regardless of entry point
+   - Example: `timeline.Service` is used by both the snapshot API and the chart API
+
+4. **Consistency**
+   - All modules follow the same pattern, reducing cognitive load
+   - New developers can navigate any module once they learn the pattern
+
+### MANDATORY: Reuse Existing Functions
+
+**Before writing ANY new code, check if functionality already exists:**
+
+| Need | Check First |
+|------|-------------|
+| Decimal parsing | `parseDecimalField`, `parseOptionalDecimal` in service files |
+| Date parsing | `parseFlexibleDate`, `parseRFC3339Pointer` in service files |
+| Validation errors | `ValidationError` type, `IsValidationError()` helper |
+| Growth calculations | `internal/financial_v2/growth` package |
+| Repayment calculations | `internal/financial_v2/repayment` package |
+| Scenario impact logic | `internal/financial_v2/scenario` package |
+| CPF processing | `internal/cpf/processor` package |
+| Frequency conversions | `internal/common.ToMonthlyAmount()` |
+
+**Why reuse matters:**
+- Avoids subtle bugs from reimplementing logic
+- Ensures consistent behavior across modules
+- Reduces code duplication and maintenance burden
+- Leverages tested, proven implementations
+
+**Example of what NOT to do:**
+```go
+// BAD: Reimplementing decimal parsing in a handler
+amount, err := decimal.NewFromString(input.Amount)
+if err != nil {
+    badRequest(w, fmt.Errorf("invalid amount: %v", err))
+    return
+}
+
+// GOOD: Use the service layer which has proper error handling
+result, err := service.CreateFromParams(ctx, userID, params)
+if err != nil {
+    if expense.IsValidationError(err) {
+        badRequest(w, err)
+        return
+    }
+    internalError(w, err)
+    return
+}
+```
+
+**Reference implementations:**
+- `internal/financial_v2/property/service.go` - Complex service with calculator
+- `internal/financial_v2/expense/service.go` - Service with versioning
+- `internal/financial_v2/timeline/service.go` - Service orchestrating multiple modules
+
+---
 
 ### Testing
 - After relevant changes on the backend, please ensure to add or update tests
@@ -425,42 +548,184 @@ When generating or modifying Go code, follow these principles:
 - **Only expose immutable interfaces**: Public interfaces should NEVER change (like io.Reader, io.Writer) — if it might change, keep it internal
 - **Testing without factories**: Concrete return types are still testable — consumers can define minimal interfaces for mocking only what they need
 
-### Handler & Service Layer Separation
-- **Handlers should only handle HTTP concerns**: parsing request bodies, validating input, calling services, and writing responses
-- **Business logic belongs in the service layer**: all domain logic, orchestration of multiple repository calls, and complex operations should be in services under `internal/financial_v2/<domain>/`
-- **Services should be stateless**: inject dependencies (like `*repo.Store`) via constructor
-- **Keep handlers thin**: if a handler method exceeds ~20 lines of logic, move the business logic to a service
+### Handler & Service Layer Separation (V2 API Pattern)
 
-Example:
+**MANDATORY**: All v2 API endpoints MUST follow the three-tier pattern:
+
+```
+HTTP Handler (handlers/*_v2.go)
+    ↓ (parses JSON, validates required fields, error handling)
+Module Service (internal/financial_v2/{module}/service.go)
+    ↓ (business logic, computation, field parsing/validation)
+Repository (internal/financial_v2/repository)
+    ↓ (data persistence)
+```
+
+**Handler Responsibilities (THIN LAYER):**
+- Parse JSON request body
+- Validate required fields exist (missing `ratePeriods`, `sgDetails`, etc.)
+- Convert request types to service Params types
+- Call service methods
+- Handle errors (check `IsValidationError` for 400 vs 500)
+- Build and write JSON responses
+- **NO business logic, NO decimal parsing, NO computation**
+
+**Service Responsibilities:**
+- Define Params types (raw strings from HTTP) and Input types (parsed decimals/dates)
+- Provide `CreateFromParams`, `UpdateFromParams` methods that parse and validate
+- Define `ValidationError` type and `IsValidationError()` helper
+- Contain all business logic (computation, derived values, complex operations)
+- Orchestrate multiple repository calls if needed
+
+**Service File Structure:**
+```
+internal/financial_v2/{module}/
+├── service.go      # REQUIRED: Service struct, Params/Input types, build functions, business logic
+├── calculator.go   # Optional: Domain-specific calculations
+└── snapshot.go     # Optional: Timeline integration types
+```
+
+**Service Pattern Template:**
 ```go
-// BAD: Business logic in handler
-func (h *Handler) update(w http.ResponseWriter, r *http.Request, id string) {
-    // ... parsing ...
-    current, _ := h.store.GetItem(ctx, id)
-    h.store.StopItem(ctx, id, endDate)
-    existing, _ := h.store.FindByParent(ctx, id)
-    if existing != nil {
-        // update existing...
-    } else {
-        // create new version...
-    }
+package module
+
+// =============================================================================
+// Types
+// =============================================================================
+
+type ValidationError struct {
+    Message string
 }
 
-// GOOD: Handler delegates to service
-func (h *Handler) update(w http.ResponseWriter, r *http.Request, id string) {
-    // Parse input
-    var input updateInput
-    json.NewDecoder(r.Body).Decode(&input)
+func (e ValidationError) Error() string { return e.Message }
+func IsValidationError(err error) bool {
+    var ve ValidationError
+    return errors.As(err, &ve)
+}
 
-    // Delegate to service
-    result, err := h.service.Update(ctx, userID, id, input.toServiceInput())
+// Params types - raw strings from HTTP
+type CreateParams struct {
+    Name   string  // required
+    Amount string  // decimal as string
+    Rate   *string // optional decimal as string
+}
+
+// =============================================================================
+// Service
+// =============================================================================
+
+type Service struct {
+    store *repo.Store
+}
+
+func NewService(store *repo.Store) *Service {
+    return &Service{store: store}
+}
+
+// CreateFromParams validates, parses, and creates
+func (s *Service) CreateFromParams(ctx context.Context, userID string, params CreateParams) (*repo.Item, error) {
+    input, err := buildCreateInput(params)
     if err != nil {
-        handleError(w, err)
-        return
+        return nil, err // ValidationError
     }
-    writeJSON(w, result)
+    return s.store.CreateItem(ctx, userID, input)
+}
+
+// =============================================================================
+// Build Functions (Params -> Input conversion)
+// =============================================================================
+
+func buildCreateInput(params CreateParams) (repo.CreateInput, error) {
+    if params.Name == "" {
+        return repo.CreateInput{}, ValidationError{Message: "name is required"}
+    }
+
+    amount, err := parseDecimalField("amount", params.Amount)
+    if err != nil {
+        return repo.CreateInput{}, err
+    }
+
+    rate, err := parseOptionalDecimal("rate", params.Rate)
+    if err != nil {
+        return repo.CreateInput{}, err
+    }
+
+    return repo.CreateInput{
+        Name:   params.Name,
+        Amount: *amount,
+        Rate:   rate,
+    }, nil
+}
+
+// =============================================================================
+// Parsing Helpers
+// =============================================================================
+
+func parseDecimalField(field, value string) (*decimal.Decimal, error) {
+    if value == "" {
+        return nil, ValidationError{Message: fmt.Sprintf("%s is required", field)}
+    }
+    d, err := decimal.NewFromString(value)
+    if err != nil {
+        return nil, ValidationError{Message: fmt.Sprintf("invalid %s: %v", field, err)}
+    }
+    return d, nil
+}
+
+func parseOptionalDecimal(field string, value *string) (*decimal.Decimal, error) {
+    if value == nil || *value == "" {
+        return nil, nil
+    }
+    d, err := decimal.NewFromString(*value)
+    if err != nil {
+        return nil, ValidationError{Message: fmt.Sprintf("invalid %s: %v", field, err)}
+    }
+    return d, nil
 }
 ```
+
+**Handler Pattern Template:**
+```go
+func (h *Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
+    userID, ok := requireUserID(w, r)
+    if !ok {
+        return
+    }
+
+    var req createRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        badRequest(w, err)
+        return
+    }
+
+    // Validate required fields (handler level)
+    if req.Name == "" {
+        badRequest(w, errMissingFields("name"))
+        return
+    }
+
+    // Convert to service params and delegate
+    params := toCreateParams(req)
+    result, err := h.service.CreateFromParams(r.Context(), userID, params)
+    if err != nil {
+        if module.IsValidationError(err) {
+            badRequest(w, err)
+            return
+        }
+        log.Printf("Handler.Create error: %v", err)
+        internalError(w, err)
+        return
+    }
+
+    w.WriteHeader(http.StatusCreated)
+    writeJSON(w, buildResponse(result))
+}
+```
+
+**Reference Implementations:**
+- `internal/financial_v2/property/service.go` - Full example with complex types
+- `internal/financial_v2/expense/service.go` - Simpler example with versioning
+- `cmd/server/handlers/property_planner_v2.go` - Handler using service pattern
 
 Example:
 ```go

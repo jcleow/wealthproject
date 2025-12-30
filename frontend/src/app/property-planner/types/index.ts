@@ -46,9 +46,8 @@ export interface LoanSegment {
   id: string
   startMonth: string   // YYYY-MM when this segment starts
   termYears: number    // Duration of this segment
-  fixedYears: number   // Fixed period within segment
-  fixedRate: number
-  floatingRate: number
+  rate: number         // Interest rate for this segment
+  rateType: 'fixed' | 'floating'  // Type of rate
 }
 
 // ============================================
@@ -69,6 +68,15 @@ export interface StaggeredDownpayment {
 // MORTGAGE INPUTS
 // ============================================
 
+/**
+ * Grant item for form state
+ */
+export interface GrantItem {
+  id?: string  // Optional - only present for persisted grants
+  name: string
+  amount: number
+}
+
 export interface MortgageInputs {
   propertyPrice: number
   valuationPrice: number // Bank/HDB valuation (for resale properties)
@@ -87,7 +95,7 @@ export interface MortgageInputs {
   borrowerType: BorrowerType
   cpfOaBalance: number
   monthlyCpfOa: number
-  grants: number
+  grants: GrantItem[]
   // Borrower selection fields
   borrower1IncomeId: string
   borrower1OaBalance: number

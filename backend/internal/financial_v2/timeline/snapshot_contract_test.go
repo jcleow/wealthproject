@@ -61,6 +61,10 @@ func (m *fullMockStore) ListIncludedScenarioEvents(ctx context.Context, userID s
 	return nil, nil
 }
 
+func (m *fullMockStore) ListIncludedPropertyScenarios(ctx context.Context, userID string) ([]repo.PropertyScenarioFull, error) {
+	return nil, nil
+}
+
 // TestSnapshotContract_AllItemTypesReturned verifies that all financial item types
 // are correctly included in the snapshot response when present in the store.
 // This is a critical contract test to prevent regressions when modifying the service/store layer.

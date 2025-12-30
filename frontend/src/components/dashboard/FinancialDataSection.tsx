@@ -21,6 +21,7 @@ interface FinancialDataSectionProps {
   zoomLevel: ZoomLevel
   isTimelineLoading: boolean
   onSaveTimelineEdits: (payload: TimelineEditRequest) => Promise<void>
+  compact?: boolean
 }
 
 export function FinancialDataSection({
@@ -39,12 +40,13 @@ export function FinancialDataSection({
   zoomLevel,
   isTimelineLoading,
   onSaveTimelineEdits,
+  compact = false,
 }: FinancialDataSectionProps) {
   const taxMode = useTaxModeOptional()
   const isTaxModeEnabled = taxMode?.isTaxModeEnabled ?? false
 
   return (
-    <div className="min-h-[400px] min-w-0 shrink-0">
+    <div className={compact ? 'min-w-0' : 'min-h-[400px] min-w-0 shrink-0'}>
       {/* FinancialDataManagement renders the header + conditionally the cashflow OR tax content */}
       <FinancialDataManagement
         selectedYear={selectedYear}
@@ -63,6 +65,7 @@ export function FinancialDataSection({
         isTimelineLoading={isTimelineLoading}
         onSaveTimelineEdits={onSaveTimelineEdits}
         showTaxMode={isTaxModeEnabled}
+        compact={compact}
       />
     </div>
   )

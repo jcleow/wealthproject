@@ -1,3 +1,4 @@
+import { useState, useMemo, useCallback } from 'react'
 import {
   Area,
   Bar,
@@ -12,11 +13,13 @@ import {
 } from 'recharts'
 
 import ScenarioMarker from '../ScenarioMarker'
+import PropertyScenarioMarker, { NestedMilestoneMarker, type NestedMilestoneData } from '../PropertyScenarioMarker'
 import { CustomTooltip } from './CustomTooltip'
 import { YearTick } from './YearTick'
 import { chartColors, AREA_ANIMATION_MS, type AxisMode, type ProjectionPoint } from './types'
 import { type ChartType, type MetricId, getMetricConfig } from './chartOverlays'
 import type { ScenarioMarkerData } from './useProjectionData'
+import type { PropertyMarkerData } from './chartjs/types'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { TimeResolution } from '@/types/timeline'
 
@@ -41,6 +44,8 @@ export interface ProjectionChartProps {
   onScenarioSelect?: (event: ScenarioEvent) => void
   markersReady: boolean
   prefersReducedMotion: boolean
+  propertyMarkers?: PropertyMarkerData[]
+  onPropertyScenarioEdit?: (scenarioId: string) => void
 }
 
 /**
@@ -68,7 +73,66 @@ export function ProjectionChart({
   onScenarioSelect,
   markersReady,
   prefersReducedMotion,
+  propertyMarkers = [],
+  onPropertyScenarioEdit,
 }: ProjectionChartProps) {
+  // Track which property marker is expanded to show nested milestones
+  const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(null)
+
+  // Toggle expansion on double-click
+  const handleToggleExpand = useCallback((propertyId: string) => {
+    setExpandedPropertyId(prev => prev === propertyId ? null : propertyId)
+  }, [])
+
+  // Convert date string (YYYY-MM) to yearIndex based on baseCalendarYear
+  const dateToYearIndex = useCallback((date: string): number => {
+    const [yearStr, monthStr] = date.split('-')
+    const year = parseInt(yearStr, 10)
+    const month = parseInt(monthStr, 10)
+
+    // For yearly resolution, return year offset from base
+    if (dataResolution === 'yearly') {
+      return year - baseCalendarYear
+    }
+    // For monthly resolution, return month index
+    const monthOffset = (year - baseCalendarYear) * 12 + (month - 1)
+    return monthOffset
+  }, [dataResolution, baseCalendarYear])
+
+  // Find net worth at a given yearIndex from displayData
+  const getNetWorthAtIndex = useCallback((yearIndex: number): number => {
+    const point = displayData.find(p => p.yearIndex === yearIndex)
+    if (point) return point.netWorth
+
+    // If exact match not found, find nearest
+    const sorted = [...displayData].sort((a, b) =>
+      Math.abs(a.yearIndex - yearIndex) - Math.abs(b.yearIndex - yearIndex)
+    )
+    return sorted[0]?.netWorth ?? 0
+  }, [displayData])
+
+  // Compute nested milestone data for the expanded property
+  const nestedMilestoneData: NestedMilestoneData[] = useMemo(() => {
+    if (!expandedPropertyId) return []
+
+    const expandedMarker = propertyMarkers.find(m => m.propertyScenarioId === expandedPropertyId)
+    if (!expandedMarker || !expandedMarker.nestedMilestones) return []
+
+    return expandedMarker.nestedMilestones.map(milestone => {
+      const yearIndex = dateToYearIndex(milestone.date)
+      return {
+        id: milestone.id,
+        type: milestone.type,
+        label: milestone.label,
+        icon: milestone.icon,
+        iconColor: milestone.iconColor,
+        yearIndex,
+        netWorth: getNetWorthAtIndex(yearIndex),
+        propertyScenarioId: expandedPropertyId,
+      }
+    })
+  }, [expandedPropertyId, propertyMarkers, dateToYearIndex, getNetWorthAtIndex])
+
   return (
     <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>
       <ComposedChart
@@ -257,6 +321,52 @@ export function ProjectionChart({
                 yearIndex={payload?.yearIndex ?? 0}
                 onSelectYear={onSelectYear}
                 onScenarioSelect={onScenarioSelect}
+                visible={markersReady}
+                animate={!prefersReducedMotion}
+              />
+            )}
+            isAnimationActive={false}
+            style={{ pointerEvents: markersReady ? 'auto' : 'none' }}
+          />
+        )}
+
+        {propertyMarkers.length > 0 && (
+          <Scatter
+            data={propertyMarkers}
+            dataKey="netWorth"
+            xAxisId={0}
+            yAxisId={0}
+            fill="#3b82f6"
+            shape={({ cx = 0, cy = 0, payload }: any) => (
+              <PropertyScenarioMarker
+                cx={cx}
+                cy={cy}
+                marker={payload}
+                onPropertyScenarioEdit={onPropertyScenarioEdit}
+                onToggleExpand={handleToggleExpand}
+                isExpanded={payload?.propertyScenarioId === expandedPropertyId}
+                visible={markersReady}
+                animate={!prefersReducedMotion}
+              />
+            )}
+            isAnimationActive={false}
+            style={{ pointerEvents: markersReady ? 'auto' : 'none' }}
+          />
+        )}
+
+        {/* Nested milestones (fees, sales) shown when a property is expanded */}
+        {nestedMilestoneData.length > 0 && (
+          <Scatter
+            data={nestedMilestoneData}
+            dataKey="netWorth"
+            xAxisId={0}
+            yAxisId={0}
+            fill="#8b5cf6"
+            shape={({ cx = 0, cy = 0, payload }: any) => (
+              <NestedMilestoneMarker
+                cx={cx}
+                cy={cy}
+                milestone={payload}
                 visible={markersReady}
                 animate={!prefersReducedMotion}
               />

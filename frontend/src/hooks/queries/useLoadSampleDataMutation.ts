@@ -1,11 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi } from '@/api/financial'
+import { financialApi, propertyPlannerV2Api } from '@/api/financial'
 import type { Income, Expense } from '@/types/financial'
 import type { CPFAccount, CPFAccountCreatePayload } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'
+import type { CreateScenarioInput, PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import { DEFAULT_MONTHLY_CADENCE } from '@/types/scenario'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { CPF_QUERY_KEY } from './useCpfQuery'
+import { propertyPlannerV2Keys } from './usePropertyPlannerV2Query'
 
 // Helper to generate YYYY-MM format date strings
 function getMonthString(yearsFromNow: number, monthOffset = 0): string {
@@ -22,8 +24,18 @@ export function useLoadSampleDataMutation() {
     mutationFn: async () => {
       let cpfAccount: CPFAccount | null = null
 
-      // First clear all data including CPF
+      // First clear all data including CPF and property scenarios
       // Use V2 bulk delete endpoints where available for better cleanup
+      // Delete property V2 scenarios (no bulk delete, so list and delete each)
+      const deletePropertyV2Scenarios = async () => {
+        try {
+          const scenarios = await propertyPlannerV2Api.listScenarios()
+          await Promise.all(scenarios.map(s => propertyPlannerV2Api.deleteScenario(s.scenario.id)))
+        } catch {
+          // Ignore errors if no scenarios exist
+        }
+      }
+
       await Promise.all([
         financialApi.deleteAllAssets(),
         financialApi.deleteAllInvestments(),
@@ -33,6 +45,7 @@ export function useLoadSampleDataMutation() {
         financialApi.deleteAllCashAccounts(),
         financialApi.deleteAllScenarioEvents(),
         financialApi.deleteCurrentCPFAccount().catch(() => {}), // Ignore if no CPF account exists
+        deletePropertyV2Scenarios(),
       ])
 
       // Ensure CPF profile exists so timeline v2 can show CPF assets and contributions
@@ -308,55 +321,8 @@ export function useLoadSampleDataMutation() {
             },
           ],
         },
-        {
-          name: 'BTO Key Collection',
-          description: '4-room BTO flat in Tengah. Using CPF OA for downpayment, taking HDB loan. Finally moving out of rental!',
-          occursOn: getMonthString(5),
-          displayIcon: 'home',
-          displayColor: '#3b82f6', // Blue
-          tags: ['milestone', 'property', 'housing'],
-          isIncluded: true,
-          impacts: [
-            {
-              targetType: 'asset',
-              impactKind: 'start',
-              amount: 450000,
-              currency: 'SGD',
-              cadence: DEFAULT_MONTHLY_CADENCE,
-              startMonth: getMonthString(5),
-              name: 'BTO Flat (Tengah)',
-            },
-            {
-              targetType: 'liability',
-              impactKind: 'start',
-              amount: 350000,
-              currency: 'SGD',
-              cadence: DEFAULT_MONTHLY_CADENCE,
-              startMonth: getMonthString(5),
-              name: 'HDB Loan',
-            },
-            {
-              targetType: 'expense',
-              impactKind: 'start',
-              amount: 1600,
-              currency: 'SGD',
-              cadence: 'monthly',
-              startMonth: getMonthString(5),
-              frequency: 'monthly',
-              name: 'HDB Loan Payment',
-            },
-            {
-              targetType: 'expense',
-              impactKind: 'start',
-              amount: 50000,
-              currency: 'SGD',
-              cadence: DEFAULT_MONTHLY_CADENCE,
-              startMonth: getMonthString(5),
-              frequency: 'one_time',
-              name: 'Renovation',
-            },
-          ],
-        },
+        // NOTE: BTO Key Collection is now created via Property Planner V2, not as a legacy scenario event
+        // The property scenario is created separately after financial data is seeded
         {
           name: 'First Child',
           description: 'Starting a family! Additional expenses for baby essentials, childcare planning. Baby Bonus helps offset initial costs.',
@@ -582,7 +548,66 @@ export function useLoadSampleDataMutation() {
         scenarioEvents.push(createdEvent)
       }
 
-      return { assets, investments, liabilities, incomes, expenses: expensesResult.data, scenarioEvents, cpfAccount }
+      // Create BTO property scenario via Property Planner V2
+      // This replaces the legacy "BTO Key Collection" scenario event
+      let propertyScenario: PropertyScenarioFull | null = null
+      try {
+        const btoKeyCollectionDate = getMonthString(5) // 5 years from now
+        const btoScenarioInput: CreateScenarioInput = {
+          country: 'SG',
+          sgDetails: {
+            name: 'BTO Flat (Tengah)',
+            propertyType: 'hdb',
+            propertySubtype: 'bto',
+            icon: 'home',
+            iconColor: '#3b82f6', // Blue
+            isIncluded: true,
+            propertyPrice: '450000',
+            loanType: 'hdb',
+            downpaymentCpfOa: '100000', // Using CPF OA for downpayment
+            downpaymentCash: '0',
+            borrowerType: 'single',
+            otherDebt: '0',
+            propertyCount: 0, // First property
+            btoKeyCollectionDate,
+          },
+          ratePeriods: [
+            {
+              startMonth: btoKeyCollectionDate,
+              termYears: 25,
+              rate: '2.6', // HDB concessionary rate 2.6%
+              rateType: 'fixed' as const,
+            },
+          ],
+          growthPeriods: [
+            {
+              startYear: 0,
+              growthRate: '3.0', // 3% annual appreciation
+              growthStrategy: 'compound_monthly',
+            },
+          ],
+          fees: [
+            {
+              feeContext: 'purchase',
+              feeType: 'renovation',
+              description: 'Renovation for new BTO flat',
+              amount: '50000',
+              isPercentage: false,
+              frequency: 'one_time',
+              startDate: btoKeyCollectionDate,
+              endDate: btoKeyCollectionDate, // One-time fee occurs at key collection
+            },
+          ],
+        }
+
+        propertyScenario = await propertyPlannerV2Api.createScenario(btoScenarioInput)
+        console.debug('[loadSampleData] Created BTO property scenario via V2:', propertyScenario.scenario.id)
+      } catch (error) {
+        console.error('[loadSampleData] Failed to create BTO property scenario:', error)
+        // Non-fatal: continue even if property scenario creation fails
+      }
+
+      return { assets, investments, liabilities, incomes, expenses: expensesResult.data, scenarioEvents, cpfAccount, propertyScenario }
     },
     onSuccess: (data) => {
       // Update all caches with the new data - this immediately updates the UI
@@ -595,6 +620,13 @@ export function useLoadSampleDataMutation() {
       if (data.cpfAccount) {
         queryClient.setQueryData(CPF_QUERY_KEY, data.cpfAccount)
       }
+      // Set property planner V2 cache if scenario was created
+      if (data.propertyScenario) {
+        queryClient.setQueryData<PropertyScenarioFull[]>(
+          propertyPlannerV2Keys.list(),
+          [data.propertyScenario]
+        )
+      }
 
       // Invalidate derived queries that need to be recalculated (timeline, netWorth, etc)
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
@@ -602,6 +634,7 @@ export function useLoadSampleDataMutation() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.netWorth })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
       queryClient.invalidateQueries({ queryKey: CPF_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: propertyPlannerV2Keys.all })
     },
   })
 }

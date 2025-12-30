@@ -1,10 +1,13 @@
-import type { TimelineItem, CPFContributionResponseV2 } from '@/types/timeline'
+import { useState, useEffect } from 'react'
+import clsx from 'clsx'
+import type { TimelineItem, CPFContributionResponseV2, PropertySnapshotV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
 import type { IncomeAllocation } from '@/api/financial/incomes'
 import { categoryConfig } from '../config'
 import { getItemId, sortItems } from '../utils'
+import { parseDecimal } from '../converters'
 import type { FinancialCategory } from '../types'
 
 import {
@@ -18,6 +21,8 @@ import {
   CPFContributionsSection,
   InvestmentsIncomeSection,
   DebtRepaymentsSection,
+  PropertiesAssetsSection,
+  PropertiesMortgagesSection,
 } from './CategoryCard/index'
 
 interface CategoryCardProps {
@@ -54,6 +59,8 @@ interface CategoryCardProps {
   // CPF specific (V2)
   cpfAssets?: TimelineItem[]
   cpfContributionsRaw?: CPFContributionResponseV2[]
+  // Property snapshots (V2)
+  propertySnapshots?: PropertySnapshotV2[]
   // Investments income (V2)
   hasInvestmentsSection?: boolean
   monthlyInvestments?: number
@@ -77,6 +84,9 @@ interface CategoryCardProps {
   onDeleteCpf?: (id: string) => void
   // Display settings
   groupItemsByCategory?: boolean
+  compact?: boolean
+  // Collapse state callback for parent components
+  onCollapseChange?: (isCollapsed: boolean) => void
 }
 
 export function CategoryCard({
@@ -109,6 +119,7 @@ export function CategoryCard({
   investmentAssets = [],
   cpfAssets = [],
   cpfContributionsRaw = [],
+  propertySnapshots = [],
   hasInvestmentsSection = false,
   monthlyInvestments = 0,
   onAddInvestment,
@@ -124,7 +135,25 @@ export function CategoryCard({
   onEditCpf,
   onDeleteCpf,
   groupItemsByCategory = true,
+  compact = false,
+  onCollapseChange,
 }: CategoryCardProps) {
+  // Start collapsed in compact mode (side-by-side layout)
+  const [isCollapsed, setIsCollapsed] = useState(compact)
+
+  // Notify parent of initial collapse state when in compact mode
+  useEffect(() => {
+    if (compact) {
+      onCollapseChange?.(true)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Notify parent of collapse state changes
+  const handleToggleCollapse = () => {
+    const newCollapsedState = !isCollapsed
+    setIsCollapsed(newCollapsedState)
+    onCollapseChange?.(newCollapsedState)
+  }
   const config = categoryConfig[category]
 
   // For expenses, split into regular expenses and debt repayments
@@ -146,7 +175,14 @@ export function CategoryCard({
   const debtRepaymentsTotal = sortedDebtRepayments.reduce((sum, item) => sum + summarizeAmount(item), 0)
   const investmentAssetsTotal = category === 'asset' ? investmentAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0) : 0
   const cpfAssetsTotal = category === 'asset' ? cpfAssets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0) : 0
-  const categoryTotal = baseTotal + debtRepaymentsTotal + investmentAssetsTotal + cpfAssetsTotal
+  // Property totals: values for assets, mortgages for liabilities
+  const propertyAssetsTotal = category === 'asset'
+    ? propertySnapshots.reduce((sum, p) => sum + parseDecimal(p.propertyValue), 0)
+    : 0
+  const propertyMortgagesTotal = category === 'liability'
+    ? propertySnapshots.reduce((sum, p) => sum + parseDecimal(p.mortgageBalance), 0)
+    : 0
+  const categoryTotal = baseTotal + debtRepaymentsTotal + investmentAssetsTotal + cpfAssetsTotal + propertyAssetsTotal + propertyMortgagesTotal
 
   const getPropertyLink = (item: TimelineItem, _index: number): PropertyLinkRecord | null => {
     if (category === 'income' || category === 'expense') return null
@@ -193,7 +229,10 @@ export function CategoryCard({
   }
 
   return (
-    <div className="flex flex-col overflow-hidden h-full w-full min-w-0 rounded-2xl border border-white/[0.1] hover:border-white/[0.15] bg-[#0a0a0a]/60 transition-all">
+    <div className={clsx(
+      'flex flex-col overflow-hidden w-full min-w-0 rounded-2xl border border-white/[0.1] hover:border-white/[0.15] bg-[#0a0a0a]/60 transition-all',
+      !isCollapsed ? 'h-full' : ''
+    )}>
       <CategoryCardHeader
         category={category}
         showMonthlyData={showMonthlyData}
@@ -202,17 +241,26 @@ export function CategoryCard({
         onAddItem={onAddItem}
         onAddInvestment={onAddInvestment}
         onAddCpf={onAddCpf}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={handleToggleCollapse}
       />
 
-      <CategoryCardTotal
-        category={category}
-        total={categoryTotal}
-        showMonthlyData={showMonthlyData}
-      />
+      {/* Collapsible content */}
+      <div className={clsx(
+        'flex flex-col transition-all duration-200 overflow-hidden',
+        isCollapsed ? 'h-0' : 'flex-1'
+      )}>
+        <CategoryCardTotal
+          category={category}
+          total={categoryTotal}
+          showMonthlyData={showMonthlyData}
+        />
 
-      {/* List Items */}
-      <div className="scrollbar-hide flex-1 overflow-y-auto px-3 py-2">
-        {hasData || (category === 'asset' && (investmentAssets.length > 0 || cpfAssets.length > 0)) ? (
+        {/* List Items */}
+        <div className="scrollbar-hide flex-1 overflow-y-auto px-3 py-2">
+        {hasData ||
+          (category === 'asset' && (investmentAssets.length > 0 || cpfAssets.length > 0 || propertySnapshots.length > 0)) ||
+          (category === 'liability' && propertySnapshots.length > 0) ? (
           <>
             {/* Asset items */}
             {category === 'asset' && sortedData.length > 0 && (
@@ -306,6 +354,22 @@ export function CategoryCard({
               />
             )}
 
+            {/* Property assets subsection (Real Estate) */}
+            {category === 'asset' && propertySnapshots.length > 0 && (
+              <PropertiesAssetsSection
+                properties={propertySnapshots}
+                groupItems={groupItemsByCategory}
+              />
+            )}
+
+            {/* Property mortgages subsection */}
+            {category === 'liability' && propertySnapshots.length > 0 && (
+              <PropertiesMortgagesSection
+                properties={propertySnapshots}
+                groupItems={groupItemsByCategory}
+              />
+            )}
+
             {/* CPF contributions subsection */}
             {category === 'income' && cpfContributionsRaw.length > 0 && (
               <CPFContributionsSection
@@ -345,6 +409,7 @@ export function CategoryCard({
             <p className="text-[10px] text-slate-600">Click + to add</p>
           </div>
         )}
+        </div>
       </div>
     </div>
   )

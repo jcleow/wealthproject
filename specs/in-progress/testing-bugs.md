@@ -276,3 +276,102 @@ Edit Scenario modal shows "Occurs On: December 2027" - needs a jump/navigate but
 ### Files to Investigate
 - `frontend/src/components/modals/ScenarioEventModal/ScenarioEventModal.tsx`
 - Timeline state management for programmatic navigation
+
+---
+
+## P1: Bug - Unable to deactivate a property scenario
+
+### Description
+When attempting to deactivate a property scenario (toggle off the "Active" switch), the backend fails with an error. The property scenario cannot be toggled inactive.
+
+### Current Behavior
+- Toggling the "Active" switch off for a property scenario results in a backend error
+- The scenario remains active despite the user action
+
+### Expected Behavior
+- Toggling the "Active" switch should successfully deactivate the property scenario
+- The property should no longer appear in timeline projections when inactive
+- The UI should reflect the inactive state
+
+### Root Cause Investigation
+- Backend logic for updating property scenario `is_included` status may have a bug
+- Possible issues:
+  1. Missing field in update query
+  2. Validation failing on update
+  3. Transaction/constraint issue
+
+### Files to Investigate
+- `backend/cmd/server/handlers/property_planner_v2.go` - Update handler
+- `backend/internal/property/repository.go` - Update query
+- `backend/internal/property/service.go` - Business logic
+
+### Priority
+P1 - Blocks user from managing property scenarios
+
+---
+
+## P1: Bug - Mortgage payment expenses not showing in /snapshots
+
+### Description
+Mortgage payment expenses from property scenarios are not appearing in the `/snapshots` endpoint response. This causes incorrect net worth calculations as the mortgage payments are not being factored in.
+
+### Current Behavior
+- Property scenarios are created with mortgage/loan details
+- The snapshot endpoint does not include mortgage payment expenses
+- Net worth projections are incorrect (overstated) because mortgage payments are missing
+
+### Expected Behavior
+- Mortgage payment expenses should appear as expense line items in the snapshot
+- Monthly/yearly mortgage payments should reduce the projected cash flow
+- Net worth calculations should account for mortgage obligations
+
+### Root Cause Investigation
+- The timeline/snapshot service may not be generating expense entries for mortgage payments
+- Property planner may only be tracking the property asset without the corresponding liability/expense
+- Possible issues:
+  1. Mortgage expenses not being created when property scenario is saved
+  2. Timeline service not including property-related expenses
+  3. Snapshot query missing join to property mortgage data
+
+### Files to Investigate
+- `backend/internal/financial/timeline/service.go` - Snapshot generation
+- `backend/internal/property/service.go` - Property expense generation
+- `backend/cmd/server/handlers/financial_v2.go` - Snapshot endpoint
+- `backend/internal/property/models.go` - Mortgage expense model
+
+### Priority
+P1 - Causes incorrect financial projections
+
+---
+
+## P2: Feature - Add multi-period interest rates for loans in property modal
+
+### Description
+The property planner modal should support multiple interest rate periods for loans, allowing users to model real-world mortgage scenarios where rates change over time (e.g., fixed rate for first 3 years, then floating rate).
+
+### Current Behavior
+- Property modal only supports a single interest rate for the entire loan duration
+
+### Expected Behavior
+- Allow users to define multiple interest rate periods, e.g.:
+  - Period 1: Years 1-3 at 2.5% (fixed)
+  - Period 2: Years 4-10 at 3.0% (floating)
+  - Period 3: Years 11+ at 3.5% (floating)
+- Each period should have:
+  - Start year/month
+  - End year/month (or "until end of loan")
+  - Interest rate (%)
+  - Rate type (fixed/floating) - optional label
+
+### Use Cases
+- HDB loans with concessionary rates that change
+- Bank loans with promotional fixed periods followed by floating rates
+- Refinancing scenarios
+
+### Files to Investigate
+- `frontend/src/components/modals/PropertyPlannerModal/` - UI for rate periods
+- `backend/internal/property/models.go` - Data model for multi-period rates
+- `backend/internal/property/service.go` - Calculation logic for varying rates
+
+### Priority
+P2 - Enhancement for realistic loan modeling

@@ -39,6 +39,8 @@ interface HeaderProps {
   isTimelineLoading: boolean
   viewMode: 'annualized' | 'monthly'
   onViewModeChange: (mode: 'annualized' | 'monthly') => void
+  /** When true, stack title and controls vertically for compact sidebar */
+  compact?: boolean
 }
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -56,6 +58,7 @@ export function Header({
   isTimelineLoading,
   viewMode,
   onViewModeChange,
+  compact = false,
 }: HeaderProps) {
   const [yearDisplayMode, setYearDisplayMode] = useState<'calendar' | 'relative'>('calendar')
 
@@ -174,14 +177,14 @@ export function Header({
   const toggleTaxMode = taxMode?.enableTaxMode
 
   return (
-    <div className="px-6 py-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-white">Financial Data</h3>
-          <p className="text-sm text-gray-400">{`${absoluteYear} (Age ${displayAge})`}</p>
+    <div className={compact ? 'px-4 py-3' : 'px-6 py-4'}>
+      <div className={compact ? 'flex flex-col gap-3' : 'flex items-start justify-between gap-3'}>
+        <div className="flex items-baseline gap-2">
+          <h3 className={compact ? 'text-base font-semibold text-white' : 'text-lg font-semibold text-white'}>Financial Data</h3>
+          <p className={compact ? 'text-xs text-gray-400' : 'text-sm text-gray-400'}>{`${absoluteYear} (Age ${displayAge})`}</p>
         </div>
         {/* Unified timeline control bar */}
-        <div className="relative z-[200] flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm">
+        <div className={`relative z-[50] flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm ${compact ? 'w-full' : ''}`}>
           <div className="flex items-center gap-1 p-1">
             {resolution === 'monthly' && (
               <>
