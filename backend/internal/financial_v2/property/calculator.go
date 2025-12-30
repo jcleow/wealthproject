@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"financial-chat-system/backend/internal/decimal"
+	"financial-chat-system/backend/internal/financial_v2/repayment"
 )
 
 // Calculator handles all property-related calculations
@@ -75,16 +76,15 @@ type AffordabilityResult struct {
 }
 
 // CalculateMortgage computes monthly payment for a single rate
-// Formula: PMT = P * [r(1+r)^n] / [(1+r)^n - 1]
+// Delegates to the repayment module's StandardAmortizationStrategy for consistent calculation
 func (c *Calculator) CalculateMortgage(
 	loanAmount *decimal.Decimal,
 	termMonths int,
 	annualRatePercent *decimal.Decimal,
 ) *MortgageResult {
-	// Handle zero interest rate edge case
-	hundred := decimal.MustFromString("100")
 	zero := decimal.Zero()
 
+	// Handle zero interest rate edge case
 	if annualRatePercent.Cmp(zero) == 0 {
 		monthlyPayment := loanAmount.Div(decimal.NewFromInt64(int64(termMonths), 0))
 		return &MortgageResult{
@@ -96,49 +96,56 @@ func (c *Calculator) CalculateMortgage(
 		}
 	}
 
-	// Convert annual rate from percentage to monthly decimal
-	// annualRate = 2.6% -> 0.026 -> monthlyRate = 0.026/12
-	annualRate := annualRatePercent.Div(hundred)
-	twelve := decimal.MustFromString("12")
-	monthlyRate := annualRate.Div(twelve)
+	// Use repayment module's standard amortization strategy for monthly payment calculation
+	strategy := repayment.NewStandardAmortization()
+	params := repayment.Params{
+		CurrentBalance:  loanAmount,
+		InterestRateAPR: annualRatePercent,
+		PeriodIndex:     0,
+		TotalPeriods:    termMonths,
+	}
 
-	// (1 + r)^n
-	one := decimal.One()
-	onePlusR := one.Add(monthlyRate)
-	onePlusRPowerN := c.power(onePlusR, termMonths)
+	result, err := strategy.Calculate(params)
+	if err != nil || result == nil {
+		// Fallback to zero on error
+		return &MortgageResult{
+			LoanAmount:      loanAmount,
+			MonthlyPayment:  zero,
+			TotalInterest:   zero,
+			TotalAmountPaid: zero,
+			Amortization:    nil,
+		}
+	}
 
-	// r * (1+r)^n
-	numerator := monthlyRate.Mul(onePlusRPowerN)
-
-	// (1+r)^n - 1
-	denominator := onePlusRPowerN.Sub(one)
-
-	// PMT = P * numerator / denominator
-	monthlyPayment := loanAmount.Mul(numerator).Div(denominator)
+	monthlyPayment := result.MonthlyPayment
 
 	// Total amount paid
 	totalPaid := monthlyPayment.Mul(decimal.NewFromInt64(int64(termMonths), 0))
 	totalInterest := totalPaid.Sub(loanAmount)
+
+	// Generate amortization schedule using repayment module
+	amortization := c.generateAmortizationFromRepayment(loanAmount, termMonths, annualRatePercent)
 
 	return &MortgageResult{
 		LoanAmount:      loanAmount,
 		MonthlyPayment:  roundTo2(monthlyPayment),
 		TotalInterest:   roundTo2(totalInterest),
 		TotalAmountPaid: roundTo2(totalPaid),
-		Amortization:    c.generateAmortization(loanAmount, monthlyPayment, monthlyRate, termMonths),
+		Amortization:    amortization,
 	}
 }
 
-// generateAmortization creates yearly amortization schedule
-func (c *Calculator) generateAmortization(
+// generateAmortizationFromRepayment creates yearly amortization schedule using the repayment module
+func (c *Calculator) generateAmortizationFromRepayment(
 	loanAmount *decimal.Decimal,
-	monthlyPayment *decimal.Decimal,
-	monthlyRate *decimal.Decimal,
 	termMonths int,
+	annualRatePercent *decimal.Decimal,
 ) []AmortizationYear {
 	var years []AmortizationYear
 	balance := loanAmount
 	zero := decimal.Zero()
+
+	strategy := repayment.NewStandardAmortization()
 
 	for month := 1; month <= termMonths; month++ {
 		year := (month-1)/12 + 1
@@ -154,19 +161,22 @@ func (c *Calculator) generateAmortization(
 			})
 		}
 
-		// Calculate this month's interest and principal
-		interestPayment := balance.Mul(monthlyRate)
-		principalPayment := monthlyPayment.Sub(interestPayment)
-
-		// Don't let balance go negative
-		if principalPayment.Cmp(balance) > 0 {
-			principalPayment = balance
+		// Use repayment module for this month's calculation
+		params := repayment.Params{
+			CurrentBalance:  balance,
+			InterestRateAPR: annualRatePercent,
+			PeriodIndex:     month - 1,
+			TotalPeriods:    termMonths,
 		}
 
-		balance = balance.Sub(principalPayment)
-		if balance.Cmp(zero) < 0 {
-			balance = zero
+		result, err := strategy.Calculate(params)
+		if err != nil || result == nil {
+			continue
 		}
+
+		principalPayment := result.PrincipalPortion
+		interestPayment := result.InterestPortion
+		balance = result.RemainingBalance
 
 		// Update year totals
 		years[year-1].TotalPrincipal = years[year-1].TotalPrincipal.Add(principalPayment)
@@ -186,6 +196,7 @@ func (c *Calculator) generateAmortization(
 }
 
 // CalculateMortgageWithSegments handles multi-period refinancing
+// Uses the repayment module for consistent amortization calculations
 func (c *Calculator) CalculateMortgageWithSegments(
 	loanAmount *decimal.Decimal,
 	segments []LoanRatePeriod,
@@ -193,8 +204,8 @@ func (c *Calculator) CalculateMortgageWithSegments(
 	currentBalance := loanAmount
 	totalInterest := decimal.Zero()
 	var paymentPeriods []PaymentPeriod
-	hundred := decimal.MustFromString("100")
-	twelve := decimal.MustFromString("12")
+
+	strategy := repayment.NewStandardAmortization()
 
 	for _, segment := range segments {
 		// Calculate payment for this segment based on remaining balance
@@ -207,15 +218,22 @@ func (c *Calculator) CalculateMortgageWithSegments(
 			Rate:           segment.AnnualRate,
 		})
 
-		// Calculate ending balance after this segment
-		annualRate := segment.AnnualRate.Div(hundred)
-		monthlyRate := annualRate.Div(twelve)
-
+		// Calculate ending balance after this segment using repayment module
 		for month := 0; month < segment.TermMonths; month++ {
-			interestPayment := currentBalance.Mul(monthlyRate)
-			principalPayment := result.MonthlyPayment.Sub(interestPayment)
-			currentBalance = currentBalance.Sub(principalPayment)
-			totalInterest = totalInterest.Add(interestPayment)
+			params := repayment.Params{
+				CurrentBalance:  currentBalance,
+				InterestRateAPR: segment.AnnualRate,
+				PeriodIndex:     month,
+				TotalPeriods:    segment.TermMonths,
+			}
+
+			monthResult, err := strategy.Calculate(params)
+			if err != nil || monthResult == nil {
+				continue
+			}
+
+			totalInterest = totalInterest.Add(monthResult.InterestPortion)
+			currentBalance = monthResult.RemainingBalance
 		}
 	}
 

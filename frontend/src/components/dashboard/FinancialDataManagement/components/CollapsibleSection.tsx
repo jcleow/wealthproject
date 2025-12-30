@@ -5,6 +5,88 @@ import { formatCurrency } from '@/lib/format'
 import { numericStyles } from '@/lib/utils'
 import { getIconByName } from '../utils'
 
+// Subcomponent for rendering item icons with optional tooltip and click handler
+interface ItemIconProps {
+  icon: string
+  iconColor?: string
+  tooltipLabel?: string
+  onIconClick?: () => void
+}
+
+function ItemIcon({ icon, iconColor, tooltipLabel, onIconClick }: ItemIconProps) {
+  const IconComponent = getIconByName(icon)
+
+  const iconElement = IconComponent ? (
+    <IconComponent
+      className="h-3.5 w-3.5"
+      style={{ color: iconColor ?? '#6366f1' }}
+    />
+  ) : (
+    <span
+      className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold text-white"
+      style={{ backgroundColor: iconColor ?? '#6366f1' }}
+    >
+      {icon.slice(0, 1).toUpperCase()}
+    </span>
+  )
+
+  if (onIconClick) {
+    const button = (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onIconClick()
+        }}
+        className="flex-shrink-0 rounded p-0.5 transition hover:bg-white/10"
+      >
+        {iconElement}
+      </button>
+    )
+
+    if (tooltipLabel) {
+      return (
+        <Tooltip.Provider delayDuration={0}>
+          <Tooltip.Root>
+            <Tooltip.Trigger asChild>
+              {button}
+            </Tooltip.Trigger>
+            <Tooltip.Content
+              side="top"
+              sideOffset={6}
+              className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+            >
+              {tooltipLabel}
+            </Tooltip.Content>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      )
+    }
+    return button
+  }
+
+  if (tooltipLabel) {
+    return (
+      <Tooltip.Provider delayDuration={0}>
+        <Tooltip.Root>
+          <Tooltip.Trigger asChild>
+            <span className="flex-shrink-0">{iconElement}</span>
+          </Tooltip.Trigger>
+          <Tooltip.Content
+            side="top"
+            sideOffset={6}
+            className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+          >
+            {tooltipLabel}
+          </Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
+    )
+  }
+
+  return <span className="flex-shrink-0">{iconElement}</span>
+}
+
 interface CollapsibleSectionProps {
   title: string
   total: number
@@ -77,82 +159,6 @@ export function CollapsibleItem({
   const shouldFormatAsCurrency = formatAsCurrency && amountSuffix !== '%'
   const displayAmount = shouldFormatAsCurrency ? formatCurrency(amount) : amount
 
-  const IconComponent = icon ? getIconByName(icon) : null
-
-  const renderIcon = () => {
-    if (!IconComponent && !icon) return null
-
-    const iconElement = IconComponent ? (
-      <IconComponent
-        className="h-3.5 w-3.5"
-        style={{ color: iconColor ?? '#6366f1' }}
-      />
-    ) : (
-      <span
-        className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold text-white"
-        style={{ backgroundColor: iconColor ?? '#6366f1' }}
-      >
-        {icon?.slice(0, 1).toUpperCase() ?? '?'}
-      </span>
-    )
-
-    if (onIconClick) {
-      const button = (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onIconClick()
-          }}
-          className="flex-shrink-0 rounded p-0.5 transition hover:bg-white/10"
-        >
-          {iconElement}
-        </button>
-      )
-
-      if (tooltipLabel) {
-        return (
-          <Tooltip.Provider delayDuration={0}>
-            <Tooltip.Root>
-              <Tooltip.Trigger asChild>
-                {button}
-              </Tooltip.Trigger>
-              <Tooltip.Content
-                side="top"
-                sideOffset={6}
-                className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
-              >
-                {tooltipLabel}
-              </Tooltip.Content>
-            </Tooltip.Root>
-          </Tooltip.Provider>
-        )
-      }
-      return button
-    }
-
-    if (tooltipLabel) {
-      return (
-        <Tooltip.Provider delayDuration={0}>
-          <Tooltip.Root>
-            <Tooltip.Trigger asChild>
-              <span className="flex-shrink-0">{iconElement}</span>
-            </Tooltip.Trigger>
-            <Tooltip.Content
-              side="top"
-              sideOffset={6}
-              className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
-            >
-              {tooltipLabel}
-            </Tooltip.Content>
-          </Tooltip.Root>
-        </Tooltip.Provider>
-      )
-    }
-
-    return <span className="flex-shrink-0">{iconElement}</span>
-  }
-
   return (
     <div
       onClick={() => onSelect(id)}
@@ -160,7 +166,14 @@ export function CollapsibleItem({
     >
       <div className="flex min-w-0 items-center gap-2">
         <span className="truncate text-sm text-slate-300">{name}</span>
-        {renderIcon()}
+        {icon && (
+          <ItemIcon
+            icon={icon}
+            iconColor={iconColor}
+            tooltipLabel={tooltipLabel}
+            onIconClick={onIconClick}
+          />
+        )}
       </div>
       <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
         {displayAmount}
