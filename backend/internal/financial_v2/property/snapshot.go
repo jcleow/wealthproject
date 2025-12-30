@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/decimal"
+	"financial-chat-system/backend/internal/financial_v2/growth"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
 
@@ -101,11 +102,15 @@ func (s *PropertySnapshot) ToExpenses(currentDate time.Time) []PropertyFeeExpens
 }
 
 // SnapshotBuilder handles building property snapshots for the timeline
-type SnapshotBuilder struct{}
+type SnapshotBuilder struct {
+	growthRegistry *growth.Registry
+}
 
 // NewSnapshotBuilder creates a new snapshot builder
 func NewSnapshotBuilder() *SnapshotBuilder {
-	return &SnapshotBuilder{}
+	return &SnapshotBuilder{
+		growthRegistry: growth.NewRegistry(),
+	}
 }
 
 // BuildPropertySnapshots builds property snapshot responses for the given month.
@@ -125,12 +130,13 @@ func (b *SnapshotBuilder) BuildPropertySnapshots(properties []repo.PropertyScena
 		details := prop.SGDetails
 
 		// Get purchase date from first rate period
+		// If no rate periods exist, skip this property as we can't determine when it was purchased
 		var purchaseDate string
 		if len(prop.RatePeriods) > 0 {
 			purchaseDate = prop.RatePeriods[0].StartDate.Format("2006-01")
 		} else {
-			// No rate periods means no mortgage, use first day of current month as fallback
-			purchaseDate = dateStr
+			// No rate periods means no mortgage data - skip property as we can't determine purchase date
+			continue
 		}
 
 		// Parse purchase date
@@ -197,6 +203,7 @@ func (b *SnapshotBuilder) BuildPropertySnapshots(properties []repo.PropertyScena
 }
 
 // calculatePropertyValueAtDate applies growth periods to get property value at a specific date
+// using the growth module for accurate decimal calculations
 func (b *SnapshotBuilder) calculatePropertyValueAtDate(initialPrice *decimal.Decimal, periods []repo.GrowthPeriod, purchaseDate, targetDate time.Time) *decimal.Decimal {
 	value := initialPrice
 
@@ -220,11 +227,31 @@ func (b *SnapshotBuilder) calculatePropertyValueAtDate(initialPrice *decimal.Dec
 			continue
 		}
 
-		rateFloat, _ := period.GrowthRate.Float64()
-		annualRate := rateFloat / 100.0
-		multiplier := decimal.MustFromFloat64(1.0 + annualRate)
-		for i := 0; i < yearsOfGrowth; i++ {
-			value = value.Mul(multiplier)
+		// Get the growth strategy from the registry (default to annual_step if not found)
+		strategyName := period.GrowthStrategy
+		if strategyName == "" {
+			strategyName = growth.StrategyAnnualStep
+		}
+
+		strategy, err := b.growthRegistry.Get(strategyName)
+		if err != nil {
+			// Fall back to annual_step if strategy not found
+			strategy, _ = b.growthRegistry.Get(growth.StrategyAnnualStep)
+		}
+
+		// Apply growth for each year using the growth module's strategy
+		params := growth.Params{
+			AnnualRatePct: &period.GrowthRate,
+		}
+
+		// For property appreciation, we apply annual growth
+		// Calculate the month index for each January after purchase
+		for year := 1; year <= yearsOfGrowth; year++ {
+			// currentMonth is the absolute month (e.g., year 2 = month 13-24)
+			// Apply in January (month 1 of that year)
+			currentMonth := year*12 + 1 // January of the target year
+			monthOfYear := 1             // January
+			value = strategy.Apply(value, params, currentMonth, monthOfYear)
 		}
 	}
 
@@ -232,6 +259,7 @@ func (b *SnapshotBuilder) calculatePropertyValueAtDate(initialPrice *decimal.Dec
 }
 
 // calculateMortgageBalanceAtDate calculates the outstanding mortgage balance at a specific date
+// using decimal arithmetic for precision
 func (b *SnapshotBuilder) calculateMortgageBalanceAtDate(periods []repo.LiabilityRatePeriod, details *repo.PropertySG, grantsTotal *decimal.Decimal, purchaseDate, targetDate time.Time) *decimal.Decimal {
 	if len(periods) == 0 {
 		return decimal.Zero()
@@ -257,15 +285,24 @@ func (b *SnapshotBuilder) calculateMortgageBalanceAtDate(periods []repo.Liabilit
 		return loanAmount
 	}
 
-	loanFloat, _ := loanAmount.Float64()
-	monthlyPrincipal := loanFloat / float64(totalMonths)
-	paidPrincipal := monthlyPrincipal * float64(months)
+	// Use decimal arithmetic for accurate calculation
+	totalMonthsDecimal := decimal.MustFromFloat64(float64(totalMonths))
+	monthsElapsedDecimal := decimal.MustFromFloat64(float64(months))
 
-	if paidPrincipal >= loanFloat {
+	// Calculate monthly principal payment: loanAmount / totalMonths
+	monthlyPrincipal := loanAmount.Div(totalMonthsDecimal)
+
+	// Calculate total principal paid: monthlyPrincipal * monthsElapsed
+	paidPrincipal := monthlyPrincipal.Mul(monthsElapsedDecimal)
+
+	// If paid principal exceeds loan amount, loan is fully repaid
+	// Cmp returns -1 if paidPrincipal < loanAmount, 0 if equal, 1 if greater
+	if paidPrincipal.Cmp(loanAmount) >= 0 {
 		return decimal.Zero()
 	}
 
-	return decimal.MustFromFloat64(loanFloat - paidPrincipal)
+	// Remaining balance: loanAmount - paidPrincipal
+	return loanAmount.Sub(paidPrincipal)
 }
 
 // BuildPropertyFeeSnapshots builds fee snapshots for fees applicable to a specific month
