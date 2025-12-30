@@ -91,6 +91,15 @@ func RunMigrations(db *sql.DB) error {
 
 	log.Printf("migrations: starting (dir=%s)", dir)
 
+	// Check for dirty state and auto-recover by forcing to current version as clean
+	// This allows the migration to be retried (assuming migrations are idempotent)
+	if version, dirty, err := m.Version(); err == nil && dirty {
+		log.Printf("migrations: detected dirty state at version %d, marking as clean to allow retry", version)
+		if err := m.Force(int(version)); err != nil {
+			log.Printf("migrations: warning - could not force clean state: %v", err)
+		}
+	}
+
 	if err := m.Up(); err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
 			log.Printf("migrations: no change (already at latest)")

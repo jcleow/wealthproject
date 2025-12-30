@@ -56,6 +56,14 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
     body: body !== undefined ? JSON.stringify(body) : undefined,
   } satisfies RequestInit)
 
+  // Handle 401 by redirecting to login
+  if (response.status === 401) {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
+    }
+    throw new ApiError(401, 'Authentication required')
+  }
+
   if (!response.ok) {
     const status = response.status
     const fallbackMessage = response.statusText || `HTTP ${status}`

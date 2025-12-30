@@ -27,6 +27,14 @@ async function jsonRequest<T>(
     ...options,
   })
 
+  // Handle 401 by redirecting to login
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
+    }
+    throw new Error('Authentication required')
+  }
+
   if (!res.ok) {
     const fallbackMessage = res.statusText || `HTTP ${res.status}`
     try {
