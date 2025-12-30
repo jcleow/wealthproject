@@ -85,6 +85,10 @@ func (m *startImpactTestStore) ListIncludedScenarioEvents(ctx context.Context, u
 	return m.scenarioEvents, nil
 }
 
+func (m *startImpactTestStore) ListIncludedPropertyScenarios(ctx context.Context, userID string) ([]repo.PropertyScenarioFull, error) {
+	return nil, nil
+}
+
 // =============================================================================
 // Helper Functions
 // =============================================================================

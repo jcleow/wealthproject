@@ -18,6 +18,7 @@ export type TimelineItemType =
   | 'expense'
   | 'cpf_contribution'
   | 'cpf_account'
+  | 'property_fee'
   // Normalized values used in UI logic
   | 'asset'
   | 'liability'
@@ -71,6 +72,10 @@ export interface TimelineItem {
   sourceLiabilityId?: string
   /** If set, this item was created by a scenario start impact */
   scenarioEventId?: string
+  /** Icon name for property fee items */
+  icon?: string
+  /** Icon color for property fee items */
+  iconColor?: string
 }
 
 export interface GrowthApplied {
@@ -344,6 +349,10 @@ export interface ExpenseResponseV2 {
   eventImpacts?: AppliedImpactV2[]
   /** If set, this item was created by a scenario start impact */
   scenarioEventId?: string
+  /** Icon name for property fee items */
+  icon?: string
+  /** Icon color for property fee items */
+  iconColor?: string
 }
 
 // ========== Timeline V2 Chart Types ==========

@@ -156,8 +156,40 @@ shadow-lg`}
               </Tooltip.Root>
             </Tooltip.Provider>
           )}
-          {/* Scenario indicator - show event icon for start impacts, amber dot for others */}
-          {startEvent ? (
+          {/* Scenario indicator - show event icon for start impacts, property icon for property fees, amber dot for others */}
+          {item.itemType === 'property_fee' && item.icon ? (
+            <Tooltip.Provider delayDuration={0}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <span className="flex-shrink-0 rounded p-0.5">
+                    {(() => {
+                      const Icon = getIconByName(item.icon)
+                      return Icon ? (
+                        <Icon
+                          className="h-3.5 w-3.5"
+                          style={{ color: item.iconColor ?? '#10b981' }}
+                        />
+                      ) : (
+                        <span
+                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold text-white"
+                          style={{ backgroundColor: item.iconColor ?? '#10b981' }}
+                        >
+                          {item.icon.slice(0, 1).toUpperCase()}
+                        </span>
+                      )
+                    })()}
+                  </span>
+                </Tooltip.Trigger>
+                <Tooltip.Content
+                  side="top"
+                  sideOffset={6}
+                  className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
+                >
+                  Property fee
+                </Tooltip.Content>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+          ) : startEvent ? (
             <Tooltip.Provider delayDuration={0}>
               <Tooltip.Root>
                 <Tooltip.Trigger asChild>

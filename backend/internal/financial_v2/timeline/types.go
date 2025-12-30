@@ -6,6 +6,7 @@ import (
 
 	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/decimal"
+	"financial-chat-system/backend/internal/financial_v2/property"
 	"financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
 )
@@ -124,7 +125,7 @@ type MonthDetailResponse struct {
 	CPFContributions  []CPFContributionResponse  `json:"cpfContributions"`
 	Expenses          []ExpenseResponse          `json:"expenses"`
 	IncomeAllocations []IncomeAllocationResponse `json:"incomeAllocations"`
-	Properties        []PropertySnapshot         `json:"properties"`
+	Properties        []property.PropertySnapshot         `json:"properties"`
 	// Savings breakdown
 	NetSavings     decimal.Decimal `json:"netSavings"`     // income - employee CPF - expenses (monthly)
 	NetCash        decimal.Decimal `json:"netCash"`        // income - employee CPF - expenses - investments (monthly)
@@ -277,6 +278,9 @@ type ExpenseResponse struct {
 	SourceLiabilityID    *string         `json:"sourceLiabilityId,omitempty"` // Link to liability this expense pays down
 	EventImpacts         []AppliedImpact `json:"eventImpacts,omitempty"`
 	ScenarioEventID      *string         `json:"scenarioEventId,omitempty"` // If set, this item was created by a start impact
+	// Property fee specific fields
+	Icon      *string `json:"icon,omitempty"`      // Icon name for property fees
+	IconColor *string `json:"iconColor,omitempty"` // Icon color for property fees
 }
 
 // IncomeAllocationResponse represents an income allocation in the timeline response
@@ -293,26 +297,6 @@ type IncomeAllocationResponse struct {
 }
 
 // ========== Property Snapshot Types ==========
-
-// PropertySnapshot represents a property scenario in the timeline
-type PropertySnapshot struct {
-	ID              string                 `json:"id"`
-	Name            string                 `json:"name"`
-	Icon            *string                `json:"icon"`
-	IconColor       *string                `json:"iconColor"`
-	PropertyValue   decimal.Decimal        `json:"propertyValue"`   // Current/projected value at this point
-	MortgageBalance decimal.Decimal        `json:"mortgageBalance"` // Current/projected outstanding balance
-	NetEquity       decimal.Decimal        `json:"netEquity"`       // PropertyValue - MortgageBalance
-	PurchaseDate    string                 `json:"purchaseDate"`    // First rate period start_month
-	SaleDate        *string                `json:"saleDate,omitempty"`
-	Fees            []PropertyFeeSnapshot  `json:"fees"`
-}
-
-// PropertyFeeSnapshot represents a fee associated with a property event
-type PropertyFeeSnapshot struct {
-	ID         string          `json:"id"`
-	Name       string          `json:"name"`
-	FeeContext string          `json:"feeContext"` // "purchase", "recurring", "sale"
-	Amount     decimal.Decimal `json:"amount"`     // Computed amount
-	Date       string          `json:"date"`       // When the fee is due
-}
+// Property snapshot types are defined in the property package:
+// - property.PropertySnapshot
+// - property.PropertyFeeSnapshot
