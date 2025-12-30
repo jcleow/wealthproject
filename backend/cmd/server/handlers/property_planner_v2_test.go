@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"financial-chat-system/backend/internal/decimal"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
@@ -50,7 +51,6 @@ func TestPropertyPlannerV2_ConvertCreateRequest(t *testing.T) {
 					DownpaymentCpfOa: "100000",
 					DownpaymentCash:  "70000",
 					OtherDebt:        "500",
-					Grants:           "0",
 				},
 				Fees: []createFeeRequest{
 					{
@@ -71,11 +71,10 @@ func TestPropertyPlannerV2_ConvertCreateRequest(t *testing.T) {
 				},
 				RatePeriods: []createRatePeriodRequest{
 					{
-						StartMonth:   "2025-01",
-						TermYears:    25,
-						FixedYears:   2,
-						FixedRate:    "2.6",
-						FloatingRate: "3.5",
+						StartMonth: "2025-01",
+						TermYears:  25,
+						Rate:       "2.6",
+						RateType:   "fixed",
 					},
 				},
 			},
@@ -94,10 +93,10 @@ func TestPropertyPlannerV2_ConvertCreateRequest(t *testing.T) {
 				},
 				RatePeriods: []createRatePeriodRequest{
 					{
-						StartMonth:   "2025-01",
-						TermYears:    25,
-						FixedRate:    "2.6",
-						FloatingRate: "3.5",
+						StartMonth: "2025-01",
+						TermYears:  25,
+						Rate:       "2.6",
+						RateType:   "fixed",
 					},
 				},
 			},
@@ -125,10 +124,10 @@ func TestPropertyPlannerV2_ConvertCreateRequest(t *testing.T) {
 				},
 				RatePeriods: []createRatePeriodRequest{
 					{
-						StartMonth:   "2025-01",
-						TermYears:    25,
-						FixedRate:    "2.6",
-						FloatingRate: "3.5",
+						StartMonth: "2025-01",
+						TermYears:  25,
+						Rate:       "2.6",
+						RateType:   "fixed",
 					},
 				},
 			},
@@ -154,17 +153,17 @@ func TestPropertyPlannerV2_ConvertCreateRequest(t *testing.T) {
 				},
 				RatePeriods: []createRatePeriodRequest{
 					{
-						StartMonth:   "2025-01",
-						TermYears:    25,
-						FixedRate:    "2.6",
-						FloatingRate: "3.5",
+						StartMonth: "2025-01",
+						TermYears:  25,
+						Rate:       "2.6",
+						RateType:   "fixed",
 					},
 				},
 			},
 			wantErr: true,
 		},
 		{
-			name: "invalid decimal in fixed rate",
+			name: "invalid decimal in rate",
 			req: createScenarioRequest{
 				Country: "SG",
 				SGDetails: &createSGDetailsRequest{
@@ -176,10 +175,10 @@ func TestPropertyPlannerV2_ConvertCreateRequest(t *testing.T) {
 				},
 				RatePeriods: []createRatePeriodRequest{
 					{
-						StartMonth:   "2025-01",
-						TermYears:    25,
-						FixedRate:    "bad",
-						FloatingRate: "3.5",
+						StartMonth: "2025-01",
+						TermYears:  25,
+						Rate:       "bad",
+						RateType:   "fixed",
 					},
 				},
 			},
@@ -218,20 +217,19 @@ func TestPropertyPlannerV2_ComputeValues(t *testing.T) {
 		{
 			name: "standard HDB scenario",
 			scenario: &repo.PropertyScenarioFull{
-				SGDetails: &repo.PropertySGDetails{
+				SGDetails: &repo.PropertySG{
 					PropertyPrice:    *decimal.MustFromString("850000"),
 					DownpaymentCpfOa: *decimal.MustFromString("100000"),
 					DownpaymentCash:  *decimal.MustFromString("70000"),
-					Grants:           *decimal.Zero(),
 					Residency:        "singapore_citizen",
 					PropertyCount:    0,
 				},
 				RatePeriods: []repo.LiabilityRatePeriod{
 					{
-						TermYears:    25,
-						FixedYears:   2,
-						FixedRate:    *decimal.MustFromString("2.6"),
-						FloatingRate: *decimal.MustFromString("3.5"),
+						StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+						TermYears: 25,
+						Rate:      *decimal.MustFromString("2.6"),
+						RateType:  "fixed",
 					},
 				},
 			},
@@ -250,7 +248,7 @@ func TestPropertyPlannerV2_ComputeValues(t *testing.T) {
 		{
 			name: "no rate periods returns nil",
 			scenario: &repo.PropertyScenarioFull{
-				SGDetails: &repo.PropertySGDetails{
+				SGDetails: &repo.PropertySG{
 					PropertyPrice: *decimal.MustFromString("850000"),
 				},
 				RatePeriods: []repo.LiabilityRatePeriod{},
@@ -260,20 +258,19 @@ func TestPropertyPlannerV2_ComputeValues(t *testing.T) {
 		{
 			name: "condo for PR has ABSD",
 			scenario: &repo.PropertyScenarioFull{
-				SGDetails: &repo.PropertySGDetails{
+				SGDetails: &repo.PropertySG{
 					PropertyPrice:    *decimal.MustFromString("1500000"),
 					DownpaymentCpfOa: *decimal.MustFromString("200000"),
 					DownpaymentCash:  *decimal.MustFromString("175000"),
-					Grants:           *decimal.Zero(),
 					Residency:        "permanent_resident",
 					PropertyCount:    0, // First property
 				},
 				RatePeriods: []repo.LiabilityRatePeriod{
 					{
-						TermYears:    30,
-						FixedYears:   3,
-						FixedRate:    *decimal.MustFromString("3"),
-						FloatingRate: *decimal.MustFromString("4"),
+						StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+						TermYears: 30,
+						Rate:      *decimal.MustFromString("3"),
+						RateType:  "fixed",
 					},
 				},
 			},
@@ -371,15 +368,15 @@ func TestPropertyPlannerV2_ScenarioResponse_JSONSerialization(t *testing.T) {
 			ID:     "test-id-123",
 			UserID: "user-456",
 		},
-		SGDetails: &repo.PropertySGDetails{
+		SGDetails: &repo.PropertySG{
 			ID:           "sg-details-789",
 			Name:         "Test HDB",
 			PropertyType: "hdb",
 			Residency:    "singapore_citizen",
 		},
 		Fees:          []repo.PropertyFee{},
-		GrowthPeriods: []repo.GrowthPeriod{},
-		RatePeriods:   []repo.LiabilityRatePeriod{},
+		GrowthPeriods: []growthPeriodResponse{},
+		RatePeriods:   []liabilityRatePeriodResponse{},
 		Computed: &computedValues{
 			LoanAmount:       "680000",
 			MonthlyPayment:   "3084.95",
