@@ -60,6 +60,7 @@ interface ScenarioDetailViewProps {
   onEditingScenarioIconColorChange: (color: string) => void
   onEditingScenarioIconSearchChange: (search: string) => void
   onSaveAndClose: () => void
+  onBack: () => void
 }
 
 export function ScenarioDetailView({
@@ -83,7 +84,7 @@ export function ScenarioDetailView({
   onEditingScenarioIconChange,
   onEditingScenarioIconColorChange,
   onEditingScenarioIconSearchChange,
-  onSaveAndClose,
+  onBack,
 }: ScenarioDetailViewProps) {
   const selectedOption = propertyOptions.find(o => o.id === selectedType)
   const calculation = useMemo(() => calculateMortgage(inputs), [inputs])
@@ -105,14 +106,14 @@ export function ScenarioDetailView({
           <div className="flex items-center gap-2 text-sm mb-6">
             <Link href="/dashboard" className="text-slate-500 hover:text-slate-300 transition-colors font-medium">Dashboard</Link>
             <span className="text-slate-700">/</span>
-            <button type="button" onClick={onSaveAndClose} className="text-slate-500 hover:text-slate-300 transition-colors font-medium">Property Scenarios</button>
+            <button type="button" onClick={onBack} className="text-slate-500 hover:text-slate-300 transition-colors font-medium">Property Scenarios</button>
             <span className="text-slate-700">/</span>
             <span className="text-slate-300 font-medium">{editingScenario?.name || selectedOption?.title}</span>
           </div>
         )}
 
         <div className="flex items-center gap-4">
-          <button type="button" onClick={onSaveAndClose} className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all">
+          <button type="button" onClick={onBack} className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <IconPicker
