@@ -137,6 +137,7 @@ export function incomeV2ToTimelineItem(item: IncomeResponseV2): TimelineItem {
     itemId: item.id,
     parentId: item.parentId,
     name: item.name,
+    earner: item.earner,
     category: item.category,
     amountAnnual: parseDecimal(item.annualAmount),
     adjAnnualAmt: parseDecimal(item.eventAdjAnnualAmount),

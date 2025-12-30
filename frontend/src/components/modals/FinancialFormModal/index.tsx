@@ -183,6 +183,27 @@ transition-all`}
                 />
               </div>
 
+              {/* Earner field for incomes */}
+              {normalizedCategory === 'incomes' && (
+                <div>
+                  <label className="mb-2.5 block text-sm font-medium text-gray-200">
+                    Earner (optional)
+                  </label>
+                  <input
+                    type="text"
+                    className={`w-full
+px-3.5 py-2.5 placeholder-gray-500
+rounded-lg border border-white/[0.08] focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20
+bg-white/[0.03] focus:bg-white/[0.05]
+text-white
+transition-all`}
+                    placeholder="e.g., John, Sarah"
+                    value={form.formData.earner}
+                    onChange={(e) => form.updateFormField('earner', e.target.value)}
+                  />
+                </div>
+              )}
+
               {/* Amount and frequency row */}
               <div className="grid grid-cols-2 gap-3.5">
                 <div>

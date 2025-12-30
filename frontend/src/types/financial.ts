@@ -108,6 +108,7 @@ export const incomeSchema = z.object({
   id: z.string().min(1),
   parentId: z.string().optional(),
   name: z.string().min(1),
+  earner: z.string().optional(), // Person who earns this income (e.g., "John", "Sarah")
   amount: z.number().positive(),
   frequency: frequencyEnum,
   startDate: isoDateTime,

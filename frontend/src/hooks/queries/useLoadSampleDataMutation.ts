@@ -49,7 +49,9 @@ export function useLoadSampleDataMutation() {
       ])
 
       // Ensure CPF profile exists so timeline v2 can show CPF assets and contributions
+      // This is Alex's CPF account
       const sampleCPFAccount: CPFAccountCreatePayload = {
+        earner: 'Alex',
         oaBalance: 85000,
         saBalance: 45000,
         maBalance: 32000,
@@ -138,6 +140,7 @@ export function useLoadSampleDataMutation() {
       const sampleIncomes: Array<Omit<Income, 'id' | 'updatedAt'>> = [
         {
           name: 'Software Engineer Salary',
+          earner: 'Alex', // Primary earner
           category: 'Employment',
           amount: 7500,
           frequency: 'monthly',
@@ -146,26 +149,17 @@ export function useLoadSampleDataMutation() {
           cpfWageType: "ow", // Ordinary wages for monthly salary to compute CPF correctly
           notes: 'Mid-senior role at tech company, 10 years experience',
         },
-        // {
-        //   source: 'Annual Bonus',
-        //   category: 'Employment',
-        //   amount: 15000,
-        //   frequency: 'yearly',
-        //   startDate: nowIso,
-        //   startYear: currentYear,
-        //   growthRate: 3.0,
-        //   notes: '2 months bonus, typically paid in March',
-        // },
-        // {
-        //   source: 'Freelance Development',
-        //   category: 'Freelance',
-        //   amount: 800,
-        //   frequency: 'monthly',
-        //   startDate: nowIso,
-        //   startYear: currentYear,
-        //   growthRate: 0,
-        //   notes: 'Side projects and consulting, variable income',
-        // },
+        {
+          name: 'Marketing Manager Salary',
+          earner: 'Jordan', // Spouse
+          category: 'Employment',
+          amount: 5000,
+          frequency: 'monthly',
+          startDate: todayIso,
+          growthRate: 3.5,
+          cpfWageType: 'ow', // Ordinary wages
+          notes: 'Spouse income - marketing role at agency',
+        },
       ]
 
       const sampleExpenses: Array<Omit<Expense, 'id' | 'updatedAt'>> = [

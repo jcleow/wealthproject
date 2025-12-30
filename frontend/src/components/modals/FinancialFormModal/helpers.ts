@@ -66,6 +66,7 @@ export const buildDefaultFormState = (type: FinancialDataType, growthConfigs?: G
 
   return {
     name: '',
+    earner: '',
     amount: '',
     frequency: 'monthly',
     category: defaultCategory,

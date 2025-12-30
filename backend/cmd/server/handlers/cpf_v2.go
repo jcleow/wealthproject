@@ -46,6 +46,7 @@ func (h *CPFV2Handler) HandleGet(w http.ResponseWriter, r *http.Request) {
 
 // cpfV2CreateInput is the JSON input struct for CPF v2 create.
 type cpfV2CreateInput struct {
+	Earner           string  `json:"earner"`
 	OABalance        string  `json:"oaBalance"`
 	SABalance        string  `json:"saBalance"`
 	MABalance        string  `json:"maBalance"`
@@ -144,6 +145,7 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cpfAccount := repo.CPFAccount{
+		Earner:           input.Earner,
 		OABalance:        *oaBalance,
 		SABalance:        *saBalance,
 		MABalance:        *maBalance,
@@ -169,6 +171,7 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 // cpfV2Input is the JSON input struct for CPF v2 update.
 // Uses string for decimal values to avoid float64 precision loss.
 type cpfV2Input struct {
+	Earner           string  `json:"earner"`
 	OABalance        string  `json:"oaBalance"`
 	SABalance        string  `json:"saBalance"`
 	MABalance        string  `json:"maBalance"`

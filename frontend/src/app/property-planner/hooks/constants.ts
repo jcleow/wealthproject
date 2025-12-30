@@ -291,11 +291,3 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
   },
 }
 
-// ============================================
-// MOCK DATA (for visual mockup)
-// ============================================
-
-export const mockIncomes = [
-  { id: 'income-1', name: "John's Salary", monthlyAmount: 8500 },
-  { id: 'income-2', name: "Sarah's Salary", monthlyAmount: 6200 },
-]

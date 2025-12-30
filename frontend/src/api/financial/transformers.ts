@@ -71,6 +71,7 @@ export const toIncome = (item: any): Income => ({
   id: item.id ?? item.ID,
   parentId: item.parent_id ?? item.parentId ?? item.ParentID,
   name: item.name ?? item.Name,
+  earner: item.earner ?? item.Earner ?? '',
   amount: item.amount ?? item.Amount,
   frequency: item.frequency ?? item.Frequency,
   startDate: item.start_date ?? item.startDate ?? item.StartDate ?? new Date().toISOString(),

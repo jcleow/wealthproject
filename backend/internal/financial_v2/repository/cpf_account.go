@@ -14,6 +14,7 @@ func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFA
 	SELECT
 		id,
 		user_id,
+		COALESCE(earner, '') as earner,
 		COALESCE(parent_id, id) as parent_id,
 		COALESCE(start_date, created_at) as start_date,
 		end_date,
@@ -37,6 +38,7 @@ func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFA
 	err := s.pool.QueryRow(ctx, query, userID, id).Scan(
 		&cpf.ID,
 		&cpf.UserID,
+		&cpf.Earner,
 		&cpf.ParentID,
 		&cpf.StartDate,
 		&cpf.EndDate,
@@ -66,24 +68,25 @@ func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFA
 func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAccount) (*CPFAccount, error) {
 	query := `
 	UPDATE cpf_accounts
-	SET oa_balance = $3,
-	    sa_balance = $4,
-	    ma_balance = $5,
-	    ra_balance = $6,
-	    oa_used_for_housing = $7,
-	    housing_start_date = $8,
-	    date_of_birth = $9,
-	    residency_status = $10,
-	    pr_grant_date = $11,
+	SET earner = $3,
+	    oa_balance = $4,
+	    sa_balance = $5,
+	    ma_balance = $6,
+	    ra_balance = $7,
+	    oa_used_for_housing = $8,
+	    housing_start_date = $9,
+	    date_of_birth = $10,
+	    residency_status = $11,
+	    pr_grant_date = $12,
 	    updated_at = NOW()
 	WHERE user_id = $1 AND id = $2
-	RETURNING id, user_id, COALESCE(parent_id, id), COALESCE(start_date, created_at), end_date,
+	RETURNING id, user_id, COALESCE(earner, '') as earner, COALESCE(parent_id, id), COALESCE(start_date, created_at), end_date,
 	          oa_balance, sa_balance, ma_balance, ra_balance,
 	          oa_used_for_housing, housing_start_date, date_of_birth,
 	          residency_status, pr_grant_date, created_at, updated_at`
 
 	args := []any{
-		userID, cpf.ID, cpf.OABalance, cpf.SABalance, cpf.MABalance, cpf.RABalance,
+		userID, cpf.ID, cpf.Earner, cpf.OABalance, cpf.SABalance, cpf.MABalance, cpf.RABalance,
 		cpf.OAUsedForHousing, cpf.HousingStartDate, cpf.DateOfBirth,
 		cpf.ResidencyStatus, cpf.PRGrantDate,
 	}
@@ -94,6 +97,7 @@ func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 	err := s.pool.QueryRow(ctx, query, args...).Scan(
 		&updated.ID,
 		&updated.UserID,
+		&updated.Earner,
 		&updated.ParentID,
 		&updated.StartDate,
 		&updated.EndDate,
@@ -152,7 +156,7 @@ func (s *Store) StopCPFAccount(ctx context.Context, userID, id string, endDate t
 	UPDATE cpf_accounts
 	SET end_date = $3, updated_at = NOW()
 	WHERE user_id = $1 AND id = $2
-	RETURNING id, user_id, COALESCE(parent_id, id), COALESCE(start_date, created_at), end_date,
+	RETURNING id, user_id, COALESCE(earner, '') as earner, COALESCE(parent_id, id), COALESCE(start_date, created_at), end_date,
 	          oa_balance, sa_balance, ma_balance, ra_balance,
 	          oa_used_for_housing, housing_start_date, date_of_birth,
 	          residency_status, pr_grant_date, created_at, updated_at`
@@ -163,6 +167,7 @@ func (s *Store) StopCPFAccount(ctx context.Context, userID, id string, endDate t
 	err := s.pool.QueryRow(ctx, query, userID, id, endDate).Scan(
 		&updated.ID,
 		&updated.UserID,
+		&updated.Earner,
 		&updated.ParentID,
 		&updated.StartDate,
 		&updated.EndDate,
@@ -199,6 +204,7 @@ func (s *Store) FindCPFAccountByParentAndStartDate(
 	SELECT
 		id,
 		user_id,
+		COALESCE(earner, '') as earner,
 		COALESCE(parent_id, id) as parent_id,
 		COALESCE(start_date, created_at) as start_date,
 		end_date,
@@ -222,6 +228,7 @@ func (s *Store) FindCPFAccountByParentAndStartDate(
 	err := s.pool.QueryRow(ctx, query, userID, parentID, startDate).Scan(
 		&cpf.ID,
 		&cpf.UserID,
+		&cpf.Earner,
 		&cpf.ParentID,
 		&cpf.StartDate,
 		&cpf.EndDate,
@@ -260,18 +267,18 @@ func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 	// For versioned updates, parent_id will be set to the original record's ID.
 	query := `
 		INSERT INTO cpf_accounts (
-			user_id, parent_id, start_date, end_date,
+			user_id, earner, parent_id, start_date, end_date,
 			oa_balance, sa_balance, ma_balance, ra_balance,
 			oa_used_for_housing, housing_start_date, date_of_birth,
 			residency_status, pr_grant_date
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-		RETURNING id, user_id, COALESCE(parent_id, id), start_date, end_date,
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		RETURNING id, user_id, COALESCE(earner, '') as earner, COALESCE(parent_id, id), start_date, end_date,
 		          oa_balance, sa_balance, ma_balance, ra_balance,
 		          oa_used_for_housing, housing_start_date, date_of_birth,
 		          residency_status, pr_grant_date, created_at, updated_at`
 
 	args := []any{
-		userID, nullIfEmpty(cpf.ParentID), startDate, cpf.EndDate,
+		userID, cpf.Earner, nullIfEmpty(cpf.ParentID), startDate, cpf.EndDate,
 		cpf.OABalance, cpf.SABalance, cpf.MABalance, cpf.RABalance,
 		cpf.OAUsedForHousing, cpf.HousingStartDate, cpf.DateOfBirth,
 		cpf.ResidencyStatus, cpf.PRGrantDate,
@@ -284,6 +291,7 @@ func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 	if err := row.Scan(
 		&created.ID,
 		&created.UserID,
+		&created.Earner,
 		&created.ParentID,
 		&created.StartDate,
 		&created.EndDate,
@@ -315,6 +323,7 @@ func (s *Store) ListCPFAccounts(
 	SELECT
 		id,
 		user_id,
+		COALESCE(earner, '') as earner,
 		COALESCE(parent_id, id) as parent_id,
 		COALESCE(start_date, created_at) as start_date,
 		end_date,
@@ -362,6 +371,7 @@ func (s *Store) ListCPFAccounts(
 		err := rows.Scan(
 			&cpf.ID,
 			&cpf.UserID,
+			&cpf.Earner,
 			&cpf.ParentID,
 			&cpf.StartDate,
 			&cpf.EndDate,

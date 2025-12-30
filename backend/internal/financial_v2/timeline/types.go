@@ -219,6 +219,7 @@ type IncomeResponse struct {
 	ID                   string          `json:"id"`
 	ParentID             string          `json:"parentId"`
 	Name                 string          `json:"name"`
+	Earner               string          `json:"earner,omitempty"`
 	Category             string          `json:"category"`
 	Amount               decimal.Decimal `json:"amount"`               // Monthly amount
 	EventAdjAmount       decimal.Decimal `json:"eventAdjAmount"`       // Monthly amount with scenario impacts

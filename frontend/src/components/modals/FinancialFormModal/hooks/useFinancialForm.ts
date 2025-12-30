@@ -140,6 +140,7 @@ export function useFinancialForm({
             : getRateForCategory(type, asset.category, growthConfigs)
         setFormData({
           name: toSafeText(asset.name),
+          earner: '',
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: 'monthly',
           category: asset.category,
@@ -161,6 +162,7 @@ export function useFinancialForm({
             : Math.abs(getRateForCategory(type, liability.category, growthConfigs))
         setFormData({
           name: toSafeText(liability.name),
+          earner: '',
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: 'monthly',
           category: liability.category,
@@ -194,6 +196,7 @@ export function useFinancialForm({
         }
 
         const itemName = (item as Income | Expense).name ?? ''
+        const itemEarner = type === 'income' ? ((item as Income).earner ?? '') : ''
         const itemRate = (item as any).growthRate
         const effectiveRate =
           itemRate && itemRate !== 0
@@ -202,6 +205,7 @@ export function useFinancialForm({
 
         setFormData({
           name: toSafeText(itemName),
+          earner: itemEarner,
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: freq,
           category: item.category,
@@ -223,6 +227,7 @@ export function useFinancialForm({
             : getRateForCategory('asset', investment.category, growthConfigs)
         setFormData({
           name: toSafeText(investment.name),
+          earner: '',
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: 'monthly',
           category: investment.category,
@@ -328,6 +333,7 @@ export function useFinancialForm({
           type,
           id: (data as Income | undefined)?.id,
           name: formData.name.trim(),
+          earner: formData.earner.trim() || undefined,
           amount: toNumeric(formData.amount),
           frequency: formData.frequency,
           category: formData.category.trim() || 'other',

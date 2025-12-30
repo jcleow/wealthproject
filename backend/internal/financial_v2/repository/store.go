@@ -162,6 +162,7 @@ type Income struct {
 	ID             string          `json:"id"`
 	ParentID       string          `json:"parentId"`
 	Name           string          `json:"name"`
+	Earner         string          `json:"earner"` // Person who earns this income (e.g., "John", "Sarah")
 	Amount         decimal.Decimal `json:"amount"`
 	Frequency      string          `json:"frequency"`
 	StartDate      time.Time       `json:"startDate"`         // Precise start date (day-level) - now required
@@ -206,6 +207,7 @@ type Expense struct {
 type CPFAccount struct {
 	ID               string          `json:"id"`
 	UserID           string          `json:"userId"`
+	Earner           string          `json:"earner,omitempty"`  // Person who owns this CPF account
 	ParentID         string          `json:"parentId"`          // Groups versions of same logical account
 	StartDate        time.Time       `json:"startDate"`         // When this version starts
 	EndDate          *time.Time      `json:"endDate,omitempty"` // When this version ends (NULL = ongoing)
@@ -640,6 +642,7 @@ func (s *Store) ListIncomes(
 	SELECT id,
 		COALESCE(parent_id, id) as parent_id,
 		name,
+		COALESCE(earner, '') as earner,
 		amount,
 		frequency,
 		start_date,
@@ -705,7 +708,7 @@ func (s *Store) ListIncomes(
 	for rows.Next() {
 		var i Income
 		err := rows.Scan(
-			&i.ID, &i.ParentID, &i.Name, &i.Amount, &i.Frequency,
+			&i.ID, &i.ParentID, &i.Name, &i.Earner, &i.Amount, &i.Frequency,
 			&i.StartDate, &i.EndDate, &i.Category, &i.GrowthRate,
 			&i.Notes, &i.GrowthStrategy, &i.UpdatedAt,
 			&i.IncomeType, &i.CPFWageType, &i.ScenarioEventID,

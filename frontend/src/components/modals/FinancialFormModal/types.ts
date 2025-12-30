@@ -20,6 +20,7 @@ export type FinancialDataType = import('@/types/financial').FinancialEntityType
 
 export type FormState = {
   name: string
+  earner: string
   amount: string
   frequency: Frequency
   category: string
@@ -57,6 +58,7 @@ export type IncomeFormValues = {
   type: 'income'
   id?: string
   name: string
+  earner?: string
   amount: number
   frequency: Frequency
   category: string

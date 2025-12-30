@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -33,9 +33,18 @@ import {
 
 import {
   FORM_STEPS,
-  mockIncomes,
   createDefaultStaggeredDownpayment,
 } from '@/app/property-planner/hooks/constants'
+
+import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
+
+// Income option type for dropdowns
+type IncomeOption = {
+  id: string
+  name: string
+  earner?: string
+  monthlyAmount: number
+}
 
 interface MortgageFormProps {
   inputs: MortgageInputs
@@ -46,6 +55,23 @@ interface MortgageFormProps {
 export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormProps) {
   const [currentStep, setCurrentStep] = useState<FormStep>('property')
   const isHDB = propertyType.includes('hdb')
+
+  // Fetch real incomes from API
+  const { data: rawIncomes = [] } = useIncomesQuery()
+
+  // Transform incomes into the dropdown format
+  const incomes: IncomeOption[] = useMemo(() => {
+    return rawIncomes.map(income => {
+      // Ensure amount is a number (API might return string with decimals)
+      const amount = typeof income.amount === 'string' ? parseFloat(income.amount) : income.amount
+      return {
+        id: income.id,
+        name: income.name,
+        earner: income.earner || '',
+        monthlyAmount: income.frequency === 'monthly' ? amount : Math.round(amount / 12),
+      }
+    })
+  }, [rawIncomes])
   const isBTO = propertyType === 'hdb-bto'
   const isEC = propertyType === 'ec'
   const isResale = propertyType === 'hdb-resale' || propertyType === 'private-resale'
@@ -187,6 +213,7 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
               <BorrowersStep
                 inputs={inputs}
                 onChange={onChange}
+                incomes={incomes}
                 exceedsHdbIncomeCeiling={exceedsHdbIncomeCeiling}
                 exceedsEcIncomeCeiling={exceedsEcIncomeCeiling}
               />
@@ -498,14 +525,21 @@ function StaggeredDownpaymentSection({
 function BorrowersStep({
   inputs,
   onChange,
+  incomes,
   exceedsHdbIncomeCeiling,
   exceedsEcIncomeCeiling,
 }: {
   inputs: MortgageInputs
   onChange: MortgageFormProps['onChange']
+  incomes: IncomeOption[]
   exceedsHdbIncomeCeiling: boolean
   exceedsEcIncomeCeiling: boolean
 }) {
+  // Helper to format income label with earner if present
+  const formatIncomeLabel = (income: IncomeOption) => {
+    const earnerPart = income.earner ? ` (${income.earner})` : ''
+    return `${income.name}${earnerPart} - $${income.monthlyAmount.toLocaleString()}/mo`
+  }
   return (
     <div className="space-y-4">
       {/* Eligibility Warning */}
@@ -530,20 +564,20 @@ function BorrowersStep({
           value={inputs.borrower1IncomeId}
           onChange={(value) => {
             onChange('borrower1IncomeId', value as string)
-            const selectedIncome = mockIncomes.find(i => i.id === value)
+            const selectedIncome = incomes.find(i => i.id === value)
             if (selectedIncome) {
               const oaInflow = calculateMonthlyOaInflow(selectedIncome.monthlyAmount)
               onChange('householdIncome', inputs.borrowerType === 'joint'
-                ? selectedIncome.monthlyAmount + (mockIncomes.find(i => i.id === inputs.borrower2IncomeId)?.monthlyAmount || 0)
+                ? selectedIncome.monthlyAmount + (incomes.find(i => i.id === inputs.borrower2IncomeId)?.monthlyAmount || 0)
                 : selectedIncome.monthlyAmount)
               onChange('monthlyCpfOa', inputs.borrowerType === 'joint'
-                ? oaInflow + calculateMonthlyOaInflow(mockIncomes.find(i => i.id === inputs.borrower2IncomeId)?.monthlyAmount || 0)
+                ? oaInflow + calculateMonthlyOaInflow(incomes.find(i => i.id === inputs.borrower2IncomeId)?.monthlyAmount || 0)
                 : oaInflow)
             }
           }}
-          options={mockIncomes.map(income => ({
+          options={incomes.map(income => ({
             value: income.id,
-            label: `${income.name} - $${income.monthlyAmount.toLocaleString()}/mo`,
+            label: formatIncomeLabel(income),
           }))}
           className="w-full"
         />
@@ -566,22 +600,22 @@ function BorrowersStep({
             />
           </div>
           <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] text-slate-500 text-xs py-2 px-3 flex items-center">
-            +${calculateMonthlyOaInflow(mockIncomes.find(i => i.id === inputs.borrower1IncomeId)?.monthlyAmount || 0).toLocaleString()}/mo
+            +${calculateMonthlyOaInflow(incomes.find(i => i.id === inputs.borrower1IncomeId)?.monthlyAmount || 0).toLocaleString()}/mo
           </div>
         </div>
       </div>
 
       {/* Add Joint Borrower */}
-      {inputs.borrowerType === 'single' && mockIncomes.length > 1 && (
+      {inputs.borrowerType === 'single' && incomes.length > 1 && (
         <button
           type="button"
           onClick={() => {
             onChange('borrowerType', 'joint')
-            const availableIncome = mockIncomes.find(i => i.id !== inputs.borrower1IncomeId)
+            const availableIncome = incomes.find(i => i.id !== inputs.borrower1IncomeId)
             if (availableIncome) {
               onChange('borrower2IncomeId', availableIncome.id)
               onChange('borrower2OaBalance', 62400)
-              const borrower1Income = mockIncomes.find(i => i.id === inputs.borrower1IncomeId)
+              const borrower1Income = incomes.find(i => i.id === inputs.borrower1IncomeId)
               if (borrower1Income) {
                 onChange('householdIncome', borrower1Income.monthlyAmount + availableIncome.monthlyAmount)
                 onChange('monthlyCpfOa', calculateMonthlyOaInflow(borrower1Income.monthlyAmount) + calculateMonthlyOaInflow(availableIncome.monthlyAmount))
@@ -606,7 +640,7 @@ function BorrowersStep({
                 onChange('borrowerType', 'single')
                 onChange('borrower2IncomeId', '')
                 onChange('borrower2OaBalance', 0)
-                const borrower1Income = mockIncomes.find(i => i.id === inputs.borrower1IncomeId)
+                const borrower1Income = incomes.find(i => i.id === inputs.borrower1IncomeId)
                 if (borrower1Income) {
                   onChange('householdIncome', borrower1Income.monthlyAmount)
                   onChange('cpfOaBalance', inputs.borrower1OaBalance)
@@ -621,15 +655,15 @@ function BorrowersStep({
             value={inputs.borrower2IncomeId || ''}
             onChange={(value) => {
               onChange('borrower2IncomeId', value as string)
-              const selectedIncome = mockIncomes.find(i => i.id === value)
-              const borrower1Income = mockIncomes.find(i => i.id === inputs.borrower1IncomeId)
+              const selectedIncome = incomes.find(i => i.id === value)
+              const borrower1Income = incomes.find(i => i.id === inputs.borrower1IncomeId)
               if (selectedIncome && borrower1Income) {
                 onChange('householdIncome', borrower1Income.monthlyAmount + selectedIncome.monthlyAmount)
               }
             }}
-            options={mockIncomes.filter(i => i.id !== inputs.borrower1IncomeId).map(income => ({
+            options={incomes.filter(i => i.id !== inputs.borrower1IncomeId).map(income => ({
               value: income.id,
-              label: `${income.name} - $${income.monthlyAmount.toLocaleString()}/mo`,
+              label: formatIncomeLabel(income),
             }))}
             className="w-full"
           />

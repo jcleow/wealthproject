@@ -31,6 +31,7 @@ type FinancialDataRow struct {
 	ID            string
 	ParentID      string
 	Name          string
+	Earner        string // Person who earns this income (for incomes)
 	Category      string
 	Amount        decimal.Decimal
 	Frequency     Frequency
@@ -1384,6 +1385,7 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, even
 			ID:              row.ID,
 			ParentID:        row.ParentID,
 			Name:            row.Name,
+			Earner:          row.Earner,
 			Category:        row.Category,
 			Amount:          *amount,
 			EventAdjAmount:  *adjAmount,
