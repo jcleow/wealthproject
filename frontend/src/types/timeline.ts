@@ -267,6 +267,7 @@ export interface CPFAssetResponseV2 {
   parentId: string
   name: string
   category: string
+  earner: string
   balance: string
   eventAdjBalance: string
   itemType: TimelineItemType

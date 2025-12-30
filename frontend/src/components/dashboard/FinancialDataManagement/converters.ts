@@ -99,6 +99,7 @@ export function cpfAssetV2ToTimelineItem(item: CPFAssetResponseV2): TimelineItem
     parentId: item.parentId,
     name: item.name,
     category: item.category,
+    earner: item.earner,
     amountAnnual: balance,
     adjAnnualAmt: eventAdjBalance,
     amountMonthly: balance,

@@ -44,6 +44,33 @@ func (h *CPFV2Handler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, account)
 }
 
+// GET /api/v2/cpf/accounts
+// HandleList returns all CPF accounts for the current user.
+// @Summary List CPF accounts (v2)
+// @Description Returns all CPF accounts for the authenticated user
+// @Tags CPF V2
+// @Produce json
+// @Success 200 {array} repo.CPFAccount
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/accounts [get]
+func (h *CPFV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	accounts, err := h.store.ListCPFAccounts(r.Context(), userID, repo.DateRangeOptions{})
+	if err != nil {
+		log.Printf("cpf.List error: %v", err)
+		internalError(w, err)
+		return
+	}
+
+	writeJSON(w, accounts)
+}
+
 // cpfV2CreateInput is the JSON input struct for CPF v2 create.
 type cpfV2CreateInput struct {
 	Earner           string  `json:"earner"`

@@ -234,6 +234,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 
 	// CPF account v2 endpoints (versioned update/delete/stop)
 	cpfHandler := handlers.NewCPFV2Handler(deps.FinStore)
+	router.HandleFunc("/cpf/accounts", cpfHandler.HandleList).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleGet).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleCreate).Methods("POST")
 	router.HandleFunc("/cpf/account/{id}", func(w http.ResponseWriter, r *http.Request) {

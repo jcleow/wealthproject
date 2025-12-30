@@ -37,6 +37,7 @@ import {
 } from '@/app/property-planner/hooks/constants'
 
 import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
+import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
 
 // Income option type for dropdowns
 type IncomeOption = {
@@ -56,8 +57,9 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
   const [currentStep, setCurrentStep] = useState<FormStep>('property')
   const isHDB = propertyType.includes('hdb')
 
-  // Fetch real incomes from API
+  // Fetch real incomes and CPF accounts from API
   const { data: rawIncomes = [] } = useIncomesQuery()
+  const { data: cpfAccounts = [] } = useCpfAccountsQuery()
 
   // Transform incomes into the dropdown format
   const incomes: IncomeOption[] = useMemo(() => {
@@ -72,6 +74,7 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
       }
     })
   }, [rawIncomes])
+
   const isBTO = propertyType === 'hdb-bto'
   const isEC = propertyType === 'ec'
   const isResale = propertyType === 'hdb-resale' || propertyType === 'private-resale'
@@ -214,6 +217,7 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
                 inputs={inputs}
                 onChange={onChange}
                 incomes={incomes}
+                cpfAccounts={cpfAccounts}
                 exceedsHdbIncomeCeiling={exceedsHdbIncomeCeiling}
                 exceedsEcIncomeCeiling={exceedsEcIncomeCeiling}
               />
@@ -526,19 +530,28 @@ function BorrowersStep({
   inputs,
   onChange,
   incomes,
+  cpfAccounts,
   exceedsHdbIncomeCeiling,
   exceedsEcIncomeCeiling,
 }: {
   inputs: MortgageInputs
   onChange: MortgageFormProps['onChange']
   incomes: IncomeOption[]
+  cpfAccounts: { id: string; earner?: string; oaBalance: number }[]
   exceedsHdbIncomeCeiling: boolean
   exceedsEcIncomeCeiling: boolean
 }) {
-  // Helper to format income label with earner if present
+  // Helper to format income label - earner name if present, else salary name
   const formatIncomeLabel = (income: IncomeOption) => {
-    const earnerPart = income.earner ? ` (${income.earner})` : ''
-    return `${income.name}${earnerPart} - $${income.monthlyAmount.toLocaleString()}/mo`
+    const displayName = income.earner || income.name
+    return `${displayName} - $${income.monthlyAmount.toLocaleString()}/mo`
+  }
+
+  // Find matching CPF account by earner name (case-insensitive)
+  const findCpfAccountForIncome = (income: IncomeOption) => {
+    if (!income.earner) return null
+    const earnerLower = income.earner.toLowerCase()
+    return cpfAccounts.find(acc => acc.earner?.toLowerCase() === earnerLower)
   }
   return (
     <div className="space-y-4">
@@ -573,6 +586,15 @@ function BorrowersStep({
               onChange('monthlyCpfOa', inputs.borrowerType === 'joint'
                 ? oaInflow + calculateMonthlyOaInflow(incomes.find(i => i.id === inputs.borrower2IncomeId)?.monthlyAmount || 0)
                 : oaInflow)
+              // Auto-populate OA balance from matching CPF account
+              const matchingCpf = findCpfAccountForIncome(selectedIncome)
+              if (matchingCpf) {
+                const oaBalance = matchingCpf.oaBalance
+                onChange('borrower1OaBalance', oaBalance)
+                onChange('cpfOaBalance', inputs.borrowerType === 'joint'
+                  ? oaBalance + inputs.borrower2OaBalance
+                  : oaBalance)
+              }
             }
           }}
           options={incomes.map(income => ({
@@ -614,12 +636,15 @@ function BorrowersStep({
             const availableIncome = incomes.find(i => i.id !== inputs.borrower1IncomeId)
             if (availableIncome) {
               onChange('borrower2IncomeId', availableIncome.id)
-              onChange('borrower2OaBalance', 62400)
+              // Auto-populate OA balance from matching CPF account, fallback to default
+              const matchingCpf = findCpfAccountForIncome(availableIncome)
+              const borrower2OaBalance = matchingCpf?.oaBalance ?? 62400
+              onChange('borrower2OaBalance', borrower2OaBalance)
               const borrower1Income = incomes.find(i => i.id === inputs.borrower1IncomeId)
               if (borrower1Income) {
                 onChange('householdIncome', borrower1Income.monthlyAmount + availableIncome.monthlyAmount)
                 onChange('monthlyCpfOa', calculateMonthlyOaInflow(borrower1Income.monthlyAmount) + calculateMonthlyOaInflow(availableIncome.monthlyAmount))
-                onChange('cpfOaBalance', inputs.borrower1OaBalance + 62400)
+                onChange('cpfOaBalance', inputs.borrower1OaBalance + borrower2OaBalance)
               }
             }
           }}
@@ -659,6 +684,13 @@ function BorrowersStep({
               const borrower1Income = incomes.find(i => i.id === inputs.borrower1IncomeId)
               if (selectedIncome && borrower1Income) {
                 onChange('householdIncome', borrower1Income.monthlyAmount + selectedIncome.monthlyAmount)
+                // Auto-populate OA balance from matching CPF account
+                const matchingCpf = findCpfAccountForIncome(selectedIncome)
+                if (matchingCpf) {
+                  const oaBalance = matchingCpf.oaBalance
+                  onChange('borrower2OaBalance', oaBalance)
+                  onChange('cpfOaBalance', inputs.borrower1OaBalance + oaBalance)
+                }
               }
             }}
             options={incomes.filter(i => i.id !== inputs.borrower1IncomeId).map(income => ({

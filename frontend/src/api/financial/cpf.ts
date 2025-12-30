@@ -18,6 +18,15 @@ export async function getCPFAccount(): Promise<CPFAccount | null> {
   }
 }
 
+export async function listCPFAccounts(): Promise<CPFAccount[]> {
+  try {
+    const data = await apiClient.get<any[]>('/cpf/accounts', undefined, { baseUrl: '/api/v2' })
+    return (data || []).map(toCPFAccount)
+  } catch {
+    return []
+  }
+}
+
 export async function createCPFAccount(payload: CPFAccountCreatePayload): Promise<CPFAccount> {
   const body = {
     oaBalance: (payload.oaBalance ?? 0).toString(),
@@ -111,6 +120,7 @@ export async function getCPFContributionPreview(params: {
 
 export const cpfApi = {
   getCPFAccount,
+  listCPFAccounts,
   createCPFAccount,
   updateCPFAccount,
   stopCPFAccount,

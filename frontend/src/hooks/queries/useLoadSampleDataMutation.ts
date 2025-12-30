@@ -72,6 +72,24 @@ export function useLoadSampleDataMutation() {
         console.error('[loadSampleData] Failed to upsert CPF account', error)
       }
 
+      // Create Jordan's CPF account (spouse)
+      const jordanCPFAccount: CPFAccountCreatePayload = {
+        earner: 'Jordan',
+        oaBalance: 65000,
+        saBalance: 35000,
+        maBalance: 25000,
+        raBalance: 0,
+        oaUsedForHousing: 0,
+        dateOfBirth: '1994-06-15',
+        residencyStatus: 'citizen',
+      }
+
+      try {
+        await financialApi.createCPFAccount(jordanCPFAccount)
+      } catch (error) {
+        console.error('[loadSampleData] Failed to create Jordan CPF account', error)
+      }
+
       // Sample data for a 32-year-old Singaporean professional
       // Planning: marriage, BTO flat, car, retirement by 60
       const todayIso = new Date().toISOString()
