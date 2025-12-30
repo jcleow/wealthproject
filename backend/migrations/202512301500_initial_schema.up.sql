@@ -233,7 +233,7 @@ CREATE TABLE finance_assets (
     scenario_event_id uuid REFERENCES scenario_events(id) ON DELETE CASCADE,
     impact_kind character varying(10) CHECK (impact_kind IS NULL OR impact_kind IN ('delta', 'override', 'start', 'stop')),
     impact_frequency character varying(20) CHECK (impact_frequency IS NULL OR impact_frequency IN ('one_time', 'weekly', 'bi_weekly', 'monthly', 'quarterly', 'semi_annual', 'annual')),
-    UNIQUE (parent_id, start_date)
+    CONSTRAINT finance_assets_parent_start_date_key UNIQUE (parent_id, start_date)
 );
 
 -- Finance Liabilities
@@ -256,7 +256,7 @@ CREATE TABLE finance_liabilities (
     scenario_event_id uuid REFERENCES scenario_events(id) ON DELETE CASCADE,
     impact_kind character varying(10) CHECK (impact_kind IS NULL OR impact_kind IN ('delta', 'override', 'start', 'stop')),
     impact_frequency character varying(20) CHECK (impact_frequency IS NULL OR impact_frequency IN ('one_time', 'weekly', 'bi_weekly', 'monthly', 'quarterly', 'semi_annual', 'annual')),
-    UNIQUE (parent_id, start_date)
+    CONSTRAINT finance_liabilities_parent_start_date_key UNIQUE (parent_id, start_date)
 );
 
 -- Finance Incomes
@@ -283,7 +283,7 @@ CREATE TABLE finance_incomes (
     scenario_event_id uuid REFERENCES scenario_events(id) ON DELETE CASCADE,
     impact_kind character varying(10) CHECK (impact_kind IS NULL OR impact_kind IN ('delta', 'override', 'start', 'stop')),
     impact_frequency character varying(20) CHECK (impact_frequency IS NULL OR impact_frequency IN ('one_time', 'weekly', 'bi_weekly', 'monthly', 'quarterly', 'semi_annual', 'annual')),
-    UNIQUE (parent_id, start_date),
+    CONSTRAINT finance_incomes_parent_start_date_key UNIQUE (parent_id, start_date),
     CONSTRAINT chk_income_source_consistency CHECK ((source_type IS NULL AND source_id IS NULL) OR (source_type IS NOT NULL AND source_id IS NOT NULL))
 );
 
@@ -307,7 +307,7 @@ CREATE TABLE finance_expenses (
     scenario_event_id uuid REFERENCES scenario_events(id) ON DELETE CASCADE,
     impact_kind character varying(10) CHECK (impact_kind IS NULL OR impact_kind IN ('delta', 'override', 'start', 'stop')),
     impact_frequency character varying(20) CHECK (impact_frequency IS NULL OR impact_frequency IN ('one_time', 'weekly', 'bi_weekly', 'monthly', 'quarterly', 'semi_annual', 'annual')),
-    UNIQUE (parent_id, start_date)
+    CONSTRAINT finance_expenses_parent_start_date_key UNIQUE (parent_id, start_date)
 );
 
 -- Finance Investments
@@ -329,7 +329,7 @@ CREATE TABLE finance_investments (
     scenario_event_id uuid REFERENCES scenario_events(id) ON DELETE CASCADE,
     impact_kind character varying(10) CHECK (impact_kind IS NULL OR impact_kind IN ('delta', 'override', 'start', 'stop')),
     impact_frequency character varying(20) CHECK (impact_frequency IS NULL OR impact_frequency IN ('one_time', 'weekly', 'bi_weekly', 'monthly', 'quarterly', 'semi_annual', 'annual')),
-    UNIQUE (parent_id, start_date)
+    CONSTRAINT finance_investments_parent_start_date_key UNIQUE (parent_id, start_date)
 );
 
 -- Finance Cash Accounts
