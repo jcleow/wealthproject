@@ -52,10 +52,13 @@ export function PersonFilterProvider({ children }: PersonFilterProviderProps) {
   const { isAuthenticated } = useAuth()
 
   // Only fetch persons when authenticated
+  // Use short staleTime to ensure data is refreshed frequently and stays in sync with DB
   const { data: persons = [], isLoading, error } = useQuery({
     queryKey: QUERY_KEYS.financial.persons,
     queryFn: personsApi.listPersons,
     enabled: isAuthenticated,
+    staleTime: 30_000, // Consider stale after 30 seconds
+    refetchOnWindowFocus: true, // Refetch when user returns to the tab
   })
 
   // Modal state

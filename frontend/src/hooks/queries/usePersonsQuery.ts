@@ -52,6 +52,10 @@ export function useUpdatePersonMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PERSONS_QUERY_KEY })
     },
+    onError: () => {
+      // Refresh persons list if update fails (e.g., person no longer exists)
+      queryClient.invalidateQueries({ queryKey: PERSONS_QUERY_KEY })
+    },
   })
 }
 
@@ -69,6 +73,10 @@ export function useDeletePersonMutation() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.incomes })
       queryClient.invalidateQueries({ queryKey: ['cpf'] })
     },
+    onError: () => {
+      // Refresh persons list if delete fails (e.g., person already deleted)
+      queryClient.invalidateQueries({ queryKey: PERSONS_QUERY_KEY })
+    },
   })
 }
 
@@ -84,6 +92,11 @@ export function useTogglePersonIncludedMutation() {
       queryClient.invalidateQueries({ queryKey: PERSONS_QUERY_KEY })
       // Invalidate all financial data since visibility may have changed
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.all })
+    },
+    onError: () => {
+      // If toggle fails (e.g., person no longer exists), refresh the persons list
+      // to remove stale cached entries
+      queryClient.invalidateQueries({ queryKey: PERSONS_QUERY_KEY })
     },
   })
 }
