@@ -1,7 +1,10 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react'
-import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
+import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '@/components/auth/AuthProvider'
+import { personsApi } from '@/api/financial/persons'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 import type { Person } from '@/types/person'
 
 // ============================================
@@ -46,8 +49,14 @@ interface PersonFilterProviderProps {
 }
 
 export function PersonFilterProvider({ children }: PersonFilterProviderProps) {
-  // Fetch persons from API
-  const { data: persons = [], isLoading, error } = usePersonsQuery()
+  const { isAuthenticated } = useAuth()
+
+  // Only fetch persons when authenticated
+  const { data: persons = [], isLoading, error } = useQuery({
+    queryKey: QUERY_KEYS.financial.persons,
+    queryFn: personsApi.listPersons,
+    enabled: isAuthenticated,
+  })
 
   // Modal state
   const [isPersonsModalOpen, setIsPersonsModalOpen] = useState(false)
