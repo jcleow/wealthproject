@@ -56,9 +56,9 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
     body: body !== undefined ? JSON.stringify(body) : undefined,
   } satisfies RequestInit)
 
-  // Handle 401 by redirecting to login
+  // Handle 401 by redirecting to login (unless already on login page)
   if (response.status === 401) {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
       window.location.href = '/login'
     }
     throw new ApiError(401, 'Authentication required')
