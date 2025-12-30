@@ -221,17 +221,21 @@ transition-all`}
                 />
               </div>
 
-              {/* Person field for incomes */}
+              {/* Person field for incomes - required */}
               {normalizedCategory === 'incomes' && (
                 <div>
                   <label className="mb-2.5 block text-sm font-medium text-gray-200">
-                    Person (optional)
+                    Person <span className="text-red-400">*</span>
                   </label>
                   <PersonSelector
                     value={form.formData.personId}
                     onChange={(personId) => form.updateFormField('personId', personId)}
-                    placeholder="Select person (optional)"
+                    placeholder="Select person"
+                    required
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Who earns this income?
+                  </p>
                 </div>
               )}
 

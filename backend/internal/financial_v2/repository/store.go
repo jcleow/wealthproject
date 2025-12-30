@@ -1459,3 +1459,183 @@ func (s *Store) DeleteAllIncomeAllocations(ctx context.Context, userID string) (
 	}
 	return tag.RowsAffected(), nil
 }
+
+// ResetAllUserData deletes all financial data for a user in a single transaction.
+// This avoids deadlocks by ensuring proper deletion order (child tables before parent tables).
+// Returns the total number of rows affected across all tables.
+func (s *Store) ResetAllUserData(ctx context.Context, userID string) (int64, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var totalAffected int64
+
+	// Delete in order of dependencies (child tables first to avoid FK constraint issues)
+	// Note: Most FK constraints have ON DELETE CASCADE, but we delete explicitly
+	// to avoid deadlocks when parallel transactions try to cascade-delete the same rows
+
+	// 1. Delete income_allocations first (depends on incomes, investments, cash_accounts)
+	tag, err := tx.Exec(ctx, `
+		DELETE FROM income_allocations ia
+		USING finance_incomes fi
+		WHERE ia.income_id = fi.id AND fi.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete income allocations: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 2. Delete property-related tables (depend on property_sg which depends on incomes/cpf)
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM property_links pl
+		USING property_scenarios ps
+		WHERE pl.property_scenario_id = ps.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property links: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM liability_rate_periods lrp
+		USING property_sg psg, property_scenarios ps
+		WHERE lrp.property_sg_id = psg.id AND ps.property_sg_id = psg.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete liability rate periods: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM growth_periods gp
+		USING property_sg psg, property_scenarios ps
+		WHERE gp.property_sg_id = psg.id AND ps.property_sg_id = psg.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property growth periods: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM property_fees pf
+		USING property_sg psg, property_scenarios ps
+		WHERE pf.property_sg_id = psg.id AND ps.property_sg_id = psg.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property fees: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM property_sg_grants psg_g
+		USING property_sg psg, property_scenarios ps
+		WHERE psg_g.property_sg_id = psg.id AND ps.property_sg_id = psg.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property grants: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// Delete property_sg entries via property_scenarios
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM property_sg psg
+		USING property_scenarios ps
+		WHERE ps.property_sg_id = psg.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property_sg: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// Delete property_scenarios
+	tag, err = tx.Exec(ctx, `DELETE FROM property_scenarios WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property scenarios: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 3. Delete growth_periods for financial items
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM growth_periods gp
+		USING finance_incomes fi
+		WHERE gp.finance_income_id = fi.id AND fi.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete income growth periods: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM growth_periods gp
+		USING finance_investments finv
+		WHERE gp.finance_investment_id = finv.id AND finv.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete investment growth periods: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 4. Delete core financial tables (order doesn't matter much now, but expenses before liabilities)
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_expenses WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete expenses: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_incomes WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete incomes: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_liabilities WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete liabilities: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_investments WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete investments: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_assets WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete assets: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// Reset accumulator balance (keep the account, just zero it)
+	_, err = tx.Exec(ctx, `UPDATE finance_cash_accounts SET balance = 0, updated_at = NOW() WHERE user_id = $1 AND is_accumulator = true`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to reset accumulator: %w", err)
+	}
+
+	// Delete non-accumulator cash accounts
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_cash_accounts WHERE user_id = $1 AND is_accumulator = false`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete cash accounts: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 5. Delete CPF accounts
+	tag, err = tx.Exec(ctx, `DELETE FROM cpf_accounts WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete CPF accounts: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 6. Delete scenario events (now safe - all dependents via FK CASCADE already gone)
+	tag, err = tx.Exec(ctx, `DELETE FROM scenario_events WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete scenario events: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 7. Delete persons
+	tag, err = tx.Exec(ctx, `DELETE FROM persons WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete persons: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return totalAffected, nil
+}

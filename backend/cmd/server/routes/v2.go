@@ -58,6 +58,8 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	router.HandleFunc("/cashflow/incomes", bulkDeleteHandler.HandleDeleteAllIncomes).Methods("DELETE")
 	router.HandleFunc("/investments", bulkDeleteHandler.HandleDeleteAllInvestments).Methods("DELETE")
 	router.HandleFunc("/cpf/accounts", bulkDeleteHandler.HandleDeleteAllCPFAccounts).Methods("DELETE")
+	// Single atomic reset endpoint to avoid deadlocks when clearing all user data
+	router.HandleFunc("/reset-all-data", bulkDeleteHandler.HandleResetAllData).Methods("DELETE")
 
 	// Expense v2 endpoints (full CRUD with versioning)
 	expenseHandler := handlers.NewExpenseV2Handler(deps.FinStore)

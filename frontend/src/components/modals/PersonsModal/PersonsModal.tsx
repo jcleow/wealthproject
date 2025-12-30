@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Users, Plus, Trash2, Pencil, X, Check, Briefcase, Building2 } from 'lucide-react'
+import { Users, Plus, Trash2, Pencil, X, Check, Briefcase } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import {
@@ -78,9 +78,9 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
   }
 
   const handleDelete = async (person: Person) => {
-    const linkedCount = (person.incomeCount || 0) + (person.cpfCount || 0)
-    const confirmMsg = linkedCount > 0
-      ? `Delete "${person.name}"? ${linkedCount} linked item(s) will be unassigned.`
+    const incomeCount = person.incomeCount || 0
+    const confirmMsg = incomeCount > 0
+      ? `Delete "${person.name}"? ${incomeCount} linked income(s) will be unassigned.`
       : `Delete "${person.name}"?`
     if (confirm(confirmMsg)) {
       await deleteMutation.mutateAsync(person.id)
@@ -210,16 +210,12 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                     {/* Name and stats */}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-white truncate">{person.name}</div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500">
-                        <span className="flex items-center gap-1">
+                      {(person.incomeCount ?? 0) > 0 && (
+                        <div className="flex items-center gap-1 text-xs text-slate-500">
                           <Briefcase className="h-3 w-3" />
-                          {person.incomeCount || 0}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Building2 className="h-3 w-3" />
-                          {person.cpfCount || 0}
-                        </span>
-                      </div>
+                          {person.incomeCount} income{person.incomeCount === 1 ? '' : 's'}
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions */}

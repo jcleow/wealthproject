@@ -12,6 +12,8 @@ interface PersonSelectorProps {
   placeholder?: string
   disabled?: boolean
   className?: string
+  required?: boolean
+  error?: boolean
 }
 
 /**
@@ -21,9 +23,11 @@ interface PersonSelectorProps {
 export function PersonSelector({
   value,
   onChange,
-  placeholder = 'Select person (optional)',
+  placeholder = 'Select person',
   disabled = false,
   className = '',
+  required = false,
+  error = false,
 }: PersonSelectorProps) {
   const { includedPersons, persons } = usePersonFilter()
   const createMutation = useCreatePersonMutation()

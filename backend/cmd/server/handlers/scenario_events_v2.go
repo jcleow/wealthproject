@@ -47,6 +47,9 @@ type scenarioImpactV2DTO struct {
 	// Liability-specific fields for start impacts
 	InterestRate   *float64 `json:"interestRate,omitempty"`   // APR % for liabilities
 	MinimumPayment *int64   `json:"minimumPayment,omitempty"` // Min payment for liabilities
+
+	// Income-specific fields for start impacts
+	PersonID *string `json:"personId,omitempty"` // FK to persons table (required for income start impacts)
 }
 
 type scenarioEventV2DTO struct {

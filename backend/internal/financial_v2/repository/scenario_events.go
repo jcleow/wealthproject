@@ -632,10 +632,10 @@ func (s *Store) insertImpactsV2(ctx context.Context, tx pgx.Tx, userID string, e
 		case "income":
 			if _, err := tx.Exec(ctx, `
 				INSERT INTO finance_incomes (
-					user_id, parent_id, name, amount, frequency, category, start_date, end_date,
+					user_id, parent_id, person_id, name, amount, frequency, category, start_date, end_date,
 					growth_rate, growth_strategy, notes, scenario_event_id, impact_kind, impact_frequency
 				)
-				SELECT user_id, id, name, $3, frequency, category, $4, $9,
+				SELECT user_id, id, person_id, name, $3, frequency, category, $4, $9,
 				       COALESCE($8, growth_rate), growth_strategy, NULLIF($10, ''), $5, $6, $7
 				FROM finance_incomes WHERE id = $1 AND user_id = $2`,
 				*imp.TargetIncomeID, userID, amount, occursOn,
@@ -758,13 +758,18 @@ func (s *Store) insertStartImpact(ctx context.Context, tx pgx.Tx, userID string,
 
 	switch targetType {
 	case "income":
+		// PersonID is required for income inserts
+		personID := imp.PersonID
+		if personID == "" {
+			return fmt.Errorf("failed to insert start income: person_id is required")
+		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO finance_incomes (
-				user_id, name, amount, frequency, category, start_date, end_date,
+				user_id, name, person_id, amount, frequency, category, start_date, end_date,
 				growth_rate, growth_strategy, notes, scenario_event_id, impact_kind, impact_frequency
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11, $12, $13)`,
-			userID, name, amount, frequency, category, startDate, imp.EndDate,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NULLIF($11, ''), $12, $13, $14)`,
+			userID, name, personID, amount, frequency, category, startDate, imp.EndDate,
 			growthRate, growthStrategy, notes, eventID, imp.ImpactKind, impactFrequency,
 		); err != nil {
 			return fmt.Errorf("failed to insert start income: %w", err)

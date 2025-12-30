@@ -27,40 +27,10 @@ export function useLoadSampleDataMutation() {
     mutationFn: async () => {
       let cpfAccount: CPFAccount | null = null
 
-      // First clear all data including CPF, property scenarios, and persons
-      // Use V2 bulk delete endpoints where available for better cleanup
-      // Delete property V2 scenarios (no bulk delete, so list and delete each)
-      const deletePropertyV2Scenarios = async () => {
-        try {
-          const scenarios = await propertyPlannerV2Api.listScenarios()
-          await Promise.all(scenarios.map(s => propertyPlannerV2Api.deleteScenario(s.scenario.id)))
-        } catch {
-          // Ignore errors if no scenarios exist
-        }
-      }
-
-      // Delete all persons (no bulk delete, so list and delete each)
-      const deleteAllPersons = async () => {
-        try {
-          const persons = await personsApi.listPersons()
-          await Promise.all(persons.map(p => personsApi.deletePerson(p.id)))
-        } catch {
-          // Ignore errors if no persons exist
-        }
-      }
-
-      await Promise.all([
-        financialApi.deleteAllAssets(),
-        financialApi.deleteAllInvestments(),
-        financialApi.deleteAllLiabilities(),
-        financialApi.deleteAllIncomes(),
-        financialApi.deleteAllExpensesV2(), // Use V2 to ensure all expenses (including scenario-created) are deleted
-        financialApi.deleteAllCashAccounts(),
-        financialApi.deleteAllScenarioEvents(),
-        financialApi.deleteCurrentCPFAccount().catch(() => {}), // Ignore if no CPF account exists
-        deletePropertyV2Scenarios(),
-        deleteAllPersons(),
-      ])
+      // Reset all data in a single atomic transaction to avoid deadlocks
+      // This replaces the previous parallel delete calls that could cause
+      // deadlock errors when FK constraints cascaded simultaneously
+      await financialApi.resetAllUserData()
 
       // Create persons first so we can link CPF accounts and incomes to them
       let alexPerson: Person | null = null
@@ -541,10 +511,17 @@ export function useLoadSampleDataMutation() {
             const isOneTime = frequency === 'one_time'
             const endMonth = isOneTime ? startMonth : undefined
 
+            // For income start impacts, personId is required by the database
+            // Default to Alex's person ID for family/bonus income
+            const personId = impact.targetType === 'income'
+              ? (alexPerson?.id ?? sarahPerson?.id ?? undefined)
+              : undefined
+
             linkedImpacts.push({
               ...impact,
               // No parentId for start impacts - backend creates the item
               endMonth,
+              personId,
             })
             continue
           } else if (impact.impactKind === 'delta' || impact.impactKind === 'override') {

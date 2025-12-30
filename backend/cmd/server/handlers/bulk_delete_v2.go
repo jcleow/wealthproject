@@ -206,3 +206,34 @@ func (h *BulkDeleteV2Handler) HandleDeleteAllPropertyScenarios(w http.ResponseWr
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// DELETE /api/v2/reset-all-data
+// HandleResetAllData deletes all financial data for the authenticated user in a single transaction.
+// This is used when loading sample data to avoid deadlocks from parallel delete operations.
+// @Summary Reset all user data (v2)
+// @Description Deletes all financial data (assets, liabilities, incomes, expenses, investments,
+// cash accounts, CPF accounts, scenario events, property scenarios, and persons) for the
+// authenticated user in a single transaction. This avoids deadlocks by ensuring proper deletion
+// order and atomic execution.
+// @Tags Bulk Delete V2
+// @Success 204 "No Content"
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/reset-all-data [delete]
+func (h *BulkDeleteV2Handler) HandleResetAllData(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		methodNotAllowed(w)
+		return
+	}
+
+	userCtx := middleware.GetUserContext(r.Context())
+
+	_, err := h.store.ResetAllUserData(r.Context(), userCtx.UserID)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
