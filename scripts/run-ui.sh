@@ -489,6 +489,19 @@ if [[ "${START_BACKEND}" == "true" ]]; then
     configure_database_env "$DATABASE_URL_BASE" "$POSTGRES_PORT"
   fi
   wait_for_postgres "$POSTGRES_CONTAINER" "$DB_USER" "$DB_NAME"
+
+  # Run migrations from backend/migrations folder
+  MIGRATIONS_DIR="${REPO_ROOT}/backend/migrations"
+  if [[ -d "$MIGRATIONS_DIR" ]]; then
+    echo "Running migrations from ${MIGRATIONS_DIR}..."
+    for migration in "$MIGRATIONS_DIR"/*.up.sql; do
+      if [[ -f "$migration" ]]; then
+        echo "  Applying: $(basename "$migration")"
+        docker exec -i "$POSTGRES_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" < "$migration" 2>&1 | grep -v "already exists\|NOTICE" || true
+      fi
+    done
+    echo "Migrations complete."
+  fi
 fi
 
 echo "Starting frontend on ${FRONTEND_PORT} (API http://localhost:${BACKEND_PORT}/api/v1)"
