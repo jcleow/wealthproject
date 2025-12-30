@@ -472,14 +472,18 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     setHasChanges(false)
   }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor, editingScenario, updateMutation])
 
-  // Back button handler - discards changes without saving
+  // Back button handler - shows confirmation if there are unsaved changes
   const handleBack = useCallback(() => {
+    if (hasChanges) {
+      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to go back? Changes will be lost.')
+      if (!confirmed) return
+    }
     setEditingScenarioId(null)
     setEditingScenarioName('')
     setSelectedType(null)
     initialValuesRef.current = null
     setHasChanges(false)
-  }, [])
+  }, [hasChanges])
 
   const handleDeleteScenario = useCallback((id: string) => {
     deleteMutation.mutate(id)
@@ -505,14 +509,10 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     setSaleInputs(prev => ({ ...prev, [field]: value }))
   }, [])
 
-  // Tab change with unsaved changes confirmation
-  const handleTabChangeWithConfirmation = useCallback((newTab: ResultsTab) => {
-    if (hasChanges) {
-      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to switch tabs? Changes will be lost.')
-      if (!confirmed) return
-    }
+  // Tab change - no confirmation needed since tabs show different views of the same scenario
+  const handleTabChange = useCallback((newTab: ResultsTab) => {
     setActiveResultsTab(newTab)
-  }, [hasChanges])
+  }, [])
 
   // Use ref to store handleSave to avoid infinite loop in useEffect
   const handleSaveRef = useRef(handleSave)
@@ -577,7 +577,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
               computedValues={computedValues}
               onInputChange={handleInputChange}
               onSaleInputChange={handleSaleInputChange}
-              onActiveResultsTabChange={handleTabChangeWithConfirmation}
+              onActiveResultsTabChange={handleTabChange}
               onSelectedTypeChange={setSelectedType}
               onEditingScenarioNameChange={setEditingScenarioName}
               onEditingScenarioIconChange={setEditingScenarioIcon}

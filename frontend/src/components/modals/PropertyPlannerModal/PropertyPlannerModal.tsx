@@ -20,10 +20,19 @@ export function PropertyPlannerModal({ isOpen, onClose, initialScenarioId }: Pro
     setFooterState(state)
   }, [])
 
+  // Handle close with unsaved changes confirmation
+  const handleClose = useCallback(() => {
+    if (footerState?.hasChanges) {
+      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to close? Changes will be lost.')
+      if (!confirmed) return
+    }
+    onClose()
+  }, [footerState?.hasChanges, onClose])
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       overlayClassName="bg-black/60 backdrop-blur-sm"
       className="w-full max-w-[1022px] min-h-[50vh] max-h-[90vh] mx-4 sm:mx-6 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] overflow-hidden flex flex-col"
     >
@@ -41,7 +50,7 @@ export function PropertyPlannerModal({ isOpen, onClose, initialScenarioId }: Pro
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1.5 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors"
             aria-label="Close modal"
           >
@@ -53,7 +62,7 @@ export function PropertyPlannerModal({ isOpen, onClose, initialScenarioId }: Pro
       {/* Modal Content */}
       <div className="flex-1 overflow-y-auto">
         <PropertyPlannerView
-          onClose={onClose}
+          onClose={handleClose}
           initialScenarioId={initialScenarioId}
           onFooterStateChange={handleFooterStateChange}
         />
