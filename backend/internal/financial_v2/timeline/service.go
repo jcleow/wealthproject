@@ -42,6 +42,9 @@ type FinancialDataRow struct {
 	InterestRate  decimal.Decimal // APR for liabilities
 	MinimumPay    decimal.Decimal // Minimum payment for liabilities
 	IsAccumulator bool            // For cash accounts - identifies the accumulator account
+	// Terminal value fields (for assets with finite useful life)
+	TerminalValue  *decimal.Decimal // Value at end of useful life (NULL = disappear, 0 = worthless)
+	LeaseStartYear *int             // For leasehold properties: year lease started
 	// CPF-related fields (for incomes)
 	CPFWageType cpfProcessor.CPFWageType // CPFWageTypeOW (Ordinary Wages) or CPFWageTypeAW (Additional Wages)
 	// Expense-liability linkage
@@ -1171,6 +1174,7 @@ func convertAppliedImpacts(infos []scenario.AppliedImpactInfo) []AppliedImpact {
 func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, eventAdjustedState map[string]*decimal.Decimal, appliedImpacts map[string][]scenario.AppliedImpactInfo, date time.Time) ([]NonCashAssetResponse, *decimal.Decimal) {
 	responses := make([]NonCashAssetResponse, 0)
 	total := decimal.Zero()
+	checkYear, checkMonth, _ := date.Date()
 
 	for _, row := range rows {
 		if !isActiveInMonth(row, date) {
@@ -1180,10 +1184,22 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 		if state == nil {
 			continue
 		}
-		total = total.Add(state.Balance)
-		balance := state.Balance.Round(0)
+
+		// Apply terminal value if asset has one and we're at or past the end date
+		balance := state.Balance
+		if row.TerminalValue != nil && row.EndDate != nil {
+			endYear, endMonth, _ := row.EndDate.Date()
+			// If we're in the end month or later, use terminal value
+			if checkYear > endYear || (checkYear == endYear && int(checkMonth) >= int(endMonth)) {
+				balance = row.TerminalValue
+			}
+		}
+
+		total = total.Add(balance)
+		balanceRounded := balance.Round(0)
+
 		// Use adjusted value if available, otherwise use base value
-		adjBalance := balance
+		adjBalance := balanceRounded
 		if adjusted, ok := eventAdjustedState[row.ID]; ok && adjusted != nil {
 			adjBalance = adjusted.Round(0)
 		}
@@ -1192,7 +1208,7 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 			ParentID:        row.ParentID,
 			Name:            row.Name,
 			Category:        row.Category,
-			Balance:         *balance,
+			Balance:         *balanceRounded,
 			EventAdjBalance: *adjBalance,
 			ItemType:        string(row.ItemType),
 			StartDate:       row.StartDate.Format("2006-01-02"),

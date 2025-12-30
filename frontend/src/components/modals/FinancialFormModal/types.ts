@@ -29,6 +29,10 @@ export type FormState = {
   minimumPayment: string
   growthRate: string
   notes: string
+  // Asset useful life fields
+  terminalValue: string
+  leaseStartYear: string
+  usefulLifeYears: string
 }
 
 export type AssetFormValues = {
@@ -40,6 +44,9 @@ export type AssetFormValues = {
   annualGrowthRate: number
   notes?: string | null
   updatedAt?: string
+  endDate?: string
+  terminalValue?: number | null
+  leaseStartYear?: number | null
 }
 
 export type LiabilityFormValues = {

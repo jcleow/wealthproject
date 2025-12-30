@@ -22,6 +22,12 @@ export async function createAsset(payload: Omit<Asset, 'id' | 'updatedAt'>): Pro
 
   if (payload.startDate !== undefined) body.startDate = payload.startDate
   if (payload.endDate !== undefined) body.endDate = payload.endDate
+  if (payload.terminalValue !== undefined && payload.terminalValue !== null) {
+    body.terminalValue = payload.terminalValue.toString()
+  }
+  if (payload.leaseStartYear !== undefined && payload.leaseStartYear !== null) {
+    body.leaseStartYear = payload.leaseStartYear
+  }
 
   const data = await apiClient.post<any>('/assets', body, { baseUrl: '/api/v2' })
   return toAsset(data)
@@ -42,6 +48,13 @@ export async function updateAsset(
     notes: payload.notes,
     startDate: payload.startDate,
     endDate: payload.endDate,
+  }
+  // Add terminal value fields
+  if (payload.terminalValue !== undefined && payload.terminalValue !== null) {
+    body.terminalValue = payload.terminalValue.toString()
+  }
+  if (payload.leaseStartYear !== undefined && payload.leaseStartYear !== null) {
+    body.leaseStartYear = payload.leaseStartYear
   }
   // Add updateMode for versioned updates
   if (payload.updateMode !== undefined) {

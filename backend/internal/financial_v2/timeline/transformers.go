@@ -23,6 +23,8 @@ func transformNonCashAssets(assets []repo.NonCashAsset) []FinancialDataRow {
 			EndDate:         a.EndDate,
 			ItemType:        FinNonCashAsset,
 			GrowthRate:      a.AnnualGrowthRate,
+			TerminalValue:   a.TerminalValue,
+			LeaseStartYear:  a.LeaseStartYear,
 			ScenarioEventID: a.ScenarioEventID,
 		})
 	}

@@ -85,6 +85,8 @@ type NonCashAsset struct {
 	AnnualGrowthRate decimal.Decimal `json:"annualGrowthRate"`
 	StartDate        time.Time       `json:"startDate"`         // Precise start date (day-level)
 	EndDate          *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
+	TerminalValue    *decimal.Decimal `json:"terminalValue,omitempty"`  // Value at end of useful life (NULL = disappear, 0 = worthless)
+	LeaseStartYear   *int             `json:"leaseStartYear,omitempty"` // For leasehold properties: year lease started
 	Notes            string          `json:"notes"`
 	GrowthStrategy   string          `json:"growthStrategy"`
 	UpdatedAt        time.Time       `json:"updatedAt"`
@@ -288,6 +290,8 @@ func (s *Store) ListNonCashAssets(
 		growth_rate,
 		start_date,
 		end_date,
+		terminal_value,
+		lease_start_year,
 		COALESCE(notes, '') as notes,
 		updated_at,
 		scenario_event_id
@@ -351,7 +355,7 @@ func (s *Store) ListNonCashAssets(
 	for rows.Next() {
 		var a NonCashAsset
 		// pgx can scan NULL directly into *time.Time
-		err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.Notes, &a.UpdatedAt, &a.ScenarioEventID)
+		err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.TerminalValue, &a.LeaseStartYear, &a.Notes, &a.UpdatedAt, &a.ScenarioEventID)
 		if err != nil {
 			return PaginatedResult[NonCashAsset]{}, err
 		}

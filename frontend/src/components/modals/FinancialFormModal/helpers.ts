@@ -75,7 +75,17 @@ export const buildDefaultFormState = (type: FinancialDataType, growthConfigs?: G
     minimumPayment: '',
     growthRate: rate.toString(),
     notes: '',
+    // Asset useful life fields
+    terminalValue: '',
+    leaseStartYear: '',
+    usefulLifeYears: '',
   }
+}
+
+// Calculate end date from lease start year and useful life years
+export const calculateLeaseEndDate = (leaseStartYear: number, usefulLifeYears: number): string => {
+  const endYear = leaseStartYear + usefulLifeYears
+  return new Date(Date.UTC(endYear, 0, 1)).toISOString()
 }
 
 // Date helpers for versioning

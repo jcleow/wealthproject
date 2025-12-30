@@ -48,6 +48,8 @@ export const toAsset = (item: any): Asset => ({
   annualGrowthRate: item.annual_growth_rate ?? item.annualGrowthRate ?? item.AnnualGrowthRate,
   startDate: item.start_date ?? item.startDate ?? item.StartDate,
   endDate: item.end_date ?? item.endDate ?? item.EndDate,
+  terminalValue: item.terminal_value ?? item.terminalValue ?? item.TerminalValue ?? null,
+  leaseStartYear: item.lease_start_year ?? item.leaseStartYear ?? item.LeaseStartYear ?? null,
   notes: item.notes ?? item.Notes ?? '',
   updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
   parentId: item.parent_id ?? item.parentId ?? item.ParentID,
@@ -145,24 +147,33 @@ export const toGrowthConfig = (item: any): GrowthConfig => ({
 // CPF mappers
 // =============================================================================
 
-export const toCPFAccount = (item: any): CPFAccount => ({
-  id: item.id,
-  userId: item.userId,
-  parentId: item.parentId ?? item.id,
-  startDate: item.startDate ?? item.createdAt,
-  endDate: item.endDate,
-  oaBalance: item.oaBalance ?? 0,
-  saBalance: item.saBalance ?? 0,
-  maBalance: item.maBalance ?? 0,
-  raBalance: item.raBalance ?? 0,
-  oaUsedForHousing: item.oaUsedForHousing ?? 0,
-  housingStartDate: item.housingStartDate,
-  dateOfBirth: item.dateOfBirth,
-  residencyStatus: item.residencyStatus ?? 'citizen',
-  prGrantDate: item.prGrantDate,
-  createdAt: item.createdAt,
-  updatedAt: item.updatedAt,
-})
+export const toCPFAccount = (item: any): CPFAccount => {
+  // Backend returns decimal values as strings, parse them to numbers
+  const parseBalance = (val: any): number => {
+    if (val === undefined || val === null) return 0
+    return typeof val === 'string' ? parseFloat(val) || 0 : Number(val) || 0
+  }
+
+  return {
+    id: item.id,
+    userId: item.userId ?? item.user_id,
+    earner: item.earner ?? item.Earner ?? '',
+    parentId: item.parentId ?? item.parent_id ?? item.id,
+    startDate: item.startDate ?? item.start_date ?? item.createdAt,
+    endDate: item.endDate ?? item.end_date,
+    oaBalance: parseBalance(item.oaBalance ?? item.oa_balance ?? item.OABalance),
+    saBalance: parseBalance(item.saBalance ?? item.sa_balance ?? item.SABalance),
+    maBalance: parseBalance(item.maBalance ?? item.ma_balance ?? item.MABalance),
+    raBalance: parseBalance(item.raBalance ?? item.ra_balance ?? item.RABalance),
+    oaUsedForHousing: parseBalance(item.oaUsedForHousing ?? item.oa_used_for_housing ?? item.OAUsedForHousing),
+    housingStartDate: item.housingStartDate ?? item.housing_start_date,
+    dateOfBirth: item.dateOfBirth ?? item.date_of_birth,
+    residencyStatus: item.residencyStatus ?? item.residency_status ?? 'citizen',
+    prGrantDate: item.prGrantDate ?? item.pr_grant_date,
+    createdAt: item.createdAt ?? item.created_at,
+    updatedAt: item.updatedAt ?? item.updated_at,
+  }
+}
 
 export const toCPFConfiguration = (item: any): CPFConfiguration => ({
   id: item.id ?? item.ID,

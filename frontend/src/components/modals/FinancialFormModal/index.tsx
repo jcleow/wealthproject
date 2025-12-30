@@ -1,4 +1,5 @@
-import { Trash2 } from 'lucide-react'
+import { Trash2, ChevronDown } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 import { Modal } from '@/components/ui/Modal'
 import { CustomSelect } from '@/components/ui/CustomSelect'
@@ -23,6 +24,14 @@ import { useFinancialForm } from './hooks/useFinancialForm'
 // Re-export types for consumers
 export type { FinancialDataType, FinancialFormValues, FinancialFormModalProps, CpfFormValues } from './types'
 
+// Useful life preset options
+const USEFUL_LIFE_OPTIONS = [
+  { value: '', label: 'No limit (perpetual)' },
+  { value: '99', label: '99-year lease' },
+  { value: '999', label: '999-year lease' },
+  { value: 'custom', label: 'Custom...' },
+]
+
 export function FinancialFormModal({
   type,
   mode,
@@ -37,6 +46,34 @@ export function FinancialFormModal({
   selectedYearLabel,
   anchorYear,
 }: FinancialFormModalProps) {
+  const [showUsefulLife, setShowUsefulLife] = useState(false)
+  const [usefulLifePreset, setUsefulLifePreset] = useState('')
+
+  // Auto-expand useful life section when editing asset with lease data
+  useEffect(() => {
+    if (!isOpen) {
+      setShowUsefulLife(false)
+      setUsefulLifePreset('')
+      return
+    }
+    if (type === 'asset' && mode === 'edit' && data) {
+      const asset = data as any
+      if (asset.leaseStartYear || asset.terminalValue != null) {
+        setShowUsefulLife(true)
+        // Detect preset from usefulLifeYears
+        const endYear = asset.endDate ? new Date(asset.endDate).getUTCFullYear() : null
+        const usefulYears = asset.leaseStartYear && endYear ? endYear - asset.leaseStartYear : null
+        if (usefulYears === 99) {
+          setUsefulLifePreset('99')
+        } else if (usefulYears === 999) {
+          setUsefulLifePreset('999')
+        } else if (usefulYears) {
+          setUsefulLifePreset('custom')
+        }
+      }
+    }
+  }, [isOpen, type, mode, data])
+
   const form = useFinancialForm({
     type,
     mode,
@@ -265,6 +302,143 @@ transition-all`}
                   </div>
                 )}
               </div>
+
+              {/* Useful Life section for assets (collapsible) */}
+              {normalizedCategory === 'assets' && (
+                <div className="rounded-lg border border-white/[0.06] bg-white/[0.02]">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between p-3 text-left"
+                    onClick={() => setShowUsefulLife(!showUsefulLife)}
+                  >
+                    <span className="text-sm font-medium text-gray-300">
+                      Useful Life / Lease Settings
+                      {form.formData.usefulLifeYears && (
+                        <span className="ml-2 text-emerald-400">
+                          ({form.formData.usefulLifeYears} years)
+                        </span>
+                      )}
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-gray-400 transition-transform ${
+                        showUsefulLife ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {showUsefulLife && (
+                    <div className="space-y-4 border-t border-white/[0.06] p-3">
+                      <p className="text-xs text-gray-500">
+                        For leasehold properties, set when the lease expires. The asset value will become the terminal value at expiry.
+                      </p>
+
+                      {/* Lease Type Preset */}
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-300">
+                          Lease Type
+                        </label>
+                        <CustomSelect
+                          value={usefulLifePreset}
+                          onChange={(val) => {
+                            setUsefulLifePreset(val as string)
+                            if (val === '') {
+                              form.updateFormField('usefulLifeYears', '')
+                              form.updateFormField('terminalValue', '')
+                            } else if (val === '99' || val === '999') {
+                              form.updateFormField('usefulLifeYears', val)
+                              form.updateFormField('terminalValue', '0')
+                            }
+                            // For 'custom', let user fill in values
+                          }}
+                          options={USEFUL_LIFE_OPTIONS}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* Custom fields shown when preset is selected */}
+                      {(usefulLifePreset === '99' || usefulLifePreset === '999' || usefulLifePreset === 'custom') && (
+                        <>
+                          <div className="grid grid-cols-2 gap-3">
+                            {/* Lease Start Year */}
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-gray-300">
+                                Lease Start Year
+                              </label>
+                              <input
+                                type="number"
+                                min="1900"
+                                max="2100"
+                                className={`w-full
+px-3 py-2 placeholder-gray-400
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
+                                placeholder="e.g., 1990"
+                                value={form.formData.leaseStartYear}
+                                onChange={(e) => form.updateFormField('leaseStartYear', e.target.value)}
+                              />
+                            </div>
+
+                            {/* Useful Life Years */}
+                            <div>
+                              <label className="mb-2 block text-sm font-medium text-gray-300">
+                                Lease Duration (years)
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="999"
+                                className={`w-full
+px-3 py-2 placeholder-gray-400
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
+                                placeholder="99"
+                                value={form.formData.usefulLifeYears}
+                                onChange={(e) => form.updateFormField('usefulLifeYears', e.target.value)}
+                                disabled={usefulLifePreset === '99' || usefulLifePreset === '999'}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Terminal Value */}
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-gray-300">
+                              Terminal Value at Expiry
+                            </label>
+                            <input
+                              inputMode="decimal"
+                              className={`w-full
+px-3 py-2 placeholder-gray-400
+rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
+bg-gray-700
+text-white`}
+                              placeholder="0"
+                              value={form.formData.terminalValue}
+                              onChange={(e) => form.updateFormField('terminalValue', form.formatNumberInput(e.target.value))}
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                              Value at lease expiry. Usually 0 for standard leaseholds.
+                            </p>
+                          </div>
+
+                          {/* Show calculated end year */}
+                          {form.formData.leaseStartYear && form.formData.usefulLifeYears && (
+                            <div className="rounded-lg bg-emerald-500/10 p-2 text-center">
+                              <span className="text-sm text-emerald-400">
+                                Lease expires in{' '}
+                                <strong>
+                                  {Number(form.formData.leaseStartYear) + Number(form.formData.usefulLifeYears)}
+                                </strong>
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Liability specific fields */}
               {normalizedCategory === 'liabilities' && (

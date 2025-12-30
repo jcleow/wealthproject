@@ -23,6 +23,7 @@ import {
   buildDefaultFormState,
   calculateVersionStartDate,
   calculateStopEndDate,
+  calculateLeaseEndDate,
 } from '../helpers'
 
 interface UseFinancialFormParams {
@@ -138,6 +139,14 @@ export function useFinancialForm({
           itemRate && itemRate !== 0
             ? itemRate
             : getRateForCategory(type, asset.category, growthConfigs)
+
+        // Calculate usefulLifeYears from endDate and leaseStartYear if available
+        let usefulLifeYears = ''
+        if (asset.leaseStartYear != null && asset.endDate) {
+          const endYear = new Date(asset.endDate).getUTCFullYear()
+          usefulLifeYears = (endYear - asset.leaseStartYear).toString()
+        }
+
         setFormData({
           name: toSafeText(asset.name),
           earner: '',
@@ -149,6 +158,14 @@ export function useFinancialForm({
           minimumPayment: '',
           growthRate: '3.0',
           notes: asset.notes ?? '',
+          // Useful life fields
+          terminalValue: asset.terminalValue !== null && asset.terminalValue !== undefined
+            ? formatNumberInput(asset.terminalValue.toString())
+            : '',
+          leaseStartYear: asset.leaseStartYear !== null && asset.leaseStartYear !== undefined
+            ? asset.leaseStartYear.toString()
+            : '',
+          usefulLifeYears,
         })
         break
       }
@@ -171,6 +188,9 @@ export function useFinancialForm({
           minimumPayment: roundToDollar(liability.minimumPayment ?? 0).toString(),
           growthRate: '2.0',
           notes: liability.notes ?? '',
+          terminalValue: '',
+          leaseStartYear: '',
+          usefulLifeYears: '',
         })
         break
       }
@@ -214,6 +234,9 @@ export function useFinancialForm({
           minimumPayment: '',
           growthRate: effectiveRate.toString(),
           notes: item.notes ?? '',
+          terminalValue: '',
+          leaseStartYear: '',
+          usefulLifeYears: '',
         })
         break
       }
@@ -236,6 +259,9 @@ export function useFinancialForm({
           minimumPayment: '',
           growthRate: effectiveRate.toString(),
           notes: investment.notes ?? '',
+          terminalValue: '',
+          leaseStartYear: '',
+          usefulLifeYears: '',
         })
         break
       }
@@ -307,7 +333,20 @@ export function useFinancialForm({
     }
 
     switch (type) {
-      case 'asset':
+      case 'asset': {
+        // Calculate end date if lease start year and useful life are provided
+        let endDate: string | undefined
+        const leaseStartYear = formData.leaseStartYear ? Number.parseInt(formData.leaseStartYear, 10) : null
+        const usefulLifeYears = formData.usefulLifeYears ? Number.parseInt(formData.usefulLifeYears, 10) : null
+        if (leaseStartYear && usefulLifeYears) {
+          endDate = calculateLeaseEndDate(leaseStartYear, usefulLifeYears)
+        }
+
+        // Parse terminal value
+        const terminalValue = formData.terminalValue
+          ? Number.parseFloat(formData.terminalValue)
+          : null
+
         return {
           type,
           id: (data as Asset | undefined)?.id,
@@ -315,8 +354,12 @@ export function useFinancialForm({
           category: formData.category.trim() || 'other',
           currentValue: toNumeric(formData.amount),
           annualGrowthRate: Number.parseFloat(formData.annualGrowthRate) || 0,
+          ...(endDate && { endDate }),
+          ...(terminalValue !== null && { terminalValue }),
+          ...(leaseStartYear && { leaseStartYear }),
           ...shared,
         }
+      }
       case 'liability':
         return {
           type,
