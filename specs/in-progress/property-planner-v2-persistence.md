@@ -73,18 +73,16 @@ CREATE TABLE property_scenarios (
 
     -- FKs to country-specific details (exactly one must be non-null)
     -- The country is INFERRED from which FK is set
-    sg_details_id UUID REFERENCES property_sg_details(id) ON DELETE CASCADE,
-    my_details_id UUID REFERENCES property_my_details(id) ON DELETE CASCADE,
-    -- us_details_id UUID REFERENCES property_us_details(id) ON DELETE CASCADE,  -- Future
+    property_sg_id UUID REFERENCES property_sg(id) ON DELETE CASCADE,
+    my_details_id UUID,  -- Future: REFERENCES property_my_details(id) ON DELETE CASCADE
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     -- Ensure exactly one country detail is linked
     CONSTRAINT chk_one_country_detail CHECK (
-        (sg_details_id IS NOT NULL AND my_details_id IS NULL)
-        OR (my_details_id IS NOT NULL AND sg_details_id IS NULL)
-        -- Future: extend with us_details_id, etc.
+        (property_sg_id IS NOT NULL AND my_details_id IS NULL)
+        OR (my_details_id IS NOT NULL AND property_sg_id IS NULL)
     )
 );
 
@@ -92,7 +90,7 @@ CREATE INDEX idx_property_scenarios_user ON property_scenarios(user_id);
 ```
 
 **Why no `country` column?**
-- The country is **inferred** from which FK is non-null (`sg_details_id` → SG, `my_details_id` → MY)
+- The country is **inferred** from which FK is non-null (`property_sg_id` → SG, `my_details_id` → MY)
 - No redundant data = no sync issues
 - Adding a new country = add new FK column + new details table + extend CHECK constraint
 
@@ -122,79 +120,135 @@ COMMENT ON COLUMN cpf_accounts.earner IS
 
 ---
 
-### Table: `property_sg_details` (Singapore - All Property Data)
+### Table: `property_sg` (Singapore - All Property Data)
 
-Contains ALL property data for Singapore scenarios.
+Contains ALL property data for Singapore scenarios. (Renamed from `property_sg_details` for brevity.)
 
 ```sql
-CREATE TABLE property_sg_details (
+CREATE TABLE property_sg (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Metadata
-    name TEXT NOT NULL,
+    name VARCHAR(100) NOT NULL,
     icon VARCHAR(50),
     icon_color VARCHAR(20),
     is_included BOOLEAN NOT NULL DEFAULT true,
 
     -- Property type (SG-specific categories)
-    -- Main: 'hdb' | 'condo' | 'landed'
-    -- Subtypes: HDB has 'bto'/'resale', Condo has 'new-launch'/'resale', Landed has no subtypes
-    property_type VARCHAR(50) NOT NULL,       -- 'hdb' | 'condo' | 'landed'
-    property_subtype VARCHAR(50),             -- 'bto' | 'resale' | 'new-launch' (NULL for landed)
+    -- Main: 'hdb' | 'private'
+    -- Subtypes: HDB has 'bto'/'resale', Private has 'ec'/'new'
+    property_type VARCHAR(20) NOT NULL,       -- 'hdb' | 'private'
+    property_subtype VARCHAR(30) NOT NULL,    -- 'bto' | 'resale' | 'ec' | 'new'
 
     -- Core property inputs
     property_price NUMERIC(15,4) NOT NULL,
-    valuation_price NUMERIC(15,4) NOT NULL,
-    loan_type VARCHAR(20) NOT NULL,           -- 'bank' | 'hdb'
-    -- Note: loan_amount is stored in linked finance_liabilities record
+    valuation_price NUMERIC(15,4),            -- Optional, defaults to property_price if NULL
+    loan_type VARCHAR(10) NOT NULL DEFAULT 'bank',  -- 'bank' | 'hdb'
 
     -- Downpayment breakdown (SG uses CPF OA for property)
     downpayment_cpf_oa NUMERIC(15,4) NOT NULL DEFAULT 0,
     downpayment_cash NUMERIC(15,4) NOT NULL DEFAULT 0,
 
     -- Borrower info
-    borrower_type VARCHAR(20) NOT NULL DEFAULT 'single',  -- 'single' | 'joint'
+    borrower_type VARCHAR(10) NOT NULL DEFAULT 'single',  -- 'single' | 'joint'
     other_debt NUMERIC(15,4) NOT NULL DEFAULT 0,          -- Monthly debt obligations for TDSR
-    grants NUMERIC(15,4) NOT NULL DEFAULT 0,
 
     -- ABSD calculation inputs
-    -- Note: residency is DERIVED from borrower_1_income_id → finance_incomes.residency_status
+    -- Note: residency is DERIVED from borrower1_income_id → finance_incomes.residency_status
     property_count INT NOT NULL DEFAULT 0,                -- Number of existing properties (0 = first property)
 
     -- Borrower 1 (FK to finance_incomes and cpf_accounts)
-    borrower_1_income_id UUID REFERENCES finance_incomes(id) ON DELETE SET NULL,
-    borrower_1_cpf_account_id UUID REFERENCES cpf_accounts(id) ON DELETE SET NULL,
+    borrower1_income_id UUID REFERENCES finance_incomes(id) ON DELETE SET NULL,
+    borrower1_cpf_account_id UUID REFERENCES cpf_accounts(id) ON DELETE SET NULL,
 
     -- Borrower 2 (for joint applications)
-    borrower_2_income_id UUID REFERENCES finance_incomes(id) ON DELETE SET NULL,
-    borrower_2_cpf_account_id UUID REFERENCES cpf_accounts(id) ON DELETE SET NULL,
+    borrower2_income_id UUID REFERENCES finance_incomes(id) ON DELETE SET NULL,
+    borrower2_cpf_account_id UUID REFERENCES cpf_accounts(id) ON DELETE SET NULL,
 
     -- Stamp duties (SG-specific)
     -- Note: BSD is COMPUTED using IRAS tiered rates, not stored
     -- Note: ABSD is COMPUTED from (derived residency) + property_count, not stored
 
+    -- BTO-specific fields
+    bto_launch_date VARCHAR(7),               -- e.g., '2025-01'
+    bto_key_collection_date VARCHAR(7),       -- e.g., '2028-06'
+
     -- Sale planning inputs
     sale_expected_date VARCHAR(7),            -- 'YYYY-MM'
     sale_expected_price NUMERIC(15,4),
 
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_property_sg_details_type ON property_sg_details(property_type);
+-- Constraints
+ALTER TABLE property_sg
+    ADD CONSTRAINT property_sg_property_type_check
+    CHECK (property_type IN ('hdb', 'private'));
+
+ALTER TABLE property_sg
+    ADD CONSTRAINT property_sg_property_subtype_check
+    CHECK (property_subtype IN ('bto', 'resale', 'ec', 'new'));
+
+ALTER TABLE property_sg
+    ADD CONSTRAINT property_sg_loan_type_check
+    CHECK (loan_type IN ('bank', 'hdb'));
+
+ALTER TABLE property_sg
+    ADD CONSTRAINT property_sg_borrower_type_check
+    CHECK (borrower_type IN ('single', 'joint'));
+
+CREATE INDEX idx_property_sg_included ON property_sg(is_included);
 ```
 
 **Notes:**
 - **`borrower_type`**: `'single'` = one buyer, `'joint'` = two buyers (e.g., married couple). Affects MSR/TDSR since joint applications combine incomes.
-- **No rates in main table**: Interest rates are stored in `liability_rate_periods` (linked via `sg_details_id`) since they can change with refinancing.
-- **Income via FK**: `borrower_1_income_id` and `borrower_2_income_id` link to `finance_incomes` records (with `earner` column). Backend sums them for household income.
-- **CPF via FK**: `borrower_1_cpf_account_id` and `borrower_2_cpf_account_id` link to `cpf_accounts` records (with `earner` column). Backend reads `oa_balance` from the linked account.
+- **No rates in main table**: Interest rates are stored in `liability_rate_periods` (linked via `property_sg_id`) since they can change with refinancing.
+- **No grants in main table**: Grants are stored in `property_sg_grants` table (supports multiple named grants per property).
+- **Income via FK**: `borrower1_income_id` and `borrower2_income_id` link to `finance_incomes` records (with `earner` column). Backend sums them for household income.
+- **CPF via FK**: `borrower1_cpf_account_id` and `borrower2_cpf_account_id` link to `cpf_accounts` records (with `earner` column). Backend reads `oa_balance` from the linked account.
 - **No `linked_asset_id`**: Property is a separate asset type (like `finance_investments`). Use UNION query for "all assets".
 
 **Why a Separate Table?**
 - **Extensibility**: Adding Malaysia (`property_my_details`) = new table + new FK in header, no schema changes to SG table.
 - **No NULLable country columns**: Every SG field is either filled or the row doesn't exist.
-- **Clean queries**: `property_scenarios JOIN property_sg_details` for SG scenarios.
-- **Self-contained country details**: `property_fees`, `growth_periods`, and `liability_rate_periods` all link directly to `property_sg_details` (not the header). This makes `property_sg_details` a complete, duplicatable unit - if a user wants multiple scenarios with different assumptions, they duplicate the entire `sg_details` tree.
+- **Clean queries**: `property_scenarios JOIN property_sg` for SG scenarios.
+- **Self-contained country details**: `property_fees`, `growth_periods`, `liability_rate_periods`, and `property_sg_grants` all link directly to `property_sg` (not the header). This makes `property_sg` a complete, duplicatable unit - if a user wants multiple scenarios with different assumptions, they duplicate the entire `property_sg` tree.
+
+---
+
+### Table: `property_sg_grants` (Singapore HDB Grants)
+
+Stores multiple named grants per property. Replaces the single `grants` column in `property_sg` to support detailed grant breakdowns.
+
+```sql
+CREATE TABLE property_sg_grants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    property_sg_id UUID NOT NULL REFERENCES property_sg(id) ON DELETE CASCADE,
+
+    name VARCHAR(100) NOT NULL,               -- Free text: "EHG", "Family Grant", "PHG", etc.
+    amount NUMERIC(15,4) NOT NULL DEFAULT 0,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_property_sg_grants_property_sg ON property_sg_grants(property_sg_id);
+```
+
+**Common Grant Types:**
+| Grant Name | Max Amount | Notes |
+|------------|------------|-------|
+| Enhanced CPF Housing Grant (EHG) | $80,000 | Income-based, for first-timer buyers |
+| Family Grant | $50,000 | For second-timer buyers with children |
+| Proximity Housing Grant (PHG) | $30,000 | For buying near parents/children |
+| Step-Up CPF Housing Grant | $15,000 | For upgrading from 2-room flat |
+
+**Notes:**
+- **Free-text names**: Grant types evolve; storing as free text avoids constraint updates.
+- **Multiple grants per property**: A buyer may qualify for multiple grants (e.g., EHG + PHG).
+- **Total grants**: Sum all `amount` values for a given `property_sg_id`.
+
+---
 
 **BSD Rates (Backend Constant - IRAS 2024):**
 
@@ -287,36 +341,53 @@ Stores all property-related costs: one-time transaction fees and recurring expen
 ```sql
 CREATE TABLE property_fees (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    scenario_id UUID NOT NULL REFERENCES property_scenarios(id) ON DELETE CASCADE,
 
     -- Links to country-specific details (exactly one must be non-null)
-    sg_details_id UUID REFERENCES property_sg_details(id) ON DELETE CASCADE,
-    my_details_id UUID REFERENCES property_my_details(id) ON DELETE CASCADE,
+    property_sg_id UUID REFERENCES property_sg(id) ON DELETE CASCADE,
+    my_details_id UUID,  -- Future: REFERENCES property_my_details(id) ON DELETE CASCADE
 
     fee_context VARCHAR(20) NOT NULL,         -- 'purchase' | 'sale' | 'recurring'
-    name TEXT NOT NULL,                       -- 'Legal Fees', 'Property Tax', 'Maintenance', etc.
-    fee_type VARCHAR(20) NOT NULL,            -- 'percentage' | 'fixed'
-    value NUMERIC(15,4) NOT NULL,             -- 1.5 (for 1.5%) or 3000 (fixed amount)
+    fee_type VARCHAR(50) NOT NULL,            -- 'legal' | 'valuation' | 'agent' | 'property_tax' | etc.
+    description VARCHAR(200),
+    amount NUMERIC(15,4) NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'SGD',
+    is_percentage BOOLEAN NOT NULL DEFAULT false,
     frequency VARCHAR(20) NOT NULL DEFAULT 'one_time',  -- 'one_time' | 'monthly' | 'yearly'
-    is_enabled BOOLEAN NOT NULL DEFAULT true,
-    start_date VARCHAR(7),                    -- 'YYYY-MM' when fee starts
-    end_date VARCHAR(7),                      -- 'YYYY-MM' when fee ends (NULL = ongoing until sale)
-    display_order INT NOT NULL DEFAULT 0,
-    icon VARCHAR(50),
-    icon_color VARCHAR(20),
+    start_date TIMESTAMPTZ,                   -- When recurring fee starts
+    end_date TIMESTAMPTZ,                     -- When recurring fee ends (NULL = ongoing until sale)
+    icon VARCHAR(50) DEFAULT 'receipt',
+    icon_color VARCHAR(20) DEFAULT '#64748b',
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_property_fees_sg ON property_fees(sg_details_id) WHERE sg_details_id IS NOT NULL;
-CREATE INDEX idx_property_fees_my ON property_fees(my_details_id) WHERE my_details_id IS NOT NULL;
-CREATE INDEX idx_property_fees_context ON property_fees(COALESCE(sg_details_id, my_details_id), fee_context);
+CREATE INDEX idx_property_fees_scenario ON property_fees(scenario_id);
+CREATE INDEX idx_property_fees_context ON property_fees(scenario_id, fee_context);
+CREATE INDEX idx_property_fees_property_sg ON property_fees(property_sg_id);
+CREATE INDEX idx_property_fees_property_sg_context ON property_fees(property_sg_id, fee_context);
+
+ALTER TABLE property_fees
+    ADD CONSTRAINT property_fees_context_check
+    CHECK (fee_context IN ('purchase', 'sale', 'recurring'));
+
+ALTER TABLE property_fees
+    ADD CONSTRAINT property_fees_frequency_check
+    CHECK (frequency IN ('one_time', 'monthly', 'yearly'));
 
 -- Ensure exactly one country detail is linked
-ALTER TABLE property_fees ADD CONSTRAINT chk_property_fees_one_country CHECK (
-    (sg_details_id IS NOT NULL AND my_details_id IS NULL)
-    OR (my_details_id IS NOT NULL AND sg_details_id IS NULL)
+ALTER TABLE property_fees ADD CONSTRAINT chk_property_fee_single_parent CHECK (
+    (property_sg_id IS NOT NULL)::int +
+    (my_details_id IS NOT NULL)::int = 1
 );
 ```
+
+**Notes:**
+- **`scenario_id`**: Links to the header table for cascade deletes
+- **`property_sg_id`**: Links to country-specific details for polymorphic queries
+- **`is_percentage`**: When `true`, `amount` is treated as a percentage (e.g., `1.5` = 1.5%)
+- **`start_date/end_date`**: TIMESTAMPTZ for recurring fees, NULL for one-time fees
+- **`icon/icon_color`**: Custom icons for visual display (defaults: 'receipt', '#64748b')
 
 ---
 
@@ -324,7 +395,7 @@ ALTER TABLE property_fees ADD CONSTRAINT chk_property_fees_one_country CHECK (
 
 A shared table for multi-period growth rates, usable by properties, assets, and incomes. Each row links to exactly one entity via nullable FKs. This table **replaces** `growth_rate` and `growth_strategy` columns on entity tables, allowing multi-period growth with different strategies per period.
 
-For properties, links directly to country-specific details tables (not the header), making `property_sg_details` self-contained and duplicatable.
+For properties, links directly to country-specific details tables (not the header), making `property_sg` self-contained and duplicatable.
 
 ```sql
 CREATE TABLE growth_periods (
@@ -332,37 +403,38 @@ CREATE TABLE growth_periods (
 
     -- Multiple FKs (exactly one must be non-null)
     -- Property links go to country-specific details (not header)
-    sg_details_id UUID REFERENCES property_sg_details(id) ON DELETE CASCADE,
-    my_details_id UUID REFERENCES property_my_details(id) ON DELETE CASCADE,
+    property_sg_id UUID REFERENCES property_sg(id) ON DELETE CASCADE,
+    my_details_id UUID,  -- Future: REFERENCES property_my_details(id) ON DELETE CASCADE
     -- Generic financial entities
     finance_asset_id UUID REFERENCES finance_assets(id) ON DELETE CASCADE,
     finance_income_id UUID REFERENCES finance_incomes(id) ON DELETE CASCADE,
     finance_investment_id UUID REFERENCES finance_investments(id) ON DELETE CASCADE,
 
-    start_year INT NOT NULL,                  -- 1-based year (1 = first year)
-    end_year INT,                             -- NULL means "onwards" (no end)
+    start_date TIMESTAMPTZ NOT NULL,          -- When this growth period begins
+    end_date TIMESTAMPTZ,                     -- NULL means "onwards" (no end)
     growth_rate NUMERIC(10,4) NOT NULL,       -- Rate value (e.g., 3.0 for 3%)
     growth_strategy VARCHAR(20) NOT NULL DEFAULT 'annual_step',  -- Uses existing growth module strategies
-    display_order INT NOT NULL DEFAULT 0,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     -- Exactly one FK must be set
-    CONSTRAINT chk_single_entity CHECK (
-        (sg_details_id IS NOT NULL)::int +
+    CONSTRAINT chk_growth_period_single_entity CHECK (
+        (property_sg_id IS NOT NULL)::int +
         (my_details_id IS NOT NULL)::int +
         (finance_asset_id IS NOT NULL)::int +
         (finance_income_id IS NOT NULL)::int +
         (finance_investment_id IS NOT NULL)::int = 1
-    ),
-    CONSTRAINT chk_year_range CHECK (end_year IS NULL OR end_year >= start_year)
+    )
 );
 
-CREATE INDEX idx_growth_periods_sg ON growth_periods(sg_details_id) WHERE sg_details_id IS NOT NULL;
-CREATE INDEX idx_growth_periods_my ON growth_periods(my_details_id) WHERE my_details_id IS NOT NULL;
+CREATE INDEX idx_growth_periods_property_sg ON growth_periods(property_sg_id);
 CREATE INDEX idx_growth_periods_asset ON growth_periods(finance_asset_id) WHERE finance_asset_id IS NOT NULL;
 CREATE INDEX idx_growth_periods_income ON growth_periods(finance_income_id) WHERE finance_income_id IS NOT NULL;
 CREATE INDEX idx_growth_periods_investment ON growth_periods(finance_investment_id) WHERE finance_investment_id IS NOT NULL;
+
+ALTER TABLE growth_periods
+    ADD CONSTRAINT growth_periods_strategy_check
+    CHECK (growth_strategy IN ('fixed', 'annual_step', 'compound_monthly', 'tiered_adb'));
 ```
 
 **Growth Strategies (from existing growth module):**
@@ -371,8 +443,13 @@ CREATE INDEX idx_growth_periods_investment ON growth_periods(finance_investment_
 - `'compound_monthly'`: Rate compounded monthly (e.g., 5% annual rate compounded monthly for investments)
 - `'tiered_adb'`: Tiered interest based on balance (for bank accounts with tiered rates)
 
+**Date Handling:**
+- **`start_date`**: TIMESTAMPTZ - period begins on this date
+- **`end_date`**: TIMESTAMPTZ or NULL - if NULL, growth continues indefinitely
+- Dates use TIMESTAMPTZ for consistency with other tables and timezone-aware queries
+
 **Usage Examples:**
-- **SG Property appreciation**: `sg_details_id` set, others NULL
+- **SG Property appreciation**: `property_sg_id` set, others NULL
 - **MY Property appreciation**: `my_details_id` set, others NULL
 - **Asset growth**: `finance_asset_id` set, others NULL
 - **Salary growth**: `finance_income_id` set, others NULL
@@ -384,9 +461,11 @@ CREATE INDEX idx_growth_periods_investment ON growth_periods(finance_investment_
 
 ### Table: `liability_rate_periods` (Generic Rate Periods for Liabilities)
 
-A generic table for multi-period interest rates on any liability (mortgages, car loans, etc.). Each row represents a rate period. Links to either a generic liability OR a property's country-specific details (exactly one).
+A generic table for multi-period interest rates on any liability (mortgages, car loans, etc.). Each row represents a single rate tranche. Links to either a generic liability OR a property's country-specific details (exactly one).
 
-For properties, links directly to country-specific details tables (not the header), making `property_sg_details` self-contained and duplicatable.
+For properties, links directly to country-specific details tables (not the header), making `property_sg` self-contained and duplicatable.
+
+**Simplified Rate Model:** Each row represents one rate tranche with a single `rate` and `rate_type`. For loans with both fixed and floating periods, create separate rows for each period.
 
 ```sql
 CREATE TABLE liability_rate_periods (
@@ -395,44 +474,58 @@ CREATE TABLE liability_rate_periods (
     -- Multiple FKs (exactly one must be non-null)
     liability_id UUID REFERENCES finance_liabilities(id) ON DELETE CASCADE,
     -- Property links go to country-specific details (not header)
-    sg_details_id UUID REFERENCES property_sg_details(id) ON DELETE CASCADE,
-    my_details_id UUID REFERENCES property_my_details(id) ON DELETE CASCADE,
+    property_sg_id UUID REFERENCES property_sg(id) ON DELETE CASCADE,
+    my_details_id UUID,  -- Future: REFERENCES property_my_details(id) ON DELETE CASCADE
 
-    start_month VARCHAR(7) NOT NULL,          -- 'YYYY-MM' when this period begins
-    term_years INT NOT NULL,                  -- Loan term for this period
-    fixed_years INT NOT NULL DEFAULT 0,       -- Years at fixed rate before switching to floating
-    fixed_rate NUMERIC(10,4) NOT NULL,        -- Interest rate during fixed period
-    floating_rate NUMERIC(10,4) NOT NULL,     -- Interest rate after fixed period ends
-    display_order INT NOT NULL DEFAULT 0,     -- 0 = initial, 1+ = refinancing
+    period_order INT NOT NULL DEFAULT 0,      -- For ordering segments (0 = first, 1 = second, etc.)
+    start_date TIMESTAMPTZ NOT NULL,          -- When this rate period begins
+    term_years INT NOT NULL,                  -- Duration of this rate period in years
+    rate NUMERIC(10,4) NOT NULL,              -- Interest rate for this period (e.g., 3.5 for 3.5%)
+    rate_type VARCHAR(10) NOT NULL,           -- 'fixed' | 'floating'
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     -- Exactly one FK must be set
-    CONSTRAINT chk_single_liability_source CHECK (
+    CONSTRAINT chk_rate_period_single_entity CHECK (
         (liability_id IS NOT NULL)::int +
-        (sg_details_id IS NOT NULL)::int +
+        (property_sg_id IS NOT NULL)::int +
         (my_details_id IS NOT NULL)::int = 1
-    )
+    ),
+    CONSTRAINT chk_rate_type CHECK (rate_type IN ('fixed', 'floating'))
 );
 
 CREATE INDEX idx_liability_rate_periods_liability ON liability_rate_periods(liability_id) WHERE liability_id IS NOT NULL;
-CREATE INDEX idx_liability_rate_periods_sg ON liability_rate_periods(sg_details_id) WHERE sg_details_id IS NOT NULL;
-CREATE INDEX idx_liability_rate_periods_my ON liability_rate_periods(my_details_id) WHERE my_details_id IS NOT NULL;
-CREATE INDEX idx_liability_rate_periods_order ON liability_rate_periods(COALESCE(liability_id, sg_details_id, my_details_id), display_order);
+CREATE INDEX idx_liability_rate_periods_property_sg ON liability_rate_periods(property_sg_id);
+CREATE INDEX idx_liability_rate_periods_property_sg_order ON liability_rate_periods(property_sg_id, period_order);
+```
+
+**Simplified vs Legacy Model:**
+- **Legacy**: Combined `fixed_years`, `fixed_rate`, `floating_rate` in one row
+- **New**: Each rate tranche is its own row with `rate` + `rate_type`
+
+**Example: 2-year fixed, then floating mortgage:**
+```sql
+-- Period 1: Fixed rate (2 years)
+INSERT INTO liability_rate_periods (property_sg_id, period_order, start_date, term_years, rate, rate_type)
+VALUES ('...', 0, '2025-01-01', 2, 3.5, 'fixed');
+
+-- Period 2: Floating rate (23 years remaining)
+INSERT INTO liability_rate_periods (property_sg_id, period_order, start_date, term_years, rate, rate_type)
+VALUES ('...', 1, '2027-01-01', 23, 4.0, 'floating');
 ```
 
 **Notes:**
-- **First period (`display_order = 0`)**: The initial loan terms
-- **Subsequent periods**: Refinancing events (e.g., switching banks for better rates)
+- **`period_order`**: Determines sequence (0 = first period, 1 = second, etc.)
+- **`start_date`**: TIMESTAMPTZ when this rate begins
+- **`term_years`**: Duration of this rate tranche
+- **`rate_type`**: `'fixed'` or `'floating'` - determines how rate may change over time
 - **Generic**: Works for any liability - mortgages, car loans, personal loans, etc.
-- **SG Property mortgages**: Link via `sg_details_id`
-- **MY Property mortgages**: Link via `my_details_id`
 
 **Usage Examples:**
-- **SG Property mortgage**: `sg_details_id` set, 2-year fixed at 3.5%, then floating at 4.0%
-- **MY Property mortgage**: `my_details_id` set, Islamic financing at 4.2%
-- **Car loan**: `liability_id` set, 5-year fixed at 2.5%
-- **Refinancing**: Add new period when switching lenders
+- **SG Property mortgage (2yr fixed + floating)**: Two rows - one fixed, one floating
+- **MY Property mortgage**: Islamic financing as fixed rate
+- **Car loan**: Single fixed-rate period
+- **Refinancing**: Add new periods with later `start_date` when switching lenders
 
 ---
 
@@ -468,13 +561,13 @@ erDiagram
     property_scenarios {
         uuid id PK
         varchar user_id
-        uuid sg_details_id FK "country inferred"
+        uuid property_sg_id FK "country inferred"
         uuid my_details_id FK "country inferred"
         timestamptz created_at
         timestamptz updated_at
     }
 
-    property_sg_details {
+    property_sg {
         uuid id PK
         varchar name
         varchar icon
@@ -494,13 +587,20 @@ erDiagram
         uuid borrower2_cpf_account_id FK
         numeric other_debt
         int property_count
-        numeric grants
         varchar bto_launch_date "YYYY-MM"
         varchar bto_key_collection_date "YYYY-MM"
         varchar sale_expected_date "YYYY-MM"
         numeric sale_expected_price
         timestamptz created_at
         timestamptz updated_at
+    }
+
+    property_sg_grants {
+        uuid id PK
+        uuid property_sg_id FK
+        varchar name "EHG|Family Grant|PHG|etc"
+        numeric amount
+        timestamptz created_at
     }
 
     property_my_details {
@@ -528,17 +628,18 @@ erDiagram
 
     property_fees {
         uuid id PK
-        uuid sg_details_id FK "links to country details"
+        uuid scenario_id FK
+        uuid property_sg_id FK "links to country details"
         uuid my_details_id FK "links to country details"
         varchar fee_context "purchase|sale|recurring"
-        text name
-        varchar fee_type "percentage|fixed"
-        numeric value
+        varchar fee_type "legal|valuation|agent|etc"
+        varchar description
+        numeric amount
+        varchar currency
+        boolean is_percentage
         varchar frequency "one_time|monthly|yearly"
-        boolean is_enabled
-        varchar start_date "YYYY-MM"
-        varchar end_date "YYYY-MM"
-        int display_order
+        timestamptz start_date
+        timestamptz end_date
         varchar icon
         varchar icon_color
         timestamptz created_at
@@ -546,30 +647,28 @@ erDiagram
 
     growth_periods {
         uuid id PK
-        uuid sg_details_id FK "links to country details"
+        uuid property_sg_id FK "links to country details"
         uuid my_details_id FK "links to country details"
         uuid finance_asset_id FK
         uuid finance_income_id FK
         uuid finance_investment_id FK
-        int start_year "1-based year"
-        int end_year "NULL = onwards"
+        timestamptz start_date
+        timestamptz end_date "NULL = onwards"
         numeric growth_rate
         varchar growth_strategy "fixed|annual_step|compound_monthly|tiered_adb"
-        int display_order
         timestamptz created_at
     }
 
     liability_rate_periods {
         uuid id PK
         uuid liability_id FK
-        uuid sg_details_id FK "links to country details"
+        uuid property_sg_id FK "links to country details"
         uuid my_details_id FK "links to country details"
-        varchar start_month "YYYY-MM"
+        int period_order "0=first, 1=second, etc"
+        timestamptz start_date
         int term_years
-        int fixed_years
-        numeric fixed_rate
-        numeric floating_rate
-        int display_order "0=initial, 1+=refinance"
+        numeric rate "interest rate"
+        varchar rate_type "fixed|floating"
         timestamptz created_at
     }
 
@@ -615,13 +714,16 @@ erDiagram
         timestamptz updated_at
     }
 
-    property_scenarios ||--o| property_sg_details : "sg_details_id"
+    property_scenarios ||--o| property_sg : "property_sg_id"
     property_scenarios ||--o| property_my_details : "my_details_id"
 
+    %% Property SG grants (multiple per property)
+    property_sg ||--o{ property_sg_grants : "property_sg_id"
+
     %% Child tables link to country-specific details (self-contained)
-    property_sg_details ||--o{ property_fees : "sg_details_id"
-    property_sg_details ||--o{ growth_periods : "sg_details_id (appreciation)"
-    property_sg_details ||--o{ liability_rate_periods : "sg_details_id (mortgage)"
+    property_sg ||--o{ property_fees : "property_sg_id"
+    property_sg ||--o{ growth_periods : "property_sg_id (appreciation)"
+    property_sg ||--o{ liability_rate_periods : "property_sg_id (mortgage)"
     property_my_details ||--o{ property_fees : "my_details_id"
     property_my_details ||--o{ growth_periods : "my_details_id (appreciation)"
     property_my_details ||--o{ liability_rate_periods : "my_details_id (mortgage)"
@@ -633,10 +735,10 @@ erDiagram
     finance_investments ||--o{ growth_periods : "finance_investment_id"
 
     %% Borrower links
-    property_sg_details ||--o| finance_incomes : "borrower1_income_id"
-    property_sg_details ||--o| finance_incomes : "borrower2_income_id"
-    property_sg_details ||--o| cpf_accounts : "borrower1_cpf_account_id"
-    property_sg_details ||--o| cpf_accounts : "borrower2_cpf_account_id"
+    property_sg ||--o| finance_incomes : "borrower1_income_id"
+    property_sg ||--o| finance_incomes : "borrower2_income_id"
+    property_sg ||--o| cpf_accounts : "borrower1_cpf_account_id"
+    property_sg ||--o| cpf_accounts : "borrower2_cpf_account_id"
     property_my_details ||--o| finance_incomes : "borrower_1_income_id"
 ```
 
@@ -646,12 +748,18 @@ erDiagram
 
 | File | Purpose |
 |------|---------|
-| `backend/migrations/20251227000_add_earner_to_incomes.up.sql` | Adds `earner` column to `finance_incomes` |
-| `backend/migrations/20251227000_add_earner_to_incomes.down.sql` | Removes `earner` column |
-| `backend/migrations/20251227001_create_property_tables.up.sql` | Creates all property tables |
-| `backend/migrations/20251227001_create_property_tables.down.sql` | Drops all tables (for rollback) |
-| `backend/migrations/20251227002_drop_legacy_property_tables.up.sql` | Drops `property_links` and old `property_scenarios` tables |
-| `backend/migrations/20251227002_drop_legacy_property_tables.down.sql` | Recreates legacy tables (for rollback safety) |
+| `20251228000_add_earner_to_incomes.up.sql` | Adds `earner` and `residency_status` to `finance_incomes` |
+| `20251228001_add_earner_to_cpf_accounts.up.sql` | Adds `earner` to `cpf_accounts` |
+| `20251228002_create_property_sg_details.up.sql` | Creates `property_sg` table (originally named `property_sg_details`) |
+| `20251228003_create_property_scenarios.up.sql` | Creates `property_scenarios` header table |
+| `20251228004_create_property_fees.up.sql` | Creates `property_fees` table |
+| `20251228005_create_growth_periods.up.sql` | Creates `growth_periods` table |
+| `20251228006_create_liability_rate_periods.up.sql` | Creates `liability_rate_periods` table |
+| `20251229001_create_property_sg_grants.up.sql` | Creates `property_sg_grants` table for multiple grants |
+| `20251229003_add_property_fees_icon.up.sql` | Adds `icon` and `icon_color` to `property_fees` |
+| `20251229004_property_fees_dates_to_timestamp.up.sql` | Converts `start_date/end_date` to TIMESTAMPTZ |
+| `20251230000_rename_property_sg_and_dates.up.sql` | Renames `property_sg_details` → `property_sg`, `sg_details_id` → `property_sg_id`, converts dates to TIMESTAMPTZ |
+| `20251230001_simplify_rate_periods.up.sql` | Simplifies rate model: `fixed_years/fixed_rate/floating_rate` → `rate/rate_type` |
 
 ---
 
