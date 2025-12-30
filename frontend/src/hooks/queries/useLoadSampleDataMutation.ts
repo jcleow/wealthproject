@@ -577,7 +577,7 @@ export function useLoadSampleDataMutation() {
               termYears: 25,
               fixedYears: 0, // HDB loan has no fixed period
               fixedRate: '2.6', // HDB concessionary rate 2.6%
-              floatingRate: '0.026',
+              floatingRate: '2.6', // Same rate for HDB loans (was incorrectly 0.026)
             },
           ],
           growthPeriods: [

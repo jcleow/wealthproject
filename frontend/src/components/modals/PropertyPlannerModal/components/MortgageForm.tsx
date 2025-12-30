@@ -692,7 +692,15 @@ function FinancingStep({
         <FormInput
           label={isHDB ? 'Interest Rate' : 'Fixed Rate'}
           value={inputs.fixedRate}
-          onChange={(v) => onChange('fixedRate', Number(v))}
+          onChange={(v) => {
+            const rate = Number(v)
+            onChange('fixedRate', rate)
+            // For HDB loans, also update floatingRate to keep them in sync
+            // since HDB uses a single rate (no fixed/floating split)
+            if (isHDB) {
+              onChange('floatingRate', rate)
+            }
+          }}
           type="number"
           step={0.1}
           min={0}
