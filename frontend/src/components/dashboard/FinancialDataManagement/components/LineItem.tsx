@@ -157,11 +157,18 @@ shadow-lg`}
             </Tooltip.Provider>
           )}
           {/* Scenario indicator - show event icon for start impacts, property icon for property fees, amber dot for others */}
-          {item.itemType === 'property_fee' && item.icon ? (
+          {item.itemType === 'property_fee' && item.icon && item.scenarioEventId ? (
             <Tooltip.Provider delayDuration={0}>
               <Tooltip.Root>
                 <Tooltip.Trigger asChild>
-                  <span className="flex-shrink-0 rounded p-0.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      window.dispatchEvent(new CustomEvent('open-property-scenario', { detail: { scenarioId: item.scenarioEventId } }))
+                    }}
+                    className="flex-shrink-0 rounded p-0.5 transition hover:bg-white/10"
+                  >
                     {(() => {
                       const Icon = getIconByName(item.icon)
                       return Icon ? (
@@ -178,14 +185,14 @@ shadow-lg`}
                         </span>
                       )
                     })()}
-                  </span>
+                  </button>
                 </Tooltip.Trigger>
                 <Tooltip.Content
                   side="top"
                   sideOffset={6}
                   className="z-50 rounded-md bg-black px-2 py-1 text-xs text-white shadow-lg"
                 >
-                  Property fee
+                  Property fee - click to edit property
                 </Tooltip.Content>
               </Tooltip.Root>
             </Tooltip.Provider>
