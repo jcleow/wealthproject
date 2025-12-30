@@ -103,13 +103,13 @@ func (s *PropertySnapshot) ToExpenses(currentDate time.Time) []PropertyFeeExpens
 
 // SnapshotBuilder handles building property snapshots for the timeline
 type SnapshotBuilder struct {
-	growthRegistry *growth.Registry
+	growthCalculator *growth.MultiPeriodCalculator
 }
 
 // NewSnapshotBuilder creates a new snapshot builder
 func NewSnapshotBuilder() *SnapshotBuilder {
 	return &SnapshotBuilder{
-		growthRegistry: growth.NewRegistry(),
+		growthCalculator: growth.NewMultiPeriodCalculator(),
 	}
 }
 
@@ -203,59 +203,25 @@ func (b *SnapshotBuilder) BuildPropertySnapshots(properties []repo.PropertyScena
 }
 
 // calculatePropertyValueAtDate applies growth periods to get property value at a specific date
-// using the growth module for accurate decimal calculations
+// using the growth module's MultiPeriodCalculator for accurate decimal calculations
 func (b *SnapshotBuilder) calculatePropertyValueAtDate(initialPrice *decimal.Decimal, periods []repo.GrowthPeriod, purchaseDate, targetDate time.Time) *decimal.Decimal {
-	value := initialPrice
-
-	// Growth periods use StartDate/EndDate (timestamptz)
-	for _, period := range periods {
-		periodStartYear := period.StartDate.Year()
-		if targetDate.Year() < periodStartYear {
-			continue
-		}
-		if period.EndDate != nil && targetDate.Year() > period.EndDate.Year() {
-			continue
-		}
-
-		startYear := periodStartYear
-		if purchaseDate.Year() > startYear {
-			startYear = purchaseDate.Year()
-		}
-
-		yearsOfGrowth := targetDate.Year() - startYear
-		if yearsOfGrowth <= 0 {
-			continue
-		}
-
-		// Get the growth strategy from the registry (default to annual_step if not found)
-		strategyName := period.GrowthStrategy
-		if strategyName == "" {
-			strategyName = growth.StrategyAnnualStep
-		}
-
-		strategy, err := b.growthRegistry.Get(strategyName)
-		if err != nil {
-			// Fall back to annual_step if strategy not found
-			strategy, _ = b.growthRegistry.Get(growth.StrategyAnnualStep)
-		}
-
-		// Apply growth for each year using the growth module's strategy
-		params := growth.Params{
-			AnnualRatePct: &period.GrowthRate,
-		}
-
-		// For property appreciation, we apply annual growth
-		// Calculate the month index for each January after purchase
-		for year := 1; year <= yearsOfGrowth; year++ {
-			// currentMonth is the absolute month (e.g., year 2 = month 13-24)
-			// Apply in January (month 1 of that year)
-			currentMonth := year*12 + 1 // January of the target year
-			monthOfYear := 1             // January
-			value = strategy.Apply(value, params, currentMonth, monthOfYear)
-		}
+	if len(periods) == 0 {
+		return initialPrice
 	}
 
-	return value
+	// Convert repository growth periods to growth module's PeriodConfig
+	periodConfigs := make([]growth.PeriodConfig, 0, len(periods))
+	for _, period := range periods {
+		config := growth.PeriodConfig{
+			StartDate:     period.StartDate,
+			EndDate:       period.EndDate,
+			AnnualRatePct: &period.GrowthRate,
+			StrategyName:  period.GrowthStrategy,
+		}
+		periodConfigs = append(periodConfigs, config)
+	}
+
+	return b.growthCalculator.CalculateValueAtDate(initialPrice, purchaseDate, targetDate, periodConfigs)
 }
 
 // calculateMortgageBalanceAtDate calculates the outstanding mortgage balance at a specific date
