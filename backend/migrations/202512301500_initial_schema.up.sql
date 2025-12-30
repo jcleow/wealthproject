@@ -270,7 +270,7 @@ CREATE TABLE finance_incomes (
     category text NOT NULL,
     income_type text DEFAULT 'other' CHECK (income_type IN ('salary', 'bonus', 'commission', 'rental', 'dividend', 'freelance', 'other')),
     cpf_wage_type text CHECK (cpf_wage_type IS NULL OR cpf_wage_type IN ('ow', 'aw')),
-    earner character varying(20) DEFAULT 'self' CHECK (earner IN ('self', 'spouse', 'other')),
+    earner character varying(50) DEFAULT '',
     growth_rate numeric(10,4) DEFAULT 3.0 NOT NULL,
     growth_strategy character varying(50) DEFAULT 'annual_step'
         CHECK (growth_strategy IN ('compound_monthly', 'annual_step', 'tiered_adb', 'fixed')),
@@ -416,7 +416,7 @@ CREATE TABLE cpf_accounts (
     residency_status text DEFAULT 'citizen' NOT NULL
         CHECK (residency_status IN ('citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus')),
     pr_grant_date date,
-    earner character varying(20) DEFAULT 'self' CHECK (earner IN ('self', 'spouse', 'other')),
+    earner character varying(50) DEFAULT '',
     start_date timestamp with time zone DEFAULT now() NOT NULL,
     end_date timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
