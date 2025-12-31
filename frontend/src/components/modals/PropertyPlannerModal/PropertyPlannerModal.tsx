@@ -11,9 +11,11 @@ interface PropertyPlannerModalProps {
   onClose: () => void
   /** Optional scenario ID to directly open in edit mode */
   initialScenarioId?: string
+  /** Callback to jump to a specific date on the timeline */
+  onJumpToDate?: (year: number, month: number) => void
 }
 
-export function PropertyPlannerModal({ isOpen, onClose, initialScenarioId }: PropertyPlannerModalProps) {
+export function PropertyPlannerModal({ isOpen, onClose, initialScenarioId, onJumpToDate }: PropertyPlannerModalProps) {
   const [footerState, setFooterState] = useState<FooterState | null>(null)
 
   const handleFooterStateChange = useCallback((state: FooterState | null) => {
@@ -65,6 +67,7 @@ export function PropertyPlannerModal({ isOpen, onClose, initialScenarioId }: Pro
           onClose={handleClose}
           initialScenarioId={initialScenarioId}
           onFooterStateChange={handleFooterStateChange}
+          onJumpToDate={onJumpToDate}
         />
       </div>
 

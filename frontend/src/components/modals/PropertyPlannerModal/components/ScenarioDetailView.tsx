@@ -11,6 +11,7 @@ import {
   Home,
   Banknote,
   TrendingUp,
+  ExternalLink,
 } from 'lucide-react'
 
 import type {
@@ -61,6 +62,8 @@ interface ScenarioDetailViewProps {
   onEditingScenarioIconSearchChange: (search: string) => void
   onSaveAndClose: () => void
   onBack: () => void
+  /** Callback to jump to a specific date on the timeline */
+  onJumpToDate?: (year: number, month: number) => void
 }
 
 export function ScenarioDetailView({
@@ -85,6 +88,7 @@ export function ScenarioDetailView({
   onEditingScenarioIconColorChange,
   onEditingScenarioIconSearchChange,
   onBack,
+  onJumpToDate,
 }: ScenarioDetailViewProps) {
   const selectedOption = propertyOptions.find(o => o.id === selectedType)
   const calculation = useMemo(() => calculateMortgage(inputs), [inputs])
@@ -133,6 +137,23 @@ export function ScenarioDetailView({
                 className="text-2xl font-semibold text-white tracking-tight bg-transparent border-none outline-none focus:ring-0 placeholder:text-slate-600 hover:bg-white/[0.03] focus:bg-white/[0.05] rounded-lg px-2 py-1 -ml-2 transition-colors"
                 placeholder="Scenario name"
               />
+              {onJumpToDate && inputs.loanStartMonth && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const [yearStr, monthStr] = inputs.loanStartMonth.split('-')
+                    const year = parseInt(yearStr, 10)
+                    const month = parseInt(monthStr, 10)
+                    if (!isNaN(year) && !isNaN(month)) {
+                      onJumpToDate(year, month)
+                    }
+                  }}
+                  className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-blue-400 hover:border-blue-500/40 hover:bg-white/[0.05] transition-all"
+                  title="Jump to purchase date on timeline"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+              )}
               {hasChanges && (
                 <span className="text-xs text-amber-400/80 font-medium">Unsaved changes</span>
               )}
