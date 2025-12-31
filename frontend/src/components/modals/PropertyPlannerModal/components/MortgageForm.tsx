@@ -39,6 +39,8 @@ import {
 
 import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
 import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
+import { useTimelineV2Query } from '@/hooks/queries/useTimelineV2Query'
+import type { CPFAssetResponseV2 } from '@/types/timeline'
 
 // Income option type for dropdowns
 type IncomeOption = {
@@ -54,6 +56,25 @@ interface MortgageFormProps {
   propertyType: PropertyType
 }
 
+// Convert YYYY-MM to DD-MM-YYYY format for timeline API
+function toTimelineDateFormat(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-')
+  return `01-${month}-${year}`
+}
+
+// Extract projected OA balance from timeline CPF assets by earner name
+function getProjectedOaByEarner(
+  cpfAssets: CPFAssetResponseV2[],
+  earner: string
+): number | null {
+  const earnerLower = earner.toLowerCase()
+  const oaAsset = cpfAssets.find(
+    (a) => a.earner?.toLowerCase() === earnerLower && a.name === 'OA'
+  )
+  if (!oaAsset) return null
+  return parseFloat(oaAsset.balance) || 0
+}
+
 export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormProps) {
   const [currentStep, setCurrentStep] = useState<FormStep>('property')
   const isHDB = propertyType.includes('hdb')
@@ -61,6 +82,76 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
   // Fetch real incomes and CPF accounts from API
   const { data: rawIncomes = [] } = useIncomesQuery()
   const { data: cpfAccounts = [] } = useCpfAccountsQuery()
+
+  // Fetch projected CPF at purchase date from V2 timeline API
+  const purchaseDateForTimeline = toTimelineDateFormat(inputs.loanStartMonth)
+  const { data: timelineData } = useTimelineV2Query({
+    startDate: purchaseDateForTimeline,
+    endDate: purchaseDateForTimeline,
+    includeScenarios: false, // Use base projections without scenario impacts
+  })
+
+  // Get projected CPF assets at purchase date
+  const projectedCpfAssets = useMemo(() => {
+    const month = timelineData?.months?.[0]
+    return month?.cpfAssets ?? []
+  }, [timelineData])
+
+  // Create CPF accounts with projected OA balances at purchase date
+  const projectedCpfAccounts = useMemo(() => {
+    return cpfAccounts.map((account) => {
+      const projectedOa = account.earner
+        ? getProjectedOaByEarner(projectedCpfAssets, account.earner)
+        : null
+      return {
+        id: account.id,
+        earner: account.earner,
+        // Use projected OA if available, otherwise fall back to current balance
+        oaBalance: projectedOa ?? account.oaBalance,
+      }
+    })
+  }, [cpfAccounts, projectedCpfAssets])
+
+  // Track previous loanStartMonth to detect date changes
+  const prevLoanStartMonth = useRef(inputs.loanStartMonth)
+
+  // Update borrower OA balances when projected data changes (e.g., purchase date changed)
+  useEffect(() => {
+    // Only update if we have new projected data and the date changed
+    if (projectedCpfAssets.length === 0) return
+    if (prevLoanStartMonth.current === inputs.loanStartMonth) return
+
+    prevLoanStartMonth.current = inputs.loanStartMonth
+
+    // Update borrower 1 OA balance if they have an income selected
+    if (inputs.borrower1IncomeId) {
+      const income = rawIncomes.find((i) => i.id === inputs.borrower1IncomeId)
+      if (income?.earner) {
+        const projectedOa = getProjectedOaByEarner(projectedCpfAssets, income.earner)
+        if (projectedOa !== null) {
+          onChange('borrower1OaBalance', projectedOa)
+          // Update total CPF OA balance
+          if (inputs.borrowerType === 'joint') {
+            onChange('cpfOaBalance', projectedOa + inputs.borrower2OaBalance)
+          } else {
+            onChange('cpfOaBalance', projectedOa)
+          }
+        }
+      }
+    }
+
+    // Update borrower 2 OA balance if in joint mode
+    if (inputs.borrowerType === 'joint' && inputs.borrower2IncomeId) {
+      const income = rawIncomes.find((i) => i.id === inputs.borrower2IncomeId)
+      if (income?.earner) {
+        const projectedOa = getProjectedOaByEarner(projectedCpfAssets, income.earner)
+        if (projectedOa !== null) {
+          onChange('borrower2OaBalance', projectedOa)
+          onChange('cpfOaBalance', inputs.borrower1OaBalance + projectedOa)
+        }
+      }
+    }
+  }, [projectedCpfAssets, inputs.loanStartMonth, inputs.borrower1IncomeId, inputs.borrower2IncomeId, inputs.borrowerType, inputs.borrower1OaBalance, inputs.borrower2OaBalance, rawIncomes, onChange])
 
   // Transform incomes into the dropdown format
   const incomes: IncomeOption[] = useMemo(() => {
@@ -235,7 +326,7 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
                 inputs={inputs}
                 onChange={onChange}
                 incomes={incomes}
-                cpfAccounts={cpfAccounts}
+                cpfAccounts={projectedCpfAccounts}
                 exceedsHdbIncomeCeiling={exceedsHdbIncomeCeiling}
                 exceedsEcIncomeCeiling={exceedsEcIncomeCeiling}
                 purchaseDateFormatted={formatPurchaseDate(inputs.loanStartMonth)}
@@ -384,20 +475,29 @@ function PropertyStep({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <FormInput
-          label="Property Price"
-          prefix="$"
-          value={inputs.propertyPrice.toLocaleString()}
-          onChange={(v) => {
-            const newPrice = Number(v.replace(/[^0-9]/g, '')) || 0
-            onChange('propertyPrice', newPrice)
-            if (!isResale) {
-              onChange('valuationPrice', newPrice)
-            }
-          }}
-        />
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
+          <div className="h-4 flex items-center">
+            <label className="text-xs font-medium text-slate-400">Property Price</label>
+          </div>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">$</span>
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={inputs.propertyPrice.toLocaleString()}
+              onChange={(e) => {
+                const newPrice = Number(e.target.value.replace(/[^0-9]/g, '')) || 0
+                onChange('propertyPrice', newPrice)
+                if (!isResale) {
+                  onChange('valuationPrice', newPrice)
+                }
+              }}
+              className="w-full rounded-xl bg-white/[0.05] border-white/[0.10] text-white text-sm py-2.5 pl-7 pr-3 hover:border-white/[0.15] focus:border-white/30 focus:bg-white/[0.08] focus:ring-1 focus:ring-white/10"
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <div className="h-4 flex items-center justify-between">
             <label className="text-xs font-medium text-slate-400">Downpayment</label>
             {!isStaggeredActive && (
               <div className="flex items-center gap-0.5 p-0.5 bg-white/[0.03] border border-white/[0.06] rounded-md">
@@ -405,7 +505,7 @@ function PropertyStep({
                   type="button"
                   onClick={() => setInputMode('$')}
                   className={cn(
-                    "px-1.5 py-0.5 rounded text-[10px] font-medium transition-all",
+                    "px-1.5 py-0.5 rounded text-[10px] font-medium transition-all leading-none",
                     inputMode === '$' ? "bg-white/[0.1] text-white" : "text-slate-500 hover:text-slate-300"
                   )}
                 >
@@ -415,7 +515,7 @@ function PropertyStep({
                   type="button"
                   onClick={() => setInputMode('%')}
                   className={cn(
-                    "px-1.5 py-0.5 rounded text-[10px] font-medium transition-all",
+                    "px-1.5 py-0.5 rounded text-[10px] font-medium transition-all leading-none",
                     inputMode === '%' ? "bg-white/[0.1] text-white" : "text-slate-500 hover:text-slate-300"
                   )}
                 >
