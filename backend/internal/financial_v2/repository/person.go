@@ -218,3 +218,32 @@ func (s *Store) TogglePersonIncluded(ctx context.Context, userID, id string) (*P
 
 	return &updated, nil
 }
+
+// GetExcludedPersonIDs returns IDs of persons where is_included = false.
+// Used to filter incomes and CPF accounts from excluded persons in timeline calculations.
+func (s *Store) GetExcludedPersonIDs(ctx context.Context, userID string) (map[string]struct{}, error) {
+	query := `SELECT id FROM persons WHERE user_id = $1 AND is_included = false`
+
+	logQuery(query, []any{userID})
+
+	rows, err := s.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get excluded person IDs: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]struct{})
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("failed to scan excluded person ID: %w", err)
+		}
+		result[id] = struct{}{}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return result, nil
+}

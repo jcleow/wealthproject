@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { personsApi } from '@/api/financial/persons'
+import { personsApi, type BulkPersonUpdate } from '@/api/financial/persons'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import type { PersonCreatePayload, PersonUpdatePayload } from '@/types/person'
 
@@ -111,4 +111,25 @@ export function useIncludedPersonsQuery() {
     ...query,
     data: query.data?.filter((p) => p.isIncluded) ?? [],
   }
+}
+
+/**
+ * Mutation hook to bulk update multiple persons
+ * Used for batch saving changes from the PersonsModal
+ */
+export function useBulkUpdatePersonsMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (updates: BulkPersonUpdate[]) => personsApi.bulkUpdatePersons(updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PERSONS_QUERY_KEY })
+      // Invalidate all financial data since visibility may have changed
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.all })
+    },
+    onError: () => {
+      // If bulk update fails, refresh persons list
+      queryClient.invalidateQueries({ queryKey: PERSONS_QUERY_KEY })
+    },
+  })
 }

@@ -52,12 +52,20 @@ func (m *mockStore) GetCPFAccount(ctx context.Context, userID string) (*repo.CPF
 	return nil, nil
 }
 
+func (m *mockStore) ListCPFAccounts(ctx context.Context, userID string, dateOpts repo.DateRangeOptions) ([]repo.CPFAccount, error) {
+	return nil, nil
+}
+
 func (m *mockStore) ListAllIncomeAllocations(ctx context.Context, userID string) ([]repo.IncomeAllocation, error) {
 	return m.incomeAllocs, nil
 }
 
 func (m *mockStore) GetExcludedScenarioTargetIDs(ctx context.Context, userID string) (repo.ExcludedTargets, error) {
 	return repo.ExcludedTargets{}, nil
+}
+
+func (m *mockStore) GetExcludedPersonIDs(ctx context.Context, userID string) (map[string]struct{}, error) {
+	return nil, nil
 }
 
 func (m *mockStore) ListIncludedScenarioEvents(ctx context.Context, userID string) ([]repo.ScenarioEvent, error) {

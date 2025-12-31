@@ -111,17 +111,18 @@ func (s *Service) loadEffectiveRows(
 	includeScenarios bool,
 ) (SGFinancialDataRows, error) {
 	var (
-		nonCashAssets     repo.PaginatedResult[repo.NonCashAsset]
-		investments       repo.PaginatedResult[repo.Investment]
-		cashAssets        repo.PaginatedResult[repo.CashAsset]
-		liabilities       repo.PaginatedResult[repo.Liability]
-		incomes           repo.PaginatedResult[repo.Income]
-		expenses          repo.PaginatedResult[repo.Expense]
-		cpfAccounts       []repo.CPFAccount
-		incomeAllocations []repo.IncomeAllocation
-		excludedTargets   repo.ExcludedTargets
-		scenarioEvents    []repo.ScenarioEvent
-		properties        []repo.PropertyScenarioFull
+		nonCashAssets      repo.PaginatedResult[repo.NonCashAsset]
+		investments        repo.PaginatedResult[repo.Investment]
+		cashAssets         repo.PaginatedResult[repo.CashAsset]
+		liabilities        repo.PaginatedResult[repo.Liability]
+		incomes            repo.PaginatedResult[repo.Income]
+		expenses           repo.PaginatedResult[repo.Expense]
+		cpfAccounts        []repo.CPFAccount
+		incomeAllocations  []repo.IncomeAllocation
+		excludedTargets    repo.ExcludedTargets
+		excludedPersonIDs  map[string]struct{}
+		scenarioEvents     []repo.ScenarioEvent
+		properties         []repo.PropertyScenarioFull
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -187,6 +188,12 @@ func (s *Service) loadEffectiveRows(
 		return err
 	})
 
+	g.Go(func() error {
+		var err error
+		excludedPersonIDs, err = s.store.GetExcludedPersonIDs(gctx, userID)
+		return err
+	})
+
 	// Load scenario events if requested
 	g.Go(func() error {
 		if !includeScenarios {
@@ -218,19 +225,26 @@ func (s *Service) loadEffectiveRows(
 	}
 
 	// Transform repository types to FinancialDataRow
-	// Filter out items from excluded scenarios
+	// Filter out items from excluded scenarios and excluded persons
+	transformedIncomes := transformIncomes(incomes.Data)
+	filteredIncomes := filterExcludedIncomes(transformedIncomes, excludedTargets.IncomeIDs)
+	filteredIncomes = filterByExcludedPersons(filteredIncomes, excludedPersonIDs)
+
 	rows := EffectiveRows{
 		NonCashAssets: filterExcludedAssets(transformNonCashAssets(nonCashAssets.Data), excludedTargets.AssetIDs),
 		Investments:   filterExcludedInvestments(transformInvestments(investments.Data), excludedTargets.InvestmentIDs),
 		CashAssets:    filterExcludedCashAssets(transformCashAssets(cashAssets.Data), excludedTargets.CashAccountIDs),
 		Liabilities:   filterExcludedLiabilities(transformLiabilities(liabilities.Data), excludedTargets.LiabilityIDs),
-		Incomes:       filterExcludedIncomes(transformIncomes(incomes.Data), excludedTargets.IncomeIDs),
+		Incomes:       filteredIncomes,
 		Expenses:      filterExcludedExpenses(transformExpenses(expenses.Data), excludedTargets.ExpenseIDs),
 	}
 
+	// Filter CPF accounts by excluded persons
+	filteredCPFAccounts := filterCPFAccountsByExcludedPersons(cpfAccounts, excludedPersonIDs)
+
 	return SGFinancialDataRows{
 		Rows:              rows,
-		CPFAccounts:       mapToCPFAccounts(cpfAccounts),
+		CPFAccounts:       mapToCPFAccounts(filteredCPFAccounts),
 		IncomeAllocations: incomeAllocations,
 		ScenarioImpacts:   impactCtx,
 		Properties:        properties,
@@ -630,6 +644,46 @@ func filterExcludedExpenses(rows []FinancialDataRow, excludedIDs map[string]stru
 	for _, row := range rows {
 		if _, excluded := excludedIDs[row.ID]; !excluded {
 			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
+// filterByExcludedPersons removes incomes belonging to excluded persons.
+// Incomes with empty PersonID (unassigned) are always included.
+func filterByExcludedPersons(rows []FinancialDataRow, excludedPersonIDs map[string]struct{}) []FinancialDataRow {
+	if len(excludedPersonIDs) == 0 {
+		return rows
+	}
+	filtered := make([]FinancialDataRow, 0, len(rows))
+	for _, row := range rows {
+		// Include if PersonID is empty (unassigned) or not in excluded set
+		if row.PersonID == "" {
+			filtered = append(filtered, row)
+			continue
+		}
+		if _, excluded := excludedPersonIDs[row.PersonID]; !excluded {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
+// filterCPFAccountsByExcludedPersons removes CPF accounts belonging to excluded persons.
+// CPF accounts with empty PersonID (unassigned) are always included.
+func filterCPFAccountsByExcludedPersons(accounts []repo.CPFAccount, excludedPersonIDs map[string]struct{}) []repo.CPFAccount {
+	if len(excludedPersonIDs) == 0 {
+		return accounts
+	}
+	filtered := make([]repo.CPFAccount, 0, len(accounts))
+	for _, acct := range accounts {
+		// Include if PersonID is empty (unassigned) or not in excluded set
+		if acct.PersonID == "" {
+			filtered = append(filtered, acct)
+			continue
+		}
+		if _, excluded := excludedPersonIDs[acct.PersonID]; !excluded {
+			filtered = append(filtered, acct)
 		}
 	}
 	return filtered

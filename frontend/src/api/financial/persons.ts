@@ -65,6 +65,33 @@ export async function togglePersonIncluded(id: string): Promise<Person> {
   return toPerson(data)
 }
 
+export interface BulkPersonUpdate {
+  id: string
+  isIncluded?: boolean
+  name?: string
+  displayColor?: string
+}
+
+/**
+ * Bulk update multiple persons in parallel
+ * Used for batch saving changes from the PersonsModal
+ */
+export async function bulkUpdatePersons(updates: BulkPersonUpdate[]): Promise<Person[]> {
+  const results = await Promise.all(
+    updates.map(async ({ id, isIncluded, name, displayColor }) => {
+      // Build the update payload (only include fields that are set)
+      const payload: PersonUpdatePayload = {}
+      if (name !== undefined) payload.name = name
+      if (displayColor !== undefined) payload.displayColor = displayColor
+      if (isIncluded !== undefined) payload.isIncluded = isIncluded
+
+      const data = await apiClient.put<any>(`/persons/${id}`, payload, { baseUrl: '/api/v2' })
+      return toPerson(data)
+    })
+  )
+  return results
+}
+
 export const personsApi = {
   listPersons,
   getPerson,
@@ -72,4 +99,5 @@ export const personsApi = {
   updatePerson,
   deletePerson,
   togglePersonIncluded,
+  bulkUpdatePersons,
 }

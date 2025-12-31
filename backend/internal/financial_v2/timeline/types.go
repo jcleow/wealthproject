@@ -70,6 +70,8 @@ type Store interface {
 	ListAllIncomeAllocations(context.Context, string) ([]repository.IncomeAllocation, error)
 	// GetExcludedScenarioTargetIDs returns IDs of financial items created by excluded scenarios
 	GetExcludedScenarioTargetIDs(context.Context, string) (repository.ExcludedTargets, error)
+	// GetExcludedPersonIDs returns IDs of persons where is_included=false
+	GetExcludedPersonIDs(context.Context, string) (map[string]struct{}, error)
 	// ListIncludedScenarioEvents returns scenario events where is_included=true with their impacts
 	ListIncludedScenarioEvents(context.Context, string) ([]repository.ScenarioEvent, error)
 	// ListIncludedPropertyScenarios returns property scenarios where is_included=true for timeline projection

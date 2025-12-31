@@ -73,12 +73,20 @@ func (m *startImpactTestStore) GetCPFAccount(ctx context.Context, userID string)
 	return nil, nil
 }
 
+func (m *startImpactTestStore) ListCPFAccounts(ctx context.Context, userID string, dateOpts repo.DateRangeOptions) ([]repo.CPFAccount, error) {
+	return nil, nil
+}
+
 func (m *startImpactTestStore) ListAllIncomeAllocations(ctx context.Context, userID string) ([]repo.IncomeAllocation, error) {
 	return m.incomeAllocs, nil
 }
 
 func (m *startImpactTestStore) GetExcludedScenarioTargetIDs(ctx context.Context, userID string) (repo.ExcludedTargets, error) {
 	return m.excludedTargets, nil
+}
+
+func (m *startImpactTestStore) GetExcludedPersonIDs(ctx context.Context, userID string) (map[string]struct{}, error) {
+	return nil, nil
 }
 
 func (m *startImpactTestStore) ListIncludedScenarioEvents(ctx context.Context, userID string) ([]repo.ScenarioEvent, error) {
