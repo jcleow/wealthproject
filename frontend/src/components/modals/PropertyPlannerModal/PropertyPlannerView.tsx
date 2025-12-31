@@ -32,6 +32,11 @@ import {
   useDeletePropertyPlannerV2ScenarioMutation,
   useTogglePropertyPlannerV2ScenarioMutation,
 } from '@/hooks/queries'
+import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
+import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
+import type { Income } from '@/types/financial'
+import type { CPFAccount } from '@/types/cpf'
+import { calculateMonthlyOaInflow } from '@/app/property-planner/hooks'
 
 import {
   ScenarioList,
@@ -157,14 +162,14 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     householdIncome: 0, // Will be derived from income IDs
     otherDebt: parseFloat(sgDetails.otherDebt),
     borrowerType: sgDetails.borrowerType,
-    cpfOaBalance: 0, // Will be derived from CPF account ID
+    cpfOaBalance: parseFloat(apiScenario.computed?.projectedBorrower1OA ?? '0') + parseFloat(apiScenario.computed?.projectedBorrower2OA ?? '0'),
     monthlyCpfOa: 0,
     grants,
     borrower1IncomeId: sgDetails.borrower1IncomeId || '',
-    borrower1OaBalance: 0,
+    borrower1OaBalance: parseFloat(apiScenario.computed?.projectedBorrower1OA ?? '0'),
     borrower1LiabilityIds: [],
     borrower2IncomeId: sgDetails.borrower2IncomeId || null,
-    borrower2OaBalance: 0,
+    borrower2OaBalance: parseFloat(apiScenario.computed?.projectedBorrower2OA ?? '0'),
     borrower2LiabilityIds: [],
     purchaseFees: purchaseFees.length > 0 ? purchaseFees : DEFAULT_SALE_FEES.map(f => ({ ...f })),
     absdRate: 0, // Derived from residency
@@ -310,9 +315,11 @@ interface PropertyPlannerViewProps {
   initialScenarioId?: string
   /** Callback to report footer state to parent */
   onFooterStateChange?: (state: FooterState | null) => void
+  /** Callback to jump to a specific date on the timeline */
+  onJumpToDate?: (year: number, month: number) => void
 }
 
-export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateChange }: PropertyPlannerViewProps) {
+export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateChange, onJumpToDate }: PropertyPlannerViewProps) {
   // API hooks
   const { data: apiScenarios, isLoading } = usePropertyPlannerV2ScenariosQuery()
   const createMutation = useCreatePropertyPlannerV2ScenarioMutation()
@@ -583,6 +590,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
               onSaveAndClose={handleSaveAndClose}
               onBack={handleBack}
               hasChanges={hasChanges}
+              onJumpToDate={onJumpToDate}
             />
           )}
         </AnimatePresence>

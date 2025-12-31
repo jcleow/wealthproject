@@ -228,6 +228,9 @@ export interface ComputedValues {
   absdAmount: string
   totalStampDuty: string
   totalUpfrontCash: string
+  // Projected CPF OA balances at purchase date (accounting for contributions + interest)
+  projectedBorrower1OA?: string
+  projectedBorrower2OA?: string
 }
 
 /**

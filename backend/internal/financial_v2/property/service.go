@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"financial-chat-system/backend/internal/cpf/projector"
 	"financial-chat-system/backend/internal/decimal"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
@@ -65,11 +66,15 @@ type ComputedValues struct {
 	TotalStampDuty   string `json:"totalStampDuty"`
 	TotalUpfrontCash string `json:"totalUpfrontCash"`
 
+	// Projected CPF OA balances at purchase date
+	ProjectedBorrower1OA string `json:"projectedBorrower1OA,omitempty"`
+	ProjectedBorrower2OA string `json:"projectedBorrower2OA,omitempty"`
+
 	// Cross-property context (only populated when scenario is included)
-	OtherMortgageTotal  string                   `json:"otherMortgageTotal,omitempty"`
-	EffectiveTDSRRatio  string                   `json:"effectiveTdsrRatio,omitempty"`
-	TDSRLimit           string                   `json:"tdsrLimit,omitempty"`
-	CPFOAUsageByAccount []CPFOAAccountUsageInfo  `json:"cpfOaUsageByAccount,omitempty"`
+	OtherMortgageTotal  string                  `json:"otherMortgageTotal,omitempty"`
+	EffectiveTDSRRatio  string                  `json:"effectiveTdsrRatio,omitempty"`
+	TDSRLimit           string                  `json:"tdsrLimit,omitempty"`
+	CPFOAUsageByAccount []CPFOAAccountUsageInfo `json:"cpfOaUsageByAccount,omitempty"`
 }
 
 // CPFOAAccountUsageInfo shows CPF OA usage info for display purposes
@@ -166,15 +171,17 @@ type CreateGrantParams struct {
 
 // Service handles property scenario business logic
 type Service struct {
-	store      *repo.Store
-	calculator *Calculator
+	store        *repo.Store
+	calculator   *Calculator
+	cpfProjector *projector.Projector
 }
 
 // NewService creates a new property service
 func NewService(store *repo.Store) *Service {
 	return &Service{
-		store:      store,
-		calculator: NewCalculator(),
+		store:        store,
+		calculator:   NewCalculator(),
+		cpfProjector: projector.New(),
 	}
 }
 
@@ -671,6 +678,115 @@ func (s *Service) ComputeValues(scenario *repo.PropertyScenarioFull) *ComputedVa
 	}
 }
 
+// getProjectedBorrowerBalances projects CPF OA balances to the purchase date for both borrowers.
+// It returns projected OA balances accounting for contributions and interest growth.
+func (s *Service) getProjectedBorrowerBalances(
+	ctx context.Context,
+	userID string,
+	borrower1IncomeID, borrower1CpfAccountID *string,
+	borrower2IncomeID, borrower2CpfAccountID *string,
+	purchaseDate time.Time,
+) (borrower1OA, borrower2OA *decimal.Decimal, err error) {
+	// Helper function to project a single borrower
+	projectBorrower := func(incomeID, cpfAccountID *string) (*decimal.Decimal, error) {
+		if cpfAccountID == nil {
+			return nil, nil
+		}
+
+		// Get CPF account
+		cpfAccount, err := s.store.GetCPFAccountByID(ctx, userID, *cpfAccountID)
+		if err != nil {
+			if errors.Is(err, repo.ErrNotFound) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("get CPF account: %w", err)
+		}
+
+		// Build account snapshot
+		snapshot := projector.AccountSnapshot{
+			OABalance:       &cpfAccount.OABalance,
+			SABalance:       &cpfAccount.SABalance,
+			MABalance:       &cpfAccount.MABalance,
+			RABalance:       &cpfAccount.RABalance,
+			DateOfBirth:     cpfAccount.DateOfBirth,
+			ResidencyStatus: cpfAccount.ResidencyStatus,
+			AsOfDate:        cpfAccount.StartDate,
+		}
+
+		// Build income streams
+		var incomes []projector.IncomeStream
+		if incomeID != nil {
+			income, err := s.store.GetIncome(ctx, userID, *incomeID)
+			if err == nil {
+				// Convert to monthly amount
+				monthlyAmount := &income.Amount
+				switch income.Frequency {
+				case "yearly", "annual":
+					monthly := income.Amount.Div(decimal.NewFromInt64(12, 0))
+					monthlyAmount = monthly
+				}
+
+				// Only include if wage type is valid for CPF
+				if income.CPFWageType == "ow" || income.CPFWageType == "aw" {
+					incomes = append(incomes, projector.IncomeStream{
+						MonthlyAmount: monthlyAmount,
+						WageType:      income.CPFWageType,
+						StartDate:     income.StartDate,
+						EndDate:       income.EndDate,
+					})
+				}
+			}
+		}
+
+		// Project to purchase date
+		projected, err := s.cpfProjector.ProjectToDate(ctx, snapshot, incomes, purchaseDate)
+		if err != nil {
+			return nil, fmt.Errorf("project CPF: %w", err)
+		}
+
+		return projected.OA, nil
+	}
+
+	// Project borrower 1
+	borrower1OA, err = projectBorrower(borrower1IncomeID, borrower1CpfAccountID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Project borrower 2 (only if different from borrower 1)
+	if borrower2CpfAccountID != nil && (borrower1CpfAccountID == nil || *borrower2CpfAccountID != *borrower1CpfAccountID) {
+		borrower2OA, err = projectBorrower(borrower2IncomeID, borrower2CpfAccountID)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return borrower1OA, borrower2OA, nil
+}
+
+// getPurchaseDate determines the earliest purchase date from scenario details.
+// For BTO properties, uses BtoKeyCollectionDate. Otherwise uses first rate period start.
+func (s *Service) getPurchaseDate(scenario *repo.PropertyScenarioFull) time.Time {
+	if scenario.SGDetails == nil {
+		return time.Now()
+	}
+
+	// For BTO, use key collection date if available
+	if scenario.SGDetails.BtoKeyCollectionDate != nil {
+		parsed, err := time.Parse("2006-01", *scenario.SGDetails.BtoKeyCollectionDate)
+		if err == nil {
+			return parsed
+		}
+	}
+
+	// Otherwise use first rate period's start date (loan start)
+	if len(scenario.RatePeriods) > 0 {
+		return scenario.RatePeriods[0].StartDate
+	}
+
+	return time.Now()
+}
+
 // ComputeValuesWithContext calculates all derived values including cross-property context.
 // This includes information about other property mortgages and CPF OA usage.
 func (s *Service) ComputeValuesWithContext(
@@ -690,6 +806,23 @@ func (s *Service) ComputeValuesWithContext(
 	}
 
 	details := scenario.SGDetails
+
+	// Get projected CPF OA balances at purchase date
+	purchaseDate := s.getPurchaseDate(scenario)
+	b1OA, b2OA, err := s.getProjectedBorrowerBalances(
+		ctx, userID,
+		details.Borrower1IncomeID, details.Borrower1CpfAccountID,
+		details.Borrower2IncomeID, details.Borrower2CpfAccountID,
+		purchaseDate,
+	)
+	if err == nil {
+		if b1OA != nil {
+			result.ProjectedBorrower1OA = b1OA.Round(2).String()
+		}
+		if b2OA != nil {
+			result.ProjectedBorrower2OA = b2OA.Round(2).String()
+		}
+	}
 
 	// Get other property mortgages
 	otherMortgages, err := s.store.GetOtherIncludedPropertyMortgages(ctx, userID, &details.ID)
