@@ -578,6 +578,11 @@ export function useLoadSampleDataMutation() {
       let propertyScenario: PropertyScenarioFull | null = null
       try {
         const btoKeyCollectionDate = getMonthString(5) // 5 years from now
+
+        // Find the created income IDs for linking borrowers
+        const alexIncome = incomes.find(inc => inc.name === 'Software Engineer Salary')
+        const sarahIncome = incomes.find(inc => inc.name === 'Marketing Manager Salary')
+
         const btoScenarioInput: CreateScenarioInput = {
           country: 'SG',
           sgDetails: {
@@ -591,7 +596,9 @@ export function useLoadSampleDataMutation() {
             loanType: 'hdb',
             downpaymentCpfOa: '100000', // Using CPF OA for downpayment
             downpaymentCash: '0',
-            borrowerType: 'single',
+            borrowerType: 'joint', // Joint borrowers (Alex + Sarah)
+            borrower1IncomeId: alexIncome?.id, // Link to Alex's income for projected CPF OA
+            borrower2IncomeId: sarahIncome?.id, // Link to Sarah's income for projected CPF OA
             otherDebt: '0',
             propertyCount: 0, // First property
             btoKeyCollectionDate,

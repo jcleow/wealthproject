@@ -113,13 +113,16 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
   }, [cpfAccounts, projectedCpfAssets])
 
   // Track previous loanStartMonth to detect date changes
-  const prevLoanStartMonth = useRef(inputs.loanStartMonth)
+  // Initialize to null so the first update runs when projected data arrives
+  const prevLoanStartMonth = useRef<string | null>(null)
 
-  // Update borrower OA balances when projected data changes (e.g., purchase date changed)
+  // Update borrower OA balances when projected data changes (e.g., purchase date changed or initial load)
   useEffect(() => {
-    // Only update if we have new projected data and the date changed
+    // Only update if we have projected data
     if (projectedCpfAssets.length === 0) return
-    if (prevLoanStartMonth.current === inputs.loanStartMonth) return
+
+    // Skip if the date hasn't changed (but always run on first data arrival when ref is null)
+    if (prevLoanStartMonth.current !== null && prevLoanStartMonth.current === inputs.loanStartMonth) return
 
     prevLoanStartMonth.current = inputs.loanStartMonth
 
