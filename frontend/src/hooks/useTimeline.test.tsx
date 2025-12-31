@@ -7,6 +7,7 @@ import { useTimeline } from './useTimeline'
 import type { TimelineResponse } from '@/types/timeline'
 
 const baseTimeline: TimelineResponse = {
+  resolution: 'yearly',
   years: [
     {
       year: 0,
@@ -61,14 +62,15 @@ describe('useTimeline', () => {
     await waitFor(() => expect(result.current.timelineQuery.isSuccess).toBe(true))
 
     expect(result.current.selectedYear).toBe(0)
-    expect((result.current.selectedYearData as any)?.netWorth ?? (result.current.selectedYearData as any)?.net_worth).toBe(50000)
+    expect(result.current.selectedYearData?.netWorth).toBe(50000)
   })
 
   it('saves edits via PUT and updates cached timeline', async () => {
     const updatedTimeline: TimelineResponse = {
+      resolution: 'yearly',
       years: [
         {
-          ...baseTimeline.years[0],
+          ...baseTimeline.years![0],
           netWorth: 90000,
           netCash: 24000,
           hasOverrides: true,
@@ -116,9 +118,9 @@ describe('useTimeline', () => {
     )
 
     await waitFor(() =>
-      expect(result.current.timelineQuery.data?.years[0]?.netWorth).toBe(90000)
+      expect(result.current.timelineQuery.data?.years?.[0]?.netWorth).toBe(90000)
     )
     expect(result.current.selectedYear).toBe(1)
-    expect(result.current.timelineQuery.data?.years[0]?.hasOverrides).toBe(true)
+    expect(result.current.timelineQuery.data?.years?.[0]?.hasOverrides).toBe(true)
   })
 })

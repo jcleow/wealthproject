@@ -1,10 +1,23 @@
 import { apiClient } from '../client'
 import type { Person, PersonCreatePayload, PersonUpdatePayload } from '@/types/person'
 
+/** Raw API response shape for person */
+interface RawPersonResponse {
+  id: string
+  userId: string
+  name: string
+  displayColor?: string | null
+  isIncluded?: boolean
+  createdAt: string
+  updatedAt: string
+  incomeCount?: number
+  cpfCount?: number
+}
+
 /**
  * Transform API response to Person type
  */
-function toPerson(data: any): Person {
+function toPerson(data: RawPersonResponse): Person {
   return {
     id: data.id,
     userId: data.userId,
@@ -22,7 +35,7 @@ function toPerson(data: any): Person {
  * List all persons for the current user (with income/CPF counts)
  */
 export async function listPersons(): Promise<Person[]> {
-  const data = await apiClient.get<any[]>('/persons', undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.get<RawPersonResponse[]>('/persons', undefined, { baseUrl: '/api/v2' })
   return (data || []).map(toPerson)
 }
 
@@ -30,7 +43,7 @@ export async function listPersons(): Promise<Person[]> {
  * Get a single person by ID
  */
 export async function getPerson(id: string): Promise<Person> {
-  const data = await apiClient.get<any>(`/persons/${id}`, undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.get<RawPersonResponse>(`/persons/${id}`, undefined, { baseUrl: '/api/v2' })
   return toPerson(data)
 }
 
@@ -38,7 +51,7 @@ export async function getPerson(id: string): Promise<Person> {
  * Create a new person
  */
 export async function createPerson(payload: PersonCreatePayload): Promise<Person> {
-  const data = await apiClient.post<any>('/persons', payload, { baseUrl: '/api/v2' })
+  const data = await apiClient.post<RawPersonResponse>('/persons', payload, { baseUrl: '/api/v2' })
   return toPerson(data)
 }
 
@@ -46,7 +59,7 @@ export async function createPerson(payload: PersonCreatePayload): Promise<Person
  * Update an existing person
  */
 export async function updatePerson(id: string, payload: PersonUpdatePayload): Promise<Person> {
-  const data = await apiClient.put<any>(`/persons/${id}`, payload, { baseUrl: '/api/v2' })
+  const data = await apiClient.put<RawPersonResponse>(`/persons/${id}`, payload, { baseUrl: '/api/v2' })
   return toPerson(data)
 }
 
@@ -61,7 +74,7 @@ export async function deletePerson(id: string): Promise<void> {
  * Toggle the isIncluded flag for a person
  */
 export async function togglePersonIncluded(id: string): Promise<Person> {
-  const data = await apiClient.patch<any>(`/persons/${id}/toggle`, undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.patch<RawPersonResponse>(`/persons/${id}/toggle`, undefined, { baseUrl: '/api/v2' })
   return toPerson(data)
 }
 
@@ -85,7 +98,7 @@ export async function bulkUpdatePersons(updates: BulkPersonUpdate[]): Promise<Pe
       if (displayColor !== undefined) payload.displayColor = displayColor
       if (isIncluded !== undefined) payload.isIncluded = isIncluded
 
-      const data = await apiClient.put<any>(`/persons/${id}`, payload, { baseUrl: '/api/v2' })
+      const data = await apiClient.put<RawPersonResponse>(`/persons/${id}`, payload, { baseUrl: '/api/v2' })
       return toPerson(data)
     })
   )

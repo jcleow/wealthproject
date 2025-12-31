@@ -1,7 +1,23 @@
 import { SignJWT } from 'jose'
 import { getSession } from './auth-client'
 
-const BACKEND_URL = process.env.GO_BACKEND_URL || 'http://localhost:8080'
+// SECURITY: Enforce HTTPS in production to prevent man-in-the-middle attacks
+function getBackendUrl(): string {
+  const url = process.env.GO_BACKEND_URL
+
+  if (process.env.NODE_ENV === 'production') {
+    if (!url) {
+      throw new Error('SECURITY ERROR: GO_BACKEND_URL must be configured in production')
+    }
+    if (!url.startsWith('https://')) {
+      throw new Error('SECURITY ERROR: GO_BACKEND_URL must use HTTPS in production')
+    }
+  }
+
+  return url || 'http://localhost:8080'
+}
+
+const BACKEND_URL = getBackendUrl()
 const BACKEND_SECRET = process.env.BACKEND_SHARED_SECRET || ''
 
 /**

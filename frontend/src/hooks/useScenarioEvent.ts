@@ -21,7 +21,7 @@ export function useScenarioEvent(
     onSuccess: (data) => {
       if (process.env.NODE_ENV === 'development' && data) {
         // Surface server payload shape for debugging impacts missing
-        console.debug('[useScenarioEvent] fetched', { id: data.id, impacts: data.impacts?.length ?? 0, occursOn: (data as any).occursOn ?? (data as any).occurs_on })
+        console.debug('[useScenarioEvent] fetched', { id: data.id, impacts: data.impacts?.length ?? 0, occursOn: data.occursOn })
       }
     },
     onError: (err) => {

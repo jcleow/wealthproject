@@ -69,7 +69,7 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
     const fallbackMessage = response.statusText || `HTTP ${status}`
     try {
       const data = await response.json()
-      const message = (data as { message?: string; error?: string }).message ?? (data as any).error ?? fallbackMessage
+      const message = (data as { message?: string; error?: string }).message ?? (data as { error?: string }).error ?? fallbackMessage
       throw new ApiError(status, message, data)
     } catch (err) {
       if (err instanceof ApiError) {

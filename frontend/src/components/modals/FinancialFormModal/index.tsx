@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { PersonSelector } from '@/components/ui/PersonSelector'
-import { type Frequency } from '@/types/financial'
+import { type Frequency, type Asset } from '@/types/financial'
 import { formatCurrency } from '@/lib/format'
 
 import type { FinancialFormModalProps } from './types'
@@ -23,7 +23,7 @@ import { CpfForm } from './CpfForm'
 import { useFinancialForm } from './hooks/useFinancialForm'
 
 // Re-export types for consumers
-export type { FinancialDataType, FinancialFormValues, FinancialFormModalProps, CpfFormValues } from './types'
+export type { FinancialDataType, FinancialFormValues, FinancialFormModalProps, CpfFormValues, TimelineItemData } from './types'
 
 // Useful life preset options
 const USEFUL_LIFE_OPTIONS = [
@@ -58,7 +58,7 @@ export function FinancialFormModal({
       return
     }
     if (type === 'asset' && mode === 'edit' && data) {
-      const asset = data as any
+      const asset = data as Asset
       if (asset.leaseStartYear || asset.terminalValue != null) {
         setShowUsefulLife(true)
         // Detect preset from usefulLifeYears

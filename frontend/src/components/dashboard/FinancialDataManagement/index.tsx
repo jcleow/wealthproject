@@ -30,7 +30,7 @@ import {
 } from '@/hooks/queries'
 import type { TimelineItem } from '@/types/timeline'
 import type { PropertyLinkRecord } from '@/types/property'
-import type { FinancialFormValues } from '@/components/modals/FinancialFormModal'
+import type { FinancialFormValues, TimelineItemData } from '@/components/modals/FinancialFormModal'
 import { FinancialFormModal } from '@/components/modals/FinancialFormModal'
 import {
   ASSET_ENTITY,
@@ -827,7 +827,7 @@ export function FinancialDataManagement({
       isOpen: true,
       type: 'investment',
       mode: 'edit',
-      data: investmentData as any,
+      data: investmentData as TimelineItemData,
     })
   }
 

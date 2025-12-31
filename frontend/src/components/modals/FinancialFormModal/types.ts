@@ -134,6 +134,15 @@ export interface TimelineItemData {
   adjAnnualAmt?: number
   sourceAmount?: number
   sourceFrequency?: string
+  amountMonthly?: number
+  frequency?: Frequency
+  growthRate?: number
+  sourceLiabilityId?: string
+  updatedAt?: string
+  // Investment-specific fields (used when editing investments from timeline)
+  currentValue?: number
+  annualGrowthRate?: number
+  notes?: string
 }
 
 export interface FinancialFormModalProps {

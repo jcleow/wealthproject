@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
-import type { Asset, Expense, Income, Liability } from '@/types/financial'
+import type { Asset, Expense, Income, Liability, Frequency } from '@/types/financial'
 import { growthApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
@@ -25,6 +25,15 @@ import {
   calculateStopEndDate,
   calculateLeaseEndDate,
 } from '../helpers'
+
+/** Combined data type for all possible properties from union */
+type FormData = NonNullable<FinancialFormModalProps['data']>
+
+/** Type guard to safely access optional properties from data union */
+function getDataProp<T>(data: FormData | undefined | null, key: string): T | undefined {
+  if (!data) return undefined
+  return (data as Record<string, unknown>)[key] as T | undefined
+}
 
 interface UseFinancialFormParams {
   type: FinancialFormModalProps['type']
@@ -84,7 +93,7 @@ export function useFinancialForm({
   // Derived values
   const isFutureMonth = (selectedYear ?? 0) > 0 || (selectedMonth ?? 1) > 1
   const isBusy = isSaving || isDeleting
-  const isDebtRepayment = type === 'expense' && !!(data as any)?.sourceLiabilityId
+  const isDebtRepayment = type === 'expense' && !!getDataProp<string>(data, 'sourceLiabilityId')
 
   // Fetch liabilities for debt repayment minimum payment check
   const { data: liabilitiesData } = useQuery({
@@ -137,7 +146,7 @@ export function useFinancialForm({
     switch (type) {
       case 'asset': {
         const asset = itemData as Asset
-        const amt = (asset as any).amountAnnual ?? asset.currentValue ?? 0
+        const amt = getDataProp<number>(itemData, 'amountAnnual') ?? asset.currentValue ?? 0
         const itemRate = asset.annualGrowthRate
         const effectiveRate =
           itemRate && itemRate !== 0
@@ -176,7 +185,7 @@ export function useFinancialForm({
       }
       case 'liability': {
         const liability = itemData as Liability
-        const amt = (liability as any).amountAnnual ?? liability.currentBalance ?? 0
+        const amt = getDataProp<number>(itemData, 'amountAnnual') ?? liability.currentBalance ?? 0
         const itemRate = liability.interestRateApr
         const effectiveRate =
           itemRate && itemRate !== 0
@@ -203,15 +212,15 @@ export function useFinancialForm({
       case 'income':
       case 'expense': {
         const item = itemData as Income | Expense
-        const sourceAmt = (item as any).sourceAmount
-        const freq = (item as any).sourceFrequency ?? (item as any).frequency ?? 'annual'
+        const sourceAmt = getDataProp<number>(itemData, 'sourceAmount')
+        const freq: Frequency = (getDataProp<Frequency>(itemData, 'sourceFrequency') ?? item.frequency) || 'annual'
 
         let amt: number
         if (sourceAmt !== undefined && sourceAmt !== null) {
           amt = sourceAmt
         } else {
-          const annualAmt = (item as any).amountAnnual ?? (item as any).amount ?? 0
-          const monthlyAmt = (item as any).amountMonthly
+          const annualAmt = getDataProp<number>(itemData, 'amountAnnual') ?? item.amount ?? 0
+          const monthlyAmt = getDataProp<number>(itemData, 'amountMonthly')
           if (freq === 'monthly' && monthlyAmt !== undefined) {
             amt = monthlyAmt
           } else if (freq === 'monthly' && annualAmt) {
@@ -221,9 +230,9 @@ export function useFinancialForm({
           }
         }
 
-        const itemName = (item as Income | Expense).name ?? ''
+        const itemName = item.name ?? ''
         const itemEarner = type === 'income' ? ((item as Income).earner ?? '') : ''
-        const itemRate = (item as any).growthRate
+        const itemRate = item.growthRate
         const effectiveRate =
           itemRate && itemRate !== 0
             ? itemRate
@@ -251,7 +260,7 @@ export function useFinancialForm({
       }
       case 'investment': {
         const investment = itemData as Asset
-        const amt = (investment as any).amountAnnual ?? investment.currentValue ?? 0
+        const amt = getDataProp<number>(itemData, 'amountAnnual') ?? investment.currentValue ?? 0
         const itemRate = investment.annualGrowthRate
         const effectiveRate =
           itemRate !== undefined && itemRate !== null
@@ -280,7 +289,7 @@ export function useFinancialForm({
 
   function getLinkedLiabilityMinPayment(): number | null {
     if (type !== 'expense' || !data) return null
-    const sourceLiabilityId = (data as any).sourceLiabilityId
+    const sourceLiabilityId = getDataProp<string>(data, 'sourceLiabilityId')
     if (!sourceLiabilityId || !liabilitiesData) return null
     const liability = liabilitiesData.find((l: Liability) => l.id === sourceLiabilityId)
     return liability?.minimumPayment ?? null
@@ -338,7 +347,7 @@ export function useFinancialForm({
   function buildPayload(): FinancialFormValues {
     const notes = formData.notes.trim()
     const shared = {
-      updatedAt: (data as any)?.updatedAt ?? new Date().toISOString(),
+      updatedAt: getDataProp<string>(data, 'updatedAt') ?? new Date().toISOString(),
       notes: notes || undefined,
     }
 
@@ -396,7 +405,7 @@ export function useFinancialForm({
           ...shared,
         }
       case 'expense': {
-        const sourceLiabilityId = (data as any)?.sourceLiabilityId
+        const sourceLiabilityId = getDataProp<string>(data, 'sourceLiabilityId')
         const isDebtRepaymentExpense = !!sourceLiabilityId
         const shouldUseVersioning = mode === 'edit' && isFutureMonth && !isDebtRepaymentExpense && applyFromThisMonthOnly
         const updateMode = shouldUseVersioning ? UPDATE_MODE_VERSIONED : UPDATE_MODE_IN_PLACE
@@ -479,7 +488,8 @@ export function useFinancialForm({
   function getDataId(): string | undefined {
     if (!data) return undefined
     if ('id' in data && data.id) return data.id
-    if ('itemId' in data && (data as any).itemId) return (data as any).itemId
+    const itemId = getDataProp<string>(data, 'itemId')
+    if (itemId) return itemId
     return undefined
   }
 

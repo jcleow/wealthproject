@@ -10,7 +10,7 @@ import type {
   TimelineEventImpact,
   MonthDetailResponseV2,
 } from '@/types/timeline'
-import type { FinancialDataType } from '@/components/modals/FinancialFormModal'
+import type { FinancialDataType, TimelineItemData } from '@/components/modals/FinancialFormModal'
 import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 
 export type FinancialCategory = FinancialDataType
@@ -35,7 +35,7 @@ export interface AppliedImpact {
 }
 
 /** Union type for any editable financial item (from timeline or raw API) */
-export type EditableFinancialItem = Asset | Income | Liability | Expense | TimelineItem
+export type EditableFinancialItem = Asset | Income | Liability | Expense | TimelineItem | TimelineItemData
 
 export interface ModalState {
   isOpen: boolean

@@ -7,6 +7,9 @@ import type {
   GrowthConfig,
   PaginatedResponse,
   PaginationParams,
+  Frequency,
+  IncomeType,
+  CpfWageType,
 } from '@/types/financial'
 import type { PropertyLinkRecord, PropertyScenarioRecord } from '@/types/property'
 import type { ScenarioEvent, ScenarioImpactDto } from '@/types/scenario'
@@ -15,24 +18,67 @@ import type {
   CPFAccount,
   CPFConfiguration,
   CPFContributionPreview,
+  ResidencyStatus,
+  CPFConfigData,
 } from '@/types/cpf'
+
+// =============================================================================
+// Type-safe helpers for API response transformation
+// =============================================================================
+
+/** Record type for raw API responses with unknown property values */
+type ApiRecord = Record<string, unknown>
+
+/**
+ * Safely get a property from an API response, checking multiple key naming conventions.
+ * Returns undefined if none of the keys exist.
+ */
+function get<T>(obj: ApiRecord, ...keys: string[]): T | undefined {
+  for (const key of keys) {
+    if (obj[key] !== undefined) return obj[key] as T
+  }
+  return undefined
+}
+
+/** Safely get a property with a default value */
+function getOr<T>(obj: ApiRecord, defaultValue: T, ...keys: string[]): T {
+  return get<T>(obj, ...keys) ?? defaultValue
+}
+
+/** Ensure input is an ApiRecord for property access */
+function asRecord(input: unknown): ApiRecord {
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
+    return input as ApiRecord
+  }
+  return {}
+}
 
 // =============================================================================
 // Pagination helpers
 // =============================================================================
 
+/** Raw paginated response structure from API */
+interface RawPaginatedResponse {
+  data?: unknown[]
+  total?: number
+  limit?: number
+  offset?: number
+  hasMore?: boolean
+}
+
 export function normalizePaginatedResponse<T>(
-  raw: any,
-  mapper: (item: any) => T,
+  raw: unknown,
+  mapper: (item: ApiRecord) => T,
   params?: PaginationParams
 ): PaginatedResponse<T> {
-  const items = Array.isArray(raw?.data) ? raw.data : []
+  const response = asRecord(raw) as RawPaginatedResponse
+  const items = Array.isArray(response.data) ? response.data : []
   return {
-    data: items.map(mapper),
-    total: raw?.total ?? items.length,
-    limit: raw?.limit ?? params?.limit ?? 20,
-    offset: raw?.offset ?? params?.offset ?? 0,
-    hasMore: raw?.hasMore ?? false,
+    data: items.map(item => mapper(asRecord(item))),
+    total: response.total ?? items.length,
+    limit: response.limit ?? params?.limit ?? 20,
+    offset: response.offset ?? params?.offset ?? 0,
+    hasMore: response.hasMore ?? false,
   }
 }
 
@@ -40,229 +86,278 @@ export function normalizePaginatedResponse<T>(
 // Financial mappers
 // =============================================================================
 
-export const toAsset = (item: any): Asset => ({
-  id: item.id ?? item.ID,
-  name: item.name ?? item.Name,
-  category: item.category ?? item.Category,
-  currentValue: item.current_value ?? item.currentValue ?? item.CurrentValue,
-  annualGrowthRate: item.annual_growth_rate ?? item.annualGrowthRate ?? item.AnnualGrowthRate,
-  startDate: item.start_date ?? item.startDate ?? item.StartDate,
-  endDate: item.end_date ?? item.endDate ?? item.EndDate,
-  terminalValue: item.terminal_value ?? item.terminalValue ?? item.TerminalValue ?? null,
-  leaseStartYear: item.lease_start_year ?? item.leaseStartYear ?? item.LeaseStartYear ?? null,
-  notes: item.notes ?? item.Notes ?? '',
-  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
-  parentId: item.parent_id ?? item.parentId ?? item.ParentID,
+export const toAsset = (item: ApiRecord): Asset => ({
+  id: get<string>(item, 'id', 'ID') ?? '',
+  name: get<string>(item, 'name', 'Name') ?? '',
+  category: get<string>(item, 'category', 'Category') ?? '',
+  currentValue: get<number>(item, 'current_value', 'currentValue', 'CurrentValue') ?? 0,
+  annualGrowthRate: get<number>(item, 'annual_growth_rate', 'annualGrowthRate', 'AnnualGrowthRate') ?? 0,
+  startDate: get<string>(item, 'start_date', 'startDate', 'StartDate'),
+  endDate: get<string>(item, 'end_date', 'endDate', 'EndDate'),
+  terminalValue: get<number>(item, 'terminal_value', 'terminalValue', 'TerminalValue') ?? null,
+  leaseStartYear: get<number>(item, 'lease_start_year', 'leaseStartYear', 'LeaseStartYear') ?? null,
+  notes: getOr<string>(item, '', 'notes', 'Notes'),
+  updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
+  parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
 })
 
-export const toLiability = (item: any): Liability => ({
-  id: item.id ?? item.ID,
-  name: item.name ?? item.Name,
-  category: item.category ?? item.Category,
-  currentBalance: item.current_balance ?? item.currentBalance ?? item.CurrentBalance,
-  interestRateApr: item.interest_rate_apr ?? item.interestRateApr ?? item.InterestRateAPR ?? item.InterestRateApr,
-  minimumPayment: item.minimum_payment ?? item.minimumPayment ?? item.MinimumPayment,
-  startDate: item.start_date ?? item.startDate ?? item.StartDate,
-  endDate: item.end_date ?? item.endDate ?? item.EndDate,
-  notes: item.notes ?? item.Notes ?? '',
-  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
-  parentId: item.parent_id ?? item.parentId ?? item.ParentID,
+export const toLiability = (item: ApiRecord): Liability => ({
+  id: get<string>(item, 'id', 'ID') ?? '',
+  name: get<string>(item, 'name', 'Name') ?? '',
+  category: get<string>(item, 'category', 'Category') ?? '',
+  currentBalance: get<number>(item, 'current_balance', 'currentBalance', 'CurrentBalance') ?? 0,
+  interestRateApr: get<number>(item, 'interest_rate_apr', 'interestRateApr', 'InterestRateAPR', 'InterestRateApr') ?? 0,
+  minimumPayment: get<number>(item, 'minimum_payment', 'minimumPayment', 'MinimumPayment') ?? 0,
+  startDate: get<string>(item, 'start_date', 'startDate', 'StartDate'),
+  endDate: get<string>(item, 'end_date', 'endDate', 'EndDate'),
+  notes: getOr<string>(item, '', 'notes', 'Notes'),
+  updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
+  parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
 })
 
-export const toIncome = (item: any): Income => ({
-  id: item.id ?? item.ID,
-  parentId: item.parent_id ?? item.parentId ?? item.ParentID,
-  name: item.name ?? item.Name,
-  earner: item.earner ?? item.Earner ?? '',
-  personId: item.personId ?? item.person_id ?? item.PersonId ?? null,
-  amount: item.amount ?? item.Amount,
-  frequency: item.frequency ?? item.Frequency,
-  startDate: item.start_date ?? item.startDate ?? item.StartDate ?? new Date().toISOString(),
-  category: item.category ?? item.Category,
-  growthRate: item.growth_rate ?? item.growthRate ?? item.GrowthRate ?? 3.0,
-  notes: item.notes ?? item.Notes ?? '',
-  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
-  incomeType: item.income_type ?? item.incomeType ?? item.IncomeType,
-  cpfWageType: item.cpf_wage_type ?? item.cpfWageType ?? item.CpfWageType,
+export const toIncome = (item: ApiRecord): Income => ({
+  id: get<string>(item, 'id', 'ID') ?? '',
+  parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
+  name: get<string>(item, 'name', 'Name') ?? '',
+  earner: getOr<string>(item, '', 'earner', 'Earner'),
+  personId: get<string>(item, 'personId', 'person_id', 'PersonId') ?? null,
+  amount: get<number>(item, 'amount', 'Amount') ?? 0,
+  frequency: getOr<Frequency>(item, 'monthly', 'frequency', 'Frequency'),
+  startDate: getOr<string>(item, new Date().toISOString(), 'start_date', 'startDate', 'StartDate'),
+  category: get<string>(item, 'category', 'Category') ?? '',
+  growthRate: getOr<number>(item, 3.0, 'growth_rate', 'growthRate', 'GrowthRate'),
+  notes: getOr<string>(item, '', 'notes', 'Notes'),
+  updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
+  incomeType: get<IncomeType>(item, 'income_type', 'incomeType', 'IncomeType'),
+  cpfWageType: get<CpfWageType>(item, 'cpf_wage_type', 'cpfWageType', 'CpfWageType'),
 })
 
-export const toExpense = (item: any): Expense => ({
-  id: item.id ?? item.ID,
-  parentId: item.parent_id ?? item.parentId ?? item.ParentID,
-  name: item.name ?? item.Name,
-  amount: item.amount ?? item.Amount,
-  frequency: item.frequency ?? item.Frequency,
-  category: item.category ?? item.Category,
-  growthRate: item.growth_rate ?? item.growthRate ?? item.GrowthRate ?? 2.0,
-  notes: item.notes ?? item.Notes ?? '',
-  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+export const toExpense = (item: ApiRecord): Expense => ({
+  id: get<string>(item, 'id', 'ID') ?? '',
+  parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
+  name: get<string>(item, 'name', 'Name') ?? '',
+  amount: get<number>(item, 'amount', 'Amount') ?? 0,
+  frequency: getOr<Frequency>(item, 'monthly', 'frequency', 'Frequency'),
+  category: get<string>(item, 'category', 'Category') ?? '',
+  growthRate: getOr<number>(item, 2.0, 'growth_rate', 'growthRate', 'GrowthRate'),
+  notes: getOr<string>(item, '', 'notes', 'Notes'),
+  updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
 })
 
-export const toCashAccount = (item: any): CashAccount => ({
-  id: item.id ?? item.ID,
-  name: item.name ?? item.Name,
-  balance: item.balance ?? item.Balance ?? 0,
-  interestRate: item.interest_rate ?? item.interestRate ?? item.InterestRate ?? 1.5,
-  bankName: item.bank_name ?? item.bankName ?? item.BankName ?? null,
-  accountType: item.account_type ?? item.accountType ?? item.AccountType ?? null,
-  isAccumulator: item.is_accumulator ?? item.isAccumulator ?? item.IsAccumulator ?? false,
-  startYear: item.start_year ?? item.startYear ?? item.StartYear ?? 0,
-  endYear: item.end_year ?? item.endYear ?? item.EndYear ?? null,
-  notes: item.notes ?? item.Notes ?? '',
-  createdAt: item.created_at ?? item.createdAt ?? item.CreatedAt,
-  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+export const toCashAccount = (item: ApiRecord): CashAccount => ({
+  id: get<string>(item, 'id', 'ID') ?? '',
+  name: get<string>(item, 'name', 'Name') ?? '',
+  balance: getOr<number>(item, 0, 'balance', 'Balance'),
+  interestRate: getOr<number>(item, 1.5, 'interest_rate', 'interestRate', 'InterestRate'),
+  bankName: get<string>(item, 'bank_name', 'bankName', 'BankName') ?? null,
+  accountType: get<string>(item, 'account_type', 'accountType', 'AccountType') ?? null,
+  isAccumulator: getOr<boolean>(item, false, 'is_accumulator', 'isAccumulator', 'IsAccumulator'),
+  startYear: getOr<number>(item, 0, 'start_year', 'startYear', 'StartYear'),
+  endYear: get<number>(item, 'end_year', 'endYear', 'EndYear') ?? null,
+  notes: getOr<string>(item, '', 'notes', 'Notes'),
+  createdAt: get<string>(item, 'created_at', 'createdAt', 'CreatedAt'),
+  updatedAt: get<string>(item, 'updated_at', 'updatedAt', 'UpdatedAt'),
 })
 
-export const toPropertyLink = (item: any): PropertyLinkRecord => ({
-  id: item.id ?? item.ID,
-  propertyScenarioId: item.property_scenario_id ?? item.propertyScenarioId ?? item.PropertyScenarioId,
-  assetId: item.asset_id ?? item.assetId ?? item.AssetID ?? item.AssetId,
-  liabilityId: item.liability_id ?? item.liabilityId ?? item.LiabilityID ?? item.LiabilityId,
-  createdAt: item.created_at ?? item.createdAt ?? item.CreatedAt ?? '',
-  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt ?? '',
+export const toPropertyLink = (item: ApiRecord): PropertyLinkRecord => ({
+  id: get<string>(item, 'id', 'ID') ?? '',
+  propertyScenarioId: get<string>(item, 'property_scenario_id', 'propertyScenarioId', 'PropertyScenarioId') ?? '',
+  assetId: getOr<string>(item, '', 'asset_id', 'assetId', 'AssetID', 'AssetId'),
+  liabilityId: getOr<string>(item, '', 'liability_id', 'liabilityId', 'LiabilityID', 'LiabilityId'),
+  createdAt: getOr<string>(item, '', 'created_at', 'createdAt', 'CreatedAt'),
+  updatedAt: getOr<string>(item, '', 'updated_at', 'updatedAt', 'UpdatedAt'),
 })
 
-export const toPropertyScenario = (item: any): PropertyScenarioRecord => ({
-  id: item.id ?? item.ID ?? '',
-  propertyType: item.property_type ?? item.propertyType ?? '',
-  headline: item.headline ?? '',
-  propertyPrice: Number(item.property_price ?? item.propertyPrice ?? 0),
-  downPayment: Number(item.down_payment ?? item.downPayment ?? 0),
-  loanAmount: Number(item.loan_amount ?? item.loanAmount ?? 0),
-  interestRate: Number(item.interest_rate ?? item.interestRate ?? 0),
-  loanTenure: Number(item.loan_tenure ?? item.loanTenure ?? 0),
-  notes: item.notes ?? '',
-  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt ?? '',
+export const toPropertyScenario = (item: ApiRecord): PropertyScenarioRecord => ({
+  id: getOr<string>(item, '', 'id', 'ID'),
+  propertyType: getOr<string>(item, '', 'property_type', 'propertyType'),
+  headline: getOr<string>(item, '', 'headline'),
+  propertyPrice: Number(get<number | string>(item, 'property_price', 'propertyPrice') ?? 0),
+  downPayment: Number(get<number | string>(item, 'down_payment', 'downPayment') ?? 0),
+  loanAmount: Number(get<number | string>(item, 'loan_amount', 'loanAmount') ?? 0),
+  interestRate: Number(get<number | string>(item, 'interest_rate', 'interestRate') ?? 0),
+  loanTenure: Number(get<number | string>(item, 'loan_tenure', 'loanTenure') ?? 0),
+  notes: getOr<string>(item, '', 'notes'),
+  updatedAt: getOr<string>(item, '', 'updated_at', 'updatedAt', 'UpdatedAt'),
 })
 
-export const toGrowthConfig = (item: any): GrowthConfig => ({
-  id: item.id ?? item.ID,
-  category: item.category ?? item.Category,
-  annualRatePct: item.annual_rate_pct ?? item.annualRatePct ?? item.AnnualRatePct ?? 0,
-  lowerBoundPct: item.lower_bound_pct ?? item.lowerBoundPct ?? item.LowerBoundPct ?? -50,
-  upperBoundPct: item.upper_bound_pct ?? item.upperBoundPct ?? item.UpperBoundPct ?? 50,
-  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+export const toGrowthConfig = (item: ApiRecord): GrowthConfig => ({
+  id: get<string>(item, 'id', 'ID') ?? '',
+  category: get<string>(item, 'category', 'Category') ?? '',
+  annualRatePct: getOr<number>(item, 0, 'annual_rate_pct', 'annualRatePct', 'AnnualRatePct'),
+  lowerBoundPct: getOr<number>(item, -50, 'lower_bound_pct', 'lowerBoundPct', 'LowerBoundPct'),
+  upperBoundPct: getOr<number>(item, 50, 'upper_bound_pct', 'upperBoundPct', 'UpperBoundPct'),
+  updatedAt: get<string>(item, 'updated_at', 'updatedAt', 'UpdatedAt'),
 })
 
 // =============================================================================
 // CPF mappers
 // =============================================================================
 
-export const toCPFAccount = (item: any): CPFAccount => {
+export const toCPFAccount = (item: ApiRecord): CPFAccount => {
   // Backend returns decimal values as strings, parse them to numbers
-  const parseBalance = (val: any): number => {
+  const parseBalance = (val: unknown): number => {
     if (val === undefined || val === null) return 0
     return typeof val === 'string' ? parseFloat(val) || 0 : Number(val) || 0
   }
 
+  const id = get<string>(item, 'id') ?? ''
+  const createdAt = getOr<string>(item, new Date().toISOString(), 'createdAt', 'created_at')
+
   return {
-    id: item.id,
-    userId: item.userId ?? item.user_id,
-    earner: item.earner ?? item.Earner ?? '',
-    personId: item.personId ?? item.person_id ?? item.PersonId ?? null,
-    parentId: item.parentId ?? item.parent_id ?? item.id,
-    startDate: item.startDate ?? item.start_date ?? item.createdAt,
-    endDate: item.endDate ?? item.end_date,
-    oaBalance: parseBalance(item.oaBalance ?? item.oa_balance ?? item.OABalance),
-    saBalance: parseBalance(item.saBalance ?? item.sa_balance ?? item.SABalance),
-    maBalance: parseBalance(item.maBalance ?? item.ma_balance ?? item.MABalance),
-    raBalance: parseBalance(item.raBalance ?? item.ra_balance ?? item.RABalance),
-    oaUsedForHousing: parseBalance(item.oaUsedForHousing ?? item.oa_used_for_housing ?? item.OAUsedForHousing),
-    housingStartDate: item.housingStartDate ?? item.housing_start_date,
-    dateOfBirth: item.dateOfBirth ?? item.date_of_birth,
-    residencyStatus: item.residencyStatus ?? item.residency_status ?? 'citizen',
-    prGrantDate: item.prGrantDate ?? item.pr_grant_date,
-    createdAt: item.createdAt ?? item.created_at,
-    updatedAt: item.updatedAt ?? item.updated_at,
+    id,
+    userId: getOr<string>(item, '', 'userId', 'user_id'),
+    earner: getOr<string>(item, '', 'earner', 'Earner'),
+    personId: get<string>(item, 'personId', 'person_id', 'PersonId') ?? null,
+    parentId: getOr<string>(item, id, 'parentId', 'parent_id'),
+    startDate: getOr<string>(item, createdAt, 'startDate', 'start_date'),
+    endDate: get<string>(item, 'endDate', 'end_date'),
+    oaBalance: parseBalance(get(item, 'oaBalance', 'oa_balance', 'OABalance')),
+    saBalance: parseBalance(get(item, 'saBalance', 'sa_balance', 'SABalance')),
+    maBalance: parseBalance(get(item, 'maBalance', 'ma_balance', 'MABalance')),
+    raBalance: parseBalance(get(item, 'raBalance', 'ra_balance', 'RABalance')),
+    oaUsedForHousing: parseBalance(get(item, 'oaUsedForHousing', 'oa_used_for_housing', 'OAUsedForHousing')),
+    housingStartDate: get<string>(item, 'housingStartDate', 'housing_start_date'),
+    dateOfBirth: getOr<string>(item, '', 'dateOfBirth', 'date_of_birth'),
+    residencyStatus: getOr<ResidencyStatus>(item, 'citizen', 'residencyStatus', 'residency_status'),
+    prGrantDate: get<string>(item, 'prGrantDate', 'pr_grant_date'),
+    createdAt,
+    updatedAt: getOr<string>(item, new Date().toISOString(), 'updatedAt', 'updated_at'),
   }
 }
 
-export const toCPFConfiguration = (item: any): CPFConfiguration => ({
-  id: item.id ?? item.ID,
-  year: item.year ?? item.Year,
-  effectiveFrom: item.effective_from ?? item.effectiveFrom ?? item.EffectiveFrom,
-  effectiveTo: item.effective_to ?? item.effectiveTo ?? item.EffectiveTo,
-  config: item.config ?? item.Config,
-  createdAt: item.created_at ?? item.createdAt ?? item.CreatedAt,
-  updatedAt: item.updated_at ?? item.updatedAt ?? item.UpdatedAt,
+/** Default CPF configuration data structure */
+const defaultCPFConfigData: CPFConfigData = {
+  owCeiling: 6800,
+  annualCeiling: 102000,
+  cpfAnnualLimit: 37740,
+  retirementSums: { brs: 99400, frs: 198800, ers: 298200 },
+  bhs: 71500,
+  interestRates: { oa: 2.5, sa: 4.0, ma: 4.0, ra: 4.0, extraFirst60k: 1.0, extraFirst30kAbove55: 2.0, extraNext30kAbove55: 1.0 },
+  contributionRates: {
+    citizenAndPR3Plus: {
+      upTo55: { employee: 20, employer: 17 },
+      above55To60: { employee: 15, employer: 14.5 },
+      above60To65: { employee: 9.5, employer: 11.5 },
+      above65To70: { employee: 7.5, employer: 9 },
+      above70: { employee: 5, employer: 7.5 },
+    },
+    prYear1: {
+      upTo55: { employee: 5, employer: 4 },
+      above55To60: { employee: 5, employer: 4 },
+      above60To65: { employee: 5, employer: 4 },
+      above65To70: { employee: 5, employer: 4 },
+      above70: { employee: 5, employer: 4 },
+    },
+    prYear2: {
+      upTo55: { employee: 15, employer: 9 },
+      above55To60: { employee: 12.5, employer: 8 },
+      above60To65: { employee: 7.5, employer: 6 },
+      above65To70: { employee: 5, employer: 4 },
+      above70: { employee: 5, employer: 4 },
+    },
+  },
+  allocationRates: {
+    upTo35: { oa: 0.6216, sa: 0.1621, ma: 0.2162 },
+    above35To45: { oa: 0.5675, sa: 0.1891, ma: 0.2432 },
+    above45To50: { oa: 0.5135, sa: 0.2162, ma: 0.2702 },
+    above50To55: { oa: 0.4054, sa: 0.2973, ma: 0.2973 },
+    above55To60: { oa: 0.4407, sa: 0.1017, ma: 0.4576 },
+    above60To65: { oa: 0.2381, sa: 0.0952, ma: 0.6667 },
+    above65: { oa: 0.08, sa: 0.08, ma: 0.84 },
+  },
+}
+
+export const toCPFConfiguration = (item: ApiRecord): CPFConfiguration => ({
+  id: get<string>(item, 'id', 'ID') ?? '',
+  year: get<number>(item, 'year', 'Year') ?? 0,
+  effectiveFrom: getOr<string>(item, '', 'effective_from', 'effectiveFrom', 'EffectiveFrom'),
+  effectiveTo: get<string>(item, 'effective_to', 'effectiveTo', 'EffectiveTo'),
+  config: getOr<CPFConfigData>(item, defaultCPFConfigData, 'config', 'Config'),
+  createdAt: getOr<string>(item, new Date().toISOString(), 'created_at', 'createdAt', 'CreatedAt'),
+  updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
 })
 
-export const toCPFContributionPreview = (item: any): CPFContributionPreview => ({
-  grossWage: item.gross_wage ?? item.grossWage ?? item.GrossWage,
-  cappedWage: item.capped_wage ?? item.cappedWage ?? item.CappedWage,
-  employeeContribution: item.employee_contribution ?? item.employeeContribution ?? item.EmployeeContribution,
-  employerContribution: item.employer_contribution ?? item.employerContribution ?? item.EmployerContribution,
-  totalContribution: item.total_contribution ?? item.totalContribution ?? item.TotalContribution,
-  takeHomePay: item.take_home_pay ?? item.takeHomePay ?? item.TakeHomePay,
-  allocation: {
-    oa: item.allocation?.oa ?? item.Allocation?.OA ?? 0,
-    sa: item.allocation?.sa ?? item.Allocation?.SA ?? 0,
-    ma: item.allocation?.ma ?? item.Allocation?.MA ?? 0,
-    ra: item.allocation?.ra ?? item.Allocation?.RA ?? 0,
-  },
-  ratesApplied: {
-    employee: item.rates_applied?.employee ?? item.ratesApplied?.employee ?? 0,
-    employer: item.rates_applied?.employer ?? item.ratesApplied?.employer ?? 0,
-    ageGroup: item.rates_applied?.age_group ?? item.ratesApplied?.ageGroup ?? '',
-    residencyStatus: item.rates_applied?.residency_status ?? item.ratesApplied?.residencyStatus ?? 'citizen',
-  },
-})
+export const toCPFContributionPreview = (item: ApiRecord): CPFContributionPreview => {
+  const allocation = asRecord(get(item, 'allocation', 'Allocation'))
+  const ratesApplied = asRecord(get(item, 'rates_applied', 'ratesApplied'))
+
+  return {
+    grossWage: get<number>(item, 'gross_wage', 'grossWage', 'GrossWage') ?? 0,
+    cappedWage: get<number>(item, 'capped_wage', 'cappedWage', 'CappedWage') ?? 0,
+    employeeContribution: get<number>(item, 'employee_contribution', 'employeeContribution', 'EmployeeContribution') ?? 0,
+    employerContribution: get<number>(item, 'employer_contribution', 'employerContribution', 'EmployerContribution') ?? 0,
+    totalContribution: get<number>(item, 'total_contribution', 'totalContribution', 'TotalContribution') ?? 0,
+    takeHomePay: get<number>(item, 'take_home_pay', 'takeHomePay', 'TakeHomePay') ?? 0,
+    allocation: {
+      oa: getOr<number>(allocation, 0, 'oa', 'OA'),
+      sa: getOr<number>(allocation, 0, 'sa', 'SA'),
+      ma: getOr<number>(allocation, 0, 'ma', 'MA'),
+      ra: getOr<number>(allocation, 0, 'ra', 'RA'),
+    },
+    ratesApplied: {
+      employee: getOr<number>(ratesApplied, 0, 'employee'),
+      employer: getOr<number>(ratesApplied, 0, 'employer'),
+      ageGroup: getOr<string>(ratesApplied, '', 'age_group', 'ageGroup'),
+      residencyStatus: getOr<ResidencyStatus>(ratesApplied, 'citizen', 'residency_status', 'residencyStatus'),
+    },
+  }
+}
 
 // =============================================================================
 // Scenario helpers
 // =============================================================================
 
-export const normalizeImpact = (impact: any): ScenarioImpactDto => ({
-  impactKind: impact.impactKind ?? impact.impact_kind ?? impact.ImpactKind ?? 'delta',
-  targetType: impact.targetType ?? impact.target_type ?? impact.TargetType ?? 'asset',
-  parentId: impact.parentId ?? impact.parent_id ?? impact.ParentId ?? undefined,
-  amount: String(impact.amount ?? impact.Amount ?? '0'),
-  currency: impact.currency ?? impact.Currency ?? 'SGD',
-  cadence: impact.cadence ?? impact.Cadence ?? 'monthly',
-  startDate: (impact.startDate ?? impact.start_date ?? impact.StartDate ?? impact.start_month ?? impact.startMonth ?? '').slice(0, 10),
-  endDate: impact.endDate
-    ? impact.endDate.slice(0, 10)
-    : impact.end_date
-      ? impact.end_date.slice(0, 10)
-      : impact.EndDate
-        ? impact.EndDate.slice(0, 10)
-        : undefined,
-  name: impact.name ?? impact.Name ?? impact.target_name ?? impact.targetName ?? undefined,
-  frequency: impact.frequency ?? impact.Frequency ?? impact.target_frequency ?? impact.targetFrequency ?? undefined,
-  notes: impact.notes ?? impact.Notes ?? '',
-  // Advanced fields for start impacts (growthRate also used for percentage deltas)
-  category: impact.category ?? impact.Category ?? undefined,
-  growthRate: impact.growthRate ?? impact.growth_rate ?? impact.GrowthRate ?? undefined,
-  growthStrategy: impact.growthStrategy ?? impact.growth_strategy ?? impact.GrowthStrategy ?? undefined,
-  // Liability-specific fields
-  interestRate: impact.interestRate ?? impact.interest_rate ?? impact.InterestRate ?? undefined,
-  minimumPayment: impact.minimumPayment ?? impact.minimum_payment ?? impact.MinimumPayment ?? undefined,
-})
+export const normalizeImpact = (impact: ApiRecord): ScenarioImpactDto => {
+  const startDateRaw = get<string>(impact, 'startDate', 'start_date', 'StartDate', 'start_month', 'startMonth') ?? ''
+  const endDateRaw = get<string>(impact, 'endDate', 'end_date', 'EndDate')
 
-export const normalizeScenarioEvent = (data: any): ScenarioEvent => {
-  const rawImpacts = data.impacts ?? data.Impacts ?? []
-  const impacts = Array.isArray(rawImpacts) ? rawImpacts.map(normalizeImpact) : []
+  return {
+    impactKind: getOr<string>(impact, 'delta', 'impactKind', 'impact_kind', 'ImpactKind') as ScenarioImpactDto['impactKind'],
+    targetType: getOr<string>(impact, 'asset', 'targetType', 'target_type', 'TargetType') as ScenarioImpactDto['targetType'],
+    parentId: get<string>(impact, 'parentId', 'parent_id', 'ParentId'),
+    amount: String(get(impact, 'amount', 'Amount') ?? '0'),
+    currency: getOr<string>(impact, 'SGD', 'currency', 'Currency'),
+    cadence: getOr<string>(impact, 'monthly', 'cadence', 'Cadence') as ScenarioImpactDto['cadence'],
+    startDate: startDateRaw.slice(0, 10),
+    endDate: endDateRaw ? endDateRaw.slice(0, 10) : undefined,
+    name: get<string>(impact, 'name', 'Name', 'target_name', 'targetName'),
+    frequency: get<string>(impact, 'frequency', 'Frequency', 'target_frequency', 'targetFrequency'),
+    notes: getOr<string>(impact, '', 'notes', 'Notes'),
+    // Advanced fields for start impacts (growthRate also used for percentage deltas)
+    category: get<string>(impact, 'category', 'Category'),
+    growthRate: get<number>(impact, 'growthRate', 'growth_rate', 'GrowthRate'),
+    growthStrategy: get<string>(impact, 'growthStrategy', 'growth_strategy', 'GrowthStrategy'),
+    // Liability-specific fields
+    interestRate: get<number>(impact, 'interestRate', 'interest_rate', 'InterestRate'),
+    minimumPayment: get<number>(impact, 'minimumPayment', 'minimum_payment', 'MinimumPayment'),
+  }
+}
+
+export const normalizeScenarioEvent = (data: unknown): ScenarioEvent => {
+  const record = asRecord(data)
+  const rawImpacts = get<unknown[]>(record, 'impacts', 'Impacts') ?? []
+  const impacts = Array.isArray(rawImpacts) ? rawImpacts.map(i => normalizeImpact(asRecord(i))) : []
 
   return scenarioEventFromDto({
-    id: data.id ?? data.ID ?? '',
-    name: data.name ?? data.Name ?? '',
-    description: data.description ?? data.Description ?? '',
-    occursOn: data.occursOn ?? data.occurs_on ?? data.OccursOn ?? '',
-    displayIcon: data.displayIcon ?? data.display_icon ?? data.DisplayIcon ?? '',
-    displayColor: data.displayColor ?? data.display_color ?? data.DisplayColor ?? '',
-    tags: data.tags ?? data.Tags ?? [],
-    scenarioId: data.scenarioId ?? data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? undefined,
-    isIncluded: data.isIncluded ?? data.is_included ?? data.IsIncluded ?? true,
+    id: getOr<string>(record, '', 'id', 'ID'),
+    name: getOr<string>(record, '', 'name', 'Name'),
+    description: getOr<string>(record, '', 'description', 'Description'),
+    occursOn: getOr<string>(record, '', 'occursOn', 'occurs_on', 'OccursOn'),
+    displayIcon: getOr<string>(record, '', 'displayIcon', 'display_icon', 'DisplayIcon'),
+    displayColor: getOr<string>(record, '', 'displayColor', 'display_color', 'DisplayColor'),
+    tags: get<string[]>(record, 'tags', 'Tags') ?? [],
+    scenarioId: get<string>(record, 'scenarioId', 'scenario_id', 'ScenarioID', 'ScenarioId'),
+    isIncluded: getOr<boolean>(record, true, 'isIncluded', 'is_included', 'IsIncluded'),
     impacts,
   })
 }
 
-export const normalizeScenarioEventList = (payload: any): ScenarioEvent[] => {
-  const items = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.items)
-      ? payload.items
-      : []
-
+export const normalizeScenarioEventList = (payload: unknown): ScenarioEvent[] => {
+  if (Array.isArray(payload)) {
+    return payload.map(normalizeScenarioEvent)
+  }
+  const record = asRecord(payload)
+  const items = get<unknown[]>(record, 'items') ?? []
   return items.map(normalizeScenarioEvent)
 }

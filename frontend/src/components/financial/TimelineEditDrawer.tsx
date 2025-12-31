@@ -193,18 +193,17 @@ export function TimelineEditDrawer({
   const handleExistingChange = (itemId: string) => {
     setForm((prev) => ({ ...prev, itemId }))
     if (!itemId) return
-    const match = existingItems.find((item) => (item as any).itemId === itemId || (item as any).item_id === itemId)
+    const match = existingItems.find((item) => item.itemId === itemId)
     if (match) {
-      const itemType = (match as any).itemType ?? (match as any).item_type
-      const isFlow = itemType === 'income' || itemType === 'expense'
+      const isFlow = match.itemType === 'income' || match.itemType === 'expense'
       setForm({
-        itemId: (match as any).itemId ?? (match as any).item_id,
+        itemId: match.itemId,
         name: match.name,
-        itemType,
+        itemType: match.itemType,
         category: match.category,
-        amount: ((match as any).sourceAmount ?? (match as any).source_amount ?? (match as any).amountAnnual ?? (match as any).amount_annual ?? 0).toString(),
+        amount: (match.sourceAmount ?? match.amountAnnual ?? 0).toString(),
         // Only set frequency for income/expense (flows)
-        frequency: isFlow ? ((match as any).sourceFrequency ?? (match as any).source_frequency ?? 'annual') : undefined,
+        frequency: isFlow ? (match.sourceFrequency ?? 'annual') : undefined,
         note: '',
       })
     }

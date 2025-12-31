@@ -9,10 +9,28 @@ import { loginSchema, type LoginFormData } from '@/lib/validations/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
+/**
+ * Validates that a callback URL is safe to redirect to.
+ * Only allows relative paths starting with / to prevent open redirect attacks.
+ */
+function isValidCallbackUrl(url: string): boolean {
+  // Must start with / (relative path)
+  if (!url.startsWith('/')) return false
+  // Prevent protocol-relative URLs (//evil.com)
+  if (url.startsWith('//')) return false
+  // Prevent newlines and control characters that could be used in header injection
+  if (/[\r\n\t]/.test(url)) return false
+  // Prevent javascript: or data: schemes via encoding tricks
+  if (/^\/[^/]*:/i.test(url)) return false
+  return true
+}
+
 export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+  const rawCallbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+  // Validate callback URL to prevent open redirect attacks
+  const callbackUrl = isValidCallbackUrl(rawCallbackUrl) ? rawCallbackUrl : '/dashboard'
   const [serverError, setServerError] = useState<string | null>(null)
 
   const {
