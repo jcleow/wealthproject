@@ -59,7 +59,8 @@ export interface LoanSegment {
 // 2. Second instalment at key collection
 export interface StaggeredDownpayment {
   enabled: boolean                    // Whether SDS is enabled
-  firstInstalmentPercent: number      // 2.5% (young couples) or 5% (standard)
+  firstInstalmentPercent: number      // e.g., 5% (standard) or 2.5% (young couples)
+  secondInstalmentPercent: number     // e.g., 20% - remainder of downpayment
   firstInstalmentMonth: string        // YYYY-MM - typically ~9 months after booking
   secondInstalmentMonth: string       // YYYY-MM - at key collection
 }

@@ -91,6 +91,7 @@ export function createDefaultStaggeredDownpayment(
   return {
     enabled: true,
     firstInstalmentPercent: 5, // Default to 5%, user can change to 2.5% if eligible
+    secondInstalmentPercent: 20, // Default to 20%, totaling 25%
     firstInstalmentMonth,
     secondInstalmentMonth: keyCollectionMonth,
   }
