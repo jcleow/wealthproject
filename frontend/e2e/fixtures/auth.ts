@@ -39,8 +39,8 @@ export const authenticatedTest = base.extend<{
     // Wait for navigation to dashboard
     await page.waitForURL(/dashboard/, { timeout: 10000 })
 
-    // Verify we're logged in
-    await expect(page.getByRole('heading', { name: /net worth/i })).toBeVisible({ timeout: 10000 })
+    // Verify we're logged in - use first() to handle multiple "Net Worth" headings
+    await expect(page.getByRole('heading', { name: /net worth/i }).first()).toBeVisible({ timeout: 10000 })
 
     // Provide the authenticated page to the test
     await use(page)
