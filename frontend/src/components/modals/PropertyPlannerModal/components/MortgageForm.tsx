@@ -213,6 +213,14 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
     })
   }, [rawIncomes])
 
+  // Derive household income from borrower selections (computed inline, not stored in state)
+  const householdIncome = getHouseholdIncome(
+    rawIncomes,
+    inputs.borrower1IncomeId,
+    inputs.borrower2IncomeId,
+    inputs.borrowerType
+  )
+
   const isBTO = propertyType === 'hdb-bto'
   const isEC = propertyType === 'ec'
   const isResale = propertyType === 'hdb-resale' || propertyType === 'private-resale'
@@ -231,14 +239,14 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
   // Eligibility warnings (informational only - policies may change)
   const hdbIncomeCeiling = 14000
   const ecIncomeCeiling = 16000
-  const exceedsHdbIncomeCeiling = isHDB && inputs.householdIncome > hdbIncomeCeiling
-  const exceedsEcIncomeCeiling = isEC && inputs.householdIncome > ecIncomeCeiling
+  const exceedsHdbIncomeCeiling = isHDB && householdIncome > hdbIncomeCeiling
+  const exceedsEcIncomeCeiling = isEC && householdIncome > ecIncomeCeiling
 
   const currentStepIndex = FORM_STEPS.findIndex(s => s.id === currentStep)
 
   // Step validation
   const isStep1Valid = inputs.propertyPrice > 0 && inputs.loanAmount > 0
-  const isStep2Valid = inputs.householdIncome > 0
+  const isStep2Valid = householdIncome > 0
   const isStep3Valid = inputs.loanTermYears > 0 && (inputs.fixedRate > 0 || inputs.floatingRate > 0)
 
   const getStepValidation = (stepIndex: number): boolean => {
