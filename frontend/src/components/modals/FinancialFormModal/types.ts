@@ -47,7 +47,6 @@ export type AssetFormValues = {
   updatedAt?: string
   endDate?: string
   terminalValue?: number | null
-  leaseStartYear?: number | null
 }
 
 export type LiabilityFormValues = {

@@ -153,13 +153,6 @@ export function useFinancialForm({
             ? itemRate
             : getRateForCategory(type, asset.category, growthConfigs)
 
-        // Calculate usefulLifeYears from endDate and leaseStartYear if available
-        let usefulLifeYears = ''
-        if (asset.leaseStartYear != null && asset.endDate) {
-          const endYear = new Date(asset.endDate).getUTCFullYear()
-          usefulLifeYears = (endYear - asset.leaseStartYear).toString()
-        }
-
         setFormData({
           name: toSafeText(asset.name),
           earner: '',
@@ -176,10 +169,8 @@ export function useFinancialForm({
           terminalValue: asset.terminalValue !== null && asset.terminalValue !== undefined
             ? formatNumberInput(asset.terminalValue.toString())
             : '',
-          leaseStartYear: asset.leaseStartYear !== null && asset.leaseStartYear !== undefined
-            ? asset.leaseStartYear.toString()
-            : '',
-          usefulLifeYears,
+          leaseStartYear: '',
+          usefulLifeYears: '',
         })
         break
       }
@@ -375,7 +366,6 @@ export function useFinancialForm({
           annualGrowthRate: Number.parseFloat(formData.annualGrowthRate) || 0,
           ...(endDate && { endDate }),
           ...(terminalValue !== null && { terminalValue }),
-          ...(leaseStartYear && { leaseStartYear }),
           ...shared,
         }
       }
@@ -395,7 +385,6 @@ export function useFinancialForm({
           type,
           id: (data as Income | undefined)?.id,
           name: formData.name.trim(),
-          earner: formData.earner.trim() || undefined,
           personId: formData.personId || undefined,
           amount: toNumeric(formData.amount),
           frequency: formData.frequency,

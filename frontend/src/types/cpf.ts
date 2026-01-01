@@ -32,7 +32,6 @@ export interface CPFAccount {
 }
 
 export interface CPFAccountCreatePayload {
-  earner?: string
   personId?: string | null
   oaBalance?: number
   saBalance?: number
@@ -48,7 +47,6 @@ export interface CPFAccountCreatePayload {
 export type UpdateMode = 'in_place' | 'versioned'
 
 export interface CPFAccountUpdatePayload {
-  earner?: string
   personId?: string | null
   oaBalance?: number
   saBalance?: number

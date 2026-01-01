@@ -73,7 +73,6 @@ func (h *CPFV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 
 // cpfV2CreateInput is the JSON input struct for CPF v2 create.
 type cpfV2CreateInput struct {
-	Earner           string `json:"earner"`
 	PersonID         string `json:"personId"` // Required FK to persons table
 	OABalance        string `json:"oaBalance"`
 	SABalance        string  `json:"saBalance"`
@@ -173,7 +172,6 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cpfAccount := repo.CPFAccount{
-		Earner:           input.Earner,
 		PersonID:         input.PersonID,
 		OABalance:        *oaBalance,
 		SABalance:        *saBalance,
@@ -200,7 +198,6 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 // cpfV2Input is the JSON input struct for CPF v2 update.
 // Uses string for decimal values to avoid float64 precision loss.
 type cpfV2Input struct {
-	Earner           string `json:"earner"`
 	PersonID         string `json:"personId"` // Required FK to persons table
 	OABalance        string `json:"oaBalance"`
 	SABalance        string  `json:"saBalance"`
@@ -326,7 +323,6 @@ func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id s
 	// Build service input
 	serviceInput := cpf.UpdateInput{
 		ID:               id,
-		Earner:           input.Earner,
 		PersonID:         input.PersonID,
 		OABalance:        *oaBalance,
 		SABalance:        *saBalance,

@@ -57,7 +57,6 @@ export const assetSchema = z.object({
   startDate: isoDateTime.optional(),
   endDate: isoDateTime.optional(),
   terminalValue: z.number().optional().nullable(),
-  leaseStartYear: z.number().int().optional().nullable(),
   notes: optionalNotes,
   updatedAt: isoDateTime,
   parentId: z.string().optional(),

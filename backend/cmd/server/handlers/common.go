@@ -77,12 +77,9 @@ func badRequest(w http.ResponseWriter, err error) {
 }
 
 func internalError(w http.ResponseWriter, err error) {
-	// SECURITY: Always log internal errors for debugging, but NEVER expose them to clients
-	// This prevents information disclosure that could aid attackers
 	if err != nil {
 		log.Printf("Internal error details: %v", err)
 	}
-	// Always return a generic message to the client - never expose internal error details
 	writeError(w, http.StatusInternalServerError, "internal_error", "An internal error occurred. Please try again later.")
 }
 

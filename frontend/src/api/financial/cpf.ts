@@ -29,7 +29,6 @@ export async function listCPFAccounts(): Promise<CPFAccount[]> {
 
 export async function createCPFAccount(payload: CPFAccountCreatePayload): Promise<CPFAccount> {
   const body = {
-    earner: payload.earner,
     personId: payload.personId,
     oaBalance: (payload.oaBalance ?? 0).toString(),
     saBalance: (payload.saBalance ?? 0).toString(),
@@ -51,7 +50,6 @@ export async function updateCPFAccount(
 ): Promise<CPFAccount> {
   // Use string for decimal values to preserve precision
   const body: Record<string, unknown> = {
-    earner: payload.earner,
     personId: payload.personId,
     oaBalance: payload.oaBalance?.toString() ?? '0',
     saBalance: payload.saBalance?.toString() ?? '0',

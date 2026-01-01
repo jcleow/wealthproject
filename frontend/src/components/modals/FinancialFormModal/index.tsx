@@ -59,18 +59,9 @@ export function FinancialFormModal({
     }
     if (type === 'asset' && mode === 'edit' && data) {
       const asset = data as Asset
-      if (asset.leaseStartYear || asset.terminalValue != null) {
+      // Show useful life section if terminal value is set (indicates leasehold/depreciating asset)
+      if (asset.terminalValue != null) {
         setShowUsefulLife(true)
-        // Detect preset from usefulLifeYears
-        const endYear = asset.endDate ? new Date(asset.endDate).getUTCFullYear() : null
-        const usefulYears = asset.leaseStartYear && endYear ? endYear - asset.leaseStartYear : null
-        if (usefulYears === 99) {
-          setUsefulLifePreset('99')
-        } else if (usefulYears === 999) {
-          setUsefulLifePreset('999')
-        } else if (usefulYears) {
-          setUsefulLifePreset('custom')
-        }
       }
     }
   }, [isOpen, type, mode, data])

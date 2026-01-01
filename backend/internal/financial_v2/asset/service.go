@@ -27,7 +27,6 @@ type UpdateInput struct {
 	StartDate      *time.Time
 	EndDate        *time.Time
 	TerminalValue  *decimal.Decimal
-	LeaseStartYear *int
 	UpdateMode     string
 }
 
@@ -81,7 +80,6 @@ func (s *Service) updateExistingVersion(ctx context.Context, userID string, exis
 	existing.Notes = input.Notes
 	existing.GrowthStrategy = input.GrowthStrategy
 	existing.TerminalValue = input.TerminalValue
-	existing.LeaseStartYear = input.LeaseStartYear
 
 	if input.GrowthRate != nil {
 		existing.AnnualGrowthRate = *input.GrowthRate
@@ -105,7 +103,6 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 		StartDate:      *input.StartDate,
 		EndDate:        input.EndDate,
 		TerminalValue:  input.TerminalValue,
-		LeaseStartYear: input.LeaseStartYear,
 	}
 
 	if input.GrowthRate != nil {
@@ -132,7 +129,6 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, assetID string, inp
 		GrowthStrategy: input.GrowthStrategy,
 		EndDate:        input.EndDate,
 		TerminalValue:  input.TerminalValue,
-		LeaseStartYear: input.LeaseStartYear,
 	}
 
 	if input.GrowthRate != nil {

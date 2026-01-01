@@ -21,37 +21,7 @@ import type {
   ResidencyStatus,
   CPFConfigData,
 } from '@/types/cpf'
-
-// =============================================================================
-// Type-safe helpers for API response transformation
-// =============================================================================
-
-/** Record type for raw API responses with unknown property values */
-type ApiRecord = Record<string, unknown>
-
-/**
- * Safely get a property from an API response, checking multiple key naming conventions.
- * Returns undefined if none of the keys exist.
- */
-function get<T>(obj: ApiRecord, ...keys: string[]): T | undefined {
-  for (const key of keys) {
-    if (obj[key] !== undefined) return obj[key] as T
-  }
-  return undefined
-}
-
-/** Safely get a property with a default value */
-function getOr<T>(obj: ApiRecord, defaultValue: T, ...keys: string[]): T {
-  return get<T>(obj, ...keys) ?? defaultValue
-}
-
-/** Ensure input is an ApiRecord for property access */
-function asRecord(input: unknown): ApiRecord {
-  if (input && typeof input === 'object' && !Array.isArray(input)) {
-    return input as ApiRecord
-  }
-  return {}
-}
+import { get, getOr, asRecord, type ApiRecord } from '@/lib/utils'
 
 // =============================================================================
 // Pagination helpers
@@ -95,7 +65,6 @@ export const toAsset = (item: ApiRecord): Asset => ({
   startDate: get<string>(item, 'start_date', 'startDate', 'StartDate'),
   endDate: get<string>(item, 'end_date', 'endDate', 'EndDate'),
   terminalValue: get<number>(item, 'terminal_value', 'terminalValue', 'TerminalValue') ?? null,
-  leaseStartYear: get<number>(item, 'lease_start_year', 'leaseStartYear', 'LeaseStartYear') ?? null,
   notes: getOr<string>(item, '', 'notes', 'Notes'),
   updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
   parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),

@@ -86,7 +86,6 @@ type NonCashAsset struct {
 	StartDate        time.Time       `json:"startDate"`         // Precise start date (day-level)
 	EndDate          *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
 	TerminalValue    *decimal.Decimal `json:"terminalValue,omitempty"`  // Value at end of useful life (NULL = disappear, 0 = worthless)
-	LeaseStartYear   *int             `json:"leaseStartYear,omitempty"` // For leasehold properties: year lease started
 	Notes            string          `json:"notes"`
 	GrowthStrategy   string          `json:"growthStrategy"`
 	UpdatedAt        time.Time       `json:"updatedAt"`
@@ -307,7 +306,6 @@ func (s *Store) ListNonCashAssets(
 		start_date,
 		end_date,
 		terminal_value,
-		lease_start_year,
 		COALESCE(notes, '') as notes,
 		updated_at,
 		scenario_event_id
@@ -371,7 +369,7 @@ func (s *Store) ListNonCashAssets(
 	for rows.Next() {
 		var a NonCashAsset
 		// pgx can scan NULL directly into *time.Time
-		err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.TerminalValue, &a.LeaseStartYear, &a.Notes, &a.UpdatedAt, &a.ScenarioEventID)
+		err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.TerminalValue, &a.Notes, &a.UpdatedAt, &a.ScenarioEventID)
 		if err != nil {
 			return PaginatedResult[NonCashAsset]{}, err
 		}
@@ -659,33 +657,34 @@ func (s *Store) ListIncomes(
 	q ListQuery,
 ) (PaginatedResult[Income], error) {
 	query := `
-	SELECT id,
-		COALESCE(parent_id, id) as parent_id,
-		name,
-		COALESCE(earner, '') as earner,
-		person_id,
-		amount,
-		frequency,
-		start_date,
-		end_date,
-		category,
-		growth_rate,
-		COALESCE(notes, '') as notes,
-		COALESCE(growth_strategy, '') as growth_strategy,
-		updated_at,
-		COALESCE(income_type, 'other') as income_type,
-		COALESCE(cpf_wage_type, '') as cpf_wage_type,
-		scenario_event_id
-	FROM finance_incomes
-	WHERE user_id = $1`
+	SELECT i.id,
+		COALESCE(i.parent_id, i.id) as parent_id,
+		i.name,
+		COALESCE(p.name, i.earner, '') as earner,
+		i.person_id,
+		i.amount,
+		i.frequency,
+		i.start_date,
+		i.end_date,
+		i.category,
+		i.growth_rate,
+		COALESCE(i.notes, '') as notes,
+		COALESCE(i.growth_strategy, '') as growth_strategy,
+		i.updated_at,
+		COALESCE(i.income_type, 'other') as income_type,
+		COALESCE(i.cpf_wage_type, '') as cpf_wage_type,
+		i.scenario_event_id
+	FROM finance_incomes i
+	LEFT JOIN persons p ON i.person_id = p.id
+	WHERE i.user_id = $1`
 
 	// Filter scenario items:
 	// - When IncludeScenarioItems=false: exclude all scenario items
 	// - When IncludeScenarioItems=true: include regular items AND 'start' impact items only
 	if !q.IncludeScenarioItems {
-		query += ` AND scenario_event_id IS NULL`
+		query += ` AND i.scenario_event_id IS NULL`
 	} else {
-		query += ` AND (scenario_event_id IS NULL OR impact_kind = 'start')`
+		query += ` AND (i.scenario_event_id IS NULL OR i.impact_kind = 'start')`
 	}
 
 	args := []any{q.UserID}
@@ -703,7 +702,7 @@ func (s *Store) ListIncomes(
 		}
 	}
 
-	query += ` ORDER BY parent_id, start_date`
+	query += ` ORDER BY i.parent_id, i.start_date`
 
 	// Add pagination
 	paginationSubQuery, _ := addPaginationQuery(q.Pagination, argIdx)

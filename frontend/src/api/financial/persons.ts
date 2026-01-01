@@ -35,7 +35,7 @@ function toPerson(data: RawPersonResponse): Person {
  * List all persons for the current user (with income/CPF counts)
  */
 export async function listPersons(): Promise<Person[]> {
-  const data = await apiClient.get<RawPersonResponse[]>('/persons', undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.get<RawPersonResponse[]>('/persons', {}, { baseUrl: '/api/v2' })
   return (data || []).map(toPerson)
 }
 
@@ -43,7 +43,7 @@ export async function listPersons(): Promise<Person[]> {
  * Get a single person by ID
  */
 export async function getPerson(id: string): Promise<Person> {
-  const data = await apiClient.get<RawPersonResponse>(`/persons/${id}`, undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.get<RawPersonResponse>(`/persons/${id}`, {}, { baseUrl: '/api/v2' })
   return toPerson(data)
 }
 
@@ -74,7 +74,7 @@ export async function deletePerson(id: string): Promise<void> {
  * Toggle the isIncluded flag for a person
  */
 export async function togglePersonIncluded(id: string): Promise<Person> {
-  const data = await apiClient.patch<RawPersonResponse>(`/persons/${id}/toggle`, undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.patch<RawPersonResponse>(`/persons/${id}/toggle`, {}, { baseUrl: '/api/v2' })
   return toPerson(data)
 }
 

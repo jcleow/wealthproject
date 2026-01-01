@@ -39,11 +39,11 @@ type Config struct {
 }
 
 func New() *Config {
-	// SECURITY: Validate JWT secret in production to prevent token forgery
+	// SECURITY: Validate JWT secret by default, only skip in development
 	jwtSecret := getEnv("JWT_SECRET", "your-secret-key")
-	if isProduction() {
+	if !isDevelopment() {
 		if jwtSecret == "" || jwtSecret == "your-secret-key" || len(jwtSecret) < 32 {
-			log.Fatal("SECURITY ERROR: JWT_SECRET must be set to a strong secret (at least 32 characters) in production")
+			log.Fatal("SECURITY ERROR: JWT_SECRET must be set to a strong secret (at least 32 characters)")
 		}
 	}
 
@@ -126,6 +126,12 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 func isProduction() bool {
 	env := strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV")))
 	return env == "production" || env == "prod"
+}
+
+// isDevelopment returns true if the application is running in development mode
+func isDevelopment() bool {
+	env := strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV")))
+	return env == "development" || env == "dev" || env == "local"
 }
 
 // IsProduction is the exported version for use by other packages

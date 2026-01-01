@@ -25,7 +25,6 @@ type assetInput struct {
 	StartDate      *string `json:"startDate"`
 	EndDate        *string `json:"endDate"`
 	TerminalValue  *string `json:"terminalValue"`
-	LeaseStartYear *int    `json:"leaseStartYear"`
 	UpdateMode     string  `json:"updateMode,omitempty"`
 }
 
@@ -55,7 +54,6 @@ type assetCreateInput struct {
 	StartDate      *string `json:"startDate"`
 	EndDate        *string `json:"endDate"`
 	TerminalValue  *string `json:"terminalValue"`
-	LeaseStartYear *int    `json:"leaseStartYear"`
 }
 
 // POST /api/v2/assets
@@ -150,7 +148,6 @@ func (h *AssetV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		StartDate:      startDate,
 		EndDate:        endDate,
 		TerminalValue:  terminalValue,
-		LeaseStartYear: input.LeaseStartYear,
 	}
 	if growthRate != nil {
 		a.AnnualGrowthRate = *growthRate
@@ -288,7 +285,6 @@ func (h *AssetV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id
 		StartDate:      startDate,
 		EndDate:        endDate,
 		TerminalValue:  terminalValue,
-		LeaseStartYear: input.LeaseStartYear,
 		UpdateMode:     input.UpdateMode,
 	}
 

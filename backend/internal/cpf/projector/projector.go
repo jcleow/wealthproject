@@ -129,11 +129,11 @@ func (p *Projector) ProjectToDate(
 			}
 		}
 
-		// Apply monthly interest
-		oaInterest := CalculateMonthlyInterest(oa, OAInterestRate)
-		saInterest := CalculateMonthlyInterest(sa, SAInterestRate)
-		maInterest := CalculateMonthlyInterest(ma, MAInterestRate)
-		raInterest := CalculateMonthlyInterest(ra, RAInterestRate)
+		// Apply monthly interest using the growth module
+		oaInterest := CalculateMonthlyInterest(oa, OAInterestRatePct)
+		saInterest := CalculateMonthlyInterest(sa, SAInterestRatePct)
+		maInterest := CalculateMonthlyInterest(ma, MAInterestRatePct)
+		raInterest := CalculateMonthlyInterest(ra, RAInterestRatePct)
 
 		oa = oa.Add(oaInterest)
 		sa = sa.Add(saInterest)

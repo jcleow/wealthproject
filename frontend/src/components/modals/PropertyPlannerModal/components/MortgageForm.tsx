@@ -70,6 +70,34 @@ function getProjectedOaByEarner(
   return parseFloat(oaAsset.balance) || 0
 }
 
+// Helper to get monthly amount from an income record
+function getMonthlyAmount(income: { amount: string | number; frequency: string }): number {
+  const amount = typeof income.amount === 'string' ? parseFloat(income.amount) : income.amount
+  return income.frequency === 'monthly' ? amount : Math.round(amount / 12)
+}
+
+// Derive household income from borrower income IDs - computed inline, not stored in state
+function getHouseholdIncome(
+  incomes: { id: string; amount: string | number; frequency: string }[],
+  borrower1IncomeId: string,
+  borrower2IncomeId: string | null,
+  borrowerType: string
+): number {
+  if (!borrower1IncomeId || incomes.length === 0) return 0
+
+  const b1 = incomes.find(i => i.id === borrower1IncomeId)
+  if (!b1) return 0
+
+  let total = getMonthlyAmount(b1)
+
+  if (borrowerType === 'joint' && borrower2IncomeId) {
+    const b2 = incomes.find(i => i.id === borrower2IncomeId)
+    if (b2) total += getMonthlyAmount(b2)
+  }
+
+  return total
+}
+
 export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormProps) {
   const [currentStep, setCurrentStep] = useState<FormStep>('property')
   const isHDB = propertyType.includes('hdb')
@@ -170,50 +198,6 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
     }
   }, [projectedCpfAssets, inputs.loanStartMonth, inputs.borrower1IncomeId, inputs.borrower2IncomeId, inputs.borrowerType, inputs.borrower1OaBalance, inputs.borrower2OaBalance, rawIncomes, onChange])
 
-  // Initialize householdIncome from borrower incomes when form loads with existing data
-  // This runs when incomes data arrives and borrower IDs are already set
-  const prevHouseholdIncomeInitialized = useRef(false)
-  useEffect(() => {
-    // Skip if already initialized or no incomes loaded yet
-    if (prevHouseholdIncomeInitialized.current || rawIncomes.length === 0) return
-    // Skip if no borrower selected
-    if (!inputs.borrower1IncomeId) return
-
-    const borrower1Income = rawIncomes.find(i => i.id === inputs.borrower1IncomeId)
-    if (!borrower1Income) return
-
-    // Mark as initialized to prevent re-running
-    prevHouseholdIncomeInitialized.current = true
-
-    const borrower1Amount = typeof borrower1Income.amount === 'string'
-      ? parseFloat(borrower1Income.amount)
-      : borrower1Income.amount
-    const borrower1Monthly = borrower1Income.frequency === 'monthly'
-      ? borrower1Amount
-      : Math.round(borrower1Amount / 12)
-
-    let totalHouseholdIncome = borrower1Monthly
-
-    // Add borrower 2 income if joint
-    if (inputs.borrowerType === 'joint' && inputs.borrower2IncomeId) {
-      const borrower2Income = rawIncomes.find(i => i.id === inputs.borrower2IncomeId)
-      if (borrower2Income) {
-        const borrower2Amount = typeof borrower2Income.amount === 'string'
-          ? parseFloat(borrower2Income.amount)
-          : borrower2Income.amount
-        const borrower2Monthly = borrower2Income.frequency === 'monthly'
-          ? borrower2Amount
-          : Math.round(borrower2Amount / 12)
-        totalHouseholdIncome += borrower2Monthly
-      }
-    }
-
-    // Only update if householdIncome is currently 0 (not yet derived)
-    if (inputs.householdIncome === 0) {
-      onChange('householdIncome', totalHouseholdIncome)
-      onChange('monthlyCpfOa', calculateMonthlyOaInflow(totalHouseholdIncome))
-    }
-  }, [rawIncomes, inputs.borrower1IncomeId, inputs.borrower2IncomeId, inputs.borrowerType, inputs.householdIncome, onChange])
 
   // Transform incomes into the dropdown format
   const incomes: IncomeOption[] = useMemo(() => {

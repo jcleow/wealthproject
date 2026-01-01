@@ -35,7 +35,6 @@ export async function createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): P
   // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
     name: payload.name,
-    earner: payload.earner ?? '',
     personId: payload.personId,
     amount: String(payload.amount),
     frequency: payload.frequency,
@@ -61,7 +60,6 @@ export async function updateIncome(
   // Use string for decimal values to avoid float64 precision loss
   const body: Record<string, unknown> = {
     name: payload.name,
-    earner: payload.earner ?? '',
     personId: payload.personId,
     amount: payload.amount?.toString(),
     frequency: payload.frequency,

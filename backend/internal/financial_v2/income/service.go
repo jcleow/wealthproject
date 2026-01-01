@@ -19,7 +19,6 @@ const (
 type UpdateInput struct {
 	ID             string
 	Name           string
-	Earner         string
 	PersonID       string // Required FK to persons table
 	Category       string
 	Amount         decimal.Decimal
@@ -76,7 +75,6 @@ func (s *Service) versionedUpdate(ctx context.Context, userID, incomeID string, 
 // updateExistingVersion updates an existing versioned income
 func (s *Service) updateExistingVersion(ctx context.Context, userID string, existing *repo.Income, input UpdateInput) (*repo.Income, error) {
 	existing.Name = input.Name
-	existing.Earner = input.Earner
 	existing.PersonID = input.PersonID
 	existing.Category = input.Category
 	existing.Amount = input.Amount
@@ -93,12 +91,6 @@ func (s *Service) updateExistingVersion(ctx context.Context, userID string, exis
 
 // createNewVersion creates a new versioned income
 func (s *Service) createNewVersion(ctx context.Context, userID, parentID string, current *repo.Income, input UpdateInput) (*repo.Income, error) {
-	// Use input.Earner if provided, otherwise preserve current earner
-	earner := input.Earner
-	if earner == "" {
-		earner = current.Earner
-	}
-
 	// Use input.PersonID if provided, otherwise preserve current
 	personID := input.PersonID
 	if personID == "" {
@@ -108,7 +100,6 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 	newIncome := repo.Income{
 		ParentID:       parentID,
 		Name:           input.Name,
-		Earner:         earner,
 		PersonID:       personID,
 		Category:       input.Category,
 		Amount:         input.Amount,
@@ -139,7 +130,6 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, incomeID string, in
 	inc := repo.Income{
 		ID:             incomeID,
 		Name:           input.Name,
-		Earner:         input.Earner,
 		PersonID:       input.PersonID,
 		Category:       input.Category,
 		Amount:         input.Amount,
