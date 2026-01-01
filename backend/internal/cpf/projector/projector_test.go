@@ -162,45 +162,39 @@ func TestProjectToDate(t *testing.T) {
 
 func TestCalculateMonthlyInterest(t *testing.T) {
 	tests := []struct {
-		name       string
-		balance    float64
-		rate       float64
-		wantMin    float64
-		wantMax    float64
+		name    string
+		balance string
+		ratePct string // Annual rate as percentage (e.g., "2.5" for 2.5%)
+		want    string // Exact expected result
 	}{
 		{
 			name:    "standard_OA_interest",
-			balance: 100000,
-			rate:    0.025,
-			wantMin: 208.00, // 100000 * 0.025 / 12 = 208.33
-			wantMax: 209.00,
+			balance: "100000",
+			ratePct: "2.5",    // 2.5% p.a.
+			want:    "208.33", // 100000 * 0.025 / 12 = 208.33
 		},
 		{
 			name:    "standard_SA_interest",
-			balance: 50000,
-			rate:    0.04,
-			wantMin: 166.00, // 50000 * 0.04 / 12 = 166.67
-			wantMax: 167.00,
+			balance: "50000",
+			ratePct: "4.0",    // 4.0% p.a.
+			want:    "166.67", // 50000 * 0.04 / 12 = 166.67
 		},
 		{
 			name:    "zero_balance",
-			balance: 0,
-			rate:    0.025,
-			wantMin: 0,
-			wantMax: 0,
+			balance: "0",
+			ratePct: "2.5",
+			want:    "0",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			balance := decimal.MustFromFloat64(tt.balance)
-			rate := decimal.MustFromFloat64(tt.rate)
-			result := CalculateMonthlyInterest(balance, rate)
+			balance := decimal.MustFromString(tt.balance)
+			ratePct := decimal.MustFromString(tt.ratePct)
+			result := CalculateMonthlyInterest(balance, ratePct)
 
-			got := result.ToFloat64()
-			if got < tt.wantMin || got > tt.wantMax {
-				t.Errorf("CalculateMonthlyInterest() = %.2f, want between %.2f and %.2f",
-					got, tt.wantMin, tt.wantMax)
+			if result.String() != tt.want {
+				t.Errorf("CalculateMonthlyInterest() = %s, want %s", result.String(), tt.want)
 			}
 		})
 	}
