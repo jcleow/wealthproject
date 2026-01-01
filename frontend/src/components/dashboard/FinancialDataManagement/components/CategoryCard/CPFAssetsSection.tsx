@@ -11,13 +11,15 @@ export function CPFAssetsSection({
 }: AssetSubsectionProps) {
   const { selectedId, handleSelect, sectionRef } = useCollapsibleSelection()
 
-  // Group CPF assets by earner
-  const assetsByEarner = useMemo(() => {
-    const groups: Record<string, typeof cpfAssets> = {}
+  // Group CPF assets by personId, using personName for display
+  const assetsByPerson = useMemo(() => {
+    const groups: Record<string, { personName: string; assets: typeof cpfAssets }> = {}
     for (const asset of cpfAssets) {
-      const earner = asset.earner || 'default'
-      if (!groups[earner]) groups[earner] = []
-      groups[earner].push(asset)
+      const personId = asset.personId || 'default'
+      if (!groups[personId]) {
+        groups[personId] = { personName: asset.personName || '', assets: [] }
+      }
+      groups[personId].assets.push(asset)
     }
     return groups
   }, [cpfAssets])
@@ -60,17 +62,17 @@ export function CPFAssetsSection({
     )
   }
 
-  // Render a section for each earner
-  const earnerEntries = Object.entries(assetsByEarner)
+  // Render a section for each person
+  const personEntries = Object.entries(assetsByPerson)
 
   return (
     <div ref={sectionRef}>
-      {earnerEntries.map(([earner, assets]) => {
-        const earnerTotal = assets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0)
-        // Always show earner name, even with single account
-        const title = earner === 'default' ? 'CPF Accounts' : `CPF - ${earner}`
+      {personEntries.map(([personId, { personName, assets }]) => {
+        const personTotal = assets.reduce((sum, item) => sum + (item.adjMonthlyAmt ?? item.amountMonthly ?? 0), 0)
+        // Always show person name, even with single account
+        const title = personId === 'default' || !personName ? 'CPF Accounts' : `CPF - ${personName}`
         return (
-          <CollapsibleSection key={earner} title={title} total={earnerTotal}>
+          <CollapsibleSection key={personId} title={title} total={personTotal}>
             {renderItemsForEarner(assets)}
           </CollapsibleSection>
         )

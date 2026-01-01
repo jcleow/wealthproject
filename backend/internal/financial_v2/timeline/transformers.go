@@ -101,8 +101,8 @@ func transformIncomes(incomes []repo.Income) []FinancialDataRow {
 			ID:              i.ID,
 			ParentID:        i.ParentID,
 			Name:            i.Name,
-			Earner:          i.Earner,
 			PersonID:        i.PersonID,
+			PersonName:      i.PersonName,
 			Category:        i.Category,
 			Amount:          i.Amount,
 			Frequency:       Frequency(i.Frequency), // Keep actual frequency

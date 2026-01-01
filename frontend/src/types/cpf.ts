@@ -13,8 +13,8 @@ export interface CPFBalances {
 export interface CPFAccount {
   id: string
   userId: string
-  earner?: string // Deprecated: kept for backward compatibility, use personId
   personId?: string | null // FK to persons table
+  personName?: string // Display name from persons table (read-only)
   parentId: string // Groups versions of same logical account
   startDate: string // When this version starts
   endDate?: string // When this version ends (null = ongoing)

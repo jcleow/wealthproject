@@ -12,14 +12,16 @@ import type {
 export type IncomeOption = {
   id: string
   name: string
-  earner?: string
+  personId?: string | null
+  personName?: string
   monthlyAmount: number
 }
 
 // Projected CPF account for borrower selection
 export type ProjectedCpfAccount = {
   id: string
-  earner?: string
+  personId?: string | null
+  personName?: string
   oaBalance: number
 }
 

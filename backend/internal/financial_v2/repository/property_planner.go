@@ -48,8 +48,16 @@ type PropertySG struct {
 	BtoKeyCollectionDate *string          `json:"btoKeyCollectionDate"`
 	SaleExpectedDate     *string          `json:"saleExpectedDate"`
 	SaleExpectedPrice    *decimal.Decimal `json:"saleExpectedPrice"`
-	CreatedAt            time.Time        `json:"createdAt"`
-	UpdatedAt            time.Time        `json:"updatedAt"`
+	// Lease tenure: nil = freehold, 1-999 = remaining years
+	LeaseRemainingYears *int `json:"leaseRemainingYears"`
+	// Per-borrower CPF OA tracking for downpayment
+	Borrower1DownpaymentCpfOa decimal.Decimal `json:"borrower1DownpaymentCpfOa"`
+	Borrower2DownpaymentCpfOa decimal.Decimal `json:"borrower2DownpaymentCpfOa"`
+	// Per-borrower monthly CPF OA payment amounts
+	Borrower1MonthlyCpfOa decimal.Decimal `json:"borrower1MonthlyCpfOa"`
+	Borrower2MonthlyCpfOa decimal.Decimal `json:"borrower2MonthlyCpfOa"`
+	CreatedAt             time.Time       `json:"createdAt"`
+	UpdatedAt             time.Time       `json:"updatedAt"`
 }
 
 // PropertyFee represents a purchase, sale, or recurring fee
@@ -142,12 +150,19 @@ type CreateSGDetailsInput struct {
 	Borrower1CpfAccountID *string          `json:"borrower1CpfAccountId"`
 	Borrower2IncomeID     *string          `json:"borrower2IncomeId"`
 	Borrower2CpfAccountID *string          `json:"borrower2CpfAccountId"`
-	OtherDebt            *decimal.Decimal `json:"otherDebt"`
-	PropertyCount        *int             `json:"propertyCount"`
-	BtoLaunchDate        *string          `json:"btoLaunchDate"`
+	OtherDebt             *decimal.Decimal `json:"otherDebt"`
+	PropertyCount         *int             `json:"propertyCount"`
+	BtoLaunchDate         *string          `json:"btoLaunchDate"`
 	BtoKeyCollectionDate  *string          `json:"btoKeyCollectionDate"`
 	SaleExpectedDate      *string          `json:"saleExpectedDate"`
 	SaleExpectedPrice     *decimal.Decimal `json:"saleExpectedPrice"`
+	// Lease tenure: nil = freehold, 1-999 = remaining years
+	LeaseRemainingYears *int `json:"leaseRemainingYears"`
+	// Per-borrower CPF OA tracking
+	Borrower1DownpaymentCpfOa *decimal.Decimal `json:"borrower1DownpaymentCpfOa"`
+	Borrower2DownpaymentCpfOa *decimal.Decimal `json:"borrower2DownpaymentCpfOa"`
+	Borrower1MonthlyCpfOa     *decimal.Decimal `json:"borrower1MonthlyCpfOa"`
+	Borrower2MonthlyCpfOa     *decimal.Decimal `json:"borrower2MonthlyCpfOa"`
 }
 
 // CreateFeeInput is the input for creating a property fee
@@ -297,6 +312,26 @@ func (s *Store) createSGDetails(ctx context.Context, tx pgx.Tx, input *CreateSGD
 		propertyCount = *input.PropertyCount
 	}
 
+	// Per-borrower CPF OA defaults
+	borrower1DownpaymentCpfOa := decimal.Zero()
+	if input.Borrower1DownpaymentCpfOa != nil {
+		borrower1DownpaymentCpfOa = input.Borrower1DownpaymentCpfOa
+	}
+
+	borrower2DownpaymentCpfOa := decimal.Zero()
+	if input.Borrower2DownpaymentCpfOa != nil {
+		borrower2DownpaymentCpfOa = input.Borrower2DownpaymentCpfOa
+	}
+
+	borrower1MonthlyCpfOa := decimal.Zero()
+	if input.Borrower1MonthlyCpfOa != nil {
+		borrower1MonthlyCpfOa = input.Borrower1MonthlyCpfOa
+	}
+
+	borrower2MonthlyCpfOa := decimal.Zero()
+	if input.Borrower2MonthlyCpfOa != nil {
+		borrower2MonthlyCpfOa = input.Borrower2MonthlyCpfOa
+	}
 
 	var id string
 	err := tx.QueryRow(ctx, `
@@ -309,9 +344,12 @@ func (s *Store) createSGDetails(ctx context.Context, tx pgx.Tx, input *CreateSGD
 			borrower2_income_id, borrower2_cpf_account_id,
 			other_debt, property_count,
 			bto_launch_date, bto_key_collection_date,
-			sale_expected_date, sale_expected_price
+			sale_expected_date, sale_expected_price,
+			lease_remaining_years,
+			borrower1_downpayment_cpf_oa, borrower2_downpayment_cpf_oa,
+			borrower1_monthly_cpf_oa, borrower2_monthly_cpf_oa
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
 		) RETURNING id
 	`,
 		input.Name, input.PropertyType, input.PropertySubtype,
@@ -323,6 +361,9 @@ func (s *Store) createSGDetails(ctx context.Context, tx pgx.Tx, input *CreateSGD
 		otherDebt, propertyCount,
 		input.BtoLaunchDate, input.BtoKeyCollectionDate,
 		input.SaleExpectedDate, input.SaleExpectedPrice,
+		input.LeaseRemainingYears,
+		borrower1DownpaymentCpfOa, borrower2DownpaymentCpfOa,
+		borrower1MonthlyCpfOa, borrower2MonthlyCpfOa,
 	).Scan(&id)
 
 	if err != nil {
@@ -502,6 +543,9 @@ func (s *Store) getSGDetails(ctx context.Context, id string) (*PropertySG, error
 			other_debt, property_count,
 			bto_launch_date, bto_key_collection_date,
 			sale_expected_date, sale_expected_price,
+			lease_remaining_years,
+			borrower1_downpayment_cpf_oa, borrower2_downpayment_cpf_oa,
+			borrower1_monthly_cpf_oa, borrower2_monthly_cpf_oa,
 			created_at, updated_at
 		FROM property_sg WHERE id = $1
 	`, id).Scan(
@@ -514,6 +558,9 @@ func (s *Store) getSGDetails(ctx context.Context, id string) (*PropertySG, error
 		&details.OtherDebt, &details.PropertyCount,
 		&details.BtoLaunchDate, &details.BtoKeyCollectionDate,
 		&details.SaleExpectedDate, &details.SaleExpectedPrice,
+		&details.LeaseRemainingYears,
+		&details.Borrower1DownpaymentCpfOa, &details.Borrower2DownpaymentCpfOa,
+		&details.Borrower1MonthlyCpfOa, &details.Borrower2MonthlyCpfOa,
 		&details.CreatedAt, &details.UpdatedAt,
 	)
 	if err != nil {
@@ -782,6 +829,26 @@ func (s *Store) updateSGDetails(ctx context.Context, tx pgx.Tx, id string, input
 		propertyCount = *input.PropertyCount
 	}
 
+	// Per-borrower CPF OA defaults
+	borrower1DownpaymentCpfOa := decimal.Zero()
+	if input.Borrower1DownpaymentCpfOa != nil {
+		borrower1DownpaymentCpfOa = input.Borrower1DownpaymentCpfOa
+	}
+
+	borrower2DownpaymentCpfOa := decimal.Zero()
+	if input.Borrower2DownpaymentCpfOa != nil {
+		borrower2DownpaymentCpfOa = input.Borrower2DownpaymentCpfOa
+	}
+
+	borrower1MonthlyCpfOa := decimal.Zero()
+	if input.Borrower1MonthlyCpfOa != nil {
+		borrower1MonthlyCpfOa = input.Borrower1MonthlyCpfOa
+	}
+
+	borrower2MonthlyCpfOa := decimal.Zero()
+	if input.Borrower2MonthlyCpfOa != nil {
+		borrower2MonthlyCpfOa = input.Borrower2MonthlyCpfOa
+	}
 
 	_, err := tx.Exec(ctx, `
 		UPDATE property_sg SET
@@ -794,6 +861,9 @@ func (s *Store) updateSGDetails(ctx context.Context, tx pgx.Tx, id string, input
 			other_debt = $18, property_count = $19,
 			bto_launch_date = $20, bto_key_collection_date = $21,
 			sale_expected_date = $22, sale_expected_price = $23,
+			lease_remaining_years = $24,
+			borrower1_downpayment_cpf_oa = $25, borrower2_downpayment_cpf_oa = $26,
+			borrower1_monthly_cpf_oa = $27, borrower2_monthly_cpf_oa = $28,
 			updated_at = NOW()
 		WHERE id = $1
 	`,
@@ -807,6 +877,9 @@ func (s *Store) updateSGDetails(ctx context.Context, tx pgx.Tx, id string, input
 		otherDebt, propertyCount,
 		input.BtoLaunchDate, input.BtoKeyCollectionDate,
 		input.SaleExpectedDate, input.SaleExpectedPrice,
+		input.LeaseRemainingYears,
+		borrower1DownpaymentCpfOa, borrower2DownpaymentCpfOa,
+		borrower1MonthlyCpfOa, borrower2MonthlyCpfOa,
 	)
 
 	return err
@@ -1226,7 +1299,8 @@ func (s *Store) GetOtherIncludedPropertyMortgages(
 // CPFOAUsageByAccount represents CPF OA usage aggregated by account
 type CPFOAUsageByAccount struct {
 	AccountID  string          `json:"accountId"`
-	Earner     string          `json:"earner"`
+	PersonID   string          `json:"personId"`
+	PersonName string          `json:"personName"`
 	OABalance  decimal.Decimal `json:"oaBalance"`
 	TotalUsage decimal.Decimal `json:"totalUsage"`
 }
@@ -1272,15 +1346,17 @@ func (s *Store) GetCPFOAUsageByAccount(
 		)
 		SELECT
 			cpf.id as account_id,
-			COALESCE(cpf.earner, '') as earner,
+			COALESCE(cpf.person_id::text, '') as person_id,
+			COALESCE(p.name, '') as person_name,
 			cpf.oa_balance,
 			COALESCE(SUM(pcu.usage), 0) as total_usage
 		FROM cpf_accounts cpf
+		LEFT JOIN persons p ON cpf.person_id = p.id
 		LEFT JOIN property_cpf_usage pcu ON cpf.id = pcu.cpf_account_id
 		WHERE cpf.user_id = $1
 		  AND cpf.end_date IS NULL  -- Only active CPF accounts
 		  AND cpf.id IN (SELECT cpf_account_id FROM property_cpf_usage WHERE cpf_account_id IS NOT NULL)
-		GROUP BY cpf.id, cpf.earner, cpf.oa_balance
+		GROUP BY cpf.id, cpf.person_id, p.name, cpf.oa_balance
 	`
 
 	var excludeID interface{}
@@ -1299,7 +1375,8 @@ func (s *Store) GetCPFOAUsageByAccount(
 		var usage CPFOAUsageByAccount
 		err := rows.Scan(
 			&usage.AccountID,
-			&usage.Earner,
+			&usage.PersonID,
+			&usage.PersonName,
 			&usage.OABalance,
 			&usage.TotalUsage,
 		)
@@ -1313,19 +1390,20 @@ func (s *Store) GetCPFOAUsageByAccount(
 }
 
 // GetCPFAccountOABalance retrieves the OA balance for a specific CPF account.
+// Returns the OA balance and personID for the account.
 func (s *Store) GetCPFAccountOABalance(ctx context.Context, userID, accountID string) (*decimal.Decimal, string, error) {
 	var oaBalance decimal.Decimal
-	var earner string
+	var personID string
 	err := s.pool.QueryRow(ctx, `
-		SELECT oa_balance, COALESCE(earner, '')
+		SELECT oa_balance, COALESCE(person_id::text, '')
 		FROM cpf_accounts
 		WHERE user_id = $1 AND id = $2 AND end_date IS NULL
-	`, userID, accountID).Scan(&oaBalance, &earner)
+	`, userID, accountID).Scan(&oaBalance, &personID)
 	if err == pgx.ErrNoRows {
 		return nil, "", nil
 	}
 	if err != nil {
 		return nil, "", fmt.Errorf("get CPF OA balance: %w", err)
 	}
-	return &oaBalance, earner, nil
+	return &oaBalance, personID, nil
 }

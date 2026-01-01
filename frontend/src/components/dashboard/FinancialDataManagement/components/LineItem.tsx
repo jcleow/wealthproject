@@ -129,14 +129,14 @@ export function LineItem({
         onDoubleClick={handleDoubleClick}
         className={`group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors ${isSelected ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'}`}
       >
-        {/* Left side: name and earner */}
+        {/* Left side: name and person name */}
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex min-w-0 flex-col">
             <span className={`truncate text-sm transition-colors ${isSelected ? 'text-slate-100' : 'text-slate-300'}`}>
               {item.name ?? 'Entry'}
             </span>
-            {item.earner && (
-              <span className="truncate text-[10px] text-slate-500">{item.earner}</span>
+            {item.personName && (
+              <span className="truncate text-[10px] text-slate-500">{item.personName}</span>
             )}
           </div>
           {/* Accumulator star */}

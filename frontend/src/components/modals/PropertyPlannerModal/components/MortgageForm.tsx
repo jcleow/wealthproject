@@ -17,7 +17,7 @@ import type { TimelineV2Response } from '@/types/timeline'
 import { PropertyAndFinancingStep } from './MortgageForm/PropertyAndFinancingStep'
 import { BorrowersStep } from './MortgageForm/BorrowersStep'
 import { TermsStep } from './MortgageForm/TermsStep'
-import { getProjectedOaByEarner, getHouseholdIncome } from './MortgageForm/utils'
+import { getProjectedOaByPersonId, getHouseholdIncome } from './MortgageForm/utils'
 import type { MortgageFormProps, IncomeOption } from './MortgageForm/types'
 
 export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormProps) {
@@ -64,12 +64,13 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
   // Create CPF accounts with projected OA balances at purchase date
   const projectedCpfAccounts = useMemo(() => {
     return cpfAccounts.map((account) => {
-      const projectedOa = account.earner
-        ? getProjectedOaByEarner(projectedCpfAssets, account.earner)
+      const projectedOa = account.personId
+        ? getProjectedOaByPersonId(projectedCpfAssets, account.personId)
         : null
       return {
         id: account.id,
-        earner: account.earner,
+        personId: account.personId,
+        personName: account.personName,
         // Use projected OA if available, otherwise fall back to current balance
         oaBalance: projectedOa ?? account.oaBalance,
       }
@@ -93,8 +94,8 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
     // Update borrower 1 OA balance if they have an income selected
     if (inputs.borrower1IncomeId) {
       const income = rawIncomes.find((i) => i.id === inputs.borrower1IncomeId)
-      if (income?.earner) {
-        const projectedOa = getProjectedOaByEarner(projectedCpfAssets, income.earner)
+      if (income?.personId) {
+        const projectedOa = getProjectedOaByPersonId(projectedCpfAssets, income.personId)
         if (projectedOa !== null) {
           onChange('borrower1OaBalance', projectedOa)
           // Update total CPF OA balance
@@ -110,8 +111,8 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
     // Update borrower 2 OA balance if in joint mode
     if (inputs.borrowerType === 'joint' && inputs.borrower2IncomeId) {
       const income = rawIncomes.find((i) => i.id === inputs.borrower2IncomeId)
-      if (income?.earner) {
-        const projectedOa = getProjectedOaByEarner(projectedCpfAssets, income.earner)
+      if (income?.personId) {
+        const projectedOa = getProjectedOaByPersonId(projectedCpfAssets, income.personId)
         if (projectedOa !== null) {
           onChange('borrower2OaBalance', projectedOa)
           onChange('cpfOaBalance', inputs.borrower1OaBalance + projectedOa)
@@ -129,7 +130,8 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
       return {
         id: income.id,
         name: income.name,
-        earner: income.earner || '',
+        personId: income.personId,
+        personName: income.personName,
         monthlyAmount: income.frequency === 'monthly' ? amount : Math.round(amount / 12),
       }
     })

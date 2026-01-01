@@ -43,6 +43,13 @@ export interface PropertySGDetails {
   borrower1CpfAccountId?: string | null
   borrower2IncomeId?: string | null
   borrower2CpfAccountId?: string | null
+  // Per-borrower CPF OA tracking
+  borrower1DownpaymentCpfOa?: string | null
+  borrower2DownpaymentCpfOa?: string | null
+  borrower1MonthlyCpfOa?: string | null
+  borrower2MonthlyCpfOa?: string | null
+  // Lease tenure (null = freehold, 1-999 = years remaining)
+  leaseRemainingYears?: number | null
   otherDebt: string
   residency: Residency  // Derived from borrower1IncomeId -> finance_incomes.residency_status
   propertyCount: number
@@ -291,6 +298,13 @@ export interface CreateSGDetailsInput {
   borrower1CpfAccountId?: string
   borrower2IncomeId?: string
   borrower2CpfAccountId?: string
+  // Per-borrower CPF OA tracking
+  borrower1DownpaymentCpfOa?: string
+  borrower2DownpaymentCpfOa?: string
+  borrower1MonthlyCpfOa?: string
+  borrower2MonthlyCpfOa?: string
+  // Lease tenure (null = freehold, 1-999 = years remaining)
+  leaseRemainingYears?: number | null
   otherDebt?: string
   // Note: residency is NOT in request - it's DERIVED from borrower1IncomeId
   propertyCount?: number

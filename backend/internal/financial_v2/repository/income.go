@@ -16,8 +16,8 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (*Income, erro
 	SELECT i.id,
 		COALESCE(i.parent_id, i.id) as parent_id,
 		i.name,
-		COALESCE(p.name, i.earner, '') as earner,
 		i.person_id,
+		COALESCE(p.name, '') as person_name,
 		i.category,
 		i.amount,
 		i.frequency,
@@ -37,7 +37,7 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (*Income, erro
 
 	var i Income
 	err := s.pool.QueryRow(ctx, query, userID, id).Scan(
-		&i.ID, &i.ParentID, &i.Name, &i.Earner, &i.PersonID, &i.Category, &i.Amount,
+		&i.ID, &i.ParentID, &i.Name, &i.PersonID, &i.PersonName, &i.Category, &i.Amount,
 		&i.Frequency, &i.StartDate, &i.EndDate, &i.Notes,
 		&i.GrowthRate, &i.GrowthStrategy, &i.UpdatedAt,
 		&i.IncomeType, &i.CPFWageType,
@@ -58,22 +58,21 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, inc Income) (*I
 	WITH updated AS (
 		UPDATE finance_incomes
 		SET name = $3,
-		    earner = COALESCE(NULLIF($4, ''), earner),
-		    person_id = $5,
-		    category = $6,
-		    amount = $7,
-		    frequency = COALESCE(NULLIF($8, ''), frequency),
-		    start_date = COALESCE($9, start_date),
-		    end_date = $10,
-		    notes = NULLIF($11, ''),
-		    growth_rate = COALESCE($12, growth_rate),
-		    growth_strategy = COALESCE(NULLIF($13, ''), growth_strategy),
+		    person_id = $4,
+		    category = $5,
+		    amount = $6,
+		    frequency = COALESCE(NULLIF($7, ''), frequency),
+		    start_date = COALESCE($8, start_date),
+		    end_date = $9,
+		    notes = NULLIF($10, ''),
+		    growth_rate = COALESCE($11, growth_rate),
+		    growth_strategy = COALESCE(NULLIF($12, ''), growth_strategy),
 		    updated_at = NOW()
 		WHERE user_id = $1 AND id = $2
 		RETURNING *
 	)
-	SELECT u.id, COALESCE(u.parent_id, u.id), u.name, COALESCE(p.name, u.earner, '') as earner,
-	       u.person_id, u.category, u.amount, u.frequency, u.start_date, u.end_date,
+	SELECT u.id, COALESCE(u.parent_id, u.id), u.name, u.person_id, COALESCE(p.name, '') as person_name,
+	       u.category, u.amount, u.frequency, u.start_date, u.end_date,
 	       COALESCE(u.notes, ''), COALESCE(u.growth_rate, 0), COALESCE(u.growth_strategy, ''),
 	       u.updated_at, COALESCE(u.income_type, 'other'), COALESCE(u.cpf_wage_type, '')
 	FROM updated u
@@ -91,7 +90,7 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, inc Income) (*I
 	}
 
 	args := []any{
-		userID, inc.ID, inc.Name, inc.Earner, inc.PersonID, inc.Category, inc.Amount,
+		userID, inc.ID, inc.Name, inc.PersonID, inc.Category, inc.Amount,
 		inc.Frequency, startDate, inc.EndDate, inc.Notes,
 		growthRate, inc.GrowthStrategy,
 	}
@@ -100,7 +99,7 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, inc Income) (*I
 
 	var updated Income
 	err := s.pool.QueryRow(ctx, query, args...).Scan(
-		&updated.ID, &updated.ParentID, &updated.Name, &updated.Earner, &updated.PersonID, &updated.Category, &updated.Amount,
+		&updated.ID, &updated.ParentID, &updated.Name, &updated.PersonID, &updated.PersonName, &updated.Category, &updated.Amount,
 		&updated.Frequency, &updated.StartDate, &updated.EndDate, &updated.Notes,
 		&updated.GrowthRate, &updated.GrowthStrategy, &updated.UpdatedAt,
 		&updated.IncomeType, &updated.CPFWageType,
@@ -152,8 +151,8 @@ func (s *Store) StopIncome(ctx context.Context, userID, id string, endDate time.
 		WHERE user_id = $1 AND id = $2
 		RETURNING *
 	)
-	SELECT u.id, COALESCE(u.parent_id, u.id), u.name, COALESCE(p.name, u.earner, '') as earner,
-	       u.person_id, u.category, u.amount, u.frequency, u.start_date, u.end_date,
+	SELECT u.id, COALESCE(u.parent_id, u.id), u.name, u.person_id, COALESCE(p.name, '') as person_name,
+	       u.category, u.amount, u.frequency, u.start_date, u.end_date,
 	       COALESCE(u.notes, ''), COALESCE(u.growth_rate, 0), COALESCE(u.growth_strategy, ''),
 	       u.updated_at, COALESCE(u.income_type, 'other'), COALESCE(u.cpf_wage_type, '')
 	FROM updated u
@@ -163,7 +162,7 @@ func (s *Store) StopIncome(ctx context.Context, userID, id string, endDate time.
 
 	var updated Income
 	err := s.pool.QueryRow(ctx, query, userID, id, endDate).Scan(
-		&updated.ID, &updated.ParentID, &updated.Name, &updated.Earner, &updated.PersonID, &updated.Category, &updated.Amount,
+		&updated.ID, &updated.ParentID, &updated.Name, &updated.PersonID, &updated.PersonName, &updated.Category, &updated.Amount,
 		&updated.Frequency, &updated.StartDate, &updated.EndDate, &updated.Notes,
 		&updated.GrowthRate, &updated.GrowthStrategy, &updated.UpdatedAt,
 		&updated.IncomeType, &updated.CPFWageType,
@@ -194,11 +193,10 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, inc Income) (In
 
 	query := `
 		WITH inserted AS (
-			INSERT INTO finance_incomes (user_id, parent_id, name, earner, person_id, category, amount, frequency, start_date, end_date, growth_rate, growth_strategy, notes, income_type, cpf_wage_type)
-			VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, $7, $8, $9, $10, $11, $12, NULLIF($13, ''), COALESCE(NULLIF($14, ''), 'other'), NULLIF($15, ''))
+			INSERT INTO finance_incomes (user_id, parent_id, name, person_id, category, amount, frequency, start_date, end_date, growth_rate, growth_strategy, notes, income_type, cpf_wage_type)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULLIF($12, ''), COALESCE(NULLIF($13, ''), 'other'), NULLIF($14, ''))
 			ON CONFLICT ON CONSTRAINT finance_incomes_parent_start_date_key DO UPDATE
 			SET name=EXCLUDED.name,
-			    earner=EXCLUDED.earner,
 			    person_id=EXCLUDED.person_id,
 			    category=EXCLUDED.category,
 			    amount=EXCLUDED.amount,
@@ -212,15 +210,15 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, inc Income) (In
 			    updated_at=NOW()
 			RETURNING *
 		)
-		SELECT i.id, COALESCE(i.parent_id, i.id), i.name, COALESCE(p.name, i.earner, '') as earner,
-		       i.person_id, i.category, i.amount, i.frequency, i.start_date, i.end_date,
+		SELECT i.id, COALESCE(i.parent_id, i.id), i.name, i.person_id, COALESCE(p.name, '') as person_name,
+		       i.category, i.amount, i.frequency, i.start_date, i.end_date,
 		       COALESCE(i.growth_rate, 0), COALESCE(i.growth_strategy, ''), COALESCE(i.notes, ''),
 		       i.updated_at, COALESCE(i.income_type, 'other'), COALESCE(i.cpf_wage_type, '')
 		FROM inserted i
 		LEFT JOIN persons p ON i.person_id = p.id`
 
 	args := []any{
-		userID, nullIfEmpty(inc.ParentID), inc.Name, inc.Earner, inc.PersonID, inc.Category, inc.Amount,
+		userID, nullIfEmpty(inc.ParentID), inc.Name, inc.PersonID, inc.Category, inc.Amount,
 		inc.Frequency, startDate, inc.EndDate, inc.GrowthRate, growthStrategy,
 		inc.Notes, inc.IncomeType, inc.CPFWageType,
 	}
@@ -230,7 +228,7 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, inc Income) (In
 
 	var created Income
 	if err := row.Scan(
-		&created.ID, &created.ParentID, &created.Name, &created.Earner, &created.PersonID, &created.Category, &created.Amount,
+		&created.ID, &created.ParentID, &created.Name, &created.PersonID, &created.PersonName, &created.Category, &created.Amount,
 		&created.Frequency, &created.StartDate, &created.EndDate, &created.GrowthRate,
 		&created.GrowthStrategy, &created.Notes, &created.UpdatedAt,
 		&created.IncomeType, &created.CPFWageType,
@@ -252,8 +250,8 @@ func (s *Store) FindIncomeByParentAndStartDate(
 	SELECT i.id,
 		COALESCE(i.parent_id, i.id) as parent_id,
 		i.name,
-		COALESCE(p.name, i.earner, '') as earner,
 		i.person_id,
+		COALESCE(p.name, '') as person_name,
 		i.category,
 		i.amount,
 		i.frequency,
@@ -273,7 +271,7 @@ func (s *Store) FindIncomeByParentAndStartDate(
 
 	var i Income
 	err := s.pool.QueryRow(ctx, query, userID, parentID, startDate).Scan(
-		&i.ID, &i.ParentID, &i.Name, &i.Earner, &i.PersonID, &i.Category, &i.Amount,
+		&i.ID, &i.ParentID, &i.Name, &i.PersonID, &i.PersonName, &i.Category, &i.Amount,
 		&i.Frequency, &i.StartDate, &i.EndDate, &i.Notes,
 		&i.GrowthRate, &i.GrowthStrategy, &i.UpdatedAt,
 		&i.IncomeType, &i.CPFWageType,

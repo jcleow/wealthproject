@@ -14,6 +14,17 @@ import { createDefaultStaggeredDownpayment } from '@/app/property-planner/hooks/
 
 import type { PropertyAndFinancingStepProps, LoanTypeToggleProps, OnChangeHandler } from './types'
 
+// Reusable section header for consistent styling
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="pt-4 border-t border-white/[0.06]">
+      <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+        {children}
+      </span>
+    </div>
+  )
+}
+
 // Portal-based tooltip to escape overflow:hidden containers
 function HDBEligibilityTooltip() {
   const [isOpen, setIsOpen] = useState(false)
@@ -647,31 +658,107 @@ export function PropertyAndFinancingStep({
         </div>
       )}
 
+      {/* Lease Tenure */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <label className="text-xs font-medium text-slate-400">Lease Tenure</label>
+          <InfoTooltip
+            title="Lease Tenure"
+            description="HDB flats have 99-year leases. Private properties can be 99-year, 999-year, or freehold. Banks may restrict loans for properties with less than 30 years remaining lease."
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={inputs.leaseRemainingYears === null ? 'freehold' : 'leasehold'}
+            onChange={(e) => {
+              if (e.target.value === 'freehold') {
+                onChange('leaseRemainingYears', null)
+              } else {
+                // Default to 99 years when switching to leasehold
+                onChange('leaseRemainingYears', 99)
+              }
+            }}
+            className="w-32 shrink-0 rounded-xl bg-white/[0.05] border border-white/[0.10] text-white text-sm py-2.5 px-3 hover:border-white/[0.15] focus:border-white/30 focus:bg-white/[0.08] focus:ring-1 focus:ring-white/10 focus:outline-none appearance-none cursor-pointer"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}
+          >
+            <option value="freehold" className="bg-gray-900">Freehold</option>
+            <option value="leasehold" className="bg-gray-900">Leasehold</option>
+          </select>
+          {inputs.leaseRemainingYears !== null && (
+            <div className="flex-1 relative">
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={inputs.leaseRemainingYears === 0 ? '' : inputs.leaseRemainingYears}
+                onChange={(e) => {
+                  // Allow empty during typing, store as 0 temporarily
+                  const rawValue = e.target.value
+                  if (rawValue === '') {
+                    onChange('leaseRemainingYears', 0)
+                  } else {
+                    onChange('leaseRemainingYears', parseInt(rawValue, 10) || 0)
+                  }
+                }}
+                onBlur={(e) => {
+                  // Validate on blur: clamp to 1-999, default to 99 if empty
+                  const rawValue = e.target.value
+                  if (rawValue === '' || parseInt(rawValue, 10) < 1) {
+                    onChange('leaseRemainingYears', 99)
+                  } else {
+                    onChange('leaseRemainingYears', Math.min(999, parseInt(rawValue, 10)))
+                  }
+                }}
+                min={1}
+                max={999}
+                placeholder="99"
+                className="w-full rounded-xl bg-white/[0.05] border-white/[0.10] text-white text-sm py-2.5 px-3 pr-14 hover:border-white/[0.15] focus:border-white/30 focus:bg-white/[0.08] focus:ring-1 focus:ring-white/10"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
+                years
+              </span>
+            </div>
+          )}
+        </div>
+        {inputs.leaseRemainingYears !== null && inputs.leaseRemainingYears > 0 && inputs.leaseRemainingYears < 30 && (
+          <p className="text-xs text-amber-500">Low remaining lease may affect financing options</p>
+        )}
+      </div>
+
       {/* Staggered Downpayment Scheme (SDS) - Only for BTO */}
       {isBTO && (
         <StaggeredDownpaymentSection inputs={inputs} onChange={onChange} />
       )}
 
-      {/* Loan Amount Summary */}
-      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-slate-500">Loan Amount</span>
-          <span className="text-sm font-medium text-white">${inputs.loanAmount.toLocaleString()}</span>
+      {/* ═══════ LOAN DETAILS SECTION ═══════ */}
+      <SectionHeader>Loan Details</SectionHeader>
+
+      {/* Loan Amount - Editable */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-slate-400">Loan Amount</label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">$</span>
+          <Input
+            type="text"
+            inputMode="numeric"
+            value={inputs.loanAmount.toLocaleString()}
+            onChange={(e) => {
+              const amount = Number(e.target.value.replace(/[^0-9]/g, '')) || 0
+              onChange('loanAmount', amount)
+            }}
+            className="w-full rounded-xl bg-white/[0.05] border-white/[0.10] text-white text-sm py-2.5 pl-7 pr-3 hover:border-white/[0.15] focus:border-white/30 focus:bg-white/[0.08] focus:ring-1 focus:ring-white/10"
+          />
         </div>
-        <div className="flex items-center justify-between mt-1">
-          <span className="text-xs text-slate-500">LTV Ratio</span>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-slate-500">
+            Max {(maxLtv * 100).toFixed(0)}% LTV = ${Math.round(effectivePrice * maxLtv).toLocaleString()}
+          </span>
           <span className={cn(
             "text-xs font-medium",
             inputs.loanAmount / effectivePrice <= maxLtv ? "text-emerald-400" : "text-red-400"
           )}>
-            {((inputs.loanAmount / effectivePrice) * 100).toFixed(1)}% / {(maxLtv * 100).toFixed(0)}% max
+            {((inputs.loanAmount / effectivePrice) * 100).toFixed(1)}% LTV
           </span>
         </div>
-      </div>
-
-      {/* ═══════ FINANCING SECTION ═══════ */}
-      <div className="pt-4 border-t border-white/[0.06]">
-        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Loan Details</span>
       </div>
 
       {isHDB ? (

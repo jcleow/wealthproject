@@ -30,7 +30,7 @@ func NewPropertyPlannerV2Handler(store *repo.Store) *PropertyPlannerV2Handler {
 
 type createScenarioRequest struct {
 	Country       string                      `json:"country"` // "SG" | "MY"
-	SGDetails     *createSGDetailsRequest     `json:"sgDetails,omitempty"`
+	SGDetails     *createSGDetailsRequest     `json:"propertySG,omitempty"`
 	Fees          []createFeeRequest          `json:"fees"`
 	GrowthPeriods []createGrowthPeriodRequest `json:"growthPeriods"`
 	RatePeriods   []createRatePeriodRequest   `json:"ratePeriods"`
@@ -65,6 +65,13 @@ type createSGDetailsRequest struct {
 	BtoKeyCollectionDate  *string `json:"btoKeyCollectionDate"`
 	SaleExpectedDate      *string `json:"saleExpectedDate"`
 	SaleExpectedPrice     *string `json:"saleExpectedPrice"`
+	// Lease tenure: nil = freehold, 1-999 = remaining years
+	LeaseRemainingYears *int `json:"leaseRemainingYears"`
+	// Per-borrower CPF OA tracking
+	Borrower1DownpaymentCpfOa string `json:"borrower1DownpaymentCpfOa"`
+	Borrower2DownpaymentCpfOa string `json:"borrower2DownpaymentCpfOa"`
+	Borrower1MonthlyCpfOa     string `json:"borrower1MonthlyCpfOa"`
+	Borrower2MonthlyCpfOa     string `json:"borrower2MonthlyCpfOa"`
 }
 
 type createFeeRequest struct {
@@ -169,7 +176,7 @@ func (h *PropertyPlannerV2Handler) HandleCreate(w http.ResponseWriter, r *http.R
 	}
 
 	if req.SGDetails == nil {
-		badRequest(w, errMissingFields("sgDetails"))
+		badRequest(w, errMissingFields("propertySG"))
 		return
 	}
 
@@ -564,28 +571,33 @@ func toCreateScenarioParams(req createScenarioRequest) property.CreateScenarioPa
 
 func toSGDetailsParams(req *createSGDetailsRequest) *property.CreateSGDetailsParams {
 	return &property.CreateSGDetailsParams{
-		Name:                  req.Name,
-		PropertyType:          req.PropertyType,
-		PropertySubtype:       req.PropertySubtype,
-		Icon:                  req.Icon,
-		IconColor:             req.IconColor,
-		IsIncluded:            req.IsIncluded,
-		PropertyPrice:         req.PropertyPrice,
-		ValuationPrice:        req.ValuationPrice,
-		LoanType:              req.LoanType,
-		DownpaymentCpfOa:      req.DownpaymentCpfOa,
-		DownpaymentCash:       req.DownpaymentCash,
-		BorrowerType:          req.BorrowerType,
-		Borrower1IncomeID:     req.Borrower1IncomeID,
-		Borrower1CpfAccountID: req.Borrower1CpfAccountID,
-		Borrower2IncomeID:     req.Borrower2IncomeID,
-		Borrower2CpfAccountID: req.Borrower2CpfAccountID,
-		OtherDebt:             req.OtherDebt,
-		PropertyCount:         req.PropertyCount,
-		BtoLaunchDate:         req.BtoLaunchDate,
-		BtoKeyCollectionDate:  req.BtoKeyCollectionDate,
-		SaleExpectedDate:      req.SaleExpectedDate,
-		SaleExpectedPrice:     req.SaleExpectedPrice,
+		Name:                      req.Name,
+		PropertyType:              req.PropertyType,
+		PropertySubtype:           req.PropertySubtype,
+		Icon:                      req.Icon,
+		IconColor:                 req.IconColor,
+		IsIncluded:                req.IsIncluded,
+		PropertyPrice:             req.PropertyPrice,
+		ValuationPrice:            req.ValuationPrice,
+		LoanType:                  req.LoanType,
+		DownpaymentCpfOa:          req.DownpaymentCpfOa,
+		DownpaymentCash:           req.DownpaymentCash,
+		BorrowerType:              req.BorrowerType,
+		Borrower1IncomeID:         req.Borrower1IncomeID,
+		Borrower1CpfAccountID:     req.Borrower1CpfAccountID,
+		Borrower2IncomeID:         req.Borrower2IncomeID,
+		Borrower2CpfAccountID:     req.Borrower2CpfAccountID,
+		OtherDebt:                 req.OtherDebt,
+		PropertyCount:             req.PropertyCount,
+		BtoLaunchDate:             req.BtoLaunchDate,
+		BtoKeyCollectionDate:      req.BtoKeyCollectionDate,
+		SaleExpectedDate:          req.SaleExpectedDate,
+		SaleExpectedPrice:         req.SaleExpectedPrice,
+		LeaseRemainingYears:       req.LeaseRemainingYears,
+		Borrower1DownpaymentCpfOa: req.Borrower1DownpaymentCpfOa,
+		Borrower2DownpaymentCpfOa: req.Borrower2DownpaymentCpfOa,
+		Borrower1MonthlyCpfOa:     req.Borrower1MonthlyCpfOa,
+		Borrower2MonthlyCpfOa:     req.Borrower2MonthlyCpfOa,
 	}
 }
 

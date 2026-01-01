@@ -158,7 +158,8 @@ describe('cpfAssetV2ToTimelineItem', () => {
       parentId: 'cpf-parent-1',
       name: 'CPF OA',
       category: 'cpf_oa',
-      earner: 'Alex',
+      personId: 'person-123',
+      personName: 'Alex',
       balance: '50000.0000',
       eventAdjBalance: '51250.0000',
       itemType: 'cpf_account',
@@ -176,6 +177,8 @@ describe('cpfAssetV2ToTimelineItem', () => {
     expect(result.amountAnnual).toBe(50000)
     expect(result.adjAnnualAmt).toBe(51250)
     expect(result.itemType).toBe('cpf_account')
+    expect(result.personId).toBe('person-123')
+    expect(result.personName).toBe('Alex')
   })
 })
 

@@ -12,9 +12,13 @@ import { CPF_QUERY_KEY } from './useCpfQuery'
 import { propertyPlannerV2Keys } from './usePropertyPlannerV2Query'
 import { PERSONS_QUERY_KEY } from './usePersonsQuery'
 
+// Fixed base date for sample data (January 2026)
+// Using a fixed date ensures consistent sample data regardless of when it's loaded
+const SAMPLE_DATA_BASE_DATE = new Date('2026-01-01T00:00:00.000Z')
+
 // Helper to generate YYYY-MM format date strings
 function getMonthString(yearsFromNow: number, monthOffset = 0): string {
-  const date = new Date()
+  const date = new Date(SAMPLE_DATA_BASE_DATE)
   date.setFullYear(date.getFullYear() + yearsFromNow)
   date.setMonth(date.getMonth() + monthOffset)
   return date.toISOString().slice(0, 7)
@@ -94,7 +98,7 @@ export function useLoadSampleDataMutation() {
 
       // Sample data for a 32-year-old Singaporean professional
       // Planning: marriage, BTO flat, car, retirement by 60
-      const todayIso = new Date().toISOString()
+      const todayIso = SAMPLE_DATA_BASE_DATE.toISOString()
 
       // Non-investment assets (Bank Accounts stay in assets table)
       const sampleAssets = [

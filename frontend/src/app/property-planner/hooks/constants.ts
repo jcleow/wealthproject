@@ -163,6 +163,13 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2IncomeId: null,
     borrower2OaBalance: 0,
     borrower2LiabilityIds: [],
+    // Per-borrower CPF OA tracking
+    borrower1DownpaymentCpfOa: 85000,
+    borrower2DownpaymentCpfOa: 0,
+    borrower1MonthlyCpfOa: 0,
+    borrower2MonthlyCpfOa: 0,
+    // Lease tenure (HDB = 99 years)
+    leaseRemainingYears: 99,
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
@@ -193,6 +200,13 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2IncomeId: null,
     borrower2OaBalance: 0,
     borrower2LiabilityIds: [],
+    // Per-borrower CPF OA tracking
+    borrower1DownpaymentCpfOa: 90000,
+    borrower2DownpaymentCpfOa: 0,
+    borrower1MonthlyCpfOa: 0,
+    borrower2MonthlyCpfOa: 0,
+    // Lease tenure (BTO = 99 years)
+    leaseRemainingYears: 99,
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
@@ -223,6 +237,13 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2IncomeId: null,
     borrower2OaBalance: 62400,
     borrower2LiabilityIds: [],
+    // Per-borrower CPF OA tracking
+    borrower1DownpaymentCpfOa: 85000,
+    borrower2DownpaymentCpfOa: 62400,
+    borrower1MonthlyCpfOa: 0,
+    borrower2MonthlyCpfOa: 0,
+    // Lease tenure (EC = 99 years)
+    leaseRemainingYears: 99,
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
@@ -253,6 +274,13 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2IncomeId: null,
     borrower2OaBalance: 62400,
     borrower2LiabilityIds: [],
+    // Per-borrower CPF OA tracking
+    borrower1DownpaymentCpfOa: 85000,
+    borrower2DownpaymentCpfOa: 62400,
+    borrower1MonthlyCpfOa: 0,
+    borrower2MonthlyCpfOa: 0,
+    // Lease tenure (private condo - default 99 years, user can change to freehold)
+    leaseRemainingYears: 99,
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
@@ -283,6 +311,13 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2IncomeId: null,
     borrower2OaBalance: 62400,
     borrower2LiabilityIds: [],
+    // Per-borrower CPF OA tracking
+    borrower1DownpaymentCpfOa: 85000,
+    borrower2DownpaymentCpfOa: 62400,
+    borrower1MonthlyCpfOa: 0,
+    borrower2MonthlyCpfOa: 0,
+    // Lease tenure (private new - default 99 years, user can change to freehold)
+    leaseRemainingYears: 99,
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
     absdRate: 0,
     appreciationPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({ ...p })),
