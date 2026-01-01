@@ -1,34 +1,18 @@
 "use client"
 
 import { useEffect, useState, useCallback } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+
 import type { CashAccount } from '@/types/financial'
+import {
+  cashAccountFormSchema,
+  defaultCashAccountFormValues,
+  type CashAccountFormData,
+} from '@/lib/validations/cashAccount'
 
-export type FormState = {
-  name: string
-  balance: string
-  interestRate: string
-  bankName: string
-  accountType: string
-  notes: string
-}
-
-export const accountTypeOptions = [
-  { value: 'checking', label: 'Checking' },
-  { value: 'savings', label: 'Savings' },
-  { value: 'money_market', label: 'Money Market' },
-  { value: 'other', label: 'Other' },
-]
-
-const buildDefaultFormState = (): FormState => ({
-  name: '',
-  balance: '',
-  interestRate: '1.5',
-  bankName: '',
-  accountType: 'savings',
-  notes: '',
-})
-
-const toNumeric = (value: string) => Number.parseFloat(value.replace(/,/g, '')) || 0
+// Re-export for backward compatibility
+export { accountTypeOptions } from '@/lib/validations/cashAccount'
 
 export const formatNumberInput = (value: string | number) => {
   const raw = typeof value === 'number' ? value.toString() : value
@@ -37,6 +21,10 @@ export const formatNumberInput = (value: string | number) => {
   const [integer, decimal] = cleaned.split('.')
   const formattedInt = new Intl.NumberFormat('en-US').format(Number(integer || 0))
   return decimal !== undefined ? `${formattedInt}.${decimal}` : formattedInt
+}
+
+export const parseFormattedNumber = (value: string): number => {
+  return Number.parseFloat(value.replace(/,/g, '')) || 0
 }
 
 export interface UseCashAccountFormOptions {
@@ -48,15 +36,15 @@ export interface UseCashAccountFormOptions {
   onClose: () => void
 }
 
-export interface UseCashAccountFormReturn {
-  formData: FormState
-  setFormData: React.Dispatch<React.SetStateAction<FormState>>
-  isSaving: boolean
-  isDeleting: boolean
-  isBusy: boolean
-  handleSubmit: (event: React.FormEvent) => Promise<void>
-  handleDelete: () => Promise<void>
-  formatNumberInput: (value: string | number) => string
+function mapDataToFormValues(data: CashAccount): CashAccountFormData {
+  return {
+    name: data.name ?? '',
+    balance: data.balance ?? 0,
+    interestRate: data.interestRate ?? 1.5,
+    bankName: data.bankName ?? '',
+    accountType: data.accountType ?? 'savings',
+    notes: data.notes ?? '',
+  }
 }
 
 export function useCashAccountForm({
@@ -66,50 +54,40 @@ export function useCashAccountForm({
   onSave,
   onDelete,
   onClose,
-}: UseCashAccountFormOptions): UseCashAccountFormReturn {
-  const [formData, setFormData] = useState<FormState>(buildDefaultFormState())
-  const [isSaving, setIsSaving] = useState(false)
+}: UseCashAccountFormOptions) {
   const [isDeleting, setIsDeleting] = useState(false)
 
+  const form = useForm<CashAccountFormData>({
+    resolver: zodResolver(cashAccountFormSchema),
+    defaultValues: defaultCashAccountFormValues,
+  })
+
+  // Reset form when modal opens with new data
   useEffect(() => {
     if (!isOpen) return
-    if (!data) {
-      setFormData(buildDefaultFormState())
-      return
+
+    if (data) {
+      form.reset(mapDataToFormValues(data))
+    } else {
+      form.reset(defaultCashAccountFormValues)
     }
+  }, [data, isOpen, form])
 
-    setFormData({
-      name: data.name ?? '',
-      balance: formatNumberInput(data.balance ?? 0),
-      interestRate: (data.interestRate ?? 1.5).toString(),
-      bankName: data.bankName ?? '',
-      accountType: data.accountType ?? 'savings',
-      notes: data.notes ?? '',
-    })
-  }, [data, isOpen])
-
-  const handleSubmit = useCallback(async (event: React.FormEvent) => {
-    event.preventDefault()
-    setIsSaving(true)
-
-    try {
-      const payload = {
-        name: formData.name.trim(),
-        balance: toNumeric(formData.balance),
-        interestRate: Number.parseFloat(formData.interestRate) || 1.5,
-        bankName: formData.bankName.trim() || null,
-        accountType: formData.accountType || null,
-        isAccumulator: data?.isAccumulator ?? false,
-        startYear: data?.startYear,
-        endYear: data?.endYear ?? null,
-        notes: formData.notes.trim() || null,
-      }
-      await onSave(payload, mode)
-      onClose()
-    } finally {
-      setIsSaving(false)
+  const onSubmit = async (formData: CashAccountFormData) => {
+    const payload = {
+      name: formData.name.trim(),
+      balance: formData.balance,
+      interestRate: formData.interestRate,
+      bankName: formData.bankName.trim() || null,
+      accountType: formData.accountType || null,
+      isAccumulator: data?.isAccumulator ?? false,
+      startYear: data?.startYear,
+      endYear: data?.endYear ?? null,
+      notes: formData.notes.trim() || null,
     }
-  }, [formData, data, onSave, mode, onClose])
+    await onSave(payload, mode)
+    onClose()
+  }
 
   const handleDelete = useCallback(async () => {
     if (!data?.id || !onDelete) return
@@ -125,13 +103,15 @@ export function useCashAccountForm({
   }, [data, onDelete, onClose])
 
   return {
-    formData,
-    setFormData,
-    isSaving,
+    form,
+    handleSubmit: form.handleSubmit(onSubmit),
+    isSubmitting: form.formState.isSubmitting,
+    isDirty: form.formState.isDirty,
+    errors: form.formState.errors,
     isDeleting,
-    isBusy: isSaving || isDeleting,
-    handleSubmit,
+    isBusy: form.formState.isSubmitting || isDeleting,
     handleDelete,
     formatNumberInput,
+    parseFormattedNumber,
   }
 }

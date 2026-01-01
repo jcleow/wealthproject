@@ -73,7 +73,7 @@ export function ResizableChartSection({ children, chartRef }: ResizableChartSect
     }
     return getDefaultHeight()
   })
-  const [mounted, setMounted] = useState(false)
+  const [, setMounted] = useState(false)
 
   useEffect(() => {
     // Re-check on mount in case SSR value was used

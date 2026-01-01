@@ -12,12 +12,12 @@ interface CpfBalanceModalProps {
 }
 
 export function CpfBalanceModal({ isOpen, onClose, onSuccess }: CpfBalanceModalProps) {
-  const form = useCpfBalanceForm({ onSuccess, onClose })
+  const { form, handleSubmit, isSubmitting, errors, submitError } = useCpfBalanceForm({ onSuccess, onClose })
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={form.submitting ? undefined : onClose}
+      onClose={isSubmitting ? undefined : onClose}
       overlayClassName="bg-black/60"
       className={`w-full max-w-md
 p-6
@@ -45,30 +45,27 @@ transition`}
         </button>
       </div>
 
-      <form className="space-y-4" onSubmit={form.handleSubmit}>
+      <form className="space-y-4" onSubmit={handleSubmit}>
         <FormField
           label="Ordinary Account (OA)"
           placeholder="45000.00"
-          value={form.values.ordinaryAccount}
-          onChange={form.handleChange('ordinaryAccount')}
-          error={form.errors.ordinaryAccount}
+          registration={form.register('ordinaryAccount')}
+          error={errors.ordinaryAccount?.message}
         />
         <FormField
           label="Special Account (SA)"
           placeholder="25000.00"
-          value={form.values.specialAccount}
-          onChange={form.handleChange('specialAccount')}
-          error={form.errors.specialAccount}
+          registration={form.register('specialAccount')}
+          error={errors.specialAccount?.message}
         />
         <FormField
           label="Medisave Account (MA)"
           placeholder="15000.00"
-          value={form.values.medisaveAccount}
-          onChange={form.handleChange('medisaveAccount')}
-          error={form.errors.medisaveAccount}
+          registration={form.register('medisaveAccount')}
+          error={errors.medisaveAccount?.message}
         />
 
-        {form.submitError && <p className="text-sm text-rose-300">{form.submitError}</p>}
+        {submitError && <p className="text-sm text-rose-300">{submitError}</p>}
 
         <div className="flex gap-3 pt-2">
           <button
@@ -80,7 +77,7 @@ rounded-lg border border-white/10
 bg-white/5 hover:bg-white/10
 text-sm text-gray-200
 transition`}
-            disabled={form.submitting}
+            disabled={isSubmitting}
           >
             Cancel
           </button>
@@ -93,9 +90,9 @@ bg-emerald-500 hover:bg-emerald-600
 text-sm font-medium text-white
 disabled:opacity-70
 transition`}
-            disabled={form.submitting}
+            disabled={isSubmitting}
           >
-            {form.submitting ? 'Saving…' : 'Add CPF balances'}
+            {isSubmitting ? 'Saving…' : 'Add CPF balances'}
           </button>
         </div>
       </form>

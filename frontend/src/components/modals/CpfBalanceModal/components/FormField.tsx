@@ -1,12 +1,13 @@
+import type { UseFormRegisterReturn } from 'react-hook-form'
+
 type FormFieldProps = {
   label: string
   placeholder: string
-  value: string
-  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  registration: UseFormRegisterReturn
   error?: string
 }
 
-export function FormField({ label, placeholder, value, onChange, error }: FormFieldProps) {
+export function FormField({ label, placeholder, registration, error }: FormFieldProps) {
   return (
     <div className="space-y-1.5">
       <label className="block text-sm font-medium text-gray-200">{label}</label>
@@ -14,8 +15,7 @@ export function FormField({ label, placeholder, value, onChange, error }: FormFi
         type="number"
         step="0.01"
         placeholder={placeholder}
-        value={value}
-        onChange={onChange}
+        {...registration}
         className={`w-full
 px-3 py-2
 rounded-lg border border-white/10 focus:border-emerald-400 focus:outline-none

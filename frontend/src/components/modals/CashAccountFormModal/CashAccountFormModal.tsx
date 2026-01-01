@@ -1,12 +1,13 @@
 "use client"
 
+import { Controller } from 'react-hook-form'
 import { Trash2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import type { CashAccount } from '@/types/financial'
 import { formatCurrency } from '@/lib/format'
 
-import { useCashAccountForm, accountTypeOptions } from './hooks'
+import { useCashAccountForm, accountTypeOptions, formatNumberInput, parseFormattedNumber } from './hooks'
 
 export interface CashAccountFormModalProps {
   mode: 'create' | 'edit'
@@ -25,12 +26,19 @@ export function CashAccountFormModal({
   onSave,
   onDelete,
 }: CashAccountFormModalProps) {
-  const form = useCashAccountForm({ mode, data, isOpen, onSave, onDelete, onClose })
+  const { form, handleSubmit, isSubmitting, isDeleting, isBusy, errors, handleDelete } = useCashAccountForm({
+    mode,
+    data,
+    isOpen,
+    onSave,
+    onDelete,
+    onClose,
+  })
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={form.isBusy ? undefined : onClose}
+      onClose={isBusy ? undefined : onClose}
       overlayClassName="bg-black/60"
       className={`w-full max-w-md
 mx-4
@@ -60,8 +68,8 @@ rounded-full
 hover:bg-red-600/20
 text-gray-400 hover:text-red-400
 transition-colors`}
-              disabled={form.isSaving || form.isDeleting}
-              onClick={form.handleDelete}
+              disabled={isSubmitting || isDeleting}
+              onClick={handleDelete}
               title="Delete account"
               type="button"
             >
@@ -75,7 +83,7 @@ rounded-full
 hover:bg-gray-700
 text-gray-400 hover:text-white
 transition-colors`}
-            disabled={form.isSaving || form.isDeleting}
+            disabled={isSubmitting || isDeleting}
             onClick={onClose}
             title="Close"
             type="button"
@@ -85,7 +93,7 @@ transition-colors`}
         </div>
       </div>
 
-      <form className="space-y-4 p-6" onSubmit={form.handleSubmit}>
+      <form className="space-y-4 p-6" onSubmit={handleSubmit}>
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-300">Account Name</label>
           <input
@@ -94,54 +102,57 @@ px-3 py-2 placeholder-gray-400
 rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
 bg-gray-700
 text-white`}
-            onChange={(event) => form.setFormData((prev) => ({ ...prev, name: event.target.value }))}
             placeholder="e.g., DBS Savings"
-            required
-            type="text"
-            value={form.formData.name}
+            {...form.register('name')}
           />
+          {errors.name && <p className="mt-1 text-sm text-red-400">{errors.name.message}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-300">Current Balance</label>
-            <input
-              className={`w-full
+            <Controller
+              name="balance"
+              control={form.control}
+              render={({ field }) => (
+                <input
+                  className={`w-full
 px-3 py-2 placeholder-gray-400
 rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
 bg-gray-700
 text-white`}
-              inputMode="decimal"
-              onChange={(event) =>
-                form.setFormData((prev) => ({
-                  ...prev,
-                  balance: form.formatNumberInput(event.target.value),
-                }))
-              }
-              placeholder={`e.g., ${formatCurrency(10000)}`}
-              required
-              value={form.formData.balance}
+                  inputMode="decimal"
+                  placeholder={`e.g., ${formatCurrency(10000)}`}
+                  value={formatNumberInput(field.value)}
+                  onChange={(e) => field.onChange(parseFormattedNumber(e.target.value))}
+                  onBlur={field.onBlur}
+                />
+              )}
             />
+            {errors.balance && <p className="mt-1 text-sm text-red-400">{errors.balance.message}</p>}
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-300">Interest Rate (%)</label>
-            <input
-              className={`w-full
+            <Controller
+              name="interestRate"
+              control={form.control}
+              render={({ field }) => (
+                <input
+                  className={`w-full
 px-3 py-2 placeholder-gray-400
 rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
 bg-gray-700
 text-white`}
-              onChange={(event) =>
-                form.setFormData((prev) => ({
-                  ...prev,
-                  interestRate: event.target.value,
-                }))
-              }
-              placeholder="1.5"
-              step="0.1"
-              type="number"
-              value={form.formData.interestRate}
+                  placeholder="1.5"
+                  step="0.1"
+                  type="number"
+                  value={field.value}
+                  onChange={(e) => field.onChange(Number.parseFloat(e.target.value) || 0)}
+                  onBlur={field.onBlur}
+                />
+              )}
             />
+            {errors.interestRate && <p className="mt-1 text-sm text-red-400">{errors.interestRate.message}</p>}
           </div>
         </div>
 
@@ -154,21 +165,23 @@ px-3 py-2 placeholder-gray-400
 rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
 bg-gray-700
 text-white`}
-              onChange={(event) =>
-                form.setFormData((prev) => ({ ...prev, bankName: event.target.value }))
-              }
               placeholder="e.g., DBS"
-              type="text"
-              value={form.formData.bankName}
+              {...form.register('bankName')}
             />
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-300">Account Type</label>
-            <CustomSelect
-              value={form.formData.accountType}
-              onChange={(val) => form.setFormData((prev) => ({ ...prev, accountType: String(val) }))}
-              options={accountTypeOptions}
-              className="w-full"
+            <Controller
+              name="accountType"
+              control={form.control}
+              render={({ field }) => (
+                <CustomSelect
+                  value={field.value}
+                  onChange={(val) => field.onChange(String(val))}
+                  options={accountTypeOptions}
+                  className="w-full"
+                />
+              )}
             />
           </div>
         </div>
@@ -181,19 +194,16 @@ px-3 py-2 placeholder-gray-400
 rounded-lg border border-gray-600 focus:border-emerald-500 focus:outline-none
 bg-gray-700
 text-white`}
-            onChange={(event) =>
-              form.setFormData((prev) => ({ ...prev, notes: event.target.value }))
-            }
             placeholder="Add additional details"
             rows={2}
-            value={form.formData.notes}
+            {...form.register('notes')}
           />
         </div>
 
         <div className="flex justify-between border-t border-gray-700 pt-4">
           <button
             className="px-4 py-2 text-gray-400 transition-colors hover:text-white"
-            disabled={form.isSaving || form.isDeleting}
+            disabled={isSubmitting || isDeleting}
             onClick={onClose}
             type="button"
           >
@@ -205,10 +215,10 @@ rounded-lg
 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-600
 text-white
 transition-colors`}
-            disabled={form.isSaving || form.isDeleting}
+            disabled={isSubmitting || isDeleting}
             type="submit"
           >
-            {form.isSaving ? 'Saving...' : mode === 'edit' ? 'Update' : 'Add'}
+            {isSubmitting ? 'Saving...' : mode === 'edit' ? 'Update' : 'Add'}
           </button>
         </div>
       </form>
