@@ -37,10 +37,10 @@ import {
   createDefaultStaggeredDownpayment,
 } from '@/app/property-planner/hooks/constants'
 
+import { useQueryClient } from '@tanstack/react-query'
 import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
 import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
-import { useTimelineV2Query } from '@/hooks/queries/useTimelineV2Query'
-import type { CPFAssetResponseV2 } from '@/types/timeline'
+import type { CPFAssetResponseV2, TimelineV2Response } from '@/types/timeline'
 
 // Income option type for dropdowns
 type IncomeOption = {
@@ -56,20 +56,15 @@ interface MortgageFormProps {
   propertyType: PropertyType
 }
 
-// Convert YYYY-MM to DD-MM-YYYY format for timeline API
-function toTimelineDateFormat(yearMonth: string): string {
-  const [year, month] = yearMonth.split('-')
-  return `01-${month}-${year}`
-}
-
 // Extract projected OA balance from timeline CPF assets by earner name
+// Matches by ID pattern (cpf-oa-{earner}) since the backend uses this consistent format
 function getProjectedOaByEarner(
   cpfAssets: CPFAssetResponseV2[],
   earner: string
 ): number | null {
   const earnerLower = earner.toLowerCase()
   const oaAsset = cpfAssets.find(
-    (a) => a.earner?.toLowerCase() === earnerLower && a.name === 'OA'
+    (a) => a.earner?.toLowerCase() === earnerLower && a.id.startsWith('cpf-oa')
   )
   if (!oaAsset) return null
   return parseFloat(oaAsset.balance) || 0
@@ -83,19 +78,38 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
   const { data: rawIncomes = [] } = useIncomesQuery()
   const { data: cpfAccounts = [] } = useCpfAccountsQuery()
 
-  // Fetch projected CPF at purchase date from V2 timeline API
-  const purchaseDateForTimeline = toTimelineDateFormat(inputs.loanStartMonth)
-  const { data: timelineData } = useTimelineV2Query({
-    startDate: purchaseDateForTimeline,
-    endDate: purchaseDateForTimeline,
-    includeScenarios: false, // Use base projections without scenario impacts
-  })
+  // Access React Query cache to reuse existing timeline data instead of making a new API call.
+  // The dashboard already fetches the full timeline (2026-2061), so we search the cache for the target month.
+  const queryClient = useQueryClient()
 
-  // Get projected CPF assets at purchase date
+  // Parse the target purchase date
+  const targetDate = useMemo(() => {
+    const [year, month] = inputs.loanStartMonth.split('-').map(Number)
+    return { year, month }
+  }, [inputs.loanStartMonth])
+
+  // Get projected CPF assets at purchase date from cached timeline data
+  // TODO: This is O(n) search. See GitHub issue #61 for backend optimization to indexed keys for O(1) lookup.
   const projectedCpfAssets = useMemo(() => {
-    const month = timelineData?.months?.[0]
-    return month?.cpfAssets ?? []
-  }, [timelineData])
+    // Search all cached timeline V2 queries for the target month
+    const allTimelineQueries = queryClient.getQueriesData<TimelineV2Response>({
+      queryKey: ['financial', 'timeline', 'v2'],
+      exact: false, // Match any timeline query with this prefix
+    })
+
+    for (const [, data] of allTimelineQueries) {
+      if (!data?.months) continue
+      // O(n) linear search through months array
+      const targetMonth = data.months.find(
+        (m) => m.year === targetDate.year && m.month === targetDate.month
+      )
+      if (targetMonth?.cpfAssets?.length) {
+        return targetMonth.cpfAssets
+      }
+    }
+
+    return []
+  }, [queryClient, targetDate])
 
   // Create CPF accounts with projected OA balances at purchase date
   const projectedCpfAccounts = useMemo(() => {
@@ -155,6 +169,51 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
       }
     }
   }, [projectedCpfAssets, inputs.loanStartMonth, inputs.borrower1IncomeId, inputs.borrower2IncomeId, inputs.borrowerType, inputs.borrower1OaBalance, inputs.borrower2OaBalance, rawIncomes, onChange])
+
+  // Initialize householdIncome from borrower incomes when form loads with existing data
+  // This runs when incomes data arrives and borrower IDs are already set
+  const prevHouseholdIncomeInitialized = useRef(false)
+  useEffect(() => {
+    // Skip if already initialized or no incomes loaded yet
+    if (prevHouseholdIncomeInitialized.current || rawIncomes.length === 0) return
+    // Skip if no borrower selected
+    if (!inputs.borrower1IncomeId) return
+
+    const borrower1Income = rawIncomes.find(i => i.id === inputs.borrower1IncomeId)
+    if (!borrower1Income) return
+
+    // Mark as initialized to prevent re-running
+    prevHouseholdIncomeInitialized.current = true
+
+    const borrower1Amount = typeof borrower1Income.amount === 'string'
+      ? parseFloat(borrower1Income.amount)
+      : borrower1Income.amount
+    const borrower1Monthly = borrower1Income.frequency === 'monthly'
+      ? borrower1Amount
+      : Math.round(borrower1Amount / 12)
+
+    let totalHouseholdIncome = borrower1Monthly
+
+    // Add borrower 2 income if joint
+    if (inputs.borrowerType === 'joint' && inputs.borrower2IncomeId) {
+      const borrower2Income = rawIncomes.find(i => i.id === inputs.borrower2IncomeId)
+      if (borrower2Income) {
+        const borrower2Amount = typeof borrower2Income.amount === 'string'
+          ? parseFloat(borrower2Income.amount)
+          : borrower2Income.amount
+        const borrower2Monthly = borrower2Income.frequency === 'monthly'
+          ? borrower2Amount
+          : Math.round(borrower2Amount / 12)
+        totalHouseholdIncome += borrower2Monthly
+      }
+    }
+
+    // Only update if householdIncome is currently 0 (not yet derived)
+    if (inputs.householdIncome === 0) {
+      onChange('householdIncome', totalHouseholdIncome)
+      onChange('monthlyCpfOa', calculateMonthlyOaInflow(totalHouseholdIncome))
+    }
+  }, [rawIncomes, inputs.borrower1IncomeId, inputs.borrower2IncomeId, inputs.borrowerType, inputs.householdIncome, onChange])
 
   // Transform incomes into the dropdown format
   const incomes: IncomeOption[] = useMemo(() => {
@@ -1212,50 +1271,71 @@ function FinancingStep({
 }) {
   return (
     <div className="space-y-4">
-      {/* Loan Term */}
-      <FormInput
-        label="Loan Term"
-        value={inputs.loanTermYears}
-        onChange={(v) => onChange('loanTermYears', Number(v))}
-        type="number"
-        min={1}
-        max={35}
-        suffix="yrs"
-      />
-
-      {/* Interest Rates */}
-      <div className={cn("grid gap-4", isHDB ? "grid-cols-1" : "grid-cols-2")}>
-        <FormInput
-          label={isHDB ? 'Interest Rate' : 'Fixed Rate'}
-          value={inputs.fixedRate}
-          onChange={(v) => {
-            const rate = Number(v)
-            onChange('fixedRate', rate)
-            // For HDB loans, also update floatingRate to keep them in sync
-            // since HDB uses a single rate (no fixed/floating split)
-            if (isHDB) {
-              onChange('floatingRate', rate)
-            }
-          }}
-          type="number"
-          step={0.1}
-          min={0}
-          max={10}
-          suffix="%"
-        />
-        {!isHDB && (
+      {/* Loan Term & Interest Rate - side by side for HDB */}
+      {isHDB ? (
+        <div className="grid grid-cols-2 gap-4">
           <FormInput
-            label="Floating Rate"
-            value={inputs.floatingRate}
-            onChange={(v) => onChange('floatingRate', Number(v))}
+            label="Loan Term"
+            value={inputs.loanTermYears}
+            onChange={(v) => onChange('loanTermYears', Number(v))}
+            type="number"
+            min={1}
+            max={35}
+            suffix="yrs"
+          />
+          <FormInput
+            label="Interest Rate"
+            value={inputs.fixedRate}
+            onChange={(v) => {
+              const rate = Number(v)
+              onChange('fixedRate', rate)
+              onChange('floatingRate', rate)
+            }}
             type="number"
             step={0.1}
             min={0}
             max={10}
             suffix="%"
           />
-        )}
-      </div>
+        </div>
+      ) : (
+        <>
+          {/* Loan Term */}
+          <FormInput
+            label="Loan Term"
+            value={inputs.loanTermYears}
+            onChange={(v) => onChange('loanTermYears', Number(v))}
+            type="number"
+            min={1}
+            max={35}
+            suffix="yrs"
+          />
+
+          {/* Interest Rates - Fixed & Floating side by side */}
+          <div className="grid grid-cols-2 gap-4">
+            <FormInput
+              label="Fixed Rate"
+              value={inputs.fixedRate}
+              onChange={(v) => onChange('fixedRate', Number(v))}
+              type="number"
+              step={0.1}
+              min={0}
+              max={10}
+              suffix="%"
+            />
+            <FormInput
+              label="Floating Rate"
+              value={inputs.floatingRate}
+              onChange={(v) => onChange('floatingRate', Number(v))}
+              type="number"
+              step={0.1}
+              min={0}
+              max={10}
+              suffix="%"
+            />
+          </div>
+        </>
+      )}
 
       {/* Grants */}
       <GrantsEditor
