@@ -218,7 +218,11 @@ type CPFAccount struct {
 	SABalance        decimal.Decimal `json:"saBalance"`         // Special Account balance
 	MABalance        decimal.Decimal `json:"maBalance"`         // MediSave Account balance
 	RABalance        decimal.Decimal `json:"raBalance"`         // Retirement Account balance (only after age 55)
-	OAUsedForHousing decimal.Decimal `json:"oaUsedForHousing"`  // OA amount used for housing (for accrued interest)
+	// OAUsedForHousing tracks OA withdrawals for housing purposes (for accrued interest calculation).
+	// TODO: For multiple property scenarios, consider a 1:M relationship (cpf_housing_usages table)
+	// with fields: property_scenario_id, amount_used, withdrawal_date, property_link_id.
+	// This would allow tracking different OA usage amounts per property scenario.
+	OAUsedForHousing decimal.Decimal `json:"oaUsedForHousing"`
 	HousingStartDate *time.Time      `json:"housingStartDate,omitempty"`
 	DateOfBirth      time.Time       `json:"dateOfBirth"`
 	ResidencyStatus  string          `json:"residencyStatus"` // 'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'

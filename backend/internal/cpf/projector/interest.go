@@ -14,7 +14,11 @@ var (
 	RAInterestRatePct = decimal.MustFromFloat64(4.0) // 4.0% p.a.
 )
 
-// interestStrategy uses the growth module's linear strategy for simple interest
+// interestStrategy reuses the growth module's LinearGrowthStrategy for CPF interest.
+// We use the growth module here (rather than duplicating the calculation) to ensure
+// consistent arithmetic across all financial projections. The growth module provides
+// well-tested percentage-based calculations that work for both asset growth and
+// CPF interest - the underlying math is identical: balance * (rate / 100 / 12).
 var interestStrategy = &growth.LinearGrowthStrategy{}
 
 // CalculateMonthlyInterest calculates interest for one month using the growth module.

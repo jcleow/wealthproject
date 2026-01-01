@@ -39,7 +39,9 @@ type Config struct {
 }
 
 func New() *Config {
-	// SECURITY: Validate JWT secret by default, only skip in development
+	// SECURITY: JWT secret validation is the DEFAULT behavior.
+	// Only skip validation when GO_ENV is explicitly set to dev/development/local.
+	// This ensures production and any unknown environments require strong secrets.
 	jwtSecret := getEnv("JWT_SECRET", "your-secret-key")
 	if !isDevelopment() {
 		if jwtSecret == "" || jwtSecret == "your-secret-key" || len(jwtSecret) < 32 {
