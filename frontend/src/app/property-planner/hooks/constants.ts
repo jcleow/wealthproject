@@ -102,9 +102,8 @@ export function createDefaultStaggeredDownpayment(
 // ============================================
 
 export const FORM_STEPS: FormStepConfig[] = [
-  { id: 'property', label: 'Property', icon: '🏠' },
+  { id: 'property', label: 'Property & Financing', icon: '🏠' },
   { id: 'borrowers', label: 'Borrowers', icon: '👥' },
-  { id: 'financing', label: 'Financing', icon: '💰' },
   { id: 'terms', label: 'Others', icon: '📋' },
 ]
 

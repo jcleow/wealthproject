@@ -12,7 +12,7 @@ export type PropertyType = 'hdb-resale' | 'hdb-bto' | 'ec' | 'private-resale' | 
 export type BorrowerType = 'single' | 'joint'
 export type LoanType = 'bank' | 'hdb'
 export type ChartView = 'balance' | 'composition' | 'schedule'
-export type FormStep = 'property' | 'borrowers' | 'financing' | 'terms'
+export type FormStep = 'property' | 'borrowers' | 'terms'
 export type SaleFormStep = 'timing' | 'fees'
 export type AccordionColor = 'rose' | 'violet' | 'emerald' | 'amber'
 

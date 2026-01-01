@@ -250,8 +250,11 @@ func (b *SnapshotBuilder) BuildPropertySnapshots(properties []repo.PropertyScena
 		// Calculate mortgage balance at this date
 		mortgageBalance := b.calculateMortgageBalanceAtDate(prop.RatePeriods, details, grantsTotal, purchaseTime, date)
 
+		// Calculate original loan amount for mortgage payment calculation
+		originalLoanAmount := details.PropertyPrice.Sub(&details.DownpaymentCash).Sub(&details.DownpaymentCpfOa).Sub(grantsTotal)
+
 		// Calculate mortgage payment breakdown for this month
-		mortgagePayment := b.calculateMortgagePayment(prop.RatePeriods, mortgageBalance, purchaseTime, date)
+		mortgagePayment := b.calculateMortgagePayment(prop.RatePeriods, originalLoanAmount, mortgageBalance, purchaseTime, date)
 
 		// Build fee snapshots for fees applicable to this month
 		feeSnapshots := b.BuildPropertyFeeSnapshots(prop.Fees, details, dateStr)
@@ -413,15 +416,20 @@ func monthsBetween(start, end time.Time) int {
 	return years*12 + months
 }
 
-// calculateMortgagePayment calculates the mortgage payment breakdown for the current month
-// using the repayment module for accurate amortization.
+// calculateMortgagePayment calculates the mortgage payment breakdown for the current month.
+// The monthly payment is constant throughout the loan term (calculated from original loan amount).
+// The interest/principal split varies each month based on the current balance.
 func (b *SnapshotBuilder) calculateMortgagePayment(
 	ratePeriods []repo.LiabilityRatePeriod,
+	originalLoanAmount *decimal.Decimal,
 	currentBalance *decimal.Decimal,
 	purchaseDate time.Time,
 	targetDate time.Time,
 ) *MortgagePaymentSnapshot {
-	if len(ratePeriods) == 0 || currentBalance == nil || currentBalance.IsZero() {
+	if len(ratePeriods) == 0 || originalLoanAmount == nil || originalLoanAmount.IsZero() {
+		return nil
+	}
+	if currentBalance == nil || currentBalance.IsZero() {
 		return nil
 	}
 
@@ -446,23 +454,23 @@ func (b *SnapshotBuilder) calculateMortgagePayment(
 		return nil
 	}
 
-	// Calculate total remaining months from current date to end of all periods
+	// Calculate total loan term from all periods
 	totalMonths := 0
 	for _, period := range ratePeriods {
 		totalMonths += period.TermYears * 12
 	}
-	remainingMonths := totalMonths - monthsElapsed
-	if remainingMonths <= 0 {
+	if monthsElapsed >= totalMonths {
 		return nil
 	}
 
-	// Use the repayment module to calculate payment breakdown
+	// Calculate the CONSTANT monthly payment using original loan amount and full term
+	// This is how standard amortization works - payment stays constant throughout the loan
 	strategy := repayment.NewStandardAmortization()
 	params := repayment.Params{
-		CurrentBalance:  currentBalance,
+		CurrentBalance:  originalLoanAmount, // Use original loan, not current balance
 		InterestRateAPR: activeRate,
-		PeriodIndex:     0, // Treat as reamortization from current balance
-		TotalPeriods:    remainingMonths,
+		PeriodIndex:     0,
+		TotalPeriods:    totalMonths, // Use full term, not remaining months
 	}
 
 	result, err := strategy.Calculate(params)
@@ -470,10 +478,26 @@ func (b *SnapshotBuilder) calculateMortgagePayment(
 		return nil
 	}
 
+	// The monthly payment is constant, but interest/principal split varies
+	monthlyPayment := result.MonthlyPayment
+
+	// Calculate interest portion based on CURRENT balance
+	monthlyRate := activeRate.Div(decimal.MustFromFloat64(100)).Div(decimal.MustFromFloat64(12))
+	interestPortion := currentBalance.Mul(monthlyRate)
+
+	// Principal portion is the remainder
+	principalPortion := monthlyPayment.Sub(interestPortion)
+
+	// Ensure principal portion doesn't go negative (edge case near end of loan)
+	if principalPortion.Sign() < 0 {
+		principalPortion = decimal.Zero()
+		interestPortion = monthlyPayment
+	}
+
 	return &MortgagePaymentSnapshot{
-		MonthlyTotal:     *result.MonthlyPayment,
-		PrincipalPortion: *result.PrincipalPortion,
-		InterestPortion:  *result.InterestPortion,
+		MonthlyTotal:     *monthlyPayment,
+		PrincipalPortion: *principalPortion,
+		InterestPortion:  *interestPortion.Round(2),
 		CurrentRate:      *activeRate,
 		RateType:         activeRateType,
 	}
