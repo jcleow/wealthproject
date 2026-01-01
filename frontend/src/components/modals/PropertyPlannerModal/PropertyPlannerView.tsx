@@ -166,6 +166,13 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     borrower2IncomeId: sgDetails.borrower2IncomeId || null,
     borrower2OaBalance: parseFloat(apiScenario.computed?.projectedBorrower2OA ?? '0'),
     borrower2LiabilityIds: [],
+    // Per-borrower CPF OA tracking
+    borrower1DownpaymentCpfOa: parseFloat(sgDetails.borrower1DownpaymentCpfOa ?? '0'),
+    borrower2DownpaymentCpfOa: parseFloat(sgDetails.borrower2DownpaymentCpfOa ?? '0'),
+    borrower1MonthlyCpfOa: parseFloat(sgDetails.borrower1MonthlyCpfOa ?? '0'),
+    borrower2MonthlyCpfOa: parseFloat(sgDetails.borrower2MonthlyCpfOa ?? '0'),
+    // Lease tenure
+    leaseRemainingYears: sgDetails.leaseRemainingYears ?? 99,
     purchaseFees: purchaseFees.length > 0 ? purchaseFees : DEFAULT_SALE_FEES.map(f => ({ ...f })),
     absdRate: 0, // Derived from residency
     appreciationPeriods: appreciationPeriods.length > 0 ? appreciationPeriods : [{ id: 'default', startYear: 1, endYear: null, rate: 3 }],

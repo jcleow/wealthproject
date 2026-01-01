@@ -83,8 +83,8 @@ export interface MortgageInputs {
   valuationPrice: number // Bank/HDB valuation (for resale properties)
   loanAmount: number
   loanType: LoanType // Bank loan vs HDB loan - affects downpayment CPF/cash split
-  // Downpayment breakdown
-  downpaymentCpfOa: number // Amount to pay from CPF OA
+  // Downpayment breakdown (legacy - kept for backward compatibility)
+  downpaymentCpfOa: number // Total CPF OA for downpayment (computed from per-borrower)
   downpaymentCash: number // Amount to pay in cash (excluding COV)
   loanTermYears: number
   loanStartMonth: string
@@ -104,6 +104,13 @@ export interface MortgageInputs {
   borrower2IncomeId: string | null
   borrower2OaBalance: number
   borrower2LiabilityIds: string[] // IDs of liabilities assigned to borrower 2
+  // Per-borrower CPF OA tracking
+  borrower1DownpaymentCpfOa: number // Borrower 1's CPF OA for downpayment
+  borrower2DownpaymentCpfOa: number // Borrower 2's CPF OA for downpayment
+  borrower1MonthlyCpfOa: number // Borrower 1's monthly CPF OA payment
+  borrower2MonthlyCpfOa: number // Borrower 2's monthly CPF OA payment
+  // Lease tenure: null = freehold, 1-999 = remaining years
+  leaseRemainingYears: number | null
   // Purchase fees/expenses
   purchaseFees: FeeItem[]
   // ABSD (Additional Buyer's Stamp Duty) - user-entered percentage
