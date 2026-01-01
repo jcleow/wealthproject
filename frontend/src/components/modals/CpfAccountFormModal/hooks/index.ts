@@ -1,2 +1,2 @@
-export { useCpfAccountForm, RESIDENCY_OPTIONS } from './useCpfAccountForm'
-export type { FormFields, FormErrors, UseCpfAccountFormReturn, UseCpfAccountFormOptions } from './useCpfAccountForm'
+export { useCpfAccountForm, RESIDENCY_OPTIONS, residencyStatusOptions } from './useCpfAccountForm'
+export type { UseCpfAccountFormOptions } from './useCpfAccountForm'

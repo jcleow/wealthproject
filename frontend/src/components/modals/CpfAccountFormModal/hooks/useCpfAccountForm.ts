@@ -1,42 +1,19 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
-import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload, ResidencyStatus } from '@/types/cpf'
+import { useState, useEffect } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 
-export interface FormFields {
-  personId: string | null
-  oaBalance: string
-  saBalance: string
-  maBalance: string
-  raBalance: string
-  oaUsedForHousing: string
-  dateOfBirth: string
-  residencyStatus: ResidencyStatus
-  housingStartDate: string
-  prGrantDate: string
-}
+import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload } from '@/types/cpf'
+import {
+  cpfAccountFormSchema,
+  defaultCpfAccountFormValues,
+  residencyStatusOptions,
+  type CpfAccountFormData,
+} from '@/lib/validations/cpfAccount'
 
-export type FormErrors = Partial<Record<keyof FormFields, string>>
-
-export const RESIDENCY_OPTIONS: { value: ResidencyStatus; label: string }[] = [
-  { value: 'citizen', label: 'Singapore Citizen' },
-  { value: 'pr_year_1', label: 'PR Year 1' },
-  { value: 'pr_year_2', label: 'PR Year 2' },
-  { value: 'pr_year_3_plus', label: 'PR Year 3+' },
-]
-
-const EMPTY_FIELDS: FormFields = {
-  personId: null,
-  oaBalance: '',
-  saBalance: '',
-  maBalance: '',
-  raBalance: '',
-  oaUsedForHousing: '',
-  dateOfBirth: '',
-  residencyStatus: 'citizen',
-  housingStartDate: '',
-  prGrantDate: '',
-}
+export { residencyStatusOptions }
+export const RESIDENCY_OPTIONS = residencyStatusOptions
 
 function formatDateForInput(isoDate: string | undefined): string {
   if (!isoDate) return ''
@@ -46,9 +23,9 @@ function formatDateForInput(isoDate: string | undefined): string {
 }
 
 function toDisplayString(value: number | string | undefined): string {
-  if (value === undefined || value === null) return '0'
+  if (value === undefined || value === null) return ''
   const num = typeof value === 'string' ? Number.parseFloat(value) : value
-  if (Number.isNaN(num)) return '0'
+  if (Number.isNaN(num)) return ''
   return num.toFixed(2)
 }
 
@@ -56,6 +33,51 @@ function parseDisplayValue(displayValue: string): number {
   const num = Number.parseFloat(displayValue)
   if (Number.isNaN(num)) return 0
   return num
+}
+
+function mapCpfAccountToFormData(cpfAccount: CPFAccount): CpfAccountFormData {
+  return {
+    personId: cpfAccount.personId ?? null,
+    oaBalance: toDisplayString(cpfAccount.oaBalance),
+    saBalance: toDisplayString(cpfAccount.saBalance),
+    maBalance: toDisplayString(cpfAccount.maBalance),
+    raBalance: toDisplayString(cpfAccount.raBalance),
+    oaUsedForHousing: toDisplayString(cpfAccount.oaUsedForHousing),
+    dateOfBirth: formatDateForInput(cpfAccount.dateOfBirth),
+    residencyStatus: cpfAccount.residencyStatus,
+    housingStartDate: formatDateForInput(cpfAccount.housingStartDate),
+    prGrantDate: formatDateForInput(cpfAccount.prGrantDate),
+  }
+}
+
+function mapFormDataToCreatePayload(data: CpfAccountFormData): CPFAccountCreatePayload {
+  return {
+    personId: data.personId || undefined,
+    oaBalance: parseDisplayValue(data.oaBalance),
+    saBalance: parseDisplayValue(data.saBalance),
+    maBalance: parseDisplayValue(data.maBalance),
+    raBalance: parseDisplayValue(data.raBalance),
+    oaUsedForHousing: parseDisplayValue(data.oaUsedForHousing),
+    dateOfBirth: data.dateOfBirth,
+    residencyStatus: data.residencyStatus,
+    housingStartDate: data.housingStartDate || undefined,
+    prGrantDate: data.prGrantDate || undefined,
+  }
+}
+
+function mapFormDataToUpdatePayload(data: CpfAccountFormData): CPFAccountUpdatePayload {
+  return {
+    personId: data.personId || undefined,
+    oaBalance: parseDisplayValue(data.oaBalance),
+    saBalance: parseDisplayValue(data.saBalance),
+    maBalance: parseDisplayValue(data.maBalance),
+    raBalance: parseDisplayValue(data.raBalance),
+    oaUsedForHousing: parseDisplayValue(data.oaUsedForHousing),
+    dateOfBirth: data.dateOfBirth,
+    residencyStatus: data.residencyStatus,
+    housingStartDate: data.housingStartDate || undefined,
+    prGrantDate: data.prGrantDate || undefined,
+  }
 }
 
 export interface UseCpfAccountFormOptions {
@@ -66,161 +88,66 @@ export interface UseCpfAccountFormOptions {
   onClose: () => void
 }
 
-export interface UseCpfAccountFormReturn {
-  fields: FormFields
-  errors: FormErrors
-  submitting: boolean
-  submitError: string | null
-  handleFieldChange: (key: keyof FormFields, value: string) => void
-  handlePersonChange: (personId: string | null) => void
-  handleSubmit: (event: React.FormEvent) => Promise<void>
-}
-
 export function useCpfAccountForm({
   cpfAccount,
   mode,
   onSave,
   onCreate,
   onClose,
-}: UseCpfAccountFormOptions): UseCpfAccountFormReturn {
-  const [fields, setFields] = useState<FormFields>({ ...EMPTY_FIELDS })
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [submitting, setSubmitting] = useState(false)
+}: UseCpfAccountFormOptions) {
   const [submitError, setSubmitError] = useState<string | null>(null)
 
+  const form = useForm<CpfAccountFormData>({
+    resolver: zodResolver(cpfAccountFormSchema),
+    defaultValues: defaultCpfAccountFormValues,
+  })
+
+  // Reset form when modal opens with new data
   useEffect(() => {
     if (mode === 'create') {
-      setFields({ ...EMPTY_FIELDS })
-      setErrors({})
-      return
-    }
-
-    if (cpfAccount) {
-      setFields({
-        personId: cpfAccount.personId ?? null,
-        oaBalance: toDisplayString(cpfAccount.oaBalance),
-        saBalance: toDisplayString(cpfAccount.saBalance),
-        maBalance: toDisplayString(cpfAccount.maBalance),
-        raBalance: toDisplayString(cpfAccount.raBalance),
-        oaUsedForHousing: toDisplayString(cpfAccount.oaUsedForHousing),
-        dateOfBirth: formatDateForInput(cpfAccount.dateOfBirth),
-        residencyStatus: cpfAccount.residencyStatus,
-        housingStartDate: formatDateForInput(cpfAccount.housingStartDate),
-        prGrantDate: formatDateForInput(cpfAccount.prGrantDate),
-      })
+      form.reset(defaultCpfAccountFormValues)
+    } else if (cpfAccount) {
+      form.reset(mapCpfAccountToFormData(cpfAccount))
     } else {
-      setFields({ ...EMPTY_FIELDS })
+      form.reset(defaultCpfAccountFormValues)
     }
-  }, [cpfAccount, mode])
+  }, [cpfAccount, mode, form])
 
-  const validate = useCallback((): boolean => {
-    const nextErrors: FormErrors = {}
-
-    if (!fields.dateOfBirth) {
-      nextErrors.dateOfBirth = 'Date of birth is required'
-    }
-
-    const numericFields: (keyof FormFields)[] = [
-      'oaBalance',
-      'saBalance',
-      'maBalance',
-      'raBalance',
-      'oaUsedForHousing',
-    ]
-
-    for (const key of numericFields) {
-      const value = fields[key] as string
-      if (value && Number.isNaN(Number.parseFloat(value))) {
-        nextErrors[key] = 'Enter a valid number'
-      } else if (Number.parseFloat(value) < 0) {
-        nextErrors[key] = 'Value cannot be negative'
-      }
-    }
-
-    setErrors(nextErrors)
-    return Object.keys(nextErrors).length === 0
-  }, [fields])
-
-  const handleSubmit = useCallback(async (event: React.FormEvent) => {
-    event.preventDefault()
+  const onSubmit = async (data: CpfAccountFormData) => {
     setSubmitError(null)
 
-    if (!validate()) return
     try {
-      setSubmitting(true)
-
       if (mode === 'create') {
         if (!onCreate) {
           setSubmitError('Creation is currently unavailable')
           return
         }
-        const payload: CPFAccountCreatePayload = {
-          personId: fields.personId || undefined,
-          oaBalance: parseDisplayValue(fields.oaBalance),
-          saBalance: parseDisplayValue(fields.saBalance),
-          maBalance: parseDisplayValue(fields.maBalance),
-          raBalance: parseDisplayValue(fields.raBalance),
-          oaUsedForHousing: parseDisplayValue(fields.oaUsedForHousing),
-          dateOfBirth: fields.dateOfBirth,
-          residencyStatus: fields.residencyStatus,
-          housingStartDate: fields.housingStartDate || undefined,
-          prGrantDate: fields.prGrantDate || undefined,
-        }
-        await onCreate(payload)
+        await onCreate(mapFormDataToCreatePayload(data))
       } else {
         if (!cpfAccount?.id) {
           setSubmitError('No CPF account to update')
           return
         }
-
-        const updates: CPFAccountUpdatePayload = {
-          personId: fields.personId || undefined,
-          oaBalance: parseDisplayValue(fields.oaBalance),
-          saBalance: parseDisplayValue(fields.saBalance),
-          maBalance: parseDisplayValue(fields.maBalance),
-          raBalance: parseDisplayValue(fields.raBalance),
-          oaUsedForHousing: parseDisplayValue(fields.oaUsedForHousing),
-          dateOfBirth: fields.dateOfBirth,
-          residencyStatus: fields.residencyStatus,
-          housingStartDate: fields.housingStartDate || undefined,
-          prGrantDate: fields.prGrantDate || undefined,
-        }
-
         if (!onSave) {
           setSubmitError('Saving is currently unavailable')
           return
         }
-
-        await onSave(cpfAccount.id, updates)
+        await onSave(cpfAccount.id, mapFormDataToUpdatePayload(data))
       }
-
       onClose()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save CPF account'
       setSubmitError(message)
-    } finally {
-      setSubmitting(false)
     }
-  }, [validate, mode, onCreate, fields, cpfAccount, onSave, onClose])
-
-  const handleFieldChange = useCallback((key: keyof FormFields, value: string) => {
-    setFields((prev) => ({ ...prev, [key]: value }))
-    if (errors[key]) {
-      setErrors((prev) => ({ ...prev, [key]: undefined }))
-    }
-  }, [errors])
-
-  const handlePersonChange = useCallback((personId: string | null) => {
-    setFields((prev) => ({ ...prev, personId }))
-  }, [])
+  }
 
   return {
-    fields,
-    errors,
-    submitting,
+    form,
+    handleSubmit: form.handleSubmit(onSubmit),
+    isSubmitting: form.formState.isSubmitting,
+    errors: form.formState.errors,
     submitError,
-    handleFieldChange,
-    handlePersonChange,
-    handleSubmit,
+    // Watch residencyStatus for conditional rendering
+    residencyStatus: form.watch('residencyStatus'),
   }
 }

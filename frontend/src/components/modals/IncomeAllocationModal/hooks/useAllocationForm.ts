@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import type { IncomeAllocation, CreateIncomeAllocationPayload } from '@/api/financial/incomes'
 import {
   useIncomeAllocationsQuery,
@@ -8,9 +10,17 @@ import {
   useUpdateIncomeAllocationMutation,
   useDeleteIncomeAllocationMutation,
 } from '@/hooks/queries/useIncomeAllocationsQuery'
+import {
+  allocationFormSchema,
+  defaultAllocationFormValues,
+  type AllocationFormData,
+  type AllocationType,
+  type AllocationTargetType,
+} from '@/lib/validations/allocation'
 
-export type AllocationType = 'percentage' | 'fixed'
-export type TargetType = 'cash_account' | 'investment'
+// Re-export types for backward compatibility
+export type { AllocationType }
+export type TargetType = AllocationTargetType
 
 export interface UseAllocationFormOptions {
   incomeId: string
@@ -68,21 +78,17 @@ export function useAllocationForm({
   const [isAddingNew, setIsAddingNew] = useState(false)
   const [hasAutoSelected, setHasAutoSelected] = useState(false)
 
-  const [targetType, setTargetType] = useState<TargetType>('investment')
-  const [targetId, setTargetId] = useState('')
-  const [allocationType, setAllocationType] = useState<AllocationType>('percentage')
-  const [allocationValue, setAllocationValue] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
+  // React Hook Form setup
+  const form = useForm<AllocationFormData>({
+    resolver: zodResolver(allocationFormSchema),
+    defaultValues: defaultAllocationFormValues,
+  })
 
   const resetForm = useCallback(() => {
-    setTargetType('investment')
-    setTargetId('')
-    setAllocationType('percentage')
-    setAllocationValue('')
-    setSearchTerm('')
+    form.reset(defaultAllocationFormValues)
     setEditingAllocation(null)
     setIsAddingNew(false)
-  }, [])
+  }, [form])
 
   useEffect(() => {
     if (!isOpen) {
@@ -102,29 +108,43 @@ export function useAllocationForm({
     }
   }, [isOpen, initialEditAllocationId, allocations, hasAutoSelected])
 
+  // Hydrate form when editingAllocation changes
   useEffect(() => {
     if (editingAllocation) {
+      let targetType: TargetType = 'investment'
+      let targetId = ''
+
       if (editingAllocation.targetInvestmentId) {
-        setTargetType('investment')
-        setTargetId(editingAllocation.targetInvestmentId)
+        targetType = 'investment'
+        targetId = editingAllocation.targetInvestmentId
       } else if (editingAllocation.targetCashAccountId) {
-        setTargetType('cash_account')
-        setTargetId(editingAllocation.targetCashAccountId)
+        targetType = 'cash_account'
+        targetId = editingAllocation.targetCashAccountId
       }
-      setAllocationType(editingAllocation.allocationType)
-      setAllocationValue(editingAllocation.allocationValue.toString())
+
+      form.reset({
+        targetType,
+        targetId,
+        allocationType: editingAllocation.allocationType as AllocationType,
+        allocationValue: editingAllocation.allocationValue.toString(),
+        searchTerm: '',
+      })
     }
-  }, [editingAllocation])
+  }, [editingAllocation, form])
+
+  // Watch form values for backward-compatible getters
+  const formValues = form.watch()
 
   const handleSave = useCallback(async () => {
-    if (!targetId || !allocationValue) return
+    const currentValues = form.getValues()
+    if (!currentValues.targetId || !currentValues.allocationValue) return
 
     const payload: CreateIncomeAllocationPayload = {
-      allocationType,
-      allocationValue,
-      ...(targetType === 'investment'
-        ? { targetInvestmentId: targetId }
-        : { targetCashAccountId: targetId }),
+      allocationType: currentValues.allocationType,
+      allocationValue: currentValues.allocationValue,
+      ...(currentValues.targetType === 'investment'
+        ? { targetInvestmentId: currentValues.targetId }
+        : { targetCashAccountId: currentValues.targetId }),
     }
 
     if (editingAllocation) {
@@ -138,7 +158,7 @@ export function useAllocationForm({
     }
 
     resetForm()
-  }, [targetId, allocationValue, allocationType, targetType, editingAllocation, incomeId, updateMutation, createMutation, resetForm])
+  }, [form, editingAllocation, incomeId, updateMutation, createMutation, resetForm])
 
   const handleDelete = useCallback(async (allocation: IncomeAllocation) => {
     if (!confirm('Are you sure you want to delete this allocation?')) return
@@ -157,9 +177,34 @@ export function useAllocationForm({
     .filter((a) => a.allocationType === 'fixed')
     .reduce((sum, a) => sum + parseFloat(a.allocationValue), 0)
 
-  const isFormValid = Boolean(targetId && allocationValue && parseFloat(allocationValue) > 0)
+  const isFormValid = Boolean(
+    formValues.targetId &&
+    formValues.allocationValue &&
+    parseFloat(formValues.allocationValue) > 0
+  )
   const isSaving = createMutation.isPending || updateMutation.isPending
   const isEditingSingleAllocation = Boolean(initialEditAllocationId)
+
+  // Backward-compatible setters that update RHF form state
+  const setTargetType = useCallback((type: TargetType) => {
+    form.setValue('targetType', type, { shouldDirty: true })
+  }, [form])
+
+  const setTargetId = useCallback((id: string) => {
+    form.setValue('targetId', id, { shouldDirty: true })
+  }, [form])
+
+  const setAllocationType = useCallback((type: AllocationType) => {
+    form.setValue('allocationType', type, { shouldDirty: true })
+  }, [form])
+
+  const setAllocationValue = useCallback((value: string) => {
+    form.setValue('allocationValue', value, { shouldDirty: true })
+  }, [form])
+
+  const setSearchTerm = useCallback((term: string) => {
+    form.setValue('searchTerm', term, { shouldDirty: true })
+  }, [form])
 
   return {
     allocations,
@@ -167,11 +212,11 @@ export function useAllocationForm({
     displayAllocations,
     editingAllocation,
     isAddingNew,
-    targetType,
-    targetId,
-    allocationType,
-    allocationValue,
-    searchTerm,
+    targetType: formValues.targetType,
+    targetId: formValues.targetId,
+    allocationType: formValues.allocationType,
+    allocationValue: formValues.allocationValue,
+    searchTerm: formValues.searchTerm,
     totalPercentageAllocated,
     totalFixedAllocated,
     isFormValid,
