@@ -44,8 +44,7 @@ type FinancialDataRow struct {
 	MinimumPay    decimal.Decimal // Minimum payment for liabilities
 	IsAccumulator bool            // For cash accounts - identifies the accumulator account
 	// Terminal value fields (for assets with finite useful life)
-	TerminalValue  *decimal.Decimal // Value at end of useful life (NULL = disappear, 0 = worthless)
-	LeaseStartYear *int             // For leasehold properties: year lease started
+	TerminalValue *decimal.Decimal // Value at end of useful life (NULL = disappear, 0 = worthless)
 	// CPF-related fields (for incomes)
 	CPFWageType cpfProcessor.CPFWageType // CPFWageTypeOW (Ordinary Wages) or CPFWageTypeAW (Additional Wages)
 	// Expense-liability linkage
@@ -1774,8 +1773,9 @@ func buildMonthDetailResponse(
 	propertyBuilder := property.NewSnapshotBuilder()
 	propertySnapshots, propertyTotal, mortgageTotal := propertyBuilder.BuildPropertySnapshots(properties, date)
 
-	// Convert property fees to expense responses using the property module
+	// Convert property fees and mortgage payments to expense responses
 	for i := range propertySnapshots {
+		// Property fees (recurring, purchase, sale)
 		propExpenses := propertySnapshots[i].ToExpenses(date)
 		for _, pfe := range propExpenses {
 			expenses = append(expenses, ExpenseResponse{
@@ -1794,6 +1794,27 @@ func buildMonthDetailResponse(
 				ScenarioEventID:      pfe.ScenarioEventID,
 				Icon:                 pfe.Icon,
 				IconColor:            pfe.IconColor,
+			})
+		}
+
+		// Mortgage payment (principal + interest)
+		if mortgageExp := propertySnapshots[i].ToMortgageExpense(date); mortgageExp != nil {
+			expenses = append(expenses, ExpenseResponse{
+				ID:                   mortgageExp.ID,
+				ParentID:             mortgageExp.ParentID,
+				Name:                 mortgageExp.Name,
+				Category:             mortgageExp.Category,
+				Amount:               mortgageExp.Amount,
+				EventAdjAmount:       mortgageExp.EventAdjAmount,
+				AnnualAmount:         mortgageExp.AnnualAmount,
+				EventAdjAnnualAmount: mortgageExp.EventAdjAnnualAmount,
+				SourceFrequency:      mortgageExp.SourceFrequency,
+				ItemType:             mortgageExp.ItemType,
+				StartYear:            mortgageExp.StartYear,
+				StartMonth:           mortgageExp.StartMonth,
+				ScenarioEventID:      mortgageExp.ScenarioEventID,
+				Icon:                 mortgageExp.Icon,
+				IconColor:            mortgageExp.IconColor,
 			})
 		}
 	}

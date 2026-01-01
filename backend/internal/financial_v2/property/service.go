@@ -226,8 +226,8 @@ func (s *Service) UpdateFromParams(ctx context.Context, userID, scenarioID strin
 
 	// Validate cross-property constraints (exclude current property from "other" calculations)
 	var excludePropertySGID *string
-	if existing.SGDetails != nil {
-		excludePropertySGID = &existing.SGDetails.ID
+	if existing.PropertySG != nil {
+		excludePropertySGID = &existing.PropertySG.ID
 	}
 
 	validation, err := s.ValidateCrossPropertyConstraints(ctx, userID, excludePropertySGID, params)
@@ -253,7 +253,7 @@ func (s *Service) UpdateFromParams(ctx context.Context, userID, scenarioID strin
 	}
 
 	updateInput := repo.UpdateScenarioInput{
-		SGDetails:     createInput.SGDetails,
+		PropertySG:    createInput.PropertySG,
 		Fees:          createInput.Fees,
 		GrowthPeriods: createInput.GrowthPeriods,
 		RatePeriods:   createInput.RatePeriods,
@@ -337,11 +337,11 @@ func (s *Service) validateTDSR(
 	input repo.CreateScenarioInput,
 	result *CrossPropertyValidationResult,
 ) error {
-	if input.SGDetails == nil || len(input.RatePeriods) == 0 {
+	if input.PropertySG == nil || len(input.RatePeriods) == 0 {
 		return nil
 	}
 
-	details := input.SGDetails
+	details := input.PropertySG
 
 	// Get borrower's monthly income
 	monthlyIncome, err := s.getBorrowerMonthlyIncome(ctx, userID, details.Borrower1IncomeID, details.Borrower2IncomeID)
@@ -431,11 +431,11 @@ func (s *Service) validateCPFOA(
 	input repo.CreateScenarioInput,
 	result *CrossPropertyValidationResult,
 ) error {
-	if input.SGDetails == nil {
+	if input.PropertySG == nil {
 		return nil
 	}
 
-	details := input.SGDetails
+	details := input.PropertySG
 
 	// Get current property's CPF OA usage
 	requestedCpfOa := decimal.Zero()
@@ -633,11 +633,11 @@ func (s *Service) UpdateGrantFromParams(ctx context.Context, userID, scenarioID,
 
 // ComputeValues calculates all derived values for a scenario
 func (s *Service) ComputeValues(scenario *repo.PropertyScenarioFull) *ComputedValues {
-	if scenario.SGDetails == nil || len(scenario.RatePeriods) == 0 {
+	if scenario.PropertySG == nil || len(scenario.RatePeriods) == 0 {
 		return nil
 	}
 
-	details := scenario.SGDetails
+	details := scenario.PropertySG
 
 	// Sum all grants
 	grantsTotal := sumGrants(scenario.Grants)
@@ -767,13 +767,13 @@ func (s *Service) getProjectedBorrowerBalances(
 // getPurchaseDate determines the earliest purchase date from scenario details.
 // For BTO properties, uses BtoKeyCollectionDate. Otherwise uses first rate period start.
 func (s *Service) getPurchaseDate(scenario *repo.PropertyScenarioFull) time.Time {
-	if scenario.SGDetails == nil {
+	if scenario.PropertySG == nil {
 		return time.Now()
 	}
 
 	// For BTO, use key collection date if available
-	if scenario.SGDetails.BtoKeyCollectionDate != nil {
-		parsed, err := time.Parse("2006-01", *scenario.SGDetails.BtoKeyCollectionDate)
+	if scenario.PropertySG.BtoKeyCollectionDate != nil {
+		parsed, err := time.Parse("2006-01", *scenario.PropertySG.BtoKeyCollectionDate)
 		if err == nil {
 			return parsed
 		}
@@ -801,11 +801,11 @@ func (s *Service) ComputeValuesWithContext(
 	}
 
 	// Only add cross-property context for included scenarios
-	if scenario.SGDetails == nil || !scenario.SGDetails.IsIncluded {
+	if scenario.PropertySG == nil || !scenario.PropertySG.IsIncluded {
 		return result
 	}
 
-	details := scenario.SGDetails
+	details := scenario.PropertySG
 
 	// Get projected CPF OA balances at purchase date
 	purchaseDate := s.getPurchaseDate(scenario)
@@ -905,7 +905,7 @@ func buildCreateScenarioInput(params CreateScenarioParams) (repo.CreateScenarioI
 		if err != nil {
 			return input, err
 		}
-		input.SGDetails = sg
+		input.PropertySG = sg
 	}
 
 	for _, f := range params.Fees {

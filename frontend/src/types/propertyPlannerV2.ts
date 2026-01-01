@@ -253,8 +253,8 @@ export interface ComputedValuesFull {
  */
 export interface PropertyScenarioFull {
   scenario: PropertyScenarioHeader
-  sgDetails: PropertySGDetails | null
-  myDetails: unknown | null  // Future: Malaysia details
+  propertySG: PropertySGDetails | null
+  propertyMY: unknown | null  // Future: Malaysia details
   fees: PropertyFee[]
   growthPeriods: GrowthPeriod[]
   ratePeriods: LiabilityRatePeriod[]
@@ -335,7 +335,7 @@ export interface CreateGrantInput {
 
 export interface CreateScenarioInput {
   country: 'SG' | 'MY'
-  sgDetails?: CreateSGDetailsInput
+  propertySG?: CreateSGDetailsInput
   fees?: CreateFeeInput[]
   growthPeriods?: CreateGrowthPeriodInput[]
   ratePeriods: CreateRatePeriodInput[]

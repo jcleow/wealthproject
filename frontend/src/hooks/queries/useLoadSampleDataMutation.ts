@@ -53,7 +53,6 @@ export function useLoadSampleDataMutation() {
       // Ensure CPF profile exists so timeline v2 can show CPF assets and contributions
       // This is Alex's CPF account - linked to Alex person
       const sampleCPFAccount: CPFAccountCreatePayload = {
-        earner: 'Alex',
         personId: alexPerson?.id ?? null,
         oaBalance: 85000,
         saBalance: 45000,
@@ -77,7 +76,6 @@ export function useLoadSampleDataMutation() {
 
       // Create Sarah's CPF account (spouse) - linked to Sarah person
       const sarahCPFAccount: CPFAccountCreatePayload = {
-        earner: 'Sarah',
         personId: sarahPerson?.id ?? null,
         oaBalance: 65000,
         saBalance: 35000,
@@ -162,7 +160,6 @@ export function useLoadSampleDataMutation() {
       const sampleIncomes: Array<Omit<Income, 'id' | 'updatedAt'>> = [
         {
           name: 'Software Engineer Salary',
-          earner: 'Alex', // Primary earner (kept for backward compatibility)
           personId: alexPerson?.id ?? null, // Link to Alex person
           category: 'Employment',
           amount: 7500,
@@ -174,7 +171,6 @@ export function useLoadSampleDataMutation() {
         },
         {
           name: 'Marketing Manager Salary',
-          earner: 'Sarah', // Spouse (kept for backward compatibility)
           personId: sarahPerson?.id ?? null, // Link to Sarah person
           category: 'Employment',
           amount: 5000,
@@ -585,7 +581,7 @@ export function useLoadSampleDataMutation() {
 
         const btoScenarioInput: CreateScenarioInput = {
           country: 'SG',
-          sgDetails: {
+          propertySG: {
             name: 'BTO Flat (Tengah)',
             propertyType: 'hdb',
             propertySubtype: 'bto',

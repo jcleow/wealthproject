@@ -114,8 +114,8 @@ type CreateGrantInput struct {
 // PropertyScenarioFull is the complete scenario with all related data
 type PropertyScenarioFull struct {
 	Scenario      PropertyScenario      `json:"scenario"`
-	SGDetails     *PropertySG           `json:"sgDetails,omitempty"`
-	MYDetails     interface{}           `json:"myDetails,omitempty"` // Future
+	PropertySG    *PropertySG           `json:"propertySG,omitempty"`
+	PropertyMY    interface{}           `json:"propertyMY,omitempty"` // Future
 	Fees          []PropertyFee         `json:"fees"`
 	GrowthPeriods []GrowthPeriod        `json:"growthPeriods"`
 	RatePeriods   []LiabilityRatePeriod `json:"ratePeriods"`
@@ -184,7 +184,7 @@ type CreateRatePeriodInput struct {
 // CreateScenarioInput is the input for creating a property scenario
 type CreateScenarioInput struct {
 	Country       string                    `json:"country"` // "SG" or "MY"
-	SGDetails     *CreateSGDetailsInput     `json:"sgDetails"`
+	PropertySG    *CreateSGDetailsInput     `json:"propertySG"`
 	Fees          []CreateFeeInput          `json:"fees"`
 	GrowthPeriods []CreateGrowthPeriodInput `json:"growthPeriods"`
 	RatePeriods   []CreateRatePeriodInput   `json:"ratePeriods"`
@@ -193,7 +193,7 @@ type CreateScenarioInput struct {
 
 // UpdateScenarioInput is the input for updating a property scenario
 type UpdateScenarioInput struct {
-	SGDetails     *CreateSGDetailsInput     `json:"sgDetails"`
+	PropertySG    *CreateSGDetailsInput     `json:"propertySG"`
 	Fees          []CreateFeeInput          `json:"fees"`
 	GrowthPeriods []CreateGrowthPeriodInput `json:"growthPeriods"`
 	RatePeriods   []CreateRatePeriodInput   `json:"ratePeriods"`
@@ -218,8 +218,8 @@ func (s *Store) CreatePropertyScenario(ctx context.Context, userID string, input
 
 	// 1. Create country-specific details first (to get the ID)
 	var sgDetailsID *string
-	if input.SGDetails != nil {
-		id, err := s.createSGDetails(ctx, tx, input.SGDetails)
+	if input.PropertySG != nil {
+		id, err := s.createSGDetails(ctx, tx, input.PropertySG)
 		if err != nil {
 			return nil, fmt.Errorf("create sg details: %w", err)
 		}
@@ -453,7 +453,7 @@ func (s *Store) GetPropertyScenario(ctx context.Context, userID, scenarioID stri
 		if err != nil {
 			return nil, fmt.Errorf("get sg details: %w", err)
 		}
-		result.SGDetails = sgDetails
+		result.PropertySG = sgDetails
 
 		// 2b. Get grants for SG details
 		grants, err := s.getPropertyGrants(ctx, *scenario.PropertySGID)
@@ -704,8 +704,8 @@ func (s *Store) UpdatePropertyScenario(ctx context.Context, userID, scenarioID s
 	defer tx.Rollback(ctx)
 
 	// Update SG details if present
-	if input.SGDetails != nil && existingSGDetailsID != nil {
-		if err := s.updateSGDetails(ctx, tx, *existingSGDetailsID, input.SGDetails); err != nil {
+	if input.PropertySG != nil && existingSGDetailsID != nil {
+		if err := s.updateSGDetails(ctx, tx, *existingSGDetailsID, input.PropertySG); err != nil {
 			return nil, fmt.Errorf("update sg details: %w", err)
 		}
 

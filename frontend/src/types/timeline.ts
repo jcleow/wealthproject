@@ -411,4 +411,14 @@ export interface PropertySnapshotV2 {
   purchaseDate: string    // First rate period start_month
   saleDate?: string
   fees: PropertyFeeSnapshotV2[]
+  mortgagePayment?: MortgagePaymentSnapshotV2 // Monthly payment breakdown
+}
+
+/** Mortgage payment breakdown in timeline V2 response */
+export interface MortgagePaymentSnapshotV2 {
+  monthlyTotal: string     // Total monthly payment
+  principalPortion: string // Principal paid this month
+  interestPortion: string  // Interest paid this month
+  currentRate: string      // Current interest rate (APR %)
+  rateType: string         // "fixed" or "floating"
 }

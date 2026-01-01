@@ -32,11 +32,6 @@ import {
   useDeletePropertyPlannerV2ScenarioMutation,
   useTogglePropertyPlannerV2ScenarioMutation,
 } from '@/hooks/queries'
-import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
-import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
-import type { Income } from '@/types/financial'
-import type { CPFAccount } from '@/types/cpf'
-import { calculateMonthlyOaInflow } from '@/app/property-planner/hooks'
 
 import {
   ScenarioList,
@@ -85,7 +80,7 @@ function mapPropertyTypeFromApi(propertyType: ApiPropertyType, propertySubtype: 
  * Convert API scenario to frontend PropertyScenario
  */
 function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScenario {
-  const sgDetails = apiScenario.sgDetails
+  const sgDetails = apiScenario.propertySG
   if (!sgDetails) {
     // Fallback for non-SG scenarios (not yet supported)
     return {
@@ -223,7 +218,7 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
 
   return {
     country: 'SG',
-    sgDetails: {
+    propertySG: {
       name: scenario.name,
       propertyType: apiType,
       propertySubtype: propertySubtype,

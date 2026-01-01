@@ -88,7 +88,7 @@ export async function deleteAllScenarios(): Promise<void> {
 export async function toggleScenarioIncluded(id: string, isIncluded: boolean): Promise<PropertyScenarioFull> {
   return apiClient.patch<PropertyScenarioFull>(
     `${BASE_PATH}/scenarios/${id}`,
-    { sgDetails: { isIncluded } },
+    { propertySG: { isIncluded } },
     { baseUrl: V2_BASE_URL }
   )
 }
