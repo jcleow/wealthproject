@@ -1,9 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 
 import type { Asset, Expense, Income, Liability, Frequency } from '@/types/financial'
 import { growthApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
+import {
+  financialFormSchema,
+  cpfFieldsSchema,
+  defaultFinancialFormValues,
+  defaultCpfFieldsValues,
+  type FinancialFormState,
+  type CpfFieldsFormData,
+} from '@/lib/validations/financial'
 
 import {
   UPDATE_MODE_IN_PLACE,
@@ -69,16 +79,22 @@ export function useFinancialForm({
     staleTime: 5 * 60 * 1000,
   })
 
-  // Form state
-  const [formData, setFormData] = useState<FormState>(buildDefaultFormState(type, growthConfigs))
+  // React Hook Form for main form
+  const mainForm = useForm<FinancialFormState>({
+    resolver: zodResolver(financialFormSchema),
+    defaultValues: defaultFinancialFormValues,
+  })
+
+  // React Hook Form for CPF fields
+  const cpfForm = useForm<CpfFieldsFormData>({
+    resolver: zodResolver(cpfFieldsSchema),
+    defaultValues: defaultCpfFieldsValues,
+  })
+
+  // Additional UI state (not form fields)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCpfMode, setIsCpfMode] = useState(false)
-  const [cpfFields, setCpfFields] = useState<CpfFields>({
-    ordinaryAccount: '',
-    specialAccount: '',
-    medisaveAccount: '',
-  })
   const [cpfErrors, setCpfErrors] = useState<Partial<CpfFields>>({})
 
   // Dialog state
@@ -94,6 +110,34 @@ export function useFinancialForm({
   const isFutureMonth = (selectedYear ?? 0) > 0 || (selectedMonth ?? 1) > 1
   const isBusy = isSaving || isDeleting
   const isDebtRepayment = type === 'expense' && !!getDataProp<string>(data, 'sourceLiabilityId')
+
+  // Watch form values for backward-compatible formData getter
+  const formValues = mainForm.watch()
+  const cpfFieldsValues = cpfForm.watch()
+
+  // Build backward-compatible formData from RHF state
+  const formData: FormState = {
+    name: formValues.name,
+    personId: formValues.personId,
+    amount: formValues.amount,
+    frequency: formValues.frequency as Frequency,
+    category: formValues.category,
+    annualGrowthRate: formValues.annualGrowthRate,
+    interestRateApr: formValues.interestRateApr,
+    minimumPayment: formValues.minimumPayment,
+    growthRate: formValues.growthRate,
+    notes: formValues.notes,
+    terminalValue: formValues.terminalValue,
+    leaseStartYear: formValues.leaseStartYear,
+    usefulLifeYears: formValues.usefulLifeYears,
+  }
+
+  // Backward-compatible cpfFields from RHF state
+  const cpfFields: CpfFields = {
+    ordinaryAccount: cpfFieldsValues.ordinaryAccount,
+    specialAccount: cpfFieldsValues.specialAccount,
+    medisaveAccount: cpfFieldsValues.medisaveAccount,
+  }
 
   // Fetch liabilities for debt repayment minimum payment check
   const { data: liabilitiesData } = useQuery({
@@ -114,7 +158,7 @@ export function useFinancialForm({
 
     // Reset all state
     setIsCpfMode(false)
-    setCpfFields({ ordinaryAccount: '', specialAccount: '', medisaveAccount: '' })
+    cpfForm.reset(defaultCpfFieldsValues)
     setCpfErrors({})
     setShowMinPaymentWarning(false)
     setPendingPayload(null)
@@ -125,7 +169,8 @@ export function useFinancialForm({
     setHasAttemptedSubmit(false)
 
     if (!data) {
-      setFormData(buildDefaultFormState(type, growthConfigs))
+      const defaultState = buildDefaultFormState(type, growthConfigs)
+      mainForm.reset(defaultState)
       return
     }
 
@@ -153,7 +198,7 @@ export function useFinancialForm({
             ? itemRate
             : getRateForCategory(type, asset.category, growthConfigs)
 
-        setFormData({
+        mainForm.reset({
           name: toSafeText(asset.name),
           personId: null,
           amount: formatNumberInput(roundToDollar(amt)),
@@ -164,7 +209,6 @@ export function useFinancialForm({
           minimumPayment: '',
           growthRate: '3.0',
           notes: asset.notes ?? '',
-          // Useful life fields
           terminalValue: asset.terminalValue !== null && asset.terminalValue !== undefined
             ? formatNumberInput(asset.terminalValue.toString())
             : '',
@@ -181,7 +225,7 @@ export function useFinancialForm({
           itemRate && itemRate !== 0
             ? itemRate
             : Math.abs(getRateForCategory(type, liability.category, growthConfigs))
-        setFormData({
+        mainForm.reset({
           name: toSafeText(liability.name),
           personId: null,
           amount: formatNumberInput(roundToDollar(amt)),
@@ -228,7 +272,7 @@ export function useFinancialForm({
 
         const itemPersonId = type === 'income' ? ((item as Income & { personId?: string | null }).personId ?? null) : null
 
-        setFormData({
+        mainForm.reset({
           name: toSafeText(itemName),
           personId: itemPersonId,
           amount: formatNumberInput(roundToDollar(amt)),
@@ -253,7 +297,7 @@ export function useFinancialForm({
           itemRate !== undefined && itemRate !== null
             ? itemRate
             : getRateForCategory('asset', investment.category, growthConfigs)
-        setFormData({
+        mainForm.reset({
           name: toSafeText(investment.name),
           personId: null,
           amount: formatNumberInput(roundToDollar(amt)),
@@ -283,8 +327,9 @@ export function useFinancialForm({
 
   function validateCpfFields(): boolean {
     const errors: Partial<CpfFields> = {}
+    const currentCpfValues = cpfForm.getValues()
     const validate = (key: keyof CpfFields, label: string) => {
-      const raw = cpfFields[key].trim()
+      const raw = currentCpfValues[key].trim()
       if (!raw) {
         errors[key] = `${label} is required`
         return
@@ -304,25 +349,26 @@ export function useFinancialForm({
   }
 
   function buildCpfPayload(): FinancialFormValues {
+    const currentCpfValues = cpfForm.getValues()
     const accounts: CpfAssetEntry[] = [
       {
         name: 'CPF Ordinary Account',
         category: 'retirement',
-        currentValue: Number.parseFloat(cpfFields.ordinaryAccount),
+        currentValue: Number.parseFloat(currentCpfValues.ordinaryAccount),
         annualGrowthRate: 0.025,
         notes: 'CPF OA - Can be used for housing, insurance, investments',
       },
       {
         name: 'CPF Special Account',
         category: 'retirement',
-        currentValue: Number.parseFloat(cpfFields.specialAccount),
+        currentValue: Number.parseFloat(currentCpfValues.specialAccount),
         annualGrowthRate: 0.04,
         notes: 'CPF SA - For retirement and approved investments only',
       },
       {
         name: 'CPF Medisave Account',
         category: 'retirement',
-        currentValue: Number.parseFloat(cpfFields.medisaveAccount),
+        currentValue: Number.parseFloat(currentCpfValues.medisaveAccount),
         annualGrowthRate: 0.04,
         notes: 'CPF MA - For healthcare expenses and approved insurance',
       },
@@ -331,7 +377,8 @@ export function useFinancialForm({
   }
 
   function buildPayload(): FinancialFormValues {
-    const notes = formData.notes.trim()
+    const currentFormData = mainForm.getValues()
+    const notes = currentFormData.notes.trim()
     const shared = {
       updatedAt: getDataProp<string>(data, 'updatedAt') ?? new Date().toISOString(),
       notes: notes || undefined,
@@ -341,24 +388,24 @@ export function useFinancialForm({
       case 'asset': {
         // Calculate end date if lease start year and useful life are provided
         let endDate: string | undefined
-        const leaseStartYear = formData.leaseStartYear ? Number.parseInt(formData.leaseStartYear, 10) : null
-        const usefulLifeYears = formData.usefulLifeYears ? Number.parseInt(formData.usefulLifeYears, 10) : null
+        const leaseStartYear = currentFormData.leaseStartYear ? Number.parseInt(currentFormData.leaseStartYear, 10) : null
+        const usefulLifeYears = currentFormData.usefulLifeYears ? Number.parseInt(currentFormData.usefulLifeYears, 10) : null
         if (leaseStartYear && usefulLifeYears) {
           endDate = calculateLeaseEndDate(leaseStartYear, usefulLifeYears)
         }
 
         // Parse terminal value
-        const terminalValue = formData.terminalValue
-          ? Number.parseFloat(formData.terminalValue)
+        const terminalValue = currentFormData.terminalValue
+          ? Number.parseFloat(currentFormData.terminalValue)
           : null
 
         return {
           type,
           id: (data as Asset | undefined)?.id,
-          name: formData.name.trim(),
-          category: formData.category.trim() || 'other',
-          currentValue: toNumeric(formData.amount),
-          annualGrowthRate: Number.parseFloat(formData.annualGrowthRate) || 0,
+          name: currentFormData.name.trim(),
+          category: currentFormData.category.trim() || 'other',
+          currentValue: toNumeric(currentFormData.amount),
+          annualGrowthRate: Number.parseFloat(currentFormData.annualGrowthRate) || 0,
           ...(endDate && { endDate }),
           ...(terminalValue !== null && { terminalValue }),
           ...shared,
@@ -368,24 +415,24 @@ export function useFinancialForm({
         return {
           type,
           id: (data as Liability | undefined)?.id,
-          name: formData.name.trim(),
-          category: formData.category.trim() || 'other',
-          currentBalance: toNumeric(formData.amount),
-          interestRateApr: Number.parseFloat(formData.interestRateApr) || 0,
-          minimumPayment: roundToDollar(formData.minimumPayment),
+          name: currentFormData.name.trim(),
+          category: currentFormData.category.trim() || 'other',
+          currentBalance: toNumeric(currentFormData.amount),
+          interestRateApr: Number.parseFloat(currentFormData.interestRateApr) || 0,
+          minimumPayment: roundToDollar(currentFormData.minimumPayment),
           ...shared,
         }
       case 'income':
         return {
           type,
           id: (data as Income | undefined)?.id,
-          name: formData.name.trim(),
-          personId: formData.personId || undefined,
-          amount: toNumeric(formData.amount),
-          frequency: formData.frequency,
-          category: formData.category.trim() || 'other',
+          name: currentFormData.name.trim(),
+          personId: currentFormData.personId || undefined,
+          amount: toNumeric(currentFormData.amount),
+          frequency: currentFormData.frequency as Frequency,
+          category: currentFormData.category.trim() || 'other',
           startDate: (data as Income | undefined)?.startDate ?? new Date().toISOString(),
-          growthRate: Number.parseFloat(formData.growthRate) || 3.0,
+          growthRate: Number.parseFloat(currentFormData.growthRate) || 3.0,
           ...shared,
         }
       case 'expense': {
@@ -404,11 +451,11 @@ export function useFinancialForm({
         return {
           type,
           id: (data as Expense | undefined)?.id,
-          name: formData.name.trim(),
-          amount: toNumeric(formData.amount),
-          frequency: formData.frequency,
-          category: formData.category.trim() || 'other',
-          growthRate: Number.parseFloat(formData.growthRate) || 2.0,
+          name: currentFormData.name.trim(),
+          amount: toNumeric(currentFormData.amount),
+          frequency: currentFormData.frequency as Frequency,
+          category: currentFormData.category.trim() || 'other',
+          growthRate: Number.parseFloat(currentFormData.growthRate) || 2.0,
           ...(sourceLiabilityId && { sourceLiabilityId }),
           ...(mode === 'edit' && isFutureMonth && !isDebtRepaymentExpense && { updateMode }),
           ...(versionStartDate && { startDate: versionStartDate }),
@@ -416,13 +463,13 @@ export function useFinancialForm({
         }
       }
       case 'investment': {
-        const parsedRate = Number.parseFloat(formData.annualGrowthRate)
+        const parsedRate = Number.parseFloat(currentFormData.annualGrowthRate)
         return {
           type,
           id: (data as Asset | undefined)?.id,
-          name: formData.name.trim(),
-          category: formData.category.trim() || 'other_investment',
-          currentValue: toNumeric(formData.amount),
+          name: currentFormData.name.trim(),
+          category: currentFormData.category.trim() || 'other_investment',
+          currentValue: toNumeric(currentFormData.amount),
           annualGrowthRate: Number.isNaN(parsedRate) ? 6.0 : parsedRate,
           ...shared,
         }
@@ -447,8 +494,10 @@ export function useFinancialForm({
       if (!validateCpfFields()) return
     }
 
+    const currentFormData = mainForm.getValues()
+
     // Validate personId is required for income
-    if (type === 'income' && !formData.personId) {
+    if (type === 'income' && !currentFormData.personId) {
       setFormErrors({ personId: true })
       return
     }
@@ -525,20 +574,59 @@ export function useFinancialForm({
     }
   }
 
+  // Backward-compatible setFormData that updates RHF state
+  const setFormData = useCallback((updater: React.SetStateAction<FormState>) => {
+    const currentValues = mainForm.getValues()
+    const currentFormState: FormState = {
+      name: currentValues.name,
+      personId: currentValues.personId,
+      amount: currentValues.amount,
+      frequency: currentValues.frequency as Frequency,
+      category: currentValues.category,
+      annualGrowthRate: currentValues.annualGrowthRate,
+      interestRateApr: currentValues.interestRateApr,
+      minimumPayment: currentValues.minimumPayment,
+      growthRate: currentValues.growthRate,
+      notes: currentValues.notes,
+      terminalValue: currentValues.terminalValue,
+      leaseStartYear: currentValues.leaseStartYear,
+      usefulLifeYears: currentValues.usefulLifeYears,
+    }
+
+    const newState = typeof updater === 'function' ? updater(currentFormState) : updater
+    mainForm.reset(newState)
+  }, [mainForm])
+
+  // Backward-compatible updateFormField
   function updateFormField<K extends keyof FormState>(field: K, value: FormState[K]) {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    mainForm.setValue(field as keyof FinancialFormState, value as FinancialFormState[keyof FinancialFormState], { shouldDirty: true })
   }
 
   function handleCategoryChange(newCategory: string) {
     const newRate = getRateForCategory(type, newCategory, growthConfigs)
-    setFormData((prev) => ({
-      ...prev,
-      category: newCategory,
-      ...(type === 'asset' && { annualGrowthRate: newRate.toString() }),
-      ...(type === 'liability' && { interestRateApr: Math.abs(newRate).toString() }),
-      ...((type === 'income' || type === 'expense') && { growthRate: newRate.toString() }),
-    }))
+    mainForm.setValue('category', newCategory, { shouldDirty: true })
+
+    if (type === 'asset') {
+      mainForm.setValue('annualGrowthRate', newRate.toString(), { shouldDirty: true })
+    } else if (type === 'liability') {
+      mainForm.setValue('interestRateApr', Math.abs(newRate).toString(), { shouldDirty: true })
+    } else if (type === 'income' || type === 'expense') {
+      mainForm.setValue('growthRate', newRate.toString(), { shouldDirty: true })
+    }
   }
+
+  // Backward-compatible setCpfFields that updates RHF state
+  const setCpfFields = useCallback((updater: React.SetStateAction<CpfFields>) => {
+    const currentValues = cpfForm.getValues()
+    const currentState: CpfFields = {
+      ordinaryAccount: currentValues.ordinaryAccount,
+      specialAccount: currentValues.specialAccount,
+      medisaveAccount: currentValues.medisaveAccount,
+    }
+
+    const newState = typeof updater === 'function' ? updater(currentState) : updater
+    cpfForm.reset(newState)
+  }, [cpfForm])
 
   function handleMinPaymentWarningCancel() {
     setShowMinPaymentWarning(false)

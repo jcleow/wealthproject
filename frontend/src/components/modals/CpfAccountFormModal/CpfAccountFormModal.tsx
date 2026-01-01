@@ -1,5 +1,6 @@
 'use client'
 
+import { Controller } from 'react-hook-form'
 import { Modal } from '@/components/ui/Modal'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { PersonSelector } from '@/components/ui/PersonSelector'
@@ -25,12 +26,18 @@ export function CpfAccountFormModal({
   onSave,
   onCreate,
 }: CpfAccountFormModalProps) {
-  const form = useCpfAccountForm({ cpfAccount, mode, onSave, onCreate, onClose })
+  const { form, handleSubmit, isSubmitting, errors, submitError, residencyStatus } = useCpfAccountForm({
+    cpfAccount,
+    mode,
+    onSave,
+    onCreate,
+    onClose,
+  })
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={form.submitting ? undefined : onClose}
+      onClose={isSubmitting ? undefined : onClose}
       overlayClassName="bg-black/60"
       className={`w-full max-w-lg
 p-6
@@ -48,7 +55,7 @@ shadow-2xl`}
         <button
           type="button"
           onClick={onClose}
-          disabled={form.submitting}
+          disabled={isSubmitting}
           className={`flex items-center justify-center
 h-8 w-8
 rounded-full
@@ -61,14 +68,20 @@ transition`}
         </button>
       </div>
 
-      <form className="space-y-4" onSubmit={form.handleSubmit}>
+      <form className="space-y-4" onSubmit={handleSubmit}>
         {/* Person Selector */}
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-gray-200">Person</label>
-          <PersonSelector
-            value={form.fields.personId}
-            onChange={form.handlePersonChange}
-            placeholder="Select person (optional)"
+          <Controller
+            name="personId"
+            control={form.control}
+            render={({ field }) => (
+              <PersonSelector
+                value={field.value}
+                onChange={field.onChange}
+                placeholder="Select person (optional)"
+              />
+            )}
           />
         </div>
 
@@ -79,36 +92,32 @@ transition`}
             type="number"
             step="0.01"
             placeholder="45000.00"
-            value={form.fields.oaBalance}
-            onChange={(v) => form.handleFieldChange('oaBalance', v)}
-            error={form.errors.oaBalance}
+            registration={form.register('oaBalance')}
+            error={errors.oaBalance?.message}
           />
           <FormField
             label="Special Account (SA)"
             type="number"
             step="0.01"
             placeholder="25000.00"
-            value={form.fields.saBalance}
-            onChange={(v) => form.handleFieldChange('saBalance', v)}
-            error={form.errors.saBalance}
+            registration={form.register('saBalance')}
+            error={errors.saBalance?.message}
           />
           <FormField
             label="MediSave Account (MA)"
             type="number"
             step="0.01"
             placeholder="15000.00"
-            value={form.fields.maBalance}
-            onChange={(v) => form.handleFieldChange('maBalance', v)}
-            error={form.errors.maBalance}
+            registration={form.register('maBalance')}
+            error={errors.maBalance?.message}
           />
           <FormField
             label="Retirement Account (RA)"
             type="number"
             step="0.01"
             placeholder="0.00"
-            value={form.fields.raBalance}
-            onChange={(v) => form.handleFieldChange('raBalance', v)}
-            error={form.errors.raBalance}
+            registration={form.register('raBalance')}
+            error={errors.raBalance?.message}
           />
         </div>
 
@@ -118,9 +127,8 @@ transition`}
           type="number"
           step="0.01"
           placeholder="0.00"
-          value={form.fields.oaUsedForHousing}
-          onChange={(v) => form.handleFieldChange('oaUsedForHousing', v)}
-          error={form.errors.oaUsedForHousing}
+          registration={form.register('oaUsedForHousing')}
+          error={errors.oaUsedForHousing?.message}
         />
 
         {/* Personal Info */}
@@ -128,18 +136,23 @@ transition`}
           <FormField
             label="Date of Birth"
             type="date"
-            value={form.fields.dateOfBirth}
-            onChange={(v) => form.handleFieldChange('dateOfBirth', v)}
-            error={form.errors.dateOfBirth}
+            registration={form.register('dateOfBirth')}
+            error={errors.dateOfBirth?.message}
             required
           />
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-gray-200">Residency Status</label>
-            <CustomSelect
-              value={form.fields.residencyStatus}
-              onChange={(val) => form.handleFieldChange('residencyStatus', String(val))}
-              options={RESIDENCY_OPTIONS}
-              className="w-full"
+            <Controller
+              name="residencyStatus"
+              control={form.control}
+              render={({ field }) => (
+                <CustomSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={RESIDENCY_OPTIONS}
+                  className="w-full"
+                />
+              )}
             />
           </div>
         </div>
@@ -149,22 +162,20 @@ transition`}
           <FormField
             label="Housing Start Date"
             type="date"
-            value={form.fields.housingStartDate}
-            onChange={(v) => form.handleFieldChange('housingStartDate', v)}
+            registration={form.register('housingStartDate')}
             hint="When you started using OA for housing"
           />
-          {form.fields.residencyStatus !== 'citizen' && (
+          {residencyStatus !== 'citizen' && (
             <FormField
               label="PR Grant Date"
               type="date"
-              value={form.fields.prGrantDate}
-              onChange={(v) => form.handleFieldChange('prGrantDate', v)}
+              registration={form.register('prGrantDate')}
               hint="Date PR status was granted"
             />
           )}
         </div>
 
-        {form.submitError && <p className="text-sm text-rose-300">{form.submitError}</p>}
+        {submitError && <p className="text-sm text-rose-300">{submitError}</p>}
 
         <div className="flex gap-3 pt-2">
           <button
@@ -176,7 +187,7 @@ rounded-lg border border-white/10
 bg-white/5 hover:bg-white/10
 text-sm text-gray-200
 transition`}
-            disabled={form.submitting}
+            disabled={isSubmitting}
           >
             Cancel
           </button>
@@ -189,9 +200,9 @@ bg-emerald-500 hover:bg-emerald-600
 text-sm font-medium text-white
 disabled:opacity-70
 transition`}
-            disabled={form.submitting}
+            disabled={isSubmitting}
           >
-            {form.submitting ? 'Saving...' : 'Save Changes'}
+            {isSubmitting ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </form>
