@@ -26,5 +26,4 @@ export {
   SALE_FORM_STEPS,
   createDefaultLoanSegment,
   defaultInputsByType,
-  mockIncomes,
 } from './constants'

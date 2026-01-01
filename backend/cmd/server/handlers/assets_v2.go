@@ -23,6 +23,8 @@ type assetInput struct {
 	GrowthStrategy string  `json:"growthStrategy"`
 	Notes          string  `json:"notes"`
 	StartDate      *string `json:"startDate"`
+	EndDate        *string `json:"endDate"`
+	TerminalValue  *string `json:"terminalValue"`
 	UpdateMode     string  `json:"updateMode,omitempty"`
 }
 
@@ -51,6 +53,7 @@ type assetCreateInput struct {
 	Notes          string  `json:"notes"`
 	StartDate      *string `json:"startDate"`
 	EndDate        *string `json:"endDate"`
+	TerminalValue  *string `json:"terminalValue"`
 }
 
 // POST /api/v2/assets
@@ -124,6 +127,17 @@ func (h *AssetV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		endDate = &t
 	}
 
+	// Parse terminal value if provided
+	var terminalValue *decimal.Decimal
+	if input.TerminalValue != nil && *input.TerminalValue != "" {
+		tv, err := decimal.NewFromString(*input.TerminalValue)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		terminalValue = tv
+	}
+
 	// Build repository asset
 	a := repo.NonCashAsset{
 		Name:           input.Name,
@@ -133,6 +147,7 @@ func (h *AssetV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		Notes:          input.Notes,
 		StartDate:      startDate,
 		EndDate:        endDate,
+		TerminalValue:  terminalValue,
 	}
 	if growthRate != nil {
 		a.AnnualGrowthRate = *growthRate
@@ -236,6 +251,28 @@ func (h *AssetV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id
 		startDate = &t
 	}
 
+	// Parse endDate if provided
+	var endDate *time.Time
+	if input.EndDate != nil {
+		t, err := time.Parse(time.RFC3339, *input.EndDate)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		endDate = &t
+	}
+
+	// Parse terminal value if provided
+	var terminalValue *decimal.Decimal
+	if input.TerminalValue != nil && *input.TerminalValue != "" {
+		tv, err := decimal.NewFromString(*input.TerminalValue)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+		terminalValue = tv
+	}
+
 	// Build service input
 	serviceInput := asset.UpdateInput{
 		ID:             id,
@@ -246,6 +283,8 @@ func (h *AssetV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id
 		GrowthStrategy: input.GrowthStrategy,
 		Notes:          input.Notes,
 		StartDate:      startDate,
+		EndDate:        endDate,
+		TerminalValue:  terminalValue,
 		UpdateMode:     input.UpdateMode,
 	}
 

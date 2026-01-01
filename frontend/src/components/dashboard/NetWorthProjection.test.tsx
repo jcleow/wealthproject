@@ -89,18 +89,20 @@ describe('NetWorthProjection', () => {
 
     vi.stubGlobal('ResizeObserver', ResizeObserverMock)
 
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((message, ...args) => {
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((...args: Parameters<typeof console.error>) => {
+      const [message] = args
       if (typeof message === 'string' && message.includes('width(-1) and height(-1)')) {
         return
       }
-      return originalError(message as any, ...args)
+      return originalError(...args)
     })
 
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation((message, ...args) => {
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation((...args: Parameters<typeof console.warn>) => {
+      const [message] = args
       if (typeof message === 'string' && message.includes('width(-1) and height(-1)')) {
         return
       }
-      return originalWarn(message as any, ...args)
+      return originalWarn(...args)
     })
 
     vi.stubGlobal(

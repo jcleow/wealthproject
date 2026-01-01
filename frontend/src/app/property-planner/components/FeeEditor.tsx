@@ -113,7 +113,7 @@ export function FeeEditor({
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium text-white/80">{title}</h4>
         <span className="text-sm text-white/60">
-          Total: ${totalFees.toLocaleString()}
+          Total: <span className="font-mono tabular-nums text-white/80">${totalFees.toLocaleString()}</span>
         </span>
       </div>
 
@@ -189,7 +189,7 @@ export function FeeEditor({
 
               {/* Bottom row: date, type, value, calculated amount */}
               {fee.enabled && (
-                <div className="flex items-center gap-2 pl-8">
+                <div className="flex items-center gap-3 pl-8 mt-2.5">
                   {/* Due date input */}
                   {purchaseDate && (
                     <MonthPicker
@@ -212,19 +212,23 @@ export function FeeEditor({
                   />
 
                   {/* Value input */}
-                  <div className="flex items-center gap-1">
-                    {fee.type === 'fixed' && <span className="text-white/50 text-xs">$</span>}
+                  <div className="flex items-center gap-1.5">
+                    {fee.type === 'fixed' && <span className="text-white/50 text-sm font-medium">$</span>}
                     <Input
-                      type="number"
-                      value={fee.value}
-                      onChange={(e) => handleUpdateFee(fee.id, { value: parseFloat(e.target.value) || 0 })}
-                      className="w-16 bg-white/10 text-sm text-white text-right rounded px-2 py-1 border-white/10 h-auto"
+                      type="text"
+                      inputMode="numeric"
+                      value={fee.type === 'fixed' ? fee.value.toLocaleString() : fee.value}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/[^0-9.]/g, '')
+                        handleUpdateFee(fee.id, { value: parseFloat(rawValue) || 0 })
+                      }}
+                      className="w-20 bg-white/[0.08] text-sm text-white text-right rounded-lg px-2.5 py-1.5 border-white/[0.1] h-auto font-mono tabular-nums"
                     />
-                    {fee.type === 'percentage' && <span className="text-white/50 text-xs">%</span>}
+                    {fee.type === 'percentage' && <span className="text-white/50 text-sm font-medium">%</span>}
                   </div>
 
                   {/* Calculated amount */}
-                  <span className="text-xs text-white/50 ml-auto">
+                  <span className="text-sm text-white/60 ml-auto font-mono tabular-nums">
                     = ${amount.toLocaleString()}
                   </span>
                 </div>

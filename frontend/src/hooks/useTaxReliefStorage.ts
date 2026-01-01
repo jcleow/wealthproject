@@ -22,6 +22,32 @@ interface TaxModeSettings {
 const STORAGE_KEY_PREFIX = 'tax_reliefs_'
 const SETTINGS_KEY = 'tax_mode_settings'
 
+// SECURITY: Clear all sensitive financial data from localStorage
+// Call this on logout to prevent data exposure if device is shared
+export function clearAllSensitiveStorage(): void {
+  if (typeof window === 'undefined') return
+  try {
+    // Clear all tax relief data (multiple years may be stored)
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith(STORAGE_KEY_PREFIX)) {
+        keysToRemove.push(key)
+      }
+    }
+    keysToRemove.forEach((key) => localStorage.removeItem(key))
+
+    // Clear tax mode settings
+    localStorage.removeItem(SETTINGS_KEY)
+
+    // Clear any other potentially sensitive cached data
+    localStorage.removeItem('financial_cache')
+    localStorage.removeItem('user_preferences')
+  } catch (error) {
+    console.warn('Failed to clear localStorage:', error)
+  }
+}
+
 // ============================================
 // STORAGE UTILITIES
 // ============================================

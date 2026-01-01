@@ -1,13 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi, propertyPlannerV2Api } from '@/api/financial'
+import { financialApi, propertyPlannerV2Api, personsApi } from '@/api/financial'
 import type { Income, Expense } from '@/types/financial'
 import type { CPFAccount, CPFAccountCreatePayload } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CreateScenarioInput, PropertyScenarioFull } from '@/types/propertyPlannerV2'
+import type { Person } from '@/types/person'
+import { PERSON_COLORS } from '@/types/person'
 import { DEFAULT_MONTHLY_CADENCE } from '@/types/scenario'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { CPF_QUERY_KEY } from './useCpfQuery'
 import { propertyPlannerV2Keys } from './usePropertyPlannerV2Query'
+import { PERSONS_QUERY_KEY } from './usePersonsQuery'
 
 // Helper to generate YYYY-MM format date strings
 function getMonthString(yearsFromNow: number, monthOffset = 0): string {
@@ -24,32 +27,33 @@ export function useLoadSampleDataMutation() {
     mutationFn: async () => {
       let cpfAccount: CPFAccount | null = null
 
-      // First clear all data including CPF and property scenarios
-      // Use V2 bulk delete endpoints where available for better cleanup
-      // Delete property V2 scenarios (no bulk delete, so list and delete each)
-      const deletePropertyV2Scenarios = async () => {
-        try {
-          const scenarios = await propertyPlannerV2Api.listScenarios()
-          await Promise.all(scenarios.map(s => propertyPlannerV2Api.deleteScenario(s.scenario.id)))
-        } catch {
-          // Ignore errors if no scenarios exist
-        }
+      // Reset all data in a single atomic transaction to avoid deadlocks
+      // This replaces the previous parallel delete calls that could cause
+      // deadlock errors when FK constraints cascaded simultaneously
+      await financialApi.resetAllUserData()
+
+      // Create persons first so we can link CPF accounts and incomes to them
+      let alexPerson: Person | null = null
+      let sarahPerson: Person | null = null
+
+      try {
+        alexPerson = await personsApi.createPerson({
+          name: 'Alex',
+          displayColor: PERSON_COLORS[0], // blue
+        })
+        sarahPerson = await personsApi.createPerson({
+          name: 'Sarah',
+          displayColor: PERSON_COLORS[1], // emerald
+        })
+        console.debug('[loadSampleData] Created persons:', { alexId: alexPerson.id, sarahId: sarahPerson.id })
+      } catch (error) {
+        console.error('[loadSampleData] Failed to create persons', error)
       }
 
-      await Promise.all([
-        financialApi.deleteAllAssets(),
-        financialApi.deleteAllInvestments(),
-        financialApi.deleteAllLiabilities(),
-        financialApi.deleteAllIncomes(),
-        financialApi.deleteAllExpensesV2(), // Use V2 to ensure all expenses (including scenario-created) are deleted
-        financialApi.deleteAllCashAccounts(),
-        financialApi.deleteAllScenarioEvents(),
-        financialApi.deleteCurrentCPFAccount().catch(() => {}), // Ignore if no CPF account exists
-        deletePropertyV2Scenarios(),
-      ])
-
       // Ensure CPF profile exists so timeline v2 can show CPF assets and contributions
+      // This is Alex's CPF account - linked to Alex person
       const sampleCPFAccount: CPFAccountCreatePayload = {
+        personId: alexPerson?.id ?? null,
         oaBalance: 85000,
         saBalance: 45000,
         maBalance: 32000,
@@ -68,6 +72,24 @@ export function useLoadSampleDataMutation() {
         }
       } catch (error) {
         console.error('[loadSampleData] Failed to upsert CPF account', error)
+      }
+
+      // Create Sarah's CPF account (spouse) - linked to Sarah person
+      const sarahCPFAccount: CPFAccountCreatePayload = {
+        personId: sarahPerson?.id ?? null,
+        oaBalance: 65000,
+        saBalance: 35000,
+        maBalance: 25000,
+        raBalance: 0,
+        oaUsedForHousing: 0,
+        dateOfBirth: '1994-06-15',
+        residencyStatus: 'citizen',
+      }
+
+      try {
+        await financialApi.createCPFAccount(sarahCPFAccount)
+      } catch (error) {
+        console.error('[loadSampleData] Failed to create Sarah CPF account', error)
       }
 
       // Sample data for a 32-year-old Singaporean professional
@@ -138,6 +160,7 @@ export function useLoadSampleDataMutation() {
       const sampleIncomes: Array<Omit<Income, 'id' | 'updatedAt'>> = [
         {
           name: 'Software Engineer Salary',
+          personId: alexPerson?.id ?? null, // Link to Alex person
           category: 'Employment',
           amount: 7500,
           frequency: 'monthly',
@@ -146,26 +169,17 @@ export function useLoadSampleDataMutation() {
           cpfWageType: "ow", // Ordinary wages for monthly salary to compute CPF correctly
           notes: 'Mid-senior role at tech company, 10 years experience',
         },
-        // {
-        //   source: 'Annual Bonus',
-        //   category: 'Employment',
-        //   amount: 15000,
-        //   frequency: 'yearly',
-        //   startDate: nowIso,
-        //   startYear: currentYear,
-        //   growthRate: 3.0,
-        //   notes: '2 months bonus, typically paid in March',
-        // },
-        // {
-        //   source: 'Freelance Development',
-        //   category: 'Freelance',
-        //   amount: 800,
-        //   frequency: 'monthly',
-        //   startDate: nowIso,
-        //   startYear: currentYear,
-        //   growthRate: 0,
-        //   notes: 'Side projects and consulting, variable income',
-        // },
+        {
+          name: 'Marketing Manager Salary',
+          personId: sarahPerson?.id ?? null, // Link to Sarah person
+          category: 'Employment',
+          amount: 5000,
+          frequency: 'monthly',
+          startDate: todayIso,
+          growthRate: 3.5,
+          cpfWageType: 'ow', // Ordinary wages
+          notes: 'Spouse income - marketing role at agency',
+        },
       ]
 
       const sampleExpenses: Array<Omit<Expense, 'id' | 'updatedAt'>> = [
@@ -493,10 +507,17 @@ export function useLoadSampleDataMutation() {
             const isOneTime = frequency === 'one_time'
             const endMonth = isOneTime ? startMonth : undefined
 
+            // For income start impacts, personId is required by the database
+            // Default to Alex's person ID for family/bonus income
+            const personId = impact.targetType === 'income'
+              ? (alexPerson?.id ?? sarahPerson?.id ?? undefined)
+              : undefined
+
             linkedImpacts.push({
               ...impact,
               // No parentId for start impacts - backend creates the item
               endMonth,
+              personId,
             })
             continue
           } else if (impact.impactKind === 'delta' || impact.impactKind === 'override') {
@@ -553,9 +574,14 @@ export function useLoadSampleDataMutation() {
       let propertyScenario: PropertyScenarioFull | null = null
       try {
         const btoKeyCollectionDate = getMonthString(5) // 5 years from now
+
+        // Find the created income IDs for linking borrowers
+        const alexIncome = incomes.find(inc => inc.name === 'Software Engineer Salary')
+        const sarahIncome = incomes.find(inc => inc.name === 'Marketing Manager Salary')
+
         const btoScenarioInput: CreateScenarioInput = {
           country: 'SG',
-          sgDetails: {
+          propertySG: {
             name: 'BTO Flat (Tengah)',
             propertyType: 'hdb',
             propertySubtype: 'bto',
@@ -566,7 +592,9 @@ export function useLoadSampleDataMutation() {
             loanType: 'hdb',
             downpaymentCpfOa: '100000', // Using CPF OA for downpayment
             downpaymentCash: '0',
-            borrowerType: 'single',
+            borrowerType: 'joint', // Joint borrowers (Alex + Sarah)
+            borrower1IncomeId: alexIncome?.id, // Link to Alex's income for projected CPF OA
+            borrower2IncomeId: sarahIncome?.id, // Link to Sarah's income for projected CPF OA
             otherDebt: '0',
             propertyCount: 0, // First property
             btoKeyCollectionDate,
@@ -607,7 +635,12 @@ export function useLoadSampleDataMutation() {
         // Non-fatal: continue even if property scenario creation fails
       }
 
-      return { assets, investments, liabilities, incomes, expenses: expensesResult.data, scenarioEvents, cpfAccount, propertyScenario }
+      // Build persons array for cache
+      const persons: Person[] = []
+      if (alexPerson) persons.push(alexPerson)
+      if (sarahPerson) persons.push(sarahPerson)
+
+      return { assets, investments, liabilities, incomes, expenses: expensesResult.data, scenarioEvents, cpfAccount, propertyScenario, persons }
     },
     onSuccess: (data) => {
       // Update all caches with the new data - this immediately updates the UI
@@ -617,6 +650,8 @@ export function useLoadSampleDataMutation() {
       queryClient.setQueryData(QUERY_KEYS.financial.incomes, data.incomes)
       queryClient.setQueryData(QUERY_KEYS.financial.expenses, data.expenses)
       queryClient.setQueryData(QUERY_KEYS.financial.scenarioEvents, data.scenarioEvents)
+      // Set persons cache
+      queryClient.setQueryData(PERSONS_QUERY_KEY, data.persons)
       if (data.cpfAccount) {
         queryClient.setQueryData(CPF_QUERY_KEY, data.cpfAccount)
       }

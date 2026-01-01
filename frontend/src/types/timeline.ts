@@ -49,6 +49,8 @@ export interface TimelineItem {
   rowId?: string
   parentId?: string
   name: string
+  earner?: string
+  personId?: string | null
   category: string
   amountAnnual: number
   adjAnnualAmt?: number
@@ -266,6 +268,7 @@ export interface CPFAssetResponseV2 {
   parentId: string
   name: string
   category: string
+  earner: string
   balance: string
   eventAdjBalance: string
   itemType: TimelineItemType
@@ -296,6 +299,8 @@ export interface IncomeResponseV2 {
   id: string
   parentId: string
   name: string
+  earner?: string
+  personId?: string | null
   category: string
   amount: string // Monthly amount
   eventAdjAmount: string // Monthly amount with scenario impacts
@@ -406,4 +411,14 @@ export interface PropertySnapshotV2 {
   purchaseDate: string    // First rate period start_month
   saleDate?: string
   fees: PropertyFeeSnapshotV2[]
+  mortgagePayment?: MortgagePaymentSnapshotV2 // Monthly payment breakdown
+}
+
+/** Mortgage payment breakdown in timeline V2 response */
+export interface MortgagePaymentSnapshotV2 {
+  monthlyTotal: string     // Total monthly payment
+  principalPortion: string // Principal paid this month
+  interestPortion: string  // Interest paid this month
+  currentRate: string      // Current interest rate (APR %)
+  rateType: string         // "fixed" or "floating"
 }

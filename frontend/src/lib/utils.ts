@@ -29,3 +29,34 @@ export function generateUUID(): string {
     return v.toString(16)
   })
 }
+
+// =============================================================================
+// Type-safe helpers for API response transformation
+// =============================================================================
+
+/** Record type for raw API responses with unknown property values */
+export type ApiRecord = Record<string, unknown>
+
+/**
+ * Safely get a property from an API response, checking multiple key naming conventions.
+ * Returns undefined if none of the keys exist.
+ */
+export function get<T>(obj: ApiRecord, ...keys: string[]): T | undefined {
+  for (const key of keys) {
+    if (obj[key] !== undefined) return obj[key] as T
+  }
+  return undefined
+}
+
+/** Safely get a property with a default value */
+export function getOr<T>(obj: ApiRecord, defaultValue: T, ...keys: string[]): T {
+  return get<T>(obj, ...keys) ?? defaultValue
+}
+
+/** Ensure input is an ApiRecord for property access */
+export function asRecord(input: unknown): ApiRecord {
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
+    return input as ApiRecord
+  }
+  return {}
+}

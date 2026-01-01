@@ -22,7 +22,7 @@ const formatCurrency = (value: number) =>
   `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
 const findNonAnnualSource = (items: TimelineItem[]) =>
-  items.find((item) => (item as any).source_frequency ? (item as any).source_frequency !== 'annual' : item.sourceFrequency && item.sourceFrequency !== 'annual')
+  items.find((item) => item.sourceFrequency && item.sourceFrequency !== 'annual')
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',

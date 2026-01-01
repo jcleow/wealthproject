@@ -31,6 +31,8 @@ type FinancialDataRow struct {
 	ID            string
 	ParentID      string
 	Name          string
+	Earner        string // Person who earns this income (for incomes) - deprecated, use PersonID
+	PersonID      string // FK to persons table (for incomes and CPF accounts, required)
 	Category      string
 	Amount        decimal.Decimal
 	Frequency     Frequency
@@ -41,6 +43,8 @@ type FinancialDataRow struct {
 	InterestRate  decimal.Decimal // APR for liabilities
 	MinimumPay    decimal.Decimal // Minimum payment for liabilities
 	IsAccumulator bool            // For cash accounts - identifies the accumulator account
+	// Terminal value fields (for assets with finite useful life)
+	TerminalValue *decimal.Decimal // Value at end of useful life (NULL = disappear, 0 = worthless)
 	// CPF-related fields (for incomes)
 	CPFWageType cpfProcessor.CPFWageType // CPFWageTypeOW (Ordinary Wages) or CPFWageTypeAW (Additional Wages)
 	// Expense-liability linkage
@@ -61,10 +65,10 @@ type EffectiveRows struct {
 	Expenses      []FinancialDataRow
 }
 
-// SGFinancialDataRows wraps financial data with Singapore-specific CPF account
+// SGFinancialDataRows wraps financial data with Singapore-specific CPF accounts
 type SGFinancialDataRows struct {
 	Rows              EffectiveRows
-	CPFAccount        *account.CPFAccount
+	CPFAccounts       []*account.CPFAccount // All CPF accounts (one per earner)
 	IncomeAllocations []repo.IncomeAllocation
 	// Map of liability ID -> linked expense (for open-ended liabilities paid by expenses)
 	LinkedExpensesByLiability map[string]FinancialDataRow
@@ -106,17 +110,18 @@ func (s *Service) loadEffectiveRows(
 	includeScenarios bool,
 ) (SGFinancialDataRows, error) {
 	var (
-		nonCashAssets     repo.PaginatedResult[repo.NonCashAsset]
-		investments       repo.PaginatedResult[repo.Investment]
-		cashAssets        repo.PaginatedResult[repo.CashAsset]
-		liabilities       repo.PaginatedResult[repo.Liability]
-		incomes           repo.PaginatedResult[repo.Income]
-		expenses          repo.PaginatedResult[repo.Expense]
-		cpfAccount        *repo.CPFAccount
-		incomeAllocations []repo.IncomeAllocation
-		excludedTargets   repo.ExcludedTargets
-		scenarioEvents    []repo.ScenarioEvent
-		properties        []repo.PropertyScenarioFull
+		nonCashAssets      repo.PaginatedResult[repo.NonCashAsset]
+		investments        repo.PaginatedResult[repo.Investment]
+		cashAssets         repo.PaginatedResult[repo.CashAsset]
+		liabilities        repo.PaginatedResult[repo.Liability]
+		incomes            repo.PaginatedResult[repo.Income]
+		expenses           repo.PaginatedResult[repo.Expense]
+		cpfAccounts        []repo.CPFAccount
+		incomeAllocations  []repo.IncomeAllocation
+		excludedTargets    repo.ExcludedTargets
+		excludedPersonIDs  map[string]struct{}
+		scenarioEvents     []repo.ScenarioEvent
+		properties         []repo.PropertyScenarioFull
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -166,7 +171,7 @@ func (s *Service) loadEffectiveRows(
 
 	g.Go(func() error {
 		var err error
-		cpfAccount, err = s.store.GetCPFAccount(gctx, userID)
+		cpfAccounts, err = s.store.ListCPFAccounts(gctx, userID, dateOpts)
 		return err
 	})
 
@@ -179,6 +184,12 @@ func (s *Service) loadEffectiveRows(
 	g.Go(func() error {
 		var err error
 		excludedTargets, err = s.store.GetExcludedScenarioTargetIDs(gctx, userID)
+		return err
+	})
+
+	g.Go(func() error {
+		var err error
+		excludedPersonIDs, err = s.store.GetExcludedPersonIDs(gctx, userID)
 		return err
 	})
 
@@ -213,19 +224,26 @@ func (s *Service) loadEffectiveRows(
 	}
 
 	// Transform repository types to FinancialDataRow
-	// Filter out items from excluded scenarios
+	// Filter out items from excluded scenarios and excluded persons
+	transformedIncomes := transformIncomes(incomes.Data)
+	filteredIncomes := filterExcludedIncomes(transformedIncomes, excludedTargets.IncomeIDs)
+	filteredIncomes = filterByExcludedPersons(filteredIncomes, excludedPersonIDs)
+
 	rows := EffectiveRows{
 		NonCashAssets: filterExcludedAssets(transformNonCashAssets(nonCashAssets.Data), excludedTargets.AssetIDs),
 		Investments:   filterExcludedInvestments(transformInvestments(investments.Data), excludedTargets.InvestmentIDs),
 		CashAssets:    filterExcludedCashAssets(transformCashAssets(cashAssets.Data), excludedTargets.CashAccountIDs),
 		Liabilities:   filterExcludedLiabilities(transformLiabilities(liabilities.Data), excludedTargets.LiabilityIDs),
-		Incomes:       filterExcludedIncomes(transformIncomes(incomes.Data), excludedTargets.IncomeIDs),
+		Incomes:       filteredIncomes,
 		Expenses:      filterExcludedExpenses(transformExpenses(expenses.Data), excludedTargets.ExpenseIDs),
 	}
 
+	// Filter CPF accounts by excluded persons
+	filteredCPFAccounts := filterCPFAccountsByExcludedPersons(cpfAccounts, excludedPersonIDs)
+
 	return SGFinancialDataRows{
 		Rows:              rows,
-		CPFAccount:        mapToCPFAccount(cpfAccount),
+		CPFAccounts:       mapToCPFAccounts(filteredCPFAccounts),
 		IncomeAllocations: incomeAllocations,
 		ScenarioImpacts:   impactCtx,
 		Properties:        properties,
@@ -630,6 +648,46 @@ func filterExcludedExpenses(rows []FinancialDataRow, excludedIDs map[string]stru
 	return filtered
 }
 
+// filterByExcludedPersons removes incomes belonging to excluded persons.
+// Incomes with empty PersonID (unassigned) are always included.
+func filterByExcludedPersons(rows []FinancialDataRow, excludedPersonIDs map[string]struct{}) []FinancialDataRow {
+	if len(excludedPersonIDs) == 0 {
+		return rows
+	}
+	filtered := make([]FinancialDataRow, 0, len(rows))
+	for _, row := range rows {
+		// Include if PersonID is empty (unassigned) or not in excluded set
+		if row.PersonID == "" {
+			filtered = append(filtered, row)
+			continue
+		}
+		if _, excluded := excludedPersonIDs[row.PersonID]; !excluded {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
+// filterCPFAccountsByExcludedPersons removes CPF accounts belonging to excluded persons.
+// CPF accounts with empty PersonID (unassigned) are always included.
+func filterCPFAccountsByExcludedPersons(accounts []repo.CPFAccount, excludedPersonIDs map[string]struct{}) []repo.CPFAccount {
+	if len(excludedPersonIDs) == 0 {
+		return accounts
+	}
+	filtered := make([]repo.CPFAccount, 0, len(accounts))
+	for _, acct := range accounts {
+		// Include if PersonID is empty (unassigned) or not in excluded set
+		if acct.PersonID == "" {
+			filtered = append(filtered, acct)
+			continue
+		}
+		if _, excluded := excludedPersonIDs[acct.PersonID]; !excluded {
+			filtered = append(filtered, acct)
+		}
+	}
+	return filtered
+}
+
 // =============================================================================
 // Helper Functions (used by ComputeFinancialSnapshot)
 // =============================================================================
@@ -648,6 +706,25 @@ func NewCPFContext(cpfAccount *account.CPFAccount) *CPFContext {
 	proc, _ := cpfProcessor.NewProcessor(cpfAccount)
 	balances := cpfProcessor.NewCPFBalances(cpfAccount)
 	return &CPFContext{Processor: proc, Balances: balances}
+}
+
+// NewCPFContexts creates a map of earner -> CPFContext from a list of CPF accounts
+func NewCPFContexts(cpfAccounts []*account.CPFAccount) map[string]*CPFContext {
+	contexts := make(map[string]*CPFContext)
+	for _, acc := range cpfAccounts {
+		if acc == nil {
+			continue
+		}
+		ctx := NewCPFContext(acc)
+		if ctx != nil {
+			earner := acc.Earner
+			if earner == "" {
+				earner = "default"
+			}
+			contexts[earner] = ctx
+		}
+	}
+	return contexts
 }
 
 // ResetYTDIfNewYear resets YTD tracking at year boundaries for AW ceiling calculation
@@ -720,6 +797,7 @@ func mapToCPFAccount(r *repo.CPFAccount) *account.CPFAccount {
 	return &account.CPFAccount{
 		ID:               r.ID,
 		UserID:           r.UserID,
+		Earner:           r.Earner,
 		OABalance:        r.OABalance,
 		SABalance:        r.SABalance,
 		MABalance:        r.MABalance,
@@ -732,6 +810,15 @@ func mapToCPFAccount(r *repo.CPFAccount) *account.CPFAccount {
 		CreatedAt:        r.CreatedAt,
 		UpdatedAt:        r.UpdatedAt,
 	}
+}
+
+// mapToCPFAccounts converts a slice of repository CPFAccounts to cpf/account.CPFAccount
+func mapToCPFAccounts(accounts []repo.CPFAccount) []*account.CPFAccount {
+	result := make([]*account.CPFAccount, 0, len(accounts))
+	for i := range accounts {
+		result = append(result, mapToCPFAccount(&accounts[i]))
+	}
+	return result
 }
 
 // earliestStartDateFromRows returns the earliest start date across all financial rows.
@@ -1170,6 +1257,7 @@ func convertAppliedImpacts(infos []scenario.AppliedImpactInfo) []AppliedImpact {
 func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, eventAdjustedState map[string]*decimal.Decimal, appliedImpacts map[string][]scenario.AppliedImpactInfo, date time.Time) ([]NonCashAssetResponse, *decimal.Decimal) {
 	responses := make([]NonCashAssetResponse, 0)
 	total := decimal.Zero()
+	checkYear, checkMonth, _ := date.Date()
 
 	for _, row := range rows {
 		if !isActiveInMonth(row, date) {
@@ -1179,10 +1267,22 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 		if state == nil {
 			continue
 		}
-		total = total.Add(state.Balance)
-		balance := state.Balance.Round(0)
+
+		// Apply terminal value if asset has one and we're at or past the end date
+		balance := state.Balance
+		if row.TerminalValue != nil && row.EndDate != nil {
+			endYear, endMonth, _ := row.EndDate.Date()
+			// If we're in the end month or later, use terminal value
+			if checkYear > endYear || (checkYear == endYear && int(checkMonth) >= int(endMonth)) {
+				balance = row.TerminalValue
+			}
+		}
+
+		total = total.Add(balance)
+		balanceRounded := balance.Round(0)
+
 		// Use adjusted value if available, otherwise use base value
-		adjBalance := balance
+		adjBalance := balanceRounded
 		if adjusted, ok := eventAdjustedState[row.ID]; ok && adjusted != nil {
 			adjBalance = adjusted.Round(0)
 		}
@@ -1191,7 +1291,7 @@ func buildNonCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap
 			ParentID:        row.ParentID,
 			Name:            row.Name,
 			Category:        row.Category,
-			Balance:         *balance,
+			Balance:         *balanceRounded,
 			EventAdjBalance: *adjBalance,
 			ItemType:        string(row.ItemType),
 			StartDate:       row.StartDate.Format("2006-01-02"),
@@ -1384,6 +1484,8 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, even
 			ID:              row.ID,
 			ParentID:        row.ParentID,
 			Name:            row.Name,
+			Earner:          row.Earner,
+			PersonID:        row.PersonID,
 			Category:        row.Category,
 			Amount:          *amount,
 			EventAdjAmount:  *adjAmount,
@@ -1515,21 +1617,38 @@ func buildCPFContributionResponses(rows []FinancialDataRow, itemStates ItemState
 	return responses
 }
 
-// buildCPFAssetResponses builds CPF asset responses from accumulated balances
+// buildAllCPFAssetResponses builds CPF asset responses for all earners
+func buildAllCPFAssetResponses(cpfContexts map[string]*CPFContext, yearIndex int, month int, date time.Time) []CPFAssetResponse {
+	responses := []CPFAssetResponse{}
+	for earner, ctx := range cpfContexts {
+		earnerResponses := buildCPFAssetResponses(ctx, earner, yearIndex, month, date)
+		responses = append(responses, earnerResponses...)
+	}
+	return responses
+}
+
+// buildCPFAssetResponses builds CPF asset responses from accumulated balances for a single earner
 // The RA (Retirement Account) is only included if the user is 55+ at the given date
 // or if the RA balance is non-zero.
-func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int, date time.Time) []CPFAssetResponse {
+func buildCPFAssetResponses(cpfCtx *CPFContext, earner string, yearIndex int, month int, date time.Time) []CPFAssetResponse {
 	if cpfCtx == nil || cpfCtx.Balances == nil {
 		return []CPFAssetResponse{}
+	}
+
+	// Create unique ID suffix for this earner
+	idSuffix := ""
+	if earner != "" && earner != "default" {
+		idSuffix = "-" + earner
 	}
 
 	balances := cpfCtx.Balances
 	responses := []CPFAssetResponse{
 		{
-			ID:              "cpf-oa",
-			ParentID:        "cpf",
+			ID:              "cpf-oa" + idSuffix,
+			ParentID:        "cpf" + idSuffix,
 			Name:            "CPF Ordinary Account",
 			Category:        "cpf",
+			Earner:          earner,
 			Balance:         *balances.AccumulatedOA.Round(0),
 			EventAdjBalance: *balances.AccumulatedOA.Round(0),
 			ItemType:        "cpf_account",
@@ -1538,10 +1657,11 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int, date t
 			StartMonth:      month,
 		},
 		{
-			ID:              "cpf-sa",
-			ParentID:        "cpf",
+			ID:              "cpf-sa" + idSuffix,
+			ParentID:        "cpf" + idSuffix,
 			Name:            "CPF Special Account",
 			Category:        "cpf",
+			Earner:          earner,
 			Balance:         *balances.AccumulatedSA.Round(0),
 			EventAdjBalance: *balances.AccumulatedSA.Round(0),
 			ItemType:        "cpf_account",
@@ -1550,10 +1670,11 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int, date t
 			StartMonth:      month,
 		},
 		{
-			ID:              "cpf-ma",
-			ParentID:        "cpf",
+			ID:              "cpf-ma" + idSuffix,
+			ParentID:        "cpf" + idSuffix,
 			Name:            "CPF MediSave Account",
 			Category:        "cpf",
+			Earner:          earner,
 			Balance:         *balances.AccumulatedMA.Round(0),
 			EventAdjBalance: *balances.AccumulatedMA.Round(0),
 			ItemType:        "cpf_account",
@@ -1574,10 +1695,11 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, yearIndex int, month int, date t
 
 	if showRA {
 		responses = append(responses, CPFAssetResponse{
-			ID:              "cpf-ra",
-			ParentID:        "cpf",
+			ID:              "cpf-ra" + idSuffix,
+			ParentID:        "cpf" + idSuffix,
 			Name:            "CPF Retirement Account",
 			Category:        "cpf",
+			Earner:          earner,
 			Balance:         *raBalance,
 			EventAdjBalance: *raBalance,
 			ItemType:        "cpf_account",
@@ -1630,7 +1752,7 @@ func buildMonthDetailResponse(
 	netCashFlow *decimal.Decimal,
 	netInvestments *decimal.Decimal,
 	cpfContributions map[string]*cpfProcessor.ContributionResult,
-	cpfCtx *CPFContext,
+	cpfContexts map[string]*CPFContext,
 	incomeAllocations []repo.IncomeAllocation,
 	properties []repo.PropertyScenarioFull,
 ) MonthDetailResponse {
@@ -1651,8 +1773,9 @@ func buildMonthDetailResponse(
 	propertyBuilder := property.NewSnapshotBuilder()
 	propertySnapshots, propertyTotal, mortgageTotal := propertyBuilder.BuildPropertySnapshots(properties, date)
 
-	// Convert property fees to expense responses using the property module
+	// Convert property fees and mortgage payments to expense responses
 	for i := range propertySnapshots {
+		// Property fees (recurring, purchase, sale)
 		propExpenses := propertySnapshots[i].ToExpenses(date)
 		for _, pfe := range propExpenses {
 			expenses = append(expenses, ExpenseResponse{
@@ -1673,10 +1796,31 @@ func buildMonthDetailResponse(
 				IconColor:            pfe.IconColor,
 			})
 		}
+
+		// Mortgage payment (principal + interest)
+		if mortgageExp := propertySnapshots[i].ToMortgageExpense(date); mortgageExp != nil {
+			expenses = append(expenses, ExpenseResponse{
+				ID:                   mortgageExp.ID,
+				ParentID:             mortgageExp.ParentID,
+				Name:                 mortgageExp.Name,
+				Category:             mortgageExp.Category,
+				Amount:               mortgageExp.Amount,
+				EventAdjAmount:       mortgageExp.EventAdjAmount,
+				AnnualAmount:         mortgageExp.AnnualAmount,
+				EventAdjAnnualAmount: mortgageExp.EventAdjAnnualAmount,
+				SourceFrequency:      mortgageExp.SourceFrequency,
+				ItemType:             mortgageExp.ItemType,
+				StartYear:            mortgageExp.StartYear,
+				StartMonth:           mortgageExp.StartMonth,
+				ScenarioEventID:      mortgageExp.ScenarioEventID,
+				Icon:                 mortgageExp.Icon,
+				IconColor:            mortgageExp.IconColor,
+			})
+		}
 	}
 
-	// Build CPF assets from accumulated balances
-	cpfAssets := buildCPFAssetResponses(cpfCtx, yearIndex, month, date)
+	// Build CPF assets from accumulated balances for all earners
+	cpfAssets := buildAllCPFAssetResponses(cpfContexts, yearIndex, month, date)
 	cpfTotal := decimal.Zero()
 	for _, asset := range cpfAssets {
 		cpfTotal = cpfTotal.Add(&asset.Balance)
@@ -1747,7 +1891,7 @@ type MonthlyContext struct {
 	ItemStates                ItemStateMap
 	State                     map[string]*decimal.Decimal // Base state - persists across months
 	Registry                  *growth.Registry
-	CPFCtx                    *CPFContext
+	CPFContexts               map[string]*CPFContext // Map of earner name -> CPFContext
 	BaseYear                  int
 	CashAccumulator           *decimal.Decimal
 	IncomeAllocations         []repo.IncomeAllocation
@@ -1760,11 +1904,89 @@ type MonthlyContext struct {
 	Properties []repo.PropertyScenarioFull
 }
 
+// getCPFContext returns the CPF context for a given earner, or nil if not found
+func (mctx *MonthlyContext) getCPFContext(earner string) *CPFContext {
+	if mctx.CPFContexts == nil {
+		return nil
+	}
+	return mctx.CPFContexts[earner]
+}
+
+// resetAllCPFContextsYTD resets YTD tracking for all CPF contexts at year boundaries
+func (mctx *MonthlyContext) resetAllCPFContextsYTD(date time.Time, allMonthsIndex int) {
+	for _, ctx := range mctx.CPFContexts {
+		ctx.ResetYTDIfNewYear(date, allMonthsIndex)
+	}
+}
+
+// processAllIncomes calculates CPF contributions for all incomes across all CPF contexts
+// Each income is matched to its earner's CPF context
+func (mctx *MonthlyContext) processAllIncomes(
+	incomes []FinancialDataRow,
+	state map[string]*decimal.Decimal,
+	date time.Time,
+	applyToBalances bool,
+) (*decimal.Decimal, map[string]*cpfProcessor.ContributionResult) {
+	totalEmployeeCPF := decimal.Zero()
+	contributions := make(map[string]*cpfProcessor.ContributionResult)
+
+	if len(mctx.CPFContexts) == 0 {
+		return totalEmployeeCPF, contributions
+	}
+
+	for _, income := range incomes {
+		if !isActiveInMonth(income, date) || income.CPFWageType == "" {
+			continue
+		}
+
+		// Find CPF context for this income's earner
+		earner := income.Earner
+		if earner == "" {
+			earner = "default"
+		}
+		cpfCtx := mctx.CPFContexts[earner]
+		if cpfCtx == nil {
+			// Try default context if no earner-specific one
+			cpfCtx = mctx.CPFContexts["default"]
+		}
+		if cpfCtx == nil {
+			// No CPF context for this earner, skip
+			continue
+		}
+
+		// Convert income to monthly amount for CPF calculation
+		monthlyWage := common.ToMonthlyAmount(state[income.ID], income.Frequency)
+		if monthlyWage == nil || monthlyWage.IsZero() {
+			continue
+		}
+
+		var result *cpfProcessor.ContributionResult
+		switch income.CPFWageType {
+		case cpfProcessor.CPFWageTypeOW:
+			result, _ = cpfCtx.Processor.ProcessOrdinaryWage(monthlyWage, cpfCtx.Balances, date)
+		case cpfProcessor.CPFWageTypeAW:
+			result, _ = cpfCtx.Processor.ProcessAdditionalWage(monthlyWage, cpfCtx.Balances, date)
+		default:
+			continue
+		}
+
+		if result != nil {
+			contributions[income.ID] = result
+			if applyToBalances {
+				cpfCtx.Processor.AddContributionToBalances(result, cpfCtx.Balances)
+			}
+			totalEmployeeCPF = totalEmployeeCPF.Add(result.EmployeeContribution)
+		}
+	}
+
+	return totalEmployeeCPF, contributions
+}
+
 // processMonth handles all calculations for a single month and returns the response
 // isAnchorMonth indicates if this is the first month (anchor month) where investment allocations should not mutate balances
 func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Time, isAnchorMonth bool) MonthDetailResponse {
-	// Reset CPF YTD at year boundaries
-	mctx.CPFCtx.ResetYTDIfNewYear(currentDate, allMonthsIndex)
+	// Reset CPF YTD at year boundaries for all accounts
+	mctx.resetAllCPFContextsYTD(currentDate, allMonthsIndex)
 
 	// Apply growth to all financial items (excluding liabilities)
 	growthCtx := &GrowthContext{
@@ -1798,7 +2020,7 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	// Process CPF contributions (using adjusted income values if scenarios are active)
 	// For anchor month, calculate contributions but don't add to balances (show base values)
 	applyContributions := !isAnchorMonth
-	employeeCPF, cpfContributions := mctx.CPFCtx.ProcessIncomes(mctx.Data.Incomes, stateForCalcs, currentDate, applyContributions)
+	employeeCPF, cpfContributions := mctx.processAllIncomes(mctx.Data.Incomes, stateForCalcs, currentDate, applyContributions)
 
 	// Calculate cash flow; investment allocations are computed every month but only mutate balances after the anchor month
 	var netSavings, netCashFlow, netInvestments *decimal.Decimal
@@ -1829,7 +2051,7 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 		allMonthsIndex, currentDate, mctx.BaseYear, mctx.Data, mctx.ItemStates,
 		mctx.EventAdjustedState, // Pass adjusted state for adjBalance/adjAmount
 		mctx.AppliedImpacts,     // Pass applied impacts for EventImpacts field
-		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFCtx,
+		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFContexts,
 		mctx.IncomeAllocations,
 		mctx.Properties,
 	)
@@ -1864,7 +2086,7 @@ func (s *Service) computeSnapshotFromData(sgData SGFinancialDataRows, opts Timel
 		Data:                      sgData.Rows,
 		ItemStates:                initializeItemStates(sgData.Rows, anchorStart.Year()),
 		Registry:                  growth.NewRegistry(),
-		CPFCtx:                    NewCPFContext(sgData.CPFAccount),
+		CPFContexts:               NewCPFContexts(sgData.CPFAccounts),
 		BaseYear:                  anchorStart.Year(),
 		CashAccumulator:           decimal.Zero(),
 		IncomeAllocations:         sgData.IncomeAllocations,

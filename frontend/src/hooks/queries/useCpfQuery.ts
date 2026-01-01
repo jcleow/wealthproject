@@ -4,11 +4,19 @@ import { QUERY_KEYS } from '@/lib/queryKeys'
 import type { CPFAccountCreatePayload, CPFAccountUpdatePayload } from '@/types/cpf'
 
 export const CPF_QUERY_KEY = ['cpf'] as const
+export const CPF_ACCOUNTS_QUERY_KEY = ['cpf', 'accounts'] as const
 
 export function useCpfAccountQuery() {
   return useQuery({
     queryKey: CPF_QUERY_KEY,
     queryFn: cpfApi.getCPFAccount,
+  })
+}
+
+export function useCpfAccountsQuery() {
+  return useQuery({
+    queryKey: CPF_ACCOUNTS_QUERY_KEY,
+    queryFn: cpfApi.listCPFAccounts,
   })
 }
 

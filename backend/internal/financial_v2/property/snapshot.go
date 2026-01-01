@@ -5,21 +5,32 @@ import (
 
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/growth"
+	"financial-chat-system/backend/internal/financial_v2/repayment"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
 
 // PropertySnapshot represents a property scenario in the timeline
 type PropertySnapshot struct {
-	ID              string                `json:"id"`
-	Name            string                `json:"name"`
-	Icon            *string               `json:"icon"`
-	IconColor       *string               `json:"iconColor"`
-	PropertyValue   decimal.Decimal       `json:"propertyValue"`   // Current/projected value at this point
-	MortgageBalance decimal.Decimal       `json:"mortgageBalance"` // Current/projected outstanding balance
-	NetEquity       decimal.Decimal       `json:"netEquity"`       // PropertyValue - MortgageBalance
-	PurchaseDate    string                `json:"purchaseDate"`    // First rate period start_month
-	SaleDate        *string               `json:"saleDate,omitempty"`
-	Fees            []PropertyFeeSnapshot `json:"fees"`
+	ID              string                   `json:"id"`
+	Name            string                   `json:"name"`
+	Icon            *string                  `json:"icon"`
+	IconColor       *string                  `json:"iconColor"`
+	PropertyValue   decimal.Decimal          `json:"propertyValue"`   // Current/projected value at this point
+	MortgageBalance decimal.Decimal          `json:"mortgageBalance"` // Current/projected outstanding balance
+	NetEquity       decimal.Decimal          `json:"netEquity"`       // PropertyValue - MortgageBalance
+	PurchaseDate    string                   `json:"purchaseDate"`    // First rate period start_month
+	SaleDate        *string                  `json:"saleDate,omitempty"`
+	Fees            []PropertyFeeSnapshot    `json:"fees"`
+	MortgagePayment *MortgagePaymentSnapshot `json:"mortgagePayment,omitempty"` // Monthly payment breakdown
+}
+
+// MortgagePaymentSnapshot represents the monthly mortgage payment breakdown
+type MortgagePaymentSnapshot struct {
+	MonthlyTotal     decimal.Decimal `json:"monthlyTotal"`     // Total monthly payment
+	PrincipalPortion decimal.Decimal `json:"principalPortion"` // Principal paid this month
+	InterestPortion  decimal.Decimal `json:"interestPortion"`  // Interest paid this month
+	CurrentRate      decimal.Decimal `json:"currentRate"`      // Current interest rate (APR %)
+	RateType         string          `json:"rateType"`         // "fixed" or "floating"
 }
 
 // PropertyFeeSnapshot represents a fee associated with a property event
@@ -45,6 +56,26 @@ type PropertyFeeExpense struct {
 	EventAdjAnnualAmount decimal.Decimal // Same as AnnualAmount
 	SourceFrequency      string          // "one_time" or "monthly"
 	ItemType             string          // "property_fee"
+	StartYear            int
+	StartMonth           int
+	ScenarioEventID      *string // Points to property scenario ID
+	Icon                 *string
+	IconColor            *string
+}
+
+// MortgagePaymentExpense represents a mortgage payment converted to an expense format
+// for use in timeline responses and savings calculations.
+type MortgagePaymentExpense struct {
+	ID                   string
+	ParentID             string          // Property scenario ID
+	Name                 string          // e.g., "HDB BTO Mortgage"
+	Category             string          // "Housing"
+	Amount               decimal.Decimal // Monthly payment amount
+	EventAdjAmount       decimal.Decimal // Same as Amount (no scenario adjustment)
+	AnnualAmount         decimal.Decimal // Amount * 12
+	EventAdjAnnualAmount decimal.Decimal // Same as AnnualAmount
+	SourceFrequency      string          // "monthly"
+	ItemType             string          // "mortgage_payment"
 	StartYear            int
 	StartMonth           int
 	ScenarioEventID      *string // Points to property scenario ID
@@ -101,6 +132,49 @@ func (s *PropertySnapshot) ToExpenses(currentDate time.Time) []PropertyFeeExpens
 	return expenses
 }
 
+// ToMortgageExpense converts the mortgage payment from this snapshot to a MortgagePaymentExpense
+// for use in timeline expense responses. Returns nil if no mortgage payment exists.
+func (s *PropertySnapshot) ToMortgageExpense(currentDate time.Time) *MortgagePaymentExpense {
+	if s.MortgagePayment == nil || s.MortgagePayment.MonthlyTotal.IsZero() {
+		return nil
+	}
+
+	propScenarioID := s.ID
+	twelve := decimal.MustFromFloat64(12)
+	annualAmount := s.MortgagePayment.MonthlyTotal.Mul(twelve)
+
+	// Default icon for mortgage
+	defaultIcon := "home"
+	defaultIconColor := "#3b82f6" // Blue
+
+	icon := &defaultIcon
+	iconColor := &defaultIconColor
+	if s.Icon != nil {
+		icon = s.Icon
+	}
+	if s.IconColor != nil {
+		iconColor = s.IconColor
+	}
+
+	return &MortgagePaymentExpense{
+		ID:                   "mortgage-" + s.ID,
+		ParentID:             propScenarioID,
+		Name:                 s.Name + " Mortgage",
+		Category:             "Housing",
+		Amount:               s.MortgagePayment.MonthlyTotal,
+		EventAdjAmount:       s.MortgagePayment.MonthlyTotal,
+		AnnualAmount:         *annualAmount,
+		EventAdjAnnualAmount: *annualAmount,
+		SourceFrequency:      "monthly",
+		ItemType:             "mortgage_payment",
+		StartYear:            currentDate.Year(),
+		StartMonth:           int(currentDate.Month()),
+		ScenarioEventID:      &propScenarioID,
+		Icon:                 icon,
+		IconColor:            iconColor,
+	}
+}
+
 // SnapshotBuilder handles building property snapshots for the timeline
 type SnapshotBuilder struct {
 	growthCalculator *growth.MultiPeriodCalculator
@@ -124,10 +198,10 @@ func (b *SnapshotBuilder) BuildPropertySnapshots(properties []repo.PropertyScena
 	dateStr := date.Format("2006-01")
 
 	for _, prop := range properties {
-		if prop.SGDetails == nil {
+		if prop.PropertySG == nil {
 			continue
 		}
-		details := prop.SGDetails
+		details := prop.PropertySG
 
 		// Get purchase date from first rate period
 		// If no rate periods exist, skip this property as we can't determine when it was purchased
@@ -176,6 +250,12 @@ func (b *SnapshotBuilder) BuildPropertySnapshots(properties []repo.PropertyScena
 		// Calculate mortgage balance at this date
 		mortgageBalance := b.calculateMortgageBalanceAtDate(prop.RatePeriods, details, grantsTotal, purchaseTime, date)
 
+		// Calculate original loan amount for mortgage payment calculation
+		originalLoanAmount := details.PropertyPrice.Sub(&details.DownpaymentCash).Sub(&details.DownpaymentCpfOa).Sub(grantsTotal)
+
+		// Calculate mortgage payment breakdown for this month
+		mortgagePayment := b.calculateMortgagePayment(prop.RatePeriods, originalLoanAmount, mortgageBalance, purchaseTime, date)
+
 		// Build fee snapshots for fees applicable to this month
 		feeSnapshots := b.BuildPropertyFeeSnapshots(prop.Fees, details, dateStr)
 
@@ -192,6 +272,7 @@ func (b *SnapshotBuilder) BuildPropertySnapshots(properties []repo.PropertyScena
 			PurchaseDate:    purchaseDate,
 			SaleDate:        saleDate,
 			Fees:            feeSnapshots,
+			MortgagePayment: mortgagePayment,
 		}
 		snapshots = append(snapshots, snapshot)
 
@@ -333,4 +414,91 @@ func monthsBetween(start, end time.Time) int {
 	years := end.Year() - start.Year()
 	months := int(end.Month()) - int(start.Month())
 	return years*12 + months
+}
+
+// calculateMortgagePayment calculates the mortgage payment breakdown for the current month.
+// The monthly payment is constant throughout the loan term (calculated from original loan amount).
+// The interest/principal split varies each month based on the current balance.
+func (b *SnapshotBuilder) calculateMortgagePayment(
+	ratePeriods []repo.LiabilityRatePeriod,
+	originalLoanAmount *decimal.Decimal,
+	currentBalance *decimal.Decimal,
+	purchaseDate time.Time,
+	targetDate time.Time,
+) *MortgagePaymentSnapshot {
+	if len(ratePeriods) == 0 || originalLoanAmount == nil || originalLoanAmount.IsZero() {
+		return nil
+	}
+	if currentBalance == nil || currentBalance.IsZero() {
+		return nil
+	}
+
+	// Find the active rate period for the target date
+	var activeRate *decimal.Decimal
+	var activeRateType string
+	monthsElapsed := monthsBetween(purchaseDate, targetDate)
+
+	cumulativeMonths := 0
+	for _, period := range ratePeriods {
+		periodMonths := period.TermYears * 12
+		if monthsElapsed < cumulativeMonths+periodMonths {
+			activeRate = &period.Rate
+			activeRateType = period.RateType
+			break
+		}
+		cumulativeMonths += periodMonths
+	}
+
+	// If no active rate found (past all periods), mortgage is fully paid
+	if activeRate == nil {
+		return nil
+	}
+
+	// Calculate total loan term from all periods
+	totalMonths := 0
+	for _, period := range ratePeriods {
+		totalMonths += period.TermYears * 12
+	}
+	if monthsElapsed >= totalMonths {
+		return nil
+	}
+
+	// Calculate the CONSTANT monthly payment using original loan amount and full term
+	// This is how standard amortization works - payment stays constant throughout the loan
+	strategy := repayment.NewStandardAmortization()
+	params := repayment.Params{
+		CurrentBalance:  originalLoanAmount, // Use original loan, not current balance
+		InterestRateAPR: activeRate,
+		PeriodIndex:     0,
+		TotalPeriods:    totalMonths, // Use full term, not remaining months
+	}
+
+	result, err := strategy.Calculate(params)
+	if err != nil || result == nil {
+		return nil
+	}
+
+	// The monthly payment is constant, but interest/principal split varies
+	monthlyPayment := result.MonthlyPayment
+
+	// Calculate interest portion based on CURRENT balance
+	monthlyRate := activeRate.Div(decimal.MustFromFloat64(100)).Div(decimal.MustFromFloat64(12))
+	interestPortion := currentBalance.Mul(monthlyRate)
+
+	// Principal portion is the remainder
+	principalPortion := monthlyPayment.Sub(interestPortion)
+
+	// Ensure principal portion doesn't go negative (edge case near end of loan)
+	if principalPortion.Sign() < 0 {
+		principalPortion = decimal.Zero()
+		interestPortion = monthlyPayment
+	}
+
+	return &MortgagePaymentSnapshot{
+		MonthlyTotal:     *monthlyPayment,
+		PrincipalPortion: *principalPortion,
+		InterestPortion:  *interestPortion.Round(2),
+		CurrentRate:      *activeRate,
+		RateType:         activeRateType,
+	}
 }

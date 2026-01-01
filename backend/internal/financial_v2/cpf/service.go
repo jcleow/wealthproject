@@ -18,6 +18,7 @@ const (
 // Uses decimal.Decimal for financial values to avoid precision loss.
 type UpdateInput struct {
 	ID               string
+	PersonID         string // Required FK to persons table
 	OABalance        decimal.Decimal
 	SABalance        decimal.Decimal
 	MABalance        decimal.Decimal
@@ -58,6 +59,7 @@ func (s *Service) Stop(ctx context.Context, userID, cpfAccountID string, endDate
 func inputToAccount(id string, input UpdateInput) repo.CPFAccount {
 	return repo.CPFAccount{
 		ID:               id,
+		PersonID:         input.PersonID,
 		OABalance:        input.OABalance,
 		SABalance:        input.SABalance,
 		MABalance:        input.MABalance,

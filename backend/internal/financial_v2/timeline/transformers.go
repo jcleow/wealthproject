@@ -23,6 +23,7 @@ func transformNonCashAssets(assets []repo.NonCashAsset) []FinancialDataRow {
 			EndDate:         a.EndDate,
 			ItemType:        FinNonCashAsset,
 			GrowthRate:      a.AnnualGrowthRate,
+			TerminalValue:   a.TerminalValue,
 			ScenarioEventID: a.ScenarioEventID,
 		})
 	}
@@ -100,6 +101,8 @@ func transformIncomes(incomes []repo.Income) []FinancialDataRow {
 			ID:              i.ID,
 			ParentID:        i.ParentID,
 			Name:            i.Name,
+			Earner:          i.Earner,
+			PersonID:        i.PersonID,
 			Category:        i.Category,
 			Amount:          i.Amount,
 			Frequency:       Frequency(i.Frequency), // Keep actual frequency

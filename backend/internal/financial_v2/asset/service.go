@@ -25,6 +25,8 @@ type UpdateInput struct {
 	GrowthStrategy string
 	Notes          string
 	StartDate      *time.Time
+	EndDate        *time.Time
+	TerminalValue  *decimal.Decimal
 	UpdateMode     string
 }
 
@@ -77,9 +79,13 @@ func (s *Service) updateExistingVersion(ctx context.Context, userID string, exis
 	existing.CurrentValue = input.CurrentValue
 	existing.Notes = input.Notes
 	existing.GrowthStrategy = input.GrowthStrategy
+	existing.TerminalValue = input.TerminalValue
 
 	if input.GrowthRate != nil {
 		existing.AnnualGrowthRate = *input.GrowthRate
+	}
+	if input.EndDate != nil {
+		existing.EndDate = input.EndDate
 	}
 
 	return s.store.UpdateNonCashAsset(ctx, userID, *existing)
@@ -95,6 +101,8 @@ func (s *Service) createNewVersion(ctx context.Context, userID, parentID string,
 		Notes:          input.Notes,
 		GrowthStrategy: input.GrowthStrategy,
 		StartDate:      *input.StartDate,
+		EndDate:        input.EndDate,
+		TerminalValue:  input.TerminalValue,
 	}
 
 	if input.GrowthRate != nil {
@@ -119,6 +127,8 @@ func (s *Service) inPlaceUpdate(ctx context.Context, userID, assetID string, inp
 		CurrentValue:   input.CurrentValue,
 		Notes:          input.Notes,
 		GrowthStrategy: input.GrowthStrategy,
+		EndDate:        input.EndDate,
+		TerminalValue:  input.TerminalValue,
 	}
 
 	if input.GrowthRate != nil {

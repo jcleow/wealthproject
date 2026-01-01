@@ -38,7 +38,10 @@ async function proxyToBackend(
   const session = await auth.api.getSession({ headers: await headers() })
 
   if (!session?.user?.id) {
-    return Response.redirect(new URL('/login', request.url))
+    return Response.json(
+      { error: 'Unauthorized', message: 'Authentication required' },
+      { status: 401 }
+    )
   }
 
   // Create HMAC-signed token

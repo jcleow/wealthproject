@@ -2,6 +2,28 @@ import { renderHook } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
 import { useProjectionData, useScenarioMarkers } from '../useProjectionData'
 import type { TimelineMonth, TimelineYear } from '@/types/timeline'
+import type { ScenarioEvent } from '@/types/scenario'
+import type { ProjectionPoint } from '../types'
+
+/** Helper to create a minimal ScenarioEvent for testing */
+function createMockEvent(overrides: Partial<ScenarioEvent> & { id: string; name: string; occursOn: string }): ScenarioEvent {
+  return {
+    tags: [],
+    isIncluded: true,
+    impacts: [],
+    ...overrides,
+  }
+}
+
+/** Helper to create a minimal ProjectionPoint for testing */
+function createMockPoint(overrides: Partial<ProjectionPoint> & { yearIndex: number; calendarYear: number; netWorth: number }): ProjectionPoint {
+  return {
+    yearLabel: `Year ${overrides.yearIndex}`,
+    totalAssets: overrides.netWorth,
+    totalLiabilities: 0,
+    ...overrides,
+  }
+}
 
 describe('useProjectionData', () => {
   // ============================================
@@ -140,11 +162,11 @@ describe('useScenarioMarkers', () => {
 
   it('returns empty array when no display data', () => {
     const events = [
-      { id: '1', name: 'Test', occursOn: '2025-01-15', isActive: true },
+      createMockEvent({ id: '1', name: 'Test', occursOn: '2025-01-15' }),
     ]
 
     const result = renderHook(() =>
-      useScenarioMarkers(events as any, [], 'monthly')
+      useScenarioMarkers(events, [], 'monthly')
     )
 
     expect(result.result.current).toEqual([])
@@ -152,15 +174,15 @@ describe('useScenarioMarkers', () => {
 
   it('matches events to display data points by year and month', () => {
     const events = [
-      { id: '1', name: 'Buy House', occursOn: '2025-06-15', isActive: true },
+      createMockEvent({ id: '1', name: 'Buy House', occursOn: '2025-06-15' }),
     ]
 
     const displayData = [
-      { yearIndex: 5, calendarYear: 2025, calendarMonth: 6, netWorth: 200000 },
+      createMockPoint({ yearIndex: 5, calendarYear: 2025, calendarMonth: 6, netWorth: 200000 }),
     ]
 
     const result = renderHook(() =>
-      useScenarioMarkers(events as any, displayData as any, 'monthly')
+      useScenarioMarkers(events, displayData, 'monthly')
     )
 
     expect(result.result.current).toHaveLength(1)
@@ -173,16 +195,16 @@ describe('useScenarioMarkers', () => {
 
   it('groups multiple events on the same month', () => {
     const events = [
-      { id: '1', name: 'Event A', occursOn: '2025-06-01', isActive: true },
-      { id: '2', name: 'Event B', occursOn: '2025-06-15', isActive: true },
+      createMockEvent({ id: '1', name: 'Event A', occursOn: '2025-06-01' }),
+      createMockEvent({ id: '2', name: 'Event B', occursOn: '2025-06-15' }),
     ]
 
     const displayData = [
-      { yearIndex: 5, calendarYear: 2025, calendarMonth: 6, netWorth: 200000 },
+      createMockPoint({ yearIndex: 5, calendarYear: 2025, calendarMonth: 6, netWorth: 200000 }),
     ]
 
     const result = renderHook(() =>
-      useScenarioMarkers(events as any, displayData as any, 'monthly')
+      useScenarioMarkers(events, displayData, 'monthly')
     )
 
     expect(result.result.current).toHaveLength(1)

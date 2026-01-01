@@ -118,6 +118,9 @@ type Impact struct {
 	// Liability-specific fields derived from financial item (for start impacts)
 	InterestRate   *float64 // APR % for liabilities
 	MinimumPayment *int64   // Min payment for liabilities
+
+	// Income-specific field (required for start impacts creating income items)
+	PersonID string // FK to persons table (required for income start impacts)
 }
 
 // TargetType returns the type of target this impact references.

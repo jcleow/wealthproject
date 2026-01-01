@@ -91,6 +91,7 @@ export function createDefaultStaggeredDownpayment(
   return {
     enabled: true,
     firstInstalmentPercent: 5, // Default to 5%, user can change to 2.5% if eligible
+    secondInstalmentPercent: 20, // Default to 20%, totaling 25%
     firstInstalmentMonth,
     secondInstalmentMonth: keyCollectionMonth,
   }
@@ -101,9 +102,8 @@ export function createDefaultStaggeredDownpayment(
 // ============================================
 
 export const FORM_STEPS: FormStepConfig[] = [
-  { id: 'property', label: 'Property', icon: '🏠' },
+  { id: 'property', label: 'Property & Financing', icon: '🏠' },
   { id: 'borrowers', label: 'Borrowers', icon: '👥' },
-  { id: 'financing', label: 'Financing', icon: '💰' },
   { id: 'terms', label: 'Others', icon: '📋' },
 ]
 
@@ -291,11 +291,3 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
   },
 }
 
-// ============================================
-// MOCK DATA (for visual mockup)
-// ============================================
-
-export const mockIncomes = [
-  { id: 'income-1', name: "John's Salary", monthlyAmount: 8500 },
-  { id: 'income-2', name: "Sarah's Salary", monthlyAmount: 6200 },
-]

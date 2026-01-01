@@ -69,6 +69,7 @@ func TestBuildImpactV2_StartImpact_NoParentIDRequired(t *testing.T) {
 				Cadence:    "monthly",
 				StartDate:  "2025-06",
 				Name:       strPtr("New Job Salary"),
+				PersonID:   strPtr("person-uuid-123"), // Required for income start impacts
 			},
 			wantErr: false,
 		},
@@ -464,6 +465,7 @@ func TestBuildImpactV2_AdvancedFields(t *testing.T) {
 				Category:       strPtr("salary"),
 				GrowthRate:     &growthRate,
 				GrowthStrategy: strPtr("annual_step"),
+				PersonID:       strPtr("person-uuid-123"), // Required for income start impacts
 			},
 			checkImpact: func(t *testing.T, imp ScenarioImpact) {
 				if imp.Category != "salary" {
@@ -630,6 +632,7 @@ func TestBuildScenarioEventV2_WithMixedImpacts(t *testing.T) {
 				Category:       strPtr("salary"),
 				GrowthRate:     floatPtr(3.0),
 				GrowthStrategy: strPtr("annual_step"),
+				PersonID:       strPtr("person-uuid-123"), // Required for income start impacts
 			},
 			{
 				ImpactKind: "stop",
@@ -708,6 +711,11 @@ func TestBuildImpactV2_TargetTypeValidation(t *testing.T) {
 				Cadence:    "monthly",
 				StartDate:  "2025-06",
 				Name:       strPtr("Test Item"),
+			}
+
+			// Income start impacts require PersonID
+			if tt.targetType == "income" {
+				dto.PersonID = strPtr("person-uuid-123")
 			}
 
 			_, err := buildImpactV2(dto)

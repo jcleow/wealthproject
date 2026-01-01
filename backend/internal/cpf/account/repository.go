@@ -23,6 +23,7 @@ var ErrNotFound = errors.New("cpf account not found")
 type CPFAccount struct {
 	ID               string                 `json:"id"`
 	UserID           string                 `json:"userId"`
+	Earner           string                 `json:"earner,omitempty"` // Person who owns this CPF account
 	OABalance        decimal.Decimal        `json:"oaBalance"`
 	SABalance        decimal.Decimal        `json:"saBalance"`
 	MABalance        decimal.Decimal        `json:"maBalance"`
@@ -80,7 +81,7 @@ func NewRepository(db *sql.DB) *Repository {
 // Get retrieves the CPF account for a user.
 func (r *Repository) Get(ctx context.Context, userID string) (*CPFAccount, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
+		SELECT id, user_id, COALESCE(earner, '') as earner, oa_balance, sa_balance, ma_balance, ra_balance,
 		       oa_used_for_housing, housing_start_date, date_of_birth,
 		       residency_status, pr_grant_date, created_at, updated_at
 		FROM cpf_accounts
@@ -91,7 +92,7 @@ func (r *Repository) Get(ctx context.Context, userID string) (*CPFAccount, error
 	var residencyStatus string
 
 	err := row.Scan(
-		&acc.ID, &acc.UserID, &acc.OABalance, &acc.SABalance, &acc.MABalance, &acc.RABalance,
+		&acc.ID, &acc.UserID, &acc.Earner, &acc.OABalance, &acc.SABalance, &acc.MABalance, &acc.RABalance,
 		&acc.OAUsedForHousing, &housingStartDate, &acc.DateOfBirth,
 		&residencyStatus, &prGrantDate, &acc.CreatedAt, &acc.UpdatedAt,
 	)
@@ -117,14 +118,14 @@ func (r *Repository) Get(ctx context.Context, userID string) (*CPFAccount, error
 func (r *Repository) Create(ctx context.Context, acc *CPFAccount) (*CPFAccount, error) {
 	row := r.db.QueryRowContext(ctx, `
 		INSERT INTO cpf_accounts (
-			user_id, oa_balance, sa_balance, ma_balance, ra_balance,
+			user_id, earner, oa_balance, sa_balance, ma_balance, ra_balance,
 			oa_used_for_housing, housing_start_date, date_of_birth,
 			residency_status, pr_grant_date
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		RETURNING id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		RETURNING id, user_id, COALESCE(earner, '') as earner, oa_balance, sa_balance, ma_balance, ra_balance,
 		          oa_used_for_housing, housing_start_date, date_of_birth,
 		          residency_status, pr_grant_date, created_at, updated_at`,
-		acc.UserID, acc.OABalance, acc.SABalance, acc.MABalance, acc.RABalance,
+		acc.UserID, acc.Earner, acc.OABalance, acc.SABalance, acc.MABalance, acc.RABalance,
 		acc.OAUsedForHousing, acc.HousingStartDate, acc.DateOfBirth,
 		string(acc.ResidencyStatus), acc.PRGrantDate,
 	)
@@ -134,7 +135,7 @@ func (r *Repository) Create(ctx context.Context, acc *CPFAccount) (*CPFAccount, 
 	var residencyStatus string
 
 	err := row.Scan(
-		&created.ID, &created.UserID, &created.OABalance, &created.SABalance,
+		&created.ID, &created.UserID, &created.Earner, &created.OABalance, &created.SABalance,
 		&created.MABalance, &created.RABalance, &created.OAUsedForHousing,
 		&housingStartDate, &created.DateOfBirth, &residencyStatus,
 		&prGrantDate, &created.CreatedAt, &created.UpdatedAt,
@@ -158,21 +159,22 @@ func (r *Repository) Create(ctx context.Context, acc *CPFAccount) (*CPFAccount, 
 func (r *Repository) Update(ctx context.Context, userID string, acc *CPFAccount) (*CPFAccount, error) {
 	row := r.db.QueryRowContext(ctx, `
 		UPDATE cpf_accounts
-		SET oa_balance = $2,
-		    sa_balance = $3,
-		    ma_balance = $4,
-		    ra_balance = $5,
-		    oa_used_for_housing = $6,
-		    housing_start_date = $7,
-		    date_of_birth = $8,
-		    residency_status = $9,
-		    pr_grant_date = $10,
+		SET earner = $2,
+		    oa_balance = $3,
+		    sa_balance = $4,
+		    ma_balance = $5,
+		    ra_balance = $6,
+		    oa_used_for_housing = $7,
+		    housing_start_date = $8,
+		    date_of_birth = $9,
+		    residency_status = $10,
+		    pr_grant_date = $11,
 		    updated_at = NOW()
 		WHERE user_id = $1
-		RETURNING id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
+		RETURNING id, user_id, COALESCE(earner, '') as earner, oa_balance, sa_balance, ma_balance, ra_balance,
 		          oa_used_for_housing, housing_start_date, date_of_birth,
 		          residency_status, pr_grant_date, created_at, updated_at`,
-		userID, acc.OABalance, acc.SABalance, acc.MABalance, acc.RABalance,
+		userID, acc.Earner, acc.OABalance, acc.SABalance, acc.MABalance, acc.RABalance,
 		acc.OAUsedForHousing, acc.HousingStartDate, acc.DateOfBirth,
 		string(acc.ResidencyStatus), acc.PRGrantDate,
 	)
@@ -182,7 +184,7 @@ func (r *Repository) Update(ctx context.Context, userID string, acc *CPFAccount)
 	var residencyStatus string
 
 	err := row.Scan(
-		&updated.ID, &updated.UserID, &updated.OABalance, &updated.SABalance,
+		&updated.ID, &updated.UserID, &updated.Earner, &updated.OABalance, &updated.SABalance,
 		&updated.MABalance, &updated.RABalance, &updated.OAUsedForHousing,
 		&housingStartDate, &updated.DateOfBirth, &residencyStatus,
 		&prGrantDate, &updated.CreatedAt, &updated.UpdatedAt,
@@ -209,12 +211,13 @@ func (r *Repository) Update(ctx context.Context, userID string, acc *CPFAccount)
 func (r *Repository) Upsert(ctx context.Context, acc *CPFAccount) (*CPFAccount, error) {
 	row := r.db.QueryRowContext(ctx, `
 		INSERT INTO cpf_accounts (
-			user_id, oa_balance, sa_balance, ma_balance, ra_balance,
+			user_id, earner, oa_balance, sa_balance, ma_balance, ra_balance,
 			oa_used_for_housing, housing_start_date, date_of_birth,
 			residency_status, pr_grant_date
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (user_id) DO UPDATE
-		SET oa_balance = EXCLUDED.oa_balance,
+		SET earner = EXCLUDED.earner,
+		    oa_balance = EXCLUDED.oa_balance,
 		    sa_balance = EXCLUDED.sa_balance,
 		    ma_balance = EXCLUDED.ma_balance,
 		    ra_balance = EXCLUDED.ra_balance,
@@ -224,10 +227,10 @@ func (r *Repository) Upsert(ctx context.Context, acc *CPFAccount) (*CPFAccount, 
 		    residency_status = EXCLUDED.residency_status,
 		    pr_grant_date = EXCLUDED.pr_grant_date,
 		    updated_at = NOW()
-		RETURNING id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
+		RETURNING id, user_id, COALESCE(earner, '') as earner, oa_balance, sa_balance, ma_balance, ra_balance,
 		          oa_used_for_housing, housing_start_date, date_of_birth,
 		          residency_status, pr_grant_date, created_at, updated_at`,
-		acc.UserID, acc.OABalance, acc.SABalance, acc.MABalance, acc.RABalance,
+		acc.UserID, acc.Earner, acc.OABalance, acc.SABalance, acc.MABalance, acc.RABalance,
 		acc.OAUsedForHousing, acc.HousingStartDate, acc.DateOfBirth,
 		string(acc.ResidencyStatus), acc.PRGrantDate,
 	)
@@ -237,7 +240,7 @@ func (r *Repository) Upsert(ctx context.Context, acc *CPFAccount) (*CPFAccount, 
 	var residencyStatus string
 
 	err := row.Scan(
-		&result.ID, &result.UserID, &result.OABalance, &result.SABalance,
+		&result.ID, &result.UserID, &result.Earner, &result.OABalance, &result.SABalance,
 		&result.MABalance, &result.RABalance, &result.OAUsedForHousing,
 		&housingStartDate, &result.DateOfBirth, &residencyStatus,
 		&prGrantDate, &result.CreatedAt, &result.UpdatedAt,
@@ -267,7 +270,7 @@ func (r *Repository) AddContribution(ctx context.Context, userID string, oaAmoun
 		    ra_balance = ra_balance + $5,
 		    updated_at = NOW()
 		WHERE user_id = $1
-		RETURNING id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
+		RETURNING id, user_id, COALESCE(earner, '') as earner, oa_balance, sa_balance, ma_balance, ra_balance,
 		          oa_used_for_housing, housing_start_date, date_of_birth,
 		          residency_status, pr_grant_date, created_at, updated_at`,
 		userID, oaAmount, saAmount, maAmount, raAmount,
@@ -278,7 +281,7 @@ func (r *Repository) AddContribution(ctx context.Context, userID string, oaAmoun
 	var residencyStatus string
 
 	err := row.Scan(
-		&acc.ID, &acc.UserID, &acc.OABalance, &acc.SABalance,
+		&acc.ID, &acc.UserID, &acc.Earner, &acc.OABalance, &acc.SABalance,
 		&acc.MABalance, &acc.RABalance, &acc.OAUsedForHousing,
 		&housingStartDate, &acc.DateOfBirth, &residencyStatus,
 		&prGrantDate, &acc.CreatedAt, &acc.UpdatedAt,
@@ -311,7 +314,7 @@ func (r *Repository) WithdrawFromOA(ctx context.Context, userID string, amount *
 		    housing_start_date = COALESCE(housing_start_date, NOW()),
 		    updated_at = NOW()
 		WHERE user_id = $1 AND oa_balance >= $2
-		RETURNING id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
+		RETURNING id, user_id, COALESCE(earner, '') as earner, oa_balance, sa_balance, ma_balance, ra_balance,
 		          oa_used_for_housing, housing_start_date, date_of_birth,
 		          residency_status, pr_grant_date, created_at, updated_at`,
 		userID, amount,
@@ -322,7 +325,7 @@ func (r *Repository) WithdrawFromOA(ctx context.Context, userID string, amount *
 	var residencyStatus string
 
 	err := row.Scan(
-		&acc.ID, &acc.UserID, &acc.OABalance, &acc.SABalance,
+		&acc.ID, &acc.UserID, &acc.Earner, &acc.OABalance, &acc.SABalance,
 		&acc.MABalance, &acc.RABalance, &acc.OAUsedForHousing,
 		&housingStartDate, &acc.DateOfBirth, &residencyStatus,
 		&prGrantDate, &acc.CreatedAt, &acc.UpdatedAt,

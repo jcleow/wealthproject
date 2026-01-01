@@ -6,6 +6,14 @@ import { useCreateIncomeMutation, useUpdateIncomeMutation, useDeleteIncomeMutati
 import { useCreateExpenseMutation, useUpdateExpenseMutation, useDeleteExpenseMutation } from './queries/useExpensesQuery'
 import { useDeleteAllFinancialDataMutation, useLoadSampleDataMutation } from './queries/useFinancialMutations'
 import { QUERY_KEYS } from '@/lib/queryKeys'
+import type { Asset, Liability, Income, Expense } from '@/types/financial'
+import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
+
+/** Update payload with optional updateMode for versioned updates */
+type AssetUpdates = Partial<Asset> & { updateMode?: UpdateMode }
+type LiabilityUpdates = Partial<Liability> & { updateMode?: UpdateMode }
+type IncomeUpdates = Partial<Income> & { updateMode?: UpdateMode }
+type ExpenseUpdates = Partial<Expense> & { sourceLiabilityId?: string }
 
 export function useFinancialData() {
   const queryClient = useQueryClient()
@@ -56,22 +64,22 @@ export function useFinancialData() {
   return {
     // Asset operations
     addAsset: createAssetMutation.mutateAsync,
-    updateAsset: (id: string, updates: any) => updateAssetMutation.mutateAsync({ id, updates }),
+    updateAsset: (id: string, updates: AssetUpdates) => updateAssetMutation.mutateAsync({ id, updates }),
     deleteAsset: deleteAssetMutation.mutateAsync,
 
     // Income operations
     addIncome: createIncomeMutation.mutateAsync,
-    updateIncome: (id: string, updates: any) => updateIncomeMutation.mutateAsync({ id, updates }),
+    updateIncome: (id: string, updates: IncomeUpdates) => updateIncomeMutation.mutateAsync({ id, updates }),
     deleteIncome: deleteIncomeMutation.mutateAsync,
 
     // Liability operations
     addLiability: createLiabilityMutation.mutateAsync,
-    updateLiability: (id: string, updates: any) => updateLiabilityMutation.mutateAsync({ id, updates }),
+    updateLiability: (id: string, updates: LiabilityUpdates) => updateLiabilityMutation.mutateAsync({ id, updates }),
     deleteLiability: deleteLiabilityMutation.mutateAsync,
 
     // Expense operations
     addExpense: createExpenseMutation.mutateAsync,
-    updateExpense: (id: string, updates: any) => updateExpenseMutation.mutateAsync({ id, updates }),
+    updateExpense: (id: string, updates: ExpenseUpdates) => updateExpenseMutation.mutateAsync({ id, updates }),
     deleteExpense: deleteExpenseMutation.mutateAsync,
 
     // Bulk operations

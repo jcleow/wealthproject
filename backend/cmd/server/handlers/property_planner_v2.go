@@ -101,7 +101,7 @@ type createRatePeriodRequest struct {
 
 type scenarioResponse struct {
 	Scenario      repo.PropertyScenario           `json:"scenario"`
-	SGDetails     *repo.PropertySG                `json:"sgDetails,omitempty"`
+	PropertySG    *repo.PropertySG                `json:"propertySG,omitempty"`
 	Fees          []repo.PropertyFee              `json:"fees"`
 	GrowthPeriods []growthPeriodResponse          `json:"growthPeriods"`
 	RatePeriods   []liabilityRatePeriodResponse   `json:"ratePeriods"`
@@ -630,7 +630,7 @@ func toRatePeriodParams(req createRatePeriodRequest) property.CreateRatePeriodPa
 func buildScenarioResponse(s *repo.PropertyScenarioFull, computed *property.ComputedValues) scenarioResponse {
 	return scenarioResponse{
 		Scenario:      s.Scenario,
-		SGDetails:     s.SGDetails,
+		PropertySG:    s.PropertySG,
 		Fees:          s.Fees,
 		GrowthPeriods: toGrowthPeriodsResponse(s.GrowthPeriods),
 		RatePeriods:   toRatePeriodsResponse(s.RatePeriods),

@@ -99,11 +99,13 @@ func ensureCashAccumulator(ctx context.Context, userID string) {
 		StartYear:     time.Now().Year(),
 	})
 	if err != nil {
-		log.Printf("[Auth] Failed to create cash accumulator for user %s: %v", userID, err)
+		// SECURITY: Don't log full user ID - use first 8 chars for debugging
+		log.Printf("[Auth] Failed to create cash accumulator for user %s...: %v", userID[:min(8, len(userID))], err)
 		return
 	}
 
-	log.Printf("[Auth] Created cash accumulator for new user: %s", userID)
+	// SECURITY: Only log truncated user ID to prevent PII exposure in logs
+	log.Printf("[Auth] Created cash accumulator for new user: %s...", userID[:min(8, len(userID))])
 	initializedUsers.Store(userID, true)
 }
 

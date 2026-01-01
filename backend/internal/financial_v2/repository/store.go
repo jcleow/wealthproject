@@ -85,6 +85,7 @@ type NonCashAsset struct {
 	AnnualGrowthRate decimal.Decimal `json:"annualGrowthRate"`
 	StartDate        time.Time       `json:"startDate"`         // Precise start date (day-level)
 	EndDate          *time.Time      `json:"endDate,omitempty"` // NULL means ongoing
+	TerminalValue    *decimal.Decimal `json:"terminalValue,omitempty"`  // Value at end of useful life (NULL = disappear, 0 = worthless)
 	Notes            string          `json:"notes"`
 	GrowthStrategy   string          `json:"growthStrategy"`
 	UpdatedAt        time.Time       `json:"updatedAt"`
@@ -162,6 +163,8 @@ type Income struct {
 	ID             string          `json:"id"`
 	ParentID       string          `json:"parentId"`
 	Name           string          `json:"name"`
+	Earner         string          `json:"earner"`   // Deprecated: kept for backward compatibility, use PersonID
+	PersonID       string          `json:"personId"` // FK to persons table (required)
 	Amount         decimal.Decimal `json:"amount"`
 	Frequency      string          `json:"frequency"`
 	StartDate      time.Time       `json:"startDate"`         // Precise start date (day-level) - now required
@@ -206,6 +209,8 @@ type Expense struct {
 type CPFAccount struct {
 	ID               string          `json:"id"`
 	UserID           string          `json:"userId"`
+	Earner           string          `json:"earner,omitempty"`  // Deprecated: kept for backward compatibility, use PersonID
+	PersonID         string          `json:"personId"`          // FK to persons table (required)
 	ParentID         string          `json:"parentId"`          // Groups versions of same logical account
 	StartDate        time.Time       `json:"startDate"`         // When this version starts
 	EndDate          *time.Time      `json:"endDate,omitempty"` // When this version ends (NULL = ongoing)
@@ -213,13 +218,31 @@ type CPFAccount struct {
 	SABalance        decimal.Decimal `json:"saBalance"`         // Special Account balance
 	MABalance        decimal.Decimal `json:"maBalance"`         // MediSave Account balance
 	RABalance        decimal.Decimal `json:"raBalance"`         // Retirement Account balance (only after age 55)
-	OAUsedForHousing decimal.Decimal `json:"oaUsedForHousing"`  // OA amount used for housing (for accrued interest)
+	// OAUsedForHousing tracks OA withdrawals for housing purposes (for accrued interest calculation).
+	// TODO: For multiple property scenarios, consider a 1:M relationship (cpf_housing_usages table)
+	// with fields: property_scenario_id, amount_used, withdrawal_date, property_link_id.
+	// This would allow tracking different OA usage amounts per property scenario.
+	OAUsedForHousing decimal.Decimal `json:"oaUsedForHousing"`
 	HousingStartDate *time.Time      `json:"housingStartDate,omitempty"`
 	DateOfBirth      time.Time       `json:"dateOfBirth"`
 	ResidencyStatus  string          `json:"residencyStatus"` // 'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'
 	PRGrantDate      *time.Time      `json:"prGrantDate,omitempty"`
 	CreatedAt        time.Time       `json:"createdAt"`
 	UpdatedAt        time.Time       `json:"updatedAt"`
+}
+
+// Person represents a household member for income/CPF ownership and filtering.
+type Person struct {
+	ID           string    `json:"id"`
+	UserID       string    `json:"userId"`
+	Name         string    `json:"name"`
+	DisplayColor *string   `json:"displayColor,omitempty"`
+	IsIncluded   bool      `json:"isIncluded"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+	// Stats populated by GetPersonsWithStats
+	IncomeCount int `json:"incomeCount,omitempty"`
+	CPFCount    int `json:"cpfCount,omitempty"`
 }
 
 type DateRangeOptions struct {
@@ -286,6 +309,7 @@ func (s *Store) ListNonCashAssets(
 		growth_rate,
 		start_date,
 		end_date,
+		terminal_value,
 		COALESCE(notes, '') as notes,
 		updated_at,
 		scenario_event_id
@@ -349,7 +373,7 @@ func (s *Store) ListNonCashAssets(
 	for rows.Next() {
 		var a NonCashAsset
 		// pgx can scan NULL directly into *time.Time
-		err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.Notes, &a.UpdatedAt, &a.ScenarioEventID)
+		err := rows.Scan(&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue, &a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.TerminalValue, &a.Notes, &a.UpdatedAt, &a.ScenarioEventID)
 		if err != nil {
 			return PaginatedResult[NonCashAsset]{}, err
 		}
@@ -637,31 +661,34 @@ func (s *Store) ListIncomes(
 	q ListQuery,
 ) (PaginatedResult[Income], error) {
 	query := `
-	SELECT id,
-		COALESCE(parent_id, id) as parent_id,
-		name,
-		amount,
-		frequency,
-		start_date,
-		end_date,
-		category,
-		growth_rate,
-		COALESCE(notes, '') as notes,
-		COALESCE(growth_strategy, '') as growth_strategy,
-		updated_at,
-		COALESCE(income_type, 'other') as income_type,
-		COALESCE(cpf_wage_type, '') as cpf_wage_type,
-		scenario_event_id
-	FROM finance_incomes
-	WHERE user_id = $1`
+	SELECT i.id,
+		COALESCE(i.parent_id, i.id) as parent_id,
+		i.name,
+		COALESCE(p.name, i.earner, '') as earner,
+		i.person_id,
+		i.amount,
+		i.frequency,
+		i.start_date,
+		i.end_date,
+		i.category,
+		i.growth_rate,
+		COALESCE(i.notes, '') as notes,
+		COALESCE(i.growth_strategy, '') as growth_strategy,
+		i.updated_at,
+		COALESCE(i.income_type, 'other') as income_type,
+		COALESCE(i.cpf_wage_type, '') as cpf_wage_type,
+		i.scenario_event_id
+	FROM finance_incomes i
+	LEFT JOIN persons p ON i.person_id = p.id
+	WHERE i.user_id = $1`
 
 	// Filter scenario items:
 	// - When IncludeScenarioItems=false: exclude all scenario items
 	// - When IncludeScenarioItems=true: include regular items AND 'start' impact items only
 	if !q.IncludeScenarioItems {
-		query += ` AND scenario_event_id IS NULL`
+		query += ` AND i.scenario_event_id IS NULL`
 	} else {
-		query += ` AND (scenario_event_id IS NULL OR impact_kind = 'start')`
+		query += ` AND (i.scenario_event_id IS NULL OR i.impact_kind = 'start')`
 	}
 
 	args := []any{q.UserID}
@@ -679,7 +706,7 @@ func (s *Store) ListIncomes(
 		}
 	}
 
-	query += ` ORDER BY parent_id, start_date`
+	query += ` ORDER BY i.parent_id, i.start_date`
 
 	// Add pagination
 	paginationSubQuery, _ := addPaginationQuery(q.Pagination, argIdx)
@@ -705,7 +732,7 @@ func (s *Store) ListIncomes(
 	for rows.Next() {
 		var i Income
 		err := rows.Scan(
-			&i.ID, &i.ParentID, &i.Name, &i.Amount, &i.Frequency,
+			&i.ID, &i.ParentID, &i.Name, &i.Earner, &i.PersonID, &i.Amount, &i.Frequency,
 			&i.StartDate, &i.EndDate, &i.Category, &i.GrowthRate,
 			&i.Notes, &i.GrowthStrategy, &i.UpdatedAt,
 			&i.IncomeType, &i.CPFWageType, &i.ScenarioEventID,
@@ -1434,4 +1461,184 @@ func (s *Store) DeleteAllIncomeAllocations(ctx context.Context, userID string) (
 		return 0, fmt.Errorf("failed to delete all income allocations: %w", err)
 	}
 	return tag.RowsAffected(), nil
+}
+
+// ResetAllUserData deletes all financial data for a user in a single transaction.
+// This avoids deadlocks by ensuring proper deletion order (child tables before parent tables).
+// Returns the total number of rows affected across all tables.
+func (s *Store) ResetAllUserData(ctx context.Context, userID string) (int64, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var totalAffected int64
+
+	// Delete in order of dependencies (child tables first to avoid FK constraint issues)
+	// Note: Most FK constraints have ON DELETE CASCADE, but we delete explicitly
+	// to avoid deadlocks when parallel transactions try to cascade-delete the same rows
+
+	// 1. Delete income_allocations first (depends on incomes, investments, cash_accounts)
+	tag, err := tx.Exec(ctx, `
+		DELETE FROM income_allocations ia
+		USING finance_incomes fi
+		WHERE ia.income_id = fi.id AND fi.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete income allocations: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 2. Delete property-related tables (depend on property_sg which depends on incomes/cpf)
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM property_links pl
+		USING property_scenarios ps
+		WHERE pl.property_scenario_id = ps.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property links: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM liability_rate_periods lrp
+		USING property_sg psg, property_scenarios ps
+		WHERE lrp.property_sg_id = psg.id AND ps.property_sg_id = psg.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete liability rate periods: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM growth_periods gp
+		USING property_sg psg, property_scenarios ps
+		WHERE gp.property_sg_id = psg.id AND ps.property_sg_id = psg.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property growth periods: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM property_fees pf
+		USING property_sg psg, property_scenarios ps
+		WHERE pf.property_sg_id = psg.id AND ps.property_sg_id = psg.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property fees: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM property_sg_grants psg_g
+		USING property_sg psg, property_scenarios ps
+		WHERE psg_g.property_sg_id = psg.id AND ps.property_sg_id = psg.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property grants: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// Delete property_sg entries via property_scenarios
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM property_sg psg
+		USING property_scenarios ps
+		WHERE ps.property_sg_id = psg.id AND ps.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property_sg: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// Delete property_scenarios
+	tag, err = tx.Exec(ctx, `DELETE FROM property_scenarios WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete property scenarios: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 3. Delete growth_periods for financial items
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM growth_periods gp
+		USING finance_incomes fi
+		WHERE gp.finance_income_id = fi.id AND fi.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete income growth periods: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `
+		DELETE FROM growth_periods gp
+		USING finance_investments finv
+		WHERE gp.finance_investment_id = finv.id AND finv.user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete investment growth periods: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 4. Delete core financial tables (order doesn't matter much now, but expenses before liabilities)
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_expenses WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete expenses: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_incomes WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete incomes: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_liabilities WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete liabilities: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_investments WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete investments: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_assets WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete assets: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// Reset accumulator balance (keep the account, just zero it)
+	_, err = tx.Exec(ctx, `UPDATE finance_cash_accounts SET balance = 0, updated_at = NOW() WHERE user_id = $1 AND is_accumulator = true`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to reset accumulator: %w", err)
+	}
+
+	// Delete non-accumulator cash accounts
+	tag, err = tx.Exec(ctx, `DELETE FROM finance_cash_accounts WHERE user_id = $1 AND is_accumulator = false`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete cash accounts: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 5. Delete CPF accounts
+	tag, err = tx.Exec(ctx, `DELETE FROM cpf_accounts WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete CPF accounts: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 6. Delete scenario events (now safe - all dependents via FK CASCADE already gone)
+	tag, err = tx.Exec(ctx, `DELETE FROM scenario_events WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete scenario events: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 7. Delete persons
+	tag, err = tx.Exec(ctx, `DELETE FROM persons WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete persons: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return totalAffected, nil
 }

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,10 +26,48 @@ func RequestID(next http.Handler) http.Handler {
 	})
 }
 
+// getAllowedOrigins returns the list of allowed CORS origins from environment or defaults
+func getAllowedOrigins() []string {
+	originsEnv := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if originsEnv != "" {
+		origins := strings.Split(originsEnv, ",")
+		for i := range origins {
+			origins[i] = strings.TrimSpace(origins[i])
+		}
+		return origins
+	}
+	// Default allowed origins for development
+	return []string{
+		"http://localhost:3000",
+		"http://127.0.0.1:3000",
+		"https://localhost:3000",
+	}
+}
+
+// isOriginAllowed checks if the given origin is in the allowed list
+func isOriginAllowed(origin string, allowedOrigins []string) bool {
+	for _, allowed := range allowedOrigins {
+		if origin == allowed {
+			return true
+		}
+	}
+	return false
+}
+
 // CORS middleware handles Cross-Origin Resource Sharing
+// SECURITY: Only allows whitelisted origins instead of "*" to prevent CSRF attacks
 func CORS(next http.Handler) http.Handler {
+	allowedOrigins := getAllowedOrigins()
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+
+		// Only set CORS headers if origin is in the allowed list
+		if origin != "" && isOriginAllowed(origin, allowedOrigins) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+
 		w.Header().Set("Vary", "Origin")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, API-Version, X-Auth-Token, X-Request-ID")

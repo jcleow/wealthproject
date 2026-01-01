@@ -92,11 +92,11 @@ export function useUpdatePropertyPlannerV2ScenarioMutation() {
       )
 
       // Optimistically update detail cache
-      if (previousScenario && input.sgDetails) {
+      if (previousScenario && input.propertySG) {
         queryClient.setQueryData(propertyPlannerV2Keys.detail(id), {
           ...previousScenario,
-          sgDetails: previousScenario.sgDetails
-            ? { ...previousScenario.sgDetails, ...input.sgDetails }
+          propertySG: previousScenario.propertySG
+            ? { ...previousScenario.propertySG, ...input.propertySG }
             : null,
         })
       }
@@ -192,8 +192,8 @@ export function useTogglePropertyPlannerV2ScenarioMutation() {
         propertyPlannerV2Keys.list(),
         (old) =>
           old?.map((s) =>
-            s.scenario.id === id && s.sgDetails
-              ? { ...s, sgDetails: { ...s.sgDetails, isIncluded } }
+            s.scenario.id === id && s.propertySG
+              ? { ...s, propertySG: { ...s.propertySG, isIncluded } }
               : s
           ) ?? []
       )

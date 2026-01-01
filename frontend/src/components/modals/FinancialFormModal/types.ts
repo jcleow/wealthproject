@@ -20,6 +20,8 @@ export type FinancialDataType = import('@/types/financial').FinancialEntityType
 
 export type FormState = {
   name: string
+  earner: string
+  personId: string | null
   amount: string
   frequency: Frequency
   category: string
@@ -28,6 +30,10 @@ export type FormState = {
   minimumPayment: string
   growthRate: string
   notes: string
+  // Asset useful life fields
+  terminalValue: string
+  leaseStartYear: string
+  usefulLifeYears: string
 }
 
 export type AssetFormValues = {
@@ -39,6 +45,8 @@ export type AssetFormValues = {
   annualGrowthRate: number
   notes?: string | null
   updatedAt?: string
+  endDate?: string
+  terminalValue?: number | null
 }
 
 export type LiabilityFormValues = {
@@ -57,6 +65,8 @@ export type IncomeFormValues = {
   type: 'income'
   id?: string
   name: string
+  earner?: string
+  personId?: string | null
   amount: number
   frequency: Frequency
   category: string
@@ -123,6 +133,15 @@ export interface TimelineItemData {
   adjAnnualAmt?: number
   sourceAmount?: number
   sourceFrequency?: string
+  amountMonthly?: number
+  frequency?: Frequency
+  growthRate?: number
+  sourceLiabilityId?: string
+  updatedAt?: string
+  // Investment-specific fields (used when editing investments from timeline)
+  currentValue?: number
+  annualGrowthRate?: number
+  notes?: string
 }
 
 export interface FinancialFormModalProps {

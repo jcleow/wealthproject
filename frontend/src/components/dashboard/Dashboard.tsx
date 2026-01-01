@@ -454,6 +454,12 @@ bg-[#0a0a0a]/80`}>
           setPropertyScenarioToEdit(null)
         }}
         initialScenarioId={propertyScenarioToEdit ?? undefined}
+        onJumpToDate={(year, month) => {
+          timeline.setSelectedYear(year)
+          timeline.setSelectedMonth(month)
+          setShowPropertyPlanner(false)
+          setPropertyScenarioToEdit(null)
+        }}
       />
 
       {/* Layout Preview Modal */}

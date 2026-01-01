@@ -18,8 +18,18 @@ export async function getCPFAccount(): Promise<CPFAccount | null> {
   }
 }
 
+export async function listCPFAccounts(): Promise<CPFAccount[]> {
+  try {
+    const data = await apiClient.get<any[]>('/cpf/accounts', undefined, { baseUrl: '/api/v2' })
+    return (data || []).map(toCPFAccount)
+  } catch {
+    return []
+  }
+}
+
 export async function createCPFAccount(payload: CPFAccountCreatePayload): Promise<CPFAccount> {
   const body = {
+    personId: payload.personId,
     oaBalance: (payload.oaBalance ?? 0).toString(),
     saBalance: (payload.saBalance ?? 0).toString(),
     maBalance: (payload.maBalance ?? 0).toString(),
@@ -40,6 +50,7 @@ export async function updateCPFAccount(
 ): Promise<CPFAccount> {
   // Use string for decimal values to preserve precision
   const body: Record<string, unknown> = {
+    personId: payload.personId,
     oaBalance: payload.oaBalance?.toString() ?? '0',
     saBalance: payload.saBalance?.toString() ?? '0',
     maBalance: payload.maBalance?.toString() ?? '0',
@@ -111,6 +122,7 @@ export async function getCPFContributionPreview(params: {
 
 export const cpfApi = {
   getCPFAccount,
+  listCPFAccounts,
   createCPFAccount,
   updateCPFAccount,
   stopCPFAccount,

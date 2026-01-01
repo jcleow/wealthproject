@@ -114,8 +114,13 @@ func main() {
 	// Start background session cleanup
 	startSessionCleanup(sessionStore, sessionTTL, time.Duration(cfg.SessionCleanupIntervalMinutes)*time.Minute)
 
-	// Create main router with CORS
+	// Create main router with security middleware
 	router := mux.NewRouter()
+
+	// SECURITY: Apply rate limiting to protect against DoS and brute force attacks
+	rateLimiter := middleware.DefaultRateLimiter()
+	router.Use(middleware.RateLimit(rateLimiter))
+
 	router.Use(middleware.CORS)
 	router.Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

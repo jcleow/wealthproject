@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useTaxModeOptional } from '@/contexts/TaxModeContext'
+import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import {
   useCashAccountsQuery,
@@ -29,7 +30,7 @@ import {
 } from '@/hooks/queries'
 import type { TimelineItem } from '@/types/timeline'
 import type { PropertyLinkRecord } from '@/types/property'
-import type { FinancialFormValues } from '@/components/modals/FinancialFormModal'
+import type { FinancialFormValues, TimelineItemData } from '@/components/modals/FinancialFormModal'
 import { FinancialFormModal } from '@/components/modals/FinancialFormModal'
 import {
   ASSET_ENTITY,
@@ -110,6 +111,9 @@ export function FinancialDataManagement({
     deleteExpense,
     refresh,
   } = useFinancialDataContext()
+
+  // Person filtering
+  const { shouldShowData } = usePersonFilter()
 
   const { events: scenarioEvents } = useScenarioEvents()
 
@@ -204,10 +208,13 @@ export function FinancialDataManagement({
 
   const yearIncomes = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
-      return timelineMonthV2.income.map(incomeV2ToTimelineItem)
+      return timelineMonthV2.income
+        .map(incomeV2ToTimelineItem)
+        .filter((item) => shouldShowData(item.personId))
     }
-    return showMonthlyData ? (timelineMonth?.income ?? []) : (timelineYear?.income ?? [])
-  }, [hasV2Data, timelineMonthV2, showMonthlyData, timelineMonth, timelineYear])
+    const items = showMonthlyData ? (timelineMonth?.income ?? []) : (timelineYear?.income ?? [])
+    return items.filter((item) => shouldShowData(item.personId))
+  }, [hasV2Data, timelineMonthV2, showMonthlyData, timelineMonth, timelineYear, shouldShowData])
 
   const cpfContributionsRaw = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
@@ -820,7 +827,7 @@ export function FinancialDataManagement({
       isOpen: true,
       type: 'investment',
       mode: 'edit',
-      data: investmentData as any,
+      data: investmentData as TimelineItemData,
     })
   }
 

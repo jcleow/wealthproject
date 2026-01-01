@@ -114,8 +114,8 @@ type CreateGrantInput struct {
 // PropertyScenarioFull is the complete scenario with all related data
 type PropertyScenarioFull struct {
 	Scenario      PropertyScenario      `json:"scenario"`
-	SGDetails     *PropertySG           `json:"sgDetails,omitempty"`
-	MYDetails     interface{}           `json:"myDetails,omitempty"` // Future
+	PropertySG    *PropertySG           `json:"propertySG,omitempty"`
+	PropertyMY    interface{}           `json:"propertyMY,omitempty"` // Future
 	Fees          []PropertyFee         `json:"fees"`
 	GrowthPeriods []GrowthPeriod        `json:"growthPeriods"`
 	RatePeriods   []LiabilityRatePeriod `json:"ratePeriods"`
@@ -184,7 +184,7 @@ type CreateRatePeriodInput struct {
 // CreateScenarioInput is the input for creating a property scenario
 type CreateScenarioInput struct {
 	Country       string                    `json:"country"` // "SG" or "MY"
-	SGDetails     *CreateSGDetailsInput     `json:"sgDetails"`
+	PropertySG    *CreateSGDetailsInput     `json:"propertySG"`
 	Fees          []CreateFeeInput          `json:"fees"`
 	GrowthPeriods []CreateGrowthPeriodInput `json:"growthPeriods"`
 	RatePeriods   []CreateRatePeriodInput   `json:"ratePeriods"`
@@ -193,7 +193,7 @@ type CreateScenarioInput struct {
 
 // UpdateScenarioInput is the input for updating a property scenario
 type UpdateScenarioInput struct {
-	SGDetails     *CreateSGDetailsInput     `json:"sgDetails"`
+	PropertySG    *CreateSGDetailsInput     `json:"propertySG"`
 	Fees          []CreateFeeInput          `json:"fees"`
 	GrowthPeriods []CreateGrowthPeriodInput `json:"growthPeriods"`
 	RatePeriods   []CreateRatePeriodInput   `json:"ratePeriods"`
@@ -218,8 +218,8 @@ func (s *Store) CreatePropertyScenario(ctx context.Context, userID string, input
 
 	// 1. Create country-specific details first (to get the ID)
 	var sgDetailsID *string
-	if input.SGDetails != nil {
-		id, err := s.createSGDetails(ctx, tx, input.SGDetails)
+	if input.PropertySG != nil {
+		id, err := s.createSGDetails(ctx, tx, input.PropertySG)
 		if err != nil {
 			return nil, fmt.Errorf("create sg details: %w", err)
 		}
@@ -453,7 +453,7 @@ func (s *Store) GetPropertyScenario(ctx context.Context, userID, scenarioID stri
 		if err != nil {
 			return nil, fmt.Errorf("get sg details: %w", err)
 		}
-		result.SGDetails = sgDetails
+		result.PropertySG = sgDetails
 
 		// 2b. Get grants for SG details
 		grants, err := s.getPropertyGrants(ctx, *scenario.PropertySGID)
@@ -704,8 +704,8 @@ func (s *Store) UpdatePropertyScenario(ctx context.Context, userID, scenarioID s
 	defer tx.Rollback(ctx)
 
 	// Update SG details if present
-	if input.SGDetails != nil && existingSGDetailsID != nil {
-		if err := s.updateSGDetails(ctx, tx, *existingSGDetailsID, input.SGDetails); err != nil {
+	if input.PropertySG != nil && existingSGDetailsID != nil {
+		if err := s.updateSGDetails(ctx, tx, *existingSGDetailsID, input.PropertySG); err != nil {
 			return nil, fmt.Errorf("update sg details: %w", err)
 		}
 
@@ -1112,4 +1112,220 @@ func (s *Store) ListIncludedPropertyScenarios(ctx context.Context, userID string
 	}
 
 	return scenarios, nil
+}
+
+// ============================================================================
+// Cross-Property Validation Methods
+// ============================================================================
+
+// OtherPropertyMortgageInfo contains mortgage info from other included properties
+type OtherPropertyMortgageInfo struct {
+	PropertySGID   string          `json:"propertySgId"`
+	PropertyName   string          `json:"propertyName"`
+	LoanAmount     decimal.Decimal `json:"loanAmount"`
+	MonthlyPayment decimal.Decimal `json:"monthlyPayment"`
+	FirstRate      decimal.Decimal `json:"firstRate"`
+	TotalTermYears int             `json:"totalTermYears"`
+}
+
+// GetOtherIncludedPropertyMortgages returns mortgage details for other included properties.
+// This is used for TDSR calculation when validating a new property scenario.
+// Excludes the property with the given excludePropertySGID (can be nil for new properties).
+func (s *Store) GetOtherIncludedPropertyMortgages(
+	ctx context.Context,
+	userID string,
+	excludePropertySGID *string,
+) ([]OtherPropertyMortgageInfo, error) {
+	// Query all included properties with their first rate period
+	// We need: property_price, downpayment totals, grants, and rate info to calculate loan amount and monthly payment
+	query := `
+		SELECT
+			sg.id,
+			sg.name,
+			sg.property_price,
+			sg.downpayment_cpf_oa,
+			sg.downpayment_cash,
+			COALESCE((SELECT SUM(amount) FROM property_sg_grants WHERE property_sg_id = sg.id), 0) as grants_total,
+			rp.rate,
+			rp.term_years
+		FROM property_scenarios ps
+		JOIN property_sg sg ON ps.property_sg_id = sg.id
+		LEFT JOIN LATERAL (
+			SELECT rate, term_years
+			FROM liability_rate_periods
+			WHERE property_sg_id = sg.id
+			ORDER BY period_order
+			LIMIT 1
+		) rp ON true
+		WHERE ps.user_id = $1
+		  AND sg.is_included = true
+		  AND ($2::uuid IS NULL OR sg.id != $2)
+	`
+
+	var excludeID interface{}
+	if excludePropertySGID != nil {
+		excludeID = *excludePropertySGID
+	}
+
+	rows, err := s.pool.Query(ctx, query, userID, excludeID)
+	if err != nil {
+		return nil, fmt.Errorf("query other property mortgages: %w", err)
+	}
+	defer rows.Close()
+
+	var results []OtherPropertyMortgageInfo
+	for rows.Next() {
+		var info OtherPropertyMortgageInfo
+		var propertyPrice, downpaymentCpfOa, downpaymentCash, grantsTotal decimal.Decimal
+		var rate *decimal.Decimal
+		var termYears *int
+
+		err := rows.Scan(
+			&info.PropertySGID,
+			&info.PropertyName,
+			&propertyPrice,
+			&downpaymentCpfOa,
+			&downpaymentCash,
+			&grantsTotal,
+			&rate,
+			&termYears,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan property mortgage info: %w", err)
+		}
+
+		// Skip if no rate period (can't calculate mortgage)
+		if rate == nil || termYears == nil {
+			continue
+		}
+
+		// Calculate loan amount: property_price - (cpf_oa + cash + grants)
+		downpaymentTotal := downpaymentCpfOa.Add(&downpaymentCash)
+		downpaymentTotal = downpaymentTotal.Add(&grantsTotal)
+		loanAmount := propertyPrice.Sub(downpaymentTotal)
+
+		// Skip if loan amount is zero or negative
+		zero := decimal.Zero()
+		if loanAmount.Cmp(zero) <= 0 {
+			continue
+		}
+
+		info.LoanAmount = *loanAmount
+		info.FirstRate = *rate
+		info.TotalTermYears = *termYears
+
+		// Monthly payment will be calculated in the service layer using the calculator
+		// For now, store the components needed
+
+		results = append(results, info)
+	}
+
+	return results, nil
+}
+
+// CPFOAUsageByAccount represents CPF OA usage aggregated by account
+type CPFOAUsageByAccount struct {
+	AccountID  string          `json:"accountId"`
+	Earner     string          `json:"earner"`
+	OABalance  decimal.Decimal `json:"oaBalance"`
+	TotalUsage decimal.Decimal `json:"totalUsage"`
+}
+
+// GetCPFOAUsageByAccount returns total CPF OA usage across all included properties,
+// grouped by CPF account ID. Excludes the property with the given excludePropertySGID.
+func (s *Store) GetCPFOAUsageByAccount(
+	ctx context.Context,
+	userID string,
+	excludePropertySGID *string,
+) ([]CPFOAUsageByAccount, error) {
+	// Query to get CPF OA usage by account from all included properties
+	// We need to consider both borrower1 and borrower2 CPF accounts
+	query := `
+		WITH property_cpf_usage AS (
+			-- Get borrower1 CPF usage
+			SELECT
+				sg.borrower1_cpf_account_id as cpf_account_id,
+				sg.downpayment_cpf_oa as usage
+			FROM property_scenarios ps
+			JOIN property_sg sg ON ps.property_sg_id = sg.id
+			WHERE ps.user_id = $1
+			  AND sg.is_included = true
+			  AND sg.borrower1_cpf_account_id IS NOT NULL
+			  AND ($2::uuid IS NULL OR sg.id != $2)
+
+			UNION ALL
+
+			-- Get borrower2 CPF usage (for joint purchases)
+			-- Note: For joint, we assume each borrower contributes half unless specified
+			-- For now, we track borrower2's linked account but the downpayment_cpf_oa is the total
+			-- This could be enhanced to track per-borrower contributions
+			SELECT
+				sg.borrower2_cpf_account_id as cpf_account_id,
+				0::numeric(15,4) as usage  -- Borrower2 CPF usage would need separate tracking
+			FROM property_scenarios ps
+			JOIN property_sg sg ON ps.property_sg_id = sg.id
+			WHERE ps.user_id = $1
+			  AND sg.is_included = true
+			  AND sg.borrower2_cpf_account_id IS NOT NULL
+			  AND sg.borrower2_cpf_account_id != sg.borrower1_cpf_account_id  -- Avoid double-counting
+			  AND ($2::uuid IS NULL OR sg.id != $2)
+		)
+		SELECT
+			cpf.id as account_id,
+			COALESCE(cpf.earner, '') as earner,
+			cpf.oa_balance,
+			COALESCE(SUM(pcu.usage), 0) as total_usage
+		FROM cpf_accounts cpf
+		LEFT JOIN property_cpf_usage pcu ON cpf.id = pcu.cpf_account_id
+		WHERE cpf.user_id = $1
+		  AND cpf.end_date IS NULL  -- Only active CPF accounts
+		  AND cpf.id IN (SELECT cpf_account_id FROM property_cpf_usage WHERE cpf_account_id IS NOT NULL)
+		GROUP BY cpf.id, cpf.earner, cpf.oa_balance
+	`
+
+	var excludeID interface{}
+	if excludePropertySGID != nil {
+		excludeID = *excludePropertySGID
+	}
+
+	rows, err := s.pool.Query(ctx, query, userID, excludeID)
+	if err != nil {
+		return nil, fmt.Errorf("query CPF OA usage by account: %w", err)
+	}
+	defer rows.Close()
+
+	var results []CPFOAUsageByAccount
+	for rows.Next() {
+		var usage CPFOAUsageByAccount
+		err := rows.Scan(
+			&usage.AccountID,
+			&usage.Earner,
+			&usage.OABalance,
+			&usage.TotalUsage,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan CPF OA usage: %w", err)
+		}
+		results = append(results, usage)
+	}
+
+	return results, nil
+}
+
+// GetCPFAccountOABalance retrieves the OA balance for a specific CPF account.
+func (s *Store) GetCPFAccountOABalance(ctx context.Context, userID, accountID string) (*decimal.Decimal, string, error) {
+	var oaBalance decimal.Decimal
+	var earner string
+	err := s.pool.QueryRow(ctx, `
+		SELECT oa_balance, COALESCE(earner, '')
+		FROM cpf_accounts
+		WHERE user_id = $1 AND id = $2 AND end_date IS NULL
+	`, userID, accountID).Scan(&oaBalance, &earner)
+	if err == pgx.ErrNoRows {
+		return nil, "", nil
+	}
+	if err != nil {
+		return nil, "", fmt.Errorf("get CPF OA balance: %w", err)
+	}
+	return &oaBalance, earner, nil
 }

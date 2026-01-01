@@ -12,7 +12,7 @@ export type PropertyType = 'hdb-resale' | 'hdb-bto' | 'ec' | 'private-resale' | 
 export type BorrowerType = 'single' | 'joint'
 export type LoanType = 'bank' | 'hdb'
 export type ChartView = 'balance' | 'composition' | 'schedule'
-export type FormStep = 'property' | 'borrowers' | 'financing' | 'terms'
+export type FormStep = 'property' | 'borrowers' | 'terms'
 export type SaleFormStep = 'timing' | 'fees'
 export type AccordionColor = 'rose' | 'violet' | 'emerald' | 'amber'
 
@@ -59,7 +59,8 @@ export interface LoanSegment {
 // 2. Second instalment at key collection
 export interface StaggeredDownpayment {
   enabled: boolean                    // Whether SDS is enabled
-  firstInstalmentPercent: number      // 2.5% (young couples) or 5% (standard)
+  firstInstalmentPercent: number      // e.g., 5% (standard) or 2.5% (young couples)
+  secondInstalmentPercent: number     // e.g., 20% - remainder of downpayment
   firstInstalmentMonth: string        // YYYY-MM - typically ~9 months after booking
   secondInstalmentMonth: string       // YYYY-MM - at key collection
 }

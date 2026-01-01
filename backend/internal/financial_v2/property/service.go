@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"financial-chat-system/backend/internal/cpf/projector"
 	"financial-chat-system/backend/internal/decimal"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
@@ -29,6 +30,31 @@ func IsValidationError(err error) bool {
 	return errors.As(err, &ve)
 }
 
+// =============================================================================
+// Cross-Property Validation Types
+// =============================================================================
+
+// CrossPropertyValidationResult holds validation results for cross-property syncing
+type CrossPropertyValidationResult struct {
+	TDSRValid          bool                    `json:"tdsrValid"`
+	TDSRRatio          *decimal.Decimal        `json:"tdsrRatio,omitempty"`
+	TDSRLimit          *decimal.Decimal        `json:"tdsrLimit"`
+	OtherMortgageTotal *decimal.Decimal        `json:"otherMortgageTotal,omitempty"`
+	CPFOAValid         bool                    `json:"cpfOaValid"`
+	CPFOAErrors        []CPFOAValidationError  `json:"cpfOaErrors,omitempty"`
+}
+
+// CPFOAValidationError describes a CPF OA validation failure
+type CPFOAValidationError struct {
+	AccountID      string           `json:"accountId"`
+	AccountEarner  string           `json:"accountEarner"`
+	AvailableOA    *decimal.Decimal `json:"availableOa"`
+	RequestedUsage *decimal.Decimal `json:"requestedUsage"`
+	OtherUsage     *decimal.Decimal `json:"otherUsage"`
+	TotalUsage     *decimal.Decimal `json:"totalUsage"`
+	Shortfall      *decimal.Decimal `json:"shortfall"`
+}
+
 // ComputedValues contains all derived values for a property scenario
 type ComputedValues struct {
 	LoanAmount       string `json:"loanAmount"`
@@ -39,6 +65,27 @@ type ComputedValues struct {
 	AbsdAmount       string `json:"absdAmount"`
 	TotalStampDuty   string `json:"totalStampDuty"`
 	TotalUpfrontCash string `json:"totalUpfrontCash"`
+
+	// Projected CPF OA balances at purchase date
+	ProjectedBorrower1OA string `json:"projectedBorrower1OA,omitempty"`
+	ProjectedBorrower2OA string `json:"projectedBorrower2OA,omitempty"`
+
+	// Cross-property context (only populated when scenario is included)
+	OtherMortgageTotal  string                  `json:"otherMortgageTotal,omitempty"`
+	EffectiveTDSRRatio  string                  `json:"effectiveTdsrRatio,omitempty"`
+	TDSRLimit           string                  `json:"tdsrLimit,omitempty"`
+	CPFOAUsageByAccount []CPFOAAccountUsageInfo `json:"cpfOaUsageByAccount,omitempty"`
+}
+
+// CPFOAAccountUsageInfo shows CPF OA usage info for display purposes
+type CPFOAAccountUsageInfo struct {
+	AccountID     string `json:"accountId"`
+	AccountEarner string `json:"accountEarner"`
+	OABalance     string `json:"oaBalance"`
+	UsedHere      string `json:"usedHere"`
+	UsedElsewhere string `json:"usedElsewhere"`
+	TotalUsed     string `json:"totalUsed"`
+	Remaining     string `json:"remaining"`
 }
 
 // =============================================================================
@@ -124,15 +171,17 @@ type CreateGrantParams struct {
 
 // Service handles property scenario business logic
 type Service struct {
-	store      *repo.Store
-	calculator *Calculator
+	store        *repo.Store
+	calculator   *Calculator
+	cpfProjector *projector.Projector
 }
 
 // NewService creates a new property service
 func NewService(store *repo.Store) *Service {
 	return &Service{
-		store:      store,
-		calculator: NewCalculator(),
+		store:        store,
+		calculator:   NewCalculator(),
+		cpfProjector: projector.New(),
 	}
 }
 
@@ -142,6 +191,24 @@ func NewService(store *repo.Store) *Service {
 
 // CreateFromParams validates and converts raw params then creates a property scenario.
 func (s *Service) CreateFromParams(ctx context.Context, userID string, params CreateScenarioParams) (*repo.PropertyScenarioFull, error) {
+	// Validate cross-property constraints before creating
+	validation, err := s.ValidateCrossPropertyConstraints(ctx, userID, nil, params)
+	if err != nil {
+		return nil, fmt.Errorf("validate cross-property constraints: %w", err)
+	}
+
+	if !validation.TDSRValid {
+		return nil, ValidationError{
+			Message: s.buildTDSRErrorMessage(validation),
+		}
+	}
+
+	if !validation.CPFOAValid {
+		return nil, ValidationError{
+			Message: s.buildCPFOAErrorMessage(validation.CPFOAErrors),
+		}
+	}
+
 	input, err := buildCreateScenarioInput(params)
 	if err != nil {
 		return nil, err
@@ -151,13 +218,42 @@ func (s *Service) CreateFromParams(ctx context.Context, userID string, params Cr
 
 // UpdateFromParams validates and converts raw params then updates a property scenario.
 func (s *Service) UpdateFromParams(ctx context.Context, userID, scenarioID string, params CreateScenarioParams) (*repo.PropertyScenarioFull, error) {
+	// Get existing scenario to find its property_sg_id for exclusion
+	existing, err := s.store.GetPropertyScenario(ctx, userID, scenarioID)
+	if err != nil {
+		return nil, fmt.Errorf("get existing scenario: %w", err)
+	}
+
+	// Validate cross-property constraints (exclude current property from "other" calculations)
+	var excludePropertySGID *string
+	if existing.PropertySG != nil {
+		excludePropertySGID = &existing.PropertySG.ID
+	}
+
+	validation, err := s.ValidateCrossPropertyConstraints(ctx, userID, excludePropertySGID, params)
+	if err != nil {
+		return nil, fmt.Errorf("validate cross-property constraints: %w", err)
+	}
+
+	if !validation.TDSRValid {
+		return nil, ValidationError{
+			Message: s.buildTDSRErrorMessage(validation),
+		}
+	}
+
+	if !validation.CPFOAValid {
+		return nil, ValidationError{
+			Message: s.buildCPFOAErrorMessage(validation.CPFOAErrors),
+		}
+	}
+
 	createInput, err := buildCreateScenarioInput(params)
 	if err != nil {
 		return nil, err
 	}
 
 	updateInput := repo.UpdateScenarioInput{
-		SGDetails:     createInput.SGDetails,
+		PropertySG:    createInput.PropertySG,
 		Fees:          createInput.Fees,
 		GrowthPeriods: createInput.GrowthPeriods,
 		RatePeriods:   createInput.RatePeriods,
@@ -182,6 +278,341 @@ func (s *Service) Delete(ctx context.Context, userID, scenarioID string) error {
 	return s.store.DeletePropertyScenario(ctx, userID, scenarioID)
 }
 
+// ValidateCrossPropertyConstraints validates TDSR and CPF OA across all included properties.
+// This should be called BEFORE creating/updating a property scenario.
+// Returns validation result (check TDSRValid and CPFOAValid for violations).
+// Parameters:
+//   - excludePropertySGID: the property_sg ID to exclude (nil for create, set for update)
+//   - params: the property being created/updated
+func (s *Service) ValidateCrossPropertyConstraints(
+	ctx context.Context,
+	userID string,
+	excludePropertySGID *string,
+	params CreateScenarioParams,
+) (*CrossPropertyValidationResult, error) {
+	result := &CrossPropertyValidationResult{
+		TDSRValid:  true,
+		CPFOAValid: true,
+		TDSRLimit:  decimal.MustFromString("0.55"), // 55%
+	}
+
+	if params.SGDetails == nil {
+		return result, nil
+	}
+
+	// Check if this property is included
+	if params.SGDetails.IsIncluded != nil && !*params.SGDetails.IsIncluded {
+		// Not included, skip validation
+		return result, nil
+	}
+
+	// Build the input to get loan amount and rate info
+	input, err := buildCreateScenarioInput(params)
+	if err != nil {
+		return nil, err
+	}
+
+	// ==========================================================================
+	// TDSR Validation
+	// ==========================================================================
+	if err := s.validateTDSR(ctx, userID, excludePropertySGID, input, result); err != nil {
+		return nil, err
+	}
+
+	// ==========================================================================
+	// CPF OA Validation
+	// ==========================================================================
+	if err := s.validateCPFOA(ctx, userID, excludePropertySGID, input, result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// validateTDSR checks if the new property's mortgage + other property mortgages exceeds TDSR limit
+func (s *Service) validateTDSR(
+	ctx context.Context,
+	userID string,
+	excludePropertySGID *string,
+	input repo.CreateScenarioInput,
+	result *CrossPropertyValidationResult,
+) error {
+	if input.PropertySG == nil || len(input.RatePeriods) == 0 {
+		return nil
+	}
+
+	details := input.PropertySG
+
+	// Get borrower's monthly income
+	monthlyIncome, err := s.getBorrowerMonthlyIncome(ctx, userID, details.Borrower1IncomeID, details.Borrower2IncomeID)
+	if err != nil {
+		return err
+	}
+
+	// If no income linked, we can't validate TDSR - skip validation
+	zero := decimal.Zero()
+	if monthlyIncome == nil || monthlyIncome.Cmp(zero) <= 0 {
+		return nil
+	}
+
+	// Calculate current property's monthly payment
+	grantsTotal := sumGrantsInput(input.Grants)
+	downpaymentCpfOa := decimal.Zero()
+	if details.DownpaymentCpfOa != nil {
+		downpaymentCpfOa = details.DownpaymentCpfOa
+	}
+	downpaymentCash := decimal.Zero()
+	if details.DownpaymentCash != nil {
+		downpaymentCash = details.DownpaymentCash
+	}
+
+	downpaymentTotal := downpaymentCpfOa.Add(downpaymentCash)
+	downpaymentTotal = downpaymentTotal.Add(grantsTotal)
+	loanAmount := details.PropertyPrice.Sub(downpaymentTotal)
+
+	// Skip TDSR check if no loan needed
+	if loanAmount.Cmp(zero) <= 0 {
+		return nil
+	}
+
+	// Calculate monthly payment for this property
+	totalTermMonths := 0
+	for _, rp := range input.RatePeriods {
+		totalTermMonths += rp.TermYears * 12
+	}
+	firstRate := input.RatePeriods[0].Rate
+
+	mortgageResult := s.calculator.CalculateMortgage(loanAmount, totalTermMonths, &firstRate)
+	currentMonthlyPayment := mortgageResult.MonthlyPayment
+
+	// Get other property mortgages
+	otherMortgages, err := s.store.GetOtherIncludedPropertyMortgages(ctx, userID, excludePropertySGID)
+	if err != nil {
+		return fmt.Errorf("get other property mortgages: %w", err)
+	}
+
+	// Calculate total monthly payment from other properties
+	otherMortgageTotal := decimal.Zero()
+	for _, other := range otherMortgages {
+		// Calculate monthly payment for each other property
+		termMonths := other.TotalTermYears * 12
+		otherResult := s.calculator.CalculateMortgage(&other.LoanAmount, termMonths, &other.FirstRate)
+		otherMortgageTotal = otherMortgageTotal.Add(otherResult.MonthlyPayment)
+	}
+	result.OtherMortgageTotal = otherMortgageTotal
+
+	// Get manual other debt
+	otherDebt := decimal.Zero()
+	if details.OtherDebt != nil {
+		otherDebt = details.OtherDebt
+	}
+
+	// Calculate total debt service ratio
+	totalMonthlyDebt := currentMonthlyPayment.Add(otherMortgageTotal)
+	totalMonthlyDebt = totalMonthlyDebt.Add(otherDebt)
+
+	tdsrRatio := totalMonthlyDebt.Div(monthlyIncome)
+	result.TDSRRatio = tdsrRatio.Round(4)
+
+	// Check if TDSR exceeds limit (55%)
+	tdsrLimit := decimal.MustFromString("0.55")
+	if tdsrRatio.Cmp(tdsrLimit) > 0 {
+		result.TDSRValid = false
+	}
+
+	return nil
+}
+
+// validateCPFOA checks if the new property's CPF OA usage exceeds available balance
+func (s *Service) validateCPFOA(
+	ctx context.Context,
+	userID string,
+	excludePropertySGID *string,
+	input repo.CreateScenarioInput,
+	result *CrossPropertyValidationResult,
+) error {
+	if input.PropertySG == nil {
+		return nil
+	}
+
+	details := input.PropertySG
+
+	// Get current property's CPF OA usage
+	requestedCpfOa := decimal.Zero()
+	if details.DownpaymentCpfOa != nil {
+		requestedCpfOa = details.DownpaymentCpfOa
+	}
+
+	// Skip if no CPF OA usage requested
+	zero := decimal.Zero()
+	if requestedCpfOa.Cmp(zero) <= 0 {
+		return nil
+	}
+
+	// Get borrower1's CPF account ID
+	if details.Borrower1CpfAccountID == nil {
+		// No CPF account linked, skip validation
+		return nil
+	}
+
+	// Get CPF OA usage from other properties
+	existingUsage, err := s.store.GetCPFOAUsageByAccount(ctx, userID, excludePropertySGID)
+	if err != nil {
+		return fmt.Errorf("get CPF OA usage: %w", err)
+	}
+
+	// Build a map of existing usage by account ID
+	usageByAccount := make(map[string]*decimal.Decimal)
+	for _, u := range existingUsage {
+		usageByAccount[u.AccountID] = &u.TotalUsage
+	}
+
+	// Check borrower1's CPF account
+	accountID := *details.Borrower1CpfAccountID
+	oaBalance, earner, err := s.store.GetCPFAccountOABalance(ctx, userID, accountID)
+	if err != nil {
+		return fmt.Errorf("get CPF account balance: %w", err)
+	}
+
+	if oaBalance != nil {
+		otherUsage := decimal.Zero()
+		if existingUsagePtr, ok := usageByAccount[accountID]; ok {
+			otherUsage = existingUsagePtr
+		}
+
+		totalUsage := requestedCpfOa.Add(otherUsage)
+
+		if totalUsage.Cmp(oaBalance) > 0 {
+			shortfall := totalUsage.Sub(oaBalance)
+			result.CPFOAValid = false
+			result.CPFOAErrors = append(result.CPFOAErrors, CPFOAValidationError{
+				AccountID:      accountID,
+				AccountEarner:  earner,
+				AvailableOA:    oaBalance,
+				RequestedUsage: requestedCpfOa,
+				OtherUsage:     otherUsage,
+				TotalUsage:     totalUsage,
+				Shortfall:      shortfall,
+			})
+		}
+	}
+
+	// Note: For borrower2, we would need separate downpayment tracking per borrower
+	// Currently downpayment_cpf_oa is a single field representing total CPF usage
+	// This could be enhanced in the future with borrower1_cpf_oa and borrower2_cpf_oa fields
+
+	return nil
+}
+
+// getBorrowerMonthlyIncome retrieves the total monthly income for borrowers
+func (s *Service) getBorrowerMonthlyIncome(
+	ctx context.Context,
+	userID string,
+	borrower1IncomeID *string,
+	borrower2IncomeID *string,
+) (*decimal.Decimal, error) {
+	totalIncome := decimal.Zero()
+
+	// Get borrower1's income
+	if borrower1IncomeID != nil {
+		income, err := s.getMonthlyIncomeByID(ctx, userID, *borrower1IncomeID)
+		if err != nil {
+			return nil, err
+		}
+		if income != nil {
+			totalIncome = totalIncome.Add(income)
+		}
+	}
+
+	// Get borrower2's income (for joint purchases)
+	if borrower2IncomeID != nil && borrower2IncomeID != borrower1IncomeID {
+		income, err := s.getMonthlyIncomeByID(ctx, userID, *borrower2IncomeID)
+		if err != nil {
+			return nil, err
+		}
+		if income != nil {
+			totalIncome = totalIncome.Add(income)
+		}
+	}
+
+	return totalIncome, nil
+}
+
+// getMonthlyIncomeByID retrieves monthly income for a given income ID
+func (s *Service) getMonthlyIncomeByID(ctx context.Context, userID, incomeID string) (*decimal.Decimal, error) {
+	income, err := s.store.GetIncome(ctx, userID, incomeID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get income: %w", err)
+	}
+
+	// Convert to monthly based on frequency
+	monthlyAmount := &income.Amount
+	switch income.Frequency {
+	case "yearly", "annual":
+		monthly := income.Amount.Div(decimal.NewFromInt64(12, 0))
+		monthlyAmount = monthly
+	case "one_time":
+		// One-time income shouldn't be used for TDSR
+		return nil, nil
+	}
+
+	return monthlyAmount, nil
+}
+
+// sumGrantsInput sums all grants from input
+func sumGrantsInput(grants []repo.CreateGrantInput) *decimal.Decimal {
+	total := decimal.Zero()
+	for _, g := range grants {
+		total = total.Add(&g.Amount)
+	}
+	return total
+}
+
+// buildTDSRErrorMessage builds a user-friendly error message for TDSR violations
+func (s *Service) buildTDSRErrorMessage(result *CrossPropertyValidationResult) string {
+	hundred := decimal.MustFromString("100")
+	ratioPercent := result.TDSRRatio.Mul(hundred).Round(1)
+	limitPercent := result.TDSRLimit.Mul(hundred).Round(0)
+
+	msg := fmt.Sprintf("TDSR ratio %s%% exceeds %s%% limit", ratioPercent.String(), limitPercent.String())
+
+	if result.OtherMortgageTotal != nil {
+		zero := decimal.Zero()
+		if result.OtherMortgageTotal.Cmp(zero) > 0 {
+			msg += fmt.Sprintf(". Other included properties contribute $%s/month in mortgage payments", result.OtherMortgageTotal.Round(0).String())
+		}
+	}
+
+	return msg
+}
+
+// buildCPFOAErrorMessage builds a user-friendly error message for CPF OA violations
+func (s *Service) buildCPFOAErrorMessage(errors []CPFOAValidationError) string {
+	if len(errors) == 0 {
+		return "CPF OA usage exceeds available balance"
+	}
+
+	msg := "CPF OA usage exceeds available balance:\n"
+	for _, e := range errors {
+		accountName := e.AccountEarner
+		if accountName == "" {
+			accountName = "CPF Account"
+		}
+		msg += fmt.Sprintf("- %s: $%s (this property) + $%s (other properties) = $%s total (Available: $%s)\n",
+			accountName,
+			e.RequestedUsage.Round(0).String(),
+			e.OtherUsage.Round(0).String(),
+			e.TotalUsage.Round(0).String(),
+			e.AvailableOA.Round(0).String(),
+		)
+	}
+
+	return msg
+}
+
 // CreateGrantFromParams validates and converts raw params then creates a grant.
 func (s *Service) CreateGrantFromParams(ctx context.Context, userID, scenarioID string, params CreateGrantParams) (*repo.PropertySGGrant, error) {
 	input, err := buildGrantInput(params)
@@ -202,11 +633,11 @@ func (s *Service) UpdateGrantFromParams(ctx context.Context, userID, scenarioID,
 
 // ComputeValues calculates all derived values for a scenario
 func (s *Service) ComputeValues(scenario *repo.PropertyScenarioFull) *ComputedValues {
-	if scenario.SGDetails == nil || len(scenario.RatePeriods) == 0 {
+	if scenario.PropertySG == nil || len(scenario.RatePeriods) == 0 {
 		return nil
 	}
 
-	details := scenario.SGDetails
+	details := scenario.PropertySG
 
 	// Sum all grants
 	grantsTotal := sumGrants(scenario.Grants)
@@ -247,6 +678,220 @@ func (s *Service) ComputeValues(scenario *repo.PropertyScenarioFull) *ComputedVa
 	}
 }
 
+// getProjectedBorrowerBalances projects CPF OA balances to the purchase date for both borrowers.
+// It returns projected OA balances accounting for contributions and interest growth.
+func (s *Service) getProjectedBorrowerBalances(
+	ctx context.Context,
+	userID string,
+	borrower1IncomeID, borrower1CpfAccountID *string,
+	borrower2IncomeID, borrower2CpfAccountID *string,
+	purchaseDate time.Time,
+) (borrower1OA, borrower2OA *decimal.Decimal, err error) {
+	// Helper function to project a single borrower
+	projectBorrower := func(incomeID, cpfAccountID *string) (*decimal.Decimal, error) {
+		if cpfAccountID == nil {
+			return nil, nil
+		}
+
+		// Get CPF account
+		cpfAccount, err := s.store.GetCPFAccountByID(ctx, userID, *cpfAccountID)
+		if err != nil {
+			if errors.Is(err, repo.ErrNotFound) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("get CPF account: %w", err)
+		}
+
+		// Build account snapshot
+		snapshot := projector.AccountSnapshot{
+			OABalance:       &cpfAccount.OABalance,
+			SABalance:       &cpfAccount.SABalance,
+			MABalance:       &cpfAccount.MABalance,
+			RABalance:       &cpfAccount.RABalance,
+			DateOfBirth:     cpfAccount.DateOfBirth,
+			ResidencyStatus: cpfAccount.ResidencyStatus,
+			AsOfDate:        cpfAccount.StartDate,
+		}
+
+		// Build income streams
+		var incomes []projector.IncomeStream
+		if incomeID != nil {
+			income, err := s.store.GetIncome(ctx, userID, *incomeID)
+			if err == nil {
+				// Convert to monthly amount
+				monthlyAmount := &income.Amount
+				switch income.Frequency {
+				case "yearly", "annual":
+					monthly := income.Amount.Div(decimal.NewFromInt64(12, 0))
+					monthlyAmount = monthly
+				}
+
+				// Only include if wage type is valid for CPF
+				if income.CPFWageType == "ow" || income.CPFWageType == "aw" {
+					incomes = append(incomes, projector.IncomeStream{
+						MonthlyAmount: monthlyAmount,
+						WageType:      income.CPFWageType,
+						StartDate:     income.StartDate,
+						EndDate:       income.EndDate,
+					})
+				}
+			}
+		}
+
+		// Project to purchase date
+		projected, err := s.cpfProjector.ProjectToDate(ctx, snapshot, incomes, purchaseDate)
+		if err != nil {
+			return nil, fmt.Errorf("project CPF: %w", err)
+		}
+
+		return projected.OA, nil
+	}
+
+	// Project borrower 1
+	borrower1OA, err = projectBorrower(borrower1IncomeID, borrower1CpfAccountID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Project borrower 2 (only if different from borrower 1)
+	if borrower2CpfAccountID != nil && (borrower1CpfAccountID == nil || *borrower2CpfAccountID != *borrower1CpfAccountID) {
+		borrower2OA, err = projectBorrower(borrower2IncomeID, borrower2CpfAccountID)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return borrower1OA, borrower2OA, nil
+}
+
+// getPurchaseDate determines the earliest purchase date from scenario details.
+// For BTO properties, uses BtoKeyCollectionDate. Otherwise uses first rate period start.
+func (s *Service) getPurchaseDate(scenario *repo.PropertyScenarioFull) time.Time {
+	if scenario.PropertySG == nil {
+		return time.Now()
+	}
+
+	// For BTO, use key collection date if available
+	if scenario.PropertySG.BtoKeyCollectionDate != nil {
+		parsed, err := time.Parse("2006-01", *scenario.PropertySG.BtoKeyCollectionDate)
+		if err == nil {
+			return parsed
+		}
+	}
+
+	// Otherwise use first rate period's start date (loan start)
+	if len(scenario.RatePeriods) > 0 {
+		return scenario.RatePeriods[0].StartDate
+	}
+
+	return time.Now()
+}
+
+// ComputeValuesWithContext calculates all derived values including cross-property context.
+// This includes information about other property mortgages and CPF OA usage.
+func (s *Service) ComputeValuesWithContext(
+	ctx context.Context,
+	userID string,
+	scenario *repo.PropertyScenarioFull,
+) *ComputedValues {
+	// Get base computed values
+	result := s.ComputeValues(scenario)
+	if result == nil {
+		return nil
+	}
+
+	// Only add cross-property context for included scenarios
+	if scenario.PropertySG == nil || !scenario.PropertySG.IsIncluded {
+		return result
+	}
+
+	details := scenario.PropertySG
+
+	// Get projected CPF OA balances at purchase date
+	purchaseDate := s.getPurchaseDate(scenario)
+	b1OA, b2OA, err := s.getProjectedBorrowerBalances(
+		ctx, userID,
+		details.Borrower1IncomeID, details.Borrower1CpfAccountID,
+		details.Borrower2IncomeID, details.Borrower2CpfAccountID,
+		purchaseDate,
+	)
+	if err == nil {
+		if b1OA != nil {
+			result.ProjectedBorrower1OA = b1OA.Round(2).String()
+		}
+		if b2OA != nil {
+			result.ProjectedBorrower2OA = b2OA.Round(2).String()
+		}
+	}
+
+	// Get other property mortgages
+	otherMortgages, err := s.store.GetOtherIncludedPropertyMortgages(ctx, userID, &details.ID)
+	if err == nil {
+		// Calculate total monthly payment from other properties
+		otherMortgageTotal := decimal.Zero()
+		for _, other := range otherMortgages {
+			termMonths := other.TotalTermYears * 12
+			otherResult := s.calculator.CalculateMortgage(&other.LoanAmount, termMonths, &other.FirstRate)
+			otherMortgageTotal = otherMortgageTotal.Add(otherResult.MonthlyPayment)
+		}
+		result.OtherMortgageTotal = otherMortgageTotal.Round(2).String()
+
+		// Calculate effective TDSR if we have income info
+		monthlyIncome, _ := s.getBorrowerMonthlyIncome(ctx, userID, details.Borrower1IncomeID, details.Borrower2IncomeID)
+		zero := decimal.Zero()
+		if monthlyIncome != nil && monthlyIncome.Cmp(zero) > 0 {
+			// Parse current monthly payment
+			currentPayment, _ := decimal.NewFromString(result.MonthlyPayment)
+			if currentPayment != nil {
+				totalDebt := currentPayment.Add(otherMortgageTotal)
+				totalDebt = totalDebt.Add(&details.OtherDebt)
+				tdsrRatio := totalDebt.Div(monthlyIncome)
+
+				hundred := decimal.MustFromString("100")
+				tdsrPercent := tdsrRatio.Mul(hundred).Round(1)
+				result.EffectiveTDSRRatio = tdsrPercent.String() + "%"
+				result.TDSRLimit = "55%"
+			}
+		}
+	}
+
+	// Get CPF OA usage info
+	if details.Borrower1CpfAccountID != nil {
+		existingUsage, err := s.store.GetCPFOAUsageByAccount(ctx, userID, &details.ID)
+		if err == nil {
+			// Build a map of existing usage by account ID
+			usageByAccount := make(map[string]*decimal.Decimal)
+			for _, u := range existingUsage {
+				usageByAccount[u.AccountID] = &u.TotalUsage
+			}
+
+			// Get the CPF account info
+			oaBalance, earner, err := s.store.GetCPFAccountOABalance(ctx, userID, *details.Borrower1CpfAccountID)
+			if err == nil && oaBalance != nil {
+				usedHere := &details.DownpaymentCpfOa
+				usedElsewhere := decimal.Zero()
+				if existingUsagePtr, ok := usageByAccount[*details.Borrower1CpfAccountID]; ok {
+					usedElsewhere = existingUsagePtr
+				}
+				totalUsed := usedHere.Add(usedElsewhere)
+				remaining := oaBalance.Sub(totalUsed)
+
+				result.CPFOAUsageByAccount = append(result.CPFOAUsageByAccount, CPFOAAccountUsageInfo{
+					AccountID:     *details.Borrower1CpfAccountID,
+					AccountEarner: earner,
+					OABalance:     oaBalance.Round(0).String(),
+					UsedHere:      usedHere.Round(0).String(),
+					UsedElsewhere: usedElsewhere.Round(0).String(),
+					TotalUsed:     totalUsed.Round(0).String(),
+					Remaining:     remaining.Round(0).String(),
+				})
+			}
+		}
+	}
+
+	return result
+}
+
 // =============================================================================
 // Build Functions (convert Params to repo Input)
 // =============================================================================
@@ -260,7 +905,7 @@ func buildCreateScenarioInput(params CreateScenarioParams) (repo.CreateScenarioI
 		if err != nil {
 			return input, err
 		}
-		input.SGDetails = sg
+		input.PropertySG = sg
 	}
 
 	for _, f := range params.Fees {

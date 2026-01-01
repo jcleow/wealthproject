@@ -25,9 +25,9 @@ export function usePropertyScenarioMarkers(
     const markers: PropertyMarkerData[] = []
 
     for (const scenario of scenarios) {
-      const sgDetails = scenario.sgDetails
+      const sgDetails = scenario.propertySG
       if (!sgDetails) {
-        console.log('[PropertyMarkers] Skipping scenario - no sgDetails:', scenario.scenario.id)
+        console.log('[PropertyMarkers] Skipping scenario - no propertySG:', scenario.scenario.id)
         continue
       }
 

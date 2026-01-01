@@ -21,6 +21,7 @@ func (s *Store) GetNonCashAsset(ctx context.Context, userID, id string) (*NonCas
 		growth_rate,
 		start_date,
 		end_date,
+		terminal_value,
 		COALESCE(notes, '') as notes,
 		COALESCE(growth_strategy, '') as growth_strategy,
 		updated_at
@@ -32,8 +33,8 @@ func (s *Store) GetNonCashAsset(ctx context.Context, userID, id string) (*NonCas
 	var a NonCashAsset
 	err := s.pool.QueryRow(ctx, query, userID, id).Scan(
 		&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue,
-		&a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.Notes,
-		&a.GrowthStrategy, &a.UpdatedAt,
+		&a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.TerminalValue,
+		&a.Notes, &a.GrowthStrategy, &a.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
@@ -60,22 +61,24 @@ func (s *Store) CreateNonCashAsset(ctx context.Context, userID string, asset Non
 	}
 
 	query := `
-		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, growth_rate, start_date, end_date, notes, growth_strategy)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), $10)
+		INSERT INTO finance_assets (user_id, parent_id, name, category, current_value, growth_rate, start_date, end_date, terminal_value, notes, growth_strategy)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), $11)
 		ON CONFLICT ON CONSTRAINT finance_assets_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    category=EXCLUDED.category,
 		    current_value=EXCLUDED.current_value,
 		    growth_rate=EXCLUDED.growth_rate,
 		    end_date=EXCLUDED.end_date,
+		    terminal_value=EXCLUDED.terminal_value,
 		    notes=EXCLUDED.notes,
 		    growth_strategy=EXCLUDED.growth_strategy,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id, id), name, category, current_value, growth_rate, start_date, end_date, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
+		RETURNING id, COALESCE(parent_id, id), name, category, current_value, growth_rate, start_date, end_date, terminal_value, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
 
 	args := []any{
 		userID, nullIfEmpty(asset.ParentID), asset.Name, asset.Category, asset.CurrentValue,
-		asset.AnnualGrowthRate, startDate, asset.EndDate, asset.Notes, growthStrategy,
+		asset.AnnualGrowthRate, startDate, asset.EndDate, asset.TerminalValue,
+		asset.Notes, growthStrategy,
 	}
 
 	logQuery(query, args)
@@ -84,8 +87,8 @@ func (s *Store) CreateNonCashAsset(ctx context.Context, userID string, asset Non
 	var created NonCashAsset
 	if err := row.Scan(
 		&created.ID, &created.ParentID, &created.Name, &created.Category, &created.CurrentValue,
-		&created.AnnualGrowthRate, &created.StartDate, &created.EndDate, &created.Notes,
-		&created.GrowthStrategy, &created.UpdatedAt,
+		&created.AnnualGrowthRate, &created.StartDate, &created.EndDate, &created.TerminalValue,
+		&created.Notes, &created.GrowthStrategy, &created.UpdatedAt,
 	); err != nil {
 		return NonCashAsset{}, fmt.Errorf("failed to create asset: %w", err)
 	}
@@ -103,11 +106,12 @@ func (s *Store) UpdateNonCashAsset(ctx context.Context, userID string, asset Non
 	    growth_rate = COALESCE($6, growth_rate),
 	    start_date = COALESCE($7, start_date),
 	    end_date = $8,
-	    notes = NULLIF($9, ''),
-	    growth_strategy = COALESCE(NULLIF($10, ''), growth_strategy, 'annual_step'),
+	    terminal_value = $9,
+	    notes = NULLIF($10, ''),
+	    growth_strategy = COALESCE(NULLIF($11, ''), growth_strategy, 'annual_step'),
 	    updated_at = NOW()
 	WHERE user_id = $1 AND id = $2
-	RETURNING id, COALESCE(parent_id, id), name, category, current_value, growth_rate, start_date, end_date, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
+	RETURNING id, COALESCE(parent_id, id), name, category, current_value, growth_rate, start_date, end_date, terminal_value, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
 
 	var startDate *time.Time
 	if !asset.StartDate.IsZero() {
@@ -122,7 +126,8 @@ func (s *Store) UpdateNonCashAsset(ctx context.Context, userID string, asset Non
 
 	args := []any{
 		userID, asset.ID, asset.Name, asset.Category, asset.CurrentValue,
-		growthRate, startDate, asset.EndDate, asset.Notes, asset.GrowthStrategy,
+		growthRate, startDate, asset.EndDate, asset.TerminalValue,
+		asset.Notes, asset.GrowthStrategy,
 	}
 
 	logQuery(query, args)
@@ -130,8 +135,8 @@ func (s *Store) UpdateNonCashAsset(ctx context.Context, userID string, asset Non
 	var updated NonCashAsset
 	err := s.pool.QueryRow(ctx, query, args...).Scan(
 		&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentValue,
-		&updated.AnnualGrowthRate, &updated.StartDate, &updated.EndDate, &updated.Notes,
-		&updated.GrowthStrategy, &updated.UpdatedAt,
+		&updated.AnnualGrowthRate, &updated.StartDate, &updated.EndDate, &updated.TerminalValue,
+		&updated.Notes, &updated.GrowthStrategy, &updated.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
@@ -177,15 +182,15 @@ func (s *Store) StopNonCashAsset(ctx context.Context, userID, id string, endDate
 	UPDATE finance_assets
 	SET end_date = $3, updated_at = NOW()
 	WHERE user_id = $1 AND id = $2
-	RETURNING id, COALESCE(parent_id, id), name, category, current_value, growth_rate, start_date, end_date, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
+	RETURNING id, COALESCE(parent_id, id), name, category, current_value, growth_rate, start_date, end_date, terminal_value, COALESCE(notes, ''), COALESCE(growth_strategy, ''), updated_at`
 
 	logQuery(query, []any{userID, id, endDate})
 
 	var updated NonCashAsset
 	err := s.pool.QueryRow(ctx, query, userID, id, endDate).Scan(
 		&updated.ID, &updated.ParentID, &updated.Name, &updated.Category, &updated.CurrentValue,
-		&updated.AnnualGrowthRate, &updated.StartDate, &updated.EndDate, &updated.Notes,
-		&updated.GrowthStrategy, &updated.UpdatedAt,
+		&updated.AnnualGrowthRate, &updated.StartDate, &updated.EndDate, &updated.TerminalValue,
+		&updated.Notes, &updated.GrowthStrategy, &updated.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
@@ -213,6 +218,7 @@ func (s *Store) FindNonCashAssetByParentAndStartDate(
 		growth_rate,
 		start_date,
 		end_date,
+		terminal_value,
 		COALESCE(notes, '') as notes,
 		COALESCE(growth_strategy, '') as growth_strategy,
 		updated_at
@@ -224,8 +230,8 @@ func (s *Store) FindNonCashAssetByParentAndStartDate(
 	var a NonCashAsset
 	err := s.pool.QueryRow(ctx, query, userID, parentID, startDate).Scan(
 		&a.ID, &a.ParentID, &a.Name, &a.Category, &a.CurrentValue,
-		&a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.Notes,
-		&a.GrowthStrategy, &a.UpdatedAt,
+		&a.AnnualGrowthRate, &a.StartDate, &a.EndDate, &a.TerminalValue,
+		&a.Notes, &a.GrowthStrategy, &a.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, nil // Not found, but not an error

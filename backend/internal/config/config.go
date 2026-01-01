@@ -1,8 +1,10 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -37,10 +39,20 @@ type Config struct {
 }
 
 func New() *Config {
+	// SECURITY: JWT secret validation is the DEFAULT behavior.
+	// Only skip validation when GO_ENV is explicitly set to dev/development/local.
+	// This ensures production and any unknown environments require strong secrets.
+	jwtSecret := getEnv("JWT_SECRET", "your-secret-key")
+	if !isDevelopment() {
+		if jwtSecret == "" || jwtSecret == "your-secret-key" || len(jwtSecret) < 32 {
+			log.Fatal("SECURITY ERROR: JWT_SECRET must be set to a strong secret (at least 32 characters)")
+		}
+	}
+
 	return &Config{
 		Port:        getEnv("PORT", "8080"),
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://financial_user:${DB_PASSWORD}@localhost:5432/financial_chat?sslmode=disable"),
-		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key"),
+		JWTSecret:   jwtSecret,
 		PrimaryLLM:  getEnv("PRIMARY_LLM", "openai"),
 
 		// LLM Providers
@@ -110,4 +122,21 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
+}
+
+// isProduction returns true if the application is running in production mode
+func isProduction() bool {
+	env := strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV")))
+	return env == "production" || env == "prod"
+}
+
+// isDevelopment returns true if the application is running in development mode
+func isDevelopment() bool {
+	env := strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV")))
+	return env == "development" || env == "dev" || env == "local"
+}
+
+// IsProduction is the exported version for use by other packages
+func IsProduction() bool {
+	return isProduction()
 }

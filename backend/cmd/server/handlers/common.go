@@ -61,6 +61,13 @@ func methodNotAllowed(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }
 
+// jsonResponse writes a JSON response with the given status code and data.
+func jsonResponse(w http.ResponseWriter, statusCode int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(data)
+}
+
 func notFound(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNotFound)
 }
@@ -70,12 +77,10 @@ func badRequest(w http.ResponseWriter, err error) {
 }
 
 func internalError(w http.ResponseWriter, err error) {
-	errMsg := "internal server error"
 	if err != nil {
-		log.Printf("Internal error details: %v", err)
-		errMsg = err.Error()
+		log.Printf("Internal error: %v", err)
 	}
-	writeError(w, http.StatusInternalServerError, "internal_error", errMsg)
+	writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 }
 
 func errMissingFields(fields string) error {

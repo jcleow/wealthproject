@@ -49,12 +49,23 @@ func (m *fullMockStore) GetCPFAccount(ctx context.Context, userID string) (*repo
 	return m.cpfAccount, nil
 }
 
+func (m *fullMockStore) ListCPFAccounts(ctx context.Context, userID string, dateOpts repo.DateRangeOptions) ([]repo.CPFAccount, error) {
+	if m.cpfAccount != nil {
+		return []repo.CPFAccount{*m.cpfAccount}, nil
+	}
+	return nil, nil
+}
+
 func (m *fullMockStore) ListAllIncomeAllocations(ctx context.Context, userID string) ([]repo.IncomeAllocation, error) {
 	return m.incomeAllocations, nil
 }
 
 func (m *fullMockStore) GetExcludedScenarioTargetIDs(ctx context.Context, userID string) (repo.ExcludedTargets, error) {
 	return repo.ExcludedTargets{}, nil
+}
+
+func (m *fullMockStore) GetExcludedPersonIDs(ctx context.Context, userID string) (map[string]struct{}, error) {
+	return nil, nil
 }
 
 func (m *fullMockStore) ListIncludedScenarioEvents(ctx context.Context, userID string) ([]repo.ScenarioEvent, error) {

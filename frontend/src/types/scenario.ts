@@ -118,6 +118,8 @@ export interface ScenarioImpactDto {
   // Liability-specific fields for start impacts
   interestRate?: number | null    // APR % for liabilities
   minimumPayment?: number | null  // Min payment for liabilities
+  // Income-specific fields for start impacts
+  personId?: string | null  // FK to persons table (required for income start impacts)
 }
 
 export interface ScenarioEventDto {
@@ -168,6 +170,8 @@ export interface ScenarioImpact {
   // Liability-specific fields for start impacts
   interestRate?: number  // APR % for liabilities
   minimumPayment?: number  // Min payment for liabilities
+  // Income-specific fields for start impacts
+  personId?: string  // FK to persons table (required for income start impacts)
 }
 
 export interface ScenarioEvent {
@@ -208,6 +212,8 @@ export const scenarioImpactFromDto = (dto: ScenarioImpactDto): ScenarioImpact =>
     // Liability-specific fields for start impacts
     interestRate: dto.interestRate ?? undefined,
     minimumPayment: dto.minimumPayment ?? undefined,
+    // Income-specific fields for start impacts
+    personId: dto.personId ?? undefined,
   }
 }
 
@@ -237,6 +243,8 @@ export const scenarioImpactToDto = (impact: ScenarioImpact): ScenarioImpactDto =
     // Liability-specific fields for start impacts
     interestRate: impact.interestRate,
     minimumPayment: impact.minimumPayment,
+    // Income-specific fields for start impacts
+    personId: impact.personId,
   }
 }
 

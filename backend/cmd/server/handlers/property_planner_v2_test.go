@@ -176,7 +176,7 @@ func TestPropertyPlannerV2_ComputeValues(t *testing.T) {
 		{
 			name: "standard HDB scenario",
 			scenario: &repo.PropertyScenarioFull{
-				SGDetails: &repo.PropertySG{
+				PropertySG: &repo.PropertySG{
 					PropertyPrice:    *decimal.MustFromString("850000"),
 					DownpaymentCpfOa: *decimal.MustFromString("100000"),
 					DownpaymentCash:  *decimal.MustFromString("70000"),
@@ -199,7 +199,7 @@ func TestPropertyPlannerV2_ComputeValues(t *testing.T) {
 		{
 			name: "no SG details returns nil",
 			scenario: &repo.PropertyScenarioFull{
-				SGDetails:   nil,
+				PropertySG:  nil,
 				RatePeriods: []repo.LiabilityRatePeriod{},
 			},
 			expectComputed: false,
@@ -207,7 +207,7 @@ func TestPropertyPlannerV2_ComputeValues(t *testing.T) {
 		{
 			name: "no rate periods returns nil",
 			scenario: &repo.PropertyScenarioFull{
-				SGDetails: &repo.PropertySG{
+				PropertySG: &repo.PropertySG{
 					PropertyPrice: *decimal.MustFromString("850000"),
 				},
 				RatePeriods: []repo.LiabilityRatePeriod{},
@@ -217,7 +217,7 @@ func TestPropertyPlannerV2_ComputeValues(t *testing.T) {
 		{
 			name: "condo for PR has ABSD",
 			scenario: &repo.PropertyScenarioFull{
-				SGDetails: &repo.PropertySG{
+				PropertySG: &repo.PropertySG{
 					PropertyPrice:    *decimal.MustFromString("1500000"),
 					DownpaymentCpfOa: *decimal.MustFromString("200000"),
 					DownpaymentCash:  *decimal.MustFromString("175000"),
@@ -327,7 +327,7 @@ func TestPropertyPlannerV2_ScenarioResponse_JSONSerialization(t *testing.T) {
 			ID:     "test-id-123",
 			UserID: "user-456",
 		},
-		SGDetails: &repo.PropertySG{
+		PropertySG: &repo.PropertySG{
 			ID:           "sg-details-789",
 			Name:         "Test HDB",
 			PropertyType: "hdb",
@@ -357,7 +357,7 @@ func TestPropertyPlannerV2_ScenarioResponse_JSONSerialization(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, parsed, "scenario")
-	assert.Contains(t, parsed, "sgDetails")
+	assert.Contains(t, parsed, "propertySG")
 	assert.Contains(t, parsed, "computed")
 
 	computed := parsed["computed"].(map[string]interface{})

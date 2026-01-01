@@ -27,6 +27,7 @@ export const QUERY_KEYS = {
     netWorth: ['financial', 'net-worth'] as const,
     cashflow: ['financial', 'cashflow'] as const,
     growth: ['financial', 'growth'] as const,
+    persons: ['financial', 'persons'] as const,
   },
 
   // Settings namespace

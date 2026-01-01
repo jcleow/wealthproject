@@ -11,6 +11,7 @@ import { ItemSelector, type FinancialItem } from './ItemSelector'
 import { AdvancedSection } from './AdvancedSection'
 import { DateRangeRow } from './DateRangeRow'
 import { LockedField } from './LockedField'
+import { PersonSelector } from '@/components/ui/PersonSelector'
 import {
   TARGET_TYPE_GROUPS,
   VERB_OPTIONS,
@@ -295,7 +296,7 @@ export function ImpactEditor({
 
       {/* New item name input - for 'starts_at' verb */}
       {currentVerb === 'starts_at' && (
-        <div className="mt-4 pt-4 border-t border-white/[0.04]">
+        <div className="mt-4 pt-4 border-t border-white/[0.04] space-y-4">
           {selectedItemId ? (
             <LockedField
               value={newItemName || ''}
@@ -306,7 +307,7 @@ export function ImpactEditor({
               isNew={false}
             />
           ) : (
-            <>
+            <div>
               <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">
                 Name for new {getTargetTypeLabel(impact.targetType)} <span className="text-rose-400">*</span>
               </label>
@@ -328,7 +329,26 @@ export function ImpactEditor({
                 placeholder={`e.g., ${getNamePlaceholder(impact.targetType)}`}
                 disabled={loading}
               />
-            </>
+            </div>
+          )}
+
+          {/* Person selector for income start impacts */}
+          {impact.targetType === 'income' && (
+            <div>
+              <label className="text-xs text-slate-500 uppercase tracking-wide mb-2 block">
+                Income earner <span className="text-rose-400">*</span>
+              </label>
+              <PersonSelector
+                value={impact.personId}
+                onChange={(personId) => onUpdate(index, { personId: personId ?? undefined })}
+                placeholder="Select person"
+                disabled={loading}
+                required
+              />
+              <p className="mt-1 text-xs text-slate-600">
+                Who earns this income?
+              </p>
+            </div>
           )}
         </div>
       )}

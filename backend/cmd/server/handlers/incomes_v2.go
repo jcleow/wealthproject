@@ -14,10 +14,11 @@ import (
 // incomeV2Input is the JSON-friendly input struct for income v2 update.
 // Uses string for decimal values to avoid float64 precision loss.
 type incomeV2Input struct {
-	ID             string  `json:"id"`
-	ParentID       string  `json:"parentId"`
-	Name           string  `json:"name"`
-	Category       string  `json:"category"`
+	ID             string `json:"id"`
+	ParentID       string `json:"parentId"`
+	Name           string `json:"name"`
+	PersonID       string `json:"personId"` // Required FK to persons table
+	Category       string `json:"category"`
 	Amount         string  `json:"amount"`
 	Frequency      string  `json:"frequency"`
 	GrowthRate     *string `json:"growthRate"`
@@ -44,8 +45,9 @@ func NewIncomeV2Handler(store *repo.Store) *IncomeV2Handler {
 // incomeV2CreateInput is the JSON-friendly input struct for income v2 create.
 // Uses string for decimal values to avoid float64 precision loss.
 type incomeV2CreateInput struct {
-	Name           string  `json:"name"`
-	Category       string  `json:"category"`
+	Name           string `json:"name"`
+	PersonID       string `json:"personId"` // Required FK to persons table
+	Category       string `json:"category"`
 	Amount         string  `json:"amount"`
 	Frequency      string  `json:"frequency"`
 	GrowthRate     *string `json:"growthRate"`
@@ -82,8 +84,8 @@ func (h *IncomeV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Name == "" || input.Amount == "" || input.Frequency == "" || input.Category == "" {
-		badRequest(w, errMissingFields("name, amount, frequency, category"))
+	if input.Name == "" || input.Amount == "" || input.Frequency == "" || input.Category == "" || input.PersonID == "" {
+		badRequest(w, errMissingFields("name, amount, frequency, category, personId"))
 		return
 	}
 
@@ -130,6 +132,7 @@ func (h *IncomeV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	// Build repository income
 	inc := repo.Income{
 		Name:           input.Name,
+		PersonID:       input.PersonID,
 		Category:       input.Category,
 		Amount:         *amount,
 		Frequency:      input.Frequency,
@@ -245,6 +248,7 @@ func (h *IncomeV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, i
 	serviceInput := income.UpdateInput{
 		ID:             id,
 		Name:           input.Name,
+		PersonID:       input.PersonID,
 		Category:       input.Category,
 		Amount:         *amount,
 		Frequency:      input.Frequency,

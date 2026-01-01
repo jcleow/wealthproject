@@ -158,6 +158,7 @@ describe('cpfAssetV2ToTimelineItem', () => {
       parentId: 'cpf-parent-1',
       name: 'CPF OA',
       category: 'cpf_oa',
+      earner: 'Alex',
       balance: '50000.0000',
       eventAdjBalance: '51250.0000',
       itemType: 'cpf_account',

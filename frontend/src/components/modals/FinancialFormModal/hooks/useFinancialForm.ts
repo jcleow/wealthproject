@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
-import type { Asset, Expense, Income, Liability } from '@/types/financial'
+import type { Asset, Expense, Income, Liability, Frequency } from '@/types/financial'
 import { growthApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
@@ -23,7 +23,17 @@ import {
   buildDefaultFormState,
   calculateVersionStartDate,
   calculateStopEndDate,
+  calculateLeaseEndDate,
 } from '../helpers'
+
+/** Combined data type for all possible properties from union */
+type FormData = NonNullable<FinancialFormModalProps['data']>
+
+/** Type guard to safely access optional properties from data union */
+function getDataProp<T>(data: FormData | undefined | null, key: string): T | undefined {
+  if (!data) return undefined
+  return (data as Record<string, unknown>)[key] as T | undefined
+}
 
 interface UseFinancialFormParams {
   type: FinancialFormModalProps['type']
@@ -77,11 +87,13 @@ export function useFinancialForm({
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [deleteMode, setDeleteMode] = useState<'stop' | 'delete'>('stop')
   const [applyFromThisMonthOnly, setApplyFromThisMonthOnly] = useState(true)
+  const [formErrors, setFormErrors] = useState<{ personId?: boolean }>({})
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
 
   // Derived values
   const isFutureMonth = (selectedYear ?? 0) > 0 || (selectedMonth ?? 1) > 1
   const isBusy = isSaving || isDeleting
-  const isDebtRepayment = type === 'expense' && !!(data as any)?.sourceLiabilityId
+  const isDebtRepayment = type === 'expense' && !!getDataProp<string>(data, 'sourceLiabilityId')
 
   // Fetch liabilities for debt repayment minimum payment check
   const { data: liabilitiesData } = useQuery({
@@ -109,6 +121,8 @@ export function useFinancialForm({
     setApplyFromThisMonthOnly(true)
     setShowDeleteConfirmation(false)
     setDeleteMode('stop')
+    setFormErrors({})
+    setHasAttemptedSubmit(false)
 
     if (!data) {
       setFormData(buildDefaultFormState(type, growthConfigs))
@@ -132,14 +146,17 @@ export function useFinancialForm({
     switch (type) {
       case 'asset': {
         const asset = itemData as Asset
-        const amt = (asset as any).amountAnnual ?? asset.currentValue ?? 0
+        const amt = getDataProp<number>(itemData, 'amountAnnual') ?? asset.currentValue ?? 0
         const itemRate = asset.annualGrowthRate
         const effectiveRate =
           itemRate && itemRate !== 0
             ? itemRate
             : getRateForCategory(type, asset.category, growthConfigs)
+
         setFormData({
           name: toSafeText(asset.name),
+          earner: '',
+          personId: null,
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: 'monthly',
           category: asset.category,
@@ -148,12 +165,18 @@ export function useFinancialForm({
           minimumPayment: '',
           growthRate: '3.0',
           notes: asset.notes ?? '',
+          // Useful life fields
+          terminalValue: asset.terminalValue !== null && asset.terminalValue !== undefined
+            ? formatNumberInput(asset.terminalValue.toString())
+            : '',
+          leaseStartYear: '',
+          usefulLifeYears: '',
         })
         break
       }
       case 'liability': {
         const liability = itemData as Liability
-        const amt = (liability as any).amountAnnual ?? liability.currentBalance ?? 0
+        const amt = getDataProp<number>(itemData, 'amountAnnual') ?? liability.currentBalance ?? 0
         const itemRate = liability.interestRateApr
         const effectiveRate =
           itemRate && itemRate !== 0
@@ -161,6 +184,8 @@ export function useFinancialForm({
             : Math.abs(getRateForCategory(type, liability.category, growthConfigs))
         setFormData({
           name: toSafeText(liability.name),
+          earner: '',
+          personId: null,
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: 'monthly',
           category: liability.category,
@@ -169,21 +194,24 @@ export function useFinancialForm({
           minimumPayment: roundToDollar(liability.minimumPayment ?? 0).toString(),
           growthRate: '2.0',
           notes: liability.notes ?? '',
+          terminalValue: '',
+          leaseStartYear: '',
+          usefulLifeYears: '',
         })
         break
       }
       case 'income':
       case 'expense': {
         const item = itemData as Income | Expense
-        const sourceAmt = (item as any).sourceAmount
-        const freq = (item as any).sourceFrequency ?? (item as any).frequency ?? 'annual'
+        const sourceAmt = getDataProp<number>(itemData, 'sourceAmount')
+        const freq: Frequency = (getDataProp<Frequency>(itemData, 'sourceFrequency') ?? item.frequency) || 'annual'
 
         let amt: number
         if (sourceAmt !== undefined && sourceAmt !== null) {
           amt = sourceAmt
         } else {
-          const annualAmt = (item as any).amountAnnual ?? (item as any).amount ?? 0
-          const monthlyAmt = (item as any).amountMonthly
+          const annualAmt = getDataProp<number>(itemData, 'amountAnnual') ?? item.amount ?? 0
+          const monthlyAmt = getDataProp<number>(itemData, 'amountMonthly')
           if (freq === 'monthly' && monthlyAmt !== undefined) {
             amt = monthlyAmt
           } else if (freq === 'monthly' && annualAmt) {
@@ -193,15 +221,20 @@ export function useFinancialForm({
           }
         }
 
-        const itemName = (item as Income | Expense).name ?? ''
-        const itemRate = (item as any).growthRate
+        const itemName = item.name ?? ''
+        const itemEarner = type === 'income' ? ((item as Income).earner ?? '') : ''
+        const itemRate = item.growthRate
         const effectiveRate =
           itemRate && itemRate !== 0
             ? itemRate
             : getRateForCategory(type, item.category, growthConfigs)
 
+        const itemPersonId = type === 'income' ? ((item as Income & { personId?: string | null }).personId ?? null) : null
+
         setFormData({
           name: toSafeText(itemName),
+          earner: itemEarner,
+          personId: itemPersonId,
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: freq,
           category: item.category,
@@ -210,12 +243,15 @@ export function useFinancialForm({
           minimumPayment: '',
           growthRate: effectiveRate.toString(),
           notes: item.notes ?? '',
+          terminalValue: '',
+          leaseStartYear: '',
+          usefulLifeYears: '',
         })
         break
       }
       case 'investment': {
         const investment = itemData as Asset
-        const amt = (investment as any).amountAnnual ?? investment.currentValue ?? 0
+        const amt = getDataProp<number>(itemData, 'amountAnnual') ?? investment.currentValue ?? 0
         const itemRate = investment.annualGrowthRate
         const effectiveRate =
           itemRate !== undefined && itemRate !== null
@@ -223,6 +259,8 @@ export function useFinancialForm({
             : getRateForCategory('asset', investment.category, growthConfigs)
         setFormData({
           name: toSafeText(investment.name),
+          earner: '',
+          personId: null,
           amount: formatNumberInput(roundToDollar(amt)),
           frequency: 'monthly',
           category: investment.category,
@@ -231,6 +269,9 @@ export function useFinancialForm({
           minimumPayment: '',
           growthRate: effectiveRate.toString(),
           notes: investment.notes ?? '',
+          terminalValue: '',
+          leaseStartYear: '',
+          usefulLifeYears: '',
         })
         break
       }
@@ -239,7 +280,7 @@ export function useFinancialForm({
 
   function getLinkedLiabilityMinPayment(): number | null {
     if (type !== 'expense' || !data) return null
-    const sourceLiabilityId = (data as any).sourceLiabilityId
+    const sourceLiabilityId = getDataProp<string>(data, 'sourceLiabilityId')
     if (!sourceLiabilityId || !liabilitiesData) return null
     const liability = liabilitiesData.find((l: Liability) => l.id === sourceLiabilityId)
     return liability?.minimumPayment ?? null
@@ -297,12 +338,25 @@ export function useFinancialForm({
   function buildPayload(): FinancialFormValues {
     const notes = formData.notes.trim()
     const shared = {
-      updatedAt: (data as any)?.updatedAt ?? new Date().toISOString(),
+      updatedAt: getDataProp<string>(data, 'updatedAt') ?? new Date().toISOString(),
       notes: notes || undefined,
     }
 
     switch (type) {
-      case 'asset':
+      case 'asset': {
+        // Calculate end date if lease start year and useful life are provided
+        let endDate: string | undefined
+        const leaseStartYear = formData.leaseStartYear ? Number.parseInt(formData.leaseStartYear, 10) : null
+        const usefulLifeYears = formData.usefulLifeYears ? Number.parseInt(formData.usefulLifeYears, 10) : null
+        if (leaseStartYear && usefulLifeYears) {
+          endDate = calculateLeaseEndDate(leaseStartYear, usefulLifeYears)
+        }
+
+        // Parse terminal value
+        const terminalValue = formData.terminalValue
+          ? Number.parseFloat(formData.terminalValue)
+          : null
+
         return {
           type,
           id: (data as Asset | undefined)?.id,
@@ -310,8 +364,11 @@ export function useFinancialForm({
           category: formData.category.trim() || 'other',
           currentValue: toNumeric(formData.amount),
           annualGrowthRate: Number.parseFloat(formData.annualGrowthRate) || 0,
+          ...(endDate && { endDate }),
+          ...(terminalValue !== null && { terminalValue }),
           ...shared,
         }
+      }
       case 'liability':
         return {
           type,
@@ -328,6 +385,7 @@ export function useFinancialForm({
           type,
           id: (data as Income | undefined)?.id,
           name: formData.name.trim(),
+          personId: formData.personId || undefined,
           amount: toNumeric(formData.amount),
           frequency: formData.frequency,
           category: formData.category.trim() || 'other',
@@ -336,7 +394,7 @@ export function useFinancialForm({
           ...shared,
         }
       case 'expense': {
-        const sourceLiabilityId = (data as any)?.sourceLiabilityId
+        const sourceLiabilityId = getDataProp<string>(data, 'sourceLiabilityId')
         const isDebtRepaymentExpense = !!sourceLiabilityId
         const shouldUseVersioning = mode === 'edit' && isFutureMonth && !isDebtRepaymentExpense && applyFromThisMonthOnly
         const updateMode = shouldUseVersioning ? UPDATE_MODE_VERSIONED : UPDATE_MODE_IN_PLACE
@@ -388,9 +446,18 @@ export function useFinancialForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setHasAttemptedSubmit(true)
+
     if (isCpfMode && type === 'asset' && mode === 'create') {
       if (!validateCpfFields()) return
     }
+
+    // Validate personId is required for income
+    if (type === 'income' && !formData.personId) {
+      setFormErrors({ personId: true })
+      return
+    }
+    setFormErrors({})
 
     const payload = isCpfMode && type === 'asset' && mode === 'create' ? buildCpfPayload() : buildPayload()
 
@@ -410,7 +477,8 @@ export function useFinancialForm({
   function getDataId(): string | undefined {
     if (!data) return undefined
     if ('id' in data && data.id) return data.id
-    if ('itemId' in data && (data as any).itemId) return (data as any).itemId
+    const itemId = getDataProp<string>(data, 'itemId')
+    if (itemId) return itemId
     return undefined
   }
 
@@ -516,6 +584,8 @@ export function useFinancialForm({
     isFutureMonth,
     isDebtRepayment,
     growthConfigs,
+    formErrors,
+    hasAttemptedSubmit,
     handleSubmit,
     handleDelete,
     handleConfirmDelete,

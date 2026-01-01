@@ -71,6 +71,13 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		id = &imp.ID
 	}
 
+	// PersonID for income start impacts
+	var personID *string
+	if strings.TrimSpace(imp.PersonID) != "" {
+		val := imp.PersonID
+		personID = &val
+	}
+
 	return scenarioImpactV2DTO{
 		ID:             id,
 		ImpactKind:     imp.ImpactKind,
@@ -89,6 +96,7 @@ func toScenarioImpactV2DTO(imp repo.ScenarioImpact) scenarioImpactV2DTO {
 		GrowthStrategy: growthStrategy,
 		InterestRate:   imp.InterestRate,
 		MinimumPayment: imp.MinimumPayment,
+		PersonID:       personID,
 	}
 }
 
@@ -266,6 +274,14 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 		return repo.ScenarioImpact{}, err
 	}
 
+	// Validate personId is required for income start impacts
+	impactKind := strings.ToLower(strings.TrimSpace(in.ImpactKind))
+	if targetType == "income" && impactKind == scenario.ImpactKindStart {
+		if in.PersonID == nil || strings.TrimSpace(*in.PersonID) == "" {
+			return repo.ScenarioImpact{}, errors.New("personId is required for income start impacts")
+		}
+	}
+
 	// Build impact with resolved target info
 	impact := repo.ScenarioImpact{
 		ImpactKind: ik,
@@ -292,6 +308,11 @@ func buildImpactV2(in scenarioImpactV2DTO) (repo.ScenarioImpact, error) {
 	// Set liability-specific fields if provided
 	impact.InterestRate = in.InterestRate
 	impact.MinimumPayment = in.MinimumPayment
+
+	// Set income-specific fields if provided (required for income start impacts)
+	if in.PersonID != nil && *in.PersonID != "" {
+		impact.PersonID = *in.PersonID
+	}
 
 	// Set name and other fields for start impacts
 	if in.Name != nil {

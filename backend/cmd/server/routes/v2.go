@@ -58,6 +58,8 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	router.HandleFunc("/cashflow/incomes", bulkDeleteHandler.HandleDeleteAllIncomes).Methods("DELETE")
 	router.HandleFunc("/investments", bulkDeleteHandler.HandleDeleteAllInvestments).Methods("DELETE")
 	router.HandleFunc("/cpf/accounts", bulkDeleteHandler.HandleDeleteAllCPFAccounts).Methods("DELETE")
+	// Single atomic reset endpoint to avoid deadlocks when clearing all user data
+	router.HandleFunc("/reset-all-data", bulkDeleteHandler.HandleResetAllData).Methods("DELETE")
 
 	// Expense v2 endpoints (full CRUD with versioning)
 	expenseHandler := handlers.NewExpenseV2Handler(deps.FinStore)
@@ -234,6 +236,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 
 	// CPF account v2 endpoints (versioned update/delete/stop)
 	cpfHandler := handlers.NewCPFV2Handler(deps.FinStore)
+	router.HandleFunc("/cpf/accounts", cpfHandler.HandleList).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleGet).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleCreate).Methods("POST")
 	router.HandleFunc("/cpf/account/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -251,6 +254,28 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		id := vars["id"]
 		cpfHandler.HandleStop(w, r, id)
 	}).Methods("POST")
+
+	// Person v2 endpoints (for multi-person household support)
+	personHandler := handlers.NewPersonV2Handler(deps.FinStore)
+	router.HandleFunc("/persons", personHandler.HandleList).Methods("GET")
+	router.HandleFunc("/persons", personHandler.HandleCreate).Methods("POST")
+	router.HandleFunc("/persons/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "GET":
+			personHandler.HandleGet(w, r, id)
+		case "PUT":
+			personHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			personHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("GET", "PUT", "DELETE")
+	router.HandleFunc("/persons/{id}/toggle", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		personHandler.HandleToggle(w, r, id)
+	}).Methods("PATCH")
 
 	// Property planner v2 bulk delete (must be registered before individual routes)
 	router.HandleFunc("/property-planner/scenarios", bulkDeleteHandler.HandleDeleteAllPropertyScenarios).Methods("DELETE")

@@ -7,6 +7,7 @@ import { LogOut, User, ChevronDown, Settings } from 'lucide-react'
 import { useSession, signOut } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { SettingsModal } from '@/components/modals/SettingsModal/SettingsModal'
+import { clearAllSensitiveStorage } from '@/hooks/useTaxReliefStorage'
 
 export function UserMenu() {
   const { data: session, isPending } = useSession()
@@ -37,6 +38,10 @@ export function UserMenu() {
   const handleSignOut = async () => {
     setIsSigningOut(true)
     try {
+      // SECURITY: Clear all sensitive cached data from localStorage before signing out
+      // This prevents data exposure if the device is shared or compromised
+      clearAllSensitiveStorage()
+
       await signOut()
       router.push('/login')
       router.refresh()

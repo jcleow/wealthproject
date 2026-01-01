@@ -66,9 +66,12 @@ type Store interface {
 	ListIncomes(context.Context, repository.ListQuery) (repository.PaginatedResult[repository.Income], error)
 	ListExpenses(context.Context, repository.ListQuery) (repository.PaginatedResult[repository.Expense], error)
 	GetCPFAccount(context.Context, string) (*repository.CPFAccount, error)
+	ListCPFAccounts(context.Context, string, repository.DateRangeOptions) ([]repository.CPFAccount, error)
 	ListAllIncomeAllocations(context.Context, string) ([]repository.IncomeAllocation, error)
 	// GetExcludedScenarioTargetIDs returns IDs of financial items created by excluded scenarios
 	GetExcludedScenarioTargetIDs(context.Context, string) (repository.ExcludedTargets, error)
+	// GetExcludedPersonIDs returns IDs of persons where is_included=false
+	GetExcludedPersonIDs(context.Context, string) (map[string]struct{}, error)
 	// ListIncludedScenarioEvents returns scenario events where is_included=true with their impacts
 	ListIncludedScenarioEvents(context.Context, string) ([]repository.ScenarioEvent, error)
 	// ListIncludedPropertyScenarios returns property scenarios where is_included=true for timeline projection
@@ -190,6 +193,8 @@ type CPFAssetResponse struct {
 	ParentID        string          `json:"parentId"`
 	Name            string          `json:"name"`
 	Category        string          `json:"category"`
+	Earner          string          `json:"earner"`
+	PersonID        string          `json:"personId"`
 	Balance         decimal.Decimal `json:"balance"`
 	EventAdjBalance decimal.Decimal `json:"eventAdjBalance"`
 	ItemType        string          `json:"itemType"`
@@ -219,6 +224,8 @@ type IncomeResponse struct {
 	ID                   string          `json:"id"`
 	ParentID             string          `json:"parentId"`
 	Name                 string          `json:"name"`
+	Earner               string          `json:"earner,omitempty"`
+	PersonID             string          `json:"personId"`
 	Category             string          `json:"category"`
 	Amount               decimal.Decimal `json:"amount"`               // Monthly amount
 	EventAdjAmount       decimal.Decimal `json:"eventAdjAmount"`       // Monthly amount with scenario impacts
