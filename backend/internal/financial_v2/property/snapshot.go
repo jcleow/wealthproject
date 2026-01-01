@@ -69,7 +69,7 @@ type MortgagePaymentExpense struct {
 	ID                   string
 	ParentID             string          // Property scenario ID
 	Name                 string          // e.g., "HDB BTO Mortgage"
-	Category             string          // "housing"
+	Category             string          // "Housing"
 	Amount               decimal.Decimal // Monthly payment amount
 	EventAdjAmount       decimal.Decimal // Same as Amount (no scenario adjustment)
 	AnnualAmount         decimal.Decimal // Amount * 12
@@ -160,7 +160,7 @@ func (s *PropertySnapshot) ToMortgageExpense(currentDate time.Time) *MortgagePay
 		ID:                   "mortgage-" + s.ID,
 		ParentID:             propScenarioID,
 		Name:                 s.Name + " Mortgage",
-		Category:             "housing",
+		Category:             "Housing",
 		Amount:               s.MortgagePayment.MonthlyTotal,
 		EventAdjAmount:       s.MortgagePayment.MonthlyTotal,
 		AnnualAmount:         *annualAmount,

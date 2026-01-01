@@ -75,27 +75,31 @@ export function GroupedItemsSection({
   getPropertyLink,
   onOpenPropertyPlanner,
 }: GroupedItemsSectionProps) {
-  // Group items by their category field
-  const groupedItems = items.reduce((acc, item) => {
-    const cat = item.category || 'Other'
-    if (!acc[cat]) {
-      acc[cat] = []
+  // Group items by their category field (case-insensitive)
+  // We use lowercase keys for grouping but preserve a display name from the first item
+  const { groupedItems, displayNames } = items.reduce((acc, item) => {
+    const rawCat = item.category || 'Other'
+    const normalizedKey = rawCat.toLowerCase()
+    if (!acc.groupedItems[normalizedKey]) {
+      acc.groupedItems[normalizedKey] = []
+      // Store the first occurrence's casing as the display name
+      acc.displayNames[normalizedKey] = rawCat
     }
-    acc[cat].push(item)
+    acc.groupedItems[normalizedKey].push(item)
     return acc
-  }, {} as Record<string, TimelineItem[]>)
+  }, { groupedItems: {} as Record<string, TimelineItem[]>, displayNames: {} as Record<string, string> })
 
-  // Sort categories alphabetically, but put "Other" at the end
+  // Sort categories alphabetically (case-insensitive), but put "Other" at the end
   const sortedCategories = Object.keys(groupedItems).sort((a, b) => {
-    if (a.toLowerCase() === 'other') return 1
-    if (b.toLowerCase() === 'other') return -1
+    if (a === 'other') return 1
+    if (b === 'other') return -1
     return a.localeCompare(b)
   })
 
   return (
     <>
-      {sortedCategories.map((cat) => {
-        const categoryItems = groupedItems[cat]
+      {sortedCategories.map((normalizedKey) => {
+        const categoryItems = groupedItems[normalizedKey]
         const categoryTotal = categoryItems.reduce((sum, item) => sum + summarizeAmount(item), 0)
 
         // Hide categories with $0 total
@@ -103,10 +107,13 @@ export function GroupedItemsSection({
           return null
         }
 
+        // Use the preserved display name for formatting
+        const displayName = displayNames[normalizedKey]
+
         return (
-          <CollapsibleSection key={cat} title={formatCategoryName(cat, financialCategory)} total={categoryTotal}>
+          <CollapsibleSection key={normalizedKey} title={formatCategoryName(displayName, financialCategory)} total={categoryTotal}>
             {categoryItems.map((item, index) => {
-              const itemId = getItemId(item) || `${financialCategory}-${cat}-${index}`
+              const itemId = getItemId(item) || `${financialCategory}-${normalizedKey}-${index}`
               const scenarioImpacts = getAppliedImpacts(item, financialCategory, scenarioEvents)
               const isExpanded = expandedScenarioItems.has(itemId)
               const isSelected = selectedItemId === itemId
