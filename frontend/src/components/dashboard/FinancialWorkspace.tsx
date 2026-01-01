@@ -3,63 +3,54 @@ import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Search, Spar
 
 import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
+import { useTimeline } from '@/hooks/useTimeline'
 import { propertyApi } from '@/api/financial'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { UserMenu } from '../auth/UserMenu'
-import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
+import { useTimelineStore } from '@/stores'
 import type { ScenarioEvent } from '@/types/scenario'
-import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 import clsx from 'clsx'
 
 interface FinancialWorkspaceProps {
-  selectedYear: number
-  onSelectYear: (year: number) => void
-  onSelectMonth?: (month: number) => void
-  timelineYears?: TimelineYear[]
-  timelineMonths?: TimelineMonth[]
-  resolution?: TimeResolution
-  zoomLevel?: ZoomLevel
-  onZoomLevelChange?: (level: ZoomLevel) => void
-  overrideYears?: Set<number>
-  timelineError?: string | null
+  // UI callbacks for feature modules (Phase 2 will migrate these to a store)
   onOpenCPF?: () => void
   onOpenPropertyPlanner?: () => void
   onOpenTax?: () => void
   onOpenInsurance?: () => void
-  anchorYear?: number | null
-  anchorMonth?: number | null
-  headerOnly?: boolean
-  chartOnly?: boolean
   onOpenLayoutModal?: () => void
   onPropertyScenarioEdit?: (scenarioId: string) => void
+  // Display mode
+  headerOnly?: boolean
+  chartOnly?: boolean
 }
 
 // Stable empty Set to use as default (avoids creating new Set on each render)
 const EMPTY_OVERRIDE_YEARS = new Set<number>()
 
 export function FinancialWorkspace({
-  selectedYear,
-  onSelectYear,
-  onSelectMonth,
-  timelineYears,
-  timelineMonths,
-  resolution = 'yearly',
-  zoomLevel = 'yearly',
-  onZoomLevelChange,
-  overrideYears,
-  timelineError = null,
   onOpenCPF,
   onOpenPropertyPlanner,
   onOpenTax,
   onOpenInsurance,
-  anchorYear,
-  anchorMonth,
   headerOnly = false,
   chartOnly = false,
   onOpenLayoutModal,
   onPropertyScenarioEdit,
 }: FinancialWorkspaceProps) {
+  // Get timeline selection state from Zustand store
+  const setSelectedYear = useTimelineStore((s) => s.setSelectedYear)
+  const setSelectedMonth = useTimelineStore((s) => s.setSelectedMonth)
+
+  // Get timeline data from hook (React Query)
+  const timeline = useTimeline({ resolution: 'monthly' })
+  const timelineYears = timeline.chartYears
+  const timelineMonths = timeline.chartMonths
+  const overrideYears = timeline.overrideYears
+  const timelineError = timeline.timelineQuery.error instanceof Error
+    ? timeline.timelineQuery.error.message
+    : null
+
   // Use stable empty set as fallback
   const stableOverrideYears = useMemo(
     () => overrideYears ?? EMPTY_OVERRIDE_YEARS,
@@ -488,16 +479,10 @@ text-purple-400`}>
                   chartTitle="Net Worth Projection"
                   timelineYears={timelineYears}
                   timelineMonths={timelineMonths}
-                  resolution={resolution}
-                  zoomLevel={zoomLevel}
-                  onZoomLevelChange={onZoomLevelChange}
                   overrideYears={stableOverrideYears}
-                  selectedYear={selectedYear}
                   scenarioEvents={scenarioEvents}
                   onAddScenario={handleCreateScenario}
                   onScenarioSelect={handleScenarioSelect}
-                  onSelectYear={onSelectYear}
-                  onSelectMonth={onSelectMonth}
                   onPropertyScenarioEdit={onPropertyScenarioEdit}
                 />
               </div>
@@ -510,8 +495,6 @@ text-purple-400`}>
         <ScenarioEventModal
           isOpen={isScenarioModalOpen}
           event={scenarioEventToEdit ?? undefined}
-          anchorYear={anchorYear}
-          anchorMonth={anchorMonth}
           onClose={() => {
             setIsScenarioModalOpen(false)
             setScenarioEventToEdit(null)
@@ -524,8 +507,8 @@ text-purple-400`}>
             setIsScenarioModalOpen(false)
           }}
           onJumpToDate={(year, month) => {
-            onSelectYear(year)
-            onSelectMonth?.(month)
+            setSelectedYear(year)
+            setSelectedMonth(month)
             setIsScenarioModalOpen(false)
             setScenarioEventToEdit(null)
           }}

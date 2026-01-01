@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 import type { TimeResolution } from '@/types/timeline'
+import { useTimelineStore } from '@/stores'
 
 export interface UseChartZoomOptions {
-  externalZoomLevel?: ZoomLevel
-  onZoomLevelChange?: (level: ZoomLevel) => void
   effectiveResolution: TimeResolution
   projectionLength: number
   chartWrapperRef: React.RefObject<HTMLDivElement | null>
@@ -25,15 +24,14 @@ interface UseChartZoomResult {
 }
 
 export function useChartZoom({
-  externalZoomLevel,
-  onZoomLevelChange,
   effectiveResolution,
   projectionLength,
   chartWrapperRef,
   scrollMode,
 }: UseChartZoomOptions): UseChartZoomResult {
-  const [internalZoomLevel, setInternalZoomLevel] = useState<ZoomLevel>('yearly')
-  const zoomLevel = externalZoomLevel ?? internalZoomLevel
+  // Get zoom state from Zustand store
+  const zoomLevel = useTimelineStore((s) => s.zoomLevel)
+  const storeSetZoomLevel = useTimelineStore((s) => s.setZoomLevel)
 
   const [startIndex, setStartIndex] = useState<number | null>(null)
   const [endIndex, setEndIndex] = useState<number | null>(null)
@@ -53,14 +51,10 @@ export function useChartZoom({
 
   const setZoomLevel = useCallback(
     (value: ZoomLevel | ((prev: ZoomLevel) => ZoomLevel)) => {
-      if (onZoomLevelChange) {
-        const newLevel = typeof value === 'function' ? value(zoomLevel) : value
-        onZoomLevelChange(newLevel)
-      } else {
-        setInternalZoomLevel(value)
-      }
+      const newLevel = typeof value === 'function' ? value(zoomLevel) : value
+      storeSetZoomLevel(newLevel)
     },
-    [onZoomLevelChange, zoomLevel]
+    [storeSetZoomLevel, zoomLevel]
   )
 
   // Derive windowing indices - clear them when in yearly mode

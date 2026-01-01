@@ -4,6 +4,7 @@ import { render, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { NetWorthProjection } from './NetWorthProjection'
+import { useTimelineStore } from '@/stores'
 import type { TimelineYear } from '@/types/timeline'
 
 const timelineYears: TimelineYear[] = [
@@ -120,10 +121,20 @@ describe('NetWorthProjection', () => {
     consoleErrorSpy.mockRestore()
     consoleWarnSpy.mockRestore()
     vi.unstubAllGlobals()
+    // Reset Zustand store state
+    useTimelineStore.setState({
+      selectedYear: null,
+      selectedMonth: null,
+      anchorYear: null,
+      anchorMonth: null,
+      resolution: 'monthly',
+      zoomLevel: 'yearly',
+    })
   })
 
   it('renders override markers and allows jumping to a year', async () => {
-    const onSelectYear = vi.fn()
+    // Set initial store state
+    useTimelineStore.setState({ selectedYear: 0, resolution: 'yearly', zoomLevel: 'yearly' })
 
     const client = new QueryClient()
 
@@ -132,8 +143,6 @@ describe('NetWorthProjection', () => {
         <div style={{ width: 800, height: 400 }}>
           <NetWorthProjection
             timelineYears={timelineYears}
-            selectedYear={0}
-            onSelectYear={onSelectYear}
             overrideYears={new Set([1])}
             scenarioEvents={scenarioEvents}
           />
@@ -144,11 +153,12 @@ describe('NetWorthProjection', () => {
     await waitFor(() => {
       expect(document.querySelector('[data-testid="override-marker-1"]')).not.toBeNull()
     })
-
-    expect(onSelectYear).not.toHaveBeenCalled()
   })
 
   it('renders scenario markers when events are provided', async () => {
+    // Set initial store state
+    useTimelineStore.setState({ selectedYear: 0, resolution: 'yearly', zoomLevel: 'yearly' })
+
     const client = new QueryClient()
 
     render(
@@ -156,7 +166,6 @@ describe('NetWorthProjection', () => {
         <div style={{ width: 800, height: 400 }}>
           <NetWorthProjection
             timelineYears={timelineYears}
-            selectedYear={0}
             overrideYears={new Set([1])}
             scenarioEvents={scenarioEvents}
           />

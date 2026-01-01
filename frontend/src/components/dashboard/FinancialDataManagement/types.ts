@@ -4,14 +4,12 @@ import type { ScenarioEvent } from '@/types/scenario'
 import type {
   TimelineYear,
   TimelineMonth,
-  TimeResolution,
   TimelineEditRequest,
   TimelineItem,
   TimelineEventImpact,
   MonthDetailResponseV2,
 } from '@/types/timeline'
 import type { FinancialDataType, TimelineItemData } from '@/components/modals/FinancialFormModal'
-import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 
 export type FinancialCategory = FinancialDataType
 
@@ -51,20 +49,13 @@ export interface CashAccountModalState {
 }
 
 export interface FinancialDataManagementProps {
-  selectedYear?: number
-  onSelectYear?: (year: number) => void
-  selectedMonth?: number
-  onSelectMonth?: (month: number | null) => void
+  // Timeline data props (selection state now comes from Zustand store)
   timelineYear?: TimelineYear
   timelineMonth?: TimelineMonth
   timelineMonths?: TimelineMonth[]
   /** V2 month data - when provided, used for card display instead of V1 data */
   timelineMonthV2?: MonthDetailResponseV2
   timelineYears?: TimelineYear[]
-  anchorYear?: number | null
-  anchorMonth?: number | null
-  resolution?: TimeResolution
-  zoomLevel?: ZoomLevel
   isTimelineLoading?: boolean
   onSaveTimelineEdits?: (payload: TimelineEditRequest) => Promise<void>
   /** When true, show Tax Mode panel instead of cashflow cards */

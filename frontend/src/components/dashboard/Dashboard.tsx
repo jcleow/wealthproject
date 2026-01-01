@@ -25,7 +25,7 @@ import { FinancialDataProvider } from '@/contexts/FinancialDataContext'
 import { TaxModeProvider } from '@/contexts/TaxModeContext'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
-import type { ZoomLevel } from '@/components/timeline/ZoomControls'
+import { useTimelineStore } from '@/stores'
 import type { DashboardLayout } from '@/types/financial'
 
 export function Dashboard() {
@@ -43,12 +43,14 @@ export function Dashboard() {
   const [isLayoutModalOpen, setIsLayoutModalOpen] = useState(false)
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>('stacked')
   const [hasUserChangedLayout, setHasUserChangedLayout] = useState(false)
-  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('yearly')
+
+  // Get timeline setters from store for PropertyPlannerModal
+  const setSelectedYear = useTimelineStore((s) => s.setSelectedYear)
+  const setSelectedMonth = useTimelineStore((s) => s.setSelectedMonth)
+
+  // Initialize timeline hook (triggers data fetch and store sync)
+  // Also get chart data for MiniChart component
   const timeline = useTimeline({ resolution: 'monthly' })
-  const timelineError =
-    timeline.timelineQuery.error instanceof Error
-      ? timeline.timelineQuery.error.message
-      : null
 
   // Fetch user settings for PiP preference and layout
   const { data: userSettings } = useQuery({
@@ -235,22 +237,10 @@ bg-[#0a0a0a]/80`}>
                 {/* Header bar only - no chart */}
                 <div className="shrink-0">
                   <FinancialWorkspace
-                    selectedYear={timeline.selectedYear}
-                    onSelectYear={timeline.setSelectedYear}
-                    onSelectMonth={timeline.setSelectedMonth}
-                    timelineYears={timeline.chartYears}
-                    timelineMonths={timeline.chartMonths}
-                    resolution={timeline.resolution}
-                    zoomLevel={zoomLevel}
-                    onZoomLevelChange={setZoomLevel}
-                    overrideYears={timeline.overrideYears}
-                    timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
                     onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
                     onOpenTax={() => setShowTaxPlanner(true)}
                     onOpenInsurance={() => setShowInsurancePlanner(true)}
-                    anchorYear={timeline.anchorYear}
-                    anchorMonth={timeline.anchorMonth}
                     headerOnly
                   />
                 </div>
@@ -268,22 +258,10 @@ bg-[#0a0a0a]/80`}>
                 {/* Header bar only - no chart */}
                 <div className="shrink-0">
                   <FinancialWorkspace
-                    selectedYear={timeline.selectedYear}
-                    onSelectYear={timeline.setSelectedYear}
-                    onSelectMonth={timeline.setSelectedMonth}
-                    timelineYears={timeline.chartYears}
-                    timelineMonths={timeline.chartMonths}
-                    resolution={timeline.resolution}
-                    zoomLevel={zoomLevel}
-                    onZoomLevelChange={setZoomLevel}
-                    overrideYears={timeline.overrideYears}
-                    timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
                     onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
                     onOpenTax={() => setShowTaxPlanner(true)}
                     onOpenInsurance={() => setShowInsurancePlanner(true)}
-                    anchorYear={timeline.anchorYear}
-                    anchorMonth={timeline.anchorMonth}
                     headerOnly
                   />
                 </div>
@@ -301,22 +279,10 @@ bg-[#0a0a0a]/80`}>
                 {/* Full-width header/navbar */}
                 <div className="shrink-0">
                   <FinancialWorkspace
-                    selectedYear={timeline.selectedYear}
-                    onSelectYear={timeline.setSelectedYear}
-                    onSelectMonth={timeline.setSelectedMonth}
-                    timelineYears={timeline.chartYears}
-                    timelineMonths={timeline.chartMonths}
-                    resolution={timeline.resolution}
-                    zoomLevel={zoomLevel}
-                    onZoomLevelChange={setZoomLevel}
-                    overrideYears={timeline.overrideYears}
-                    timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
                     onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
                     onOpenTax={() => setShowTaxPlanner(true)}
                     onOpenInsurance={() => setShowInsurancePlanner(true)}
-                    anchorYear={timeline.anchorYear}
-                    anchorMonth={timeline.anchorMonth}
                     onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
                     headerOnly
                   />
@@ -335,22 +301,10 @@ bg-[#0a0a0a]/80`}>
                     className="flex w-[65%] shrink-0 flex-col overflow-hidden rounded-2xl bg-transparent"
                   >
                     <FinancialWorkspace
-                      selectedYear={timeline.selectedYear}
-                      onSelectYear={timeline.setSelectedYear}
-                      onSelectMonth={timeline.setSelectedMonth}
-                      timelineYears={timeline.chartYears}
-                      timelineMonths={timeline.chartMonths}
-                      resolution={timeline.resolution}
-                      zoomLevel={zoomLevel}
-                      onZoomLevelChange={setZoomLevel}
-                      overrideYears={timeline.overrideYears}
-                      timelineError={timelineError}
                       onOpenCPF={() => setShowCPFView(true)}
                       onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
                       onOpenTax={() => setShowTaxPlanner(true)}
                       onOpenInsurance={() => setShowInsurancePlanner(true)}
-                      anchorYear={timeline.anchorYear}
-                      anchorMonth={timeline.anchorMonth}
                       onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
                       onPropertyScenarioEdit={handlePropertyScenarioEdit}
                       chartOnly
@@ -359,24 +313,7 @@ bg-[#0a0a0a]/80`}>
 
                   {/* Cards section - compact mode */}
                   <div className="w-[35%] overflow-y-auto">
-                    <FinancialDataSection
-                      selectedYear={timeline.selectedYear}
-                      onSelectYear={timeline.setSelectedYear}
-                      selectedMonth={timeline.selectedMonth}
-                      onSelectMonth={timeline.setSelectedMonth}
-                      timelineYear={timeline.selectedYearData}
-                      timelineMonth={timeline.selectedMonthData}
-                      timelineMonths={timeline.sliderMonths}
-                      timelineMonthV2={timeline.selectedMonthDataV2}
-                      timelineYears={timeline.sliderYears}
-                      anchorYear={timeline.anchorYear}
-                      anchorMonth={timeline.anchorMonth}
-                      resolution={timeline.resolution}
-                      zoomLevel={zoomLevel}
-                      isTimelineLoading={timeline.isLoading}
-                      onSaveTimelineEdits={timeline.saveEdits}
-                      compact
-                    />
+                    <FinancialDataSection compact />
                   </div>
                 </div>
               </>
@@ -386,22 +323,10 @@ bg-[#0a0a0a]/80`}>
                 {/* Top workspace with chart - resizable */}
                 <ResizableChartSection chartRef={chartRef}>
                   <FinancialWorkspace
-                    selectedYear={timeline.selectedYear}
-                    onSelectYear={timeline.setSelectedYear}
-                    onSelectMonth={timeline.setSelectedMonth}
-                    timelineYears={timeline.chartYears}
-                    timelineMonths={timeline.chartMonths}
-                    resolution={timeline.resolution}
-                    zoomLevel={zoomLevel}
-                    onZoomLevelChange={setZoomLevel}
-                    overrideYears={timeline.overrideYears}
-                    timelineError={timelineError}
                     onOpenCPF={() => setShowCPFView(true)}
                     onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
                     onOpenTax={() => setShowTaxPlanner(true)}
                     onOpenInsurance={() => setShowInsurancePlanner(true)}
-                    anchorYear={timeline.anchorYear}
-                    anchorMonth={timeline.anchorMonth}
                     onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
                     onPropertyScenarioEdit={handlePropertyScenarioEdit}
                   />
@@ -409,21 +334,6 @@ bg-[#0a0a0a]/80`}>
 
                 {/* Financial data cards + Tax Mode Panel */}
                 <FinancialDataSection
-                  selectedYear={timeline.selectedYear}
-                  onSelectYear={timeline.setSelectedYear}
-                  selectedMonth={timeline.selectedMonth}
-                  onSelectMonth={timeline.setSelectedMonth}
-                  timelineYear={timeline.selectedYearData}
-                  timelineMonth={timeline.selectedMonthData}
-                  timelineMonths={timeline.sliderMonths}
-                  timelineMonthV2={timeline.selectedMonthDataV2}
-                  timelineYears={timeline.sliderYears}
-                  anchorYear={timeline.anchorYear}
-                  anchorMonth={timeline.anchorMonth}
-                  resolution={timeline.resolution}
-                  zoomLevel={zoomLevel}
-                  isTimelineLoading={timeline.isLoading}
-                  onSaveTimelineEdits={timeline.saveEdits}
                 />
               </>
             )}
@@ -455,8 +365,8 @@ bg-[#0a0a0a]/80`}>
         }}
         initialScenarioId={propertyScenarioToEdit ?? undefined}
         onJumpToDate={(year, month) => {
-          timeline.setSelectedYear(year)
-          timeline.setSelectedMonth(month)
+          setSelectedYear(year)
+          setSelectedMonth(month)
           setShowPropertyPlanner(false)
           setPropertyScenarioToEdit(null)
         }}
