@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { timelineApi } from '@/services/timelineApi'
@@ -16,6 +16,7 @@ import type {
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { useTimelineV2 } from '@/lib/featureFlags'
 import { TIMELINE_CHART_QUERY_KEY } from '@/hooks/queries/useTimelineChartQuery'
+import { useTimelineStore } from '@/stores'
 
 /** Default planning horizon in years if user settings not available */
 const DEFAULT_PLANNING_YEARS = 35
@@ -38,8 +39,14 @@ export interface UseTimelineOptions {
 
 export function useTimeline(options?: UseTimelineOptions) {
   const queryClient = useQueryClient()
-  const [selectedYear, setSelectedYear] = useState<number | null>(null)
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
+
+  // Use Zustand store for selection state instead of local useState
+  const selectedYear = useTimelineStore((s) => s.selectedYear)
+  const selectedMonth = useTimelineStore((s) => s.selectedMonth)
+  const setSelectedYear = useTimelineStore((s) => s.setSelectedYear)
+  const setSelectedMonth = useTimelineStore((s) => s.setSelectedMonth)
+  const initializeSelection = useTimelineStore((s) => s.initializeSelection)
+  const setAnchor = useTimelineStore((s) => s.setAnchor)
 
   // Fetch user settings to get terminal age for planning horizon
   const { data: userSettings } = useQuery({
@@ -163,6 +170,11 @@ export function useTimeline(options?: UseTimelineOptions) {
     return { year: earliestMonthYear, month: earliestMonthMonth }
   }, [earliestMonthYear, earliestMonthMonth])
 
+  // Sync anchor to store whenever it changes
+  useEffect(() => {
+    setAnchor(earliestMonthYear, earliestMonthMonth)
+  }, [earliestMonthYear, earliestMonthMonth, setAnchor])
+
   useEffect(() => {
     // Already initialized
     if (selectedYear !== null) return
@@ -173,8 +185,7 @@ export function useTimeline(options?: UseTimelineOptions) {
       if (v2Months?.[0]) {
         const initialYear = earliestMonthYear ?? v2Months[0].year
         const initialMonth = earliestMonthMonth ?? v2Months[0].month
-        setSelectedYear(initialYear)
-        setSelectedMonth(initialMonth)
+        initializeSelection(initialYear, initialMonth)
       }
       return
     }
@@ -186,37 +197,13 @@ export function useTimeline(options?: UseTimelineOptions) {
     if (resolution === 'monthly' && timelineQuery.data.months?.[0]) {
       const initialYear = earliestMonthYear ?? timelineQuery.data.months[0].year
       const initialMonth = earliestMonthMonth ?? timelineQuery.data.months[0].month
-      setSelectedYear(initialYear)
-      setSelectedMonth(initialMonth)
+      initializeSelection(initialYear, initialMonth)
     } else if (resolution === 'yearly' && timelineQuery.data.years?.[0]) {
-      setSelectedYear(timelineQuery.data.years[0].year)
+      initializeSelection(timelineQuery.data.years[0].year, null)
     }
-  }, [selectedYear, timelineQuery.data, timelineV2Query.data, resolution, earliestMonthYear, earliestMonthMonth])
+  }, [selectedYear, timelineQuery.data, timelineV2Query.data, resolution, earliestMonthYear, earliestMonthMonth, initializeSelection])
 
-  // Clamp selection to not go before the anchor date
-  // Use a ref to track if we're currently clamping to avoid loops
-  const isClampingRef = useRef(false)
-
-  useEffect(() => {
-    if (earliestMonthYear === null || earliestMonthMonth === null) return
-    if (selectedYear === null) return
-    if (isClampingRef.current) return // Avoid loop from our own setState
-
-    const effectiveYear = selectedYear >= 1900 ? selectedYear : earliestMonthYear + selectedYear
-    const isBeforeAnchor =
-      effectiveYear < earliestMonthYear ||
-      (effectiveYear === earliestMonthYear && (selectedMonth ?? 1) < earliestMonthMonth)
-
-    if (isBeforeAnchor) {
-      isClampingRef.current = true
-      setSelectedYear(earliestMonthYear)
-      setSelectedMonth(earliestMonthMonth)
-      // Reset the flag after the state updates have been processed
-      Promise.resolve().then(() => {
-        isClampingRef.current = false
-      })
-    }
-  }, [earliestMonthYear, earliestMonthMonth, selectedYear, selectedMonth])
+  // Note: Clamping to anchor is now handled by the Zustand store's setSelectedYear/setSelectedMonth actions
 
   // Extract years for navigation (works for both resolutions)
   const years = useMemo(() => {

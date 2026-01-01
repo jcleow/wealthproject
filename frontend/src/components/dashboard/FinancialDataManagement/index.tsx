@@ -7,6 +7,7 @@ import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
 import { useTaxModeOptional } from '@/contexts/TaxModeContext'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
+import { useTimelineStore } from '@/stores'
 import {
   useCashAccountsQuery,
   useCreateCashAccountMutation,
@@ -70,22 +71,23 @@ import { TaxModeModal } from '../TaxModePanel/TaxModeModal'
 export type { FinancialDataManagementProps }
 
 export function FinancialDataManagement({
-  selectedYear = 0,
-  onSelectYear,
-  selectedMonth,
-  onSelectMonth,
   timelineYear,
   timelineMonth,
   timelineMonths,
   timelineMonthV2,
   timelineYears,
-  anchorYear,
-  anchorMonth,
-  resolution,
   isTimelineLoading = false,
   showTaxMode: _showTaxMode = false,
   compact = false,
 }: FinancialDataManagementProps) {
+  // Get timeline selection state from Zustand store
+  const selectedYear = useTimelineStore((s) => s.selectedYear) ?? 0
+  const selectedMonth = useTimelineStore((s) => s.selectedMonth) ?? undefined
+  const setSelectedYear = useTimelineStore((s) => s.setSelectedYear)
+  const setSelectedMonth = useTimelineStore((s) => s.setSelectedMonth)
+  const resolution = useTimelineStore((s) => s.resolution)
+  const anchorYear = useTimelineStore((s) => s.anchorYear) ?? undefined
+  const anchorMonth = useTimelineStore((s) => s.anchorMonth) ?? undefined
   // V2 data is available when the feature flag is enabled and data is loaded
   const hasV2Data = !!timelineMonthV2
   const [viewMode, setViewMode] = useState<'annualized' | 'monthly'>('monthly')
@@ -895,9 +897,9 @@ export function FinancialDataManagement({
       >
         <Header
           selectedYear={selectedYear}
-          onSelectYear={onSelectYear}
+          onSelectYear={setSelectedYear}
           selectedCalendarMonth={selectedMonth}
-          onSelectMonth={onSelectMonth}
+          onSelectMonth={setSelectedMonth}
           anchorAbsoluteYear={anchorYear}
           anchorCalendarMonth={anchorMonth}
           resolution={resolution}

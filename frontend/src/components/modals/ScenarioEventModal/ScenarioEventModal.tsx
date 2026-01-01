@@ -6,6 +6,7 @@ import { useCreateScenarioEventMutation, useUpdateScenarioEventMutation, useDele
 import { useScenarioEvent } from '@/hooks/useScenarioEvent'
 import { financialApi } from '@/api/financial'
 import { Modal } from '@/components/ui/Modal'
+import { useTimelineStore } from '@/stores'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -65,12 +66,13 @@ interface ScenarioEventModalProps {
   onSaved?: (event: ScenarioEvent) => void
   onDeleted?: () => void
   event?: ScenarioEvent
-  anchorYear?: number | null
-  anchorMonth?: number | null
   onJumpToDate?: (year: number, month: number) => void
 }
 
-export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event, anchorYear, anchorMonth, onJumpToDate }: ScenarioEventModalProps) {
+export function ScenarioEventModal({ isOpen, onClose, onSaved, onDeleted, event, onJumpToDate }: ScenarioEventModalProps) {
+  // Get anchor from Zustand store
+  const anchorYear = useTimelineStore((s) => s.anchorYear)
+  const anchorMonth = useTimelineStore((s) => s.anchorMonth)
   const { data: fetchedEvent, isFetching } = useScenarioEvent(event?.id, isOpen && Boolean(event?.id), event)
   const hydratedEvent = fetchedEvent ?? event
 

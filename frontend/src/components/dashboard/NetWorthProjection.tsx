@@ -6,8 +6,8 @@ import type { ScenarioEvent } from '@/types/scenario'
 import type { TimelineYear, TimelineMonth, TimeResolution } from '@/types/timeline'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
-import type { ZoomLevel } from '@/components/timeline/ZoomControls'
 import { useChartJS } from '@/lib/featureFlags'
+import { useTimelineStore } from '@/stores'
 
 // Sub-components
 import { ChartHeader } from './projections/ChartHeader'
@@ -47,19 +47,16 @@ import type { ChartType, MetricId } from './projections/chartOverlays'
 const ENABLE_CHART_OVERLAYS = false
 
 export interface NetWorthProjectionProps {
+  // Data props (still passed from parent that fetches via useTimeline)
   timelineYears?: TimelineYear[]
   timelineMonths?: TimelineMonth[]
-  resolution?: TimeResolution
-  zoomLevel?: ZoomLevel
-  onZoomLevelChange?: (level: ZoomLevel) => void
   overrideYears?: Set<number>
-  selectedYear?: number
-  onSelectYear?: (year: number) => void
-  onSelectMonth?: (month: number) => void
   scenarioEvents?: ScenarioEvent[]
+  // Callbacks
   onScenarioSelect?: (event: ScenarioEvent) => void
   onAddScenario?: () => void
   onPropertyScenarioEdit?: (scenarioId: string) => void
+  // Display options
   chartTitle?: string
   chartSubtitle?: string
 }
@@ -67,13 +64,7 @@ export interface NetWorthProjectionProps {
 export function NetWorthProjection({
   timelineYears,
   timelineMonths,
-  resolution,
-  zoomLevel: externalZoomLevel,
-  onZoomLevelChange,
   overrideYears,
-  selectedYear,
-  onSelectYear,
-  onSelectMonth,
   scenarioEvents,
   onScenarioSelect,
   onAddScenario,
@@ -81,6 +72,12 @@ export function NetWorthProjection({
   chartTitle,
   chartSubtitle,
 }: NetWorthProjectionProps) {
+  // Get timeline selection state from Zustand store
+  const selectedYear = useTimelineStore((s) => s.selectedYear) ?? undefined
+  const setSelectedYear = useTimelineStore((s) => s.setSelectedYear)
+  const setSelectedMonth = useTimelineStore((s) => s.setSelectedMonth)
+  const resolution = useTimelineStore((s) => s.resolution)
+  const zoomLevel = useTimelineStore((s) => s.zoomLevel)
   // Fetch user settings
   const { data: userSettings } = useQuery({
     queryKey: QUERY_KEYS.settings.user,
@@ -119,9 +116,8 @@ export function NetWorthProjection({
   // Effective resolution based on available data and user preference
   const effectiveResolution: TimeResolution = resolution ?? dataResolution
 
-  // Zoom and pan state management
+  // Zoom and pan state management (zoom level now comes from store)
   const {
-    zoomLevel,
     setZoomLevel,
     actualStartIndex,
     actualEndIndex,
@@ -130,8 +126,6 @@ export function NetWorthProjection({
     handleZoomIn,
     handleZoomOut,
   } = useChartZoom({
-    externalZoomLevel,
-    onZoomLevelChange,
     effectiveResolution,
     projectionLength: projection.length,
     chartWrapperRef,
@@ -360,8 +354,8 @@ export function NetWorthProjection({
                 areaAnimationEnabled={areaAnimationEnabled}
                 ticks={ticks}
                 overrideYearsSet={overrideYearsSet}
-                onSelectYear={onSelectYear}
-                onSelectMonth={onSelectMonth}
+                onSelectYear={setSelectedYear}
+                onSelectMonth={setSelectedMonth}
                 selectedYear={selectedYear}
                 xAxisMode={xAxisMode}
                 startingAge={userSettings?.startingAge}
@@ -389,8 +383,8 @@ export function NetWorthProjection({
                 areaAnimationEnabled={areaAnimationEnabled}
                 ticks={ticks}
                 overrideYearsSet={overrideYearsSet}
-                onSelectYear={onSelectYear}
-                onSelectMonth={onSelectMonth}
+                onSelectYear={setSelectedYear}
+                onSelectMonth={setSelectedMonth}
                 selectedYear={selectedYear}
                 xAxisMode={xAxisMode}
                 startingAge={userSettings?.startingAge}
