@@ -28,12 +28,12 @@ type Service struct {
 }
 
 type FinancialDataRow struct {
-	ID            string
-	ParentID      string
-	Name          string
-	Earner        string // Person who earns this income (for incomes) - deprecated, use PersonID
-	PersonID      string // FK to persons table (for incomes and CPF accounts, required)
-	Category      string
+	ID         string
+	ParentID   string
+	Name       string
+	PersonID   string // FK to persons table (for incomes and CPF accounts, required)
+	PersonName string // Display name from persons table (read-only, populated via JOIN)
+	Category   string
 	Amount        decimal.Decimal
 	Frequency     Frequency
 	StartDate     time.Time
@@ -68,7 +68,7 @@ type EffectiveRows struct {
 // SGFinancialDataRows wraps financial data with Singapore-specific CPF accounts
 type SGFinancialDataRows struct {
 	Rows              EffectiveRows
-	CPFAccounts       []*account.CPFAccount // All CPF accounts (one per earner)
+	CPFAccounts       []*account.CPFAccount // All CPF accounts (one per person)
 	IncomeAllocations []repo.IncomeAllocation
 	// Map of liability ID -> linked expense (for open-ended liabilities paid by expenses)
 	LinkedExpensesByLiability map[string]FinancialDataRow
@@ -708,7 +708,7 @@ func NewCPFContext(cpfAccount *account.CPFAccount) *CPFContext {
 	return &CPFContext{Processor: proc, Balances: balances}
 }
 
-// NewCPFContexts creates a map of earner -> CPFContext from a list of CPF accounts
+// NewCPFContexts creates a map of personID -> CPFContext from a list of CPF accounts
 func NewCPFContexts(cpfAccounts []*account.CPFAccount) map[string]*CPFContext {
 	contexts := make(map[string]*CPFContext)
 	for _, acc := range cpfAccounts {
@@ -717,11 +717,11 @@ func NewCPFContexts(cpfAccounts []*account.CPFAccount) map[string]*CPFContext {
 		}
 		ctx := NewCPFContext(acc)
 		if ctx != nil {
-			earner := acc.Earner
-			if earner == "" {
-				earner = "default"
+			personID := acc.PersonID
+			if personID == "" {
+				personID = "default"
 			}
-			contexts[earner] = ctx
+			contexts[personID] = ctx
 		}
 	}
 	return contexts
@@ -797,7 +797,8 @@ func mapToCPFAccount(r *repo.CPFAccount) *account.CPFAccount {
 	return &account.CPFAccount{
 		ID:               r.ID,
 		UserID:           r.UserID,
-		Earner:           r.Earner,
+		PersonID:         r.PersonID,
+		PersonName:       r.PersonName,
 		OABalance:        r.OABalance,
 		SABalance:        r.SABalance,
 		MABalance:        r.MABalance,
@@ -1481,12 +1482,12 @@ func buildIncomeResponses(rows []FinancialDataRow, itemStates ItemStateMap, even
 			adjAmount = adjMonthly.Round(0)
 		}
 		resp := IncomeResponse{
-			ID:              row.ID,
-			ParentID:        row.ParentID,
-			Name:            row.Name,
-			Earner:          row.Earner,
-			PersonID:        row.PersonID,
-			Category:        row.Category,
+			ID:         row.ID,
+			ParentID:   row.ParentID,
+			Name:       row.Name,
+			PersonID:   row.PersonID,
+			PersonName: row.PersonName,
+			Category:   row.Category,
 			Amount:          *amount,
 			EventAdjAmount:  *adjAmount,
 			SourceFrequency: string(row.Frequency),
@@ -1617,28 +1618,36 @@ func buildCPFContributionResponses(rows []FinancialDataRow, itemStates ItemState
 	return responses
 }
 
-// buildAllCPFAssetResponses builds CPF asset responses for all earners
+// buildAllCPFAssetResponses builds CPF asset responses for all persons
 func buildAllCPFAssetResponses(cpfContexts map[string]*CPFContext, yearIndex int, month int, date time.Time) []CPFAssetResponse {
 	responses := []CPFAssetResponse{}
-	for earner, ctx := range cpfContexts {
-		earnerResponses := buildCPFAssetResponses(ctx, earner, yearIndex, month, date)
-		responses = append(responses, earnerResponses...)
+	for personID, ctx := range cpfContexts {
+		personResponses := buildCPFAssetResponses(ctx, personID, yearIndex, month, date)
+		responses = append(responses, personResponses...)
 	}
 	return responses
 }
 
-// buildCPFAssetResponses builds CPF asset responses from accumulated balances for a single earner
+// buildCPFAssetResponses builds CPF asset responses from accumulated balances for a single person
 // The RA (Retirement Account) is only included if the user is 55+ at the given date
 // or if the RA balance is non-zero.
-func buildCPFAssetResponses(cpfCtx *CPFContext, earner string, yearIndex int, month int, date time.Time) []CPFAssetResponse {
+func buildCPFAssetResponses(cpfCtx *CPFContext, personID string, yearIndex int, month int, date time.Time) []CPFAssetResponse {
 	if cpfCtx == nil || cpfCtx.Balances == nil {
 		return []CPFAssetResponse{}
 	}
 
-	// Create unique ID suffix for this earner
+	// Create unique ID suffix for this person
 	idSuffix := ""
-	if earner != "" && earner != "default" {
-		idSuffix = "-" + earner
+	if personID != "" && personID != "default" {
+		idSuffix = "-" + personID
+	}
+
+	// Get person name from the CPF context if available
+	personName := ""
+	if cpfCtx.Processor != nil {
+		if acc := cpfCtx.Processor.GetAccount(); acc != nil {
+			personName = acc.PersonName
+		}
 	}
 
 	balances := cpfCtx.Balances
@@ -1648,7 +1657,8 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, earner string, yearIndex int, mo
 			ParentID:        "cpf" + idSuffix,
 			Name:            "CPF Ordinary Account",
 			Category:        "cpf",
-			Earner:          earner,
+			PersonID:        personID,
+			PersonName:      personName,
 			Balance:         *balances.AccumulatedOA.Round(0),
 			EventAdjBalance: *balances.AccumulatedOA.Round(0),
 			ItemType:        "cpf_account",
@@ -1661,7 +1671,8 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, earner string, yearIndex int, mo
 			ParentID:        "cpf" + idSuffix,
 			Name:            "CPF Special Account",
 			Category:        "cpf",
-			Earner:          earner,
+			PersonID:        personID,
+			PersonName:      personName,
 			Balance:         *balances.AccumulatedSA.Round(0),
 			EventAdjBalance: *balances.AccumulatedSA.Round(0),
 			ItemType:        "cpf_account",
@@ -1674,7 +1685,8 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, earner string, yearIndex int, mo
 			ParentID:        "cpf" + idSuffix,
 			Name:            "CPF MediSave Account",
 			Category:        "cpf",
-			Earner:          earner,
+			PersonID:        personID,
+			PersonName:      personName,
 			Balance:         *balances.AccumulatedMA.Round(0),
 			EventAdjBalance: *balances.AccumulatedMA.Round(0),
 			ItemType:        "cpf_account",
@@ -1699,7 +1711,8 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, earner string, yearIndex int, mo
 			ParentID:        "cpf" + idSuffix,
 			Name:            "CPF Retirement Account",
 			Category:        "cpf",
-			Earner:          earner,
+			PersonID:        personID,
+			PersonName:      personName,
 			Balance:         *raBalance,
 			EventAdjBalance: *raBalance,
 			ItemType:        "cpf_account",
@@ -1819,7 +1832,7 @@ func buildMonthDetailResponse(
 		}
 	}
 
-	// Build CPF assets from accumulated balances for all earners
+	// Build CPF assets from accumulated balances for all persons
 	cpfAssets := buildAllCPFAssetResponses(cpfContexts, yearIndex, month, date)
 	cpfTotal := decimal.Zero()
 	for _, asset := range cpfAssets {
@@ -1891,7 +1904,7 @@ type MonthlyContext struct {
 	ItemStates                ItemStateMap
 	State                     map[string]*decimal.Decimal // Base state - persists across months
 	Registry                  *growth.Registry
-	CPFContexts               map[string]*CPFContext // Map of earner name -> CPFContext
+	CPFContexts               map[string]*CPFContext // Map of personID -> CPFContext
 	BaseYear                  int
 	CashAccumulator           *decimal.Decimal
 	IncomeAllocations         []repo.IncomeAllocation
@@ -1904,12 +1917,12 @@ type MonthlyContext struct {
 	Properties []repo.PropertyScenarioFull
 }
 
-// getCPFContext returns the CPF context for a given earner, or nil if not found
-func (mctx *MonthlyContext) getCPFContext(earner string) *CPFContext {
+// getCPFContext returns the CPF context for a given personID, or nil if not found
+func (mctx *MonthlyContext) getCPFContext(personID string) *CPFContext {
 	if mctx.CPFContexts == nil {
 		return nil
 	}
-	return mctx.CPFContexts[earner]
+	return mctx.CPFContexts[personID]
 }
 
 // resetAllCPFContextsYTD resets YTD tracking for all CPF contexts at year boundaries
@@ -1920,7 +1933,7 @@ func (mctx *MonthlyContext) resetAllCPFContextsYTD(date time.Time, allMonthsInde
 }
 
 // processAllIncomes calculates CPF contributions for all incomes across all CPF contexts
-// Each income is matched to its earner's CPF context
+// Each income is matched to its person's CPF context via PersonID
 func (mctx *MonthlyContext) processAllIncomes(
 	incomes []FinancialDataRow,
 	state map[string]*decimal.Decimal,
@@ -1939,18 +1952,18 @@ func (mctx *MonthlyContext) processAllIncomes(
 			continue
 		}
 
-		// Find CPF context for this income's earner
-		earner := income.Earner
-		if earner == "" {
-			earner = "default"
+		// Find CPF context for this income's person
+		personID := income.PersonID
+		if personID == "" {
+			personID = "default"
 		}
-		cpfCtx := mctx.CPFContexts[earner]
+		cpfCtx := mctx.CPFContexts[personID]
 		if cpfCtx == nil {
-			// Try default context if no earner-specific one
+			// Try default context if no person-specific one
 			cpfCtx = mctx.CPFContexts["default"]
 		}
 		if cpfCtx == nil {
-			// No CPF context for this earner, skip
+			// No CPF context for this person, skip
 			continue
 		}
 

@@ -163,8 +163,8 @@ type Income struct {
 	ID             string          `json:"id"`
 	ParentID       string          `json:"parentId"`
 	Name           string          `json:"name"`
-	Earner         string          `json:"earner"`   // Deprecated: kept for backward compatibility, use PersonID
 	PersonID       string          `json:"personId"` // FK to persons table (required)
+	PersonName     string          `json:"personName,omitempty"` // Display name from persons table (read-only, populated via JOIN)
 	Amount         decimal.Decimal `json:"amount"`
 	Frequency      string          `json:"frequency"`
 	StartDate      time.Time       `json:"startDate"`         // Precise start date (day-level) - now required
@@ -209,9 +209,9 @@ type Expense struct {
 type CPFAccount struct {
 	ID               string          `json:"id"`
 	UserID           string          `json:"userId"`
-	Earner           string          `json:"earner,omitempty"`  // Deprecated: kept for backward compatibility, use PersonID
-	PersonID         string          `json:"personId"`          // FK to persons table (required)
-	ParentID         string          `json:"parentId"`          // Groups versions of same logical account
+	PersonID         string          `json:"personId"`                   // FK to persons table (required)
+	PersonName       string          `json:"personName,omitempty"`       // Display name from persons table (read-only, populated via JOIN)
+	ParentID         string          `json:"parentId"`                   // Groups versions of same logical account
 	StartDate        time.Time       `json:"startDate"`         // When this version starts
 	EndDate          *time.Time      `json:"endDate,omitempty"` // When this version ends (NULL = ongoing)
 	OABalance        decimal.Decimal `json:"oaBalance"`         // Ordinary Account balance
@@ -664,8 +664,8 @@ func (s *Store) ListIncomes(
 	SELECT i.id,
 		COALESCE(i.parent_id, i.id) as parent_id,
 		i.name,
-		COALESCE(p.name, i.earner, '') as earner,
 		i.person_id,
+		COALESCE(p.name, '') as person_name,
 		i.amount,
 		i.frequency,
 		i.start_date,
@@ -732,7 +732,7 @@ func (s *Store) ListIncomes(
 	for rows.Next() {
 		var i Income
 		err := rows.Scan(
-			&i.ID, &i.ParentID, &i.Name, &i.Earner, &i.PersonID, &i.Amount, &i.Frequency,
+			&i.ID, &i.ParentID, &i.Name, &i.PersonID, &i.PersonName, &i.Amount, &i.Frequency,
 			&i.StartDate, &i.EndDate, &i.Category, &i.GrowthRate,
 			&i.Notes, &i.GrowthStrategy, &i.UpdatedAt,
 			&i.IncomeType, &i.CPFWageType, &i.ScenarioEventID,

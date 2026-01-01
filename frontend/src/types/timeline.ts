@@ -49,8 +49,8 @@ export interface TimelineItem {
   rowId?: string
   parentId?: string
   name: string
-  earner?: string
   personId?: string | null
+  personName?: string
   category: string
   amountAnnual: number
   adjAnnualAmt?: number
@@ -268,7 +268,8 @@ export interface CPFAssetResponseV2 {
   parentId: string
   name: string
   category: string
-  earner: string
+  personId: string
+  personName?: string
   balance: string
   eventAdjBalance: string
   itemType: TimelineItemType
@@ -299,8 +300,8 @@ export interface IncomeResponseV2 {
   id: string
   parentId: string
   name: string
-  earner?: string
   personId?: string | null
+  personName?: string
   category: string
   amount: string // Monthly amount
   eventAdjAmount: string // Monthly amount with scenario impacts

@@ -1,8 +1,50 @@
 "use client"
 
 import { CustomSelect } from '@/components/ui/CustomSelect'
+import { InfoTooltip } from '@/app/property-planner/components/InfoTooltip'
 
 import type { BorrowersStepProps, IncomeOption } from './types'
+
+// Reusable input component for CPF amounts
+function CpfInput({
+  label,
+  tooltipTitle,
+  tooltipDescription,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string
+  tooltipTitle: string
+  tooltipDescription: string
+  value: number
+  onChange: (value: number) => void
+  placeholder?: string
+}) {
+  return (
+    <div className="mt-3 space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <label className="text-xs font-medium text-slate-400">{label}</label>
+        <InfoTooltip title={tooltipTitle} description={tooltipDescription} />
+      </div>
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={value === 0 ? '' : value.toLocaleString()}
+          onChange={(e) => {
+            const raw = e.target.value.replace(/,/g, '')
+            const num = parseFloat(raw) || 0
+            onChange(num)
+          }}
+          placeholder={placeholder || '0'}
+          className="w-full pl-7 pr-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-sm font-mono tabular-nums focus:outline-none focus:border-white/20 focus:bg-white/[0.05] placeholder:text-slate-600"
+        />
+      </div>
+    </div>
+  )
+}
 
 export function BorrowersStep({
   inputs,
@@ -14,17 +56,16 @@ export function BorrowersStep({
   purchaseDateFormatted,
   householdIncome,
 }: BorrowersStepProps) {
-  // Helper to format income label - earner name if present, else salary name
+  // Helper to format income label - person name if present, else salary name
   const formatIncomeLabel = (income: IncomeOption) => {
-    const displayName = income.earner || income.name
+    const displayName = income.personName || income.name
     return `${displayName} - $${income.monthlyAmount.toLocaleString()}/mo`
   }
 
-  // Find matching CPF account by earner name (case-insensitive)
+  // Find matching CPF account by personId
   const findCpfAccountForIncome = (income: IncomeOption) => {
-    if (!income.earner) return null
-    const earnerLower = income.earner.toLowerCase()
-    return cpfAccounts.find(acc => acc.earner?.toLowerCase() === earnerLower)
+    if (!income.personId) return null
+    return cpfAccounts.find(acc => acc.personId === income.personId)
   }
 
   return (
@@ -78,6 +119,38 @@ export function BorrowersStep({
             <span className="text-white text-sm font-mono tabular-nums">${inputs.borrower1OaBalance.toLocaleString()}</span>
           </div>
         )}
+
+        {/* CPF OA for Downpayment */}
+        {inputs.borrower1IncomeId && (
+          <CpfInput
+            label="CPF OA for Downpayment"
+            tooltipTitle="CPF OA for Downpayment"
+            tooltipDescription="Amount from CPF OA to use for downpayment. Cannot exceed your projected OA balance."
+            value={inputs.borrower1DownpaymentCpfOa}
+            onChange={(value) => {
+              // Cap at OA balance
+              const cappedValue = Math.min(value, inputs.borrower1OaBalance)
+              onChange('borrower1DownpaymentCpfOa', cappedValue)
+              // Update combined downpaymentCpfOa
+              onChange('downpaymentCpfOa', cappedValue + inputs.borrower2DownpaymentCpfOa)
+            }}
+          />
+        )}
+
+        {/* Monthly CPF OA Payment */}
+        {inputs.borrower1IncomeId && (
+          <CpfInput
+            label="Monthly CPF OA Payment"
+            tooltipTitle="Monthly CPF Contribution"
+            tooltipDescription="Fixed monthly amount from CPF OA to pay towards mortgage. This is deducted from your OA each month."
+            value={inputs.borrower1MonthlyCpfOa}
+            onChange={(value) => {
+              onChange('borrower1MonthlyCpfOa', value)
+              // Update combined monthlyCpfOa
+              onChange('monthlyCpfOa', value + inputs.borrower2MonthlyCpfOa)
+            }}
+          />
+        )}
       </div>
 
       {/* Add Joint Borrower */}
@@ -94,6 +167,9 @@ export function BorrowersStep({
               const borrower2OaBalance = matchingCpf?.oaBalance ?? 62400
               onChange('borrower2OaBalance', borrower2OaBalance)
               onChange('cpfOaBalance', inputs.borrower1OaBalance + borrower2OaBalance)
+              // Reset borrower 2's CPF contribution fields
+              onChange('borrower2DownpaymentCpfOa', 0)
+              onChange('borrower2MonthlyCpfOa', 0)
             }
           }}
           className="w-full py-2 rounded-xl border border-dashed border-white/[0.08] hover:border-white/[0.15] text-slate-500 hover:text-slate-300 text-xs font-medium transition-all"
@@ -114,6 +190,11 @@ export function BorrowersStep({
                 onChange('borrower2IncomeId', '')
                 onChange('borrower2OaBalance', 0)
                 onChange('cpfOaBalance', inputs.borrower1OaBalance)
+                // Reset borrower 2's CPF contribution fields and update combined totals
+                onChange('borrower2DownpaymentCpfOa', 0)
+                onChange('borrower2MonthlyCpfOa', 0)
+                onChange('downpaymentCpfOa', inputs.borrower1DownpaymentCpfOa)
+                onChange('monthlyCpfOa', inputs.borrower1MonthlyCpfOa)
               }}
               className="text-xs text-slate-500 hover:text-red-400 transition-colors"
             >
@@ -149,18 +230,58 @@ export function BorrowersStep({
               <span className="text-white text-sm font-mono tabular-nums">${inputs.borrower2OaBalance.toLocaleString()}</span>
             </div>
           )}
+
+          {/* CPF OA for Downpayment */}
+          {inputs.borrower2IncomeId && (
+            <CpfInput
+              label="CPF OA for Downpayment"
+              tooltipTitle="CPF OA for Downpayment"
+              tooltipDescription="Amount from CPF OA to use for downpayment. Cannot exceed your projected OA balance."
+              value={inputs.borrower2DownpaymentCpfOa}
+              onChange={(value) => {
+                // Cap at OA balance
+                const cappedValue = Math.min(value, inputs.borrower2OaBalance)
+                onChange('borrower2DownpaymentCpfOa', cappedValue)
+                // Update combined downpaymentCpfOa
+                onChange('downpaymentCpfOa', inputs.borrower1DownpaymentCpfOa + cappedValue)
+              }}
+            />
+          )}
+
+          {/* Monthly CPF OA Payment */}
+          {inputs.borrower2IncomeId && (
+            <CpfInput
+              label="Monthly CPF OA Payment"
+              tooltipTitle="Monthly CPF Contribution"
+              tooltipDescription="Fixed monthly amount from CPF OA to pay towards mortgage. This is deducted from your OA each month."
+              value={inputs.borrower2MonthlyCpfOa}
+              onChange={(value) => {
+                onChange('borrower2MonthlyCpfOa', value)
+                // Update combined monthlyCpfOa
+                onChange('monthlyCpfOa', inputs.borrower1MonthlyCpfOa + value)
+              }}
+            />
+          )}
         </div>
       )}
 
       {/* Summary */}
-      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
         <div className="flex justify-between text-xs">
           <span className="text-slate-500">Combined Income</span>
           <span className="text-white font-medium">${householdIncome.toLocaleString()}/mo</span>
         </div>
-        <div className="flex justify-between text-xs mt-1">
-          <span className="text-slate-500">Combined CPF OA</span>
-          <span className="text-white">${inputs.cpfOaBalance.toLocaleString()}</span>
+        <div className="flex justify-between text-xs">
+          <span className="text-slate-500">Combined CPF OA Balance</span>
+          <span className="text-white font-mono tabular-nums">${inputs.cpfOaBalance.toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between text-xs">
+          <span className="text-slate-500">CPF OA for Downpayment</span>
+          <span className="text-emerald-400 font-mono tabular-nums">${inputs.downpaymentCpfOa.toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between text-xs">
+          <span className="text-slate-500">Monthly CPF OA Payment</span>
+          <span className="text-emerald-400 font-mono tabular-nums">${inputs.monthlyCpfOa.toLocaleString()}/mo</span>
         </div>
       </div>
     </div>

@@ -193,8 +193,8 @@ type CPFAssetResponse struct {
 	ParentID        string          `json:"parentId"`
 	Name            string          `json:"name"`
 	Category        string          `json:"category"`
-	Earner          string          `json:"earner"`
 	PersonID        string          `json:"personId"`
+	PersonName      string          `json:"personName,omitempty"`
 	Balance         decimal.Decimal `json:"balance"`
 	EventAdjBalance decimal.Decimal `json:"eventAdjBalance"`
 	ItemType        string          `json:"itemType"`
@@ -221,12 +221,12 @@ type LiabilityResponse struct {
 
 // IncomeResponse represents an income entry in the timeline response
 type IncomeResponse struct {
-	ID                   string          `json:"id"`
-	ParentID             string          `json:"parentId"`
-	Name                 string          `json:"name"`
-	Earner               string          `json:"earner,omitempty"`
-	PersonID             string          `json:"personId"`
-	Category             string          `json:"category"`
+	ID         string `json:"id"`
+	ParentID   string `json:"parentId"`
+	Name       string `json:"name"`
+	PersonID   string `json:"personId"`
+	PersonName string `json:"personName,omitempty"`
+	Category   string `json:"category"`
 	Amount               decimal.Decimal `json:"amount"`               // Monthly amount
 	EventAdjAmount       decimal.Decimal `json:"eventAdjAmount"`       // Monthly amount with scenario impacts
 	AnnualAmount         decimal.Decimal `json:"annualAmount"`         // Sum of 12 monthly amounts (accounts for growth)

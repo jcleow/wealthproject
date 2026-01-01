@@ -1,16 +1,15 @@
 import type { CPFAssetResponseV2 } from '@/types/timeline'
 
 /**
- * Extract projected OA balance from timeline CPF assets by earner name.
- * Matches by ID pattern (cpf-oa-{earner}) since the backend uses this consistent format.
+ * Extract projected OA balance from timeline CPF assets by personId.
+ * Matches by personId and ID pattern (cpf-oa-*) since the backend uses this consistent format.
  */
-export function getProjectedOaByEarner(
+export function getProjectedOaByPersonId(
   cpfAssets: CPFAssetResponseV2[],
-  earner: string
+  personId: string
 ): number | null {
-  const earnerLower = earner.toLowerCase()
   const oaAsset = cpfAssets.find(
-    (a) => a.earner?.toLowerCase() === earnerLower && a.id.startsWith('cpf-oa')
+    (a) => a.personId === personId && a.id.startsWith('cpf-oa')
   )
   if (!oaAsset) return null
   return parseFloat(oaAsset.balance) || 0

@@ -47,7 +47,7 @@ type CrossPropertyValidationResult struct {
 // CPFOAValidationError describes a CPF OA validation failure
 type CPFOAValidationError struct {
 	AccountID      string           `json:"accountId"`
-	AccountEarner  string           `json:"accountEarner"`
+	PersonID       string           `json:"personId"`
 	AvailableOA    *decimal.Decimal `json:"availableOa"`
 	RequestedUsage *decimal.Decimal `json:"requestedUsage"`
 	OtherUsage     *decimal.Decimal `json:"otherUsage"`
@@ -80,7 +80,7 @@ type ComputedValues struct {
 // CPFOAAccountUsageInfo shows CPF OA usage info for display purposes
 type CPFOAAccountUsageInfo struct {
 	AccountID     string `json:"accountId"`
-	AccountEarner string `json:"accountEarner"`
+	PersonID      string `json:"personId"`
 	OABalance     string `json:"oaBalance"`
 	UsedHere      string `json:"usedHere"`
 	UsedElsewhere string `json:"usedElsewhere"`
@@ -126,6 +126,13 @@ type CreateSGDetailsParams struct {
 	BtoKeyCollectionDate  *string // date as string
 	SaleExpectedDate      *string // date as string
 	SaleExpectedPrice     *string // optional decimal
+	// Lease tenure: nil = freehold, 1-999 = remaining years
+	LeaseRemainingYears *int
+	// Per-borrower CPF OA tracking
+	Borrower1DownpaymentCpfOa string // decimal as string
+	Borrower2DownpaymentCpfOa string // decimal as string
+	Borrower1MonthlyCpfOa     string // decimal as string
+	Borrower2MonthlyCpfOa     string // decimal as string
 }
 
 // CreateFeeParams is the raw fee input from HTTP.
@@ -469,7 +476,7 @@ func (s *Service) validateCPFOA(
 
 	// Check borrower1's CPF account
 	accountID := *details.Borrower1CpfAccountID
-	oaBalance, earner, err := s.store.GetCPFAccountOABalance(ctx, userID, accountID)
+	oaBalance, personID, err := s.store.GetCPFAccountOABalance(ctx, userID, accountID)
 	if err != nil {
 		return fmt.Errorf("get CPF account balance: %w", err)
 	}
@@ -487,7 +494,7 @@ func (s *Service) validateCPFOA(
 			result.CPFOAValid = false
 			result.CPFOAErrors = append(result.CPFOAErrors, CPFOAValidationError{
 				AccountID:      accountID,
-				AccountEarner:  earner,
+				PersonID:       personID,
 				AvailableOA:    oaBalance,
 				RequestedUsage: requestedCpfOa,
 				OtherUsage:     otherUsage,
@@ -597,9 +604,11 @@ func (s *Service) buildCPFOAErrorMessage(errors []CPFOAValidationError) string {
 
 	msg := "CPF OA usage exceeds available balance:\n"
 	for _, e := range errors {
-		accountName := e.AccountEarner
-		if accountName == "" {
-			accountName = "CPF Account"
+		// Use PersonID as the account identifier in error messages
+		// The frontend can look up the display name via the persons context if needed
+		accountName := "CPF Account"
+		if e.PersonID != "" {
+			accountName = fmt.Sprintf("CPF Account (%s)", e.PersonID)
 		}
 		msg += fmt.Sprintf("- %s: $%s (this property) + $%s (other properties) = $%s total (Available: $%s)\n",
 			accountName,
@@ -866,7 +875,7 @@ func (s *Service) ComputeValuesWithContext(
 			}
 
 			// Get the CPF account info
-			oaBalance, earner, err := s.store.GetCPFAccountOABalance(ctx, userID, *details.Borrower1CpfAccountID)
+			oaBalance, personID, err := s.store.GetCPFAccountOABalance(ctx, userID, *details.Borrower1CpfAccountID)
 			if err == nil && oaBalance != nil {
 				usedHere := &details.DownpaymentCpfOa
 				usedElsewhere := decimal.Zero()
@@ -878,7 +887,7 @@ func (s *Service) ComputeValuesWithContext(
 
 				result.CPFOAUsageByAccount = append(result.CPFOAUsageByAccount, CPFOAAccountUsageInfo{
 					AccountID:     *details.Borrower1CpfAccountID,
-					AccountEarner: earner,
+					PersonID:      personID,
 					OABalance:     oaBalance.Round(0).String(),
 					UsedHere:      usedHere.Round(0).String(),
 					UsedElsewhere: usedElsewhere.Round(0).String(),
@@ -974,29 +983,55 @@ func buildSGDetailsInput(params *CreateSGDetailsParams) (*repo.CreateSGDetailsIn
 		return nil, err
 	}
 
+	// Per-borrower CPF OA fields
+	borrower1DownpaymentCpfOa, err := parseOptionalDecimalWithDefault("borrower1DownpaymentCpfOa", params.Borrower1DownpaymentCpfOa)
+	if err != nil {
+		return nil, err
+	}
+
+	borrower2DownpaymentCpfOa, err := parseOptionalDecimalWithDefault("borrower2DownpaymentCpfOa", params.Borrower2DownpaymentCpfOa)
+	if err != nil {
+		return nil, err
+	}
+
+	borrower1MonthlyCpfOa, err := parseOptionalDecimalWithDefault("borrower1MonthlyCpfOa", params.Borrower1MonthlyCpfOa)
+	if err != nil {
+		return nil, err
+	}
+
+	borrower2MonthlyCpfOa, err := parseOptionalDecimalWithDefault("borrower2MonthlyCpfOa", params.Borrower2MonthlyCpfOa)
+	if err != nil {
+		return nil, err
+	}
+
 	return &repo.CreateSGDetailsInput{
-		Name:                  params.Name,
-		PropertyType:          params.PropertyType,
-		PropertySubtype:       params.PropertySubtype,
-		Icon:                  params.Icon,
-		IconColor:             params.IconColor,
-		IsIncluded:            params.IsIncluded,
-		PropertyPrice:         *propertyPrice,
-		ValuationPrice:        valuationPrice,
-		LoanType:              params.LoanType,
-		DownpaymentCpfOa:      downpaymentCpfOa,
-		DownpaymentCash:       downpaymentCash,
-		BorrowerType:          params.BorrowerType,
-		Borrower1IncomeID:     params.Borrower1IncomeID,
-		Borrower1CpfAccountID: params.Borrower1CpfAccountID,
-		Borrower2IncomeID:     params.Borrower2IncomeID,
-		Borrower2CpfAccountID: params.Borrower2CpfAccountID,
-		OtherDebt:             otherDebt,
-		PropertyCount:         params.PropertyCount,
-		BtoLaunchDate:         params.BtoLaunchDate,
-		BtoKeyCollectionDate:  params.BtoKeyCollectionDate,
-		SaleExpectedDate:      params.SaleExpectedDate,
-		SaleExpectedPrice:     saleExpectedPrice,
+		Name:                      params.Name,
+		PropertyType:              params.PropertyType,
+		PropertySubtype:           params.PropertySubtype,
+		Icon:                      params.Icon,
+		IconColor:                 params.IconColor,
+		IsIncluded:                params.IsIncluded,
+		PropertyPrice:             *propertyPrice,
+		ValuationPrice:            valuationPrice,
+		LoanType:                  params.LoanType,
+		DownpaymentCpfOa:          downpaymentCpfOa,
+		DownpaymentCash:           downpaymentCash,
+		BorrowerType:              params.BorrowerType,
+		Borrower1IncomeID:         params.Borrower1IncomeID,
+		Borrower1CpfAccountID:     params.Borrower1CpfAccountID,
+		Borrower2IncomeID:         params.Borrower2IncomeID,
+		Borrower2CpfAccountID:     params.Borrower2CpfAccountID,
+		OtherDebt:                 otherDebt,
+		PropertyCount:             params.PropertyCount,
+		BtoLaunchDate:             params.BtoLaunchDate,
+		BtoKeyCollectionDate:      params.BtoKeyCollectionDate,
+		SaleExpectedDate:          params.SaleExpectedDate,
+		SaleExpectedPrice:         saleExpectedPrice,
+		LeaseRemainingYears:       params.LeaseRemainingYears,
+		Borrower1DownpaymentCpfOa: borrower1DownpaymentCpfOa,
+		Borrower2DownpaymentCpfOa: borrower2DownpaymentCpfOa,
+		Borrower1MonthlyCpfOa:     borrower1MonthlyCpfOa,
+		Borrower2MonthlyCpfOa:     borrower2MonthlyCpfOa,
 	}, nil
 }
 
