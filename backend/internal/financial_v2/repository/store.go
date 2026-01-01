@@ -258,15 +258,21 @@ type ListQuery struct {
 	IncludeScenarioItems bool // When true, include items created by scenario start impacts
 }
 
+// addDateRangeFilterQuery builds a SQL filter for items active during a date range.
+// An item is "active" if: started before the range ends AND (no end_date OR end_date after range starts).
+// This ensures items that started before the query range but are still active are included.
 func addDateRangeFilterQuery(opts DateRangeOptions, argIdx int) (string, int) {
 	dateRangeSubquery := []string{}
 
-	if opts.StartDate != nil {
-		dateRangeSubquery = append(dateRangeSubquery, fmt.Sprintf(`start_date >= $%d`, argIdx))
-		argIdx++
-	}
+	// Include items that started before the end of the query range
 	if opts.EndDate != nil {
 		dateRangeSubquery = append(dateRangeSubquery, fmt.Sprintf(`start_date < $%d`, argIdx))
+		argIdx++
+	}
+
+	// Exclude items that ended before the start of the query range
+	if opts.StartDate != nil {
+		dateRangeSubquery = append(dateRangeSubquery, fmt.Sprintf(`(end_date IS NULL OR end_date >= $%d)`, argIdx))
 		argIdx++
 	}
 
@@ -333,11 +339,12 @@ func (s *Store) ListNonCashAssets(
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if q.DateRange.StartDate != nil {
-			args = append(args, *q.DateRange.StartDate)
-		}
+		// Args order must match SQL: EndDate first (for start_date < $X), then StartDate (for end_date >= $Y)
 		if q.DateRange.EndDate != nil {
 			args = append(args, *q.DateRange.EndDate)
+		}
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
 	}
 
@@ -422,11 +429,12 @@ FROM finance_investments
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if q.DateRange.StartDate != nil {
-			args = append(args, *q.DateRange.StartDate)
-		}
+		// Args order must match SQL: EndDate first (for start_date < $X), then StartDate (for end_date >= $Y)
 		if q.DateRange.EndDate != nil {
 			args = append(args, *q.DateRange.EndDate)
+		}
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
 	}
 
@@ -512,11 +520,12 @@ func (s *Store) ListCashAssets(
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if q.DateRange.StartDate != nil {
-			args = append(args, *q.DateRange.StartDate)
-		}
+		// Args order must match SQL: EndDate first (for start_date < $X), then StartDate (for end_date >= $Y)
 		if q.DateRange.EndDate != nil {
 			args = append(args, *q.DateRange.EndDate)
+		}
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
 	}
 
@@ -603,11 +612,12 @@ func (s *Store) ListLiabilities(
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if q.DateRange.StartDate != nil {
-			args = append(args, *q.DateRange.StartDate)
-		}
+		// Args order must match SQL: EndDate first (for start_date < $X), then StartDate (for end_date >= $Y)
 		if q.DateRange.EndDate != nil {
 			args = append(args, *q.DateRange.EndDate)
+		}
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
 	}
 
@@ -698,11 +708,12 @@ func (s *Store) ListIncomes(
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if q.DateRange.StartDate != nil {
-			args = append(args, *q.DateRange.StartDate)
-		}
+		// Args order must match SQL: EndDate first (for start_date < $X), then StartDate (for end_date >= $Y)
 		if q.DateRange.EndDate != nil {
 			args = append(args, *q.DateRange.EndDate)
+		}
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
 	}
 
@@ -789,11 +800,12 @@ func (s *Store) ListExpenses(
 	dateRangeSubQuery, argIdx := addDateRangeFilterQuery(q.DateRange, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if q.DateRange.StartDate != nil {
-			args = append(args, *q.DateRange.StartDate)
-		}
+		// Args order must match SQL: EndDate first (for start_date < $X), then StartDate (for end_date >= $Y)
 		if q.DateRange.EndDate != nil {
 			args = append(args, *q.DateRange.EndDate)
+		}
+		if q.DateRange.StartDate != nil {
+			args = append(args, *q.DateRange.StartDate)
 		}
 	}
 
