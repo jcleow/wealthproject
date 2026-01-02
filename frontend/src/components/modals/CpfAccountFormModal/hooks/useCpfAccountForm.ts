@@ -8,12 +8,8 @@ import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload } fro
 import {
   cpfAccountFormSchema,
   defaultCpfAccountFormValues,
-  residencyStatusOptions,
   type CpfAccountFormData,
 } from '@/lib/validations/cpfAccount'
-
-export { residencyStatusOptions }
-export const RESIDENCY_OPTIONS = residencyStatusOptions
 
 function formatDateForInput(isoDate: string | undefined): string {
   if (!isoDate) return ''
@@ -35,33 +31,29 @@ function parseDisplayValue(displayValue: string): number {
   return num
 }
 
+// Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now
+// managed through the Person entity, not through CPF accounts.
 function mapCpfAccountToFormData(cpfAccount: CPFAccount): CpfAccountFormData {
   return {
-    personId: cpfAccount.personId ?? null,
+    personId: cpfAccount.personId ?? '',
     oaBalance: toDisplayString(cpfAccount.oaBalance),
     saBalance: toDisplayString(cpfAccount.saBalance),
     maBalance: toDisplayString(cpfAccount.maBalance),
     raBalance: toDisplayString(cpfAccount.raBalance),
     oaUsedForHousing: toDisplayString(cpfAccount.oaUsedForHousing),
-    dateOfBirth: formatDateForInput(cpfAccount.dateOfBirth),
-    residencyStatus: cpfAccount.residencyStatus,
     housingStartDate: formatDateForInput(cpfAccount.housingStartDate),
-    prGrantDate: formatDateForInput(cpfAccount.prGrantDate),
   }
 }
 
 function mapFormDataToCreatePayload(data: CpfAccountFormData): CPFAccountCreatePayload {
   return {
-    personId: data.personId || undefined,
+    personId: data.personId,
     oaBalance: parseDisplayValue(data.oaBalance),
     saBalance: parseDisplayValue(data.saBalance),
     maBalance: parseDisplayValue(data.maBalance),
     raBalance: parseDisplayValue(data.raBalance),
     oaUsedForHousing: parseDisplayValue(data.oaUsedForHousing),
-    dateOfBirth: data.dateOfBirth,
-    residencyStatus: data.residencyStatus,
     housingStartDate: data.housingStartDate || undefined,
-    prGrantDate: data.prGrantDate || undefined,
   }
 }
 
@@ -73,10 +65,7 @@ function mapFormDataToUpdatePayload(data: CpfAccountFormData): CPFAccountUpdateP
     maBalance: parseDisplayValue(data.maBalance),
     raBalance: parseDisplayValue(data.raBalance),
     oaUsedForHousing: parseDisplayValue(data.oaUsedForHousing),
-    dateOfBirth: data.dateOfBirth,
-    residencyStatus: data.residencyStatus,
     housingStartDate: data.housingStartDate || undefined,
-    prGrantDate: data.prGrantDate || undefined,
   }
 }
 
@@ -147,7 +136,5 @@ export function useCpfAccountForm({
     isSubmitting: form.formState.isSubmitting,
     errors: form.formState.errors,
     submitError,
-    // Watch residencyStatus for conditional rendering
-    residencyStatus: form.watch('residencyStatus'),
   }
 }

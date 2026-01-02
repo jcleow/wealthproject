@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, Plus, Check, X, User } from 'lucide-react'
+import { ChevronDown, Plus, Check, User, Calendar } from 'lucide-react'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useCreatePersonMutation } from '@/hooks/queries/usePersonsQuery'
 import { getSuggestedColor } from '@/types/person'
@@ -35,6 +35,7 @@ export function PersonSelector({
   const [isOpen, setIsOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [newName, setNewName] = useState('')
+  const [newDateOfBirth, setNewDateOfBirth] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -73,18 +74,22 @@ export function PersonSelector({
   const handleCancelCreate = () => {
     setIsCreating(false)
     setNewName('')
+    setNewDateOfBirth('')
   }
 
   const handleConfirmCreate = async () => {
-    if (!newName.trim()) return
+    if (!newName.trim() || !newDateOfBirth) return
     const suggestedColor = getSuggestedColor(persons)
     const created = await createMutation.mutateAsync({
       name: newName.trim(),
       displayColor: suggestedColor,
+      dateOfBirth: newDateOfBirth,
+      residencyStatus: 'citizen', // Default for quick create
     })
     onChange(created.id)
     setIsCreating(false)
     setNewName('')
+    setNewDateOfBirth('')
     setIsOpen(false)
   }
 
@@ -187,40 +192,52 @@ export function PersonSelector({
           {/* Create new person */}
           <div className="border-t border-white/[0.08]">
             {isCreating ? (
-              <div className="flex items-center gap-2 p-2">
-                <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Person name"
-                  className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-md px-2 py-1 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      handleConfirmCreate()
-                    }
-                    if (e.key === 'Escape') {
-                      handleCancelCreate()
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleConfirmCreate}
-                  disabled={!newName.trim() || createMutation.isPending}
-                  className="p-1 rounded-md text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50"
-                >
-                  <Check className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancelCreate}
-                  className="p-1 rounded-md text-gray-400 hover:bg-white/[0.06]"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+              <div className="p-2 space-y-2">
+                {/* Name row */}
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Person name"
+                    className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-md px-2 py-1 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        handleCancelCreate()
+                      }
+                    }}
+                  />
+                </div>
+                {/* Date of birth row */}
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <input
+                    type="date"
+                    value={newDateOfBirth}
+                    onChange={(e) => setNewDateOfBirth(e.target.value)}
+                    className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-md px-2 py-1 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                {/* Action buttons */}
+                <div className="flex items-center justify-end gap-1 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCancelCreate}
+                    className="px-2 py-1 rounded-md text-xs text-gray-400 hover:bg-white/[0.06]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmCreate}
+                    disabled={!newName.trim() || !newDateOfBirth || createMutation.isPending}
+                    className="px-2 py-1 rounded-md text-xs text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 disabled:opacity-50"
+                  >
+                    {createMutation.isPending ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
               </div>
             ) : (
               <button

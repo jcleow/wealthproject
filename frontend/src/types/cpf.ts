@@ -10,10 +10,12 @@ export interface CPFBalances {
 }
 
 // Database-backed CPF Account (per-user, versioned)
+// Note: dateOfBirth, residencyStatus, prGrantDate are now stored on the Person entity
+// but are included here as read-only fields populated via JOIN from the persons table.
 export interface CPFAccount {
   id: string
   userId: string
-  personId?: string | null // FK to persons table
+  personId?: string | null // FK to persons table (required)
   personName?: string // Display name from persons table (read-only)
   parentId: string // Groups versions of same logical account
   startDate: string // When this version starts
@@ -24,6 +26,7 @@ export interface CPFAccount {
   raBalance: number // in dollars (decimal)
   oaUsedForHousing: number // in dollars (decimal)
   housingStartDate?: string
+  // Person-related fields (read-only, populated via JOIN from persons table)
   dateOfBirth: string
   residencyStatus: ResidencyStatus
   prGrantDate?: string
@@ -31,17 +34,16 @@ export interface CPFAccount {
   updatedAt: string
 }
 
+// Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now
+// managed through the Person entity, not through CPF account endpoints.
 export interface CPFAccountCreatePayload {
-  personId?: string | null
+  personId: string // Required FK to persons table
   oaBalance?: number
   saBalance?: number
   maBalance?: number
   raBalance?: number
   oaUsedForHousing?: number
   housingStartDate?: string
-  dateOfBirth: string
-  residencyStatus: ResidencyStatus
-  prGrantDate?: string
 }
 
 export type UpdateMode = 'in_place' | 'versioned'
@@ -54,9 +56,6 @@ export interface CPFAccountUpdatePayload {
   raBalance?: number
   oaUsedForHousing?: number
   housingStartDate?: string
-  dateOfBirth?: string
-  residencyStatus?: ResidencyStatus
-  prGrantDate?: string
   updateMode?: UpdateMode
   startDate?: string // Required for versioned updates
 }

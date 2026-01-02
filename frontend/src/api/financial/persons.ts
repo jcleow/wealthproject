@@ -1,6 +1,8 @@
 import { apiClient } from '../client'
 import type { Person, PersonCreatePayload, PersonUpdatePayload } from '@/types/person'
 
+import type { ResidencyStatus } from '@/types/cpf'
+
 /** Raw API response shape for person */
 interface RawPersonResponse {
   id: string
@@ -8,6 +10,9 @@ interface RawPersonResponse {
   name: string
   displayColor?: string | null
   isIncluded?: boolean
+  dateOfBirth: string
+  residencyStatus: ResidencyStatus
+  prGrantDate?: string | null
   createdAt: string
   updatedAt: string
   incomeCount?: number
@@ -24,6 +29,9 @@ function toPerson(data: RawPersonResponse): Person {
     name: data.name,
     displayColor: data.displayColor ?? null,
     isIncluded: data.isIncluded ?? true,
+    dateOfBirth: data.dateOfBirth,
+    residencyStatus: data.residencyStatus,
+    prGrantDate: data.prGrantDate ?? null,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
     incomeCount: data.incomeCount ?? 0,
@@ -83,6 +91,9 @@ export interface BulkPersonUpdate {
   isIncluded?: boolean
   name?: string
   displayColor?: string
+  dateOfBirth?: string
+  residencyStatus?: ResidencyStatus
+  prGrantDate?: string | null
 }
 
 /**
@@ -91,12 +102,15 @@ export interface BulkPersonUpdate {
  */
 export async function bulkUpdatePersons(updates: BulkPersonUpdate[]): Promise<Person[]> {
   const results = await Promise.all(
-    updates.map(async ({ id, isIncluded, name, displayColor }) => {
+    updates.map(async ({ id, isIncluded, name, displayColor, dateOfBirth, residencyStatus, prGrantDate }) => {
       // Build the update payload (only include fields that are set)
       const payload: PersonUpdatePayload = {}
       if (name !== undefined) payload.name = name
       if (displayColor !== undefined) payload.displayColor = displayColor
       if (isIncluded !== undefined) payload.isIncluded = isIncluded
+      if (dateOfBirth !== undefined) payload.dateOfBirth = dateOfBirth
+      if (residencyStatus !== undefined) payload.residencyStatus = residencyStatus
+      if (prGrantDate !== undefined) payload.prGrantDate = prGrantDate
 
       const data = await apiClient.put<RawPersonResponse>(`/persons/${id}`, payload, { baseUrl: '/api/v2' })
       return toPerson(data)

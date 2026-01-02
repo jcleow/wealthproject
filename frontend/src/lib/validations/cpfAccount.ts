@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export type ResidencyStatus = 'citizen' | 'pr_year_1' | 'pr_year_2' | 'pr_year_3_plus'
 
+// Note: These options are kept for the Person form, not CPF form
 export const residencyStatusOptions: { value: ResidencyStatus; label: string }[] = [
   { value: 'citizen', label: 'Singapore Citizen' },
   { value: 'pr_year_1', label: 'PR Year 1' },
@@ -20,30 +21,26 @@ const numericStringField = z
     'Value cannot be negative'
   )
 
+// CPF Account form schema - person-related fields (dateOfBirth, residencyStatus, prGrantDate)
+// are now managed through the Person entity, not through CPF accounts.
 export const cpfAccountFormSchema = z.object({
-  personId: z.string().nullable(),
+  personId: z.string().min(1, 'Person is required'),
   oaBalance: numericStringField,
   saBalance: numericStringField,
   maBalance: numericStringField,
   raBalance: numericStringField,
   oaUsedForHousing: numericStringField,
-  dateOfBirth: z.string().min(1, 'Date of birth is required'),
-  residencyStatus: z.enum(['citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus']),
   housingStartDate: z.string(),
-  prGrantDate: z.string(),
 })
 
 export type CpfAccountFormData = z.infer<typeof cpfAccountFormSchema>
 
 export const defaultCpfAccountFormValues: CpfAccountFormData = {
-  personId: null,
+  personId: '',
   oaBalance: '',
   saBalance: '',
   maBalance: '',
   raBalance: '',
   oaUsedForHousing: '',
-  dateOfBirth: '',
-  residencyStatus: 'citizen',
   housingStartDate: '',
-  prGrantDate: '',
 }

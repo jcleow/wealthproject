@@ -44,10 +44,14 @@ export function useLoadSampleDataMutation() {
         alexPerson = await personsApi.createPerson({
           name: 'Alex',
           displayColor: PERSON_COLORS[0], // blue
+          dateOfBirth: '1993-01-01', // 32 years old
+          residencyStatus: 'citizen',
         })
         sarahPerson = await personsApi.createPerson({
           name: 'Sarah',
           displayColor: PERSON_COLORS[1], // emerald
+          dateOfBirth: '1994-06-15', // 31 years old
+          residencyStatus: 'citizen',
         })
         console.debug('[loadSampleData] Created persons:', { alexId: alexPerson.id, sarahId: sarahPerson.id })
       } catch (error) {
@@ -56,15 +60,14 @@ export function useLoadSampleDataMutation() {
 
       // Ensure CPF profile exists so timeline v2 can show CPF assets and contributions
       // This is Alex's CPF account - linked to Alex person
+      // Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity
       const sampleCPFAccount: CPFAccountCreatePayload = {
-        personId: alexPerson?.id ?? null,
+        personId: alexPerson?.id ?? '', // Required FK to persons table
         oaBalance: 85000,
         saBalance: 45000,
         maBalance: 32000,
         raBalance: 0,
         oaUsedForHousing: 0,
-        dateOfBirth: '1993-01-01',
-        residencyStatus: 'citizen',
       }
 
       try {
@@ -79,15 +82,14 @@ export function useLoadSampleDataMutation() {
       }
 
       // Create Sarah's CPF account (spouse) - linked to Sarah person
+      // Note: Person-related fields are now on the Person entity
       const sarahCPFAccount: CPFAccountCreatePayload = {
-        personId: sarahPerson?.id ?? null,
+        personId: sarahPerson?.id ?? '', // Required FK to persons table
         oaBalance: 65000,
         saBalance: 35000,
         maBalance: 25000,
         raBalance: 0,
         oaUsedForHousing: 0,
-        dateOfBirth: '1994-06-15',
-        residencyStatus: 'citizen',
       }
 
       try {

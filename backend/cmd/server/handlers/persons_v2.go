@@ -3,21 +3,28 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 )
 
 // personV2CreateInput is the JSON-friendly input struct for creating a person.
 type personV2CreateInput struct {
-	Name         string `json:"name"`
-	DisplayColor string `json:"displayColor"`
+	Name            string  `json:"name"`
+	DisplayColor    string  `json:"displayColor"`
+	DateOfBirth     string  `json:"dateOfBirth"`     // Required, format: "2006-01-02"
+	ResidencyStatus string  `json:"residencyStatus"` // 'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'
+	PRGrantDate     *string `json:"prGrantDate"`     // Optional, format: "2006-01-02"
 }
 
 // personV2UpdateInput is the JSON-friendly input struct for updating a person.
 type personV2UpdateInput struct {
-	Name         string `json:"name"`
-	DisplayColor string `json:"displayColor"`
-	IsIncluded   *bool  `json:"isIncluded"`
+	Name            string  `json:"name"`
+	DisplayColor    string  `json:"displayColor"`
+	IsIncluded      *bool   `json:"isIncluded"`
+	DateOfBirth     *string `json:"dateOfBirth"`     // Optional for updates, format: "2006-01-02"
+	ResidencyStatus string  `json:"residencyStatus"` // Optional for updates
+	PRGrantDate     *string `json:"prGrantDate"`     // Optional, format: "2006-01-02"
 }
 
 // PersonV2Handler serves person v2 endpoints.
@@ -94,8 +101,37 @@ func (h *PersonV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Parse date of birth (required)
+	if input.DateOfBirth == "" {
+		badRequest(w, errMissingFields("dateOfBirth"))
+		return
+	}
+	dob, err := time.Parse("2006-01-02", input.DateOfBirth)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	// Parse optional PR grant date
+	var prGrantDate *time.Time
+	if input.PRGrantDate != nil && *input.PRGrantDate != "" {
+		t, err := time.Parse("2006-01-02", *input.PRGrantDate)
+		if err == nil {
+			prGrantDate = &t
+		}
+	}
+
+	// Default residency status to 'citizen' if not provided
+	residencyStatus := input.ResidencyStatus
+	if residencyStatus == "" {
+		residencyStatus = "citizen"
+	}
+
 	person := repo.Person{
-		Name: input.Name,
+		Name:            input.Name,
+		DateOfBirth:     dob,
+		ResidencyStatus: residencyStatus,
+		PRGrantDate:     prGrantDate,
 	}
 	if input.DisplayColor != "" {
 		person.DisplayColor = &input.DisplayColor
@@ -181,10 +217,38 @@ func (h *PersonV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, i
 		return
 	}
 
+	// Parse optional date of birth
+	var dob time.Time
+	if input.DateOfBirth != nil && *input.DateOfBirth != "" {
+		dob, err = time.Parse("2006-01-02", *input.DateOfBirth)
+		if err != nil {
+			badRequest(w, err)
+			return
+		}
+	}
+
+	// Parse optional PR grant date
+	var prGrantDate *time.Time
+	if input.PRGrantDate != nil && *input.PRGrantDate != "" {
+		t, err := time.Parse("2006-01-02", *input.PRGrantDate)
+		if err == nil {
+			prGrantDate = &t
+		}
+	} else if input.PRGrantDate != nil && *input.PRGrantDate == "" {
+		// Explicitly set to nil if empty string provided (to clear the value)
+		prGrantDate = nil
+	} else {
+		// Preserve existing value if not provided
+		prGrantDate = current.PRGrantDate
+	}
+
 	// Build updated person
 	person := repo.Person{
-		Name:       input.Name,
-		IsIncluded: current.IsIncluded,
+		Name:            input.Name,
+		IsIncluded:      current.IsIncluded,
+		DateOfBirth:     dob,
+		ResidencyStatus: input.ResidencyStatus,
+		PRGrantDate:     prGrantDate,
 	}
 	if input.DisplayColor != "" {
 		person.DisplayColor = &input.DisplayColor

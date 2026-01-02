@@ -1,9 +1,14 @@
 // Person Types for Multi-Person Household Support
 
 import { z } from 'zod'
+import type { ResidencyStatus } from './cpf'
 
 /**
  * Person represents a household member for income/CPF ownership and filtering.
+ * Now includes personal attributes previously stored on CPF accounts:
+ * - dateOfBirth: Required for CPF contribution calculations
+ * - residencyStatus: Affects CPF contribution rates
+ * - prGrantDate: Used for PR year calculations
  */
 export const personSchema = z.object({
   id: z.string().min(1),
@@ -11,6 +16,14 @@ export const personSchema = z.object({
   name: z.string().min(1),
   displayColor: z.string().optional().nullable(),
   isIncluded: z.boolean(),
+  dateOfBirth: z.string(), // ISO date format (YYYY-MM-DD)
+  residencyStatus: z.enum([
+    'citizen',
+    'pr_year_1',
+    'pr_year_2',
+    'pr_year_3_plus',
+  ]) as z.ZodType<ResidencyStatus>,
+  prGrantDate: z.string().optional().nullable(), // ISO date format
   createdAt: z.string(),
   updatedAt: z.string(),
   // Stats populated by ListPersonsWithStats endpoint
@@ -23,12 +36,18 @@ export type Person = z.infer<typeof personSchema>
 export interface PersonCreatePayload {
   name: string
   displayColor?: string
+  dateOfBirth: string // Required, format: YYYY-MM-DD
+  residencyStatus?: ResidencyStatus // Defaults to 'citizen'
+  prGrantDate?: string // Optional, format: YYYY-MM-DD
 }
 
 export interface PersonUpdatePayload {
   name?: string
   displayColor?: string
   isIncluded?: boolean
+  dateOfBirth?: string
+  residencyStatus?: ResidencyStatus
+  prGrantDate?: string | null // Can be cleared by passing null
 }
 
 /**
