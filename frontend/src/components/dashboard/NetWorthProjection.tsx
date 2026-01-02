@@ -74,6 +74,9 @@ export function NetWorthProjection({
 }: NetWorthProjectionProps) {
   // Get timeline selection state from Zustand store
   const selectedYear = useTimelineStore((s) => s.selectedYear) ?? undefined
+  const selectedMonth = useTimelineStore((s) => s.selectedMonth)
+  const anchorYear = useTimelineStore((s) => s.anchorYear)
+  const anchorMonth = useTimelineStore((s) => s.anchorMonth)
   const setSelectedYear = useTimelineStore((s) => s.setSelectedYear)
   const setSelectedMonth = useTimelineStore((s) => s.setSelectedMonth)
   const resolution = useTimelineStore((s) => s.resolution)
@@ -115,6 +118,38 @@ export function NetWorthProjection({
 
   // Effective resolution based on available data and user preference
   const effectiveResolution: TimeResolution = resolution ?? dataResolution
+
+  // Calculate current position index for the vertical indicator line
+  // This is the month index from the anchor date
+  const currentPositionIndex = useMemo(() => {
+    if (
+      selectedYear === undefined ||
+      selectedMonth === null ||
+      anchorYear === null ||
+      anchorMonth === null
+    ) {
+      return null
+    }
+    // Calculate absolute month index from anchor
+    const anchorAbsoluteMonth = anchorYear * 12 + (anchorMonth - 1)
+    const selectedAbsoluteMonth = selectedYear * 12 + (selectedMonth - 1)
+    return selectedAbsoluteMonth - anchorAbsoluteMonth
+  }, [selectedYear, selectedMonth, anchorYear, anchorMonth])
+
+  // Handle position change from dragging the indicator line
+  const handleCurrentPositionChange = useCallback((newPositionIndex: number) => {
+    if (anchorYear === null || anchorMonth === null) return
+
+    // Convert position index back to absolute year and month
+    const anchorAbsoluteMonth = anchorYear * 12 + (anchorMonth - 1)
+    const newAbsoluteMonth = anchorAbsoluteMonth + newPositionIndex
+
+    const newYear = Math.floor(newAbsoluteMonth / 12)
+    const newMonth = (newAbsoluteMonth % 12) + 1 // Convert to 1-based month
+
+    setSelectedYear(newYear)
+    setSelectedMonth(newMonth)
+  }, [anchorYear, anchorMonth, setSelectedYear, setSelectedMonth])
 
   // Zoom and pan state management (zoom level now comes from store)
   const {
@@ -372,6 +407,8 @@ export function NetWorthProjection({
                 endIndex={actualEndIndex}
                 propertyMarkers={propertyMarkers}
                 onPropertyScenarioEdit={onPropertyScenarioEdit}
+                currentPositionIndex={currentPositionIndex}
+                onCurrentPositionChange={handleCurrentPositionChange}
               />
             ) : (
               <ProjectionChart
@@ -397,6 +434,8 @@ export function NetWorthProjection({
                 prefersReducedMotion={prefersReducedMotion}
                 propertyMarkers={propertyMarkers}
                 onPropertyScenarioEdit={onPropertyScenarioEdit}
+                currentPositionIndex={currentPositionIndex}
+                onCurrentPositionChange={handleCurrentPositionChange}
               />
             )}
           </div>

@@ -1,10 +1,11 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import {
   Area,
   Bar,
   ComposedChart,
   CartesianGrid,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Scatter,
   Tooltip,
@@ -14,6 +15,7 @@ import {
 
 import ScenarioMarker from '../ScenarioMarker'
 import PropertyScenarioMarker, { NestedMilestoneMarker, type NestedMilestoneData } from '../PropertyScenarioMarker'
+import { PropertyMarkerClickMenu } from './PropertyMarkerClickMenu'
 import { CustomTooltip } from './CustomTooltip'
 import { YearTick } from './YearTick'
 import { chartColors, AREA_ANIMATION_MS, type AxisMode, type ProjectionPoint } from './types'
@@ -46,6 +48,10 @@ export interface ProjectionChartProps {
   prefersReducedMotion: boolean
   propertyMarkers?: PropertyMarkerData[]
   onPropertyScenarioEdit?: (scenarioId: string) => void
+  /** Current slider position as yearIndex (month index from start) for vertical indicator line */
+  currentPositionIndex?: number | null
+  /** Callback when position is changed via dragging the indicator line */
+  onCurrentPositionChange?: (newIndex: number) => void
 }
 
 /**
@@ -75,13 +81,36 @@ export function ProjectionChart({
   prefersReducedMotion,
   propertyMarkers = [],
   onPropertyScenarioEdit,
+  currentPositionIndex,
+  onCurrentPositionChange,
 }: ProjectionChartProps) {
   // Track which property marker is expanded to show nested milestones
   const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(null)
 
-  // Toggle expansion on double-click
+  // Property marker click menu state (shown on click instead of hover)
+  const [clickedPropertyMarker, setClickedPropertyMarker] = useState<{
+    marker: PropertyMarkerData
+    position: { x: number; y: number }
+  } | null>(null)
+
+  // Drag state for the reference line
+  const [isDraggingLine, setIsDraggingLine] = useState(false)
+  const [isHoveringLine, setIsHoveringLine] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Toggle expansion
   const handleToggleExpand = useCallback((propertyId: string) => {
     setExpandedPropertyId(prev => prev === propertyId ? null : propertyId)
+  }, [])
+
+  // Handle property marker click - show menu with options
+  const handlePropertyMarkerClick = useCallback((marker: PropertyMarkerData, x: number, y: number) => {
+    setClickedPropertyMarker({ marker, position: { x, y } })
+  }, [])
+
+  // Close click menu
+  const handleCloseClickMenu = useCallback(() => {
+    setClickedPropertyMarker(null)
   }, [])
 
   // Convert date string (YYYY-MM) to yearIndex based on baseCalendarYear
@@ -118,8 +147,19 @@ export function ProjectionChart({
     const expandedMarker = propertyMarkers.find(m => m.propertyScenarioId === expandedPropertyId)
     if (!expandedMarker || !expandedMarker.nestedMilestones) return []
 
-    return expandedMarker.nestedMilestones.map(milestone => {
-      const yearIndex = dateToYearIndex(milestone.date)
+    // First pass: compute yearIndex for all milestones
+    const milestonesWithIndex = expandedMarker.nestedMilestones.map(milestone => ({
+      ...milestone,
+      yearIndex: dateToYearIndex(milestone.date),
+    }))
+
+    // Second pass: compute stack offset for milestones at the same yearIndex
+    const yearIndexCounts: Record<number, number> = {}
+    return milestonesWithIndex.map(milestone => {
+      const { yearIndex } = milestone
+      const currentCount = yearIndexCounts[yearIndex] ?? 0
+      yearIndexCounts[yearIndex] = currentCount + 1
+
       return {
         id: milestone.id,
         type: milestone.type,
@@ -129,15 +169,87 @@ export function ProjectionChart({
         yearIndex,
         netWorth: getNetWorthAtIndex(yearIndex),
         propertyScenarioId: expandedPropertyId,
+        stackOffset: currentCount, // 0 for first, 1 for second, etc.
       }
     })
   }, [expandedPropertyId, propertyMarkers, dateToYearIndex, getNetWorthAtIndex])
 
+  // Get the chart data being used
+  const chartData = enableChartOverlays ? enhancedDisplayData : displayData
+
+  // Handle chart mouse events for dragging the reference line
+  const handleChartMouseDown = useCallback((state: any) => {
+    if (!state || currentPositionIndex === null || currentPositionIndex === undefined) return
+    if (!onCurrentPositionChange) return
+
+    // state.activeTooltipIndex is the array index, we need the actual yearIndex
+    const activeArrayIndex = state.activeTooltipIndex
+    if (activeArrayIndex === undefined) return
+
+    const dataPoint = chartData[activeArrayIndex]
+    if (!dataPoint) return
+
+    const activeYearIndex = dataPoint.yearIndex
+
+    // Check if we're clicking near the reference line (within 2 data points)
+    if (Math.abs(activeYearIndex - currentPositionIndex) <= 2) {
+      setIsDraggingLine(true)
+    }
+  }, [currentPositionIndex, onCurrentPositionChange, chartData])
+
+  const handleChartMouseMove = useCallback((state: any) => {
+    if (!state) return
+
+    const activeArrayIndex = state.activeTooltipIndex
+    if (activeArrayIndex === undefined) {
+      setIsHoveringLine(false)
+      return
+    }
+
+    const dataPoint = chartData[activeArrayIndex]
+    if (!dataPoint) {
+      setIsHoveringLine(false)
+      return
+    }
+
+    const activeYearIndex = dataPoint.yearIndex
+
+    if (isDraggingLine && onCurrentPositionChange) {
+      // Update position while dragging using the actual yearIndex
+      if (activeYearIndex !== currentPositionIndex) {
+        onCurrentPositionChange(activeYearIndex)
+      }
+    } else if (currentPositionIndex !== null && currentPositionIndex !== undefined) {
+      // Check if hovering near the line (compare yearIndex values)
+      setIsHoveringLine(Math.abs(activeYearIndex - currentPositionIndex) <= 2)
+    }
+  }, [isDraggingLine, currentPositionIndex, onCurrentPositionChange, chartData])
+
+  const handleChartMouseUp = useCallback(() => {
+    setIsDraggingLine(false)
+  }, [])
+
+  const handleChartMouseLeave = useCallback(() => {
+    setIsDraggingLine(false)
+    setIsHoveringLine(false)
+  }, [])
+
+  // Determine cursor style based on drag/hover state
+  const chartCursor = isDraggingLine ? 'grabbing' : isHoveringLine ? 'grab' : undefined
+
   return (
+    <div
+      ref={containerRef}
+      style={{ width: '100%', height: '100%', cursor: chartCursor }}
+    >
     <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>
       <ComposedChart
         data={enableChartOverlays ? enhancedDisplayData : displayData}
         margin={{ top: 20, right: 8, left: 8, bottom: 12 }}
+        onMouseDown={handleChartMouseDown}
+        onMouseMove={handleChartMouseMove}
+        onMouseUp={handleChartMouseUp}
+        onMouseLeave={handleChartMouseLeave}
       >
         <defs>
           {enableChartOverlays ? (
@@ -306,6 +418,16 @@ export function ProjectionChart({
           cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }}
         />
 
+        {/* Vertical indicator line at current slider position */}
+        {currentPositionIndex !== null && currentPositionIndex !== undefined && (
+          <ReferenceLine
+            x={currentPositionIndex}
+            stroke={isDraggingLine || isHoveringLine ? 'rgba(148, 163, 184, 0.8)' : 'rgba(148, 163, 184, 0.5)'}
+            strokeWidth={isDraggingLine ? 2.5 : 1.5}
+            ifOverflow="hidden"
+          />
+        )}
+
         {scenarioMarkers.length > 0 && (
           <Scatter
             data={scenarioMarkers}
@@ -342,8 +464,7 @@ export function ProjectionChart({
                 cx={cx}
                 cy={cy}
                 marker={payload}
-                onPropertyScenarioEdit={onPropertyScenarioEdit}
-                onToggleExpand={handleToggleExpand}
+                onClick={handlePropertyMarkerClick}
                 isExpanded={payload?.propertyScenarioId === expandedPropertyId}
                 visible={markersReady}
                 animate={!prefersReducedMotion}
@@ -377,5 +498,19 @@ export function ProjectionChart({
         )}
       </ComposedChart>
     </ResponsiveContainer>
+
+      {/* Property marker click menu (shown on click) */}
+      {clickedPropertyMarker && (
+        <PropertyMarkerClickMenu
+          marker={clickedPropertyMarker.marker}
+          position={clickedPropertyMarker.position}
+          isExpanded={clickedPropertyMarker.marker.propertyScenarioId === expandedPropertyId}
+          onToggleExpand={() => handleToggleExpand(clickedPropertyMarker.marker.propertyScenarioId)}
+          onOpenModal={() => onPropertyScenarioEdit?.(clickedPropertyMarker.marker.propertyScenarioId)}
+          onClose={handleCloseClickMenu}
+          chartContainerRef={containerRef}
+        />
+      )}
+    </div>
   )
 }

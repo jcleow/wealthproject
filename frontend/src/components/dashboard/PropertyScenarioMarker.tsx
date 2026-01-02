@@ -8,44 +8,36 @@ type PropertyScenarioMarkerProps = {
   cx?: number
   cy?: number
   marker: PropertyMarkerData
-  onPropertyScenarioEdit?: (scenarioId: string) => void
-  onToggleExpand?: (scenarioId: string) => void
+  /** Called when marker is clicked - opens click menu with options */
+  onClick?: (marker: PropertyMarkerData, x: number, y: number) => void
   isExpanded?: boolean
   visible?: boolean
   animate?: boolean
 }
 
 /**
- * Property scenario marker with double-ring design for Recharts.
- * Displays a compound marker showing property purchase events.
+ * Property scenario marker for Recharts.
+ * Displays a simple marker showing property purchase events (no outer rings).
+ * On click, opens a menu with options to edit or expand/collapse milestones.
  */
 export default function PropertyScenarioMarker({
   cx = 0,
   cy = 0,
   marker,
-  onPropertyScenarioEdit,
-  onToggleExpand,
-  isExpanded = false,
+  onClick,
+  isExpanded: _isExpanded = false,
   visible = true,
   animate = true,
 }: PropertyScenarioMarkerProps) {
   const innerRadius = 14
-  const ring1Radius = 19
-  const ring2Radius = 24
-  const ringStrokeWidth = 2
   const iconSize = innerRadius * 1.2
   const baseLift = innerRadius * 1.5 + 10
 
-  const handleClick = () => {
-    if (onPropertyScenarioEdit && marker.propertyScenarioId) {
-      onPropertyScenarioEdit(marker.propertyScenarioId)
-    }
-  }
-
-  const handleDoubleClick = (event: React.MouseEvent) => {
-    event.stopPropagation()
-    if (onToggleExpand && marker.propertyScenarioId) {
-      onToggleExpand(marker.propertyScenarioId)
+  const handleClick = (event: React.MouseEvent) => {
+    if (onClick) {
+      // Get position relative to viewport for the menu
+      const rect = (event.currentTarget as SVGGElement).getBoundingClientRect()
+      onClick(marker, rect.right, rect.top + rect.height / 2)
     }
   }
 
@@ -55,13 +47,6 @@ export default function PropertyScenarioMarker({
   const transition = animate ? 'opacity 380ms ease-in-out 140ms' : 'none'
   const pointerEvents = visible ? 'auto' : 'none'
 
-  // Create semi-transparent version of marker color for outer ring
-  const outerRingColor = marker.iconColor + '99' // 60% opacity
-
-  // Visual indicator for expanded state
-  const expandedRingRadius = ring2Radius + 4
-  const expandedRingColor = isExpanded ? marker.iconColor + '40' : 'transparent'
-
   return (
     <g
       transform={`translate(${cx}, ${cy - baseLift})`}
@@ -70,42 +55,14 @@ export default function PropertyScenarioMarker({
       style={{ cursor: 'pointer', transition, pointerEvents, willChange: 'opacity' }}
       opacity={opacity}
       onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
-          handleClick()
+          handleClick(event as unknown as React.MouseEvent)
         }
       }}
     >
-      {/* Expanded indicator ring (only visible when expanded) */}
-      {isExpanded && (
-        <circle
-          r={expandedRingRadius}
-          fill="none"
-          stroke={expandedRingColor}
-          strokeWidth={3}
-          strokeDasharray="4 4"
-          style={{ animation: 'spin 8s linear infinite' }}
-        />
-      )}
-      {/* Outer ring 2 (colored with marker color) */}
-      <circle
-        r={ring2Radius}
-        fill="none"
-        stroke={outerRingColor}
-        strokeWidth={ringStrokeWidth}
-      />
-
-      {/* Outer ring 1 (neutral white) */}
-      <circle
-        r={ring1Radius}
-        fill="none"
-        stroke="rgba(255,255,255,0.15)"
-        strokeWidth={ringStrokeWidth}
-      />
-
-      {/* Inner filled circle */}
+      {/* Filled circle (no outer rings - matching Chart.js style) */}
       <circle
         r={innerRadius}
         fill={marker.iconColor}
@@ -113,13 +70,14 @@ export default function PropertyScenarioMarker({
         strokeWidth={1}
       />
 
-      {/* Icon */}
+      {/* Icon - pointer-events: none so mouse events bubble to parent <g> */}
       {Icon ? (
         <foreignObject
           x={-iconSize / 2}
           y={-iconSize / 2}
           width={iconSize}
           height={iconSize}
+          style={{ pointerEvents: 'none' }}
         >
           <Icon
             aria-hidden
@@ -129,6 +87,7 @@ export default function PropertyScenarioMarker({
             stroke="rgba(255,255,255,0.9)"
             strokeWidth={1.5}
             fill="none"
+            style={{ pointerEvents: 'none' }}
           />
         </foreignObject>
       ) : (
@@ -139,6 +98,7 @@ export default function PropertyScenarioMarker({
           fill="#ffffff"
           fontSize={11}
           fontWeight={700}
+          style={{ pointerEvents: 'none' }}
         >
           {(marker.icon ?? 'H').slice(0, 1).toUpperCase()}
         </text>
@@ -175,6 +135,8 @@ export interface NestedMilestoneData {
   yearIndex: number
   netWorth: number
   propertyScenarioId: string
+  /** Vertical offset for stacking multiple milestones at the same position */
+  stackOffset?: number
 }
 
 type NestedMilestoneMarkerProps = {
@@ -199,6 +161,8 @@ export function NestedMilestoneMarker({
   const radius = 10
   const iconSize = radius * 1.2
   const baseLift = radius * 1.5 + 6
+  // Stack offset: each additional milestone at same position shifts up by (radius * 2 + 4)
+  const stackOffset = (milestone.stackOffset ?? 0) * (radius * 2 + 4)
 
   const Icon = getIconByName(milestone.icon)
   const opacity = visible ? 1 : 0
@@ -207,19 +171,11 @@ export function NestedMilestoneMarker({
 
   return (
     <g
-      transform={`translate(${cx}, ${cy - baseLift})`}
+      transform={`translate(${cx}, ${cy - baseLift - stackOffset})`}
       style={{ cursor: 'default', transition, pointerEvents, willChange: 'opacity' }}
       opacity={opacity}
     >
-      {/* Outer glow ring */}
-      <circle
-        r={radius + 3}
-        fill="none"
-        stroke={milestone.iconColor + '30'}
-        strokeWidth={2}
-      />
-
-      {/* Inner filled circle */}
+      {/* Filled circle (no outer ring - matching Chart.js style) */}
       <circle
         r={radius}
         fill={milestone.iconColor}

@@ -36,7 +36,7 @@ export function PropertyPlannerModal({ isOpen, onClose, initialScenarioId, onJum
       isOpen={isOpen}
       onClose={handleClose}
       overlayClassName="bg-black/60 backdrop-blur-sm"
-      className="w-full max-w-[1022px] min-h-[50vh] max-h-[90vh] mx-4 sm:mx-6 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] overflow-hidden flex flex-col"
+      className="w-full max-w-[1200px] min-h-[50vh] max-h-[90vh] mx-4 sm:mx-6 rounded-2xl border border-white/[0.08] bg-[#0a0a0a] overflow-hidden flex flex-col"
     >
       {/* Modal Header */}
       <div className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-white/[0.06]">

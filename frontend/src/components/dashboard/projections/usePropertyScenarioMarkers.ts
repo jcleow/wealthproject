@@ -75,18 +75,25 @@ export function usePropertyScenarioMarkers(
 
       console.log('[PropertyMarkers] Found match at yearIndex:', yearIndex, 'netWorth:', netWorth)
 
-      // Build nested milestones
-      const nestedMilestones: PropertyMilestone[] = []
+      // Helper function to find yearIndex for a date
+      const findYearIndexForDate = (dateStr: string): number | undefined => {
+        const [yStr, mStr] = dateStr.split('-')
+        const y = parseInt(yStr, 10)
+        const m = parseInt(mStr, 10)
 
-      // Purchase milestone
-      nestedMilestones.push({
-        id: `${scenario.scenario.id}-purchase`,
-        type: 'purchase',
-        date: purchaseDate,
-        label: 'Purchase',
-        icon: 'key',
-        iconColor: sgDetails.iconColor || '#6366f1',
-      })
+        if (dataResolution === 'monthly') {
+          const matchingPoint = displayData.find(
+            (point) => point.calendarYear === y && point.calendarMonth === m
+          )
+          return matchingPoint?.yearIndex
+        } else {
+          const matchingPoint = displayData.find((point) => point.calendarYear === y)
+          return matchingPoint?.yearIndex
+        }
+      }
+
+      // Build nested milestones (fees and sale - purchase is represented by the main marker)
+      const nestedMilestones: PropertyMilestone[] = []
 
       // Sale milestone (if sale date is set)
       if (sgDetails.saleExpectedDate) {
@@ -97,6 +104,7 @@ export function usePropertyScenarioMarkers(
           label: 'Sale',
           icon: 'banknote',
           iconColor: '#10b981', // emerald
+          yearIndex: findYearIndexForDate(sgDetails.saleExpectedDate),
         })
       }
 
@@ -134,6 +142,7 @@ export function usePropertyScenarioMarkers(
             icon: fee.icon,
             iconColor: fee.iconColor,
             amount: fee.amount,
+            yearIndex: findYearIndexForDate(feeDate),
           })
         }
       }

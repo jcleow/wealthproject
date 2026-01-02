@@ -18,8 +18,9 @@ import { Line } from 'react-chartjs-2'
 import zoomPlugin from 'chartjs-plugin-zoom'
 
 import { milestonePlugin, preloadIcons } from './chartjs/milestonePlugin'
+import { currentPositionLinePlugin } from './chartjs/currentPositionLinePlugin'
 import { ChartJSTooltip, useChartJSTooltip } from './chartjs/ChartJSTooltip'
-import { PropertyMarkerPopover } from './PropertyMarkerPopover'
+import { PropertyMarkerClickMenu } from './PropertyMarkerClickMenu'
 import type { ChartJSMarkerData, PropertyMarkerData } from './chartjs/types'
 import { chartColors, AREA_ANIMATION_MS, type AxisMode, type ProjectionPoint } from './types'
 import type { ScenarioMarkerData } from './useProjectionData'
@@ -37,7 +38,8 @@ ChartJS.register(
   Tooltip,
   Legend,
   zoomPlugin,
-  milestonePlugin
+  milestonePlugin,
+  currentPositionLinePlugin
 )
 
 export interface ProjectionChartJSProps {
@@ -65,6 +67,10 @@ export interface ProjectionChartJSProps {
   endIndex: number | null
   propertyMarkers?: PropertyMarkerData[]
   onPropertyScenarioEdit?: (scenarioId: string) => void
+  /** Current slider position as yearIndex (month index from start) for vertical indicator line */
+  currentPositionIndex?: number | null
+  /** Callback when position is changed via dragging the indicator line */
+  onCurrentPositionChange?: (newIndex: number) => void
 }
 
 /**
@@ -95,6 +101,8 @@ export function ProjectionChartJS({
   endIndex,
   propertyMarkers = [],
   onPropertyScenarioEdit,
+  currentPositionIndex,
+  onCurrentPositionChange,
 }: ProjectionChartJSProps) {
   const chartRef = useRef<ChartJS<'line'> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -111,11 +119,14 @@ export function ProjectionChartJS({
   // Track if icons are loaded
   const [iconsLoaded, setIconsLoaded] = useState(false)
 
-  // Property marker popover state
-  const [expandedPropertyMarker, setExpandedPropertyMarker] = useState<{
+  // Property marker click menu state (shows options: edit modal or expand milestones)
+  const [clickedPropertyMarker, setClickedPropertyMarker] = useState<{
     marker: PropertyMarkerData
     position: { x: number; y: number }
   } | null>(null)
+
+  // Property IDs that have their nested milestones expanded on the chart
+  const [expandedPropertyIds, setExpandedPropertyIds] = useState<Set<string>>(new Set())
 
   // Pre-load icons when markers change
   useEffect(() => {
@@ -123,10 +134,13 @@ export function ProjectionChartJS({
       marker.events.map((event) => event.displayIcon).filter(Boolean)
     ) as string[]
 
-    // Also preload property marker icons
+    // Also preload property marker icons (main + nested milestones)
     const propertyIconNames = propertyMarkers.map((marker) => marker.icon).filter(Boolean)
+    const nestedMilestoneIconNames = propertyMarkers.flatMap((marker) =>
+      marker.nestedMilestones.map((m) => m.icon).filter(Boolean)
+    )
 
-    const allIconNames = [...scenarioIconNames, ...propertyIconNames]
+    const allIconNames = [...scenarioIconNames, ...propertyIconNames, ...nestedMilestoneIconNames]
 
     if (allIconNames.length > 0) {
       setIconsLoaded(false)
@@ -159,21 +173,31 @@ export function ProjectionChartJS({
     [onScenarioSelect]
   )
 
-  // Handle property marker click - show popover
+  // Handle property marker click - show click menu with options
   const handlePropertyMarkerClick = useCallback(
     (marker: PropertyMarkerData, x: number, y: number) => {
-      setExpandedPropertyMarker({ marker, position: { x, y } })
+      setClickedPropertyMarker({ marker, position: { x, y } })
     },
     []
   )
 
-  // Handle edit scenario from popover
-  const handleEditScenarioFromPopover = useCallback(() => {
-    if (expandedPropertyMarker && onPropertyScenarioEdit) {
-      onPropertyScenarioEdit(expandedPropertyMarker.marker.propertyScenarioId)
-      setExpandedPropertyMarker(null)
-    }
-  }, [expandedPropertyMarker, onPropertyScenarioEdit])
+  // Close click menu
+  const handleCloseClickMenu = useCallback(() => {
+    setClickedPropertyMarker(null)
+  }, [])
+
+  // Toggle expand/collapse for a property's nested milestones
+  const handleToggleExpand = useCallback((propertyId: string) => {
+    setExpandedPropertyIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(propertyId)) {
+        next.delete(propertyId)
+      } else {
+        next.add(propertyId)
+      }
+      return next
+    })
+  }, [])
 
   // Generate X-axis labels based on mode
   const getXAxisLabel = useCallback(
@@ -369,6 +393,15 @@ export function ProjectionChartJS({
           opacity: markerOpacity,
           onMarkerClick: handleMarkerClick,
           onPropertyMarkerClick: handlePropertyMarkerClick,
+          expandedPropertyIds: expandedPropertyIds,
+        },
+        currentPositionLine: {
+          position: currentPositionIndex ?? null,
+          visible: currentPositionIndex !== null && currentPositionIndex !== undefined,
+          color: 'rgba(148, 163, 184, 0.5)', // Light grey (slate-400)
+          lineWidth: 1.5,
+          draggable: true,
+          onPositionChange: onCurrentPositionChange,
         },
       },
       onClick: (_event, elements) => {
@@ -400,9 +433,12 @@ export function ProjectionChartJS({
     markerOpacity,
     handleMarkerClick,
     handlePropertyMarkerClick,
+    expandedPropertyIds,
     displayData,
     onSelectMonth,
     onSelectYear,
+    currentPositionIndex,
+    onCurrentPositionChange,
   ])
 
   return (
@@ -423,14 +459,16 @@ export function ProjectionChartJS({
         resolution={dataResolution}
       />
 
-      {/* Property marker popover */}
-      {expandedPropertyMarker && (
-        <PropertyMarkerPopover
-          marker={expandedPropertyMarker.marker}
-          position={expandedPropertyMarker.position}
+      {/* Property marker click menu (shown on click) */}
+      {clickedPropertyMarker && (
+        <PropertyMarkerClickMenu
+          marker={clickedPropertyMarker.marker}
+          position={clickedPropertyMarker.position}
+          isExpanded={expandedPropertyIds.has(clickedPropertyMarker.marker.propertyScenarioId)}
+          onToggleExpand={() => handleToggleExpand(clickedPropertyMarker.marker.propertyScenarioId)}
+          onOpenModal={() => onPropertyScenarioEdit?.(clickedPropertyMarker.marker.propertyScenarioId)}
+          onClose={handleCloseClickMenu}
           chartContainerRef={containerRef}
-          onClose={() => setExpandedPropertyMarker(null)}
-          onEditScenario={handleEditScenarioFromPopover}
         />
       )}
     </div>

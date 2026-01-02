@@ -92,17 +92,18 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
     prevLoanStartMonth.current = inputs.loanStartMonth
 
     // Update borrower 1 OA balance if they have an income selected
+    // Pass shouldDirty=false since these are derived values, not user edits
     if (inputs.borrower1IncomeId) {
       const income = rawIncomes.find((i) => i.id === inputs.borrower1IncomeId)
       if (income?.personId) {
         const projectedOa = getProjectedOaByPersonId(projectedCpfAssets, income.personId)
         if (projectedOa !== null) {
-          onChange('borrower1OaBalance', projectedOa)
+          onChange('borrower1OaBalance', projectedOa, false)
           // Update total CPF OA balance
           if (inputs.borrowerType === 'joint') {
-            onChange('cpfOaBalance', projectedOa + inputs.borrower2OaBalance)
+            onChange('cpfOaBalance', projectedOa + inputs.borrower2OaBalance, false)
           } else {
-            onChange('cpfOaBalance', projectedOa)
+            onChange('cpfOaBalance', projectedOa, false)
           }
         }
       }
@@ -114,8 +115,8 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
       if (income?.personId) {
         const projectedOa = getProjectedOaByPersonId(projectedCpfAssets, income.personId)
         if (projectedOa !== null) {
-          onChange('borrower2OaBalance', projectedOa)
-          onChange('cpfOaBalance', inputs.borrower1OaBalance + projectedOa)
+          onChange('borrower2OaBalance', projectedOa, false)
+          onChange('cpfOaBalance', inputs.borrower1OaBalance + projectedOa, false)
         }
       }
     }

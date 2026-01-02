@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { usePropertyScenarioForm } from './hooks'
 import { AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -123,6 +124,8 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
       type: f.isPercentage ? 'percentage' : 'fixed',
       value: parseFloat(f.amount),
       enabled: true,
+      icon: f.icon,
+      iconColor: f.iconColor,
     }))
 
   const saleFees: FeeItem[] = apiScenario.fees
@@ -133,6 +136,8 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
       type: f.isPercentage ? 'percentage' : 'fixed',
       value: parseFloat(f.amount),
       enabled: true,
+      icon: f.icon,
+      iconColor: f.iconColor,
     }))
 
   // Map grants from the API grants array
@@ -256,12 +261,16 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
         feeType: f.name,
         amount: String(f.value),
         isPercentage: f.type === 'percentage',
+        icon: f.icon,
+        iconColor: f.iconColor,
       })),
       ...scenario.saleInputs.fees.filter(f => f.enabled).map(f => ({
         feeContext: 'sale' as const,
         feeType: f.name,
         amount: String(f.value),
         isPercentage: f.type === 'percentage',
+        icon: f.icon,
+        iconColor: f.iconColor,
       })),
     ],
     growthPeriods: scenario.inputs.appreciationPeriods.map(ap => ({
@@ -335,29 +344,31 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     return apiScenarios.map(apiToFrontendScenario)
   }, [apiScenarios])
 
-  // Local state for editing
+  // Local state for editing (non-form state)
   const [editingScenarioId, setEditingScenarioId] = useState<string | null>(null)
-  const [selectedType, setSelectedType] = useState<PropertyType | null>(null)
-  const [inputs, setInputs] = useState<MortgageInputs>(defaultInputsByType['hdb-resale'])
-  const [saleInputs, setSaleInputs] = useState<SaleInputs>(() =>
-    getDefaultSaleInputs(defaultInputsByType['hdb-resale'].loanStartMonth, defaultInputsByType['hdb-resale'].propertyPrice)
-  )
   const [activeResultsTab, setActiveResultsTab] = useState<ResultsTab>('purchase')
-  const [editingScenarioName, setEditingScenarioName] = useState('')
-  const [editingScenarioIcon, setEditingScenarioIcon] = useState('home')
-  const [editingScenarioIconColor, setEditingScenarioIconColor] = useState('#6366f1')
-  const [editingScenarioIconSearch, setEditingScenarioIconSearch] = useState('')
-  const [hasChanges, setHasChanges] = useState(false)
 
-  // Track initial values to detect changes
-  const initialValuesRef = useRef<{
-    name: string
-    type: PropertyType | null
-    inputs: MortgageInputs
-    saleInputs: SaleInputs
-    icon: string
-    iconColor: string
-  } | null>(null)
+  // Form state managed by React Hook Form
+  const {
+    form,
+    isDirty,
+    values: formValues,
+    initializeWithScenario,
+    resetToDefaults,
+    markAsSaved,
+    updateInput,
+    updateSaleInput,
+    updatePropertyType,
+  } = usePropertyScenarioForm()
+
+  // Derive form values for use in the component
+  const selectedType = formValues.propertyType
+  const inputs = formValues.inputs
+  const saleInputs = formValues.saleInputs
+  const editingScenarioName = formValues.name
+  const editingScenarioIcon = formValues.icon
+  const editingScenarioIconColor = formValues.iconColor
+  const editingScenarioIconSearch = formValues.iconSearch
 
   const editingScenario = editingScenarioId ? scenarios.find(s => s.id === editingScenarioId) : null
 
@@ -368,46 +379,11 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
   const editingApiScenario = editingScenarioId ? apiScenarios?.find(s => s.scenario.id === editingScenarioId) : null
   const computedValues: ComputedValues | null = editingApiScenario?.computed ?? null
 
-  // Detect changes by comparing current values to initial values
-  useEffect(() => {
-    if (!initialValuesRef.current) {
-      setHasChanges(false)
-      return
-    }
-
-    const initial = initialValuesRef.current
-    const changed =
-      initial.name !== editingScenarioName ||
-      initial.type !== selectedType ||
-      initial.icon !== editingScenarioIcon ||
-      initial.iconColor !== editingScenarioIconColor ||
-      JSON.stringify(initial.inputs) !== JSON.stringify(inputs) ||
-      JSON.stringify(initial.saleInputs) !== JSON.stringify(saleInputs)
-
-    setHasChanges(changed)
-  }, [editingScenarioName, selectedType, editingScenarioIcon, editingScenarioIconColor, inputs, saleInputs])
 
   const handleEditScenario = useCallback((scenario: PropertyScenario) => {
     setEditingScenarioId(scenario.id)
-    setEditingScenarioName(scenario.name)
-    setSelectedType(scenario.propertyType)
-    setInputs(scenario.inputs)
-    setSaleInputs(scenario.saleInputs)
-    setEditingScenarioIcon(scenario.icon || 'home')
-    setEditingScenarioIconColor(scenario.iconColor || '#6366f1')
-    setEditingScenarioIconSearch('')
-
-    // Store initial values for dirty tracking
-    initialValuesRef.current = {
-      name: scenario.name,
-      type: scenario.propertyType,
-      inputs: scenario.inputs,
-      saleInputs: scenario.saleInputs,
-      icon: scenario.icon || 'home',
-      iconColor: scenario.iconColor || '#6366f1',
-    }
-    setHasChanges(false)
-  }, [])
+    initializeWithScenario(scenario)
+  }, [initializeWithScenario])
 
   // Handle initial scenario ID - open edit mode when data is loaded
   useEffect(() => {
@@ -425,7 +401,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     }
   }, [initialScenarioId, scenarios, isLoading, handleEditScenario])
 
-  // Save without closing - updates initial values ref to reset dirty state
+  // Save without closing - uses React Hook Form's reset to clear dirty state
   const handleSave = useCallback(() => {
     if (editingScenarioId && selectedType) {
       const updatedScenario: PropertyScenario = {
@@ -442,18 +418,10 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
       const apiInput = frontendToApiCreateInput(updatedScenario)
       updateMutation.mutate({ id: editingScenarioId, input: apiInput })
 
-      // Update initial values ref to mark as saved
-      initialValuesRef.current = {
-        name: editingScenarioName,
-        type: selectedType,
-        inputs,
-        saleInputs,
-        icon: editingScenarioIcon,
-        iconColor: editingScenarioIconColor,
-      }
-      setHasChanges(false)
+      // Clear dirty state by updating form's baseline
+      markAsSaved()
     }
-  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor, editingScenario, updateMutation])
+  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor, editingScenario, updateMutation, markAsSaved])
 
   const handleSaveAndClose = useCallback(() => {
     if (editingScenarioId && selectedType) {
@@ -472,24 +440,18 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
       updateMutation.mutate({ id: editingScenarioId, input: apiInput })
     }
     setEditingScenarioId(null)
-    setEditingScenarioName('')
-    setSelectedType(null)
-    initialValuesRef.current = null
-    setHasChanges(false)
-  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor, editingScenario, updateMutation])
+    resetToDefaults()
+  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor, editingScenario, updateMutation, resetToDefaults])
 
   // Back button handler - shows confirmation if there are unsaved changes
   const handleBack = useCallback(() => {
-    if (hasChanges) {
+    if (isDirty) {
       const confirmed = window.confirm('You have unsaved changes. Are you sure you want to go back? Changes will be lost.')
       if (!confirmed) return
     }
     setEditingScenarioId(null)
-    setEditingScenarioName('')
-    setSelectedType(null)
-    initialValuesRef.current = null
-    setHasChanges(false)
-  }, [hasChanges])
+    resetToDefaults()
+  }, [isDirty, resetToDefaults])
 
   const handleDeleteScenario = useCallback((id: string) => {
     deleteMutation.mutate(id)
@@ -507,13 +469,44 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     createMutation.mutate(apiInput)
   }, [createMutation])
 
-  const handleInputChange = useCallback((field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null) => {
-    setInputs(prev => ({ ...prev, [field]: value }))
-  }, [])
+  const handleInputChange = useCallback((
+    field: keyof MortgageInputs,
+    value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null,
+    shouldDirty = true
+  ) => {
+    updateInput(field, value as MortgageInputs[typeof field], shouldDirty)
+  }, [updateInput])
 
-  const handleSaleInputChange = useCallback((field: keyof SaleInputs, value: string | number | boolean | FeeItem[]) => {
-    setSaleInputs(prev => ({ ...prev, [field]: value }))
-  }, [])
+  const handleSaleInputChange = useCallback((
+    field: keyof SaleInputs,
+    value: string | number | boolean | FeeItem[],
+    shouldDirty = true
+  ) => {
+    updateSaleInput(field, value as SaleInputs[typeof field], shouldDirty)
+  }, [updateSaleInput])
+
+  // Form field setters using React Hook Form
+  const setSelectedType = useCallback((type: PropertyType | null) => {
+    if (type) {
+      updatePropertyType(type)
+    }
+  }, [updatePropertyType])
+
+  const setEditingScenarioName = useCallback((name: string) => {
+    form.setValue('name', name, { shouldDirty: true })
+  }, [form])
+
+  const setEditingScenarioIcon = useCallback((icon: string) => {
+    form.setValue('icon', icon, { shouldDirty: true })
+  }, [form])
+
+  const setEditingScenarioIconColor = useCallback((color: string) => {
+    form.setValue('iconColor', color, { shouldDirty: true })
+  }, [form])
+
+  const setEditingScenarioIconSearch = useCallback((search: string) => {
+    form.setValue('iconSearch', search, { shouldDirty: false }) // Search doesn't affect dirty state
+  }, [form])
 
   // Tab change - no confirmation needed since tabs show different views of the same scenario
   const handleTabChange = useCallback((newTab: ResultsTab) => {
@@ -529,7 +522,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     if (onFooterStateChange) {
       if (selectedType) {
         onFooterStateChange({
-          hasChanges,
+          hasChanges: isDirty,
           isSaving: updateMutation.isPending,
           onSave: () => handleSaveRef.current(),
           isEditing: true,
@@ -538,7 +531,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
         onFooterStateChange(null)
       }
     }
-  }, [onFooterStateChange, selectedType, hasChanges, updateMutation.isPending])
+  }, [onFooterStateChange, selectedType, isDirty, updateMutation.isPending])
 
   const isEmbedded = !!onClose
 
@@ -591,7 +584,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
               onEditingScenarioIconSearchChange={setEditingScenarioIconSearch}
               onSaveAndClose={handleSaveAndClose}
               onBack={handleBack}
-              hasChanges={hasChanges}
+              hasChanges={isDirty}
               onJumpToDate={onJumpToDate}
             />
           )}
