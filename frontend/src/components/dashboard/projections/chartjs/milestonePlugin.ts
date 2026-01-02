@@ -155,7 +155,7 @@ function drawMarker(
 }
 
 /**
- * Draw a compound marker with double ring (for property scenarios)
+ * Draw a property marker (simplified - same style as regular markers, no outer rings)
  */
 function drawCompoundMarker(
   ctx: CanvasRenderingContext2D,
@@ -164,34 +164,20 @@ function drawCompoundMarker(
   marker: PropertyMarkerData,
   opacity: number
 ): void {
-  const { innerRadius, ring1Radius, ring2Radius, ringStrokeWidth, ring1Color } = COMPOUND_MARKER_CONFIG
+  const { innerRadius } = COMPOUND_MARKER_CONFIG
   const { iconSize, strokeColor, strokeWidth, disabledOpacity } = MARKER_CONFIG
 
   ctx.save()
   const markerOpacity = opacity * (marker.isIncluded ? 1 : disabledOpacity)
   ctx.globalAlpha = markerOpacity
 
-  // Draw outer ring 2 (outermost, colored with marker color)
-  ctx.beginPath()
-  ctx.arc(centerX, centerY, ring2Radius, 0, Math.PI * 2)
-  ctx.strokeStyle = marker.iconColor + '99' // 60% opacity of marker color
-  ctx.lineWidth = ringStrokeWidth
-  ctx.stroke()
-
-  // Draw outer ring 1 (middle ring, neutral white)
-  ctx.beginPath()
-  ctx.arc(centerX, centerY, ring1Radius, 0, Math.PI * 2)
-  ctx.strokeStyle = ring1Color
-  ctx.lineWidth = ringStrokeWidth
-  ctx.stroke()
-
-  // Draw inner circle background (same as regular marker)
+  // Draw circle background (same as regular marker)
   ctx.beginPath()
   ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2)
   ctx.fillStyle = marker.iconColor
   ctx.fill()
 
-  // Draw inner circle border
+  // Draw circle border
   ctx.strokeStyle = strokeColor
   ctx.lineWidth = strokeWidth
   ctx.stroke()
@@ -218,7 +204,57 @@ function drawCompoundMarker(
 }
 
 /**
+ * Draw a nested milestone marker (smaller than main markers)
+ */
+function drawNestedMilestone(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  iconColor: string,
+  iconName: string,
+  opacity: number
+): void {
+  const { nestedRadius, nestedIconSize } = COMPOUND_MARKER_CONFIG
+  const { strokeColor, strokeWidth } = MARKER_CONFIG
+
+  ctx.save()
+  ctx.globalAlpha = opacity
+
+  // Draw circle background
+  ctx.beginPath()
+  ctx.arc(centerX, centerY, nestedRadius, 0, Math.PI * 2)
+  ctx.fillStyle = iconColor
+  ctx.fill()
+
+  // Draw circle border
+  ctx.strokeStyle = strokeColor
+  ctx.lineWidth = strokeWidth
+  ctx.stroke()
+
+  // Draw icon
+  const iconImage = getCachedIcon(iconName)
+  if (iconImage) {
+    ctx.drawImage(
+      iconImage,
+      centerX - nestedIconSize / 2,
+      centerY - nestedIconSize / 2,
+      nestedIconSize,
+      nestedIconSize
+    )
+  } else {
+    ctx.font = 'bold 9px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(iconName.slice(0, 1).toUpperCase(), centerX, centerY + 1)
+  }
+
+  ctx.restore()
+}
+
+/**
  * Hit test to check if a point is within a property marker
+ * Uses interpolation to match actual drawn position during animation
  */
 function hitTestPropertyMarkers(
   mouseX: number,
@@ -235,7 +271,9 @@ function hitTestPropertyMarkers(
 
   for (const marker of markers) {
     const baseX = xScale.getPixelForValue(marker.yearIndex)
-    const baseY = yScale.getPixelForValue(marker.netWorth)
+    // Use interpolation to match actual drawn position during animation
+    const interpolatedY = interpolateYOnLine(chart, baseX)
+    const baseY = interpolatedY ?? yScale.getPixelForValue(marker.netWorth)
     const markerX = baseX
     const markerY = baseY - baseLift
 
@@ -448,8 +486,10 @@ export const milestonePlugin: Plugin<'line'> = {
       }
     }
 
-    // Draw property scenario markers (compound ring style)
+    // Draw property scenario markers
     if (hasPropertyMarkers) {
+      const expandedPropertyIds = options.expandedPropertyIds ?? new Set<string>()
+
       for (const marker of options.propertyMarkers!) {
         const baseX = xScale.getPixelForValue(marker.yearIndex)
 
@@ -467,6 +507,38 @@ export const milestonePlugin: Plugin<'line'> = {
         if (markerY < chartArea.top - 30) continue
 
         drawCompoundMarker(ctx, markerX, markerY, marker, globalOpacity)
+
+        // Draw nested milestones if this property is expanded
+        if (expandedPropertyIds.has(marker.propertyScenarioId)) {
+          const nestedBaseLift = baseLift - 5 // Slightly lower than main markers
+
+          for (const milestone of marker.nestedMilestones) {
+            // Skip if no yearIndex (can't position on chart)
+            if (milestone.yearIndex === undefined) continue
+
+            const milestoneX = xScale.getPixelForValue(milestone.yearIndex)
+
+            // Check if nested milestone is within visible chart area
+            if (milestoneX < chartArea.left || milestoneX > chartArea.right) continue
+
+            // Interpolate Y position for nested milestone
+            const nestedInterpolatedY = interpolateYOnLine(chart, milestoneX)
+            const nestedBaseY = nestedInterpolatedY ?? yScale.getPixelForValue(marker.netWorth)
+            const milestoneY = nestedBaseY - nestedBaseLift
+
+            // Skip if would be above chart area
+            if (milestoneY < chartArea.top - 20) continue
+
+            drawNestedMilestone(
+              ctx,
+              milestoneX,
+              milestoneY,
+              milestone.iconColor,
+              milestone.icon,
+              globalOpacity * (marker.isIncluded ? 1 : disabledOpacity)
+            )
+          }
+        }
       }
     }
   },
@@ -480,8 +552,6 @@ export const milestonePlugin: Plugin<'line'> = {
     if (!hasMarkers && !hasPropertyMarkers) return
 
     const event = args.event
-    if (event.type !== 'click') return
-
     const nativeEvent = event.native as MouseEvent | null
     if (!nativeEvent) return
 
@@ -489,7 +559,26 @@ export const milestonePlugin: Plugin<'line'> = {
     const mouseX = nativeEvent.clientX - rect.left
     const mouseY = nativeEvent.clientY - rect.top
 
-    // Check property markers first (they're visually larger)
+    // Handle mouseout to clear hover state when mouse leaves chart
+    if (event.type === 'mouseout' && hasPropertyMarkers && options.onPropertyMarkerHover) {
+      options.onPropertyMarkerHover(null, 0, 0)
+      return
+    }
+
+    // Handle mousemove for hover detection on property markers
+    if (event.type === 'mousemove' && hasPropertyMarkers && options.onPropertyMarkerHover) {
+      const propertyHit = hitTestPropertyMarkers(mouseX, mouseY, options.propertyMarkers!, chart)
+      if (propertyHit) {
+        options.onPropertyMarkerHover(propertyHit.marker, mouseX, mouseY)
+      } else {
+        options.onPropertyMarkerHover(null, 0, 0)
+      }
+    }
+
+    // Handle click events
+    if (event.type !== 'click') return
+
+    // Check property markers first
     if (hasPropertyMarkers && options.onPropertyMarkerClick) {
       const propertyHit = hitTestPropertyMarkers(mouseX, mouseY, options.propertyMarkers!, chart)
       if (propertyHit) {

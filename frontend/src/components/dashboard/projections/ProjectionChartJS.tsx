@@ -21,6 +21,7 @@ import { milestonePlugin, preloadIcons } from './chartjs/milestonePlugin'
 import { currentPositionLinePlugin } from './chartjs/currentPositionLinePlugin'
 import { ChartJSTooltip, useChartJSTooltip } from './chartjs/ChartJSTooltip'
 import { PropertyMarkerPopover } from './PropertyMarkerPopover'
+import { PropertyMarkerHoverOverlay } from './PropertyMarkerHoverOverlay'
 import type { ChartJSMarkerData, PropertyMarkerData } from './chartjs/types'
 import { chartColors, AREA_ANIMATION_MS, type AxisMode, type ProjectionPoint } from './types'
 import type { ScenarioMarkerData } from './useProjectionData'
@@ -119,11 +120,20 @@ export function ProjectionChartJS({
   // Track if icons are loaded
   const [iconsLoaded, setIconsLoaded] = useState(false)
 
-  // Property marker popover state
+  // Property marker popover state (for click)
   const [expandedPropertyMarker, setExpandedPropertyMarker] = useState<{
     marker: PropertyMarkerData
     position: { x: number; y: number }
   } | null>(null)
+
+  // Property marker hover state
+  const [hoveredPropertyMarker, setHoveredPropertyMarker] = useState<{
+    marker: PropertyMarkerData
+    position: { x: number; y: number }
+  } | null>(null)
+
+  // Property IDs that have their nested milestones expanded on the chart
+  const [expandedPropertyIds, setExpandedPropertyIds] = useState<Set<string>>(new Set())
 
   // Pre-load icons when markers change
   useEffect(() => {
@@ -131,10 +141,13 @@ export function ProjectionChartJS({
       marker.events.map((event) => event.displayIcon).filter(Boolean)
     ) as string[]
 
-    // Also preload property marker icons
+    // Also preload property marker icons (main + nested milestones)
     const propertyIconNames = propertyMarkers.map((marker) => marker.icon).filter(Boolean)
+    const nestedMilestoneIconNames = propertyMarkers.flatMap((marker) =>
+      marker.nestedMilestones.map((m) => m.icon).filter(Boolean)
+    )
 
-    const allIconNames = [...scenarioIconNames, ...propertyIconNames]
+    const allIconNames = [...scenarioIconNames, ...propertyIconNames, ...nestedMilestoneIconNames]
 
     if (allIconNames.length > 0) {
       setIconsLoaded(false)
@@ -182,6 +195,31 @@ export function ProjectionChartJS({
       setExpandedPropertyMarker(null)
     }
   }, [expandedPropertyMarker, onPropertyScenarioEdit])
+
+  // Handle property marker hover - show hover overlay
+  const handlePropertyMarkerHover = useCallback(
+    (marker: PropertyMarkerData | null, x: number, y: number) => {
+      if (marker) {
+        setHoveredPropertyMarker({ marker, position: { x, y } })
+      } else {
+        setHoveredPropertyMarker(null)
+      }
+    },
+    []
+  )
+
+  // Toggle expand/collapse for a property's nested milestones
+  const handleToggleExpand = useCallback((propertyId: string) => {
+    setExpandedPropertyIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(propertyId)) {
+        next.delete(propertyId)
+      } else {
+        next.add(propertyId)
+      }
+      return next
+    })
+  }, [])
 
   // Generate X-axis labels based on mode
   const getXAxisLabel = useCallback(
@@ -263,6 +301,8 @@ export function ProjectionChartJS({
     return {
       responsive: true,
       maintainAspectRatio: false,
+      // Include mouseout event for clearing hover state when mouse leaves chart
+      events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],
       animation: {
         duration: areaAnimationEnabled ? AREA_ANIMATION_MS : 0,
         easing: 'easeOutQuart',
@@ -377,6 +417,8 @@ export function ProjectionChartJS({
           opacity: markerOpacity,
           onMarkerClick: handleMarkerClick,
           onPropertyMarkerClick: handlePropertyMarkerClick,
+          onPropertyMarkerHover: handlePropertyMarkerHover,
+          expandedPropertyIds: expandedPropertyIds,
         },
         currentPositionLine: {
           position: currentPositionIndex ?? null,
@@ -416,6 +458,8 @@ export function ProjectionChartJS({
     markerOpacity,
     handleMarkerClick,
     handlePropertyMarkerClick,
+    handlePropertyMarkerHover,
+    expandedPropertyIds,
     displayData,
     onSelectMonth,
     onSelectYear,
@@ -441,7 +485,7 @@ export function ProjectionChartJS({
         resolution={dataResolution}
       />
 
-      {/* Property marker popover */}
+      {/* Property marker popover (shown on click) */}
       {expandedPropertyMarker && (
         <PropertyMarkerPopover
           marker={expandedPropertyMarker.marker}
@@ -449,6 +493,17 @@ export function ProjectionChartJS({
           chartContainerRef={containerRef}
           onClose={() => setExpandedPropertyMarker(null)}
           onEditScenario={handleEditScenarioFromPopover}
+        />
+      )}
+
+      {/* Property marker hover overlay (shown on hover, not when popover is open) */}
+      {hoveredPropertyMarker && !expandedPropertyMarker && (
+        <PropertyMarkerHoverOverlay
+          marker={hoveredPropertyMarker.marker}
+          position={hoveredPropertyMarker.position}
+          isExpanded={expandedPropertyIds.has(hoveredPropertyMarker.marker.propertyScenarioId)}
+          onToggleExpand={() => handleToggleExpand(hoveredPropertyMarker.marker.propertyScenarioId)}
+          chartContainerRef={containerRef}
         />
       )}
     </div>

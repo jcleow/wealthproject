@@ -13,8 +13,13 @@ export const useTimelineV2 = process.env.NEXT_PUBLIC_USE_TIMELINE_V2 === 'true'
 
 /**
  * Enable Chart.js for the Net Worth Projection chart
- * When true: Uses Chart.js with canvas-rendered markers (better zoom behavior)
- * When false: Uses Recharts (current behavior, default)
+ * When true: Uses Chart.js with canvas-rendered markers
+ * When false: Uses Recharts (PRIMARY - default)
+ *
+ * Recharts (default) advantages:
+ * - React-based SVG rendering
+ * - Better integration with React event system
+ * - Simpler hover/click handling on markers
  *
  * Chart.js advantages:
  * - Scenario markers drawn directly on canvas (scale properly during zoom)

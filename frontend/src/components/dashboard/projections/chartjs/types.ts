@@ -22,12 +22,16 @@ export interface ChartJSMarkerData {
 export interface MilestonePluginOptions {
   /** Array of markers to render */
   markers: ChartJSMarkerData[]
-  /** Array of property scenario markers (compound ring style) */
+  /** Array of property scenario markers */
   propertyMarkers?: PropertyMarkerData[]
   /** Callback when a marker is clicked */
   onMarkerClick?: (event: ScenarioEvent, markerData: ChartJSMarkerData) => void
   /** Callback when a property marker is clicked */
   onPropertyMarkerClick?: (marker: PropertyMarkerData, x: number, y: number) => void
+  /** Callback when hovering over a property marker */
+  onPropertyMarkerHover?: (marker: PropertyMarkerData | null, x: number, y: number) => void
+  /** Set of property scenario IDs that are expanded (showing nested milestones) */
+  expandedPropertyIds?: Set<string>
   /** Whether markers should be visible */
   visible: boolean
   /** Whether to animate marker opacity */
@@ -112,6 +116,8 @@ export interface PropertyMilestone {
   iconColor: string
   /** Amount for fee milestones (optional, displayed in popover) */
   amount?: string
+  /** X-axis position (yearIndex / month index from chart start) for rendering on timeline */
+  yearIndex?: number
 }
 
 /**
@@ -141,21 +147,17 @@ export interface PropertyMarkerData {
 }
 
 /**
- * Configuration for compound marker rendering (property scenarios)
+ * Configuration for property marker rendering (simplified - no outer rings)
  */
 export const COMPOUND_MARKER_CONFIG = {
-  /** Inner marker radius (same as regular markers) */
+  /** Marker radius (same as regular markers) */
   innerRadius: 14,
-  /** First outer ring radius */
-  ring1Radius: 18,
-  /** Second outer ring radius */
-  ring2Radius: 22,
-  /** Stroke width for outer rings */
-  ringStrokeWidth: 2,
-  /** Color for the first ring (white/neutral) */
-  ring1Color: 'rgba(255,255,255,0.15)',
-  /** Hit test uses outer ring radius */
-  hitRadius: 22,
+  /** Hit test radius (same as marker radius) */
+  hitRadius: 14,
+  /** Nested milestone marker radius (smaller) */
+  nestedRadius: 10,
+  /** Nested milestone icon size */
+  nestedIconSize: 12,
 } as const
 
 /**

@@ -15,6 +15,7 @@ import {
 
 import ScenarioMarker from '../ScenarioMarker'
 import PropertyScenarioMarker, { NestedMilestoneMarker, type NestedMilestoneData } from '../PropertyScenarioMarker'
+import { PropertyMarkerHoverOverlay } from './PropertyMarkerHoverOverlay'
 import { CustomTooltip } from './CustomTooltip'
 import { YearTick } from './YearTick'
 import { chartColors, AREA_ANIMATION_MS, type AxisMode, type ProjectionPoint } from './types'
@@ -86,14 +87,34 @@ export function ProjectionChart({
   // Track which property marker is expanded to show nested milestones
   const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(null)
 
+  // Property marker hover state
+  const [hoveredPropertyMarker, setHoveredPropertyMarker] = useState<{
+    marker: PropertyMarkerData
+    position: { x: number; y: number }
+  } | null>(null)
+
   // Drag state for the reference line
   const [isDraggingLine, setIsDraggingLine] = useState(false)
   const [isHoveringLine, setIsHoveringLine] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Toggle expansion on double-click
+  // Toggle expansion
   const handleToggleExpand = useCallback((propertyId: string) => {
     setExpandedPropertyId(prev => prev === propertyId ? null : propertyId)
+  }, [])
+
+  // Store the bounding rect of the currently hovered marker for proximity checking
+  const hoveredMarkerRectRef = useRef<DOMRect | null>(null)
+
+  // Handle property marker hover - called on mouseEnter
+  const handlePropertyMarkerHover = useCallback((marker: PropertyMarkerData | null, x: number, y: number, rect?: DOMRect) => {
+    if (marker) {
+      hoveredMarkerRectRef.current = rect || null
+      setHoveredPropertyMarker({ marker, position: { x, y } })
+    } else {
+      hoveredMarkerRectRef.current = null
+      setHoveredPropertyMarker(null)
+    }
   }, [])
 
   // Convert date string (YYYY-MM) to yearIndex based on baseCalendarYear
@@ -203,15 +224,43 @@ export function ProjectionChart({
   const handleChartMouseLeave = useCallback(() => {
     setIsDraggingLine(false)
     setIsHoveringLine(false)
+    // Clear property marker hover when leaving chart area
+    setHoveredPropertyMarker(null)
   }, [])
 
   // Determine cursor style based on drag/hover state
   const chartCursor = isDraggingLine ? 'grabbing' : isHoveringLine ? 'grab' : undefined
 
+  // Clear hover when mouse leaves the container
+  const handleContainerMouseLeave = useCallback(() => {
+    hoveredMarkerRectRef.current = null
+    setHoveredPropertyMarker(null)
+  }, [])
+
+  // Check if mouse is still near the hovered marker - clear if not
+  const handleContainerMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!hoveredPropertyMarker || !hoveredMarkerRectRef.current) return
+
+    const rect = hoveredMarkerRectRef.current
+    const padding = 8 // Small padding for tolerance
+    const isWithinBounds =
+      e.clientX >= rect.left - padding &&
+      e.clientX <= rect.right + padding &&
+      e.clientY >= rect.top - padding &&
+      e.clientY <= rect.bottom + padding
+
+    if (!isWithinBounds) {
+      hoveredMarkerRectRef.current = null
+      setHoveredPropertyMarker(null)
+    }
+  }, [hoveredPropertyMarker])
+
   return (
     <div
       ref={containerRef}
       style={{ width: '100%', height: '100%', cursor: chartCursor }}
+      onMouseLeave={handleContainerMouseLeave}
+      onMouseMove={handleContainerMouseMove}
     >
     <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>
       <ComposedChart
@@ -437,6 +486,7 @@ export function ProjectionChart({
                 marker={payload}
                 onPropertyScenarioEdit={onPropertyScenarioEdit}
                 onToggleExpand={handleToggleExpand}
+                onHover={handlePropertyMarkerHover}
                 isExpanded={payload?.propertyScenarioId === expandedPropertyId}
                 visible={markersReady}
                 animate={!prefersReducedMotion}
@@ -470,6 +520,17 @@ export function ProjectionChart({
         )}
       </ComposedChart>
     </ResponsiveContainer>
+
+      {/* Property marker hover overlay (shown on hover) */}
+      {hoveredPropertyMarker && (
+        <PropertyMarkerHoverOverlay
+          marker={hoveredPropertyMarker.marker}
+          position={hoveredPropertyMarker.position}
+          isExpanded={hoveredPropertyMarker.marker.propertyScenarioId === expandedPropertyId}
+          onToggleExpand={() => handleToggleExpand(hoveredPropertyMarker.marker.propertyScenarioId)}
+          chartContainerRef={containerRef}
+        />
+      )}
     </div>
   )
 }

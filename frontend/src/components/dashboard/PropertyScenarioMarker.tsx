@@ -10,7 +10,7 @@ type PropertyScenarioMarkerProps = {
   marker: PropertyMarkerData
   onPropertyScenarioEdit?: (scenarioId: string) => void
   onToggleExpand?: (scenarioId: string) => void
-  onHover?: (marker: PropertyMarkerData | null, x: number, y: number) => void
+  onHover?: (marker: PropertyMarkerData | null, x: number, y: number, rect?: DOMRect) => void
   isExpanded?: boolean
   visible?: boolean
   animate?: boolean
@@ -52,7 +52,8 @@ export default function PropertyScenarioMarker({
     if (onHover) {
       // Get position relative to viewport for the overlay
       const rect = (event.currentTarget as SVGGElement).getBoundingClientRect()
-      onHover(marker, rect.right, rect.top + rect.height / 2)
+      // Pass the rect so the parent can check proximity on mousemove
+      onHover(marker, rect.right, rect.top + rect.height / 2, rect)
     }
   }
 
@@ -94,13 +95,14 @@ export default function PropertyScenarioMarker({
         strokeWidth={1}
       />
 
-      {/* Icon */}
+      {/* Icon - pointer-events: none so mouse events bubble to parent <g> */}
       {Icon ? (
         <foreignObject
           x={-iconSize / 2}
           y={-iconSize / 2}
           width={iconSize}
           height={iconSize}
+          style={{ pointerEvents: 'none' }}
         >
           <Icon
             aria-hidden
@@ -110,6 +112,7 @@ export default function PropertyScenarioMarker({
             stroke="rgba(255,255,255,0.9)"
             strokeWidth={1.5}
             fill="none"
+            style={{ pointerEvents: 'none' }}
           />
         </foreignObject>
       ) : (
@@ -120,6 +123,7 @@ export default function PropertyScenarioMarker({
           fill="#ffffff"
           fontSize={11}
           fontWeight={700}
+          style={{ pointerEvents: 'none' }}
         >
           {(marker.icon ?? 'H').slice(0, 1).toUpperCase()}
         </text>
