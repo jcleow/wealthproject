@@ -8,17 +8,12 @@ import { propertyApi } from '@/api/financial'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal/ScenarioEventModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { UserMenu } from '../auth/UserMenu'
-import { useTimelineStore } from '@/stores'
+import { useTimelineStore, useFeatureModulesStore } from '@/stores'
 import type { ScenarioEvent } from '@/types/scenario'
 import clsx from 'clsx'
 
 interface FinancialWorkspaceProps {
-  // UI callbacks for feature modules (Phase 2 will migrate these to a store)
-  onOpenCPF?: () => void
-  onOpenPropertyPlanner?: () => void
-  onOpenTax?: () => void
-  onOpenInsurance?: () => void
-  onOpenLayoutModal?: () => void
+  // onPropertyScenarioEdit is kept as prop because it's specific to chart interactions
   onPropertyScenarioEdit?: (scenarioId: string) => void
   // Display mode
   headerOnly?: boolean
@@ -29,18 +24,20 @@ interface FinancialWorkspaceProps {
 const EMPTY_OVERRIDE_YEARS = new Set<number>()
 
 export function FinancialWorkspace({
-  onOpenCPF,
-  onOpenPropertyPlanner,
-  onOpenTax,
-  onOpenInsurance,
+  onPropertyScenarioEdit,
   headerOnly = false,
   chartOnly = false,
-  onOpenLayoutModal,
-  onPropertyScenarioEdit,
 }: FinancialWorkspaceProps) {
   // Get timeline selection state from Zustand store
   const setSelectedYear = useTimelineStore((s) => s.setSelectedYear)
   const setSelectedMonth = useTimelineStore((s) => s.setSelectedMonth)
+
+  // Get feature module actions from Zustand store
+  const openCPFView = useFeatureModulesStore((s) => s.openCPFView)
+  const openPropertyPlanner = useFeatureModulesStore((s) => s.openPropertyPlanner)
+  const openTaxPlanner = useFeatureModulesStore((s) => s.openTaxPlanner)
+  const openInsurancePlanner = useFeatureModulesStore((s) => s.openInsurancePlanner)
+  const openLayoutModal = useFeatureModulesStore((s) => s.openLayoutModal)
 
   // Get timeline data from hook (React Query)
   const timeline = useTimeline({ resolution: 'monthly' })
@@ -278,7 +275,7 @@ text-[13px] text-slate-300`}
                 <button
                   onClick={() => {
                     setIsModuleMenuOpen(false)
-                    onOpenPropertyPlanner?.()
+                    openPropertyPlanner()
                   }}
                   className={clsx(
                     "flex items-start gap-3",
@@ -306,7 +303,7 @@ text-violet-400`}>
                 <button
                   onClick={() => {
                     setIsModuleMenuOpen(false)
-                    onOpenCPF?.()
+                    openCPFView()
                   }}
                   className={clsx(
                     "flex items-start gap-3",
@@ -352,7 +349,7 @@ text-slate-500`}>
                 <button
                   onClick={() => {
                     setIsModuleMenuOpen(false)
-                    onOpenTax?.()
+                    openTaxPlanner()
                   }}
                   className={clsx(
                     "flex items-start gap-3",
@@ -380,7 +377,7 @@ text-amber-400`}>
                 <button
                   onClick={() => {
                     setIsModuleMenuOpen(false)
-                    onOpenInsurance?.()
+                    openInsurancePlanner()
                   }}
                   className={clsx(
                     "flex items-start gap-3",
@@ -411,23 +408,21 @@ text-purple-400`}>
           <div className="h-4 w-px bg-white/[0.06]" />
 
           {/* Layout toggle */}
-          {onOpenLayoutModal && (
-            <button
-              type="button"
-              onClick={onOpenLayoutModal}
-              className={clsx(
-                "flex items-center justify-center",
-                "h-7 w-7",
-                "rounded-full",
-                "hover:bg-white/5",
-                "hover:text-slate-300 text-slate-500",
-                "transition",
-              )}
-              title="Change layout"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={openLayoutModal}
+            className={clsx(
+              "flex items-center justify-center",
+              "h-7 w-7",
+              "rounded-full",
+              "hover:bg-white/5",
+              "hover:text-slate-300 text-slate-500",
+              "transition",
+            )}
+            title="Change layout"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </button>
 
           {/* Notification bell */}
           <button
