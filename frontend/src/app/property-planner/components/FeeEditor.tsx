@@ -124,7 +124,7 @@ export function FeeEditor({
                   : "bg-transparent opacity-40"
               )}
             >
-              {/* Single row: [icon] [name] [date] [$|%] [amount] [X] */}
+              {/* Row 1: [icon] [name] [date] [$|%] [amount] [X] */}
               <div className="flex items-center gap-2">
                 {/* Icon with checkbox overlay */}
                 <div className="relative shrink-0">
@@ -207,27 +207,17 @@ export function FeeEditor({
                       </button>
                     </div>
 
-                    {/* Amount with inline calculation */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {fee.type === 'fixed' && <span className="text-slate-600 text-xs">$</span>}
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={fee.type === 'fixed' ? fee.value.toLocaleString() : fee.value}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/[^0-9.]/g, '')
-                          handleUpdateFee(fee.id, { value: parseFloat(rawValue) || 0 })
-                        }}
-                        className="w-16 bg-transparent border-0 outline-none text-xs font-mono tabular-nums text-slate-300 text-right"
-                      />
-                      {fee.type === 'percentage' && <span className="text-slate-600 text-xs">%</span>}
-                      {/* Calculated total for percentage - inline */}
-                      {fee.type === 'percentage' && fee.value > 0 && (
-                        <span className="text-[10px] font-mono tabular-nums text-slate-600">
-                          = ${amount.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
+                    {/* Amount */}
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={fee.type === 'fixed' ? fee.value.toLocaleString() : String(fee.value)}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/[^0-9.]/g, '')
+                        handleUpdateFee(fee.id, { value: parseFloat(rawValue) || 0 })
+                      }}
+                      className="w-16 bg-transparent border-0 outline-none text-xs font-mono tabular-nums text-slate-300 text-right shrink-0"
+                    />
                   </>
                 )}
 
@@ -240,6 +230,15 @@ export function FeeEditor({
                   <X className="w-3.5 h-3.5 text-slate-600 hover:text-red-400 transition-colors" />
                 </button>
               </div>
+
+              {/* Row 2: Calculated total for percentage - right-aligned */}
+              {fee.enabled && fee.type === 'percentage' && fee.value > 0 && (
+                <div className="flex justify-end mt-1 pr-6">
+                  <span className="text-[10px] font-mono tabular-nums text-slate-500">
+                    = ${amount.toLocaleString()}
+                  </span>
+                </div>
+              )}
             </div>
           )
         })}
