@@ -18,6 +18,7 @@ import { Line } from 'react-chartjs-2'
 import zoomPlugin from 'chartjs-plugin-zoom'
 
 import { milestonePlugin, preloadIcons } from './chartjs/milestonePlugin'
+import { currentPositionLinePlugin } from './chartjs/currentPositionLinePlugin'
 import { ChartJSTooltip, useChartJSTooltip } from './chartjs/ChartJSTooltip'
 import { PropertyMarkerPopover } from './PropertyMarkerPopover'
 import type { ChartJSMarkerData, PropertyMarkerData } from './chartjs/types'
@@ -37,7 +38,8 @@ ChartJS.register(
   Tooltip,
   Legend,
   zoomPlugin,
-  milestonePlugin
+  milestonePlugin,
+  currentPositionLinePlugin
 )
 
 export interface ProjectionChartJSProps {
@@ -65,6 +67,10 @@ export interface ProjectionChartJSProps {
   endIndex: number | null
   propertyMarkers?: PropertyMarkerData[]
   onPropertyScenarioEdit?: (scenarioId: string) => void
+  /** Current slider position as yearIndex (month index from start) for vertical indicator line */
+  currentPositionIndex?: number | null
+  /** Callback when position is changed via dragging the indicator line */
+  onCurrentPositionChange?: (newIndex: number) => void
 }
 
 /**
@@ -95,6 +101,8 @@ export function ProjectionChartJS({
   endIndex,
   propertyMarkers = [],
   onPropertyScenarioEdit,
+  currentPositionIndex,
+  onCurrentPositionChange,
 }: ProjectionChartJSProps) {
   const chartRef = useRef<ChartJS<'line'> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -370,6 +378,14 @@ export function ProjectionChartJS({
           onMarkerClick: handleMarkerClick,
           onPropertyMarkerClick: handlePropertyMarkerClick,
         },
+        currentPositionLine: {
+          position: currentPositionIndex ?? null,
+          visible: currentPositionIndex !== null && currentPositionIndex !== undefined,
+          color: 'rgba(148, 163, 184, 0.5)', // Light grey (slate-400)
+          lineWidth: 1.5,
+          draggable: true,
+          onPositionChange: onCurrentPositionChange,
+        },
       },
       onClick: (_event, elements) => {
         if (elements.length > 0) {
@@ -403,6 +419,8 @@ export function ProjectionChartJS({
     displayData,
     onSelectMonth,
     onSelectYear,
+    currentPositionIndex,
+    onCurrentPositionChange,
   ])
 
   return (

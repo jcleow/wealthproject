@@ -1,5 +1,6 @@
 import type { Chart, ChartType } from 'chart.js'
 import type { ScenarioEvent } from '@/types/scenario'
+import type { CurrentPositionLineOptions } from './currentPositionLinePlugin'
 
 /**
  * Data structure for a scenario marker that will be drawn on the chart canvas
@@ -165,10 +166,11 @@ export interface PropertyMarkerHitTestResult {
 }
 
 /**
- * Augment Chart.js plugin options to include our custom plugin
+ * Augment Chart.js plugin options to include our custom plugins
  */
 declare module 'chart.js' {
   interface PluginOptionsByType<TType extends ChartType> {
     milestoneMarkers?: MilestonePluginOptions
+    currentPositionLine?: CurrentPositionLineOptions
   }
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from 'react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { InfoTooltip } from '@/app/property-planner/components/InfoTooltip'
 import { calculateMonthlyOaInflow } from '@/app/property-planner/hooks'
@@ -48,7 +49,7 @@ function CpfInput({
   )
 }
 
-// Monthly CPF OA input with quick preset buttons - ledger style
+// Monthly CPF OA input with $ / % toggle - ledger style
 function MonthlyCpfOaInput({
   value,
   onChange,
@@ -58,17 +59,38 @@ function MonthlyCpfOaInput({
   onChange: (value: number) => void
   monthlyIncome: number
 }) {
+  const [mode, setMode] = useState<'fixed' | 'percentage'>('fixed')
+  const [percentValue, setPercentValue] = useState(0)
   const estimatedMonthlyOa = calculateMonthlyOaInflow(monthlyIncome)
 
-  // Preset percentages
-  const presets = [
-    { label: '50%', value: Math.round(estimatedMonthlyOa * 0.5) },
-    { label: '75%', value: Math.round(estimatedMonthlyOa * 0.75) },
-    { label: '100%', value: estimatedMonthlyOa },
-  ]
+  // Calculate the actual dollar amount based on mode
+  const calculatedAmount = mode === 'percentage'
+    ? Math.round(estimatedMonthlyOa * (percentValue / 100))
+    : value
 
-  // Check which preset is currently active
-  const activePreset = presets.find(p => p.value === value)?.label || null
+  // When switching to percentage mode, convert current value to percentage
+  const handleModeChange = (newMode: 'fixed' | 'percentage') => {
+    if (newMode === 'percentage' && mode === 'fixed' && estimatedMonthlyOa > 0) {
+      // Convert current fixed value to percentage
+      const pct = Math.round((value / estimatedMonthlyOa) * 100)
+      setPercentValue(pct)
+    } else if (newMode === 'fixed' && mode === 'percentage') {
+      // Convert percentage to fixed value
+      onChange(calculatedAmount)
+    }
+    setMode(newMode)
+  }
+
+  // Handle value change based on mode
+  const handleValueChange = (rawValue: string) => {
+    const num = parseFloat(rawValue.replace(/[^0-9.]/g, '')) || 0
+    if (mode === 'percentage') {
+      setPercentValue(num)
+      onChange(Math.round(estimatedMonthlyOa * (num / 100)))
+    } else {
+      onChange(num)
+    }
+  }
 
   return (
     <div className="mt-3 space-y-1">
@@ -76,60 +98,72 @@ function MonthlyCpfOaInput({
         <label className="text-xs font-medium text-slate-400">Monthly CPF OA Payment</label>
         <InfoTooltip
           title="Monthly CPF Contribution"
-          description="Monthly amount from CPF OA to pay towards mortgage. You can set this as a percentage of your estimated monthly OA contribution, or enter a custom amount."
+          description="Monthly amount from CPF OA to pay towards mortgage. Enter a fixed amount or a percentage of your estimated monthly OA contribution."
         />
       </div>
 
-      {/* Single-row ledger style input */}
-      <div className="flex items-center h-9 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
-        {/* Amount input */}
-        <span className="text-slate-500 text-sm">$</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={value === 0 ? '' : value.toLocaleString()}
-          onChange={(e) => {
-            const raw = e.target.value.replace(/,/g, '')
-            const num = parseFloat(raw) || 0
-            onChange(num)
-          }}
-          placeholder="0"
-          className="flex-1 min-w-0 bg-transparent border-0 outline-none text-white text-sm font-mono tabular-nums placeholder:text-slate-600 ml-1"
-        />
+      {/* Input row with external toggle */}
+      <div className="flex items-center gap-2">
+        {/* $ / % toggle - outside input */}
+        <div className="flex items-center shrink-0">
+          <button
+            type="button"
+            onClick={() => handleModeChange('fixed')}
+            className={cn(
+              "px-2 py-1.5 text-xs font-medium rounded-l-lg border-y border-l transition-colors",
+              mode === 'fixed'
+                ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
+                : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
+            )}
+          >
+            $
+          </button>
+          <button
+            type="button"
+            onClick={() => handleModeChange('percentage')}
+            className={cn(
+              "px-2 py-1.5 text-xs font-medium rounded-r-lg border transition-colors",
+              mode === 'percentage'
+                ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
+                : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
+            )}
+          >
+            %
+          </button>
+        </div>
 
-        {/* Divider */}
-        <div className="h-5 w-px bg-white/[0.08] mx-3" />
+        {/* Input field */}
+        <div className="flex items-center flex-1 h-9 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
+          {mode === 'fixed' && <span className="text-slate-500 text-sm">$</span>}
+          <input
+            type="text"
+            inputMode="numeric"
+            value={mode === 'fixed'
+              ? (value === 0 ? '' : value.toLocaleString())
+              : (percentValue === 0 ? '' : percentValue)
+            }
+            onChange={(e) => handleValueChange(e.target.value)}
+            placeholder="0"
+            className="flex-1 min-w-0 bg-transparent border-0 outline-none text-white text-sm font-mono tabular-nums placeholder:text-slate-600 ml-1"
+          />
+          {mode === 'percentage' && <span className="text-slate-500 text-sm ml-1">%</span>}
 
-        {/* Preset buttons - inline segmented */}
-        <div className="flex items-center gap-px shrink-0">
-          {presets.map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              onClick={() => onChange(preset.value)}
-              className={cn(
-                "px-2 py-1 text-xs font-medium transition-colors rounded",
-                activePreset === preset.label
-                  ? "bg-emerald-500/20 text-emerald-400"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.05]"
-              )}
-            >
-              {preset.label}
-            </button>
-          ))}
+          {/* Show calculated amount for percentage mode */}
+          {mode === 'percentage' && percentValue > 0 && (
+            <>
+              <div className="h-5 w-px bg-white/[0.08] mx-3" />
+              <span className="text-xs font-mono tabular-nums text-slate-500 shrink-0">
+                = ${calculatedAmount.toLocaleString()}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
       {/* Helper text */}
       {estimatedMonthlyOa > 0 && (
         <p className="text-[11px] text-slate-600 pl-0.5">
-          {value > 0 ? (
-            <>
-              {Math.round((value / estimatedMonthlyOa) * 100)}% of est. ${estimatedMonthlyOa.toLocaleString()}/mo
-            </>
-          ) : (
-            <>Est. monthly OA: ${estimatedMonthlyOa.toLocaleString()}/mo</>
-          )}
+          Est. monthly OA contribution: ${estimatedMonthlyOa.toLocaleString()}/mo
         </p>
       )}
     </div>

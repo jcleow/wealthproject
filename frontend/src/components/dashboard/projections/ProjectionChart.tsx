@@ -1,10 +1,11 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import {
   Area,
   Bar,
   ComposedChart,
   CartesianGrid,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Scatter,
   Tooltip,
@@ -46,6 +47,10 @@ export interface ProjectionChartProps {
   prefersReducedMotion: boolean
   propertyMarkers?: PropertyMarkerData[]
   onPropertyScenarioEdit?: (scenarioId: string) => void
+  /** Current slider position as yearIndex (month index from start) for vertical indicator line */
+  currentPositionIndex?: number | null
+  /** Callback when position is changed via dragging the indicator line */
+  onCurrentPositionChange?: (newIndex: number) => void
 }
 
 /**
@@ -75,9 +80,16 @@ export function ProjectionChart({
   prefersReducedMotion,
   propertyMarkers = [],
   onPropertyScenarioEdit,
+  currentPositionIndex,
+  onCurrentPositionChange,
 }: ProjectionChartProps) {
   // Track which property marker is expanded to show nested milestones
   const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(null)
+
+  // Drag state for the reference line
+  const [isDraggingLine, setIsDraggingLine] = useState(false)
+  const [isHoveringLine, setIsHoveringLine] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // Toggle expansion on double-click
   const handleToggleExpand = useCallback((propertyId: string) => {
@@ -133,11 +145,82 @@ export function ProjectionChart({
     })
   }, [expandedPropertyId, propertyMarkers, dateToYearIndex, getNetWorthAtIndex])
 
+  // Get the chart data being used
+  const chartData = enableChartOverlays ? enhancedDisplayData : displayData
+
+  // Handle chart mouse events for dragging the reference line
+  const handleChartMouseDown = useCallback((state: any) => {
+    if (!state || currentPositionIndex === null || currentPositionIndex === undefined) return
+    if (!onCurrentPositionChange) return
+
+    // state.activeTooltipIndex is the array index, we need the actual yearIndex
+    const activeArrayIndex = state.activeTooltipIndex
+    if (activeArrayIndex === undefined) return
+
+    const dataPoint = chartData[activeArrayIndex]
+    if (!dataPoint) return
+
+    const activeYearIndex = dataPoint.yearIndex
+
+    // Check if we're clicking near the reference line (within 2 data points)
+    if (Math.abs(activeYearIndex - currentPositionIndex) <= 2) {
+      setIsDraggingLine(true)
+    }
+  }, [currentPositionIndex, onCurrentPositionChange, chartData])
+
+  const handleChartMouseMove = useCallback((state: any) => {
+    if (!state) return
+
+    const activeArrayIndex = state.activeTooltipIndex
+    if (activeArrayIndex === undefined) {
+      setIsHoveringLine(false)
+      return
+    }
+
+    const dataPoint = chartData[activeArrayIndex]
+    if (!dataPoint) {
+      setIsHoveringLine(false)
+      return
+    }
+
+    const activeYearIndex = dataPoint.yearIndex
+
+    if (isDraggingLine && onCurrentPositionChange) {
+      // Update position while dragging using the actual yearIndex
+      if (activeYearIndex !== currentPositionIndex) {
+        onCurrentPositionChange(activeYearIndex)
+      }
+    } else if (currentPositionIndex !== null && currentPositionIndex !== undefined) {
+      // Check if hovering near the line (compare yearIndex values)
+      setIsHoveringLine(Math.abs(activeYearIndex - currentPositionIndex) <= 2)
+    }
+  }, [isDraggingLine, currentPositionIndex, onCurrentPositionChange, chartData])
+
+  const handleChartMouseUp = useCallback(() => {
+    setIsDraggingLine(false)
+  }, [])
+
+  const handleChartMouseLeave = useCallback(() => {
+    setIsDraggingLine(false)
+    setIsHoveringLine(false)
+  }, [])
+
+  // Determine cursor style based on drag/hover state
+  const chartCursor = isDraggingLine ? 'grabbing' : isHoveringLine ? 'grab' : undefined
+
   return (
+    <div
+      ref={containerRef}
+      style={{ width: '100%', height: '100%', cursor: chartCursor }}
+    >
     <ResponsiveContainer width="100%" height="100%" minWidth={320} minHeight={200}>
       <ComposedChart
         data={enableChartOverlays ? enhancedDisplayData : displayData}
         margin={{ top: 20, right: 8, left: 8, bottom: 12 }}
+        onMouseDown={handleChartMouseDown}
+        onMouseMove={handleChartMouseMove}
+        onMouseUp={handleChartMouseUp}
+        onMouseLeave={handleChartMouseLeave}
       >
         <defs>
           {enableChartOverlays ? (
@@ -306,6 +389,16 @@ export function ProjectionChart({
           cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1 }}
         />
 
+        {/* Vertical indicator line at current slider position */}
+        {currentPositionIndex !== null && currentPositionIndex !== undefined && (
+          <ReferenceLine
+            x={currentPositionIndex}
+            stroke={isDraggingLine || isHoveringLine ? 'rgba(148, 163, 184, 0.8)' : 'rgba(148, 163, 184, 0.5)'}
+            strokeWidth={isDraggingLine ? 2.5 : 1.5}
+            ifOverflow="hidden"
+          />
+        )}
+
         {scenarioMarkers.length > 0 && (
           <Scatter
             data={scenarioMarkers}
@@ -377,5 +470,6 @@ export function ProjectionChart({
         )}
       </ComposedChart>
     </ResponsiveContainer>
+    </div>
   )
 }
