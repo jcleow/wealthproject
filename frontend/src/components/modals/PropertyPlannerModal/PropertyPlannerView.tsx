@@ -123,6 +123,8 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
       type: f.isPercentage ? 'percentage' : 'fixed',
       value: parseFloat(f.amount),
       enabled: true,
+      icon: f.icon,
+      iconColor: f.iconColor,
     }))
 
   const saleFees: FeeItem[] = apiScenario.fees
@@ -133,6 +135,8 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
       type: f.isPercentage ? 'percentage' : 'fixed',
       value: parseFloat(f.amount),
       enabled: true,
+      icon: f.icon,
+      iconColor: f.iconColor,
     }))
 
   // Map grants from the API grants array
@@ -256,12 +260,16 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
         feeType: f.name,
         amount: String(f.value),
         isPercentage: f.type === 'percentage',
+        icon: f.icon,
+        iconColor: f.iconColor,
       })),
       ...scenario.saleInputs.fees.filter(f => f.enabled).map(f => ({
         feeContext: 'sale' as const,
         feeType: f.name,
         amount: String(f.value),
         isPercentage: f.type === 'percentage',
+        icon: f.icon,
+        iconColor: f.iconColor,
       })),
     ],
     growthPeriods: scenario.inputs.appreciationPeriods.map(ap => ({

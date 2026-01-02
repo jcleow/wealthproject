@@ -8,9 +8,8 @@ type PropertyScenarioMarkerProps = {
   cx?: number
   cy?: number
   marker: PropertyMarkerData
-  onPropertyScenarioEdit?: (scenarioId: string) => void
-  onToggleExpand?: (scenarioId: string) => void
-  onHover?: (marker: PropertyMarkerData | null, x: number, y: number, rect?: DOMRect) => void
+  /** Called when marker is clicked - opens click menu with options */
+  onClick?: (marker: PropertyMarkerData, x: number, y: number) => void
   isExpanded?: boolean
   visible?: boolean
   animate?: boolean
@@ -19,14 +18,13 @@ type PropertyScenarioMarkerProps = {
 /**
  * Property scenario marker for Recharts.
  * Displays a simple marker showing property purchase events (no outer rings).
+ * On click, opens a menu with options to edit or expand/collapse milestones.
  */
 export default function PropertyScenarioMarker({
   cx = 0,
   cy = 0,
   marker,
-  onPropertyScenarioEdit,
-  onToggleExpand,
-  onHover,
+  onClick,
   isExpanded: _isExpanded = false,
   visible = true,
   animate = true,
@@ -35,31 +33,11 @@ export default function PropertyScenarioMarker({
   const iconSize = innerRadius * 1.2
   const baseLift = innerRadius * 1.5 + 10
 
-  const handleClick = () => {
-    if (onPropertyScenarioEdit && marker.propertyScenarioId) {
-      onPropertyScenarioEdit(marker.propertyScenarioId)
-    }
-  }
-
-  const handleDoubleClick = (event: React.MouseEvent) => {
-    event.stopPropagation()
-    if (onToggleExpand && marker.propertyScenarioId) {
-      onToggleExpand(marker.propertyScenarioId)
-    }
-  }
-
-  const handleMouseEnter = (event: React.MouseEvent) => {
-    if (onHover) {
-      // Get position relative to viewport for the overlay
+  const handleClick = (event: React.MouseEvent) => {
+    if (onClick) {
+      // Get position relative to viewport for the menu
       const rect = (event.currentTarget as SVGGElement).getBoundingClientRect()
-      // Pass the rect so the parent can check proximity on mousemove
-      onHover(marker, rect.right, rect.top + rect.height / 2, rect)
-    }
-  }
-
-  const handleMouseLeave = () => {
-    if (onHover) {
-      onHover(null, 0, 0)
+      onClick(marker, rect.right, rect.top + rect.height / 2)
     }
   }
 
@@ -77,13 +55,10 @@ export default function PropertyScenarioMarker({
       style={{ cursor: 'pointer', transition, pointerEvents, willChange: 'opacity' }}
       opacity={opacity}
       onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
-          handleClick()
+          handleClick(event as unknown as React.MouseEvent)
         }
       }}
     >
@@ -160,6 +135,8 @@ export interface NestedMilestoneData {
   yearIndex: number
   netWorth: number
   propertyScenarioId: string
+  /** Vertical offset for stacking multiple milestones at the same position */
+  stackOffset?: number
 }
 
 type NestedMilestoneMarkerProps = {
@@ -184,6 +161,8 @@ export function NestedMilestoneMarker({
   const radius = 10
   const iconSize = radius * 1.2
   const baseLift = radius * 1.5 + 6
+  // Stack offset: each additional milestone at same position shifts up by (radius * 2 + 4)
+  const stackOffset = (milestone.stackOffset ?? 0) * (radius * 2 + 4)
 
   const Icon = getIconByName(milestone.icon)
   const opacity = visible ? 1 : 0
@@ -192,7 +171,7 @@ export function NestedMilestoneMarker({
 
   return (
     <g
-      transform={`translate(${cx}, ${cy - baseLift})`}
+      transform={`translate(${cx}, ${cy - baseLift - stackOffset})`}
       style={{ cursor: 'default', transition, pointerEvents, willChange: 'opacity' }}
       opacity={opacity}
     >

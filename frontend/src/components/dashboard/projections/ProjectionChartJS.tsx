@@ -20,8 +20,7 @@ import zoomPlugin from 'chartjs-plugin-zoom'
 import { milestonePlugin, preloadIcons } from './chartjs/milestonePlugin'
 import { currentPositionLinePlugin } from './chartjs/currentPositionLinePlugin'
 import { ChartJSTooltip, useChartJSTooltip } from './chartjs/ChartJSTooltip'
-import { PropertyMarkerPopover } from './PropertyMarkerPopover'
-import { PropertyMarkerHoverOverlay } from './PropertyMarkerHoverOverlay'
+import { PropertyMarkerClickMenu } from './PropertyMarkerClickMenu'
 import type { ChartJSMarkerData, PropertyMarkerData } from './chartjs/types'
 import { chartColors, AREA_ANIMATION_MS, type AxisMode, type ProjectionPoint } from './types'
 import type { ScenarioMarkerData } from './useProjectionData'
@@ -120,14 +119,8 @@ export function ProjectionChartJS({
   // Track if icons are loaded
   const [iconsLoaded, setIconsLoaded] = useState(false)
 
-  // Property marker popover state (for click)
-  const [expandedPropertyMarker, setExpandedPropertyMarker] = useState<{
-    marker: PropertyMarkerData
-    position: { x: number; y: number }
-  } | null>(null)
-
-  // Property marker hover state
-  const [hoveredPropertyMarker, setHoveredPropertyMarker] = useState<{
+  // Property marker click menu state (shows options: edit modal or expand milestones)
+  const [clickedPropertyMarker, setClickedPropertyMarker] = useState<{
     marker: PropertyMarkerData
     position: { x: number; y: number }
   } | null>(null)
@@ -180,33 +173,18 @@ export function ProjectionChartJS({
     [onScenarioSelect]
   )
 
-  // Handle property marker click - show popover
+  // Handle property marker click - show click menu with options
   const handlePropertyMarkerClick = useCallback(
     (marker: PropertyMarkerData, x: number, y: number) => {
-      setExpandedPropertyMarker({ marker, position: { x, y } })
+      setClickedPropertyMarker({ marker, position: { x, y } })
     },
     []
   )
 
-  // Handle edit scenario from popover
-  const handleEditScenarioFromPopover = useCallback(() => {
-    if (expandedPropertyMarker && onPropertyScenarioEdit) {
-      onPropertyScenarioEdit(expandedPropertyMarker.marker.propertyScenarioId)
-      setExpandedPropertyMarker(null)
-    }
-  }, [expandedPropertyMarker, onPropertyScenarioEdit])
-
-  // Handle property marker hover - show hover overlay
-  const handlePropertyMarkerHover = useCallback(
-    (marker: PropertyMarkerData | null, x: number, y: number) => {
-      if (marker) {
-        setHoveredPropertyMarker({ marker, position: { x, y } })
-      } else {
-        setHoveredPropertyMarker(null)
-      }
-    },
-    []
-  )
+  // Close click menu
+  const handleCloseClickMenu = useCallback(() => {
+    setClickedPropertyMarker(null)
+  }, [])
 
   // Toggle expand/collapse for a property's nested milestones
   const handleToggleExpand = useCallback((propertyId: string) => {
@@ -301,8 +279,6 @@ export function ProjectionChartJS({
     return {
       responsive: true,
       maintainAspectRatio: false,
-      // Include mouseout event for clearing hover state when mouse leaves chart
-      events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],
       animation: {
         duration: areaAnimationEnabled ? AREA_ANIMATION_MS : 0,
         easing: 'easeOutQuart',
@@ -417,7 +393,6 @@ export function ProjectionChartJS({
           opacity: markerOpacity,
           onMarkerClick: handleMarkerClick,
           onPropertyMarkerClick: handlePropertyMarkerClick,
-          onPropertyMarkerHover: handlePropertyMarkerHover,
           expandedPropertyIds: expandedPropertyIds,
         },
         currentPositionLine: {
@@ -458,7 +433,6 @@ export function ProjectionChartJS({
     markerOpacity,
     handleMarkerClick,
     handlePropertyMarkerClick,
-    handlePropertyMarkerHover,
     expandedPropertyIds,
     displayData,
     onSelectMonth,
@@ -485,24 +459,15 @@ export function ProjectionChartJS({
         resolution={dataResolution}
       />
 
-      {/* Property marker popover (shown on click) */}
-      {expandedPropertyMarker && (
-        <PropertyMarkerPopover
-          marker={expandedPropertyMarker.marker}
-          position={expandedPropertyMarker.position}
-          chartContainerRef={containerRef}
-          onClose={() => setExpandedPropertyMarker(null)}
-          onEditScenario={handleEditScenarioFromPopover}
-        />
-      )}
-
-      {/* Property marker hover overlay (shown on hover, not when popover is open) */}
-      {hoveredPropertyMarker && !expandedPropertyMarker && (
-        <PropertyMarkerHoverOverlay
-          marker={hoveredPropertyMarker.marker}
-          position={hoveredPropertyMarker.position}
-          isExpanded={expandedPropertyIds.has(hoveredPropertyMarker.marker.propertyScenarioId)}
-          onToggleExpand={() => handleToggleExpand(hoveredPropertyMarker.marker.propertyScenarioId)}
+      {/* Property marker click menu (shown on click) */}
+      {clickedPropertyMarker && (
+        <PropertyMarkerClickMenu
+          marker={clickedPropertyMarker.marker}
+          position={clickedPropertyMarker.position}
+          isExpanded={expandedPropertyIds.has(clickedPropertyMarker.marker.propertyScenarioId)}
+          onToggleExpand={() => handleToggleExpand(clickedPropertyMarker.marker.propertyScenarioId)}
+          onOpenModal={() => onPropertyScenarioEdit?.(clickedPropertyMarker.marker.propertyScenarioId)}
+          onClose={handleCloseClickMenu}
           chartContainerRef={containerRef}
         />
       )}

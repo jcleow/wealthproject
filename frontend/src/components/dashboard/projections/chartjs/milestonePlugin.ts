@@ -511,32 +511,48 @@ export const milestonePlugin: Plugin<'line'> = {
         // Draw nested milestones if this property is expanded
         if (expandedPropertyIds.has(marker.propertyScenarioId)) {
           const nestedBaseLift = baseLift - 5 // Slightly lower than main markers
+          const nestedRadius = COMPOUND_MARKER_CONFIG.nestedRadius
+          const stackSpacing = nestedRadius * 2 + 4 // Space between stacked markers
 
+          // Group milestones by yearIndex for stacking
+          const milestonesByYearIndex: Record<number, typeof marker.nestedMilestones> = {}
           for (const milestone of marker.nestedMilestones) {
-            // Skip if no yearIndex (can't position on chart)
             if (milestone.yearIndex === undefined) continue
+            if (!milestonesByYearIndex[milestone.yearIndex]) {
+              milestonesByYearIndex[milestone.yearIndex] = []
+            }
+            milestonesByYearIndex[milestone.yearIndex].push(milestone)
+          }
 
-            const milestoneX = xScale.getPixelForValue(milestone.yearIndex)
+          // Draw each milestone with stack offset
+          for (const [yearIndexStr, milestones] of Object.entries(milestonesByYearIndex)) {
+            const yearIndex = Number(yearIndexStr)
+            const milestoneX = xScale.getPixelForValue(yearIndex)
 
-            // Check if nested milestone is within visible chart area
+            // Check if within visible chart area
             if (milestoneX < chartArea.left || milestoneX > chartArea.right) continue
 
-            // Interpolate Y position for nested milestone
+            // Interpolate Y position
             const nestedInterpolatedY = interpolateYOnLine(chart, milestoneX)
             const nestedBaseY = nestedInterpolatedY ?? yScale.getPixelForValue(marker.netWorth)
-            const milestoneY = nestedBaseY - nestedBaseLift
 
-            // Skip if would be above chart area
-            if (milestoneY < chartArea.top - 20) continue
+            // Draw each milestone in the stack
+            milestones.forEach((milestone, stackIndex) => {
+              const stackOffset = stackIndex * stackSpacing
+              const milestoneY = nestedBaseY - nestedBaseLift - stackOffset
 
-            drawNestedMilestone(
-              ctx,
-              milestoneX,
-              milestoneY,
-              milestone.iconColor,
-              milestone.icon,
-              globalOpacity * (marker.isIncluded ? 1 : disabledOpacity)
-            )
+              // Skip if would be above chart area
+              if (milestoneY < chartArea.top - 20) return
+
+              drawNestedMilestone(
+                ctx,
+                milestoneX,
+                milestoneY,
+                milestone.iconColor,
+                milestone.icon,
+                globalOpacity * (marker.isIncluded ? 1 : disabledOpacity)
+              )
+            })
           }
         }
       }
@@ -555,28 +571,12 @@ export const milestonePlugin: Plugin<'line'> = {
     const nativeEvent = event.native as MouseEvent | null
     if (!nativeEvent) return
 
+    // Only handle click events
+    if (event.type !== 'click') return
+
     const rect = chart.canvas.getBoundingClientRect()
     const mouseX = nativeEvent.clientX - rect.left
     const mouseY = nativeEvent.clientY - rect.top
-
-    // Handle mouseout to clear hover state when mouse leaves chart
-    if (event.type === 'mouseout' && hasPropertyMarkers && options.onPropertyMarkerHover) {
-      options.onPropertyMarkerHover(null, 0, 0)
-      return
-    }
-
-    // Handle mousemove for hover detection on property markers
-    if (event.type === 'mousemove' && hasPropertyMarkers && options.onPropertyMarkerHover) {
-      const propertyHit = hitTestPropertyMarkers(mouseX, mouseY, options.propertyMarkers!, chart)
-      if (propertyHit) {
-        options.onPropertyMarkerHover(propertyHit.marker, mouseX, mouseY)
-      } else {
-        options.onPropertyMarkerHover(null, 0, 0)
-      }
-    }
-
-    // Handle click events
-    if (event.type !== 'click') return
 
     // Check property markers first
     if (hasPropertyMarkers && options.onPropertyMarkerClick) {

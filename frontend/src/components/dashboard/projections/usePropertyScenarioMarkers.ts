@@ -92,19 +92,8 @@ export function usePropertyScenarioMarkers(
         }
       }
 
-      // Build nested milestones
+      // Build nested milestones (fees and sale - purchase is represented by the main marker)
       const nestedMilestones: PropertyMilestone[] = []
-
-      // Purchase milestone
-      nestedMilestones.push({
-        id: `${scenario.scenario.id}-purchase`,
-        type: 'purchase',
-        date: purchaseDate,
-        label: 'Purchase',
-        icon: 'key',
-        iconColor: sgDetails.iconColor || '#6366f1',
-        yearIndex: findYearIndexForDate(purchaseDate),
-      })
 
       // Sale milestone (if sale date is set)
       if (sgDetails.saleExpectedDate) {

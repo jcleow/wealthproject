@@ -27,16 +27,6 @@ function calculateFeeAmount(fee: FeeItem, basePrice: number): number {
 }
 
 /**
- * Format month for display (e.g., "Jan 2031")
- */
-function formatMonthShort(monthValue: string): string {
-  if (!monthValue) return ''
-  const [year, month] = monthValue.split('-').map(Number)
-  const date = new Date(year, month - 1, 1)
-  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-}
-
-/**
  * FeeEditor - Ledger-style expense list with horizontal grid layout.
  * Designed for professional financial workstation feel.
  */
@@ -123,7 +113,6 @@ export function FeeEditor({
         {fees.map((fee) => {
           const amount = calculateFeeAmount(fee, basePrice)
           const monthValue = getMonthValueFromOffset(fee.dueOffset || 0)
-          const formattedDate = monthValue ? formatMonthShort(monthValue) : ''
 
           return (
             <div

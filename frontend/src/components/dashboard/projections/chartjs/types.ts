@@ -26,10 +26,8 @@ export interface MilestonePluginOptions {
   propertyMarkers?: PropertyMarkerData[]
   /** Callback when a marker is clicked */
   onMarkerClick?: (event: ScenarioEvent, markerData: ChartJSMarkerData) => void
-  /** Callback when a property marker is clicked */
+  /** Callback when a property marker is clicked - opens click menu */
   onPropertyMarkerClick?: (marker: PropertyMarkerData, x: number, y: number) => void
-  /** Callback when hovering over a property marker */
-  onPropertyMarkerHover?: (marker: PropertyMarkerData | null, x: number, y: number) => void
   /** Set of property scenario IDs that are expanded (showing nested milestones) */
   expandedPropertyIds?: Set<string>
   /** Whether markers should be visible */
