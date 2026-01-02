@@ -124,9 +124,9 @@ export function FeeEditor({
                   : "bg-transparent opacity-40"
               )}
             >
-              {/* Two-row layout with centered icon */}
+              {/* Single row: [icon] [name] [date] [$|%] [amount] [X] */}
               <div className="flex items-center gap-2">
-                {/* Icon with checkbox overlay - centered between both rows */}
+                {/* Icon with checkbox overlay */}
                 <div className="relative shrink-0">
                   <IconPicker
                     iconName={fee.icon || 'circle-dot'}
@@ -153,88 +153,83 @@ export function FeeEditor({
                   </button>
                 </div>
 
-                {/* Main content area */}
-                <div className="flex-1 min-w-0">
-                  {/* Line 1: Name + Date */}
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      value={fee.name}
-                      onChange={(e) => handleUpdateFee(fee.id, { name: e.target.value })}
-                      disabled={!fee.enabled}
-                      className={cn(
-                        "flex-1 min-w-0 bg-transparent border-0 outline-none text-sm font-medium leading-tight",
-                        fee.enabled ? "text-slate-100" : "text-slate-500"
-                      )}
-                    />
-                    {/* Date picker - compact style */}
-                    {purchaseDate && (
-                      <MonthPicker
-                        value={monthValue}
-                        onChange={(value) => handleUpdateFee(fee.id, { dueOffset: getOffsetFromMonthValue(value) })}
-                        compact
-                        disabled={!fee.enabled}
-                        className="shrink-0"
+                {/* Name */}
+                <input
+                  type="text"
+                  value={fee.name}
+                  onChange={(e) => handleUpdateFee(fee.id, { name: e.target.value })}
+                  disabled={!fee.enabled}
+                  className={cn(
+                    "flex-1 min-w-0 bg-transparent border-0 outline-none text-sm font-medium",
+                    fee.enabled ? "text-slate-100" : "text-slate-500"
+                  )}
+                />
+
+                {/* Date picker */}
+                {purchaseDate && (
+                  <MonthPicker
+                    value={monthValue}
+                    onChange={(value) => handleUpdateFee(fee.id, { dueOffset: getOffsetFromMonthValue(value) })}
+                    compact
+                    disabled={!fee.enabled}
+                    className="shrink-0"
+                  />
+                )}
+
+                {/* Type toggle + Amount */}
+                {fee.enabled && (
+                  <>
+                    {/* Type toggle */}
+                    <div className="flex items-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateFee(fee.id, { type: 'fixed' })}
+                        className={cn(
+                          "px-1.5 py-0.5 text-[10px] font-medium rounded-l border-y border-l transition-colors",
+                          fee.type === 'fixed'
+                            ? "bg-white/[0.06] text-slate-400 border-white/[0.08]"
+                            : "bg-transparent text-slate-600 border-white/[0.05] hover:text-slate-500"
+                        )}
+                      >
+                        $
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateFee(fee.id, { type: 'percentage' })}
+                        className={cn(
+                          "px-1.5 py-0.5 text-[10px] font-medium rounded-r border transition-colors",
+                          fee.type === 'percentage'
+                            ? "bg-white/[0.06] text-slate-400 border-white/[0.08]"
+                            : "bg-transparent text-slate-600 border-white/[0.05] hover:text-slate-500"
+                        )}
+                      >
+                        %
+                      </button>
+                    </div>
+
+                    {/* Amount with inline calculation */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {fee.type === 'fixed' && <span className="text-slate-600 text-xs">$</span>}
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={fee.type === 'fixed' ? fee.value.toLocaleString() : fee.value}
+                        onChange={(e) => {
+                          const rawValue = e.target.value.replace(/[^0-9.]/g, '')
+                          handleUpdateFee(fee.id, { value: parseFloat(rawValue) || 0 })
+                        }}
+                        className="w-16 bg-transparent border-0 outline-none text-xs font-mono tabular-nums text-slate-300 text-right"
                       />
-                    )}
-                  </div>
-
-                  {/* Line 2: Amount (right-aligned under date picker) */}
-                  {fee.enabled && (
-                    <div className="flex items-center justify-end gap-1.5 mt-1">
-                      {/* Tiny type toggle */}
-                      <div className="flex items-center shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateFee(fee.id, { type: 'fixed' })}
-                          className={cn(
-                            "px-1.5 py-0.5 text-[10px] font-medium rounded-l border-y border-l transition-colors",
-                            fee.type === 'fixed'
-                              ? "bg-white/[0.06] text-slate-400 border-white/[0.08]"
-                              : "bg-transparent text-slate-600 border-white/[0.05] hover:text-slate-500"
-                          )}
-                        >
-                          $
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateFee(fee.id, { type: 'percentage' })}
-                          className={cn(
-                            "px-1.5 py-0.5 text-[10px] font-medium rounded-r border transition-colors",
-                            fee.type === 'percentage'
-                              ? "bg-white/[0.06] text-slate-400 border-white/[0.08]"
-                              : "bg-transparent text-slate-600 border-white/[0.05] hover:text-slate-500"
-                          )}
-                        >
-                          %
-                        </button>
-                      </div>
-
-                      {/* Amount - inline, no container box */}
-                      <div className="flex items-center">
-                        {fee.type === 'fixed' && <span className="text-slate-600 text-xs">$</span>}
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={fee.type === 'fixed' ? fee.value.toLocaleString() : fee.value}
-                          onChange={(e) => {
-                            const rawValue = e.target.value.replace(/[^0-9.]/g, '')
-                            handleUpdateFee(fee.id, { value: parseFloat(rawValue) || 0 })
-                          }}
-                          className="w-20 bg-transparent border-0 outline-none text-xs font-mono tabular-nums text-slate-300"
-                        />
-                        {fee.type === 'percentage' && <span className="text-slate-600 text-xs">%</span>}
-                      </div>
-
-                      {/* Calculated total for percentage */}
+                      {fee.type === 'percentage' && <span className="text-slate-600 text-xs">%</span>}
+                      {/* Calculated total for percentage - inline */}
                       {fee.type === 'percentage' && fee.value > 0 && (
                         <span className="text-[10px] font-mono tabular-nums text-slate-600">
                           = ${amount.toLocaleString()}
                         </span>
                       )}
                     </div>
-                  )}
-                </div>
+                  </>
+                )}
 
                 {/* Delete - appears on hover */}
                 <button
