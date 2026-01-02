@@ -102,8 +102,9 @@ export function GroupedItemsSection({
         const categoryItems = groupedItems[normalizedKey]
         const categoryTotal = categoryItems.reduce((sum, item) => sum + summarizeAmount(item), 0)
 
-        // Hide categories with $0 total
-        if (categoryTotal === 0) {
+        // Hide categories with $0 total, but always show if it contains an accumulator
+        const hasAccumulator = categoryItems.some(item => item.isAccumulator)
+        if (categoryTotal === 0 && !hasAccumulator) {
           return null
         }
 
