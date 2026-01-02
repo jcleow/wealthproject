@@ -118,127 +118,131 @@ export function FeeEditor({
             <div
               key={fee.id}
               className={cn(
-                "group flex items-center gap-3 px-3 h-10 transition-colors",
+                "group px-3 py-2.5 transition-colors",
                 fee.enabled
                   ? "bg-white/[0.02] hover:bg-white/[0.04]"
                   : "bg-transparent opacity-50"
               )}
             >
-              {/* Col 1: Icon + Checkbox group */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <IconPicker
-                  iconName={fee.icon || 'circle-dot'}
-                  iconColor={fee.iconColor || '#6366f1'}
-                  searchQuery=""
-                  onIconChange={(name) => handleUpdateFee(fee.id, { icon: name })}
-                  onColorChange={(color) => handleUpdateFee(fee.id, { iconColor: color })}
-                  onSearchChange={() => {}}
-                  disabled={!fee.enabled}
-                  compact
-                />
-                <button
-                  type="button"
-                  onClick={() => handleToggleFee(fee.id)}
-                  className={cn(
-                    "w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors",
-                    fee.enabled
-                      ? "bg-emerald-500/80 border-emerald-500/80"
-                      : "bg-transparent border-slate-600 hover:border-slate-500"
-                  )}
-                >
-                  {fee.enabled && <Check className="w-2.5 h-2.5 text-white" />}
-                </button>
-              </div>
-
-              {/* Col 2: Name - dominant text */}
-              <input
-                type="text"
-                value={fee.name}
-                onChange={(e) => handleUpdateFee(fee.id, { name: e.target.value })}
-                disabled={!fee.enabled}
-                className={cn(
-                  "flex-1 min-w-0 bg-transparent border-0 outline-none text-sm font-medium",
-                  fee.enabled ? "text-slate-200" : "text-slate-500"
-                )}
-              />
-
-              {/* Col 3: Date - compact muted */}
-              {purchaseDate && (
-                <MonthPicker
-                  value={monthValue}
-                  onChange={(value) => handleUpdateFee(fee.id, { dueOffset: getOffsetFromMonthValue(value) })}
-                  compact
-                  disabled={!fee.enabled}
-                  className="w-[90px] shrink-0"
-                />
-              )}
-
-              {/* Col 4: Type - compact segmented control */}
-              <div className="flex items-center shrink-0">
-                <button
-                  type="button"
-                  onClick={() => fee.enabled && handleUpdateFee(fee.id, { type: 'fixed' })}
-                  disabled={!fee.enabled}
-                  className={cn(
-                    "px-1.5 py-0.5 text-[10px] font-medium rounded-l border-y border-l transition-colors",
-                    fee.type === 'fixed'
-                      ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
-                      : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
-                  )}
-                >
-                  $
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fee.enabled && handleUpdateFee(fee.id, { type: 'percentage' })}
-                  disabled={!fee.enabled}
-                  className={cn(
-                    "px-1.5 py-0.5 text-[10px] font-medium rounded-r border transition-colors",
-                    fee.type === 'percentage'
-                      ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
-                      : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
-                  )}
-                >
-                  %
-                </button>
-              </div>
-
-              {/* Col 5: Amount - primary editable with optional total subtext */}
-              <div className="flex flex-col items-end shrink-0">
-                <div className="flex items-center gap-0.5">
-                  {fee.type === 'fixed' && <span className="text-slate-500 text-xs">$</span>}
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={fee.type === 'fixed' ? fee.value.toLocaleString() : fee.value}
-                    onChange={(e) => {
-                      const rawValue = e.target.value.replace(/[^0-9.]/g, '')
-                      handleUpdateFee(fee.id, { value: parseFloat(rawValue) || 0 })
-                    }}
+              {/* Row 1: Icon + Checkbox + Name + Date + Delete */}
+              <div className="flex items-center gap-2">
+                {/* Icon + Checkbox group */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <IconPicker
+                    iconName={fee.icon || 'circle-dot'}
+                    iconColor={fee.iconColor || '#6366f1'}
+                    searchQuery=""
+                    onIconChange={(name) => handleUpdateFee(fee.id, { icon: name })}
+                    onColorChange={(color) => handleUpdateFee(fee.id, { iconColor: color })}
+                    onSearchChange={() => {}}
                     disabled={!fee.enabled}
-                    className={cn(
-                      "w-20 bg-transparent border-0 outline-none text-right text-sm font-mono tabular-nums",
-                      fee.enabled ? "text-white" : "text-slate-500"
-                    )}
+                    compact
                   />
-                  {fee.type === 'percentage' && <span className="text-slate-500 text-xs">%</span>}
+                  <button
+                    type="button"
+                    onClick={() => handleToggleFee(fee.id)}
+                    className={cn(
+                      "w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors",
+                      fee.enabled
+                        ? "bg-emerald-500/80 border-emerald-500/80"
+                        : "bg-transparent border-slate-600 hover:border-slate-500"
+                    )}
+                  >
+                    {fee.enabled && <Check className="w-2.5 h-2.5 text-white" />}
+                  </button>
                 </div>
-                {/* Show calculated total only for percentage type */}
-                {fee.type === 'percentage' && fee.value > 0 && (
-                  <span className="text-[10px] font-mono tabular-nums text-slate-600">
-                    = ${amount.toLocaleString()}
-                  </span>
+
+                {/* Name */}
+                <input
+                  type="text"
+                  value={fee.name}
+                  onChange={(e) => handleUpdateFee(fee.id, { name: e.target.value })}
+                  disabled={!fee.enabled}
+                  className={cn(
+                    "flex-1 min-w-0 bg-transparent border-0 outline-none text-sm font-medium",
+                    fee.enabled ? "text-slate-200" : "text-slate-500"
+                  )}
+                />
+
+                {/* Date */}
+                {purchaseDate && (
+                  <MonthPicker
+                    value={monthValue}
+                    onChange={(value) => handleUpdateFee(fee.id, { dueOffset: getOffsetFromMonthValue(value) })}
+                    compact
+                    disabled={!fee.enabled}
+                    className="shrink-0"
+                  />
                 )}
+
+                {/* Delete - appears on hover */}
+                <button
+                  type="button"
+                  onClick={() => handleDeleteFee(fee.id)}
+                  className="w-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                >
+                  <X className="w-3.5 h-3.5 text-slate-600 hover:text-red-400 transition-colors" />
+                </button>
               </div>
 
-              {/* Col 6: Delete - appears on hover */}
-              <button
-                type="button"
-                onClick={() => handleDeleteFee(fee.id)}
-                className="w-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-              >
-                <X className="w-3.5 h-3.5 text-slate-600 hover:text-red-400 transition-colors" />
-              </button>
+              {/* Row 2: Type toggle + Amount (only when enabled) */}
+              {fee.enabled && (
+                <div className="flex items-center gap-2 mt-2 pl-[52px]">
+                  {/* Type toggle */}
+                  <div className="flex items-center shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateFee(fee.id, { type: 'fixed' })}
+                      className={cn(
+                        "px-2 py-1 text-xs font-medium rounded-l-md border-y border-l transition-colors",
+                        fee.type === 'fixed'
+                          ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
+                          : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
+                      )}
+                    >
+                      $
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateFee(fee.id, { type: 'percentage' })}
+                      className={cn(
+                        "px-2 py-1 text-xs font-medium rounded-r-md border transition-colors",
+                        fee.type === 'percentage'
+                          ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
+                          : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
+                      )}
+                    >
+                      %
+                    </button>
+                  </div>
+
+                  {/* Amount input */}
+                  <div className="flex items-center flex-1 h-8 px-3 rounded-md border border-white/[0.06] bg-white/[0.02]">
+                    {fee.type === 'fixed' && <span className="text-slate-500 text-sm">$</span>}
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={fee.type === 'fixed' ? fee.value.toLocaleString() : fee.value}
+                      onChange={(e) => {
+                        const rawValue = e.target.value.replace(/[^0-9.]/g, '')
+                        handleUpdateFee(fee.id, { value: parseFloat(rawValue) || 0 })
+                      }}
+                      className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm font-mono tabular-nums text-white ml-1"
+                    />
+                    {fee.type === 'percentage' && <span className="text-slate-500 text-sm ml-1">%</span>}
+
+                    {/* Show calculated total for percentage type */}
+                    {fee.type === 'percentage' && fee.value > 0 && (
+                      <>
+                        <div className="h-4 w-px bg-white/[0.08] mx-2" />
+                        <span className="text-xs font-mono tabular-nums text-slate-500 shrink-0">
+                          = ${amount.toLocaleString()}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}
