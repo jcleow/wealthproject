@@ -378,11 +378,12 @@ func (s *Store) ListCPFAccounts(
 	dateRangeSubQuery, _ := addDateRangeFilterQuery(dateRangeOpts, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.StartDate != nil {
-			args = append(args, *dateRangeOpts.StartDate)
-		}
+		// Args order must match SQL: EndDate first (for start_date < $X), then StartDate (for end_date >= $Y)
 		if dateRangeOpts.EndDate != nil {
 			args = append(args, *dateRangeOpts.EndDate)
+		}
+		if dateRangeOpts.StartDate != nil {
+			args = append(args, *dateRangeOpts.StartDate)
 		}
 	}
 
