@@ -15,11 +15,47 @@ import (
 type ResidencyStatus string
 
 const (
-	ResidencyCitizen     ResidencyStatus = "citizen"
+	// Stored residency statuses (database/API)
+	ResidencyCitizen ResidencyStatus = "citizen"
+	ResidencyPR      ResidencyStatus = "pr"
+
+	// Computed residency statuses (for rate lookup only, not stored)
 	ResidencyPRYear1     ResidencyStatus = "pr_year_1"
 	ResidencyPRYear2     ResidencyStatus = "pr_year_2"
 	ResidencyPRYear3Plus ResidencyStatus = "pr_year_3_plus"
 )
+
+// ComputeEffectiveResidency determines the effective residency status for CPF rate calculation.
+// For citizens, returns ResidencyCitizen.
+// For PRs, computes the PR year based on prGrantDate and the reference date (typically contribution date).
+// PR year 1 = first calendar year of PR status
+// PR year 2 = second calendar year of PR status
+// PR year 3+ = third calendar year and beyond
+func ComputeEffectiveResidency(storedStatus ResidencyStatus, prGrantDate *time.Time, referenceDate time.Time) ResidencyStatus {
+	// Citizens use full rates immediately
+	if storedStatus == ResidencyCitizen {
+		return ResidencyCitizen
+	}
+
+	// For PR without grant date, default to PR year 3+ (full rates)
+	if prGrantDate == nil {
+		return ResidencyPRYear3Plus
+	}
+
+	// Calculate which PR year they're in based on calendar years
+	prYear := prGrantDate.Year()
+	refYear := referenceDate.Year()
+	yearsSincePR := refYear - prYear
+
+	switch {
+	case yearsSincePR <= 0:
+		return ResidencyPRYear1
+	case yearsSincePR == 1:
+		return ResidencyPRYear2
+	default:
+		return ResidencyPRYear3Plus
+	}
+}
 
 // CPFConfiguration represents a complete set of CPF rules for a given year
 type CPFConfiguration struct {

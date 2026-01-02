@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
-export type ResidencyStatus = 'citizen' | 'pr_year_1' | 'pr_year_2' | 'pr_year_3_plus'
+// Stored residency status - only 'citizen' or 'pr' is stored.
+// The PR year (1, 2, 3+) is computed at runtime from pr_grant_date.
+export type ResidencyStatus = 'citizen' | 'pr'
 
-// Note: These options are kept for the Person form, not CPF form
+// Note: These options are for the Person form
 export const residencyStatusOptions: { value: ResidencyStatus; label: string }[] = [
   { value: 'citizen', label: 'Singapore Citizen' },
-  { value: 'pr_year_1', label: 'PR Year 1' },
-  { value: 'pr_year_2', label: 'PR Year 2' },
-  { value: 'pr_year_3_plus', label: 'PR Year 3+' },
+  { value: 'pr', label: 'Permanent Resident' },
 ]
 
 const numericStringField = z

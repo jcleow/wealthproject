@@ -240,7 +240,7 @@ type Person struct {
 	DisplayColor    *string    `json:"displayColor,omitempty"`
 	IsIncluded      bool       `json:"isIncluded"`
 	DateOfBirth     time.Time  `json:"dateOfBirth"`
-	ResidencyStatus string     `json:"residencyStatus"` // 'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'
+	ResidencyStatus string     `json:"residencyStatus"` // 'citizen' or 'pr' (PR year computed from prGrantDate)
 	PRGrantDate     *time.Time `json:"prGrantDate,omitempty"`
 	CreatedAt       time.Time  `json:"createdAt"`
 	UpdatedAt       time.Time  `json:"updatedAt"`

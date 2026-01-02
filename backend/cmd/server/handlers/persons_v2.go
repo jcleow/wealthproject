@@ -13,8 +13,8 @@ type personV2CreateInput struct {
 	Name            string  `json:"name"`
 	DisplayColor    string  `json:"displayColor"`
 	DateOfBirth     string  `json:"dateOfBirth"`     // Required, format: "2006-01-02"
-	ResidencyStatus string  `json:"residencyStatus"` // 'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'
-	PRGrantDate     *string `json:"prGrantDate"`     // Optional, format: "2006-01-02"
+	ResidencyStatus string  `json:"residencyStatus"` // 'citizen' or 'pr' (PR year is computed from prGrantDate)
+	PRGrantDate     *string `json:"prGrantDate"`     // Required if residencyStatus='pr', format: "2006-01-02"
 }
 
 // personV2UpdateInput is the JSON-friendly input struct for updating a person.
@@ -23,8 +23,8 @@ type personV2UpdateInput struct {
 	DisplayColor    string  `json:"displayColor"`
 	IsIncluded      *bool   `json:"isIncluded"`
 	DateOfBirth     *string `json:"dateOfBirth"`     // Optional for updates, format: "2006-01-02"
-	ResidencyStatus string  `json:"residencyStatus"` // Optional for updates
-	PRGrantDate     *string `json:"prGrantDate"`     // Optional, format: "2006-01-02"
+	ResidencyStatus string  `json:"residencyStatus"` // 'citizen' or 'pr'
+	PRGrantDate     *string `json:"prGrantDate"`     // Required if residencyStatus='pr', format: "2006-01-02"
 }
 
 // PersonV2Handler serves person v2 endpoints.

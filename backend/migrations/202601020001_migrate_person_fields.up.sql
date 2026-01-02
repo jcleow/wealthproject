@@ -3,19 +3,25 @@
 -- not duplicated across CPF account versions.
 
 -- Step 1: Add new columns to persons table
+-- Note: residency_status only stores 'citizen' or 'pr'. The PR year (1, 2, 3+) is computed
+-- at runtime from pr_grant_date and the contribution date.
 ALTER TABLE persons
     ADD COLUMN date_of_birth date,
     ADD COLUMN residency_status text DEFAULT 'citizen'
-        CHECK (residency_status IN ('citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus')),
+        CHECK (residency_status IN ('citizen', 'pr')),
     ADD COLUMN pr_grant_date date;
 
 -- Step 2: Migrate data from cpf_accounts to persons
 -- For each person, we take the most recent CPF account's values (latest start_date)
 -- This handles cases where a person might have multiple CPF account versions
+-- Note: We convert pr_year_1/2/3_plus to just 'pr' since the year is now computed from pr_grant_date
 UPDATE persons p
 SET
     date_of_birth = subq.date_of_birth,
-    residency_status = subq.residency_status,
+    residency_status = CASE
+        WHEN subq.residency_status IN ('pr_year_1', 'pr_year_2', 'pr_year_3_plus') THEN 'pr'
+        ELSE COALESCE(subq.residency_status, 'citizen')
+    END,
     pr_grant_date = subq.pr_grant_date
 FROM (
     SELECT DISTINCT ON (person_id)

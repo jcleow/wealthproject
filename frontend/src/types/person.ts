@@ -7,8 +7,8 @@ import type { ResidencyStatus } from './cpf'
  * Person represents a household member for income/CPF ownership and filtering.
  * Now includes personal attributes previously stored on CPF accounts:
  * - dateOfBirth: Required for CPF contribution calculations
- * - residencyStatus: Affects CPF contribution rates
- * - prGrantDate: Used for PR year calculations
+ * - residencyStatus: 'citizen' or 'pr' (PR year is computed from prGrantDate)
+ * - prGrantDate: Used to compute PR year (1, 2, or 3+) for CPF rate calculations
  */
 export const personSchema = z.object({
   id: z.string().min(1),
@@ -17,13 +17,8 @@ export const personSchema = z.object({
   displayColor: z.string().optional().nullable(),
   isIncluded: z.boolean(),
   dateOfBirth: z.string(), // ISO date format (YYYY-MM-DD)
-  residencyStatus: z.enum([
-    'citizen',
-    'pr_year_1',
-    'pr_year_2',
-    'pr_year_3_plus',
-  ]) as z.ZodType<ResidencyStatus>,
-  prGrantDate: z.string().optional().nullable(), // ISO date format
+  residencyStatus: z.enum(['citizen', 'pr']) as z.ZodType<ResidencyStatus>,
+  prGrantDate: z.string().optional().nullable(), // ISO date format, required if residencyStatus='pr'
   createdAt: z.string(),
   updatedAt: z.string(),
   // Stats populated by ListPersonsWithStats endpoint

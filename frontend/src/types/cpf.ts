@@ -1,6 +1,8 @@
 // CPF Account Types and Interfaces
 
-export type ResidencyStatus = 'citizen' | 'pr_year_1' | 'pr_year_2' | 'pr_year_3_plus'
+// Stored residency status - only 'citizen' or 'pr' is stored in the database.
+// The PR year (1, 2, 3+) is computed at runtime from pr_grant_date.
+export type ResidencyStatus = 'citizen' | 'pr'
 
 export interface CPFBalances {
   oa: number
