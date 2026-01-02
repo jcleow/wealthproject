@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import { PanelLeftOpen } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -25,24 +25,40 @@ import { FinancialDataProvider } from '@/contexts/FinancialDataContext'
 import { TaxModeProvider } from '@/contexts/TaxModeContext'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
-import { useTimelineStore } from '@/stores'
-import type { DashboardLayout } from '@/types/financial'
+import { useTimelineStore, useFeatureModulesStore } from '@/stores'
 
 export function Dashboard() {
   const chatIdRef = useRef<string>(generateUUID())
   const chatId = chatIdRef.current
   const queryClient = useQueryClient()
   const windowWidth = useWindowWidth()
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
-  const [isChatCollapsed, setIsChatCollapsed] = useState(true)
-  const [showCPFView, setShowCPFView] = useState(false)
-  const [showPropertyPlanner, setShowPropertyPlanner] = useState(false)
-  const [propertyScenarioToEdit, setPropertyScenarioToEdit] = useState<string | null>(null)
-  const [showTaxPlanner, setShowTaxPlanner] = useState(false)
-  const [showInsurancePlanner, setShowInsurancePlanner] = useState(false)
-  const [isLayoutModalOpen, setIsLayoutModalOpen] = useState(false)
-  const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>('stacked')
-  const [hasUserChangedLayout, setHasUserChangedLayout] = useState(false)
+
+  // Feature modules state from Zustand store
+  const showCPFView = useFeatureModulesStore((s) => s.showCPFView)
+  const closeCPFView = useFeatureModulesStore((s) => s.closeCPFView)
+  const showTaxPlanner = useFeatureModulesStore((s) => s.showTaxPlanner)
+  const closeTaxPlanner = useFeatureModulesStore((s) => s.closeTaxPlanner)
+  const showInsurancePlanner = useFeatureModulesStore((s) => s.showInsurancePlanner)
+  const closeInsurancePlanner = useFeatureModulesStore((s) => s.closeInsurancePlanner)
+  const showPropertyPlanner = useFeatureModulesStore((s) => s.showPropertyPlanner)
+  const propertyScenarioToEdit = useFeatureModulesStore((s) => s.propertyScenarioToEdit)
+  const openPropertyPlanner = useFeatureModulesStore((s) => s.openPropertyPlanner)
+  const closePropertyPlanner = useFeatureModulesStore((s) => s.closePropertyPlanner)
+  const showLayoutModal = useFeatureModulesStore((s) => s.showLayoutModal)
+  const closeLayoutModal = useFeatureModulesStore((s) => s.closeLayoutModal)
+
+  // Chat sidebar state from Zustand store
+  const isChatCollapsed = useFeatureModulesStore((s) => s.isChatCollapsed)
+  const isHistoryOpen = useFeatureModulesStore((s) => s.isHistoryOpen)
+  const toggleChat = useFeatureModulesStore((s) => s.toggleChat)
+  const collapseChat = useFeatureModulesStore((s) => s.collapseChat)
+  const expandChat = useFeatureModulesStore((s) => s.expandChat)
+  const toggleHistory = useFeatureModulesStore((s) => s.toggleHistory)
+
+  // Dashboard layout from Zustand store
+  const dashboardLayout = useFeatureModulesStore((s) => s.dashboardLayout)
+  const setDashboardLayout = useFeatureModulesStore((s) => s.setDashboardLayout)
+  const initializeLayout = useFeatureModulesStore((s) => s.initializeLayout)
 
   // Get timeline setters from store for PropertyPlannerModal
   const setSelectedYear = useTimelineStore((s) => s.setSelectedYear)
@@ -61,14 +77,14 @@ export function Dashboard() {
 
   // Initialize layout from settings (only on first load, not after user changes)
   useEffect(() => {
-    if (userSettings?.dashboardLayout && !hasUserChangedLayout) {
-      setDashboardLayout(userSettings.dashboardLayout)
+    if (userSettings?.dashboardLayout) {
+      initializeLayout(userSettings.dashboardLayout)
     }
-  }, [userSettings?.dashboardLayout, hasUserChangedLayout])
+  }, [userSettings?.dashboardLayout, initializeLayout])
 
   // Mutation for updating layout preference
   const updateLayoutMutation = useMutation({
-    mutationFn: (layout: DashboardLayout) =>
+    mutationFn: (layout: typeof dashboardLayout) =>
       settingsApi.updateUserSettings({
         ...userSettings!,
         dashboardLayout: layout,
@@ -83,14 +99,13 @@ export function Dashboard() {
 
   // Handle layout change with optimistic update
   const handleLayoutChange = useCallback(
-    (layout: DashboardLayout) => {
+    (layout: typeof dashboardLayout) => {
       setDashboardLayout(layout)
-      setHasUserChangedLayout(true)
       if (userSettings) {
         updateLayoutMutation.mutate(layout)
       }
     },
-    [userSettings, updateLayoutMutation]
+    [userSettings, updateLayoutMutation, setDashboardLayout]
   )
 
   // Force stacked layout on smaller screens
@@ -114,22 +129,21 @@ export function Dashboard() {
 
   // Handle property scenario edit from chart marker click
   const handlePropertyScenarioEdit = useCallback((scenarioId: string) => {
-    setPropertyScenarioToEdit(scenarioId)
-    setShowPropertyPlanner(true)
-  }, [])
+    openPropertyPlanner(scenarioId)
+  }, [openPropertyPlanner])
 
   // Keyboard shortcut: Cmd+B to toggle chat
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
         e.preventDefault()
-        setIsChatCollapsed((prev) => !prev)
+        toggleChat()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [toggleChat])
 
   return (
     <FinancialDataProvider>
@@ -187,9 +201,9 @@ bg-[#0a0a0a]/80`}>
                 <Chat
                   chatId={chatId}
                   className="h-full min-h-0"
-                  onToggleHistory={() => setIsHistoryOpen((prev) => !prev)}
+                  onToggleHistory={toggleHistory}
                   isHistoryOpen={isHistoryOpen}
-                  onCollapse={() => setIsChatCollapsed(true)}
+                  onCollapse={collapseChat}
                 />
               </div>
             </div>
@@ -210,7 +224,7 @@ bg-[#0a0a0a]/40`}
             >
               <button
                 type="button"
-                onClick={() => setIsChatCollapsed(false)}
+                onClick={expandChat}
                 className="p-1 text-slate-500 transition-colors hover:text-white"
                 title="Show chat"
               >
@@ -229,27 +243,21 @@ gap-6 p-6`}>
 min-h-0
 rounded-2xl border border-white/[0.06]
 bg-[#0a0a0a]/80`}>
-                <CPFSimulationView onClose={() => setShowCPFView(false)} />
+                <CPFSimulationView onClose={closeCPFView} />
               </div>
             ) : showTaxPlanner ? (
               /* Tax Planner View - shows header + tax planner */
               <>
                 {/* Header bar only - no chart */}
                 <div className="shrink-0">
-                  <FinancialWorkspace
-                    onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
-                    onOpenTax={() => setShowTaxPlanner(true)}
-                    onOpenInsurance={() => setShowInsurancePlanner(true)}
-                    headerOnly
-                  />
+                  <FinancialWorkspace headerOnly />
                 </div>
                 {/* Tax Planner content */}
                 <div className={`flex flex-1 flex-col overflow-hidden
 min-h-0
 rounded-2xl border border-white/[0.06]
 bg-[#0a0a0a]/80`}>
-                  <TaxPlannerV2View onClose={() => setShowTaxPlanner(false)} />
+                  <TaxPlannerV2View onClose={closeTaxPlanner} />
                 </div>
               </>
             ) : showInsurancePlanner ? (
@@ -257,20 +265,14 @@ bg-[#0a0a0a]/80`}>
               <>
                 {/* Header bar only - no chart */}
                 <div className="shrink-0">
-                  <FinancialWorkspace
-                    onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
-                    onOpenTax={() => setShowTaxPlanner(true)}
-                    onOpenInsurance={() => setShowInsurancePlanner(true)}
-                    headerOnly
-                  />
+                  <FinancialWorkspace headerOnly />
                 </div>
                 {/* Insurance Planner content */}
                 <div className={`flex flex-1 flex-col overflow-hidden
 min-h-0
 rounded-2xl border border-white/[0.06]
 bg-[#0a0a0a]/80`}>
-                  <InsurancePlannerView onClose={() => setShowInsurancePlanner(false)} />
+                  <InsurancePlannerView onClose={closeInsurancePlanner} />
                 </div>
               </>
             ) : isSideBySide ? (
@@ -278,14 +280,7 @@ bg-[#0a0a0a]/80`}>
               <>
                 {/* Full-width header/navbar */}
                 <div className="shrink-0">
-                  <FinancialWorkspace
-                    onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
-                    onOpenTax={() => setShowTaxPlanner(true)}
-                    onOpenInsurance={() => setShowInsurancePlanner(true)}
-                    onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
-                    headerOnly
-                  />
+                  <FinancialWorkspace headerOnly />
                 </div>
 
                 {/* Side-by-side content area */}
@@ -301,11 +296,6 @@ bg-[#0a0a0a]/80`}>
                     className="flex w-[65%] shrink-0 flex-col overflow-hidden rounded-2xl bg-transparent"
                   >
                     <FinancialWorkspace
-                      onOpenCPF={() => setShowCPFView(true)}
-                      onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
-                      onOpenTax={() => setShowTaxPlanner(true)}
-                      onOpenInsurance={() => setShowInsurancePlanner(true)}
-                      onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
                       onPropertyScenarioEdit={handlePropertyScenarioEdit}
                       chartOnly
                     />
@@ -323,11 +313,6 @@ bg-[#0a0a0a]/80`}>
                 {/* Top workspace with chart - resizable */}
                 <ResizableChartSection chartRef={chartRef}>
                   <FinancialWorkspace
-                    onOpenCPF={() => setShowCPFView(true)}
-                    onOpenPropertyPlanner={() => setShowPropertyPlanner(true)}
-                    onOpenTax={() => setShowTaxPlanner(true)}
-                    onOpenInsurance={() => setShowInsurancePlanner(true)}
-                    onOpenLayoutModal={() => setIsLayoutModalOpen(true)}
                     onPropertyScenarioEdit={handlePropertyScenarioEdit}
                   />
                 </ResizableChartSection>
@@ -359,23 +344,19 @@ bg-[#0a0a0a]/80`}>
       {/* Property Planner Modal */}
       <PropertyPlannerModal
         isOpen={showPropertyPlanner}
-        onClose={() => {
-          setShowPropertyPlanner(false)
-          setPropertyScenarioToEdit(null)
-        }}
+        onClose={closePropertyPlanner}
         initialScenarioId={propertyScenarioToEdit ?? undefined}
         onJumpToDate={(year, month) => {
           setSelectedYear(year)
           setSelectedMonth(month)
-          setShowPropertyPlanner(false)
-          setPropertyScenarioToEdit(null)
+          closePropertyPlanner()
         }}
       />
 
       {/* Layout Preview Modal */}
       <LayoutPreviewModal
-        isOpen={isLayoutModalOpen}
-        onClose={() => setIsLayoutModalOpen(false)}
+        isOpen={showLayoutModal}
+        onClose={closeLayoutModal}
         currentLayout={dashboardLayout}
         onLayoutChange={handleLayoutChange}
       />

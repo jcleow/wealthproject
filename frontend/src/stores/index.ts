@@ -5,3 +5,12 @@ export {
   useTimelineAnchor,
   type TimelineState,
 } from './timelineStore'
+
+export {
+  useFeatureModulesStore,
+  useFeaturePanelVisibility,
+  useFeaturePanelActions,
+  useChatSidebarState,
+  useDashboardLayout,
+  type FeatureModulesState,
+} from './featureModulesStore'
