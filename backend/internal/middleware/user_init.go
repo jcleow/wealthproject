@@ -39,6 +39,11 @@ func (ui *UserInitializer) EnsureFinancialSetup(next http.Handler) http.Handler 
 	})
 }
 
+// firstOfMonth returns the first day of the month in UTC for a given date.
+func firstOfMonth(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+}
+
 func (ui *UserInitializer) ensureCashAccumulator(ctx context.Context, userID string) error {
 	// Check if accumulator already exists
 	_, err := ui.store.GetAccumulatorAccount(ctx, userID)
@@ -47,6 +52,10 @@ func (ui *UserInitializer) ensureCashAccumulator(ctx context.Context, userID str
 		return nil
 	}
 
+	// Normalize start date to first of current month to avoid timeline anchor issues
+	now := time.Now().UTC()
+	startDate := firstOfMonth(now)
+
 	// Create default cash accumulator account
 	_, err = ui.store.CreateCashAccount(ctx, repository.CashAccount{
 		UserID:        userID,
@@ -54,7 +63,8 @@ func (ui *UserInitializer) ensureCashAccumulator(ctx context.Context, userID str
 		Balance:       0,
 		InterestRate:  1.5,
 		IsAccumulator: true,
-		StartYear:     time.Now().Year(),
+		StartDate:     startDate,
+		StartYear:     now.Year(),
 	})
 	if err != nil {
 		return err
