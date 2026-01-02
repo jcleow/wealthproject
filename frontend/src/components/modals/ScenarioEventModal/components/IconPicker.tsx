@@ -53,6 +53,8 @@ interface IconPickerProps {
   onColorChange: (color: string) => void
   onSearchChange: (query: string) => void
   disabled?: boolean
+  /** Use compact styling with smaller size */
+  compact?: boolean
 }
 
 export function IconPicker({
@@ -63,6 +65,7 @@ export function IconPicker({
   onColorChange,
   onSearchChange,
   disabled,
+  compact,
 }: IconPickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'icon' | 'color'>('icon')
@@ -127,10 +130,9 @@ export function IconPicker({
         disabled={disabled}
         className={`
           group relative flex items-center justify-center
-          h-[42px] w-[42px]
-          rounded-xl
-          border-2 border-white/[0.08] hover:border-white/[0.2]
-          transition-all duration-300 ease-out
+          ${compact ? 'h-7 w-7 rounded-lg border' : 'h-[42px] w-[42px] rounded-xl border-2'}
+          border-white/[0.08] hover:border-white/[0.2]
+          transition-all duration-200
           disabled:opacity-50 disabled:cursor-not-allowed
           overflow-hidden
           ${isOpen ? 'border-white/[0.25] ring-2 ring-white/[0.1]' : ''}
@@ -138,31 +140,35 @@ export function IconPicker({
         style={{ backgroundColor: iconColor || '#1f2937' }}
         aria-label="Change icon"
       >
-        {/* Subtle inner glow */}
-        <div
-          className="absolute inset-0 opacity-30"
-          style={{
-            background: `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.3), transparent 60%)`
-          }}
-        />
+        {/* Subtle inner glow - only for non-compact */}
+        {!compact && (
+          <div
+            className="absolute inset-0 opacity-30"
+            style={{
+              background: `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.3), transparent 60%)`
+            }}
+          />
+        )}
 
         {/* Icon */}
         {SelectedIcon ? (
-          <SelectedIcon className="relative h-5 w-5 text-white drop-shadow-sm" />
+          <SelectedIcon className={`relative ${compact ? 'h-3.5 w-3.5' : 'h-5 w-5'} text-white drop-shadow-sm`} />
         ) : (
-          <div className="relative h-5 w-5 rounded bg-white/20" />
+          <div className={`relative ${compact ? 'h-3.5 w-3.5' : 'h-5 w-5'} rounded bg-white/20`} />
         )}
 
-        {/* Hover indicator */}
-        <div className={`
-          absolute inset-0 flex items-center justify-center
-          bg-black/50 backdrop-blur-sm
-          opacity-0 group-hover:opacity-100
-          transition-opacity duration-200
-          ${disabled ? 'hidden' : ''}
-        `}>
-          <ChevronDownIcon className="h-4 w-4 text-white" />
-        </div>
+        {/* Hover indicator - only for non-compact */}
+        {!compact && (
+          <div className={`
+            absolute inset-0 flex items-center justify-center
+            bg-black/50 backdrop-blur-sm
+            opacity-0 group-hover:opacity-100
+            transition-opacity duration-200
+            ${disabled ? 'hidden' : ''}
+          `}>
+            <ChevronDownIcon className="h-4 w-4 text-white" />
+          </div>
+        )}
       </button>
 
       {/* Popover - rendered via portal to avoid clipping in scrollable containers */}

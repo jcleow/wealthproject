@@ -234,7 +234,8 @@ export function TabbedResultsPanel({
                   transition={{ duration: 0.1 }}
                   className="p-4"
                 >
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    {/* Upfront Costs Section */}
                     <div className="space-y-1.5">
                       <p className="text-xs font-medium text-slate-500 mb-2">Upfront Costs</p>
                       <div className="flex justify-between text-xs">
@@ -269,7 +270,8 @@ export function TabbedResultsPanel({
                       ))}
                     </div>
 
-                    <div className="space-y-1.5">
+                    {/* Loan Details Section */}
+                    <div className="space-y-1.5 pt-3 border-t border-white/[0.06]">
                       <p className="text-xs font-medium text-slate-500 mb-2">Loan Details</p>
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-400">Amount</span>

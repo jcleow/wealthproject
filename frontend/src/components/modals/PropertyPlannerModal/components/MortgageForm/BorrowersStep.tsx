@@ -2,6 +2,8 @@
 
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { InfoTooltip } from '@/app/property-planner/components/InfoTooltip'
+import { calculateMonthlyOaInflow } from '@/app/property-planner/hooks'
+import { cn } from '@/lib/utils'
 
 import type { BorrowersStepProps, IncomeOption } from './types'
 
@@ -42,6 +44,94 @@ function CpfInput({
           className="w-full pl-7 pr-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-sm font-mono tabular-nums focus:outline-none focus:border-white/20 focus:bg-white/[0.05] placeholder:text-slate-600"
         />
       </div>
+    </div>
+  )
+}
+
+// Monthly CPF OA input with quick preset buttons - ledger style
+function MonthlyCpfOaInput({
+  value,
+  onChange,
+  monthlyIncome,
+}: {
+  value: number
+  onChange: (value: number) => void
+  monthlyIncome: number
+}) {
+  const estimatedMonthlyOa = calculateMonthlyOaInflow(monthlyIncome)
+
+  // Preset percentages
+  const presets = [
+    { label: '50%', value: Math.round(estimatedMonthlyOa * 0.5) },
+    { label: '75%', value: Math.round(estimatedMonthlyOa * 0.75) },
+    { label: '100%', value: estimatedMonthlyOa },
+  ]
+
+  // Check which preset is currently active
+  const activePreset = presets.find(p => p.value === value)?.label || null
+
+  return (
+    <div className="mt-3 space-y-1">
+      <div className="flex items-center gap-1.5">
+        <label className="text-xs font-medium text-slate-400">Monthly CPF OA Payment</label>
+        <InfoTooltip
+          title="Monthly CPF Contribution"
+          description="Monthly amount from CPF OA to pay towards mortgage. You can set this as a percentage of your estimated monthly OA contribution, or enter a custom amount."
+        />
+      </div>
+
+      {/* Single-row ledger style input */}
+      <div className="flex items-center h-9 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
+        {/* Amount input */}
+        <span className="text-slate-500 text-sm">$</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={value === 0 ? '' : value.toLocaleString()}
+          onChange={(e) => {
+            const raw = e.target.value.replace(/,/g, '')
+            const num = parseFloat(raw) || 0
+            onChange(num)
+          }}
+          placeholder="0"
+          className="flex-1 min-w-0 bg-transparent border-0 outline-none text-white text-sm font-mono tabular-nums placeholder:text-slate-600 ml-1"
+        />
+
+        {/* Divider */}
+        <div className="h-5 w-px bg-white/[0.08] mx-3" />
+
+        {/* Preset buttons - inline segmented */}
+        <div className="flex items-center gap-px shrink-0">
+          {presets.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => onChange(preset.value)}
+              className={cn(
+                "px-2 py-1 text-xs font-medium transition-colors rounded",
+                activePreset === preset.label
+                  ? "bg-emerald-500/20 text-emerald-400"
+                  : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.05]"
+              )}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Helper text */}
+      {estimatedMonthlyOa > 0 && (
+        <p className="text-[11px] text-slate-600 pl-0.5">
+          {value > 0 ? (
+            <>
+              {Math.round((value / estimatedMonthlyOa) * 100)}% of est. ${estimatedMonthlyOa.toLocaleString()}/mo
+            </>
+          ) : (
+            <>Est. monthly OA: ${estimatedMonthlyOa.toLocaleString()}/mo</>
+          )}
+        </p>
+      )}
     </div>
   )
 }
@@ -139,16 +229,14 @@ export function BorrowersStep({
 
         {/* Monthly CPF OA Payment */}
         {inputs.borrower1IncomeId && (
-          <CpfInput
-            label="Monthly CPF OA Payment"
-            tooltipTitle="Monthly CPF Contribution"
-            tooltipDescription="Fixed monthly amount from CPF OA to pay towards mortgage. This is deducted from your OA each month."
+          <MonthlyCpfOaInput
             value={inputs.borrower1MonthlyCpfOa}
             onChange={(value) => {
               onChange('borrower1MonthlyCpfOa', value)
               // Update combined monthlyCpfOa
               onChange('monthlyCpfOa', value + inputs.borrower2MonthlyCpfOa)
             }}
+            monthlyIncome={incomes.find(i => i.id === inputs.borrower1IncomeId)?.monthlyAmount || 0}
           />
         )}
       </div>
@@ -250,16 +338,14 @@ export function BorrowersStep({
 
           {/* Monthly CPF OA Payment */}
           {inputs.borrower2IncomeId && (
-            <CpfInput
-              label="Monthly CPF OA Payment"
-              tooltipTitle="Monthly CPF Contribution"
-              tooltipDescription="Fixed monthly amount from CPF OA to pay towards mortgage. This is deducted from your OA each month."
+            <MonthlyCpfOaInput
               value={inputs.borrower2MonthlyCpfOa}
               onChange={(value) => {
                 onChange('borrower2MonthlyCpfOa', value)
                 // Update combined monthlyCpfOa
                 onChange('monthlyCpfOa', inputs.borrower1MonthlyCpfOa + value)
               }}
+              monthlyIncome={incomes.find(i => i.id === inputs.borrower2IncomeId)?.monthlyAmount || 0}
             />
           )}
         </div>
