@@ -26,9 +26,11 @@ export type ProjectedCpfAccount = {
 }
 
 // Common onChange handler type
+// shouldDirty defaults to true - set to false for derived/computed values
 export type OnChangeHandler = (
   field: keyof MortgageInputs,
-  value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null
+  value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null,
+  shouldDirty?: boolean
 ) => void
 
 export interface MortgageFormProps {
