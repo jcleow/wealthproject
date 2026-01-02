@@ -135,10 +135,10 @@ export function FeeEditor({
                   : "bg-transparent opacity-40"
               )}
             >
-              {/* Single visual row with two lines */}
-              <div className="flex items-start gap-2">
-                {/* Icon with checkbox overlay */}
-                <div className="relative shrink-0 mt-0.5">
+              {/* Two-row layout with centered icon */}
+              <div className="flex items-center gap-2">
+                {/* Icon with checkbox overlay - centered between both rows */}
+                <div className="relative shrink-0">
                   <IconPicker
                     iconName={fee.icon || 'circle-dot'}
                     iconColor={fee.iconColor || '#6366f1'}
@@ -166,8 +166,8 @@ export function FeeEditor({
 
                 {/* Main content area */}
                 <div className="flex-1 min-w-0">
-                  {/* Line 1: Name + Date (metadata) */}
-                  <div className="flex items-baseline gap-3">
+                  {/* Line 1: Name + Date */}
+                  <div className="flex items-center gap-3">
                     <input
                       type="text"
                       value={fee.name}
@@ -178,37 +178,21 @@ export function FeeEditor({
                         fee.enabled ? "text-slate-100" : "text-slate-500"
                       )}
                     />
-                    {/* Date as plain metadata text */}
+                    {/* Date picker - compact style */}
                     {purchaseDate && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          // Open date picker - for now just a visual element
-                          const picker = document.querySelector(`[data-fee-date="${fee.id}"]`) as HTMLElement
-                          picker?.click()
-                        }}
-                        className="text-[11px] text-slate-500 hover:text-slate-400 transition-colors shrink-0"
-                      >
-                        {formattedDate}
-                      </button>
-                    )}
-                    {/* Hidden MonthPicker for functionality */}
-                    {purchaseDate && (
-                      <div className="hidden">
-                        <MonthPicker
-                          value={monthValue}
-                          onChange={(value) => handleUpdateFee(fee.id, { dueOffset: getOffsetFromMonthValue(value) })}
-                          compact
-                          disabled={!fee.enabled}
-                          data-fee-date={fee.id}
-                        />
-                      </div>
+                      <MonthPicker
+                        value={monthValue}
+                        onChange={(value) => handleUpdateFee(fee.id, { dueOffset: getOffsetFromMonthValue(value) })}
+                        compact
+                        disabled={!fee.enabled}
+                        className="shrink-0"
+                      />
                     )}
                   </div>
 
-                  {/* Line 2: Amount (lighter weight, aligned under name) */}
+                  {/* Line 2: Amount (right-aligned under date picker) */}
                   {fee.enabled && (
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex items-center justify-end gap-1.5 mt-1">
                       {/* Tiny type toggle */}
                       <div className="flex items-center shrink-0">
                         <button
@@ -267,7 +251,7 @@ export function FeeEditor({
                 <button
                   type="button"
                   onClick={() => handleDeleteFee(fee.id)}
-                  className="mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                 >
                   <X className="w-3.5 h-3.5 text-slate-600 hover:text-red-400 transition-colors" />
                 </button>
