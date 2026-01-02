@@ -72,25 +72,21 @@ func (h *CPFV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 }
 
 // cpfV2CreateInput is the JSON input struct for CPF v2 create.
+// Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity.
 type cpfV2CreateInput struct {
-	PersonID         string `json:"personId"` // Required FK to persons table
-	OABalance        string `json:"oaBalance"`
+	PersonID         string  `json:"personId"` // Required FK to persons table
+	OABalance        string  `json:"oaBalance"`
 	SABalance        string  `json:"saBalance"`
 	MABalance        string  `json:"maBalance"`
 	RABalance        string  `json:"raBalance"`
 	OAUsedForHousing string  `json:"oaUsedForHousing"`
 	HousingStartDate *string `json:"housingStartDate"`
-	// TODO: DateOfBirth should be moved to a general user profile/settings module
-	// rather than being specific to CPF. This is kept here temporarily for CPF calculations.
-	DateOfBirth     string  `json:"dateOfBirth"`
-	ResidencyStatus string  `json:"residencyStatus"`
-	PRGrantDate     *string `json:"prGrantDate"`
 }
 
 // POST /api/v2/cpf/account
 // HandleCreate creates a CPF account.
 // @Summary Create CPF account (v2)
-// @Description Creates a CPF account with balances and profile data
+// @Description Creates a CPF account with balances. Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are read from the linked Person entity.
 // @Tags CPF V2
 // @Accept json
 // @Produce json
@@ -110,6 +106,12 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	var input cpfV2CreateInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		badRequest(w, err)
+		return
+	}
+
+	// Validate personId is provided
+	if input.PersonID == "" {
+		badRequest(w, errMissingFields("personId"))
 		return
 	}
 
@@ -135,18 +137,7 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		oaUsedForHousing = decimal.Zero()
 	}
 
-	// Parse date of birth (required)
-	if input.DateOfBirth == "" {
-		badRequest(w, errMissingFields("dateOfBirth"))
-		return
-	}
-	dob, err := time.Parse("2006-01-02", input.DateOfBirth)
-	if err != nil {
-		badRequest(w, err)
-		return
-	}
-
-	// Parse optional dates
+	// Parse optional housing start date
 	var housingStartDate *time.Time
 	if input.HousingStartDate != nil && *input.HousingStartDate != "" {
 		t, err := time.Parse(time.RFC3339, *input.HousingStartDate)
@@ -158,19 +149,6 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var prGrantDate *time.Time
-	if input.PRGrantDate != nil && *input.PRGrantDate != "" {
-		t, err := time.Parse("2006-01-02", *input.PRGrantDate)
-		if err == nil {
-			prGrantDate = &t
-		}
-	}
-
-	residencyStatus := input.ResidencyStatus
-	if residencyStatus == "" {
-		residencyStatus = "citizen"
-	}
-
 	cpfAccount := repo.CPFAccount{
 		PersonID:         input.PersonID,
 		OABalance:        *oaBalance,
@@ -179,9 +157,6 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		RABalance:        *raBalance,
 		OAUsedForHousing: *oaUsedForHousing,
 		HousingStartDate: housingStartDate,
-		DateOfBirth:      dob,
-		ResidencyStatus:  residencyStatus,
-		PRGrantDate:      prGrantDate,
 	}
 
 	created, err := h.store.CreateCPFAccount(r.Context(), userID, cpfAccount)
@@ -197,21 +172,17 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 
 // cpfV2Input is the JSON input struct for CPF v2 update.
 // Uses string for decimal values to avoid float64 precision loss.
+// Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity.
 type cpfV2Input struct {
-	PersonID         string `json:"personId"` // Required FK to persons table
-	OABalance        string `json:"oaBalance"`
+	PersonID         string  `json:"personId"` // Required FK to persons table
+	OABalance        string  `json:"oaBalance"`
 	SABalance        string  `json:"saBalance"`
 	MABalance        string  `json:"maBalance"`
 	RABalance        string  `json:"raBalance"`
 	OAUsedForHousing string  `json:"oaUsedForHousing"`
 	HousingStartDate *string `json:"housingStartDate"`
-	// TODO: DateOfBirth should be moved to a general user profile/settings module
-	// rather than being specific to CPF. This is kept here temporarily for CPF calculations.
-	DateOfBirth     string  `json:"dateOfBirth"`
-	ResidencyStatus string  `json:"residencyStatus"`
-	PRGrantDate     *string `json:"prGrantDate"`
-	StartDate       *string `json:"startDate"`
-	UpdateMode      string  `json:"updateMode,omitempty"`
+	StartDate        *string `json:"startDate"`
+	UpdateMode       string  `json:"updateMode,omitempty"`
 }
 
 // CPFV2Handler serves CPF v2 endpoints.
@@ -231,7 +202,7 @@ func NewCPFV2Handler(store *repo.Store) *CPFV2Handler {
 // PUT /api/v2/cpf/account/{id}
 // HandleUpdate updates a CPF account.
 // @Summary Update CPF account (v2)
-// @Description Updates a CPF account version
+// @Description Updates a CPF account version. Person-related fields are read from the linked Person entity.
 // @Tags CPF V2
 // @Accept json
 // @Produce json
@@ -283,14 +254,7 @@ func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id s
 		return
 	}
 
-	// Parse date of birth (required)
-	dob, err := time.Parse("2006-01-02", input.DateOfBirth)
-	if err != nil {
-		badRequest(w, err)
-		return
-	}
-
-	// Parse optional dates
+	// Parse optional housing start date
 	var housingStartDate *time.Time
 	if input.HousingStartDate != nil && *input.HousingStartDate != "" {
 		t, err := time.Parse(time.RFC3339, *input.HousingStartDate)
@@ -299,14 +263,6 @@ func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id s
 		}
 		if err == nil {
 			housingStartDate = &t
-		}
-	}
-
-	var prGrantDate *time.Time
-	if input.PRGrantDate != nil && *input.PRGrantDate != "" {
-		t, err := time.Parse("2006-01-02", *input.PRGrantDate)
-		if err == nil {
-			prGrantDate = &t
 		}
 	}
 
@@ -330,9 +286,6 @@ func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id s
 		RABalance:        *raBalance,
 		OAUsedForHousing: *oaUsedForHousing,
 		HousingStartDate: housingStartDate,
-		DateOfBirth:      dob,
-		ResidencyStatus:  input.ResidencyStatus,
-		PRGrantDate:      prGrantDate,
 		StartDate:        startDate,
 		UpdateMode:       input.UpdateMode,
 	}

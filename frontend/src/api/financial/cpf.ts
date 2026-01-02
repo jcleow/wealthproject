@@ -28,6 +28,7 @@ export async function listCPFAccounts(): Promise<CPFAccount[]> {
 }
 
 export async function createCPFAccount(payload: CPFAccountCreatePayload): Promise<CPFAccount> {
+  // Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity
   const body = {
     personId: payload.personId,
     oaBalance: (payload.oaBalance ?? 0).toString(),
@@ -36,9 +37,6 @@ export async function createCPFAccount(payload: CPFAccountCreatePayload): Promis
     raBalance: (payload.raBalance ?? 0).toString(),
     oaUsedForHousing: (payload.oaUsedForHousing ?? 0).toString(),
     housingStartDate: payload.housingStartDate,
-    dateOfBirth: payload.dateOfBirth,
-    residencyStatus: payload.residencyStatus,
-    prGrantDate: payload.prGrantDate,
   }
   const data = await apiClient.post<any>('/cpf/account', body, { baseUrl: '/api/v2' })
   return toCPFAccount(data)
@@ -49,6 +47,7 @@ export async function updateCPFAccount(
   payload: CPFAccountUpdatePayload
 ): Promise<CPFAccount> {
   // Use string for decimal values to preserve precision
+  // Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity
   const body: Record<string, unknown> = {
     personId: payload.personId,
     oaBalance: payload.oaBalance?.toString() ?? '0',
@@ -57,9 +56,6 @@ export async function updateCPFAccount(
     raBalance: payload.raBalance?.toString() ?? '0',
     oaUsedForHousing: payload.oaUsedForHousing?.toString() ?? '0',
     housingStartDate: payload.housingStartDate,
-    dateOfBirth: payload.dateOfBirth,
-    residencyStatus: payload.residencyStatus,
-    prGrantDate: payload.prGrantDate,
     updateMode: payload.updateMode,
     startDate: payload.startDate,
   }

@@ -27,3 +27,8 @@ func NullTimePtr(nt sql.NullTime) *time.Time {
 	}
 	return nil
 }
+
+// FirstOfMonth returns the first day of the month in UTC for a given date.
+func FirstOfMonth(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+}

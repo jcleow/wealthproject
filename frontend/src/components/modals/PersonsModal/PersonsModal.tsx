@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Users, Plus, Trash2, Pencil, X, Check, Briefcase, Save } from 'lucide-react'
+import { Users, Plus, Trash2, Pencil, X, Check, Briefcase, Save, Calendar, Flag } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import {
@@ -12,6 +12,8 @@ import {
 } from '@/hooks/queries/usePersonsQuery'
 import { PERSON_COLORS, getSuggestedColor } from '@/types/person'
 import type { Person } from '@/types/person'
+import type { ResidencyStatus } from '@/types/cpf'
+import { residencyStatusOptions } from '@/lib/validations/cpfAccount'
 
 interface PersonsModalProps {
   isOpen: boolean
@@ -19,9 +21,17 @@ interface PersonsModalProps {
 }
 
 // Track pending changes for batch save
+interface PersonEditData {
+  name: string
+  displayColor: string | null
+  dateOfBirth: string
+  residencyStatus: ResidencyStatus
+  prGrantDate: string | null
+}
+
 interface PendingChanges {
   toggles: Map<string, boolean> // personId -> new isIncluded value
-  edits: Map<string, { name: string; displayColor: string | null }> // personId -> updated fields
+  edits: Map<string, PersonEditData> // personId -> updated fields
 }
 
 export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
@@ -29,9 +39,15 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState<string>('')
+  const [editDateOfBirth, setEditDateOfBirth] = useState('')
+  const [editResidencyStatus, setEditResidencyStatus] = useState<ResidencyStatus>('citizen')
+  const [editPrGrantDate, setEditPrGrantDate] = useState<string>('')
   const [isAdding, setIsAdding] = useState(false)
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState('')
+  const [newDateOfBirth, setNewDateOfBirth] = useState('')
+  const [newResidencyStatus, setNewResidencyStatus] = useState<ResidencyStatus>('citizen')
+  const [newPrGrantDate, setNewPrGrantDate] = useState<string>('')
 
   // Pending changes for batch save
   const [pendingChanges, setPendingChanges] = useState<PendingChanges>({
@@ -72,6 +88,9 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
         ...person,
         name: pendingEdit.name,
         displayColor: pendingEdit.displayColor,
+        dateOfBirth: pendingEdit.dateOfBirth,
+        residencyStatus: pendingEdit.residencyStatus,
+        prGrantDate: pendingEdit.prGrantDate,
       }
     }
     return person
@@ -81,22 +100,39 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
     setIsAdding(true)
     setNewName('')
     setNewColor(getSuggestedColor(persons))
+    setNewDateOfBirth('')
+    setNewResidencyStatus('citizen')
+    setNewPrGrantDate('')
   }
 
   const handleCancelAdd = () => {
     setIsAdding(false)
     setNewName('')
     setNewColor('')
+    setNewDateOfBirth('')
+    setNewResidencyStatus('citizen')
+    setNewPrGrantDate('')
   }
 
   // Create is immediate (not batched)
   const handleConfirmAdd = async () => {
-    if (!newName.trim()) return
+    if (!newName.trim() || !newDateOfBirth) return
     await createMutation.mutateAsync({
       name: newName.trim(),
       displayColor: newColor || undefined,
+      dateOfBirth: newDateOfBirth,
+      residencyStatus: newResidencyStatus,
+      prGrantDate: newPrGrantDate || undefined,
     })
     handleCancelAdd()
+  }
+
+  // Helper to format date for input[type="date"]
+  const formatDateForInput = (isoDate: string | undefined | null): string => {
+    if (!isoDate) return ''
+    const date = new Date(isoDate)
+    if (Number.isNaN(date.getTime())) return ''
+    return date.toISOString().split('T')[0]
   }
 
   const handleStartEdit = (person: Person) => {
@@ -104,23 +140,32 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
     setEditingId(person.id)
     setEditName(effective.name)
     setEditColor(effective.displayColor || '')
+    setEditDateOfBirth(formatDateForInput(effective.dateOfBirth))
+    setEditResidencyStatus(effective.residencyStatus)
+    setEditPrGrantDate(formatDateForInput(effective.prGrantDate))
   }
 
   const handleCancelEdit = () => {
     setEditingId(null)
     setEditName('')
     setEditColor('')
+    setEditDateOfBirth('')
+    setEditResidencyStatus('citizen')
+    setEditPrGrantDate('')
   }
 
   // Queue edit for batch save
   const handleConfirmEdit = () => {
-    if (!editingId || !editName.trim()) return
+    if (!editingId || !editName.trim() || !editDateOfBirth) return
 
     setPendingChanges(prev => {
       const newEdits = new Map(prev.edits)
       newEdits.set(editingId, {
         name: editName.trim(),
         displayColor: editColor || null,
+        dateOfBirth: editDateOfBirth,
+        residencyStatus: editResidencyStatus,
+        prGrantDate: editPrGrantDate || null,
       })
       return { ...prev, edits: newEdits }
     })
@@ -166,7 +211,15 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
 
   // Save all pending changes
   const handleSave = async () => {
-    const updates: Array<{ id: string; isIncluded?: boolean; name?: string; displayColor?: string }> = []
+    const updates: Array<{
+      id: string
+      isIncluded?: boolean
+      name?: string
+      displayColor?: string
+      dateOfBirth?: string
+      residencyStatus?: ResidencyStatus
+      prGrantDate?: string | null
+    }> = []
 
     // Collect toggle updates
     pendingChanges.toggles.forEach((isIncluded, id) => {
@@ -184,8 +237,18 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
       if (existing) {
         existing.name = edit.name
         existing.displayColor = edit.displayColor || undefined
+        existing.dateOfBirth = edit.dateOfBirth
+        existing.residencyStatus = edit.residencyStatus
+        existing.prGrantDate = edit.prGrantDate
       } else {
-        updates.push({ id, name: edit.name, displayColor: edit.displayColor || undefined })
+        updates.push({
+          id,
+          name: edit.name,
+          displayColor: edit.displayColor || undefined,
+          dateOfBirth: edit.dateOfBirth,
+          residencyStatus: edit.residencyStatus,
+          prGrantDate: edit.prGrantDate,
+        })
       }
     })
 
@@ -294,36 +357,89 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                   } ${hasPendingChanges ? 'ring-1 ring-amber-500/30' : ''}`}
                 >
                   {editingId === person.id ? (
-                    // Edit mode
-                    <>
-                      <ColorPicker value={editColor} onChange={setEditColor} />
-                      <input
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-md px-2 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleConfirmEdit()
-                          if (e.key === 'Escape') handleCancelEdit()
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleConfirmEdit}
-                        disabled={!editName.trim()}
-                        className="p-1.5 rounded-md text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
-                      >
-                        <Check className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        className="p-1.5 rounded-md text-slate-400 hover:bg-white/[0.06] transition-colors"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </>
+                    // Edit mode - expanded form
+                    <div className="flex-1 space-y-3">
+                      {/* Row 1: Color and Name */}
+                      <div className="flex items-center gap-3">
+                        <ColorPicker value={editColor} onChange={setEditColor} />
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          placeholder="Name"
+                          className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-md px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                          autoFocus
+                        />
+                      </div>
+
+                      {/* Row 2: Date of Birth and Residency Status */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Date of Birth</label>
+                          <div className="relative">
+                            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                            <input
+                              type="date"
+                              value={editDateOfBirth}
+                              onChange={(e) => setEditDateOfBirth(e.target.value)}
+                              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Residency Status</label>
+                          <div className="relative">
+                            <Flag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                            <select
+                              value={editResidencyStatus}
+                              onChange={(e) => setEditResidencyStatus(e.target.value as ResidencyStatus)}
+                              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 appearance-none cursor-pointer"
+                            >
+                              {residencyStatusOptions.map(option => (
+                                <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Row 3: PR Grant Date (conditional) */}
+                      {editResidencyStatus !== 'citizen' && (
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">PR Grant Date</label>
+                          <div className="relative">
+                            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                            <input
+                              type="date"
+                              value={editPrGrantDate}
+                              onChange={(e) => setEditPrGrantDate(e.target.value)}
+                              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleCancelEdit}
+                          className="px-3 py-1.5 rounded-md text-sm text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleConfirmEdit}
+                          disabled={!editName.trim() || !editDateOfBirth}
+                          className="px-3 py-1.5 rounded-md text-sm text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     // View mode
                     <>
@@ -379,37 +495,89 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
               )
             })}
 
-            {/* Add new person row */}
+            {/* Add new person form */}
             {isAdding && (
-              <div className="flex items-center gap-3 p-3 rounded-lg border border-blue-500/30 bg-blue-500/5">
-                <ColorPicker value={newColor} onChange={setNewColor} />
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Person name"
-                  className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-md px-2 py-1 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleConfirmAdd()
-                    if (e.key === 'Escape') handleCancelAdd()
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleConfirmAdd}
-                  disabled={createMutation.isPending || !newName.trim()}
-                  className="p-1.5 rounded-md text-emerald-400 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
-                >
-                  <Check className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancelAdd}
-                  className="p-1.5 rounded-md text-slate-400 hover:bg-white/[0.06] transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+              <div className="p-3 rounded-lg border border-blue-500/30 bg-blue-500/5 space-y-3">
+                {/* Row 1: Color and Name */}
+                <div className="flex items-center gap-3">
+                  <ColorPicker value={newColor} onChange={setNewColor} />
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Person name"
+                    className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-md px-2.5 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Row 2: Date of Birth and Residency Status */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Date of Birth *</label>
+                    <div className="relative">
+                      <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                      <input
+                        type="date"
+                        value={newDateOfBirth}
+                        onChange={(e) => setNewDateOfBirth(e.target.value)}
+                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Residency Status</label>
+                    <div className="relative">
+                      <Flag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                      <select
+                        value={newResidencyStatus}
+                        onChange={(e) => setNewResidencyStatus(e.target.value as ResidencyStatus)}
+                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 appearance-none cursor-pointer"
+                      >
+                        {residencyStatusOptions.map(option => (
+                          <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: PR Grant Date (conditional) */}
+                {newResidencyStatus !== 'citizen' && (
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">PR Grant Date</label>
+                    <div className="relative">
+                      <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                      <input
+                        type="date"
+                        value={newPrGrantDate}
+                        onChange={(e) => setNewPrGrantDate(e.target.value)}
+                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCancelAdd}
+                    className="px-3 py-1.5 rounded-md text-sm text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmAdd}
+                    disabled={createMutation.isPending || !newName.trim() || !newDateOfBirth}
+                    className="px-3 py-1.5 rounded-md text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {createMutation.isPending ? 'Creating...' : 'Create Person'}
+                  </button>
+                </div>
               </div>
             )}
           </div>

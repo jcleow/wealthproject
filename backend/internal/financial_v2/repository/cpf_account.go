@@ -9,6 +9,7 @@ import (
 )
 
 // GetCPFAccountByID retrieves a CPF account by its ID.
+// Person-related fields (date_of_birth, residency_status, pr_grant_date) are read from persons table via JOIN.
 func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFAccount, error) {
 	query := `
 	SELECT
@@ -25,9 +26,9 @@ func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFA
 		c.ra_balance,
 		c.oa_used_for_housing,
 		c.housing_start_date,
-		c.date_of_birth,
-		c.residency_status,
-		c.pr_grant_date,
+		p.date_of_birth,
+		p.residency_status,
+		p.pr_grant_date,
 		c.created_at,
 		c.updated_at
 	FROM cpf_accounts c
@@ -68,6 +69,7 @@ func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFA
 }
 
 // UpdateCPFAccount updates an existing CPF account record.
+// Note: Person-related fields are no longer stored in cpf_accounts - they are read from persons table via JOIN.
 func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAccount) (*CPFAccount, error) {
 	query := `
 	WITH updated AS (
@@ -79,9 +81,6 @@ func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 		    ra_balance = $7,
 		    oa_used_for_housing = $8,
 		    housing_start_date = $9,
-		    date_of_birth = $10,
-		    residency_status = $11,
-		    pr_grant_date = $12,
 		    updated_at = NOW()
 		WHERE user_id = $1 AND id = $2
 		RETURNING *
@@ -89,15 +88,15 @@ func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 	SELECT u.id, u.user_id, u.person_id, COALESCE(p.name, '') as person_name,
 	       COALESCE(u.parent_id, u.id), COALESCE(u.start_date, u.created_at), u.end_date,
 	       u.oa_balance, u.sa_balance, u.ma_balance, u.ra_balance,
-	       u.oa_used_for_housing, u.housing_start_date, u.date_of_birth,
-	       u.residency_status, u.pr_grant_date, u.created_at, u.updated_at
+	       u.oa_used_for_housing, u.housing_start_date,
+	       p.date_of_birth, p.residency_status, p.pr_grant_date,
+	       u.created_at, u.updated_at
 	FROM updated u
 	LEFT JOIN persons p ON u.person_id = p.id`
 
 	args := []any{
 		userID, cpf.ID, cpf.PersonID, cpf.OABalance, cpf.SABalance, cpf.MABalance, cpf.RABalance,
-		cpf.OAUsedForHousing, cpf.HousingStartDate, cpf.DateOfBirth,
-		cpf.ResidencyStatus, cpf.PRGrantDate,
+		cpf.OAUsedForHousing, cpf.HousingStartDate,
 	}
 
 	logQuery(query, args)
@@ -172,8 +171,9 @@ func (s *Store) StopCPFAccount(ctx context.Context, userID, id string, endDate t
 	SELECT u.id, u.user_id, u.person_id, COALESCE(p.name, '') as person_name,
 	       COALESCE(u.parent_id, u.id), COALESCE(u.start_date, u.created_at), u.end_date,
 	       u.oa_balance, u.sa_balance, u.ma_balance, u.ra_balance,
-	       u.oa_used_for_housing, u.housing_start_date, u.date_of_birth,
-	       u.residency_status, u.pr_grant_date, u.created_at, u.updated_at
+	       u.oa_used_for_housing, u.housing_start_date,
+	       p.date_of_birth, p.residency_status, p.pr_grant_date,
+	       u.created_at, u.updated_at
 	FROM updated u
 	LEFT JOIN persons p ON u.person_id = p.id`
 
@@ -232,9 +232,9 @@ func (s *Store) FindCPFAccountByParentAndStartDate(
 		c.ra_balance,
 		c.oa_used_for_housing,
 		c.housing_start_date,
-		c.date_of_birth,
-		c.residency_status,
-		c.pr_grant_date,
+		p.date_of_birth,
+		p.residency_status,
+		p.pr_grant_date,
 		c.created_at,
 		c.updated_at
 	FROM cpf_accounts c
@@ -277,6 +277,7 @@ func (s *Store) FindCPFAccountByParentAndStartDate(
 // CreateCPFAccount creates a new CPF account record.
 // For new accounts (no parent_id), inserts with NULL parent_id first,
 // then the RETURNING clause returns COALESCE(parent_id, id) as parent_id.
+// Note: Person-related fields are read from persons table via JOIN, not stored in cpf_accounts.
 func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAccount) (CPFAccount, error) {
 	startDate := cpf.StartDate
 	if startDate.IsZero() {
@@ -290,24 +291,23 @@ func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 			INSERT INTO cpf_accounts (
 				user_id, person_id, parent_id, start_date, end_date,
 				oa_balance, sa_balance, ma_balance, ra_balance,
-				oa_used_for_housing, housing_start_date, date_of_birth,
-				residency_status, pr_grant_date
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+				oa_used_for_housing, housing_start_date
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 			RETURNING *
 		)
 		SELECT i.id, i.user_id, i.person_id, COALESCE(p.name, '') as person_name,
 		       COALESCE(i.parent_id, i.id), i.start_date, i.end_date,
 		       i.oa_balance, i.sa_balance, i.ma_balance, i.ra_balance,
-		       i.oa_used_for_housing, i.housing_start_date, i.date_of_birth,
-		       i.residency_status, i.pr_grant_date, i.created_at, i.updated_at
+		       i.oa_used_for_housing, i.housing_start_date,
+		       p.date_of_birth, p.residency_status, p.pr_grant_date,
+		       i.created_at, i.updated_at
 		FROM inserted i
 		LEFT JOIN persons p ON i.person_id = p.id`
 
 	args := []any{
 		userID, cpf.PersonID, nullIfEmpty(cpf.ParentID), startDate, cpf.EndDate,
 		cpf.OABalance, cpf.SABalance, cpf.MABalance, cpf.RABalance,
-		cpf.OAUsedForHousing, cpf.HousingStartDate, cpf.DateOfBirth,
-		cpf.ResidencyStatus, cpf.PRGrantDate,
+		cpf.OAUsedForHousing, cpf.HousingStartDate,
 	}
 
 	logQuery(query, args)
@@ -341,6 +341,7 @@ func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 }
 
 // ListCPFAccounts returns all CPF account versions for a user.
+// Person-related fields are read from persons table via JOIN.
 func (s *Store) ListCPFAccounts(
 	ctx context.Context,
 	userID string,
@@ -361,9 +362,9 @@ func (s *Store) ListCPFAccounts(
 		c.ra_balance,
 		c.oa_used_for_housing,
 		c.housing_start_date,
-		c.date_of_birth,
-		c.residency_status,
-		c.pr_grant_date,
+		p.date_of_birth,
+		p.residency_status,
+		p.pr_grant_date,
 		c.created_at,
 		c.updated_at
 	FROM cpf_accounts c
@@ -377,11 +378,12 @@ func (s *Store) ListCPFAccounts(
 	dateRangeSubQuery, _ := addDateRangeFilterQuery(dateRangeOpts, argIdx)
 	if dateRangeSubQuery != "" {
 		query += " AND " + dateRangeSubQuery
-		if dateRangeOpts.StartDate != nil {
-			args = append(args, *dateRangeOpts.StartDate)
-		}
+		// Args order must match SQL: EndDate first (for start_date < $X), then StartDate (for end_date >= $Y)
 		if dateRangeOpts.EndDate != nil {
 			args = append(args, *dateRangeOpts.EndDate)
+		}
+		if dateRangeOpts.StartDate != nil {
+			args = append(args, *dateRangeOpts.StartDate)
 		}
 	}
 

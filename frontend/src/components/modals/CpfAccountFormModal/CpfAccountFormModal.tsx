@@ -2,11 +2,10 @@
 
 import { Controller } from 'react-hook-form'
 import { Modal } from '@/components/ui/Modal'
-import { CustomSelect } from '@/components/ui/CustomSelect'
 import { PersonSelector } from '@/components/ui/PersonSelector'
 import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload } from '@/types/cpf'
 
-import { useCpfAccountForm, RESIDENCY_OPTIONS } from './hooks'
+import { useCpfAccountForm } from './hooks'
 import { FormField } from './components'
 
 interface CpfAccountFormModalProps {
@@ -26,7 +25,7 @@ export function CpfAccountFormModal({
   onSave,
   onCreate,
 }: CpfAccountFormModalProps) {
-  const { form, handleSubmit, isSubmitting, errors, submitError, residencyStatus } = useCpfAccountForm({
+  const { form, handleSubmit, isSubmitting, errors, submitError } = useCpfAccountForm({
     cpfAccount,
     mode,
     onSave,
@@ -69,9 +68,11 @@ transition`}
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
-        {/* Person Selector */}
+        {/* Person Selector - now required since personal info is stored on Person */}
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-gray-200">Person</label>
+          <label className="block text-sm font-medium text-gray-200">
+            Person <span className="text-rose-400">*</span>
+          </label>
           <Controller
             name="personId"
             control={form.control}
@@ -79,10 +80,16 @@ transition`}
               <PersonSelector
                 value={field.value}
                 onChange={field.onChange}
-                placeholder="Select person (optional)"
+                placeholder="Select person"
               />
             )}
           />
+          {errors.personId?.message && (
+            <p className="text-xs text-rose-300">{errors.personId.message}</p>
+          )}
+          <p className="text-xs text-slate-500">
+            Personal info (DOB, residency) is managed in person settings
+          </p>
         </div>
 
         {/* Account Balances */}
@@ -122,57 +129,21 @@ transition`}
         </div>
 
         {/* Housing Usage */}
-        <FormField
-          label="OA Used for Housing"
-          type="number"
-          step="0.01"
-          placeholder="0.00"
-          registration={form.register('oaUsedForHousing')}
-          error={errors.oaUsedForHousing?.message}
-        />
-
-        {/* Personal Info */}
         <div className="grid grid-cols-2 gap-4">
           <FormField
-            label="Date of Birth"
-            type="date"
-            registration={form.register('dateOfBirth')}
-            error={errors.dateOfBirth?.message}
-            required
+            label="OA Used for Housing"
+            type="number"
+            step="0.01"
+            placeholder="0.00"
+            registration={form.register('oaUsedForHousing')}
+            error={errors.oaUsedForHousing?.message}
           />
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-200">Residency Status</label>
-            <Controller
-              name="residencyStatus"
-              control={form.control}
-              render={({ field }) => (
-                <CustomSelect
-                  value={field.value}
-                  onChange={field.onChange}
-                  options={RESIDENCY_OPTIONS}
-                  className="w-full"
-                />
-              )}
-            />
-          </div>
-        </div>
-
-        {/* Optional Dates */}
-        <div className="grid grid-cols-2 gap-4">
           <FormField
             label="Housing Start Date"
             type="date"
             registration={form.register('housingStartDate')}
             hint="When you started using OA for housing"
           />
-          {residencyStatus !== 'citizen' && (
-            <FormField
-              label="PR Grant Date"
-              type="date"
-              registration={form.register('prGrantDate')}
-              hint="Date PR status was granted"
-            />
-          )}
         </div>
 
         {submitError && <p className="text-sm text-rose-300">{submitError}</p>}

@@ -209,37 +209,41 @@ type Expense struct {
 type CPFAccount struct {
 	ID               string          `json:"id"`
 	UserID           string          `json:"userId"`
-	PersonID         string          `json:"personId"`                   // FK to persons table (required)
-	PersonName       string          `json:"personName,omitempty"`       // Display name from persons table (read-only, populated via JOIN)
-	ParentID         string          `json:"parentId"`                   // Groups versions of same logical account
-	StartDate        time.Time       `json:"startDate"`         // When this version starts
-	EndDate          *time.Time      `json:"endDate,omitempty"` // When this version ends (NULL = ongoing)
-	OABalance        decimal.Decimal `json:"oaBalance"`         // Ordinary Account balance
-	SABalance        decimal.Decimal `json:"saBalance"`         // Special Account balance
-	MABalance        decimal.Decimal `json:"maBalance"`         // MediSave Account balance
-	RABalance        decimal.Decimal `json:"raBalance"`         // Retirement Account balance (only after age 55)
+	PersonID         string          `json:"personId"`             // FK to persons table (required)
+	PersonName       string          `json:"personName,omitempty"` // Display name from persons table (read-only, populated via JOIN)
+	ParentID         string          `json:"parentId"`             // Groups versions of same logical account
+	StartDate        time.Time       `json:"startDate"`            // When this version starts
+	EndDate          *time.Time      `json:"endDate,omitempty"`    // When this version ends (NULL = ongoing)
+	OABalance        decimal.Decimal `json:"oaBalance"`            // Ordinary Account balance
+	SABalance        decimal.Decimal `json:"saBalance"`            // Special Account balance
+	MABalance        decimal.Decimal `json:"maBalance"`            // MediSave Account balance
+	RABalance        decimal.Decimal `json:"raBalance"`            // Retirement Account balance (only after age 55)
 	// OAUsedForHousing tracks OA withdrawals for housing purposes (for accrued interest calculation).
 	// TODO: For multiple property scenarios, consider a 1:M relationship (cpf_housing_usages table)
 	// with fields: property_scenario_id, amount_used, withdrawal_date, property_link_id.
 	// This would allow tracking different OA usage amounts per property scenario.
 	OAUsedForHousing decimal.Decimal `json:"oaUsedForHousing"`
 	HousingStartDate *time.Time      `json:"housingStartDate,omitempty"`
-	DateOfBirth      time.Time       `json:"dateOfBirth"`
-	ResidencyStatus  string          `json:"residencyStatus"` // 'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'
-	PRGrantDate      *time.Time      `json:"prGrantDate,omitempty"`
-	CreatedAt        time.Time       `json:"createdAt"`
-	UpdatedAt        time.Time       `json:"updatedAt"`
+	// Person-related fields (read-only, populated via JOIN from persons table)
+	DateOfBirth     time.Time  `json:"dateOfBirth"`
+	ResidencyStatus string     `json:"residencyStatus"` // 'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'
+	PRGrantDate     *time.Time `json:"prGrantDate,omitempty"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	UpdatedAt       time.Time  `json:"updatedAt"`
 }
 
 // Person represents a household member for income/CPF ownership and filtering.
 type Person struct {
-	ID           string    `json:"id"`
-	UserID       string    `json:"userId"`
-	Name         string    `json:"name"`
-	DisplayColor *string   `json:"displayColor,omitempty"`
-	IsIncluded   bool      `json:"isIncluded"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID              string     `json:"id"`
+	UserID          string     `json:"userId"`
+	Name            string     `json:"name"`
+	DisplayColor    *string    `json:"displayColor,omitempty"`
+	IsIncluded      bool       `json:"isIncluded"`
+	DateOfBirth     time.Time  `json:"dateOfBirth"`
+	ResidencyStatus string     `json:"residencyStatus"` // 'citizen' or 'pr' (PR year computed from prGrantDate)
+	PRGrantDate     *time.Time `json:"prGrantDate,omitempty"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	UpdatedAt       time.Time  `json:"updatedAt"`
 	// Stats populated by GetPersonsWithStats
 	IncomeCount int `json:"incomeCount,omitempty"`
 	CPFCount    int `json:"cpfCount,omitempty"`
@@ -855,31 +859,35 @@ func (s *Store) ListExpenses(
 
 // GetCPFAccount retrieves the CPF account for a user.
 // After migration, returns the most recent version (no end_date) if versioning columns exist.
+// Person-related fields (date_of_birth, residency_status, pr_grant_date) are read from persons table via JOIN.
 func (s *Store) GetCPFAccount(
 	ctx context.Context,
 	userID string,
 ) (*CPFAccount, error) {
 	query := `
 	SELECT
-		id,
-		user_id,
-		COALESCE(parent_id, id) as parent_id,
-		COALESCE(start_date, created_at) as start_date,
-		end_date,
-		oa_balance,
-		sa_balance,
-		ma_balance,
-		ra_balance,
-		oa_used_for_housing,
-		housing_start_date,
-		date_of_birth,
-		residency_status,
-		pr_grant_date,
-		created_at,
-		updated_at
-	FROM cpf_accounts
-	WHERE user_id = $1 AND end_date IS NULL
-	ORDER BY start_date DESC
+		c.id,
+		c.user_id,
+		COALESCE(c.parent_id, c.id) as parent_id,
+		COALESCE(c.start_date, c.created_at) as start_date,
+		c.end_date,
+		c.oa_balance,
+		c.sa_balance,
+		c.ma_balance,
+		c.ra_balance,
+		c.oa_used_for_housing,
+		c.housing_start_date,
+		c.person_id,
+		p.name,
+		p.date_of_birth,
+		p.residency_status,
+		p.pr_grant_date,
+		c.created_at,
+		c.updated_at
+	FROM cpf_accounts c
+	LEFT JOIN persons p ON c.person_id = p.id
+	WHERE c.user_id = $1 AND c.end_date IS NULL
+	ORDER BY c.start_date DESC
 	LIMIT 1`
 
 	var cpf CPFAccount
@@ -895,6 +903,8 @@ func (s *Store) GetCPFAccount(
 		&cpf.RABalance,
 		&cpf.OAUsedForHousing,
 		&cpf.HousingStartDate,
+		&cpf.PersonID,
+		&cpf.PersonName,
 		&cpf.DateOfBirth,
 		&cpf.ResidencyStatus,
 		&cpf.PRGrantDate,

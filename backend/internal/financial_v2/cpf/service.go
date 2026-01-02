@@ -16,6 +16,7 @@ const (
 
 // UpdateInput contains the parameters for updating a CPF account.
 // Uses decimal.Decimal for financial values to avoid precision loss.
+// Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity.
 type UpdateInput struct {
 	ID               string
 	PersonID         string // Required FK to persons table
@@ -25,9 +26,6 @@ type UpdateInput struct {
 	RABalance        decimal.Decimal
 	OAUsedForHousing decimal.Decimal
 	HousingStartDate *time.Time
-	DateOfBirth      time.Time
-	ResidencyStatus  string
-	PRGrantDate      *time.Time
 	StartDate        *time.Time // Only for versioned updates
 	UpdateMode       string
 }
@@ -56,6 +54,7 @@ func (s *Service) Stop(ctx context.Context, userID, cpfAccountID string, endDate
 }
 
 // inputToAccount converts UpdateInput to a CPFAccount struct
+// Note: Person-related fields are no longer set here - they are read from persons table via JOIN
 func inputToAccount(id string, input UpdateInput) repo.CPFAccount {
 	return repo.CPFAccount{
 		ID:               id,
@@ -66,9 +65,6 @@ func inputToAccount(id string, input UpdateInput) repo.CPFAccount {
 		RABalance:        input.RABalance,
 		OAUsedForHousing: input.OAUsedForHousing,
 		HousingStartDate: input.HousingStartDate,
-		DateOfBirth:      input.DateOfBirth,
-		ResidencyStatus:  input.ResidencyStatus,
-		PRGrantDate:      input.PRGrantDate,
 	}
 }
 
