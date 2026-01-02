@@ -15,7 +15,7 @@ import {
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { clsx } from 'clsx'
 import { Modal } from '@/components/ui/Modal'
-import { useTaxMode } from '@/contexts/TaxModeContext'
+import { useTaxModeStore } from '@/stores'
 import { useTaxReliefStorage } from '@/hooks/useTaxReliefStorage'
 import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
 import { numericStyles } from '@/lib/utils'
@@ -242,7 +242,7 @@ interface TaxModeModalProps {
 }
 
 export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
-  const { residencyStatus } = useTaxMode()
+  const residencyStatus = useTaxModeStore((s) => s.residencyStatus)
 
   const { loadReliefs, saveReliefs } = useTaxReliefStorage()
   const { data: incomes = [], isLoading: incomesLoading } = useIncomesQuery()

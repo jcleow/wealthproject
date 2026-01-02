@@ -21,8 +21,6 @@ import { usePictureInPicture } from '@/hooks/usePictureInPicture'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { generateUUID } from '@/lib/utils'
-import { FinancialDataProvider } from '@/contexts/FinancialDataContext'
-import { TaxModeProvider } from '@/contexts/TaxModeContext'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { useTimelineStore, useFeatureModulesStore } from '@/stores'
@@ -146,8 +144,7 @@ export function Dashboard() {
   }, [toggleChat])
 
   return (
-    <FinancialDataProvider>
-      <TaxModeProvider>
+    <>
       <div className={`relative
 overflow-hidden
 h-screen w-full
@@ -360,7 +357,6 @@ bg-[#0a0a0a]/80`}>
         currentLayout={dashboardLayout}
         onLayoutChange={handleLayoutChange}
       />
-      </TaxModeProvider>
-    </FinancialDataProvider>
+    </>
   )
 }
