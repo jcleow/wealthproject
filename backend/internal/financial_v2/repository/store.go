@@ -859,31 +859,35 @@ func (s *Store) ListExpenses(
 
 // GetCPFAccount retrieves the CPF account for a user.
 // After migration, returns the most recent version (no end_date) if versioning columns exist.
+// Person-related fields (date_of_birth, residency_status, pr_grant_date) are read from persons table via JOIN.
 func (s *Store) GetCPFAccount(
 	ctx context.Context,
 	userID string,
 ) (*CPFAccount, error) {
 	query := `
 	SELECT
-		id,
-		user_id,
-		COALESCE(parent_id, id) as parent_id,
-		COALESCE(start_date, created_at) as start_date,
-		end_date,
-		oa_balance,
-		sa_balance,
-		ma_balance,
-		ra_balance,
-		oa_used_for_housing,
-		housing_start_date,
-		date_of_birth,
-		residency_status,
-		pr_grant_date,
-		created_at,
-		updated_at
-	FROM cpf_accounts
-	WHERE user_id = $1 AND end_date IS NULL
-	ORDER BY start_date DESC
+		c.id,
+		c.user_id,
+		COALESCE(c.parent_id, c.id) as parent_id,
+		COALESCE(c.start_date, c.created_at) as start_date,
+		c.end_date,
+		c.oa_balance,
+		c.sa_balance,
+		c.ma_balance,
+		c.ra_balance,
+		c.oa_used_for_housing,
+		c.housing_start_date,
+		c.person_id,
+		p.name,
+		p.date_of_birth,
+		p.residency_status,
+		p.pr_grant_date,
+		c.created_at,
+		c.updated_at
+	FROM cpf_accounts c
+	LEFT JOIN persons p ON c.person_id = p.id
+	WHERE c.user_id = $1 AND c.end_date IS NULL
+	ORDER BY c.start_date DESC
 	LIMIT 1`
 
 	var cpf CPFAccount
@@ -899,6 +903,8 @@ func (s *Store) GetCPFAccount(
 		&cpf.RABalance,
 		&cpf.OAUsedForHousing,
 		&cpf.HousingStartDate,
+		&cpf.PersonID,
+		&cpf.PersonName,
 		&cpf.DateOfBirth,
 		&cpf.ResidencyStatus,
 		&cpf.PRGrantDate,
