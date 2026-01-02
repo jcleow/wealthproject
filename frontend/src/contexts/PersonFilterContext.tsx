@@ -1,10 +1,11 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react'
+import { createContext, useContext, useCallback, useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { personsApi } from '@/api/financial/persons'
 import { QUERY_KEYS } from '@/lib/queryKeys'
+import { usePersonFilterStore } from '@/stores'
 import type { Person } from '@/types/person'
 
 // ============================================
@@ -61,8 +62,10 @@ export function PersonFilterProvider({ children }: PersonFilterProviderProps) {
     refetchOnWindowFocus: true, // Refetch when user returns to the tab
   })
 
-  // Modal state
-  const [isPersonsModalOpen, setIsPersonsModalOpen] = useState(false)
+  // Modal state from Zustand store
+  const isPersonsModalOpen = usePersonFilterStore((s) => s.isPersonsModalOpen)
+  const openPersonsModal = usePersonFilterStore((s) => s.openPersonsModal)
+  const closePersonsModal = usePersonFilterStore((s) => s.closePersonsModal)
 
   // Derived: included persons
   const includedPersons = useMemo(
@@ -93,15 +96,6 @@ export function PersonFilterProvider({ children }: PersonFilterProviderProps) {
     },
     [isPersonIncluded]
   )
-
-  // Modal handlers
-  const openPersonsModal = useCallback(() => {
-    setIsPersonsModalOpen(true)
-  }, [])
-
-  const closePersonsModal = useCallback(() => {
-    setIsPersonsModalOpen(false)
-  }, [])
 
   // Memoized context value
   const contextValue = useMemo<PersonFilterContextType>(

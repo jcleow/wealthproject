@@ -3,11 +3,10 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
-import { useTaxModeOptional } from '@/contexts/TaxModeContext'
+import { useFinancialData } from '@/hooks/useFinancialData'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
-import { useTimelineStore } from '@/stores'
+import { useTimelineStore, useTaxModeStore } from '@/stores'
 import {
   useCashAccountsQuery,
   useCreateCashAccountMutation,
@@ -112,7 +111,7 @@ export function FinancialDataManagement({
     deleteLiability,
     deleteExpense,
     refresh,
-  } = useFinancialDataContext()
+  } = useFinancialData()
 
   // Person filtering
   const { shouldShowData } = usePersonFilter()
@@ -878,10 +877,9 @@ export function FinancialDataManagement({
     }
   }
 
-  // Tax modal - use context directly so Header button can control it
-  const taxModeContext = useTaxModeOptional()
-  const isTaxModalOpen = taxModeContext?.isTaxModeEnabled ?? false
-  const closeTaxModal = taxModeContext?.disableTaxMode
+  // Tax modal - use Zustand store so Header button can control it
+  const isTaxModalOpen = useTaxModeStore((s) => s.isTaxModeEnabled)
+  const closeTaxModal = useTaxModeStore((s) => s.disableTaxMode)
 
   // ========== Render ==========
   return (

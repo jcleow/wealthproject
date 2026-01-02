@@ -14,3 +14,22 @@ export {
   useDashboardLayout,
   type FeatureModulesState,
 } from './featureModulesStore'
+
+export {
+  useTaxModeStore,
+  useTaxModeEnabled,
+  useTaxViewMode,
+  useTaxYearData,
+  useTaxResidencyStatus,
+  useTaxModeActions,
+  type TaxModeState,
+  type TaxViewMode,
+  type TaxYearData,
+} from './taxModeStore'
+
+export {
+  usePersonFilterStore,
+  usePersonsModalOpen,
+  usePersonsModalActions,
+  type PersonFilterState,
+} from './personFilterStore'

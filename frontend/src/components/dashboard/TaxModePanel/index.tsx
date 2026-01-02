@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { clsx } from 'clsx'
-import { useTaxMode } from '@/contexts/TaxModeContext'
+import { useTaxModeStore } from '@/stores'
 import { useTaxReliefStorage } from '@/hooks/useTaxReliefStorage'
 import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
 import { numericStyles } from '@/lib/utils'
@@ -247,11 +247,9 @@ interface TaxModePanelProps {
 }
 
 export function TaxModePanel({ fullWidth = false, hideToggle = false }: TaxModePanelProps) {
-  const {
-    isTaxModeEnabled,
-    disableTaxMode,
-    residencyStatus,
-  } = useTaxMode()
+  const isTaxModeEnabled = useTaxModeStore((s) => s.isTaxModeEnabled)
+  const disableTaxMode = useTaxModeStore((s) => s.disableTaxMode)
+  const residencyStatus = useTaxModeStore((s) => s.residencyStatus)
 
   const { loadReliefs, saveReliefs } = useTaxReliefStorage()
   const { data: incomes = [], isLoading: incomesLoading } = useIncomesQuery()

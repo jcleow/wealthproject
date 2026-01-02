@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
 
-import { useFinancialDataContext } from '@/contexts/FinancialDataContext'
+import { useFinancialData } from '@/hooks/useFinancialData'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import { useTimeline } from '@/hooks/useTimeline'
 import { propertyApi } from '@/api/financial'
@@ -60,7 +60,7 @@ export function FinancialWorkspace({
   const [isSeeding, setIsSeeding] = useState(false)
   const [isModuleMenuOpen, setIsModuleMenuOpen] = useState(false)
   const { events: scenarioEvents } = useScenarioEvents()
-  const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialDataContext()
+  const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialData()
   const moduleMenuRef = useRef<HTMLDivElement | null>(null)
 
   const clearPropertyData = async () => {
