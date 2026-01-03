@@ -4,14 +4,10 @@ import { useMemo } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { IconPicker } from '@/components/modals/ScenarioEventModal/components/IconPicker'
-import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import {
-  ArrowLeft,
   Home,
   Banknote,
   TrendingUp,
-  ExternalLink,
 } from 'lucide-react'
 
 import type {
@@ -44,10 +40,14 @@ interface ScenarioDetailViewProps {
   saleInputs: SaleInputs
   activeResultsTab: ResultsTab
   editingScenario: PropertyScenario | null
-  editingScenarioName: string
-  editingScenarioIcon: string
-  editingScenarioIconColor: string
-  editingScenarioIconSearch: string
+  /** @deprecated Now handled in modal header - kept for standalone page */
+  editingScenarioName?: string
+  /** @deprecated Now handled in modal header - kept for standalone page */
+  editingScenarioIcon?: string
+  /** @deprecated Now handled in modal header - kept for standalone page */
+  editingScenarioIconColor?: string
+  /** @deprecated Now handled in modal header - kept for standalone page */
+  editingScenarioIconSearch?: string
   isEmbedded: boolean
   /** @deprecated Use modal footer hasChanges indicator instead */
   hasChanges?: boolean
@@ -55,14 +55,20 @@ interface ScenarioDetailViewProps {
   onInputChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null) => void
   onSaleInputChange: (field: keyof SaleInputs, value: string | number | boolean | FeeItem[]) => void
   onActiveResultsTabChange: (tab: ResultsTab) => void
-  onSelectedTypeChange: (type: PropertyType) => void
-  onEditingScenarioNameChange: (name: string) => void
-  onEditingScenarioIconChange: (icon: string) => void
-  onEditingScenarioIconColorChange: (color: string) => void
-  onEditingScenarioIconSearchChange: (search: string) => void
-  onSaveAndClose: () => void
+  /** @deprecated Now handled in modal header - kept for standalone page */
+  onSelectedTypeChange?: (type: PropertyType) => void
+  /** @deprecated Now handled in modal header - kept for standalone page */
+  onEditingScenarioNameChange?: (name: string) => void
+  /** @deprecated Now handled in modal header - kept for standalone page */
+  onEditingScenarioIconChange?: (icon: string) => void
+  /** @deprecated Now handled in modal header - kept for standalone page */
+  onEditingScenarioIconColorChange?: (color: string) => void
+  /** @deprecated Now handled in modal header - kept for standalone page */
+  onEditingScenarioIconSearchChange?: (search: string) => void
+  /** @deprecated Now handled in modal footer */
+  onSaveAndClose?: () => void
   onBack: () => void
-  /** Callback to jump to a specific date on the timeline */
+  /** @deprecated Now handled in modal header */
   onJumpToDate?: (year: number, month: number) => void
 }
 
@@ -72,23 +78,12 @@ export function ScenarioDetailView({
   saleInputs,
   activeResultsTab,
   editingScenario,
-  editingScenarioName,
-  editingScenarioIcon,
-  editingScenarioIconColor,
-  editingScenarioIconSearch,
   isEmbedded,
-  hasChanges = false,
   computedValues = null,
   onInputChange,
   onSaleInputChange,
   onActiveResultsTabChange,
-  onSelectedTypeChange,
-  onEditingScenarioNameChange,
-  onEditingScenarioIconChange,
-  onEditingScenarioIconColorChange,
-  onEditingScenarioIconSearchChange,
   onBack,
-  onJumpToDate,
 }: ScenarioDetailViewProps) {
   const selectedOption = propertyOptions.find(o => o.id === selectedType)
   const calculation = useMemo(() => calculateMortgage(inputs), [inputs])
@@ -105,71 +100,16 @@ export function ScenarioDetailView({
       exit={{ opacity: 0 }}
       className={cn("mx-auto px-6 py-8", isEmbedded ? "max-w-6xl" : "max-w-7xl")}
     >
-      <div className="mb-8">
-        {!isEmbedded && (
-          <div className="flex items-center gap-2 text-sm mb-6">
-            <Link href="/dashboard" className="text-slate-500 hover:text-slate-300 transition-colors font-medium">Dashboard</Link>
-            <span className="text-slate-700">/</span>
-            <button type="button" onClick={onBack} className="text-slate-500 hover:text-slate-300 transition-colors font-medium">Property Scenarios</button>
-            <span className="text-slate-700">/</span>
-            <span className="text-slate-300 font-medium">{editingScenario?.name || selectedOption?.title}</span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-4">
-          <button type="button" onClick={onBack} className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <IconPicker
-            iconName={editingScenarioIcon}
-            iconColor={editingScenarioIconColor}
-            searchQuery={editingScenarioIconSearch}
-            onIconChange={onEditingScenarioIconChange}
-            onColorChange={onEditingScenarioIconColorChange}
-            onSearchChange={onEditingScenarioIconSearchChange}
-          />
-          <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={editingScenarioName}
-                onChange={(e) => onEditingScenarioNameChange(e.target.value)}
-                className="text-2xl font-semibold text-white tracking-tight bg-transparent border-none outline-none focus:ring-0 placeholder:text-slate-600 hover:bg-white/[0.03] focus:bg-white/[0.05] rounded-lg px-2 py-1 -ml-2 transition-colors"
-                placeholder="Scenario name"
-              />
-              {onJumpToDate && inputs.loanStartMonth && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const [yearStr, monthStr] = inputs.loanStartMonth.split('-')
-                    const year = parseInt(yearStr, 10)
-                    const month = parseInt(monthStr, 10)
-                    if (!isNaN(year) && !isNaN(month)) {
-                      onJumpToDate(year, month)
-                    }
-                  }}
-                  className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-blue-400 hover:border-blue-500/40 hover:bg-white/[0.05] transition-all"
-                  title="Jump to purchase date on timeline"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </button>
-              )}
-              {hasChanges && (
-                <span className="text-xs text-amber-400/80 font-medium">Unsaved changes</span>
-              )}
-            </div>
-            <CustomDropdown
-              value={selectedType}
-              onChange={(value) => onSelectedTypeChange(value as PropertyType)}
-              options={propertyOptions.map(opt => ({
-                value: opt.id,
-                label: opt.title,
-              }))}
-              minWidth="140px"
-            />
-          </div>
+      {/* Breadcrumb navigation for standalone page */}
+      {!isEmbedded && (
+        <div className="flex items-center gap-2 text-sm mb-6">
+          <Link href="/dashboard" className="text-slate-500 hover:text-slate-300 transition-colors font-medium">Dashboard</Link>
+          <span className="text-slate-700">/</span>
+          <button type="button" onClick={onBack} className="text-slate-500 hover:text-slate-300 transition-colors font-medium">Property Scenarios</button>
+          <span className="text-slate-700">/</span>
+          <span className="text-slate-300 font-medium">{editingScenario?.name || selectedOption?.title}</span>
         </div>
-      </div>
+      )}
 
       <div className="flex items-center mb-6">
         <div className="inline-flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-lg">

@@ -320,17 +320,35 @@ export interface FooterState {
   isEditing: boolean
 }
 
+export interface HeaderState {
+  name: string
+  icon: string
+  iconColor: string
+  iconSearch: string
+  propertyType: PropertyType
+  loanStartMonth: string
+  onBack: () => void
+  onNameChange: (name: string) => void
+  onIconChange: (icon: string) => void
+  onIconColorChange: (color: string) => void
+  onIconSearchChange: (search: string) => void
+  onPropertyTypeChange: (type: PropertyType) => void
+  onJumpToDate?: (year: number, month: number) => void
+}
+
 interface PropertyPlannerViewProps {
   onClose?: () => void
   /** Optional scenario ID to directly open in edit mode */
   initialScenarioId?: string
   /** Callback to report footer state to parent */
   onFooterStateChange?: (state: FooterState | null) => void
+  /** Callback to report header state to parent for contextual header */
+  onHeaderStateChange?: (state: HeaderState | null) => void
   /** Callback to jump to a specific date on the timeline */
   onJumpToDate?: (year: number, month: number) => void
 }
 
-export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateChange, onJumpToDate }: PropertyPlannerViewProps) {
+export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateChange, onHeaderStateChange, onJumpToDate }: PropertyPlannerViewProps) {
   // API hooks
   const { data: apiScenarios, isLoading } = usePropertyPlannerV2ScenariosQuery()
   const createMutation = useCreatePropertyPlannerV2ScenarioMutation()
@@ -532,6 +550,45 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
       }
     }
   }, [onFooterStateChange, selectedType, isDirty, updateMutation.isPending])
+
+  // Use refs to store handlers to avoid infinite loop in useEffect
+  const handleBackRef = useRef(handleBack)
+  handleBackRef.current = handleBack
+  const setEditingScenarioNameRef = useRef(setEditingScenarioName)
+  setEditingScenarioNameRef.current = setEditingScenarioName
+  const setEditingScenarioIconRef = useRef(setEditingScenarioIcon)
+  setEditingScenarioIconRef.current = setEditingScenarioIcon
+  const setEditingScenarioIconColorRef = useRef(setEditingScenarioIconColor)
+  setEditingScenarioIconColorRef.current = setEditingScenarioIconColor
+  const setEditingScenarioIconSearchRef = useRef(setEditingScenarioIconSearch)
+  setEditingScenarioIconSearchRef.current = setEditingScenarioIconSearch
+  const setSelectedTypeRef = useRef(setSelectedType)
+  setSelectedTypeRef.current = setSelectedType
+
+  // Report header state to parent for contextual modal header
+  useEffect(() => {
+    if (onHeaderStateChange) {
+      if (selectedType) {
+        onHeaderStateChange({
+          name: editingScenarioName,
+          icon: editingScenarioIcon,
+          iconColor: editingScenarioIconColor,
+          iconSearch: editingScenarioIconSearch,
+          propertyType: selectedType,
+          loanStartMonth: inputs.loanStartMonth,
+          onBack: () => handleBackRef.current(),
+          onNameChange: (name) => setEditingScenarioNameRef.current(name),
+          onIconChange: (icon) => setEditingScenarioIconRef.current(icon),
+          onIconColorChange: (color) => setEditingScenarioIconColorRef.current(color),
+          onIconSearchChange: (search) => setEditingScenarioIconSearchRef.current(search),
+          onPropertyTypeChange: (type) => setSelectedTypeRef.current(type),
+          onJumpToDate,
+        })
+      } else {
+        onHeaderStateChange(null)
+      }
+    }
+  }, [onHeaderStateChange, selectedType, editingScenarioName, editingScenarioIcon, editingScenarioIconColor, editingScenarioIconSearch, inputs.loanStartMonth, onJumpToDate])
 
   const isEmbedded = !!onClose
 
