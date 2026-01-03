@@ -121,7 +121,6 @@ export function SaleParametersForm({
                         onIconChange={onSaleIconChange}
                         onColorChange={onSaleIconColorChange}
                         onSearchChange={onSaleIconSearchChange}
-                        compact
                       />
                     </div>
                   )}
