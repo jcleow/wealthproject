@@ -110,35 +110,37 @@ export function SaleParametersForm({
           >
             {currentStep === 'timing' && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      {/* Sale milestone icon - inline with label */}
-                      {onSaleIconChange && onSaleIconColorChange && onSaleIconSearchChange && (
-                        <IconPicker
-                          iconName={saleIcon}
-                          iconColor={saleIconColor}
-                          searchQuery={saleIconSearch}
-                          onIconChange={onSaleIconChange}
-                          onColorChange={onSaleIconColorChange}
-                          onSearchChange={onSaleIconSearchChange}
-                          compact
-                        />
-                      )}
-                      <label className="text-xs font-medium text-slate-400">Expected Sale Date</label>
+                <div className="flex items-end gap-3">
+                  {/* Sale milestone icon */}
+                  {onSaleIconChange && onSaleIconColorChange && onSaleIconSearchChange && (
+                    <div className="flex-shrink-0">
+                      <IconPicker
+                        iconName={saleIcon}
+                        iconColor={saleIconColor}
+                        searchQuery={saleIconSearch}
+                        onIconChange={onSaleIconChange}
+                        onColorChange={onSaleIconColorChange}
+                        onSearchChange={onSaleIconSearchChange}
+                        compact
+                      />
                     </div>
+                  )}
+                  <div className="flex-1 space-y-1.5">
+                    <label className="text-xs font-medium text-slate-400 block">Expected Sale Date</label>
                     <MonthPicker
                       value={saleInputs.expectedSaleDate}
                       onChange={(value) => onSaleInputChange('expectedSaleDate', value)}
                       className="w-full"
                     />
                   </div>
-                  <FormInput
-                    label="Expected Sale Price"
-                    prefix="$"
-                    value={displaySalePrice.toLocaleString()}
-                    onChange={(v) => onSaleInputChange('expectedSalePrice', Number(v.replace(/[^0-9]/g, '')) || 0)}
-                  />
+                  <div className="flex-1">
+                    <FormInput
+                      label="Expected Sale Price"
+                      prefix="$"
+                      value={displaySalePrice.toLocaleString()}
+                      onChange={(v) => onSaleInputChange('expectedSalePrice', Number(v.replace(/[^0-9]/g, '')) || 0)}
+                    />
+                  </div>
                 </div>
 
                 <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
