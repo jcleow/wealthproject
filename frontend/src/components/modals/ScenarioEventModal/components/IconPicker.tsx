@@ -5,7 +5,6 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import type { ComponentType, RefObject } from 'react'
 
-const ChevronDownIcon = LucideIcons.ChevronDown as ComponentType<{ className?: string }>
 const SearchIcon = LucideIcons.Search as ComponentType<{ className?: string }>
 const PaletteIcon = LucideIcons.Palette as ComponentType<{ className?: string }>
 const CheckIcon = LucideIcons.Check as ComponentType<{ className?: string }>
@@ -157,18 +156,6 @@ export function IconPicker({
           <div className={`relative ${compact ? 'h-3.5 w-3.5' : 'h-5 w-5'} rounded bg-white/20`} />
         )}
 
-        {/* Hover indicator - only for non-compact */}
-        {!compact && (
-          <div className={`
-            absolute inset-0 flex items-center justify-center
-            bg-black/50 backdrop-blur-sm
-            opacity-0 group-hover:opacity-100
-            transition-opacity duration-200
-            ${disabled ? 'hidden' : ''}
-          `}>
-            <ChevronDownIcon className="h-4 w-4 text-white" />
-          </div>
-        )}
       </button>
 
       {/* Popover - rendered via portal to avoid clipping in scrollable containers */}

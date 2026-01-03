@@ -264,8 +264,8 @@ func (b *SnapshotBuilder) BuildPropertySnapshots(properties []repo.PropertyScena
 		snapshot := PropertySnapshot{
 			ID:              prop.Scenario.ID,
 			Name:            details.Name,
-			Icon:            details.Icon,
-			IconColor:       details.IconColor,
+			Icon:            details.PurchaseIcon,
+			IconColor:       details.PurchaseIconColor,
 			PropertyValue:   *propertyValue.Round(0),
 			MortgageBalance: *mortgageBalance.Round(0),
 			NetEquity:       *netEquity.Round(0),

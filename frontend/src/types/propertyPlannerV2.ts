@@ -30,8 +30,10 @@ export interface PropertySGDetails {
   name: string
   propertyType: PropertyType
   propertySubtype: PropertySubtype
-  icon?: string | null
-  iconColor?: string | null
+  purchaseIcon?: string | null
+  purchaseIconColor?: string | null
+  saleIcon?: string | null
+  saleIconColor?: string | null
   isIncluded: boolean
   propertyPrice: string
   valuationPrice: string | null
@@ -285,8 +287,10 @@ export interface CreateSGDetailsInput {
   name: string
   propertyType: PropertyType
   propertySubtype: PropertySubtype
-  icon?: string
-  iconColor?: string
+  purchaseIcon?: string
+  purchaseIconColor?: string
+  saleIcon?: string
+  saleIconColor?: string
   isIncluded?: boolean
   propertyPrice: string
   valuationPrice?: string

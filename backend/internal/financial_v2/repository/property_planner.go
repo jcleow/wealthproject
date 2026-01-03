@@ -27,8 +27,10 @@ type PropertySG struct {
 	Name                  string           `json:"name"`
 	PropertyType          string           `json:"propertyType"`
 	PropertySubtype       string           `json:"propertySubtype"`
-	Icon                  *string          `json:"icon"`
-	IconColor             *string          `json:"iconColor"`
+	PurchaseIcon          *string          `json:"purchaseIcon"`
+	PurchaseIconColor     *string          `json:"purchaseIconColor"`
+	SaleIcon              *string          `json:"saleIcon"`
+	SaleIconColor         *string          `json:"saleIconColor"`
 	IsIncluded            bool             `json:"isIncluded"`
 	PropertyPrice         decimal.Decimal  `json:"propertyPrice"`
 	ValuationPrice        *decimal.Decimal `json:"valuationPrice"`
@@ -137,8 +139,10 @@ type CreateSGDetailsInput struct {
 	Name                  string           `json:"name"`
 	PropertyType          string           `json:"propertyType"`
 	PropertySubtype       string           `json:"propertySubtype"`
-	Icon                  *string          `json:"icon"`
-	IconColor             *string          `json:"iconColor"`
+	PurchaseIcon          *string          `json:"purchaseIcon"`
+	PurchaseIconColor     *string          `json:"purchaseIconColor"`
+	SaleIcon              *string          `json:"saleIcon"`
+	SaleIconColor         *string          `json:"saleIconColor"`
 	IsIncluded            *bool            `json:"isIncluded"`
 	PropertyPrice         decimal.Decimal  `json:"propertyPrice"`
 	ValuationPrice        *decimal.Decimal `json:"valuationPrice"`
@@ -337,7 +341,7 @@ func (s *Store) createSGDetails(ctx context.Context, tx pgx.Tx, input *CreateSGD
 	err := tx.QueryRow(ctx, `
 		INSERT INTO property_sg (
 			name, property_type, property_subtype,
-			icon, icon_color, is_included,
+			purchase_icon, purchase_icon_color, sale_icon, sale_icon_color, is_included,
 			property_price, valuation_price, loan_type,
 			downpayment_cpf_oa, downpayment_cash,
 			borrower_type, borrower1_income_id, borrower1_cpf_account_id,
@@ -349,11 +353,11 @@ func (s *Store) createSGDetails(ctx context.Context, tx pgx.Tx, input *CreateSGD
 			borrower1_downpayment_cpf_oa, borrower2_downpayment_cpf_oa,
 			borrower1_monthly_cpf_oa, borrower2_monthly_cpf_oa
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
 		) RETURNING id
 	`,
 		input.Name, input.PropertyType, input.PropertySubtype,
-		input.Icon, input.IconColor, isIncluded,
+		input.PurchaseIcon, input.PurchaseIconColor, input.SaleIcon, input.SaleIconColor, isIncluded,
 		input.PropertyPrice, input.ValuationPrice, input.LoanType,
 		downpaymentCpfOa, downpaymentCash,
 		input.BorrowerType, input.Borrower1IncomeID, input.Borrower1CpfAccountID,
@@ -535,7 +539,7 @@ func (s *Store) getSGDetails(ctx context.Context, id string) (*PropertySG, error
 	var details PropertySG
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, name, property_type, property_subtype,
-			icon, icon_color, is_included,
+			purchase_icon, purchase_icon_color, sale_icon, sale_icon_color, is_included,
 			property_price, valuation_price, loan_type,
 			downpayment_cpf_oa, downpayment_cash,
 			borrower_type, borrower1_income_id, borrower1_cpf_account_id,
@@ -550,7 +554,7 @@ func (s *Store) getSGDetails(ctx context.Context, id string) (*PropertySG, error
 		FROM property_sg WHERE id = $1
 	`, id).Scan(
 		&details.ID, &details.Name, &details.PropertyType, &details.PropertySubtype,
-		&details.Icon, &details.IconColor, &details.IsIncluded,
+		&details.PurchaseIcon, &details.PurchaseIconColor, &details.SaleIcon, &details.SaleIconColor, &details.IsIncluded,
 		&details.PropertyPrice, &details.ValuationPrice, &details.LoanType,
 		&details.DownpaymentCpfOa, &details.DownpaymentCash,
 		&details.BorrowerType, &details.Borrower1IncomeID, &details.Borrower1CpfAccountID,
@@ -853,23 +857,23 @@ func (s *Store) updateSGDetails(ctx context.Context, tx pgx.Tx, id string, input
 	_, err := tx.Exec(ctx, `
 		UPDATE property_sg SET
 			name = $2, property_type = $3, property_subtype = $4,
-			icon = $5, icon_color = $6, is_included = $7,
-			property_price = $8, valuation_price = $9, loan_type = $10,
-			downpayment_cpf_oa = $11, downpayment_cash = $12,
-			borrower_type = $13, borrower1_income_id = $14, borrower1_cpf_account_id = $15,
-			borrower2_income_id = $16, borrower2_cpf_account_id = $17,
-			other_debt = $18, property_count = $19,
-			bto_launch_date = $20, bto_key_collection_date = $21,
-			sale_expected_date = $22, sale_expected_price = $23,
-			lease_remaining_years = $24,
-			borrower1_downpayment_cpf_oa = $25, borrower2_downpayment_cpf_oa = $26,
-			borrower1_monthly_cpf_oa = $27, borrower2_monthly_cpf_oa = $28,
+			purchase_icon = $5, purchase_icon_color = $6, sale_icon = $7, sale_icon_color = $8, is_included = $9,
+			property_price = $10, valuation_price = $11, loan_type = $12,
+			downpayment_cpf_oa = $13, downpayment_cash = $14,
+			borrower_type = $15, borrower1_income_id = $16, borrower1_cpf_account_id = $17,
+			borrower2_income_id = $18, borrower2_cpf_account_id = $19,
+			other_debt = $20, property_count = $21,
+			bto_launch_date = $22, bto_key_collection_date = $23,
+			sale_expected_date = $24, sale_expected_price = $25,
+			lease_remaining_years = $26,
+			borrower1_downpayment_cpf_oa = $27, borrower2_downpayment_cpf_oa = $28,
+			borrower1_monthly_cpf_oa = $29, borrower2_monthly_cpf_oa = $30,
 			updated_at = NOW()
 		WHERE id = $1
 	`,
 		id,
 		input.Name, input.PropertyType, input.PropertySubtype,
-		input.Icon, input.IconColor, isIncluded,
+		input.PurchaseIcon, input.PurchaseIconColor, input.SaleIcon, input.SaleIconColor, isIncluded,
 		input.PropertyPrice, input.ValuationPrice, input.LoanType,
 		downpaymentCpfOa, downpaymentCash,
 		input.BorrowerType, input.Borrower1IncomeID, input.Borrower1CpfAccountID,

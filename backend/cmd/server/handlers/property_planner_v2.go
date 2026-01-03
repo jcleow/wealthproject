@@ -43,12 +43,14 @@ type createGrantRequest struct {
 }
 
 type createSGDetailsRequest struct {
-	Name                  string  `json:"name"`
-	PropertyType          string  `json:"propertyType"`
-	PropertySubtype       string  `json:"propertySubtype"`
-	Icon                  *string `json:"icon"`
-	IconColor             *string `json:"iconColor"`
-	IsIncluded            *bool   `json:"isIncluded"`
+	Name              string  `json:"name"`
+	PropertyType      string  `json:"propertyType"`
+	PropertySubtype   string  `json:"propertySubtype"`
+	PurchaseIcon      *string `json:"purchaseIcon"`
+	PurchaseIconColor *string `json:"purchaseIconColor"`
+	SaleIcon          *string `json:"saleIcon"`
+	SaleIconColor     *string `json:"saleIconColor"`
+	IsIncluded        *bool   `json:"isIncluded"`
 	PropertyPrice         string  `json:"propertyPrice"`
 	ValuationPrice        *string `json:"valuationPrice"`
 	LoanType              string  `json:"loanType"`
@@ -571,12 +573,14 @@ func toCreateScenarioParams(req createScenarioRequest) property.CreateScenarioPa
 
 func toSGDetailsParams(req *createSGDetailsRequest) *property.CreateSGDetailsParams {
 	return &property.CreateSGDetailsParams{
-		Name:                      req.Name,
-		PropertyType:              req.PropertyType,
-		PropertySubtype:           req.PropertySubtype,
-		Icon:                      req.Icon,
-		IconColor:                 req.IconColor,
-		IsIncluded:                req.IsIncluded,
+		Name:              req.Name,
+		PropertyType:      req.PropertyType,
+		PropertySubtype:   req.PropertySubtype,
+		PurchaseIcon:      req.PurchaseIcon,
+		PurchaseIconColor: req.PurchaseIconColor,
+		SaleIcon:          req.SaleIcon,
+		SaleIconColor:     req.SaleIconColor,
+		IsIncluded:        req.IsIncluded,
 		PropertyPrice:             req.PropertyPrice,
 		ValuationPrice:            req.ValuationPrice,
 		LoanType:                  req.LoanType,

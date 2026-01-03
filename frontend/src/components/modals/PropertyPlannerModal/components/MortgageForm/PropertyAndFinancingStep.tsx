@@ -11,6 +11,7 @@ import { Building2, ChevronDown, HelpCircle, ExternalLink } from 'lucide-react'
 import type { MortgageInputs } from '@/app/property-planner/types'
 import { FormInput, InfoTooltip, GrantsEditor } from '@/app/property-planner/components'
 import { createDefaultStaggeredDownpayment } from '@/app/property-planner/hooks/constants'
+import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 
 import type { PropertyAndFinancingStepProps, LoanTypeToggleProps, OnChangeHandler } from './types'
 
@@ -668,22 +669,23 @@ export function PropertyAndFinancingStep({
           />
         </div>
         <div className="flex items-center gap-2">
-          <select
+          <CustomDropdown
             value={inputs.leaseRemainingYears === null ? 'freehold' : 'leasehold'}
-            onChange={(e) => {
-              if (e.target.value === 'freehold') {
+            onChange={(value) => {
+              if (value === 'freehold') {
                 onChange('leaseRemainingYears', null)
               } else {
                 // Default to 99 years when switching to leasehold
                 onChange('leaseRemainingYears', 99)
               }
             }}
-            className="w-32 shrink-0 rounded-xl bg-white/[0.05] border border-white/[0.10] text-white text-sm py-2.5 px-3 hover:border-white/[0.15] focus:border-white/30 focus:bg-white/[0.08] focus:ring-1 focus:ring-white/10 focus:outline-none appearance-none cursor-pointer"
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}
-          >
-            <option value="freehold" className="bg-gray-900">Freehold</option>
-            <option value="leasehold" className="bg-gray-900">Leasehold</option>
-          </select>
+            options={[
+              { value: 'freehold', label: 'Freehold' },
+              { value: 'leasehold', label: 'Leasehold' },
+            ]}
+            minWidth="120px"
+            className="shrink-0"
+          />
           {inputs.leaseRemainingYears !== null && (
             <div className="flex-1 relative">
               <Input

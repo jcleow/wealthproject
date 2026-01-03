@@ -215,8 +215,10 @@ export interface PropertyScenario {
   saleInputs: SaleInputs
   isIncluded: boolean  // Whether to include in financial planning
   createdAt: number
-  icon?: string       // lucide icon name (kebab-case)
-  iconColor?: string  // hex color
+  purchaseIcon?: string       // lucide icon name for purchase milestone
+  purchaseIconColor?: string  // hex color for purchase milestone
+  saleIcon?: string           // lucide icon name for sale milestone
+  saleIconColor?: string      // hex color for sale milestone
 }
 
 // ============================================
