@@ -591,8 +591,10 @@ export function useLoadSampleDataMutation() {
             name: 'BTO Flat (Tengah)',
             propertyType: 'hdb',
             propertySubtype: 'bto',
-            icon: 'home',
-            iconColor: '#3b82f6', // Blue
+            purchaseIcon: 'home',
+            purchaseIconColor: '#3b82f6', // Blue
+            saleIcon: 'banknote',
+            saleIconColor: '#10b981', // Emerald
             isIncluded: true,
             propertyPrice: '450000',
             loanType: 'hdb',

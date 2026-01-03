@@ -113,9 +113,12 @@ const saleInputsSchema = z.object({
 export const propertyScenarioFormSchema = z.object({
   name: z.string().min(1, 'Scenario name is required'),
   propertyType: z.enum(['hdb-resale', 'hdb-bto', 'ec', 'private-resale', 'private-new'] as const).nullable() as z.ZodType<PropertyType | null>,
-  icon: z.string(),
-  iconColor: z.string(),
-  iconSearch: z.string(),
+  purchaseIcon: z.string(),
+  purchaseIconColor: z.string(),
+  purchaseIconSearch: z.string(),
+  saleIcon: z.string(),
+  saleIconColor: z.string(),
+  saleIconSearch: z.string(),
   inputs: mortgageInputsSchema as z.ZodType<MortgageInputs>,
   saleInputs: saleInputsSchema as z.ZodType<SaleInputs>,
 })

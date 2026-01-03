@@ -199,8 +199,10 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     saleInputs,
     isIncluded: sgDetails.isIncluded,
     createdAt: new Date(apiScenario.scenario.createdAt).getTime(),
-    icon: sgDetails.icon || undefined,
-    iconColor: sgDetails.iconColor || undefined,
+    purchaseIcon: sgDetails.purchaseIcon || undefined,
+    purchaseIconColor: sgDetails.purchaseIconColor || undefined,
+    saleIcon: sgDetails.saleIcon || undefined,
+    saleIconColor: sgDetails.saleIconColor || undefined,
   }
 }
 
@@ -234,8 +236,10 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
       name: scenario.name,
       propertyType: apiType,
       propertySubtype: propertySubtype,
-      icon: scenario.icon,
-      iconColor: scenario.iconColor,
+      purchaseIcon: scenario.purchaseIcon,
+      purchaseIconColor: scenario.purchaseIconColor,
+      saleIcon: scenario.saleIcon,
+      saleIconColor: scenario.saleIconColor,
       isIncluded: scenario.isIncluded,
       propertyPrice: String(scenario.inputs.propertyPrice),
       valuationPrice: String(scenario.inputs.valuationPrice),
@@ -384,9 +388,12 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
   const inputs = formValues.inputs
   const saleInputs = formValues.saleInputs
   const editingScenarioName = formValues.name
-  const editingScenarioIcon = formValues.icon
-  const editingScenarioIconColor = formValues.iconColor
-  const editingScenarioIconSearch = formValues.iconSearch
+  const editingScenarioPurchaseIcon = formValues.purchaseIcon
+  const editingScenarioPurchaseIconColor = formValues.purchaseIconColor
+  const editingScenarioPurchaseIconSearch = formValues.purchaseIconSearch
+  const editingScenarioSaleIcon = formValues.saleIcon
+  const editingScenarioSaleIconColor = formValues.saleIconColor
+  const editingScenarioSaleIconSearch = formValues.saleIconSearch
 
   const editingScenario = editingScenarioId ? scenarios.find(s => s.id === editingScenarioId) : null
 
@@ -430,8 +437,10 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
         saleInputs,
         isIncluded: editingScenario?.isIncluded ?? true,
         createdAt: editingScenario?.createdAt ?? Date.now(),
-        icon: editingScenarioIcon,
-        iconColor: editingScenarioIconColor,
+        purchaseIcon: editingScenarioPurchaseIcon,
+        purchaseIconColor: editingScenarioPurchaseIconColor,
+        saleIcon: editingScenarioSaleIcon,
+        saleIconColor: editingScenarioSaleIconColor,
       }
       const apiInput = frontendToApiCreateInput(updatedScenario)
       updateMutation.mutate({ id: editingScenarioId, input: apiInput })
@@ -439,7 +448,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
       // Clear dirty state by updating form's baseline
       markAsSaved()
     }
-  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor, editingScenario, updateMutation, markAsSaved])
+  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioPurchaseIcon, editingScenarioPurchaseIconColor, editingScenarioSaleIcon, editingScenarioSaleIconColor, editingScenario, updateMutation, markAsSaved])
 
   const handleSaveAndClose = useCallback(() => {
     if (editingScenarioId && selectedType) {
@@ -451,15 +460,17 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
         saleInputs,
         isIncluded: editingScenario?.isIncluded ?? true,
         createdAt: editingScenario?.createdAt ?? Date.now(),
-        icon: editingScenarioIcon,
-        iconColor: editingScenarioIconColor,
+        purchaseIcon: editingScenarioPurchaseIcon,
+        purchaseIconColor: editingScenarioPurchaseIconColor,
+        saleIcon: editingScenarioSaleIcon,
+        saleIconColor: editingScenarioSaleIconColor,
       }
       const apiInput = frontendToApiCreateInput(updatedScenario)
       updateMutation.mutate({ id: editingScenarioId, input: apiInput })
     }
     setEditingScenarioId(null)
     resetToDefaults()
-  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioIcon, editingScenarioIconColor, editingScenario, updateMutation, resetToDefaults])
+  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioPurchaseIcon, editingScenarioPurchaseIconColor, editingScenarioSaleIcon, editingScenarioSaleIconColor, editingScenario, updateMutation, resetToDefaults])
 
   // Back button handler - shows confirmation if there are unsaved changes
   const handleBack = useCallback(() => {
@@ -514,16 +525,28 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     form.setValue('name', name, { shouldDirty: true })
   }, [form])
 
-  const setEditingScenarioIcon = useCallback((icon: string) => {
-    form.setValue('icon', icon, { shouldDirty: true })
+  const setEditingScenarioPurchaseIcon = useCallback((icon: string) => {
+    form.setValue('purchaseIcon', icon, { shouldDirty: true })
   }, [form])
 
-  const setEditingScenarioIconColor = useCallback((color: string) => {
-    form.setValue('iconColor', color, { shouldDirty: true })
+  const setEditingScenarioPurchaseIconColor = useCallback((color: string) => {
+    form.setValue('purchaseIconColor', color, { shouldDirty: true })
   }, [form])
 
-  const setEditingScenarioIconSearch = useCallback((search: string) => {
-    form.setValue('iconSearch', search, { shouldDirty: false }) // Search doesn't affect dirty state
+  const setEditingScenarioPurchaseIconSearch = useCallback((search: string) => {
+    form.setValue('purchaseIconSearch', search, { shouldDirty: false }) // Search doesn't affect dirty state
+  }, [form])
+
+  const setEditingScenarioSaleIcon = useCallback((icon: string) => {
+    form.setValue('saleIcon', icon, { shouldDirty: true })
+  }, [form])
+
+  const setEditingScenarioSaleIconColor = useCallback((color: string) => {
+    form.setValue('saleIconColor', color, { shouldDirty: true })
+  }, [form])
+
+  const setEditingScenarioSaleIconSearch = useCallback((search: string) => {
+    form.setValue('saleIconSearch', search, { shouldDirty: false }) // Search doesn't affect dirty state
   }, [form])
 
   // Tab change - no confirmation needed since tabs show different views of the same scenario
@@ -556,12 +579,12 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
   handleBackRef.current = handleBack
   const setEditingScenarioNameRef = useRef(setEditingScenarioName)
   setEditingScenarioNameRef.current = setEditingScenarioName
-  const setEditingScenarioIconRef = useRef(setEditingScenarioIcon)
-  setEditingScenarioIconRef.current = setEditingScenarioIcon
-  const setEditingScenarioIconColorRef = useRef(setEditingScenarioIconColor)
-  setEditingScenarioIconColorRef.current = setEditingScenarioIconColor
-  const setEditingScenarioIconSearchRef = useRef(setEditingScenarioIconSearch)
-  setEditingScenarioIconSearchRef.current = setEditingScenarioIconSearch
+  const setEditingScenarioPurchaseIconRef = useRef(setEditingScenarioPurchaseIcon)
+  setEditingScenarioPurchaseIconRef.current = setEditingScenarioPurchaseIcon
+  const setEditingScenarioPurchaseIconColorRef = useRef(setEditingScenarioPurchaseIconColor)
+  setEditingScenarioPurchaseIconColorRef.current = setEditingScenarioPurchaseIconColor
+  const setEditingScenarioPurchaseIconSearchRef = useRef(setEditingScenarioPurchaseIconSearch)
+  setEditingScenarioPurchaseIconSearchRef.current = setEditingScenarioPurchaseIconSearch
   const setSelectedTypeRef = useRef(setSelectedType)
   setSelectedTypeRef.current = setSelectedType
 
@@ -571,16 +594,16 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
       if (selectedType) {
         onHeaderStateChange({
           name: editingScenarioName,
-          icon: editingScenarioIcon,
-          iconColor: editingScenarioIconColor,
-          iconSearch: editingScenarioIconSearch,
+          icon: editingScenarioPurchaseIcon,
+          iconColor: editingScenarioPurchaseIconColor,
+          iconSearch: editingScenarioPurchaseIconSearch,
           propertyType: selectedType,
           loanStartMonth: inputs.loanStartMonth,
           onBack: () => handleBackRef.current(),
           onNameChange: (name) => setEditingScenarioNameRef.current(name),
-          onIconChange: (icon) => setEditingScenarioIconRef.current(icon),
-          onIconColorChange: (color) => setEditingScenarioIconColorRef.current(color),
-          onIconSearchChange: (search) => setEditingScenarioIconSearchRef.current(search),
+          onIconChange: (icon) => setEditingScenarioPurchaseIconRef.current(icon),
+          onIconColorChange: (color) => setEditingScenarioPurchaseIconColorRef.current(color),
+          onIconSearchChange: (search) => setEditingScenarioPurchaseIconSearchRef.current(search),
           onPropertyTypeChange: (type) => setSelectedTypeRef.current(type),
           onJumpToDate,
         })
@@ -588,7 +611,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
         onHeaderStateChange(null)
       }
     }
-  }, [onHeaderStateChange, selectedType, editingScenarioName, editingScenarioIcon, editingScenarioIconColor, editingScenarioIconSearch, inputs.loanStartMonth, onJumpToDate])
+  }, [onHeaderStateChange, selectedType, editingScenarioName, editingScenarioPurchaseIcon, editingScenarioPurchaseIconColor, editingScenarioPurchaseIconSearch, inputs.loanStartMonth, onJumpToDate])
 
   const isEmbedded = !!onClose
 
@@ -626,9 +649,12 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
               activeResultsTab={activeResultsTab}
               editingScenario={editingScenario ?? null}
               editingScenarioName={editingScenarioName}
-              editingScenarioIcon={editingScenarioIcon}
-              editingScenarioIconColor={editingScenarioIconColor}
-              editingScenarioIconSearch={editingScenarioIconSearch}
+              editingScenarioPurchaseIcon={editingScenarioPurchaseIcon}
+              editingScenarioPurchaseIconColor={editingScenarioPurchaseIconColor}
+              editingScenarioPurchaseIconSearch={editingScenarioPurchaseIconSearch}
+              editingScenarioSaleIcon={editingScenarioSaleIcon}
+              editingScenarioSaleIconColor={editingScenarioSaleIconColor}
+              editingScenarioSaleIconSearch={editingScenarioSaleIconSearch}
               isEmbedded={isEmbedded}
               computedValues={computedValues}
               onInputChange={handleInputChange}
@@ -636,9 +662,12 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
               onActiveResultsTabChange={handleTabChange}
               onSelectedTypeChange={setSelectedType}
               onEditingScenarioNameChange={setEditingScenarioName}
-              onEditingScenarioIconChange={setEditingScenarioIcon}
-              onEditingScenarioIconColorChange={setEditingScenarioIconColor}
-              onEditingScenarioIconSearchChange={setEditingScenarioIconSearch}
+              onEditingScenarioPurchaseIconChange={setEditingScenarioPurchaseIcon}
+              onEditingScenarioPurchaseIconColorChange={setEditingScenarioPurchaseIconColor}
+              onEditingScenarioPurchaseIconSearchChange={setEditingScenarioPurchaseIconSearch}
+              onEditingScenarioSaleIconChange={setEditingScenarioSaleIcon}
+              onEditingScenarioSaleIconColorChange={setEditingScenarioSaleIconColor}
+              onEditingScenarioSaleIconSearchChange={setEditingScenarioSaleIconSearch}
               onSaveAndClose={handleSaveAndClose}
               onBack={handleBack}
               hasChanges={isDirty}

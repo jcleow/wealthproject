@@ -34,9 +34,12 @@ export function createDefaultFormValues(): PropertyScenarioFormData {
   return {
     name: '',
     propertyType: null,
-    icon: 'home',
-    iconColor: '#6366f1',
-    iconSearch: '',
+    purchaseIcon: 'home',
+    purchaseIconColor: '#6366f1',
+    purchaseIconSearch: '',
+    saleIcon: 'banknote',
+    saleIconColor: '#10b981',
+    saleIconSearch: '',
     inputs: defaultInputs,
     saleInputs: getDefaultSaleInputs(defaultInputs.loanStartMonth, defaultInputs.propertyPrice),
   }
@@ -49,9 +52,12 @@ export function mapScenarioToFormData(scenario: PropertyScenario): PropertyScena
   return {
     name: scenario.name,
     propertyType: scenario.propertyType,
-    icon: scenario.icon || 'home',
-    iconColor: scenario.iconColor || '#6366f1',
-    iconSearch: '',
+    purchaseIcon: scenario.purchaseIcon || 'home',
+    purchaseIconColor: scenario.purchaseIconColor || '#6366f1',
+    purchaseIconSearch: '',
+    saleIcon: scenario.saleIcon || 'banknote',
+    saleIconColor: scenario.saleIconColor || '#10b981',
+    saleIconSearch: '',
     inputs: scenario.inputs,
     saleInputs: scenario.saleInputs,
   }

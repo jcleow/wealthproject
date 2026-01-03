@@ -104,12 +104,14 @@ type CreateScenarioParams struct {
 
 // CreateSGDetailsParams is the raw SG details input from HTTP.
 type CreateSGDetailsParams struct {
-	Name                  string
-	PropertyType          string
-	PropertySubtype       string
-	Icon                  *string
-	IconColor             *string
-	IsIncluded            *bool
+	Name              string
+	PropertyType      string
+	PropertySubtype   string
+	PurchaseIcon      *string
+	PurchaseIconColor *string
+	SaleIcon          *string
+	SaleIconColor     *string
+	IsIncluded        *bool
 	PropertyPrice         string  // decimal as string
 	ValuationPrice        *string // optional decimal
 	LoanType              string
@@ -1005,12 +1007,14 @@ func buildSGDetailsInput(params *CreateSGDetailsParams) (*repo.CreateSGDetailsIn
 	}
 
 	return &repo.CreateSGDetailsInput{
-		Name:                      params.Name,
-		PropertyType:              params.PropertyType,
-		PropertySubtype:           params.PropertySubtype,
-		Icon:                      params.Icon,
-		IconColor:                 params.IconColor,
-		IsIncluded:                params.IsIncluded,
+		Name:              params.Name,
+		PropertyType:      params.PropertyType,
+		PropertySubtype:   params.PropertySubtype,
+		PurchaseIcon:      params.PurchaseIcon,
+		PurchaseIconColor: params.PurchaseIconColor,
+		SaleIcon:          params.SaleIcon,
+		SaleIconColor:     params.SaleIconColor,
+		IsIncluded:        params.IsIncluded,
 		PropertyPrice:             *propertyPrice,
 		ValuationPrice:            valuationPrice,
 		LoanType:                  params.LoanType,

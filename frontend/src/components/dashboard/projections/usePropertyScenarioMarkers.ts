@@ -102,8 +102,8 @@ export function usePropertyScenarioMarkers(
           type: 'sale',
           date: sgDetails.saleExpectedDate,
           label: 'Sale',
-          icon: 'banknote',
-          iconColor: '#10b981', // emerald
+          icon: sgDetails.saleIcon || 'banknote',
+          iconColor: sgDetails.saleIconColor || '#10b981', // emerald
           yearIndex: findYearIndexForDate(sgDetails.saleExpectedDate),
         })
       }
@@ -153,8 +153,8 @@ export function usePropertyScenarioMarkers(
         type: 'property',
         propertyScenarioId: scenario.scenario.id,
         name: sgDetails.name,
-        icon: sgDetails.icon || 'home',
-        iconColor: sgDetails.iconColor || '#6366f1',
+        icon: sgDetails.purchaseIcon || 'home',
+        iconColor: sgDetails.purchaseIconColor || '#6366f1',
         isIncluded: sgDetails.isIncluded,
         nestedMilestones,
       })

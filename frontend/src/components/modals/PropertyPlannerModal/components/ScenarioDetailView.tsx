@@ -43,11 +43,17 @@ interface ScenarioDetailViewProps {
   /** @deprecated Now handled in modal header - kept for standalone page */
   editingScenarioName?: string
   /** @deprecated Now handled in modal header - kept for standalone page */
-  editingScenarioIcon?: string
+  editingScenarioPurchaseIcon?: string
   /** @deprecated Now handled in modal header - kept for standalone page */
-  editingScenarioIconColor?: string
+  editingScenarioPurchaseIconColor?: string
   /** @deprecated Now handled in modal header - kept for standalone page */
-  editingScenarioIconSearch?: string
+  editingScenarioPurchaseIconSearch?: string
+  /** Sale milestone icon name */
+  editingScenarioSaleIcon?: string
+  /** Sale milestone icon color */
+  editingScenarioSaleIconColor?: string
+  /** Sale milestone icon search query */
+  editingScenarioSaleIconSearch?: string
   isEmbedded: boolean
   /** @deprecated Use modal footer hasChanges indicator instead */
   hasChanges?: boolean
@@ -60,11 +66,17 @@ interface ScenarioDetailViewProps {
   /** @deprecated Now handled in modal header - kept for standalone page */
   onEditingScenarioNameChange?: (name: string) => void
   /** @deprecated Now handled in modal header - kept for standalone page */
-  onEditingScenarioIconChange?: (icon: string) => void
+  onEditingScenarioPurchaseIconChange?: (icon: string) => void
   /** @deprecated Now handled in modal header - kept for standalone page */
-  onEditingScenarioIconColorChange?: (color: string) => void
+  onEditingScenarioPurchaseIconColorChange?: (color: string) => void
   /** @deprecated Now handled in modal header - kept for standalone page */
-  onEditingScenarioIconSearchChange?: (search: string) => void
+  onEditingScenarioPurchaseIconSearchChange?: (search: string) => void
+  /** Callback to update sale icon */
+  onEditingScenarioSaleIconChange?: (icon: string) => void
+  /** Callback to update sale icon color */
+  onEditingScenarioSaleIconColorChange?: (color: string) => void
+  /** Callback to update sale icon search query */
+  onEditingScenarioSaleIconSearchChange?: (search: string) => void
   /** @deprecated Now handled in modal footer */
   onSaveAndClose?: () => void
   onBack: () => void
@@ -78,11 +90,17 @@ export function ScenarioDetailView({
   saleInputs,
   activeResultsTab,
   editingScenario,
+  editingScenarioSaleIcon,
+  editingScenarioSaleIconColor,
+  editingScenarioSaleIconSearch,
   isEmbedded,
   computedValues = null,
   onInputChange,
   onSaleInputChange,
   onActiveResultsTabChange,
+  onEditingScenarioSaleIconChange,
+  onEditingScenarioSaleIconColorChange,
+  onEditingScenarioSaleIconSearchChange,
   onBack,
 }: ScenarioDetailViewProps) {
   const selectedOption = propertyOptions.find(o => o.id === selectedType)
@@ -162,7 +180,19 @@ export function ScenarioDetailView({
                 </motion.div>
               ) : activeResultsTab === 'sale' ? (
                 <motion.div key="sale-form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
-                  <SaleParametersForm saleInputs={saleInputs} onSaleInputChange={onSaleInputChange} saleResult={saleResult} propertyPrice={inputs.propertyPrice} propertyType={selectedType} />
+                  <SaleParametersForm
+                    saleInputs={saleInputs}
+                    onSaleInputChange={onSaleInputChange}
+                    saleResult={saleResult}
+                    propertyPrice={inputs.propertyPrice}
+                    propertyType={selectedType}
+                    saleIcon={editingScenarioSaleIcon}
+                    saleIconColor={editingScenarioSaleIconColor}
+                    saleIconSearch={editingScenarioSaleIconSearch}
+                    onSaleIconChange={onEditingScenarioSaleIconChange}
+                    onSaleIconColorChange={onEditingScenarioSaleIconColorChange}
+                    onSaleIconSearchChange={onEditingScenarioSaleIconSearchChange}
+                  />
                 </motion.div>
               ) : null}
             </AnimatePresence>

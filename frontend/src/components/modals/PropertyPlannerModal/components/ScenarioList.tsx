@@ -88,8 +88,10 @@ export function ScenarioList({
       saleInputs: getDefaultSaleInputs(defaults.loanStartMonth, price),
       isIncluded: true,
       createdAt: Date.now(),
-      icon: newRowIcon,
-      iconColor: newRowIconColor,
+      purchaseIcon: newRowIcon,
+      purchaseIconColor: newRowIconColor,
+      saleIcon: 'banknote',
+      saleIconColor: '#10b981',
     }
     onAddScenario(newScenario)
     setIsCreatingNew(false)
@@ -169,9 +171,9 @@ export function ScenarioList({
                 {scenario.isIncluded && <Check className="w-3 h-3 text-white" />}
               </button>
 
-              {scenario.icon ? (
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: scenario.iconColor || '#6366f1' }}>
-                  <LucideIcon name={scenario.icon} className="w-5 h-5 text-white" />
+              {scenario.purchaseIcon ? (
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: scenario.purchaseIconColor || '#6366f1' }}>
+                  <LucideIcon name={scenario.purchaseIcon} className="w-5 h-5 text-white" />
                 </div>
               ) : (
                 <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-gradient-to-br", option?.color || 'from-slate-500/20 to-slate-600/5')}>

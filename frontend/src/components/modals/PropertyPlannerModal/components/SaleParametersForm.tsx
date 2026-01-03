@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { MonthPicker } from '@/components/ui/MonthPicker'
+import { IconPicker } from '@/components/modals/ScenarioEventModal/components/IconPicker'
 
 import type {
   PropertyType,
@@ -27,6 +28,18 @@ interface SaleParametersFormProps {
   saleResult: SaleResult
   propertyPrice: number
   propertyType: PropertyType
+  /** Sale milestone icon name */
+  saleIcon?: string
+  /** Sale milestone icon color */
+  saleIconColor?: string
+  /** Sale milestone icon search query */
+  saleIconSearch?: string
+  /** Callback to update sale icon */
+  onSaleIconChange?: (icon: string) => void
+  /** Callback to update sale icon color */
+  onSaleIconColorChange?: (color: string) => void
+  /** Callback to update sale icon search query */
+  onSaleIconSearchChange?: (search: string) => void
 }
 
 export function SaleParametersForm({
@@ -35,6 +48,12 @@ export function SaleParametersForm({
   saleResult,
   propertyPrice,
   propertyType,
+  saleIcon = 'banknote',
+  saleIconColor = '#10b981',
+  saleIconSearch = '',
+  onSaleIconChange,
+  onSaleIconColorChange,
+  onSaleIconSearchChange,
 }: SaleParametersFormProps) {
   const [currentStep, setCurrentStep] = useState<SaleFormStep>('timing')
   const isHDB = propertyType.includes('hdb')
@@ -91,6 +110,25 @@ export function SaleParametersForm({
           >
             {currentStep === 'timing' && (
               <div className="space-y-4">
+                {/* Sale milestone icon */}
+                {onSaleIconChange && onSaleIconColorChange && onSaleIconSearchChange && (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                    <IconPicker
+                      iconName={saleIcon}
+                      iconColor={saleIconColor}
+                      searchQuery={saleIconSearch}
+                      onIconChange={onSaleIconChange}
+                      onColorChange={onSaleIconColorChange}
+                      onSearchChange={onSaleIconSearchChange}
+                      compact
+                    />
+                    <div className="text-sm">
+                      <span className="text-slate-400">Sale Milestone Icon</span>
+                      <p className="text-xs text-slate-600">Displayed on timeline</p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-slate-400 block">Expected Sale Date</label>
