@@ -49,6 +49,7 @@ export function CustomDropdown<T extends string = string>({
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
   const ref = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   // Find label for current value
   const getLabel = () => {
@@ -66,21 +67,25 @@ export function CustomDropdown<T extends string = string>({
   }
 
   // Update dropdown position when opened
+  // Use viewport coordinates directly since we're using position: fixed
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
       setDropdownPosition({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
+        top: rect.bottom + 4,
+        left: rect.left,
         width: rect.width,
       })
     }
   }, [isOpen])
 
-  // Close on outside click
+  // Close on outside click (check both button container and portaled menu)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      const clickedInsideButton = ref.current?.contains(target)
+      const clickedInsideMenu = menuRef.current?.contains(target)
+      if (!clickedInsideButton && !clickedInsideMenu) {
         setIsOpen(false)
       }
     }
@@ -133,6 +138,7 @@ export function CustomDropdown<T extends string = string>({
 
   const dropdownMenu = isOpen && typeof document !== 'undefined' ? createPortal(
     <div
+      ref={menuRef}
       className="
         fixed z-[9999]
         rounded-xl
