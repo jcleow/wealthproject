@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -45,7 +46,9 @@ export function CustomDropdown<T extends string = string>({
   className = '',
 }: CustomDropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
   const ref = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   // Find label for current value
   const getLabel = () => {
@@ -61,6 +64,18 @@ export function CustomDropdown<T extends string = string>({
     }
     return value
   }
+
+  // Update dropdown position when opened
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      })
+    }
+  }, [isOpen])
 
   // Close on outside click
   useEffect(() => {
@@ -116,9 +131,44 @@ export function CustomDropdown<T extends string = string>({
     )
   }
 
+  const dropdownMenu = isOpen && typeof document !== 'undefined' ? createPortal(
+    <div
+      className="
+        fixed z-[9999]
+        rounded-xl
+        border border-white/[0.12]
+        bg-[#0c0c0c]
+        shadow-2xl shadow-black/60
+        overflow-hidden
+        animate-in fade-in slide-in-from-top-2 duration-150
+        max-h-[300px] overflow-y-auto
+      "
+      style={{
+        top: dropdownPosition.top,
+        left: dropdownPosition.left,
+        minWidth: Math.max(dropdownPosition.width, parseInt(minWidth) || 140),
+      }}
+    >
+      {groups ? (
+        groups.map((group) => (
+          <div key={group.label}>
+            <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-white/[0.02] sticky top-0">
+              {group.label}
+            </div>
+            {group.options.map(renderOption)}
+          </div>
+        ))
+      ) : (
+        options?.map(renderOption)
+      )}
+    </div>,
+    document.body
+  ) : null
+
   return (
     <div className={`relative ${className}`} ref={ref}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
@@ -148,31 +198,7 @@ export function CustomDropdown<T extends string = string>({
         )}
       </button>
 
-      {isOpen && (
-        <div className="
-          absolute left-0 top-full z-[100] mt-1
-          min-w-full
-          rounded-xl
-          border border-white/[0.12]
-          bg-[#0c0c0c]
-          shadow-2xl shadow-black/60
-          overflow-hidden
-          animate-in fade-in slide-in-from-top-2 duration-150
-        " style={{ minWidth }}>
-          {groups ? (
-            groups.map((group) => (
-              <div key={group.label}>
-                <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-white/[0.02]">
-                  {group.label}
-                </div>
-                {group.options.map(renderOption)}
-              </div>
-            ))
-          ) : (
-            options?.map(renderOption)
-          )}
-        </div>
-      )}
+      {dropdownMenu}
     </div>
   )
 }
