@@ -88,7 +88,12 @@ const mortgageInputsSchema = z.object({
   borrower2DownpaymentCpfOa: z.number(),
   borrower1MonthlyCpfOa: z.number(),
   borrower2MonthlyCpfOa: z.number(),
-  cashAccountFallbackId: z.string().nullable(),
+  // Monthly payment cash split
+  monthlyCashAccountId: z.string().nullable(),
+  monthlyCashAmountType: z.enum(['fixed', 'percentage', 'remainder']),
+  monthlyCashAmount: z.number(),
+  // Downpayment cash source
+  downpaymentCashAccountId: z.string().nullable(),
   leaseRemainingYears: z.number().nullable(),
   purchaseFees: z.array(feeItemSchema),
   absdRate: z.number(),

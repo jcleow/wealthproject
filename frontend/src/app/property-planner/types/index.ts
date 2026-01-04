@@ -109,8 +109,12 @@ export interface MortgageInputs {
   borrower2DownpaymentCpfOa: number // Borrower 2's CPF OA for downpayment
   borrower1MonthlyCpfOa: number // Borrower 1's monthly CPF OA payment
   borrower2MonthlyCpfOa: number // Borrower 2's monthly CPF OA payment
-  // Payment source configuration (for amounts beyond CPF OA)
-  cashAccountFallbackId: string | null // Cash account to use for remaining payment after CPF
+  // Monthly payment - cash contribution configuration
+  monthlyCashAccountId: string | null // Cash account to draw from for monthly payment
+  monthlyCashAmountType: 'fixed' | 'percentage' | 'remainder' // How cash amount is determined
+  monthlyCashAmount: number // Fixed $ amount or percentage (0-100) depending on type
+  // Downpayment - cash contribution configuration
+  downpaymentCashAccountId: string | null // Cash account for downpayment cash portion
   // Lease tenure: null = freehold, 1-999 = remaining years
   leaseRemainingYears: number | null
   // Purchase fees/expenses

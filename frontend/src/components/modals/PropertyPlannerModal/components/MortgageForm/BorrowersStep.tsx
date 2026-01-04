@@ -173,6 +173,13 @@ function MonthlyCpfOaInput({
   )
 }
 
+// Amount type options for split configuration
+const AMOUNT_TYPE_OPTIONS = [
+  { value: 'remainder', label: 'Remainder' },
+  { value: 'fixed', label: 'Fixed $' },
+  { value: 'percentage', label: 'Percentage %' },
+]
+
 // Payment Source Configuration Section
 function PaymentSourceSection({
   inputs,
@@ -197,12 +204,25 @@ function PaymentSourceSection({
     return options
   }, [cashAccounts])
 
-  // Get selected account name for collapsed view
-  const selectedAccountName = useMemo(() => {
-    if (!inputs.cashAccountFallbackId) return null
-    const account = cashAccounts.find(a => a.id === inputs.cashAccountFallbackId)
-    return account?.name
-  }, [inputs.cashAccountFallbackId, cashAccounts])
+  // Get selected account names for collapsed view summary
+  const summaryText = useMemo(() => {
+    const parts: string[] = []
+    if (inputs.downpaymentCashAccountId) {
+      const account = cashAccounts.find(a => a.id === inputs.downpaymentCashAccountId)
+      if (account) parts.push(`DP: ${account.name}`)
+    }
+    if (inputs.monthlyCashAccountId) {
+      const account = cashAccounts.find(a => a.id === inputs.monthlyCashAccountId)
+      if (account) parts.push(`Monthly: ${account.name}`)
+    }
+    return parts.length > 0 ? parts.join(' · ') : null
+  }, [inputs.downpaymentCashAccountId, inputs.monthlyCashAccountId, cashAccounts])
+
+  // Get account name helper
+  const getAccountName = (accountId: string | null) => {
+    if (!accountId) return null
+    return cashAccounts.find(a => a.id === accountId)?.name
+  }
 
   return (
     <div className="rounded-xl border border-white/[0.06] overflow-hidden">
@@ -214,10 +234,10 @@ function PaymentSourceSection({
       >
         <div className="flex items-center gap-2">
           <Wallet className="h-4 w-4 text-slate-400" />
-          <span className="text-xs font-medium text-slate-300">Payment Sources</span>
-          {selectedAccountName && (
-            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-              {selectedAccountName}
+          <span className="text-xs font-medium text-slate-300">Cash Payment Sources</span>
+          {summaryText && (
+            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full truncate max-w-[180px]">
+              {summaryText}
             </span>
           )}
         </div>
@@ -230,53 +250,159 @@ function PaymentSourceSection({
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="p-4 border-t border-white/[0.06] space-y-3">
+        <div className="p-4 border-t border-white/[0.06] space-y-5">
           <p className="text-xs text-slate-500">
-            CPF OA contributions from borrowers are used first. Select a cash account to cover any remaining mortgage payment.
+            Configure which cash accounts to use for downpayment and monthly mortgage payments.
           </p>
 
-          <div className="space-y-1.5">
+          {/* Downpayment Cash Source */}
+          <div className="space-y-2">
             <div className="flex items-center gap-1.5">
-              <label className="text-xs font-medium text-slate-400">Fallback Cash Account</label>
+              <label className="text-xs font-medium text-slate-400">Downpayment Cash Source</label>
               <InfoTooltip
-                title="Fallback Payment Source"
-                description="When monthly CPF OA contributions don't cover the full mortgage payment, the remaining amount will be drawn from this cash account."
+                title="Downpayment Cash"
+                description="The cash account to draw from for the cash portion of your downpayment. The cash amount is determined by your property price, CPF usage, and minimum cash requirements."
               />
             </div>
             <CustomDropdown
-              value={inputs.cashAccountFallbackId ?? ''}
-              onChange={(value) => onChange('cashAccountFallbackId', value || null)}
+              value={inputs.downpaymentCashAccountId ?? ''}
+              onChange={(value) => onChange('downpaymentCashAccountId', value || null)}
               options={cashAccountOptions}
               minWidth="100%"
               showIcon
               icon={<Wallet className="h-4 w-4" />}
-              iconColor={inputs.cashAccountFallbackId ? 'text-emerald-400' : 'text-slate-500'}
+              iconColor={inputs.downpaymentCashAccountId ? 'text-emerald-400' : 'text-slate-500'}
             />
+            {inputs.downpaymentCash > 0 && (
+              <p className="text-[11px] text-slate-600 pl-0.5">
+                Cash portion: ${inputs.downpaymentCash.toLocaleString()}
+              </p>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="h-px bg-white/[0.06]" />
+
+          {/* Monthly Payment Cash Source */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-medium text-slate-400">Monthly Payment Cash Source</label>
+              <InfoTooltip
+                title="Monthly Cash Payment"
+                description="Configure how much cash to contribute monthly. CPF OA is used first, then cash is drawn based on your selected strategy."
+              />
+            </div>
+            <CustomDropdown
+              value={inputs.monthlyCashAccountId ?? ''}
+              onChange={(value) => onChange('monthlyCashAccountId', value || null)}
+              options={cashAccountOptions}
+              minWidth="100%"
+              showIcon
+              icon={<Wallet className="h-4 w-4" />}
+              iconColor={inputs.monthlyCashAccountId ? 'text-emerald-400' : 'text-slate-500'}
+            />
+
+            {/* Amount type selection - only show if account selected */}
+            {inputs.monthlyCashAccountId && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-medium text-slate-500">Cash Amount Type</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Type selector */}
+                  <div className="flex items-center shrink-0">
+                    {AMOUNT_TYPE_OPTIONS.map((option, idx) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          onChange('monthlyCashAmountType', option.value as 'fixed' | 'percentage' | 'remainder')
+                          // Reset amount when switching to remainder
+                          if (option.value === 'remainder') {
+                            onChange('monthlyCashAmount', 0)
+                          }
+                        }}
+                        className={cn(
+                          "px-2.5 py-1.5 text-xs font-medium border-y transition-colors",
+                          idx === 0 && "rounded-l-lg border-l",
+                          idx === AMOUNT_TYPE_OPTIONS.length - 1 && "rounded-r-lg border-r",
+                          idx > 0 && idx < AMOUNT_TYPE_OPTIONS.length - 1 && "border-l-0",
+                          inputs.monthlyCashAmountType === option.value
+                            ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
+                            : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Amount input - only for fixed and percentage */}
+                  {inputs.monthlyCashAmountType !== 'remainder' && (
+                    <div className="flex items-center flex-1 h-9 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
+                      {inputs.monthlyCashAmountType === 'fixed' && (
+                        <span className="text-slate-500 text-sm">$</span>
+                      )}
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={inputs.monthlyCashAmount === 0 ? '' : inputs.monthlyCashAmount.toLocaleString()}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/,/g, '')
+                          const num = parseFloat(raw) || 0
+                          onChange('monthlyCashAmount', num)
+                        }}
+                        placeholder="0"
+                        className="flex-1 min-w-0 bg-transparent border-0 outline-none text-white text-sm font-mono tabular-nums placeholder:text-slate-600 ml-1"
+                      />
+                      {inputs.monthlyCashAmountType === 'percentage' && (
+                        <span className="text-slate-500 text-sm ml-1">%</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Description of the selected type */}
+                <p className="text-[11px] text-slate-600 pl-0.5">
+                  {inputs.monthlyCashAmountType === 'remainder' && 'Cash covers whatever CPF OA doesn\'t pay.'}
+                  {inputs.monthlyCashAmountType === 'fixed' && 'Fixed dollar amount from cash each month.'}
+                  {inputs.monthlyCashAmountType === 'percentage' && 'Percentage of total mortgage payment from cash.'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Payment flow visualization */}
-          {inputs.monthlyCpfOa > 0 && (
-            <div className="mt-4 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+          {(inputs.monthlyCpfOa > 0 || inputs.monthlyCashAccountId) && (
+            <div className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
               <p className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider mb-2">
-                Payment Priority
+                Monthly Payment Flow
               </p>
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center">
-                    <Landmark className="h-3 w-3 text-blue-400" />
+                {inputs.monthlyCpfOa > 0 && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <Landmark className="h-3 w-3 text-blue-400" />
+                    </div>
+                    <span className="text-xs text-slate-300">1. CPF OA</span>
+                    <span className="text-xs text-slate-500 ml-auto font-mono tabular-nums">
+                      ${inputs.monthlyCpfOa.toLocaleString()}/mo
+                    </span>
                   </div>
-                  <span className="text-xs text-slate-300">1. CPF OA</span>
-                  <span className="text-xs text-slate-500 ml-auto font-mono tabular-nums">
-                    ${inputs.monthlyCpfOa.toLocaleString()}/mo
-                  </span>
-                </div>
-                {inputs.cashAccountFallbackId && (
+                )}
+                {inputs.monthlyCashAccountId && (
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
                       <Wallet className="h-3 w-3 text-emerald-400" />
                     </div>
-                    <span className="text-xs text-slate-300">2. {selectedAccountName}</span>
-                    <span className="text-xs text-slate-500 ml-auto">Remainder</span>
+                    <span className="text-xs text-slate-300">
+                      {inputs.monthlyCpfOa > 0 ? '2.' : '1.'} {getAccountName(inputs.monthlyCashAccountId)}
+                    </span>
+                    <span className="text-xs text-slate-500 ml-auto font-mono tabular-nums">
+                      {inputs.monthlyCashAmountType === 'remainder' && 'Remainder'}
+                      {inputs.monthlyCashAmountType === 'fixed' && `$${inputs.monthlyCashAmount.toLocaleString()}/mo`}
+                      {inputs.monthlyCashAmountType === 'percentage' && `${inputs.monthlyCashAmount}%`}
+                    </span>
                   </div>
                 )}
               </div>

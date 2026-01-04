@@ -17,6 +17,7 @@ export type Residency = 'singapore_citizen' | 'permanent_resident' | 'foreigner'
 export type FeeContext = 'purchase' | 'sale' | 'recurring'
 export type FeeFrequency = 'one_time' | 'monthly' | 'yearly'
 export type GrowthStrategy = 'fixed' | 'annual_step' | 'compound_monthly' | 'tiered_adb'
+export type CashAmountType = 'fixed' | 'percentage' | 'remainder'
 
 // =============================================================================
 // API RESPONSE TYPES
@@ -50,8 +51,12 @@ export interface PropertySGDetails {
   borrower2DownpaymentCpfOa?: string | null
   borrower1MonthlyCpfOa?: string | null
   borrower2MonthlyCpfOa?: string | null
-  // Payment source configuration
-  cashAccountFallbackId?: string | null
+  // Monthly payment - cash contribution configuration
+  monthlyCashAccountId?: string | null
+  monthlyCashAmountType?: CashAmountType | null
+  monthlyCashAmount?: string | null
+  // Downpayment - cash contribution configuration
+  downpaymentCashAccountId?: string | null
   // Lease tenure (null = freehold, 1-999 = years remaining)
   leaseRemainingYears?: number | null
   otherDebt: string
@@ -309,8 +314,12 @@ export interface CreateSGDetailsInput {
   borrower2DownpaymentCpfOa?: string
   borrower1MonthlyCpfOa?: string
   borrower2MonthlyCpfOa?: string
-  // Payment source configuration
-  cashAccountFallbackId?: string | null
+  // Monthly payment - cash contribution configuration
+  monthlyCashAccountId?: string | null
+  monthlyCashAmountType?: CashAmountType
+  monthlyCashAmount?: string
+  // Downpayment - cash contribution configuration
+  downpaymentCashAccountId?: string | null
   // Lease tenure (null = freehold, 1-999 = years remaining)
   leaseRemainingYears?: number | null
   otherDebt?: string
