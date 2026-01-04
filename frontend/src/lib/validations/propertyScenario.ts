@@ -88,6 +88,7 @@ const mortgageInputsSchema = z.object({
   borrower2DownpaymentCpfOa: z.number(),
   borrower1MonthlyCpfOa: z.number(),
   borrower2MonthlyCpfOa: z.number(),
+  cashAccountFallbackId: z.string().nullable(),
   leaseRemainingYears: z.number().nullable(),
   purchaseFees: z.array(feeItemSchema),
   absdRate: z.number(),

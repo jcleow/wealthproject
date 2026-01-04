@@ -1,10 +1,13 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { InfoTooltip } from '@/app/property-planner/components/InfoTooltip'
 import { calculateMonthlyOaInflow } from '@/app/property-planner/hooks'
 import { cn } from '@/lib/utils'
+import { Wallet, Landmark, ChevronDown, ChevronUp } from 'lucide-react'
+import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
+import { useCashAccountsQuery } from '@/hooks/queries'
 
 import type { BorrowersStepProps, IncomeOption } from './types'
 
@@ -165,6 +168,121 @@ function MonthlyCpfOaInput({
         <p className="text-[11px] text-slate-600 pl-0.5">
           Est. monthly OA contribution: ${estimatedMonthlyOa.toLocaleString()}/mo
         </p>
+      )}
+    </div>
+  )
+}
+
+// Payment Source Configuration Section
+function PaymentSourceSection({
+  inputs,
+  onChange,
+}: {
+  inputs: BorrowersStepProps['inputs']
+  onChange: BorrowersStepProps['onChange']
+}) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const { data: cashAccounts = [] } = useCashAccountsQuery()
+
+  // Build dropdown options for cash accounts
+  const cashAccountOptions = useMemo(() => {
+    const options = [
+      { value: '', label: 'None (CPF only)' },
+      ...cashAccounts.map(acc => ({
+        value: acc.id,
+        label: acc.name,
+        icon: <Wallet className="h-4 w-4 text-emerald-400" />,
+      }))
+    ]
+    return options
+  }, [cashAccounts])
+
+  // Get selected account name for collapsed view
+  const selectedAccountName = useMemo(() => {
+    if (!inputs.cashAccountFallbackId) return null
+    const account = cashAccounts.find(a => a.id === inputs.cashAccountFallbackId)
+    return account?.name
+  }, [inputs.cashAccountFallbackId, cashAccounts])
+
+  return (
+    <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+      {/* Header - always visible */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-3 bg-white/[0.02] hover:bg-white/[0.03] transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Wallet className="h-4 w-4 text-slate-400" />
+          <span className="text-xs font-medium text-slate-300">Payment Sources</span>
+          {selectedAccountName && (
+            <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+              {selectedAccountName}
+            </span>
+          )}
+        </div>
+        {isExpanded ? (
+          <ChevronUp className="h-4 w-4 text-slate-500" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-slate-500" />
+        )}
+      </button>
+
+      {/* Expanded content */}
+      {isExpanded && (
+        <div className="p-4 border-t border-white/[0.06] space-y-3">
+          <p className="text-xs text-slate-500">
+            CPF OA contributions from borrowers are used first. Select a cash account to cover any remaining mortgage payment.
+          </p>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-medium text-slate-400">Fallback Cash Account</label>
+              <InfoTooltip
+                title="Fallback Payment Source"
+                description="When monthly CPF OA contributions don't cover the full mortgage payment, the remaining amount will be drawn from this cash account."
+              />
+            </div>
+            <CustomDropdown
+              value={inputs.cashAccountFallbackId ?? ''}
+              onChange={(value) => onChange('cashAccountFallbackId', value || null)}
+              options={cashAccountOptions}
+              minWidth="100%"
+              showIcon
+              icon={<Wallet className="h-4 w-4" />}
+              iconColor={inputs.cashAccountFallbackId ? 'text-emerald-400' : 'text-slate-500'}
+            />
+          </div>
+
+          {/* Payment flow visualization */}
+          {inputs.monthlyCpfOa > 0 && (
+            <div className="mt-4 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+              <p className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider mb-2">
+                Payment Priority
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center">
+                    <Landmark className="h-3 w-3 text-blue-400" />
+                  </div>
+                  <span className="text-xs text-slate-300">1. CPF OA</span>
+                  <span className="text-xs text-slate-500 ml-auto font-mono tabular-nums">
+                    ${inputs.monthlyCpfOa.toLocaleString()}/mo
+                  </span>
+                </div>
+                {inputs.cashAccountFallbackId && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                      <Wallet className="h-3 w-3 text-emerald-400" />
+                    </div>
+                    <span className="text-xs text-slate-300">2. {selectedAccountName}</span>
+                    <span className="text-xs text-slate-500 ml-auto">Remainder</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
@@ -384,6 +502,9 @@ export function BorrowersStep({
           )}
         </div>
       )}
+
+      {/* Payment Source Configuration */}
+      <PaymentSourceSection inputs={inputs} onChange={onChange} />
 
       {/* Summary */}
       <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">

@@ -50,6 +50,8 @@ export interface PropertySGDetails {
   borrower2DownpaymentCpfOa?: string | null
   borrower1MonthlyCpfOa?: string | null
   borrower2MonthlyCpfOa?: string | null
+  // Payment source configuration
+  cashAccountFallbackId?: string | null
   // Lease tenure (null = freehold, 1-999 = years remaining)
   leaseRemainingYears?: number | null
   otherDebt: string
@@ -307,6 +309,8 @@ export interface CreateSGDetailsInput {
   borrower2DownpaymentCpfOa?: string
   borrower1MonthlyCpfOa?: string
   borrower2MonthlyCpfOa?: string
+  // Payment source configuration
+  cashAccountFallbackId?: string | null
   // Lease tenure (null = freehold, 1-999 = years remaining)
   leaseRemainingYears?: number | null
   otherDebt?: string

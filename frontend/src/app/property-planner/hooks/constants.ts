@@ -168,6 +168,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2DownpaymentCpfOa: 0,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
+    cashAccountFallbackId: null,
     // Lease tenure (HDB = 99 years)
     leaseRemainingYears: 99,
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
@@ -205,6 +206,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2DownpaymentCpfOa: 0,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
+    cashAccountFallbackId: null,
     // Lease tenure (BTO = 99 years)
     leaseRemainingYears: 99,
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
@@ -242,6 +244,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2DownpaymentCpfOa: 62400,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
+    cashAccountFallbackId: null,
     // Lease tenure (EC = 99 years)
     leaseRemainingYears: 99,
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
@@ -279,6 +282,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2DownpaymentCpfOa: 62400,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
+    cashAccountFallbackId: null,
     // Lease tenure (private condo - default 99 years, user can change to freehold)
     leaseRemainingYears: 99,
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),
@@ -316,6 +320,7 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2DownpaymentCpfOa: 62400,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
+    cashAccountFallbackId: null,
     // Lease tenure (private new - default 99 years, user can change to freehold)
     leaseRemainingYears: 99,
     purchaseFees: DEFAULT_PURCHASE_FEES.map(f => ({ ...f })),

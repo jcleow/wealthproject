@@ -176,6 +176,8 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     borrower2DownpaymentCpfOa: parseFloat(sgDetails.borrower2DownpaymentCpfOa ?? '0'),
     borrower1MonthlyCpfOa: parseFloat(sgDetails.borrower1MonthlyCpfOa ?? '0'),
     borrower2MonthlyCpfOa: parseFloat(sgDetails.borrower2MonthlyCpfOa ?? '0'),
+    // Payment source configuration
+    cashAccountFallbackId: sgDetails.cashAccountFallbackId ?? null,
     // Lease tenure
     leaseRemainingYears: sgDetails.leaseRemainingYears ?? 99,
     purchaseFees: purchaseFees.length > 0 ? purchaseFees : DEFAULT_SALE_FEES.map(f => ({ ...f })),
@@ -249,6 +251,15 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
       borrowerType: scenario.inputs.borrowerType,
       borrower1IncomeId,
       borrower2IncomeId,
+      // Per-borrower CPF OA tracking
+      borrower1DownpaymentCpfOa: String(scenario.inputs.borrower1DownpaymentCpfOa),
+      borrower2DownpaymentCpfOa: String(scenario.inputs.borrower2DownpaymentCpfOa),
+      borrower1MonthlyCpfOa: String(scenario.inputs.borrower1MonthlyCpfOa),
+      borrower2MonthlyCpfOa: String(scenario.inputs.borrower2MonthlyCpfOa),
+      // Payment source configuration
+      cashAccountFallbackId: scenario.inputs.cashAccountFallbackId,
+      // Lease tenure
+      leaseRemainingYears: scenario.inputs.leaseRemainingYears,
       otherDebt: String(scenario.inputs.otherDebt),
       propertyCount: 0,
       saleExpectedDate: scenario.saleInputs.expectedSaleDate,
