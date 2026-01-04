@@ -319,4 +319,27 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 			propertyPlannerHandler.HandleDeleteGrant(w, r, scenarioID, grantID)
 		}
 	}).Methods("PUT", "DELETE")
+
+	// Fund flow rules v2 endpoints (Phase 1: payment rules)
+	fundFlowRuleHandler := handlers.NewFundFlowRuleV2Handler(deps.FinStore)
+	router.HandleFunc("/fund-flow-rules", fundFlowRuleHandler.HandleList).Methods("GET")
+	router.HandleFunc("/fund-flow-rules", fundFlowRuleHandler.HandleCreate).Methods("POST")
+	router.HandleFunc("/fund-flow-rules", fundFlowRuleHandler.HandleDeleteAll).Methods("DELETE")
+	router.HandleFunc("/fund-flow-rules/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "GET":
+			fundFlowRuleHandler.HandleGet(w, r, id)
+		case "PUT":
+			fundFlowRuleHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			fundFlowRuleHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("GET", "PUT", "DELETE")
+	router.HandleFunc("/fund-flow-rules/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		fundFlowRuleHandler.HandleStop(w, r, id)
+	}).Methods("POST")
 }
