@@ -8,7 +8,6 @@ import {
   Home,
   Banknote,
   TrendingUp,
-  Wallet,
 } from 'lucide-react'
 
 import type {
@@ -33,7 +32,6 @@ import {
 import { propertyOptions } from '../constants'
 import { MortgageForm } from './MortgageForm'
 import { SaleParametersForm } from './SaleParametersForm'
-import { PaymentRulesForm } from './PaymentRulesForm'
 import { TabbedResultsPanel, type ResultsTab } from './TabbedResultsPanel'
 
 interface ScenarioDetailViewProps {
@@ -42,8 +40,6 @@ interface ScenarioDetailViewProps {
   saleInputs: SaleInputs
   activeResultsTab: ResultsTab
   editingScenario: PropertyScenario | null
-  /** Property SG ID for payment rules (from property_sg table) */
-  propertySgId?: string | null
   /** @deprecated Now handled in modal header - kept for standalone page */
   editingScenarioName?: string
   /** @deprecated Now handled in modal header - kept for standalone page */
@@ -94,7 +90,6 @@ export function ScenarioDetailView({
   saleInputs,
   activeResultsTab,
   editingScenario,
-  propertySgId,
   editingScenarioSaleIcon,
   editingScenarioSaleIconColor,
   editingScenarioSaleIconSearch,
@@ -160,17 +155,6 @@ export function ScenarioDetailView({
           </button>
           <button
             type="button"
-            onClick={() => onActiveResultsTabChange('payment')}
-            className={cn(
-              "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2",
-              activeResultsTab === 'payment' ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"
-            )}
-          >
-            <Wallet className="w-3.5 h-3.5" />
-            Payment
-          </button>
-          <button
-            type="button"
             onClick={() => onActiveResultsTabChange('appreciation')}
             className={cn(
               "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2",
@@ -185,9 +169,9 @@ export function ScenarioDetailView({
 
       <div className={cn(
         "grid gap-6",
-        activeResultsTab === 'appreciation' || activeResultsTab === 'payment' ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"
+        activeResultsTab === 'appreciation' ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"
       )}>
-        {activeResultsTab !== 'appreciation' && activeResultsTab !== 'payment' && (
+        {activeResultsTab !== 'appreciation' && (
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6">
             <AnimatePresence mode="wait">
               {activeResultsTab === 'purchase' ? (
@@ -215,39 +199,19 @@ export function ScenarioDetailView({
           </div>
         )}
 
-        {/* Payment Rules Tab - Full Width */}
-        {activeResultsTab === 'payment' && propertySgId && (
-          <motion.div
-            key="payment-form"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.2 }}
-            className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6 max-w-2xl mx-auto w-full"
-          >
-            <PaymentRulesForm
-              propertyId={propertySgId}
-              monthlyPayment={calculation.monthlyPayment}
-              startDate={inputs.loanStartMonth}
-            />
-          </motion.div>
-        )}
-
-        {activeResultsTab !== 'payment' && (
-          <TabbedResultsPanel
-            calculation={calculation}
-            propertyType={selectedType}
-            saleInputs={saleInputs}
-            saleResult={saleResult}
-            propertyPrice={inputs.propertyPrice}
-            activeTab={activeResultsTab}
-            absdRate={inputs.absdRate}
-            appreciationPeriods={inputs.appreciationPeriods}
-            onPeriodsChange={(periods) => onInputChange('appreciationPeriods', periods)}
-            purchaseDate={inputs.loanStartMonth}
-            computedValues={computedValues}
-          />
-        )}
+        <TabbedResultsPanel
+          calculation={calculation}
+          propertyType={selectedType}
+          saleInputs={saleInputs}
+          saleResult={saleResult}
+          propertyPrice={inputs.propertyPrice}
+          activeTab={activeResultsTab}
+          absdRate={inputs.absdRate}
+          appreciationPeriods={inputs.appreciationPeriods}
+          onPeriodsChange={(periods) => onInputChange('appreciationPeriods', periods)}
+          purchaseDate={inputs.loanStartMonth}
+          computedValues={computedValues}
+        />
       </div>
     </motion.div>
   )
