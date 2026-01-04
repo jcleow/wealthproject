@@ -25,7 +25,7 @@ import {
   calculateMortgage,
 } from '@/app/property-planner/hooks'
 
-export type ResultsTab = 'purchase' | 'sale' | 'appreciation'
+export type ResultsTab = 'purchase' | 'sale' | 'payment' | 'appreciation'
 type PurchaseDetailTab = 'breakdown' | 'chart'
 
 interface TabbedResultsPanelProps {

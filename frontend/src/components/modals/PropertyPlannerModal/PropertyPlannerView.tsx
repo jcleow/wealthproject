@@ -648,6 +648,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
               saleInputs={saleInputs}
               activeResultsTab={activeResultsTab}
               editingScenario={editingScenario ?? null}
+              propertySgId={editingApiScenario?.propertySG?.id}
               editingScenarioName={editingScenarioName}
               editingScenarioPurchaseIcon={editingScenarioPurchaseIcon}
               editingScenarioPurchaseIconColor={editingScenarioPurchaseIconColor}
