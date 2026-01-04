@@ -12,6 +12,7 @@ export * as growthApi from './growth'
 export * as settingsApi from './settings'
 export * as cpfApi from './cpf'
 export * as personsApi from './persons'
+export * as fundFlowRulesApi from './fundFlowRules'
 
 import * as assets from './assets'
 import * as investments from './investments'
@@ -27,6 +28,7 @@ import * as growth from './growth'
 import * as settings from './settings'
 import * as cpf from './cpf'
 import * as persons from './persons'
+import * as fundFlowRules from './fundFlowRules'
 
 /**
  * Reset all user data in a single atomic transaction.
@@ -57,5 +59,6 @@ export const financialApi = {
   ...settings,
   ...cpf,
   ...persons,
+  ...fundFlowRules,
   resetAllUserData,
 }
