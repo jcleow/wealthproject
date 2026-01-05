@@ -1,7 +1,8 @@
 -- Fund Flow Rules - Phase 1 (Payment Rules)
 -- Unified abstraction for internal money movements between balances
+-- NOTE: This migration is idempotent - safe to run multiple times
 
-CREATE TABLE fund_flow_rules (
+CREATE TABLE IF NOT EXISTS fund_flow_rules (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -106,14 +107,14 @@ CREATE TABLE fund_flow_rules (
 );
 
 -- Indexes
-CREATE INDEX idx_fund_flow_rules_user ON fund_flow_rules(user_id);
-CREATE INDEX idx_fund_flow_rules_type ON fund_flow_rules(rule_type);
-CREATE INDEX idx_fund_flow_rules_dates ON fund_flow_rules(start_date, end_date);
-CREATE INDEX idx_fund_flow_rules_income ON fund_flow_rules(source_income_id)
+CREATE INDEX IF NOT EXISTS idx_fund_flow_rules_user ON fund_flow_rules(user_id);
+CREATE INDEX IF NOT EXISTS idx_fund_flow_rules_type ON fund_flow_rules(rule_type);
+CREATE INDEX IF NOT EXISTS idx_fund_flow_rules_dates ON fund_flow_rules(start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_fund_flow_rules_income ON fund_flow_rules(source_income_id)
     WHERE source_income_id IS NOT NULL;
-CREATE INDEX idx_fund_flow_rules_liability ON fund_flow_rules(target_liability_id)
+CREATE INDEX IF NOT EXISTS idx_fund_flow_rules_liability ON fund_flow_rules(target_liability_id)
     WHERE target_liability_id IS NOT NULL;
-CREATE INDEX idx_fund_flow_rules_property ON fund_flow_rules(target_property_id)
+CREATE INDEX IF NOT EXISTS idx_fund_flow_rules_property ON fund_flow_rules(target_property_id)
     WHERE target_property_id IS NOT NULL;
 
 COMMENT ON TABLE fund_flow_rules IS 'Unified table for internal money movements: payments, allocations, transfers';

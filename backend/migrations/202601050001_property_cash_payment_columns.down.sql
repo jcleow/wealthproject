@@ -1,0 +1,11 @@
+-- Remove per-borrower cash payment columns from property_sg
+ALTER TABLE property_sg DROP COLUMN IF EXISTS borrower1_downpayment_cash_account_id;
+ALTER TABLE property_sg DROP COLUMN IF EXISTS borrower1_downpayment_cash_amount;
+ALTER TABLE property_sg DROP COLUMN IF EXISTS borrower2_downpayment_cash_account_id;
+ALTER TABLE property_sg DROP COLUMN IF EXISTS borrower2_downpayment_cash_amount;
+ALTER TABLE property_sg DROP COLUMN IF EXISTS borrower1_monthly_cash_account_id;
+ALTER TABLE property_sg DROP COLUMN IF EXISTS borrower1_monthly_cash_amount_type;
+ALTER TABLE property_sg DROP COLUMN IF EXISTS borrower1_monthly_cash_amount;
+ALTER TABLE property_sg DROP COLUMN IF EXISTS borrower2_monthly_cash_account_id;
+ALTER TABLE property_sg DROP COLUMN IF EXISTS borrower2_monthly_cash_amount_type;
+ALTER TABLE property_sg DROP COLUMN IF EXISTS borrower2_monthly_cash_amount;
