@@ -104,7 +104,7 @@ func TestCreateIncomeAllocation_ToCashAccount(t *testing.T) {
 	incomeID := "income-1"
 	cashAccountID := "cash-account-1"
 	createdAt := time.Now()
-	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) // Default year used by implementation
 
 	allocationValue := decimal.MustFromString("50")
 	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))
@@ -141,7 +141,7 @@ func TestCreateIncomeAllocation_ToInvestment(t *testing.T) {
 	incomeID := "income-1"
 	investmentID := "investment-1"
 	createdAt := time.Now()
-	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) // Default year used by implementation
 
 	allocationValue := decimal.MustFromString("1000")
 	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))

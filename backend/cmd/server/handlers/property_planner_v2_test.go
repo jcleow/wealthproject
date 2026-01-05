@@ -370,7 +370,7 @@ func TestPropertyPlannerV2_ScenarioResponse_JSONSerialization(t *testing.T) {
 func TestPropertyPlannerV2_CreateScenarioRequest_Parsing(t *testing.T) {
 	jsonStr := `{
 		"country": "SG",
-		"sgDetails": {
+		"propertySG": {
 			"name": "My HDB",
 			"propertyType": "hdb",
 			"propertySubtype": "resale",

@@ -457,6 +457,16 @@ export function NetWorthProjection({
           ))}
         </div>
       )}
+
+      {scenarioMarkers.length > 0 && (
+        <div className="sr-only">
+          {scenarioMarkers.map((marker, index) => (
+            <span key={marker.yearIndex} data-testid={`scenario-marker-${index}`}>
+              Scenario event at year {marker.yearIndex}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
