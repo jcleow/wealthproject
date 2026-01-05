@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "vitest"
+    "test": "vitest",
+    "generate:api": "swagger-typescript-api generate -p ../backend/cmd/server/docs/swagger.json -o src/types -n api.generated.ts --no-client"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -63,6 +64,7 @@
     "grab": "^0.0.88",
     "jsdom": "^27.2.0",
     "postcss": "^8.4.31",
+    "swagger-typescript-api": "^13.2.16",
     "tailwindcss": "^3.3.5",
     "typescript": "^5.2.2",
     "vitest": "^4.0.13"
