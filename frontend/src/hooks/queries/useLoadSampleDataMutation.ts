@@ -619,19 +619,20 @@ export function useLoadSampleDataMutation() {
             propertyPrice: '450000',
             loanType: 'hdb',
             // Legacy total fields (kept for backward compatibility)
-            downpaymentCpfOa: '100000',
-            downpaymentCash: '12500', // 25% downpayment ($112,500) - CPF ($100k) = $12,500 cash
+            // Note: Backend validates total CPF against primary borrower's account ($85k)
+            downpaymentCpfOa: '85000',
+            downpaymentCash: '27500', // 25% downpayment ($112,500) - CPF ($85k) = $27,500 cash
             borrowerType: 'joint', // Joint borrowers (Alex + Sarah)
             borrower1IncomeId: alexIncome?.id, // Link to Alex's income for projected CPF OA
             borrower1CpfAccountId: cpfAccount?.id, // Link to Alex's CPF account
             borrower2IncomeId: sarahIncome?.id, // Link to Sarah's income for projected CPF OA
             borrower2CpfAccountId: sarahCpfAccount?.id, // Link to Sarah's CPF account
             // Per-borrower CPF OA tracking for downpayment
-            // Split CPF OA evenly: Alex $50k, Sarah $50k
+            // Split: Alex $50k (has $85k available), Sarah $35k (has $65k available)
             borrower1DownpaymentCpfOaAmountType: 'fixed',
             borrower1DownpaymentCpfOa: '50000',
             borrower2DownpaymentCpfOaAmountType: 'fixed',
-            borrower2DownpaymentCpfOa: '50000',
+            borrower2DownpaymentCpfOa: '35000',
             // Per-borrower monthly CPF OA contributions (estimated from salaries)
             // Alex $7,500/mo → ~$1,590/mo OA, Sarah $5,000/mo → ~$1,060/mo OA
             borrower1MonthlyCpfOa: '1590',
@@ -640,7 +641,7 @@ export function useLoadSampleDataMutation() {
             // Borrower 1 covers cash remainder from Joint Savings
             borrower1DownpaymentCashAccountId: jointSavingsAccount?.id ?? null,
             borrower1DownpaymentCashAmountType: 'remainder',
-            borrower1DownpaymentCashAmount: '12500',
+            borrower1DownpaymentCashAmount: '27500',
             // Borrower 2 has no separate cash contribution
             borrower2DownpaymentCashAccountId: null,
             borrower2DownpaymentCashAmountType: 'remainder',
