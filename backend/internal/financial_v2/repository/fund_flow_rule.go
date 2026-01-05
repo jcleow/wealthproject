@@ -624,16 +624,14 @@ func (s *Store) CreateBatchFundFlowRules(ctx context.Context, userID string, rul
 				amount_type, amount_value, priority,
 				start_date, end_date, created_at, updated_at`
 
-		args := []any{
+		var created FundFlowRule
+		err := tx.QueryRow(ctx, query,
 			userID, rule.Name, rule.RuleType,
 			rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID, rule.SourcePropertyID,
 			rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID,
 			rule.AmountType, rule.AmountValue, rule.Priority,
 			startDate, rule.EndDate,
-		}
-
-		var created FundFlowRule
-		err := tx.QueryRow(ctx, query, args...).Scan(
+		).Scan(
 			&created.ID, &created.UserID, &created.Name, &created.RuleType,
 			&created.SourceIncomeID, &created.SourceCpfAccountID, &created.SourceCashAccountID, &created.SourceInvestmentID, &created.SourcePropertyID,
 			&created.TargetCpfAccountID, &created.TargetCashAccountID, &created.TargetInvestmentID, &created.TargetLiabilityID, &created.TargetPropertyID,
