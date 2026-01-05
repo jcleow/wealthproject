@@ -68,7 +68,7 @@ flowchart LR
     Internal -->|"-$"| Exp
 
     style External fill:#ffe8e8,stroke:#c44
-    style Internal fill:#e8ffe8,stroke:#4c4
+    style Internal fill:#d1fae5,stroke:#059669
 ```
 
 ---
@@ -114,6 +114,9 @@ gantt
     Transfer Rules               :p3a, after p2c, 2w
     CPF Top-up UI                :p3b, after p3a, 1w
     Investment Drawdown UI       :p3c, after p3b, 1w
+    section Phase 4
+    Expense Rules                :p4a, after p3c, 2w
+    Expense Source Selection UI  :p4b, after p4a, 1w
 ```
 
 ### Rule Type Rollout
@@ -132,11 +135,16 @@ flowchart LR
         Transfer["transfer<br/>account → account"]
     end
 
-    Phase1 --> Phase2 --> Phase3
+    subgraph Phase4["Phase 4<br/>~8 files"]
+        Expense["expense<br/>cash → external"]
+    end
+
+    Phase1 --> Phase2 --> Phase3 --> Phase4
 
     style Phase1 fill:#d4edda,stroke:#28a745,stroke-width:2px
     style Phase2 fill:#fff3cd,stroke:#ffc107
     style Phase3 fill:#e2e3e5,stroke:#6c757d
+    style Phase4 fill:#ffe8e8,stroke:#c44
 ```
 
 ---
@@ -261,7 +269,7 @@ flowchart TB
 
     style Payment fill:#e8f4ff,stroke:#08f
     style Allocation fill:#fff4e8,stroke:#f80
-    style Transfer fill:#f4e8ff,stroke:#80f
+    style Transfer fill:#e9d5ff,stroke:#7c3aed
 ```
 
 ```sql
@@ -406,7 +414,7 @@ flowchart TD
     style Percentage fill:#e8f4ff,stroke:#08f
     style TargetReq fill:#fff4e8,stroke:#f80
     style MaxAvail fill:#fff4e8,stroke:#f80
-    style Remainder fill:#f4e8ff,stroke:#80f
+    style Remainder fill:#e9d5ff,stroke:#7c3aed
 ```
 
 ### `max_available` - Dynamic Source-Constrained Transfers
@@ -805,6 +813,118 @@ ALTER TABLE fund_flow_rules
 
 ---
 
+## Phase 4: Expense Rules
+
+**Goal:** Enable priority-based source accounts for expenses (childcare, utilities, etc.)
+
+**Blast Radius:** ~8 additional files
+
+### Rationale
+
+Currently, expenses deduct from a single cash account. Users want to model:
+- "Pay childcare from savings first, then emergency fund if savings runs low"
+- "Pay utilities from checking, fall back to savings"
+
+This is the same pattern as payment rules, but for external outflows instead of liability payments.
+
+### What Changes
+
+```sql
+-- Add expense as a target type
+ALTER TABLE fund_flow_rules
+    DROP CONSTRAINT fund_flow_rules_rule_type_check,
+    ADD CONSTRAINT fund_flow_rules_rule_type_check
+        CHECK (rule_type IN ('payment', 'allocation', 'transfer', 'expense'));
+
+-- Add expense target column
+ALTER TABLE fund_flow_rules
+    ADD COLUMN target_expense_id uuid REFERENCES finance_expenses(id) ON DELETE CASCADE;
+
+-- Index for expense lookups
+CREATE INDEX idx_fund_flow_rules_expense ON fund_flow_rules(target_expense_id)
+    WHERE target_expense_id IS NOT NULL;
+```
+
+### Source/Target Constraints
+
+```mermaid
+flowchart TB
+    subgraph Expense["rule_type = 'expense'"]
+        direction LR
+        E_Source["SOURCE<br/>──────────<br/>• cash_account<br/><i>(exactly one)</i>"]
+        E_Arrow["→"]
+        E_Target["TARGET<br/>──────────<br/>• expense<br/><i>(external outflow)</i>"]
+        E_Source --- E_Arrow --- E_Target
+    end
+
+    style Expense fill:#ffe8e8,stroke:#c44
+```
+
+**Note:** Only cash accounts can pay expenses (not CPF or investments directly).
+
+### Example: Childcare with Priority-Based Sources
+
+**User Story:** Childcare is $1,500/month. Pay from savings first, then emergency fund.
+
+```json
+[
+  {
+    "name": "Childcare from Savings",
+    "ruleType": "expense",
+    "sourceCashAccountId": "savings-uuid",
+    "targetExpenseId": "childcare-uuid",
+    "amountType": "max_available",
+    "priority": 0,
+    "startDate": "2025-01-01",
+    "endDate": "2031-12-31"
+  },
+  {
+    "name": "Childcare from Emergency",
+    "ruleType": "expense",
+    "sourceCashAccountId": "emergency-uuid",
+    "targetExpenseId": "childcare-uuid",
+    "amountType": "remainder",
+    "priority": 1,
+    "startDate": "2025-01-01",
+    "endDate": "2031-12-31"
+  }
+]
+```
+
+**Monthly Execution (when childcare = $1,500):**
+
+| Month | Savings Balance | From Savings | From Emergency | Savings End |
+|-------|-----------------|--------------|----------------|-------------|
+| 1 | $10,000 | $1,500 | $0 | $8,500 |
+| 6 | $1,200 | $1,200 | $300 | $0 |
+| 7 | $0 | $0 | $1,500 | $0 |
+
+### Validation Rules
+
+```go
+case "expense":
+    if r.SourceCashAccountID == nil {
+        return errors.New("expense rules require cash account source")
+    }
+    if r.SourceCpfAccountID != nil || r.SourceInvestmentID != nil {
+        return errors.New("expense rules can only use cash as source")
+    }
+    if r.TargetExpenseID == nil {
+        return errors.New("expense rules require expense target")
+    }
+```
+
+### Key Differences from Payment Rules
+
+| Aspect | Payment | Expense |
+|--------|---------|---------|
+| Target | Liability/Property (internal) | Expense (external) |
+| Net Worth | Zero (debt reduction) | Decreases |
+| Sources | CPF or Cash | Cash only |
+| Purpose | Pay down tracked debt | Pay external costs |
+
+---
+
 ## How Tax & CPF Deductions Work (Not Fund Flows)
 
 Tax and mandatory CPF are **external flows**, not internal balance movements:
@@ -937,7 +1057,7 @@ flowchart TD
 
     Response --> End([End Month])
 
-    style Step3 fill:#e8ffe8,stroke:#4c4,stroke-width:2px
+    style Step3 fill:#d1fae5,stroke:#059669,stroke-width:2px
 ```
 
 ### Payment Rule Execution Sequence
@@ -1427,6 +1547,7 @@ ORDER BY rule_type, target, priority;
 | 1 | Users can configure CPF → mortgage with `max_available` + cash fallback |
 | 2 | All `income_allocations` migrated, old table dropped |
 | 3 | Users can model CPF voluntary top-ups, investment drawdowns |
+| 4 | Users can configure priority-based source accounts for expenses (childcare, utilities) |
 
 ---
 

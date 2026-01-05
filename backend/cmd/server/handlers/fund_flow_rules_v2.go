@@ -44,11 +44,8 @@ type fundFlowRuleDTO struct {
 	AmountType  string  `json:"amountType"`
 	AmountValue *string `json:"amountValue,omitempty"`
 
-	// Priority and fallback
-	Priority              int     `json:"priority"`
-	FallbackCpfAccountID  *string `json:"fallbackCpfAccountId,omitempty"`
-	FallbackCashAccountID *string `json:"fallbackCashAccountId,omitempty"`
-	FallbackInvestmentID  *string `json:"fallbackInvestmentId,omitempty"`
+	// Priority for multiple rules on same target (lower = higher priority)
+	Priority int `json:"priority"`
 
 	// Timing
 	StartDate string  `json:"startDate"`
@@ -61,27 +58,24 @@ type fundFlowRuleDTO struct {
 
 func toFundFlowRuleDTO(r repo.FundFlowRule) fundFlowRuleDTO {
 	dto := fundFlowRuleDTO{
-		ID:                    r.ID,
-		UserID:                r.UserID,
-		Name:                  r.Name,
-		RuleType:              r.RuleType,
-		SourceIncomeID:        r.SourceIncomeID,
-		SourceCpfAccountID:    r.SourceCpfAccountID,
-		SourceCashAccountID:   r.SourceCashAccountID,
-		SourceInvestmentID:    r.SourceInvestmentID,
-		TargetCpfAccountID:    r.TargetCpfAccountID,
-		TargetCashAccountID:   r.TargetCashAccountID,
-		TargetInvestmentID:    r.TargetInvestmentID,
-		TargetLiabilityID:     r.TargetLiabilityID,
-		TargetPropertyID:      r.TargetPropertyID,
-		AmountType:            r.AmountType,
-		Priority:              r.Priority,
-		FallbackCpfAccountID:  r.FallbackCpfAccountID,
-		FallbackCashAccountID: r.FallbackCashAccountID,
-		FallbackInvestmentID:  r.FallbackInvestmentID,
-		StartDate:             r.StartDate.Format("2006-01-02T15:04:05Z07:00"),
-		CreatedAt:             r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:             r.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:                  r.ID,
+		UserID:              r.UserID,
+		Name:                r.Name,
+		RuleType:            r.RuleType,
+		SourceIncomeID:      r.SourceIncomeID,
+		SourceCpfAccountID:  r.SourceCpfAccountID,
+		SourceCashAccountID: r.SourceCashAccountID,
+		SourceInvestmentID:  r.SourceInvestmentID,
+		TargetCpfAccountID:  r.TargetCpfAccountID,
+		TargetCashAccountID: r.TargetCashAccountID,
+		TargetInvestmentID:  r.TargetInvestmentID,
+		TargetLiabilityID:   r.TargetLiabilityID,
+		TargetPropertyID:    r.TargetPropertyID,
+		AmountType:          r.AmountType,
+		Priority:            r.Priority,
+		StartDate:           r.StartDate.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:           r.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:           r.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 
 	if r.AmountValue != nil {
@@ -118,11 +112,8 @@ type fundFlowRuleCreateDTO struct {
 	AmountType  string  `json:"amountType"`
 	AmountValue *string `json:"amountValue,omitempty"`
 
-	// Priority and fallback
-	Priority              int     `json:"priority"`
-	FallbackCpfAccountID  *string `json:"fallbackCpfAccountId,omitempty"`
-	FallbackCashAccountID *string `json:"fallbackCashAccountId,omitempty"`
-	FallbackInvestmentID  *string `json:"fallbackInvestmentId,omitempty"`
+	// Priority for multiple rules on same target (lower = higher priority)
+	Priority int `json:"priority"`
 
 	// Timing
 	StartDate string  `json:"startDate,omitempty"`
@@ -131,22 +122,19 @@ type fundFlowRuleCreateDTO struct {
 
 func (dto fundFlowRuleCreateDTO) toModel() (repo.FundFlowRule, error) {
 	rule := repo.FundFlowRule{
-		Name:                  dto.Name,
-		RuleType:              dto.RuleType,
-		SourceIncomeID:        dto.SourceIncomeID,
-		SourceCpfAccountID:    dto.SourceCpfAccountID,
-		SourceCashAccountID:   dto.SourceCashAccountID,
-		SourceInvestmentID:    dto.SourceInvestmentID,
-		TargetCpfAccountID:    dto.TargetCpfAccountID,
-		TargetCashAccountID:   dto.TargetCashAccountID,
-		TargetInvestmentID:    dto.TargetInvestmentID,
-		TargetLiabilityID:     dto.TargetLiabilityID,
-		TargetPropertyID:      dto.TargetPropertyID,
-		AmountType:            dto.AmountType,
-		Priority:              dto.Priority,
-		FallbackCpfAccountID:  dto.FallbackCpfAccountID,
-		FallbackCashAccountID: dto.FallbackCashAccountID,
-		FallbackInvestmentID:  dto.FallbackInvestmentID,
+		Name:                dto.Name,
+		RuleType:            dto.RuleType,
+		SourceIncomeID:      dto.SourceIncomeID,
+		SourceCpfAccountID:  dto.SourceCpfAccountID,
+		SourceCashAccountID: dto.SourceCashAccountID,
+		SourceInvestmentID:  dto.SourceInvestmentID,
+		TargetCpfAccountID:  dto.TargetCpfAccountID,
+		TargetCashAccountID: dto.TargetCashAccountID,
+		TargetInvestmentID:  dto.TargetInvestmentID,
+		TargetLiabilityID:   dto.TargetLiabilityID,
+		TargetPropertyID:    dto.TargetPropertyID,
+		AmountType:          dto.AmountType,
+		Priority:            dto.Priority,
 	}
 
 	// Parse amount value if provided
@@ -313,8 +301,7 @@ func (h *FundFlowRuleV2Handler) HandleCreate(w http.ResponseWriter, r *http.Requ
 			repo.ErrTransferRequiresOneAccountTarget,
 			repo.ErrInvalidRuleType,
 			repo.ErrAmountValueRequired,
-			repo.ErrPercentageOutOfRange,
-			repo.ErrMultipleFallbacksNotAllowed:
+			repo.ErrPercentageOutOfRange:
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
 			return
 		}
@@ -380,8 +367,7 @@ func (h *FundFlowRuleV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Requ
 			repo.ErrTransferRequiresOneAccountTarget,
 			repo.ErrInvalidRuleType,
 			repo.ErrAmountValueRequired,
-			repo.ErrPercentageOutOfRange,
-			repo.ErrMultipleFallbacksNotAllowed:
+			repo.ErrPercentageOutOfRange:
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error())
 			return
 		}

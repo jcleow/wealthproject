@@ -39,11 +39,8 @@ type FundFlowRule struct {
 	AmountType  string           `json:"amountType"`            // 'fixed', 'percentage', 'remainder', 'target_required', 'max_available'
 	AmountValue *decimal.Decimal `json:"amountValue,omitempty"` // Required for fixed/percentage, optional for others
 
-	// Priority and fallback
-	Priority              int     `json:"priority"`
-	FallbackCpfAccountID  *string `json:"fallbackCpfAccountId,omitempty"`
-	FallbackCashAccountID *string `json:"fallbackCashAccountId,omitempty"`
-	FallbackInvestmentID  *string `json:"fallbackInvestmentId,omitempty"`
+	// Priority for multiple rules on same target (lower = higher priority)
+	Priority int `json:"priority"`
 
 	// Timing
 	StartDate time.Time  `json:"startDate"`
@@ -65,9 +62,8 @@ var (
 	ErrTransferRequiresOneAccountSource  = errors.New("transfer rules require exactly one account source")
 	ErrTransferRequiresOneAccountTarget  = errors.New("transfer rules require exactly one account target")
 	ErrInvalidRuleType                   = errors.New("invalid rule type")
-	ErrAmountValueRequired               = errors.New("amount_value is required for fixed and percentage types")
-	ErrPercentageOutOfRange              = errors.New("percentage must be between 0 and 100")
-	ErrMultipleFallbacksNotAllowed       = errors.New("at most one fallback account is allowed")
+	ErrAmountValueRequired  = errors.New("amount_value is required for fixed and percentage types")
+	ErrPercentageOutOfRange = errors.New("percentage must be between 0 and 100")
 )
 
 // ValidateFundFlowRule validates a fund flow rule based on its type.
@@ -122,11 +118,6 @@ func ValidateFundFlowRule(r FundFlowRule) error {
 		}
 	}
 
-	// Validate at most one fallback
-	if countFallbacks(r) > 1 {
-		return ErrMultipleFallbacksNotAllowed
-	}
-
 	return nil
 }
 
@@ -170,19 +161,6 @@ func countAccountTargets(r FundFlowRule) int {
 	return count
 }
 
-func countFallbacks(r FundFlowRule) int {
-	count := 0
-	if r.FallbackCpfAccountID != nil {
-		count++
-	}
-	if r.FallbackCashAccountID != nil {
-		count++
-	}
-	if r.FallbackInvestmentID != nil {
-		count++
-	}
-	return count
-}
 
 // CreateFundFlowRule creates a new fund flow rule.
 func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule FundFlowRule) (*FundFlowRule, error) {
@@ -204,15 +182,13 @@ func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule Fund
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
-			fallback_cpf_account_id, fallback_cash_account_id, fallback_investment_id,
 			start_date, end_date
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		RETURNING id, user_id, name, rule_type,
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
-			fallback_cpf_account_id, fallback_cash_account_id, fallback_investment_id,
 			start_date, end_date, created_at, updated_at`
 
 	args := []any{
@@ -220,7 +196,6 @@ func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule Fund
 		rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID,
 		rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID,
 		rule.AmountType, rule.AmountValue, rule.Priority,
-		rule.FallbackCpfAccountID, rule.FallbackCashAccountID, rule.FallbackInvestmentID,
 		startDate, rule.EndDate,
 	}
 
@@ -232,7 +207,6 @@ func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule Fund
 		&created.SourceIncomeID, &created.SourceCpfAccountID, &created.SourceCashAccountID, &created.SourceInvestmentID,
 		&created.TargetCpfAccountID, &created.TargetCashAccountID, &created.TargetInvestmentID, &created.TargetLiabilityID, &created.TargetPropertyID,
 		&created.AmountType, &created.AmountValue, &created.Priority,
-		&created.FallbackCpfAccountID, &created.FallbackCashAccountID, &created.FallbackInvestmentID,
 		&created.StartDate, &created.EndDate, &created.CreatedAt, &created.UpdatedAt,
 	)
 	if err != nil {
@@ -249,7 +223,6 @@ func (s *Store) GetFundFlowRule(ctx context.Context, userID, ruleID string) (*Fu
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
-			fallback_cpf_account_id, fallback_cash_account_id, fallback_investment_id,
 			start_date, end_date, created_at, updated_at
 		FROM fund_flow_rules
 		WHERE id = $1 AND user_id = $2`
@@ -260,7 +233,6 @@ func (s *Store) GetFundFlowRule(ctx context.Context, userID, ruleID string) (*Fu
 		&rule.SourceIncomeID, &rule.SourceCpfAccountID, &rule.SourceCashAccountID, &rule.SourceInvestmentID,
 		&rule.TargetCpfAccountID, &rule.TargetCashAccountID, &rule.TargetInvestmentID, &rule.TargetLiabilityID, &rule.TargetPropertyID,
 		&rule.AmountType, &rule.AmountValue, &rule.Priority,
-		&rule.FallbackCpfAccountID, &rule.FallbackCashAccountID, &rule.FallbackInvestmentID,
 		&rule.StartDate, &rule.EndDate, &rule.CreatedAt, &rule.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
@@ -288,7 +260,6 @@ func (s *Store) ListFundFlowRules(ctx context.Context, q ListFundFlowRulesQuery)
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
-			fallback_cpf_account_id, fallback_cash_account_id, fallback_investment_id,
 			start_date, end_date, created_at, updated_at
 		FROM fund_flow_rules
 		WHERE user_id = $1`
@@ -337,7 +308,6 @@ func (s *Store) ListFundFlowRules(ctx context.Context, q ListFundFlowRulesQuery)
 			&rule.SourceIncomeID, &rule.SourceCpfAccountID, &rule.SourceCashAccountID, &rule.SourceInvestmentID,
 			&rule.TargetCpfAccountID, &rule.TargetCashAccountID, &rule.TargetInvestmentID, &rule.TargetLiabilityID, &rule.TargetPropertyID,
 			&rule.AmountType, &rule.AmountValue, &rule.Priority,
-			&rule.FallbackCpfAccountID, &rule.FallbackCashAccountID, &rule.FallbackInvestmentID,
 			&rule.StartDate, &rule.EndDate, &rule.CreatedAt, &rule.UpdatedAt,
 		)
 		if err != nil {
@@ -363,14 +333,12 @@ func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule Fund
 			source_income_id = $5, source_cpf_account_id = $6, source_cash_account_id = $7, source_investment_id = $8,
 			target_cpf_account_id = $9, target_cash_account_id = $10, target_investment_id = $11, target_liability_id = $12, target_property_id = $13,
 			amount_type = $14, amount_value = $15, priority = $16,
-			fallback_cpf_account_id = $17, fallback_cash_account_id = $18, fallback_investment_id = $19,
-			start_date = $20, end_date = $21, updated_at = NOW()
+			start_date = $17, end_date = $18, updated_at = NOW()
 		WHERE id = $1 AND user_id = $2
 		RETURNING id, user_id, name, rule_type,
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
-			fallback_cpf_account_id, fallback_cash_account_id, fallback_investment_id,
 			start_date, end_date, created_at, updated_at`
 
 	args := []any{
@@ -379,7 +347,6 @@ func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule Fund
 		rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID,
 		rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID,
 		rule.AmountType, rule.AmountValue, rule.Priority,
-		rule.FallbackCpfAccountID, rule.FallbackCashAccountID, rule.FallbackInvestmentID,
 		rule.StartDate, rule.EndDate,
 	}
 
@@ -391,7 +358,6 @@ func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule Fund
 		&updated.SourceIncomeID, &updated.SourceCpfAccountID, &updated.SourceCashAccountID, &updated.SourceInvestmentID,
 		&updated.TargetCpfAccountID, &updated.TargetCashAccountID, &updated.TargetInvestmentID, &updated.TargetLiabilityID, &updated.TargetPropertyID,
 		&updated.AmountType, &updated.AmountValue, &updated.Priority,
-		&updated.FallbackCpfAccountID, &updated.FallbackCashAccountID, &updated.FallbackInvestmentID,
 		&updated.StartDate, &updated.EndDate, &updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
@@ -432,7 +398,6 @@ func (s *Store) SetFundFlowRuleEndDate(ctx context.Context, userID, ruleID strin
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
-			fallback_cpf_account_id, fallback_cash_account_id, fallback_investment_id,
 			start_date, end_date, created_at, updated_at`
 
 	var updated FundFlowRule
@@ -441,7 +406,6 @@ func (s *Store) SetFundFlowRuleEndDate(ctx context.Context, userID, ruleID strin
 		&updated.SourceIncomeID, &updated.SourceCpfAccountID, &updated.SourceCashAccountID, &updated.SourceInvestmentID,
 		&updated.TargetCpfAccountID, &updated.TargetCashAccountID, &updated.TargetInvestmentID, &updated.TargetLiabilityID, &updated.TargetPropertyID,
 		&updated.AmountType, &updated.AmountValue, &updated.Priority,
-		&updated.FallbackCpfAccountID, &updated.FallbackCashAccountID, &updated.FallbackInvestmentID,
 		&updated.StartDate, &updated.EndDate, &updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
