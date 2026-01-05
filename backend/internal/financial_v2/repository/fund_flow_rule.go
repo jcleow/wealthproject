@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"financial-chat-system/backend/internal/decimal"
@@ -15,7 +16,7 @@ import (
 // Rule types:
 //   - payment: account → liability/property (Phase 1)
 //   - allocation: income → account (Phase 2)
-//   - transfer: account → account (Phase 3)
+//   - transfer: account → account OR property_sale → account (Phase 3)
 type FundFlowRule struct {
 	ID       string `json:"id"`
 	UserID   string `json:"userId"`
@@ -27,6 +28,9 @@ type FundFlowRule struct {
 	SourceCpfAccountID  *string `json:"sourceCpfAccountId,omitempty"`
 	SourceCashAccountID *string `json:"sourceCashAccountId,omitempty"`
 	SourceInvestmentID  *string `json:"sourceInvestmentId,omitempty"`
+	// SourcePropertyID: For transfer rules from property sales (CPF refund, net proceeds)
+	// When set, this transfer rule is auto-generated from a property sale
+	SourcePropertyID *string `json:"sourcePropertyId,omitempty"`
 
 	// Target (exactly one should be set based on rule type)
 	TargetCpfAccountID  *string `json:"targetCpfAccountId,omitempty"`
@@ -59,8 +63,9 @@ var (
 	ErrPaymentRequiresLiabilityOrProperty = errors.New("payment rules require liability or property target")
 	ErrAllocationRequiresIncomeSource     = errors.New("allocation rules require income source")
 	ErrAllocationRequiresOneAccountTarget = errors.New("allocation rules require exactly one account target")
-	ErrTransferRequiresOneAccountSource   = errors.New("transfer rules require exactly one account source")
+	ErrTransferRequiresOneAccountSource   = errors.New("transfer rules require exactly one account source OR property source")
 	ErrTransferRequiresOneAccountTarget   = errors.New("transfer rules require exactly one account target")
+	ErrTransferCannotMixSources           = errors.New("transfer rules cannot have both account and property sources")
 	ErrInvalidRuleType                    = errors.New("invalid rule type")
 	ErrAmountValueRequired                = errors.New("amount_value is required for fixed and percentage types")
 	ErrPercentageOutOfRange               = errors.New("percentage must be between 0 and 100")
@@ -93,9 +98,22 @@ func ValidateFundFlowRule(r FundFlowRule) error {
 		}
 
 	case "transfer":
-		if countTransferSources(r) != 1 {
+		// Transfer can have either:
+		// 1. One account source (regular transfer) - account → account
+		// 2. One property source (sale proceeds) - property_sale → account
+		accountSources := countTransferSources(r)
+		hasPropertySource := r.SourcePropertyID != nil
+
+		// Can't have both account and property sources
+		if accountSources > 0 && hasPropertySource {
+			return ErrTransferCannotMixSources
+		}
+
+		// Must have exactly one source type
+		if accountSources != 1 && !hasPropertySource {
 			return ErrTransferRequiresOneAccountSource
 		}
+
 		if countAccountTargets(r) != 1 {
 			return ErrTransferRequiresOneAccountTarget
 		}
@@ -164,112 +182,71 @@ func countAccountTargets(r FundFlowRule) int {
 
 // validateEntityOwnership verifies that all referenced entities in a rule belong to the specified user.
 // This prevents IDOR attacks where a user could reference another user's accounts/assets.
+// Uses a single UNION ALL query to validate all references in one database round-trip.
 func (s *Store) validateEntityOwnership(ctx context.Context, userID string, rule FundFlowRule) error {
-	// Validate source entities
-	if rule.SourceIncomeID != nil {
-		if !s.userOwnsIncome(ctx, userID, *rule.SourceIncomeID) {
-			return ErrUnauthorizedEntityReference
+	// Build dynamic query parts for each non-nil entity reference
+	var expectedCount int
+	var queryParts []string
+	var args []any
+	argIdx := 1
+
+	// Helper to add a standard ownership check (table must have id and user_id columns)
+	addCheck := func(table string, entityID *string) {
+		if entityID == nil {
+			return
 		}
-	}
-	if rule.SourceCpfAccountID != nil {
-		if !s.userOwnsCpfAccount(ctx, userID, *rule.SourceCpfAccountID) {
-			return ErrUnauthorizedEntityReference
-		}
-	}
-	if rule.SourceCashAccountID != nil {
-		if !s.userOwnsCashAccount(ctx, userID, *rule.SourceCashAccountID) {
-			return ErrUnauthorizedEntityReference
-		}
-	}
-	if rule.SourceInvestmentID != nil {
-		if !s.userOwnsInvestment(ctx, userID, *rule.SourceInvestmentID) {
-			return ErrUnauthorizedEntityReference
-		}
+		expectedCount++
+		queryParts = append(queryParts,
+			fmt.Sprintf(`SELECT 1 FROM %s WHERE id = $%d AND user_id = $%d`, table, argIdx, argIdx+1))
+		args = append(args, *entityID, userID)
+		argIdx += 2
 	}
 
-	// Validate target entities
-	if rule.TargetCpfAccountID != nil {
-		if !s.userOwnsCpfAccount(ctx, userID, *rule.TargetCpfAccountID) {
-			return ErrUnauthorizedEntityReference
+	// Helper for property_sg (requires JOIN through property_scenarios for ownership)
+	addPropertyCheck := func(entityID *string) {
+		if entityID == nil {
+			return
 		}
+		expectedCount++
+		queryParts = append(queryParts,
+			fmt.Sprintf(`SELECT 1 FROM property_sg sg JOIN property_scenarios ps ON ps.property_sg_id = sg.id WHERE sg.id = $%d AND ps.user_id = $%d`, argIdx, argIdx+1))
+		args = append(args, *entityID, userID)
+		argIdx += 2
 	}
-	if rule.TargetCashAccountID != nil {
-		if !s.userOwnsCashAccount(ctx, userID, *rule.TargetCashAccountID) {
-			return ErrUnauthorizedEntityReference
-		}
+
+	// Source entities
+	addCheck("finance_incomes", rule.SourceIncomeID)
+	addCheck("cpf_accounts", rule.SourceCpfAccountID)
+	addCheck("finance_cash_accounts", rule.SourceCashAccountID)
+	addCheck("finance_investments", rule.SourceInvestmentID)
+	addPropertyCheck(rule.SourcePropertyID)
+
+	// Target entities
+	addCheck("cpf_accounts", rule.TargetCpfAccountID)
+	addCheck("finance_cash_accounts", rule.TargetCashAccountID)
+	addCheck("finance_investments", rule.TargetInvestmentID)
+	addCheck("finance_liabilities", rule.TargetLiabilityID)
+	addPropertyCheck(rule.TargetPropertyID)
+
+	// No references to validate - rule has no entity links
+	if expectedCount == 0 {
+		return nil
 	}
-	if rule.TargetInvestmentID != nil {
-		if !s.userOwnsInvestment(ctx, userID, *rule.TargetInvestmentID) {
-			return ErrUnauthorizedEntityReference
-		}
+
+	// Single query: count matching rows from UNION ALL of all ownership checks
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM (%s) AS ownership_checks`, strings.Join(queryParts, " UNION ALL "))
+
+	var actualCount int
+	if err := s.pool.QueryRow(ctx, query, args...).Scan(&actualCount); err != nil {
+		return fmt.Errorf("failed to validate entity ownership: %w", err)
 	}
-	if rule.TargetLiabilityID != nil {
-		if !s.userOwnsLiability(ctx, userID, *rule.TargetLiabilityID) {
-			return ErrUnauthorizedEntityReference
-		}
-	}
-	if rule.TargetPropertyID != nil {
-		if !s.userOwnsPropertyScenario(ctx, userID, *rule.TargetPropertyID) {
-			return ErrUnauthorizedEntityReference
-		}
+
+	// If counts don't match, at least one entity doesn't exist or doesn't belong to user
+	if actualCount != expectedCount {
+		return ErrUnauthorizedEntityReference
 	}
 
 	return nil
-}
-
-// Ownership check helpers - return true if entity exists and belongs to user
-func (s *Store) userOwnsIncome(ctx context.Context, userID, incomeID string) bool {
-	var exists bool
-	err := s.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM finance_incomes WHERE id = $1 AND user_id = $2)`,
-		incomeID, userID).Scan(&exists)
-	return err == nil && exists
-}
-
-func (s *Store) userOwnsCpfAccount(ctx context.Context, userID, cpfAccountID string) bool {
-	var exists bool
-	err := s.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM cpf_accounts WHERE id = $1 AND user_id = $2)`,
-		cpfAccountID, userID).Scan(&exists)
-	return err == nil && exists
-}
-
-func (s *Store) userOwnsCashAccount(ctx context.Context, userID, cashAccountID string) bool {
-	var exists bool
-	err := s.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM finance_cash_accounts WHERE id = $1 AND user_id = $2)`,
-		cashAccountID, userID).Scan(&exists)
-	return err == nil && exists
-}
-
-func (s *Store) userOwnsInvestment(ctx context.Context, userID, investmentID string) bool {
-	var exists bool
-	err := s.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM finance_investments WHERE id = $1 AND user_id = $2)`,
-		investmentID, userID).Scan(&exists)
-	return err == nil && exists
-}
-
-func (s *Store) userOwnsLiability(ctx context.Context, userID, liabilityID string) bool {
-	var exists bool
-	err := s.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM finance_liabilities WHERE id = $1 AND user_id = $2)`,
-		liabilityID, userID).Scan(&exists)
-	return err == nil && exists
-}
-
-func (s *Store) userOwnsPropertyScenario(ctx context.Context, userID, propertyID string) bool {
-	var exists bool
-	// Note: fund_flow_rules.target_property_id references property_sg(id), not property_scenarios
-	// So we need to join through property_scenarios to verify ownership
-	err := s.pool.QueryRow(ctx,
-		`SELECT EXISTS(
-			SELECT 1 FROM property_sg sg
-			JOIN property_scenarios ps ON ps.property_sg_id = sg.id
-			WHERE sg.id = $1 AND ps.user_id = $2
-		)`,
-		propertyID, userID).Scan(&exists)
-	return err == nil && exists
 }
 
 // CreateFundFlowRule creates a new fund flow rule.
@@ -294,21 +271,21 @@ func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule Fund
 	query := `
 		INSERT INTO fund_flow_rules (
 			user_id, name, rule_type,
-			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
+			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
 			start_date, end_date
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		RETURNING id, user_id, name, rule_type,
-			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
+			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at`
 
 	args := []any{
 		userID, rule.Name, rule.RuleType,
-		rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID,
+		rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID, rule.SourcePropertyID,
 		rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID,
 		rule.AmountType, rule.AmountValue, rule.Priority,
 		startDate, rule.EndDate,
@@ -319,7 +296,7 @@ func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule Fund
 	var created FundFlowRule
 	err := s.pool.QueryRow(ctx, query, args...).Scan(
 		&created.ID, &created.UserID, &created.Name, &created.RuleType,
-		&created.SourceIncomeID, &created.SourceCpfAccountID, &created.SourceCashAccountID, &created.SourceInvestmentID,
+		&created.SourceIncomeID, &created.SourceCpfAccountID, &created.SourceCashAccountID, &created.SourceInvestmentID, &created.SourcePropertyID,
 		&created.TargetCpfAccountID, &created.TargetCashAccountID, &created.TargetInvestmentID, &created.TargetLiabilityID, &created.TargetPropertyID,
 		&created.AmountType, &created.AmountValue, &created.Priority,
 		&created.StartDate, &created.EndDate, &created.CreatedAt, &created.UpdatedAt,
@@ -335,7 +312,7 @@ func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule Fund
 func (s *Store) GetFundFlowRule(ctx context.Context, userID, ruleID string) (*FundFlowRule, error) {
 	query := `
 		SELECT id, user_id, name, rule_type,
-			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
+			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at
@@ -345,7 +322,7 @@ func (s *Store) GetFundFlowRule(ctx context.Context, userID, ruleID string) (*Fu
 	var rule FundFlowRule
 	err := s.pool.QueryRow(ctx, query, ruleID, userID).Scan(
 		&rule.ID, &rule.UserID, &rule.Name, &rule.RuleType,
-		&rule.SourceIncomeID, &rule.SourceCpfAccountID, &rule.SourceCashAccountID, &rule.SourceInvestmentID,
+		&rule.SourceIncomeID, &rule.SourceCpfAccountID, &rule.SourceCashAccountID, &rule.SourceInvestmentID, &rule.SourcePropertyID,
 		&rule.TargetCpfAccountID, &rule.TargetCashAccountID, &rule.TargetInvestmentID, &rule.TargetLiabilityID, &rule.TargetPropertyID,
 		&rule.AmountType, &rule.AmountValue, &rule.Priority,
 		&rule.StartDate, &rule.EndDate, &rule.CreatedAt, &rule.UpdatedAt,
@@ -360,19 +337,21 @@ func (s *Store) GetFundFlowRule(ctx context.Context, userID, ruleID string) (*Fu
 	return &rule, nil
 }
 
-// ListFundFlowRules returns all fund flow rules for a user, optionally filtered.
+// ListFundFlowRulesQuery is the query filter for listing fund flow rules.
 type ListFundFlowRulesQuery struct {
-	UserID           string
-	RuleType         *string    // Filter by rule type ('payment', 'allocation', 'transfer')
-	TargetPropertyID *string    // Filter by target property
-	TargetLiabilityID *string   // Filter by target liability
-	ActiveAt         *time.Time // Filter rules active at this date
+	UserID            string
+	RuleType          *string    // Filter by rule type ('payment', 'allocation', 'transfer')
+	TargetPropertyID  *string    // Filter by target property
+	TargetLiabilityID *string    // Filter by target liability
+	SourcePropertyID  *string    // Filter by source property (for property sale transfers)
+	ActiveAt          *time.Time // Filter rules active at this date
 }
 
+// ListFundFlowRules returns all fund flow rules for a user, optionally filtered.
 func (s *Store) ListFundFlowRules(ctx context.Context, q ListFundFlowRulesQuery) ([]FundFlowRule, error) {
 	query := `
 		SELECT id, user_id, name, rule_type,
-			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
+			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at
@@ -400,6 +379,12 @@ func (s *Store) ListFundFlowRules(ctx context.Context, q ListFundFlowRulesQuery)
 		argIdx++
 	}
 
+	if q.SourcePropertyID != nil {
+		query += fmt.Sprintf(" AND source_property_id = $%d", argIdx)
+		args = append(args, *q.SourcePropertyID)
+		argIdx++
+	}
+
 	if q.ActiveAt != nil {
 		query += fmt.Sprintf(" AND start_date <= $%d AND (end_date IS NULL OR end_date >= $%d)", argIdx, argIdx)
 		args = append(args, *q.ActiveAt)
@@ -420,7 +405,7 @@ func (s *Store) ListFundFlowRules(ctx context.Context, q ListFundFlowRulesQuery)
 		var rule FundFlowRule
 		err := rows.Scan(
 			&rule.ID, &rule.UserID, &rule.Name, &rule.RuleType,
-			&rule.SourceIncomeID, &rule.SourceCpfAccountID, &rule.SourceCashAccountID, &rule.SourceInvestmentID,
+			&rule.SourceIncomeID, &rule.SourceCpfAccountID, &rule.SourceCashAccountID, &rule.SourceInvestmentID, &rule.SourcePropertyID,
 			&rule.TargetCpfAccountID, &rule.TargetCashAccountID, &rule.TargetInvestmentID, &rule.TargetLiabilityID, &rule.TargetPropertyID,
 			&rule.AmountType, &rule.AmountValue, &rule.Priority,
 			&rule.StartDate, &rule.EndDate, &rule.CreatedAt, &rule.UpdatedAt,
@@ -450,13 +435,13 @@ func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule Fund
 	query := `
 		UPDATE fund_flow_rules
 		SET name = $3, rule_type = $4,
-			source_income_id = $5, source_cpf_account_id = $6, source_cash_account_id = $7, source_investment_id = $8,
-			target_cpf_account_id = $9, target_cash_account_id = $10, target_investment_id = $11, target_liability_id = $12, target_property_id = $13,
-			amount_type = $14, amount_value = $15, priority = $16,
-			start_date = $17, end_date = $18, updated_at = NOW()
+			source_income_id = $5, source_cpf_account_id = $6, source_cash_account_id = $7, source_investment_id = $8, source_property_id = $9,
+			target_cpf_account_id = $10, target_cash_account_id = $11, target_investment_id = $12, target_liability_id = $13, target_property_id = $14,
+			amount_type = $15, amount_value = $16, priority = $17,
+			start_date = $18, end_date = $19, updated_at = NOW()
 		WHERE id = $1 AND user_id = $2
 		RETURNING id, user_id, name, rule_type,
-			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
+			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at`
@@ -464,7 +449,7 @@ func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule Fund
 	args := []any{
 		rule.ID, userID,
 		rule.Name, rule.RuleType,
-		rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID,
+		rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID, rule.SourcePropertyID,
 		rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID,
 		rule.AmountType, rule.AmountValue, rule.Priority,
 		rule.StartDate, rule.EndDate,
@@ -475,7 +460,7 @@ func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule Fund
 	var updated FundFlowRule
 	err := s.pool.QueryRow(ctx, query, args...).Scan(
 		&updated.ID, &updated.UserID, &updated.Name, &updated.RuleType,
-		&updated.SourceIncomeID, &updated.SourceCpfAccountID, &updated.SourceCashAccountID, &updated.SourceInvestmentID,
+		&updated.SourceIncomeID, &updated.SourceCpfAccountID, &updated.SourceCashAccountID, &updated.SourceInvestmentID, &updated.SourcePropertyID,
 		&updated.TargetCpfAccountID, &updated.TargetCashAccountID, &updated.TargetInvestmentID, &updated.TargetLiabilityID, &updated.TargetPropertyID,
 		&updated.AmountType, &updated.AmountValue, &updated.Priority,
 		&updated.StartDate, &updated.EndDate, &updated.CreatedAt, &updated.UpdatedAt,
@@ -515,7 +500,7 @@ func (s *Store) SetFundFlowRuleEndDate(ctx context.Context, userID, ruleID strin
 		SET end_date = $3, updated_at = NOW()
 		WHERE id = $1 AND user_id = $2
 		RETURNING id, user_id, name, rule_type,
-			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id,
+			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
 			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at`
@@ -523,7 +508,7 @@ func (s *Store) SetFundFlowRuleEndDate(ctx context.Context, userID, ruleID strin
 	var updated FundFlowRule
 	err := s.pool.QueryRow(ctx, query, ruleID, userID, endDate).Scan(
 		&updated.ID, &updated.UserID, &updated.Name, &updated.RuleType,
-		&updated.SourceIncomeID, &updated.SourceCpfAccountID, &updated.SourceCashAccountID, &updated.SourceInvestmentID,
+		&updated.SourceIncomeID, &updated.SourceCpfAccountID, &updated.SourceCashAccountID, &updated.SourceInvestmentID, &updated.SourcePropertyID,
 		&updated.TargetCpfAccountID, &updated.TargetCashAccountID, &updated.TargetInvestmentID, &updated.TargetLiabilityID, &updated.TargetPropertyID,
 		&updated.AmountType, &updated.AmountValue, &updated.Priority,
 		&updated.StartDate, &updated.EndDate, &updated.CreatedAt, &updated.UpdatedAt,
@@ -571,4 +556,103 @@ func (s *Store) DeleteAllFundFlowRules(ctx context.Context, userID string) (int6
 		return 0, fmt.Errorf("failed to delete all fund flow rules: %w", err)
 	}
 	return tag.RowsAffected(), nil
+}
+
+// DeleteBySourcePropertyID deletes all fund flow rules that originate from a specific property.
+// Used when updating/deleting property sale proceeds - old rules are deleted before creating new ones.
+func (s *Store) DeleteBySourcePropertyID(ctx context.Context, userID, sourcePropertyID string) (int64, error) {
+	query := `DELETE FROM fund_flow_rules WHERE user_id = $1 AND source_property_id = $2`
+	logQuery(query, []any{userID, sourcePropertyID})
+	tag, err := s.pool.Exec(ctx, query, userID, sourcePropertyID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete fund flow rules by source property: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// GetTransferRulesFromProperty returns all transfer rules originating from a specific property sale.
+func (s *Store) GetTransferRulesFromProperty(ctx context.Context, userID, sourcePropertyID string) ([]FundFlowRule, error) {
+	ruleType := "transfer"
+	return s.ListFundFlowRules(ctx, ListFundFlowRulesQuery{
+		UserID:           userID,
+		RuleType:         &ruleType,
+		SourcePropertyID: &sourcePropertyID,
+	})
+}
+
+// CreateBatchFundFlowRules creates multiple fund flow rules in a single transaction.
+// Used for auto-generating property sale transfer rules (CPF refunds + net proceeds).
+func (s *Store) CreateBatchFundFlowRules(ctx context.Context, userID string, rules []FundFlowRule) ([]FundFlowRule, error) {
+	if len(rules) == 0 {
+		return []FundFlowRule{}, nil
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	createdRules := make([]FundFlowRule, 0, len(rules))
+
+	for _, rule := range rules {
+		// Validate rule structure
+		rule.UserID = userID
+		if err := ValidateFundFlowRule(rule); err != nil {
+			return nil, fmt.Errorf("rule validation failed: %w", err)
+		}
+
+		// Validate ownership of all referenced entities
+		if err := s.validateEntityOwnership(ctx, userID, rule); err != nil {
+			return nil, fmt.Errorf("entity ownership validation failed: %w", err)
+		}
+
+		// Default start date
+		startDate := rule.StartDate
+		if startDate.IsZero() {
+			startDate = time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		}
+
+		query := `
+			INSERT INTO fund_flow_rules (
+				user_id, name, rule_type,
+				source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
+				target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
+				amount_type, amount_value, priority,
+				start_date, end_date
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+			RETURNING id, user_id, name, rule_type,
+				source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
+				target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
+				amount_type, amount_value, priority,
+				start_date, end_date, created_at, updated_at`
+
+		args := []any{
+			userID, rule.Name, rule.RuleType,
+			rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID, rule.SourcePropertyID,
+			rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID,
+			rule.AmountType, rule.AmountValue, rule.Priority,
+			startDate, rule.EndDate,
+		}
+
+		var created FundFlowRule
+		err := tx.QueryRow(ctx, query, args...).Scan(
+			&created.ID, &created.UserID, &created.Name, &created.RuleType,
+			&created.SourceIncomeID, &created.SourceCpfAccountID, &created.SourceCashAccountID, &created.SourceInvestmentID, &created.SourcePropertyID,
+			&created.TargetCpfAccountID, &created.TargetCashAccountID, &created.TargetInvestmentID, &created.TargetLiabilityID, &created.TargetPropertyID,
+			&created.AmountType, &created.AmountValue, &created.Priority,
+			&created.StartDate, &created.EndDate, &created.CreatedAt, &created.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create fund flow rule: %w", err)
+		}
+		createdRules = append(createdRules, created)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return createdRules, nil
 }
