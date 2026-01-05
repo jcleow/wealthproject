@@ -43,8 +43,8 @@ export function CurrencyInput({
         onChange={handleChange}
         placeholder={placeholder}
         className={cn(
-          "w-full py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600",
-          isPercentage ? "pl-2 pr-6" : "pl-6 pr-2"
+          "w-full py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600",
+          isPercentage ? "pl-2.5 pr-6" : "pl-6 pr-2.5"
         )}
       />
       {isPercentage && (
@@ -80,7 +80,7 @@ export function InlineCurrencyInput({
   }
 
   return (
-    <div className={cn("flex items-center flex-1 h-7 px-2 rounded-md border border-white/[0.06] bg-white/[0.02]", className)}>
+    <div className={cn("flex items-center flex-1 h-8 px-2.5 rounded-lg border border-white/[0.06] bg-white/[0.02]", className)}>
       {!isPercentage && (
         <span className="text-slate-500 text-xs">$</span>
       )}

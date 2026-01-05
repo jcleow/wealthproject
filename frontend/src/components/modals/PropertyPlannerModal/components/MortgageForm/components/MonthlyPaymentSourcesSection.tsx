@@ -9,17 +9,22 @@ import { calculateMonthlyOaInflow } from '@/app/property-planner/hooks'
 import { usePropertyFormInputs } from '../../../hooks'
 import type { IncomeOption } from '../types'
 
+// Monthly cash amount type (same as downpayment - no generic % since we have %Tgt and %Src)
+type MonthlyCashAmountType = 'fixed' | 'pct_target' | 'pct_source' | 'remainder'
+
 // Amount type options for monthly cash split configuration
 const MONTHLY_AMOUNT_TYPE_OPTIONS: AmountTypeOption[] = [
   { value: 'remainder', label: 'Rest' },
   { value: 'fixed', label: '$' },
-  { value: 'percentage', label: '%' },
+  { value: 'pct_target', label: '%Tgt' },
+  { value: 'pct_source', label: '%Src' },
 ]
 
 interface CashAccountOption {
   value: string
   label: string
   icon?: React.ReactNode
+  balance?: number // Account balance for pct_source calculations
 }
 
 interface MonthlyPaymentSourcesSectionProps {
@@ -75,7 +80,7 @@ export function MonthlyPaymentSourcesSection({
           onAccountChange={(value) => onChange('borrower1MonthlyCashAccountId', value)}
           amountType={inputs.borrower1MonthlyCashAmountType}
           onAmountTypeChange={(value) => {
-            onChange('borrower1MonthlyCashAmountType', value as 'fixed' | 'percentage' | 'remainder')
+            onChange('borrower1MonthlyCashAmountType', value as MonthlyCashAmountType)
             if (value === 'remainder') {
               onChange('borrower1MonthlyCashAmount', 0)
             }
@@ -109,7 +114,7 @@ export function MonthlyPaymentSourcesSection({
               onAccountChange={(value) => onChange('borrower2MonthlyCashAccountId', value)}
               amountType={inputs.borrower2MonthlyCashAmountType}
               onAmountTypeChange={(value) => {
-                onChange('borrower2MonthlyCashAmountType', value as 'fixed' | 'percentage' | 'remainder')
+                onChange('borrower2MonthlyCashAmountType', value as MonthlyCashAmountType)
                 if (value === 'remainder') {
                   onChange('borrower2MonthlyCashAmount', 0)
                 }
@@ -172,14 +177,70 @@ function MonthlyCpfOaRow({
   )
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Amount Input Subcomponents (Monthly)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface MonthlyAmountInputConfig {
+  amountType: MonthlyCashAmountType
+  value: number
+  onChange: (value: number) => void
+  remainderAmount: number
+  pctTargetAmount: number
+  pctSourceAmount: number
+}
+
+function renderMonthlyAmountInput(config: MonthlyAmountInputConfig): React.ReactNode {
+  const { amountType, value, onChange, remainderAmount, pctTargetAmount, pctSourceAmount } = config
+
+  switch (amountType) {
+    case 'fixed':
+      return <InlineCurrencyInput value={value} onChange={onChange} />
+    case 'pct_target':
+      return (
+        <div className="flex items-center gap-1.5">
+          <InlineCurrencyInput value={value} onChange={onChange} isPercentage />
+          <span className="text-[10px] text-slate-500 font-mono tabular-nums">
+            = ${pctTargetAmount.toLocaleString()}/mo
+          </span>
+        </div>
+      )
+    case 'pct_source':
+      return (
+        <div className="flex items-center gap-1.5">
+          <InlineCurrencyInput value={value} onChange={onChange} isPercentage />
+          <span className="text-[10px] text-slate-500 font-mono tabular-nums">
+            = ${pctSourceAmount.toLocaleString()}/mo
+          </span>
+        </div>
+      )
+    case 'remainder':
+      return (
+        <span className="text-[10px] text-slate-500 font-mono tabular-nums">
+          ${remainderAmount.toLocaleString()}/mo remaining
+        </span>
+      )
+    default:
+      return null
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MonthlyCashRow Component
+// ═══════════════════════════════════════════════════════════════════════════════
+
 interface MonthlyCashRowProps {
   accountOptions: CashAccountOption[]
   selectedAccountId: string | null | undefined
   onAccountChange: (value: string | null) => void
-  amountType: 'fixed' | 'percentage' | 'remainder'
+  amountType: MonthlyCashAmountType
   onAmountTypeChange: (value: string) => void
   amountValue: number
   onAmountValueChange: (value: number) => void
+  /** Computed remainder amount for 'remainder' mode */
+  remainderAmount?: number
+  /** Monthly payment amount for pct_target calculations */
+  monthlyPayment?: number
 }
 
 function MonthlyCashRow({
@@ -190,7 +251,17 @@ function MonthlyCashRow({
   onAmountTypeChange,
   amountValue,
   onAmountValueChange,
+  remainderAmount = 0,
+  monthlyPayment = 0,
 }: MonthlyCashRowProps) {
+  // Get selected account's balance for pct_source display
+  const selectedAccount = accountOptions.find(opt => opt.value === selectedAccountId)
+  const sourceBalance = selectedAccount?.balance ?? 0
+
+  // Calculate computed amounts for percentage modes
+  const pctTargetAmount = Math.round((amountValue / 100) * monthlyPayment)
+  const pctSourceAmount = Math.round((amountValue / 100) * sourceBalance)
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-3">
@@ -216,15 +287,14 @@ function MonthlyCashRow({
             value={amountType}
             onChange={onAmountTypeChange}
           />
-          {amountType !== 'remainder' ? (
-            <InlineCurrencyInput
-              value={amountValue}
-              onChange={onAmountValueChange}
-              isPercentage={amountType === 'percentage'}
-            />
-          ) : (
-            <span className="text-[10px] text-slate-500">covers remaining</span>
-          )}
+          {renderMonthlyAmountInput({
+            amountType,
+            value: amountValue,
+            onChange: onAmountValueChange,
+            remainderAmount,
+            pctTargetAmount,
+            pctSourceAmount,
+          })}
         </div>
       )}
     </div>

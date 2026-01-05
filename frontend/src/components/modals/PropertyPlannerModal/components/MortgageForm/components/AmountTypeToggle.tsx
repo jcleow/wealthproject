@@ -32,9 +32,9 @@ export function AmountTypeToggle({
           type="button"
           onClick={() => onChange(option.value)}
           className={cn(
-            "px-2 py-1 text-[10px] font-medium border-y transition-colors",
-            idx === 0 && "rounded-l-md border-l",
-            idx === options.length - 1 && "rounded-r-md border-r",
+            "px-2.5 py-1.5 text-xs font-medium border-y transition-colors",
+            idx === 0 && "rounded-l-lg border-l",
+            idx === options.length - 1 && "rounded-r-lg border-r",
             idx > 0 && idx < options.length - 1 && "border-l-0",
             value === option.value
               ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"

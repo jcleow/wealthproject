@@ -113,21 +113,21 @@ export interface MortgageInputs {
   borrower2MonthlyCpfOa: number // Borrower 2's monthly CPF OA payment
   // Per-borrower cash account configuration (downpayment)
   borrower1DownpaymentCashAccountId: string | null // Borrower 1's cash account for downpayment
-  borrower1DownpaymentCashAmountType: 'fixed' | 'remainder' // How cash amount is determined
+  borrower1DownpaymentCashAmountType: 'fixed' | 'pct_target' | 'pct_source' | 'remainder' // How cash amount is determined
   borrower1DownpaymentCashAmount: number // Borrower 1's cash contribution to downpayment
   borrower2DownpaymentCashAccountId: string | null // Borrower 2's cash account for downpayment
-  borrower2DownpaymentCashAmountType: 'fixed' | 'remainder' // How cash amount is determined
+  borrower2DownpaymentCashAmountType: 'fixed' | 'pct_target' | 'pct_source' | 'remainder' // How cash amount is determined
   borrower2DownpaymentCashAmount: number // Borrower 2's cash contribution to downpayment
   // Per-borrower cash account configuration (monthly payment)
   borrower1MonthlyCashAccountId: string | null // Borrower 1's cash account for monthly payment
-  borrower1MonthlyCashAmountType: 'fixed' | 'percentage' | 'remainder' // How amount is determined
+  borrower1MonthlyCashAmountType: 'fixed' | 'pct_target' | 'pct_source' | 'remainder' // How amount is determined
   borrower1MonthlyCashAmount: number // Fixed $ or percentage depending on type
   borrower2MonthlyCashAccountId: string | null // Borrower 2's cash account for monthly payment
-  borrower2MonthlyCashAmountType: 'fixed' | 'percentage' | 'remainder' // How amount is determined
+  borrower2MonthlyCashAmountType: 'fixed' | 'pct_target' | 'pct_source' | 'remainder' // How amount is determined
   borrower2MonthlyCashAmount: number // Fixed $ or percentage depending on type
   // Legacy fields (kept for backward compatibility - computed from per-borrower values)
   monthlyCashAccountId: string | null // @deprecated - use per-borrower fields
-  monthlyCashAmountType: 'fixed' | 'percentage' | 'remainder' // @deprecated
+  monthlyCashAmountType: 'fixed' | 'pct_target' | 'pct_source' | 'remainder' // @deprecated
   monthlyCashAmount: number // @deprecated
   downpaymentCashAccountId: string | null // @deprecated - use per-borrower fields
   // Lease tenure: null = freehold, 1-999 = remaining years

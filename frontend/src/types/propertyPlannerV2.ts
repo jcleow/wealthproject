@@ -17,9 +17,9 @@ export type Residency = 'singapore_citizen' | 'permanent_resident' | 'foreigner'
 export type FeeContext = 'purchase' | 'sale' | 'recurring'
 export type FeeFrequency = 'one_time' | 'monthly' | 'yearly'
 export type GrowthStrategy = 'fixed' | 'annual_step' | 'compound_monthly' | 'tiered_adb'
-export type CashAmountType = 'fixed' | 'percentage' | 'remainder'
+export type CashAmountType = 'fixed' | 'pct_target' | 'pct_source' | 'remainder'
 export type CpfOaAmountType = 'fixed' | 'max_available'
-export type DownpaymentCashAmountType = 'fixed' | 'remainder'
+export type DownpaymentCashAmountType = 'fixed' | 'pct_target' | 'pct_source' | 'remainder'
 
 // =============================================================================
 // API RESPONSE TYPES
