@@ -81,8 +81,8 @@ function mapPropertyTypeFromApi(propertyType: ApiPropertyType, propertySubtype: 
  * Convert API scenario to frontend PropertyScenario
  */
 function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScenario {
-  const sgDetails = apiScenario.propertySG
-  if (!sgDetails) {
+  const propertySG = apiScenario.propertySG
+  if (!propertySG) {
     // Fallback for non-SG scenarios (not yet supported)
     return {
       id: apiScenario.scenario.id,
@@ -95,7 +95,7 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     }
   }
 
-  const propertyType = mapPropertyTypeFromApi(sgDetails.propertyType, sgDetails.propertySubtype)
+  const propertyType = mapPropertyTypeFromApi(propertySG.propertyType, propertySG.propertySubtype)
   const ratePeriod = apiScenario.ratePeriods[0] // Initial loan period
 
   // Map growth periods to appreciation periods
@@ -148,42 +148,53 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
   }))
 
   const inputs: MortgageInputs = {
-    propertyPrice: parseFloat(sgDetails.propertyPrice),
-    valuationPrice: parseFloat(sgDetails.valuationPrice || sgDetails.propertyPrice),
+    propertyPrice: parseFloat(propertySG.propertyPrice),
+    valuationPrice: parseFloat(propertySG.valuationPrice || propertySG.propertyPrice),
     loanAmount: parseFloat(apiScenario.computed?.loanAmount ?? '0'),
-    loanType: sgDetails.loanType,
-    downpaymentCpfOa: parseFloat(sgDetails.downpaymentCpfOa),
-    downpaymentCash: parseFloat(sgDetails.downpaymentCash),
+    loanType: propertySG.loanType,
+    downpaymentCpfOa: parseFloat(propertySG.downpaymentCpfOa),
+    downpaymentCash: parseFloat(propertySG.downpaymentCash),
     loanTermYears: ratePeriod?.termYears ?? 25,
     loanStartMonth: ratePeriod?.startDate?.slice(0, 7) ?? new Date().toISOString().slice(0, 7),
     fixedYears: 0, // Deprecated - use loanSegments with rateType
     fixedRate: parseFloat(ratePeriod?.rate ?? '2.6'),
     floatingRate: parseFloat(ratePeriod?.rate ?? '2.6'), // Same as fixedRate for backwards compat
     householdIncome: 0, // Will be derived from income IDs
-    otherDebt: parseFloat(sgDetails.otherDebt),
-    borrowerType: sgDetails.borrowerType,
+    otherDebt: parseFloat(propertySG.otherDebt),
+    borrowerType: propertySG.borrowerType,
     cpfOaBalance: parseFloat(apiScenario.computed?.projectedBorrower1OA ?? '0') + parseFloat(apiScenario.computed?.projectedBorrower2OA ?? '0'),
     monthlyCpfOa: 0,
     grants,
-    borrower1IncomeId: sgDetails.borrower1IncomeId || '',
+    borrower1IncomeId: propertySG.borrower1IncomeId || '',
     borrower1OaBalance: parseFloat(apiScenario.computed?.projectedBorrower1OA ?? '0'),
     borrower1LiabilityIds: [],
-    borrower2IncomeId: sgDetails.borrower2IncomeId || null,
+    borrower2IncomeId: propertySG.borrower2IncomeId || null,
     borrower2OaBalance: parseFloat(apiScenario.computed?.projectedBorrower2OA ?? '0'),
     borrower2LiabilityIds: [],
     // Per-borrower CPF OA tracking
-    borrower1DownpaymentCpfOa: parseFloat(sgDetails.borrower1DownpaymentCpfOa ?? '0'),
-    borrower2DownpaymentCpfOa: parseFloat(sgDetails.borrower2DownpaymentCpfOa ?? '0'),
-    borrower1MonthlyCpfOa: parseFloat(sgDetails.borrower1MonthlyCpfOa ?? '0'),
-    borrower2MonthlyCpfOa: parseFloat(sgDetails.borrower2MonthlyCpfOa ?? '0'),
-    // Monthly payment - cash contribution configuration
-    monthlyCashAccountId: sgDetails.monthlyCashAccountId ?? null,
-    monthlyCashAmountType: sgDetails.monthlyCashAmountType ?? 'remainder',
-    monthlyCashAmount: parseFloat(sgDetails.monthlyCashAmount ?? '0'),
-    // Downpayment - cash contribution configuration
-    downpaymentCashAccountId: sgDetails.downpaymentCashAccountId ?? null,
+    borrower1DownpaymentCpfOa: parseFloat(propertySG.borrower1DownpaymentCpfOa ?? '0'),
+    borrower2DownpaymentCpfOa: parseFloat(propertySG.borrower2DownpaymentCpfOa ?? '0'),
+    borrower1MonthlyCpfOa: parseFloat(propertySG.borrower1MonthlyCpfOa ?? '0'),
+    borrower2MonthlyCpfOa: parseFloat(propertySG.borrower2MonthlyCpfOa ?? '0'),
+    // Per-borrower cash account configuration (downpayment)
+    borrower1DownpaymentCashAccountId: propertySG.borrower1DownpaymentCashAccountId ?? null,
+    borrower1DownpaymentCashAmount: parseFloat(propertySG.borrower1DownpaymentCashAmount ?? '0'),
+    borrower2DownpaymentCashAccountId: propertySG.borrower2DownpaymentCashAccountId ?? null,
+    borrower2DownpaymentCashAmount: parseFloat(propertySG.borrower2DownpaymentCashAmount ?? '0'),
+    // Per-borrower cash account configuration (monthly payment)
+    borrower1MonthlyCashAccountId: propertySG.borrower1MonthlyCashAccountId ?? null,
+    borrower1MonthlyCashAmountType: propertySG.borrower1MonthlyCashAmountType ?? 'remainder',
+    borrower1MonthlyCashAmount: parseFloat(propertySG.borrower1MonthlyCashAmount ?? '0'),
+    borrower2MonthlyCashAccountId: propertySG.borrower2MonthlyCashAccountId ?? null,
+    borrower2MonthlyCashAmountType: propertySG.borrower2MonthlyCashAmountType ?? 'remainder',
+    borrower2MonthlyCashAmount: parseFloat(propertySG.borrower2MonthlyCashAmount ?? '0'),
+    // Legacy fields (computed from per-borrower for backward compatibility)
+    monthlyCashAccountId: propertySG.monthlyCashAccountId ?? null,
+    monthlyCashAmountType: propertySG.monthlyCashAmountType ?? 'remainder',
+    monthlyCashAmount: parseFloat(propertySG.monthlyCashAmount ?? '0'),
+    downpaymentCashAccountId: propertySG.downpaymentCashAccountId ?? null,
     // Lease tenure
-    leaseRemainingYears: sgDetails.leaseRemainingYears ?? 99,
+    leaseRemainingYears: propertySG.leaseRemainingYears ?? 99,
     purchaseFees: purchaseFees.length > 0 ? purchaseFees : DEFAULT_SALE_FEES.map(f => ({ ...f })),
     absdRate: 0, // Derived from residency
     appreciationPeriods: appreciationPeriods.length > 0 ? appreciationPeriods : [{ id: 'default', startYear: 1, endYear: null, rate: 3 }],
@@ -192,23 +203,23 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
   }
 
   const saleInputs: SaleInputs = {
-    expectedSaleDate: sgDetails.saleExpectedDate || getDefaultSaleDate(ratePeriod?.startDate?.slice(0, 7) || new Date().toISOString().slice(0, 7)),
-    expectedSalePrice: parseFloat(sgDetails.saleExpectedPrice || String(parseFloat(sgDetails.propertyPrice) * 1.3)),
+    expectedSaleDate: propertySG.saleExpectedDate || getDefaultSaleDate(ratePeriod?.startDate?.slice(0, 7) || new Date().toISOString().slice(0, 7)),
+    expectedSalePrice: parseFloat(propertySG.saleExpectedPrice || String(parseFloat(propertySG.propertyPrice) * 1.3)),
     fees: saleFees.length > 0 ? saleFees : DEFAULT_SALE_FEES.map(f => ({ ...f })),
   }
 
   return {
     id: apiScenario.scenario.id,
-    name: sgDetails.name,
+    name: propertySG.name,
     propertyType,
     inputs,
     saleInputs,
-    isIncluded: sgDetails.isIncluded,
+    isIncluded: propertySG.isIncluded,
     createdAt: new Date(apiScenario.scenario.createdAt).getTime(),
-    purchaseIcon: sgDetails.purchaseIcon || undefined,
-    purchaseIconColor: sgDetails.purchaseIconColor || undefined,
-    saleIcon: sgDetails.saleIcon || undefined,
-    saleIconColor: sgDetails.saleIconColor || undefined,
+    purchaseIcon: propertySG.purchaseIcon || undefined,
+    purchaseIconColor: propertySG.purchaseIconColor || undefined,
+    saleIcon: propertySG.saleIcon || undefined,
+    saleIconColor: propertySG.saleIconColor || undefined,
   }
 }
 
@@ -260,11 +271,22 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
       borrower2DownpaymentCpfOa: String(scenario.inputs.borrower2DownpaymentCpfOa),
       borrower1MonthlyCpfOa: String(scenario.inputs.borrower1MonthlyCpfOa),
       borrower2MonthlyCpfOa: String(scenario.inputs.borrower2MonthlyCpfOa),
-      // Monthly payment - cash contribution configuration
+      // Per-borrower cash account configuration (downpayment)
+      borrower1DownpaymentCashAccountId: scenario.inputs.borrower1DownpaymentCashAccountId,
+      borrower1DownpaymentCashAmount: String(scenario.inputs.borrower1DownpaymentCashAmount),
+      borrower2DownpaymentCashAccountId: scenario.inputs.borrower2DownpaymentCashAccountId,
+      borrower2DownpaymentCashAmount: String(scenario.inputs.borrower2DownpaymentCashAmount),
+      // Per-borrower cash account configuration (monthly payment)
+      borrower1MonthlyCashAccountId: scenario.inputs.borrower1MonthlyCashAccountId,
+      borrower1MonthlyCashAmountType: scenario.inputs.borrower1MonthlyCashAmountType,
+      borrower1MonthlyCashAmount: String(scenario.inputs.borrower1MonthlyCashAmount),
+      borrower2MonthlyCashAccountId: scenario.inputs.borrower2MonthlyCashAccountId,
+      borrower2MonthlyCashAmountType: scenario.inputs.borrower2MonthlyCashAmountType,
+      borrower2MonthlyCashAmount: String(scenario.inputs.borrower2MonthlyCashAmount),
+      // Legacy fields (for backward compatibility)
       monthlyCashAccountId: scenario.inputs.monthlyCashAccountId,
       monthlyCashAmountType: scenario.inputs.monthlyCashAmountType,
       monthlyCashAmount: String(scenario.inputs.monthlyCashAmount),
-      // Downpayment - cash contribution configuration
       downpaymentCashAccountId: scenario.inputs.downpaymentCashAccountId,
       // Lease tenure
       leaseRemainingYears: scenario.inputs.leaseRemainingYears,

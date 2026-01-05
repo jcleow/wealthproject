@@ -27,7 +27,7 @@ const propertyPlannerBasePath = "/api/v2/property-planner/scenarios"
 
 type scenarioResponseE2E struct {
 	Scenario    scenarioE2E    `json:"scenario"`
-	SGDetails   *sgDetailsE2E  `json:"sgDetails"`
+	PropertySG   *propertySGE2E  `json:"sgDetails"`
 	Fees        []feeE2E       `json:"fees"`
 	GrowthPeriods []growthPeriodE2E `json:"growthPeriods"`
 	RatePeriods []ratePeriodE2E `json:"ratePeriods"`
@@ -37,12 +37,12 @@ type scenarioResponseE2E struct {
 type scenarioE2E struct {
 	ID          string `json:"id"`
 	UserID      string `json:"userId"`
-	SGDetailsID *string `json:"sgDetailsId"`
+	PropertySGID *string `json:"sgDetailsId"`
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`
 }
 
-type sgDetailsE2E struct {
+type propertySGE2E struct {
 	ID                string  `json:"id"`
 	Name              string  `json:"name"`
 	PropertyType      string  `json:"propertyType"`
@@ -202,18 +202,18 @@ func TestE2E_PropertyPlanner_HDBResale_BankLoan_SingleBorrower(t *testing.T) {
 	require.NotEmpty(t, result.Scenario.ID, "Scenario ID should be set")
 
 	// Verify SG Details
-	require.NotNil(t, result.SGDetails, "SGDetails should be set")
-	assert.Equal(t, "HDB Resale 4-Room Tampines", result.SGDetails.Name)
-	assert.Equal(t, "hdb", result.SGDetails.PropertyType)
-	assert.Equal(t, "resale", result.SGDetails.PropertySubtype)
-	assertDecimalEqual(t, "600000", result.SGDetails.PropertyPrice, "PropertyPrice")
-	assert.Equal(t, "bank", result.SGDetails.LoanType)
-	assert.Equal(t, "single", result.SGDetails.BorrowerType)
-	assertDecimalEqual(t, "90000", result.SGDetails.DownpaymentCpfOa, "DownpaymentCpfOa")
-	assertDecimalEqual(t, "60000", result.SGDetails.DownpaymentCash, "DownpaymentCash")
-	assert.Equal(t, "singapore_citizen", result.SGDetails.Residency) // Default
-	assert.Equal(t, 0, result.SGDetails.PropertyCount)
-	assert.True(t, result.SGDetails.IsIncluded)
+	require.NotNil(t, result.PropertySG, "PropertySG should be set")
+	assert.Equal(t, "HDB Resale 4-Room Tampines", result.PropertySG.Name)
+	assert.Equal(t, "hdb", result.PropertySG.PropertyType)
+	assert.Equal(t, "resale", result.PropertySG.PropertySubtype)
+	assertDecimalEqual(t, "600000", result.PropertySG.PropertyPrice, "PropertyPrice")
+	assert.Equal(t, "bank", result.PropertySG.LoanType)
+	assert.Equal(t, "single", result.PropertySG.BorrowerType)
+	assertDecimalEqual(t, "90000", result.PropertySG.DownpaymentCpfOa, "DownpaymentCpfOa")
+	assertDecimalEqual(t, "60000", result.PropertySG.DownpaymentCash, "DownpaymentCash")
+	assert.Equal(t, "singapore_citizen", result.PropertySG.Residency) // Default
+	assert.Equal(t, 0, result.PropertySG.PropertyCount)
+	assert.True(t, result.PropertySG.IsIncluded)
 
 	// Verify Rate Periods
 	require.Len(t, result.RatePeriods, 1, "Should have 1 rate period")
@@ -290,9 +290,9 @@ func TestE2E_PropertyPlanner_HDBResale_HDBLoan_MarriedBorrower(t *testing.T) {
 	result := parseResponse(t, resp)
 
 	// Verify
-	assert.Equal(t, "hdb", result.SGDetails.LoanType)
-	assert.Equal(t, "joint", result.SGDetails.BorrowerType)
-	assertDecimalEqual(t, "50000", result.SGDetails.Grants, "Grants")
+	assert.Equal(t, "hdb", result.PropertySG.LoanType)
+	assert.Equal(t, "joint", result.PropertySG.BorrowerType)
+	assertDecimalEqual(t, "50000", result.PropertySG.Grants, "Grants")
 
 	// Loan Amount = 750000 - 100000 - 50000 - 50000 (grants) = 550000
 	assertDecimalEqual(t, "550000", result.Computed.LoanAmount, "LoanAmount")
@@ -347,7 +347,7 @@ func TestE2E_PropertyPlanner_HDBBTO_WithGrants(t *testing.T) {
 		Do(t)
 	result := parseResponse(t, resp)
 
-	assert.Equal(t, "bto", result.SGDetails.PropertySubtype)
+	assert.Equal(t, "bto", result.PropertySG.PropertySubtype)
 
 	// Loan Amount = 380000 - 50000 - 10000 - 80000 = 240000
 	assertDecimalEqual(t, "240000", result.Computed.LoanAmount, "LoanAmount")
@@ -505,7 +505,7 @@ func TestE2E_PropertyPlanner_PrivateNew_ThirdProperty_SCitizen(t *testing.T) {
 		Do(t)
 	result := parseResponse(t, resp)
 
-	assert.Equal(t, "new", result.SGDetails.PropertySubtype)
+	assert.Equal(t, "new", result.PropertySG.PropertySubtype)
 
 	// Loan = 2000000 - 300000 - 200000 = 1500000
 	assertDecimalEqual(t, "1500000", result.Computed.LoanAmount, "LoanAmount")
@@ -563,7 +563,7 @@ func TestE2E_PropertyPlanner_EC_FirstProperty(t *testing.T) {
 		Do(t)
 	result := parseResponse(t, resp)
 
-	assert.Equal(t, "ec", result.SGDetails.PropertySubtype)
+	assert.Equal(t, "ec", result.PropertySG.PropertySubtype)
 
 	// Loan = 1300000 - 200000 - 125000 = 975000
 	assertDecimalEqual(t, "975000", result.Computed.LoanAmount, "LoanAmount")
@@ -626,7 +626,7 @@ func TestE2E_PropertyPlanner_PR_FirstProperty(t *testing.T) {
 	result := parseResponse(t, resp)
 
 	// Verify scenario created with default residency (SC)
-	assert.Equal(t, "singapore_citizen", result.SGDetails.Residency)
+	assert.Equal(t, "singapore_citizen", result.PropertySG.Residency)
 
 	// Loan = 1000000 - 150000 - 100000 = 750000
 	assertDecimalEqual(t, "750000", result.Computed.LoanAmount, "LoanAmount")
@@ -894,8 +894,8 @@ func TestE2E_PropertyPlanner_CRUD_Create_Get_Update_Delete(t *testing.T) {
 		Do(t)
 	testutil.AssertStatus(t, getResp, http.StatusOK)
 	fetched := parseResponse(t, getResp)
-	assert.Equal(t, "CRUD Test Scenario", fetched.SGDetails.Name)
-	assertDecimalEqual(t, "500000", fetched.SGDetails.PropertyPrice, "PropertyPrice")
+	assert.Equal(t, "CRUD Test Scenario", fetched.PropertySG.Name)
+	assertDecimalEqual(t, "500000", fetched.PropertySG.PropertyPrice, "PropertyPrice")
 
 	// UPDATE
 	updateRequest := map[string]interface{}{
@@ -927,9 +927,9 @@ func TestE2E_PropertyPlanner_CRUD_Create_Get_Update_Delete(t *testing.T) {
 		Do(t)
 	testutil.AssertStatus(t, updateResp, http.StatusOK)
 	updated := parseResponse(t, updateResp)
-	assert.Equal(t, "CRUD Test Scenario Updated", updated.SGDetails.Name)
-	assertDecimalEqual(t, "550000", updated.SGDetails.PropertyPrice, "UpdatedPropertyPrice")
-	assert.Equal(t, "joint", updated.SGDetails.BorrowerType)
+	assert.Equal(t, "CRUD Test Scenario Updated", updated.PropertySG.Name)
+	assertDecimalEqual(t, "550000", updated.PropertySG.PropertyPrice, "UpdatedPropertyPrice")
+	assert.Equal(t, "joint", updated.PropertySG.BorrowerType)
 	assertDecimalEqual(t, "2.8", updated.RatePeriods[0].FixedRate, "UpdatedFixedRate")
 
 	// LIST
@@ -1309,8 +1309,8 @@ func TestE2E_PropertyPlanner_WithIconAndColor(t *testing.T) {
 		Do(t)
 	result := parseResponse(t, resp)
 
-	assert.Equal(t, "home", *result.SGDetails.Icon)
-	assert.Equal(t, "#4ade80", *result.SGDetails.IconColor)
+	assert.Equal(t, "home", *result.PropertySG.Icon)
+	assert.Equal(t, "#4ade80", *result.PropertySG.IconColor)
 }
 
 // ============================================================================

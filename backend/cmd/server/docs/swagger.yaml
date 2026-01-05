@@ -582,7 +582,7 @@ definitions:
       termYears:
         type: integer
     type: object
-  handlers.createSGDetailsRequest:
+  handlers.createPropertySGRequest:
     properties:
       borrower1CpfAccountId:
         type: string
@@ -651,7 +651,7 @@ definitions:
           $ref: '#/definitions/handlers.createRatePeriodRequest'
         type: array
       sgDetails:
-        $ref: '#/definitions/handlers.createSGDetailsRequest'
+        $ref: '#/definitions/handlers.createPropertySGRequest'
     type: object
   handlers.expenseCreateInput:
     properties:
@@ -985,7 +985,7 @@ definitions:
       scenario:
         $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario'
       sgDetails:
-        $ref: '#/definitions/repository.PropertySGDetails'
+        $ref: '#/definitions/repository.PropertySG'
     type: object
   handlers.stopAllocationDTO:
     properties:
@@ -1241,7 +1241,7 @@ definitions:
       startDate:
         type: string
     type: object
-  repository.PropertySGDetails:
+  repository.PropertySG:
     properties:
       borrower1CpfAccountId:
         type: string

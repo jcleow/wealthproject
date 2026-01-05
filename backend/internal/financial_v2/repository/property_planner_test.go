@@ -48,7 +48,7 @@ func TestIntegration_PropertyPlanner_CreateScenario(t *testing.T) {
 	// Create a scenario with all related data
 	input := CreateScenarioInput{
 		Country: "SG",
-		SGDetails: &CreateSGDetailsInput{
+		PropertySG: &CreatePropertySGInput{
 			Name:             "Test HDB",
 			PropertyType:     "hdb",
 			PropertySubtype:  "resale",
@@ -92,15 +92,15 @@ func TestIntegration_PropertyPlanner_CreateScenario(t *testing.T) {
 
 	// Verify scenario fields
 	assert.Equal(t, userID, created.Scenario.UserID)
-	assert.NotNil(t, created.Scenario.SGDetailsID)
+	assert.NotNil(t, created.Scenario.PropertySGID)
 
 	// Verify SG details
-	require.NotNil(t, created.SGDetails, "SGDetails should be set")
-	assert.Equal(t, "Test HDB", created.SGDetails.Name)
-	assert.Equal(t, "hdb", created.SGDetails.PropertyType)
-	assert.Equal(t, "resale", created.SGDetails.PropertySubtype)
-	assert.Equal(t, "850000", created.SGDetails.PropertyPrice.String())
-	assert.Equal(t, "singapore_citizen", created.SGDetails.Residency) // Default derived
+	require.NotNil(t, created.PropertySG, "PropertySG should be set")
+	assert.Equal(t, "Test HDB", created.PropertySG.Name)
+	assert.Equal(t, "hdb", created.PropertySG.PropertyType)
+	assert.Equal(t, "resale", created.PropertySG.PropertySubtype)
+	assert.Equal(t, "850000", created.PropertySG.PropertyPrice.String())
+	assert.Equal(t, "singapore_citizen", created.PropertySG.Residency) // Default derived
 
 	// Verify fees
 	require.Len(t, created.Fees, 1, "Should have 1 fee")
@@ -135,7 +135,7 @@ func TestIntegration_PropertyPlanner_GetScenario(t *testing.T) {
 	// Create a scenario first
 	input := CreateScenarioInput{
 		Country: "SG",
-		SGDetails: &CreateSGDetailsInput{
+		PropertySG: &CreatePropertySGInput{
 			Name:          "Get Test HDB",
 			PropertyType:  "hdb",
 			PropertyPrice: *decimal.MustFromString("750000"),
@@ -160,7 +160,7 @@ func TestIntegration_PropertyPlanner_GetScenario(t *testing.T) {
 	require.NoError(t, err, "GetPropertyScenario should succeed")
 
 	assert.Equal(t, created.Scenario.ID, fetched.Scenario.ID)
-	assert.Equal(t, "Get Test HDB", fetched.SGDetails.Name)
+	assert.Equal(t, "Get Test HDB", fetched.PropertySG.Name)
 	assert.Len(t, fetched.RatePeriods, 1)
 }
 
@@ -187,7 +187,7 @@ func TestIntegration_PropertyPlanner_GetScenario_WrongUser(t *testing.T) {
 	// Create a scenario as userID
 	input := CreateScenarioInput{
 		Country: "SG",
-		SGDetails: &CreateSGDetailsInput{
+		PropertySG: &CreatePropertySGInput{
 			Name:          "User Isolation Test",
 			PropertyType:  "condo",
 			PropertyPrice: *decimal.MustFromString("1500000"),
@@ -225,7 +225,7 @@ func TestIntegration_PropertyPlanner_ListScenarios(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		input := CreateScenarioInput{
 			Country: "SG",
-			SGDetails: &CreateSGDetailsInput{
+			PropertySG: &CreatePropertySGInput{
 				Name:          "List Test " + string(rune('A'+i-1)),
 				PropertyType:  "hdb",
 				PropertyPrice: *decimal.MustFromString("800000"),
@@ -252,7 +252,7 @@ func TestIntegration_PropertyPlanner_ListScenarios(t *testing.T) {
 
 	// Each should have full data loaded
 	for _, s := range scenarios {
-		assert.NotNil(t, s.SGDetails, "Each scenario should have SGDetails")
+		assert.NotNil(t, s.PropertySG, "Each scenario should have PropertySG")
 		assert.Len(t, s.RatePeriods, 1, "Each scenario should have rate periods")
 	}
 }
@@ -269,7 +269,7 @@ func TestIntegration_PropertyPlanner_UpdateScenario(t *testing.T) {
 	// Create initial scenario
 	input := CreateScenarioInput{
 		Country: "SG",
-		SGDetails: &CreateSGDetailsInput{
+		PropertySG: &CreatePropertySGInput{
 			Name:          "Update Test",
 			PropertyType:  "hdb",
 			PropertyPrice: *decimal.MustFromString("700000"),
@@ -300,7 +300,7 @@ func TestIntegration_PropertyPlanner_UpdateScenario(t *testing.T) {
 
 	// Update the scenario
 	updateInput := UpdateScenarioInput{
-		SGDetails: &CreateSGDetailsInput{
+		PropertySG: &CreatePropertySGInput{
 			Name:          "Updated Name",
 			PropertyType:  "hdb",
 			PropertyPrice: *decimal.MustFromString("750000"), // Changed
@@ -339,8 +339,8 @@ func TestIntegration_PropertyPlanner_UpdateScenario(t *testing.T) {
 	require.NoError(t, err, "UpdatePropertyScenario should succeed")
 
 	// Verify updates
-	assert.Equal(t, "Updated Name", updated.SGDetails.Name)
-	assert.Equal(t, "750000", updated.SGDetails.PropertyPrice.String())
+	assert.Equal(t, "Updated Name", updated.PropertySG.Name)
+	assert.Equal(t, "750000", updated.PropertySG.PropertyPrice.String())
 	assert.Len(t, updated.Fees, 2, "Should have 2 fees after update")
 	assert.Equal(t, 20, updated.RatePeriods[0].TermYears)
 	assert.Equal(t, "2.5", updated.RatePeriods[0].FixedRate.String())
@@ -353,7 +353,7 @@ func TestIntegration_PropertyPlanner_UpdateScenario_NotFound(t *testing.T) {
 	userID := testutil.TestUserID
 
 	updateInput := UpdateScenarioInput{
-		SGDetails: &CreateSGDetailsInput{
+		PropertySG: &CreatePropertySGInput{
 			Name:          "Ghost",
 			PropertyType:  "hdb",
 			PropertyPrice: *decimal.MustFromString("500000"),
@@ -386,7 +386,7 @@ func TestIntegration_PropertyPlanner_DeleteScenario(t *testing.T) {
 	// Create a scenario
 	input := CreateScenarioInput{
 		Country: "SG",
-		SGDetails: &CreateSGDetailsInput{
+		PropertySG: &CreatePropertySGInput{
 			Name:          "Delete Test",
 			PropertyType:  "hdb",
 			PropertyPrice: *decimal.MustFromString("600000"),
@@ -480,7 +480,7 @@ func TestIntegration_PropertyPlanner_ResidencyDerivation(t *testing.T) {
 	// Create scenario linking to that income
 	input := CreateScenarioInput{
 		Country: "SG",
-		SGDetails: &CreateSGDetailsInput{
+		PropertySG: &CreatePropertySGInput{
 			Name:              "Residency Test",
 			PropertyType:      "condo",
 			PropertyPrice:     *decimal.MustFromString("1200000"),
@@ -502,7 +502,7 @@ func TestIntegration_PropertyPlanner_ResidencyDerivation(t *testing.T) {
 	require.NoError(t, err)
 
 	// Residency should be derived from the linked income
-	assert.Equal(t, "permanent_resident", created.SGDetails.Residency, "Residency should be derived from income")
+	assert.Equal(t, "permanent_resident", created.PropertySG.Residency, "Residency should be derived from income")
 }
 
 func TestIntegration_PropertyPlanner_MultipleRatePeriods(t *testing.T) {
@@ -517,7 +517,7 @@ func TestIntegration_PropertyPlanner_MultipleRatePeriods(t *testing.T) {
 	// Create scenario with multiple rate periods (refinancing scenario)
 	input := CreateScenarioInput{
 		Country: "SG",
-		SGDetails: &CreateSGDetailsInput{
+		PropertySG: &CreatePropertySGInput{
 			Name:          "Refinance Test",
 			PropertyType:  "hdb",
 			PropertyPrice: *decimal.MustFromString("800000"),
@@ -578,7 +578,7 @@ func TestIntegration_PropertyPlanner_DeleteAllScenarios(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		input := CreateScenarioInput{
 			Country: "SG",
-			SGDetails: &CreateSGDetailsInput{
+			PropertySG: &CreatePropertySGInput{
 				Name:          "DeleteAll Test " + string(rune('A'+i-1)),
 				PropertyType:  "hdb",
 				PropertyPrice: *decimal.MustFromString("800000"),
@@ -617,7 +617,7 @@ func TestIntegration_PropertyPlanner_DeleteAllScenarios(t *testing.T) {
 	// Create a scenario for a different user (should not be deleted)
 	otherInput := CreateScenarioInput{
 		Country: "SG",
-		SGDetails: &CreateSGDetailsInput{
+		PropertySG: &CreatePropertySGInput{
 			Name:          "Other User Scenario",
 			PropertyType:  "hdb",
 			PropertyPrice: *decimal.MustFromString("700000"),
