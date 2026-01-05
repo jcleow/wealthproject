@@ -147,13 +147,23 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     amount: parseFloat(g.amount),
   }))
 
+  // Parse legacy total values first (for fallback)
+  const legacyDownpaymentCpfOa = parseFloat(propertySG.downpaymentCpfOa)
+  const legacyDownpaymentCash = parseFloat(propertySG.downpaymentCash)
+
+  // Parse per-borrower values, falling back to legacy totals for borrower 1 if not set
+  const borrower1DownpaymentCpfOa = parseFloat(propertySG.borrower1DownpaymentCpfOa ?? '0') || legacyDownpaymentCpfOa
+  const borrower2DownpaymentCpfOa = parseFloat(propertySG.borrower2DownpaymentCpfOa ?? '0')
+  const borrower1DownpaymentCashAmount = parseFloat(propertySG.borrower1DownpaymentCashAmount ?? '0') || legacyDownpaymentCash
+  const borrower2DownpaymentCashAmount = parseFloat(propertySG.borrower2DownpaymentCashAmount ?? '0')
+
   const inputs: MortgageInputs = {
     propertyPrice: parseFloat(propertySG.propertyPrice),
     valuationPrice: parseFloat(propertySG.valuationPrice || propertySG.propertyPrice),
     loanAmount: parseFloat(apiScenario.computed?.loanAmount ?? '0'),
     loanType: propertySG.loanType,
-    downpaymentCpfOa: parseFloat(propertySG.downpaymentCpfOa),
-    downpaymentCash: parseFloat(propertySG.downpaymentCash),
+    downpaymentCpfOa: legacyDownpaymentCpfOa,
+    downpaymentCash: legacyDownpaymentCash,
     loanTermYears: ratePeriod?.termYears ?? 25,
     loanStartMonth: ratePeriod?.startDate?.slice(0, 7) ?? new Date().toISOString().slice(0, 7),
     fixedYears: 0, // Deprecated - use loanSegments with rateType
@@ -171,16 +181,16 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     borrower2IncomeId: propertySG.borrower2IncomeId || null,
     borrower2OaBalance: parseFloat(apiScenario.computed?.projectedBorrower2OA ?? '0'),
     borrower2LiabilityIds: [],
-    // Per-borrower CPF OA tracking
-    borrower1DownpaymentCpfOa: parseFloat(propertySG.borrower1DownpaymentCpfOa ?? '0'),
-    borrower2DownpaymentCpfOa: parseFloat(propertySG.borrower2DownpaymentCpfOa ?? '0'),
+    // Per-borrower CPF OA tracking (fallback to legacy totals for borrower 1)
+    borrower1DownpaymentCpfOa,
+    borrower2DownpaymentCpfOa,
     borrower1MonthlyCpfOa: parseFloat(propertySG.borrower1MonthlyCpfOa ?? '0'),
     borrower2MonthlyCpfOa: parseFloat(propertySG.borrower2MonthlyCpfOa ?? '0'),
-    // Per-borrower cash account configuration (downpayment)
+    // Per-borrower cash account configuration (downpayment) - fallback to legacy totals for borrower 1
     borrower1DownpaymentCashAccountId: propertySG.borrower1DownpaymentCashAccountId ?? null,
-    borrower1DownpaymentCashAmount: parseFloat(propertySG.borrower1DownpaymentCashAmount ?? '0'),
+    borrower1DownpaymentCashAmount,
     borrower2DownpaymentCashAccountId: propertySG.borrower2DownpaymentCashAccountId ?? null,
-    borrower2DownpaymentCashAmount: parseFloat(propertySG.borrower2DownpaymentCashAmount ?? '0'),
+    borrower2DownpaymentCashAmount,
     // Per-borrower cash account configuration (monthly payment)
     borrower1MonthlyCashAccountId: propertySG.borrower1MonthlyCashAccountId ?? null,
     borrower1MonthlyCashAmountType: propertySG.borrower1MonthlyCashAmountType ?? 'remainder',
