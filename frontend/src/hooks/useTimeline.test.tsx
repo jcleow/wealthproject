@@ -50,11 +50,15 @@ describe('useTimeline', () => {
   })
 
   it('loads timeline and selects the first year by default', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify(baseTimeline), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
+    // Use mockImplementation to create a new Response for each call
+    // (Response bodies can only be read once, so we need fresh instances)
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(baseTimeline), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
     )
 
     const { result } = renderHook(() => useTimeline(), { wrapper: createWrapper() })
@@ -79,19 +83,31 @@ describe('useTimeline', () => {
       version: 'v1',
     }
 
-    fetchMock
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(baseTimeline), {
+    let callCount = 0
+
+    // Use mockImplementation to create new Response instances for each call
+    fetchMock.mockImplementation((_url: string, options?: RequestInit) => {
+      callCount++
+
+      // PUT request for timeline update
+      if (options?.method === 'PUT') {
+        return Promise.resolve(
+          new Response(JSON.stringify(updatedTimeline), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+      }
+
+      // First GET returns base timeline, subsequent GETs return updated
+      const response = callCount === 1 ? baseTimeline : updatedTimeline
+      return Promise.resolve(
+        new Response(JSON.stringify(response), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
       )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(updatedTimeline), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      )
+    })
 
     const { result } = renderHook(() => useTimeline(), { wrapper: createWrapper() })
 
@@ -112,7 +128,7 @@ describe('useTimeline', () => {
       })
     })
 
-    expect(fetchMock).toHaveBeenLastCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/financial/timeline/1'),
       expect.objectContaining({ method: 'PUT' })
     )

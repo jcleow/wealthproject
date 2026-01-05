@@ -76,6 +76,8 @@ type Store interface {
 	ListIncludedScenarioEvents(context.Context, string) ([]repository.ScenarioEvent, error)
 	// ListIncludedPropertyScenarios returns property scenarios where is_included=true for timeline projection
 	ListIncludedPropertyScenarios(context.Context, string) ([]repository.PropertyScenarioFull, error)
+	// ListFundFlowRules returns all fund flow rules for a user
+	ListFundFlowRules(context.Context, repository.ListFundFlowRulesQuery) ([]repository.FundFlowRule, error)
 }
 
 // ScenarioStore provides scenario-specific operations
@@ -203,6 +205,18 @@ type CPFAssetResponse struct {
 	StartMonth      int             `json:"startMonth"`
 }
 
+// PaymentSourceResponse represents a payment source in the timeline response
+// This shows where a liability payment came from (e.g., CPF OA, savings account)
+type PaymentSourceResponse struct {
+	RuleID      string           `json:"ruleId"`
+	RuleName    string           `json:"ruleName"`
+	SourceType  string           `json:"sourceType"`  // "cpf" or "cash"
+	SourceID    string           `json:"sourceId"`
+	SourceName  string           `json:"sourceName,omitempty"`
+	Amount      *decimal.Decimal `json:"amount"`
+	UsedFallback bool            `json:"usedFallback"` // True if this was a lower-priority rule covering remainder
+}
+
 // LiabilityResponse represents a liability in the timeline response
 type LiabilityResponse struct {
 	ID              string          `json:"id"`
@@ -217,6 +231,7 @@ type LiabilityResponse struct {
 	StartMonth      int             `json:"startMonth"`
 	EventImpacts    []AppliedImpact `json:"eventImpacts,omitempty"`
 	ScenarioEventID *string         `json:"scenarioEventId,omitempty"` // If set, this item was created by a start impact
+	PaymentSources  []PaymentSourceResponse `json:"paymentSources,omitempty"` // Fund flow payment attribution
 }
 
 // IncomeResponse represents an income entry in the timeline response

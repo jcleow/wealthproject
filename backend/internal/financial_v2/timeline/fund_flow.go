@@ -1,0 +1,393 @@
+package timeline_v2
+
+import (
+	"sort"
+	"time"
+
+	"financial-chat-system/backend/internal/decimal"
+	"financial-chat-system/backend/internal/financial_v2/repository"
+)
+
+// Fund flow rule type constants
+const (
+	RuleTypePayment = "payment"
+)
+
+// Amount type constants for payment rules
+const (
+	AmountTypeFixed          = "fixed"
+	AmountTypePctTarget      = "pct_target"
+	AmountTypePctSource      = "pct_source"
+	AmountTypeTargetRequired = "target_required"
+	AmountTypeMaxAvailable   = "max_available"
+	AmountTypeRemainder      = "remainder"
+)
+
+// Source type constants
+const (
+	SourceTypeCPF  = "cpf"
+	SourceTypeCash = "cash"
+)
+
+// Target type constants
+const (
+	TargetTypeLiability = "liability"
+	TargetTypeProperty  = "property"
+)
+
+// SourceBalanceMap maps account IDs to their current balances.
+// Keys are account IDs (CPF account IDs or cash account IDs).
+// Values are the current balance available for payments.
+type SourceBalanceMap map[string]*decimal.Decimal
+
+// RequiredPaymentMap maps target IDs to their required monthly payments.
+// Keys are liability or property IDs.
+// Values are the monthly payment amount required.
+type RequiredPaymentMap map[string]*decimal.Decimal
+
+// RulesByTargetMap groups fund flow rules by their target entity.
+// Keys are target IDs (liability or property IDs).
+// Values are slices of rules that apply to that target.
+type RulesByTargetMap map[string][]repository.FundFlowRule
+
+// PaymentExecution represents the result of executing a single payment rule.
+// Tracks how much was paid from which source to support attribution in the response.
+type PaymentExecution struct {
+	RuleID     string           `json:"ruleId"`
+	RuleName   string           `json:"ruleName"`
+	SourceType string           `json:"sourceType"` // SourceTypeCPF or SourceTypeCash
+	SourceID   string           `json:"sourceId"`   // ID of the source account
+	SourceName string           `json:"sourceName"` // Name for display
+	TargetType string           `json:"targetType"` // TargetTypeLiability or TargetTypeProperty
+	TargetID   string           `json:"targetId"`   // ID of the target
+	Amount     *decimal.Decimal `json:"amount"`     // Amount actually paid
+	Priority   int              `json:"priority"`   // Rule priority (lower = higher priority)
+	AmountType string           `json:"amountType"` // One of the AmountType* constants
+
+	// WasFallback indicates whether this payment came from a lower-priority fallback rule.
+	// This is useful for understanding payment attribution:
+	// - false: This was the primary source (highest priority rule that could pay)
+	// - true: This was a secondary source covering the remainder after higher-priority rules
+	// Example: If CPF (priority 1) pays $800 and Cash (priority 2) covers remaining $200,
+	// the Cash payment would have WasFallback=true.
+	WasFallback bool `json:"wasFallback"`
+}
+
+// FundFlowExecutionResult holds all payment executions for a month
+type FundFlowExecutionResult struct {
+	// PaymentsByTarget maps target ID (liability or property) to list of payments made
+	PaymentsByTarget map[string][]PaymentExecution
+}
+
+// executePaymentRules processes all payment-type fund flow rules for the current month.
+// Returns a result struct with attribution information for the response.
+//
+// Payment rules work as follows:
+// 1. Rules are grouped by target (liability or property)
+// 2. Within each group, rules are sorted by priority (lower number = higher priority)
+// 3. Each rule attempts to pay its amount from the source
+// 4. AmountTypeMaxAvailable rules use up to source balance
+// 5. AmountTypeRemainder rules cover whatever is left after higher-priority rules
+//
+// IMPORTANT: sourceBalances is mutated - source balances are decreased by payment amounts.
+//
+// Example parameter shapes:
+//
+//	rules: []repository.FundFlowRule{
+//	    {
+//	        ID: "rule-1",
+//	        Name: "CPF OA to Mortgage",
+//	        RuleType: "payment",
+//	        SourceCpfAccountID: ptr("cpf-oa-123"),
+//	        TargetLiabilityID: ptr("mortgage-456"),
+//	        AmountType: "max_available",
+//	        Priority: 1,
+//	        StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+//	    },
+//	}
+//
+//	sourceBalances: SourceBalanceMap{
+//	    "cpf-oa-123": decimal.MustFromString("50000"),
+//	    "cash-789": decimal.MustFromString("10000"),
+//	}
+//
+//	requiredPayments: RequiredPaymentMap{
+//	    "mortgage-456": decimal.MustFromString("2500"),  // Monthly mortgage payment
+//	}
+func executePaymentRules(
+	rules []repository.FundFlowRule,
+	sourceBalances SourceBalanceMap,
+	requiredPayments RequiredPaymentMap,
+	currentDate time.Time,
+) FundFlowExecutionResult {
+	result := FundFlowExecutionResult{
+		PaymentsByTarget: make(map[string][]PaymentExecution),
+	}
+
+	// Filter to only payment rules active at current date
+	paymentRules := filterActivePaymentRules(rules, currentDate)
+	if len(paymentRules) == 0 {
+		return result
+	}
+
+	// Group rules by target
+	byTarget := groupPaymentsByTarget(paymentRules)
+
+	// Process each target
+	for targetID, targetRules := range byTarget {
+		required, exists := requiredPayments[targetID]
+		if !exists || required == nil || required.IsZero() || required.IsNegative() {
+			continue
+		}
+
+		executions := executePaymentGroup(targetID, targetRules, sourceBalances, required)
+		if len(executions) > 0 {
+			result.PaymentsByTarget[targetID] = executions
+		}
+	}
+
+	return result
+}
+
+// filterActivePaymentRules returns only payment rules that are active on the given date
+func filterActivePaymentRules(rules []repository.FundFlowRule, date time.Time) []repository.FundFlowRule {
+	var active []repository.FundFlowRule
+	for _, rule := range rules {
+		if rule.RuleType != RuleTypePayment {
+			continue
+		}
+		// Check if rule is active (start_date <= date AND (end_date IS NULL OR end_date >= date))
+		if rule.StartDate.After(date) {
+			continue
+		}
+		if rule.EndDate != nil && rule.EndDate.Before(date) {
+			continue
+		}
+		active = append(active, rule)
+	}
+	return active
+}
+
+// groupPaymentsByTarget groups payment rules by their target (liability or property)
+func groupPaymentsByTarget(rules []repository.FundFlowRule) RulesByTargetMap {
+	byTarget := make(RulesByTargetMap)
+	for _, rule := range rules {
+		var targetID string
+		if rule.TargetLiabilityID != nil {
+			targetID = *rule.TargetLiabilityID
+		} else if rule.TargetPropertyID != nil {
+			targetID = *rule.TargetPropertyID
+		} else {
+			continue // Invalid payment rule - no target
+		}
+		byTarget[targetID] = append(byTarget[targetID], rule)
+	}
+	return byTarget
+}
+
+// executePaymentGroup executes all payment rules for a single target in priority order
+func executePaymentGroup(
+	targetID string,
+	rules []repository.FundFlowRule,
+	sourceBalances SourceBalanceMap,
+	requiredAmount *decimal.Decimal,
+) []PaymentExecution {
+	// Sort by priority (lower = higher priority)
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].Priority < rules[j].Priority
+	})
+
+	remainingAmount := requiredAmount
+	var executions []PaymentExecution
+	isFirstExecution := true
+
+	for _, rule := range rules {
+		if remainingAmount.IsZero() || remainingAmount.IsNegative() {
+			break
+		}
+
+		sourceID := getSourceID(rule)
+		if sourceID == "" {
+			continue
+		}
+
+		sourceBalance := sourceBalances[sourceID]
+		if sourceBalance == nil || sourceBalance.IsZero() || sourceBalance.IsNegative() {
+			continue
+		}
+
+		// Calculate the intended amount based on amount type
+		intendedAmount := calculatePaymentAmount(rule, requiredAmount, remainingAmount, sourceBalance)
+		if intendedAmount.IsZero() || intendedAmount.IsNegative() {
+			continue
+		}
+
+		// Actual amount is minimum of: intended amount, source balance, remaining required
+		actualAmount := decimal.Min(intendedAmount, sourceBalance, remainingAmount)
+		if actualAmount.IsZero() || actualAmount.IsNegative() {
+			continue
+		}
+
+		// Deduct from source balance
+		newBalance := sourceBalance.Sub(actualAmount)
+		sourceBalances[sourceID] = newBalance
+
+		// Track the execution
+		execution := PaymentExecution{
+			RuleID:      rule.ID,
+			RuleName:    rule.Name,
+			SourceType:  getSourceType(rule),
+			SourceID:    sourceID,
+			TargetType:  getTargetType(rule),
+			TargetID:    targetID,
+			Amount:      actualAmount,
+			Priority:    rule.Priority,
+			AmountType:  rule.AmountType,
+			WasFallback: !isFirstExecution,
+		}
+		executions = append(executions, execution)
+
+		// Reduce remaining
+		remainingAmount = remainingAmount.Sub(actualAmount)
+		isFirstExecution = false
+	}
+
+	return executions
+}
+
+// calculatePaymentAmount determines the intended payment amount based on the rule's amount type
+func calculatePaymentAmount(
+	rule repository.FundFlowRule,
+	requiredAmount *decimal.Decimal,
+	remainingAmount *decimal.Decimal,
+	sourceBalance *decimal.Decimal,
+) *decimal.Decimal {
+	switch rule.AmountType {
+	case AmountTypeFixed:
+		// Pay exactly the specified amount
+		if rule.AmountValue == nil {
+			return decimal.Zero()
+		}
+		return rule.AmountValue
+
+	case AmountTypePctTarget:
+		// Pay percentage of target's required amount
+		if rule.AmountValue == nil {
+			return decimal.Zero()
+		}
+		hundred := decimal.MustFromString("100")
+		percentage := rule.AmountValue.Div(hundred)
+		return requiredAmount.Mul(percentage)
+
+	case AmountTypePctSource:
+		// Pay percentage of source balance
+		if rule.AmountValue == nil {
+			return decimal.Zero()
+		}
+		hundred := decimal.MustFromString("100")
+		percentage := rule.AmountValue.Div(hundred)
+		return sourceBalance.Mul(percentage)
+
+	case AmountTypeTargetRequired:
+		// Pay whatever target needs (optionally capped)
+		amount := remainingAmount
+		if rule.AmountValue != nil && rule.AmountValue.Cmp(amount) < 0 {
+			amount = rule.AmountValue
+		}
+		return amount
+
+	case AmountTypeMaxAvailable:
+		// Use up to source balance, capped by remaining required (and optional cap)
+		amount := sourceBalance
+		if amount.Cmp(remainingAmount) > 0 {
+			amount = remainingAmount
+		}
+		// Apply optional cap
+		if rule.AmountValue != nil && amount.Cmp(rule.AmountValue) > 0 {
+			amount = rule.AmountValue
+		}
+		return amount
+
+	case AmountTypeRemainder:
+		// Pay whatever is left after higher-priority rules
+		return remainingAmount
+
+	default:
+		return decimal.Zero()
+	}
+}
+
+// getSourceID returns the source account ID from a payment rule
+func getSourceID(rule repository.FundFlowRule) string {
+	if rule.SourceCpfAccountID != nil {
+		return *rule.SourceCpfAccountID
+	}
+	if rule.SourceCashAccountID != nil {
+		return *rule.SourceCashAccountID
+	}
+	return ""
+}
+
+// getSourceType returns SourceTypeCPF or SourceTypeCash based on which source is set
+func getSourceType(rule repository.FundFlowRule) string {
+	if rule.SourceCpfAccountID != nil {
+		return SourceTypeCPF
+	}
+	if rule.SourceCashAccountID != nil {
+		return SourceTypeCash
+	}
+	return ""
+}
+
+// getTargetType returns TargetTypeLiability or TargetTypeProperty based on which target is set
+func getTargetType(rule repository.FundFlowRule) string {
+	if rule.TargetLiabilityID != nil {
+		return TargetTypeLiability
+	}
+	if rule.TargetPropertyID != nil {
+		return TargetTypeProperty
+	}
+	return ""
+}
+
+// buildRequiredPaymentsMap creates a map of liability/property ID to required monthly payment.
+// This is used by executePaymentRules to know how much needs to be paid to each target.
+func buildRequiredPaymentsMap(
+	liabilities []FinancialDataRow,
+	currentDate time.Time,
+) RequiredPaymentMap {
+	requiredPayments := make(RequiredPaymentMap)
+
+	zero := decimal.Zero()
+	for _, liability := range liabilities {
+		// Skip inactive liabilities
+		if !isLiabilityActiveForPayment(liability, currentDate) {
+			continue
+		}
+
+		// Get the minimum payment amount for this liability
+		// MinimumPay is the monthly payment amount (value type, need address for Cmp)
+		minPay := &liability.MinimumPay
+		if minPay.Cmp(zero) > 0 {
+			requiredPayments[liability.ID] = minPay
+		}
+	}
+
+	// TODO: Add property mortgage payments when property integration is complete
+	// Properties have their own mortgage payment schedules
+
+	return requiredPayments
+}
+
+// isLiabilityActiveForPayment checks if a liability is active and should receive payments
+func isLiabilityActiveForPayment(liability FinancialDataRow, date time.Time) bool {
+	// Check start date
+	if liability.StartDate.After(date) {
+		return false
+	}
+	// Check end date if set
+	if liability.EndDate != nil && liability.EndDate.Before(date) {
+		return false
+	}
+	return true
+}
