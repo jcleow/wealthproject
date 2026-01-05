@@ -198,73 +198,69 @@ export function BorrowersStep({
         </div>
 
         <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
-          {/* Borrower 1 Downpayment */}
-          {inputs.borrower1IncomeId && (
-            <>
-              {inputs.borrowerType === 'joint' && (
-                <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Borrower 1</div>
-              )}
-              {/* CPF OA */}
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                  <Landmark className="h-3.5 w-3.5 text-blue-400" />
-                </div>
-                <span className="text-xs text-slate-300 flex-1">CPF OA</span>
-                <div className="w-28">
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={inputs.borrower1DownpaymentCpfOa === 0 ? '' : inputs.borrower1DownpaymentCpfOa.toLocaleString()}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/,/g, '')
-                        const num = parseFloat(raw) || 0
-                        const cappedValue = Math.min(num, inputs.borrower1OaBalance)
-                        onChange('borrower1DownpaymentCpfOa', cappedValue)
-                        onChange('downpaymentCpfOa', cappedValue + inputs.borrower2DownpaymentCpfOa)
-                      }}
-                      placeholder="0"
-                      className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
-                    />
-                  </div>
-                </div>
-              </div>
-              {/* Cash */}
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
-                  <Wallet className="h-3.5 w-3.5 text-emerald-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <CustomDropdown
-                    value={inputs.borrower1DownpaymentCashAccountId ?? ''}
-                    onChange={(value) => onChange('borrower1DownpaymentCashAccountId', value || null)}
-                    options={cashAccountOptions}
-                    minWidth="100%"
-                    className="[&_button]:py-1.5 [&_button]:text-xs"
-                  />
-                </div>
-                <div className="w-28">
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={inputs.borrower1DownpaymentCashAmount === 0 ? '' : inputs.borrower1DownpaymentCashAmount.toLocaleString()}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/,/g, '')
-                        const num = parseFloat(raw) || 0
-                        onChange('borrower1DownpaymentCashAmount', num)
-                        onChange('downpaymentCash', num + inputs.borrower2DownpaymentCashAmount)
-                      }}
-                      placeholder="0"
-                      className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
-                    />
-                  </div>
-                </div>
-              </div>
-            </>
+          {/* Borrower 1 Downpayment - Always show */}
+          {inputs.borrowerType === 'joint' && (
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Borrower 1</div>
           )}
+          {/* CPF OA */}
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+              <Landmark className="h-3.5 w-3.5 text-blue-400" />
+            </div>
+            <span className="text-xs text-slate-300 flex-1">CPF OA</span>
+            <div className="w-28">
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={inputs.borrower1DownpaymentCpfOa === 0 ? '' : inputs.borrower1DownpaymentCpfOa.toLocaleString()}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/,/g, '')
+                    const num = parseFloat(raw) || 0
+                    const cappedValue = inputs.borrower1OaBalance > 0 ? Math.min(num, inputs.borrower1OaBalance) : num
+                    onChange('borrower1DownpaymentCpfOa', cappedValue)
+                    onChange('downpaymentCpfOa', cappedValue + inputs.borrower2DownpaymentCpfOa)
+                  }}
+                  placeholder="0"
+                  className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
+                />
+              </div>
+            </div>
+          </div>
+          {/* Cash */}
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+              <Wallet className="h-3.5 w-3.5 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <CustomDropdown
+                value={inputs.borrower1DownpaymentCashAccountId ?? ''}
+                onChange={(value) => onChange('borrower1DownpaymentCashAccountId', value || null)}
+                options={cashAccountOptions}
+                minWidth="100%"
+                className="[&_button]:py-1.5 [&_button]:text-xs"
+              />
+            </div>
+            <div className="w-28">
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={inputs.borrower1DownpaymentCashAmount === 0 ? '' : inputs.borrower1DownpaymentCashAmount.toLocaleString()}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/,/g, '')
+                    const num = parseFloat(raw) || 0
+                    onChange('borrower1DownpaymentCashAmount', num)
+                    onChange('downpaymentCash', num + inputs.borrower2DownpaymentCashAmount)
+                  }}
+                  placeholder="0"
+                  className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
+                />
+              </div>
+            </div>
+          </div>
 
           {/* Borrower 2 Downpayment */}
           {inputs.borrowerType === 'joint' && inputs.borrower2IncomeId && (
@@ -355,116 +351,114 @@ export function BorrowersStep({
         </div>
 
         <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
-          {/* Borrower 1 Monthly */}
-          {inputs.borrower1IncomeId && (
-            <>
-              {inputs.borrowerType === 'joint' && (
-                <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Borrower 1</div>
-              )}
-              {/* CPF OA */}
-              <div className="space-y-1">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                    <Landmark className="h-3.5 w-3.5 text-blue-400" />
-                  </div>
-                  <span className="text-xs text-slate-300 flex-1">CPF OA</span>
-                  <div className="w-28">
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={inputs.borrower1MonthlyCpfOa === 0 ? '' : inputs.borrower1MonthlyCpfOa.toLocaleString()}
-                        onChange={(e) => {
-                          const raw = e.target.value.replace(/,/g, '')
-                          const num = parseFloat(raw) || 0
-                          onChange('borrower1MonthlyCpfOa', num)
-                          onChange('monthlyCpfOa', num + inputs.borrower2MonthlyCpfOa)
-                        }}
-                        placeholder="0"
-                        className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[10px] text-slate-600 pl-9">
-                  Est. monthly OA: ${calculateMonthlyOaInflow(incomes.find(i => i.id === inputs.borrower1IncomeId)?.monthlyAmount || 0).toLocaleString()}/mo
-                </p>
+          {/* Borrower 1 Monthly - Always show */}
+          {inputs.borrowerType === 'joint' && (
+            <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Borrower 1</div>
+          )}
+          {/* CPF OA */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                <Landmark className="h-3.5 w-3.5 text-blue-400" />
               </div>
-              {/* Cash */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
-                    <Wallet className="h-3.5 w-3.5 text-emerald-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <CustomDropdown
-                      value={inputs.borrower1MonthlyCashAccountId ?? ''}
-                      onChange={(value) => onChange('borrower1MonthlyCashAccountId', value || null)}
-                      options={cashAccountOptions}
-                      minWidth="100%"
-                      className="[&_button]:py-1.5 [&_button]:text-xs"
-                    />
-                  </div>
+              <span className="text-xs text-slate-300 flex-1">CPF OA</span>
+              <div className="w-28">
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={inputs.borrower1MonthlyCpfOa === 0 ? '' : inputs.borrower1MonthlyCpfOa.toLocaleString()}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/,/g, '')
+                      const num = parseFloat(raw) || 0
+                      onChange('borrower1MonthlyCpfOa', num)
+                      onChange('monthlyCpfOa', num + inputs.borrower2MonthlyCpfOa)
+                    }}
+                    placeholder="0"
+                    className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
+                  />
                 </div>
-                {/* Amount type selector - only if cash account selected */}
-                {inputs.borrower1MonthlyCashAccountId && (
-                  <div className="flex items-center gap-2 pl-9">
-                    <div className="flex items-center shrink-0">
-                      {MONTHLY_AMOUNT_TYPE_OPTIONS.map((option, idx) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => {
-                            onChange('borrower1MonthlyCashAmountType', option.value as 'fixed' | 'percentage' | 'remainder')
-                            if (option.value === 'remainder') {
-                              onChange('borrower1MonthlyCashAmount', 0)
-                            }
-                          }}
-                          className={cn(
-                            "px-2 py-1 text-[10px] font-medium border-y transition-colors",
-                            idx === 0 && "rounded-l-md border-l",
-                            idx === MONTHLY_AMOUNT_TYPE_OPTIONS.length - 1 && "rounded-r-md border-r",
-                            idx > 0 && idx < MONTHLY_AMOUNT_TYPE_OPTIONS.length - 1 && "border-l-0",
-                            inputs.borrower1MonthlyCashAmountType === option.value
-                              ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
-                              : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
-                          )}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                    {inputs.borrower1MonthlyCashAmountType !== 'remainder' && (
-                      <div className="flex items-center flex-1 h-7 px-2 rounded-md border border-white/[0.06] bg-white/[0.02]">
-                        {inputs.borrower1MonthlyCashAmountType === 'fixed' && (
-                          <span className="text-slate-500 text-xs">$</span>
-                        )}
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={inputs.borrower1MonthlyCashAmount === 0 ? '' : inputs.borrower1MonthlyCashAmount.toLocaleString()}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/,/g, '')
-                            const num = parseFloat(raw) || 0
-                            onChange('borrower1MonthlyCashAmount', num)
-                          }}
-                          placeholder="0"
-                          className="flex-1 min-w-0 bg-transparent border-0 outline-none text-white text-xs font-mono tabular-nums placeholder:text-slate-600 ml-1"
-                        />
-                        {inputs.borrower1MonthlyCashAmountType === 'percentage' && (
-                          <span className="text-slate-500 text-xs ml-1">%</span>
-                        )}
-                      </div>
+              </div>
+            </div>
+            {inputs.borrower1IncomeId && (
+              <p className="text-[10px] text-slate-600 pl-9">
+                Est. monthly OA: ${calculateMonthlyOaInflow(incomes.find(i => i.id === inputs.borrower1IncomeId)?.monthlyAmount || 0).toLocaleString()}/mo
+              </p>
+            )}
+          </div>
+          {/* Cash */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                <Wallet className="h-3.5 w-3.5 text-emerald-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <CustomDropdown
+                  value={inputs.borrower1MonthlyCashAccountId ?? ''}
+                  onChange={(value) => onChange('borrower1MonthlyCashAccountId', value || null)}
+                  options={cashAccountOptions}
+                  minWidth="100%"
+                  className="[&_button]:py-1.5 [&_button]:text-xs"
+                />
+              </div>
+            </div>
+            {/* Amount type selector - only if cash account selected */}
+            {inputs.borrower1MonthlyCashAccountId && (
+              <div className="flex items-center gap-2 pl-9">
+                <div className="flex items-center shrink-0">
+                  {MONTHLY_AMOUNT_TYPE_OPTIONS.map((option, idx) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        onChange('borrower1MonthlyCashAmountType', option.value as 'fixed' | 'percentage' | 'remainder')
+                        if (option.value === 'remainder') {
+                          onChange('borrower1MonthlyCashAmount', 0)
+                        }
+                      }}
+                      className={cn(
+                        "px-2 py-1 text-[10px] font-medium border-y transition-colors",
+                        idx === 0 && "rounded-l-md border-l",
+                        idx === MONTHLY_AMOUNT_TYPE_OPTIONS.length - 1 && "rounded-r-md border-r",
+                        idx > 0 && idx < MONTHLY_AMOUNT_TYPE_OPTIONS.length - 1 && "border-l-0",
+                        inputs.borrower1MonthlyCashAmountType === option.value
+                          ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
+                          : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {inputs.borrower1MonthlyCashAmountType !== 'remainder' && (
+                  <div className="flex items-center flex-1 h-7 px-2 rounded-md border border-white/[0.06] bg-white/[0.02]">
+                    {inputs.borrower1MonthlyCashAmountType === 'fixed' && (
+                      <span className="text-slate-500 text-xs">$</span>
                     )}
-                    {inputs.borrower1MonthlyCashAmountType === 'remainder' && (
-                      <span className="text-[10px] text-slate-500">covers remaining</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={inputs.borrower1MonthlyCashAmount === 0 ? '' : inputs.borrower1MonthlyCashAmount.toLocaleString()}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/,/g, '')
+                        const num = parseFloat(raw) || 0
+                        onChange('borrower1MonthlyCashAmount', num)
+                      }}
+                      placeholder="0"
+                      className="flex-1 min-w-0 bg-transparent border-0 outline-none text-white text-xs font-mono tabular-nums placeholder:text-slate-600 ml-1"
+                    />
+                    {inputs.borrower1MonthlyCashAmountType === 'percentage' && (
+                      <span className="text-slate-500 text-xs ml-1">%</span>
                     )}
                   </div>
                 )}
+                {inputs.borrower1MonthlyCashAmountType === 'remainder' && (
+                  <span className="text-[10px] text-slate-500">covers remaining</span>
+                )}
               </div>
-            </>
-          )}
+            )}
+          </div>
 
           {/* Borrower 2 Monthly */}
           {inputs.borrowerType === 'joint' && inputs.borrower2IncomeId && (
