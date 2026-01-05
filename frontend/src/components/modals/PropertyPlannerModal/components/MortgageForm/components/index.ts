@@ -1,3 +1,5 @@
 export { AmountTypeToggle, type AmountTypeOption } from './AmountTypeToggle'
 export { CurrencyInput, InlineCurrencyInput } from './CurrencyInput'
 export { FundSourceRow } from './FundSourceRow'
+export { DownpaymentSourcesSection } from './DownpaymentSourcesSection'
+export { MonthlyPaymentSourcesSection } from './MonthlyPaymentSourcesSection'
