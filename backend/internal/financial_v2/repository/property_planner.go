@@ -58,8 +58,24 @@ type PropertySG struct {
 	// Per-borrower monthly CPF OA payment amounts
 	Borrower1MonthlyCpfOa decimal.Decimal `json:"borrower1MonthlyCpfOa"`
 	Borrower2MonthlyCpfOa decimal.Decimal `json:"borrower2MonthlyCpfOa"`
-	CreatedAt             time.Time       `json:"createdAt"`
-	UpdatedAt             time.Time       `json:"updatedAt"`
+	// Per-borrower cash account configuration (downpayment)
+	Borrower1DownpaymentCashAccountID *string         `json:"borrower1DownpaymentCashAccountId"`
+	Borrower1DownpaymentCashAmount    decimal.Decimal `json:"borrower1DownpaymentCashAmount"`
+	Borrower2DownpaymentCashAccountID *string         `json:"borrower2DownpaymentCashAccountId"`
+	Borrower2DownpaymentCashAmount    decimal.Decimal `json:"borrower2DownpaymentCashAmount"`
+	// Per-borrower cash account configuration (monthly payment)
+	Borrower1MonthlyCashAccountID  *string         `json:"borrower1MonthlyCashAccountId"`
+	Borrower1MonthlyCashAmountType string          `json:"borrower1MonthlyCashAmountType"` // 'fixed', 'percentage', 'remainder'
+	Borrower1MonthlyCashAmount     decimal.Decimal `json:"borrower1MonthlyCashAmount"`
+	Borrower2MonthlyCashAccountID  *string         `json:"borrower2MonthlyCashAccountId"`
+	Borrower2MonthlyCashAmountType string          `json:"borrower2MonthlyCashAmountType"` // 'fixed', 'percentage', 'remainder'
+	Borrower2MonthlyCashAmount     decimal.Decimal `json:"borrower2MonthlyCashAmount"`
+	// Sale proceeds destination accounts
+	Borrower1CpfRefundAccountID *string `json:"borrower1CpfRefundAccountId"` // CPF OA to receive borrower 1's refund
+	Borrower2CpfRefundAccountID *string `json:"borrower2CpfRefundAccountId"` // CPF OA to receive borrower 2's refund (joint only)
+	NetCashProceedsAccountID    *string `json:"netCashProceedsAccountId"`    // Cash account to receive net proceeds
+	CreatedAt                   time.Time       `json:"createdAt"`
+	UpdatedAt                   time.Time       `json:"updatedAt"`
 }
 
 // PropertyFee represents a purchase, sale, or recurring fee
@@ -134,8 +150,8 @@ type PropertyScenarioFull struct {
 
 // Input types for creating/updating scenarios
 
-// CreateSGDetailsInput is the input for creating Singapore property details
-type CreateSGDetailsInput struct {
+// CreatePropertySGInput is the input for creating Singapore property details
+type CreatePropertySGInput struct {
 	Name                  string           `json:"name"`
 	PropertyType          string           `json:"propertyType"`
 	PropertySubtype       string           `json:"propertySubtype"`
@@ -167,6 +183,22 @@ type CreateSGDetailsInput struct {
 	Borrower2DownpaymentCpfOa *decimal.Decimal `json:"borrower2DownpaymentCpfOa"`
 	Borrower1MonthlyCpfOa     *decimal.Decimal `json:"borrower1MonthlyCpfOa"`
 	Borrower2MonthlyCpfOa     *decimal.Decimal `json:"borrower2MonthlyCpfOa"`
+	// Per-borrower cash account configuration (downpayment)
+	Borrower1DownpaymentCashAccountID *string          `json:"borrower1DownpaymentCashAccountId"`
+	Borrower1DownpaymentCashAmount    *decimal.Decimal `json:"borrower1DownpaymentCashAmount"`
+	Borrower2DownpaymentCashAccountID *string          `json:"borrower2DownpaymentCashAccountId"`
+	Borrower2DownpaymentCashAmount    *decimal.Decimal `json:"borrower2DownpaymentCashAmount"`
+	// Per-borrower cash account configuration (monthly payment)
+	Borrower1MonthlyCashAccountID  *string          `json:"borrower1MonthlyCashAccountId"`
+	Borrower1MonthlyCashAmountType *string          `json:"borrower1MonthlyCashAmountType"` // 'fixed', 'percentage', 'remainder'
+	Borrower1MonthlyCashAmount     *decimal.Decimal `json:"borrower1MonthlyCashAmount"`
+	Borrower2MonthlyCashAccountID  *string          `json:"borrower2MonthlyCashAccountId"`
+	Borrower2MonthlyCashAmountType *string          `json:"borrower2MonthlyCashAmountType"` // 'fixed', 'percentage', 'remainder'
+	Borrower2MonthlyCashAmount     *decimal.Decimal `json:"borrower2MonthlyCashAmount"`
+	// Sale proceeds destination accounts
+	Borrower1CpfRefundAccountID *string `json:"borrower1CpfRefundAccountId"`
+	Borrower2CpfRefundAccountID *string `json:"borrower2CpfRefundAccountId"`
+	NetCashProceedsAccountID    *string `json:"netCashProceedsAccountId"`
 }
 
 // CreateFeeInput is the input for creating a property fee
@@ -203,7 +235,7 @@ type CreateRatePeriodInput struct {
 // CreateScenarioInput is the input for creating a property scenario
 type CreateScenarioInput struct {
 	Country       string                    `json:"country"` // "SG" or "MY"
-	PropertySG    *CreateSGDetailsInput     `json:"propertySG"`
+	PropertySG    *CreatePropertySGInput     `json:"propertySG"`
 	Fees          []CreateFeeInput          `json:"fees"`
 	GrowthPeriods []CreateGrowthPeriodInput `json:"growthPeriods"`
 	RatePeriods   []CreateRatePeriodInput   `json:"ratePeriods"`
@@ -212,7 +244,7 @@ type CreateScenarioInput struct {
 
 // UpdateScenarioInput is the input for updating a property scenario
 type UpdateScenarioInput struct {
-	PropertySG    *CreateSGDetailsInput     `json:"propertySG"`
+	PropertySG    *CreatePropertySGInput     `json:"propertySG"`
 	Fees          []CreateFeeInput          `json:"fees"`
 	GrowthPeriods []CreateGrowthPeriodInput `json:"growthPeriods"`
 	RatePeriods   []CreateRatePeriodInput   `json:"ratePeriods"`
@@ -236,13 +268,13 @@ func (s *Store) CreatePropertyScenario(ctx context.Context, userID string, input
 	defer tx.Rollback(ctx)
 
 	// 1. Create country-specific details first (to get the ID)
-	var sgDetailsID *string
+	var propertySGID *string
 	if input.PropertySG != nil {
-		id, err := s.createSGDetails(ctx, tx, input.PropertySG)
+		id, err := s.createPropertySG(ctx, tx, input.PropertySG)
 		if err != nil {
 			return nil, fmt.Errorf("create sg details: %w", err)
 		}
-		sgDetailsID = &id
+		propertySGID = &id
 
 		// 1b. Create grants for SG details
 		if len(input.Grants) > 0 {
@@ -263,19 +295,19 @@ func (s *Store) CreatePropertyScenario(ctx context.Context, userID string, input
 		INSERT INTO property_scenarios (user_id, property_sg_id, my_details_id)
 		VALUES ($1, $2, NULL)
 		RETURNING id
-	`, userID, sgDetailsID).Scan(&scenarioID)
+	`, userID, propertySGID).Scan(&scenarioID)
 	if err != nil {
 		return nil, fmt.Errorf("create scenario header: %w", err)
 	}
 
 	// 4. Create growth periods (linked to sg_details, not scenario header)
-	if sgDetailsID != nil {
-		if err := s.createGrowthPeriods(ctx, tx, *sgDetailsID, input.GrowthPeriods); err != nil {
+	if propertySGID != nil {
+		if err := s.createGrowthPeriods(ctx, tx, *propertySGID, input.GrowthPeriods); err != nil {
 			return nil, fmt.Errorf("create growth periods: %w", err)
 		}
 
 		// 5. Create loan rate periods (linked to sg_details, not scenario header)
-		if err := s.createRatePeriods(ctx, tx, *sgDetailsID, input.RatePeriods); err != nil {
+		if err := s.createRatePeriods(ctx, tx, *propertySGID, input.RatePeriods); err != nil {
 			return nil, fmt.Errorf("create rate periods: %w", err)
 		}
 	}
@@ -288,8 +320,8 @@ func (s *Store) CreatePropertyScenario(ctx context.Context, userID string, input
 	return s.GetPropertyScenario(ctx, userID, scenarioID)
 }
 
-// createSGDetails creates Singapore property details and returns the ID
-func (s *Store) createSGDetails(ctx context.Context, tx pgx.Tx, input *CreateSGDetailsInput) (string, error) {
+// createPropertySG creates Singapore property details and returns the ID
+func (s *Store) createPropertySG(ctx context.Context, tx pgx.Tx, input *CreatePropertySGInput) (string, error) {
 	// Set defaults
 	isIncluded := true
 	if input.IsIncluded != nil {
@@ -337,6 +369,38 @@ func (s *Store) createSGDetails(ctx context.Context, tx pgx.Tx, input *CreateSGD
 		borrower2MonthlyCpfOa = input.Borrower2MonthlyCpfOa
 	}
 
+	// Per-borrower cash account defaults (downpayment)
+	borrower1DownpaymentCashAmount := decimal.Zero()
+	if input.Borrower1DownpaymentCashAmount != nil {
+		borrower1DownpaymentCashAmount = input.Borrower1DownpaymentCashAmount
+	}
+
+	borrower2DownpaymentCashAmount := decimal.Zero()
+	if input.Borrower2DownpaymentCashAmount != nil {
+		borrower2DownpaymentCashAmount = input.Borrower2DownpaymentCashAmount
+	}
+
+	// Per-borrower cash account defaults (monthly payment)
+	borrower1MonthlyCashAmountType := "remainder"
+	if input.Borrower1MonthlyCashAmountType != nil {
+		borrower1MonthlyCashAmountType = *input.Borrower1MonthlyCashAmountType
+	}
+
+	borrower1MonthlyCashAmount := decimal.Zero()
+	if input.Borrower1MonthlyCashAmount != nil {
+		borrower1MonthlyCashAmount = input.Borrower1MonthlyCashAmount
+	}
+
+	borrower2MonthlyCashAmountType := "remainder"
+	if input.Borrower2MonthlyCashAmountType != nil {
+		borrower2MonthlyCashAmountType = *input.Borrower2MonthlyCashAmountType
+	}
+
+	borrower2MonthlyCashAmount := decimal.Zero()
+	if input.Borrower2MonthlyCashAmount != nil {
+		borrower2MonthlyCashAmount = input.Borrower2MonthlyCashAmount
+	}
+
 	var id string
 	err := tx.QueryRow(ctx, `
 		INSERT INTO property_sg (
@@ -351,9 +415,15 @@ func (s *Store) createSGDetails(ctx context.Context, tx pgx.Tx, input *CreateSGD
 			sale_expected_date, sale_expected_price,
 			lease_remaining_years,
 			borrower1_downpayment_cpf_oa, borrower2_downpayment_cpf_oa,
-			borrower1_monthly_cpf_oa, borrower2_monthly_cpf_oa
+			borrower1_monthly_cpf_oa, borrower2_monthly_cpf_oa,
+			borrower1_downpayment_cash_account_id, borrower1_downpayment_cash_amount,
+			borrower2_downpayment_cash_account_id, borrower2_downpayment_cash_amount,
+			borrower1_monthly_cash_account_id, borrower1_monthly_cash_amount_type, borrower1_monthly_cash_amount,
+			borrower2_monthly_cash_account_id, borrower2_monthly_cash_amount_type, borrower2_monthly_cash_amount,
+			borrower1_cpf_refund_account_id, borrower2_cpf_refund_account_id, net_cash_proceeds_account_id
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29,
+			$30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42
 		) RETURNING id
 	`,
 		input.Name, input.PropertyType, input.PropertySubtype,
@@ -368,6 +438,11 @@ func (s *Store) createSGDetails(ctx context.Context, tx pgx.Tx, input *CreateSGD
 		input.LeaseRemainingYears,
 		borrower1DownpaymentCpfOa, borrower2DownpaymentCpfOa,
 		borrower1MonthlyCpfOa, borrower2MonthlyCpfOa,
+		input.Borrower1DownpaymentCashAccountID, borrower1DownpaymentCashAmount,
+		input.Borrower2DownpaymentCashAccountID, borrower2DownpaymentCashAmount,
+		input.Borrower1MonthlyCashAccountID, borrower1MonthlyCashAmountType, borrower1MonthlyCashAmount,
+		input.Borrower2MonthlyCashAccountID, borrower2MonthlyCashAmountType, borrower2MonthlyCashAmount,
+		input.Borrower1CpfRefundAccountID, input.Borrower2CpfRefundAccountID, input.NetCashProceedsAccountID,
 	).Scan(&id)
 
 	if err != nil {
@@ -494,7 +569,7 @@ func (s *Store) GetPropertyScenario(ctx context.Context, userID, scenarioID stri
 
 	// 2. Get SG details if present
 	if scenario.PropertySGID != nil {
-		sgDetails, err := s.getSGDetails(ctx, *scenario.PropertySGID)
+		sgDetails, err := s.getPropertySG(ctx, *scenario.PropertySGID)
 		if err != nil {
 			return nil, fmt.Errorf("get sg details: %w", err)
 		}
@@ -534,8 +609,8 @@ func (s *Store) GetPropertyScenario(ctx context.Context, userID, scenarioID stri
 	return result, nil
 }
 
-// getSGDetails fetches Singapore property details by ID
-func (s *Store) getSGDetails(ctx context.Context, id string) (*PropertySG, error) {
+// getPropertySG fetches Singapore property details by ID
+func (s *Store) getPropertySG(ctx context.Context, id string) (*PropertySG, error) {
 	var details PropertySG
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, name, property_type, property_subtype,
@@ -550,6 +625,11 @@ func (s *Store) getSGDetails(ctx context.Context, id string) (*PropertySG, error
 			lease_remaining_years,
 			borrower1_downpayment_cpf_oa, borrower2_downpayment_cpf_oa,
 			borrower1_monthly_cpf_oa, borrower2_monthly_cpf_oa,
+			borrower1_downpayment_cash_account_id, borrower1_downpayment_cash_amount,
+			borrower2_downpayment_cash_account_id, borrower2_downpayment_cash_amount,
+			borrower1_monthly_cash_account_id, borrower1_monthly_cash_amount_type, borrower1_monthly_cash_amount,
+			borrower2_monthly_cash_account_id, borrower2_monthly_cash_amount_type, borrower2_monthly_cash_amount,
+			borrower1_cpf_refund_account_id, borrower2_cpf_refund_account_id, net_cash_proceeds_account_id,
 			created_at, updated_at
 		FROM property_sg WHERE id = $1
 	`, id).Scan(
@@ -565,6 +645,11 @@ func (s *Store) getSGDetails(ctx context.Context, id string) (*PropertySG, error
 		&details.LeaseRemainingYears,
 		&details.Borrower1DownpaymentCpfOa, &details.Borrower2DownpaymentCpfOa,
 		&details.Borrower1MonthlyCpfOa, &details.Borrower2MonthlyCpfOa,
+		&details.Borrower1DownpaymentCashAccountID, &details.Borrower1DownpaymentCashAmount,
+		&details.Borrower2DownpaymentCashAccountID, &details.Borrower2DownpaymentCashAmount,
+		&details.Borrower1MonthlyCashAccountID, &details.Borrower1MonthlyCashAmountType, &details.Borrower1MonthlyCashAmount,
+		&details.Borrower2MonthlyCashAccountID, &details.Borrower2MonthlyCashAmountType, &details.Borrower2MonthlyCashAmount,
+		&details.Borrower1CpfRefundAccountID, &details.Borrower2CpfRefundAccountID, &details.NetCashProceedsAccountID,
 		&details.CreatedAt, &details.UpdatedAt,
 	)
 	if err != nil {
@@ -736,11 +821,11 @@ func (s *Store) UpdatePropertyScenario(ctx context.Context, userID, scenarioID s
 	}
 
 	// Verify ownership
-	var existingSGDetailsID *string
+	var existingPropertySGID *string
 	err := s.pool.QueryRow(ctx, `
 		SELECT property_sg_id FROM property_scenarios
 		WHERE id = $1 AND user_id = $2
-	`, scenarioID, userID).Scan(&existingSGDetailsID)
+	`, scenarioID, userID).Scan(&existingPropertySGID)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -755,40 +840,40 @@ func (s *Store) UpdatePropertyScenario(ctx context.Context, userID, scenarioID s
 	defer tx.Rollback(ctx)
 
 	// Update SG details if present
-	if input.PropertySG != nil && existingSGDetailsID != nil {
-		if err := s.updateSGDetails(ctx, tx, *existingSGDetailsID, input.PropertySG); err != nil {
+	if input.PropertySG != nil && existingPropertySGID != nil {
+		if err := s.updatePropertySG(ctx, tx, *existingPropertySGID, input.PropertySG); err != nil {
 			return nil, fmt.Errorf("update sg details: %w", err)
 		}
 
 		// Delete and recreate grants
-		if err := s.deletePropertyGrants(ctx, tx, *existingSGDetailsID); err != nil {
+		if err := s.deletePropertyGrants(ctx, tx, *existingPropertySGID); err != nil {
 			return nil, fmt.Errorf("delete grants: %w", err)
 		}
-		if err := s.createPropertyGrants(ctx, tx, *existingSGDetailsID, input.Grants); err != nil {
+		if err := s.createPropertyGrants(ctx, tx, *existingPropertySGID, input.Grants); err != nil {
 			return nil, fmt.Errorf("create grants: %w", err)
 		}
 
 		// Delete and recreate fees
-		if _, err := tx.Exec(ctx, `DELETE FROM property_fees WHERE property_sg_id = $1`, *existingSGDetailsID); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM property_fees WHERE property_sg_id = $1`, *existingPropertySGID); err != nil {
 			return nil, fmt.Errorf("delete fees: %w", err)
 		}
-		if err := s.createPropertyFees(ctx, tx, *existingSGDetailsID, input.Fees); err != nil {
+		if err := s.createPropertyFees(ctx, tx, *existingPropertySGID, input.Fees); err != nil {
 			return nil, fmt.Errorf("create fees: %w", err)
 		}
 
 		// Delete and recreate growth periods (linked to sg_details)
-		if _, err := tx.Exec(ctx, `DELETE FROM growth_periods WHERE property_sg_id = $1`, *existingSGDetailsID); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM growth_periods WHERE property_sg_id = $1`, *existingPropertySGID); err != nil {
 			return nil, fmt.Errorf("delete growth periods: %w", err)
 		}
-		if err := s.createGrowthPeriods(ctx, tx, *existingSGDetailsID, input.GrowthPeriods); err != nil {
+		if err := s.createGrowthPeriods(ctx, tx, *existingPropertySGID, input.GrowthPeriods); err != nil {
 			return nil, fmt.Errorf("create growth periods: %w", err)
 		}
 
 		// Delete and recreate rate periods (linked to sg_details)
-		if _, err := tx.Exec(ctx, `DELETE FROM liability_rate_periods WHERE property_sg_id = $1`, *existingSGDetailsID); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM liability_rate_periods WHERE property_sg_id = $1`, *existingPropertySGID); err != nil {
 			return nil, fmt.Errorf("delete rate periods: %w", err)
 		}
-		if err := s.createRatePeriods(ctx, tx, *existingSGDetailsID, input.RatePeriods); err != nil {
+		if err := s.createRatePeriods(ctx, tx, *existingPropertySGID, input.RatePeriods); err != nil {
 			return nil, fmt.Errorf("create rate periods: %w", err)
 		}
 	}
@@ -805,8 +890,8 @@ func (s *Store) UpdatePropertyScenario(ctx context.Context, userID, scenarioID s
 	return s.GetPropertyScenario(ctx, userID, scenarioID)
 }
 
-// updateSGDetails updates Singapore property details
-func (s *Store) updateSGDetails(ctx context.Context, tx pgx.Tx, id string, input *CreateSGDetailsInput) error {
+// updatePropertySG updates Singapore property details
+func (s *Store) updatePropertySG(ctx context.Context, tx pgx.Tx, id string, input *CreatePropertySGInput) error {
 	// Set defaults
 	isIncluded := true
 	if input.IsIncluded != nil {
@@ -854,6 +939,38 @@ func (s *Store) updateSGDetails(ctx context.Context, tx pgx.Tx, id string, input
 		borrower2MonthlyCpfOa = input.Borrower2MonthlyCpfOa
 	}
 
+	// Per-borrower cash account defaults (downpayment)
+	borrower1DownpaymentCashAmount := decimal.Zero()
+	if input.Borrower1DownpaymentCashAmount != nil {
+		borrower1DownpaymentCashAmount = input.Borrower1DownpaymentCashAmount
+	}
+
+	borrower2DownpaymentCashAmount := decimal.Zero()
+	if input.Borrower2DownpaymentCashAmount != nil {
+		borrower2DownpaymentCashAmount = input.Borrower2DownpaymentCashAmount
+	}
+
+	// Per-borrower cash account defaults (monthly payment)
+	borrower1MonthlyCashAmountType := "remainder"
+	if input.Borrower1MonthlyCashAmountType != nil {
+		borrower1MonthlyCashAmountType = *input.Borrower1MonthlyCashAmountType
+	}
+
+	borrower1MonthlyCashAmount := decimal.Zero()
+	if input.Borrower1MonthlyCashAmount != nil {
+		borrower1MonthlyCashAmount = input.Borrower1MonthlyCashAmount
+	}
+
+	borrower2MonthlyCashAmountType := "remainder"
+	if input.Borrower2MonthlyCashAmountType != nil {
+		borrower2MonthlyCashAmountType = *input.Borrower2MonthlyCashAmountType
+	}
+
+	borrower2MonthlyCashAmount := decimal.Zero()
+	if input.Borrower2MonthlyCashAmount != nil {
+		borrower2MonthlyCashAmount = input.Borrower2MonthlyCashAmount
+	}
+
 	_, err := tx.Exec(ctx, `
 		UPDATE property_sg SET
 			name = $2, property_type = $3, property_subtype = $4,
@@ -868,6 +985,11 @@ func (s *Store) updateSGDetails(ctx context.Context, tx pgx.Tx, id string, input
 			lease_remaining_years = $26,
 			borrower1_downpayment_cpf_oa = $27, borrower2_downpayment_cpf_oa = $28,
 			borrower1_monthly_cpf_oa = $29, borrower2_monthly_cpf_oa = $30,
+			borrower1_downpayment_cash_account_id = $31, borrower1_downpayment_cash_amount = $32,
+			borrower2_downpayment_cash_account_id = $33, borrower2_downpayment_cash_amount = $34,
+			borrower1_monthly_cash_account_id = $35, borrower1_monthly_cash_amount_type = $36, borrower1_monthly_cash_amount = $37,
+			borrower2_monthly_cash_account_id = $38, borrower2_monthly_cash_amount_type = $39, borrower2_monthly_cash_amount = $40,
+			borrower1_cpf_refund_account_id = $41, borrower2_cpf_refund_account_id = $42, net_cash_proceeds_account_id = $43,
 			updated_at = NOW()
 		WHERE id = $1
 	`,
@@ -884,6 +1006,11 @@ func (s *Store) updateSGDetails(ctx context.Context, tx pgx.Tx, id string, input
 		input.LeaseRemainingYears,
 		borrower1DownpaymentCpfOa, borrower2DownpaymentCpfOa,
 		borrower1MonthlyCpfOa, borrower2MonthlyCpfOa,
+		input.Borrower1DownpaymentCashAccountID, borrower1DownpaymentCashAmount,
+		input.Borrower2DownpaymentCashAccountID, borrower2DownpaymentCashAmount,
+		input.Borrower1MonthlyCashAccountID, borrower1MonthlyCashAmountType, borrower1MonthlyCashAmount,
+		input.Borrower2MonthlyCashAccountID, borrower2MonthlyCashAmountType, borrower2MonthlyCashAmount,
+		input.Borrower1CpfRefundAccountID, input.Borrower2CpfRefundAccountID, input.NetCashProceedsAccountID,
 	)
 
 	return err
@@ -892,11 +1019,11 @@ func (s *Store) updateSGDetails(ctx context.Context, tx pgx.Tx, id string, input
 // DeletePropertyScenario deletes a scenario and all related data (cascades via FK)
 func (s *Store) DeletePropertyScenario(ctx context.Context, userID, scenarioID string) error {
 	// Get the property_sg_id first (we need to delete it separately since FK is ON DELETE CASCADE only from scenario)
-	var sgDetailsID *string
+	var propertySGID *string
 	err := s.pool.QueryRow(ctx, `
 		SELECT property_sg_id FROM property_scenarios
 		WHERE id = $1 AND user_id = $2
-	`, scenarioID, userID).Scan(&sgDetailsID)
+	`, scenarioID, userID).Scan(&propertySGID)
 	if err == pgx.ErrNoRows {
 		return ErrNotFound
 	}
@@ -920,8 +1047,8 @@ func (s *Store) DeletePropertyScenario(ctx context.Context, userID, scenarioID s
 	}
 
 	// Delete SG details (not cascaded from scenario deletion)
-	if sgDetailsID != nil {
-		if _, err := tx.Exec(ctx, `DELETE FROM property_sg WHERE id = $1`, *sgDetailsID); err != nil {
+	if propertySGID != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM property_sg WHERE id = $1`, *propertySGID); err != nil {
 			return fmt.Errorf("delete sg details: %w", err)
 		}
 	}
@@ -938,12 +1065,12 @@ func (s *Store) DeletePropertyScenario(ctx context.Context, userID, scenarioID s
 // ============================================================================
 
 // createPropertyGrants creates grants for an sg_details record
-func (s *Store) createPropertyGrants(ctx context.Context, tx pgx.Tx, sgDetailsID string, grants []CreateGrantInput) error {
+func (s *Store) createPropertyGrants(ctx context.Context, tx pgx.Tx, propertySGID string, grants []CreateGrantInput) error {
 	for _, grant := range grants {
 		_, err := tx.Exec(ctx, `
 			INSERT INTO property_sg_grants (property_sg_id, name, amount)
 			VALUES ($1, $2, $3)
-		`, sgDetailsID, grant.Name, grant.Amount)
+		`, propertySGID, grant.Name, grant.Amount)
 		if err != nil {
 			return fmt.Errorf("insert grant: %w", err)
 		}
@@ -952,13 +1079,13 @@ func (s *Store) createPropertyGrants(ctx context.Context, tx pgx.Tx, sgDetailsID
 }
 
 // getPropertyGrants fetches all grants for an sg_details record
-func (s *Store) getPropertyGrants(ctx context.Context, sgDetailsID string) ([]PropertySGGrant, error) {
+func (s *Store) getPropertyGrants(ctx context.Context, propertySGID string) ([]PropertySGGrant, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, property_sg_id, name, amount, created_at
 		FROM property_sg_grants
 		WHERE property_sg_id = $1
 		ORDER BY created_at
-	`, sgDetailsID)
+	`, propertySGID)
 	if err != nil {
 		return nil, err
 	}
@@ -977,26 +1104,26 @@ func (s *Store) getPropertyGrants(ctx context.Context, sgDetailsID string) ([]Pr
 }
 
 // deletePropertyGrants deletes all grants for an sg_details record
-func (s *Store) deletePropertyGrants(ctx context.Context, tx pgx.Tx, sgDetailsID string) error {
-	_, err := tx.Exec(ctx, `DELETE FROM property_sg_grants WHERE property_sg_id = $1`, sgDetailsID)
+func (s *Store) deletePropertyGrants(ctx context.Context, tx pgx.Tx, propertySGID string) error {
+	_, err := tx.Exec(ctx, `DELETE FROM property_sg_grants WHERE property_sg_id = $1`, propertySGID)
 	return err
 }
 
 // CreateGrant creates a single grant for a scenario
 func (s *Store) CreateGrant(ctx context.Context, userID, scenarioID string, input CreateGrantInput) (*PropertySGGrant, error) {
 	// Get property_sg_id from scenario
-	var sgDetailsID *string
+	var propertySGID *string
 	err := s.pool.QueryRow(ctx, `
 		SELECT property_sg_id FROM property_scenarios
 		WHERE id = $1 AND user_id = $2
-	`, scenarioID, userID).Scan(&sgDetailsID)
+	`, scenarioID, userID).Scan(&propertySGID)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get scenario: %w", err)
 	}
-	if sgDetailsID == nil {
+	if propertySGID == nil {
 		return nil, fmt.Errorf("scenario has no SG details")
 	}
 
@@ -1005,7 +1132,7 @@ func (s *Store) CreateGrant(ctx context.Context, userID, scenarioID string, inpu
 		INSERT INTO property_sg_grants (property_sg_id, name, amount)
 		VALUES ($1, $2, $3)
 		RETURNING id, property_sg_id, name, amount, created_at
-	`, *sgDetailsID, input.Name, input.Amount).Scan(
+	`, *propertySGID, input.Name, input.Amount).Scan(
 		&grant.ID, &grant.PropertySGID, &grant.Name, &grant.Amount, &grant.CreatedAt,
 	)
 	if err != nil {
@@ -1018,18 +1145,18 @@ func (s *Store) CreateGrant(ctx context.Context, userID, scenarioID string, inpu
 // UpdateGrant updates a single grant
 func (s *Store) UpdateGrant(ctx context.Context, userID, scenarioID, grantID string, input CreateGrantInput) (*PropertySGGrant, error) {
 	// Verify ownership
-	var sgDetailsID *string
+	var propertySGID *string
 	err := s.pool.QueryRow(ctx, `
 		SELECT property_sg_id FROM property_scenarios
 		WHERE id = $1 AND user_id = $2
-	`, scenarioID, userID).Scan(&sgDetailsID)
+	`, scenarioID, userID).Scan(&propertySGID)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get scenario: %w", err)
 	}
-	if sgDetailsID == nil {
+	if propertySGID == nil {
 		return nil, fmt.Errorf("scenario has no SG details")
 	}
 
@@ -1039,7 +1166,7 @@ func (s *Store) UpdateGrant(ctx context.Context, userID, scenarioID, grantID str
 		SET name = $2, amount = $3
 		WHERE id = $1 AND property_sg_id = $4
 		RETURNING id, property_sg_id, name, amount, created_at
-	`, grantID, input.Name, input.Amount, *sgDetailsID).Scan(
+	`, grantID, input.Name, input.Amount, *propertySGID).Scan(
 		&grant.ID, &grant.PropertySGID, &grant.Name, &grant.Amount, &grant.CreatedAt,
 	)
 	if err == pgx.ErrNoRows {
@@ -1055,25 +1182,25 @@ func (s *Store) UpdateGrant(ctx context.Context, userID, scenarioID, grantID str
 // DeleteGrant deletes a single grant
 func (s *Store) DeleteGrant(ctx context.Context, userID, scenarioID, grantID string) error {
 	// Verify ownership
-	var sgDetailsID *string
+	var propertySGID *string
 	err := s.pool.QueryRow(ctx, `
 		SELECT property_sg_id FROM property_scenarios
 		WHERE id = $1 AND user_id = $2
-	`, scenarioID, userID).Scan(&sgDetailsID)
+	`, scenarioID, userID).Scan(&propertySGID)
 	if err == pgx.ErrNoRows {
 		return ErrNotFound
 	}
 	if err != nil {
 		return fmt.Errorf("get scenario: %w", err)
 	}
-	if sgDetailsID == nil {
+	if propertySGID == nil {
 		return fmt.Errorf("scenario has no SG details")
 	}
 
 	tag, err := s.pool.Exec(ctx, `
 		DELETE FROM property_sg_grants
 		WHERE id = $1 AND property_sg_id = $2
-	`, grantID, *sgDetailsID)
+	`, grantID, *propertySGID)
 	if err != nil {
 		return fmt.Errorf("delete grant: %w", err)
 	}
@@ -1087,22 +1214,22 @@ func (s *Store) DeleteGrant(ctx context.Context, userID, scenarioID, grantID str
 // ListGrants returns all grants for a scenario
 func (s *Store) ListGrants(ctx context.Context, userID, scenarioID string) ([]PropertySGGrant, error) {
 	// Verify ownership and get property_sg_id
-	var sgDetailsID *string
+	var propertySGID *string
 	err := s.pool.QueryRow(ctx, `
 		SELECT property_sg_id FROM property_scenarios
 		WHERE id = $1 AND user_id = $2
-	`, scenarioID, userID).Scan(&sgDetailsID)
+	`, scenarioID, userID).Scan(&propertySGID)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get scenario: %w", err)
 	}
-	if sgDetailsID == nil {
+	if propertySGID == nil {
 		return []PropertySGGrant{}, nil
 	}
 
-	return s.getPropertyGrants(ctx, *sgDetailsID)
+	return s.getPropertyGrants(ctx, *propertySGID)
 }
 
 // DeleteAllPropertyScenarios deletes all property scenarios for a user
@@ -1122,14 +1249,14 @@ func (s *Store) DeleteAllPropertyScenarios(ctx context.Context, userID string) (
 		return 0, fmt.Errorf("get property_sg_ids: %w", err)
 	}
 
-	var sgDetailsIDs []string
+	var propertySGIDs []string
 	for rows.Next() {
 		var id string
 		if err := rows.Scan(&id); err != nil {
 			rows.Close()
 			return 0, fmt.Errorf("scan property_sg_id: %w", err)
 		}
-		sgDetailsIDs = append(sgDetailsIDs, id)
+		propertySGIDs = append(propertySGIDs, id)
 	}
 	rows.Close()
 
@@ -1141,9 +1268,9 @@ func (s *Store) DeleteAllPropertyScenarios(ctx context.Context, userID string) (
 	rowsAffected := tag.RowsAffected()
 
 	// Delete sg_details records (not cascaded from scenario deletion)
-	for _, sgDetailsID := range sgDetailsIDs {
-		if _, err := tx.Exec(ctx, `DELETE FROM property_sg WHERE id = $1`, sgDetailsID); err != nil {
-			return 0, fmt.Errorf("delete sg details %s: %w", sgDetailsID, err)
+	for _, propertySGID := range propertySGIDs {
+		if _, err := tx.Exec(ctx, `DELETE FROM property_sg WHERE id = $1`, propertySGID); err != nil {
+			return 0, fmt.Errorf("delete sg details %s: %w", propertySGID, err)
 		}
 	}
 

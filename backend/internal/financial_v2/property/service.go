@@ -95,15 +95,15 @@ type CPFOAAccountUsageInfo struct {
 // CreateScenarioParams is the raw input from HTTP handlers.
 type CreateScenarioParams struct {
 	Country       string
-	SGDetails     *CreateSGDetailsParams
+	PropertySG     *CreatePropertySGParams
 	Fees          []CreateFeeParams
 	GrowthPeriods []CreateGrowthPeriodParams
 	RatePeriods   []CreateRatePeriodParams
 	Grants        []CreateGrantParams
 }
 
-// CreateSGDetailsParams is the raw SG details input from HTTP.
-type CreateSGDetailsParams struct {
+// CreatePropertySGParams is the raw SG details input from HTTP.
+type CreatePropertySGParams struct {
 	Name              string
 	PropertyType      string
 	PropertySubtype   string
@@ -135,6 +135,22 @@ type CreateSGDetailsParams struct {
 	Borrower2DownpaymentCpfOa string // decimal as string
 	Borrower1MonthlyCpfOa     string // decimal as string
 	Borrower2MonthlyCpfOa     string // decimal as string
+	// Per-borrower cash account configuration (downpayment)
+	Borrower1DownpaymentCashAccountID *string
+	Borrower1DownpaymentCashAmount    string // decimal as string
+	Borrower2DownpaymentCashAccountID *string
+	Borrower2DownpaymentCashAmount    string // decimal as string
+	// Per-borrower cash account configuration (monthly payment)
+	Borrower1MonthlyCashAccountID  *string
+	Borrower1MonthlyCashAmountType *string // 'fixed', 'percentage', 'remainder'
+	Borrower1MonthlyCashAmount     string  // decimal as string
+	Borrower2MonthlyCashAccountID  *string
+	Borrower2MonthlyCashAmountType *string // 'fixed', 'percentage', 'remainder'
+	Borrower2MonthlyCashAmount     string  // decimal as string
+	// Sale proceeds destination accounts
+	Borrower1CpfRefundAccountID *string
+	Borrower2CpfRefundAccountID *string
+	NetCashProceedsAccountID    *string
 }
 
 // CreateFeeParams is the raw fee input from HTTP.
@@ -222,7 +238,19 @@ func (s *Service) CreateFromParams(ctx context.Context, userID string, params Cr
 	if err != nil {
 		return nil, err
 	}
-	return s.store.CreatePropertyScenario(ctx, userID, input)
+
+	scenario, err := s.store.CreatePropertyScenario(ctx, userID, input)
+	if err != nil {
+		return nil, err
+	}
+
+	// Auto-generate transfer rules for sale proceeds if sale details are configured
+	if err := s.GenerateSaleTransferRules(ctx, userID, scenario); err != nil {
+		// Log error but don't fail the create - transfer rules are secondary
+		fmt.Printf("warning: failed to generate sale transfer rules: %v\n", err)
+	}
+
+	return scenario, nil
 }
 
 // UpdateFromParams validates and converts raw params then updates a property scenario.
@@ -269,7 +297,19 @@ func (s *Service) UpdateFromParams(ctx context.Context, userID, scenarioID strin
 		Grants:        createInput.Grants,
 	}
 
-	return s.store.UpdatePropertyScenario(ctx, userID, scenarioID, updateInput)
+	scenario, err := s.store.UpdatePropertyScenario(ctx, userID, scenarioID, updateInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// Auto-generate transfer rules for sale proceeds if sale details are configured
+	// This will delete existing rules and create new ones based on updated sale parameters
+	if err := s.GenerateSaleTransferRules(ctx, userID, scenario); err != nil {
+		// Log error but don't fail the update - transfer rules are secondary
+		fmt.Printf("warning: failed to generate sale transfer rules: %v\n", err)
+	}
+
+	return scenario, nil
 }
 
 // Get retrieves a property scenario by ID.
@@ -305,12 +345,12 @@ func (s *Service) ValidateCrossPropertyConstraints(
 		TDSRLimit:  decimal.MustFromString("0.55"), // 55%
 	}
 
-	if params.SGDetails == nil {
+	if params.PropertySG == nil {
 		return result, nil
 	}
 
 	// Check if this property is included
-	if params.SGDetails.IsIncluded != nil && !*params.SGDetails.IsIncluded {
+	if params.PropertySG.IsIncluded != nil && !*params.PropertySG.IsIncluded {
 		// Not included, skip validation
 		return result, nil
 	}
@@ -911,8 +951,8 @@ func buildCreateScenarioInput(params CreateScenarioParams) (repo.CreateScenarioI
 	var input repo.CreateScenarioInput
 	input.Country = params.Country
 
-	if params.SGDetails != nil {
-		sg, err := buildSGDetailsInput(params.SGDetails)
+	if params.PropertySG != nil {
+		sg, err := buildPropertySGInput(params.PropertySG)
 		if err != nil {
 			return input, err
 		}
@@ -954,7 +994,7 @@ func buildCreateScenarioInput(params CreateScenarioParams) (repo.CreateScenarioI
 	return input, nil
 }
 
-func buildSGDetailsInput(params *CreateSGDetailsParams) (*repo.CreateSGDetailsInput, error) {
+func buildPropertySGInput(params *CreatePropertySGParams) (*repo.CreatePropertySGInput, error) {
 	propertyPrice, err := parseDecimalField("propertyPrice", params.PropertyPrice)
 	if err != nil {
 		return nil, err
@@ -1006,7 +1046,29 @@ func buildSGDetailsInput(params *CreateSGDetailsParams) (*repo.CreateSGDetailsIn
 		return nil, err
 	}
 
-	return &repo.CreateSGDetailsInput{
+	// Per-borrower cash account fields (downpayment)
+	borrower1DownpaymentCashAmount, err := parseOptionalDecimalWithDefault("borrower1DownpaymentCashAmount", params.Borrower1DownpaymentCashAmount)
+	if err != nil {
+		return nil, err
+	}
+
+	borrower2DownpaymentCashAmount, err := parseOptionalDecimalWithDefault("borrower2DownpaymentCashAmount", params.Borrower2DownpaymentCashAmount)
+	if err != nil {
+		return nil, err
+	}
+
+	// Per-borrower cash account fields (monthly payment)
+	borrower1MonthlyCashAmount, err := parseOptionalDecimalWithDefault("borrower1MonthlyCashAmount", params.Borrower1MonthlyCashAmount)
+	if err != nil {
+		return nil, err
+	}
+
+	borrower2MonthlyCashAmount, err := parseOptionalDecimalWithDefault("borrower2MonthlyCashAmount", params.Borrower2MonthlyCashAmount)
+	if err != nil {
+		return nil, err
+	}
+
+	return &repo.CreatePropertySGInput{
 		Name:              params.Name,
 		PropertyType:      params.PropertyType,
 		PropertySubtype:   params.PropertySubtype,
@@ -1036,6 +1098,22 @@ func buildSGDetailsInput(params *CreateSGDetailsParams) (*repo.CreateSGDetailsIn
 		Borrower2DownpaymentCpfOa: borrower2DownpaymentCpfOa,
 		Borrower1MonthlyCpfOa:     borrower1MonthlyCpfOa,
 		Borrower2MonthlyCpfOa:     borrower2MonthlyCpfOa,
+		// Per-borrower cash account configuration (downpayment)
+		Borrower1DownpaymentCashAccountID: params.Borrower1DownpaymentCashAccountID,
+		Borrower1DownpaymentCashAmount:    borrower1DownpaymentCashAmount,
+		Borrower2DownpaymentCashAccountID: params.Borrower2DownpaymentCashAccountID,
+		Borrower2DownpaymentCashAmount:    borrower2DownpaymentCashAmount,
+		// Per-borrower cash account configuration (monthly payment)
+		Borrower1MonthlyCashAccountID:  params.Borrower1MonthlyCashAccountID,
+		Borrower1MonthlyCashAmountType: params.Borrower1MonthlyCashAmountType,
+		Borrower1MonthlyCashAmount:     borrower1MonthlyCashAmount,
+		Borrower2MonthlyCashAccountID:  params.Borrower2MonthlyCashAccountID,
+		Borrower2MonthlyCashAmountType: params.Borrower2MonthlyCashAmountType,
+		Borrower2MonthlyCashAmount:     borrower2MonthlyCashAmount,
+		// Sale proceeds destination accounts
+		Borrower1CpfRefundAccountID: params.Borrower1CpfRefundAccountID,
+		Borrower2CpfRefundAccountID: params.Borrower2CpfRefundAccountID,
+		NetCashProceedsAccountID:    params.NetCashProceedsAccountID,
 	}, nil
 }
 
@@ -1225,4 +1303,197 @@ func calculateTotalTermMonths(ratePeriods []repo.LiabilityRatePeriod) int {
 		total += rp.TermYears * 12
 	}
 	return total
+}
+
+// =============================================================================
+// Sale Proceeds Transfer Rule Generation
+// =============================================================================
+
+// GenerateSaleTransferRules creates fund flow transfer rules for property sale proceeds.
+// This includes CPF refund transfers (to CPF OA accounts) and net cash proceeds transfers.
+// Rules are only created if sale date/price are configured AND destination accounts are selected.
+func (s *Service) GenerateSaleTransferRules(ctx context.Context, userID string, scenario *repo.PropertyScenarioFull) error {
+	if scenario.PropertySG == nil {
+		return nil
+	}
+
+	details := scenario.PropertySG
+
+	// Delete any existing transfer rules for this property
+	_, err := s.store.DeleteBySourcePropertyID(ctx, userID, details.ID)
+	if err != nil {
+		return fmt.Errorf("delete existing transfer rules: %w", err)
+	}
+
+	// Skip if no sale details configured
+	if details.SaleExpectedDate == nil || details.SaleExpectedPrice == nil {
+		return nil
+	}
+
+	// Parse sale date
+	saleDate, err := time.Parse("2006-01", *details.SaleExpectedDate)
+	if err != nil {
+		return fmt.Errorf("parse sale date: %w", err)
+	}
+
+	// Calculate mortgage details for CPF refund computation
+	totalTermMonths := calculateTotalTermMonths(scenario.RatePeriods)
+	if totalTermMonths == 0 || len(scenario.RatePeriods) == 0 {
+		return nil // No mortgage, no CPF refund
+	}
+
+	// Get first rate period start date as loan start
+	loanStartDate := scenario.RatePeriods[0].StartDate
+
+	// Calculate holding period
+	holdingPeriodMonths := calculateHoldingPeriodMonths(loanStartDate, saleDate)
+	if holdingPeriodMonths <= 0 {
+		return nil // Sale before purchase doesn't make sense
+	}
+
+	// Calculate monthly payment
+	grantsTotal := sumGrants(scenario.Grants)
+	downpaymentCpfOa := &details.DownpaymentCpfOa
+	downpaymentCash := &details.DownpaymentCash
+	downpaymentTotal := downpaymentCpfOa.Add(downpaymentCash)
+	downpaymentTotal = downpaymentTotal.Add(grantsTotal)
+	loanAmount := details.PropertyPrice.Sub(downpaymentTotal)
+
+	firstRate := scenario.RatePeriods[0].Rate
+	mortgageResult := s.calculator.CalculateMortgage(loanAmount, totalTermMonths, &firstRate)
+	monthlyPayment := mortgageResult.MonthlyPayment
+
+	// Calculate per-borrower CPF refund
+	cpfRefundInput := CpfRefundCalculationInput{
+		BorrowerType:              details.BorrowerType,
+		Borrower1DownpaymentCpfOa: details.Borrower1DownpaymentCpfOa,
+		Borrower2DownpaymentCpfOa: details.Borrower2DownpaymentCpfOa,
+		Borrower1MonthlyCpfOa:     details.Borrower1MonthlyCpfOa,
+		Borrower2MonthlyCpfOa:     details.Borrower2MonthlyCpfOa,
+		MonthlyPayment:            *monthlyPayment,
+		HoldingPeriodMonths:       holdingPeriodMonths,
+	}
+	cpfRefunds := CalculatePerBorrowerCpfRefund(cpfRefundInput)
+
+	// Calculate outstanding loan at sale and net cash proceeds
+	outstandingLoan := calculateOutstandingLoanAtSale(loanAmount, holdingPeriodMonths, monthlyPayment, &firstRate)
+	totalCpfRefund := cpfRefunds.TotalCpfRefund()
+
+	// Calculate sale fees
+	saleFees := calculateSaleFees(scenario.Fees, details.SaleExpectedPrice)
+
+	// Net cash = sale price - outstanding loan - total CPF refund - fees
+	netCash := details.SaleExpectedPrice.Sub(outstandingLoan)
+	netCash = netCash.Sub(totalCpfRefund)
+	netCash = netCash.Sub(saleFees)
+
+	// Build transfer rules
+	var rules []repo.FundFlowRule
+
+	// Borrower 1 CPF refund
+	if details.Borrower1CpfRefundAccountID != nil && !cpfRefunds.Borrower1.Total.IsZero() {
+		b1Total := cpfRefunds.Borrower1.Total
+		rules = append(rules, repo.FundFlowRule{
+			Name:               fmt.Sprintf("CPF OA refund from %s sale (Borrower 1)", details.Name),
+			RuleType:           "transfer",
+			SourcePropertyID:   &details.ID,
+			TargetCpfAccountID: details.Borrower1CpfRefundAccountID,
+			AmountType:         "fixed",
+			AmountValue:        &b1Total,
+			StartDate:          saleDate,
+		})
+	}
+
+	// Borrower 2 CPF refund (joint only)
+	if details.BorrowerType == "joint" && details.Borrower2CpfRefundAccountID != nil && cpfRefunds.Borrower2 != nil && !cpfRefunds.Borrower2.Total.IsZero() {
+		b2Total := cpfRefunds.Borrower2.Total
+		rules = append(rules, repo.FundFlowRule{
+			Name:               fmt.Sprintf("CPF OA refund from %s sale (Borrower 2)", details.Name),
+			RuleType:           "transfer",
+			SourcePropertyID:   &details.ID,
+			TargetCpfAccountID: details.Borrower2CpfRefundAccountID,
+			AmountType:         "fixed",
+			AmountValue:        &b2Total,
+			StartDate:          saleDate,
+		})
+	}
+
+	// Net cash proceeds
+	zero := decimal.Zero()
+	if details.NetCashProceedsAccountID != nil && netCash.Cmp(zero) > 0 {
+		rules = append(rules, repo.FundFlowRule{
+			Name:                fmt.Sprintf("Net cash proceeds from %s sale", details.Name),
+			RuleType:            "transfer",
+			SourcePropertyID:    &details.ID,
+			TargetCashAccountID: details.NetCashProceedsAccountID,
+			AmountType:          "fixed",
+			AmountValue:         netCash,
+			StartDate:           saleDate,
+		})
+	}
+
+	// Create all rules in batch
+	if len(rules) > 0 {
+		_, err := s.store.CreateBatchFundFlowRules(ctx, userID, rules)
+		if err != nil {
+			return fmt.Errorf("create transfer rules: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// calculateHoldingPeriodMonths calculates the number of months between loan start and sale date
+func calculateHoldingPeriodMonths(loanStart, saleDate time.Time) int {
+	months := (saleDate.Year()-loanStart.Year())*12 + int(saleDate.Month()-loanStart.Month())
+	return months
+}
+
+// calculateOutstandingLoanAtSale estimates remaining loan balance at sale date
+func calculateOutstandingLoanAtSale(loanAmount *decimal.Decimal, holdingMonths int, monthlyPayment, annualRate *decimal.Decimal) *decimal.Decimal {
+	// Monthly rate = annual rate / 100 / 12
+	monthlyRate := annualRate.Div(decimal.MustFromString("100")).Div(decimal.MustFromString("12"))
+
+	// Iterate through amortization
+	balance := loanAmount
+	for i := 0; i < holdingMonths; i++ {
+		interestPayment := balance.Mul(monthlyRate)
+		principalPayment := monthlyPayment.Sub(interestPayment)
+		balance = balance.Sub(principalPayment)
+
+		// Don't go negative
+		zero := decimal.Zero()
+		if balance.Cmp(zero) < 0 {
+			return decimal.Zero()
+		}
+	}
+
+	return balance
+}
+
+// calculateSaleFees calculates total selling fees from fee items
+func calculateSaleFees(fees []repo.PropertyFee, salePrice *decimal.Decimal) *decimal.Decimal {
+	total := decimal.Zero()
+
+	for _, fee := range fees {
+		// Only include sale context fees
+		if fee.FeeContext != "sale" {
+			continue
+		}
+
+		var feeAmount *decimal.Decimal
+		if fee.IsPercentage {
+			feeAmount = salePrice.Mul(&fee.Amount).Div(decimal.MustFromString("100"))
+		} else {
+			feeAmount = &fee.Amount
+		}
+		total = total.Add(feeAmount)
+	}
+
+	return total
+}
+
+// stringPtr returns a pointer to the given string
+func stringPtr(s string) *string {
+	return &s
 }

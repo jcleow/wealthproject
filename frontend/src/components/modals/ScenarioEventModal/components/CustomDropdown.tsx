@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import * as LucideIcons from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -45,7 +46,10 @@ export function CustomDropdown<T extends string = string>({
   className = '',
 }: CustomDropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   // Find label for current value
   const getLabel = () => {
@@ -62,10 +66,34 @@ export function CustomDropdown<T extends string = string>({
     return value
   }
 
-  // Close on outside click
+  // Handle opening - calculate position synchronously before render
+  const handleOpen = () => {
+    if (disabled) return
+    if (!isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setDropdownPosition({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      })
+    }
+    setIsOpen(!isOpen)
+  }
+
+  // Clear position when closed
+  useEffect(() => {
+    if (!isOpen) {
+      setDropdownPosition(null)
+    }
+  }, [isOpen])
+
+  // Close on outside click (check both button container and portaled menu)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      const clickedInsideButton = ref.current?.contains(target)
+      const clickedInsideMenu = menuRef.current?.contains(target)
+      if (!clickedInsideButton && !clickedInsideMenu) {
         setIsOpen(false)
       }
     }
@@ -116,11 +144,47 @@ export function CustomDropdown<T extends string = string>({
     )
   }
 
+  const dropdownMenu = isOpen && dropdownPosition && typeof document !== 'undefined' ? createPortal(
+    <div
+      ref={menuRef}
+      className="
+        fixed z-[9999]
+        rounded-xl
+        border border-white/[0.12]
+        bg-[#0c0c0c]
+        shadow-2xl shadow-black/60
+        overflow-hidden
+        animate-in fade-in slide-in-from-top-2 duration-150
+        max-h-[300px] overflow-y-auto
+      "
+      style={{
+        top: dropdownPosition.top,
+        left: dropdownPosition.left,
+        minWidth: Math.max(dropdownPosition.width, parseInt(minWidth) || 140),
+      }}
+    >
+      {groups ? (
+        groups.map((group) => (
+          <div key={group.label}>
+            <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-white/[0.02] sticky top-0">
+              {group.label}
+            </div>
+            {group.options.map(renderOption)}
+          </div>
+        ))
+      ) : (
+        options?.map(renderOption)
+      )}
+    </div>,
+    document.body
+  ) : null
+
   return (
     <div className={`relative ${className}`} ref={ref}>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={handleOpen}
         disabled={disabled}
         className={`
           flex items-center justify-between gap-2
@@ -148,31 +212,7 @@ export function CustomDropdown<T extends string = string>({
         )}
       </button>
 
-      {isOpen && (
-        <div className="
-          absolute left-0 top-full z-[100] mt-1
-          min-w-full
-          rounded-xl
-          border border-white/[0.12]
-          bg-[#0c0c0c]
-          shadow-2xl shadow-black/60
-          overflow-hidden
-          animate-in fade-in slide-in-from-top-2 duration-150
-        " style={{ minWidth }}>
-          {groups ? (
-            groups.map((group) => (
-              <div key={group.label}>
-                <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-white/[0.02]">
-                  {group.label}
-                </div>
-                {group.options.map(renderOption)}
-              </div>
-            ))
-          ) : (
-            options?.map(renderOption)
-          )}
-        </div>
-      )}
+      {dropdownMenu}
     </div>
   )
 }

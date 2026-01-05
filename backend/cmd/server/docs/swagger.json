@@ -4692,7 +4692,7 @@
                 }
             }
         },
-        "handlers.createSGDetailsRequest": {
+        "handlers.createPropertySGRequest": {
             "type": "object",
             "properties": {
                 "borrower1CpfAccountId": {
@@ -4795,7 +4795,7 @@
                     }
                 },
                 "sgDetails": {
-                    "$ref": "#/definitions/handlers.createSGDetailsRequest"
+                    "$ref": "#/definitions/handlers.createPropertySGRequest"
                 }
             }
         },
@@ -5295,7 +5295,7 @@
                     "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario"
                 },
                 "sgDetails": {
-                    "$ref": "#/definitions/repository.PropertySGDetails"
+                    "$ref": "#/definitions/repository.PropertySG"
                 }
             }
         },
@@ -5671,7 +5671,7 @@
                 }
             }
         },
-        "repository.PropertySGDetails": {
+        "repository.PropertySG": {
             "type": "object",
             "properties": {
                 "borrower1CpfAccountId": {

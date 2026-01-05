@@ -1,0 +1,3 @@
+-- No-op: Intentionally not restoring unused polymorphic columns.
+-- The source_type/source_id columns were never used in production.
+-- If rollback is needed, manually add them if required.

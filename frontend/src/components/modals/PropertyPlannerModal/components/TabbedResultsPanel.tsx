@@ -3,14 +3,18 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { CheckCircle2, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Landmark, Wallet, ArrowRight } from 'lucide-react'
 
 import type {
   PropertyType,
+  BorrowerType,
   SaleInputs,
   SaleResult,
   AppreciationPeriod,
 } from '@/app/property-planner/types'
+
+import type { ProjectedCpfAccount } from './MortgageForm/types'
+import type { CashAccount } from '@/types/financial'
 
 import type { ComputedValues } from '@/types/propertyPlannerV2'
 
@@ -41,6 +45,12 @@ interface TabbedResultsPanelProps {
   appreciationPeriods: AppreciationPeriod[]
   onPeriodsChange: (periods: AppreciationPeriod[]) => void
   purchaseDate: string
+  /** Borrower type for per-borrower display */
+  borrowerType: BorrowerType
+  /** CPF accounts for destination display */
+  cpfAccounts: ProjectedCpfAccount[]
+  /** Cash accounts for destination display */
+  cashAccounts: CashAccount[]
   /**
    * Computed values from API (flat structure).
    * Currently not used for display - local calculation is always used.
@@ -60,6 +70,9 @@ export function TabbedResultsPanel({
   appreciationPeriods,
   onPeriodsChange,
   purchaseDate,
+  borrowerType,
+  cpfAccounts,
+  cashAccounts,
   // Reserved for future use when backend returns full nested ComputedValuesFull structure
   computedValues: _computedValues = null,
 }: TabbedResultsPanelProps) {
@@ -395,14 +408,92 @@ export function TabbedResultsPanel({
                 ))}
               </div>
 
-              <div className="pt-2 border-t border-white/[0.06] space-y-1">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Net Cash</span>
-                  <span className="text-sm font-semibold text-white">{formatCurrency(netCashProceeds)}</span>
+              {/* Proceeds Distribution Section */}
+              <div className="pt-3 border-t border-white/[0.06] space-y-3">
+                <p className="text-xs font-medium text-slate-500">Proceeds Distribution</p>
+
+                {/* Per-Borrower CPF Refunds */}
+                <div className="space-y-2">
+                  {/* Borrower 1 CPF */}
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center">
+                        <Landmark className="h-3 w-3 text-blue-400" />
+                      </div>
+                      <span className="text-slate-400">
+                        {borrowerType === 'joint' ? 'Borrower 1 CPF' : 'CPF Refund'}
+                      </span>
+                      {saleInputs.borrower1CpfRefundAccountId && (
+                        <div className="flex items-center gap-1 text-slate-600">
+                          <ArrowRight className="h-3 w-3" />
+                          <span className="text-slate-500 truncate max-w-[100px]">
+                            {cpfAccounts.find(a => a.id === saleInputs.borrower1CpfRefundAccountId)?.personName || 'CPF Account'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-blue-400 font-mono tabular-nums">
+                      {formatCurrency(saleResult.perBorrowerCpfRefund.borrower1?.total ?? 0)}
+                    </span>
+                  </div>
+
+                  {/* Borrower 2 CPF (joint only) */}
+                  {borrowerType === 'joint' && saleResult.perBorrowerCpfRefund.borrower2 && (
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center">
+                          <Landmark className="h-3 w-3 text-blue-400" />
+                        </div>
+                        <span className="text-slate-400">Borrower 2 CPF</span>
+                        {saleInputs.borrower2CpfRefundAccountId && (
+                          <div className="flex items-center gap-1 text-slate-600">
+                            <ArrowRight className="h-3 w-3" />
+                            <span className="text-slate-500 truncate max-w-[100px]">
+                              {cpfAccounts.find(a => a.id === saleInputs.borrower2CpfRefundAccountId)?.personName || 'CPF Account'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-blue-400 font-mono tabular-nums">
+                        {formatCurrency(saleResult.perBorrowerCpfRefund.borrower2.total)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Net Cash Proceeds */}
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                        <Wallet className="h-3 w-3 text-emerald-400" />
+                      </div>
+                      <span className="text-slate-400">Net Cash</span>
+                      {saleInputs.netCashProceedsAccountId && (
+                        <div className="flex items-center gap-1 text-slate-600">
+                          <ArrowRight className="h-3 w-3" />
+                          <span className="text-slate-500 truncate max-w-[100px]">
+                            {cashAccounts.find(a => a.id === saleInputs.netCashProceedsAccountId)?.name || 'Cash Account'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <span className={cn(
+                      "font-mono tabular-nums",
+                      netCashProceeds >= 0 ? "text-emerald-400" : "text-rose-400"
+                    )}>
+                      {netCashProceeds >= 0
+                        ? formatCurrency(netCashProceeds)
+                        : `(${formatCurrency(Math.abs(netCashProceeds))})`
+                      }
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">CPF Refund</span>
-                  <span className="text-sm font-semibold text-white">{formatCurrency(cpfRefundedToOa)}</span>
+
+                {/* Total Value */}
+                <div className="pt-2 border-t border-white/[0.04] flex justify-between items-center">
+                  <span className="text-xs font-medium text-slate-300">Total Value to You</span>
+                  <span className="text-sm font-semibold text-white font-mono tabular-nums">
+                    {formatCurrency(cpfRefundedToOa + netCashProceeds)}
+                  </span>
                 </div>
               </div>
             </div>

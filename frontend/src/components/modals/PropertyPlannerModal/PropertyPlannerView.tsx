@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { FormProvider } from 'react-hook-form'
 import { usePropertyScenarioForm } from './hooks'
 import { AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -13,7 +14,6 @@ import type {
   FeeItem,
   AppreciationPeriod,
   LoanSegment,
-  StaggeredDownpayment,
   GrantItem,
 } from '@/app/property-planner/types'
 
@@ -81,8 +81,8 @@ function mapPropertyTypeFromApi(propertyType: ApiPropertyType, propertySubtype: 
  * Convert API scenario to frontend PropertyScenario
  */
 function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScenario {
-  const sgDetails = apiScenario.propertySG
-  if (!sgDetails) {
+  const propertySG = apiScenario.propertySG
+  if (!propertySG) {
     // Fallback for non-SG scenarios (not yet supported)
     return {
       id: apiScenario.scenario.id,
@@ -95,7 +95,7 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     }
   }
 
-  const propertyType = mapPropertyTypeFromApi(sgDetails.propertyType, sgDetails.propertySubtype)
+  const propertyType = mapPropertyTypeFromApi(propertySG.propertyType, propertySG.propertySubtype)
   const ratePeriod = apiScenario.ratePeriods[0] // Initial loan period
 
   // Map growth periods to appreciation periods
@@ -147,37 +147,72 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     amount: parseFloat(g.amount),
   }))
 
+  // Parse legacy total values first (for fallback)
+  const legacyDownpaymentCpfOa = parseFloat(propertySG.downpaymentCpfOa)
+  const legacyDownpaymentCash = parseFloat(propertySG.downpaymentCash)
+  const legacyDownpaymentCashAccountId = propertySG.downpaymentCashAccountId ?? null
+  const legacyMonthlyCashAccountId = propertySG.monthlyCashAccountId ?? null
+
+  // Parse per-borrower values, falling back to legacy totals for borrower 1 if not set
+  const borrower1DownpaymentCpfOa = parseFloat(propertySG.borrower1DownpaymentCpfOa ?? '0') || legacyDownpaymentCpfOa
+  const borrower2DownpaymentCpfOa = parseFloat(propertySG.borrower2DownpaymentCpfOa ?? '0')
+  const borrower1DownpaymentCashAmount = parseFloat(propertySG.borrower1DownpaymentCashAmount ?? '0') || legacyDownpaymentCash
+  const borrower2DownpaymentCashAmount = parseFloat(propertySG.borrower2DownpaymentCashAmount ?? '0')
+  const borrower1DownpaymentCashAccountId = propertySG.borrower1DownpaymentCashAccountId ?? legacyDownpaymentCashAccountId
+  const borrower1MonthlyCashAccountId = propertySG.borrower1MonthlyCashAccountId ?? legacyMonthlyCashAccountId
+
   const inputs: MortgageInputs = {
-    propertyPrice: parseFloat(sgDetails.propertyPrice),
-    valuationPrice: parseFloat(sgDetails.valuationPrice || sgDetails.propertyPrice),
+    propertyPrice: parseFloat(propertySG.propertyPrice),
+    valuationPrice: parseFloat(propertySG.valuationPrice || propertySG.propertyPrice),
     loanAmount: parseFloat(apiScenario.computed?.loanAmount ?? '0'),
-    loanType: sgDetails.loanType,
-    downpaymentCpfOa: parseFloat(sgDetails.downpaymentCpfOa),
-    downpaymentCash: parseFloat(sgDetails.downpaymentCash),
+    loanType: propertySG.loanType,
+    downpaymentCpfOa: legacyDownpaymentCpfOa,
+    downpaymentCash: legacyDownpaymentCash,
     loanTermYears: ratePeriod?.termYears ?? 25,
     loanStartMonth: ratePeriod?.startDate?.slice(0, 7) ?? new Date().toISOString().slice(0, 7),
     fixedYears: 0, // Deprecated - use loanSegments with rateType
     fixedRate: parseFloat(ratePeriod?.rate ?? '2.6'),
     floatingRate: parseFloat(ratePeriod?.rate ?? '2.6'), // Same as fixedRate for backwards compat
     householdIncome: 0, // Will be derived from income IDs
-    otherDebt: parseFloat(sgDetails.otherDebt),
-    borrowerType: sgDetails.borrowerType,
+    otherDebt: parseFloat(propertySG.otherDebt),
+    borrowerType: propertySG.borrowerType,
     cpfOaBalance: parseFloat(apiScenario.computed?.projectedBorrower1OA ?? '0') + parseFloat(apiScenario.computed?.projectedBorrower2OA ?? '0'),
     monthlyCpfOa: 0,
     grants,
-    borrower1IncomeId: sgDetails.borrower1IncomeId || '',
+    borrower1IncomeId: propertySG.borrower1IncomeId || '',
     borrower1OaBalance: parseFloat(apiScenario.computed?.projectedBorrower1OA ?? '0'),
     borrower1LiabilityIds: [],
-    borrower2IncomeId: sgDetails.borrower2IncomeId || null,
+    borrower2IncomeId: propertySG.borrower2IncomeId || null,
     borrower2OaBalance: parseFloat(apiScenario.computed?.projectedBorrower2OA ?? '0'),
     borrower2LiabilityIds: [],
-    // Per-borrower CPF OA tracking
-    borrower1DownpaymentCpfOa: parseFloat(sgDetails.borrower1DownpaymentCpfOa ?? '0'),
-    borrower2DownpaymentCpfOa: parseFloat(sgDetails.borrower2DownpaymentCpfOa ?? '0'),
-    borrower1MonthlyCpfOa: parseFloat(sgDetails.borrower1MonthlyCpfOa ?? '0'),
-    borrower2MonthlyCpfOa: parseFloat(sgDetails.borrower2MonthlyCpfOa ?? '0'),
+    // Per-borrower CPF OA tracking (fallback to legacy totals for borrower 1)
+    borrower1DownpaymentCpfOaAmountType: propertySG.borrower1DownpaymentCpfOaAmountType ?? 'fixed',
+    borrower1DownpaymentCpfOa,
+    borrower2DownpaymentCpfOaAmountType: propertySG.borrower2DownpaymentCpfOaAmountType ?? 'fixed',
+    borrower2DownpaymentCpfOa,
+    borrower1MonthlyCpfOa: parseFloat(propertySG.borrower1MonthlyCpfOa ?? '0'),
+    borrower2MonthlyCpfOa: parseFloat(propertySG.borrower2MonthlyCpfOa ?? '0'),
+    // Per-borrower cash account configuration (downpayment) - fallback to legacy for borrower 1
+    borrower1DownpaymentCashAccountId,
+    borrower1DownpaymentCashAmountType: propertySG.borrower1DownpaymentCashAmountType ?? 'remainder',
+    borrower1DownpaymentCashAmount,
+    borrower2DownpaymentCashAccountId: propertySG.borrower2DownpaymentCashAccountId ?? null,
+    borrower2DownpaymentCashAmountType: propertySG.borrower2DownpaymentCashAmountType ?? 'remainder',
+    borrower2DownpaymentCashAmount,
+    // Per-borrower cash account configuration (monthly payment) - fallback to legacy for borrower 1
+    borrower1MonthlyCashAccountId,
+    borrower1MonthlyCashAmountType: propertySG.borrower1MonthlyCashAmountType ?? 'remainder',
+    borrower1MonthlyCashAmount: parseFloat(propertySG.borrower1MonthlyCashAmount ?? '0'),
+    borrower2MonthlyCashAccountId: propertySG.borrower2MonthlyCashAccountId ?? null,
+    borrower2MonthlyCashAmountType: propertySG.borrower2MonthlyCashAmountType ?? 'remainder',
+    borrower2MonthlyCashAmount: parseFloat(propertySG.borrower2MonthlyCashAmount ?? '0'),
+    // Legacy fields (computed from per-borrower for backward compatibility)
+    monthlyCashAccountId: propertySG.monthlyCashAccountId ?? null,
+    monthlyCashAmountType: propertySG.monthlyCashAmountType ?? 'remainder',
+    monthlyCashAmount: parseFloat(propertySG.monthlyCashAmount ?? '0'),
+    downpaymentCashAccountId: propertySG.downpaymentCashAccountId ?? null,
     // Lease tenure
-    leaseRemainingYears: sgDetails.leaseRemainingYears ?? 99,
+    leaseRemainingYears: propertySG.leaseRemainingYears ?? 99,
     purchaseFees: purchaseFees.length > 0 ? purchaseFees : DEFAULT_SALE_FEES.map(f => ({ ...f })),
     absdRate: 0, // Derived from residency
     appreciationPeriods: appreciationPeriods.length > 0 ? appreciationPeriods : [{ id: 'default', startYear: 1, endYear: null, rate: 3 }],
@@ -186,23 +221,29 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
   }
 
   const saleInputs: SaleInputs = {
-    expectedSaleDate: sgDetails.saleExpectedDate || getDefaultSaleDate(ratePeriod?.startDate?.slice(0, 7) || new Date().toISOString().slice(0, 7)),
-    expectedSalePrice: parseFloat(sgDetails.saleExpectedPrice || String(parseFloat(sgDetails.propertyPrice) * 1.3)),
+    expectedSaleDate: propertySG.saleExpectedDate || getDefaultSaleDate(ratePeriod?.startDate?.slice(0, 7) || new Date().toISOString().slice(0, 7)),
+    expectedSalePrice: parseFloat(propertySG.saleExpectedPrice || String(parseFloat(propertySG.propertyPrice) * 1.3)),
     fees: saleFees.length > 0 ? saleFees : DEFAULT_SALE_FEES.map(f => ({ ...f })),
+    // Sale proceeds destination (may be null if not yet configured)
+    // Note: These fields are frontend-only for now until backend is updated
+    borrower1CpfRefundAccountId: (propertySG as any).saleBorrower1CpfRefundAccountId ?? null,
+    borrower2CpfRefundAccountId: (propertySG as any).saleBorrower2CpfRefundAccountId ?? null,
+    netCashProceedsAccountId: (propertySG as any).saleNetCashProceedsAccountId ?? null,
   }
 
   return {
     id: apiScenario.scenario.id,
-    name: sgDetails.name,
+    propertySgId: propertySG.id, // The actual property ID for fund flow rules queries
+    name: propertySG.name,
     propertyType,
     inputs,
     saleInputs,
-    isIncluded: sgDetails.isIncluded,
+    isIncluded: propertySG.isIncluded,
     createdAt: new Date(apiScenario.scenario.createdAt).getTime(),
-    purchaseIcon: sgDetails.purchaseIcon || undefined,
-    purchaseIconColor: sgDetails.purchaseIconColor || undefined,
-    saleIcon: sgDetails.saleIcon || undefined,
-    saleIconColor: sgDetails.saleIconColor || undefined,
+    purchaseIcon: propertySG.purchaseIcon || undefined,
+    purchaseIconColor: propertySG.purchaseIconColor || undefined,
+    saleIcon: propertySG.saleIcon || undefined,
+    saleIconColor: propertySG.saleIconColor || undefined,
   }
 }
 
@@ -249,6 +290,30 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
       borrowerType: scenario.inputs.borrowerType,
       borrower1IncomeId,
       borrower2IncomeId,
+      // Per-borrower CPF OA tracking
+      borrower1DownpaymentCpfOa: String(scenario.inputs.borrower1DownpaymentCpfOa),
+      borrower2DownpaymentCpfOa: String(scenario.inputs.borrower2DownpaymentCpfOa),
+      borrower1MonthlyCpfOa: String(scenario.inputs.borrower1MonthlyCpfOa),
+      borrower2MonthlyCpfOa: String(scenario.inputs.borrower2MonthlyCpfOa),
+      // Per-borrower cash account configuration (downpayment)
+      borrower1DownpaymentCashAccountId: scenario.inputs.borrower1DownpaymentCashAccountId,
+      borrower1DownpaymentCashAmount: String(scenario.inputs.borrower1DownpaymentCashAmount),
+      borrower2DownpaymentCashAccountId: scenario.inputs.borrower2DownpaymentCashAccountId,
+      borrower2DownpaymentCashAmount: String(scenario.inputs.borrower2DownpaymentCashAmount),
+      // Per-borrower cash account configuration (monthly payment)
+      borrower1MonthlyCashAccountId: scenario.inputs.borrower1MonthlyCashAccountId,
+      borrower1MonthlyCashAmountType: scenario.inputs.borrower1MonthlyCashAmountType,
+      borrower1MonthlyCashAmount: String(scenario.inputs.borrower1MonthlyCashAmount),
+      borrower2MonthlyCashAccountId: scenario.inputs.borrower2MonthlyCashAccountId,
+      borrower2MonthlyCashAmountType: scenario.inputs.borrower2MonthlyCashAmountType,
+      borrower2MonthlyCashAmount: String(scenario.inputs.borrower2MonthlyCashAmount),
+      // Legacy fields (for backward compatibility)
+      monthlyCashAccountId: scenario.inputs.monthlyCashAccountId,
+      monthlyCashAmountType: scenario.inputs.monthlyCashAmountType,
+      monthlyCashAmount: String(scenario.inputs.monthlyCashAmount),
+      downpaymentCashAccountId: scenario.inputs.downpaymentCashAccountId,
+      // Lease tenure
+      leaseRemainingYears: scenario.inputs.leaseRemainingYears,
       otherDebt: String(scenario.inputs.otherDebt),
       propertyCount: 0,
       saleExpectedDate: scenario.saleInputs.expectedSaleDate,
@@ -304,6 +369,10 @@ function getDefaultSaleInputs(loanStartMonth: string, propertyPrice: number): Sa
     expectedSaleDate: getDefaultSaleDate(loanStartMonth),
     expectedSalePrice: Math.round(propertyPrice * 1.3),
     fees: DEFAULT_SALE_FEES.map(f => ({ ...f })),
+    // Sale proceeds destinations - null by default (user selects)
+    borrower1CpfRefundAccountId: null,
+    borrower2CpfRefundAccountId: null,
+    netCashProceedsAccountId: null,
   }
 }
 
@@ -378,8 +447,6 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     initializeWithScenario,
     resetToDefaults,
     markAsSaved,
-    updateInput,
-    updateSaleInput,
     updatePropertyType,
   } = usePropertyScenarioForm()
 
@@ -450,27 +517,6 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     }
   }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioPurchaseIcon, editingScenarioPurchaseIconColor, editingScenarioSaleIcon, editingScenarioSaleIconColor, editingScenario, updateMutation, markAsSaved])
 
-  const handleSaveAndClose = useCallback(() => {
-    if (editingScenarioId && selectedType) {
-      const updatedScenario: PropertyScenario = {
-        id: editingScenarioId,
-        name: editingScenarioName,
-        propertyType: selectedType,
-        inputs,
-        saleInputs,
-        isIncluded: editingScenario?.isIncluded ?? true,
-        createdAt: editingScenario?.createdAt ?? Date.now(),
-        purchaseIcon: editingScenarioPurchaseIcon,
-        purchaseIconColor: editingScenarioPurchaseIconColor,
-        saleIcon: editingScenarioSaleIcon,
-        saleIconColor: editingScenarioSaleIconColor,
-      }
-      const apiInput = frontendToApiCreateInput(updatedScenario)
-      updateMutation.mutate({ id: editingScenarioId, input: apiInput })
-    }
-    setEditingScenarioId(null)
-    resetToDefaults()
-  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioPurchaseIcon, editingScenarioPurchaseIconColor, editingScenarioSaleIcon, editingScenarioSaleIconColor, editingScenario, updateMutation, resetToDefaults])
 
   // Back button handler - shows confirmation if there are unsaved changes
   const handleBack = useCallback(() => {
@@ -497,22 +543,6 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     const apiInput = frontendToApiCreateInput(scenario)
     createMutation.mutate(apiInput)
   }, [createMutation])
-
-  const handleInputChange = useCallback((
-    field: keyof MortgageInputs,
-    value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null,
-    shouldDirty = true
-  ) => {
-    updateInput(field, value as MortgageInputs[typeof field], shouldDirty)
-  }, [updateInput])
-
-  const handleSaleInputChange = useCallback((
-    field: keyof SaleInputs,
-    value: string | number | boolean | FeeItem[],
-    shouldDirty = true
-  ) => {
-    updateSaleInput(field, value as SaleInputs[typeof field], shouldDirty)
-  }, [updateSaleInput])
 
   // Form field setters using React Hook Form
   const setSelectedType = useCallback((type: PropertyType | null) => {
@@ -616,7 +646,8 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
   const isEmbedded = !!onClose
 
   return (
-    <div className={cn("flex flex-col", isEmbedded ? "h-full" : "min-h-screen bg-gray-950")}>
+    <FormProvider {...form}>
+      <div className={cn("flex flex-col", isEmbedded ? "h-full" : "min-h-screen bg-gray-950")}>
       {!isEmbedded && (
         <>
           <div className="fixed inset-0 bg-gradient-to-br from-gray-950 via-gray-950 to-gray-900" />
@@ -643,39 +674,23 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
           ) : (
             <ScenarioDetailView
               key="scenario-detail"
-              selectedType={selectedType}
-              inputs={inputs}
-              saleInputs={saleInputs}
               activeResultsTab={activeResultsTab}
               editingScenario={editingScenario ?? null}
-              editingScenarioName={editingScenarioName}
-              editingScenarioPurchaseIcon={editingScenarioPurchaseIcon}
-              editingScenarioPurchaseIconColor={editingScenarioPurchaseIconColor}
-              editingScenarioPurchaseIconSearch={editingScenarioPurchaseIconSearch}
               editingScenarioSaleIcon={editingScenarioSaleIcon}
               editingScenarioSaleIconColor={editingScenarioSaleIconColor}
               editingScenarioSaleIconSearch={editingScenarioSaleIconSearch}
               isEmbedded={isEmbedded}
               computedValues={computedValues}
-              onInputChange={handleInputChange}
-              onSaleInputChange={handleSaleInputChange}
               onActiveResultsTabChange={handleTabChange}
-              onSelectedTypeChange={setSelectedType}
-              onEditingScenarioNameChange={setEditingScenarioName}
-              onEditingScenarioPurchaseIconChange={setEditingScenarioPurchaseIcon}
-              onEditingScenarioPurchaseIconColorChange={setEditingScenarioPurchaseIconColor}
-              onEditingScenarioPurchaseIconSearchChange={setEditingScenarioPurchaseIconSearch}
               onEditingScenarioSaleIconChange={setEditingScenarioSaleIcon}
               onEditingScenarioSaleIconColorChange={setEditingScenarioSaleIconColor}
               onEditingScenarioSaleIconSearchChange={setEditingScenarioSaleIconSearch}
-              onSaveAndClose={handleSaveAndClose}
               onBack={handleBack}
-              hasChanges={isDirty}
-              onJumpToDate={onJumpToDate}
             />
           )}
         </AnimatePresence>
       </div>
     </div>
+    </FormProvider>
   )
 }

@@ -46,6 +46,10 @@ function getDefaultSaleInputs(loanStartMonth: string, propertyPrice: number) {
     expectedSaleDate: startDate.toISOString().slice(0, 7),
     expectedSalePrice: Math.round(propertyPrice * 1.3),
     fees: DEFAULT_SALE_FEES.map((f: any) => ({ ...f })),
+    // Sale proceeds destinations - null by default (user selects)
+    borrower1CpfRefundAccountId: null,
+    borrower2CpfRefundAccountId: null,
+    netCashProceedsAccountId: null,
   }
 }
 

@@ -25,8 +25,8 @@ export function usePropertyScenarioMarkers(
     const markers: PropertyMarkerData[] = []
 
     for (const scenario of scenarios) {
-      const sgDetails = scenario.propertySG
-      if (!sgDetails) {
+      const propertySG = scenario.propertySG
+      if (!propertySG) {
         console.log('[PropertyMarkers] Skipping scenario - no propertySG:', scenario.scenario.id)
         continue
       }
@@ -38,7 +38,7 @@ export function usePropertyScenarioMarkers(
         continue
       }
 
-      console.log('[PropertyMarkers] Processing scenario:', sgDetails.name, 'purchaseDate:', purchaseDate)
+      console.log('[PropertyMarkers] Processing scenario:', propertySG.name, 'purchaseDate:', purchaseDate)
 
       // Parse purchase date (YYYY-MM format)
       const [yearStr, monthStr] = purchaseDate.split('-')
@@ -96,15 +96,15 @@ export function usePropertyScenarioMarkers(
       const nestedMilestones: PropertyMilestone[] = []
 
       // Sale milestone (if sale date is set)
-      if (sgDetails.saleExpectedDate) {
+      if (propertySG.saleExpectedDate) {
         nestedMilestones.push({
           id: `${scenario.scenario.id}-sale`,
           type: 'sale',
-          date: sgDetails.saleExpectedDate,
+          date: propertySG.saleExpectedDate,
           label: 'Sale',
-          icon: sgDetails.saleIcon || 'banknote',
-          iconColor: sgDetails.saleIconColor || '#10b981', // emerald
-          yearIndex: findYearIndexForDate(sgDetails.saleExpectedDate),
+          icon: propertySG.saleIcon || 'banknote',
+          iconColor: propertySG.saleIconColor || '#10b981', // emerald
+          yearIndex: findYearIndexForDate(propertySG.saleExpectedDate),
         })
       }
 
@@ -121,8 +121,8 @@ export function usePropertyScenarioMarkers(
             feeDate = fee.startDate
           } else if (fee.feeContext === 'purchase' && purchaseDate) {
             feeDate = purchaseDate
-          } else if (fee.feeContext === 'sale' && sgDetails.saleExpectedDate) {
-            feeDate = sgDetails.saleExpectedDate
+          } else if (fee.feeContext === 'sale' && propertySG.saleExpectedDate) {
+            feeDate = propertySG.saleExpectedDate
           }
 
           // Skip fees without a valid date
@@ -152,10 +152,10 @@ export function usePropertyScenarioMarkers(
         netWorth,
         type: 'property',
         propertyScenarioId: scenario.scenario.id,
-        name: sgDetails.name,
-        icon: sgDetails.purchaseIcon || 'home',
-        iconColor: sgDetails.purchaseIconColor || '#6366f1',
-        isIncluded: sgDetails.isIncluded,
+        name: propertySG.name,
+        icon: propertySG.purchaseIcon || 'home',
+        iconColor: propertySG.purchaseIconColor || '#6366f1',
+        isIncluded: propertySG.isIncluded,
         nestedMilestones,
       })
     }

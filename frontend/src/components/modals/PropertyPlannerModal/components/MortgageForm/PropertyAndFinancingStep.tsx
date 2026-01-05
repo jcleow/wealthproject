@@ -12,8 +12,20 @@ import type { MortgageInputs } from '@/app/property-planner/types'
 import { FormInput, InfoTooltip, GrantsEditor } from '@/app/property-planner/components'
 import { createDefaultStaggeredDownpayment } from '@/app/property-planner/hooks/constants'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
+import { usePropertyFormInputs } from '../../hooks'
 
-import type { PropertyAndFinancingStepProps, LoanTypeToggleProps, OnChangeHandler } from './types'
+import type { OnChangeHandler } from './types'
+
+// Props for PropertyAndFinancingStep - only non-form-context props
+interface PropertyAndFinancingStepProps {
+  isResale: boolean
+  isBTO: boolean
+  isHDB: boolean
+  effectivePrice: number
+  downpaymentOnValuation: number
+  maxLtv: number
+  cashOverValuation: number
+}
 
 // Reusable section header for consistent styling
 function SectionHeader({ children }: { children: React.ReactNode }) {
@@ -88,13 +100,9 @@ function HDBEligibilityTooltip() {
 }
 
 // Staggered downpayment form with $ / % toggle and validation
-function StaggeredDownpaymentForm({
-  inputs,
-  onChange,
-}: {
-  inputs: MortgageInputs
-  onChange: OnChangeHandler
-}) {
+// Uses form context for inputs/onChange
+function StaggeredDownpaymentForm() {
+  const { inputs, onChange } = usePropertyFormInputs()
   const [inputMode, setInputMode] = useState<'$' | '%'>('$')
   const staggered = inputs.staggeredDownpayment!
 
@@ -375,10 +383,7 @@ function StaggeredDownpaymentSection({
               </div>
 
               {inputs.staggeredDownpayment?.enabled && (
-                <StaggeredDownpaymentForm
-                  inputs={inputs}
-                  onChange={onChange}
-                />
+                <StaggeredDownpaymentForm />
               )}
             </div>
           </motion.div>
@@ -388,7 +393,15 @@ function StaggeredDownpaymentSection({
   )
 }
 
-function LoanTypeToggle({ isHDB, inputs, onChange, effectivePrice, downpaymentOnValuation }: LoanTypeToggleProps) {
+// LoanTypeToggle - uses form context for inputs/onChange
+interface LoanTypeToggleLocalProps {
+  isHDB: boolean
+  effectivePrice: number
+  downpaymentOnValuation: number
+}
+
+function LoanTypeToggle({ isHDB, effectivePrice, downpaymentOnValuation }: LoanTypeToggleLocalProps) {
+  const { inputs, onChange } = usePropertyFormInputs()
   return (
     <div className="space-y-1.5">
       <label className="text-xs font-medium text-slate-400 block">Loan Type</label>
@@ -439,9 +452,11 @@ function LoanTypeToggle({ isHDB, inputs, onChange, effectivePrice, downpaymentOn
   )
 }
 
+/**
+ * Property and Financing step - handles property price, loan details, and downpayment.
+ * Uses form context for inputs/onChange - no prop drilling needed.
+ */
 export function PropertyAndFinancingStep({
-  inputs,
-  onChange,
   isResale,
   isBTO,
   isHDB,
@@ -450,6 +465,7 @@ export function PropertyAndFinancingStep({
   maxLtv,
   cashOverValuation,
 }: PropertyAndFinancingStepProps) {
+  const { inputs, onChange } = usePropertyFormInputs()
   // Local state for downpayment input
   const [localDownpayment, setLocalDownpayment] = useState(downpaymentOnValuation.toString())
   const [localPercent, setLocalPercent] = useState(((downpaymentOnValuation / effectivePrice) * 100).toFixed(1))
@@ -768,8 +784,6 @@ export function PropertyAndFinancingStep({
           {/* Loan Type Toggle - HDB can choose between HDB Loan or Bank Loan */}
           <LoanTypeToggle
             isHDB={isHDB}
-            inputs={inputs}
-            onChange={onChange}
             effectivePrice={effectivePrice}
             downpaymentOnValuation={downpaymentOnValuation}
           />

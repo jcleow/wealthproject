@@ -13,7 +13,7 @@ export type BorrowerType = 'single' | 'joint'
 export type LoanType = 'bank' | 'hdb'
 export type ChartView = 'balance' | 'composition' | 'schedule'
 export type FormStep = 'property' | 'borrowers' | 'terms'
-export type SaleFormStep = 'timing' | 'fees'
+export type SaleFormStep = 'timing' | 'fees' | 'proceeds'
 export type AccordionColor = 'rose' | 'violet' | 'emerald' | 'amber'
 
 // ============================================
@@ -105,10 +105,31 @@ export interface MortgageInputs {
   borrower2OaBalance: number
   borrower2LiabilityIds: string[] // IDs of liabilities assigned to borrower 2
   // Per-borrower CPF OA tracking
+  borrower1DownpaymentCpfOaAmountType: 'fixed' | 'max_available' // How CPF OA amount is determined
   borrower1DownpaymentCpfOa: number // Borrower 1's CPF OA for downpayment
+  borrower2DownpaymentCpfOaAmountType: 'fixed' | 'max_available' // How CPF OA amount is determined
   borrower2DownpaymentCpfOa: number // Borrower 2's CPF OA for downpayment
   borrower1MonthlyCpfOa: number // Borrower 1's monthly CPF OA payment
   borrower2MonthlyCpfOa: number // Borrower 2's monthly CPF OA payment
+  // Per-borrower cash account configuration (downpayment)
+  borrower1DownpaymentCashAccountId: string | null // Borrower 1's cash account for downpayment
+  borrower1DownpaymentCashAmountType: 'fixed' | 'pct_target' | 'pct_source' | 'remainder' // How cash amount is determined
+  borrower1DownpaymentCashAmount: number // Borrower 1's cash contribution to downpayment
+  borrower2DownpaymentCashAccountId: string | null // Borrower 2's cash account for downpayment
+  borrower2DownpaymentCashAmountType: 'fixed' | 'pct_target' | 'pct_source' | 'remainder' // How cash amount is determined
+  borrower2DownpaymentCashAmount: number // Borrower 2's cash contribution to downpayment
+  // Per-borrower cash account configuration (monthly payment)
+  borrower1MonthlyCashAccountId: string | null // Borrower 1's cash account for monthly payment
+  borrower1MonthlyCashAmountType: 'fixed' | 'pct_target' | 'pct_source' | 'remainder' // How amount is determined
+  borrower1MonthlyCashAmount: number // Fixed $ or percentage depending on type
+  borrower2MonthlyCashAccountId: string | null // Borrower 2's cash account for monthly payment
+  borrower2MonthlyCashAmountType: 'fixed' | 'pct_target' | 'pct_source' | 'remainder' // How amount is determined
+  borrower2MonthlyCashAmount: number // Fixed $ or percentage depending on type
+  // Legacy fields (kept for backward compatibility - computed from per-borrower values)
+  monthlyCashAccountId: string | null // @deprecated - use per-borrower fields
+  monthlyCashAmountType: 'fixed' | 'pct_target' | 'pct_source' | 'remainder' // @deprecated
+  monthlyCashAmount: number // @deprecated
+  downpaymentCashAccountId: string | null // @deprecated - use per-borrower fields
   // Lease tenure: null = freehold, 1-999 = remaining years
   leaseRemainingYears: number | null
   // Purchase fees/expenses
@@ -176,12 +197,21 @@ export interface SaleInputs {
   expectedSaleDate: string  // YYYY-MM format
   expectedSalePrice: number
   fees: FeeItem[]  // Flexible fees list
+  // Sale proceeds destination fields
+  borrower1CpfRefundAccountId: string | null  // Target CPF account for borrower 1's refund
+  borrower2CpfRefundAccountId: string | null  // Target CPF account for borrower 2's refund (joint only)
+  netCashProceedsAccountId: string | null     // Target cash account for net proceeds
 }
 
 export interface CpfRefund {
   principalUsed: number      // downpaymentCpfOa + cumulative monthly CPF payments
   accruedInterest: number    // 2.5% compound interest
   total: number
+}
+
+export interface PerBorrowerCpfRefund {
+  borrower1: CpfRefund
+  borrower2: CpfRefund | null  // null for single borrower
 }
 
 export interface SsdInfo {
@@ -195,6 +225,7 @@ export interface SaleResult {
   holdingPeriodYears: number
   outstandingLoanAtSale: number
   cpfRefund: CpfRefund
+  perBorrowerCpfRefund: PerBorrowerCpfRefund  // Per-borrower CPF refund breakdown
   ssd: SsdInfo
   calculatedFees: CalculatedFee[]
   totalFees: number
@@ -209,6 +240,7 @@ export interface SaleResult {
 
 export interface PropertyScenario {
   id: string
+  propertySgId?: string       // The property_sg.id - used for fund flow rules queries
   name: string
   propertyType: PropertyType
   inputs: MortgageInputs

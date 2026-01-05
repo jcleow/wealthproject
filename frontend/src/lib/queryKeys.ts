@@ -24,6 +24,7 @@ export const QUERY_KEYS = {
     propertyLinks: ['financial', 'property-links'] as const,
     propertyScenarios: ['financial', 'property-scenarios'] as const,
     propertyPlannerV2: ['financial', 'property-planner-v2'] as const,
+    fundFlowRules: ['financial', 'fund-flow-rules'] as const,
     netWorth: ['financial', 'net-worth'] as const,
     cashflow: ['financial', 'cashflow'] as const,
     growth: ['financial', 'growth'] as const,

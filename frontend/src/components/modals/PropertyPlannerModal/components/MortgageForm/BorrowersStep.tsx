@@ -1,279 +1,121 @@
 "use client"
 
-import { useState } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
-import { InfoTooltip } from '@/app/property-planner/components/InfoTooltip'
-import { calculateMonthlyOaInflow } from '@/app/property-planner/hooks'
-import { cn } from '@/lib/utils'
+import { Wallet } from 'lucide-react'
+import { useCashAccountsQuery, usePropertyPaymentRulesQuery } from '@/hooks/queries'
+import { usePropertyFormInputs } from '../../hooks'
 
-import type { BorrowersStepProps, IncomeOption } from './types'
+import type { IncomeOption, ProjectedCpfAccount } from './types'
+import { DownpaymentSourcesSection } from './components/DownpaymentSourcesSection'
+import { MonthlyPaymentSourcesSection } from './components/MonthlyPaymentSourcesSection'
+import {
+  formatIncomeLabel,
+  findCpfAccountForIncome,
+  selectBorrower1Income,
+  selectBorrower2Income,
+  DEFAULT_OA_BALANCE,
+} from './utils/borrowerSelection'
 
-// Reusable input component for CPF amounts
-function CpfInput({
-  label,
-  tooltipTitle,
-  tooltipDescription,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string
-  tooltipTitle: string
-  tooltipDescription: string
-  value: number
-  onChange: (value: number) => void
-  placeholder?: string
-}) {
-  return (
-    <div className="mt-3 space-y-1.5">
-      <div className="flex items-center gap-1.5">
-        <label className="text-xs font-medium text-slate-400">{label}</label>
-        <InfoTooltip title={tooltipTitle} description={tooltipDescription} />
-      </div>
-      <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={value === 0 ? '' : value.toLocaleString()}
-          onChange={(e) => {
-            const raw = e.target.value.replace(/,/g, '')
-            const num = parseFloat(raw) || 0
-            onChange(num)
-          }}
-          placeholder={placeholder || '0'}
-          className="w-full pl-7 pr-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-sm font-mono tabular-nums focus:outline-none focus:border-white/20 focus:bg-white/[0.05] placeholder:text-slate-600"
-        />
-      </div>
-    </div>
-  )
+interface BorrowersStepProps {
+  incomes: IncomeOption[]
+  cpfAccounts: ProjectedCpfAccount[]
+  exceedsHdbIncomeCeiling: boolean
+  exceedsEcIncomeCeiling: boolean
+  purchaseDateFormatted: string
+  householdIncome: number
+  propertySgId?: string | null
 }
 
-// Monthly CPF OA input with $ / % toggle - ledger style
-function MonthlyCpfOaInput({
-  value,
-  onChange,
-  monthlyIncome,
-}: {
-  value: number
-  onChange: (value: number) => void
-  monthlyIncome: number
-}) {
-  const [mode, setMode] = useState<'fixed' | 'percentage'>('fixed')
-  const [percentValue, setPercentValue] = useState(0)
-  const estimatedMonthlyOa = calculateMonthlyOaInflow(monthlyIncome)
-
-  // Calculate the actual dollar amount based on mode
-  const calculatedAmount = mode === 'percentage'
-    ? Math.round(estimatedMonthlyOa * (percentValue / 100))
-    : value
-
-  // When switching to percentage mode, convert current value to percentage
-  const handleModeChange = (newMode: 'fixed' | 'percentage') => {
-    if (newMode === 'percentage' && mode === 'fixed' && estimatedMonthlyOa > 0) {
-      // Convert current fixed value to percentage
-      const pct = Math.round((value / estimatedMonthlyOa) * 100)
-      setPercentValue(pct)
-    } else if (newMode === 'fixed' && mode === 'percentage') {
-      // Convert percentage to fixed value
-      onChange(calculatedAmount)
-    }
-    setMode(newMode)
-  }
-
-  // Handle value change based on mode
-  const handleValueChange = (rawValue: string) => {
-    const num = parseFloat(rawValue.replace(/[^0-9.]/g, '')) || 0
-    if (mode === 'percentage') {
-      setPercentValue(num)
-      onChange(Math.round(estimatedMonthlyOa * (num / 100)))
-    } else {
-      onChange(num)
-    }
-  }
-
-  return (
-    <div className="mt-3 space-y-1">
-      <div className="flex items-center gap-1.5">
-        <label className="text-xs font-medium text-slate-400">Monthly CPF OA Payment</label>
-        <InfoTooltip
-          title="Monthly CPF Contribution"
-          description="Monthly amount from CPF OA to pay towards mortgage. Enter a fixed amount or a percentage of your estimated monthly OA contribution."
-        />
-      </div>
-
-      {/* Input row with external toggle */}
-      <div className="flex items-center gap-2">
-        {/* $ / % toggle - outside input */}
-        <div className="flex items-center shrink-0">
-          <button
-            type="button"
-            onClick={() => handleModeChange('fixed')}
-            className={cn(
-              "px-2 py-1.5 text-xs font-medium rounded-l-lg border-y border-l transition-colors",
-              mode === 'fixed'
-                ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
-                : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
-            )}
-          >
-            $
-          </button>
-          <button
-            type="button"
-            onClick={() => handleModeChange('percentage')}
-            className={cn(
-              "px-2 py-1.5 text-xs font-medium rounded-r-lg border transition-colors",
-              mode === 'percentage'
-                ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
-                : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
-            )}
-          >
-            %
-          </button>
-        </div>
-
-        {/* Input field */}
-        <div className="flex items-center flex-1 h-9 px-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
-          {mode === 'fixed' && <span className="text-slate-500 text-sm">$</span>}
-          <input
-            type="text"
-            inputMode="numeric"
-            value={mode === 'fixed'
-              ? (value === 0 ? '' : value.toLocaleString())
-              : (percentValue === 0 ? '' : percentValue)
-            }
-            onChange={(e) => handleValueChange(e.target.value)}
-            placeholder="0"
-            className="flex-1 min-w-0 bg-transparent border-0 outline-none text-white text-sm font-mono tabular-nums placeholder:text-slate-600 ml-1"
-          />
-          {mode === 'percentage' && <span className="text-slate-500 text-sm ml-1">%</span>}
-
-          {/* Show calculated amount for percentage mode */}
-          {mode === 'percentage' && percentValue > 0 && (
-            <>
-              <div className="h-5 w-px bg-white/[0.08] mx-3" />
-              <span className="text-xs font-mono tabular-nums text-slate-500 shrink-0">
-                = ${calculatedAmount.toLocaleString()}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Helper text */}
-      {estimatedMonthlyOa > 0 && (
-        <p className="text-[11px] text-slate-600 pl-0.5">
-          Est. monthly OA contribution: ${estimatedMonthlyOa.toLocaleString()}/mo
-        </p>
-      )}
-    </div>
-  )
-}
-
+/**
+ * Borrowers step - handles borrower selection and fund sources.
+ * Uses form context for inputs/onChange - no prop drilling needed.
+ */
 export function BorrowersStep({
-  inputs,
-  onChange,
   incomes,
   cpfAccounts,
   exceedsHdbIncomeCeiling,
   exceedsEcIncomeCeiling,
   purchaseDateFormatted,
   householdIncome,
+  propertySgId,
 }: BorrowersStepProps) {
-  // Helper to format income label - person name if present, else salary name
-  const formatIncomeLabel = (income: IncomeOption) => {
-    const displayName = income.personName || income.name
-    return `${displayName} - $${income.monthlyAmount.toLocaleString()}/mo`
-  }
+  const { inputs, onChange } = usePropertyFormInputs()
+  const { data: cashAccounts = [] } = useCashAccountsQuery()
 
-  // Find matching CPF account by personId
-  const findCpfAccountForIncome = (income: IncomeOption) => {
-    if (!income.personId) return null
-    return cpfAccounts.find(acc => acc.personId === income.personId)
-  }
+  // Query fund flow rules for this property (only when editing existing scenario)
+  // Note: Uses propertySgId (property_sg.id), not scenarioId (property_scenarios.id)
+  const { data: paymentRules = [] } = usePropertyPaymentRulesQuery(propertySgId ?? undefined)
+
+  // Track if we've already applied fund flow rules to avoid re-applying on every render
+  const hasAppliedRulesRef = useRef(false)
+
+  // Build dropdown options for cash accounts
+  const cashAccountOptions = useMemo(() => {
+    return [
+      { value: '', label: 'Select cash account...' },
+      ...cashAccounts.map(acc => ({
+        value: acc.id,
+        label: acc.name,
+        icon: <Wallet className="h-4 w-4 text-emerald-400" />,
+      }))
+    ]
+  }, [cashAccounts])
+
+  // Pre-select cash accounts from fund flow rules when editing an existing scenario
+  useEffect(() => {
+    if (hasAppliedRulesRef.current || paymentRules.length === 0) return
+
+    const cashRule = paymentRules.find(rule => rule.sourceCashAccountId)
+
+    if (cashRule?.sourceCashAccountId) {
+      if (!inputs.borrower1DownpaymentCashAccountId) {
+        onChange('borrower1DownpaymentCashAccountId', cashRule.sourceCashAccountId, false)
+      }
+      if (!inputs.borrower1MonthlyCashAccountId) {
+        onChange('borrower1MonthlyCashAccountId', cashRule.sourceCashAccountId, false)
+        if (cashRule.amountType === 'remainder') {
+          onChange('borrower1MonthlyCashAmountType', 'remainder', false)
+        }
+      }
+      hasAppliedRulesRef.current = true
+    }
+  }, [paymentRules, inputs.borrower1DownpaymentCashAccountId, inputs.borrower1MonthlyCashAccountId, onChange])
 
   return (
     <div className="space-y-4">
       {/* Eligibility Warning */}
-      {(exceedsHdbIncomeCeiling || exceedsEcIncomeCeiling) && (
-        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-          <p className="text-xs font-medium text-amber-400">
-            {exceedsHdbIncomeCeiling ? 'HDB Income Ceiling Notice' : 'EC Income Ceiling Notice'}
-          </p>
-          <p className="text-xs text-amber-300/70 mt-1">
-            Income exceeds typical ceiling. Please verify eligibility.
-          </p>
-        </div>
-      )}
+      <EligibilityWarning
+        exceedsHdbIncomeCeiling={exceedsHdbIncomeCeiling}
+        exceedsEcIncomeCeiling={exceedsEcIncomeCeiling}
+      />
 
       {/* Borrower 1 */}
-      <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-        <span className="text-xs font-medium text-slate-300 mb-3 block">
-          {inputs.borrowerType === 'joint' ? 'Borrower 1' : 'Primary Borrower'}
-        </span>
-
-        <CustomSelect
-          value={inputs.borrower1IncomeId}
-          onChange={(value) => {
-            onChange('borrower1IncomeId', value as string)
-            const selectedIncome = incomes.find(i => i.id === value)
-            if (selectedIncome) {
-              // Auto-populate OA balance from matching CPF account
-              const matchingCpf = findCpfAccountForIncome(selectedIncome)
-              if (matchingCpf) {
-                const oaBalance = matchingCpf.oaBalance
-                onChange('borrower1OaBalance', oaBalance)
-                onChange('cpfOaBalance', inputs.borrowerType === 'joint'
-                  ? oaBalance + inputs.borrower2OaBalance
-                  : oaBalance)
-              }
-            }
-          }}
-          options={incomes.map(income => ({
-            value: income.id,
-            label: formatIncomeLabel(income),
-          }))}
-          className="w-full"
-        />
-
-        {/* OA Balance - Read-only, projected to purchase date */}
-        {inputs.borrower1IncomeId && (
-          <div className="mt-3 flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-            <span className="text-slate-500 text-xs">Projected OA at {purchaseDateFormatted}</span>
-            <span className="text-white text-sm font-mono tabular-nums">${inputs.borrower1OaBalance.toLocaleString()}</span>
-          </div>
-        )}
-
-        {/* CPF OA for Downpayment */}
-        {inputs.borrower1IncomeId && (
-          <CpfInput
-            label="CPF OA for Downpayment"
-            tooltipTitle="CPF OA for Downpayment"
-            tooltipDescription="Amount from CPF OA to use for downpayment. Cannot exceed your projected OA balance."
-            value={inputs.borrower1DownpaymentCpfOa}
-            onChange={(value) => {
-              // Cap at OA balance
-              const cappedValue = Math.min(value, inputs.borrower1OaBalance)
-              onChange('borrower1DownpaymentCpfOa', cappedValue)
-              // Update combined downpaymentCpfOa
-              onChange('downpaymentCpfOa', cappedValue + inputs.borrower2DownpaymentCpfOa)
-            }}
-          />
-        )}
-
-        {/* Monthly CPF OA Payment */}
-        {inputs.borrower1IncomeId && (
-          <MonthlyCpfOaInput
-            value={inputs.borrower1MonthlyCpfOa}
-            onChange={(value) => {
-              onChange('borrower1MonthlyCpfOa', value)
-              // Update combined monthlyCpfOa
-              onChange('monthlyCpfOa', value + inputs.borrower2MonthlyCpfOa)
-            }}
-            monthlyIncome={incomes.find(i => i.id === inputs.borrower1IncomeId)?.monthlyAmount || 0}
-          />
-        )}
-      </div>
+      <BorrowerCard
+        label={inputs.borrowerType === 'joint' ? 'Borrower 1' : 'Primary Borrower'}
+        incomeId={inputs.borrower1IncomeId}
+        onIncomeChange={(value) => {
+          onChange('borrower1IncomeId', value)
+          const result = selectBorrower1Income(
+            value,
+            incomes,
+            cpfAccounts,
+            inputs.borrowerType,
+            inputs.borrower2OaBalance
+          )
+          if (result) {
+            onChange('borrower1OaBalance', result.borrower1OaBalance)
+            onChange('cpfOaBalance', result.combinedCpfOaBalance)
+          }
+        }}
+        incomeOptions={incomes.map(income => ({
+          value: income.id,
+          label: formatIncomeLabel(income),
+        }))}
+        oaBalance={inputs.borrower1OaBalance}
+        purchaseDateFormatted={purchaseDateFormatted}
+        showOaBalance={!!inputs.borrower1IncomeId}
+      />
 
       {/* Add Joint Borrower */}
       {inputs.borrowerType === 'single' && incomes.length > 1 && (
@@ -284,12 +126,10 @@ export function BorrowersStep({
             const availableIncome = incomes.find(i => i.id !== inputs.borrower1IncomeId)
             if (availableIncome) {
               onChange('borrower2IncomeId', availableIncome.id)
-              // Auto-populate OA balance from matching CPF account, fallback to default
-              const matchingCpf = findCpfAccountForIncome(availableIncome)
-              const borrower2OaBalance = matchingCpf?.oaBalance ?? 62400
+              const matchingCpf = findCpfAccountForIncome(availableIncome, cpfAccounts)
+              const borrower2OaBalance = matchingCpf?.oaBalance ?? DEFAULT_OA_BALANCE
               onChange('borrower2OaBalance', borrower2OaBalance)
               onChange('cpfOaBalance', inputs.borrower1OaBalance + borrower2OaBalance)
-              // Reset borrower 2's CPF contribution fields
               onChange('borrower2DownpaymentCpfOa', 0)
               onChange('borrower2MonthlyCpfOa', 0)
             }
@@ -302,88 +142,52 @@ export function BorrowersStep({
 
       {/* Borrower 2 */}
       {inputs.borrowerType === 'joint' && (
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-slate-300">Borrower 2</span>
-            <button
-              type="button"
-              onClick={() => {
-                onChange('borrowerType', 'single')
-                onChange('borrower2IncomeId', '')
-                onChange('borrower2OaBalance', 0)
-                onChange('cpfOaBalance', inputs.borrower1OaBalance)
-                // Reset borrower 2's CPF contribution fields and update combined totals
-                onChange('borrower2DownpaymentCpfOa', 0)
-                onChange('borrower2MonthlyCpfOa', 0)
-                onChange('downpaymentCpfOa', inputs.borrower1DownpaymentCpfOa)
-                onChange('monthlyCpfOa', inputs.borrower1MonthlyCpfOa)
-              }}
-              className="text-xs text-slate-500 hover:text-red-400 transition-colors"
-            >
-              Remove
-            </button>
-          </div>
-          <CustomSelect
-            value={inputs.borrower2IncomeId || ''}
-            onChange={(value) => {
-              onChange('borrower2IncomeId', value as string)
-              const selectedIncome = incomes.find(i => i.id === value)
-              if (selectedIncome) {
-                // Auto-populate OA balance from matching CPF account
-                const matchingCpf = findCpfAccountForIncome(selectedIncome)
-                if (matchingCpf) {
-                  const oaBalance = matchingCpf.oaBalance
-                  onChange('borrower2OaBalance', oaBalance)
-                  onChange('cpfOaBalance', inputs.borrower1OaBalance + oaBalance)
-                }
-              }
-            }}
-            options={incomes.filter(i => i.id !== inputs.borrower1IncomeId).map(income => ({
-              value: income.id,
-              label: formatIncomeLabel(income),
-            }))}
-            className="w-full"
-          />
-
-          {/* OA Balance - Read-only, projected to purchase date */}
-          {inputs.borrower2IncomeId && (
-            <div className="mt-3 flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-              <span className="text-slate-500 text-xs">Projected OA at {purchaseDateFormatted}</span>
-              <span className="text-white text-sm font-mono tabular-nums">${inputs.borrower2OaBalance.toLocaleString()}</span>
-            </div>
-          )}
-
-          {/* CPF OA for Downpayment */}
-          {inputs.borrower2IncomeId && (
-            <CpfInput
-              label="CPF OA for Downpayment"
-              tooltipTitle="CPF OA for Downpayment"
-              tooltipDescription="Amount from CPF OA to use for downpayment. Cannot exceed your projected OA balance."
-              value={inputs.borrower2DownpaymentCpfOa}
-              onChange={(value) => {
-                // Cap at OA balance
-                const cappedValue = Math.min(value, inputs.borrower2OaBalance)
-                onChange('borrower2DownpaymentCpfOa', cappedValue)
-                // Update combined downpaymentCpfOa
-                onChange('downpaymentCpfOa', inputs.borrower1DownpaymentCpfOa + cappedValue)
-              }}
-            />
-          )}
-
-          {/* Monthly CPF OA Payment */}
-          {inputs.borrower2IncomeId && (
-            <MonthlyCpfOaInput
-              value={inputs.borrower2MonthlyCpfOa}
-              onChange={(value) => {
-                onChange('borrower2MonthlyCpfOa', value)
-                // Update combined monthlyCpfOa
-                onChange('monthlyCpfOa', inputs.borrower1MonthlyCpfOa + value)
-              }}
-              monthlyIncome={incomes.find(i => i.id === inputs.borrower2IncomeId)?.monthlyAmount || 0}
-            />
-          )}
-        </div>
+        <BorrowerCard
+          label="Borrower 2"
+          incomeId={inputs.borrower2IncomeId || ''}
+          onIncomeChange={(value) => {
+            onChange('borrower2IncomeId', value)
+            const result = selectBorrower2Income(
+              value,
+              incomes,
+              cpfAccounts,
+              inputs.borrower1OaBalance
+            )
+            if (result) {
+              onChange('borrower2OaBalance', result.borrower2OaBalance)
+              onChange('cpfOaBalance', result.combinedCpfOaBalance)
+            }
+          }}
+          incomeOptions={incomes.filter(i => i.id !== inputs.borrower1IncomeId).map(income => ({
+            value: income.id,
+            label: formatIncomeLabel(income),
+          }))}
+          oaBalance={inputs.borrower2OaBalance}
+          purchaseDateFormatted={purchaseDateFormatted}
+          showOaBalance={!!inputs.borrower2IncomeId}
+          onRemove={() => {
+            onChange('borrowerType', 'single')
+            onChange('borrower2IncomeId', '')
+            onChange('borrower2OaBalance', 0)
+            onChange('cpfOaBalance', inputs.borrower1OaBalance)
+            onChange('borrower2DownpaymentCpfOa', 0)
+            onChange('borrower2MonthlyCpfOa', 0)
+            onChange('downpaymentCpfOa', inputs.borrower1DownpaymentCpfOa)
+            onChange('monthlyCpfOa', inputs.borrower1MonthlyCpfOa)
+          }}
+        />
       )}
+
+      {/* Downpayment Sources Section */}
+      <DownpaymentSourcesSection
+        cashAccountOptions={cashAccountOptions}
+      />
+
+      {/* Monthly Payment Sources Section */}
+      <MonthlyPaymentSourcesSection
+        incomes={incomes}
+        cashAccountOptions={cashAccountOptions}
+      />
 
       {/* Summary */}
       <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
@@ -395,14 +199,85 @@ export function BorrowersStep({
           <span className="text-slate-500">Combined CPF OA Balance</span>
           <span className="text-white font-mono tabular-nums">${inputs.cpfOaBalance.toLocaleString()}</span>
         </div>
-        <div className="flex justify-between text-xs">
-          <span className="text-slate-500">CPF OA for Downpayment</span>
-          <span className="text-emerald-400 font-mono tabular-nums">${inputs.downpaymentCpfOa.toLocaleString()}</span>
-        </div>
-        <div className="flex justify-between text-xs">
-          <span className="text-slate-500">Monthly CPF OA Payment</span>
-          <span className="text-emerald-400 font-mono tabular-nums">${inputs.monthlyCpfOa.toLocaleString()}/mo</span>
-        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Internal subcomponents (kept in same file for locality, not exported)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface EligibilityWarningProps {
+  exceedsHdbIncomeCeiling: boolean
+  exceedsEcIncomeCeiling: boolean
+}
+
+function EligibilityWarning({ exceedsHdbIncomeCeiling, exceedsEcIncomeCeiling }: EligibilityWarningProps) {
+  if (!exceedsHdbIncomeCeiling && !exceedsEcIncomeCeiling) return null
+
+  return (
+    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+      <p className="text-xs font-medium text-amber-400">
+        {exceedsHdbIncomeCeiling ? 'HDB Income Ceiling Notice' : 'EC Income Ceiling Notice'}
+      </p>
+      <p className="text-xs text-amber-300/70 mt-1">
+        Income exceeds typical ceiling. Please verify eligibility.
+      </p>
+    </div>
+  )
+}
+
+interface BorrowerCardProps {
+  label: string
+  incomeId: string
+  onIncomeChange: (value: string) => void
+  incomeOptions: Array<{ value: string; label: string }>
+  oaBalance: number
+  purchaseDateFormatted: string
+  showOaBalance: boolean
+  onRemove?: () => void
+}
+
+function BorrowerCard({
+  label,
+  incomeId,
+  onIncomeChange,
+  incomeOptions,
+  oaBalance,
+  purchaseDateFormatted,
+  showOaBalance,
+  onRemove,
+}: BorrowerCardProps) {
+  return (
+    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-medium text-slate-300">{label}</span>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-xs text-slate-500 hover:text-red-400 transition-colors"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <CustomSelect
+          value={incomeId}
+          onChange={(value) => onIncomeChange(value as string)}
+          options={incomeOptions}
+          className="flex-1"
+        />
+
+        {showOaBalance && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] whitespace-nowrap">
+            <span className="text-slate-500 text-xs">OA at {purchaseDateFormatted}</span>
+            <span className="text-white text-sm font-mono tabular-nums">${oaBalance.toLocaleString()}</span>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -18,11 +18,21 @@ import { PropertyAndFinancingStep } from './MortgageForm/PropertyAndFinancingSte
 import { BorrowersStep } from './MortgageForm/BorrowersStep'
 import { TermsStep } from './MortgageForm/TermsStep'
 import { getProjectedOaByPersonId, getHouseholdIncome } from './MortgageForm/utils'
-import type { MortgageFormProps, IncomeOption } from './MortgageForm/types'
+import { usePropertyFormInputs } from '../hooks'
+import type { IncomeOption } from './MortgageForm/types'
 
-export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormProps) {
+interface MortgageFormProps {
+  propertySgId?: string | null
+}
+
+/**
+ * Mortgage form - multi-step form for property purchase configuration.
+ * Uses form context for inputs/onChange - no prop drilling needed.
+ */
+export function MortgageForm({ propertySgId }: MortgageFormProps) {
+  const { inputs, onChange, propertyType } = usePropertyFormInputs()
   const [currentStep, setCurrentStep] = useState<FormStep>('property')
-  const isHDB = propertyType.includes('hdb')
+  const isHDB = propertyType?.includes('hdb') ?? false
 
   // Fetch real incomes and CPF accounts from API
   const { data: rawIncomes = [] } = useIncomesQuery()
@@ -285,8 +295,6 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
             {/* ========== STEP 1: PROPERTY & FINANCING ========== */}
             {currentStep === 'property' && (
               <PropertyAndFinancingStep
-                inputs={inputs}
-                onChange={onChange}
                 isResale={isResale}
                 isBTO={isBTO}
                 isHDB={isHDB}
@@ -300,22 +308,19 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
             {/* ========== STEP 2: BORROWERS ========== */}
             {currentStep === 'borrowers' && (
               <BorrowersStep
-                inputs={inputs}
-                onChange={onChange}
                 incomes={incomes}
                 cpfAccounts={projectedCpfAccounts}
                 exceedsHdbIncomeCeiling={exceedsHdbIncomeCeiling}
                 exceedsEcIncomeCeiling={exceedsEcIncomeCeiling}
                 purchaseDateFormatted={formatPurchaseDate(inputs.loanStartMonth)}
                 householdIncome={householdIncome}
+                propertySgId={propertySgId}
               />
             )}
 
             {/* ========== STEP 3: OTHERS ========== */}
-            {currentStep === 'terms' && (
+            {currentStep === 'terms' && propertyType && (
               <TermsStep
-                inputs={inputs}
-                onChange={onChange}
                 propertyType={propertyType}
               />
             )}

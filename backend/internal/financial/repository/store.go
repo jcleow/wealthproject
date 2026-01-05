@@ -109,9 +109,6 @@ type Income struct {
 	GrowthStrategy string     `json:"growthStrategy"`
 	CPFWageType    string     `json:"cpfWageType"`
 	UpdatedAt      time.Time  `json:"updatedAt"`
-	// Source relationship (polymorphic: 'investment' or 'cash_account')
-	SourceType *string `json:"sourceType,omitempty"`
-	SourceID   *string `json:"sourceId,omitempty"`
 }
 
 // Expense represents a persisted expense record.
@@ -1184,9 +1181,7 @@ func (s *Store) ListIncomes(ctx context.Context, userID string, pagination Pagin
 		       category,
 		       COALESCE(growth_rate, 3.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
-		       updated_at,
-		       source_type,
-		       source_id
+		       updated_at
 		FROM finance_incomes
 		WHERE user_id = $1
 		ORDER BY parent_id, start_date`
@@ -1206,18 +1201,11 @@ func (s *Store) ListIncomes(ctx context.Context, userID string, pagination Pagin
 	for rows.Next() {
 		var it Income
 		var endDate sql.NullTime
-		var sourceType, sourceID sql.NullString
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt, &sourceType, &sourceID); err != nil {
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.UpdatedAt); err != nil {
 			return PaginatedResult[Income]{}, err
 		}
 		if endDate.Valid {
 			it.EndDate = &endDate.Time
-		}
-		if sourceType.Valid {
-			it.SourceType = &sourceType.String
-		}
-		if sourceID.Valid {
-			it.SourceID = &sourceID.String
 		}
 		items = append(items, it)
 	}
@@ -1252,9 +1240,7 @@ func (s *Store) ListAllIncomes(ctx context.Context, userID string, opts DateRang
 		       COALESCE(growth_rate, 3.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
 		       COALESCE(cpf_wage_type, '') as cpf_wage_type,
-		       updated_at,
-		       source_type,
-		       source_id
+		       updated_at
 		FROM finance_incomes
 		WHERE user_id = $1`
 
@@ -1285,18 +1271,11 @@ func (s *Store) ListAllIncomes(ctx context.Context, userID string, opts DateRang
 	for rows.Next() {
 		var it Income
 		var endDate sql.NullTime
-		var sourceType, sourceID sql.NullString
-		if err := rows.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.CPFWageType, &it.UpdatedAt, &sourceType, &sourceID); err != nil {
+		if err := rows.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.CPFWageType, &it.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if endDate.Valid {
 			it.EndDate = &endDate.Time
-		}
-		if sourceType.Valid {
-			it.SourceType = &sourceType.String
-		}
-		if sourceID.Valid {
-			it.SourceID = &sourceID.String
 		}
 
 		items = append(items, it)
@@ -1320,15 +1299,12 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (Income, error
 		       COALESCE(growth_rate, 3.0) as growth_rate,
 		       COALESCE(notes, '') as notes,
 		       COALESCE(cpf_wage_type, '') as cpf_wage_type,
-		       updated_at,
-		       source_type,
-		       source_id
+		       updated_at
 		FROM finance_incomes
 		WHERE user_id = $1 AND id = $2`, userID, id)
 	var it Income
 	var endDate sql.NullTime
-	var sourceType, sourceID sql.NullString
-	if err := row.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.CPFWageType, &it.UpdatedAt, &sourceType, &sourceID); err != nil {
+	if err := row.Scan(&it.ID, &it.ParentID, &it.Name, &it.Amount, &it.Frequency, &it.StartDate, &endDate, &it.Category, &it.GrowthRate, &it.Notes, &it.CPFWageType, &it.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Income{}, ErrNotFound
 		}
@@ -1336,12 +1312,6 @@ func (s *Store) GetIncome(ctx context.Context, userID, id string) (Income, error
 	}
 	if endDate.Valid {
 		it.EndDate = &endDate.Time
-	}
-	if sourceType.Valid {
-		it.SourceType = &sourceType.String
-	}
-	if sourceID.Valid {
-		it.SourceID = &sourceID.String
 	}
 
 	return it, nil
@@ -1355,8 +1325,8 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 	endDate := it.EndDate
 
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO finance_incomes (user_id, parent_id, name, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, cpf_wage_type, source_type, source_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 3.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''), NULLIF($12, ''), $13, $14)
+		INSERT INTO finance_incomes (user_id, parent_id, name, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, cpf_wage_type)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 3.0), COALESCE(NULLIF($10, ''), 'annual_step'), NULLIF($11, ''), NULLIF($12, ''))
 		ON CONFLICT ON CONSTRAINT finance_incomes_parent_start_date_key DO UPDATE
 		SET name=EXCLUDED.name,
 		    amount=EXCLUDED.amount,
@@ -1367,15 +1337,12 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 		    growth_strategy=EXCLUDED.growth_strategy,
 		    notes=EXCLUDED.notes,
 		    cpf_wage_type=EXCLUDED.cpf_wage_type,
-		    source_type=EXCLUDED.source_type,
-		    source_id=EXCLUDED.source_id,
 		    updated_at=NOW()
-		RETURNING id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at, source_type, source_id`,
-		userID, nullIfEmpty(it.ParentID), it.Name, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.CPFWageType, it.SourceType, it.SourceID)
+		RETURNING id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at`,
+		userID, nullIfEmpty(it.ParentID), it.Name, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.CPFWageType)
 
 	var created Income
 	var endDateVal sql.NullTime
-	var sourceType, sourceID sql.NullString
 	if err := row.Scan(
 		&created.ID,
 		&created.ParentID,
@@ -1390,19 +1357,11 @@ func (s *Store) CreateIncome(ctx context.Context, userID string, it Income) (Inc
 		&created.Notes,
 		&created.CPFWageType,
 		&created.UpdatedAt,
-		&sourceType,
-		&sourceID,
 	); err != nil {
 		return Income{}, err
 	}
 	if endDateVal.Valid {
 		created.EndDate = &endDateVal.Time
-	}
-	if sourceType.Valid {
-		created.SourceType = &sourceType.String
-	}
-	if sourceID.Valid {
-		created.SourceID = &sourceID.String
 	}
 
 	return created, nil
@@ -1424,17 +1383,14 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Inc
 		    growth_strategy=COALESCE(NULLIF($10, ''), growth_strategy, 'annual_step'),
 		    notes=NULLIF($11, ''),
 		    cpf_wage_type=NULLIF($12, ''),
-		    source_type=$13,
-		    source_id=$14,
 		    updated_at=NOW()
 		WHERE user_id=$1 AND id=$2
-		RETURNING id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at, source_type, source_id`,
-		userID, it.ID, it.Name, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.CPFWageType, it.SourceType, it.SourceID)
+		RETURNING id, COALESCE(parent_id,id), name, amount, frequency, start_date, end_date, category, COALESCE(growth_rate, 3.0), growth_strategy, COALESCE(notes, ''), COALESCE(cpf_wage_type, ''), updated_at`,
+		userID, it.ID, it.Name, it.Amount, it.Frequency, startDate, endDate, it.Category, it.GrowthRate, it.GrowthStrategy, it.Notes, it.CPFWageType)
 
 	var updated Income
 	var endDateVal sql.NullTime
-	var sourceType, sourceID sql.NullString
-	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.CPFWageType, &updated.UpdatedAt, &sourceType, &sourceID); err != nil {
+	if err := row.Scan(&updated.ID, &updated.ParentID, &updated.Name, &updated.Amount, &updated.Frequency, &updated.StartDate, &endDateVal, &updated.Category, &updated.GrowthRate, &updated.GrowthStrategy, &updated.Notes, &updated.CPFWageType, &updated.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Income{}, ErrNotFound
 		}
@@ -1442,12 +1398,6 @@ func (s *Store) UpdateIncome(ctx context.Context, userID string, it Income) (Inc
 	}
 	if endDateVal.Valid {
 		updated.EndDate = &endDateVal.Time
-	}
-	if sourceType.Valid {
-		updated.SourceType = &sourceType.String
-	}
-	if sourceID.Valid {
-		updated.SourceID = &sourceID.String
 	}
 
 	return updated, nil
@@ -1473,16 +1423,6 @@ func (s *Store) DeleteIncome(ctx context.Context, userID, id string) error {
 		return ErrNotFound
 	}
 	return nil
-}
-
-// DeleteIncomesBySource deletes all incomes linked to a source (used for cascade delete)
-// sourceType should be 'investment' or 'cash_account'
-func (s *Store) DeleteIncomesBySource(ctx context.Context, userID, sourceType, sourceID string) error {
-	_, err := s.db.ExecContext(ctx, `
-		DELETE FROM finance_incomes
-		WHERE user_id = $1 AND source_type = $2 AND source_id = $3
-	`, userID, sourceType, sourceID)
-	return err
 }
 
 // ----- Expense operations -----

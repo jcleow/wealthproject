@@ -517,14 +517,24 @@ if [[ "${START_BACKEND}" == "true" ]]; then
   echo "Postgres container: ${POSTGRES_CONTAINER} (volume ${POSTGRES_VOLUME}) db=${DB_NAME} port=${POSTGRES_PORT}"
   echo "Using DB credentials: user=${DB_USER} name=${DB_NAME}"
   if [[ "${USE_AIR}" == "true" ]]; then
-    if ! command -v air >/dev/null 2>&1; then
+    # Find air binary - check PATH first, then common Go bin locations
+    AIR_BIN=""
+    if command -v air >/dev/null 2>&1; then
+      AIR_BIN="air"
+    elif [[ -x "${HOME}/go/bin/air" ]]; then
+      AIR_BIN="${HOME}/go/bin/air"
+    elif [[ -x "${GOPATH:-${HOME}/go}/bin/air" ]]; then
+      AIR_BIN="${GOPATH:-${HOME}/go}/bin/air"
+    fi
+
+    if [[ -z "$AIR_BIN" ]]; then
       echo "Air not found. Install with: go install github.com/air-verse/air@latest"
       exit 1
     fi
-    echo "Using Air for live reload"
+    echo "Using Air for live reload (${AIR_BIN})"
     (
       cd "$BACKEND_DIR"
-      PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" air
+      PORT="${BACKEND_PORT}" DATABASE_URL="${DATABASE_URL_OVERRIDE}" "$AIR_BIN"
     ) &
   else
     (

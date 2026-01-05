@@ -41,7 +41,7 @@ func TestPropertyPlannerV2_ConvertCreateRequest(t *testing.T) {
 			name: "invalid decimal in property price",
 			req: createScenarioRequest{
 				Country: "SG",
-				SGDetails: &createSGDetailsRequest{
+				PropertySG: &createPropertySGRequest{
 					Name:          "Bad Price",
 					PropertyType:  "hdb",
 					PropertyPrice: "not-a-number",
@@ -63,7 +63,7 @@ func TestPropertyPlannerV2_ConvertCreateRequest(t *testing.T) {
 			name: "invalid decimal in fee amount",
 			req: createScenarioRequest{
 				Country: "SG",
-				SGDetails: &createSGDetailsRequest{
+				PropertySG: &createPropertySGRequest{
 					Name:          "Bad Fee",
 					PropertyType:  "hdb",
 					PropertyPrice: "800000",
@@ -94,7 +94,7 @@ func TestPropertyPlannerV2_ConvertCreateRequest(t *testing.T) {
 			name: "invalid decimal in growth rate",
 			req: createScenarioRequest{
 				Country: "SG",
-				SGDetails: &createSGDetailsRequest{
+				PropertySG: &createPropertySGRequest{
 					Name:          "Bad Growth",
 					PropertyType:  "hdb",
 					PropertyPrice: "800000",
@@ -123,7 +123,7 @@ func TestPropertyPlannerV2_ConvertCreateRequest(t *testing.T) {
 			name: "invalid decimal in rate",
 			req: createScenarioRequest{
 				Country: "SG",
-				SGDetails: &createSGDetailsRequest{
+				PropertySG: &createPropertySGRequest{
 					Name:          "Bad Rate",
 					PropertyType:  "hdb",
 					PropertyPrice: "800000",
@@ -415,9 +415,9 @@ func TestPropertyPlannerV2_CreateScenarioRequest_Parsing(t *testing.T) {
 	require.NoError(t, err, "JSON parsing should succeed")
 
 	assert.Equal(t, "SG", req.Country)
-	assert.NotNil(t, req.SGDetails)
-	assert.Equal(t, "My HDB", req.SGDetails.Name)
-	assert.Equal(t, "850000", req.SGDetails.PropertyPrice)
+	assert.NotNil(t, req.PropertySG)
+	assert.Equal(t, "My HDB", req.PropertySG.Name)
+	assert.Equal(t, "850000", req.PropertySG.PropertyPrice)
 	assert.Len(t, req.Fees, 1)
 	assert.Equal(t, "legal", req.Fees[0].FeeType)
 	assert.Len(t, req.GrowthPeriods, 1)

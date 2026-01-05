@@ -1,5 +1,4 @@
 import type {
-  PropertyType,
   MortgageInputs,
   FeeItem,
   AppreciationPeriod,
@@ -25,57 +24,11 @@ export type ProjectedCpfAccount = {
   oaBalance: number
 }
 
-// Common onChange handler type
+// Common onChange handler type used by internal subcomponents
+// Note: Top-level step components now use usePropertyFormInputs() hook instead
 // shouldDirty defaults to true - set to false for derived/computed values
 export type OnChangeHandler = (
   field: keyof MortgageInputs,
   value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null,
   shouldDirty?: boolean
 ) => void
-
-export interface MortgageFormProps {
-  inputs: MortgageInputs
-  onChange: OnChangeHandler
-  propertyType: PropertyType
-}
-
-// Step component props - base interface
-export interface StepProps {
-  inputs: MortgageInputs
-  onChange: OnChangeHandler
-}
-
-// PropertyAndFinancingStep props (merged step)
-export interface PropertyAndFinancingStepProps extends StepProps {
-  isResale: boolean
-  isBTO: boolean
-  isHDB: boolean
-  effectivePrice: number
-  downpaymentOnValuation: number
-  maxLtv: number
-  cashOverValuation: number
-}
-
-// BorrowersStep props
-export interface BorrowersStepProps extends StepProps {
-  incomes: IncomeOption[]
-  cpfAccounts: ProjectedCpfAccount[]
-  exceedsHdbIncomeCeiling: boolean
-  exceedsEcIncomeCeiling: boolean
-  purchaseDateFormatted: string
-  householdIncome: number
-}
-
-// TermsStep props
-export interface TermsStepProps extends StepProps {
-  propertyType: PropertyType
-}
-
-// LoanTypeToggle props
-export interface LoanTypeToggleProps {
-  isHDB: boolean
-  inputs: MortgageInputs
-  onChange: OnChangeHandler
-  effectivePrice: number
-  downpaymentOnValuation: number
-}

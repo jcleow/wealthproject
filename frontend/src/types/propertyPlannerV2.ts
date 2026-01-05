@@ -17,6 +17,9 @@ export type Residency = 'singapore_citizen' | 'permanent_resident' | 'foreigner'
 export type FeeContext = 'purchase' | 'sale' | 'recurring'
 export type FeeFrequency = 'one_time' | 'monthly' | 'yearly'
 export type GrowthStrategy = 'fixed' | 'annual_step' | 'compound_monthly' | 'tiered_adb'
+export type CashAmountType = 'fixed' | 'pct_target' | 'pct_source' | 'remainder'
+export type CpfOaAmountType = 'fixed' | 'max_available'
+export type DownpaymentCashAmountType = 'fixed' | 'pct_target' | 'pct_source' | 'remainder'
 
 // =============================================================================
 // API RESPONSE TYPES
@@ -25,7 +28,7 @@ export type GrowthStrategy = 'fixed' | 'annual_step' | 'compound_monthly' | 'tie
 /**
  * Singapore-specific property details
  */
-export interface PropertySGDetails {
+export interface PropertySG {
   id: string
   name: string
   propertyType: PropertyType
@@ -46,10 +49,31 @@ export interface PropertySGDetails {
   borrower2IncomeId?: string | null
   borrower2CpfAccountId?: string | null
   // Per-borrower CPF OA tracking
+  borrower1DownpaymentCpfOaAmountType?: CpfOaAmountType | null
   borrower1DownpaymentCpfOa?: string | null
+  borrower2DownpaymentCpfOaAmountType?: CpfOaAmountType | null
   borrower2DownpaymentCpfOa?: string | null
   borrower1MonthlyCpfOa?: string | null
   borrower2MonthlyCpfOa?: string | null
+  // Per-borrower cash account configuration (downpayment)
+  borrower1DownpaymentCashAccountId?: string | null
+  borrower1DownpaymentCashAmountType?: DownpaymentCashAmountType | null
+  borrower1DownpaymentCashAmount?: string | null
+  borrower2DownpaymentCashAccountId?: string | null
+  borrower2DownpaymentCashAmountType?: DownpaymentCashAmountType | null
+  borrower2DownpaymentCashAmount?: string | null
+  // Per-borrower cash account configuration (monthly payment)
+  borrower1MonthlyCashAccountId?: string | null
+  borrower1MonthlyCashAmountType?: CashAmountType | null
+  borrower1MonthlyCashAmount?: string | null
+  borrower2MonthlyCashAccountId?: string | null
+  borrower2MonthlyCashAmountType?: CashAmountType | null
+  borrower2MonthlyCashAmount?: string | null
+  // Legacy fields (kept for backward compatibility)
+  monthlyCashAccountId?: string | null
+  monthlyCashAmountType?: CashAmountType | null
+  monthlyCashAmount?: string | null
+  downpaymentCashAccountId?: string | null
   // Lease tenure (null = freehold, 1-999 = years remaining)
   leaseRemainingYears?: number | null
   otherDebt: string
@@ -69,7 +93,7 @@ export interface PropertySGDetails {
 export interface PropertyScenarioHeader {
   id: string
   userId: string
-  sgDetailsId?: string | null
+  propertySgId?: string | null  // Note: lowercase 'g' to match backend JSON tag
   myDetailsId?: string | null
   createdAt: string
   updatedAt: string
@@ -130,7 +154,7 @@ export interface LiabilityRatePeriod {
  */
 export interface PropertySGGrant {
   id: string
-  sgDetailsId: string
+  propertySgId: string  // Note: lowercase 'g' to match backend JSON tag
   name: string
   amount: string
   createdAt: string
@@ -262,7 +286,7 @@ export interface ComputedValuesFull {
  */
 export interface PropertyScenarioFull {
   scenario: PropertyScenarioHeader
-  propertySG: PropertySGDetails | null
+  propertySG: PropertySG | null
   propertyMY: unknown | null  // Future: Malaysia details
   fees: PropertyFee[]
   growthPeriods: GrowthPeriod[]
@@ -283,7 +307,7 @@ export interface ListScenariosResponse {
 // CREATE/UPDATE INPUT TYPES
 // =============================================================================
 
-export interface CreateSGDetailsInput {
+export interface CreatePropertySGInput {
   name: string
   propertyType: PropertyType
   propertySubtype: PropertySubtype
@@ -303,10 +327,31 @@ export interface CreateSGDetailsInput {
   borrower2IncomeId?: string
   borrower2CpfAccountId?: string
   // Per-borrower CPF OA tracking
+  borrower1DownpaymentCpfOaAmountType?: CpfOaAmountType
   borrower1DownpaymentCpfOa?: string
+  borrower2DownpaymentCpfOaAmountType?: CpfOaAmountType
   borrower2DownpaymentCpfOa?: string
   borrower1MonthlyCpfOa?: string
   borrower2MonthlyCpfOa?: string
+  // Per-borrower cash account configuration (downpayment)
+  borrower1DownpaymentCashAccountId?: string | null
+  borrower1DownpaymentCashAmountType?: DownpaymentCashAmountType
+  borrower1DownpaymentCashAmount?: string
+  borrower2DownpaymentCashAccountId?: string | null
+  borrower2DownpaymentCashAmountType?: DownpaymentCashAmountType
+  borrower2DownpaymentCashAmount?: string
+  // Per-borrower cash account configuration (monthly payment)
+  borrower1MonthlyCashAccountId?: string | null
+  borrower1MonthlyCashAmountType?: CashAmountType
+  borrower1MonthlyCashAmount?: string
+  borrower2MonthlyCashAccountId?: string | null
+  borrower2MonthlyCashAmountType?: CashAmountType
+  borrower2MonthlyCashAmount?: string
+  // Legacy fields (kept for backward compatibility)
+  monthlyCashAccountId?: string | null
+  monthlyCashAmountType?: CashAmountType
+  monthlyCashAmount?: string
+  downpaymentCashAccountId?: string | null
   // Lease tenure (null = freehold, 1-999 = years remaining)
   leaseRemainingYears?: number | null
   otherDebt?: string
@@ -353,7 +398,7 @@ export interface CreateGrantInput {
 
 export interface CreateScenarioInput {
   country: 'SG' | 'MY'
-  propertySG?: CreateSGDetailsInput
+  propertySG?: CreatePropertySGInput
   fees?: CreateFeeInput[]
   growthPeriods?: CreateGrowthPeriodInput[]
   ratePeriods: CreateRatePeriodInput[]

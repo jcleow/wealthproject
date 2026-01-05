@@ -84,10 +84,31 @@ const mortgageInputsSchema = z.object({
   borrower2IncomeId: z.string().nullable(),
   borrower2OaBalance: z.number(),
   borrower2LiabilityIds: z.array(z.string()),
+  borrower1DownpaymentCpfOaAmountType: z.enum(['fixed', 'max_available']),
   borrower1DownpaymentCpfOa: z.number(),
+  borrower2DownpaymentCpfOaAmountType: z.enum(['fixed', 'max_available']),
   borrower2DownpaymentCpfOa: z.number(),
   borrower1MonthlyCpfOa: z.number(),
   borrower2MonthlyCpfOa: z.number(),
+  // Per-borrower cash account configuration (downpayment)
+  borrower1DownpaymentCashAccountId: z.string().nullable(),
+  borrower1DownpaymentCashAmountType: z.enum(['fixed', 'pct_target', 'pct_source', 'remainder']),
+  borrower1DownpaymentCashAmount: z.number(),
+  borrower2DownpaymentCashAccountId: z.string().nullable(),
+  borrower2DownpaymentCashAmountType: z.enum(['fixed', 'pct_target', 'pct_source', 'remainder']),
+  borrower2DownpaymentCashAmount: z.number(),
+  // Per-borrower cash account configuration (monthly payment)
+  borrower1MonthlyCashAccountId: z.string().nullable(),
+  borrower1MonthlyCashAmountType: z.enum(['fixed', 'pct_target', 'pct_source', 'remainder']),
+  borrower1MonthlyCashAmount: z.number(),
+  borrower2MonthlyCashAccountId: z.string().nullable(),
+  borrower2MonthlyCashAmountType: z.enum(['fixed', 'pct_target', 'pct_source', 'remainder']),
+  borrower2MonthlyCashAmount: z.number(),
+  // Legacy fields
+  monthlyCashAccountId: z.string().nullable(),
+  monthlyCashAmountType: z.enum(['fixed', 'pct_target', 'pct_source', 'remainder']),
+  monthlyCashAmount: z.number(),
+  downpaymentCashAccountId: z.string().nullable(),
   leaseRemainingYears: z.number().nullable(),
   purchaseFees: z.array(feeItemSchema),
   absdRate: z.number(),
@@ -104,6 +125,10 @@ const saleInputsSchema = z.object({
   expectedSaleDate: z.string(),
   expectedSalePrice: z.number(),
   fees: z.array(feeItemSchema),
+  // Sale proceeds destination fields
+  borrower1CpfRefundAccountId: z.string().nullable(),
+  borrower2CpfRefundAccountId: z.string().nullable(),
+  netCashProceedsAccountId: z.string().nullable(),
 })
 
 // ============================================

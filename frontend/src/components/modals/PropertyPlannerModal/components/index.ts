@@ -1,5 +1,6 @@
 export { MortgageForm } from './MortgageForm'
 export { SaleParametersForm } from './SaleParametersForm'
+export { PaymentRulesForm } from './PaymentRulesForm'
 export { TabbedResultsPanel, type ResultsTab } from './TabbedResultsPanel'
 export { ScenarioList } from './ScenarioList'
 export { ScenarioDetailView } from './ScenarioDetailView'

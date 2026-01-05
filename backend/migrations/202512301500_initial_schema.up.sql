@@ -233,6 +233,7 @@ CREATE TABLE finance_assets (
     scenario_event_id uuid REFERENCES scenario_events(id) ON DELETE CASCADE,
     impact_kind character varying(10) CHECK (impact_kind IS NULL OR impact_kind IN ('delta', 'override', 'start', 'stop')),
     impact_frequency character varying(20) CHECK (impact_frequency IS NULL OR impact_frequency IN ('one_time', 'weekly', 'bi_weekly', 'monthly', 'quarterly', 'semi_annual', 'annual')),
+    terminal_value numeric(15,4) DEFAULT NULL,
     CONSTRAINT finance_assets_parent_start_date_key UNIQUE (parent_id, start_date)
 );
 
@@ -270,12 +271,9 @@ CREATE TABLE finance_incomes (
     category text NOT NULL,
     income_type text DEFAULT 'other' CHECK (income_type IN ('salary', 'bonus', 'commission', 'rental', 'dividend', 'freelance', 'other')),
     cpf_wage_type text CHECK (cpf_wage_type IS NULL OR cpf_wage_type IN ('ow', 'aw')),
-    earner character varying(50) DEFAULT '',
     growth_rate numeric(10,4) DEFAULT 3.0 NOT NULL,
     growth_strategy character varying(50) DEFAULT 'annual_step'
         CHECK (growth_strategy IN ('compound_monthly', 'annual_step', 'tiered_adb', 'fixed')),
-    source_type character varying(20) CHECK (source_type IS NULL OR source_type IN ('investment', 'cash_account')),
-    source_id uuid,
     start_date timestamp with time zone DEFAULT now() NOT NULL,
     end_date timestamp with time zone,
     notes text,
@@ -283,8 +281,8 @@ CREATE TABLE finance_incomes (
     scenario_event_id uuid REFERENCES scenario_events(id) ON DELETE CASCADE,
     impact_kind character varying(10) CHECK (impact_kind IS NULL OR impact_kind IN ('delta', 'override', 'start', 'stop')),
     impact_frequency character varying(20) CHECK (impact_frequency IS NULL OR impact_frequency IN ('one_time', 'weekly', 'bi_weekly', 'monthly', 'quarterly', 'semi_annual', 'annual')),
-    CONSTRAINT finance_incomes_parent_start_date_key UNIQUE (parent_id, start_date),
-    CONSTRAINT chk_income_source_consistency CHECK ((source_type IS NULL AND source_id IS NULL) OR (source_type IS NOT NULL AND source_id IS NOT NULL))
+    person_id uuid,
+    CONSTRAINT finance_incomes_parent_start_date_key UNIQUE (parent_id, start_date)
 );
 
 -- Finance Expenses
@@ -377,8 +375,8 @@ CREATE INDEX idx_finance_incomes_user_id ON finance_incomes(user_id);
 CREATE INDEX idx_finance_incomes_dates ON finance_incomes(user_id, start_date, end_date) WHERE start_date IS NOT NULL;
 CREATE INDEX idx_finance_incomes_start_date ON finance_incomes(start_date DESC) WHERE start_date IS NOT NULL;
 CREATE INDEX idx_finance_incomes_growth_strategy ON finance_incomes(growth_strategy);
-CREATE INDEX idx_finance_incomes_source ON finance_incomes(source_type, source_id) WHERE source_id IS NOT NULL;
 CREATE INDEX idx_finance_incomes_scenario ON finance_incomes(scenario_event_id) WHERE scenario_event_id IS NOT NULL;
+CREATE INDEX idx_finance_incomes_person ON finance_incomes(person_id) WHERE person_id IS NOT NULL;
 
 CREATE INDEX idx_finance_expenses_user_id ON finance_expenses(user_id);
 CREATE INDEX idx_finance_expenses_dates ON finance_expenses(user_id, start_date, end_date) WHERE start_date IS NOT NULL;
@@ -400,6 +398,26 @@ CREATE INDEX idx_finance_cash_accounts_growth_strategy ON finance_cash_accounts(
 CREATE INDEX idx_finance_cash_accounts_scenario ON finance_cash_accounts(scenario_event_id) WHERE scenario_event_id IS NOT NULL;
 
 -- ============================================================================
+-- PERSONS (multi-person household support)
+-- ============================================================================
+CREATE TABLE persons (
+    id uuid DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    user_id character varying(36) NOT NULL,
+    name character varying(100) NOT NULL CHECK (char_length(name) >= 1),
+    display_color character varying(20),
+    is_included boolean DEFAULT true NOT NULL,
+    date_of_birth date NOT NULL,
+    residency_status text DEFAULT 'citizen' CHECK (residency_status IN ('citizen', 'pr')),
+    pr_grant_date date,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    UNIQUE (user_id, name)
+);
+
+CREATE INDEX idx_persons_user ON persons(user_id);
+CREATE INDEX idx_persons_user_included ON persons(user_id, is_included) WHERE is_included = true;
+
+-- ============================================================================
 -- CPF ACCOUNTS
 -- ============================================================================
 CREATE TABLE cpf_accounts (
@@ -412,17 +430,14 @@ CREATE TABLE cpf_accounts (
     ra_balance numeric(15,4) DEFAULT 0 NOT NULL,
     oa_used_for_housing numeric(15,4) DEFAULT 0 NOT NULL,
     housing_start_date timestamp with time zone,
-    date_of_birth date NOT NULL,
-    residency_status text DEFAULT 'citizen' NOT NULL
-        CHECK (residency_status IN ('citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus')),
-    pr_grant_date date,
-    earner character varying(50) DEFAULT '',
+    person_id uuid REFERENCES persons(id) ON DELETE SET NULL,
     start_date timestamp with time zone DEFAULT now() NOT NULL,
     end_date timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT cpf_accounts_no_overlap EXCLUDE USING gist (
+    CONSTRAINT cpf_accounts_no_overlap_per_person EXCLUDE USING gist (
         user_id WITH =,
+        COALESCE(person_id::text, '') WITH =,
         tstzrange(start_date, COALESCE(end_date, 'infinity'::timestamptz), '[)') WITH &&
     )
 );
@@ -430,6 +445,7 @@ CREATE TABLE cpf_accounts (
 CREATE INDEX idx_cpf_accounts_user ON cpf_accounts(user_id);
 CREATE INDEX idx_cpf_accounts_dates ON cpf_accounts(user_id, start_date, end_date);
 CREATE INDEX idx_cpf_accounts_parent ON cpf_accounts(parent_id) WHERE parent_id IS NOT NULL;
+CREATE INDEX idx_cpf_accounts_person ON cpf_accounts(person_id) WHERE person_id IS NOT NULL;
 
 -- ============================================================================
 -- INCOME ALLOCATIONS
@@ -483,8 +499,10 @@ CREATE TABLE property_sg (
     name character varying(100) NOT NULL,
     property_type character varying(20) NOT NULL CHECK (property_type IN ('hdb', 'private')),
     property_subtype character varying(30) NOT NULL CHECK (property_subtype IN ('bto', 'resale', 'ec', 'new')),
-    icon character varying(50),
-    icon_color character varying(20),
+    purchase_icon character varying(64),
+    purchase_icon_color character varying(16),
+    sale_icon character varying(64) DEFAULT 'banknote',
+    sale_icon_color character varying(16) DEFAULT '#10b981',
     is_included boolean DEFAULT true NOT NULL,
     property_price numeric(15,4) NOT NULL,
     valuation_price numeric(15,4),
@@ -502,6 +520,21 @@ CREATE TABLE property_sg (
     bto_key_collection_date character varying(7),
     sale_expected_date character varying(7),
     sale_expected_price numeric(15,4),
+    lease_remaining_years integer CHECK (lease_remaining_years IS NULL OR (lease_remaining_years >= 1 AND lease_remaining_years <= 999)),
+    borrower1_downpayment_cpf_oa numeric(15,4) DEFAULT 0 NOT NULL,
+    borrower2_downpayment_cpf_oa numeric(15,4) DEFAULT 0 NOT NULL,
+    borrower1_monthly_cpf_oa numeric(15,4) DEFAULT 0 NOT NULL,
+    borrower2_monthly_cpf_oa numeric(15,4) DEFAULT 0 NOT NULL,
+    borrower1_downpayment_cash_account_id uuid REFERENCES finance_cash_accounts(id) ON DELETE SET NULL,
+    borrower1_downpayment_cash_amount numeric(15,4) DEFAULT 0 NOT NULL,
+    borrower2_downpayment_cash_account_id uuid REFERENCES finance_cash_accounts(id) ON DELETE SET NULL,
+    borrower2_downpayment_cash_amount numeric(15,4) DEFAULT 0 NOT NULL,
+    borrower1_monthly_cash_account_id uuid REFERENCES finance_cash_accounts(id) ON DELETE SET NULL,
+    borrower1_monthly_cash_amount_type character varying(20) DEFAULT 'fixed' CHECK (borrower1_monthly_cash_amount_type IN ('fixed', 'remainder')),
+    borrower1_monthly_cash_amount numeric(15,4) DEFAULT 0 NOT NULL,
+    borrower2_monthly_cash_account_id uuid REFERENCES finance_cash_accounts(id) ON DELETE SET NULL,
+    borrower2_monthly_cash_amount_type character varying(20) DEFAULT 'fixed' CHECK (borrower2_monthly_cash_amount_type IN ('fixed', 'remainder')),
+    borrower2_monthly_cash_amount numeric(15,4) DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
