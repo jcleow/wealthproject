@@ -53,17 +53,18 @@ type FundFlowRule struct {
 
 // Validation errors for fund flow rules
 var (
-	ErrPaymentCannotHaveIncomeSource     = errors.New("payment rules cannot have income source")
-	ErrPaymentCannotUseInvestmentSource  = errors.New("payment rules cannot use investment as source - liquidate to cash first")
-	ErrPaymentRequiresOneSource          = errors.New("payment rules require exactly one source (cpf or cash)")
+	ErrPaymentCannotHaveIncomeSource      = errors.New("payment rules cannot have income source")
+	ErrPaymentCannotUseInvestmentSource   = errors.New("payment rules cannot use investment as source - liquidate to cash first")
+	ErrPaymentRequiresOneSource           = errors.New("payment rules require exactly one source (cpf or cash)")
 	ErrPaymentRequiresLiabilityOrProperty = errors.New("payment rules require liability or property target")
-	ErrAllocationRequiresIncomeSource    = errors.New("allocation rules require income source")
+	ErrAllocationRequiresIncomeSource     = errors.New("allocation rules require income source")
 	ErrAllocationRequiresOneAccountTarget = errors.New("allocation rules require exactly one account target")
-	ErrTransferRequiresOneAccountSource  = errors.New("transfer rules require exactly one account source")
-	ErrTransferRequiresOneAccountTarget  = errors.New("transfer rules require exactly one account target")
-	ErrInvalidRuleType                   = errors.New("invalid rule type")
-	ErrAmountValueRequired  = errors.New("amount_value is required for fixed and percentage types")
-	ErrPercentageOutOfRange = errors.New("percentage must be between 0 and 100")
+	ErrTransferRequiresOneAccountSource   = errors.New("transfer rules require exactly one account source")
+	ErrTransferRequiresOneAccountTarget   = errors.New("transfer rules require exactly one account target")
+	ErrInvalidRuleType                    = errors.New("invalid rule type")
+	ErrAmountValueRequired                = errors.New("amount_value is required for fixed and percentage types")
+	ErrPercentageOutOfRange               = errors.New("percentage must be between 0 and 100")
+	ErrUnauthorizedEntityReference        = errors.New("referenced entity does not exist or does not belong to user")
 )
 
 // ValidateFundFlowRule validates a fund flow rule based on its type.
@@ -161,12 +162,126 @@ func countAccountTargets(r FundFlowRule) int {
 	return count
 }
 
+// validateEntityOwnership verifies that all referenced entities in a rule belong to the specified user.
+// This prevents IDOR attacks where a user could reference another user's accounts/assets.
+func (s *Store) validateEntityOwnership(ctx context.Context, userID string, rule FundFlowRule) error {
+	// Validate source entities
+	if rule.SourceIncomeID != nil {
+		if !s.userOwnsIncome(ctx, userID, *rule.SourceIncomeID) {
+			return ErrUnauthorizedEntityReference
+		}
+	}
+	if rule.SourceCpfAccountID != nil {
+		if !s.userOwnsCpfAccount(ctx, userID, *rule.SourceCpfAccountID) {
+			return ErrUnauthorizedEntityReference
+		}
+	}
+	if rule.SourceCashAccountID != nil {
+		if !s.userOwnsCashAccount(ctx, userID, *rule.SourceCashAccountID) {
+			return ErrUnauthorizedEntityReference
+		}
+	}
+	if rule.SourceInvestmentID != nil {
+		if !s.userOwnsInvestment(ctx, userID, *rule.SourceInvestmentID) {
+			return ErrUnauthorizedEntityReference
+		}
+	}
+
+	// Validate target entities
+	if rule.TargetCpfAccountID != nil {
+		if !s.userOwnsCpfAccount(ctx, userID, *rule.TargetCpfAccountID) {
+			return ErrUnauthorizedEntityReference
+		}
+	}
+	if rule.TargetCashAccountID != nil {
+		if !s.userOwnsCashAccount(ctx, userID, *rule.TargetCashAccountID) {
+			return ErrUnauthorizedEntityReference
+		}
+	}
+	if rule.TargetInvestmentID != nil {
+		if !s.userOwnsInvestment(ctx, userID, *rule.TargetInvestmentID) {
+			return ErrUnauthorizedEntityReference
+		}
+	}
+	if rule.TargetLiabilityID != nil {
+		if !s.userOwnsLiability(ctx, userID, *rule.TargetLiabilityID) {
+			return ErrUnauthorizedEntityReference
+		}
+	}
+	if rule.TargetPropertyID != nil {
+		if !s.userOwnsPropertyScenario(ctx, userID, *rule.TargetPropertyID) {
+			return ErrUnauthorizedEntityReference
+		}
+	}
+
+	return nil
+}
+
+// Ownership check helpers - return true if entity exists and belongs to user
+func (s *Store) userOwnsIncome(ctx context.Context, userID, incomeID string) bool {
+	var exists bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM finance_incomes WHERE id = $1 AND user_id = $2)`,
+		incomeID, userID).Scan(&exists)
+	return err == nil && exists
+}
+
+func (s *Store) userOwnsCpfAccount(ctx context.Context, userID, cpfAccountID string) bool {
+	var exists bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM cpf_accounts WHERE id = $1 AND user_id = $2)`,
+		cpfAccountID, userID).Scan(&exists)
+	return err == nil && exists
+}
+
+func (s *Store) userOwnsCashAccount(ctx context.Context, userID, cashAccountID string) bool {
+	var exists bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM finance_cash_accounts WHERE id = $1 AND user_id = $2)`,
+		cashAccountID, userID).Scan(&exists)
+	return err == nil && exists
+}
+
+func (s *Store) userOwnsInvestment(ctx context.Context, userID, investmentID string) bool {
+	var exists bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM finance_investments WHERE id = $1 AND user_id = $2)`,
+		investmentID, userID).Scan(&exists)
+	return err == nil && exists
+}
+
+func (s *Store) userOwnsLiability(ctx context.Context, userID, liabilityID string) bool {
+	var exists bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM finance_liabilities WHERE id = $1 AND user_id = $2)`,
+		liabilityID, userID).Scan(&exists)
+	return err == nil && exists
+}
+
+func (s *Store) userOwnsPropertyScenario(ctx context.Context, userID, propertyID string) bool {
+	var exists bool
+	// Note: fund_flow_rules.target_property_id references property_sg(id), not property_scenarios
+	// So we need to join through property_scenarios to verify ownership
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(
+			SELECT 1 FROM property_sg sg
+			JOIN property_scenarios ps ON ps.property_sg_id = sg.id
+			WHERE sg.id = $1 AND ps.user_id = $2
+		)`,
+		propertyID, userID).Scan(&exists)
+	return err == nil && exists
+}
 
 // CreateFundFlowRule creates a new fund flow rule.
 func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule FundFlowRule) (*FundFlowRule, error) {
-	// Validate rule
+	// Validate rule structure
 	rule.UserID = userID
 	if err := ValidateFundFlowRule(rule); err != nil {
+		return nil, err
+	}
+
+	// Validate ownership of all referenced entities (prevents IDOR)
+	if err := s.validateEntityOwnership(ctx, userID, rule); err != nil {
 		return nil, err
 	}
 
@@ -321,9 +436,14 @@ func (s *Store) ListFundFlowRules(ctx context.Context, q ListFundFlowRulesQuery)
 
 // UpdateFundFlowRule updates an existing fund flow rule.
 func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule FundFlowRule) (*FundFlowRule, error) {
-	// Validate rule
+	// Validate rule structure
 	rule.UserID = userID
 	if err := ValidateFundFlowRule(rule); err != nil {
+		return nil, err
+	}
+
+	// Validate ownership of all referenced entities (prevents IDOR)
+	if err := s.validateEntityOwnership(ctx, userID, rule); err != nil {
 		return nil, err
 	}
 
