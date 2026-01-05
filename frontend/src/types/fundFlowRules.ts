@@ -108,6 +108,8 @@ export type FundFlowRuleListFilters = {
   ruleType?: FundFlowRuleType
   targetPropertyId?: string
   targetLiabilityId?: string
+  limit?: number
+  offset?: number
 }
 
 // Human-readable labels for amount types

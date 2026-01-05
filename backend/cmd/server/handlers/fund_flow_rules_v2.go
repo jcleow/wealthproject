@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"financial-chat-system/backend/internal/decimal"
@@ -173,14 +174,18 @@ func (dto fundFlowRuleCreateDTO) toModel() (repo.FundFlowRule, error) {
 //   - ruleType: "payment", "allocation", or "transfer" to filter by type
 //   - targetPropertyId: filter by target property
 //   - targetLiabilityId: filter by target liability
+//   - limit: max results to return (default: no limit)
+//   - offset: number of results to skip (default: 0)
 //
 // @Summary List fund flow rules (v2)
-// @Description Returns all fund flow rules with optional filtering
+// @Description Returns all fund flow rules with optional filtering and pagination
 // @Tags Fund Flow Rules V2
 // @Produce json
 // @Param ruleType query string false "Filter by rule type (payment|allocation|transfer)"
 // @Param targetPropertyId query string false "Filter by target property ID"
 // @Param targetLiabilityId query string false "Filter by target liability ID"
+// @Param limit query int false "Max results to return"
+// @Param offset query int false "Number of results to skip"
 // @Success 200 {array} fundFlowRuleDTO
 // @Failure 500 {object} map[string]interface{}
 // @Security SessionID
@@ -205,6 +210,18 @@ func (h *FundFlowRuleV2Handler) HandleList(w http.ResponseWriter, r *http.Reques
 	}
 	if targetLiabilityID := r.URL.Query().Get("targetLiabilityId"); targetLiabilityID != "" {
 		query.TargetLiabilityID = &targetLiabilityID
+	}
+
+	// Apply pagination params
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
+			query.Limit = limit
+		}
+	}
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
+			query.Offset = offset
+		}
 	}
 
 	rules, err := h.store.ListFundFlowRules(r.Context(), query)

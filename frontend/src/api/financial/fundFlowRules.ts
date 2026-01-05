@@ -38,7 +38,7 @@ function toFundFlowRule(data: Record<string, unknown>): FundFlowRule {
 }
 
 /**
- * List fund flow rules with optional filtering
+ * List fund flow rules with optional filtering and pagination
  */
 export async function listFundFlowRules(
   filters?: FundFlowRuleListFilters
@@ -47,6 +47,8 @@ export async function listFundFlowRules(
   if (filters?.ruleType) params.ruleType = filters.ruleType
   if (filters?.targetPropertyId) params.targetPropertyId = filters.targetPropertyId
   if (filters?.targetLiabilityId) params.targetLiabilityId = filters.targetLiabilityId
+  if (filters?.limit !== undefined) params.limit = filters.limit
+  if (filters?.offset !== undefined) params.offset = filters.offset
 
   const data = await apiClient.get<unknown[]>('/fund-flow-rules', params, {
     baseUrl: '/api/v2',
