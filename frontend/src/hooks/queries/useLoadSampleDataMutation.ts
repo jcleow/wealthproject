@@ -84,7 +84,8 @@ export function useLoadSampleDataMutation() {
 
       // Create Sarah's CPF account (spouse) - linked to Sarah person
       // Note: Person-related fields are now on the Person entity
-      const sarahCPFAccount: CPFAccountCreatePayload = {
+      let sarahCpfAccount: CPFAccount | null = null
+      const sarahCPFAccountPayload: CPFAccountCreatePayload = {
         personId: sarahPerson?.id ?? '', // Required FK to persons table
         oaBalance: 65000,
         saBalance: 35000,
@@ -94,7 +95,7 @@ export function useLoadSampleDataMutation() {
       }
 
       try {
-        await financialApi.createCPFAccount(sarahCPFAccount)
+        sarahCpfAccount = await financialApi.createCPFAccount(sarahCPFAccountPayload)
       } catch (error) {
         console.error('[loadSampleData] Failed to create Sarah CPF account', error)
       }
@@ -617,11 +618,41 @@ export function useLoadSampleDataMutation() {
             isIncluded: true,
             propertyPrice: '450000',
             loanType: 'hdb',
-            downpaymentCpfOa: '100000', // Using CPF OA for downpayment
-            downpaymentCash: '0',
+            // Legacy total fields (kept for backward compatibility)
+            downpaymentCpfOa: '100000',
+            downpaymentCash: '12500', // 25% downpayment ($112,500) - CPF ($100k) = $12,500 cash
             borrowerType: 'joint', // Joint borrowers (Alex + Sarah)
             borrower1IncomeId: alexIncome?.id, // Link to Alex's income for projected CPF OA
+            borrower1CpfAccountId: cpfAccount?.id, // Link to Alex's CPF account
             borrower2IncomeId: sarahIncome?.id, // Link to Sarah's income for projected CPF OA
+            borrower2CpfAccountId: sarahCpfAccount?.id, // Link to Sarah's CPF account
+            // Per-borrower CPF OA tracking for downpayment
+            // Split CPF OA evenly: Alex $50k, Sarah $50k
+            borrower1DownpaymentCpfOaAmountType: 'fixed',
+            borrower1DownpaymentCpfOa: '50000',
+            borrower2DownpaymentCpfOaAmountType: 'fixed',
+            borrower2DownpaymentCpfOa: '50000',
+            // Per-borrower monthly CPF OA contributions (estimated from salaries)
+            // Alex $7,500/mo → ~$1,590/mo OA, Sarah $5,000/mo → ~$1,060/mo OA
+            borrower1MonthlyCpfOa: '1590',
+            borrower2MonthlyCpfOa: '1060',
+            // Per-borrower cash account configuration (downpayment)
+            // Borrower 1 covers cash remainder from Joint Savings
+            borrower1DownpaymentCashAccountId: jointSavingsAccount?.id ?? null,
+            borrower1DownpaymentCashAmountType: 'remainder',
+            borrower1DownpaymentCashAmount: '12500',
+            // Borrower 2 has no separate cash contribution
+            borrower2DownpaymentCashAccountId: null,
+            borrower2DownpaymentCashAmountType: 'remainder',
+            borrower2DownpaymentCashAmount: '0',
+            // Per-borrower cash account configuration (monthly payment)
+            // Joint Savings covers any monthly shortfall
+            borrower1MonthlyCashAccountId: jointSavingsAccount?.id ?? null,
+            borrower1MonthlyCashAmountType: 'remainder',
+            borrower1MonthlyCashAmount: '0',
+            borrower2MonthlyCashAccountId: null,
+            borrower2MonthlyCashAmountType: 'remainder',
+            borrower2MonthlyCashAmount: '0',
             otherDebt: '0',
             propertyCount: 0, // First property
             btoKeyCollectionDate,
