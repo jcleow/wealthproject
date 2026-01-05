@@ -231,6 +231,9 @@ export function ScenarioDetailView({
           appreciationPeriods={inputs.appreciationPeriods}
           onPeriodsChange={(periods) => onInputChange('appreciationPeriods', periods)}
           purchaseDate={inputs.loanStartMonth}
+          borrowerType={inputs.borrowerType}
+          cpfAccounts={projectedCpfAccounts}
+          cashAccounts={cashAccounts}
           computedValues={computedValues}
         />
       </div>
