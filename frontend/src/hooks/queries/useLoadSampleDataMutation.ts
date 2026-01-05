@@ -748,8 +748,6 @@ export function useLoadSampleDataMutation() {
           ]
 
           try {
-            // Add delay to allow rate limiter to refill after all the previous API calls
-            await new Promise(resolve => setTimeout(resolve, 500))
             // Create rules sequentially to avoid overwhelming rate limiter
             for (const rule of fundFlowRules) {
               await fundFlowRulesApi.createFundFlowRule(rule)

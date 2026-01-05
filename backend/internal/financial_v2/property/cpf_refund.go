@@ -4,6 +4,13 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 )
 
+// CPF accrued interest rate constants
+const (
+	// CpfOaInterestRatePerAnnum is the statutory CPF OA interest rate (2.5% per annum)
+	// Reference: https://www.cpf.gov.sg/member/growing-your-savings/earning-higher-returns/earning-attractive-interest
+	CpfOaInterestRatePerAnnum = "0.025"
+)
+
 // CpfRefund represents the CPF refund for a single borrower
 type CpfRefund struct {
 	PrincipalUsed   decimal.Decimal `json:"principalUsed"`
@@ -36,10 +43,10 @@ func CalculateCpfAccruedInterest(principal *decimal.Decimal, months int) *decima
 	}
 
 	// CPF OA earns 2.5% interest per annum, compounded yearly
-	// Formula: principal * ((1 + r)^years - 1) where r = 0.025
+	// Formula: principal * ((1 + r)^years - 1) where r = CpfOaInterestRatePerAnnum
 	years := decimal.MustFromString(formatYears(months))
-	rate := decimal.MustFromString("0.025")      // 2.5% per annum
-	onePlusRate := decimal.One().Add(rate)       // 1.025
+	rate := decimal.MustFromString(CpfOaInterestRatePerAnnum)
+	onePlusRate := decimal.One().Add(rate) // 1.025
 
 	// Calculate (1.025)^years
 	compoundFactor, err := onePlusRate.Pow(years)

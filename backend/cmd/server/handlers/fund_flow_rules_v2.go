@@ -11,11 +11,13 @@ import (
 )
 
 // FundFlowRuleV2Handler serves v2 fund flow rule endpoints.
+// V2 uses the consolidated repository pattern with IDOR protection and ownership validation,
+// replacing the v1 handler which used separate service/repository layers.
 type FundFlowRuleV2Handler struct {
 	store *repo.Store
 }
 
-// NewFundFlowRuleV2Handler constructs a v2 handler.
+// NewFundFlowRuleV2Handler constructs a v2 handler with the consolidated store.
 func NewFundFlowRuleV2Handler(store *repo.Store) *FundFlowRuleV2Handler {
 	return &FundFlowRuleV2Handler{store: store}
 }

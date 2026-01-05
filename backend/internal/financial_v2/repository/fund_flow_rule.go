@@ -12,6 +12,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// QueryArgs represents typed SQL query arguments for logging and execution.
+// Uses []any to match pgx's Query/Exec signatures while providing semantic meaning.
+type QueryArgs = []any
+
 // FundFlowRule represents a rule for internal money movements between balances.
 // Rule types:
 //   - payment: account → liability/property (Phase 1)
@@ -194,7 +198,7 @@ func (s *Store) validateEntityOwnership(ctx context.Context, userID string, rule
 	// argIdx tracks the next placeholder number ($1, $2, ...) for parameterized queries.
 	var expectedCount int
 	var queryParts []string
-	var args []any
+	var args QueryArgs
 	argIdx := 1
 
 	// Helper to add a standard ownership check (table must have id and user_id columns).
@@ -291,7 +295,7 @@ func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule Fund
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at`
 
-	logQuery(query, []any{userID, rule.Name, rule.RuleType})
+	logQuery(query, QueryArgs{userID, rule.Name, rule.RuleType})
 
 	var created FundFlowRule
 	err := s.pool.QueryRow(ctx, query,
@@ -366,7 +370,7 @@ func (s *Store) ListFundFlowRules(ctx context.Context, q ListFundFlowRulesQuery)
 		FROM fund_flow_rules
 		WHERE user_id = $1`
 
-	args := []any{q.UserID}
+	args := QueryArgs{q.UserID}
 	argIdx := 2
 
 	if q.RuleType != nil {
@@ -466,7 +470,7 @@ func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule Fund
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at`
 
-	logQuery(query, []any{rule.ID, userID, rule.Name, rule.RuleType})
+	logQuery(query, QueryArgs{rule.ID, userID, rule.Name, rule.RuleType})
 
 	var updated FundFlowRule
 	err := s.pool.QueryRow(ctx, query,
@@ -497,7 +501,7 @@ func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule Fund
 func (s *Store) DeleteFundFlowRule(ctx context.Context, userID, ruleID string) error {
 	query := `DELETE FROM fund_flow_rules WHERE id = $1 AND user_id = $2`
 
-	logQuery(query, []any{ruleID, userID})
+	logQuery(query, QueryArgs{ruleID, userID})
 	tag, err := s.pool.Exec(ctx, query, ruleID, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete fund flow rule: %w", err)
@@ -568,7 +572,7 @@ func (s *Store) GetPaymentRulesForLiability(ctx context.Context, userID, liabili
 // DeleteAllFundFlowRules deletes all fund flow rules for a user (bulk delete).
 func (s *Store) DeleteAllFundFlowRules(ctx context.Context, userID string) (int64, error) {
 	query := `DELETE FROM fund_flow_rules WHERE user_id = $1`
-	logQuery(query, []any{userID})
+	logQuery(query, QueryArgs{userID})
 	tag, err := s.pool.Exec(ctx, query, userID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete all fund flow rules: %w", err)
@@ -580,7 +584,7 @@ func (s *Store) DeleteAllFundFlowRules(ctx context.Context, userID string) (int6
 // Used when updating/deleting property sale proceeds - old rules are deleted before creating new ones.
 func (s *Store) DeleteBySourcePropertyID(ctx context.Context, userID, sourcePropertyID string) (int64, error) {
 	query := `DELETE FROM fund_flow_rules WHERE user_id = $1 AND source_property_id = $2`
-	logQuery(query, []any{userID, sourcePropertyID})
+	logQuery(query, QueryArgs{userID, sourcePropertyID})
 	tag, err := s.pool.Exec(ctx, query, userID, sourcePropertyID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete fund flow rules by source property: %w", err)

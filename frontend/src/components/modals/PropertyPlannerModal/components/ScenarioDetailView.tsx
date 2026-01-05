@@ -111,7 +111,7 @@ export function ScenarioDetailView({
         </div>
       )}
 
-      <div className="flex items-center mb-6">
+      <div className="flex items-center justify-between mb-6">
         <div className="inline-flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-lg">
           <button
             type="button"
@@ -135,18 +135,20 @@ export function ScenarioDetailView({
             <Banknote className="w-3.5 h-3.5" />
             Sale
           </button>
-          <button
-            type="button"
-            onClick={() => onActiveResultsTabChange('appreciation')}
-            className={cn(
-              "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2",
-              activeResultsTab === 'appreciation' ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"
-            )}
-          >
-            <TrendingUp className="w-3.5 h-3.5" />
-            Projection
-          </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => onActiveResultsTabChange('appreciation')}
+          className={cn(
+            "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2",
+            "bg-white/[0.03] border border-white/[0.06]",
+            activeResultsTab === 'appreciation' ? "bg-white/10 text-white border-white/10" : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.05]"
+          )}
+        >
+          <TrendingUp className="w-3.5 h-3.5" />
+          Projection
+        </button>
       </div>
 
       <div className={cn(

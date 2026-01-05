@@ -1251,10 +1251,10 @@ func (s *Store) CreateIncomeAllocation(
 		return nil, ErrNotFound
 	}
 
-	// Default start_date to 2025-01-01 if not provided
+	// Default start_date to 2026-01-01 if not provided
 	startDate := allocation.StartDate
 	if startDate.IsZero() {
-		startDate = time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		startDate = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
 
 	query := `

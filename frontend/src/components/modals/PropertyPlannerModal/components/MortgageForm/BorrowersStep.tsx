@@ -9,6 +9,13 @@ import { usePropertyFormInputs } from '../../hooks'
 import type { IncomeOption, ProjectedCpfAccount } from './types'
 import { DownpaymentSourcesSection } from './components/DownpaymentSourcesSection'
 import { MonthlyPaymentSourcesSection } from './components/MonthlyPaymentSourcesSection'
+import {
+  formatIncomeLabel,
+  findCpfAccountForIncome,
+  selectBorrower1Income,
+  selectBorrower2Income,
+  DEFAULT_OA_BALANCE,
+} from './utils/borrowerSelection'
 
 interface BorrowersStepProps {
   incomes: IncomeOption[]
@@ -42,18 +49,6 @@ export function BorrowersStep({
 
   // Track if we've already applied fund flow rules to avoid re-applying on every render
   const hasAppliedRulesRef = useRef(false)
-
-  // Helper to format income label - person name if present, else salary name
-  const formatIncomeLabel = (income: IncomeOption) => {
-    const displayName = income.personName || income.name
-    return `${displayName} - $${income.monthlyAmount.toLocaleString()}/mo`
-  }
-
-  // Find matching CPF account by personId
-  const findCpfAccountForIncome = (income: IncomeOption) => {
-    if (!income.personId) return null
-    return cpfAccounts.find(acc => acc.personId === income.personId)
-  }
 
   // Build dropdown options for cash accounts
   const cashAccountOptions = useMemo(() => {
@@ -101,16 +96,16 @@ export function BorrowersStep({
         incomeId={inputs.borrower1IncomeId}
         onIncomeChange={(value) => {
           onChange('borrower1IncomeId', value)
-          const selectedIncome = incomes.find(i => i.id === value)
-          if (selectedIncome) {
-            const matchingCpf = findCpfAccountForIncome(selectedIncome)
-            if (matchingCpf) {
-              const oaBalance = matchingCpf.oaBalance
-              onChange('borrower1OaBalance', oaBalance)
-              onChange('cpfOaBalance', inputs.borrowerType === 'joint'
-                ? oaBalance + inputs.borrower2OaBalance
-                : oaBalance)
-            }
+          const result = selectBorrower1Income(
+            value,
+            incomes,
+            cpfAccounts,
+            inputs.borrowerType,
+            inputs.borrower2OaBalance
+          )
+          if (result) {
+            onChange('borrower1OaBalance', result.borrower1OaBalance)
+            onChange('cpfOaBalance', result.combinedCpfOaBalance)
           }
         }}
         incomeOptions={incomes.map(income => ({
@@ -131,8 +126,8 @@ export function BorrowersStep({
             const availableIncome = incomes.find(i => i.id !== inputs.borrower1IncomeId)
             if (availableIncome) {
               onChange('borrower2IncomeId', availableIncome.id)
-              const matchingCpf = findCpfAccountForIncome(availableIncome)
-              const borrower2OaBalance = matchingCpf?.oaBalance ?? 62400
+              const matchingCpf = findCpfAccountForIncome(availableIncome, cpfAccounts)
+              const borrower2OaBalance = matchingCpf?.oaBalance ?? DEFAULT_OA_BALANCE
               onChange('borrower2OaBalance', borrower2OaBalance)
               onChange('cpfOaBalance', inputs.borrower1OaBalance + borrower2OaBalance)
               onChange('borrower2DownpaymentCpfOa', 0)
@@ -152,14 +147,15 @@ export function BorrowersStep({
           incomeId={inputs.borrower2IncomeId || ''}
           onIncomeChange={(value) => {
             onChange('borrower2IncomeId', value)
-            const selectedIncome = incomes.find(i => i.id === value)
-            if (selectedIncome) {
-              const matchingCpf = findCpfAccountForIncome(selectedIncome)
-              if (matchingCpf) {
-                const oaBalance = matchingCpf.oaBalance
-                onChange('borrower2OaBalance', oaBalance)
-                onChange('cpfOaBalance', inputs.borrower1OaBalance + oaBalance)
-              }
+            const result = selectBorrower2Income(
+              value,
+              incomes,
+              cpfAccounts,
+              inputs.borrower1OaBalance
+            )
+            if (result) {
+              onChange('borrower2OaBalance', result.borrower2OaBalance)
+              onChange('cpfOaBalance', result.combinedCpfOaBalance)
             }
           }}
           incomeOptions={incomes.filter(i => i.id !== inputs.borrower1IncomeId).map(income => ({
