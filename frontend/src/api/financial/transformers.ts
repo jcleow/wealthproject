@@ -21,7 +21,7 @@ import type {
   ResidencyStatus,
   CPFConfigData,
 } from '@/types/cpf'
-import { get, getOr, asRecord, type ApiRecord } from '@/lib/utils'
+import { get, getOr, asRecord } from '@/lib/utils'
 
 // =============================================================================
 // Pagination helpers
@@ -38,13 +38,13 @@ interface RawPaginatedResponse {
 
 export function normalizePaginatedResponse<T>(
   raw: unknown,
-  mapper: (item: ApiRecord) => T,
+  mapper: (item: unknown) => T,
   params?: PaginationParams
 ): PaginatedResponse<T> {
   const response = asRecord(raw) as RawPaginatedResponse
   const items = Array.isArray(response.data) ? response.data : []
   return {
-    data: items.map(item => mapper(asRecord(item))),
+    data: items.map(item => mapper(item)),
     total: response.total ?? items.length,
     limit: response.limit ?? params?.limit ?? 20,
     offset: response.offset ?? params?.offset ?? 0,
@@ -56,114 +56,139 @@ export function normalizePaginatedResponse<T>(
 // Financial mappers
 // =============================================================================
 
-export const toAsset = (item: ApiRecord): Asset => ({
-  id: get<string>(item, 'id', 'ID') ?? '',
-  name: get<string>(item, 'name', 'Name') ?? '',
-  category: get<string>(item, 'category', 'Category') ?? '',
-  currentValue: get<number>(item, 'current_value', 'currentValue', 'CurrentValue') ?? 0,
-  annualGrowthRate: get<number>(item, 'annual_growth_rate', 'annualGrowthRate', 'AnnualGrowthRate') ?? 0,
-  startDate: get<string>(item, 'start_date', 'startDate', 'StartDate'),
-  endDate: get<string>(item, 'end_date', 'endDate', 'EndDate'),
-  terminalValue: get<number>(item, 'terminal_value', 'terminalValue', 'TerminalValue') ?? null,
-  notes: getOr<string>(item, '', 'notes', 'Notes'),
-  updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
-  parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
-})
+export const toAsset = (data: unknown): Asset => {
+  const item = asRecord(data)
+  return {
+    id: get<string>(item, 'id', 'ID') ?? '',
+    name: get<string>(item, 'name', 'Name') ?? '',
+    category: get<string>(item, 'category', 'Category') ?? '',
+    currentValue: get<number>(item, 'current_value', 'currentValue', 'CurrentValue') ?? 0,
+    annualGrowthRate: get<number>(item, 'annual_growth_rate', 'annualGrowthRate', 'AnnualGrowthRate') ?? 0,
+    startDate: get<string>(item, 'start_date', 'startDate', 'StartDate'),
+    endDate: get<string>(item, 'end_date', 'endDate', 'EndDate'),
+    terminalValue: get<number>(item, 'terminal_value', 'terminalValue', 'TerminalValue') ?? null,
+    notes: getOr<string>(item, '', 'notes', 'Notes'),
+    updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
+    parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
+  }
+}
 
-export const toLiability = (item: ApiRecord): Liability => ({
-  id: get<string>(item, 'id', 'ID') ?? '',
-  name: get<string>(item, 'name', 'Name') ?? '',
-  category: get<string>(item, 'category', 'Category') ?? '',
-  currentBalance: get<number>(item, 'current_balance', 'currentBalance', 'CurrentBalance') ?? 0,
-  interestRateApr: get<number>(item, 'interest_rate_apr', 'interestRateApr', 'InterestRateAPR', 'InterestRateApr') ?? 0,
-  minimumPayment: get<number>(item, 'minimum_payment', 'minimumPayment', 'MinimumPayment') ?? 0,
-  startDate: get<string>(item, 'start_date', 'startDate', 'StartDate'),
-  endDate: get<string>(item, 'end_date', 'endDate', 'EndDate'),
-  notes: getOr<string>(item, '', 'notes', 'Notes'),
-  updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
-  parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
-})
+export const toLiability = (data: unknown): Liability => {
+  const item = asRecord(data)
+  return {
+    id: get<string>(item, 'id', 'ID') ?? '',
+    name: get<string>(item, 'name', 'Name') ?? '',
+    category: get<string>(item, 'category', 'Category') ?? '',
+    currentBalance: get<number>(item, 'current_balance', 'currentBalance', 'CurrentBalance') ?? 0,
+    interestRateApr: get<number>(item, 'interest_rate_apr', 'interestRateApr', 'InterestRateAPR', 'InterestRateApr') ?? 0,
+    minimumPayment: get<number>(item, 'minimum_payment', 'minimumPayment', 'MinimumPayment') ?? 0,
+    startDate: get<string>(item, 'start_date', 'startDate', 'StartDate'),
+    endDate: get<string>(item, 'end_date', 'endDate', 'EndDate'),
+    notes: getOr<string>(item, '', 'notes', 'Notes'),
+    updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
+    parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
+  }
+}
 
-export const toIncome = (item: ApiRecord): Income => ({
-  id: get<string>(item, 'id', 'ID') ?? '',
-  parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
-  name: get<string>(item, 'name', 'Name') ?? '',
-  personId: get<string>(item, 'personId', 'person_id', 'PersonId') ?? null,
-  personName: getOr<string>(item, '', 'personName', 'person_name', 'PersonName'),
-  amount: get<number>(item, 'amount', 'Amount') ?? 0,
-  frequency: getOr<Frequency>(item, 'monthly', 'frequency', 'Frequency'),
-  startDate: getOr<string>(item, new Date().toISOString(), 'start_date', 'startDate', 'StartDate'),
-  category: get<string>(item, 'category', 'Category') ?? '',
-  growthRate: getOr<number>(item, 3.0, 'growth_rate', 'growthRate', 'GrowthRate'),
-  notes: getOr<string>(item, '', 'notes', 'Notes'),
-  updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
-  incomeType: get<IncomeType>(item, 'income_type', 'incomeType', 'IncomeType'),
-  cpfWageType: get<CpfWageType>(item, 'cpf_wage_type', 'cpfWageType', 'CpfWageType'),
-})
+export const toIncome = (data: unknown): Income => {
+  const item = asRecord(data)
+  return {
+    id: get<string>(item, 'id', 'ID') ?? '',
+    parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
+    name: get<string>(item, 'name', 'Name') ?? '',
+    personId: get<string>(item, 'personId', 'person_id', 'PersonId') ?? null,
+    personName: getOr<string>(item, '', 'personName', 'person_name', 'PersonName'),
+    amount: get<number>(item, 'amount', 'Amount') ?? 0,
+    frequency: getOr<Frequency>(item, 'monthly', 'frequency', 'Frequency'),
+    startDate: getOr<string>(item, new Date().toISOString(), 'start_date', 'startDate', 'StartDate'),
+    category: get<string>(item, 'category', 'Category') ?? '',
+    growthRate: getOr<number>(item, 3.0, 'growth_rate', 'growthRate', 'GrowthRate'),
+    notes: getOr<string>(item, '', 'notes', 'Notes'),
+    updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
+    incomeType: get<IncomeType>(item, 'income_type', 'incomeType', 'IncomeType'),
+    cpfWageType: get<CpfWageType>(item, 'cpf_wage_type', 'cpfWageType', 'CpfWageType'),
+  }
+}
 
-export const toExpense = (item: ApiRecord): Expense => ({
-  id: get<string>(item, 'id', 'ID') ?? '',
-  parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
-  name: get<string>(item, 'name', 'Name') ?? '',
-  amount: get<number>(item, 'amount', 'Amount') ?? 0,
-  frequency: getOr<Frequency>(item, 'monthly', 'frequency', 'Frequency'),
-  category: get<string>(item, 'category', 'Category') ?? '',
-  growthRate: getOr<number>(item, 2.0, 'growth_rate', 'growthRate', 'GrowthRate'),
-  notes: getOr<string>(item, '', 'notes', 'Notes'),
-  updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
-})
+export const toExpense = (data: unknown): Expense => {
+  const item = asRecord(data)
+  return {
+    id: get<string>(item, 'id', 'ID') ?? '',
+    parentId: get<string>(item, 'parent_id', 'parentId', 'ParentID'),
+    name: get<string>(item, 'name', 'Name') ?? '',
+    amount: get<number>(item, 'amount', 'Amount') ?? 0,
+    frequency: getOr<Frequency>(item, 'monthly', 'frequency', 'Frequency'),
+    category: get<string>(item, 'category', 'Category') ?? '',
+    growthRate: getOr<number>(item, 2.0, 'growth_rate', 'growthRate', 'GrowthRate'),
+    notes: getOr<string>(item, '', 'notes', 'Notes'),
+    updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
+  }
+}
 
-export const toCashAccount = (item: ApiRecord): CashAccount => ({
-  id: get<string>(item, 'id', 'ID') ?? '',
-  name: get<string>(item, 'name', 'Name') ?? '',
-  balance: getOr<number>(item, 0, 'balance', 'Balance'),
-  interestRate: getOr<number>(item, 1.5, 'interest_rate', 'interestRate', 'InterestRate'),
-  bankName: get<string>(item, 'bank_name', 'bankName', 'BankName') ?? null,
-  accountType: get<string>(item, 'account_type', 'accountType', 'AccountType') ?? null,
-  isAccumulator: getOr<boolean>(item, false, 'is_accumulator', 'isAccumulator', 'IsAccumulator'),
-  startYear: getOr<number>(item, 0, 'start_year', 'startYear', 'StartYear'),
-  endYear: get<number>(item, 'end_year', 'endYear', 'EndYear') ?? null,
-  notes: getOr<string>(item, '', 'notes', 'Notes'),
-  createdAt: get<string>(item, 'created_at', 'createdAt', 'CreatedAt'),
-  updatedAt: get<string>(item, 'updated_at', 'updatedAt', 'UpdatedAt'),
-})
+export const toCashAccount = (data: unknown): CashAccount => {
+  const item = asRecord(data)
+  return {
+    id: get<string>(item, 'id', 'ID') ?? '',
+    name: get<string>(item, 'name', 'Name') ?? '',
+    balance: getOr<number>(item, 0, 'balance', 'Balance'),
+    interestRate: getOr<number>(item, 1.5, 'interest_rate', 'interestRate', 'InterestRate'),
+    bankName: get<string>(item, 'bank_name', 'bankName', 'BankName') ?? null,
+    accountType: get<string>(item, 'account_type', 'accountType', 'AccountType') ?? null,
+    isAccumulator: getOr<boolean>(item, false, 'is_accumulator', 'isAccumulator', 'IsAccumulator'),
+    startYear: getOr<number>(item, 0, 'start_year', 'startYear', 'StartYear'),
+    endYear: get<number>(item, 'end_year', 'endYear', 'EndYear') ?? null,
+    notes: getOr<string>(item, '', 'notes', 'Notes'),
+    createdAt: get<string>(item, 'created_at', 'createdAt', 'CreatedAt'),
+    updatedAt: get<string>(item, 'updated_at', 'updatedAt', 'UpdatedAt'),
+  }
+}
 
-export const toPropertyLink = (item: ApiRecord): PropertyLinkRecord => ({
-  id: get<string>(item, 'id', 'ID') ?? '',
-  propertyScenarioId: get<string>(item, 'property_scenario_id', 'propertyScenarioId', 'PropertyScenarioId') ?? '',
-  assetId: getOr<string>(item, '', 'asset_id', 'assetId', 'AssetID', 'AssetId'),
-  liabilityId: getOr<string>(item, '', 'liability_id', 'liabilityId', 'LiabilityID', 'LiabilityId'),
-  createdAt: getOr<string>(item, '', 'created_at', 'createdAt', 'CreatedAt'),
-  updatedAt: getOr<string>(item, '', 'updated_at', 'updatedAt', 'UpdatedAt'),
-})
+export const toPropertyLink = (data: unknown): PropertyLinkRecord => {
+  const item = asRecord(data)
+  return {
+    id: get<string>(item, 'id', 'ID') ?? '',
+    propertyScenarioId: get<string>(item, 'property_scenario_id', 'propertyScenarioId', 'PropertyScenarioId') ?? '',
+    assetId: getOr<string>(item, '', 'asset_id', 'assetId', 'AssetID', 'AssetId'),
+    liabilityId: getOr<string>(item, '', 'liability_id', 'liabilityId', 'LiabilityID', 'LiabilityId'),
+    createdAt: getOr<string>(item, '', 'created_at', 'createdAt', 'CreatedAt'),
+    updatedAt: getOr<string>(item, '', 'updated_at', 'updatedAt', 'UpdatedAt'),
+  }
+}
 
-export const toPropertyScenario = (item: ApiRecord): PropertyScenarioRecord => ({
-  id: getOr<string>(item, '', 'id', 'ID'),
-  propertyType: getOr<string>(item, '', 'property_type', 'propertyType'),
-  headline: getOr<string>(item, '', 'headline'),
-  propertyPrice: Number(get<number | string>(item, 'property_price', 'propertyPrice') ?? 0),
-  downPayment: Number(get<number | string>(item, 'down_payment', 'downPayment') ?? 0),
-  loanAmount: Number(get<number | string>(item, 'loan_amount', 'loanAmount') ?? 0),
-  interestRate: Number(get<number | string>(item, 'interest_rate', 'interestRate') ?? 0),
-  loanTenure: Number(get<number | string>(item, 'loan_tenure', 'loanTenure') ?? 0),
-  notes: getOr<string>(item, '', 'notes'),
-  updatedAt: getOr<string>(item, '', 'updated_at', 'updatedAt', 'UpdatedAt'),
-})
+export const toPropertyScenario = (data: unknown): PropertyScenarioRecord => {
+  const item = asRecord(data)
+  return {
+    id: getOr<string>(item, '', 'id', 'ID'),
+    propertyType: getOr<string>(item, '', 'property_type', 'propertyType'),
+    headline: getOr<string>(item, '', 'headline'),
+    propertyPrice: Number(get<number | string>(item, 'property_price', 'propertyPrice') ?? 0),
+    downPayment: Number(get<number | string>(item, 'down_payment', 'downPayment') ?? 0),
+    loanAmount: Number(get<number | string>(item, 'loan_amount', 'loanAmount') ?? 0),
+    interestRate: Number(get<number | string>(item, 'interest_rate', 'interestRate') ?? 0),
+    loanTenure: Number(get<number | string>(item, 'loan_tenure', 'loanTenure') ?? 0),
+    notes: getOr<string>(item, '', 'notes'),
+    updatedAt: getOr<string>(item, '', 'updated_at', 'updatedAt', 'UpdatedAt'),
+  }
+}
 
-export const toGrowthConfig = (item: ApiRecord): GrowthConfig => ({
-  id: get<string>(item, 'id', 'ID') ?? '',
-  category: get<string>(item, 'category', 'Category') ?? '',
-  annualRatePct: getOr<number>(item, 0, 'annual_rate_pct', 'annualRatePct', 'AnnualRatePct'),
-  lowerBoundPct: getOr<number>(item, -50, 'lower_bound_pct', 'lowerBoundPct', 'LowerBoundPct'),
-  upperBoundPct: getOr<number>(item, 50, 'upper_bound_pct', 'upperBoundPct', 'UpperBoundPct'),
-  updatedAt: get<string>(item, 'updated_at', 'updatedAt', 'UpdatedAt'),
-})
+export const toGrowthConfig = (data: unknown): GrowthConfig => {
+  const item = asRecord(data)
+  return {
+    id: get<string>(item, 'id', 'ID') ?? '',
+    category: get<string>(item, 'category', 'Category') ?? '',
+    annualRatePct: getOr<number>(item, 0, 'annual_rate_pct', 'annualRatePct', 'AnnualRatePct'),
+    lowerBoundPct: getOr<number>(item, -50, 'lower_bound_pct', 'lowerBoundPct', 'LowerBoundPct'),
+    upperBoundPct: getOr<number>(item, 50, 'upper_bound_pct', 'upperBoundPct', 'UpperBoundPct'),
+    updatedAt: get<string>(item, 'updated_at', 'updatedAt', 'UpdatedAt'),
+  }
+}
 
 // =============================================================================
 // CPF mappers
 // =============================================================================
 
-export const toCPFAccount = (item: ApiRecord): CPFAccount => {
+export const toCPFAccount = (data: unknown): CPFAccount => {
+  const item = asRecord(data)
   // Backend returns decimal values as strings, parse them to numbers
   const parseBalance = (val: unknown): number => {
     if (val === undefined || val === null) return 0
@@ -237,17 +262,21 @@ const defaultCPFConfigData: CPFConfigData = {
   },
 }
 
-export const toCPFConfiguration = (item: ApiRecord): CPFConfiguration => ({
-  id: get<string>(item, 'id', 'ID') ?? '',
-  year: get<number>(item, 'year', 'Year') ?? 0,
-  effectiveFrom: getOr<string>(item, '', 'effective_from', 'effectiveFrom', 'EffectiveFrom'),
-  effectiveTo: get<string>(item, 'effective_to', 'effectiveTo', 'EffectiveTo'),
-  config: getOr<CPFConfigData>(item, defaultCPFConfigData, 'config', 'Config'),
-  createdAt: getOr<string>(item, new Date().toISOString(), 'created_at', 'createdAt', 'CreatedAt'),
-  updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
-})
+export const toCPFConfiguration = (data: unknown): CPFConfiguration => {
+  const item = asRecord(data)
+  return {
+    id: get<string>(item, 'id', 'ID') ?? '',
+    year: get<number>(item, 'year', 'Year') ?? 0,
+    effectiveFrom: getOr<string>(item, '', 'effective_from', 'effectiveFrom', 'EffectiveFrom'),
+    effectiveTo: get<string>(item, 'effective_to', 'effectiveTo', 'EffectiveTo'),
+    config: getOr<CPFConfigData>(item, defaultCPFConfigData, 'config', 'Config'),
+    createdAt: getOr<string>(item, new Date().toISOString(), 'created_at', 'createdAt', 'CreatedAt'),
+    updatedAt: getOr<string>(item, new Date().toISOString(), 'updated_at', 'updatedAt', 'UpdatedAt'),
+  }
+}
 
-export const toCPFContributionPreview = (item: ApiRecord): CPFContributionPreview => {
+export const toCPFContributionPreview = (data: unknown): CPFContributionPreview => {
+  const item = asRecord(data)
   const allocation = asRecord(get(item, 'allocation', 'Allocation'))
   const ratesApplied = asRecord(get(item, 'rates_applied', 'ratesApplied'))
 
@@ -277,7 +306,8 @@ export const toCPFContributionPreview = (item: ApiRecord): CPFContributionPrevie
 // Scenario helpers
 // =============================================================================
 
-export const normalizeImpact = (impact: ApiRecord): ScenarioImpactDto => {
+export const normalizeImpact = (data: unknown): ScenarioImpactDto => {
+  const impact = asRecord(data)
   const startDateRaw = get<string>(impact, 'startDate', 'start_date', 'StartDate', 'start_month', 'startMonth') ?? ''
   const endDateRaw = get<string>(impact, 'endDate', 'end_date', 'EndDate')
 

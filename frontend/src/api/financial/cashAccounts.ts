@@ -1,20 +1,26 @@
 import { ApiError, apiClient } from '../client'
 import { toCashAccount } from './transformers'
 import type { CashAccount } from '@/types/financial'
+import type {
+  CashAsset as ApiCashAccount,
+  CashAccountV2Input,
+  StopInput,
+} from '@/types/api.generated'
 
 export async function listCashAccounts(): Promise<CashAccount[]> {
-  const data = await apiClient.get<any>('/cash-accounts', undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.get<{ data: ApiCashAccount[] }>('/cash-accounts', undefined, { baseUrl: '/api/v2' })
   // V2 API returns paginated response with data array
   const items = Array.isArray(data?.data) ? data.data : []
   return items.map(toCashAccount)
 }
 
 export async function getCashAccount(id: string): Promise<CashAccount> {
-  const data = await apiClient.get<any>(`/cash-accounts/${id}`, undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.get<ApiCashAccount>(`/cash-accounts/${id}`, undefined, { baseUrl: '/api/v2' })
   return toCashAccount(data)
 }
 
 export async function createCashAccount(payload: Omit<CashAccount, 'id' | 'createdAt' | 'updatedAt'>): Promise<CashAccount> {
+  // V1 API uses snake_case field names
   const body = {
     name: payload.name,
     balance: payload.balance,
@@ -26,28 +32,30 @@ export async function createCashAccount(payload: Omit<CashAccount, 'id' | 'creat
     end_year: payload.endYear,
     notes: payload.notes,
   }
-  const data = await apiClient.post<any>('/cash-accounts', body)
+  const data = await apiClient.post<ApiCashAccount>('/cash-accounts', body)
   return toCashAccount(data)
 }
 
 export async function updateCashAccount(id: string, payload: Partial<CashAccount>): Promise<CashAccount> {
   // Use string for decimal values to avoid float64 precision loss
-  const body: Record<string, unknown> = {
+  const body: CashAccountV2Input = {
+    id,
     name: payload.name,
     balance: payload.balance?.toString(),
     interestRate: payload.interestRate?.toString(),
-    bankName: payload.bankName,
-    accountType: payload.accountType,
-    notes: payload.notes,
+    bankName: payload.bankName ?? undefined,
+    accountType: payload.accountType ?? undefined,
+    notes: payload.notes ?? undefined,
   }
   // Use v2 API for versioned update support
-  const data = await apiClient.put<any>(`/cash-accounts/${id}`, body, { baseUrl: '/api/v2' })
+  const data = await apiClient.put<ApiCashAccount>(`/cash-accounts/${id}`, body, { baseUrl: '/api/v2' })
   return toCashAccount(data)
 }
 
 // Stop a cash account (soft delete) - sets end_date and cascades to linked allocations
 export async function stopCashAccount(id: string, endDate: string): Promise<CashAccount> {
-  const data = await apiClient.post<any>(`/cash-accounts/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
+  const body: StopInput = { endDate }
+  const data = await apiClient.post<ApiCashAccount>(`/cash-accounts/${id}/stop`, body, { baseUrl: '/api/v2' })
   return toCashAccount(data)
 }
 

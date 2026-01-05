@@ -3,51 +3,50 @@ import { buildPaginatedPath } from './helpers'
 import { normalizePaginatedResponse, toIncome } from './transformers'
 import type { Income, PaginatedResponse, PaginationParams } from '@/types/financial'
 import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
+import type {
+  Income as ApiIncome,
+  IncomeV2CreateInput,
+  IncomeV2Input,
+  IncomeAllocationV2DTO,
+  IncomeAllocationCreateDTO,
+  StopInput,
+  StopAllocationDTO,
+} from '@/types/api.generated'
 
-// Income Allocation Types
-export interface IncomeAllocation {
+// Income Allocation Types - re-export from generated for convenience
+export type IncomeAllocation = IncomeAllocationV2DTO & {
+  // Ensure required fields are present for frontend usage
   id: string
   incomeId: string
-  parentId: string
   startDate: string
-  endDate?: string
-  targetCashAccountId?: string
-  targetInvestmentId?: string
-  allocationType: 'percentage' | 'fixed'
-  allocationValue: string // Use string to avoid precision loss
-  createdAt: string
+  allocationType: string
+  allocationValue: string
 }
 
-export interface CreateIncomeAllocationPayload {
-  targetCashAccountId?: string
-  targetInvestmentId?: string
-  allocationType: 'percentage' | 'fixed'
-  allocationValue: string // Use string to avoid precision loss
-}
+export type CreateIncomeAllocationPayload = IncomeAllocationCreateDTO
 
 export async function listIncomes(params?: PaginationParams): Promise<PaginatedResponse<Income>> {
   const path = buildPaginatedPath('/cashflow/incomes', params)
-  const data = await apiClient.get<any>(path, undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.get<{ data: ApiIncome[]; total?: number; limit?: number; offset?: number }>(path, undefined, { baseUrl: '/api/v2' })
   return normalizePaginatedResponse<Income>(data, toIncome, params)
 }
 
 export async function createIncome(payload: Omit<Income, 'id' | 'updatedAt'>): Promise<Income> {
   // Use string for decimal values to avoid float64 precision loss
-  const body: Record<string, unknown> = {
+  const body: IncomeV2CreateInput = {
     name: payload.name,
-    personId: payload.personId,
+    personId: payload.personId ?? undefined,
     amount: String(payload.amount),
     frequency: payload.frequency,
     startDate: payload.startDate ?? new Date().toISOString(),
     category: payload.category,
     growthRate: String(payload.growthRate ?? 3.0),
-    notes: payload.notes,
+    notes: payload.notes ?? undefined,
+    cpfWageType: payload.cpfWageType ?? undefined,
+    endDate: payload.endDate ?? undefined,
   }
 
-  if (payload.cpfWageType !== undefined) body.cpfWageType = payload.cpfWageType
-  if (payload.endDate !== undefined) body.endDate = payload.endDate
-
-  const data = await apiClient.post<any>('/cashflow/incomes', body, { baseUrl: '/api/v2' })
+  const data = await apiClient.post<ApiIncome>('/cashflow/incomes', body, { baseUrl: '/api/v2' })
   return toIncome(data)
 }
 
@@ -58,31 +57,28 @@ export async function updateIncome(
   }
 ): Promise<Income> {
   // Use string for decimal values to avoid float64 precision loss
-  const body: Record<string, unknown> = {
+  const body: IncomeV2Input = {
+    id,
     name: payload.name,
-    personId: payload.personId,
+    personId: payload.personId ?? undefined,
     amount: payload.amount?.toString(),
     frequency: payload.frequency,
     startDate: payload.startDate,
-    endDate: payload.endDate,
     category: payload.category,
     growthRate: payload.growthRate?.toString(),
-    notes: payload.notes,
-  }
-  if (payload.cpfWageType !== undefined) body.cpfWageType = payload.cpfWageType
-  // Add updateMode for versioned updates
-  if (payload.updateMode !== undefined) {
-    body.updateMode = payload.updateMode
+    notes: payload.notes ?? undefined,
+    updateMode: payload.updateMode,
   }
 
   // Use v2 API for versioned update support
-  const data = await apiClient.put<any>(`/cashflow/incomes/${id}`, body, { baseUrl: '/api/v2' })
+  const data = await apiClient.put<ApiIncome>(`/cashflow/incomes/${id}`, body, { baseUrl: '/api/v2' })
   return toIncome(data)
 }
 
 // Stop an income (soft delete) - sets end_date
 export async function stopIncome(id: string, endDate: string): Promise<Income> {
-  const data = await apiClient.post<any>(`/cashflow/incomes/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
+  const body: StopInput = { endDate }
+  const data = await apiClient.post<ApiIncome>(`/cashflow/incomes/${id}/stop`, body, { baseUrl: '/api/v2' })
   return toIncome(data)
 }
 
@@ -173,9 +169,10 @@ export async function stopIncomeAllocation(
   allocationId: string,
   endDate: string // ISO 8601 format (e.g., "2031-03-31T23:59:59Z")
 ): Promise<IncomeAllocation> {
+  const body: StopAllocationDTO = { endDate }
   const data = await apiClient.post<IncomeAllocation>(
     `/incomes/${incomeId}/allocations/${allocationId}/stop`,
-    { endDate },
+    body,
     { baseUrl: '/api/v2' }
   )
   return data

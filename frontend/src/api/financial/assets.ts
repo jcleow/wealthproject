@@ -3,30 +3,35 @@ import { buildPaginatedPath } from './helpers'
 import { normalizePaginatedResponse, toAsset } from './transformers'
 import type { Asset, PaginatedResponse, PaginationParams } from '@/types/financial'
 import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
+import type {
+  NonCashAsset as ApiAsset,
+  AssetCreateInput,
+  AssetInput,
+  StopInput,
+} from '@/types/api.generated'
 
 export async function listAssets(params?: PaginationParams): Promise<PaginatedResponse<Asset>> {
   const path = buildPaginatedPath('/assets', params)
-  const data = await apiClient.get<any>(path, undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.get<{ data: ApiAsset[]; total?: number; limit?: number; offset?: number }>(path, undefined, { baseUrl: '/api/v2' })
   return normalizePaginatedResponse<Asset>(data, toAsset, params)
 }
 
 export async function createAsset(payload: Omit<Asset, 'id' | 'updatedAt'>): Promise<Asset> {
   // Use string for decimal values to avoid float64 precision loss (matches updateAsset)
-  const body: Record<string, unknown> = {
+  const body: AssetCreateInput = {
     name: payload.name,
     category: payload.category,
     currentValue: payload.currentValue?.toString(),
     annualGrowthRate: payload.annualGrowthRate?.toString(),
-    notes: payload.notes,
+    notes: payload.notes ?? undefined,
+    startDate: payload.startDate ?? undefined,
+    endDate: payload.endDate ?? undefined,
+    terminalValue: payload.terminalValue !== undefined && payload.terminalValue !== null
+      ? payload.terminalValue.toString()
+      : undefined,
   }
 
-  if (payload.startDate !== undefined) body.startDate = payload.startDate
-  if (payload.endDate !== undefined) body.endDate = payload.endDate
-  if (payload.terminalValue !== undefined && payload.terminalValue !== null) {
-    body.terminalValue = payload.terminalValue.toString()
-  }
-
-  const data = await apiClient.post<any>('/assets', body, { baseUrl: '/api/v2' })
+  const data = await apiClient.post<ApiAsset>('/assets', body, { baseUrl: '/api/v2' })
   return toAsset(data)
 }
 
@@ -37,32 +42,30 @@ export async function updateAsset(
   }
 ): Promise<Asset> {
   // Use string for decimal values to avoid float64 precision loss
-  const body: Record<string, unknown> = {
+  const body: AssetInput = {
+    id,
     name: payload.name,
     category: payload.category,
     currentValue: payload.currentValue?.toString(),
     annualGrowthRate: payload.annualGrowthRate?.toString(),
-    notes: payload.notes,
-    startDate: payload.startDate,
-    endDate: payload.endDate,
-  }
-  // Add terminal value fields
-  if (payload.terminalValue !== undefined && payload.terminalValue !== null) {
-    body.terminalValue = payload.terminalValue.toString()
-  }
-  // Add updateMode for versioned updates
-  if (payload.updateMode !== undefined) {
-    body.updateMode = payload.updateMode
+    notes: payload.notes ?? undefined,
+    startDate: payload.startDate ?? undefined,
+    endDate: payload.endDate ?? undefined,
+    terminalValue: payload.terminalValue !== undefined && payload.terminalValue !== null
+      ? payload.terminalValue.toString()
+      : undefined,
+    updateMode: payload.updateMode,
   }
 
   // Use v2 API for versioned update support
-  const data = await apiClient.put<any>(`/assets/${id}`, body, { baseUrl: '/api/v2' })
+  const data = await apiClient.put<ApiAsset>(`/assets/${id}`, body, { baseUrl: '/api/v2' })
   return toAsset(data)
 }
 
 // Stop an asset (soft delete) - sets end_date
 export async function stopAsset(id: string, endDate: string): Promise<Asset> {
-  const data = await apiClient.post<any>(`/assets/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
+  const body: StopInput = { endDate }
+  const data = await apiClient.post<ApiAsset>(`/assets/${id}/stop`, body, { baseUrl: '/api/v2' })
   return toAsset(data)
 }
 
@@ -79,7 +82,7 @@ export async function deleteAsset(id: string): Promise<void> {
 }
 
 export async function convertAssetToProperty(id: string): Promise<Asset> {
-  const data = await apiClient.put<any>(`/assets/${id}/convert-to-property`)
+  const data = await apiClient.put<ApiAsset>(`/assets/${id}/convert-to-property`)
   return toAsset(data)
 }
 
