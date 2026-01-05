@@ -183,14 +183,22 @@ func countAccountTargets(r FundFlowRule) int {
 // validateEntityOwnership verifies that all referenced entities in a rule belong to the specified user.
 // This prevents IDOR attacks where a user could reference another user's accounts/assets.
 // Uses a single UNION ALL query to validate all references in one database round-trip.
+//
+// Note on parameterized queries: This function uses fmt.Sprintf with "$%d" to dynamically
+// generate PostgreSQL placeholder numbers ($1, $2, etc.) since the number of parameters
+// varies based on which entity references are set. The actual values are passed via the
+// args slice to QueryRow, ensuring proper SQL injection protection. Table names are
+// hardcoded constants, not user input.
 func (s *Store) validateEntityOwnership(ctx context.Context, userID string, rule FundFlowRule) error {
-	// Build dynamic query parts for each non-nil entity reference
+	// Build dynamic query parts for each non-nil entity reference.
+	// argIdx tracks the next placeholder number ($1, $2, ...) for parameterized queries.
 	var expectedCount int
 	var queryParts []string
 	var args []any
 	argIdx := 1
 
-	// Helper to add a standard ownership check (table must have id and user_id columns)
+	// Helper to add a standard ownership check (table must have id and user_id columns).
+	// Uses $%d to generate placeholder numbers dynamically (e.g., $1, $2) - values are in args slice.
 	addCheck := func(table string, entityID *string) {
 		if entityID == nil {
 			return
