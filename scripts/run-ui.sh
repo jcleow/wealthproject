@@ -201,6 +201,23 @@ ensure_frontend_install() {
   )
 }
 
+generate_api_types() {
+  local frontend_dir="$1"
+  local swagger_file="${REPO_ROOT}/backend/cmd/server/docs/swagger.json"
+
+  if [[ ! -f "$swagger_file" ]]; then
+    echo "Swagger spec not found at ${swagger_file}, skipping API type generation."
+    return
+  fi
+
+  echo "Generating API types from Swagger spec..."
+  (
+    cd "$frontend_dir"
+    pnpm generate:api
+  )
+  echo "API types generated successfully."
+}
+
 extract_database_url() {
   if [[ -n "${DATABASE_URL:-}" ]]; then
     echo "$DATABASE_URL"
@@ -507,6 +524,7 @@ fi
 echo "Starting frontend on ${FRONTEND_PORT} (API http://localhost:${BACKEND_PORT}/api/v1)"
 (
   ensure_frontend_install "$FRONTEND_DIR"
+  generate_api_types "$FRONTEND_DIR"
   cd "$FRONTEND_DIR"
   PORT="${FRONTEND_PORT}" HOSTNAME="0.0.0.0" NEXT_CACHE_DIR="${FRONTEND_DIR}/.next/cache" GO_BACKEND_URL="http://localhost:${BACKEND_PORT}" pnpm run dev
 ) &
