@@ -660,12 +660,18 @@ export function useLoadSampleDataMutation() {
 
         // Create fund flow rules for property payment sources
         // These rules specify how downpayment and monthly mortgage payments are funded
-        if (propertyScenario && cpfAccount && jointSavingsAccount) {
-          const propertyId = propertyScenario.scenario.id
+        // Note: Fund flow rules FK references property_sg table, not property_scenarios
+        // Note: Backend JSON field is "propertySgId" (lowercase 'g')
+        const propertySgId = propertyScenario?.scenario.propertySgId
+        if (propertyScenario && propertySgId && cpfAccount && jointSavingsAccount) {
+          const propertyId = propertySgId
 
           // Payment rules follow priority order (lower = higher priority):
           // 1. CPF OA (priority 0) - use as much as available from CPF OA
           // 2. Cash (priority 1) - cover remainder from cash account
+          // Convert YYYY-MM to RFC3339 format for backend compatibility (time.RFC3339 parsing)
+          const startDateForRules = `${btoKeyCollectionDate}-01T00:00:00Z`
+
           const fundFlowRules: FundFlowRuleCreatePayload[] = [
             // Downpayment - CPF OA source (priority 0)
             {
@@ -675,7 +681,7 @@ export function useLoadSampleDataMutation() {
               targetPropertyId: propertyId,
               amountType: 'max_available',
               priority: 0,
-              startDate: btoKeyCollectionDate,
+              startDate: startDateForRules,
             },
             // Downpayment - Cash source (priority 1, covers remainder)
             {
@@ -685,7 +691,7 @@ export function useLoadSampleDataMutation() {
               targetPropertyId: propertyId,
               amountType: 'remainder',
               priority: 1,
-              startDate: btoKeyCollectionDate,
+              startDate: startDateForRules,
             },
             // Monthly payment - CPF OA source (priority 0)
             {
@@ -695,7 +701,7 @@ export function useLoadSampleDataMutation() {
               targetPropertyId: propertyId,
               amountType: 'max_available',
               priority: 0,
-              startDate: btoKeyCollectionDate,
+              startDate: startDateForRules,
             },
             // Monthly payment - Cash source (priority 1, covers remainder)
             {
@@ -705,12 +711,17 @@ export function useLoadSampleDataMutation() {
               targetPropertyId: propertyId,
               amountType: 'remainder',
               priority: 1,
-              startDate: btoKeyCollectionDate,
+              startDate: startDateForRules,
             },
           ]
 
           try {
-            await Promise.all(fundFlowRules.map(rule => fundFlowRulesApi.createFundFlowRule(rule)))
+            // Add delay to allow rate limiter to refill after all the previous API calls
+            await new Promise(resolve => setTimeout(resolve, 500))
+            // Create rules sequentially to avoid overwhelming rate limiter
+            for (const rule of fundFlowRules) {
+              await fundFlowRulesApi.createFundFlowRule(rule)
+            }
             console.debug('[loadSampleData] Created fund flow rules for property:', propertyId)
           } catch (ruleError) {
             console.error('[loadSampleData] Failed to create fund flow rules:', ruleError)

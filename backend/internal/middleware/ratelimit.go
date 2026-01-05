@@ -113,7 +113,7 @@ func RateLimit(rl *RateLimiter) func(http.Handler) http.Handler {
 }
 
 // DefaultRateLimiter returns a rate limiter with sensible defaults
-// 10 requests per second with a burst of 20
+// 100 requests per second with a burst of 200
 func DefaultRateLimiter() *RateLimiter {
-	return NewRateLimiter(10, 20)
+	return NewRateLimiter(100, 200)
 }
