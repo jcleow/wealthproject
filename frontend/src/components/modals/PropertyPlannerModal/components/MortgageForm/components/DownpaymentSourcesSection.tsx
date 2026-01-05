@@ -5,8 +5,7 @@ import { InfoTooltip } from '@/app/property-planner/components/InfoTooltip'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import { AmountTypeToggle, type AmountTypeOption } from './AmountTypeToggle'
 import { CurrencyInput, InlineCurrencyInput } from './CurrencyInput'
-import type { MortgageInputs } from '@/app/property-planner/types'
-import type { OnChangeHandler } from '../types'
+import { usePropertyFormInputs } from '../../../hooks'
 
 // Amount type options for downpayment CPF OA
 const DOWNPAYMENT_CPF_OA_AMOUNT_TYPE_OPTIONS: AmountTypeOption[] = [
@@ -27,19 +26,17 @@ interface CashAccountOption {
 }
 
 interface DownpaymentSourcesSectionProps {
-  inputs: MortgageInputs
-  onChange: OnChangeHandler
   cashAccountOptions: CashAccountOption[]
 }
 
 /**
  * Downpayment fund sources section - handles CPF OA and Cash for both borrowers.
+ * Uses form context for inputs/onChange - no prop drilling needed.
  */
 export function DownpaymentSourcesSection({
-  inputs,
-  onChange,
   cashAccountOptions,
 }: DownpaymentSourcesSectionProps) {
+  const { inputs, onChange } = usePropertyFormInputs()
   const isJoint = inputs.borrowerType === 'joint' && !!inputs.borrower2IncomeId
 
   return (

@@ -4,14 +4,27 @@ import { useMemo, useEffect, useRef } from 'react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { Wallet } from 'lucide-react'
 import { useCashAccountsQuery, usePropertyPaymentRulesQuery } from '@/hooks/queries'
+import { usePropertyFormInputs } from '../../hooks'
 
-import type { BorrowersStepProps, IncomeOption } from './types'
+import type { IncomeOption, ProjectedCpfAccount } from './types'
 import { DownpaymentSourcesSection } from './components/DownpaymentSourcesSection'
 import { MonthlyPaymentSourcesSection } from './components/MonthlyPaymentSourcesSection'
 
+interface BorrowersStepProps {
+  incomes: IncomeOption[]
+  cpfAccounts: ProjectedCpfAccount[]
+  exceedsHdbIncomeCeiling: boolean
+  exceedsEcIncomeCeiling: boolean
+  purchaseDateFormatted: string
+  householdIncome: number
+  propertySgId?: string | null
+}
+
+/**
+ * Borrowers step - handles borrower selection and fund sources.
+ * Uses form context for inputs/onChange - no prop drilling needed.
+ */
 export function BorrowersStep({
-  inputs,
-  onChange,
   incomes,
   cpfAccounts,
   exceedsHdbIncomeCeiling,
@@ -20,6 +33,7 @@ export function BorrowersStep({
   householdIncome,
   propertySgId,
 }: BorrowersStepProps) {
+  const { inputs, onChange } = usePropertyFormInputs()
   const { data: cashAccounts = [] } = useCashAccountsQuery()
 
   // Query fund flow rules for this property (only when editing existing scenario)
@@ -170,15 +184,11 @@ export function BorrowersStep({
 
       {/* Downpayment Sources Section */}
       <DownpaymentSourcesSection
-        inputs={inputs}
-        onChange={onChange}
         cashAccountOptions={cashAccountOptions}
       />
 
       {/* Monthly Payment Sources Section */}
       <MonthlyPaymentSourcesSection
-        inputs={inputs}
-        onChange={onChange}
         incomes={incomes}
         cashAccountOptions={cashAccountOptions}
       />
@@ -258,19 +268,21 @@ function BorrowerCard({
         )}
       </div>
 
-      <CustomSelect
-        value={incomeId}
-        onChange={(value) => onIncomeChange(value as string)}
-        options={incomeOptions}
-        className="w-full"
-      />
+      <div className="flex items-center gap-3">
+        <CustomSelect
+          value={incomeId}
+          onChange={(value) => onIncomeChange(value as string)}
+          options={incomeOptions}
+          className="flex-1"
+        />
 
-      {showOaBalance && (
-        <div className="mt-3 flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-          <span className="text-slate-500 text-xs">Projected OA at {purchaseDateFormatted}</span>
-          <span className="text-white text-sm font-mono tabular-nums">${oaBalance.toLocaleString()}</span>
-        </div>
-      )}
+        {showOaBalance && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] whitespace-nowrap">
+            <span className="text-slate-500 text-xs">OA at {purchaseDateFormatted}</span>
+            <span className="text-white text-sm font-mono tabular-nums">${oaBalance.toLocaleString()}</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

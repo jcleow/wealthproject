@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { FormProvider } from 'react-hook-form'
 import { usePropertyScenarioForm } from './hooks'
 import { AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -13,7 +14,6 @@ import type {
   FeeItem,
   AppreciationPeriod,
   LoanSegment,
-  StaggeredDownpayment,
   GrantItem,
 } from '@/app/property-planner/types'
 
@@ -447,8 +447,6 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     initializeWithScenario,
     resetToDefaults,
     markAsSaved,
-    updateInput,
-    updateSaleInput,
     updatePropertyType,
   } = usePropertyScenarioForm()
 
@@ -519,27 +517,6 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     }
   }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioPurchaseIcon, editingScenarioPurchaseIconColor, editingScenarioSaleIcon, editingScenarioSaleIconColor, editingScenario, updateMutation, markAsSaved])
 
-  const handleSaveAndClose = useCallback(() => {
-    if (editingScenarioId && selectedType) {
-      const updatedScenario: PropertyScenario = {
-        id: editingScenarioId,
-        name: editingScenarioName,
-        propertyType: selectedType,
-        inputs,
-        saleInputs,
-        isIncluded: editingScenario?.isIncluded ?? true,
-        createdAt: editingScenario?.createdAt ?? Date.now(),
-        purchaseIcon: editingScenarioPurchaseIcon,
-        purchaseIconColor: editingScenarioPurchaseIconColor,
-        saleIcon: editingScenarioSaleIcon,
-        saleIconColor: editingScenarioSaleIconColor,
-      }
-      const apiInput = frontendToApiCreateInput(updatedScenario)
-      updateMutation.mutate({ id: editingScenarioId, input: apiInput })
-    }
-    setEditingScenarioId(null)
-    resetToDefaults()
-  }, [editingScenarioId, editingScenarioName, inputs, saleInputs, selectedType, editingScenarioPurchaseIcon, editingScenarioPurchaseIconColor, editingScenarioSaleIcon, editingScenarioSaleIconColor, editingScenario, updateMutation, resetToDefaults])
 
   // Back button handler - shows confirmation if there are unsaved changes
   const handleBack = useCallback(() => {
@@ -566,22 +543,6 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
     const apiInput = frontendToApiCreateInput(scenario)
     createMutation.mutate(apiInput)
   }, [createMutation])
-
-  const handleInputChange = useCallback((
-    field: keyof MortgageInputs,
-    value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null,
-    shouldDirty = true
-  ) => {
-    updateInput(field, value as MortgageInputs[typeof field], shouldDirty)
-  }, [updateInput])
-
-  const handleSaleInputChange = useCallback((
-    field: keyof SaleInputs,
-    value: string | number | boolean | FeeItem[] | null,
-    shouldDirty = true
-  ) => {
-    updateSaleInput(field, value as SaleInputs[typeof field], shouldDirty)
-  }, [updateSaleInput])
 
   // Form field setters using React Hook Form
   const setSelectedType = useCallback((type: PropertyType | null) => {
@@ -685,7 +646,8 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
   const isEmbedded = !!onClose
 
   return (
-    <div className={cn("flex flex-col", isEmbedded ? "h-full" : "min-h-screen bg-gray-950")}>
+    <FormProvider {...form}>
+      <div className={cn("flex flex-col", isEmbedded ? "h-full" : "min-h-screen bg-gray-950")}>
       {!isEmbedded && (
         <>
           <div className="fixed inset-0 bg-gradient-to-br from-gray-950 via-gray-950 to-gray-900" />
@@ -712,39 +674,23 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
           ) : (
             <ScenarioDetailView
               key="scenario-detail"
-              selectedType={selectedType}
-              inputs={inputs}
-              saleInputs={saleInputs}
               activeResultsTab={activeResultsTab}
               editingScenario={editingScenario ?? null}
-              editingScenarioName={editingScenarioName}
-              editingScenarioPurchaseIcon={editingScenarioPurchaseIcon}
-              editingScenarioPurchaseIconColor={editingScenarioPurchaseIconColor}
-              editingScenarioPurchaseIconSearch={editingScenarioPurchaseIconSearch}
               editingScenarioSaleIcon={editingScenarioSaleIcon}
               editingScenarioSaleIconColor={editingScenarioSaleIconColor}
               editingScenarioSaleIconSearch={editingScenarioSaleIconSearch}
               isEmbedded={isEmbedded}
               computedValues={computedValues}
-              onInputChange={handleInputChange}
-              onSaleInputChange={handleSaleInputChange}
               onActiveResultsTabChange={handleTabChange}
-              onSelectedTypeChange={setSelectedType}
-              onEditingScenarioNameChange={setEditingScenarioName}
-              onEditingScenarioPurchaseIconChange={setEditingScenarioPurchaseIcon}
-              onEditingScenarioPurchaseIconColorChange={setEditingScenarioPurchaseIconColor}
-              onEditingScenarioPurchaseIconSearchChange={setEditingScenarioPurchaseIconSearch}
               onEditingScenarioSaleIconChange={setEditingScenarioSaleIcon}
               onEditingScenarioSaleIconColorChange={setEditingScenarioSaleIconColor}
               onEditingScenarioSaleIconSearchChange={setEditingScenarioSaleIconSearch}
-              onSaveAndClose={handleSaveAndClose}
               onBack={handleBack}
-              hasChanges={isDirty}
-              onJumpToDate={onJumpToDate}
             />
           )}
         </AnimatePresence>
       </div>
     </div>
+    </FormProvider>
   )
 }

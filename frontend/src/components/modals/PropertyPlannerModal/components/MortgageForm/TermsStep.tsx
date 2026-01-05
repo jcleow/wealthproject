@@ -2,14 +2,19 @@
 
 import { FormInput, FeeEditor } from '@/app/property-planner/components'
 import { formatCurrency } from '@/app/property-planner/hooks'
+import { usePropertyFormInputs } from '../../hooks'
+import type { PropertyType } from '@/app/property-planner/types'
 
-import type { TermsStepProps } from './types'
+interface TermsStepProps {
+  propertyType: PropertyType
+}
 
-export function TermsStep({
-  inputs,
-  onChange,
-  propertyType,
-}: TermsStepProps) {
+/**
+ * Terms step - handles ABSD and additional expenses.
+ * Uses form context for inputs/onChange - no prop drilling needed.
+ */
+export function TermsStep({ propertyType }: TermsStepProps) {
+  const { inputs, onChange } = usePropertyFormInputs()
   const isHDB = propertyType.includes('hdb')
 
   return (

@@ -10,18 +10,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 
-import type {
-  PropertyType,
-  PropertyScenario,
-  MortgageInputs,
-  SaleInputs,
-  FeeItem,
-  AppreciationPeriod,
-  LoanSegment,
-  StaggeredDownpayment,
-  GrantItem,
-} from '@/app/property-planner/types'
-
+import type { PropertyScenario } from '@/app/property-planner/types'
 import type { ComputedValues } from '@/types/propertyPlannerV2'
 import type { ProjectedCpfAccount } from './MortgageForm/types'
 
@@ -32,6 +21,7 @@ import {
 
 import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
 import { useCashAccountsQuery } from '@/hooks/queries/useCashAccountsQuery'
+import { usePropertyFormInputs, usePropertyFormSaleInputs } from '../hooks'
 
 import { propertyOptions } from '../constants'
 import { MortgageForm } from './MortgageForm'
@@ -39,19 +29,8 @@ import { SaleParametersForm } from './SaleParametersForm'
 import { TabbedResultsPanel, type ResultsTab } from './TabbedResultsPanel'
 
 interface ScenarioDetailViewProps {
-  selectedType: PropertyType
-  inputs: MortgageInputs
-  saleInputs: SaleInputs
   activeResultsTab: ResultsTab
   editingScenario: PropertyScenario | null
-  /** @deprecated Now handled in modal header - kept for standalone page */
-  editingScenarioName?: string
-  /** @deprecated Now handled in modal header - kept for standalone page */
-  editingScenarioPurchaseIcon?: string
-  /** @deprecated Now handled in modal header - kept for standalone page */
-  editingScenarioPurchaseIconColor?: string
-  /** @deprecated Now handled in modal header - kept for standalone page */
-  editingScenarioPurchaseIconSearch?: string
   /** Sale milestone icon name */
   editingScenarioSaleIcon?: string
   /** Sale milestone icon color */
@@ -59,39 +38,22 @@ interface ScenarioDetailViewProps {
   /** Sale milestone icon search query */
   editingScenarioSaleIconSearch?: string
   isEmbedded: boolean
-  /** @deprecated Use modal footer hasChanges indicator instead */
-  hasChanges?: boolean
   computedValues?: ComputedValues | null
-  onInputChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null) => void
-  onSaleInputChange: (field: keyof SaleInputs, value: string | number | boolean | FeeItem[] | null) => void
   onActiveResultsTabChange: (tab: ResultsTab) => void
-  /** @deprecated Now handled in modal header - kept for standalone page */
-  onSelectedTypeChange?: (type: PropertyType) => void
-  /** @deprecated Now handled in modal header - kept for standalone page */
-  onEditingScenarioNameChange?: (name: string) => void
-  /** @deprecated Now handled in modal header - kept for standalone page */
-  onEditingScenarioPurchaseIconChange?: (icon: string) => void
-  /** @deprecated Now handled in modal header - kept for standalone page */
-  onEditingScenarioPurchaseIconColorChange?: (color: string) => void
-  /** @deprecated Now handled in modal header - kept for standalone page */
-  onEditingScenarioPurchaseIconSearchChange?: (search: string) => void
   /** Callback to update sale icon */
   onEditingScenarioSaleIconChange?: (icon: string) => void
   /** Callback to update sale icon color */
   onEditingScenarioSaleIconColorChange?: (color: string) => void
   /** Callback to update sale icon search query */
   onEditingScenarioSaleIconSearchChange?: (search: string) => void
-  /** @deprecated Now handled in modal footer */
-  onSaveAndClose?: () => void
   onBack: () => void
-  /** @deprecated Now handled in modal header */
-  onJumpToDate?: (year: number, month: number) => void
 }
 
+/**
+ * ScenarioDetailView - displays the property scenario detail with forms and results.
+ * Uses form context for inputs - no prop drilling needed.
+ */
 export function ScenarioDetailView({
-  selectedType,
-  inputs,
-  saleInputs,
   activeResultsTab,
   editingScenario,
   editingScenarioSaleIcon,
@@ -99,14 +61,16 @@ export function ScenarioDetailView({
   editingScenarioSaleIconSearch,
   isEmbedded,
   computedValues = null,
-  onInputChange,
-  onSaleInputChange,
   onActiveResultsTabChange,
   onEditingScenarioSaleIconChange,
   onEditingScenarioSaleIconColorChange,
   onEditingScenarioSaleIconSearchChange,
   onBack,
 }: ScenarioDetailViewProps) {
+  const { inputs, onChange: onInputChange, propertyType } = usePropertyFormInputs()
+  const { saleInputs } = usePropertyFormSaleInputs()
+
+  const selectedType = propertyType ?? 'hdb-resale'
   const selectedOption = propertyOptions.find(o => o.id === selectedType)
   const calculation = useMemo(() => calculateMortgage(inputs), [inputs])
   const saleResult = useMemo(() =>
@@ -194,17 +158,12 @@ export function ScenarioDetailView({
             <AnimatePresence mode="wait">
               {activeResultsTab === 'purchase' ? (
                 <motion.div key="mortgage-form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
-                  <MortgageForm inputs={inputs} onChange={onInputChange} propertyType={selectedType} propertySgId={editingScenario?.propertySgId} />
+                  <MortgageForm propertySgId={editingScenario?.propertySgId} />
                 </motion.div>
               ) : activeResultsTab === 'sale' ? (
                 <motion.div key="sale-form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
                   <SaleParametersForm
-                    saleInputs={saleInputs}
-                    onSaleInputChange={onSaleInputChange}
                     saleResult={saleResult}
-                    propertyPrice={inputs.propertyPrice}
-                    propertyType={selectedType}
-                    borrowerType={inputs.borrowerType}
                     cpfAccounts={projectedCpfAccounts}
                     cashAccounts={cashAccounts}
                     saleIcon={editingScenarioSaleIcon}

@@ -6,8 +6,8 @@ import { CustomDropdown } from '@/components/modals/ScenarioEventModal/component
 import { AmountTypeToggle, type AmountTypeOption } from './AmountTypeToggle'
 import { CurrencyInput, InlineCurrencyInput } from './CurrencyInput'
 import { calculateMonthlyOaInflow } from '@/app/property-planner/hooks'
-import type { MortgageInputs } from '@/app/property-planner/types'
-import type { OnChangeHandler, IncomeOption } from '../types'
+import { usePropertyFormInputs } from '../../../hooks'
+import type { IncomeOption } from '../types'
 
 // Amount type options for monthly cash split configuration
 const MONTHLY_AMOUNT_TYPE_OPTIONS: AmountTypeOption[] = [
@@ -23,21 +23,19 @@ interface CashAccountOption {
 }
 
 interface MonthlyPaymentSourcesSectionProps {
-  inputs: MortgageInputs
-  onChange: OnChangeHandler
   incomes: IncomeOption[]
   cashAccountOptions: CashAccountOption[]
 }
 
 /**
  * Monthly payment fund sources section - handles CPF OA and Cash for both borrowers.
+ * Uses form context for inputs/onChange - no prop drilling needed.
  */
 export function MonthlyPaymentSourcesSection({
-  inputs,
-  onChange,
   incomes,
   cashAccountOptions,
 }: MonthlyPaymentSourcesSectionProps) {
+  const { inputs, onChange } = usePropertyFormInputs()
   const isJoint = inputs.borrowerType === 'joint' && !!inputs.borrower2IncomeId
 
   const borrower1Income = incomes.find(i => i.id === inputs.borrower1IncomeId)

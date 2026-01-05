@@ -10,12 +10,8 @@ import { CustomDropdown } from '@/components/modals/ScenarioEventModal/component
 import { InfoTooltip } from '@/app/property-planner/components/InfoTooltip'
 
 import type {
-  PropertyType,
-  SaleInputs,
   SaleResult,
-  FeeItem,
   SaleFormStep,
-  BorrowerType,
 } from '@/app/property-planner/types'
 import type { ProjectedCpfAccount } from './MortgageForm/types'
 import type { CashAccount } from '@/types/financial'
@@ -27,15 +23,10 @@ import {
 
 import { formatCurrency } from '@/app/property-planner/hooks'
 import { SALE_FORM_STEPS } from '@/app/property-planner/hooks/constants'
+import { usePropertyFormInputs, usePropertyFormSaleInputs } from '../hooks'
 
 interface SaleParametersFormProps {
-  saleInputs: SaleInputs
-  onSaleInputChange: (field: keyof SaleInputs, value: string | number | boolean | FeeItem[] | null) => void
   saleResult: SaleResult
-  propertyPrice: number
-  propertyType: PropertyType
-  /** Borrower type for per-borrower CPF refund display */
-  borrowerType: BorrowerType
   /** CPF accounts for refund destination selection */
   cpfAccounts: ProjectedCpfAccount[]
   /** Cash accounts for proceeds destination selection */
@@ -54,13 +45,12 @@ interface SaleParametersFormProps {
   onSaleIconSearchChange?: (search: string) => void
 }
 
+/**
+ * Sale parameters form - handles sale date, price, fees, and proceeds distribution.
+ * Uses form context for inputs - no prop drilling needed.
+ */
 export function SaleParametersForm({
-  saleInputs,
-  onSaleInputChange,
   saleResult,
-  propertyPrice,
-  propertyType,
-  borrowerType,
   cpfAccounts,
   cashAccounts,
   saleIcon = 'banknote',
@@ -70,8 +60,13 @@ export function SaleParametersForm({
   onSaleIconColorChange,
   onSaleIconSearchChange,
 }: SaleParametersFormProps) {
+  const { inputs, propertyType } = usePropertyFormInputs()
+  const { saleInputs, onSaleInputChange } = usePropertyFormSaleInputs()
+
   const [currentStep, setCurrentStep] = useState<SaleFormStep>('timing')
-  const isHDB = propertyType.includes('hdb')
+  const propertyPrice = inputs.propertyPrice
+  const borrowerType = inputs.borrowerType
+  const isHDB = propertyType?.includes('hdb') ?? false
   const displaySalePrice = saleInputs.expectedSalePrice || Math.round(propertyPrice * 1.2)
 
   const currentStepIndex = SALE_FORM_STEPS.findIndex(s => s.id === currentStep)
