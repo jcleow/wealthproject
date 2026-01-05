@@ -150,12 +150,16 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
   // Parse legacy total values first (for fallback)
   const legacyDownpaymentCpfOa = parseFloat(propertySG.downpaymentCpfOa)
   const legacyDownpaymentCash = parseFloat(propertySG.downpaymentCash)
+  const legacyDownpaymentCashAccountId = propertySG.downpaymentCashAccountId ?? null
+  const legacyMonthlyCashAccountId = propertySG.monthlyCashAccountId ?? null
 
   // Parse per-borrower values, falling back to legacy totals for borrower 1 if not set
   const borrower1DownpaymentCpfOa = parseFloat(propertySG.borrower1DownpaymentCpfOa ?? '0') || legacyDownpaymentCpfOa
   const borrower2DownpaymentCpfOa = parseFloat(propertySG.borrower2DownpaymentCpfOa ?? '0')
   const borrower1DownpaymentCashAmount = parseFloat(propertySG.borrower1DownpaymentCashAmount ?? '0') || legacyDownpaymentCash
   const borrower2DownpaymentCashAmount = parseFloat(propertySG.borrower2DownpaymentCashAmount ?? '0')
+  const borrower1DownpaymentCashAccountId = propertySG.borrower1DownpaymentCashAccountId ?? legacyDownpaymentCashAccountId
+  const borrower1MonthlyCashAccountId = propertySG.borrower1MonthlyCashAccountId ?? legacyMonthlyCashAccountId
 
   const inputs: MortgageInputs = {
     propertyPrice: parseFloat(propertySG.propertyPrice),
@@ -186,13 +190,13 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     borrower2DownpaymentCpfOa,
     borrower1MonthlyCpfOa: parseFloat(propertySG.borrower1MonthlyCpfOa ?? '0'),
     borrower2MonthlyCpfOa: parseFloat(propertySG.borrower2MonthlyCpfOa ?? '0'),
-    // Per-borrower cash account configuration (downpayment) - fallback to legacy totals for borrower 1
-    borrower1DownpaymentCashAccountId: propertySG.borrower1DownpaymentCashAccountId ?? null,
+    // Per-borrower cash account configuration (downpayment) - fallback to legacy for borrower 1
+    borrower1DownpaymentCashAccountId,
     borrower1DownpaymentCashAmount,
     borrower2DownpaymentCashAccountId: propertySG.borrower2DownpaymentCashAccountId ?? null,
     borrower2DownpaymentCashAmount,
-    // Per-borrower cash account configuration (monthly payment)
-    borrower1MonthlyCashAccountId: propertySG.borrower1MonthlyCashAccountId ?? null,
+    // Per-borrower cash account configuration (monthly payment) - fallback to legacy for borrower 1
+    borrower1MonthlyCashAccountId,
     borrower1MonthlyCashAmountType: propertySG.borrower1MonthlyCashAmountType ?? 'remainder',
     borrower1MonthlyCashAmount: parseFloat(propertySG.borrower1MonthlyCashAmount ?? '0'),
     borrower2MonthlyCashAccountId: propertySG.borrower2MonthlyCashAccountId ?? null,
