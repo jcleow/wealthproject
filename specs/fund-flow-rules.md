@@ -233,10 +233,7 @@ erDiagram
     fund_flow_rules ||--o| finance_liabilities : "target (payment)"
     fund_flow_rules ||--o| property_sg : "target (payment)"
 
-    %% Fallback relationships
-    fund_flow_rules ||--o| cpf_accounts : "fallback"
-    fund_flow_rules ||--o| finance_cash_accounts : "fallback"
-    fund_flow_rules ||--o| finance_investments : "fallback"
+    %% Note: No fallback columns - use priority-based multiple rules instead
 ```
 
 ### Source/Target Constraints by Rule Type
@@ -651,21 +648,15 @@ func executePaymentGroup(targetID string, rules []FundFlowRule, state BalanceMap
         sourceID := getSourceID(rule)
         sourceBalance := state[sourceID]
 
-        if sourceBalance.GreaterThanOrEqual(amount) {
-            // Full payment from source
-            state[sourceID] = sourceBalance.Sub(amount)
-            remaining = remaining.Sub(amount)
-        } else if fallbackID := getFallbackID(rule); fallbackID != "" {
-            // Partial from source, rest from fallback
-            state[sourceID] = decimal.Zero()
-            shortfall := amount.Sub(sourceBalance)
-            state[fallbackID] = state[fallbackID].Sub(shortfall)
-            remaining = remaining.Sub(amount)
-        } else {
-            // Insufficient funds - partial payment only
-            state[sourceID] = decimal.Zero()
-            remaining = remaining.Sub(sourceBalance)
+        // For max_available: use up to source balance
+        // For remainder: whatever is left after higher-priority rules
+        actualAmount := min(amount, sourceBalance, remaining)
+
+        if actualAmount.IsPositive() {
+            state[sourceID] = sourceBalance.Sub(actualAmount)
+            remaining = remaining.Sub(actualAmount)
         }
+        // Note: No fallback logic - next rule in priority order handles remainder
     }
 }
 ```
@@ -1203,33 +1194,35 @@ sequenceDiagram
     TL-->>TL: Record fund movements<br/>in response
 ```
 
-### Fallback Activation Flow
+### Priority-Based Rule Execution Flow
 
 ```mermaid
 flowchart TD
-    Start([Execute Payment Rule]) --> CheckSource
+    Start([Execute Payment Rules<br/>for Target]) --> SortRules["Sort rules by priority<br/>(lower = higher priority)"]
+    SortRules --> InitRemaining["remaining = required payment"]
+    InitRemaining --> NextRule
 
-    CheckSource{"Source balance<br/>≥ amount?"}
+    NextRule{"Next rule<br/>in priority order?"}
 
-    CheckSource -->|Yes| FullPay["Deduct full amount<br/>from source"]
-    FullPay --> Record["Record movement"]
-    Record --> Done([Done])
+    NextRule -->|Yes| CalcAmount["Calculate amount<br/>(based on amount_type)"]
+    CalcAmount --> CheckSource{"Source balance<br/>≥ amount?"}
+
+    CheckSource -->|Yes| FullPay["Deduct amount<br/>from source"]
+    FullPay --> UpdateRemaining["remaining -= amount"]
+    UpdateRemaining --> CheckDone
 
     CheckSource -->|No| Partial["Deduct available<br/>from source"]
-    Partial --> SetDepleted["Set wasDepleted = true"]
-    SetDepleted --> CheckFallback{"Has fallback<br/>account?"}
+    Partial --> UpdatePartial["remaining -= available"]
+    UpdatePartial --> CheckDone
 
-    CheckFallback -->|Yes| CalcShortfall["Calculate shortfall"]
-    CalcShortfall --> DeductFallback["Deduct shortfall<br/>from fallback"]
-    DeductFallback --> RecordBoth["Record both<br/>movements"]
-    RecordBoth --> Done
+    CheckDone{"remaining = 0?"}
+    CheckDone -->|Yes| Done([All paid ✓])
+    CheckDone -->|No| NextRule
 
-    CheckFallback -->|No| PartialOnly["Partial payment only<br/>(underfunded)"]
-    PartialOnly --> RecordPartial["Record partial<br/>movement"]
-    RecordPartial --> Done
+    NextRule -->|No| Underfunded([Partial payment<br/>remaining unpaid])
 
     style CheckSource fill:#fff4e8,stroke:#f80
-    style CheckFallback fill:#fff4e8,stroke:#f80
+    style CheckDone fill:#e8ffe8,stroke:#0a0
 ```
 
 ---

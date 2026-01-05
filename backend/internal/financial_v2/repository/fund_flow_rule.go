@@ -283,18 +283,16 @@ func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule Fund
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at`
 
-	args := []any{
+	logQuery(query, []any{userID, rule.Name, rule.RuleType})
+
+	var created FundFlowRule
+	err := s.pool.QueryRow(ctx, query,
 		userID, rule.Name, rule.RuleType,
 		rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID, rule.SourcePropertyID,
 		rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID,
 		rule.AmountType, rule.AmountValue, rule.Priority,
 		startDate, rule.EndDate,
-	}
-
-	logQuery(query, args)
-
-	var created FundFlowRule
-	err := s.pool.QueryRow(ctx, query, args...).Scan(
+	).Scan(
 		&created.ID, &created.UserID, &created.Name, &created.RuleType,
 		&created.SourceIncomeID, &created.SourceCpfAccountID, &created.SourceCashAccountID, &created.SourceInvestmentID, &created.SourcePropertyID,
 		&created.TargetCpfAccountID, &created.TargetCashAccountID, &created.TargetInvestmentID, &created.TargetLiabilityID, &created.TargetPropertyID,
@@ -446,19 +444,17 @@ func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule Fund
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at`
 
-	args := []any{
+	logQuery(query, []any{rule.ID, userID, rule.Name, rule.RuleType})
+
+	var updated FundFlowRule
+	err := s.pool.QueryRow(ctx, query,
 		rule.ID, userID,
 		rule.Name, rule.RuleType,
 		rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID, rule.SourcePropertyID,
 		rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID,
 		rule.AmountType, rule.AmountValue, rule.Priority,
 		rule.StartDate, rule.EndDate,
-	}
-
-	logQuery(query, args)
-
-	var updated FundFlowRule
-	err := s.pool.QueryRow(ctx, query, args...).Scan(
+	).Scan(
 		&updated.ID, &updated.UserID, &updated.Name, &updated.RuleType,
 		&updated.SourceIncomeID, &updated.SourceCpfAccountID, &updated.SourceCashAccountID, &updated.SourceInvestmentID, &updated.SourcePropertyID,
 		&updated.TargetCpfAccountID, &updated.TargetCashAccountID, &updated.TargetInvestmentID, &updated.TargetLiabilityID, &updated.TargetPropertyID,

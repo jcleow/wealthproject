@@ -74,6 +74,22 @@ type createPropertySGRequest struct {
 	Borrower2DownpaymentCpfOa string `json:"borrower2DownpaymentCpfOa"`
 	Borrower1MonthlyCpfOa     string `json:"borrower1MonthlyCpfOa"`
 	Borrower2MonthlyCpfOa     string `json:"borrower2MonthlyCpfOa"`
+	// Per-borrower cash account configuration (downpayment)
+	Borrower1DownpaymentCashAccountID *string `json:"borrower1DownpaymentCashAccountId"`
+	Borrower1DownpaymentCashAmount    string  `json:"borrower1DownpaymentCashAmount"`
+	Borrower2DownpaymentCashAccountID *string `json:"borrower2DownpaymentCashAccountId"`
+	Borrower2DownpaymentCashAmount    string  `json:"borrower2DownpaymentCashAmount"`
+	// Per-borrower cash account configuration (monthly payment)
+	Borrower1MonthlyCashAccountID  *string `json:"borrower1MonthlyCashAccountId"`
+	Borrower1MonthlyCashAmountType *string `json:"borrower1MonthlyCashAmountType"` // 'fixed', 'percentage', 'remainder'
+	Borrower1MonthlyCashAmount     string  `json:"borrower1MonthlyCashAmount"`
+	Borrower2MonthlyCashAccountID  *string `json:"borrower2MonthlyCashAccountId"`
+	Borrower2MonthlyCashAmountType *string `json:"borrower2MonthlyCashAmountType"` // 'fixed', 'percentage', 'remainder'
+	Borrower2MonthlyCashAmount     string  `json:"borrower2MonthlyCashAmount"`
+	// Sale proceeds destination accounts
+	Borrower1CpfRefundAccountID *string `json:"borrower1CpfRefundAccountId"`
+	Borrower2CpfRefundAccountID *string `json:"borrower2CpfRefundAccountId"`
+	NetCashProceedsAccountID    *string `json:"netCashProceedsAccountId"`
 }
 
 type createFeeRequest struct {
@@ -602,6 +618,22 @@ func toPropertySGParams(req *createPropertySGRequest) *property.CreatePropertySG
 		Borrower2DownpaymentCpfOa: req.Borrower2DownpaymentCpfOa,
 		Borrower1MonthlyCpfOa:     req.Borrower1MonthlyCpfOa,
 		Borrower2MonthlyCpfOa:     req.Borrower2MonthlyCpfOa,
+		// Per-borrower cash account configuration (downpayment)
+		Borrower1DownpaymentCashAccountID: req.Borrower1DownpaymentCashAccountID,
+		Borrower1DownpaymentCashAmount:    req.Borrower1DownpaymentCashAmount,
+		Borrower2DownpaymentCashAccountID: req.Borrower2DownpaymentCashAccountID,
+		Borrower2DownpaymentCashAmount:    req.Borrower2DownpaymentCashAmount,
+		// Per-borrower cash account configuration (monthly payment)
+		Borrower1MonthlyCashAccountID:  req.Borrower1MonthlyCashAccountID,
+		Borrower1MonthlyCashAmountType: req.Borrower1MonthlyCashAmountType,
+		Borrower1MonthlyCashAmount:     req.Borrower1MonthlyCashAmount,
+		Borrower2MonthlyCashAccountID:  req.Borrower2MonthlyCashAccountID,
+		Borrower2MonthlyCashAmountType: req.Borrower2MonthlyCashAmountType,
+		Borrower2MonthlyCashAmount:     req.Borrower2MonthlyCashAmount,
+		// Sale proceeds destination accounts
+		Borrower1CpfRefundAccountID: req.Borrower1CpfRefundAccountID,
+		Borrower2CpfRefundAccountID: req.Borrower2CpfRefundAccountID,
+		NetCashProceedsAccountID:    req.NetCashProceedsAccountID,
 	}
 }
 

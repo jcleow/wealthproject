@@ -70,8 +70,12 @@ type PropertySG struct {
 	Borrower2MonthlyCashAccountID  *string         `json:"borrower2MonthlyCashAccountId"`
 	Borrower2MonthlyCashAmountType string          `json:"borrower2MonthlyCashAmountType"` // 'fixed', 'percentage', 'remainder'
 	Borrower2MonthlyCashAmount     decimal.Decimal `json:"borrower2MonthlyCashAmount"`
-	CreatedAt                      time.Time       `json:"createdAt"`
-	UpdatedAt                      time.Time       `json:"updatedAt"`
+	// Sale proceeds destination accounts
+	Borrower1CpfRefundAccountID *string `json:"borrower1CpfRefundAccountId"` // CPF OA to receive borrower 1's refund
+	Borrower2CpfRefundAccountID *string `json:"borrower2CpfRefundAccountId"` // CPF OA to receive borrower 2's refund (joint only)
+	NetCashProceedsAccountID    *string `json:"netCashProceedsAccountId"`    // Cash account to receive net proceeds
+	CreatedAt                   time.Time       `json:"createdAt"`
+	UpdatedAt                   time.Time       `json:"updatedAt"`
 }
 
 // PropertyFee represents a purchase, sale, or recurring fee
@@ -191,6 +195,10 @@ type CreatePropertySGInput struct {
 	Borrower2MonthlyCashAccountID  *string          `json:"borrower2MonthlyCashAccountId"`
 	Borrower2MonthlyCashAmountType *string          `json:"borrower2MonthlyCashAmountType"` // 'fixed', 'percentage', 'remainder'
 	Borrower2MonthlyCashAmount     *decimal.Decimal `json:"borrower2MonthlyCashAmount"`
+	// Sale proceeds destination accounts
+	Borrower1CpfRefundAccountID *string `json:"borrower1CpfRefundAccountId"`
+	Borrower2CpfRefundAccountID *string `json:"borrower2CpfRefundAccountId"`
+	NetCashProceedsAccountID    *string `json:"netCashProceedsAccountId"`
 }
 
 // CreateFeeInput is the input for creating a property fee
@@ -411,10 +419,11 @@ func (s *Store) createPropertySG(ctx context.Context, tx pgx.Tx, input *CreatePr
 			borrower1_downpayment_cash_account_id, borrower1_downpayment_cash_amount,
 			borrower2_downpayment_cash_account_id, borrower2_downpayment_cash_amount,
 			borrower1_monthly_cash_account_id, borrower1_monthly_cash_amount_type, borrower1_monthly_cash_amount,
-			borrower2_monthly_cash_account_id, borrower2_monthly_cash_amount_type, borrower2_monthly_cash_amount
+			borrower2_monthly_cash_account_id, borrower2_monthly_cash_amount_type, borrower2_monthly_cash_amount,
+			borrower1_cpf_refund_account_id, borrower2_cpf_refund_account_id, net_cash_proceeds_account_id
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29,
-			$30, $31, $32, $33, $34, $35, $36, $37, $38, $39
+			$30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42
 		) RETURNING id
 	`,
 		input.Name, input.PropertyType, input.PropertySubtype,
@@ -433,6 +442,7 @@ func (s *Store) createPropertySG(ctx context.Context, tx pgx.Tx, input *CreatePr
 		input.Borrower2DownpaymentCashAccountID, borrower2DownpaymentCashAmount,
 		input.Borrower1MonthlyCashAccountID, borrower1MonthlyCashAmountType, borrower1MonthlyCashAmount,
 		input.Borrower2MonthlyCashAccountID, borrower2MonthlyCashAmountType, borrower2MonthlyCashAmount,
+		input.Borrower1CpfRefundAccountID, input.Borrower2CpfRefundAccountID, input.NetCashProceedsAccountID,
 	).Scan(&id)
 
 	if err != nil {
@@ -619,6 +629,7 @@ func (s *Store) getPropertySG(ctx context.Context, id string) (*PropertySG, erro
 			borrower2_downpayment_cash_account_id, borrower2_downpayment_cash_amount,
 			borrower1_monthly_cash_account_id, borrower1_monthly_cash_amount_type, borrower1_monthly_cash_amount,
 			borrower2_monthly_cash_account_id, borrower2_monthly_cash_amount_type, borrower2_monthly_cash_amount,
+			borrower1_cpf_refund_account_id, borrower2_cpf_refund_account_id, net_cash_proceeds_account_id,
 			created_at, updated_at
 		FROM property_sg WHERE id = $1
 	`, id).Scan(
@@ -638,6 +649,7 @@ func (s *Store) getPropertySG(ctx context.Context, id string) (*PropertySG, erro
 		&details.Borrower2DownpaymentCashAccountID, &details.Borrower2DownpaymentCashAmount,
 		&details.Borrower1MonthlyCashAccountID, &details.Borrower1MonthlyCashAmountType, &details.Borrower1MonthlyCashAmount,
 		&details.Borrower2MonthlyCashAccountID, &details.Borrower2MonthlyCashAmountType, &details.Borrower2MonthlyCashAmount,
+		&details.Borrower1CpfRefundAccountID, &details.Borrower2CpfRefundAccountID, &details.NetCashProceedsAccountID,
 		&details.CreatedAt, &details.UpdatedAt,
 	)
 	if err != nil {
@@ -977,6 +989,7 @@ func (s *Store) updatePropertySG(ctx context.Context, tx pgx.Tx, id string, inpu
 			borrower2_downpayment_cash_account_id = $33, borrower2_downpayment_cash_amount = $34,
 			borrower1_monthly_cash_account_id = $35, borrower1_monthly_cash_amount_type = $36, borrower1_monthly_cash_amount = $37,
 			borrower2_monthly_cash_account_id = $38, borrower2_monthly_cash_amount_type = $39, borrower2_monthly_cash_amount = $40,
+			borrower1_cpf_refund_account_id = $41, borrower2_cpf_refund_account_id = $42, net_cash_proceeds_account_id = $43,
 			updated_at = NOW()
 		WHERE id = $1
 	`,
@@ -997,6 +1010,7 @@ func (s *Store) updatePropertySG(ctx context.Context, tx pgx.Tx, id string, inpu
 		input.Borrower2DownpaymentCashAccountID, borrower2DownpaymentCashAmount,
 		input.Borrower1MonthlyCashAccountID, borrower1MonthlyCashAmountType, borrower1MonthlyCashAmount,
 		input.Borrower2MonthlyCashAccountID, borrower2MonthlyCashAmountType, borrower2MonthlyCashAmount,
+		input.Borrower1CpfRefundAccountID, input.Borrower2CpfRefundAccountID, input.NetCashProceedsAccountID,
 	)
 
 	return err
