@@ -32,27 +32,27 @@ func TestExecutePaymentRules_SingleSourceCoversFullPayment(t *testing.T) {
 		{
 			ID:                 "rule-1",
 			Name:               "Mortgage from CPF",
-			RuleType:           "payment",
+			RuleType:           RuleTypePayment,
 			SourceCpfAccountID: strPtr("cpf-oa-123"),
 			TargetLiabilityID:  strPtr("mortgage-456"),
-			AmountType:         "max_available",
+			AmountType:         AmountTypeMaxAvailable,
 			Priority:           0,
 			StartDate:          dt(2025, 1, 1),
 		},
 	}
 
-	state := map[string]*decimal.Decimal{
+	sourceBalances := SourceBalanceMap{
 		"cpf-oa-123":   dec("50000"), // $50,000 in CPF OA
 		"mortgage-456": dec("400000"), // $400,000 mortgage balance
 	}
 
-	requiredPayments := map[string]*decimal.Decimal{
+	requiredPayments := RequiredPaymentMap{
 		"mortgage-456": dec("2500"), // $2,500 monthly payment
 	}
 
 	currentDate := dt(2025, 6, 1)
 
-	result := executePaymentRules(rules, state, requiredPayments, currentDate)
+	result := executePaymentRules(rules, sourceBalances, requiredPayments, currentDate)
 
 	// Verify payment was made
 	if len(result.PaymentsByTarget) != 1 {
@@ -70,8 +70,8 @@ func TestExecutePaymentRules_SingleSourceCoversFullPayment(t *testing.T) {
 		t.Errorf("expected payment amount %s, got %s", expectedAmount.String(), payment.Amount.String())
 	}
 
-	if payment.SourceType != "cpf" {
-		t.Errorf("expected source type 'cpf', got '%s'", payment.SourceType)
+	if payment.SourceType != SourceTypeCPF {
+		t.Errorf("expected source type '%s', got '%s'", SourceTypeCPF, payment.SourceType)
 	}
 
 	if payment.WasFallback {
@@ -80,8 +80,8 @@ func TestExecutePaymentRules_SingleSourceCoversFullPayment(t *testing.T) {
 
 	// Verify CPF balance was reduced
 	expectedCPF := dec("47500") // 50000 - 2500
-	if state["cpf-oa-123"].Cmp(expectedCPF) != 0 {
-		t.Errorf("expected CPF balance %s, got %s", expectedCPF.String(), state["cpf-oa-123"].String())
+	if sourceBalances["cpf-oa-123"].Cmp(expectedCPF) != 0 {
+		t.Errorf("expected CPF balance %s, got %s", expectedCPF.String(), sourceBalances["cpf-oa-123"].String())
 	}
 }
 
@@ -93,38 +93,38 @@ func TestExecutePaymentRules_FallbackToSecondarySource(t *testing.T) {
 		{
 			ID:                 "rule-1",
 			Name:               "Mortgage from CPF",
-			RuleType:           "payment",
+			RuleType:           RuleTypePayment,
 			SourceCpfAccountID: strPtr("cpf-oa-123"),
 			TargetLiabilityID:  strPtr("mortgage-456"),
-			AmountType:         "max_available",
+			AmountType:         AmountTypeMaxAvailable,
 			Priority:           0,
 			StartDate:          dt(2025, 1, 1),
 		},
 		{
 			ID:                  "rule-2",
 			Name:                "Mortgage from Cash",
-			RuleType:            "payment",
+			RuleType:            RuleTypePayment,
 			SourceCashAccountID: strPtr("savings-789"),
 			TargetLiabilityID:   strPtr("mortgage-456"),
-			AmountType:          "remainder",
+			AmountType:          AmountTypeRemainder,
 			Priority:            1,
 			StartDate:           dt(2025, 1, 1),
 		},
 	}
 
-	state := map[string]*decimal.Decimal{
+	sourceBalances := SourceBalanceMap{
 		"cpf-oa-123":   dec("1000"),  // Only $1,000 in CPF OA
 		"savings-789":  dec("20000"), // $20,000 in savings
 		"mortgage-456": dec("400000"),
 	}
 
-	requiredPayments := map[string]*decimal.Decimal{
+	requiredPayments := RequiredPaymentMap{
 		"mortgage-456": dec("2500"), // $2,500 monthly payment
 	}
 
 	currentDate := dt(2025, 6, 1)
 
-	result := executePaymentRules(rules, state, requiredPayments, currentDate)
+	result := executePaymentRules(rules, sourceBalances, requiredPayments, currentDate)
 
 	payments := result.PaymentsByTarget["mortgage-456"]
 	if len(payments) != 2 {
@@ -150,11 +150,11 @@ func TestExecutePaymentRules_FallbackToSecondarySource(t *testing.T) {
 	}
 
 	// Verify balances
-	if state["cpf-oa-123"].Cmp(dec("0")) != 0 {
-		t.Errorf("expected CPF depleted to $0, got %s", state["cpf-oa-123"].String())
+	if sourceBalances["cpf-oa-123"].Cmp(dec("0")) != 0 {
+		t.Errorf("expected CPF depleted to $0, got %s", sourceBalances["cpf-oa-123"].String())
 	}
-	if state["savings-789"].Cmp(dec("18500")) != 0 {
-		t.Errorf("expected savings at $18500, got %s", state["savings-789"].String())
+	if sourceBalances["savings-789"].Cmp(dec("18500")) != 0 {
+		t.Errorf("expected savings at $18500, got %s", sourceBalances["savings-789"].String())
 	}
 }
 
@@ -169,23 +169,23 @@ func TestExecutePaymentRules_FixedAmountType(t *testing.T) {
 			RuleType:           "payment",
 			SourceCpfAccountID: strPtr("cpf-oa-123"),
 			TargetLiabilityID:  strPtr("mortgage-456"),
-			AmountType:         "fixed",
+			AmountType:         AmountTypeFixed,
 			AmountValue:        dec("2000"),
 			Priority:           0,
 			StartDate:          dt(2025, 1, 1),
 		},
 	}
 
-	state := map[string]*decimal.Decimal{
+	sourceBalances := SourceBalanceMap{
 		"cpf-oa-123":   dec("50000"),
 		"mortgage-456": dec("400000"),
 	}
 
-	requiredPayments := map[string]*decimal.Decimal{
+	requiredPayments := RequiredPaymentMap{
 		"mortgage-456": dec("2500"),
 	}
 
-	result := executePaymentRules(rules, state, requiredPayments, dt(2025, 6, 1))
+	result := executePaymentRules(rules, sourceBalances, requiredPayments, dt(2025, 6, 1))
 
 	payments := result.PaymentsByTarget["mortgage-456"]
 	if len(payments) != 1 {
@@ -198,8 +198,8 @@ func TestExecutePaymentRules_FixedAmountType(t *testing.T) {
 	}
 
 	// CPF should be reduced by $2,000
-	if state["cpf-oa-123"].Cmp(dec("48000")) != 0 {
-		t.Errorf("expected CPF at $48000, got %s", state["cpf-oa-123"].String())
+	if sourceBalances["cpf-oa-123"].Cmp(dec("48000")) != 0 {
+		t.Errorf("expected CPF at $48000, got %s", sourceBalances["cpf-oa-123"].String())
 	}
 }
 
@@ -211,10 +211,10 @@ func TestExecutePaymentRules_PercentageOfTarget(t *testing.T) {
 		{
 			ID:                 "rule-1",
 			Name:               "60% from CPF",
-			RuleType:           "payment",
+			RuleType:           RuleTypePayment,
 			SourceCpfAccountID: strPtr("cpf-oa-123"),
 			TargetLiabilityID:  strPtr("mortgage-456"),
-			AmountType:         "pct_target",
+			AmountType:         AmountTypePctTarget,
 			AmountValue:        dec("60"),
 			Priority:           0,
 			StartDate:          dt(2025, 1, 1),
@@ -222,26 +222,26 @@ func TestExecutePaymentRules_PercentageOfTarget(t *testing.T) {
 		{
 			ID:                  "rule-2",
 			Name:                "Remainder from Cash",
-			RuleType:            "payment",
+			RuleType:            RuleTypePayment,
 			SourceCashAccountID: strPtr("savings-789"),
 			TargetLiabilityID:   strPtr("mortgage-456"),
-			AmountType:          "remainder",
+			AmountType:          AmountTypeRemainder,
 			Priority:            1,
 			StartDate:           dt(2025, 1, 1),
 		},
 	}
 
-	state := map[string]*decimal.Decimal{
+	sourceBalances := SourceBalanceMap{
 		"cpf-oa-123":   dec("50000"),
 		"savings-789":  dec("20000"),
 		"mortgage-456": dec("400000"),
 	}
 
-	requiredPayments := map[string]*decimal.Decimal{
+	requiredPayments := RequiredPaymentMap{
 		"mortgage-456": dec("2500"),
 	}
 
-	result := executePaymentRules(rules, state, requiredPayments, dt(2025, 6, 1))
+	result := executePaymentRules(rules, sourceBalances, requiredPayments, dt(2025, 6, 1))
 
 	payments := result.PaymentsByTarget["mortgage-456"]
 	if len(payments) != 2 {
@@ -267,27 +267,27 @@ func TestExecutePaymentRules_InactiveRuleSkipped(t *testing.T) {
 		{
 			ID:                 "rule-1",
 			Name:               "Future Rule",
-			RuleType:           "payment",
+			RuleType:           RuleTypePayment,
 			SourceCpfAccountID: strPtr("cpf-oa-123"),
 			TargetLiabilityID:  strPtr("mortgage-456"),
-			AmountType:         "max_available",
+			AmountType:         AmountTypeMaxAvailable,
 			Priority:           0,
 			StartDate:          dt(2026, 1, 1), // Starts in the future
 		},
 	}
 
-	state := map[string]*decimal.Decimal{
+	sourceBalances := SourceBalanceMap{
 		"cpf-oa-123":   dec("50000"),
 		"mortgage-456": dec("400000"),
 	}
 
-	requiredPayments := map[string]*decimal.Decimal{
+	requiredPayments := RequiredPaymentMap{
 		"mortgage-456": dec("2500"),
 	}
 
 	currentDate := dt(2025, 6, 1) // Before rule starts
 
-	result := executePaymentRules(rules, state, requiredPayments, currentDate)
+	result := executePaymentRules(rules, sourceBalances, requiredPayments, currentDate)
 
 	// No payments should be made
 	if len(result.PaymentsByTarget) != 0 {
@@ -295,8 +295,8 @@ func TestExecutePaymentRules_InactiveRuleSkipped(t *testing.T) {
 	}
 
 	// Balance should be unchanged
-	if state["cpf-oa-123"].Cmp(dec("50000")) != 0 {
-		t.Errorf("expected CPF unchanged at $50000, got %s", state["cpf-oa-123"].String())
+	if sourceBalances["cpf-oa-123"].Cmp(dec("50000")) != 0 {
+		t.Errorf("expected CPF unchanged at $50000, got %s", sourceBalances["cpf-oa-123"].String())
 	}
 }
 
@@ -308,37 +308,37 @@ func TestExecutePaymentRules_MultipleTargets(t *testing.T) {
 		{
 			ID:                  "rule-1",
 			Name:                "Mortgage from Cash",
-			RuleType:            "payment",
+			RuleType:            RuleTypePayment,
 			SourceCashAccountID: strPtr("savings-789"),
 			TargetLiabilityID:   strPtr("mortgage-456"),
-			AmountType:          "target_required",
+			AmountType:          AmountTypeTargetRequired,
 			Priority:            0,
 			StartDate:           dt(2025, 1, 1),
 		},
 		{
 			ID:                  "rule-2",
 			Name:                "Car Loan from Cash",
-			RuleType:            "payment",
+			RuleType:            RuleTypePayment,
 			SourceCashAccountID: strPtr("savings-789"),
 			TargetLiabilityID:   strPtr("car-loan-111"),
-			AmountType:          "target_required",
+			AmountType:          AmountTypeTargetRequired,
 			Priority:            0,
 			StartDate:           dt(2025, 1, 1),
 		},
 	}
 
-	state := map[string]*decimal.Decimal{
+	sourceBalances := SourceBalanceMap{
 		"savings-789":  dec("20000"),
 		"mortgage-456": dec("400000"),
 		"car-loan-111": dec("30000"),
 	}
 
-	requiredPayments := map[string]*decimal.Decimal{
+	requiredPayments := RequiredPaymentMap{
 		"mortgage-456": dec("2500"),
 		"car-loan-111": dec("500"),
 	}
 
-	result := executePaymentRules(rules, state, requiredPayments, dt(2025, 6, 1))
+	result := executePaymentRules(rules, sourceBalances, requiredPayments, dt(2025, 6, 1))
 
 	// Both targets should have payments
 	if len(result.PaymentsByTarget) != 2 {
@@ -346,8 +346,8 @@ func TestExecutePaymentRules_MultipleTargets(t *testing.T) {
 	}
 
 	// Savings should be reduced by total: $2,500 + $500 = $3,000
-	if state["savings-789"].Cmp(dec("17000")) != 0 {
-		t.Errorf("expected savings at $17000, got %s", state["savings-789"].String())
+	if sourceBalances["savings-789"].Cmp(dec("17000")) != 0 {
+		t.Errorf("expected savings at $17000, got %s", sourceBalances["savings-789"].String())
 	}
 }
 
@@ -359,36 +359,36 @@ func TestExecutePaymentRules_InsufficientFundsPartialPayment(t *testing.T) {
 		{
 			ID:                 "rule-1",
 			Name:               "Mortgage from CPF",
-			RuleType:           "payment",
+			RuleType:           RuleTypePayment,
 			SourceCpfAccountID: strPtr("cpf-oa-123"),
 			TargetLiabilityID:  strPtr("mortgage-456"),
-			AmountType:         "max_available",
+			AmountType:         AmountTypeMaxAvailable,
 			Priority:           0,
 			StartDate:          dt(2025, 1, 1),
 		},
 		{
 			ID:                  "rule-2",
 			Name:                "Mortgage from Cash",
-			RuleType:            "payment",
+			RuleType:            RuleTypePayment,
 			SourceCashAccountID: strPtr("savings-789"),
 			TargetLiabilityID:   strPtr("mortgage-456"),
-			AmountType:          "max_available",
+			AmountType:          AmountTypeMaxAvailable,
 			Priority:            1,
 			StartDate:           dt(2025, 1, 1),
 		},
 	}
 
-	state := map[string]*decimal.Decimal{
+	sourceBalances := SourceBalanceMap{
 		"cpf-oa-123":   dec("1000"), // Only $1,000
 		"savings-789":  dec("500"),  // Only $500
 		"mortgage-456": dec("400000"),
 	}
 
-	requiredPayments := map[string]*decimal.Decimal{
+	requiredPayments := RequiredPaymentMap{
 		"mortgage-456": dec("2500"), // Needs $2,500
 	}
 
-	result := executePaymentRules(rules, state, requiredPayments, dt(2025, 6, 1))
+	result := executePaymentRules(rules, sourceBalances, requiredPayments, dt(2025, 6, 1))
 
 	payments := result.PaymentsByTarget["mortgage-456"]
 	if len(payments) != 2 {
@@ -402,11 +402,11 @@ func TestExecutePaymentRules_InsufficientFundsPartialPayment(t *testing.T) {
 	}
 
 	// Both sources should be depleted
-	if state["cpf-oa-123"].Cmp(dec("0")) != 0 {
-		t.Errorf("expected CPF depleted, got %s", state["cpf-oa-123"].String())
+	if sourceBalances["cpf-oa-123"].Cmp(dec("0")) != 0 {
+		t.Errorf("expected CPF depleted, got %s", sourceBalances["cpf-oa-123"].String())
 	}
-	if state["savings-789"].Cmp(dec("0")) != 0 {
-		t.Errorf("expected savings depleted, got %s", state["savings-789"].String())
+	if sourceBalances["savings-789"].Cmp(dec("0")) != 0 {
+		t.Errorf("expected savings depleted, got %s", sourceBalances["savings-789"].String())
 	}
 }
 
@@ -418,25 +418,25 @@ func TestExecutePaymentRules_ZeroRequiredPayment(t *testing.T) {
 		{
 			ID:                 "rule-1",
 			Name:               "Mortgage from CPF",
-			RuleType:           "payment",
+			RuleType:           RuleTypePayment,
 			SourceCpfAccountID: strPtr("cpf-oa-123"),
 			TargetLiabilityID:  strPtr("mortgage-456"),
-			AmountType:         "max_available",
+			AmountType:         AmountTypeMaxAvailable,
 			Priority:           0,
 			StartDate:          dt(2025, 1, 1),
 		},
 	}
 
-	state := map[string]*decimal.Decimal{
+	sourceBalances := SourceBalanceMap{
 		"cpf-oa-123":   dec("50000"),
 		"mortgage-456": dec("0"), // Paid off
 	}
 
-	requiredPayments := map[string]*decimal.Decimal{
+	requiredPayments := RequiredPaymentMap{
 		"mortgage-456": dec("0"), // No payment required
 	}
 
-	result := executePaymentRules(rules, state, requiredPayments, dt(2025, 6, 1))
+	result := executePaymentRules(rules, sourceBalances, requiredPayments, dt(2025, 6, 1))
 
 	// No payments should be made
 	payments := result.PaymentsByTarget["mortgage-456"]
@@ -445,8 +445,8 @@ func TestExecutePaymentRules_ZeroRequiredPayment(t *testing.T) {
 	}
 
 	// CPF should be unchanged
-	if state["cpf-oa-123"].Cmp(dec("50000")) != 0 {
-		t.Errorf("expected CPF unchanged, got %s", state["cpf-oa-123"].String())
+	if sourceBalances["cpf-oa-123"].Cmp(dec("50000")) != 0 {
+		t.Errorf("expected CPF unchanged, got %s", sourceBalances["cpf-oa-123"].String())
 	}
 }
 
@@ -534,7 +534,7 @@ func TestBuildRequiredPaymentsMap_ExcludesInactiveLiabilities(t *testing.T) {
 
 func TestCalculatePaymentAmount_Fixed(t *testing.T) {
 	rule := repository.FundFlowRule{
-		AmountType:  "fixed",
+		AmountType:  AmountTypeFixed,
 		AmountValue: dec("1500"),
 	}
 
@@ -551,7 +551,7 @@ func TestCalculatePaymentAmount_Fixed(t *testing.T) {
 
 func TestCalculatePaymentAmount_PctTarget(t *testing.T) {
 	rule := repository.FundFlowRule{
-		AmountType:  "pct_target",
+		AmountType:  AmountTypePctTarget,
 		AmountValue: dec("60"), // 60%
 	}
 
@@ -569,11 +569,11 @@ func TestCalculatePaymentAmount_PctTarget(t *testing.T) {
 
 func TestCalculatePaymentAmount_MaxAvailable(t *testing.T) {
 	rule := repository.FundFlowRule{
-		AmountType: "max_available",
+		AmountType: AmountTypeMaxAvailable,
 	}
 
 	required := dec("2500")
-	remaining := dec("2000")  // Already $500 paid
+	remaining := dec("2000")      // Already $500 paid
 	sourceBalance := dec("10000") // More than remaining
 
 	amount := calculatePaymentAmount(rule, required, remaining, sourceBalance)
@@ -586,7 +586,7 @@ func TestCalculatePaymentAmount_MaxAvailable(t *testing.T) {
 
 func TestCalculatePaymentAmount_MaxAvailableWithCap(t *testing.T) {
 	rule := repository.FundFlowRule{
-		AmountType:  "max_available",
+		AmountType:  AmountTypeMaxAvailable,
 		AmountValue: dec("1000"), // Cap at $1000
 	}
 
@@ -604,11 +604,11 @@ func TestCalculatePaymentAmount_MaxAvailableWithCap(t *testing.T) {
 
 func TestCalculatePaymentAmount_Remainder(t *testing.T) {
 	rule := repository.FundFlowRule{
-		AmountType: "remainder",
+		AmountType: AmountTypeRemainder,
 	}
 
 	required := dec("2500")
-	remaining := dec("1000")  // $1500 already paid
+	remaining := dec("1000") // $1500 already paid
 	sourceBalance := dec("50000")
 
 	amount := calculatePaymentAmount(rule, required, remaining, sourceBalance)
@@ -621,7 +621,7 @@ func TestCalculatePaymentAmount_Remainder(t *testing.T) {
 
 func TestCalculatePaymentAmount_TargetRequired(t *testing.T) {
 	rule := repository.FundFlowRule{
-		AmountType: "target_required",
+		AmountType: AmountTypeTargetRequired,
 	}
 
 	required := dec("2500")
