@@ -48,33 +48,31 @@ erDiagram
         uuid id PK
         varchar user_id
         varchar name
-        varchar rule_type "income|transfer|payment|expense"
-        uuid source_income_id FK "nullable - for income rules"
+        varchar rule_type "payment|allocation|transfer"
+        uuid source_income_id FK "nullable - for allocation rules"
         uuid source_cpf_account_id FK "nullable"
         uuid source_cash_account_id FK "nullable"
         uuid source_investment_id FK "nullable"
-        uuid dest_cpf_account_id FK "nullable"
-        uuid dest_cash_account_id FK "nullable"
-        uuid dest_investment_id FK "nullable"
-        uuid dest_liability_id FK "nullable"
-        uuid dest_property_id FK "nullable"
-        varchar amount_type "fixed|percentage|remainder"
-        numeric amount_value "nullable for remainder"
-        int priority
+        uuid target_cpf_account_id FK "nullable"
+        uuid target_cash_account_id FK "nullable"
+        uuid target_investment_id FK "nullable"
+        uuid target_liability_id FK "nullable"
+        uuid target_property_id FK "nullable"
+        varchar amount_type "fixed|percentage|remainder|target_required|max_available"
+        numeric amount_value "nullable for remainder/target_required/max_available"
+        int priority "lower = higher priority"
         timestamptz start_date
         timestamptz end_date "nullable"
-        uuid fallback_cpf_account_id FK "nullable"
-        uuid fallback_cash_account_id FK "nullable"
-        uuid fallback_investment_id FK "nullable"
         timestamptz created_at
+        timestamptz updated_at
     }
 
-    finance_incomes ||--o{ fund_flow_rules : "triggers"
-    cpf_accounts ||--o{ fund_flow_rules : "source/dest/fallback"
-    finance_cash_accounts ||--o{ fund_flow_rules : "source/dest/fallback"
-    finance_investments ||--o{ fund_flow_rules : "source/dest/fallback"
-    finance_liabilities ||--o{ fund_flow_rules : "dest"
-    property_sg ||--o{ fund_flow_rules : "dest"
+    finance_incomes ||--o{ fund_flow_rules : "source (allocation)"
+    cpf_accounts ||--o{ fund_flow_rules : "source/target"
+    finance_cash_accounts ||--o{ fund_flow_rules : "source/target"
+    finance_investments ||--o{ fund_flow_rules : "source/target"
+    finance_liabilities ||--o{ fund_flow_rules : "target"
+    property_sg ||--o{ fund_flow_rules : "target"
 ```
 
 ### Table: `fund_flow_rules`
@@ -83,104 +81,135 @@ erDiagram
 CREATE TABLE fund_flow_rules (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id VARCHAR(36) NOT NULL,
+    name VARCHAR(100) NOT NULL,
 
-    name VARCHAR(100),
-
-    -- Rule type determines valid source/dest combinations
+    -- =========================================================================
+    -- RULE TYPE
+    -- =========================================================================
+    -- All rule types are INTERNAL balance movements (no external flows)
+    -- Phase 1: 'payment' only
+    -- Phase 2: + 'allocation'
+    -- Phase 3: + 'transfer'
     rule_type VARCHAR(20) NOT NULL CHECK (rule_type IN (
-        'income',    -- external → account (triggered by income)
-        'transfer',  -- account → account (CPF top-up, investment withdrawal)
-        'payment',   -- account → liability/property (mortgage, loan payment)
-        'expense'    -- account → external (triggered by expense)
+        'payment',     -- account → liability/property (Phase 1)
+        'allocation',  -- income → account (Phase 2, replaces income_allocations)
+        'transfer'     -- account → account (Phase 3: CPF top-ups, withdrawals)
     )),
 
-    -- SOURCE: where money comes from
-    -- For 'income': source_income_id required, others NULL
-    -- For 'transfer'/'payment': exactly one source account required
-    -- For 'expense': exactly one source account required (defaults to cash if none)
+    -- =========================================================================
+    -- SOURCE: which balance to deduct from
+    -- =========================================================================
+    -- For 'allocation': source_income_id required (routes incoming money)
+    -- For 'payment'/'transfer': exactly one source account required
     source_income_id uuid REFERENCES finance_incomes(id) ON DELETE CASCADE,
     source_cpf_account_id uuid REFERENCES cpf_accounts(id) ON DELETE CASCADE,
     source_cash_account_id uuid REFERENCES finance_cash_accounts(id) ON DELETE CASCADE,
     source_investment_id uuid REFERENCES finance_investments(id) ON DELETE CASCADE,
 
-    -- DESTINATION: where money goes
-    -- For 'income'/'transfer': exactly one dest account required
-    -- For 'payment': exactly one dest liability/property required
-    -- For 'expense': NULL (money leaves system)
-    dest_cpf_account_id uuid REFERENCES cpf_accounts(id) ON DELETE CASCADE,
-    dest_cash_account_id uuid REFERENCES finance_cash_accounts(id) ON DELETE CASCADE,
-    dest_investment_id uuid REFERENCES finance_investments(id) ON DELETE CASCADE,
-    dest_liability_id uuid REFERENCES finance_liabilities(id) ON DELETE CASCADE,
-    dest_property_id uuid REFERENCES property_sg(id) ON DELETE CASCADE,
+    -- =========================================================================
+    -- TARGET: which balance to credit (or reduce for liabilities)
+    -- =========================================================================
+    -- For 'allocation'/'transfer': exactly one target account required
+    -- For 'payment': exactly one target liability/property required
+    target_cpf_account_id uuid REFERENCES cpf_accounts(id) ON DELETE CASCADE,
+    target_cash_account_id uuid REFERENCES finance_cash_accounts(id) ON DELETE CASCADE,
+    target_investment_id uuid REFERENCES finance_investments(id) ON DELETE CASCADE,
+    target_liability_id uuid REFERENCES finance_liabilities(id) ON DELETE CASCADE,
+    target_property_id uuid REFERENCES property_sg(id) ON DELETE CASCADE,
 
-    -- Amount specification
-    amount_type VARCHAR(10) NOT NULL CHECK (amount_type IN ('fixed', 'percentage', 'remainder')),
-    amount_value NUMERIC(15,4),  -- NULL for 'remainder'
+    -- =========================================================================
+    -- AMOUNT SPECIFICATION
+    -- =========================================================================
+    amount_type VARCHAR(20) NOT NULL CHECK (amount_type IN (
+        'fixed',           -- Exact amount specified by user
+        'percentage',      -- Percentage of base amount
+        'remainder',       -- Whatever's left after higher-priority rules
+        'target_required', -- Derive from target's required payment (liability/property)
+        'max_available'    -- Use up to source balance, optionally capped
+    )),
 
-    -- Priority for ordering multiple rules (lower = higher priority)
+    -- amount_value interpretation by type:
+    -- 'fixed':           Required. The exact amount to transfer.
+    -- 'percentage':      Required. Percentage (0-100) of base amount.
+    -- 'remainder':       Ignored. Takes whatever's left.
+    -- 'target_required': Optional. If set, caps the target's required amount.
+    -- 'max_available':   Optional. If set, caps how much to take from source.
+    amount_value NUMERIC(15,4),
+
+    -- =========================================================================
+    -- ORDERING
+    -- =========================================================================
+    -- Priority for multiple rules on same target (lower = higher priority)
+    -- Use multiple rules with different priorities instead of fallback columns
     priority INT DEFAULT 0 NOT NULL,
 
-    -- Timing
+    -- =========================================================================
+    -- TIMING
+    -- =========================================================================
     start_date TIMESTAMPTZ NOT NULL,
     end_date TIMESTAMPTZ,  -- NULL = no end
-
-    -- Fallback for auto-switch when source depleted
-    fallback_cpf_account_id uuid REFERENCES cpf_accounts(id) ON DELETE SET NULL,
-    fallback_cash_account_id uuid REFERENCES finance_cash_accounts(id) ON DELETE SET NULL,
-    fallback_investment_id uuid REFERENCES finance_investments(id) ON DELETE SET NULL,
 
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
 
-    -- Validation constraints
+    -- =========================================================================
+    -- CONSTRAINTS
+    -- =========================================================================
+
+    -- Amount value required for fixed and percentage types
     CONSTRAINT chk_amount_value CHECK (
-        amount_type = 'remainder' OR amount_value IS NOT NULL
+        amount_type IN ('remainder', 'target_required', 'max_available')
+        OR amount_value IS NOT NULL
     ),
+
+    -- Percentage must be 0-100
     CONSTRAINT chk_percentage_range CHECK (
         amount_type <> 'percentage' OR (amount_value >= 0 AND amount_value <= 100)
-    ),
-    CONSTRAINT chk_at_most_one_fallback CHECK (
-        ((fallback_cpf_account_id IS NOT NULL)::int +
-         (fallback_cash_account_id IS NOT NULL)::int +
-         (fallback_investment_id IS NOT NULL)::int) <= 1
     )
-    -- Note: Source/dest validation done at application level for flexibility
+
+    -- Note: Source/target validation done at application layer per rule_type
+    -- (more flexible than trying to encode all combinations in CHECK constraints)
 );
 
 CREATE INDEX idx_fund_flow_rules_user ON fund_flow_rules(user_id);
 CREATE INDEX idx_fund_flow_rules_type ON fund_flow_rules(rule_type);
 CREATE INDEX idx_fund_flow_rules_dates ON fund_flow_rules(start_date, end_date);
 CREATE INDEX idx_fund_flow_rules_income ON fund_flow_rules(source_income_id) WHERE source_income_id IS NOT NULL;
-CREATE INDEX idx_fund_flow_rules_liability ON fund_flow_rules(dest_liability_id) WHERE dest_liability_id IS NOT NULL;
-CREATE INDEX idx_fund_flow_rules_property ON fund_flow_rules(dest_property_id) WHERE dest_property_id IS NOT NULL;
+CREATE INDEX idx_fund_flow_rules_liability ON fund_flow_rules(target_liability_id) WHERE target_liability_id IS NOT NULL;
+CREATE INDEX idx_fund_flow_rules_property ON fund_flow_rules(target_property_id) WHERE target_property_id IS NOT NULL;
 ```
 
 ---
 
 ## Rule Type Examples
 
-### 1. Income → Account (`rule_type = 'income'`)
+### 1. Income → Account (`rule_type = 'allocation'`)
+
+Routes income to accounts (replaces `income_allocations` table).
 
 ```json
 {
   "name": "Salary to Savings",
-  "rule_type": "income",
+  "rule_type": "allocation",
   "source_income_id": "salary-uuid",
-  "dest_cash_account_id": "savings-uuid",
+  "target_cash_account_id": "savings-uuid",
   "amount_type": "percentage",
   "amount_value": 30,
-  "priority": 0
+  "priority": 0,
+  "start_date": "2025-01-01"
 }
 ```
 
 ### 2. Account → Account (`rule_type = 'transfer'`)
+
+Moves money between accounts (CPF top-ups, investment withdrawals).
 
 ```json
 {
   "name": "Monthly CPF SA Top-up",
   "rule_type": "transfer",
   "source_cash_account_id": "checking-uuid",
-  "dest_cpf_account_id": "cpf-uuid",
+  "target_cpf_account_id": "cpf-uuid",
   "amount_type": "fixed",
   "amount_value": 1000,
   "start_date": "2025-01-01",
@@ -188,31 +217,47 @@ CREATE INDEX idx_fund_flow_rules_property ON fund_flow_rules(dest_property_id) W
 }
 ```
 
-### 3. Account → Liability (`rule_type = 'payment'`)
+### 3. Account → Liability/Property (`rule_type = 'payment'`)
+
+Pays down liabilities or property mortgages. Use multiple rules with different priorities for payment source ordering.
 
 ```json
-{
-  "name": "Mortgage from CPF OA",
-  "rule_type": "payment",
-  "source_cpf_account_id": "cpf-uuid",
-  "dest_property_id": "hdb-uuid",
-  "amount_type": "fixed",
-  "amount_value": 2000,
-  "priority": 0,
-  "fallback_cash_account_id": "checking-uuid"
-}
+[
+  {
+    "name": "Mortgage from CPF OA",
+    "rule_type": "payment",
+    "source_cpf_account_id": "cpf-uuid",
+    "target_property_id": "hdb-uuid",
+    "amount_type": "max_available",
+    "priority": 0,
+    "start_date": "2025-01-01"
+  },
+  {
+    "name": "Mortgage from Cash",
+    "rule_type": "payment",
+    "source_cash_account_id": "checking-uuid",
+    "target_property_id": "hdb-uuid",
+    "amount_type": "remainder",
+    "priority": 1,
+    "start_date": "2025-01-01"
+  }
+]
 ```
 
-### 4. Account → External (`rule_type = 'expense'`)
+### 4. Payment with Max Available
+
+Uses up to source balance, useful for "pay as much as possible" scenarios.
 
 ```json
 {
-  "name": "Groceries from Joint Account",
-  "rule_type": "expense",
-  "source_cash_account_id": "joint-uuid",
-  "dest_liability_id": null,
-  "amount_type": "fixed",
-  "amount_value": 800
+  "name": "Extra mortgage payment from savings",
+  "rule_type": "payment",
+  "source_cash_account_id": "savings-uuid",
+  "target_property_id": "hdb-uuid",
+  "amount_type": "max_available",
+  "amount_value": 5000,
+  "priority": 1,
+  "start_date": "2025-01-01"
 }
 ```
 
@@ -232,12 +277,12 @@ CREATE INDEX idx_fund_flow_rules_property ON fund_flow_rules(dest_property_id) W
 ```sql
 -- Migrate income_allocations to fund_flow_rules
 INSERT INTO fund_flow_rules (user_id, rule_type, source_income_id, ...)
-SELECT i.user_id, 'income', ia.income_id, ...
+SELECT i.user_id, 'allocation', ia.income_id, ...
 FROM income_allocations ia
 JOIN finance_incomes i ON ia.income_id = i.id;
 
 -- Migrate drawdown_periods to fund_flow_rules
-INSERT INTO fund_flow_rules (user_id, rule_type, source_cpf_account_id, dest_property_id, ...)
+INSERT INTO fund_flow_rules (user_id, rule_type, source_cpf_account_id, target_property_id, ...)
 SELECT ds.user_id, 'payment', dp.source_cpf_account_id, ds.property_sg_id, ...
 FROM drawdown_periods dp
 JOIN drawdown_schedules ds ON dp.schedule_id = ds.id;
@@ -271,32 +316,30 @@ GET    /api/v2/fund-flow-rules/by-property/:propertyId Rules for property paymen
 interface FundFlowRule {
   id: string;
   name: string;
-  ruleType: 'income' | 'transfer' | 'payment' | 'expense';
+  ruleType: 'payment' | 'allocation' | 'transfer';
 
   // Source (one of these set based on ruleType)
-  sourceIncomeId?: string;
-  sourceCpfAccountId?: string;
-  sourceCashAccountId?: string;
-  sourceInvestmentId?: string;
+  sourceIncomeId?: string;       // Required for 'allocation'
+  sourceCpfAccountId?: string;   // For 'payment' or 'transfer'
+  sourceCashAccountId?: string;  // For 'payment' or 'transfer'
+  sourceInvestmentId?: string;   // For 'transfer' only
 
-  // Destination (one of these set based on ruleType)
-  destCpfAccountId?: string;
-  destCashAccountId?: string;
-  destInvestmentId?: string;
-  destLiabilityId?: string;
-  destPropertyId?: string;
+  // Target (one of these set based on ruleType)
+  targetCpfAccountId?: string;     // For 'allocation' or 'transfer'
+  targetCashAccountId?: string;    // For 'allocation' or 'transfer'
+  targetInvestmentId?: string;     // For 'allocation' or 'transfer'
+  targetLiabilityId?: string;      // For 'payment'
+  targetPropertyId?: string;       // For 'payment'
 
-  amountType: 'fixed' | 'percentage' | 'remainder';
-  amountValue?: number;
+  amountType: 'fixed' | 'percentage' | 'remainder' | 'target_required' | 'max_available';
+  amountValue?: number;  // Required for 'fixed'/'percentage', optional cap for others
+
+  // Priority for ordering multiple rules on same target (lower = higher priority)
+  // Use multiple rules with different priorities instead of fallback columns
   priority: number;
 
   startDate: string;
   endDate?: string;
-
-  // Fallback (optional)
-  fallbackCpfAccountId?: string;
-  fallbackCashAccountId?: string;
-  fallbackInvestmentId?: string;
 }
 ```
 
@@ -350,7 +393,7 @@ func (s *TimelineService) processMonth(ctx MonthContext) {
 
 | Existing Table | Unified Equivalent | Migration |
 |----------------|-------------------|-----------|
-| `income_allocations` | `fund_flow_rules` with `rule_type='income'` | Migrate data |
+| `income_allocations` | `fund_flow_rules` with `rule_type='allocation'` | Migrate data |
 | `drawdown_schedules` + `drawdown_periods` | `fund_flow_rules` with `rule_type='payment'` | Migrate data |
 | `finance_expenses` | Keep as-is, optionally add `fund_flow_rules` for source | Optional |
 
@@ -473,15 +516,15 @@ CREATE TABLE fund_flow_rules (
 ```sql
 -- Migration: 202601040002_migrate_income_allocations.up.sql
 
--- Migrate income_allocations → fund_flow_rules (rule_type = 'income')
+-- Migrate income_allocations → fund_flow_rules (rule_type = 'allocation')
 INSERT INTO fund_flow_rules (
     id,
     user_id,
     name,
     rule_type,
     source_income_id,
-    dest_cash_account_id,
-    dest_investment_id,
+    target_cash_account_id,
+    target_investment_id,
     amount_type,
     amount_value,
     priority,
@@ -494,7 +537,7 @@ SELECT
     ia.id,
     i.user_id,
     COALESCE(i.name || ' → ' || COALESCE(ca.name, inv.name), 'Allocation'),
-    'income',
+    'allocation',
     ia.income_id,
     ia.target_cash_account_id,
     ia.target_investment_id,
@@ -557,8 +600,8 @@ func (h *FundFlowHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
     // Create in fund_flow_rules (new)
     rule, err := h.store.CreateFundFlowRule(ctx, userID, input)
 
-    // Also create in income_allocations (legacy) if rule_type == 'income'
-    if input.RuleType == "income" {
+    // Also create in income_allocations (legacy) if rule_type == 'allocation'
+    if input.RuleType == "allocation" {
         legacyAlloc := convertToLegacyAllocation(rule)
         h.legacyStore.CreateIncomeAllocation(ctx, userID, legacyAlloc)
     }
@@ -599,10 +642,10 @@ netInvestments = applyInvestmentAllocations(
 
 ```go
 // New: use fund_flow_rules with rule_type filtering
-incomeRules := filterByType(fundFlowRules, "income")
+allocationRules := filterByType(fundFlowRules, "allocation")
 netInvestments = applyFundFlowRules(
     data.Incomes,
-    incomeRules,  // []repo.FundFlowRule with rule_type='income'
+    allocationRules,  // []repo.FundFlowRule with rule_type='allocation'
     state,
     currentDate,
     applyAllocations,
@@ -684,6 +727,6 @@ if config.UseUnifiedFundFlows {
 | Feature | How |
 |---------|-----|
 | CPF LIFE payouts | Add `rule_type='cpf_payout'` |
-| Insurance premiums | Add `dest_insurance_id` FK |
+| Insurance premiums | Add `target_insurance_id` FK |
 | Tax payments | Add `rule_type='tax'` with calculated amounts |
 | Recurring transfers | Already supported via `start_date`/`end_date` |

@@ -61,15 +61,11 @@ CREATE TABLE IF NOT EXISTS fund_flow_rules (
     amount_value NUMERIC(15,4),
 
     -- =========================================================================
-    -- ORDERING & FALLBACK
+    -- ORDERING
     -- =========================================================================
     -- Priority for multiple rules on same target (lower = higher priority)
+    -- Use multiple rules with different priorities instead of fallback columns
     priority INT DEFAULT 0 NOT NULL,
-
-    -- Fallback when source is depleted (for 'payment' and 'transfer' types)
-    fallback_cpf_account_id uuid REFERENCES cpf_accounts(id) ON DELETE SET NULL,
-    fallback_cash_account_id uuid REFERENCES finance_cash_accounts(id) ON DELETE SET NULL,
-    fallback_investment_id uuid REFERENCES finance_investments(id) ON DELETE SET NULL,
 
     -- =========================================================================
     -- TIMING
@@ -93,13 +89,6 @@ CREATE TABLE IF NOT EXISTS fund_flow_rules (
     -- Percentage must be 0-100
     CONSTRAINT chk_percentage_range CHECK (
         amount_type <> 'percentage' OR (amount_value >= 0 AND amount_value <= 100)
-    ),
-
-    -- At most one fallback
-    CONSTRAINT chk_at_most_one_fallback CHECK (
-        ((fallback_cpf_account_id IS NOT NULL)::int +
-         (fallback_cash_account_id IS NOT NULL)::int +
-         (fallback_investment_id IS NOT NULL)::int) <= 1
     )
 
     -- Note: Source/target validation done at application layer per rule_type
