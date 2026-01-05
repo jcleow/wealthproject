@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { InfoTooltip } from '@/app/property-planner/components/InfoTooltip'
 import { calculateMonthlyOaInflow } from '@/app/property-planner/hooks'
@@ -53,6 +53,23 @@ export function BorrowersStep({
       }))
     ]
   }, [cashAccounts])
+
+  // Auto-select first cash account if there's a cash amount but no account selected
+  useEffect(() => {
+    if (cashAccounts.length === 0) return
+
+    const firstCashAccountId = cashAccounts[0].id
+
+    // Borrower 1 downpayment: has cash amount but no account
+    if (inputs.borrower1DownpaymentCashAmount > 0 && !inputs.borrower1DownpaymentCashAccountId) {
+      onChange('borrower1DownpaymentCashAccountId', firstCashAccountId, false)
+    }
+
+    // Borrower 1 monthly: has cash amount type set (remainder means they want to use cash) but no account
+    if (inputs.borrower1MonthlyCashAmountType === 'remainder' && !inputs.borrower1MonthlyCashAccountId) {
+      onChange('borrower1MonthlyCashAccountId', firstCashAccountId, false)
+    }
+  }, [cashAccounts, inputs.borrower1DownpaymentCashAmount, inputs.borrower1DownpaymentCashAccountId, inputs.borrower1MonthlyCashAmountType, inputs.borrower1MonthlyCashAccountId, onChange])
 
   return (
     <div className="space-y-4">
