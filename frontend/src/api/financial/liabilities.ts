@@ -3,29 +3,34 @@ import { buildPaginatedPath } from './helpers'
 import { normalizePaginatedResponse, toLiability } from './transformers'
 import type { Liability, PaginatedResponse, PaginationParams } from '@/types/financial'
 import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
+import type {
+  Liability as ApiLiability,
+  LiabilityCreateInput,
+  LiabilityInput,
+  StopInput,
+} from '@/types/api.generated'
 
 export async function listLiabilities(params?: PaginationParams): Promise<PaginatedResponse<Liability>> {
   const path = buildPaginatedPath('/liabilities', params)
-  const data = await apiClient.get<any>(path, undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.get<{ data: ApiLiability[]; total?: number; limit?: number; offset?: number }>(path, undefined, { baseUrl: '/api/v2' })
   return normalizePaginatedResponse<Liability>(data, toLiability, params)
 }
 
 export async function createLiability(payload: Omit<Liability, 'id' | 'updatedAt'>): Promise<Liability> {
   // V2 endpoint expects decimal fields as strings
-  const body: Record<string, unknown> = {
+  const body: LiabilityCreateInput = {
     name: payload.name,
     category: payload.category,
     currentBalance: String(payload.currentBalance),
     interestRateApr: String(payload.interestRateApr),
     minimumPayment: String(payload.minimumPayment ?? 0),
-    notes: payload.notes,
+    notes: payload.notes ?? undefined,
+    startDate: payload.startDate ?? undefined,
+    endDate: payload.endDate ?? undefined,
   }
 
-  if (payload.startDate !== undefined) body.startDate = payload.startDate
-  if (payload.endDate !== undefined) body.endDate = payload.endDate
-
   // Use v2 endpoint which auto-creates linked expense for debt repayment
-  const data = await apiClient.post<any>('/liabilities', body, { baseUrl: '/api/v2' })
+  const data = await apiClient.post<ApiLiability>('/liabilities', body, { baseUrl: '/api/v2' })
   return toLiability(data)
 }
 
@@ -36,29 +41,27 @@ export async function updateLiability(
   }
 ): Promise<Liability> {
   // Use string for decimal values to avoid float64 precision loss
-  const body: Record<string, unknown> = {
+  const body: LiabilityInput = {
+    id,
     name: payload.name,
     category: payload.category,
     currentBalance: payload.currentBalance?.toString(),
     interestRateApr: payload.interestRateApr?.toString(),
     minimumPayment: payload.minimumPayment?.toString(),
-    notes: payload.notes,
-    startDate: payload.startDate,
-    endDate: payload.endDate,
-  }
-  // Add updateMode for versioned updates
-  if (payload.updateMode !== undefined) {
-    body.updateMode = payload.updateMode
+    notes: payload.notes ?? undefined,
+    startDate: payload.startDate ?? undefined,
+    updateMode: payload.updateMode,
   }
 
   // Use v2 API for versioned update support
-  const data = await apiClient.put<any>(`/liabilities/${id}`, body, { baseUrl: '/api/v2' })
+  const data = await apiClient.put<ApiLiability>(`/liabilities/${id}`, body, { baseUrl: '/api/v2' })
   return toLiability(data)
 }
 
 // Stop a liability (soft delete) - sets end_date
 export async function stopLiability(id: string, endDate: string): Promise<Liability> {
-  const data = await apiClient.post<any>(`/liabilities/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
+  const body: StopInput = { endDate }
+  const data = await apiClient.post<ApiLiability>(`/liabilities/${id}/stop`, body, { baseUrl: '/api/v2' })
   return toLiability(data)
 }
 
@@ -75,7 +78,7 @@ export async function deleteLiability(id: string): Promise<void> {
 }
 
 export async function convertLiabilityToProperty(id: string): Promise<Liability> {
-  const data = await apiClient.put<any>(`/liabilities/${id}/convert-to-property`)
+  const data = await apiClient.put<ApiLiability>(`/liabilities/${id}/convert-to-property`)
   return toLiability(data)
 }
 

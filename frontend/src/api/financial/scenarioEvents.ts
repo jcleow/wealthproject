@@ -1,16 +1,17 @@
 import { apiClient } from '../client'
-import { normalizeImpact, normalizeScenarioEvent, normalizeScenarioEventList } from './transformers'
+import { normalizeScenarioEvent, normalizeScenarioEventList } from './transformers'
 import type { ScenarioEvent } from '@/types/scenario'
-import { scenarioEventFromDto, scenarioEventToDto, scenarioImpactToDto } from '@/types/scenario'
+import { scenarioEventToDto } from '@/types/scenario'
+import type { ScenarioEventV2DTO } from '@/types/api.generated'
 
 export async function listScenarioEvents(): Promise<ScenarioEvent[]> {
-  const data = await apiClient.get<any>('/scenario-events', undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.get<ScenarioEventV2DTO[]>('/scenario-events', undefined, { baseUrl: '/api/v2' })
   return normalizeScenarioEventList(data)
 }
 
 export async function getScenarioEvent(id: string): Promise<ScenarioEvent> {
   if (!id) throw new Error('Scenario event id is required')
-  const data = await apiClient.get<any>(`/scenario-events/${encodeURIComponent(id)}`, undefined, { baseUrl: '/api/v2' })
+  const data = await apiClient.get<ScenarioEventV2DTO>(`/scenario-events/${encodeURIComponent(id)}`, undefined, { baseUrl: '/api/v2' })
   return normalizeScenarioEvent(data)
 }
 
@@ -26,28 +27,10 @@ export async function createScenarioEvent(payload: ScenarioEvent): Promise<Scena
     isIncluded: payload.isIncluded ?? true,
   })
   console.log('[createScenarioEvent] Sending payload:', JSON.stringify(body, null, 2))
-  const data = await apiClient.post<any>('/scenario-events', body, { baseUrl: '/api/v2' })
+  const data = await apiClient.post<ScenarioEventV2DTO>('/scenario-events', body, { baseUrl: '/api/v2' })
 
-  const impacts = Array.isArray(data.impacts)
-    ? data.impacts.map(normalizeImpact)
-    : Array.isArray(data.Impacts)
-      ? data.Impacts.map(normalizeImpact)
-      : Array.isArray(payload.impacts)
-        ? payload.impacts.map(scenarioImpactToDto)
-        : []
-
-  return scenarioEventFromDto({
-    id: data.id ?? data.ID,
-    name: data.name ?? data.Name ?? payload.name,
-    description: data.description ?? data.Description ?? payload.description,
-    occursOn: data.occursOn ?? data.occurs_on ?? data.OccursOn ?? payload.occursOn,
-    displayIcon: data.displayIcon ?? data.display_icon ?? data.DisplayIcon ?? payload.displayIcon,
-    displayColor: data.displayColor ?? data.display_color ?? data.DisplayColor ?? payload.displayColor ?? '',
-    tags: data.tags ?? data.Tags ?? payload.tags ?? [],
-    scenarioId: data.scenarioId ?? data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? payload.scenarioId,
-    isIncluded: data.isIncluded ?? data.is_included ?? data.IsIncluded ?? payload.isIncluded ?? true,
-    impacts,
-  })
+  // Use normalizeScenarioEvent to handle all property normalization
+  return normalizeScenarioEvent(data)
 }
 
 export async function updateScenarioEvent(id: string, payload: ScenarioEvent): Promise<ScenarioEvent> {
@@ -62,28 +45,10 @@ export async function updateScenarioEvent(id: string, payload: ScenarioEvent): P
     tags: payload.tags ?? [],
     isIncluded: payload.isIncluded ?? true,
   })
-  const data = await apiClient.put<any>(`/scenario-events/${encodeURIComponent(id)}`, body, { baseUrl: '/api/v2' })
+  const data = await apiClient.put<ScenarioEventV2DTO>(`/scenario-events/${encodeURIComponent(id)}`, body, { baseUrl: '/api/v2' })
 
-  const impacts = Array.isArray(data.impacts)
-    ? data.impacts.map(normalizeImpact)
-    : Array.isArray(data.Impacts)
-      ? data.Impacts.map(normalizeImpact)
-      : Array.isArray(payload.impacts)
-        ? payload.impacts.map(scenarioImpactToDto)
-        : []
-
-  return scenarioEventFromDto({
-    id: data.id ?? data.ID ?? id,
-    name: data.name ?? data.Name ?? payload.name,
-    description: data.description ?? data.Description ?? payload.description,
-    occursOn: data.occursOn ?? data.occurs_on ?? data.OccursOn ?? payload.occursOn,
-    displayIcon: data.displayIcon ?? data.display_icon ?? data.DisplayIcon ?? payload.displayIcon,
-    displayColor: data.displayColor ?? data.display_color ?? data.DisplayColor ?? payload.displayColor ?? '',
-    tags: data.tags ?? data.Tags ?? payload.tags ?? [],
-    scenarioId: data.scenarioId ?? data.scenario_id ?? data.ScenarioID ?? data.ScenarioId ?? payload.scenarioId,
-    isIncluded: data.isIncluded ?? data.is_included ?? data.IsIncluded ?? payload.isIncluded ?? true,
-    impacts,
-  })
+  // Use normalizeScenarioEvent to handle all property normalization
+  return normalizeScenarioEvent(data)
 }
 
 export async function deleteScenarioEvent(id: string): Promise<void> {

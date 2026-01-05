@@ -8,10 +8,16 @@ import type {
   CPFContributionPreview,
   ResidencyStatus,
 } from '@/types/cpf'
+import type {
+  CPFAccount as ApiCPFAccount,
+  CpfV2CreateInput,
+  CpfV2Input,
+  StopInput,
+} from '@/types/api.generated'
 
 export async function getCPFAccount(): Promise<CPFAccount | null> {
   try {
-    const data = await apiClient.get<any>('/cpf/account', undefined, { baseUrl: '/api/v2' })
+    const data = await apiClient.get<ApiCPFAccount>('/cpf/account', undefined, { baseUrl: '/api/v2' })
     return toCPFAccount(data)
   } catch {
     return null
@@ -20,7 +26,7 @@ export async function getCPFAccount(): Promise<CPFAccount | null> {
 
 export async function listCPFAccounts(): Promise<CPFAccount[]> {
   try {
-    const data = await apiClient.get<any[]>('/cpf/accounts', undefined, { baseUrl: '/api/v2' })
+    const data = await apiClient.get<ApiCPFAccount[]>('/cpf/accounts', undefined, { baseUrl: '/api/v2' })
     return (data || []).map(toCPFAccount)
   } catch {
     return []
@@ -29,16 +35,16 @@ export async function listCPFAccounts(): Promise<CPFAccount[]> {
 
 export async function createCPFAccount(payload: CPFAccountCreatePayload): Promise<CPFAccount> {
   // Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity
-  const body = {
+  const body: CpfV2CreateInput = {
     personId: payload.personId,
     oaBalance: (payload.oaBalance ?? 0).toString(),
     saBalance: (payload.saBalance ?? 0).toString(),
     maBalance: (payload.maBalance ?? 0).toString(),
     raBalance: (payload.raBalance ?? 0).toString(),
     oaUsedForHousing: (payload.oaUsedForHousing ?? 0).toString(),
-    housingStartDate: payload.housingStartDate,
+    housingStartDate: payload.housingStartDate ?? undefined,
   }
-  const data = await apiClient.post<any>('/cpf/account', body, { baseUrl: '/api/v2' })
+  const data = await apiClient.post<ApiCPFAccount>('/cpf/account', body, { baseUrl: '/api/v2' })
   return toCPFAccount(data)
 }
 
@@ -48,25 +54,26 @@ export async function updateCPFAccount(
 ): Promise<CPFAccount> {
   // Use string for decimal values to preserve precision
   // Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity
-  const body: Record<string, unknown> = {
-    personId: payload.personId,
+  const body: CpfV2Input = {
+    personId: payload.personId ?? undefined,
     oaBalance: payload.oaBalance?.toString() ?? '0',
     saBalance: payload.saBalance?.toString() ?? '0',
     maBalance: payload.maBalance?.toString() ?? '0',
     raBalance: payload.raBalance?.toString() ?? '0',
     oaUsedForHousing: payload.oaUsedForHousing?.toString() ?? '0',
-    housingStartDate: payload.housingStartDate,
+    housingStartDate: payload.housingStartDate ?? undefined,
     updateMode: payload.updateMode,
-    startDate: payload.startDate,
+    startDate: payload.startDate ?? undefined,
   }
 
   // Use v2 API for versioned update support
-  const data = await apiClient.put<any>(`/cpf/account/${id}`, body, { baseUrl: '/api/v2' })
+  const data = await apiClient.put<ApiCPFAccount>(`/cpf/account/${id}`, body, { baseUrl: '/api/v2' })
   return toCPFAccount(data)
 }
 
 export async function stopCPFAccount(id: string, endDate: string): Promise<CPFAccount> {
-  const data = await apiClient.post<any>(`/cpf/account/${id}/stop`, { endDate }, { baseUrl: '/api/v2' })
+  const body: StopInput = { endDate }
+  const data = await apiClient.post<ApiCPFAccount>(`/cpf/account/${id}/stop`, body, { baseUrl: '/api/v2' })
   return toCPFAccount(data)
 }
 

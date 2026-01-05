@@ -1,5 +1,6 @@
 import { apiClient } from '../client'
 import type { TimelineEditRequest, TimelineResponse } from '@/types/timeline'
+import type { TimelineResponse as ApiTimelineResponse } from '@/types/api.generated'
 
 export async function getTimeline(options: { includeScenarios?: boolean } = {}): Promise<TimelineResponse> {
   const params = new URLSearchParams()
@@ -7,7 +8,8 @@ export async function getTimeline(options: { includeScenarios?: boolean } = {}):
     params.set('include_scenarios', 'true')
   }
   const query = params.toString() ? `?${params.toString()}` : ''
-  return apiClient.get<TimelineResponse>(`/financial/timeline${query}`)
+  // Cast from API response type to frontend type (same shape but frontend type has stricter requirements)
+  return apiClient.get<ApiTimelineResponse>(`/financial/timeline${query}`) as Promise<TimelineResponse>
 }
 
 export async function updateTimelineYear(request: TimelineEditRequest): Promise<TimelineResponse> {
