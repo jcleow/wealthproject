@@ -46,7 +46,7 @@ export function CustomDropdown<T extends string = string>({
   className = '',
 }: CustomDropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -66,16 +66,24 @@ export function CustomDropdown<T extends string = string>({
     return value
   }
 
-  // Update dropdown position when opened
-  // Use viewport coordinates directly since we're using position: fixed
-  useEffect(() => {
-    if (isOpen && buttonRef.current) {
+  // Handle opening - calculate position synchronously before render
+  const handleOpen = () => {
+    if (disabled) return
+    if (!isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
       setDropdownPosition({
         top: rect.bottom + 4,
         left: rect.left,
         width: rect.width,
       })
+    }
+    setIsOpen(!isOpen)
+  }
+
+  // Clear position when closed
+  useEffect(() => {
+    if (!isOpen) {
+      setDropdownPosition(null)
     }
   }, [isOpen])
 
@@ -136,7 +144,7 @@ export function CustomDropdown<T extends string = string>({
     )
   }
 
-  const dropdownMenu = isOpen && typeof document !== 'undefined' ? createPortal(
+  const dropdownMenu = isOpen && dropdownPosition && typeof document !== 'undefined' ? createPortal(
     <div
       ref={menuRef}
       className="
@@ -176,7 +184,7 @@ export function CustomDropdown<T extends string = string>({
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={handleOpen}
         disabled={disabled}
         className={`
           flex items-center justify-between gap-2
