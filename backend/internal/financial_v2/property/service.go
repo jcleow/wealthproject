@@ -95,15 +95,15 @@ type CPFOAAccountUsageInfo struct {
 // CreateScenarioParams is the raw input from HTTP handlers.
 type CreateScenarioParams struct {
 	Country       string
-	SGDetails     *CreateSGDetailsParams
+	PropertySG     *CreatePropertySGParams
 	Fees          []CreateFeeParams
 	GrowthPeriods []CreateGrowthPeriodParams
 	RatePeriods   []CreateRatePeriodParams
 	Grants        []CreateGrantParams
 }
 
-// CreateSGDetailsParams is the raw SG details input from HTTP.
-type CreateSGDetailsParams struct {
+// CreatePropertySGParams is the raw SG details input from HTTP.
+type CreatePropertySGParams struct {
 	Name              string
 	PropertyType      string
 	PropertySubtype   string
@@ -305,12 +305,12 @@ func (s *Service) ValidateCrossPropertyConstraints(
 		TDSRLimit:  decimal.MustFromString("0.55"), // 55%
 	}
 
-	if params.SGDetails == nil {
+	if params.PropertySG == nil {
 		return result, nil
 	}
 
 	// Check if this property is included
-	if params.SGDetails.IsIncluded != nil && !*params.SGDetails.IsIncluded {
+	if params.PropertySG.IsIncluded != nil && !*params.PropertySG.IsIncluded {
 		// Not included, skip validation
 		return result, nil
 	}
@@ -911,8 +911,8 @@ func buildCreateScenarioInput(params CreateScenarioParams) (repo.CreateScenarioI
 	var input repo.CreateScenarioInput
 	input.Country = params.Country
 
-	if params.SGDetails != nil {
-		sg, err := buildSGDetailsInput(params.SGDetails)
+	if params.PropertySG != nil {
+		sg, err := buildPropertySGInput(params.PropertySG)
 		if err != nil {
 			return input, err
 		}
@@ -954,7 +954,7 @@ func buildCreateScenarioInput(params CreateScenarioParams) (repo.CreateScenarioI
 	return input, nil
 }
 
-func buildSGDetailsInput(params *CreateSGDetailsParams) (*repo.CreateSGDetailsInput, error) {
+func buildPropertySGInput(params *CreatePropertySGParams) (*repo.CreatePropertySGInput, error) {
 	propertyPrice, err := parseDecimalField("propertyPrice", params.PropertyPrice)
 	if err != nil {
 		return nil, err
@@ -1006,7 +1006,7 @@ func buildSGDetailsInput(params *CreateSGDetailsParams) (*repo.CreateSGDetailsIn
 		return nil, err
 	}
 
-	return &repo.CreateSGDetailsInput{
+	return &repo.CreatePropertySGInput{
 		Name:              params.Name,
 		PropertyType:      params.PropertyType,
 		PropertySubtype:   params.PropertySubtype,

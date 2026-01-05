@@ -30,7 +30,7 @@ func NewPropertyPlannerV2Handler(store *repo.Store) *PropertyPlannerV2Handler {
 
 type createScenarioRequest struct {
 	Country       string                      `json:"country"` // "SG" | "MY"
-	SGDetails     *createSGDetailsRequest     `json:"propertySG,omitempty"`
+	PropertySG     *createPropertySGRequest     `json:"propertySG,omitempty"`
 	Fees          []createFeeRequest          `json:"fees"`
 	GrowthPeriods []createGrowthPeriodRequest `json:"growthPeriods"`
 	RatePeriods   []createRatePeriodRequest   `json:"ratePeriods"`
@@ -42,7 +42,7 @@ type createGrantRequest struct {
 	Amount string `json:"amount"`
 }
 
-type createSGDetailsRequest struct {
+type createPropertySGRequest struct {
 	Name              string  `json:"name"`
 	PropertyType      string  `json:"propertyType"`
 	PropertySubtype   string  `json:"propertySubtype"`
@@ -177,7 +177,7 @@ func (h *PropertyPlannerV2Handler) HandleCreate(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if req.SGDetails == nil {
+	if req.PropertySG == nil {
 		badRequest(w, errMissingFields("propertySG"))
 		return
 	}
@@ -545,8 +545,8 @@ func toCreateScenarioParams(req createScenarioRequest) property.CreateScenarioPa
 		Country: req.Country,
 	}
 
-	if req.SGDetails != nil {
-		params.SGDetails = toSGDetailsParams(req.SGDetails)
+	if req.PropertySG != nil {
+		params.PropertySG = toPropertySGParams(req.PropertySG)
 	}
 
 	for _, f := range req.Fees {
@@ -571,8 +571,8 @@ func toCreateScenarioParams(req createScenarioRequest) property.CreateScenarioPa
 	return params
 }
 
-func toSGDetailsParams(req *createSGDetailsRequest) *property.CreateSGDetailsParams {
-	return &property.CreateSGDetailsParams{
+func toPropertySGParams(req *createPropertySGRequest) *property.CreatePropertySGParams {
+	return &property.CreatePropertySGParams{
 		Name:              req.Name,
 		PropertyType:      req.PropertyType,
 		PropertySubtype:   req.PropertySubtype,

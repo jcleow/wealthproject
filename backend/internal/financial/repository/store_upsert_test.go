@@ -64,9 +64,9 @@ func TestCreateFinancialRowsUpsertByParentAndStartDate(t *testing.T) {
 		{
 			name:    "income",
 			pattern: `(?s)INSERT INTO finance_incomes .*ON CONFLICT ON CONSTRAINT finance_incomes_parent_start_date_key DO UPDATE`,
-			columns: []string{"id", "parent_id", "source", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "cpf_wage_type", "updated_at", "source_type", "source_id"},
-			values:  []driver.Value{"row-income", "income-parent", "Salary", 8000.0, "monthly", now, nil, "employment", 3.0, "annual_step", "", "", now, nil, nil},
-			args:    14, // user_id, parent_id, source, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, cpf_wage_type, source_type, source_id
+			columns: []string{"id", "parent_id", "source", "amount", "frequency", "start_date", "end_date", "category", "growth_rate", "growth_strategy", "notes", "cpf_wage_type", "updated_at"},
+			values:  []driver.Value{"row-income", "income-parent", "Salary", 8000.0, "monthly", now, nil, "employment", 3.0, "annual_step", "", "", now},
+			args:    12, // user_id, parent_id, source, amount, frequency, start_date, end_date, category, growth_rate, growth_strategy, notes, cpf_wage_type
 			call: func(ctx context.Context, s *Store) error {
 				_, err := s.CreateIncome(ctx, "test-user", Income{
 					ParentID:  "income-parent",

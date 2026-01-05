@@ -30,9 +30,6 @@ type incomeInput struct {
 	GrowthStrategy string   `json:"growthStrategy"`
 	Notes          string   `json:"notes"`
 	CPFWageType    string   `json:"cpfWageType"`
-	// Source relationship (polymorphic: 'investment' or 'cash_account')
-	SourceType *string `json:"sourceType,omitempty"`
-	SourceID   *string `json:"sourceId,omitempty"`
 }
 
 func (i incomeInput) toIncome() repository.Income {
@@ -45,8 +42,6 @@ func (i incomeInput) toIncome() repository.Income {
 		Category:       i.Category,
 		GrowthStrategy: i.GrowthStrategy,
 		Notes:          i.Notes,
-		SourceType:     i.SourceType,
-		SourceID:       i.SourceID,
 	}
 	inc.CPFWageType = strings.ToLower(strings.TrimSpace(i.CPFWageType))
 	if i.StartDate != nil {
