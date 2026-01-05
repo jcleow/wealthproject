@@ -76,6 +76,10 @@ func (m *fullMockStore) ListIncludedPropertyScenarios(ctx context.Context, userI
 	return nil, nil
 }
 
+func (m *fullMockStore) ListFundFlowRules(ctx context.Context, q repo.ListFundFlowRulesQuery) ([]repo.FundFlowRule, error) {
+	return nil, nil
+}
+
 // TestSnapshotContract_AllItemTypesReturned verifies that all financial item types
 // are correctly included in the snapshot response when present in the store.
 // This is a critical contract test to prevent regressions when modifying the service/store layer.

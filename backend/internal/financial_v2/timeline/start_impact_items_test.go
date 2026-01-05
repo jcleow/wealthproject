@@ -97,6 +97,10 @@ func (m *startImpactTestStore) ListIncludedPropertyScenarios(ctx context.Context
 	return nil, nil
 }
 
+func (m *startImpactTestStore) ListFundFlowRules(ctx context.Context, q repo.ListFundFlowRulesQuery) ([]repo.FundFlowRule, error) {
+	return nil, nil
+}
+
 // =============================================================================
 // Helper Functions
 // =============================================================================

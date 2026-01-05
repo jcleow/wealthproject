@@ -76,6 +76,8 @@ type SGFinancialDataRows struct {
 	ScenarioImpacts *scenario.ImpactContext
 	// Properties holds included property scenarios for timeline projection
 	Properties []repo.PropertyScenarioFull
+	// FundFlowRules holds payment/allocation/transfer rules for internal money movements
+	FundFlowRules []repo.FundFlowRule
 }
 
 // ItemState tracks the current computed state of a financial item
@@ -122,6 +124,7 @@ func (s *Service) loadEffectiveRows(
 		excludedPersonIDs  map[string]struct{}
 		scenarioEvents     []repo.ScenarioEvent
 		properties         []repo.PropertyScenarioFull
+		fundFlowRules      []repo.FundFlowRule
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -213,6 +216,15 @@ func (s *Service) loadEffectiveRows(
 		return err
 	})
 
+	// Load fund flow rules for payment sequencing
+	g.Go(func() error {
+		var err error
+		fundFlowRules, err = s.store.ListFundFlowRules(gctx, repo.ListFundFlowRulesQuery{
+			UserID: userID,
+		})
+		return err
+	})
+
 	if err := g.Wait(); err != nil {
 		return SGFinancialDataRows{}, err
 	}
@@ -247,6 +259,7 @@ func (s *Service) loadEffectiveRows(
 		IncomeAllocations: incomeAllocations,
 		ScenarioImpacts:   impactCtx,
 		Properties:        properties,
+		FundFlowRules:     fundFlowRules,
 	}, nil
 }
 
@@ -1408,7 +1421,7 @@ func buildCashAssetResponses(rows []FinancialDataRow, itemStates ItemStateMap, e
 
 // buildLiabilityResponses builds responses for liabilities and returns total value
 // Only includes liabilities with outstanding balance (fully repaid liabilities are hidden)
-func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, eventAdjustedState map[string]*decimal.Decimal, appliedImpacts map[string][]scenario.AppliedImpactInfo, date time.Time) ([]LiabilityResponse, *decimal.Decimal) {
+func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, eventAdjustedState map[string]*decimal.Decimal, appliedImpacts map[string][]scenario.AppliedImpactInfo, date time.Time, paymentExecutions FundFlowExecutionResult) ([]LiabilityResponse, *decimal.Decimal) {
 	responses := make([]LiabilityResponse, 0)
 	total := decimal.Zero()
 
@@ -1454,9 +1467,30 @@ func buildLiabilityResponses(rows []FinancialDataRow, itemStates ItemStateMap, e
 		if impacts, ok := appliedImpacts[row.ID]; ok {
 			resp.EventImpacts = convertAppliedImpacts(impacts)
 		}
+		// Add payment sources from fund flow rules
+		if payments, ok := paymentExecutions.PaymentsByTarget[row.ID]; ok && len(payments) > 0 {
+			resp.PaymentSources = convertPaymentExecutions(payments)
+		}
 		responses = append(responses, resp)
 	}
 	return responses, total
+}
+
+// convertPaymentExecutions converts PaymentExecution to PaymentSourceResponse
+func convertPaymentExecutions(executions []PaymentExecution) []PaymentSourceResponse {
+	sources := make([]PaymentSourceResponse, 0, len(executions))
+	for _, exec := range executions {
+		sources = append(sources, PaymentSourceResponse{
+			RuleID:       exec.RuleID,
+			RuleName:     exec.RuleName,
+			SourceType:   exec.SourceType,
+			SourceID:     exec.SourceID,
+			SourceName:   exec.SourceName,
+			Amount:       exec.Amount,
+			UsedFallback: exec.WasFallback,
+		})
+	}
+	return sources
 }
 
 // buildIncomeResponses builds responses for incomes with CPF breakdown
@@ -1768,6 +1802,7 @@ func buildMonthDetailResponse(
 	cpfContexts map[string]*CPFContext,
 	incomeAllocations []repo.IncomeAllocation,
 	properties []repo.PropertyScenarioFull,
+	paymentExecutions FundFlowExecutionResult, // Fund flow payment attribution for liabilities
 ) MonthDetailResponse {
 	yearIndex := date.Year() - baseYear
 	month := int(date.Month())
@@ -1776,7 +1811,7 @@ func buildMonthDetailResponse(
 	nonCashAssets, nonCashTotal := buildNonCashAssetResponses(data.NonCashAssets, itemStates, eventAdjustedState, appliedImpacts, date)
 	investments, investmentTotal := buildInvestmentResponses(data.Investments, itemStates, eventAdjustedState, appliedImpacts, date)
 	cashAssets, cashTotal, accumulatorID := buildCashAssetResponses(data.CashAssets, itemStates, eventAdjustedState, appliedImpacts, date, cashAccumulator)
-	liabilities, liabilityTotal := buildLiabilityResponses(data.Liabilities, itemStates, eventAdjustedState, appliedImpacts, date)
+	liabilities, liabilityTotal := buildLiabilityResponses(data.Liabilities, itemStates, eventAdjustedState, appliedImpacts, date, paymentExecutions)
 	incomes := buildIncomeResponses(data.Incomes, itemStates, eventAdjustedState, appliedImpacts, date, cpfContributions)
 	expenses := buildExpenseResponses(data.Expenses, itemStates, eventAdjustedState, appliedImpacts, date)
 	cpfContributionResponses := buildCPFContributionResponses(data.Incomes, itemStates, date, cpfContributions)
@@ -1915,6 +1950,10 @@ type MonthlyContext struct {
 	AppliedImpacts     map[string][]scenario.AppliedImpactInfo // Tracks which impacts were applied to each item
 	// Property scenarios for timeline projection
 	Properties []repo.PropertyScenarioFull
+	// Fund flow rules for payment sequencing (Phase 1: payments, Phase 2+: allocations, transfers)
+	FundFlowRules []repo.FundFlowRule
+	// PaymentExecutions tracks payment attribution for the current month (for response building)
+	PaymentExecutions FundFlowExecutionResult
 }
 
 // getCPFContext returns the CPF context for a given personID, or nil if not found
@@ -2035,6 +2074,14 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	applyContributions := !isAnchorMonth
 	employeeCPF, cpfContributions := mctx.processAllIncomes(mctx.Data.Incomes, stateForCalcs, currentDate, applyContributions)
 
+	// Execute payment rules (fund flow Phase 1)
+	// Payment rules deduct from source accounts (CPF/cash) to pay liabilities/properties
+	// Only execute after anchor month to match allocation behavior
+	if !isAnchorMonth && len(mctx.FundFlowRules) > 0 {
+		requiredPayments := buildRequiredPaymentsMap(mctx.Data.Liabilities, mctx.State, currentDate)
+		mctx.PaymentExecutions = executePaymentRules(mctx.FundFlowRules, mctx.State, requiredPayments, currentDate)
+	}
+
 	// Calculate cash flow; investment allocations are computed every month but only mutate balances after the anchor month
 	var netSavings, netCashFlow, netInvestments *decimal.Decimal
 	applyAllocations := !isAnchorMonth
@@ -2067,6 +2114,7 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFContexts,
 		mctx.IncomeAllocations,
 		mctx.Properties,
+		mctx.PaymentExecutions, // Fund flow payment attribution
 	)
 }
 
@@ -2106,6 +2154,7 @@ func (s *Service) computeSnapshotFromData(sgData SGFinancialDataRows, opts Timel
 		LinkedExpensesByLiability: linkedExpenses,
 		ScenarioImpacts:           sgData.ScenarioImpacts,
 		Properties:                sgData.Properties,
+		FundFlowRules:             sgData.FundFlowRules,
 	}
 	mctx.State = extractBalanceMap(mctx.ItemStates)
 
