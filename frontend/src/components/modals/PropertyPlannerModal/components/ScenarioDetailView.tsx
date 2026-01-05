@@ -194,7 +194,7 @@ export function ScenarioDetailView({
             <AnimatePresence mode="wait">
               {activeResultsTab === 'purchase' ? (
                 <motion.div key="mortgage-form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
-                  <MortgageForm inputs={inputs} onChange={onInputChange} propertyType={selectedType} scenarioId={editingScenario?.id} />
+                  <MortgageForm inputs={inputs} onChange={onInputChange} propertyType={selectedType} propertySgId={editingScenario?.propertySgId} />
                 </motion.div>
               ) : activeResultsTab === 'sale' ? (
                 <motion.div key="sale-form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>

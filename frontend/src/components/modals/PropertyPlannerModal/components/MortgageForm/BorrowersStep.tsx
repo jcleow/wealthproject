@@ -18,6 +18,18 @@ const MONTHLY_AMOUNT_TYPE_OPTIONS = [
   { value: 'percentage', label: '%' },
 ]
 
+// Amount type options for downpayment CPF OA
+const DOWNPAYMENT_CPF_OA_AMOUNT_TYPE_OPTIONS = [
+  { value: 'max_available', label: 'Max' },
+  { value: 'fixed', label: '$' },
+]
+
+// Amount type options for downpayment cash
+const DOWNPAYMENT_CASH_AMOUNT_TYPE_OPTIONS = [
+  { value: 'remainder', label: 'Rest' },
+  { value: 'fixed', label: '$' },
+]
+
 export function BorrowersStep({
   inputs,
   onChange,
@@ -27,12 +39,13 @@ export function BorrowersStep({
   exceedsEcIncomeCeiling,
   purchaseDateFormatted,
   householdIncome,
-  scenarioId,
+  propertySgId,
 }: BorrowersStepProps) {
   const { data: cashAccounts = [] } = useCashAccountsQuery()
 
   // Query fund flow rules for this property (only when editing existing scenario)
-  const { data: paymentRules = [] } = usePropertyPaymentRulesQuery(scenarioId ?? undefined)
+  // Note: Uses propertySgId (property_sg.id), not scenarioId (property_scenarios.id)
+  const { data: paymentRules = [] } = usePropertyPaymentRulesQuery(propertySgId ?? undefined)
 
   // Track if we've already applied fund flow rules to avoid re-applying on every render
   const hasAppliedRulesRef = useRef(false)
@@ -237,63 +250,132 @@ export function BorrowersStep({
             <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Borrower 1</div>
           )}
           {/* CPF OA */}
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-              <Landmark className="h-3.5 w-3.5 text-blue-400" />
-            </div>
-            <span className="text-xs text-slate-300 flex-1">CPF OA</span>
-            <div className="w-28">
-              <div className="relative">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={inputs.borrower1DownpaymentCpfOa === 0 ? '' : inputs.borrower1DownpaymentCpfOa.toLocaleString()}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/,/g, '')
-                    const num = parseFloat(raw) || 0
-                    const cappedValue = inputs.borrower1OaBalance > 0 ? Math.min(num, inputs.borrower1OaBalance) : num
-                    onChange('borrower1DownpaymentCpfOa', cappedValue)
-                    onChange('downpaymentCpfOa', cappedValue + inputs.borrower2DownpaymentCpfOa)
-                  }}
-                  placeholder="0"
-                  className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
-                />
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                <Landmark className="h-3.5 w-3.5 text-blue-400" />
+              </div>
+              <span className="text-xs text-slate-300 flex-1">CPF OA</span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center shrink-0">
+                  {DOWNPAYMENT_CPF_OA_AMOUNT_TYPE_OPTIONS.map((option, idx) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        onChange('borrower1DownpaymentCpfOaAmountType', option.value as 'fixed' | 'max_available')
+                        if (option.value === 'max_available') {
+                          // When switching to max, set to projected OA balance
+                          onChange('borrower1DownpaymentCpfOa', inputs.borrower1OaBalance)
+                          onChange('downpaymentCpfOa', inputs.borrower1OaBalance + inputs.borrower2DownpaymentCpfOa)
+                        }
+                      }}
+                      className={cn(
+                        "px-2 py-1 text-[10px] font-medium border-y transition-colors",
+                        idx === 0 && "rounded-l-md border-l",
+                        idx === DOWNPAYMENT_CPF_OA_AMOUNT_TYPE_OPTIONS.length - 1 && "rounded-r-md border-r",
+                        inputs.borrower1DownpaymentCpfOaAmountType === option.value
+                          ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
+                          : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {inputs.borrower1DownpaymentCpfOaAmountType === 'fixed' ? (
+                  <div className="w-28">
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={inputs.borrower1DownpaymentCpfOa === 0 ? '' : inputs.borrower1DownpaymentCpfOa.toLocaleString()}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/,/g, '')
+                          const num = parseFloat(raw) || 0
+                          const cappedValue = inputs.borrower1OaBalance > 0 ? Math.min(num, inputs.borrower1OaBalance) : num
+                          onChange('borrower1DownpaymentCpfOa', cappedValue)
+                          onChange('downpaymentCpfOa', cappedValue + inputs.borrower2DownpaymentCpfOa)
+                        }}
+                        placeholder="0"
+                        className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-slate-500 w-28 text-right font-mono tabular-nums">
+                    ${inputs.borrower1OaBalance.toLocaleString()}
+                  </span>
+                )}
               </div>
             </div>
           </div>
           {/* Cash */}
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
-              <Wallet className="h-3.5 w-3.5 text-emerald-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <CustomDropdown
-                value={inputs.borrower1DownpaymentCashAccountId ?? ''}
-                onChange={(value) => onChange('borrower1DownpaymentCashAccountId', value || null)}
-                options={cashAccountOptions}
-                minWidth="100%"
-                className="[&_button]:py-1.5 [&_button]:text-xs"
-              />
-            </div>
-            <div className="w-28">
-              <div className="relative">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={inputs.borrower1DownpaymentCashAmount === 0 ? '' : inputs.borrower1DownpaymentCashAmount.toLocaleString()}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/,/g, '')
-                    const num = parseFloat(raw) || 0
-                    onChange('borrower1DownpaymentCashAmount', num)
-                    onChange('downpaymentCash', num + inputs.borrower2DownpaymentCashAmount)
-                  }}
-                  placeholder="0"
-                  className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                <Wallet className="h-3.5 w-3.5 text-emerald-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <CustomDropdown
+                  value={inputs.borrower1DownpaymentCashAccountId ?? ''}
+                  onChange={(value) => onChange('borrower1DownpaymentCashAccountId', value || null)}
+                  options={cashAccountOptions}
+                  minWidth="100%"
+                  className="[&_button]:py-1.5 [&_button]:text-xs"
                 />
               </div>
             </div>
+            {/* Amount type selector - only if cash account selected */}
+            {inputs.borrower1DownpaymentCashAccountId && (
+              <div className="flex items-center gap-2 pl-9">
+                <div className="flex items-center shrink-0">
+                  {DOWNPAYMENT_CASH_AMOUNT_TYPE_OPTIONS.map((option, idx) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        onChange('borrower1DownpaymentCashAmountType', option.value as 'fixed' | 'remainder')
+                        if (option.value === 'remainder') {
+                          onChange('borrower1DownpaymentCashAmount', 0)
+                        }
+                      }}
+                      className={cn(
+                        "px-2 py-1 text-[10px] font-medium border-y transition-colors",
+                        idx === 0 && "rounded-l-md border-l",
+                        idx === DOWNPAYMENT_CASH_AMOUNT_TYPE_OPTIONS.length - 1 && "rounded-r-md border-r",
+                        inputs.borrower1DownpaymentCashAmountType === option.value
+                          ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
+                          : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {inputs.borrower1DownpaymentCashAmountType === 'fixed' ? (
+                  <div className="flex items-center flex-1 h-7 px-2 rounded-md border border-white/[0.06] bg-white/[0.02]">
+                    <span className="text-slate-500 text-xs">$</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={inputs.borrower1DownpaymentCashAmount === 0 ? '' : inputs.borrower1DownpaymentCashAmount.toLocaleString()}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/,/g, '')
+                        const num = parseFloat(raw) || 0
+                        onChange('borrower1DownpaymentCashAmount', num)
+                        onChange('downpaymentCash', num + inputs.borrower2DownpaymentCashAmount)
+                      }}
+                      placeholder="0"
+                      className="flex-1 min-w-0 bg-transparent border-0 outline-none text-white text-xs font-mono tabular-nums placeholder:text-slate-600 ml-1"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-slate-500">covers remaining</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Borrower 2 Downpayment */}
@@ -303,63 +385,131 @@ export function BorrowersStep({
                 <div className="text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-2">Borrower 2</div>
               </div>
               {/* CPF OA */}
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                  <Landmark className="h-3.5 w-3.5 text-blue-400" />
-                </div>
-                <span className="text-xs text-slate-300 flex-1">CPF OA</span>
-                <div className="w-28">
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={inputs.borrower2DownpaymentCpfOa === 0 ? '' : inputs.borrower2DownpaymentCpfOa.toLocaleString()}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/,/g, '')
-                        const num = parseFloat(raw) || 0
-                        const cappedValue = Math.min(num, inputs.borrower2OaBalance)
-                        onChange('borrower2DownpaymentCpfOa', cappedValue)
-                        onChange('downpaymentCpfOa', inputs.borrower1DownpaymentCpfOa + cappedValue)
-                      }}
-                      placeholder="0"
-                      className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
-                    />
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                    <Landmark className="h-3.5 w-3.5 text-blue-400" />
+                  </div>
+                  <span className="text-xs text-slate-300 flex-1">CPF OA</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center shrink-0">
+                      {DOWNPAYMENT_CPF_OA_AMOUNT_TYPE_OPTIONS.map((option, idx) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            onChange('borrower2DownpaymentCpfOaAmountType', option.value as 'fixed' | 'max_available')
+                            if (option.value === 'max_available') {
+                              onChange('borrower2DownpaymentCpfOa', inputs.borrower2OaBalance)
+                              onChange('downpaymentCpfOa', inputs.borrower1DownpaymentCpfOa + inputs.borrower2OaBalance)
+                            }
+                          }}
+                          className={cn(
+                            "px-2 py-1 text-[10px] font-medium border-y transition-colors",
+                            idx === 0 && "rounded-l-md border-l",
+                            idx === DOWNPAYMENT_CPF_OA_AMOUNT_TYPE_OPTIONS.length - 1 && "rounded-r-md border-r",
+                            inputs.borrower2DownpaymentCpfOaAmountType === option.value
+                              ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
+                              : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
+                          )}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    {inputs.borrower2DownpaymentCpfOaAmountType === 'fixed' ? (
+                      <div className="w-28">
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={inputs.borrower2DownpaymentCpfOa === 0 ? '' : inputs.borrower2DownpaymentCpfOa.toLocaleString()}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/,/g, '')
+                              const num = parseFloat(raw) || 0
+                              const cappedValue = Math.min(num, inputs.borrower2OaBalance)
+                              onChange('borrower2DownpaymentCpfOa', cappedValue)
+                              onChange('downpaymentCpfOa', inputs.borrower1DownpaymentCpfOa + cappedValue)
+                            }}
+                            placeholder="0"
+                            className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-500 w-28 text-right font-mono tabular-nums">
+                        ${inputs.borrower2OaBalance.toLocaleString()}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
               {/* Cash */}
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
-                  <Wallet className="h-3.5 w-3.5 text-emerald-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <CustomDropdown
-                    value={inputs.borrower2DownpaymentCashAccountId ?? ''}
-                    onChange={(value) => onChange('borrower2DownpaymentCashAccountId', value || null)}
-                    options={cashAccountOptions}
-                    minWidth="100%"
-                    className="[&_button]:py-1.5 [&_button]:text-xs"
-                  />
-                </div>
-                <div className="w-28">
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={inputs.borrower2DownpaymentCashAmount === 0 ? '' : inputs.borrower2DownpaymentCashAmount.toLocaleString()}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/,/g, '')
-                        const num = parseFloat(raw) || 0
-                        onChange('borrower2DownpaymentCashAmount', num)
-                        onChange('downpaymentCash', inputs.borrower1DownpaymentCashAmount + num)
-                      }}
-                      placeholder="0"
-                      className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06] text-white text-xs font-mono tabular-nums focus:outline-none focus:border-white/20 placeholder:text-slate-600"
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                    <Wallet className="h-3.5 w-3.5 text-emerald-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <CustomDropdown
+                      value={inputs.borrower2DownpaymentCashAccountId ?? ''}
+                      onChange={(value) => onChange('borrower2DownpaymentCashAccountId', value || null)}
+                      options={cashAccountOptions}
+                      minWidth="100%"
+                      className="[&_button]:py-1.5 [&_button]:text-xs"
                     />
                   </div>
                 </div>
+                {/* Amount type selector - only if cash account selected */}
+                {inputs.borrower2DownpaymentCashAccountId && (
+                  <div className="flex items-center gap-2 pl-9">
+                    <div className="flex items-center shrink-0">
+                      {DOWNPAYMENT_CASH_AMOUNT_TYPE_OPTIONS.map((option, idx) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            onChange('borrower2DownpaymentCashAmountType', option.value as 'fixed' | 'remainder')
+                            if (option.value === 'remainder') {
+                              onChange('borrower2DownpaymentCashAmount', 0)
+                            }
+                          }}
+                          className={cn(
+                            "px-2 py-1 text-[10px] font-medium border-y transition-colors",
+                            idx === 0 && "rounded-l-md border-l",
+                            idx === DOWNPAYMENT_CASH_AMOUNT_TYPE_OPTIONS.length - 1 && "rounded-r-md border-r",
+                            inputs.borrower2DownpaymentCashAmountType === option.value
+                              ? "bg-white/[0.08] text-slate-300 border-white/[0.1]"
+                              : "bg-transparent text-slate-600 border-white/[0.06] hover:text-slate-400"
+                          )}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    {inputs.borrower2DownpaymentCashAmountType === 'fixed' ? (
+                      <div className="flex items-center flex-1 h-7 px-2 rounded-md border border-white/[0.06] bg-white/[0.02]">
+                        <span className="text-slate-500 text-xs">$</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={inputs.borrower2DownpaymentCashAmount === 0 ? '' : inputs.borrower2DownpaymentCashAmount.toLocaleString()}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/,/g, '')
+                            const num = parseFloat(raw) || 0
+                            onChange('borrower2DownpaymentCashAmount', num)
+                            onChange('downpaymentCash', inputs.borrower1DownpaymentCashAmount + num)
+                          }}
+                          placeholder="0"
+                          className="flex-1 min-w-0 bg-transparent border-0 outline-none text-white text-xs font-mono tabular-nums placeholder:text-slate-600 ml-1"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-500">covers remaining</span>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}

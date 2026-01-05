@@ -18,6 +18,8 @@ export type FeeContext = 'purchase' | 'sale' | 'recurring'
 export type FeeFrequency = 'one_time' | 'monthly' | 'yearly'
 export type GrowthStrategy = 'fixed' | 'annual_step' | 'compound_monthly' | 'tiered_adb'
 export type CashAmountType = 'fixed' | 'percentage' | 'remainder'
+export type CpfOaAmountType = 'fixed' | 'max_available'
+export type DownpaymentCashAmountType = 'fixed' | 'remainder'
 
 // =============================================================================
 // API RESPONSE TYPES
@@ -47,14 +49,18 @@ export interface PropertySG {
   borrower2IncomeId?: string | null
   borrower2CpfAccountId?: string | null
   // Per-borrower CPF OA tracking
+  borrower1DownpaymentCpfOaAmountType?: CpfOaAmountType | null
   borrower1DownpaymentCpfOa?: string | null
+  borrower2DownpaymentCpfOaAmountType?: CpfOaAmountType | null
   borrower2DownpaymentCpfOa?: string | null
   borrower1MonthlyCpfOa?: string | null
   borrower2MonthlyCpfOa?: string | null
   // Per-borrower cash account configuration (downpayment)
   borrower1DownpaymentCashAccountId?: string | null
+  borrower1DownpaymentCashAmountType?: DownpaymentCashAmountType | null
   borrower1DownpaymentCashAmount?: string | null
   borrower2DownpaymentCashAccountId?: string | null
+  borrower2DownpaymentCashAmountType?: DownpaymentCashAmountType | null
   borrower2DownpaymentCashAmount?: string | null
   // Per-borrower cash account configuration (monthly payment)
   borrower1MonthlyCashAccountId?: string | null
@@ -87,7 +93,7 @@ export interface PropertySG {
 export interface PropertyScenarioHeader {
   id: string
   userId: string
-  propertySGId?: string | null
+  propertySgId?: string | null  // Note: lowercase 'g' to match backend JSON tag
   myDetailsId?: string | null
   createdAt: string
   updatedAt: string
@@ -148,7 +154,7 @@ export interface LiabilityRatePeriod {
  */
 export interface PropertySGGrant {
   id: string
-  propertySGId: string
+  propertySgId: string  // Note: lowercase 'g' to match backend JSON tag
   name: string
   amount: string
   createdAt: string
@@ -321,14 +327,18 @@ export interface CreatePropertySGInput {
   borrower2IncomeId?: string
   borrower2CpfAccountId?: string
   // Per-borrower CPF OA tracking
+  borrower1DownpaymentCpfOaAmountType?: CpfOaAmountType
   borrower1DownpaymentCpfOa?: string
+  borrower2DownpaymentCpfOaAmountType?: CpfOaAmountType
   borrower2DownpaymentCpfOa?: string
   borrower1MonthlyCpfOa?: string
   borrower2MonthlyCpfOa?: string
   // Per-borrower cash account configuration (downpayment)
   borrower1DownpaymentCashAccountId?: string | null
+  borrower1DownpaymentCashAmountType?: DownpaymentCashAmountType
   borrower1DownpaymentCashAmount?: string
   borrower2DownpaymentCashAccountId?: string | null
+  borrower2DownpaymentCashAmountType?: DownpaymentCashAmountType
   borrower2DownpaymentCashAmount?: string
   // Per-borrower cash account configuration (monthly payment)
   borrower1MonthlyCashAccountId?: string | null

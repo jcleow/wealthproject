@@ -84,14 +84,18 @@ const mortgageInputsSchema = z.object({
   borrower2IncomeId: z.string().nullable(),
   borrower2OaBalance: z.number(),
   borrower2LiabilityIds: z.array(z.string()),
+  borrower1DownpaymentCpfOaAmountType: z.enum(['fixed', 'max_available']),
   borrower1DownpaymentCpfOa: z.number(),
+  borrower2DownpaymentCpfOaAmountType: z.enum(['fixed', 'max_available']),
   borrower2DownpaymentCpfOa: z.number(),
   borrower1MonthlyCpfOa: z.number(),
   borrower2MonthlyCpfOa: z.number(),
   // Per-borrower cash account configuration (downpayment)
   borrower1DownpaymentCashAccountId: z.string().nullable(),
+  borrower1DownpaymentCashAmountType: z.enum(['fixed', 'remainder']),
   borrower1DownpaymentCashAmount: z.number(),
   borrower2DownpaymentCashAccountId: z.string().nullable(),
+  borrower2DownpaymentCashAmountType: z.enum(['fixed', 'remainder']),
   borrower2DownpaymentCashAmount: z.number(),
   // Per-borrower cash account configuration (monthly payment)
   borrower1MonthlyCashAccountId: z.string().nullable(),

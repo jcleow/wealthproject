@@ -165,14 +165,18 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2OaBalance: 0,
     borrower2LiabilityIds: [],
     // Per-borrower CPF OA tracking
+    borrower1DownpaymentCpfOaAmountType: 'fixed',
     borrower1DownpaymentCpfOa: 85000,
+    borrower2DownpaymentCpfOaAmountType: 'fixed',
     borrower2DownpaymentCpfOa: 0,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
     // Per-borrower cash account configuration (downpayment)
     borrower1DownpaymentCashAccountId: null,
+    borrower1DownpaymentCashAmountType: 'remainder',
     borrower1DownpaymentCashAmount: 31000,
     borrower2DownpaymentCashAccountId: null,
+    borrower2DownpaymentCashAmountType: 'remainder',
     borrower2DownpaymentCashAmount: 0,
     // Per-borrower cash account configuration (monthly payment)
     borrower1MonthlyCashAccountId: null,
@@ -219,14 +223,18 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2OaBalance: 0,
     borrower2LiabilityIds: [],
     // Per-borrower CPF OA tracking
+    borrower1DownpaymentCpfOaAmountType: 'fixed',
     borrower1DownpaymentCpfOa: 90000,
+    borrower2DownpaymentCpfOaAmountType: 'fixed',
     borrower2DownpaymentCpfOa: 0,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
     // Per-borrower cash account configuration (downpayment)
     borrower1DownpaymentCashAccountId: null,
+    borrower1DownpaymentCashAmountType: 'remainder',
     borrower1DownpaymentCashAmount: 22500,
     borrower2DownpaymentCashAccountId: null,
+    borrower2DownpaymentCashAmountType: 'remainder',
     borrower2DownpaymentCashAmount: 0,
     // Per-borrower cash account configuration (monthly payment)
     borrower1MonthlyCashAccountId: null,
@@ -273,14 +281,18 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2OaBalance: 62400,
     borrower2LiabilityIds: [],
     // Per-borrower CPF OA tracking
+    borrower1DownpaymentCpfOaAmountType: 'fixed',
     borrower1DownpaymentCpfOa: 85000,
+    borrower2DownpaymentCpfOaAmountType: 'fixed',
     borrower2DownpaymentCpfOa: 62400,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
     // Per-borrower cash account configuration (downpayment)
     borrower1DownpaymentCashAccountId: null,
+    borrower1DownpaymentCashAmountType: 'remainder',
     borrower1DownpaymentCashAmount: 52600,
     borrower2DownpaymentCashAccountId: null,
+    borrower2DownpaymentCashAmountType: 'remainder',
     borrower2DownpaymentCashAmount: 0,
     // Per-borrower cash account configuration (monthly payment)
     borrower1MonthlyCashAccountId: null,
@@ -327,14 +339,18 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2OaBalance: 62400,
     borrower2LiabilityIds: [],
     // Per-borrower CPF OA tracking
+    borrower1DownpaymentCpfOaAmountType: 'fixed',
     borrower1DownpaymentCpfOa: 85000,
+    borrower2DownpaymentCpfOaAmountType: 'fixed',
     borrower2DownpaymentCpfOa: 62400,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
     // Per-borrower cash account configuration (downpayment)
     borrower1DownpaymentCashAccountId: null,
+    borrower1DownpaymentCashAmountType: 'remainder',
     borrower1DownpaymentCashAmount: 290100,
     borrower2DownpaymentCashAccountId: null,
+    borrower2DownpaymentCashAmountType: 'remainder',
     borrower2DownpaymentCashAmount: 0,
     // Per-borrower cash account configuration (monthly payment)
     borrower1MonthlyCashAccountId: null,
@@ -381,14 +397,18 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2OaBalance: 62400,
     borrower2LiabilityIds: [],
     // Per-borrower CPF OA tracking
+    borrower1DownpaymentCpfOaAmountType: 'fixed',
     borrower1DownpaymentCpfOa: 85000,
+    borrower2DownpaymentCpfOaAmountType: 'fixed',
     borrower2DownpaymentCpfOa: 62400,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
     // Per-borrower cash account configuration (downpayment)
     borrower1DownpaymentCashAccountId: null,
+    borrower1DownpaymentCashAmountType: 'remainder',
     borrower1DownpaymentCashAmount: 352600,
     borrower2DownpaymentCashAccountId: null,
+    borrower2DownpaymentCashAmountType: 'remainder',
     borrower2DownpaymentCashAmount: 0,
     // Per-borrower cash account configuration (monthly payment)
     borrower1MonthlyCashAccountId: null,

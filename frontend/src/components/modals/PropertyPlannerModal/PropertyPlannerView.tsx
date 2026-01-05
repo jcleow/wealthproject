@@ -186,14 +186,18 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     borrower2OaBalance: parseFloat(apiScenario.computed?.projectedBorrower2OA ?? '0'),
     borrower2LiabilityIds: [],
     // Per-borrower CPF OA tracking (fallback to legacy totals for borrower 1)
+    borrower1DownpaymentCpfOaAmountType: propertySG.borrower1DownpaymentCpfOaAmountType ?? 'fixed',
     borrower1DownpaymentCpfOa,
+    borrower2DownpaymentCpfOaAmountType: propertySG.borrower2DownpaymentCpfOaAmountType ?? 'fixed',
     borrower2DownpaymentCpfOa,
     borrower1MonthlyCpfOa: parseFloat(propertySG.borrower1MonthlyCpfOa ?? '0'),
     borrower2MonthlyCpfOa: parseFloat(propertySG.borrower2MonthlyCpfOa ?? '0'),
     // Per-borrower cash account configuration (downpayment) - fallback to legacy for borrower 1
     borrower1DownpaymentCashAccountId,
+    borrower1DownpaymentCashAmountType: propertySG.borrower1DownpaymentCashAmountType ?? 'remainder',
     borrower1DownpaymentCashAmount,
     borrower2DownpaymentCashAccountId: propertySG.borrower2DownpaymentCashAccountId ?? null,
+    borrower2DownpaymentCashAmountType: propertySG.borrower2DownpaymentCashAmountType ?? 'remainder',
     borrower2DownpaymentCashAmount,
     // Per-borrower cash account configuration (monthly payment) - fallback to legacy for borrower 1
     borrower1MonthlyCashAccountId,
@@ -229,6 +233,7 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
 
   return {
     id: apiScenario.scenario.id,
+    propertySgId: propertySG.id, // The actual property ID for fund flow rules queries
     name: propertySG.name,
     propertyType,
     inputs,
