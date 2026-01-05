@@ -2078,7 +2078,7 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	// Payment rules deduct from source accounts (CPF/cash) to pay liabilities/properties
 	// Only execute after anchor month to match allocation behavior
 	if !isAnchorMonth && len(mctx.FundFlowRules) > 0 {
-		requiredPayments := buildRequiredPaymentsMap(mctx.Data.Liabilities, mctx.State, currentDate)
+		requiredPayments := buildRequiredPaymentsMap(mctx.Data.Liabilities, currentDate)
 		mctx.PaymentExecutions = executePaymentRules(mctx.FundFlowRules, mctx.State, requiredPayments, currentDate)
 	}
 

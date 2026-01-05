@@ -297,6 +297,36 @@ func (d Decimal) NumericValue() (pgtype.Numeric, error) {
 	}, nil
 }
 
+// Min returns the minimum of the given decimal values.
+// Returns Zero() if no values are provided.
+func Min(values ...*Decimal) *Decimal {
+	if len(values) == 0 {
+		return Zero()
+	}
+	min := values[0]
+	for _, v := range values[1:] {
+		if v.Cmp(min) < 0 {
+			min = v
+		}
+	}
+	return min
+}
+
+// Max returns the maximum of the given decimal values.
+// Returns Zero() if no values are provided.
+func Max(values ...*Decimal) *Decimal {
+	if len(values) == 0 {
+		return Zero()
+	}
+	max := values[0]
+	for _, v := range values[1:] {
+		if v.Cmp(max) > 0 {
+			max = v
+		}
+	}
+	return max
+}
+
 // ScanNumeric implements pgtype.NumericScanner for pgx v5.
 // This allows Decimal to be scanned directly from pgx query results.
 func (d *Decimal) ScanNumeric(n pgtype.Numeric) error {

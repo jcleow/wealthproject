@@ -474,14 +474,10 @@ func TestBuildRequiredPaymentsMap_ActiveLiabilities(t *testing.T) {
 		},
 	}
 
-	state := map[string]*decimal.Decimal{
-		"mortgage-456": dec("400000"),
-		"car-loan-111": dec("30000"),
-	}
-
+	// Note: state is no longer used by buildRequiredPaymentsMap (it only needs liabilities)
 	currentDate := dt(2025, 6, 1)
 
-	required := buildRequiredPaymentsMap(liabilities, state, currentDate)
+	required := buildRequiredPaymentsMap(liabilities, currentDate)
 
 	if len(required) != 2 {
 		t.Fatalf("expected 2 required payments, got %d", len(required))
@@ -523,10 +519,9 @@ func TestBuildRequiredPaymentsMap_ExcludesInactiveLiabilities(t *testing.T) {
 		},
 	}
 
-	state := map[string]*decimal.Decimal{}
 	currentDate := dt(2025, 6, 1)
 
-	required := buildRequiredPaymentsMap(liabilities, state, currentDate)
+	required := buildRequiredPaymentsMap(liabilities, currentDate)
 
 	if len(required) != 0 {
 		t.Errorf("expected 0 required payments for inactive liabilities, got %d", len(required))
