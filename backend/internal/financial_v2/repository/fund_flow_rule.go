@@ -265,7 +265,7 @@ func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule Fund
 	// Default start date
 	startDate := rule.StartDate
 	if startDate.IsZero() {
-		startDate = time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		startDate = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
 
 	query := `
@@ -343,6 +343,8 @@ type ListFundFlowRulesQuery struct {
 	TargetLiabilityID *string    // Filter by target liability
 	SourcePropertyID  *string    // Filter by source property (for property sale transfers)
 	ActiveAt          *time.Time // Filter rules active at this date
+	Limit             int        // Max results to return (0 = no limit)
+	Offset            int        // Number of results to skip
 }
 
 // ListFundFlowRules returns all fund flow rules for a user, optionally filtered.
@@ -390,6 +392,18 @@ func (s *Store) ListFundFlowRules(ctx context.Context, q ListFundFlowRulesQuery)
 	}
 
 	query += " ORDER BY priority ASC, created_at ASC"
+
+	// Apply pagination
+	if q.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, q.Limit)
+		argIdx++
+	}
+	if q.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, q.Offset)
+		argIdx++
+	}
 
 	logQuery(query, args)
 	rows, err := s.pool.Query(ctx, query, args...)
@@ -606,7 +620,7 @@ func (s *Store) CreateBatchFundFlowRules(ctx context.Context, userID string, rul
 		// Default start date
 		startDate := rule.StartDate
 		if startDate.IsZero() {
-			startDate = time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+			startDate = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 		}
 
 		query := `
