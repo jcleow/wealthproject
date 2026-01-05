@@ -17,6 +17,8 @@ import type {
   SaleResult,
   AmortizationYear,
   FeeItem,
+  CpfRefund,
+  PerBorrowerCpfRefund,
 } from '../types'
 
 // ============================================
@@ -260,6 +262,59 @@ export function calculateFeeAmount(fee: FeeItem, basePrice: number): number {
 }
 
 /**
+ * Calculate per-borrower CPF refund breakdown
+ * Each borrower's refund = their downpayment CPF + their monthly CPF used + accrued interest on their principal
+ */
+export function calculatePerBorrowerCpfRefund(
+  mortgageInputs: MortgageInputs,
+  holdingPeriodMonths: number,
+  monthlyPayment: number
+): PerBorrowerCpfRefund {
+  const {
+    borrower1DownpaymentCpfOa,
+    borrower2DownpaymentCpfOa,
+    borrower1MonthlyCpfOa,
+    borrower2MonthlyCpfOa,
+    borrowerType,
+  } = mortgageInputs
+
+  const monthsOfPayments = holdingPeriodMonths
+
+  // Borrower 1's CPF usage
+  // Their monthly CPF contribution goes to mortgage first, capped by their contribution amount
+  const b1MonthlyUsed = Math.min(borrower1MonthlyCpfOa, monthlyPayment) * monthsOfPayments
+  const b1Principal = borrower1DownpaymentCpfOa + b1MonthlyUsed
+  const b1AccruedInterest = calculateCpfAccruedInterest(b1Principal, holdingPeriodMonths)
+
+  const borrower1Refund: CpfRefund = {
+    principalUsed: b1Principal,
+    accruedInterest: b1AccruedInterest,
+    total: b1Principal + b1AccruedInterest,
+  }
+
+  // Borrower 2's CPF usage (joint only)
+  let borrower2Refund: CpfRefund | null = null
+  if (borrowerType === 'joint') {
+    // Borrower 2 pays the remaining portion after borrower 1's contribution
+    const remainingMonthlyPayment = Math.max(0, monthlyPayment - borrower1MonthlyCpfOa)
+    const b2MonthlyUsed = Math.min(borrower2MonthlyCpfOa, remainingMonthlyPayment) * monthsOfPayments
+    const b2Principal = borrower2DownpaymentCpfOa + b2MonthlyUsed
+    const b2AccruedInterest = calculateCpfAccruedInterest(b2Principal, holdingPeriodMonths)
+
+    borrower2Refund = {
+      principalUsed: b2Principal,
+      accruedInterest: b2AccruedInterest,
+      total: b2Principal + b2AccruedInterest,
+    }
+  }
+
+  return {
+    borrower1: borrower1Refund,
+    borrower2: borrower2Refund,
+  }
+}
+
+/**
  * Calculate sale proceeds based on sale inputs and mortgage state
  */
 export function calculateSaleProceeds(
@@ -301,6 +356,13 @@ export function calculateSaleProceeds(
   const cpfAccruedInterest = calculateCpfAccruedInterest(totalCpfPrincipalUsed, holdingPeriodMonths)
   const totalCpfRefund = totalCpfPrincipalUsed + cpfAccruedInterest
 
+  // Calculate per-borrower CPF refund breakdown
+  const perBorrowerCpfRefund = calculatePerBorrowerCpfRefund(
+    mortgageInputs,
+    holdingPeriodMonths,
+    monthlyPayment
+  )
+
   // Calculate SSD
   const ssdRate = calculateSsdRate(holdingPeriodMonths)
   const ssdAmount = expectedSalePrice * ssdRate
@@ -325,6 +387,7 @@ export function calculateSaleProceeds(
       accruedInterest: cpfAccruedInterest,
       total: totalCpfRefund,
     },
+    perBorrowerCpfRefund,
     ssd: {
       applicable: ssdRate > 0,
       rate: ssdRate * 100,  // Convert to percentage

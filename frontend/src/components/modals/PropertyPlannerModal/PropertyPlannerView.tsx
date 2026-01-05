@@ -220,6 +220,11 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     expectedSaleDate: propertySG.saleExpectedDate || getDefaultSaleDate(ratePeriod?.startDate?.slice(0, 7) || new Date().toISOString().slice(0, 7)),
     expectedSalePrice: parseFloat(propertySG.saleExpectedPrice || String(parseFloat(propertySG.propertyPrice) * 1.3)),
     fees: saleFees.length > 0 ? saleFees : DEFAULT_SALE_FEES.map(f => ({ ...f })),
+    // Sale proceeds destination (may be null if not yet configured)
+    // Note: These fields are frontend-only for now until backend is updated
+    borrower1CpfRefundAccountId: (propertySG as any).saleBorrower1CpfRefundAccountId ?? null,
+    borrower2CpfRefundAccountId: (propertySG as any).saleBorrower2CpfRefundAccountId ?? null,
+    netCashProceedsAccountId: (propertySG as any).saleNetCashProceedsAccountId ?? null,
   }
 
   return {
@@ -359,6 +364,10 @@ function getDefaultSaleInputs(loanStartMonth: string, propertyPrice: number): Sa
     expectedSaleDate: getDefaultSaleDate(loanStartMonth),
     expectedSalePrice: Math.round(propertyPrice * 1.3),
     fees: DEFAULT_SALE_FEES.map(f => ({ ...f })),
+    // Sale proceeds destinations - null by default (user selects)
+    borrower1CpfRefundAccountId: null,
+    borrower2CpfRefundAccountId: null,
+    netCashProceedsAccountId: null,
   }
 }
 
@@ -563,7 +572,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
 
   const handleSaleInputChange = useCallback((
     field: keyof SaleInputs,
-    value: string | number | boolean | FeeItem[],
+    value: string | number | boolean | FeeItem[] | null,
     shouldDirty = true
   ) => {
     updateSaleInput(field, value as SaleInputs[typeof field], shouldDirty)

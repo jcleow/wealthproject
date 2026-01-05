@@ -23,11 +23,15 @@ import type {
 } from '@/app/property-planner/types'
 
 import type { ComputedValues } from '@/types/propertyPlannerV2'
+import type { ProjectedCpfAccount } from './MortgageForm/types'
 
 import {
   calculateMortgage,
   calculateSaleProceeds,
 } from '@/app/property-planner/hooks'
+
+import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
+import { useCashAccountsQuery } from '@/hooks/queries/useCashAccountsQuery'
 
 import { propertyOptions } from '../constants'
 import { MortgageForm } from './MortgageForm'
@@ -59,7 +63,7 @@ interface ScenarioDetailViewProps {
   hasChanges?: boolean
   computedValues?: ComputedValues | null
   onInputChange: (field: keyof MortgageInputs, value: number | string | string[] | FeeItem[] | AppreciationPeriod[] | LoanSegment[] | StaggeredDownpayment | GrantItem[] | null) => void
-  onSaleInputChange: (field: keyof SaleInputs, value: string | number | boolean | FeeItem[]) => void
+  onSaleInputChange: (field: keyof SaleInputs, value: string | number | boolean | FeeItem[] | null) => void
   onActiveResultsTabChange: (tab: ResultsTab) => void
   /** @deprecated Now handled in modal header - kept for standalone page */
   onSelectedTypeChange?: (type: PropertyType) => void
@@ -109,6 +113,20 @@ export function ScenarioDetailView({
     calculateSaleProceeds(saleInputs, inputs, calculation.amortization, calculation.monthlyPayment),
     [saleInputs, inputs, calculation.amortization, calculation.monthlyPayment]
   )
+
+  // Fetch CPF and cash accounts for sale proceeds destination selection
+  const { data: cpfAccounts = [] } = useCpfAccountsQuery()
+  const { data: cashAccounts = [] } = useCashAccountsQuery()
+
+  // Transform CPF accounts to the format expected by the sale form
+  const projectedCpfAccounts: ProjectedCpfAccount[] = useMemo(() => {
+    return cpfAccounts.map((account) => ({
+      id: account.id,
+      personId: account.personId,
+      personName: account.personName,
+      oaBalance: account.oaBalance,
+    }))
+  }, [cpfAccounts])
 
   return (
     <motion.div
@@ -176,7 +194,7 @@ export function ScenarioDetailView({
             <AnimatePresence mode="wait">
               {activeResultsTab === 'purchase' ? (
                 <motion.div key="mortgage-form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
-                  <MortgageForm inputs={inputs} onChange={onInputChange} propertyType={selectedType} />
+                  <MortgageForm inputs={inputs} onChange={onInputChange} propertyType={selectedType} scenarioId={editingScenario?.id} />
                 </motion.div>
               ) : activeResultsTab === 'sale' ? (
                 <motion.div key="sale-form" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }}>
@@ -186,6 +204,9 @@ export function ScenarioDetailView({
                     saleResult={saleResult}
                     propertyPrice={inputs.propertyPrice}
                     propertyType={selectedType}
+                    borrowerType={inputs.borrowerType}
+                    cpfAccounts={projectedCpfAccounts}
+                    cashAccounts={cashAccounts}
                     saleIcon={editingScenarioSaleIcon}
                     saleIconColor={editingScenarioSaleIconColor}
                     saleIconSearch={editingScenarioSaleIconSearch}

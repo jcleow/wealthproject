@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi, propertyPlannerV2Api, personsApi } from '@/api/financial'
-import type { Income, Expense } from '@/types/financial'
+import { financialApi, propertyPlannerV2Api, personsApi, cashAccountsApi, fundFlowRulesApi } from '@/api/financial'
+import type { Income, Expense, CashAccount } from '@/types/financial'
 import type { CPFAccount, CPFAccountCreatePayload } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CreateScenarioInput, PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { Person } from '@/types/person'
+import type { FundFlowRuleCreatePayload } from '@/types/fundFlowRules'
 import { PERSON_COLORS } from '@/types/person'
 import { DEFAULT_MONTHLY_CADENCE } from '@/types/scenario'
 import { QUERY_KEYS } from '@/lib/queryKeys'
@@ -96,6 +97,24 @@ export function useLoadSampleDataMutation() {
         await financialApi.createCPFAccount(sarahCPFAccount)
       } catch (error) {
         console.error('[loadSampleData] Failed to create Sarah CPF account', error)
+      }
+
+      // Create cash account for property downpayment and monthly payments
+      // This serves as the default cash source for fund flow rules
+      let jointSavingsAccount: CashAccount | null = null
+      try {
+        jointSavingsAccount = await cashAccountsApi.createCashAccount({
+          name: 'Joint Savings Account',
+          balance: 50000, // $50k available for property down payment + buffer
+          interestRate: 2.5,
+          bankName: 'DBS',
+          accountType: 'savings',
+          isAccumulator: true, // This is the default accumulator account
+          notes: 'Joint savings for BTO downpayment and monthly mortgage payments',
+        })
+        console.debug('[loadSampleData] Created joint savings account:', jointSavingsAccount.id)
+      } catch (error) {
+        console.error('[loadSampleData] Failed to create joint savings account', error)
       }
 
       // Sample data for a 32-year-old Singaporean professional
@@ -638,6 +657,66 @@ export function useLoadSampleDataMutation() {
 
         propertyScenario = await propertyPlannerV2Api.createScenario(btoScenarioInput)
         console.debug('[loadSampleData] Created BTO property scenario via V2:', propertyScenario.scenario.id)
+
+        // Create fund flow rules for property payment sources
+        // These rules specify how downpayment and monthly mortgage payments are funded
+        if (propertyScenario && cpfAccount && jointSavingsAccount) {
+          const propertyId = propertyScenario.scenario.id
+
+          // Payment rules follow priority order (lower = higher priority):
+          // 1. CPF OA (priority 0) - use as much as available from CPF OA
+          // 2. Cash (priority 1) - cover remainder from cash account
+          const fundFlowRules: FundFlowRuleCreatePayload[] = [
+            // Downpayment - CPF OA source (priority 0)
+            {
+              name: 'BTO Downpayment - CPF OA',
+              ruleType: 'payment',
+              sourceCpfAccountId: cpfAccount.id,
+              targetPropertyId: propertyId,
+              amountType: 'max_available',
+              priority: 0,
+              startDate: btoKeyCollectionDate,
+            },
+            // Downpayment - Cash source (priority 1, covers remainder)
+            {
+              name: 'BTO Downpayment - Cash',
+              ruleType: 'payment',
+              sourceCashAccountId: jointSavingsAccount.id,
+              targetPropertyId: propertyId,
+              amountType: 'remainder',
+              priority: 1,
+              startDate: btoKeyCollectionDate,
+            },
+            // Monthly payment - CPF OA source (priority 0)
+            {
+              name: 'BTO Monthly - CPF OA',
+              ruleType: 'payment',
+              sourceCpfAccountId: cpfAccount.id,
+              targetPropertyId: propertyId,
+              amountType: 'max_available',
+              priority: 0,
+              startDate: btoKeyCollectionDate,
+            },
+            // Monthly payment - Cash source (priority 1, covers remainder)
+            {
+              name: 'BTO Monthly - Cash',
+              ruleType: 'payment',
+              sourceCashAccountId: jointSavingsAccount.id,
+              targetPropertyId: propertyId,
+              amountType: 'remainder',
+              priority: 1,
+              startDate: btoKeyCollectionDate,
+            },
+          ]
+
+          try {
+            await Promise.all(fundFlowRules.map(rule => fundFlowRulesApi.createFundFlowRule(rule)))
+            console.debug('[loadSampleData] Created fund flow rules for property:', propertyId)
+          } catch (ruleError) {
+            console.error('[loadSampleData] Failed to create fund flow rules:', ruleError)
+            // Non-fatal: property scenario is still usable without rules
+          }
+        }
       } catch (error) {
         console.error('[loadSampleData] Failed to create BTO property scenario:', error)
         // Non-fatal: continue even if property scenario creation fails

@@ -110,6 +110,7 @@ export const FORM_STEPS: FormStepConfig[] = [
 export const SALE_FORM_STEPS: SaleFormStepConfig[] = [
   { id: 'timing', label: 'Sale Details' },
   { id: 'fees', label: 'Fees & Notices' },
+  { id: 'proceeds', label: 'Proceeds' },
 ]
 
 // ============================================

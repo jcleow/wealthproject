@@ -121,6 +121,10 @@ const saleInputsSchema = z.object({
   expectedSaleDate: z.string(),
   expectedSalePrice: z.number(),
   fees: z.array(feeItemSchema),
+  // Sale proceeds destination fields
+  borrower1CpfRefundAccountId: z.string().nullable(),
+  borrower2CpfRefundAccountId: z.string().nullable(),
+  netCashProceedsAccountId: z.string().nullable(),
 })
 
 // ============================================

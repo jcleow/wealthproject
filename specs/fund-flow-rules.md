@@ -169,7 +169,7 @@ erDiagram
         uuid target_investment_id FK "nullable"
         uuid target_liability_id FK "nullable"
         uuid target_property_id FK "nullable"
-        varchar amount_type "fixed|percentage|remainder|target_required|max_available"
+        varchar amount_type "fixed|pct_target|pct_source|remainder|target_required|max_available"
         numeric amount_value "nullable"
         int priority "lower = higher priority"
         timestamptz start_date
@@ -319,7 +319,8 @@ CREATE TABLE fund_flow_rules (
     -- =========================================================================
     amount_type VARCHAR(20) NOT NULL CHECK (amount_type IN (
         'fixed',           -- Exact amount specified by user
-        'percentage',      -- Percentage of base amount
+        'pct_target',      -- Percentage of target's required amount (e.g., 60% of mortgage)
+        'pct_source',      -- Percentage of source's amount/balance (e.g., 30% of income)
         'remainder',       -- Whatever's left after higher-priority rules
         'target_required', -- Derive from target's required payment (liability/property)
         'max_available'    -- Use up to source balance, optionally capped
@@ -327,7 +328,8 @@ CREATE TABLE fund_flow_rules (
 
     -- amount_value interpretation by type:
     -- 'fixed':           Required. The exact amount to transfer.
-    -- 'percentage':      Required. Percentage (0-100) of base amount.
+    -- 'pct_target':      Required. Percentage (0-100) of target's required amount.
+    -- 'pct_source':      Required. Percentage (0-100) of source's amount/balance.
     -- 'remainder':       Ignored. Takes whatever's left.
     -- 'target_required': Optional. If set, caps the target's required amount.
     -- 'max_available':   Optional. If set, caps how much to take from source.
@@ -353,15 +355,16 @@ CREATE TABLE fund_flow_rules (
     -- CONSTRAINTS
     -- =========================================================================
 
-    -- Amount value required for fixed and percentage types
+    -- Amount value required for fixed, pct_target, and pct_source types
     CONSTRAINT chk_amount_value CHECK (
         amount_type IN ('remainder', 'target_required', 'max_available')
         OR amount_value IS NOT NULL
     ),
 
-    -- Percentage must be 0-100
+    -- Percentage types must be 0-100
     CONSTRAINT chk_percentage_range CHECK (
-        amount_type <> 'percentage' OR (amount_value >= 0 AND amount_value <= 100)
+        amount_type NOT IN ('pct_target', 'pct_source')
+        OR (amount_value >= 0 AND amount_value <= 100)
     )
 
     -- Note: Source/target validation done at application layer per rule_type
@@ -387,7 +390,8 @@ CREATE INDEX idx_fund_flow_rules_property ON fund_flow_rules(target_property_id)
 | Amount Type | Question Answered | amount_value | Use Case |
 |-------------|-------------------|--------------|----------|
 | `fixed` | "Transfer exactly this much" | Required | $2,500/month mortgage |
-| `percentage` | "Transfer this % of base" | Required (0-100) | 60% of mortgage from CPF |
+| `pct_target` | "Transfer this % of target's required" | Required (0-100) | 60% of mortgage payment from CPF |
+| `pct_source` | "Transfer this % of source's amount" | Required (0-100) | 30% of income to savings |
 | `remainder` | "Transfer whatever's left" | Ignored | Cash covers remaining mortgage |
 | `target_required` | "Transfer what target needs" | Optional cap | Pay full mortgage amount |
 | `max_available` | "Transfer what source has" | Optional cap | Use all available CPF for mortgage |
@@ -399,19 +403,22 @@ flowchart TD
     Q1{"What determines<br/>the amount?"}
 
     Q1 -->|"I specify exactly"| Fixed["fixed<br/>────────<br/>amount_value = $2,500"]
-    Q1 -->|"A percentage"| Percentage["percentage<br/>────────<br/>amount_value = 60"]
+    Q1 -->|"% of target amount"| PctTarget["pct_target<br/>────────<br/>amount_value = 60"]
+    Q1 -->|"% of source amount"| PctSource["pct_source<br/>────────<br/>amount_value = 30"]
     Q1 -->|"Whatever target needs"| TargetReq["target_required<br/>────────<br/>amount_value = optional cap"]
     Q1 -->|"Whatever source has"| MaxAvail["max_available<br/>────────<br/>amount_value = optional cap"]
     Q1 -->|"Whatever is left"| Remainder["remainder<br/>────────<br/>amount_value = ignored"]
 
     Fixed --> Ex1["Example:<br/>$2,500/month mortgage payment"]
-    Percentage --> Ex2["Example:<br/>60% of mortgage from CPF"]
+    PctTarget --> Ex2["Example:<br/>60% of mortgage from CPF"]
+    PctSource --> Ex2b["Example:<br/>30% of income to savings"]
     TargetReq --> Ex3["Example:<br/>Pay full mortgage amount"]
     MaxAvail --> Ex4["Example:<br/>Use all CPF for mortgage,<br/>until depleted"]
     Remainder --> Ex5["Example:<br/>Cash covers the rest"]
 
     style Fixed fill:#e8f4ff,stroke:#08f
-    style Percentage fill:#e8f4ff,stroke:#08f
+    style PctTarget fill:#e8f4ff,stroke:#08f
+    style PctSource fill:#e8f4ff,stroke:#08f
     style TargetReq fill:#fff4e8,stroke:#f80
     style MaxAvail fill:#fff4e8,stroke:#f80
     style Remainder fill:#e9d5ff,stroke:#7c3aed
@@ -813,6 +820,102 @@ ALTER TABLE fund_flow_rules
 
 ---
 
+## Property Sale Proceeds (Frontend-Only, Precursor to Phase 3)
+
+**Status:** ✅ Implemented (Frontend Only)
+
+When a property is sold in Singapore, two types of fund movements occur:
+
+### 1. CPF Refund (Mandatory)
+
+CPF principal used + 2.5% accrued interest **must** be refunded to each borrower's respective CPF OA account. This is enforced by CPF Board regulations.
+
+**Per-Borrower Calculation:**
+```
+Borrower's CPF Refund = Their Downpayment CPF + Their Monthly CPF Used + Accrued Interest
+```
+
+Where:
+- Downpayment CPF: Amount each borrower contributed from CPF for downpayment
+- Monthly CPF Used: Sum of monthly CPF payments over the holding period
+- Accrued Interest: 2.5% compound interest on their principal
+
+### 2. Net Cash Proceeds (User-Selected)
+
+The remaining cash after deducting:
+- Outstanding loan balance
+- Total CPF refund (both borrowers)
+- Seller's Stamp Duty (if applicable)
+- Sale fees (agent, legal, etc.)
+
+This goes to a user-selected cash account.
+
+### Frontend Implementation
+
+**Types (`frontend/src/app/property-planner/types/index.ts`):**
+```typescript
+export interface SaleInputs {
+  expectedSaleDate: string
+  expectedSalePrice: number
+  fees: FeeItem[]
+  // Sale proceeds destination fields
+  borrower1CpfRefundAccountId: string | null  // Target CPF OA account for borrower 1's refund
+  borrower2CpfRefundAccountId: string | null  // Target CPF OA account for borrower 2's refund (joint)
+  netCashProceedsAccountId: string | null     // Target cash account for net proceeds
+}
+
+export interface PerBorrowerCpfRefund {
+  borrower1: CpfRefund
+  borrower2: CpfRefund | null  // null for single borrower
+}
+```
+
+**UI Location:** Property Planner → Sale tab → "Proceeds" step
+
+The UI shows:
+- Per-borrower CPF OA destination dropdowns (with projected refund amounts)
+- Cash account destination dropdown (with projected net proceeds)
+- Summary of total sale value breakdown
+
+### Future Phase 3 Integration
+
+When Phase 3 (transfer rules) is implemented, these sale proceeds will be modeled as:
+
+```json
+[
+  {
+    "name": "CPF Refund to Borrower 1 OA",
+    "ruleType": "transfer",
+    "sourcePropertyId": "property-uuid",
+    "targetCpfAccountId": "borrower-1-oa-uuid",
+    "amountType": "fixed",
+    "amountValue": 125000,
+    "startDate": "2035-06-01"
+  },
+  {
+    "name": "CPF Refund to Borrower 2 OA",
+    "ruleType": "transfer",
+    "sourcePropertyId": "property-uuid",
+    "targetCpfAccountId": "borrower-2-oa-uuid",
+    "amountType": "fixed",
+    "amountValue": 98000,
+    "startDate": "2035-06-01"
+  },
+  {
+    "name": "Net Proceeds to Savings",
+    "ruleType": "transfer",
+    "sourcePropertyId": "property-uuid",
+    "targetCashAccountId": "savings-uuid",
+    "amountType": "remainder",
+    "startDate": "2035-06-01"
+  }
+]
+```
+
+**Note:** This requires extending the transfer rule schema to support `sourcePropertyId` (a property sale event as source).
+
+---
+
 ## Phase 4: Expense Rules
 
 **Goal:** Enable priority-based source accounts for expenses (childcare, utilities, etc.)
@@ -971,7 +1074,7 @@ GET    /api/v2/fund-flow-rules/by-account/:id     Rules affecting an account
 
 ```typescript
 type RuleType = 'payment' | 'allocation' | 'transfer';
-type AmountType = 'fixed' | 'percentage' | 'remainder' | 'target_required' | 'max_available';
+type AmountType = 'fixed' | 'pct_target' | 'pct_source' | 'remainder' | 'target_required' | 'max_available';
 
 interface FundFlowRule {
   id: string;
@@ -992,7 +1095,7 @@ interface FundFlowRule {
   targetPropertyId?: string;       // For 'payment'
 
   amountType: AmountType;
-  amountValue?: number;  // Required for 'fixed'/'percentage', optional cap for others
+  amountValue?: number;  // Required for 'fixed'/'pct_target'/'pct_source', optional cap for others
 
   // Priority for ordering multiple rules on same target (lower = higher priority)
   // Use multiple rules with different priorities instead of fallback columns
@@ -1330,6 +1433,24 @@ GROUP BY target_property_id;
 
 ---
 
+### Scenario 2b: Investment Condo with Percentage Split
+
+**User Story:** Investment condo mortgage is $4,500/month. They want to:
+1. Pay 60% of mortgage from John's CPF OA
+2. Cash covers the remaining 40%
+
+**Fund Flow Rules:**
+
+```sql
+INSERT INTO fund_flow_rules (id, user_id, name, rule_type, source_cpf_account_id, source_cash_account_id, target_property_id, amount_type, amount_value, priority, start_date) VALUES
+  ('rule-condo-pct-1', 'user-123', 'Condo 60% from CPF', 'payment', 'cpf-john-uuid', NULL, 'prop-condo-uuid', 'pct_target', 60, 0, '2025-01-01'),
+  ('rule-condo-pct-2', 'user-123', 'Condo remainder from Cash', 'payment', NULL, 'cash-savings-uuid', 'prop-condo-uuid', 'remainder', NULL, 1, '2025-01-01');
+```
+
+**Note:** `pct_target` means "60% of the target's required payment" ($4,500 × 60% = $2,700 from CPF).
+
+---
+
 ### Scenario 3: Car Loan - Single Source
 
 **User Story:** Car loan is $800/month, paid entirely from joint savings.
@@ -1417,8 +1538,8 @@ ORDER BY ffr.priority;
 
 ```sql
 INSERT INTO fund_flow_rules (id, user_id, name, rule_type, source_income_id, target_investment_id, target_cash_account_id, amount_type, amount_value, priority, start_date) VALUES
-  ('rule-alloc-1', 'user-123', 'Salary to Growth ETFs', 'allocation', 'income-john-uuid', 'inv-growth-uuid', NULL, 'percentage', 30, 0, '2025-01-01'),
-  ('rule-alloc-2', 'user-123', 'Salary to Emergency', 'allocation', 'income-john-uuid', NULL, 'cash-emergency-uuid', 'percentage', 20, 1, '2025-01-01'),
+  ('rule-alloc-1', 'user-123', 'Salary to Growth ETFs', 'allocation', 'income-john-uuid', 'inv-growth-uuid', NULL, 'pct_source', 30, 0, '2025-01-01'),
+  ('rule-alloc-2', 'user-123', 'Salary to Emergency', 'allocation', 'income-john-uuid', NULL, 'cash-emergency-uuid', 'pct_source', 20, 1, '2025-01-01'),
   ('rule-alloc-3', 'user-123', 'Salary to Savings', 'allocation', 'income-john-uuid', NULL, 'cash-savings-uuid', 'remainder', NULL, 2, '2025-01-01');
 ```
 
@@ -1436,7 +1557,8 @@ SELECT
     END as target_name,
     -- Calculate actual amount for $8,000 salary (net after CPF)
     CASE
-        WHEN ffr.amount_type = 'percentage' THEN 6400 * (ffr.amount_value / 100)
+        WHEN ffr.amount_type = 'pct_source' THEN 6400 * (ffr.amount_value / 100)
+        WHEN ffr.amount_type = 'pct_target' THEN NULL  -- requires target amount
         WHEN ffr.amount_type = 'fixed' THEN ffr.amount_value
         ELSE NULL  -- remainder calculated at runtime
     END as estimated_amount
@@ -1452,8 +1574,8 @@ ORDER BY ffr.priority;
 
 | name | priority | amount_type | amount_value | target_name | estimated_amount |
 |------|----------|-------------|--------------|-------------|------------------|
-| Salary to Growth ETFs | 0 | percentage | 30 | Growth ETFs | $1,920 |
-| Salary to Emergency | 1 | percentage | 20 | Emergency Fund | $1,280 |
+| Salary to Growth ETFs | 0 | pct_source | 30 | Growth ETFs | $1,920 |
+| Salary to Emergency | 1 | pct_source | 20 | Emergency Fund | $1,280 |
 | Salary to Savings | 2 | remainder | - | Joint Savings | $3,200 |
 
 ---

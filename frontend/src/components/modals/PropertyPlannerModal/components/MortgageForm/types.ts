@@ -37,6 +37,8 @@ export interface MortgageFormProps {
   inputs: MortgageInputs
   onChange: OnChangeHandler
   propertyType: PropertyType
+  /** Property scenario ID for querying fund flow rules (edit mode only) */
+  scenarioId?: string | null
 }
 
 // Step component props - base interface
@@ -64,6 +66,8 @@ export interface BorrowersStepProps extends StepProps {
   exceedsEcIncomeCeiling: boolean
   purchaseDateFormatted: string
   householdIncome: number
+  /** Property scenario ID for querying fund flow rules (edit mode only) */
+  scenarioId?: string | null
 }
 
 // TermsStep props

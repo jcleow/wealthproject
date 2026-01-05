@@ -1,13 +1,13 @@
 "use client"
 
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { InfoTooltip } from '@/app/property-planner/components/InfoTooltip'
 import { calculateMonthlyOaInflow } from '@/app/property-planner/hooks'
 import { cn } from '@/lib/utils'
 import { Wallet, Landmark } from 'lucide-react'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
-import { useCashAccountsQuery } from '@/hooks/queries'
+import { useCashAccountsQuery, usePropertyPaymentRulesQuery } from '@/hooks/queries'
 
 import type { BorrowersStepProps, IncomeOption } from './types'
 
@@ -27,8 +27,15 @@ export function BorrowersStep({
   exceedsEcIncomeCeiling,
   purchaseDateFormatted,
   householdIncome,
+  scenarioId,
 }: BorrowersStepProps) {
   const { data: cashAccounts = [] } = useCashAccountsQuery()
+
+  // Query fund flow rules for this property (only when editing existing scenario)
+  const { data: paymentRules = [] } = usePropertyPaymentRulesQuery(scenarioId ?? undefined)
+
+  // Track if we've already applied fund flow rules to avoid re-applying on every render
+  const hasAppliedRulesRef = useRef(false)
 
   // Helper to format income label - person name if present, else salary name
   const formatIncomeLabel = (income: IncomeOption) => {
@@ -54,22 +61,32 @@ export function BorrowersStep({
     ]
   }, [cashAccounts])
 
-  // Auto-select first cash account if there's a cash amount but no account selected
+  // Pre-select cash accounts from fund flow rules when editing an existing scenario
+  // Find the first rule with sourceCashAccountId targeting this property
   useEffect(() => {
-    if (cashAccounts.length === 0) return
+    // Only apply rules once and when we have rules to apply
+    if (hasAppliedRulesRef.current || paymentRules.length === 0) return
 
-    const firstCashAccountId = cashAccounts[0].id
+    // Find cash account rule for downpayment (any rule with sourceCashAccountId)
+    const cashRule = paymentRules.find(rule => rule.sourceCashAccountId)
 
-    // Borrower 1 downpayment: has cash amount but no account
-    if (inputs.borrower1DownpaymentCashAmount > 0 && !inputs.borrower1DownpaymentCashAccountId) {
-      onChange('borrower1DownpaymentCashAccountId', firstCashAccountId, false)
+    if (cashRule?.sourceCashAccountId) {
+      // Set both downpayment and monthly cash account to the same source
+      // Only set if not already set (don't override user selection)
+      if (!inputs.borrower1DownpaymentCashAccountId) {
+        onChange('borrower1DownpaymentCashAccountId', cashRule.sourceCashAccountId, false)
+      }
+      if (!inputs.borrower1MonthlyCashAccountId) {
+        onChange('borrower1MonthlyCashAccountId', cashRule.sourceCashAccountId, false)
+        // Also set the amount type to 'remainder' since that's what the rule specifies
+        if (cashRule.amountType === 'remainder') {
+          onChange('borrower1MonthlyCashAmountType', 'remainder', false)
+        }
+      }
+
+      hasAppliedRulesRef.current = true
     }
-
-    // Borrower 1 monthly: has cash amount type set (remainder means they want to use cash) but no account
-    if (inputs.borrower1MonthlyCashAmountType === 'remainder' && !inputs.borrower1MonthlyCashAccountId) {
-      onChange('borrower1MonthlyCashAccountId', firstCashAccountId, false)
-    }
-  }, [cashAccounts, inputs.borrower1DownpaymentCashAmount, inputs.borrower1DownpaymentCashAccountId, inputs.borrower1MonthlyCashAmountType, inputs.borrower1MonthlyCashAccountId, onChange])
+  }, [paymentRules, inputs.borrower1DownpaymentCashAccountId, inputs.borrower1MonthlyCashAccountId, onChange])
 
   return (
     <div className="space-y-4">

@@ -20,7 +20,7 @@ import { TermsStep } from './MortgageForm/TermsStep'
 import { getProjectedOaByPersonId, getHouseholdIncome } from './MortgageForm/utils'
 import type { MortgageFormProps, IncomeOption } from './MortgageForm/types'
 
-export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormProps) {
+export function MortgageForm({ inputs, onChange, propertyType, scenarioId }: MortgageFormProps) {
   const [currentStep, setCurrentStep] = useState<FormStep>('property')
   const isHDB = propertyType.includes('hdb')
 
@@ -308,6 +308,7 @@ export function MortgageForm({ inputs, onChange, propertyType }: MortgageFormPro
                 exceedsEcIncomeCeiling={exceedsEcIncomeCeiling}
                 purchaseDateFormatted={formatPurchaseDate(inputs.loanStartMonth)}
                 householdIncome={householdIncome}
+                scenarioId={scenarioId}
               />
             )}
 

@@ -13,7 +13,7 @@ export type BorrowerType = 'single' | 'joint'
 export type LoanType = 'bank' | 'hdb'
 export type ChartView = 'balance' | 'composition' | 'schedule'
 export type FormStep = 'property' | 'borrowers' | 'terms'
-export type SaleFormStep = 'timing' | 'fees'
+export type SaleFormStep = 'timing' | 'fees' | 'proceeds'
 export type AccordionColor = 'rose' | 'violet' | 'emerald' | 'amber'
 
 // ============================================
@@ -193,12 +193,21 @@ export interface SaleInputs {
   expectedSaleDate: string  // YYYY-MM format
   expectedSalePrice: number
   fees: FeeItem[]  // Flexible fees list
+  // Sale proceeds destination fields
+  borrower1CpfRefundAccountId: string | null  // Target CPF account for borrower 1's refund
+  borrower2CpfRefundAccountId: string | null  // Target CPF account for borrower 2's refund (joint only)
+  netCashProceedsAccountId: string | null     // Target cash account for net proceeds
 }
 
 export interface CpfRefund {
   principalUsed: number      // downpaymentCpfOa + cumulative monthly CPF payments
   accruedInterest: number    // 2.5% compound interest
   total: number
+}
+
+export interface PerBorrowerCpfRefund {
+  borrower1: CpfRefund
+  borrower2: CpfRefund | null  // null for single borrower
 }
 
 export interface SsdInfo {
@@ -212,6 +221,7 @@ export interface SaleResult {
   holdingPeriodYears: number
   outstandingLoanAtSale: number
   cpfRefund: CpfRefund
+  perBorrowerCpfRefund: PerBorrowerCpfRefund  // Per-borrower CPF refund breakdown
   ssd: SsdInfo
   calculatedFees: CalculatedFee[]
   totalFees: number

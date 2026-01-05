@@ -1,10 +1,13 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { Landmark, Wallet } from 'lucide-react'
 import { MonthPicker } from '@/components/ui/MonthPicker'
 import { IconPicker } from '@/components/modals/ScenarioEventModal/components/IconPicker'
+import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
+import { InfoTooltip } from '@/app/property-planner/components/InfoTooltip'
 
 import type {
   PropertyType,
@@ -12,7 +15,10 @@ import type {
   SaleResult,
   FeeItem,
   SaleFormStep,
+  BorrowerType,
 } from '@/app/property-planner/types'
+import type { ProjectedCpfAccount } from './MortgageForm/types'
+import type { CashAccount } from '@/types/financial'
 
 import {
   FormInput,
@@ -24,10 +30,16 @@ import { SALE_FORM_STEPS } from '@/app/property-planner/hooks/constants'
 
 interface SaleParametersFormProps {
   saleInputs: SaleInputs
-  onSaleInputChange: (field: keyof SaleInputs, value: string | number | boolean | FeeItem[]) => void
+  onSaleInputChange: (field: keyof SaleInputs, value: string | number | boolean | FeeItem[] | null) => void
   saleResult: SaleResult
   propertyPrice: number
   propertyType: PropertyType
+  /** Borrower type for per-borrower CPF refund display */
+  borrowerType: BorrowerType
+  /** CPF accounts for refund destination selection */
+  cpfAccounts: ProjectedCpfAccount[]
+  /** Cash accounts for proceeds destination selection */
+  cashAccounts: CashAccount[]
   /** Sale milestone icon name */
   saleIcon?: string
   /** Sale milestone icon color */
@@ -48,6 +60,9 @@ export function SaleParametersForm({
   saleResult,
   propertyPrice,
   propertyType,
+  borrowerType,
+  cpfAccounts,
+  cashAccounts,
   saleIcon = 'banknote',
   saleIconColor = '#10b981',
   saleIconSearch = '',
@@ -64,6 +79,32 @@ export function SaleParametersForm({
   const hasWarnings = saleResult.ssd.applicable ||
     (saleResult.holdingPeriodMonths < 60 && (isHDB || propertyType === 'ec')) ||
     (saleResult.holdingPeriodMonths < 120 && propertyType === 'ec')
+
+  // Build dropdown options for CPF accounts
+  const cpfAccountOptions = useMemo(() => {
+    return [
+      { value: '', label: 'Select CPF account...' },
+      ...cpfAccounts.map(acc => ({
+        value: acc.id,
+        label: acc.personName || 'CPF Account',
+        icon: <Landmark className="h-4 w-4 text-blue-400" />,
+      }))
+    ]
+  }, [cpfAccounts])
+
+  // Build dropdown options for cash accounts
+  const cashAccountOptions = useMemo(() => {
+    return [
+      { value: '', label: 'Select cash account...' },
+      ...cashAccounts.map(acc => ({
+        value: acc.id,
+        label: acc.name,
+        icon: <Wallet className="h-4 w-4 text-emerald-400" />,
+      }))
+    ]
+  }, [cashAccounts])
+
+  const { perBorrowerCpfRefund } = saleResult
 
   return (
     <div className="space-y-4">
@@ -205,6 +246,145 @@ export function SaleParametersForm({
                     )}
                   </div>
                 )}
+              </div>
+            )}
+
+            {currentStep === 'proceeds' && (
+              <div className="space-y-4">
+                {/* CPF Refund Destination Section */}
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                      CPF Refund Destinations
+                    </span>
+                    <InfoTooltip
+                      title="CPF Refund"
+                      description="When you sell a property, the CPF used (principal + 2.5% accrued interest) must be refunded to your CPF OA account."
+                    />
+                  </div>
+
+                  {/* Borrower 1 CPF Refund */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                      <Landmark className="h-3.5 w-3.5 text-blue-400" />
+                    </div>
+                    <span className="text-xs text-slate-300 w-24 shrink-0">
+                      {borrowerType === 'joint' ? 'Borrower 1' : 'CPF OA'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <CustomDropdown
+                        value={saleInputs.borrower1CpfRefundAccountId ?? ''}
+                        onChange={(value) => onSaleInputChange('borrower1CpfRefundAccountId', value || null)}
+                        options={cpfAccountOptions}
+                        minWidth="100%"
+                        className="[&_button]:py-1.5 [&_button]:text-xs"
+                      />
+                    </div>
+                    <div className="w-24 text-right shrink-0">
+                      <span className="text-xs font-mono tabular-nums text-white">
+                        {formatCurrency(perBorrowerCpfRefund.borrower1?.total ?? 0)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Borrower 2 CPF Refund (joint only) */}
+                  {borrowerType === 'joint' && perBorrowerCpfRefund.borrower2 && (
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                        <Landmark className="h-3.5 w-3.5 text-blue-400" />
+                      </div>
+                      <span className="text-xs text-slate-300 w-24 shrink-0">Borrower 2</span>
+                      <div className="flex-1 min-w-0">
+                        <CustomDropdown
+                          value={saleInputs.borrower2CpfRefundAccountId ?? ''}
+                          onChange={(value) => onSaleInputChange('borrower2CpfRefundAccountId', value || null)}
+                          options={cpfAccountOptions}
+                          minWidth="100%"
+                          className="[&_button]:py-1.5 [&_button]:text-xs"
+                        />
+                      </div>
+                      <div className="w-24 text-right shrink-0">
+                        <span className="text-xs font-mono tabular-nums text-white">
+                          {formatCurrency(perBorrowerCpfRefund.borrower2.total)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CPF Refund Total */}
+                  <div className="pt-2 border-t border-white/[0.04] flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Total CPF Refund</span>
+                    <span className="text-xs font-medium text-blue-400 font-mono tabular-nums">
+                      {formatCurrency(saleResult.cpfRefundedToOa)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Net Cash Proceeds Destination */}
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                      Net Cash Proceeds
+                    </span>
+                    <InfoTooltip
+                      title="Net Cash Proceeds"
+                      description="The remaining cash after paying off the mortgage, CPF refund, stamp duties, and sale fees."
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                      <Wallet className="h-3.5 w-3.5 text-emerald-400" />
+                    </div>
+                    <span className="text-xs text-slate-300 w-24 shrink-0">Destination</span>
+                    <div className="flex-1 min-w-0">
+                      <CustomDropdown
+                        value={saleInputs.netCashProceedsAccountId ?? ''}
+                        onChange={(value) => onSaleInputChange('netCashProceedsAccountId', value || null)}
+                        options={cashAccountOptions}
+                        minWidth="100%"
+                        className="[&_button]:py-1.5 [&_button]:text-xs"
+                      />
+                    </div>
+                    <div className="w-24 text-right shrink-0">
+                      <span className={cn(
+                        "text-xs font-mono tabular-nums",
+                        saleResult.netCashProceeds >= 0 ? "text-emerald-400" : "text-rose-400"
+                      )}>
+                        {saleResult.netCashProceeds >= 0
+                          ? formatCurrency(saleResult.netCashProceeds)
+                          : `(${formatCurrency(Math.abs(saleResult.netCashProceeds))})`
+                        }
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Sale Price</span>
+                    <span className="text-white font-mono tabular-nums">{formatCurrency(displaySalePrice)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Outstanding Loan</span>
+                    <span className="text-slate-300 font-mono tabular-nums">({formatCurrency(saleResult.outstandingLoanAtSale)})</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">CPF Refund</span>
+                    <span className="text-slate-300 font-mono tabular-nums">({formatCurrency(saleResult.cpfRefundedToOa)})</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Fees & SSD</span>
+                    <span className="text-slate-300 font-mono tabular-nums">({formatCurrency(saleResult.totalFees + saleResult.ssd.amount)})</span>
+                  </div>
+                  <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-300">Total Value to You</span>
+                    <span className="text-sm font-semibold text-white font-mono tabular-nums">
+                      {formatCurrency(saleResult.cpfRefundedToOa + saleResult.netCashProceeds)}
+                    </span>
+                  </div>
+                </div>
               </div>
             )}
           </motion.div>
