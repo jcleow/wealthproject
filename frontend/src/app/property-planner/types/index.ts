@@ -109,12 +109,23 @@ export interface MortgageInputs {
   borrower2DownpaymentCpfOa: number // Borrower 2's CPF OA for downpayment
   borrower1MonthlyCpfOa: number // Borrower 1's monthly CPF OA payment
   borrower2MonthlyCpfOa: number // Borrower 2's monthly CPF OA payment
-  // Monthly payment - cash contribution configuration
-  monthlyCashAccountId: string | null // Cash account to draw from for monthly payment
-  monthlyCashAmountType: 'fixed' | 'percentage' | 'remainder' // How cash amount is determined
-  monthlyCashAmount: number // Fixed $ amount or percentage (0-100) depending on type
-  // Downpayment - cash contribution configuration
-  downpaymentCashAccountId: string | null // Cash account for downpayment cash portion
+  // Per-borrower cash account configuration (downpayment)
+  borrower1DownpaymentCashAccountId: string | null // Borrower 1's cash account for downpayment
+  borrower1DownpaymentCashAmount: number // Borrower 1's cash contribution to downpayment
+  borrower2DownpaymentCashAccountId: string | null // Borrower 2's cash account for downpayment
+  borrower2DownpaymentCashAmount: number // Borrower 2's cash contribution to downpayment
+  // Per-borrower cash account configuration (monthly payment)
+  borrower1MonthlyCashAccountId: string | null // Borrower 1's cash account for monthly payment
+  borrower1MonthlyCashAmountType: 'fixed' | 'percentage' | 'remainder' // How amount is determined
+  borrower1MonthlyCashAmount: number // Fixed $ or percentage depending on type
+  borrower2MonthlyCashAccountId: string | null // Borrower 2's cash account for monthly payment
+  borrower2MonthlyCashAmountType: 'fixed' | 'percentage' | 'remainder' // How amount is determined
+  borrower2MonthlyCashAmount: number // Fixed $ or percentage depending on type
+  // Legacy fields (kept for backward compatibility - computed from per-borrower values)
+  monthlyCashAccountId: string | null // @deprecated - use per-borrower fields
+  monthlyCashAmountType: 'fixed' | 'percentage' | 'remainder' // @deprecated
+  monthlyCashAmount: number // @deprecated
+  downpaymentCashAccountId: string | null // @deprecated - use per-borrower fields
   // Lease tenure: null = freehold, 1-999 = remaining years
   leaseRemainingYears: number | null
   // Purchase fees/expenses

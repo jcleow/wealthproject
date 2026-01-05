@@ -168,11 +168,22 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2DownpaymentCpfOa: 0,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
-    // Monthly payment cash split
+    // Per-borrower cash account configuration (downpayment)
+    borrower1DownpaymentCashAccountId: null,
+    borrower1DownpaymentCashAmount: 31000,
+    borrower2DownpaymentCashAccountId: null,
+    borrower2DownpaymentCashAmount: 0,
+    // Per-borrower cash account configuration (monthly payment)
+    borrower1MonthlyCashAccountId: null,
+    borrower1MonthlyCashAmountType: 'remainder',
+    borrower1MonthlyCashAmount: 0,
+    borrower2MonthlyCashAccountId: null,
+    borrower2MonthlyCashAmountType: 'remainder',
+    borrower2MonthlyCashAmount: 0,
+    // Legacy fields
     monthlyCashAccountId: null,
     monthlyCashAmountType: 'remainder',
     monthlyCashAmount: 0,
-    // Downpayment cash source
     downpaymentCashAccountId: null,
     // Lease tenure (HDB = 99 years)
     leaseRemainingYears: 99,
@@ -211,11 +222,22 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2DownpaymentCpfOa: 0,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
-    // Monthly payment cash split
+    // Per-borrower cash account configuration (downpayment)
+    borrower1DownpaymentCashAccountId: null,
+    borrower1DownpaymentCashAmount: 22500,
+    borrower2DownpaymentCashAccountId: null,
+    borrower2DownpaymentCashAmount: 0,
+    // Per-borrower cash account configuration (monthly payment)
+    borrower1MonthlyCashAccountId: null,
+    borrower1MonthlyCashAmountType: 'remainder',
+    borrower1MonthlyCashAmount: 0,
+    borrower2MonthlyCashAccountId: null,
+    borrower2MonthlyCashAmountType: 'remainder',
+    borrower2MonthlyCashAmount: 0,
+    // Legacy fields
     monthlyCashAccountId: null,
     monthlyCashAmountType: 'remainder',
     monthlyCashAmount: 0,
-    // Downpayment cash source
     downpaymentCashAccountId: null,
     // Lease tenure (BTO = 99 years)
     leaseRemainingYears: 99,
@@ -254,11 +276,22 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2DownpaymentCpfOa: 62400,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
-    // Monthly payment cash split
+    // Per-borrower cash account configuration (downpayment)
+    borrower1DownpaymentCashAccountId: null,
+    borrower1DownpaymentCashAmount: 52600,
+    borrower2DownpaymentCashAccountId: null,
+    borrower2DownpaymentCashAmount: 0,
+    // Per-borrower cash account configuration (monthly payment)
+    borrower1MonthlyCashAccountId: null,
+    borrower1MonthlyCashAmountType: 'remainder',
+    borrower1MonthlyCashAmount: 0,
+    borrower2MonthlyCashAccountId: null,
+    borrower2MonthlyCashAmountType: 'remainder',
+    borrower2MonthlyCashAmount: 0,
+    // Legacy fields
     monthlyCashAccountId: null,
     monthlyCashAmountType: 'remainder',
     monthlyCashAmount: 0,
-    // Downpayment cash source
     downpaymentCashAccountId: null,
     // Lease tenure (EC = 99 years)
     leaseRemainingYears: 99,
@@ -297,11 +330,22 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2DownpaymentCpfOa: 62400,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
-    // Monthly payment cash split
+    // Per-borrower cash account configuration (downpayment)
+    borrower1DownpaymentCashAccountId: null,
+    borrower1DownpaymentCashAmount: 290100,
+    borrower2DownpaymentCashAccountId: null,
+    borrower2DownpaymentCashAmount: 0,
+    // Per-borrower cash account configuration (monthly payment)
+    borrower1MonthlyCashAccountId: null,
+    borrower1MonthlyCashAmountType: 'remainder',
+    borrower1MonthlyCashAmount: 0,
+    borrower2MonthlyCashAccountId: null,
+    borrower2MonthlyCashAmountType: 'remainder',
+    borrower2MonthlyCashAmount: 0,
+    // Legacy fields
     monthlyCashAccountId: null,
     monthlyCashAmountType: 'remainder',
     monthlyCashAmount: 0,
-    // Downpayment cash source
     downpaymentCashAccountId: null,
     // Lease tenure (private condo - default 99 years, user can change to freehold)
     leaseRemainingYears: 99,
@@ -340,11 +384,22 @@ export const defaultInputsByType: Record<PropertyType, MortgageInputs> = {
     borrower2DownpaymentCpfOa: 62400,
     borrower1MonthlyCpfOa: 0,
     borrower2MonthlyCpfOa: 0,
-    // Monthly payment cash split
+    // Per-borrower cash account configuration (downpayment)
+    borrower1DownpaymentCashAccountId: null,
+    borrower1DownpaymentCashAmount: 352600,
+    borrower2DownpaymentCashAccountId: null,
+    borrower2DownpaymentCashAmount: 0,
+    // Per-borrower cash account configuration (monthly payment)
+    borrower1MonthlyCashAccountId: null,
+    borrower1MonthlyCashAmountType: 'remainder',
+    borrower1MonthlyCashAmount: 0,
+    borrower2MonthlyCashAccountId: null,
+    borrower2MonthlyCashAmountType: 'remainder',
+    borrower2MonthlyCashAmount: 0,
+    // Legacy fields
     monthlyCashAccountId: null,
     monthlyCashAmountType: 'remainder',
     monthlyCashAmount: 0,
-    // Downpayment cash source
     downpaymentCashAccountId: null,
     // Lease tenure (private new - default 99 years, user can change to freehold)
     leaseRemainingYears: 99,

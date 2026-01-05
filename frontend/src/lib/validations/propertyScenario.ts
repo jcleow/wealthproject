@@ -88,11 +88,22 @@ const mortgageInputsSchema = z.object({
   borrower2DownpaymentCpfOa: z.number(),
   borrower1MonthlyCpfOa: z.number(),
   borrower2MonthlyCpfOa: z.number(),
-  // Monthly payment cash split
+  // Per-borrower cash account configuration (downpayment)
+  borrower1DownpaymentCashAccountId: z.string().nullable(),
+  borrower1DownpaymentCashAmount: z.number(),
+  borrower2DownpaymentCashAccountId: z.string().nullable(),
+  borrower2DownpaymentCashAmount: z.number(),
+  // Per-borrower cash account configuration (monthly payment)
+  borrower1MonthlyCashAccountId: z.string().nullable(),
+  borrower1MonthlyCashAmountType: z.enum(['fixed', 'percentage', 'remainder']),
+  borrower1MonthlyCashAmount: z.number(),
+  borrower2MonthlyCashAccountId: z.string().nullable(),
+  borrower2MonthlyCashAmountType: z.enum(['fixed', 'percentage', 'remainder']),
+  borrower2MonthlyCashAmount: z.number(),
+  // Legacy fields
   monthlyCashAccountId: z.string().nullable(),
   monthlyCashAmountType: z.enum(['fixed', 'percentage', 'remainder']),
   monthlyCashAmount: z.number(),
-  // Downpayment cash source
   downpaymentCashAccountId: z.string().nullable(),
   leaseRemainingYears: z.number().nullable(),
   purchaseFees: z.array(feeItemSchema),

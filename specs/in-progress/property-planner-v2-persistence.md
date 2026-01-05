@@ -533,13 +533,25 @@ VALUES ('...', 1, '2027-01-01', 23, 4.0, 'floating');
 
 ```mermaid
 erDiagram
+    persons {
+        uuid id PK
+        varchar user_id
+        varchar name
+        varchar display_color
+        boolean is_included
+        date date_of_birth
+        varchar residency_status "citizen|pr"
+        date pr_grant_date
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
     finance_incomes {
         uuid id PK
         varchar user_id
+        uuid person_id FK
         text name
         numeric amount
-        varchar earner "self|spouse|other"
-        varchar residency_status "singapore_citizen|permanent_resident|foreigner"
         varchar frequency
         timestamptz start_date
         timestamptz end_date
@@ -550,10 +562,13 @@ erDiagram
     cpf_accounts {
         uuid id PK
         varchar user_id
-        varchar earner "self|spouse|other"
+        uuid person_id FK
         numeric oa_balance
         numeric sa_balance
         numeric ma_balance
+        numeric ra_balance
+        timestamptz start_date
+        timestamptz end_date
         timestamptz created_at
         timestamptz updated_at
     }
@@ -570,16 +585,18 @@ erDiagram
     property_sg {
         uuid id PK
         varchar name
-        varchar icon
-        varchar icon_color
+        varchar purchase_icon
+        varchar purchase_icon_color
+        varchar sale_icon
+        varchar sale_icon_color
         boolean is_included "timeline flag"
         varchar property_type "hdb|private"
         varchar property_subtype "bto|resale|ec|new"
         numeric property_price
         numeric valuation_price
         varchar loan_type "bank|hdb"
-        numeric downpayment_cpf_oa
-        numeric downpayment_cash
+        numeric downpayment_cpf_oa "legacy"
+        numeric downpayment_cash "legacy"
         varchar borrower_type "single|joint"
         uuid borrower1_income_id FK
         uuid borrower1_cpf_account_id FK
@@ -587,6 +604,21 @@ erDiagram
         uuid borrower2_cpf_account_id FK
         numeric other_debt
         int property_count
+        int lease_remaining_years "nullable - freehold if null"
+        numeric borrower1_downpayment_cpf_oa
+        numeric borrower2_downpayment_cpf_oa
+        numeric borrower1_monthly_cpf_oa
+        numeric borrower2_monthly_cpf_oa
+        uuid borrower1_downpayment_cash_account_id FK
+        numeric borrower1_downpayment_cash_amount
+        uuid borrower2_downpayment_cash_account_id FK
+        numeric borrower2_downpayment_cash_amount
+        uuid borrower1_monthly_cash_account_id FK
+        varchar borrower1_monthly_cash_amount_type "fixed|remainder"
+        numeric borrower1_monthly_cash_amount
+        uuid borrower2_monthly_cash_account_id FK
+        varchar borrower2_monthly_cash_amount_type "fixed|remainder"
+        numeric borrower2_monthly_cash_amount
         varchar bto_launch_date "YYYY-MM"
         varchar bto_key_collection_date "YYYY-MM"
         varchar sale_expected_date "YYYY-MM"
@@ -594,6 +626,9 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
+
+    persons ||--o{ finance_incomes : "owns"
+    persons ||--o{ cpf_accounts : "owns"
 
     property_sg_grants {
         uuid id PK
