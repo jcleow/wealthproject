@@ -1,26 +1,20 @@
 /**
- * Type Aliases for Generated API Types
+ * Type Re-exports from Generated API Types
  *
- * This file re-exports types from api.generated.ts with cleaner, more ergonomic names.
+ * This file re-exports types from api.generated.ts for convenient imports.
  * The generated types are the source of truth from the backend Swagger spec.
  *
  * Usage:
- *   import { Frequency, ItemType, ChatRequest } from '@/types/api.aliases'
+ *   import { Frequency, ItemType, Expense, ChatRequest } from '@/types/api.aliases'
  *
- * Migration Guide:
- *   - New code should prefer these aliases over manual types in financial.ts
- *   - Existing code can be migrated gradually
- *   - Generated types ensure frontend/backend type safety
+ * Or import directly:
+ *   import { Expense } from '@/types/api.generated'
  */
 
-// ============================================================================
-// Enums - Clean re-exports
-// ============================================================================
+// Re-export everything from generated types
+export * from './api.generated'
 
-export { CommonFrequency as Frequency } from './api.generated'
-export { TimelineItemType as ItemType } from './api.generated'
-
-// Enum value constants for convenience (matches backend string values)
+// Convenience constants for enum values (matches backend string values)
 export const FrequencyValues = {
   ONE_TIME: 'one_time',
   MONTHLY: 'monthly',
@@ -40,93 +34,23 @@ export const ItemTypeValues = {
   CASH_ACCOUNT: 'cash_account',
 } as const
 
-// ============================================================================
-// Chat/Session Types
-// ============================================================================
-
+// Type aliases for API input types (for clarity in usage)
 export type {
-  HandlersChatRequest as ChatRequest,
-  HandlersChatResponse as ChatResponse,
-  HandlersDispatchRequest as DispatchRequest,
-  HandlersDispatchResponse as DispatchResponse,
-  HandlersSelectedAction as SelectedAction,
-  HandlersExecutionResult as ExecutionResult,
-  HandlersExecutionSummary as ExecutionSummary,
-  FinancialProposedAction as ProposedAction,
-  FinancialWarning as ActionWarning,
-  FinancialImpactEstimate as ImpactEstimate,
-} from './api.generated'
-
-// ============================================================================
-// API Input Types (for create/update payloads)
-// ============================================================================
-
-export type {
-  HandlersAssetCreateInput as AssetCreateInput,
-  HandlersAssetInput as AssetUpdateInput,
-  HandlersExpenseCreateInput as ExpenseCreateInput,
-  HandlersExpenseV2Input as ExpenseUpdateInput,
-  HandlersIncomeV2CreateInput as IncomeCreateInput,
-  HandlersIncomeV2Input as IncomeUpdateInput,
-  HandlersLiabilityCreateInput as LiabilityCreateInput,
-  HandlersLiabilityInput as LiabilityUpdateInput,
-  HandlersInvestmentCreateInput as InvestmentCreateInput,
-  HandlersInvestmentV2Input as InvestmentUpdateInput,
-  HandlersCashAccountV2Input as CashAccountInput,
-  HandlersCpfV2CreateInput as CpfCreateInput,
-  HandlersCpfV2Input as CpfUpdateInput,
-} from './api.generated'
-
-// ============================================================================
-// Scenario Types
-// ============================================================================
-
-export type {
-  HandlersScenarioEventV2DTO as ScenarioEventDTO,
-  HandlersScenarioImpactV2DTO as ScenarioImpactDTO,
-  HandlersCreateScenarioRequest as CreateScenarioRequest,
-  HandlersScenarioResponse as ScenarioResponse,
-} from './api.generated'
-
-// ============================================================================
-// Property Types
-// ============================================================================
-
-export type {
-  HandlersCreatePropertySGRequest as CreatePropertySGRequest,
-  HandlersComputedValues as PropertyComputedValues,
-  HandlersCreateFeeRequest as CreateFeeRequest,
-  HandlersCreateGrantRequest as CreateGrantRequest,
-  HandlersCreateGrowthPeriodRequest as CreateGrowthPeriodRequest,
-  HandlersCreateRatePeriodRequest as CreateRatePeriodRequest,
-} from './api.generated'
-
-// ============================================================================
-// Repository/Domain Types (verbose names, alias for cleaner imports)
-// ============================================================================
-
-export type {
-  FinancialChatSystemBackendInternalFinancialV2RepositoryExpense as ApiExpense,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryIncome as ApiIncome,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryInvestment as ApiInvestment,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryLiability as ApiLiability,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryGroupedExpenses as ApiGroupedExpenses,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryPropertyScenario as ApiPropertyScenario,
-} from './api.generated'
-
-// ============================================================================
-// Utility Types
-// ============================================================================
-
-export type {
-  HandlersHealthResponse as HealthResponse,
-  HandlersTokenResponse as TokenResponse,
-  HandlersStopInput as StopInput,
-} from './api.generated'
-
-// Income allocation types
-export type {
-  HandlersIncomeAllocationCreateDTO as IncomeAllocationCreateDTO,
-  HandlersIncomeAllocationV2DTO as IncomeAllocationDTO,
-  HandlersStopAllocationDTO as StopAllocationDTO,
+  AssetCreateInput as CreateAssetPayload,
+  AssetInput as UpdateAssetPayload,
+  ExpenseCreateInput as CreateExpensePayload,
+  ExpenseV2Input as UpdateExpensePayload,
+  IncomeV2CreateInput as CreateIncomePayload,
+  IncomeV2Input as UpdateIncomePayload,
+  LiabilityCreateInput as CreateLiabilityPayload,
+  LiabilityInput as UpdateLiabilityPayload,
+  InvestmentCreateInput as CreateInvestmentPayload,
+  InvestmentV2Input as UpdateInvestmentPayload,
+  CashAccountV2Input as CashAccountPayload,
+  CpfV2CreateInput as CreateCpfPayload,
+  CpfV2Input as UpdateCpfPayload,
+  ScenarioEventV2DTO as ScenarioEvent,
+  ScenarioImpactV2DTO as ScenarioImpact,
+  FundFlowRuleDTO as FundFlowRule,
+  FundFlowRuleCreateDTO as CreateFundFlowRulePayload,
 } from './api.generated'

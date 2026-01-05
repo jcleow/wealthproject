@@ -1,5 +1,9 @@
 import { ApiError, apiClient } from '../client'
 import type {
+  FundFlowRuleDTO,
+  StopFundFlowRuleDTO,
+} from '@/types/api.generated'
+import type {
   FundFlowRule,
   FundFlowRuleCreatePayload,
   FundFlowRuleUpdatePayload,
@@ -7,33 +11,36 @@ import type {
 } from '@/types/fundFlowRules'
 
 /**
- * Transform API response to FundFlowRule type
+ * Transform API response (FundFlowRuleDTO) to FundFlowRule type.
+ * The generated DTO has all optional fields; we provide defaults for required ones.
+ * Note: Fallback fields are defined in frontend types for Phase 2/3 but not yet in backend API.
  */
-function toFundFlowRule(data: Record<string, unknown>): FundFlowRule {
+function toFundFlowRule(dto: FundFlowRuleDTO): FundFlowRule {
   return {
-    id: String(data.id),
-    userId: String(data.userId),
-    name: String(data.name),
-    ruleType: data.ruleType as FundFlowRule['ruleType'],
-    sourceIncomeId: data.sourceIncomeId as string | null | undefined,
-    sourceCpfAccountId: data.sourceCpfAccountId as string | null | undefined,
-    sourceCashAccountId: data.sourceCashAccountId as string | null | undefined,
-    sourceInvestmentId: data.sourceInvestmentId as string | null | undefined,
-    targetCpfAccountId: data.targetCpfAccountId as string | null | undefined,
-    targetCashAccountId: data.targetCashAccountId as string | null | undefined,
-    targetInvestmentId: data.targetInvestmentId as string | null | undefined,
-    targetLiabilityId: data.targetLiabilityId as string | null | undefined,
-    targetPropertyId: data.targetPropertyId as string | null | undefined,
-    amountType: data.amountType as FundFlowRule['amountType'],
-    amountValue: data.amountValue as string | null | undefined,
-    priority: Number(data.priority),
-    fallbackCpfAccountId: data.fallbackCpfAccountId as string | null | undefined,
-    fallbackCashAccountId: data.fallbackCashAccountId as string | null | undefined,
-    fallbackInvestmentId: data.fallbackInvestmentId as string | null | undefined,
-    startDate: String(data.startDate),
-    endDate: data.endDate ? String(data.endDate) : null,
-    createdAt: String(data.createdAt),
-    updatedAt: String(data.updatedAt),
+    id: dto.id ?? '',
+    userId: dto.userId ?? '',
+    name: dto.name ?? '',
+    ruleType: (dto.ruleType as FundFlowRule['ruleType']) ?? 'payment',
+    sourceIncomeId: dto.sourceIncomeId,
+    sourceCpfAccountId: dto.sourceCpfAccountId,
+    sourceCashAccountId: dto.sourceCashAccountId,
+    sourceInvestmentId: dto.sourceInvestmentId,
+    targetCpfAccountId: dto.targetCpfAccountId,
+    targetCashAccountId: dto.targetCashAccountId,
+    targetInvestmentId: dto.targetInvestmentId,
+    targetLiabilityId: dto.targetLiabilityId,
+    targetPropertyId: dto.targetPropertyId,
+    amountType: (dto.amountType as FundFlowRule['amountType']) ?? 'fixed',
+    amountValue: dto.amountValue,
+    priority: dto.priority ?? 0,
+    // Fallback fields - not yet implemented in backend API (Phase 2/3)
+    fallbackCpfAccountId: undefined,
+    fallbackCashAccountId: undefined,
+    fallbackInvestmentId: undefined,
+    startDate: dto.startDate ?? new Date().toISOString(),
+    endDate: dto.endDate ?? null,
+    createdAt: dto.createdAt ?? new Date().toISOString(),
+    updatedAt: dto.updatedAt ?? new Date().toISOString(),
   }
 }
 
@@ -50,17 +57,17 @@ export async function listFundFlowRules(
   if (filters?.limit !== undefined) params.limit = filters.limit
   if (filters?.offset !== undefined) params.offset = filters.offset
 
-  const data = await apiClient.get<unknown[]>('/fund-flow-rules', params, {
+  const data = await apiClient.get<FundFlowRuleDTO[]>('/fund-flow-rules', params, {
     baseUrl: '/api/v2',
   })
-  return data.map((item) => toFundFlowRule(item as Record<string, unknown>))
+  return data.map(toFundFlowRule)
 }
 
 /**
  * Get a single fund flow rule by ID
  */
 export async function getFundFlowRule(id: string): Promise<FundFlowRule> {
-  const data = await apiClient.get<Record<string, unknown>>(`/fund-flow-rules/${id}`, undefined, {
+  const data = await apiClient.get<FundFlowRuleDTO>(`/fund-flow-rules/${id}`, undefined, {
     baseUrl: '/api/v2',
   })
   return toFundFlowRule(data)
@@ -72,7 +79,7 @@ export async function getFundFlowRule(id: string): Promise<FundFlowRule> {
 export async function createFundFlowRule(
   payload: FundFlowRuleCreatePayload
 ): Promise<FundFlowRule> {
-  const data = await apiClient.post<Record<string, unknown>>('/fund-flow-rules', payload, {
+  const data = await apiClient.post<FundFlowRuleDTO>('/fund-flow-rules', payload, {
     baseUrl: '/api/v2',
   })
   return toFundFlowRule(data)
@@ -85,7 +92,7 @@ export async function updateFundFlowRule(
   id: string,
   payload: FundFlowRuleUpdatePayload
 ): Promise<FundFlowRule> {
-  const data = await apiClient.put<Record<string, unknown>>(`/fund-flow-rules/${id}`, payload, {
+  const data = await apiClient.put<FundFlowRuleDTO>(`/fund-flow-rules/${id}`, payload, {
     baseUrl: '/api/v2',
   })
   return toFundFlowRule(data)
@@ -109,9 +116,10 @@ export async function deleteFundFlowRule(id: string): Promise<void> {
  * Stop a fund flow rule (set end date without deleting)
  */
 export async function stopFundFlowRule(id: string, endDate: string): Promise<FundFlowRule> {
-  const data = await apiClient.post<Record<string, unknown>>(
+  const body: StopFundFlowRuleDTO = { endDate }
+  const data = await apiClient.post<FundFlowRuleDTO>(
     `/fund-flow-rules/${id}/stop`,
-    { endDate },
+    body,
     { baseUrl: '/api/v2' }
   )
   return toFundFlowRule(data)
