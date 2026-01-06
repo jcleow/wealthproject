@@ -33,6 +33,7 @@ func TestListIncomeAllocations_ReturnsAllocationsForIncome(t *testing.T) {
 	mockPool.EnqueueRow("SELECT COUNT", []any{incomeID, userID}, testutil.NewStubRow(t, []any{2}, nil))
 
 	// Then Query call for allocations from fund_flow_rules
+	// Note: default limit of 20 is always applied when no limit specified
 	rows := testutil.NewStubRows(t, [][]any{
 		{
 			"alloc-1", incomeID, "alloc-1",
@@ -47,7 +48,7 @@ func TestListIncomeAllocations_ReturnsAllocationsForIncome(t *testing.T) {
 			"fixed", *decimal.MustFromString("1000.0000"), createdAt,
 		},
 	})
-	mockPool.EnqueueQuery("fund_flow_rules", []any{incomeID, userID}, rows, nil)
+	mockPool.EnqueueQuery("fund_flow_rules", []any{incomeID, userID, DefaultPaginationLimit}, rows, nil)
 
 	result, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.NoError(t, err)
@@ -99,9 +100,9 @@ func TestListIncomeAllocations_IncomeExistsButNoAllocations(t *testing.T) {
 	// Count query returns 0
 	mockPool.EnqueueRow("SELECT COUNT", []any{incomeID, userID}, testutil.NewStubRow(t, []any{0}, nil))
 
-	// Empty rows from fund_flow_rules
+	// Empty rows from fund_flow_rules (default limit of 20 is always applied)
 	rows := testutil.NewStubRows(t, [][]any{})
-	mockPool.EnqueueQuery("fund_flow_rules", []any{incomeID, userID}, rows, nil)
+	mockPool.EnqueueQuery("fund_flow_rules", []any{incomeID, userID, DefaultPaginationLimit}, rows, nil)
 
 	result, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.NoError(t, err)
@@ -244,4 +245,37 @@ func TestDeleteIncomeAllocation_NotFound(t *testing.T) {
 
 	err := store.DeleteIncomeAllocation(ctx, userID, allocationID)
 	require.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestPaginationParams_WithDefaultLimit(t *testing.T) {
+	t.Parallel()
+
+	t.Run("applies default when limit is nil", func(t *testing.T) {
+		params := PaginationParams{}
+		result := params.WithDefaultLimit()
+
+		require.NotNil(t, result.Limit)
+		require.Equal(t, DefaultPaginationLimit, *result.Limit)
+		require.Nil(t, result.Offset)
+	})
+
+	t.Run("preserves existing limit", func(t *testing.T) {
+		customLimit := 50
+		params := PaginationParams{Limit: &customLimit}
+		result := params.WithDefaultLimit()
+
+		require.NotNil(t, result.Limit)
+		require.Equal(t, 50, *result.Limit)
+	})
+
+	t.Run("preserves offset when applying default", func(t *testing.T) {
+		offset := 10
+		params := PaginationParams{Offset: &offset}
+		result := params.WithDefaultLimit()
+
+		require.NotNil(t, result.Limit)
+		require.Equal(t, DefaultPaginationLimit, *result.Limit)
+		require.NotNil(t, result.Offset)
+		require.Equal(t, 10, *result.Offset)
+	})
 }

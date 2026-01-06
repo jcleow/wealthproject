@@ -60,10 +60,27 @@ func logQuery(query string, args []any) {
 	log.Printf("[SQL] %s\n%s\n", funcName, substituted)
 }
 
+// DefaultPaginationLimit is the default limit applied when no limit is specified.
+// This is a safety feature to prevent unbounded queries.
+const DefaultPaginationLimit = 20
+
 // PaginationParams holds pagination parameters for list queries.
 type PaginationParams struct {
 	Limit  *int
 	Offset *int
+}
+
+// WithDefaultLimit returns a copy of the pagination params with a default limit applied
+// if no limit was specified. This ensures queries are always bounded.
+func (p PaginationParams) WithDefaultLimit() PaginationParams {
+	if p.Limit == nil {
+		defaultLimit := DefaultPaginationLimit
+		return PaginationParams{
+			Limit:  &defaultLimit,
+			Offset: p.Offset,
+		}
+	}
+	return p
 }
 
 // PaginatedResult holds paginated list results with metadata.
@@ -1080,6 +1097,9 @@ func (s *Store) ListIncomeAllocations(
 	if err := s.pool.QueryRow(ctx, countQuery, incomeID, userID).Scan(&total); err != nil {
 		return PaginatedResult[IncomeAllocation]{}, fmt.Errorf("failed to count allocations: %w", err)
 	}
+
+	// Apply default limit if not specified (safety feature)
+	pagination = pagination.WithDefaultLimit()
 
 	// Build paginated query
 	paginationClause, argIdx := addPaginationQuery(pagination, 3)
