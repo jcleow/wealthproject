@@ -85,30 +85,52 @@ func TestGroupAllocationsByIncome(t *testing.T) {
 	assert.Len(t, grouped[income2], 1)
 }
 
+// TestCalculateAllocationAmount tests the pure calculation function in isolation.
+// This function computes how much to allocate based on the rule type, but does NOT
+// modify any state. The actual tracking of remaining income happens in the caller
+// (executeAllocationGroup), not in this function.
+//
+// Parameters explained:
+//   - totalIncome: The original gross income amount (never changes across allocations)
+//   - remainingIncome: What's left after previous allocation rules have been processed.
+//     This is passed IN as a parameter to simulate being called mid-pipeline.
+//
+// Example flow in executeAllocationGroup:
+//
+//	Income: $5000
+//	Rule 1 (priority 0, fixed $500):  calculateAllocationAmount(..., 5000, 5000) → returns 500
+//	                                  remaining = 5000 - 500 = 4500  ← subtraction happens in caller
+//	Rule 2 (priority 1, 30%):         calculateAllocationAmount(..., 5000, 4500) → returns 1500
+//	                                  remaining = 4500 - 1500 = 3000
+//	Rule 3 (priority 2, remainder):   calculateAllocationAmount(..., 5000, 3000) → returns 3000
 func TestCalculateAllocationAmount(t *testing.T) {
 	tests := []struct {
 		name            string
 		amountType      string
 		amountValue     *decimal.Decimal
-		totalIncome     *decimal.Decimal
-		remainingIncome *decimal.Decimal
+		totalIncome     *decimal.Decimal // Original income (used by percentage rules)
+		remainingIncome *decimal.Decimal // Simulated remaining after previous rules
 		expected        *decimal.Decimal
 	}{
 		{
+			// Fixed allocations ignore remainingIncome - they just return the fixed amount.
+			// The caller is responsible for capping at remaining if needed.
 			name:            "fixed allocation",
 			amountType:      AmountTypeFixed,
 			amountValue:     decimal.MustFromString("500"),
 			totalIncome:     decimal.MustFromString("5000"),
-			remainingIncome: decimal.MustFromString("5000"),
+			remainingIncome: decimal.MustFromString("5000"), // Not used by fixed type
 			expected:        decimal.MustFromString("500"),
 		},
 		{
+			// Percentage allocations use totalIncome (the original), not remainingIncome.
+			// This ensures 30% always means 30% of gross, regardless of prior allocations.
 			name:            "percentage allocation (30%)",
 			amountType:      AmountTypePctSource,
 			amountValue:     decimal.MustFromString("30"),
 			totalIncome:     decimal.MustFromString("5000"),
-			remainingIncome: decimal.MustFromString("5000"),
-			expected:        decimal.MustFromString("1500"),
+			remainingIncome: decimal.MustFromString("5000"), // Not used by percentage type
+			expected:        decimal.MustFromString("1500"), // 30% of 5000
 		},
 		{
 			name:            "percentage allocation - legacy 'percentage' type",
@@ -116,31 +138,36 @@ func TestCalculateAllocationAmount(t *testing.T) {
 			amountValue:     decimal.MustFromString("20"),
 			totalIncome:     decimal.MustFromString("5000"),
 			remainingIncome: decimal.MustFromString("5000"),
-			expected:        decimal.MustFromString("1000"),
+			expected:        decimal.MustFromString("1000"), // 20% of 5000
 		},
 		{
+			// Remainder allocations use remainingIncome - takes whatever is left.
+			// Here we simulate that $1500 was already allocated, leaving $3500.
 			name:            "remainder allocation",
 			amountType:      AmountTypeRemainder,
 			amountValue:     nil,
 			totalIncome:     decimal.MustFromString("5000"),
-			remainingIncome: decimal.MustFromString("3500"),
-			expected:        decimal.MustFromString("3500"),
+			remainingIncome: decimal.MustFromString("3500"), // Simulates: prior rules took $1500
+			expected:        decimal.MustFromString("3500"), // Takes all remaining
 		},
 		{
+			// max_available with cap: takes up to the cap from remaining.
+			// Here $3000 remains but cap is $1000, so returns $1000.
 			name:            "max_available with cap",
 			amountType:      AmountTypeMaxAvailable,
-			amountValue:     decimal.MustFromString("1000"),
+			amountValue:     decimal.MustFromString("1000"), // Cap
 			totalIncome:     decimal.MustFromString("5000"),
-			remainingIncome: decimal.MustFromString("3000"),
+			remainingIncome: decimal.MustFromString("3000"), // Simulates: prior rules took $2000
 			expected:        decimal.MustFromString("1000"), // Capped at 1000
 		},
 		{
+			// max_available without cap: takes all remaining (like remainder).
 			name:            "max_available without cap",
 			amountType:      AmountTypeMaxAvailable,
 			amountValue:     nil,
 			totalIncome:     decimal.MustFromString("5000"),
-			remainingIncome: decimal.MustFromString("2000"),
-			expected:        decimal.MustFromString("2000"),
+			remainingIncome: decimal.MustFromString("2000"), // Simulates: prior rules took $3000
+			expected:        decimal.MustFromString("2000"), // Takes all remaining
 		},
 		{
 			name:            "fixed with nil value",
