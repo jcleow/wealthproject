@@ -5,6 +5,7 @@ package repository
 import (
 	"context"
 	"testing"
+	"time"
 
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/testutil"
@@ -69,19 +70,18 @@ func TestIntegration_PropertyPlanner_CreateScenario(t *testing.T) {
 		},
 		GrowthPeriods: []CreateGrowthPeriodInput{
 			{
-				StartYear:      2025,
-				EndYear:        intPtr(2030),
+				StartDate:      time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				EndDate:        timePtr(time.Date(2030, 12, 31, 0, 0, 0, 0, time.UTC)),
 				GrowthRate:     *decimal.MustFromString("3"),
 				GrowthStrategy: "annual_step",
 			},
 		},
 		RatePeriods: []CreateRatePeriodInput{
 			{
-				StartMonth:   "2025-01",
-				TermYears:    25,
-				FixedYears:   2,
-				FixedRate:    *decimal.MustFromString("2.6"),
-				FloatingRate: *decimal.MustFromString("3.5"),
+				StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 25,
+				Rate:      *decimal.MustFromString("2.6"),
+				RateType:  "fixed",
 			},
 		},
 	}
@@ -110,17 +110,16 @@ func TestIntegration_PropertyPlanner_CreateScenario(t *testing.T) {
 
 	// Verify growth periods
 	require.Len(t, created.GrowthPeriods, 1, "Should have 1 growth period")
-	assert.Equal(t, 2025, created.GrowthPeriods[0].StartYear)
-	assert.Equal(t, 2030, *created.GrowthPeriods[0].EndYear)
+	assert.Equal(t, 2025, created.GrowthPeriods[0].StartDate.Year())
+	assert.NotNil(t, created.GrowthPeriods[0].EndDate)
 	assert.Equal(t, "3", created.GrowthPeriods[0].GrowthRate.String())
 
 	// Verify rate periods
 	require.Len(t, created.RatePeriods, 1, "Should have 1 rate period")
-	assert.Equal(t, "2025-01", created.RatePeriods[0].StartMonth)
+	assert.Equal(t, 2025, created.RatePeriods[0].StartDate.Year())
 	assert.Equal(t, 25, created.RatePeriods[0].TermYears)
-	assert.Equal(t, 2, created.RatePeriods[0].FixedYears)
-	assert.Equal(t, "2.6", created.RatePeriods[0].FixedRate.String())
-	assert.Equal(t, "3.5", created.RatePeriods[0].FloatingRate.String())
+	assert.Equal(t, "2.6", created.RatePeriods[0].Rate.String())
+	assert.Equal(t, "fixed", created.RatePeriods[0].RateType)
 }
 
 func TestIntegration_PropertyPlanner_GetScenario(t *testing.T) {
@@ -144,10 +143,10 @@ func TestIntegration_PropertyPlanner_GetScenario(t *testing.T) {
 		},
 		RatePeriods: []CreateRatePeriodInput{
 			{
-				StartMonth:   "2025-06",
-				TermYears:    20,
-				FixedRate:    *decimal.MustFromString("2.6"),
-				FloatingRate: *decimal.MustFromString("2.6"),
+				StartDate: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 20,
+				Rate:      *decimal.MustFromString("2.6"),
+				RateType:  "fixed",
 			},
 		},
 	}
@@ -196,10 +195,10 @@ func TestIntegration_PropertyPlanner_GetScenario_WrongUser(t *testing.T) {
 		},
 		RatePeriods: []CreateRatePeriodInput{
 			{
-				StartMonth:   "2025-01",
-				TermYears:    30,
-				FixedRate:    *decimal.MustFromString("3"),
-				FloatingRate: *decimal.MustFromString("4"),
+				StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 30,
+				Rate:      *decimal.MustFromString("3"),
+				RateType:  "fixed",
 			},
 		},
 	}
@@ -234,10 +233,10 @@ func TestIntegration_PropertyPlanner_ListScenarios(t *testing.T) {
 			},
 			RatePeriods: []CreateRatePeriodInput{
 				{
-					StartMonth:   "2025-01",
-					TermYears:    25,
-					FixedRate:    *decimal.MustFromString("2.6"),
-					FloatingRate: *decimal.MustFromString("2.6"),
+					StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+					TermYears: 25,
+					Rate:      *decimal.MustFromString("2.6"),
+					RateType:  "fixed",
 				},
 			},
 		}
@@ -287,10 +286,10 @@ func TestIntegration_PropertyPlanner_UpdateScenario(t *testing.T) {
 		},
 		RatePeriods: []CreateRatePeriodInput{
 			{
-				StartMonth:   "2025-01",
-				TermYears:    25,
-				FixedRate:    *decimal.MustFromString("2.6"),
-				FloatingRate: *decimal.MustFromString("2.6"),
+				StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 25,
+				Rate:      *decimal.MustFromString("2.6"),
+				RateType:  "fixed",
 			},
 		},
 	}
@@ -327,10 +326,10 @@ func TestIntegration_PropertyPlanner_UpdateScenario(t *testing.T) {
 		},
 		RatePeriods: []CreateRatePeriodInput{
 			{
-				StartMonth:   "2025-01",
-				TermYears:    20, // Changed
-				FixedRate:    *decimal.MustFromString("2.5"),
-				FloatingRate: *decimal.MustFromString("3.0"),
+				StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 20, // Changed
+				Rate:      *decimal.MustFromString("2.5"),
+				RateType:  "fixed",
 			},
 		},
 	}
@@ -343,7 +342,7 @@ func TestIntegration_PropertyPlanner_UpdateScenario(t *testing.T) {
 	assert.Equal(t, "750000", updated.PropertySG.PropertyPrice.String())
 	assert.Len(t, updated.Fees, 2, "Should have 2 fees after update")
 	assert.Equal(t, 20, updated.RatePeriods[0].TermYears)
-	assert.Equal(t, "2.5", updated.RatePeriods[0].FixedRate.String())
+	assert.Equal(t, "2.5", updated.RatePeriods[0].Rate.String())
 }
 
 func TestIntegration_PropertyPlanner_UpdateScenario_NotFound(t *testing.T) {
@@ -362,10 +361,10 @@ func TestIntegration_PropertyPlanner_UpdateScenario_NotFound(t *testing.T) {
 		},
 		RatePeriods: []CreateRatePeriodInput{
 			{
-				StartMonth:   "2025-01",
-				TermYears:    25,
-				FixedRate:    *decimal.MustFromString("2.6"),
-				FloatingRate: *decimal.MustFromString("2.6"),
+				StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 25,
+				Rate:      *decimal.MustFromString("2.6"),
+				RateType:  "fixed",
 			},
 		},
 	}
@@ -404,17 +403,17 @@ func TestIntegration_PropertyPlanner_DeleteScenario(t *testing.T) {
 		},
 		GrowthPeriods: []CreateGrowthPeriodInput{
 			{
-				StartYear:      2025,
+				StartDate:      time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
 				GrowthRate:     *decimal.MustFromString("2"),
 				GrowthStrategy: "fixed",
 			},
 		},
 		RatePeriods: []CreateRatePeriodInput{
 			{
-				StartMonth:   "2025-01",
-				TermYears:    25,
-				FixedRate:    *decimal.MustFromString("2.6"),
-				FloatingRate: *decimal.MustFromString("2.6"),
+				StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 25,
+				Rate:      *decimal.MustFromString("2.6"),
+				RateType:  "fixed",
 			},
 		},
 	}
@@ -490,10 +489,10 @@ func TestIntegration_PropertyPlanner_ResidencyDerivation(t *testing.T) {
 		},
 		RatePeriods: []CreateRatePeriodInput{
 			{
-				StartMonth:   "2025-01",
-				TermYears:    30,
-				FixedRate:    *decimal.MustFromString("3"),
-				FloatingRate: *decimal.MustFromString("4"),
+				StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 30,
+				Rate:      *decimal.MustFromString("3"),
+				RateType:  "fixed",
 			},
 		},
 	}
@@ -526,25 +525,22 @@ func TestIntegration_PropertyPlanner_MultipleRatePeriods(t *testing.T) {
 		},
 		RatePeriods: []CreateRatePeriodInput{
 			{
-				StartMonth:   "2025-01",
-				TermYears:    5,
-				FixedYears:   2,
-				FixedRate:    *decimal.MustFromString("2.6"),
-				FloatingRate: *decimal.MustFromString("3.5"),
+				StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 5,
+				Rate:      *decimal.MustFromString("2.6"),
+				RateType:  "fixed",
 			},
 			{
-				StartMonth:   "2030-01",
-				TermYears:    5,
-				FixedYears:   2,
-				FixedRate:    *decimal.MustFromString("2.8"),
-				FloatingRate: *decimal.MustFromString("3.8"),
+				StartDate: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 5,
+				Rate:      *decimal.MustFromString("2.8"),
+				RateType:  "fixed",
 			},
 			{
-				StartMonth:   "2035-01",
-				TermYears:    15,
-				FixedYears:   0,
-				FixedRate:    *decimal.MustFromString("3.0"),
-				FloatingRate: *decimal.MustFromString("4.0"),
+				StartDate: time.Date(2035, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 15,
+				Rate:      *decimal.MustFromString("3.0"),
+				RateType:  "floating",
 			},
 		},
 	}
@@ -555,9 +551,9 @@ func TestIntegration_PropertyPlanner_MultipleRatePeriods(t *testing.T) {
 	assert.Len(t, created.RatePeriods, 3, "Should have 3 rate periods")
 
 	// Verify order is preserved
-	assert.Equal(t, "2025-01", created.RatePeriods[0].StartMonth)
-	assert.Equal(t, "2030-01", created.RatePeriods[1].StartMonth)
-	assert.Equal(t, "2035-01", created.RatePeriods[2].StartMonth)
+	assert.Equal(t, 2025, created.RatePeriods[0].StartDate.Year())
+	assert.Equal(t, 2030, created.RatePeriods[1].StartDate.Year())
+	assert.Equal(t, 2035, created.RatePeriods[2].StartDate.Year())
 }
 
 func TestIntegration_PropertyPlanner_DeleteAllScenarios(t *testing.T) {
@@ -596,17 +592,17 @@ func TestIntegration_PropertyPlanner_DeleteAllScenarios(t *testing.T) {
 			},
 			GrowthPeriods: []CreateGrowthPeriodInput{
 				{
-					StartYear:      2025,
+					StartDate:      time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
 					GrowthRate:     *decimal.MustFromString("3"),
 					GrowthStrategy: "annual_step",
 				},
 			},
 			RatePeriods: []CreateRatePeriodInput{
 				{
-					StartMonth:   "2025-01",
-					TermYears:    25,
-					FixedRate:    *decimal.MustFromString("2.6"),
-					FloatingRate: *decimal.MustFromString("2.6"),
+					StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+					TermYears: 25,
+					Rate:      *decimal.MustFromString("2.6"),
+					RateType:  "fixed",
 				},
 			},
 		}
@@ -626,10 +622,10 @@ func TestIntegration_PropertyPlanner_DeleteAllScenarios(t *testing.T) {
 		},
 		RatePeriods: []CreateRatePeriodInput{
 			{
-				StartMonth:   "2025-01",
-				TermYears:    25,
-				FixedRate:    *decimal.MustFromString("2.6"),
-				FloatingRate: *decimal.MustFromString("2.6"),
+				StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 25,
+				Rate:      *decimal.MustFromString("2.6"),
+				RateType:  "fixed",
 			},
 		},
 	}
@@ -685,7 +681,11 @@ func TestIntegration_PropertyPlanner_DeleteAllScenarios_Empty(t *testing.T) {
 	assert.Equal(t, int64(0), rowsDeleted, "Should have deleted 0 scenarios")
 }
 
-// Helper function
+// Helper functions
 func intPtr(i int) *int {
 	return &i
+}
+
+func timePtr(t time.Time) *time.Time {
+	return &t
 }
