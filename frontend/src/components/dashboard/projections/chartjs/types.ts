@@ -28,6 +28,8 @@ export interface MilestonePluginOptions {
   onMarkerClick?: (event: ScenarioEvent, markerData: ChartJSMarkerData) => void
   /** Callback when a property marker is clicked - opens click menu */
   onPropertyMarkerClick?: (marker: PropertyMarkerData, x: number, y: number) => void
+  /** Callback when a nested milestone is clicked - opens property modal */
+  onNestedMilestoneClick?: (milestone: PropertyMilestone, parentMarker: PropertyMarkerData) => void
   /** Set of property scenario IDs that are expanded (showing nested milestones) */
   expandedPropertyIds?: Set<string>
   /** Whether markers should be visible */
@@ -163,6 +165,14 @@ export const COMPOUND_MARKER_CONFIG = {
  */
 export interface PropertyMarkerHitTestResult {
   marker: PropertyMarkerData
+}
+
+/**
+ * Hit test result for nested milestone click detection
+ */
+export interface NestedMilestoneHitTestResult {
+  milestone: PropertyMilestone
+  parentMarker: PropertyMarkerData
 }
 
 /**

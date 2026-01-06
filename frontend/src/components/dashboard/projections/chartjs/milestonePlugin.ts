@@ -5,6 +5,7 @@ import type {
   MarkerHitTestResult,
   PropertyMarkerData,
   PropertyMarkerHitTestResult,
+  NestedMilestoneHitTestResult,
 } from './types'
 import { MARKER_CONFIG, COMPOUND_MARKER_CONFIG } from './types'
 
@@ -283,6 +284,69 @@ function hitTestPropertyMarkers(
 
     if (distance <= hitRadius + hitTolerance) {
       return { marker }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Hit test to check if a point is within a nested milestone (sale, fee icons)
+ * Only checks expanded property markers' nested milestones
+ */
+function hitTestNestedMilestones(
+  mouseX: number,
+  mouseY: number,
+  markers: PropertyMarkerData[],
+  expandedPropertyIds: Set<string>,
+  chart: Chart
+): NestedMilestoneHitTestResult | null {
+  const { nestedRadius } = COMPOUND_MARKER_CONFIG
+  const { baseLift, hitTolerance } = MARKER_CONFIG
+  const xScale = chart.scales['x']
+  const yScale = chart.scales['y']
+
+  if (!xScale || !yScale) return null
+
+  const nestedBaseLift = baseLift - 5
+  const stackSpacing = nestedRadius * 2 + 4
+
+  for (const marker of markers) {
+    // Only check expanded properties
+    if (!expandedPropertyIds.has(marker.propertyScenarioId)) continue
+
+    // Group milestones by yearIndex for stacking (same logic as rendering)
+    const milestonesByYearIndex: Record<number, typeof marker.nestedMilestones> = {}
+    for (const milestone of marker.nestedMilestones) {
+      if (milestone.yearIndex === undefined) continue
+      if (!milestonesByYearIndex[milestone.yearIndex]) {
+        milestonesByYearIndex[milestone.yearIndex] = []
+      }
+      milestonesByYearIndex[milestone.yearIndex].push(milestone)
+    }
+
+    // Check each milestone position
+    for (const [yearIndexStr, milestones] of Object.entries(milestonesByYearIndex)) {
+      const yearIndex = Number(yearIndexStr)
+      const milestoneX = xScale.getPixelForValue(yearIndex)
+
+      // Interpolate Y position (same as rendering)
+      const interpolatedY = interpolateYOnLine(chart, milestoneX)
+      const nestedBaseY = interpolatedY ?? yScale.getPixelForValue(marker.netWorth)
+
+      // Check each milestone in the stack
+      for (let stackIndex = 0; stackIndex < milestones.length; stackIndex++) {
+        const stackOffset = stackIndex * stackSpacing
+        const milestoneY = nestedBaseY - nestedBaseLift - stackOffset
+
+        const distance = Math.sqrt(
+          Math.pow(mouseX - milestoneX, 2) + Math.pow(mouseY - milestoneY, 2)
+        )
+
+        if (distance <= nestedRadius + hitTolerance) {
+          return { milestone: milestones[stackIndex], parentMarker: marker }
+        }
+      }
     }
   }
 
@@ -578,7 +642,18 @@ export const milestonePlugin: Plugin<'line'> = {
     const mouseX = nativeEvent.clientX - rect.left
     const mouseY = nativeEvent.clientY - rect.top
 
-    // Check property markers first
+    // Check nested milestones first (sale, fee icons) - they're smaller and on top
+    if (hasPropertyMarkers && options.onNestedMilestoneClick) {
+      const expandedIds = options.expandedPropertyIds ?? new Set<string>()
+      const nestedHit = hitTestNestedMilestones(mouseX, mouseY, options.propertyMarkers!, expandedIds, chart)
+      if (nestedHit) {
+        options.onNestedMilestoneClick(nestedHit.milestone, nestedHit.parentMarker)
+        args.changed = true
+        return
+      }
+    }
+
+    // Check property markers (main icons)
     if (hasPropertyMarkers && options.onPropertyMarkerClick) {
       const propertyHit = hitTestPropertyMarkers(mouseX, mouseY, options.propertyMarkers!, chart)
       if (propertyHit) {

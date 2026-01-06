@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronDown, Receipt, Users } from 'lucide-react'
 
 import type { TimeResolution, TimelineYear, TimelineMonth } from '@/types/timeline'
-import { useTaxModeOptional } from '@/contexts/TaxModeContext'
+import { useTaxModeStore } from '@/stores'
 import { usePersonFilterOptional } from '@/contexts/PersonFilterContext'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
@@ -173,9 +173,8 @@ export function Header({
   const shouldShowSlider = resolution === 'monthly' && !!monthRange
   const isSliderDisabled = isTimelineLoading || sliderMax === 0
 
-  // Tax mode - just need the toggle to open the modal
-  const taxMode = useTaxModeOptional()
-  const toggleTaxMode = taxMode?.enableTaxMode
+  // Tax mode - use Zustand store to open the modal
+  const enableTaxMode = useTaxModeStore((s) => s.enableTaxMode)
 
   // Person filter - to open the persons modal
   const personFilter = usePersonFilterOptional()
@@ -266,7 +265,7 @@ export function Header({
             {/* Tax Estimate Icon */}
             <button
               type="button"
-              onClick={() => toggleTaxMode?.()}
+              onClick={enableTaxMode}
               title="Tax Estimate"
               className="
                 flex items-center justify-center
