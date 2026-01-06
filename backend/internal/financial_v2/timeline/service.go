@@ -1143,6 +1143,8 @@ func calcCashAllocationWithRules(params CashAllocationParams) (netSavings *decim
 	expense := decimal.Zero()
 
 	// Build set of expenses covered by fund flow expense rules (to avoid double-counting)
+	// TODO: In the future, all expenses should require a default fund flow rule.
+	// This would simplify the logic here and ensure consistent expense handling.
 	expensesWithRules := buildExpensesWithFundFlowRules(params.FundFlowRules, params.CurrentDate)
 
 	for _, row := range params.Data.Incomes {

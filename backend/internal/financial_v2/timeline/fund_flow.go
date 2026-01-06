@@ -487,10 +487,10 @@ func isLiabilityActiveForPayment(liability FinancialDataRow, date time.Time) boo
 
 // buildRequiredExpensePaymentsMap creates a map of expense ID to required monthly payment.
 // This is used by executeExpenseRules to know how much needs to be paid for each expense.
-// Uses the expense's state value (which includes growth) converted to monthly amount.
+// Uses the expense's grown amount (which includes inflation/growth) converted to monthly.
 func buildRequiredExpensePaymentsMap(
 	expenses []FinancialDataRow,
-	state map[string]*decimal.Decimal,
+	expenseAmountsWithGrowth map[string]*decimal.Decimal,
 	currentDate time.Time,
 ) RequiredPaymentMap {
 	requiredPayments := make(RequiredPaymentMap)
@@ -501,8 +501,8 @@ func buildRequiredExpensePaymentsMap(
 			continue
 		}
 
-		// Get the expense amount from state (includes growth) or use base amount
-		amount := state[expense.ID]
+		// Get the expense amount with growth applied, or fall back to base amount
+		amount := expenseAmountsWithGrowth[expense.ID]
 		if amount == nil {
 			amount = &expense.Amount
 		}

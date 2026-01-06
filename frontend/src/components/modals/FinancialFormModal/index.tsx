@@ -1,10 +1,10 @@
-import { Trash2, ChevronDown, Wallet } from 'lucide-react'
+import { Trash2, ChevronDown } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 import { Modal } from '@/components/ui/Modal'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { PersonSelector } from '@/components/ui/PersonSelector'
-import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
+import { FundSourceSelector } from './components/FundSourceSelector'
 import { type Frequency, type Asset } from '@/types/financial'
 import { formatCurrency } from '@/lib/format'
 
@@ -508,29 +508,11 @@ text-white`}
 
               {/* Fund source account for expenses */}
               {normalizedCategory === 'expenses' && !form.isDebtRepayment && form.cashAccounts.length > 0 && (
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-300">
-                    Pay from account
-                  </label>
-                  <CustomDropdown
-                    value={form.formData.fundSourceAccountId}
-                    onChange={(val) => form.updateFormField('fundSourceAccountId', val)}
-                    options={[
-                      { value: '', label: 'Auto (from leftover cash)' },
-                      ...form.cashAccounts.map((acc) => ({
-                        value: acc.id,
-                        label: acc.name,
-                      })),
-                    ]}
-                    showIcon
-                    icon={<Wallet className="h-4 w-4" />}
-                    iconColor="text-emerald-400"
-                    minWidth="100%"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    Select which account to use for this expense
-                  </p>
-                </div>
+                <FundSourceSelector
+                  value={form.formData.fundSourceAccountId}
+                  onChange={(val) => form.updateFormField('fundSourceAccountId', val)}
+                  cashAccounts={form.cashAccounts}
+                />
               )}
 
               {/* Category selector */}
