@@ -4,8 +4,10 @@ import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Search, Spar
 import { useFinancialData } from '@/hooks/useFinancialData'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
 import { useTimeline } from '@/hooks/useTimeline'
+import { useLoadSampleDataMutation } from '@/hooks/queries/useLoadSampleDataMutation'
 import { propertyApi } from '@/api/financial'
 import { ScenarioEventModal } from '../modals/ScenarioEventModal/ScenarioEventModal'
+import { ProfileSelectionModal } from '../modals/ProfileSelectionModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { UserMenu } from '../auth/UserMenu'
 import { useTimelineStore, useFeatureModulesStore } from '@/stores'
@@ -57,10 +59,12 @@ export function FinancialWorkspace({
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
   const [scenarioEventToEdit, setScenarioEventToEdit] = useState<ScenarioEvent | null>(null)
   const [isClearing, setIsClearing] = useState(false)
-  const [isSeeding, setIsSeeding] = useState(false)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [loadingProfileId, setLoadingProfileId] = useState<string | null>(null)
   const [isModuleMenuOpen, setIsModuleMenuOpen] = useState(false)
   const { events: scenarioEvents } = useScenarioEvents()
-  const { deleteAllFinancialData, loadSampleData, refresh } = useFinancialData()
+  const { deleteAllFinancialData, refresh } = useFinancialData()
+  const loadProfileMutation = useLoadSampleDataMutation()
   const moduleMenuRef = useRef<HTMLDivElement | null>(null)
 
   const clearPropertyData = async () => {
@@ -98,19 +102,20 @@ export function FinancialWorkspace({
     }
   }
 
-  const handleLoadDefaults = async () => {
-    setIsSeeding(true)
+  const handleSelectProfile = async (profileId: string) => {
+    setLoadingProfileId(profileId)
     try {
-      await loadSampleData()
-      // Property scenario is now created via Property Planner V2 API in useLoadSampleDataMutation
+      await loadProfileMutation.mutateAsync(profileId)
       await refresh()
+      setIsProfileModalOpen(false)
     } catch (error) {
-      console.error('Failed to load sample data', error)
+      console.error('Failed to load profile:', profileId, error)
       if (typeof window !== 'undefined') {
-        window.alert('Unable to load sample data right now. Please try again.')
+        window.alert('Unable to load profile right now. Please try again.')
       }
+      throw error // Re-throw so modal can handle it
     } finally {
-      setIsSeeding(false)
+      setLoadingProfileId(null)
     }
   }
 
@@ -201,7 +206,7 @@ text-[13px] text-slate-300`}
 
           <div className="hidden items-center gap-1 md:flex">
             <button
-              onClick={handleLoadDefaults}
+              onClick={() => setIsProfileModalOpen(true)}
               className={clsx(
                 "flex items-center justify-center",
                 "h-7 w-7",
@@ -211,11 +216,11 @@ text-[13px] text-slate-300`}
                 "disabled:opacity-60",
                 "transition",
               )}
-              title="Load defaults"
+              title="Load a profile template"
               type="button"
-              disabled={isSeeding}
+              disabled={loadProfileMutation.isPending}
             >
-              {isSeeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {loadProfileMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
             </button>
             <button
               onClick={handleClearAllData}
@@ -509,6 +514,14 @@ text-purple-400`}>
           }}
         />
       )}
+
+      <ProfileSelectionModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        onSelectProfile={handleSelectProfile}
+        isLoading={loadProfileMutation.isPending}
+        loadingProfileId={loadingProfileId}
+      />
     </div>
   )
 }

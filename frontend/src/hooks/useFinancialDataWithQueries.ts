@@ -84,7 +84,7 @@ export function useFinancialData() {
 
     // Bulk operations
     deleteAllFinancialData: deleteAllMutation.mutateAsync,
-    loadSampleData: async () => { await loadSampleDataMutation.mutateAsync() },
+    loadSampleData: async (profileId = 'dink-kids-planned') => { await loadSampleDataMutation.mutateAsync(profileId) },
 
     // Utility
     refresh,
