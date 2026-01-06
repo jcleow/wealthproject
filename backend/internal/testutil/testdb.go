@@ -101,13 +101,16 @@ func CleanupTestData(t *testing.T, pool *pgxpool.Pool, userID string) {
 	// Note: scenario_event_impacts table was removed - impacts are now stored in finance_* tables
 	queries := []string{
 		"DELETE FROM scenario_events WHERE user_id = $1",
+		"DELETE FROM fund_flow_rules WHERE user_id = $1",
 		"DELETE FROM income_allocations WHERE income_id IN (SELECT id FROM finance_incomes WHERE user_id = $1)",
+		"DELETE FROM cpf_accounts WHERE person_id IN (SELECT id FROM persons WHERE user_id = $1)",
 		"DELETE FROM finance_expenses WHERE user_id = $1",
 		"DELETE FROM finance_incomes WHERE user_id = $1",
 		"DELETE FROM finance_liabilities WHERE user_id = $1",
 		"DELETE FROM finance_assets WHERE user_id = $1",
 		"DELETE FROM finance_cash_accounts WHERE user_id = $1",
 		"DELETE FROM finance_investments WHERE user_id = $1",
+		"DELETE FROM persons WHERE user_id = $1",
 	}
 
 	for _, q := range queries {
@@ -116,6 +119,38 @@ func CleanupTestData(t *testing.T, pool *pgxpool.Pool, userID string) {
 			t.Logf("Cleanup query failed (may be expected): %v", err)
 		}
 	}
+}
+
+// CreateTestPerson creates a test person and returns its ID.
+// Uses GetOrCreateTestPerson internally to ensure only one person exists per user.
+func CreateTestPerson(t *testing.T, pool *pgxpool.Pool, userID string) string {
+	t.Helper()
+	return GetOrCreateTestPerson(t, pool, userID)
+}
+
+// GetOrCreateTestPerson returns existing test person or creates one.
+func GetOrCreateTestPerson(t *testing.T, pool *pgxpool.Pool, userID string) string {
+	t.Helper()
+	ctx := context.Background()
+
+	// Try to find existing person for this user
+	var existingID string
+	err := pool.QueryRow(ctx, `SELECT id FROM persons WHERE user_id = $1 LIMIT 1`, userID).Scan(&existingID)
+	if err == nil {
+		return existingID
+	}
+
+	// Create new person
+	var id string
+	err = pool.QueryRow(ctx, `
+		INSERT INTO persons (user_id, name, date_of_birth, residency_status)
+		VALUES ($1, 'Test Person', '1990-01-01', 'citizen')
+		RETURNING id
+	`, userID).Scan(&id)
+	if err != nil {
+		t.Fatalf("Failed to create test person: %v", err)
+	}
+	return id
 }
 
 // CreateTestExpense creates a test expense and returns its ID.
@@ -136,16 +171,20 @@ func CreateTestExpense(t *testing.T, pool *pgxpool.Pool, userID, name string, am
 }
 
 // CreateTestIncome creates a test income and returns its ID.
+// Automatically creates a test person if one doesn't exist.
 func CreateTestIncome(t *testing.T, pool *pgxpool.Pool, userID, name string, amount int64) string {
 	t.Helper()
 	ctx := context.Background()
 
+	// Ensure a person exists for this user
+	personID := GetOrCreateTestPerson(t, pool, userID)
+
 	var id string
 	err := pool.QueryRow(ctx, `
-		INSERT INTO finance_incomes (user_id, name, amount, frequency, category, start_date)
-		VALUES ($1, $2, $3, 'monthly', 'test', NOW())
+		INSERT INTO finance_incomes (user_id, person_id, name, amount, frequency, category, start_date)
+		VALUES ($1, $2, $3, $4, 'monthly', 'test', NOW())
 		RETURNING id
-	`, userID, name, amount).Scan(&id)
+	`, userID, personID, name, amount).Scan(&id)
 	if err != nil {
 		t.Fatalf("Failed to create test income: %v", err)
 	}
