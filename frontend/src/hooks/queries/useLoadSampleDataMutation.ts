@@ -122,11 +122,11 @@ export function useLoadSampleDataMutation() {
       // Planning: marriage, BTO flat, car, retirement by 60
       const todayIso = SAMPLE_DATA_BASE_DATE.toISOString()
 
-      // Non-investment assets (Bank Accounts stay in assets table)
+      // Cash savings route to finance_cash_accounts via backend
       const sampleAssets = [
         {
           name: 'DBS Multiplier Account',
-          category: 'Bank Account',
+          category: 'cash_savings',
           currentValue: 25000,
           annualGrowthRate: 2.5,
           startDate: todayIso,
@@ -134,7 +134,7 @@ export function useLoadSampleDataMutation() {
         },
         {
           name: 'Emergency Fund',
-          category: 'Bank Account',
+          category: 'cash_savings',
           currentValue: 18000,
           annualGrowthRate: 2.0,
           startDate: todayIso,

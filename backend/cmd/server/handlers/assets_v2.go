@@ -138,7 +138,39 @@ func (h *AssetV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		terminalValue = tv
 	}
 
-	// Build repository asset
+	// Route cash_savings category to finance_cash_accounts table
+	if input.Category == "cash_savings" {
+		// Build cash account - use growth rate as interest rate
+		interestRate := *decimal.Zero()
+		if growthRate != nil {
+			interestRate = *growthRate
+		}
+
+		accountType := "savings"
+
+		ca := repo.CashAsset{
+			Name:           input.Name,
+			Category:       input.Category,
+			Balance:        *currentValue,
+			InterestRate:   interestRate,
+			AccountType:    accountType,
+			GrowthStrategy: input.GrowthStrategy,
+			Notes:          input.Notes,
+			StartDate:      startDate,
+			EndDate:        endDate,
+		}
+
+		created, err := h.store.CreateCashAsset(r.Context(), userID, ca)
+		if err != nil {
+			log.Printf("cashAsset.Create error: %v", err)
+			internalError(w, err)
+			return
+		}
+		writeJSON(w, created)
+		return
+	}
+
+	// Build repository asset for non-cash assets
 	a := repo.NonCashAsset{
 		Name:           input.Name,
 		Category:       input.Category,
