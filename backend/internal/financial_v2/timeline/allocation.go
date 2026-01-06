@@ -38,10 +38,11 @@ type AllocationExecution struct {
 	WasFallback  bool             `json:"wasFallback"`  // True if this was a remainder/fallback allocation
 }
 
-// AllocationExecutionResult holds all allocation executions for a month
+// AllocationExecutionResult holds the computed allocation totals for a month.
+// Individual allocation details (AllocationExecution) are computed but only the
+// totals are retained. If detailed allocation tracking is needed in the future,
+// AllocationsByIncome can be added back.
 type AllocationExecutionResult struct {
-	// AllocationsByIncome maps income ID to list of allocations made from that income
-	AllocationsByIncome map[string][]AllocationExecution
 	// TotalToInvestments is the total amount allocated to investment accounts
 	TotalToInvestments *decimal.Decimal
 	// TotalToCash is the total amount allocated to cash accounts
@@ -74,9 +75,8 @@ func executeAllocationRules(
 	applyToBalances bool,
 ) AllocationExecutionResult {
 	result := AllocationExecutionResult{
-		AllocationsByIncome: make(map[string][]AllocationExecution),
-		TotalToInvestments:  decimal.Zero(),
-		TotalToCash:         decimal.Zero(),
+		TotalToInvestments: decimal.Zero(),
+		TotalToCash:        decimal.Zero(),
 	}
 
 	// Filter to only allocation rules active at current date
@@ -97,8 +97,9 @@ func executeAllocationRules(
 	byIncome := groupAllocationsByIncome(allocationRules)
 
 	// Process each income's allocations
-	for incomeID, incomeRules := range byIncome {
+	for _, incomeRules := range byIncome {
 		// Find the income record (may be versioned, so use ParentID)
+		incomeID := *incomeRules[0].SourceIncomeID
 		income, exists := incomeByParentID[incomeID]
 		if !exists {
 			continue
@@ -110,7 +111,7 @@ func executeAllocationRules(
 			continue
 		}
 
-		executions := executeAllocationGroup(
+		executions := computeIncomeAllocations(
 			income,
 			monthlyAmount,
 			incomeRules,
@@ -118,18 +119,14 @@ func executeAllocationRules(
 			applyToBalances,
 		)
 
-		// Accumulate totals
-		for _, exec := range executions {
-			switch exec.TargetType {
+		// Accumulate totals from computed allocations
+		for _, alloc := range executions {
+			switch alloc.TargetType {
 			case AllocationTargetInvestment:
-				result.TotalToInvestments = result.TotalToInvestments.Add(exec.Amount)
+				result.TotalToInvestments = result.TotalToInvestments.Add(alloc.Amount)
 			case AllocationTargetCash:
-				result.TotalToCash = result.TotalToCash.Add(exec.Amount)
+				result.TotalToCash = result.TotalToCash.Add(alloc.Amount)
 			}
-		}
-
-		if len(executions) > 0 {
-			result.AllocationsByIncome[incomeID] = executions
 		}
 	}
 
@@ -168,8 +165,9 @@ func groupAllocationsByIncome(rules []repository.FundFlowRule) map[string][]repo
 	return byIncome
 }
 
-// executeAllocationGroup executes all allocation rules for a single income in priority order
-func executeAllocationGroup(
+// computeIncomeAllocations processes all allocation rules for a single income in priority order.
+// Returns the computed allocation results and optionally applies them to target balances.
+func computeIncomeAllocations(
 	income FinancialDataRow,
 	monthlyAmount *decimal.Decimal,
 	rules []repository.FundFlowRule,

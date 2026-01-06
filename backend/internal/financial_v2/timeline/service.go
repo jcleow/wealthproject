@@ -1120,7 +1120,7 @@ func processLiabilityMonth(
 // CashAllocationParams holds parameters for cash allocation calculation.
 type CashAllocationParams struct {
 	Data             EffectiveRows
-	State            map[string]*decimal.Decimal
+	AccountBalances  map[string]*decimal.Decimal // Maps account/item ID to current balance
 	CurrentDate      time.Time
 	EmployeeCPF      *decimal.Decimal
 	FundFlowRules    []repo.FundFlowRule // Allocation rules from fund_flow_rules table
@@ -1140,14 +1140,14 @@ func calcCashAllocationWithRules(params CashAllocationParams) (netSavings *decim
 
 	for _, row := range params.Data.Incomes {
 		if isActiveInMonth(row, params.CurrentDate) {
-			monthlyAmt := common.ToMonthlyAmount(params.State[row.ID], row.Frequency)
+			monthlyAmt := common.ToMonthlyAmount(params.AccountBalances[row.ID], row.Frequency)
 			income = income.Add(monthlyAmt)
 		}
 	}
 
 	for _, row := range params.Data.Expenses {
 		if isActiveInMonth(row, params.CurrentDate) {
-			monthlyAmt := common.ToMonthlyAmount(params.State[row.ID], row.Frequency)
+			monthlyAmt := common.ToMonthlyAmount(params.AccountBalances[row.ID], row.Frequency)
 			expense = expense.Add(monthlyAmt)
 		}
 	}
@@ -1158,7 +1158,7 @@ func calcCashAllocationWithRules(params CashAllocationParams) (netSavings *decim
 	netInvestments = computeAllocationTotals(
 		params.FundFlowRules,
 		params.Data.Incomes,
-		params.State,
+		params.AccountBalances,
 		params.CurrentDate,
 		params.ApplyAllocations,
 	)
@@ -1181,7 +1181,7 @@ func calcCashAllocation(
 ) (netSavings *decimal.Decimal, netCashFlow *decimal.Decimal, netInvestments *decimal.Decimal) {
 	return calcCashAllocationWithRules(CashAllocationParams{
 		Data:             data,
-		State:            state,
+		AccountBalances:  state,
 		CurrentDate:      currentDate,
 		EmployeeCPF:      employeeCPF,
 		FundFlowRules:    fundFlowRules,
@@ -2118,7 +2118,7 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	applyAllocations := !isAnchorMonth
 	netSavings, netCashFlow, netInvestments = calcCashAllocationWithRules(CashAllocationParams{
 		Data:             mctx.Data,
-		State:            stateForCalcs,
+		AccountBalances:  stateForCalcs,
 		CurrentDate:      currentDate,
 		EmployeeCPF:      employeeCPF,
 		FundFlowRules:    mctx.FundFlowRules,

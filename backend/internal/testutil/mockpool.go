@@ -253,6 +253,12 @@ func (r *StubRow) Scan(dest ...any) error {
 				continue
 			}
 			*d = v.(bool)
+		case *int:
+			if v == nil {
+				*d = 0
+				continue
+			}
+			*d = v.(int)
 		case *string:
 			if v == nil {
 				*d = ""

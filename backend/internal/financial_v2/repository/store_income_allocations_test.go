@@ -29,6 +29,9 @@ func TestListIncomeAllocations_ReturnsAllocationsForIncome(t *testing.T) {
 	// First QueryRow call - check income exists
 	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))
 
+	// Second QueryRow call - count query
+	mockPool.EnqueueRow("SELECT COUNT", []any{incomeID, userID}, testutil.NewStubRow(t, []any{2}, nil))
+
 	// Then Query call for allocations from fund_flow_rules
 	rows := testutil.NewStubRows(t, [][]any{
 		{
@@ -46,22 +49,23 @@ func TestListIncomeAllocations_ReturnsAllocationsForIncome(t *testing.T) {
 	})
 	mockPool.EnqueueQuery("fund_flow_rules", []any{incomeID, userID}, rows, nil)
 
-	allocations, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+	result, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.NoError(t, err)
-	require.Len(t, allocations, 2)
+	require.Len(t, result.Data, 2)
+	require.Equal(t, 2, result.Count)
 
-	require.Equal(t, "alloc-1", allocations[0].ID)
-	require.Equal(t, incomeID, allocations[0].IncomeID)
-	require.NotNil(t, allocations[0].TargetCashAccountID)
-	require.Equal(t, cashAccountID, *allocations[0].TargetCashAccountID)
-	require.Nil(t, allocations[0].TargetInvestmentID)
-	require.Equal(t, "percentage", allocations[0].AllocationType)
+	require.Equal(t, "alloc-1", result.Data[0].ID)
+	require.Equal(t, incomeID, result.Data[0].IncomeID)
+	require.NotNil(t, result.Data[0].TargetCashAccountID)
+	require.Equal(t, cashAccountID, *result.Data[0].TargetCashAccountID)
+	require.Nil(t, result.Data[0].TargetInvestmentID)
+	require.Equal(t, "percentage", result.Data[0].AllocationType)
 
-	require.Equal(t, "alloc-2", allocations[1].ID)
-	require.Nil(t, allocations[1].TargetCashAccountID)
-	require.NotNil(t, allocations[1].TargetInvestmentID)
-	require.Equal(t, investmentID, *allocations[1].TargetInvestmentID)
-	require.Equal(t, "fixed", allocations[1].AllocationType)
+	require.Equal(t, "alloc-2", result.Data[1].ID)
+	require.Nil(t, result.Data[1].TargetCashAccountID)
+	require.NotNil(t, result.Data[1].TargetInvestmentID)
+	require.Equal(t, investmentID, *result.Data[1].TargetInvestmentID)
+	require.Equal(t, "fixed", result.Data[1].AllocationType)
 }
 
 func TestListIncomeAllocations_IncomeNotFound(t *testing.T) {
@@ -76,7 +80,7 @@ func TestListIncomeAllocations_IncomeNotFound(t *testing.T) {
 	// Check income exists - returns false
 	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{false}, nil))
 
-	_, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+	_, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
@@ -92,13 +96,17 @@ func TestListIncomeAllocations_IncomeExistsButNoAllocations(t *testing.T) {
 	// Check income exists - returns true
 	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))
 
+	// Count query returns 0
+	mockPool.EnqueueRow("SELECT COUNT", []any{incomeID, userID}, testutil.NewStubRow(t, []any{0}, nil))
+
 	// Empty rows from fund_flow_rules
 	rows := testutil.NewStubRows(t, [][]any{})
 	mockPool.EnqueueQuery("fund_flow_rules", []any{incomeID, userID}, rows, nil)
 
-	allocations, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+	result, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.NoError(t, err)
-	require.Empty(t, allocations)
+	require.Empty(t, result.Data)
+	require.Equal(t, 0, result.Count)
 }
 
 func TestCreateIncomeAllocation_ToCashAccount(t *testing.T) {

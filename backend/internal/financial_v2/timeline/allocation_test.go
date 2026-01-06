@@ -88,14 +88,14 @@ func TestGroupAllocationsByIncome(t *testing.T) {
 // TestCalculateAllocationAmount tests the pure calculation function in isolation.
 // This function computes how much to allocate based on the rule type, but does NOT
 // modify any state. The actual tracking of remaining income happens in the caller
-// (executeAllocationGroup), not in this function.
+// (computeIncomeAllocations), not in this function.
 //
 // Parameters explained:
 //   - totalIncome: The original gross income amount (never changes across allocations)
 //   - remainingIncome: What's left after previous allocation rules have been processed.
 //     This is passed IN as a parameter to simulate being called mid-pipeline.
 //
-// Example flow in executeAllocationGroup:
+// Example flow in computeIncomeAllocations:
 //
 //	Income: $5000
 //	Rule 1 (priority 0, fixed $500):  calculateAllocationAmount(..., 5000, 5000) → returns 500
@@ -229,7 +229,7 @@ func TestExecuteAllocationGroup(t *testing.T) {
 		cashID:       decimal.MustFromString("5000"),
 	}
 
-	executions := executeAllocationGroup(income, monthlyAmount, rules, targetBalances, true)
+	executions := computeIncomeAllocations(income, monthlyAmount, rules, targetBalances, true)
 
 	require.Len(t, executions, 2)
 

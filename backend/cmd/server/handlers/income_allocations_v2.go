@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"financial-chat-system/backend/internal/decimal"
@@ -116,14 +117,27 @@ func (h *IncomeAllocationV2Handler) HandleListByIncome(w http.ResponseWriter, r 
 		return
 	}
 
-	allocations, err := h.store.ListIncomeAllocations(r.Context(), userID, incomeID)
+	// Parse pagination from query params
+	pagination := repo.PaginationParams{}
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil {
+			pagination.Limit = &limit
+		}
+	}
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil {
+			pagination.Offset = &offset
+		}
+	}
+
+	result, err := h.store.ListIncomeAllocations(r.Context(), userID, incomeID, pagination)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
 
-	dtos := make([]incomeAllocationV2DTO, len(allocations))
-	for i, a := range allocations {
+	dtos := make([]incomeAllocationV2DTO, len(result.Data))
+	for i, a := range result.Data {
 		dtos[i] = toIncomeAllocationV2DTO(a)
 	}
 

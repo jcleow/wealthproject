@@ -1054,12 +1054,13 @@ func nullIfEmpty(s string) *string {
 	return &s
 }
 
-// ListIncomeAllocations returns all allocations for an income from fund_flow_rules.
+// ListIncomeAllocations returns allocations for an income from fund_flow_rules with pagination.
 func (s *Store) ListIncomeAllocations(
 	ctx context.Context,
 	userID string,
 	incomeID string,
-) ([]IncomeAllocation, error) {
+	pagination PaginationParams,
+) (PaginatedResult[IncomeAllocation], error) {
 	// First verify the income exists and belongs to the user
 	var exists bool
 	err := s.pool.QueryRow(ctx,
@@ -1067,13 +1068,31 @@ func (s *Store) ListIncomeAllocations(
 		incomeID, userID,
 	).Scan(&exists)
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify income: %w", err)
+		return PaginatedResult[IncomeAllocation]{}, fmt.Errorf("failed to verify income: %w", err)
 	}
 	if !exists {
-		return nil, ErrNotFound
+		return PaginatedResult[IncomeAllocation]{}, ErrNotFound
 	}
 
-	query := `
+	// Get total count
+	var total int
+	countQuery := `SELECT COUNT(*) FROM fund_flow_rules WHERE source_income_id = $1 AND user_id = $2 AND rule_type = 'allocation'`
+	if err := s.pool.QueryRow(ctx, countQuery, incomeID, userID).Scan(&total); err != nil {
+		return PaginatedResult[IncomeAllocation]{}, fmt.Errorf("failed to count allocations: %w", err)
+	}
+
+	// Build paginated query
+	paginationClause, argIdx := addPaginationQuery(pagination, 3)
+	args := []any{incomeID, userID}
+	if pagination.Limit != nil {
+		args = append(args, *pagination.Limit)
+	}
+	if pagination.Offset != nil {
+		args = append(args, *pagination.Offset)
+	}
+	_ = argIdx // suppress unused variable warning
+
+	query := fmt.Sprintf(`
 	SELECT
 		ffr.id,
 		ffr.source_income_id,
@@ -1087,12 +1106,13 @@ func (s *Store) ListIncomeAllocations(
 		ffr.created_at
 	FROM fund_flow_rules ffr
 	WHERE ffr.source_income_id = $1 AND ffr.user_id = $2 AND ffr.rule_type = 'allocation'
-	ORDER BY ffr.priority, ffr.start_date`
+	ORDER BY ffr.priority, ffr.start_date
+	%s`, paginationClause)
 
-	logQuery(query, []any{incomeID, userID})
-	rows, err := s.pool.Query(ctx, query, incomeID, userID)
+	logQuery(query, args)
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query allocation rules: %w", err)
+		return PaginatedResult[IncomeAllocation]{}, fmt.Errorf("failed to query allocation rules: %w", err)
 	}
 	defer rows.Close()
 
@@ -1105,12 +1125,17 @@ func (s *Store) ListIncomeAllocations(
 			&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan allocation rule: %w", err)
+			return PaginatedResult[IncomeAllocation]{}, fmt.Errorf("failed to scan allocation rule: %w", err)
 		}
 		allocations = append(allocations, a)
 	}
 
-	return allocations, nil
+	return PaginatedResult[IncomeAllocation]{
+		Data:   allocations,
+		Count:  total,
+		Limit:  pagination.Limit,
+		Offset: pagination.Offset,
+	}, nil
 }
 
 // ListAllIncomeAllocations returns all allocations for all of a user's incomes from fund_flow_rules.

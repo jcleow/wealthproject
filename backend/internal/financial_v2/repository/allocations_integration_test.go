@@ -145,13 +145,13 @@ func TestIntegration_ListIncomeAllocations(t *testing.T) {
 	require.NoError(t, err)
 
 	// List allocations
-	allocations, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+	result, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.NoError(t, err)
-	require.Len(t, allocations, 2, "Should return 2 allocations")
+	require.Len(t, result.Data, 2, "Should return 2 allocations")
 
 	// Verify both allocations are present
 	ids := make(map[string]bool)
-	for _, a := range allocations {
+	for _, a := range result.Data {
 		ids[a.ID] = true
 	}
 	assert.True(t, ids[created1.ID], "First allocation should be in list")
@@ -167,7 +167,7 @@ func TestIntegration_ListIncomeAllocations_IncomeNotFound(t *testing.T) {
 	testutil.CleanupTestData(t, pool, userID)
 	t.Cleanup(func() { testutil.CleanupTestData(t, pool, userID) })
 
-	_, err := store.ListIncomeAllocations(ctx, userID, testutil.NonexistentUUID)
+	_, err := store.ListIncomeAllocations(ctx, userID, testutil.NonexistentUUID, PaginationParams{})
 	assert.ErrorIs(t, err, ErrNotFound, "Should return ErrNotFound for non-existent income")
 }
 
@@ -182,9 +182,9 @@ func TestIntegration_ListIncomeAllocations_IncomeExistsButNoAllocations(t *testi
 
 	incomeID := testutil.CreateTestIncome(t, pool, userID, "Income With No Allocations", 3000)
 
-	allocations, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+	result, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.NoError(t, err)
-	assert.Empty(t, allocations, "Should return empty slice for income with no allocations")
+	assert.Empty(t, result.Data, "Should return empty slice for income with no allocations")
 }
 
 func TestIntegration_GetIncomeAllocation(t *testing.T) {
@@ -600,13 +600,13 @@ func TestIntegration_MultipleAllocations_SameIncomeDifferentTargets(t *testing.T
 	}
 
 	// Verify all 3 are listed
-	listed, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+	listedResult, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.NoError(t, err)
-	require.Len(t, listed, 3, "Should have 3 allocations")
+	require.Len(t, listedResult.Data, 3, "Should have 3 allocations")
 
 	// Verify targets are distinct
 	targetIDs := make(map[string]bool)
-	for _, a := range listed {
+	for _, a := range listedResult.Data {
 		if a.TargetInvestmentID != nil {
 			targetIDs[*a.TargetInvestmentID] = true
 		}
@@ -618,7 +618,7 @@ func TestIntegration_MultipleAllocations_SameIncomeDifferentTargets(t *testing.T
 
 	// Verify sum of percentages
 	var totalPercentage float64
-	for _, a := range listed {
+	for _, a := range listedResult.Data {
 		if a.AllocationType == "percentage" {
 			pct, _ := a.AllocationValue.Float64()
 			totalPercentage += pct
@@ -675,10 +675,10 @@ func TestIntegration_MultipleIncomes_SameTarget(t *testing.T) {
 
 	// Verify each income has exactly one allocation
 	for _, a := range allocations {
-		incomeAllocations, err := store.ListIncomeAllocations(ctx, userID, a.incomeID)
+		incomeAllocResult, err := store.ListIncomeAllocations(ctx, userID, a.incomeID, PaginationParams{})
 		require.NoError(t, err)
-		assert.Len(t, incomeAllocations, 1, "Each income should have 1 allocation")
-		assert.Equal(t, sharedInvestmentID, *incomeAllocations[0].TargetInvestmentID)
+		assert.Len(t, incomeAllocResult.Data, 1, "Each income should have 1 allocation")
+		assert.Equal(t, sharedInvestmentID, *incomeAllocResult.Data[0].TargetInvestmentID)
 	}
 }
 
@@ -954,9 +954,9 @@ func TestIntegration_DeleteAllocation_VerifyNoOrphans(t *testing.T) {
 	}
 
 	// Verify 5 exist
-	all, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+	allResult, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.NoError(t, err)
-	require.Len(t, all, 5)
+	require.Len(t, allResult.Data, 5)
 
 	// Delete them one by one
 	for i, id := range allocationIDs {
@@ -964,15 +964,15 @@ func TestIntegration_DeleteAllocation_VerifyNoOrphans(t *testing.T) {
 		require.NoError(t, err, "Should delete allocation %d", i+1)
 
 		// Verify count decreases
-		remaining, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+		remainingResult, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 		require.NoError(t, err)
-		assert.Len(t, remaining, 4-i, "Should have %d remaining", 4-i)
+		assert.Len(t, remainingResult.Data, 4-i, "Should have %d remaining", 4-i)
 	}
 
 	// Verify none remain
-	final, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+	finalResult, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.NoError(t, err)
-	assert.Empty(t, final, "Should have no allocations left")
+	assert.Empty(t, finalResult.Data, "Should have no allocations left")
 
 	// Verify nothing in fund_flow_rules for this income
 	var count int
