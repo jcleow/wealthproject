@@ -1117,46 +1117,76 @@ func processLiabilityMonth(
 	}
 }
 
-// calcCashAllocation computes net savings and net cash flow for active rows.
+// CashAllocationParams holds parameters for cash allocation calculation.
+type CashAllocationParams struct {
+	Data             EffectiveRows
+	AccountBalances  map[string]*decimal.Decimal // Maps account/item ID to current balance
+	CurrentDate      time.Time
+	EmployeeCPF      *decimal.Decimal
+	FundFlowRules    []repo.FundFlowRule // Allocation rules from fund_flow_rules table
+	ApplyAllocations bool
+}
+
+// calcCashAllocationWithRules computes net savings and net cash flow for active rows.
+// Uses fund_flow_rules for allocation processing.
+//
 // Returns:
 //   - netSavings: income - employeeCPF - expenses
-//   - netCashFlow: income - employeeCPF - expenses - investmentAllocations (always net of investments for display)
+//   - netCashFlow: income - employeeCPF - expenses - investmentAllocations
 //   - netInvestments: total amount allocated to investments this month
+func calcCashAllocationWithRules(params CashAllocationParams) (netSavings *decimal.Decimal, netCashFlow *decimal.Decimal, netInvestments *decimal.Decimal) {
+	income := decimal.Zero()
+	expense := decimal.Zero()
+
+	for _, row := range params.Data.Incomes {
+		if isActiveInMonth(row, params.CurrentDate) {
+			monthlyAmt := common.ToMonthlyAmount(params.AccountBalances[row.ID], row.Frequency)
+			income = income.Add(monthlyAmt)
+		}
+	}
+
+	for _, row := range params.Data.Expenses {
+		if isActiveInMonth(row, params.CurrentDate) {
+			monthlyAmt := common.ToMonthlyAmount(params.AccountBalances[row.ID], row.Frequency)
+			expense = expense.Add(monthlyAmt)
+		}
+	}
+
+	netSavings = income.Sub(params.EmployeeCPF).Sub(expense)
+
+	// Use fund flow allocation rules
+	netInvestments = computeAllocationTotals(
+		params.FundFlowRules,
+		params.Data.Incomes,
+		params.AccountBalances,
+		params.CurrentDate,
+		params.ApplyAllocations,
+	)
+
+	// Always compute netCashFlow = netSavings - investments for display purposes
+	netCashFlow = netSavings.Sub(netInvestments)
+
+	return netSavings, netCashFlow, netInvestments
+}
+
+// calcCashAllocation computes net savings and net cash flow for active rows.
+// Deprecated: Use calcCashAllocationWithRules directly with fund_flow_rules.
 func calcCashAllocation(
 	data EffectiveRows,
 	state map[string]*decimal.Decimal,
 	currentDate time.Time,
 	employeeCPF *decimal.Decimal,
-	incomeAllocations []repo.IncomeAllocation,
+	fundFlowRules []repo.FundFlowRule,
 	applyAllocations bool,
 ) (netSavings *decimal.Decimal, netCashFlow *decimal.Decimal, netInvestments *decimal.Decimal) {
-	income := decimal.Zero()
-	expense := decimal.Zero()
-
-	for _, row := range data.Incomes {
-		if isActiveInMonth(row, currentDate) {
-			monthlyAmt := common.ToMonthlyAmount(state[row.ID], row.Frequency)
-			income = income.Add(monthlyAmt)
-		}
-	}
-
-	for _, row := range data.Expenses {
-		if isActiveInMonth(row, currentDate) {
-			monthlyAmt := common.ToMonthlyAmount(state[row.ID], row.Frequency)
-			expense = expense.Add(monthlyAmt)
-		}
-	}
-
-	netSavings = income.Sub(employeeCPF).Sub(expense)
-
-	// Apply investment allocations - adds allocation amounts to investment balances (only when applyAllocations is true)
-	netInvestments = applyInvestmentAllocations(data.Incomes, incomeAllocations, state, currentDate, applyAllocations)
-
-	// Always compute netCashFlow = netSavings - investments for display purposes
-	// applyAllocations only controls whether investment balances are mutated, not the cash flow calculation
-	netCashFlow = netSavings.Sub(netInvestments)
-
-	return netSavings, netCashFlow, netInvestments
+	return calcCashAllocationWithRules(CashAllocationParams{
+		Data:             data,
+		AccountBalances:  state,
+		CurrentDate:      currentDate,
+		EmployeeCPF:      employeeCPF,
+		FundFlowRules:    fundFlowRules,
+		ApplyAllocations: applyAllocations,
+	})
 }
 
 // isAllocationActiveInMonth checks if an income allocation is active during the given month.
@@ -2083,21 +2113,23 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	}
 
 	// Calculate cash flow; investment allocations are computed every month but only mutate balances after the anchor month
+	// Phase 2: Uses fund flow allocation rules when present, falls back to legacy income_allocations
 	var netSavings, netCashFlow, netInvestments *decimal.Decimal
 	applyAllocations := !isAnchorMonth
-	netSavings, netCashFlow, netInvestments = calcCashAllocation(
-		mctx.Data,
-		stateForCalcs,
-		currentDate,
-		employeeCPF,
-		mctx.IncomeAllocations,
-		applyAllocations,
-	)
+	netSavings, netCashFlow, netInvestments = calcCashAllocationWithRules(CashAllocationParams{
+		Data:             mctx.Data,
+		AccountBalances:  stateForCalcs,
+		CurrentDate:      currentDate,
+		EmployeeCPF:      employeeCPF,
+		FundFlowRules:    mctx.FundFlowRules,
+		ApplyAllocations: applyAllocations,
+	})
 
 	// If scenarios are active (EventAdjustedState != State), also apply allocations to base State
 	// so they persist across months. EventAdjustedState already has this month's allocations.
 	if applyAllocations && mctx.EventAdjustedState != nil {
-		applyInvestmentAllocations(mctx.Data.Incomes, mctx.IncomeAllocations, mctx.State, currentDate, true)
+		// Use fund flow rules for base state too
+		computeAllocationTotals(mctx.FundFlowRules, mctx.Data.Incomes, mctx.State, currentDate, true)
 	}
 
 	// Accumulate cash flow (anchor month included; allocations only mutate balances after anchor)

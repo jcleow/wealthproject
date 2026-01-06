@@ -8,6 +8,7 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/testutil"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 )
@@ -25,38 +26,47 @@ func TestListIncomeAllocations_ReturnsAllocationsForIncome(t *testing.T) {
 	cashAccountID := "cash-account-1"
 	investmentID := "investment-1"
 
+	// First QueryRow call - check income exists
+	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))
+
+	// Second QueryRow call - count query
+	mockPool.EnqueueRow("SELECT COUNT", []any{incomeID, userID}, testutil.NewStubRow(t, []any{2}, nil))
+
+	// Then Query call for allocations from fund_flow_rules
+	// Note: default limit of 20 is always applied when no limit specified
 	rows := testutil.NewStubRows(t, [][]any{
 		{
-			incomeID, "alloc-1", "parent-1",
+			"alloc-1", incomeID, "alloc-1",
 			createdAt, nil,
 			cashAccountID, nil,
 			"percentage", *decimal.MustFromString("50.0000"), createdAt,
 		},
 		{
-			incomeID, "alloc-2", "parent-2",
+			"alloc-2", incomeID, "alloc-2",
 			createdAt, nil,
 			nil, investmentID,
 			"fixed", *decimal.MustFromString("1000.0000"), createdAt,
 		},
 	})
-	mockPool.EnqueueQuery("income_allocations", []any{incomeID, userID}, rows, nil)
+	mockPool.EnqueueQuery("fund_flow_rules", []any{incomeID, userID, DefaultPaginationLimit}, rows, nil)
 
-	allocations, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+	result, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.NoError(t, err)
-	require.Len(t, allocations, 2)
+	require.Len(t, result.Data, 2)
+	require.Equal(t, 2, result.Count)
 
-	require.Equal(t, "alloc-1", allocations[0].ID)
-	require.Equal(t, incomeID, allocations[0].IncomeID)
-	require.NotNil(t, allocations[0].TargetCashAccountID)
-	require.Equal(t, cashAccountID, *allocations[0].TargetCashAccountID)
-	require.Nil(t, allocations[0].TargetInvestmentID)
-	require.Equal(t, "percentage", allocations[0].AllocationType)
+	require.Equal(t, "alloc-1", result.Data[0].ID)
+	require.Equal(t, incomeID, result.Data[0].IncomeID)
+	require.NotNil(t, result.Data[0].TargetCashAccountID)
+	require.Equal(t, cashAccountID, *result.Data[0].TargetCashAccountID)
+	require.Nil(t, result.Data[0].TargetInvestmentID)
+	require.Equal(t, "percentage", result.Data[0].AllocationType)
 
-	require.Equal(t, "alloc-2", allocations[1].ID)
-	require.Nil(t, allocations[1].TargetCashAccountID)
-	require.NotNil(t, allocations[1].TargetInvestmentID)
-	require.Equal(t, investmentID, *allocations[1].TargetInvestmentID)
-	require.Equal(t, "fixed", allocations[1].AllocationType)
+	require.Equal(t, "alloc-2", result.Data[1].ID)
+	require.Nil(t, result.Data[1].TargetCashAccountID)
+	require.NotNil(t, result.Data[1].TargetInvestmentID)
+	require.Equal(t, investmentID, *result.Data[1].TargetInvestmentID)
+	require.Equal(t, "fixed", result.Data[1].AllocationType)
 }
 
 func TestListIncomeAllocations_IncomeNotFound(t *testing.T) {
@@ -68,10 +78,10 @@ func TestListIncomeAllocations_IncomeNotFound(t *testing.T) {
 	userID := "test-user"
 	incomeID := "non-existent-income"
 
-	rows := testutil.NewStubRows(t, [][]any{})
-	mockPool.EnqueueQuery("income_allocations", []any{incomeID, userID}, rows, nil)
+	// Check income exists - returns false
+	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{false}, nil))
 
-	_, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+	_, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
@@ -84,14 +94,20 @@ func TestListIncomeAllocations_IncomeExistsButNoAllocations(t *testing.T) {
 	userID := "test-user"
 	incomeID := "income-1"
 
-	rows := testutil.NewStubRows(t, [][]any{
-		{incomeID, nil, nil, nil, nil, nil, nil, nil, nil, nil},
-	})
-	mockPool.EnqueueQuery("income_allocations", []any{incomeID, userID}, rows, nil)
+	// Check income exists - returns true
+	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))
 
-	allocations, err := store.ListIncomeAllocations(ctx, userID, incomeID)
+	// Count query returns 0
+	mockPool.EnqueueRow("SELECT COUNT", []any{incomeID, userID}, testutil.NewStubRow(t, []any{0}, nil))
+
+	// Empty rows from fund_flow_rules (default limit of 20 is always applied)
+	rows := testutil.NewStubRows(t, [][]any{})
+	mockPool.EnqueueQuery("fund_flow_rules", []any{incomeID, userID, DefaultPaginationLimit}, rows, nil)
+
+	result, err := store.ListIncomeAllocations(ctx, userID, incomeID, PaginationParams{})
 	require.NoError(t, err)
-	require.Empty(t, allocations)
+	require.Empty(t, result.Data)
+	require.Equal(t, 0, result.Count)
 }
 
 func TestCreateIncomeAllocation_ToCashAccount(t *testing.T) {
@@ -104,13 +120,17 @@ func TestCreateIncomeAllocation_ToCashAccount(t *testing.T) {
 	incomeID := "income-1"
 	cashAccountID := "cash-account-1"
 	createdAt := time.Now()
-	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) // Default year used by implementation
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	allocationValue := decimal.MustFromString("50")
-	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))
+
+	// First query is to get income name
+	mockPool.EnqueueRow("SELECT name FROM finance_incomes", []any{incomeID, userID}, testutil.NewStubRow(t, []any{"Salary"}, nil))
+
+	// Insert into fund_flow_rules
 	mockPool.EnqueueRow(
-		"INSERT INTO income_allocations",
-		[]any{incomeID, (*string)(nil), startDate, (*time.Time)(nil), &cashAccountID, (*string)(nil), "percentage", *allocationValue},
+		"INSERT INTO fund_flow_rules",
+		nil,
 		testutil.NewStubRow(t, []any{
 			"alloc-new", incomeID, "alloc-new", startDate, nil, cashAccountID, nil, "percentage", *allocationValue, createdAt,
 		}, nil))
@@ -141,13 +161,17 @@ func TestCreateIncomeAllocation_ToInvestment(t *testing.T) {
 	incomeID := "income-1"
 	investmentID := "investment-1"
 	createdAt := time.Now()
-	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) // Default year used by implementation
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	allocationValue := decimal.MustFromString("1000")
-	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))
+
+	// First query is to get income name
+	mockPool.EnqueueRow("SELECT name FROM finance_incomes", []any{incomeID, userID}, testutil.NewStubRow(t, []any{"Salary"}, nil))
+
+	// Insert into fund_flow_rules
 	mockPool.EnqueueRow(
-		"INSERT INTO income_allocations",
-		[]any{incomeID, (*string)(nil), startDate, (*time.Time)(nil), (*string)(nil), &investmentID, "fixed", *allocationValue},
+		"INSERT INTO fund_flow_rules",
+		nil,
 		testutil.NewStubRow(t, []any{
 			"alloc-new", incomeID, "alloc-new", startDate, nil, nil, investmentID, "fixed", *allocationValue, createdAt,
 		}, nil))
@@ -178,7 +202,8 @@ func TestCreateIncomeAllocation_IncomeNotOwned(t *testing.T) {
 	incomeID := "income-not-owned"
 	cashAccountID := "cash-account-1"
 
-	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{false}, nil))
+	// Phase 2b: First query to get income name returns no rows (income not found)
+	mockPool.EnqueueRow("SELECT name FROM finance_incomes", []any{incomeID, userID}, testutil.NewStubRow(t, nil, pgx.ErrNoRows))
 
 	allocation := IncomeAllocation{
 		IncomeID:            incomeID,
@@ -200,7 +225,8 @@ func TestDeleteIncomeAllocation_Success(t *testing.T) {
 	userID := "test-user"
 	allocationID := "alloc-1"
 
-	mockPool.EnqueueExec("DELETE FROM income_allocations", []any{userID, allocationID}, pgconn.NewCommandTag("DELETE 1"), nil)
+	// Delete from fund_flow_rules
+	mockPool.EnqueueExec("DELETE FROM fund_flow_rules", []any{userID, allocationID}, pgconn.NewCommandTag("DELETE 1"), nil)
 
 	err := store.DeleteIncomeAllocation(ctx, userID, allocationID)
 	require.NoError(t, err)
@@ -215,8 +241,41 @@ func TestDeleteIncomeAllocation_NotFound(t *testing.T) {
 	userID := "test-user"
 	allocationID := "non-existent"
 
-	mockPool.EnqueueExec("DELETE FROM income_allocations", []any{userID, allocationID}, pgconn.NewCommandTag("DELETE 0"), nil)
+	mockPool.EnqueueExec("DELETE FROM fund_flow_rules", []any{userID, allocationID}, pgconn.NewCommandTag("DELETE 0"), nil)
 
 	err := store.DeleteIncomeAllocation(ctx, userID, allocationID)
 	require.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestPaginationParams_WithDefaultLimit(t *testing.T) {
+	t.Parallel()
+
+	t.Run("applies default when limit is nil", func(t *testing.T) {
+		params := PaginationParams{}
+		result := params.WithDefaultLimit()
+
+		require.NotNil(t, result.Limit)
+		require.Equal(t, DefaultPaginationLimit, *result.Limit)
+		require.Nil(t, result.Offset)
+	})
+
+	t.Run("preserves existing limit", func(t *testing.T) {
+		customLimit := 50
+		params := PaginationParams{Limit: &customLimit}
+		result := params.WithDefaultLimit()
+
+		require.NotNil(t, result.Limit)
+		require.Equal(t, 50, *result.Limit)
+	})
+
+	t.Run("preserves offset when applying default", func(t *testing.T) {
+		offset := 10
+		params := PaginationParams{Offset: &offset}
+		result := params.WithDefaultLimit()
+
+		require.NotNil(t, result.Limit)
+		require.Equal(t, DefaultPaginationLimit, *result.Limit)
+		require.NotNil(t, result.Offset)
+		require.Equal(t, 10, *result.Offset)
+	})
 }
