@@ -67,9 +67,8 @@ type EffectiveRows struct {
 
 // SGFinancialDataRows wraps financial data with Singapore-specific CPF accounts
 type SGFinancialDataRows struct {
-	Rows              EffectiveRows
-	CPFAccounts       []*account.CPFAccount // All CPF accounts (one per person)
-	IncomeAllocations []repo.IncomeAllocation
+	Rows        EffectiveRows
+	CPFAccounts []*account.CPFAccount // All CPF accounts (one per person)
 	// Map of liability ID -> linked expense (for open-ended liabilities paid by expenses)
 	LinkedExpensesByLiability map[string]FinancialDataRow
 	// ScenarioImpacts holds pre-indexed scenario impacts (nil if includeScenarios=false)
@@ -113,18 +112,17 @@ func (s *Service) loadEffectiveRows(
 ) (SGFinancialDataRows, error) {
 	var (
 		nonCashAssets      repo.PaginatedResult[repo.NonCashAsset]
-		investments        repo.PaginatedResult[repo.Investment]
-		cashAssets         repo.PaginatedResult[repo.CashAsset]
-		liabilities        repo.PaginatedResult[repo.Liability]
-		incomes            repo.PaginatedResult[repo.Income]
-		expenses           repo.PaginatedResult[repo.Expense]
-		cpfAccounts        []repo.CPFAccount
-		incomeAllocations  []repo.IncomeAllocation
-		excludedTargets    repo.ExcludedTargets
-		excludedPersonIDs  map[string]struct{}
-		scenarioEvents     []repo.ScenarioEvent
-		properties         []repo.PropertyScenarioFull
-		fundFlowRules      []repo.FundFlowRule
+		investments       repo.PaginatedResult[repo.Investment]
+		cashAssets        repo.PaginatedResult[repo.CashAsset]
+		liabilities       repo.PaginatedResult[repo.Liability]
+		incomes           repo.PaginatedResult[repo.Income]
+		expenses          repo.PaginatedResult[repo.Expense]
+		cpfAccounts       []repo.CPFAccount
+		excludedTargets   repo.ExcludedTargets
+		excludedPersonIDs map[string]struct{}
+		scenarioEvents    []repo.ScenarioEvent
+		properties        []repo.PropertyScenarioFull
+		fundFlowRules     []repo.FundFlowRule
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -175,12 +173,6 @@ func (s *Service) loadEffectiveRows(
 	g.Go(func() error {
 		var err error
 		cpfAccounts, err = s.store.ListCPFAccounts(gctx, userID, dateOpts)
-		return err
-	})
-
-	g.Go(func() error {
-		var err error
-		incomeAllocations, err = s.store.ListAllIncomeAllocations(gctx, userID)
 		return err
 	})
 
@@ -254,12 +246,11 @@ func (s *Service) loadEffectiveRows(
 	filteredCPFAccounts := filterCPFAccountsByExcludedPersons(cpfAccounts, excludedPersonIDs)
 
 	return SGFinancialDataRows{
-		Rows:              rows,
-		CPFAccounts:       mapToCPFAccounts(filteredCPFAccounts),
-		IncomeAllocations: incomeAllocations,
-		ScenarioImpacts:   impactCtx,
-		Properties:        properties,
-		FundFlowRules:     fundFlowRules,
+		Rows:            rows,
+		CPFAccounts:     mapToCPFAccounts(filteredCPFAccounts),
+		ScenarioImpacts: impactCtx,
+		Properties:      properties,
+		FundFlowRules:   fundFlowRules,
 	}, nil
 }
 
@@ -1223,91 +1214,6 @@ func buildExpensesWithFundFlowRules(rules []repo.FundFlowRule, currentDate time.
 	return expensesWithRules
 }
 
-// isAllocationActiveInMonth checks if an income allocation is active during the given month.
-// An allocation is active if it started on or before the last day of that month,
-// and hasn't ended before the first day of that month.
-func isAllocationActiveInMonth(alloc repo.IncomeAllocation, date time.Time) bool {
-	// Get the last day of the month
-	year, month, _ := date.Date()
-	lastDayOfMonth := time.Date(year, month+1, 0, 23, 59, 59, 0, date.Location())
-
-	// Allocation must start on or before the last day of this month
-	if alloc.StartDate.After(lastDayOfMonth) {
-		return false
-	}
-	// If allocation has an end date, it must not have ended before the first day of this month
-	if alloc.EndDate != nil && alloc.EndDate.Before(date) {
-		return false
-	}
-	return true
-}
-
-// applyInvestmentAllocations adds the monthly allocation amounts to investment balances.
-// This function modifies the state map to increase investment balances based on income allocations.
-// Returns the total amount allocated to investments this month.
-func applyInvestmentAllocations(
-	incomes []FinancialDataRow,
-	allocations []repo.IncomeAllocation,
-	state map[string]*decimal.Decimal,
-	currentDate time.Time,
-	applyToBalances bool,
-) *decimal.Decimal {
-	total := decimal.Zero()
-
-	// Build a map of income ParentID -> allocations targeting investments (filtered by date)
-	// Allocations are linked to the original income ID, which for versioned incomes is the ParentID.
-	// When an income is versioned, new versions have different IDs but same ParentID.
-	incomeAllocMap := make(map[string][]repo.IncomeAllocation)
-	for _, alloc := range allocations {
-		if alloc.TargetInvestmentID != nil && isAllocationActiveInMonth(alloc, currentDate) {
-			incomeAllocMap[alloc.IncomeID] = append(incomeAllocMap[alloc.IncomeID], alloc)
-		}
-	}
-
-	for _, income := range incomes {
-		if !isActiveInMonth(income, currentDate) {
-			continue
-		}
-
-		// Look up allocations by income's ParentID since allocations are linked to the original income.
-		// For non-versioned incomes, ParentID == ID. For versioned incomes, ParentID points to original.
-		allocs, hasAllocs := incomeAllocMap[income.ParentID]
-		if !hasAllocs {
-			continue
-		}
-
-		// Get the monthly income amount
-		monthlyIncome := common.ToMonthlyAmount(state[income.ID], income.Frequency)
-		if monthlyIncome == nil || monthlyIncome.IsZero() {
-			continue
-		}
-
-		for _, alloc := range allocs {
-			var allocAmount *decimal.Decimal
-			if alloc.AllocationType == "fixed" {
-				allocAmount = &alloc.AllocationValue
-			} else {
-				// Percentage: (monthlyIncome * percentage) / 100
-				hundred := decimal.NewFromInt64(100, 0)
-				pct := alloc.AllocationValue.Div(hundred)
-				allocAmount = monthlyIncome.Mul(pct)
-			}
-
-			// Add to the target investment balance
-			if applyToBalances && alloc.TargetInvestmentID != nil {
-				investmentID := *alloc.TargetInvestmentID
-				if currentBalance, exists := state[investmentID]; exists && currentBalance != nil {
-					state[investmentID] = currentBalance.Add(allocAmount)
-				}
-			}
-
-			total = total.Add(allocAmount)
-		}
-	}
-
-	return total
-}
-
 // convertAppliedImpacts converts scenario.AppliedImpactInfo to response AppliedImpact format
 func convertAppliedImpacts(infos []scenario.AppliedImpactInfo) []AppliedImpact {
 	if len(infos) == 0 {
@@ -1823,30 +1729,66 @@ func buildCPFAssetResponses(cpfCtx *CPFContext, personID string, yearIndex int, 
 	return responses
 }
 
-// buildIncomeAllocationResponses builds responses for active income allocations
-func buildIncomeAllocationResponses(allocations []repo.IncomeAllocation, date time.Time) []IncomeAllocationResponse {
+// buildIncomeAllocationResponsesFromRules builds responses for active allocation-type fund flow rules.
+// This replaces the legacy income_allocations table.
+func buildIncomeAllocationResponsesFromRules(rules []repo.FundFlowRule, date time.Time) []IncomeAllocationResponse {
 	responses := make([]IncomeAllocationResponse, 0)
-	for _, alloc := range allocations {
-		if !isAllocationActiveInMonth(alloc, date) {
+	for _, rule := range rules {
+		// Only process allocation rules
+		if rule.RuleType != "allocation" {
 			continue
 		}
-		resp := IncomeAllocationResponse{
-			ID:                  alloc.ID,
-			IncomeID:            alloc.IncomeID,
-			ParentID:            alloc.ParentID,
-			StartDate:           alloc.StartDate.Format("2006-01-02T15:04:05Z07:00"),
-			TargetCashAccountID: alloc.TargetCashAccountID,
-			TargetInvestmentID:  alloc.TargetInvestmentID,
-			AllocationType:      alloc.AllocationType,
-			AllocationValue:     alloc.AllocationValue,
+		// Check if rule is active in this month
+		if !isRuleActiveInMonth(rule, date) {
+			continue
 		}
-		if alloc.EndDate != nil {
-			endDateStr := alloc.EndDate.Format("2006-01-02T15:04:05Z07:00")
+		// Source income ID is required for allocation rules
+		if rule.SourceIncomeID == nil {
+			continue
+		}
+
+		resp := IncomeAllocationResponse{
+			ID:             rule.ID,
+			IncomeID:       *rule.SourceIncomeID,
+			ParentID:       *rule.SourceIncomeID, // Fund flow rules don't have parent_id versioning
+			StartDate:      rule.StartDate.Format("2006-01-02T15:04:05Z07:00"),
+			AllocationType: rule.AmountType,
+		}
+
+		// Set allocation value
+		if rule.AmountValue != nil {
+			resp.AllocationValue = *rule.AmountValue
+		}
+
+		// Set target (exactly one should be set for allocation rules)
+		if rule.TargetCashAccountID != nil {
+			resp.TargetCashAccountID = rule.TargetCashAccountID
+		}
+		if rule.TargetInvestmentID != nil {
+			resp.TargetInvestmentID = rule.TargetInvestmentID
+		}
+
+		if rule.EndDate != nil {
+			endDateStr := rule.EndDate.Format("2006-01-02T15:04:05Z07:00")
 			resp.EndDate = &endDateStr
 		}
 		responses = append(responses, resp)
 	}
 	return responses
+}
+
+// isRuleActiveInMonth checks if a fund flow rule is active during the given month.
+func isRuleActiveInMonth(rule repo.FundFlowRule, date time.Time) bool {
+	year, month, _ := date.Date()
+	lastDayOfMonth := time.Date(year, month+1, 0, 23, 59, 59, 0, date.Location())
+
+	if rule.StartDate.After(lastDayOfMonth) {
+		return false
+	}
+	if rule.EndDate != nil && rule.EndDate.Before(date) {
+		return false
+	}
+	return true
 }
 
 // buildMonthDetailResponse creates a detailed response for a single month
@@ -1864,7 +1806,7 @@ func buildMonthDetailResponse(
 	netInvestments *decimal.Decimal,
 	cpfContributions map[string]*cpfProcessor.ContributionResult,
 	cpfContexts map[string]*CPFContext,
-	incomeAllocations []repo.IncomeAllocation,
+	fundFlowRules []repo.FundFlowRule, // Used to build allocation responses (replaces legacy incomeAllocations)
 	properties []repo.PropertyScenarioFull,
 	paymentExecutions FundFlowExecutionResult, // Fund flow payment attribution for liabilities
 ) MonthDetailResponse {
@@ -1879,7 +1821,7 @@ func buildMonthDetailResponse(
 	incomes := buildIncomeResponses(data.Incomes, itemStates, eventAdjustedState, appliedImpacts, date, cpfContributions)
 	expenses := buildExpenseResponses(data.Expenses, itemStates, eventAdjustedState, appliedImpacts, date)
 	cpfContributionResponses := buildCPFContributionResponses(data.Incomes, itemStates, date, cpfContributions)
-	incomeAllocationResponses := buildIncomeAllocationResponses(incomeAllocations, date)
+	incomeAllocationResponses := buildIncomeAllocationResponsesFromRules(fundFlowRules, date)
 
 	// Build property snapshots
 	propertyBuilder := property.NewSnapshotBuilder()
@@ -2006,7 +1948,6 @@ type MonthlyContext struct {
 	CPFContexts               map[string]*CPFContext // Map of personID -> CPFContext
 	BaseYear                  int
 	CashAccumulator           *decimal.Decimal
-	IncomeAllocations         []repo.IncomeAllocation
 	LinkedExpensesByLiability map[string]FinancialDataRow
 	// Scenario event support
 	ScenarioImpacts    *scenario.ImpactContext                 // Pre-indexed impacts (nil if scenarios disabled)
@@ -2014,7 +1955,7 @@ type MonthlyContext struct {
 	AppliedImpacts     map[string][]scenario.AppliedImpactInfo // Tracks which impacts were applied to each item
 	// Property scenarios for timeline projection
 	Properties []repo.PropertyScenarioFull
-	// Fund flow rules for payment sequencing (Phase 1: payments, Phase 2+: allocations, transfers)
+	// Fund flow rules for payment sequencing and allocations (replaces legacy income_allocations)
 	FundFlowRules []repo.FundFlowRule
 	// PaymentExecutions tracks payment attribution for the current month (for response building)
 	PaymentExecutions FundFlowExecutionResult
@@ -2201,7 +2142,7 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 		mctx.EventAdjustedState, // Pass adjusted state for adjBalance/adjAmount
 		mctx.AppliedImpacts,     // Pass applied impacts for EventImpacts field
 		mctx.CashAccumulator, netSavings, netCashFlow, netInvestments, cpfContributions, mctx.CPFContexts,
-		mctx.IncomeAllocations,
+		mctx.FundFlowRules, // Replaces legacy mctx.IncomeAllocations
 		mctx.Properties,
 		mctx.PaymentExecutions, // Fund flow payment attribution
 	)
@@ -2239,7 +2180,6 @@ func (s *Service) computeSnapshotFromData(sgData SGFinancialDataRows, opts Timel
 		CPFContexts:               NewCPFContexts(sgData.CPFAccounts),
 		BaseYear:                  anchorStart.Year(),
 		CashAccumulator:           decimal.Zero(),
-		IncomeAllocations:         sgData.IncomeAllocations,
 		LinkedExpensesByLiability: linkedExpenses,
 		ScenarioImpacts:           sgData.ScenarioImpacts,
 		Properties:                sgData.Properties,

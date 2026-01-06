@@ -40,7 +40,6 @@ type startImpactTestStore struct {
 	liabilities     []repo.Liability
 	incomes         []repo.Income
 	expenses        []repo.Expense
-	incomeAllocs    []repo.IncomeAllocation
 	scenarioEvents  []repo.ScenarioEvent
 	excludedTargets repo.ExcludedTargets
 }
@@ -75,10 +74,6 @@ func (m *startImpactTestStore) GetCPFAccount(ctx context.Context, userID string)
 
 func (m *startImpactTestStore) ListCPFAccounts(ctx context.Context, userID string, dateOpts repo.DateRangeOptions) ([]repo.CPFAccount, error) {
 	return nil, nil
-}
-
-func (m *startImpactTestStore) ListAllIncomeAllocations(ctx context.Context, userID string) ([]repo.IncomeAllocation, error) {
-	return m.incomeAllocs, nil
 }
 
 func (m *startImpactTestStore) GetExcludedScenarioTargetIDs(ctx context.Context, userID string) (repo.ExcludedTargets, error) {

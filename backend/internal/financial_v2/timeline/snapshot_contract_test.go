@@ -12,13 +12,12 @@ import (
 // fullMockStore implements the Store interface with all methods for comprehensive testing
 type fullMockStore struct {
 	nonCashAssets     []repo.NonCashAsset
-	investments       []repo.Investment
-	cashAssets        []repo.CashAsset
-	liabilities       []repo.Liability
-	incomes           []repo.Income
-	expenses          []repo.Expense
-	cpfAccount        *repo.CPFAccount
-	incomeAllocations []repo.IncomeAllocation
+	investments []repo.Investment
+	cashAssets  []repo.CashAsset
+	liabilities []repo.Liability
+	incomes     []repo.Income
+	expenses    []repo.Expense
+	cpfAccount  *repo.CPFAccount
 }
 
 func (m *fullMockStore) ListNonCashAssets(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.NonCashAsset], error) {
@@ -54,10 +53,6 @@ func (m *fullMockStore) ListCPFAccounts(ctx context.Context, userID string, date
 		return []repo.CPFAccount{*m.cpfAccount}, nil
 	}
 	return nil, nil
-}
-
-func (m *fullMockStore) ListAllIncomeAllocations(ctx context.Context, userID string) ([]repo.IncomeAllocation, error) {
-	return m.incomeAllocations, nil
 }
 
 func (m *fullMockStore) GetExcludedScenarioTargetIDs(ctx context.Context, userID string) (repo.ExcludedTargets, error) {

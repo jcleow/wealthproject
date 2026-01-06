@@ -21,7 +21,6 @@ type mockStore struct {
 	liabilities   []repo.Liability
 	incomes       []repo.Income
 	expenses      []repo.Expense
-	incomeAllocs  []repo.IncomeAllocation
 	fundFlowRules []repo.FundFlowRule
 }
 
@@ -55,10 +54,6 @@ func (m *mockStore) GetCPFAccount(ctx context.Context, userID string) (*repo.CPF
 
 func (m *mockStore) ListCPFAccounts(ctx context.Context, userID string, dateOpts repo.DateRangeOptions) ([]repo.CPFAccount, error) {
 	return nil, nil
-}
-
-func (m *mockStore) ListAllIncomeAllocations(ctx context.Context, userID string) ([]repo.IncomeAllocation, error) {
-	return m.incomeAllocs, nil
 }
 
 func (m *mockStore) GetExcludedScenarioTargetIDs(ctx context.Context, userID string) (repo.ExcludedTargets, error) {

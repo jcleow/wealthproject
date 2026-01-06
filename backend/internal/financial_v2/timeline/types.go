@@ -67,7 +67,6 @@ type Store interface {
 	ListExpenses(context.Context, repository.ListQuery) (repository.PaginatedResult[repository.Expense], error)
 	GetCPFAccount(context.Context, string) (*repository.CPFAccount, error)
 	ListCPFAccounts(context.Context, string, repository.DateRangeOptions) ([]repository.CPFAccount, error)
-	ListAllIncomeAllocations(context.Context, string) ([]repository.IncomeAllocation, error)
 	// GetExcludedScenarioTargetIDs returns IDs of financial items created by excluded scenarios
 	GetExcludedScenarioTargetIDs(context.Context, string) (repository.ExcludedTargets, error)
 	// GetExcludedPersonIDs returns IDs of persons where is_included=false

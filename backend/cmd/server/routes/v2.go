@@ -144,36 +144,8 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		incomeHandler.HandleStop(w, r, id)
 	}).Methods("POST")
 
-	// Income allocations v2 endpoints
-	allocHandler := handlers.NewIncomeAllocationV2Handler(deps.FinStore)
-	router.HandleFunc("/income-allocations", allocHandler.HandleListAll).Methods("GET")
-	router.HandleFunc("/incomes/{incomeId}/allocations", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		incomeID := vars["incomeId"]
-		switch r.Method {
-		case "GET":
-			allocHandler.HandleListByIncome(w, r, incomeID)
-		case "POST":
-			allocHandler.HandleCreate(w, r, incomeID)
-		}
-	}).Methods("GET", "POST")
-	router.HandleFunc("/incomes/{incomeId}/allocations/{allocId}", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		incomeID := vars["incomeId"]
-		allocID := vars["allocId"]
-		switch r.Method {
-		case "PUT":
-			allocHandler.HandleUpdate(w, r, incomeID, allocID)
-		case "DELETE":
-			allocHandler.HandleDelete(w, r, incomeID, allocID)
-		}
-	}).Methods("PUT", "DELETE")
-	router.HandleFunc("/incomes/{incomeId}/allocations/{allocId}/stop", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		incomeID := vars["incomeId"]
-		allocID := vars["allocId"]
-		allocHandler.HandleStop(w, r, incomeID, allocID)
-	}).Methods("POST")
+	// NOTE: Income allocations v2 endpoints REMOVED - migrated to fund_flow_rules
+	// Use /api/v2/fund-flow-rules with ruleType=allocation instead
 
 	// Asset v2 endpoints (versioned update/delete/stop)
 	assetHandler := handlers.NewAssetV2Handler(deps.FinStore)
