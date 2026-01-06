@@ -102,12 +102,14 @@ func (m *MockPool) Exec(ctx context.Context, sql string, args ...any) (pgconn.Co
 }
 
 func (m *MockPool) Begin(ctx context.Context) (pgx.Tx, error) {
-	return &MockTx{t: m.t}, nil
+	return &MockTx{pool: m}, nil
 }
 
-// MockTx satisfies pgx.Tx for Begin callers; methods return stubs.
+// MockTx satisfies pgx.Tx for Begin callers; methods delegate to the parent pool
+// so that enqueued expectations are consumed in the same order regardless of
+// whether operations happen inside or outside a transaction.
 type MockTx struct {
-	t *testing.T
+	pool *MockPool
 }
 
 func (m *MockTx) Commit(context.Context) error   { return nil }
@@ -115,12 +117,15 @@ func (m *MockTx) Rollback(context.Context) error { return nil }
 func (m *MockTx) Begin(context.Context) (pgx.Tx, error) {
 	return m, nil
 }
-func (m *MockTx) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
-	var tag pgconn.CommandTag
-	return tag, nil
+func (m *MockTx) Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
+	return m.pool.Exec(ctx, sql, args...)
 }
-func (m *MockTx) Query(context.Context, string, ...any) (pgx.Rows, error) { return nil, nil }
-func (m *MockTx) QueryRow(context.Context, string, ...any) pgx.Row        { return &StubRow{t: m.t} }
+func (m *MockTx) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	return m.pool.Query(ctx, sql, args...)
+}
+func (m *MockTx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return m.pool.QueryRow(ctx, sql, args...)
+}
 func (m *MockTx) CopyFrom(context.Context, pgx.Identifier, []string, pgx.CopyFromSource) (int64, error) {
 	return 0, nil
 }

@@ -1233,22 +1233,25 @@ func (s *Store) GetIncomeAllocation(
 // CreateIncomeAllocation creates a new allocation for an income.
 // If ParentID is empty, the new row's ID becomes its own parent (new logical allocation).
 // If ParentID is set, this creates a new version of an existing allocation (restart scenario).
+//
+// Phase 2b: Dual-write to both income_allocations and fund_flow_rules tables.
+// This ensures data consistency during the migration period.
 func (s *Store) CreateIncomeAllocation(
 	ctx context.Context,
 	userID string,
 	allocation IncomeAllocation,
 ) (*IncomeAllocation, error) {
-	// Verify the income belongs to the user
-	var exists bool
+	// Verify the income belongs to the user and get income name for fund_flow_rules
+	var incomeName string
 	err := s.pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM finance_incomes WHERE id = $1 AND user_id = $2)`,
+		`SELECT name FROM finance_incomes WHERE id = $1 AND user_id = $2`,
 		allocation.IncomeID, userID,
-	).Scan(&exists)
+	).Scan(&incomeName)
+	if err == pgx.ErrNoRows {
+		return nil, ErrNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify income ownership: %w", err)
-	}
-	if !exists {
-		return nil, ErrNotFound
 	}
 
 	// Default start_date to 2026-01-01 if not provided
@@ -1257,14 +1260,21 @@ func (s *Store) CreateIncomeAllocation(
 		startDate = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
 
-	query := `
+	// Begin transaction for dual-write
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Write to income_allocations (legacy table)
+	legacyQuery := `
 	INSERT INTO income_allocations (income_id, parent_id, start_date, end_date, target_cash_account_id, target_investment_id, allocation_type, allocation_value)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	RETURNING id, income_id, COALESCE(parent_id, id), start_date, end_date, target_cash_account_id, target_investment_id, allocation_type, allocation_value, created_at`
 
 	var created IncomeAllocation
-	// pgx scans NULL directly into *string and *time.Time
-	err = s.pool.QueryRow(ctx, query,
+	err = tx.QueryRow(ctx, legacyQuery,
 		allocation.IncomeID,
 		nullIfEmpty(allocation.ParentID),
 		startDate,
@@ -1283,16 +1293,72 @@ func (s *Store) CreateIncomeAllocation(
 		return nil, fmt.Errorf("failed to create income allocation: %w", err)
 	}
 
+	// Phase 2b: Also write to fund_flow_rules (new unified table)
+	// Only for root allocations (not versions)
+	if allocation.ParentID == "" {
+		ruleName := buildAllocationRuleName(incomeName, allocation.TargetInvestmentID, allocation.TargetCashAccountID)
+		fundFlowQuery := `
+		INSERT INTO fund_flow_rules (
+			id, user_id, name, rule_type,
+			source_income_id,
+			target_cash_account_id, target_investment_id,
+			amount_type, amount_value,
+			priority, start_date, end_date
+		) VALUES ($1, $2, $3, 'allocation', $4, $5, $6, $7, $8, 0, $9, $10)
+		ON CONFLICT (id) DO NOTHING`
+
+		_, err = tx.Exec(ctx, fundFlowQuery,
+			created.ID, // Use same ID for easy correlation
+			userID,
+			ruleName,
+			allocation.IncomeID,
+			allocation.TargetCashAccountID,
+			allocation.TargetInvestmentID,
+			allocation.AllocationType,
+			allocation.AllocationValue,
+			startDate,
+			allocation.EndDate,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create fund flow rule for allocation: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
 	return &created, nil
 }
 
+// buildAllocationRuleName creates a descriptive name for a fund flow allocation rule
+func buildAllocationRuleName(incomeName string, targetInvestmentID, targetCashAccountID *string) string {
+	if targetInvestmentID != nil {
+		return incomeName + " → Investment"
+	}
+	if targetCashAccountID != nil {
+		return incomeName + " → Cash"
+	}
+	return incomeName + " Allocation"
+}
+
 // UpdateIncomeAllocation updates an existing allocation.
+//
+// Phase 2b: Dual-write to both income_allocations and fund_flow_rules tables.
 func (s *Store) UpdateIncomeAllocation(
 	ctx context.Context,
 	userID string,
 	allocation IncomeAllocation,
 ) (*IncomeAllocation, error) {
-	query := `
+	// Begin transaction for dual-write
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Update income_allocations (legacy table)
+	legacyQuery := `
 	UPDATE income_allocations ia
 	SET target_cash_account_id = $3,
 	    target_investment_id = $4,
@@ -1307,8 +1373,7 @@ func (s *Store) UpdateIncomeAllocation(
 	          ia.allocation_type, ia.allocation_value, ia.created_at`
 
 	var updated IncomeAllocation
-	// pgx scans NULL directly into *string and *time.Time
-	err := s.pool.QueryRow(ctx, query,
+	err = tx.QueryRow(ctx, legacyQuery,
 		userID, allocation.ID,
 		allocation.TargetCashAccountID,
 		allocation.TargetInvestmentID,
@@ -1327,17 +1392,51 @@ func (s *Store) UpdateIncomeAllocation(
 		return nil, fmt.Errorf("failed to update income allocation: %w", err)
 	}
 
+	// Phase 2b: Also update fund_flow_rules (new unified table)
+	// Update if exists (may not exist for allocations created before migration)
+	fundFlowQuery := `
+	UPDATE fund_flow_rules
+	SET target_cash_account_id = $2,
+	    target_investment_id = $3,
+	    amount_type = $4,
+	    amount_value = $5,
+	    updated_at = NOW()
+	WHERE id = $1 AND rule_type = 'allocation'`
+
+	_, err = tx.Exec(ctx, fundFlowQuery,
+		allocation.ID,
+		allocation.TargetCashAccountID,
+		allocation.TargetInvestmentID,
+		allocation.AllocationType,
+		allocation.AllocationValue,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update fund flow rule for allocation: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
 	return &updated, nil
 }
 
 // SetIncomeAllocationEndDate sets the end_date for an allocation (stops it at a future point).
 // Used when "deleting" at a future time - preserves the original record with an end_date.
+// Phase 2b: Also updates the corresponding fund_flow_rules record.
 func (s *Store) SetIncomeAllocationEndDate(
 	ctx context.Context,
 	userID string,
 	allocationID string,
 	endDate time.Time,
 ) (*IncomeAllocation, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Update income_allocations (legacy table)
 	query := `
 	UPDATE income_allocations ia
 	SET end_date = $3
@@ -1350,7 +1449,7 @@ func (s *Store) SetIncomeAllocationEndDate(
 	          ia.allocation_type, ia.allocation_value, ia.created_at`
 
 	var updated IncomeAllocation
-	err := s.pool.QueryRow(ctx, query, userID, allocationID, endDate).Scan(
+	err = tx.QueryRow(ctx, query, userID, allocationID, endDate).Scan(
 		&updated.ID, &updated.IncomeID, &updated.ParentID,
 		&updated.StartDate, &updated.EndDate,
 		&updated.TargetCashAccountID, &updated.TargetInvestmentID,
@@ -1363,15 +1462,38 @@ func (s *Store) SetIncomeAllocationEndDate(
 		return nil, fmt.Errorf("failed to set income allocation end date: %w", err)
 	}
 
+	// Phase 2b: Also update fund_flow_rules (new unified table)
+	fundFlowQuery := `
+	UPDATE fund_flow_rules
+	SET end_date = $2, updated_at = NOW()
+	WHERE id = $1 AND rule_type = 'allocation'`
+
+	_, err = tx.Exec(ctx, fundFlowQuery, allocationID, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update fund flow rule end date: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
 	return &updated, nil
 }
 
 // DeleteIncomeAllocation deletes an allocation by ID.
+// Phase 2b: Also deletes the corresponding fund_flow_rules record.
 func (s *Store) DeleteIncomeAllocation(
 	ctx context.Context,
 	userID string,
 	allocationID string,
 ) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Delete from income_allocations (legacy table)
 	query := `
 	DELETE FROM income_allocations ia
 	USING finance_incomes fi
@@ -1379,13 +1501,27 @@ func (s *Store) DeleteIncomeAllocation(
 	  AND ia.income_id = fi.id
 	  AND fi.user_id = $1`
 
-	tag, err := s.pool.Exec(ctx, query, userID, allocationID)
+	tag, err := tx.Exec(ctx, query, userID, allocationID)
 	if err != nil {
 		return fmt.Errorf("failed to delete income allocation: %w", err)
 	}
 
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
+	}
+
+	// Phase 2b: Also delete from fund_flow_rules (new unified table)
+	fundFlowQuery := `
+	DELETE FROM fund_flow_rules
+	WHERE id = $1 AND rule_type = 'allocation'`
+
+	_, err = tx.Exec(ctx, fundFlowQuery, allocationID)
+	if err != nil {
+		return fmt.Errorf("failed to delete fund flow rule: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
