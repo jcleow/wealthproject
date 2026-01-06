@@ -49,6 +49,49 @@ func (s *Store) GetCashAccount(ctx context.Context, userID, id string) (*CashAss
 	return &ca, nil
 }
 
+// CreateCashAsset creates a new cash account record.
+func (s *Store) CreateCashAsset(ctx context.Context, userID string, ca CashAsset) (CashAsset, error) {
+	startDate := ca.StartDate
+	if startDate.IsZero() {
+		startDate = time.Now().UTC()
+	}
+
+	// Default growth strategy if not provided
+	growthStrategy := ca.GrowthStrategy
+	if growthStrategy == "" {
+		growthStrategy = "compound_monthly"
+	}
+
+	query := `
+	INSERT INTO finance_cash_accounts (
+		user_id, name, balance, interest_rate, bank_name, account_type,
+		is_accumulator, start_date, end_date, notes, growth_strategy, category
+	) VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7, $8, $9, NULLIF($10, ''), $11, NULLIF($12, ''))
+	RETURNING id, user_id, name, balance, interest_rate, COALESCE(bank_name, ''), COALESCE(account_type, ''),
+	          is_accumulator, start_date, end_date, COALESCE(notes, ''), COALESCE(growth_strategy, ''), created_at, updated_at`
+
+	args := []any{
+		userID, ca.Name, ca.Balance, ca.InterestRate,
+		ca.BankName, ca.AccountType, ca.IsAccumulator,
+		startDate, ca.EndDate, ca.Notes, growthStrategy, ca.Category,
+	}
+
+	logQuery(query, args)
+
+	var created CashAsset
+	err := s.pool.QueryRow(ctx, query, args...).Scan(
+		&created.ID, &created.UserID, &created.Name, &created.Balance, &created.InterestRate,
+		&created.BankName, &created.AccountType, &created.IsAccumulator,
+		&created.StartDate, &created.EndDate, &created.Notes, &created.GrowthStrategy,
+		&created.CreatedAt, &created.UpdatedAt,
+	)
+	if err != nil {
+		return CashAsset{}, fmt.Errorf("failed to create cash account: %w", err)
+	}
+
+	return created, nil
+}
+
 // UpdateCashAccount updates an existing cash account record.
 func (s *Store) UpdateCashAccount(ctx context.Context, userID string, ca CashAsset) (*CashAsset, error) {
 	query := `
