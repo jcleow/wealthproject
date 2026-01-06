@@ -32,6 +32,7 @@ import {
   toSafeText,
   getRateForCategory,
   buildDefaultFormState,
+  getDefaultCashAccountId,
   calculateVersionStartDate,
   calculateStopEndDate,
   calculateLeaseEndDate,
@@ -174,13 +175,13 @@ export function useFinancialForm({
     setHasAttemptedSubmit(false)
 
     if (!data) {
-      const defaultState = buildDefaultFormState(type, growthConfigs)
+      const defaultState = buildDefaultFormState(type, growthConfigs, cashAccounts)
       mainForm.reset(defaultState)
       return
     }
 
     populateFormFromData(data)
-  }, [data, isOpen, type, growthConfigs])
+  }, [data, isOpen, type, growthConfigs, cashAccounts])
 
   // Handle escape key
   useEffect(() => {
@@ -277,6 +278,11 @@ export function useFinancialForm({
 
         const itemPersonId = type === 'income' ? ((item as Income & { personId?: string | null }).personId ?? null) : null
 
+        // For expenses, default to "Cash" account if no fund source is set
+        const expenseFundSourceAccountId = type === 'expense'
+          ? getDefaultCashAccountId(cashAccounts)
+          : ''
+
         mainForm.reset({
           name: toSafeText(itemName),
           personId: itemPersonId,
@@ -291,6 +297,7 @@ export function useFinancialForm({
           terminalValue: '',
           leaseStartYear: '',
           usefulLifeYears: '',
+          fundSourceAccountId: expenseFundSourceAccountId,
         })
         break
       }

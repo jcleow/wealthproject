@@ -1,4 +1,4 @@
-import type { GrowthConfig } from '@/types/financial'
+import type { GrowthConfig, CashAccount } from '@/types/financial'
 import type { FinancialDataType, FormState } from './types'
 import { defaultCategories, fallbackGrowthRates } from './config'
 
@@ -54,7 +54,17 @@ export const getRateForCategory = (
   )
 }
 
-export const buildDefaultFormState = (type: FinancialDataType, growthConfigs?: GrowthConfig[]): FormState => {
+export const getDefaultCashAccountId = (cashAccounts: CashAccount[]): string => {
+  // Try to find account named "Cash" (case-insensitive)
+  const cashAccount = cashAccounts.find(acc => acc.name.toLowerCase() === 'cash')
+  return cashAccount?.id ?? ''
+}
+
+export const buildDefaultFormState = (
+  type: FinancialDataType,
+  growthConfigs?: GrowthConfig[],
+  cashAccounts?: CashAccount[]
+): FormState => {
   const defaultCategory = defaultCategories[type] ?? ''
   const growthConfigCategory = categoryToGrowthConfigCategory(type, defaultCategory)
   const rate = getGrowthRateFromConfigs(
@@ -63,6 +73,10 @@ export const buildDefaultFormState = (type: FinancialDataType, growthConfigs?: G
     fallbackGrowthRates[growthConfigCategory] ?? 3.0
   )
   const liabilityRate = getGrowthRateFromConfigs(growthConfigs, 'liability_debt', -3.0)
+
+  // Set default fund source for expenses to "Cash" account if available
+  const defaultFundSourceAccountId =
+    type === 'expense' && cashAccounts ? getDefaultCashAccountId(cashAccounts) : ''
 
   return {
     name: '',
@@ -79,8 +93,8 @@ export const buildDefaultFormState = (type: FinancialDataType, growthConfigs?: G
     terminalValue: '',
     leaseStartYear: '',
     usefulLifeYears: '',
-    // Expense fund source
-    fundSourceAccountId: '',
+    // Expense fund source - default to "Cash" account for new expenses
+    fundSourceAccountId: defaultFundSourceAccountId,
   }
 }
 
