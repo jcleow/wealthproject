@@ -79,6 +79,8 @@ export const buildDefaultFormState = (type: FinancialDataType, growthConfigs?: G
     terminalValue: '',
     leaseStartYear: '',
     usefulLifeYears: '',
+    // Expense fund source
+    fundSourceAccountId: '',
   }
 }
 

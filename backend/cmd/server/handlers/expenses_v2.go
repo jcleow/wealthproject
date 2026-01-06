@@ -73,7 +73,7 @@ func (h *ExpenseV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 
 // expenseCreateInput is the JSON input for creating an expense
 type expenseCreateInput struct {
-	Name             string  `json:"name"`
+	Name              string  `json:"name"`
 	Amount            string  `json:"amount"`
 	Frequency         string  `json:"frequency"`
 	Category          string  `json:"category"`
@@ -84,6 +84,8 @@ type expenseCreateInput struct {
 	StartDate         *string `json:"startDate"`
 	EndDate           *string `json:"endDate"`
 	ParentID          *string `json:"parentId"`
+	// FundSourceAccountId creates a fund flow expense rule to pay from this account
+	FundSourceAccountId *string `json:"fundSourceAccountId"`
 }
 
 // POST /api/v2/cashflow/expenses
@@ -113,17 +115,18 @@ func (h *ExpenseV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	created, err := h.service.CreateFromParams(r.Context(), userID, expense.CreateParams{
-		Name:             input.Name,
-		Amount:            input.Amount,
-		Frequency:         input.Frequency,
-		Category:          input.Category,
-		Notes:             input.Notes,
-		GrowthRate:        input.GrowthRate,
-		GrowthStrategy:    input.GrowthStrategy,
-		SourceLiabilityID: input.SourceLiabilityID,
-		StartDate:         input.StartDate,
-		EndDate:           input.EndDate,
-		ParentID:          input.ParentID,
+		Name:                input.Name,
+		Amount:              input.Amount,
+		Frequency:           input.Frequency,
+		Category:            input.Category,
+		Notes:               input.Notes,
+		GrowthRate:          input.GrowthRate,
+		GrowthStrategy:      input.GrowthStrategy,
+		SourceLiabilityID:   input.SourceLiabilityID,
+		StartDate:           input.StartDate,
+		EndDate:             input.EndDate,
+		ParentID:            input.ParentID,
+		FundSourceAccountId: input.FundSourceAccountId,
 	})
 	if err != nil {
 		if expense.IsValidationError(err) {

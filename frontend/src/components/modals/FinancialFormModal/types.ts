@@ -33,6 +33,8 @@ export type FormState = {
   terminalValue: string
   leaseStartYear: string
   usefulLifeYears: string
+  // Expense fund source
+  fundSourceAccountId: string
 }
 
 export type AssetFormValues = {
@@ -87,6 +89,8 @@ export type ExpenseFormValues = {
   sourceLiabilityId?: string
   updateMode?: UpdateMode
   startDate?: string
+  /** Cash account ID to pay this expense from (creates fund flow rule) */
+  fundSourceAccountId?: string
 }
 
 export type InvestmentFormValues = {

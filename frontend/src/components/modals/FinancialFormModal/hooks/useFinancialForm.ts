@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { Asset, Expense, Income, Liability, Frequency } from '@/types/financial'
 import { growthApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
+import { useCashAccountsQuery } from '@/hooks/queries/useCashAccountsQuery'
 import {
   financialFormSchema,
   cpfFieldsSchema,
@@ -115,6 +116,9 @@ export function useFinancialForm({
   const formValues = mainForm.watch()
   const cpfFieldsValues = cpfForm.watch()
 
+  // Fetch cash accounts for expense fund source selection
+  const { data: cashAccounts = [] } = useCashAccountsQuery()
+
   // Build backward-compatible formData from RHF state
   const formData: FormState = {
     name: formValues.name,
@@ -130,6 +134,7 @@ export function useFinancialForm({
     terminalValue: formValues.terminalValue,
     leaseStartYear: formValues.leaseStartYear,
     usefulLifeYears: formValues.usefulLifeYears,
+    fundSourceAccountId: formValues.fundSourceAccountId,
   }
 
   // Backward-compatible cpfFields from RHF state
@@ -448,6 +453,9 @@ export function useFinancialForm({
             ? calculateVersionStartDate(anchorYear, selectedYear, selectedMonth)
             : undefined
 
+        // Include fund source account if selected (will create/update expense rule)
+        const fundSourceAccountId = currentFormData.fundSourceAccountId || undefined
+
         return {
           type,
           id: (data as Expense | undefined)?.id,
@@ -459,6 +467,7 @@ export function useFinancialForm({
           ...(sourceLiabilityId && { sourceLiabilityId }),
           ...(mode === 'edit' && isFutureMonth && !isDebtRepaymentExpense && { updateMode }),
           ...(versionStartDate && { startDate: versionStartDate }),
+          ...(fundSourceAccountId && { fundSourceAccountId }),
           ...shared,
         }
       }
@@ -591,6 +600,7 @@ export function useFinancialForm({
       terminalValue: currentValues.terminalValue,
       leaseStartYear: currentValues.leaseStartYear,
       usefulLifeYears: currentValues.usefulLifeYears,
+      fundSourceAccountId: currentValues.fundSourceAccountId,
     }
 
     const newState = typeof updater === 'function' ? updater(currentFormState) : updater
@@ -669,6 +679,7 @@ export function useFinancialForm({
     growthConfigs,
     formErrors,
     hasAttemptedSubmit,
+    cashAccounts,
     handleSubmit,
     handleDelete,
     handleConfirmDelete,

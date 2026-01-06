@@ -42,6 +42,7 @@ type fundFlowRuleDTO struct {
 	TargetInvestmentID  *string `json:"targetInvestmentId,omitempty"`
 	TargetLiabilityID   *string `json:"targetLiabilityId,omitempty"`
 	TargetPropertyID    *string `json:"targetPropertyId,omitempty"`
+	TargetExpenseID     *string `json:"targetExpenseId,omitempty"`
 
 	// Amount
 	AmountType  string  `json:"amountType"`
@@ -74,6 +75,7 @@ func toFundFlowRuleDTO(r repo.FundFlowRule) fundFlowRuleDTO {
 		TargetInvestmentID:  r.TargetInvestmentID,
 		TargetLiabilityID:   r.TargetLiabilityID,
 		TargetPropertyID:    r.TargetPropertyID,
+		TargetExpenseID:     r.TargetExpenseID,
 		AmountType:          r.AmountType,
 		Priority:            r.Priority,
 		StartDate:           r.StartDate.Format("2006-01-02T15:04:05Z07:00"),
@@ -110,6 +112,7 @@ type fundFlowRuleCreateDTO struct {
 	TargetInvestmentID  *string `json:"targetInvestmentId,omitempty"`
 	TargetLiabilityID   *string `json:"targetLiabilityId,omitempty"`
 	TargetPropertyID    *string `json:"targetPropertyId,omitempty"`
+	TargetExpenseID     *string `json:"targetExpenseId,omitempty"`
 
 	// Amount
 	AmountType  string  `json:"amountType"`
@@ -136,6 +139,7 @@ func (dto fundFlowRuleCreateDTO) toModel() (repo.FundFlowRule, error) {
 		TargetInvestmentID:  dto.TargetInvestmentID,
 		TargetLiabilityID:   dto.TargetLiabilityID,
 		TargetPropertyID:    dto.TargetPropertyID,
+		TargetExpenseID:     dto.TargetExpenseID,
 		AmountType:          dto.AmountType,
 		Priority:            dto.Priority,
 	}
@@ -318,6 +322,9 @@ func (h *FundFlowRuleV2Handler) HandleCreate(w http.ResponseWriter, r *http.Requ
 			repo.ErrAllocationRequiresOneAccountTarget,
 			repo.ErrTransferRequiresOneAccountSource,
 			repo.ErrTransferRequiresOneAccountTarget,
+			repo.ErrExpenseRequiresCashSource,
+			repo.ErrExpenseCannotUseNonCashSource,
+			repo.ErrExpenseRequiresExpenseTarget,
 			repo.ErrInvalidRuleType,
 			repo.ErrAmountValueRequired,
 			repo.ErrPercentageOutOfRange:
@@ -384,6 +391,9 @@ func (h *FundFlowRuleV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Requ
 			repo.ErrAllocationRequiresOneAccountTarget,
 			repo.ErrTransferRequiresOneAccountSource,
 			repo.ErrTransferRequiresOneAccountTarget,
+			repo.ErrExpenseRequiresCashSource,
+			repo.ErrExpenseCannotUseNonCashSource,
+			repo.ErrExpenseRequiresExpenseTarget,
 			repo.ErrInvalidRuleType,
 			repo.ErrAmountValueRequired,
 			repo.ErrPercentageOutOfRange:

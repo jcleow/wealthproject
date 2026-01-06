@@ -1134,9 +1134,16 @@ type CashAllocationParams struct {
 //   - netSavings: income - employeeCPF - expenses
 //   - netCashFlow: income - employeeCPF - expenses - investmentAllocations
 //   - netInvestments: total amount allocated to investments this month
+//
+// NOTE: Expenses with fund flow expense rules are excluded from the legacy calculation
+// because they are handled by executeExpenseRules() which deducts from specific cash accounts.
+// Including them here would cause double-counting.
 func calcCashAllocationWithRules(params CashAllocationParams) (netSavings *decimal.Decimal, netCashFlow *decimal.Decimal, netInvestments *decimal.Decimal) {
 	income := decimal.Zero()
 	expense := decimal.Zero()
+
+	// Build set of expenses covered by fund flow expense rules (to avoid double-counting)
+	expensesWithRules := buildExpensesWithFundFlowRules(params.FundFlowRules, params.CurrentDate)
 
 	for _, row := range params.Data.Incomes {
 		if isActiveInMonth(row, params.CurrentDate) {
@@ -1147,6 +1154,10 @@ func calcCashAllocationWithRules(params CashAllocationParams) (netSavings *decim
 
 	for _, row := range params.Data.Expenses {
 		if isActiveInMonth(row, params.CurrentDate) {
+			// Skip expenses that have active fund flow rules - they're handled by executeExpenseRules
+			if _, hasRule := expensesWithRules[row.ID]; hasRule {
+				continue
+			}
 			monthlyAmt := common.ToMonthlyAmount(params.AccountBalances[row.ID], row.Frequency)
 			expense = expense.Add(monthlyAmt)
 		}
@@ -1187,6 +1198,27 @@ func calcCashAllocation(
 		FundFlowRules:    fundFlowRules,
 		ApplyAllocations: applyAllocations,
 	})
+}
+
+// buildExpensesWithFundFlowRules returns a set of expense IDs that have active fund flow expense rules.
+// This is used to exclude these expenses from the legacy cash flow calculation since
+// they will be handled by executeExpenseRules() to avoid double-counting.
+func buildExpensesWithFundFlowRules(rules []repo.FundFlowRule, currentDate time.Time) map[string]struct{} {
+	expensesWithRules := make(map[string]struct{})
+	for _, rule := range rules {
+		if rule.RuleType != "expense" || rule.TargetExpenseID == nil {
+			continue
+		}
+		// Check if rule is active at current date
+		if rule.StartDate.After(currentDate) {
+			continue
+		}
+		if rule.EndDate != nil && rule.EndDate.Before(currentDate) {
+			continue
+		}
+		expensesWithRules[*rule.TargetExpenseID] = struct{}{}
+	}
+	return expensesWithRules
 }
 
 // isAllocationActiveInMonth checks if an income allocation is active during the given month.
@@ -1986,6 +2018,8 @@ type MonthlyContext struct {
 	PaymentExecutions FundFlowExecutionResult
 	// TransferExecutions tracks transfer attribution for the current month (Phase 3: account ↔ account)
 	TransferExecutions TransferExecutionResult
+	// ExpenseExecutions tracks expense payment attribution for the current month (Phase 4: cash → expense)
+	ExpenseExecutions ExpenseExecutionResult
 }
 
 // getCPFContext returns the CPF context for a given personID, or nil if not found
@@ -2122,6 +2156,15 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	if !isAnchorMonth && len(mctx.FundFlowRules) > 0 {
 		requiredPayments := buildRequiredPaymentsMap(mctx.Data.Liabilities, currentDate)
 		mctx.PaymentExecutions = executePaymentRules(mctx.FundFlowRules, mctx.State, requiredPayments, currentDate)
+	}
+
+	// Execute expense rules (fund flow Phase 4)
+	// Expense rules deduct from cash accounts to pay external expenses
+	// Enables priority-based source selection (e.g., "pay childcare from savings first, then emergency fund")
+	// Only execute after anchor month to match other rule behavior
+	if !isAnchorMonth && len(mctx.FundFlowRules) > 0 {
+		requiredExpensePayments := buildRequiredExpensePaymentsMap(mctx.Data.Expenses, mctx.State, currentDate)
+		mctx.ExpenseExecutions = executeExpenseRules(mctx.FundFlowRules, mctx.State, requiredExpensePayments, currentDate)
 	}
 
 	// Calculate cash flow; investment allocations are computed every month but only mutate balances after the anchor month
