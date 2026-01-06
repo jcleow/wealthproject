@@ -26,21 +26,25 @@ func TestListIncomeAllocations_ReturnsAllocationsForIncome(t *testing.T) {
 	cashAccountID := "cash-account-1"
 	investmentID := "investment-1"
 
+	// First QueryRow call - check income exists
+	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))
+
+	// Then Query call for allocations from fund_flow_rules
 	rows := testutil.NewStubRows(t, [][]any{
 		{
-			incomeID, "alloc-1", "parent-1",
+			"alloc-1", incomeID, "alloc-1",
 			createdAt, nil,
 			cashAccountID, nil,
 			"percentage", *decimal.MustFromString("50.0000"), createdAt,
 		},
 		{
-			incomeID, "alloc-2", "parent-2",
+			"alloc-2", incomeID, "alloc-2",
 			createdAt, nil,
 			nil, investmentID,
 			"fixed", *decimal.MustFromString("1000.0000"), createdAt,
 		},
 	})
-	mockPool.EnqueueQuery("income_allocations", []any{incomeID, userID}, rows, nil)
+	mockPool.EnqueueQuery("fund_flow_rules", []any{incomeID, userID}, rows, nil)
 
 	allocations, err := store.ListIncomeAllocations(ctx, userID, incomeID)
 	require.NoError(t, err)
@@ -69,8 +73,8 @@ func TestListIncomeAllocations_IncomeNotFound(t *testing.T) {
 	userID := "test-user"
 	incomeID := "non-existent-income"
 
-	rows := testutil.NewStubRows(t, [][]any{})
-	mockPool.EnqueueQuery("income_allocations", []any{incomeID, userID}, rows, nil)
+	// Check income exists - returns false
+	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{false}, nil))
 
 	_, err := store.ListIncomeAllocations(ctx, userID, incomeID)
 	require.ErrorIs(t, err, ErrNotFound)
@@ -85,10 +89,12 @@ func TestListIncomeAllocations_IncomeExistsButNoAllocations(t *testing.T) {
 	userID := "test-user"
 	incomeID := "income-1"
 
-	rows := testutil.NewStubRows(t, [][]any{
-		{incomeID, nil, nil, nil, nil, nil, nil, nil, nil, nil},
-	})
-	mockPool.EnqueueQuery("income_allocations", []any{incomeID, userID}, rows, nil)
+	// Check income exists - returns true
+	mockPool.EnqueueRow("SELECT EXISTS", []any{incomeID, userID}, testutil.NewStubRow(t, []any{true}, nil))
+
+	// Empty rows from fund_flow_rules
+	rows := testutil.NewStubRows(t, [][]any{})
+	mockPool.EnqueueQuery("fund_flow_rules", []any{incomeID, userID}, rows, nil)
 
 	allocations, err := store.ListIncomeAllocations(ctx, userID, incomeID)
 	require.NoError(t, err)
@@ -105,23 +111,20 @@ func TestCreateIncomeAllocation_ToCashAccount(t *testing.T) {
 	incomeID := "income-1"
 	cashAccountID := "cash-account-1"
 	createdAt := time.Now()
-	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) // Default year used by implementation
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	allocationValue := decimal.MustFromString("50")
 
-	// Phase 2b: First query is to get income name for fund_flow_rules
+	// First query is to get income name
 	mockPool.EnqueueRow("SELECT name FROM finance_incomes", []any{incomeID, userID}, testutil.NewStubRow(t, []any{"Salary"}, nil))
 
-	// Insert into income_allocations (legacy)
+	// Insert into fund_flow_rules
 	mockPool.EnqueueRow(
-		"INSERT INTO income_allocations",
-		nil, // Skip arg matching for simplicity
+		"INSERT INTO fund_flow_rules",
+		nil,
 		testutil.NewStubRow(t, []any{
 			"alloc-new", incomeID, "alloc-new", startDate, nil, cashAccountID, nil, "percentage", *allocationValue, createdAt,
 		}, nil))
-
-	// Phase 2b: Insert into fund_flow_rules (new unified table)
-	mockPool.EnqueueExec("INSERT INTO fund_flow_rules", nil, pgconn.NewCommandTag("INSERT 1"), nil)
 
 	allocation := IncomeAllocation{
 		IncomeID:            incomeID,
@@ -149,23 +152,20 @@ func TestCreateIncomeAllocation_ToInvestment(t *testing.T) {
 	incomeID := "income-1"
 	investmentID := "investment-1"
 	createdAt := time.Now()
-	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) // Default year used by implementation
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	allocationValue := decimal.MustFromString("1000")
 
-	// Phase 2b: First query is to get income name for fund_flow_rules
+	// First query is to get income name
 	mockPool.EnqueueRow("SELECT name FROM finance_incomes", []any{incomeID, userID}, testutil.NewStubRow(t, []any{"Salary"}, nil))
 
-	// Insert into income_allocations (legacy)
+	// Insert into fund_flow_rules
 	mockPool.EnqueueRow(
-		"INSERT INTO income_allocations",
-		nil, // Skip arg matching for simplicity
+		"INSERT INTO fund_flow_rules",
+		nil,
 		testutil.NewStubRow(t, []any{
 			"alloc-new", incomeID, "alloc-new", startDate, nil, nil, investmentID, "fixed", *allocationValue, createdAt,
 		}, nil))
-
-	// Phase 2b: Insert into fund_flow_rules (new unified table)
-	mockPool.EnqueueExec("INSERT INTO fund_flow_rules", nil, pgconn.NewCommandTag("INSERT 1"), nil)
 
 	allocation := IncomeAllocation{
 		IncomeID:           incomeID,
@@ -216,11 +216,8 @@ func TestDeleteIncomeAllocation_Success(t *testing.T) {
 	userID := "test-user"
 	allocationID := "alloc-1"
 
-	// Phase 2b: Delete from income_allocations (legacy)
-	mockPool.EnqueueExec("DELETE FROM income_allocations", []any{userID, allocationID}, pgconn.NewCommandTag("DELETE 1"), nil)
-
-	// Phase 2b: Delete from fund_flow_rules (new unified table)
-	mockPool.EnqueueExec("DELETE FROM fund_flow_rules", nil, pgconn.NewCommandTag("DELETE 1"), nil)
+	// Delete from fund_flow_rules
+	mockPool.EnqueueExec("DELETE FROM fund_flow_rules", []any{userID, allocationID}, pgconn.NewCommandTag("DELETE 1"), nil)
 
 	err := store.DeleteIncomeAllocation(ctx, userID, allocationID)
 	require.NoError(t, err)
@@ -235,7 +232,7 @@ func TestDeleteIncomeAllocation_NotFound(t *testing.T) {
 	userID := "test-user"
 	allocationID := "non-existent"
 
-	mockPool.EnqueueExec("DELETE FROM income_allocations", []any{userID, allocationID}, pgconn.NewCommandTag("DELETE 0"), nil)
+	mockPool.EnqueueExec("DELETE FROM fund_flow_rules", []any{userID, allocationID}, pgconn.NewCommandTag("DELETE 0"), nil)
 
 	err := store.DeleteIncomeAllocation(ctx, userID, allocationID)
 	require.ErrorIs(t, err, ErrNotFound)

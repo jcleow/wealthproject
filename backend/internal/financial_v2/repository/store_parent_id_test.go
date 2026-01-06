@@ -8,7 +8,6 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/testutil"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 )
 
@@ -126,48 +125,43 @@ func TestCreateIncomeAllocation_RootRecord_ParentIdEqualsId(t *testing.T) {
 	userID := "test-user"
 	incomeID := "income-1"
 	cashAccountID := "cash-account-1"
-	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) // Default start date
 	createdAt := time.Now()
 
 	newAllocID := "new-alloc-uuid"
 
-	// Phase 2b: First call gets income name for fund_flow_rules
+	// First call gets income name
 	mockPool.EnqueueRow("SELECT name FROM finance_incomes", []any{incomeID, userID}, testutil.NewStubRow(t, []any{"Salary"}, nil))
 
-	// Second call: INSERT into income_allocations (legacy)
-	// The RETURNING clause uses COALESCE(parent_id, id)
+	// INSERT into fund_flow_rules
 	mockPool.EnqueueRow(
-		"INSERT INTO income_allocations",
+		"INSERT INTO fund_flow_rules",
 		nil,
 		testutil.NewStubRow(t, []any{
 			newAllocID,                    // id
-			incomeID,                      // incomeId
-			newAllocID,                    // parentId (COALESCE(null, id) = id)
-			startDate,                     // startDate
-			nil,                           // endDate
-			cashAccountID,                 // targetCashAccountId
-			nil,                           // targetInvestmentId
-			"percentage",                  // allocationType
-			*decimal.MustFromString("50"), // allocationValue
-			createdAt,                     // createdAt
+			incomeID,                      // source_income_id
+			newAllocID,                    // id (as parent_id)
+			startDate,                     // start_date
+			nil,                           // end_date
+			cashAccountID,                 // target_cash_account_id
+			nil,                           // target_investment_id
+			"percentage",                  // amount_type
+			*decimal.MustFromString("50"), // amount_value
+			createdAt,                     // created_at
 		}, nil),
 	)
-
-	// Phase 2b: INSERT into fund_flow_rules (new unified table)
-	mockPool.EnqueueExec("INSERT INTO fund_flow_rules", nil, pgconn.NewCommandTag("INSERT 1"), nil)
 
 	allocation := IncomeAllocation{
 		IncomeID:            incomeID,
 		TargetCashAccountID: &cashAccountID,
 		AllocationType:      "percentage",
 		AllocationValue:     *decimal.MustFromString("50"),
-		// ParentID is empty - this is a new root allocation
 	}
 
 	created, err := store.CreateIncomeAllocation(ctx, userID, allocation)
 	require.NoError(t, err)
 
-	// Key assertion: for root allocations, parentId should equal id
+	// Key assertion: for allocations, parentId equals id
 	require.Equal(t, newAllocID, created.ID, "ID should be the new UUID")
-	require.Equal(t, newAllocID, created.ParentID, "ParentID should equal ID for root allocations")
+	require.Equal(t, newAllocID, created.ParentID, "ParentID should equal ID for allocations")
 }

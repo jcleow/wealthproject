@@ -22,6 +22,7 @@ type mockStore struct {
 	incomes       []repo.Income
 	expenses      []repo.Expense
 	incomeAllocs  []repo.IncomeAllocation
+	fundFlowRules []repo.FundFlowRule
 }
 
 func (m *mockStore) ListNonCashAssets(ctx context.Context, q repo.ListQuery) (repo.PaginatedResult[repo.NonCashAsset], error) {
@@ -77,7 +78,7 @@ func (m *mockStore) ListIncludedPropertyScenarios(ctx context.Context, userID st
 }
 
 func (m *mockStore) ListFundFlowRules(ctx context.Context, q repo.ListFundFlowRulesQuery) ([]repo.FundFlowRule, error) {
-	return nil, nil
+	return m.fundFlowRules, nil
 }
 
 func TestComputeFinancialSnapshot_SingleMonth_NoGrowth(t *testing.T) {
@@ -318,13 +319,15 @@ func TestComputeFinancialSnapshot_AnchorMonthAllocationsReportedOnly(t *testing.
 				GrowthRate: *decimal.MustFromString("0"),
 			},
 		},
-		incomeAllocs: []repo.IncomeAllocation{
+		fundFlowRules: []repo.FundFlowRule{
 			{
 				ID:                 "alloc-1",
-				IncomeID:           "income-1",
+				RuleType:           "allocation",
+				SourceIncomeID:     strPtr("income-1"),
 				TargetInvestmentID: strPtr("inv-1"),
-				AllocationType:     "percentage",
-				AllocationValue:    *decimal.MustFromString("10"), // 10% of income
+				AmountType:         "percentage",
+				AmountValue:        decimal.MustFromString("10"), // 10% of income
+				StartDate:          startDate,
 			},
 		},
 	}
@@ -593,13 +596,15 @@ func TestComputeFinancialSnapshot_NetCashAlwaysNetOfInvestments(t *testing.T) {
 				GrowthRate: *decimal.MustFromString("0"),
 			},
 		},
-		incomeAllocs: []repo.IncomeAllocation{
+		fundFlowRules: []repo.FundFlowRule{
 			{
 				ID:                 "alloc-1",
-				IncomeID:           "income-1",
+				RuleType:           "allocation",
+				SourceIncomeID:     strPtr("income-1"),
 				TargetInvestmentID: strPtr("inv-1"),
-				AllocationType:     "fixed",
-				AllocationValue:    *decimal.MustFromString("500"), // Fixed $500/month
+				AmountType:         "fixed",
+				AmountValue:        decimal.MustFromString("500"), // Fixed $500/month
+				StartDate:          startDate,
 			},
 		},
 	}
@@ -988,13 +993,14 @@ func TestComputeFinancialSnapshot_VersionedIncomeAllocations(t *testing.T) {
 				StartDate:    startDate,
 			},
 		},
-		incomeAllocs: []repo.IncomeAllocation{
+		fundFlowRules: []repo.FundFlowRule{
 			{
 				ID:                 "alloc-1",
-				IncomeID:           "income-v1", // Linked to original income (ParentID)
+				RuleType:           "allocation",
+				SourceIncomeID:     strPtr("income-v1"), // Linked to original income (ParentID)
 				TargetInvestmentID: strPtr("inv-1"),
-				AllocationType:     "fixed",
-				AllocationValue:    *decimal.MustFromString("500"), // Fixed $500/month
+				AmountType:         "fixed",
+				AmountValue:        decimal.MustFromString("500"), // Fixed $500/month
 				StartDate:          startDate,
 			},
 		},

@@ -1054,129 +1054,45 @@ func nullIfEmpty(s string) *string {
 	return &s
 }
 
-// ListIncomeAllocations returns all allocations for an income.
-// Uses LEFT JOIN to verify income ownership and fetch allocations in a single query.
+// ListIncomeAllocations returns all allocations for an income from fund_flow_rules.
 func (s *Store) ListIncomeAllocations(
 	ctx context.Context,
 	userID string,
 	incomeID string,
 ) ([]IncomeAllocation, error) {
+	// First verify the income exists and belongs to the user
+	var exists bool
+	err := s.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM finance_incomes WHERE id = $1 AND user_id = $2)`,
+		incomeID, userID,
+	).Scan(&exists)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify income: %w", err)
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
 	query := `
 	SELECT
-		fi.id,
-		ia.id,
-		ia.parent_id,
-		ia.start_date,
-		ia.end_date,
-		ia.target_cash_account_id,
-		ia.target_investment_id,
-		ia.allocation_type,
-		ia.allocation_value,
-		ia.created_at
-	FROM finance_incomes fi
-	LEFT JOIN income_allocations ia ON ia.income_id = fi.id
-	WHERE fi.id = $1 AND fi.user_id = $2
-	ORDER BY ia.parent_id, ia.start_date`
+		ffr.id,
+		ffr.source_income_id,
+		ffr.id as parent_id,
+		ffr.start_date,
+		ffr.end_date,
+		ffr.target_cash_account_id,
+		ffr.target_investment_id,
+		ffr.amount_type,
+		ffr.amount_value,
+		ffr.created_at
+	FROM fund_flow_rules ffr
+	WHERE ffr.source_income_id = $1 AND ffr.user_id = $2 AND ffr.rule_type = 'allocation'
+	ORDER BY ffr.priority, ffr.start_date`
 
 	logQuery(query, []any{incomeID, userID})
 	rows, err := s.pool.Query(ctx, query, incomeID, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query income allocations: %w", err)
-	}
-	defer rows.Close()
-
-	allocations := []IncomeAllocation{}
-	foundIncome := false
-
-	for rows.Next() {
-		foundIncome = true
-
-		var incomeIDResult string
-		var id, parentID, targetCashAccountID, targetInvestmentID, allocationType *string
-		var startDate *time.Time
-		var endDate *time.Time
-		var allocationValue decimal.Decimal
-		var createdAt *time.Time
-
-		err := rows.Scan(
-			&incomeIDResult,
-			&id,
-			&parentID,
-			&startDate,
-			&endDate,
-			&targetCashAccountID,
-			&targetInvestmentID,
-			&allocationType,
-			&allocationValue,
-			&createdAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan income allocation: %w", err)
-		}
-
-		// Skip if no allocation (LEFT JOIN produced NULL row)
-		if id == nil {
-			continue
-		}
-
-		a := IncomeAllocation{
-			ID:                  *id,
-			IncomeID:            incomeID,
-			TargetCashAccountID: targetCashAccountID,
-			TargetInvestmentID:  targetInvestmentID,
-			AllocationValue:     allocationValue,
-			EndDate:             endDate,
-		}
-		if parentID != nil {
-			a.ParentID = *parentID
-		}
-		if startDate != nil {
-			a.StartDate = *startDate
-		}
-		if allocationType != nil {
-			a.AllocationType = *allocationType
-		}
-		if createdAt != nil {
-			a.CreatedAt = *createdAt
-		}
-
-		allocations = append(allocations, a)
-	}
-
-	if !foundIncome {
-		return nil, ErrNotFound
-	}
-
-	return allocations, nil
-}
-
-// ListAllIncomeAllocations returns all allocations for all of a user's incomes.
-// Used by timeline service to calculate total investment allocations.
-func (s *Store) ListAllIncomeAllocations(
-	ctx context.Context,
-	userID string,
-) ([]IncomeAllocation, error) {
-	query := `
-	SELECT
-		ia.id,
-		ia.income_id,
-		COALESCE(ia.parent_id, ia.id) as parent_id,
-		ia.start_date,
-		ia.end_date,
-		ia.target_cash_account_id,
-		ia.target_investment_id,
-		ia.allocation_type,
-		ia.allocation_value,
-		ia.created_at
-	FROM income_allocations ia
-	INNER JOIN finance_incomes fi ON fi.id = ia.income_id
-	WHERE fi.user_id = $1
-	ORDER BY ia.parent_id, ia.start_date`
-
-	logQuery(query, []any{userID})
-	rows, err := s.pool.Query(ctx, query, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query all income allocations: %w", err)
+		return nil, fmt.Errorf("failed to query allocation rules: %w", err)
 	}
 	defer rows.Close()
 
@@ -1189,7 +1105,7 @@ func (s *Store) ListAllIncomeAllocations(
 			&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan income allocation: %w", err)
+			return nil, fmt.Errorf("failed to scan allocation rule: %w", err)
 		}
 		allocations = append(allocations, a)
 	}
@@ -1197,23 +1113,67 @@ func (s *Store) ListAllIncomeAllocations(
 	return allocations, nil
 }
 
-// GetIncomeAllocation returns a single allocation by ID.
+// ListAllIncomeAllocations returns all allocations for all of a user's incomes from fund_flow_rules.
+// Used by timeline service to calculate total investment allocations.
+func (s *Store) ListAllIncomeAllocations(
+	ctx context.Context,
+	userID string,
+) ([]IncomeAllocation, error) {
+	query := `
+	SELECT
+		ffr.id,
+		ffr.source_income_id,
+		ffr.id as parent_id,
+		ffr.start_date,
+		ffr.end_date,
+		ffr.target_cash_account_id,
+		ffr.target_investment_id,
+		ffr.amount_type,
+		ffr.amount_value,
+		ffr.created_at
+	FROM fund_flow_rules ffr
+	WHERE ffr.user_id = $1 AND ffr.rule_type = 'allocation'
+	ORDER BY ffr.priority, ffr.start_date`
+
+	logQuery(query, []any{userID})
+	rows, err := s.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query allocation rules: %w", err)
+	}
+	defer rows.Close()
+
+	allocations := []IncomeAllocation{}
+	for rows.Next() {
+		var a IncomeAllocation
+		err := rows.Scan(
+			&a.ID, &a.IncomeID, &a.ParentID, &a.StartDate, &a.EndDate,
+			&a.TargetCashAccountID, &a.TargetInvestmentID,
+			&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan allocation rule: %w", err)
+		}
+		allocations = append(allocations, a)
+	}
+
+	return allocations, nil
+}
+
+// GetIncomeAllocation returns a single allocation by ID from fund_flow_rules.
 func (s *Store) GetIncomeAllocation(
 	ctx context.Context,
 	userID string,
 	allocationID string,
 ) (*IncomeAllocation, error) {
 	query := `
-	SELECT ia.id, ia.income_id, COALESCE(ia.parent_id, ia.id) as parent_id,
-	       ia.start_date, ia.end_date,
-	       ia.target_cash_account_id, ia.target_investment_id,
-	       ia.allocation_type, ia.allocation_value, ia.created_at
-	FROM income_allocations ia
-	INNER JOIN finance_incomes fi ON fi.id = ia.income_id AND fi.user_id = $1
-	WHERE ia.id = $2`
+	SELECT ffr.id, ffr.source_income_id, ffr.id as parent_id,
+	       ffr.start_date, ffr.end_date,
+	       ffr.target_cash_account_id, ffr.target_investment_id,
+	       ffr.amount_type, ffr.amount_value, ffr.created_at
+	FROM fund_flow_rules ffr
+	WHERE ffr.id = $2 AND ffr.user_id = $1 AND ffr.rule_type = 'allocation'`
 
 	var a IncomeAllocation
-	// pgx scans NULL directly into *string and *time.Time
 	err := s.pool.QueryRow(ctx, query, userID, allocationID).Scan(
 		&a.ID, &a.IncomeID, &a.ParentID,
 		&a.StartDate, &a.EndDate,
@@ -1224,24 +1184,20 @@ func (s *Store) GetIncomeAllocation(
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get income allocation: %w", err)
+		return nil, fmt.Errorf("failed to get allocation rule: %w", err)
 	}
 
 	return &a, nil
 }
 
 // CreateIncomeAllocation creates a new allocation for an income.
-// If ParentID is empty, the new row's ID becomes its own parent (new logical allocation).
-// If ParentID is set, this creates a new version of an existing allocation (restart scenario).
-//
-// Phase 2b: Dual-write to both income_allocations and fund_flow_rules tables.
-// This ensures data consistency during the migration period.
+// Writes only to fund_flow_rules table (the unified allocation system).
 func (s *Store) CreateIncomeAllocation(
 	ctx context.Context,
 	userID string,
 	allocation IncomeAllocation,
 ) (*IncomeAllocation, error) {
-	// Verify the income belongs to the user and get income name for fund_flow_rules
+	// Verify the income belongs to the user and get income name
 	var incomeName string
 	err := s.pool.QueryRow(ctx,
 		`SELECT name FROM finance_incomes WHERE id = $1 AND user_id = $2`,
@@ -1260,29 +1216,31 @@ func (s *Store) CreateIncomeAllocation(
 		startDate = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
 
-	// Begin transaction for dual-write
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
+	ruleName := buildAllocationRuleName(incomeName, allocation.TargetInvestmentID, allocation.TargetCashAccountID)
 
-	// Write to income_allocations (legacy table)
-	legacyQuery := `
-	INSERT INTO income_allocations (income_id, parent_id, start_date, end_date, target_cash_account_id, target_investment_id, allocation_type, allocation_value)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	RETURNING id, income_id, COALESCE(parent_id, id), start_date, end_date, target_cash_account_id, target_investment_id, allocation_type, allocation_value, created_at`
+	query := `
+	INSERT INTO fund_flow_rules (
+		user_id, name, rule_type,
+		source_income_id,
+		target_cash_account_id, target_investment_id,
+		amount_type, amount_value,
+		priority, start_date, end_date
+	) VALUES ($1, $2, 'allocation', $3, $4, $5, $6, $7, 0, $8, $9)
+	RETURNING id, source_income_id, id, start_date, end_date,
+	          target_cash_account_id, target_investment_id,
+	          amount_type, amount_value, created_at`
 
 	var created IncomeAllocation
-	err = tx.QueryRow(ctx, legacyQuery,
+	err = s.pool.QueryRow(ctx, query,
+		userID,
+		ruleName,
 		allocation.IncomeID,
-		nullIfEmpty(allocation.ParentID),
-		startDate,
-		allocation.EndDate,
 		allocation.TargetCashAccountID,
 		allocation.TargetInvestmentID,
 		allocation.AllocationType,
 		allocation.AllocationValue,
+		startDate,
+		allocation.EndDate,
 	).Scan(
 		&created.ID, &created.IncomeID, &created.ParentID,
 		&created.StartDate, &created.EndDate,
@@ -1290,42 +1248,7 @@ func (s *Store) CreateIncomeAllocation(
 		&created.AllocationType, &created.AllocationValue, &created.CreatedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create income allocation: %w", err)
-	}
-
-	// Phase 2b: Also write to fund_flow_rules (new unified table)
-	// Only for root allocations (not versions)
-	if allocation.ParentID == "" {
-		ruleName := buildAllocationRuleName(incomeName, allocation.TargetInvestmentID, allocation.TargetCashAccountID)
-		fundFlowQuery := `
-		INSERT INTO fund_flow_rules (
-			id, user_id, name, rule_type,
-			source_income_id,
-			target_cash_account_id, target_investment_id,
-			amount_type, amount_value,
-			priority, start_date, end_date
-		) VALUES ($1, $2, $3, 'allocation', $4, $5, $6, $7, $8, 0, $9, $10)
-		ON CONFLICT (id) DO NOTHING`
-
-		_, err = tx.Exec(ctx, fundFlowQuery,
-			created.ID, // Use same ID for easy correlation
-			userID,
-			ruleName,
-			allocation.IncomeID,
-			allocation.TargetCashAccountID,
-			allocation.TargetInvestmentID,
-			allocation.AllocationType,
-			allocation.AllocationValue,
-			startDate,
-			allocation.EndDate,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create fund flow rule for allocation: %w", err)
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		return nil, fmt.Errorf("failed to create allocation rule: %w", err)
 	}
 
 	return &created, nil
@@ -1342,38 +1265,26 @@ func buildAllocationRuleName(incomeName string, targetInvestmentID, targetCashAc
 	return incomeName + " Allocation"
 }
 
-// UpdateIncomeAllocation updates an existing allocation.
-//
-// Phase 2b: Dual-write to both income_allocations and fund_flow_rules tables.
+// UpdateIncomeAllocation updates an existing allocation in fund_flow_rules.
 func (s *Store) UpdateIncomeAllocation(
 	ctx context.Context,
 	userID string,
 	allocation IncomeAllocation,
 ) (*IncomeAllocation, error) {
-	// Begin transaction for dual-write
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	// Update income_allocations (legacy table)
-	legacyQuery := `
-	UPDATE income_allocations ia
+	query := `
+	UPDATE fund_flow_rules
 	SET target_cash_account_id = $3,
 	    target_investment_id = $4,
-	    allocation_type = $5,
-	    allocation_value = $6
-	FROM finance_incomes fi
-	WHERE ia.id = $2
-	  AND ia.income_id = fi.id
-	  AND fi.user_id = $1
-	RETURNING ia.id, ia.income_id, COALESCE(ia.parent_id, ia.id), ia.start_date, ia.end_date,
-	          ia.target_cash_account_id, ia.target_investment_id,
-	          ia.allocation_type, ia.allocation_value, ia.created_at`
+	    amount_type = $5,
+	    amount_value = $6,
+	    updated_at = NOW()
+	WHERE id = $2 AND user_id = $1 AND rule_type = 'allocation'
+	RETURNING id, source_income_id, id, start_date, end_date,
+	          target_cash_account_id, target_investment_id,
+	          amount_type, amount_value, created_at`
 
 	var updated IncomeAllocation
-	err = tx.QueryRow(ctx, legacyQuery,
+	err := s.pool.QueryRow(ctx, query,
 		userID, allocation.ID,
 		allocation.TargetCashAccountID,
 		allocation.TargetInvestmentID,
@@ -1389,33 +1300,7 @@ func (s *Store) UpdateIncomeAllocation(
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to update income allocation: %w", err)
-	}
-
-	// Phase 2b: Also update fund_flow_rules (new unified table)
-	// Update if exists (may not exist for allocations created before migration)
-	fundFlowQuery := `
-	UPDATE fund_flow_rules
-	SET target_cash_account_id = $2,
-	    target_investment_id = $3,
-	    amount_type = $4,
-	    amount_value = $5,
-	    updated_at = NOW()
-	WHERE id = $1 AND rule_type = 'allocation'`
-
-	_, err = tx.Exec(ctx, fundFlowQuery,
-		allocation.ID,
-		allocation.TargetCashAccountID,
-		allocation.TargetInvestmentID,
-		allocation.AllocationType,
-		allocation.AllocationValue,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update fund flow rule for allocation: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		return nil, fmt.Errorf("failed to update allocation rule: %w", err)
 	}
 
 	return &updated, nil
@@ -1423,33 +1308,22 @@ func (s *Store) UpdateIncomeAllocation(
 
 // SetIncomeAllocationEndDate sets the end_date for an allocation (stops it at a future point).
 // Used when "deleting" at a future time - preserves the original record with an end_date.
-// Phase 2b: Also updates the corresponding fund_flow_rules record.
 func (s *Store) SetIncomeAllocationEndDate(
 	ctx context.Context,
 	userID string,
 	allocationID string,
 	endDate time.Time,
 ) (*IncomeAllocation, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	// Update income_allocations (legacy table)
 	query := `
-	UPDATE income_allocations ia
-	SET end_date = $3
-	FROM finance_incomes fi
-	WHERE ia.id = $2
-	  AND ia.income_id = fi.id
-	  AND fi.user_id = $1
-	RETURNING ia.id, ia.income_id, COALESCE(ia.parent_id, ia.id), ia.start_date, ia.end_date,
-	          ia.target_cash_account_id, ia.target_investment_id,
-	          ia.allocation_type, ia.allocation_value, ia.created_at`
+	UPDATE fund_flow_rules
+	SET end_date = $3, updated_at = NOW()
+	WHERE id = $2 AND user_id = $1 AND rule_type = 'allocation'
+	RETURNING id, source_income_id, id, start_date, end_date,
+	          target_cash_account_id, target_investment_id,
+	          amount_type, amount_value, created_at`
 
 	var updated IncomeAllocation
-	err = tx.QueryRow(ctx, query, userID, allocationID, endDate).Scan(
+	err := s.pool.QueryRow(ctx, query, userID, allocationID, endDate).Scan(
 		&updated.ID, &updated.IncomeID, &updated.ParentID,
 		&updated.StartDate, &updated.EndDate,
 		&updated.TargetCashAccountID, &updated.TargetInvestmentID,
@@ -1459,30 +1333,36 @@ func (s *Store) SetIncomeAllocationEndDate(
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to set income allocation end date: %w", err)
-	}
-
-	// Phase 2b: Also update fund_flow_rules (new unified table)
-	fundFlowQuery := `
-	UPDATE fund_flow_rules
-	SET end_date = $2, updated_at = NOW()
-	WHERE id = $1 AND rule_type = 'allocation'`
-
-	_, err = tx.Exec(ctx, fundFlowQuery, allocationID, endDate)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update fund flow rule end date: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		return nil, fmt.Errorf("failed to set allocation end date: %w", err)
 	}
 
 	return &updated, nil
 }
 
-// DeleteIncomeAllocation deletes an allocation by ID.
-// Phase 2b: Also deletes the corresponding fund_flow_rules record.
+// DeleteIncomeAllocation deletes an allocation by ID from fund_flow_rules.
 func (s *Store) DeleteIncomeAllocation(
+	ctx context.Context,
+	userID string,
+	allocationID string,
+) error {
+	query := `
+	DELETE FROM fund_flow_rules
+	WHERE id = $2 AND user_id = $1 AND rule_type = 'allocation'`
+
+	tag, err := s.pool.Exec(ctx, query, userID, allocationID)
+	if err != nil {
+		return fmt.Errorf("failed to delete allocation rule: %w", err)
+	}
+
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+// Deprecated: Remove after confirming fund_flow_rules works
+func (s *Store) deleteIncomeAllocationLegacy(
 	ctx context.Context,
 	userID string,
 	allocationID string,

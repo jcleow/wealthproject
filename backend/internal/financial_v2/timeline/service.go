@@ -1118,20 +1118,17 @@ func processLiabilityMonth(
 }
 
 // CashAllocationParams holds parameters for cash allocation calculation.
-// Used to support both legacy income_allocations and new fund_flow_rules.
 type CashAllocationParams struct {
-	Data              EffectiveRows
-	State             map[string]*decimal.Decimal
-	CurrentDate       time.Time
-	EmployeeCPF       *decimal.Decimal
-	IncomeAllocations []repo.IncomeAllocation // Legacy allocations (Phase 2 migration)
-	FundFlowRules     []repo.FundFlowRule     // New fund flow rules
-	ApplyAllocations  bool
+	Data             EffectiveRows
+	State            map[string]*decimal.Decimal
+	CurrentDate      time.Time
+	EmployeeCPF      *decimal.Decimal
+	FundFlowRules    []repo.FundFlowRule // Allocation rules from fund_flow_rules table
+	ApplyAllocations bool
 }
 
 // calcCashAllocationWithRules computes net savings and net cash flow for active rows.
-// Supports both legacy income_allocations and new fund_flow_rules for Phase 2 migration.
-// When fund flow allocation rules exist for an income, they take precedence over legacy allocations.
+// Uses fund_flow_rules for allocation processing.
 //
 // Returns:
 //   - netSavings: income - employeeCPF - expenses
@@ -1157,28 +1154,14 @@ func calcCashAllocationWithRules(params CashAllocationParams) (netSavings *decim
 
 	netSavings = income.Sub(params.EmployeeCPF).Sub(expense)
 
-	// Check if we have allocation-type fund flow rules
-	hasAllocationRules := hasActiveAllocationRules(params.FundFlowRules, params.CurrentDate)
-
-	if hasAllocationRules {
-		// Use new fund flow allocation rules (Phase 2)
-		netInvestments = computeAllocationTotals(
-			params.FundFlowRules,
-			params.Data.Incomes,
-			params.State,
-			params.CurrentDate,
-			params.ApplyAllocations,
-		)
-	} else {
-		// Fall back to legacy income_allocations (Phase 2a: dual-read)
-		netInvestments = applyInvestmentAllocations(
-			params.Data.Incomes,
-			params.IncomeAllocations,
-			params.State,
-			params.CurrentDate,
-			params.ApplyAllocations,
-		)
-	}
+	// Use fund flow allocation rules
+	netInvestments = computeAllocationTotals(
+		params.FundFlowRules,
+		params.Data.Incomes,
+		params.State,
+		params.CurrentDate,
+		params.ApplyAllocations,
+	)
 
 	// Always compute netCashFlow = netSavings - investments for display purposes
 	netCashFlow = netSavings.Sub(netInvestments)
@@ -1186,47 +1169,23 @@ func calcCashAllocationWithRules(params CashAllocationParams) (netSavings *decim
 	return netSavings, netCashFlow, netInvestments
 }
 
-// hasActiveAllocationRules checks if there are any allocation-type fund flow rules active on the given date
-func hasActiveAllocationRules(rules []repo.FundFlowRule, date time.Time) bool {
-	for _, rule := range rules {
-		if rule.RuleType != RuleTypeAllocation {
-			continue
-		}
-		if rule.StartDate.After(date) {
-			continue
-		}
-		if rule.EndDate != nil && rule.EndDate.Before(date) {
-			continue
-		}
-		return true
-	}
-	return false
-}
-
 // calcCashAllocation computes net savings and net cash flow for active rows.
-// This is the legacy function signature for backward compatibility.
-// Prefer calcCashAllocationWithRules for new code.
-//
-// Returns:
-//   - netSavings: income - employeeCPF - expenses
-//   - netCashFlow: income - employeeCPF - expenses - investmentAllocations (always net of investments for display)
-//   - netInvestments: total amount allocated to investments this month
+// Deprecated: Use calcCashAllocationWithRules directly with fund_flow_rules.
 func calcCashAllocation(
 	data EffectiveRows,
 	state map[string]*decimal.Decimal,
 	currentDate time.Time,
 	employeeCPF *decimal.Decimal,
-	incomeAllocations []repo.IncomeAllocation,
+	fundFlowRules []repo.FundFlowRule,
 	applyAllocations bool,
 ) (netSavings *decimal.Decimal, netCashFlow *decimal.Decimal, netInvestments *decimal.Decimal) {
 	return calcCashAllocationWithRules(CashAllocationParams{
-		Data:              data,
-		State:             state,
-		CurrentDate:       currentDate,
-		EmployeeCPF:       employeeCPF,
-		IncomeAllocations: incomeAllocations,
-		FundFlowRules:     nil, // No fund flow rules - use legacy allocations
-		ApplyAllocations:  applyAllocations,
+		Data:             data,
+		State:            state,
+		CurrentDate:      currentDate,
+		EmployeeCPF:      employeeCPF,
+		FundFlowRules:    fundFlowRules,
+		ApplyAllocations: applyAllocations,
 	})
 }
 
@@ -2158,26 +2117,19 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	var netSavings, netCashFlow, netInvestments *decimal.Decimal
 	applyAllocations := !isAnchorMonth
 	netSavings, netCashFlow, netInvestments = calcCashAllocationWithRules(CashAllocationParams{
-		Data:              mctx.Data,
-		State:             stateForCalcs,
-		CurrentDate:       currentDate,
-		EmployeeCPF:       employeeCPF,
-		IncomeAllocations: mctx.IncomeAllocations,
-		FundFlowRules:     mctx.FundFlowRules,
-		ApplyAllocations:  applyAllocations,
+		Data:             mctx.Data,
+		State:            stateForCalcs,
+		CurrentDate:      currentDate,
+		EmployeeCPF:      employeeCPF,
+		FundFlowRules:    mctx.FundFlowRules,
+		ApplyAllocations: applyAllocations,
 	})
 
 	// If scenarios are active (EventAdjustedState != State), also apply allocations to base State
 	// so they persist across months. EventAdjustedState already has this month's allocations.
 	if applyAllocations && mctx.EventAdjustedState != nil {
-		// Check if we're using fund flow rules or legacy allocations
-		if hasActiveAllocationRules(mctx.FundFlowRules, currentDate) {
-			// Use fund flow rules for base state too
-			computeAllocationTotals(mctx.FundFlowRules, mctx.Data.Incomes, mctx.State, currentDate, true)
-		} else {
-			// Fall back to legacy allocations
-			applyInvestmentAllocations(mctx.Data.Incomes, mctx.IncomeAllocations, mctx.State, currentDate, true)
-		}
+		// Use fund flow rules for base state too
+		computeAllocationTotals(mctx.FundFlowRules, mctx.Data.Incomes, mctx.State, currentDate, true)
 	}
 
 	// Accumulate cash flow (anchor month included; allocations only mutate balances after anchor)
