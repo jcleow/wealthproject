@@ -21,7 +21,7 @@ import {
 
 import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
 import { useCashAccountsQuery } from '@/hooks/queries/useCashAccountsQuery'
-import { usePropertyFormInputs, usePropertyFormSaleInputs } from '../hooks'
+import { usePropertyFormInputs, usePropertyFormSaleInputs, useSyncExpectedSalePrice } from '../hooks'
 
 import { propertyOptions } from '../constants'
 import { MortgageForm } from './MortgageForm'
@@ -69,6 +69,9 @@ export function ScenarioDetailView({
 }: ScenarioDetailViewProps) {
   const { inputs, onChange: onInputChange, propertyType } = usePropertyFormInputs()
   const { saleInputs } = usePropertyFormSaleInputs()
+
+  // Auto-sync expectedSalePrice from appreciation projection
+  useSyncExpectedSalePrice()
 
   const selectedType = propertyType ?? 'hdb-resale'
   const selectedOption = propertyOptions.find(o => o.id === selectedType)

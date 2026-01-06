@@ -13,3 +13,8 @@ export {
   type PropertyFormInputsReturn,
   type PropertyFormSaleInputsReturn,
 } from './usePropertyScenarioFormContext'
+
+export {
+  useSyncExpectedSalePrice,
+  calculateProjectedSalePrice,
+} from './useSyncExpectedSalePrice'
