@@ -15,6 +15,16 @@ const (
 )
 
 // Allocation target type constants
+//
+// NOTE: CPF allocations here are for VOLUNTARY/MANUAL transfers only (e.g., SRS contributions,
+// voluntary top-ups to SA/MA, CPF investment transfers). MANDATORY CPF contributions are
+// handled separately in processAllIncomes() and are computed dynamically based on:
+//   - Current CPF rates (which vary by age bracket and change yearly)
+//   - Income's CPFWageType (ordinary vs additional wages)
+//   - Annual wage ceilings (which get updated periodically)
+//
+// Mandatory CPF is NOT stored as fund flow rules because the rates/splits change over time
+// and depend on policy. They are calculated on-the-fly using the CPF processor.
 const (
 	AllocationTargetInvestment = "investment"
 	AllocationTargetCash       = "cash"

@@ -134,6 +134,9 @@ func TestCreateIncomeAllocation_RootRecord_ParentIdEqualsId(t *testing.T) {
 	mockPool.EnqueueRow("SELECT name FROM finance_incomes", []any{incomeID, userID}, testutil.NewStubRow(t, []any{"Salary"}, nil))
 
 	// INSERT into fund_flow_rules
+	// Column order: id, source_income_id, parent_id, start_date, end_date,
+	//               target_cash_account_id, target_investment_id, target_cpf_account_id,
+	//               amount_type, amount_value, created_at
 	mockPool.EnqueueRow(
 		"INSERT INTO fund_flow_rules",
 		nil,
@@ -145,6 +148,7 @@ func TestCreateIncomeAllocation_RootRecord_ParentIdEqualsId(t *testing.T) {
 			nil,                           // end_date
 			cashAccountID,                 // target_cash_account_id
 			nil,                           // target_investment_id
+			nil,                           // target_cpf_account_id
 			"percentage",                  // amount_type
 			*decimal.MustFromString("50"), // amount_value
 			createdAt,                     // created_at

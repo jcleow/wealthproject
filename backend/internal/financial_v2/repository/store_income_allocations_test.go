@@ -34,17 +34,20 @@ func TestListIncomeAllocations_ReturnsAllocationsForIncome(t *testing.T) {
 
 	// Then Query call for allocations from fund_flow_rules
 	// Note: default limit of 20 is always applied when no limit specified
+	// Column order: id, source_income_id, parent_id, start_date, end_date,
+	//               target_cash_account_id, target_investment_id, target_cpf_account_id,
+	//               amount_type, amount_value, created_at
 	rows := testutil.NewStubRows(t, [][]any{
 		{
 			"alloc-1", incomeID, "alloc-1",
 			createdAt, nil,
-			cashAccountID, nil,
+			cashAccountID, nil, nil,
 			"percentage", *decimal.MustFromString("50.0000"), createdAt,
 		},
 		{
 			"alloc-2", incomeID, "alloc-2",
 			createdAt, nil,
-			nil, investmentID,
+			nil, investmentID, nil,
 			"fixed", *decimal.MustFromString("1000.0000"), createdAt,
 		},
 	})
@@ -128,11 +131,14 @@ func TestCreateIncomeAllocation_ToCashAccount(t *testing.T) {
 	mockPool.EnqueueRow("SELECT name FROM finance_incomes", []any{incomeID, userID}, testutil.NewStubRow(t, []any{"Salary"}, nil))
 
 	// Insert into fund_flow_rules
+	// Column order: id, source_income_id, parent_id, start_date, end_date,
+	//               target_cash_account_id, target_investment_id, target_cpf_account_id,
+	//               amount_type, amount_value, created_at
 	mockPool.EnqueueRow(
 		"INSERT INTO fund_flow_rules",
 		nil,
 		testutil.NewStubRow(t, []any{
-			"alloc-new", incomeID, "alloc-new", startDate, nil, cashAccountID, nil, "percentage", *allocationValue, createdAt,
+			"alloc-new", incomeID, "alloc-new", startDate, nil, cashAccountID, nil, nil, "percentage", *allocationValue, createdAt,
 		}, nil))
 
 	allocation := IncomeAllocation{
@@ -169,11 +175,14 @@ func TestCreateIncomeAllocation_ToInvestment(t *testing.T) {
 	mockPool.EnqueueRow("SELECT name FROM finance_incomes", []any{incomeID, userID}, testutil.NewStubRow(t, []any{"Salary"}, nil))
 
 	// Insert into fund_flow_rules
+	// Column order: id, source_income_id, parent_id, start_date, end_date,
+	//               target_cash_account_id, target_investment_id, target_cpf_account_id,
+	//               amount_type, amount_value, created_at
 	mockPool.EnqueueRow(
 		"INSERT INTO fund_flow_rules",
 		nil,
 		testutil.NewStubRow(t, []any{
-			"alloc-new", incomeID, "alloc-new", startDate, nil, nil, investmentID, "fixed", *allocationValue, createdAt,
+			"alloc-new", incomeID, "alloc-new", startDate, nil, nil, investmentID, nil, "fixed", *allocationValue, createdAt,
 		}, nil))
 
 	allocation := IncomeAllocation{

@@ -952,6 +952,7 @@ type IncomeAllocation struct {
 	EndDate             *time.Time      `json:"endDate,omitempty"` // When this version ends (NULL = ongoing)
 	TargetCashAccountID *string         `json:"targetCashAccountId,omitempty"`
 	TargetInvestmentID  *string         `json:"targetInvestmentId,omitempty"`
+	TargetCpfAccountID  *string         `json:"targetCpfAccountId,omitempty"`
 	AllocationType      string          `json:"allocationType"`  // 'percentage' or 'fixed'
 	AllocationValue     decimal.Decimal `json:"allocationValue"` // percentage (0-100) or fixed amount
 	CreatedAt           time.Time       `json:"createdAt"`
@@ -1121,6 +1122,7 @@ func (s *Store) ListIncomeAllocations(
 		ffr.end_date,
 		ffr.target_cash_account_id,
 		ffr.target_investment_id,
+		ffr.target_cpf_account_id,
 		ffr.amount_type,
 		ffr.amount_value,
 		ffr.created_at
@@ -1141,7 +1143,7 @@ func (s *Store) ListIncomeAllocations(
 		var a IncomeAllocation
 		err := rows.Scan(
 			&a.ID, &a.IncomeID, &a.ParentID, &a.StartDate, &a.EndDate,
-			&a.TargetCashAccountID, &a.TargetInvestmentID,
+			&a.TargetCashAccountID, &a.TargetInvestmentID, &a.TargetCpfAccountID,
 			&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
 		)
 		if err != nil {
@@ -1173,6 +1175,7 @@ func (s *Store) ListAllIncomeAllocations(
 		ffr.end_date,
 		ffr.target_cash_account_id,
 		ffr.target_investment_id,
+		ffr.target_cpf_account_id,
 		ffr.amount_type,
 		ffr.amount_value,
 		ffr.created_at
@@ -1192,7 +1195,7 @@ func (s *Store) ListAllIncomeAllocations(
 		var a IncomeAllocation
 		err := rows.Scan(
 			&a.ID, &a.IncomeID, &a.ParentID, &a.StartDate, &a.EndDate,
-			&a.TargetCashAccountID, &a.TargetInvestmentID,
+			&a.TargetCashAccountID, &a.TargetInvestmentID, &a.TargetCpfAccountID,
 			&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
 		)
 		if err != nil {
@@ -1213,7 +1216,7 @@ func (s *Store) GetIncomeAllocation(
 	query := `
 	SELECT ffr.id, ffr.source_income_id, ffr.id as parent_id,
 	       ffr.start_date, ffr.end_date,
-	       ffr.target_cash_account_id, ffr.target_investment_id,
+	       ffr.target_cash_account_id, ffr.target_investment_id, ffr.target_cpf_account_id,
 	       ffr.amount_type, ffr.amount_value, ffr.created_at
 	FROM fund_flow_rules ffr
 	WHERE ffr.id = $2 AND ffr.user_id = $1 AND ffr.rule_type = 'allocation'`
@@ -1222,7 +1225,7 @@ func (s *Store) GetIncomeAllocation(
 	err := s.pool.QueryRow(ctx, query, userID, allocationID).Scan(
 		&a.ID, &a.IncomeID, &a.ParentID,
 		&a.StartDate, &a.EndDate,
-		&a.TargetCashAccountID, &a.TargetInvestmentID,
+		&a.TargetCashAccountID, &a.TargetInvestmentID, &a.TargetCpfAccountID,
 		&a.AllocationType, &a.AllocationValue, &a.CreatedAt,
 	)
 	if err == pgx.ErrNoRows {
@@ -1261,18 +1264,18 @@ func (s *Store) CreateIncomeAllocation(
 		startDate = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
 
-	ruleName := buildAllocationRuleName(incomeName, allocation.TargetInvestmentID, allocation.TargetCashAccountID)
+	ruleName := buildAllocationRuleName(incomeName, allocation.TargetInvestmentID, allocation.TargetCashAccountID, allocation.TargetCpfAccountID)
 
 	query := `
 	INSERT INTO fund_flow_rules (
 		user_id, name, rule_type,
 		source_income_id,
-		target_cash_account_id, target_investment_id,
+		target_cash_account_id, target_investment_id, target_cpf_account_id,
 		amount_type, amount_value,
 		priority, start_date, end_date
-	) VALUES ($1, $2, 'allocation', $3, $4, $5, $6, $7, 0, $8, $9)
+	) VALUES ($1, $2, 'allocation', $3, $4, $5, $6, $7, $8, 0, $9, $10)
 	RETURNING id, source_income_id, id, start_date, end_date,
-	          target_cash_account_id, target_investment_id,
+	          target_cash_account_id, target_investment_id, target_cpf_account_id,
 	          amount_type, amount_value, created_at`
 
 	var created IncomeAllocation
@@ -1282,6 +1285,7 @@ func (s *Store) CreateIncomeAllocation(
 		allocation.IncomeID,
 		allocation.TargetCashAccountID,
 		allocation.TargetInvestmentID,
+		allocation.TargetCpfAccountID,
 		allocation.AllocationType,
 		allocation.AllocationValue,
 		startDate,
@@ -1289,7 +1293,7 @@ func (s *Store) CreateIncomeAllocation(
 	).Scan(
 		&created.ID, &created.IncomeID, &created.ParentID,
 		&created.StartDate, &created.EndDate,
-		&created.TargetCashAccountID, &created.TargetInvestmentID,
+		&created.TargetCashAccountID, &created.TargetInvestmentID, &created.TargetCpfAccountID,
 		&created.AllocationType, &created.AllocationValue, &created.CreatedAt,
 	)
 	if err != nil {
@@ -1300,12 +1304,15 @@ func (s *Store) CreateIncomeAllocation(
 }
 
 // buildAllocationRuleName creates a descriptive name for a fund flow allocation rule
-func buildAllocationRuleName(incomeName string, targetInvestmentID, targetCashAccountID *string) string {
+func buildAllocationRuleName(incomeName string, targetInvestmentID, targetCashAccountID, targetCpfAccountID *string) string {
 	if targetInvestmentID != nil {
 		return incomeName + " → Investment"
 	}
 	if targetCashAccountID != nil {
 		return incomeName + " → Cash"
+	}
+	if targetCpfAccountID != nil {
+		return incomeName + " → CPF"
 	}
 	return incomeName + " Allocation"
 }
@@ -1320,12 +1327,13 @@ func (s *Store) UpdateIncomeAllocation(
 	UPDATE fund_flow_rules
 	SET target_cash_account_id = $3,
 	    target_investment_id = $4,
-	    amount_type = $5,
-	    amount_value = $6,
+	    target_cpf_account_id = $5,
+	    amount_type = $6,
+	    amount_value = $7,
 	    updated_at = NOW()
 	WHERE id = $2 AND user_id = $1 AND rule_type = 'allocation'
 	RETURNING id, source_income_id, id, start_date, end_date,
-	          target_cash_account_id, target_investment_id,
+	          target_cash_account_id, target_investment_id, target_cpf_account_id,
 	          amount_type, amount_value, created_at`
 
 	var updated IncomeAllocation
@@ -1333,12 +1341,13 @@ func (s *Store) UpdateIncomeAllocation(
 		userID, allocation.ID,
 		allocation.TargetCashAccountID,
 		allocation.TargetInvestmentID,
+		allocation.TargetCpfAccountID,
 		allocation.AllocationType,
 		allocation.AllocationValue,
 	).Scan(
 		&updated.ID, &updated.IncomeID, &updated.ParentID,
 		&updated.StartDate, &updated.EndDate,
-		&updated.TargetCashAccountID, &updated.TargetInvestmentID,
+		&updated.TargetCashAccountID, &updated.TargetInvestmentID, &updated.TargetCpfAccountID,
 		&updated.AllocationType, &updated.AllocationValue, &updated.CreatedAt,
 	)
 	if err == pgx.ErrNoRows {
@@ -1364,14 +1373,14 @@ func (s *Store) SetIncomeAllocationEndDate(
 	SET end_date = $3, updated_at = NOW()
 	WHERE id = $2 AND user_id = $1 AND rule_type = 'allocation'
 	RETURNING id, source_income_id, id, start_date, end_date,
-	          target_cash_account_id, target_investment_id,
+	          target_cash_account_id, target_investment_id, target_cpf_account_id,
 	          amount_type, amount_value, created_at`
 
 	var updated IncomeAllocation
 	err := s.pool.QueryRow(ctx, query, userID, allocationID, endDate).Scan(
 		&updated.ID, &updated.IncomeID, &updated.ParentID,
 		&updated.StartDate, &updated.EndDate,
-		&updated.TargetCashAccountID, &updated.TargetInvestmentID,
+		&updated.TargetCashAccountID, &updated.TargetInvestmentID, &updated.TargetCpfAccountID,
 		&updated.AllocationType, &updated.AllocationValue, &updated.CreatedAt,
 	)
 	if err == pgx.ErrNoRows {
