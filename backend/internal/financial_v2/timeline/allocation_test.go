@@ -6,18 +6,11 @@ import (
 
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/repository"
+	"financial-chat-system/backend/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// decimalEqual checks if two decimals are equal using Cmp
-func decimalEqual(a, b *decimal.Decimal) bool {
-	if a == nil || b == nil {
-		return a == b
-	}
-	return a.Cmp(b) == 0
-}
 
 func TestFilterActiveAllocationRules(t *testing.T) {
 	currentDate := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
@@ -48,7 +41,7 @@ func TestFilterActiveAllocationRules(t *testing.T) {
 			SourceIncomeID:     &incomeID,
 			TargetInvestmentID: &investmentID,
 			StartDate:          time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-			EndDate:            ptr(time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC)),
+			EndDate:            testutil.Ptr(time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC)),
 		},
 		{
 			ID:                 "rule-payment-type",
@@ -64,6 +57,66 @@ func TestFilterActiveAllocationRules(t *testing.T) {
 
 	require.Len(t, active, 1)
 	assert.Equal(t, "rule-active", active[0].ID)
+}
+
+func TestFilterActiveAllocationRules_EndDateBoundary(t *testing.T) {
+	// Test boundary conditions for rule end dates.
+	// A rule with EndDate = 2026-06-14 should be INACTIVE on 2026-06-15
+	// A rule with EndDate = 2026-06-15 should be ACTIVE on 2026-06-15
+	currentDate := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
+
+	incomeID := "income-1"
+	investmentID := "investment-1"
+
+	tests := []struct {
+		name           string
+		endDate        time.Time
+		expectActive   bool
+		expectedReason string
+	}{
+		{
+			name:           "rule ends day before current date - should be inactive",
+			endDate:        time.Date(2026, 6, 14, 0, 0, 0, 0, time.UTC),
+			expectActive:   false,
+			expectedReason: "EndDate 2026-06-14 is before currentDate 2026-06-15",
+		},
+		{
+			name:           "rule ends on current date - should be active",
+			endDate:        time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC),
+			expectActive:   true,
+			expectedReason: "EndDate 2026-06-15 equals currentDate 2026-06-15",
+		},
+		{
+			name:           "rule ends day after current date - should be active",
+			endDate:        time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC),
+			expectActive:   true,
+			expectedReason: "EndDate 2026-06-16 is after currentDate 2026-06-15",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rules := []repository.FundFlowRule{
+				{
+					ID:                 "test-rule",
+					RuleType:           RuleTypeAllocation,
+					SourceIncomeID:     &incomeID,
+					TargetInvestmentID: &investmentID,
+					StartDate:          time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+					EndDate:            &tt.endDate,
+				},
+			}
+
+			active := filterActiveAllocationRules(rules, currentDate)
+
+			if tt.expectActive {
+				require.Len(t, active, 1, tt.expectedReason)
+				assert.Equal(t, "test-rule", active[0].ID)
+			} else {
+				require.Empty(t, active, tt.expectedReason)
+			}
+		})
+	}
 }
 
 func TestGroupAllocationsByIncome(t *testing.T) {
@@ -133,14 +186,6 @@ func TestCalculateAllocationAmount(t *testing.T) {
 			expected:        decimal.MustFromString("1500"), // 30% of 5000
 		},
 		{
-			name:            "percentage allocation - legacy 'percentage' type",
-			amountType:      "percentage",
-			amountValue:     decimal.MustFromString("20"),
-			totalIncome:     decimal.MustFromString("5000"),
-			remainingIncome: decimal.MustFromString("5000"),
-			expected:        decimal.MustFromString("1000"), // 20% of 5000
-		},
-		{
 			// Remainder allocations use remainingIncome - takes whatever is left.
 			// Here we simulate that $1500 was already allocated, leaving $3500.
 			name:            "remainder allocation",
@@ -177,6 +222,26 @@ func TestCalculateAllocationAmount(t *testing.T) {
 			remainingIncome: decimal.MustFromString("5000"),
 			expected:        decimal.Zero(),
 		},
+		{
+			// Fixed allocation exceeding total income.
+			// calculateAllocationAmount returns the requested amount; the caller
+			// (computeIncomeAllocations) is responsible for capping at remaining.
+			name:            "fixed allocation exceeds total income - returns requested amount",
+			amountType:      AmountTypeFixed,
+			amountValue:     decimal.MustFromString("10000"),
+			totalIncome:     decimal.MustFromString("5000"),
+			remainingIncome: decimal.MustFromString("5000"),
+			expected:        decimal.MustFromString("10000"), // Caller will cap this
+		},
+		{
+			// Percentage over 100% - returns computed amount (caller caps it)
+			name:            "percentage over 100% - returns computed amount",
+			amountType:      AmountTypePctSource,
+			amountValue:     decimal.MustFromString("150"),
+			totalIncome:     decimal.MustFromString("5000"),
+			remainingIncome: decimal.MustFromString("5000"),
+			expected:        decimal.MustFromString("7500"), // 150% of 5000
+		},
 	}
 
 	for _, tt := range tests {
@@ -187,7 +252,7 @@ func TestCalculateAllocationAmount(t *testing.T) {
 			}
 
 			result := calculateAllocationAmount(rule, tt.totalIncome, tt.remainingIncome)
-			assert.True(t, decimalEqual(tt.expected, result), "expected %s, got %s", tt.expected.String(), result.String())
+			assert.True(t, testutil.DecimalEqual(tt.expected, result), "expected %s, got %s", tt.expected.String(), result.String())
 		})
 	}
 }
@@ -235,19 +300,74 @@ func TestExecuteAllocationGroup(t *testing.T) {
 
 	// First execution: 30% = 1920
 	assert.Equal(t, "rule-1", executions[0].RuleID)
-	assert.True(t, decimalEqual(executions[0].Amount, decimal.MustFromString("1920")))
+	assert.True(t, testutil.DecimalEqual(executions[0].Amount, decimal.MustFromString("1920")))
 	assert.Equal(t, AllocationTargetInvestment, executions[0].TargetType)
 	assert.False(t, executions[0].WasFallback)
 
 	// Second execution: remainder = 4480
 	assert.Equal(t, "rule-2", executions[1].RuleID)
-	assert.True(t, decimalEqual(executions[1].Amount, decimal.MustFromString("4480")))
+	assert.True(t, testutil.DecimalEqual(executions[1].Amount, decimal.MustFromString("4480")))
 	assert.Equal(t, AllocationTargetCash, executions[1].TargetType)
 	assert.True(t, executions[1].WasFallback)
 
 	// Verify balances were updated
-	assert.True(t, decimalEqual(targetBalances[investmentID], decimal.MustFromString("11920"))) // 10000 + 1920
-	assert.True(t, decimalEqual(targetBalances[cashID], decimal.MustFromString("9480")))        // 5000 + 4480
+	assert.True(t, testutil.DecimalEqual(targetBalances[investmentID], decimal.MustFromString("11920"))) // 10000 + 1920
+	assert.True(t, testutil.DecimalEqual(targetBalances[cashID], decimal.MustFromString("9480")))        // 5000 + 4480
+}
+
+func TestComputeIncomeAllocations_FixedExceedsRemaining(t *testing.T) {
+	// Test that when a fixed allocation exceeds remaining income, it gets capped
+	income := FinancialDataRow{
+		ID:       "income-1",
+		ParentID: "income-1",
+		Name:     "Salary",
+	}
+	monthlyAmount := decimal.MustFromString("1000") // Only $1000 available
+
+	investmentID := "inv-1"
+	cashID := "cash-1"
+	incomeID := "income-1"
+
+	rules := []repository.FundFlowRule{
+		{
+			ID:                 "rule-1",
+			Name:               "$800 to Investment",
+			SourceIncomeID:     &incomeID,
+			TargetInvestmentID: &investmentID,
+			AmountType:         AmountTypeFixed,
+			AmountValue:        decimal.MustFromString("800"), // Takes $800
+			Priority:           0,
+		},
+		{
+			ID:                  "rule-2",
+			Name:                "$500 to Cash (exceeds remaining)",
+			SourceIncomeID:      &incomeID,
+			TargetCashAccountID: &cashID,
+			AmountType:          AmountTypeFixed,
+			AmountValue:         decimal.MustFromString("500"), // Wants $500 but only $200 left
+			Priority:            1,
+		},
+	}
+
+	targetBalances := map[string]*decimal.Decimal{
+		investmentID: decimal.MustFromString("0"),
+		cashID:       decimal.MustFromString("0"),
+	}
+
+	executions := computeIncomeAllocations(income, monthlyAmount, rules, targetBalances, true)
+
+	require.Len(t, executions, 2)
+
+	// First execution: fixed $800
+	assert.True(t, testutil.DecimalEqual(executions[0].Amount, decimal.MustFromString("800")))
+
+	// Second execution: wanted $500 but capped at remaining $200
+	assert.True(t, testutil.DecimalEqual(executions[1].Amount, decimal.MustFromString("200")),
+		"expected 200 (capped), got %s", executions[1].Amount.String())
+
+	// Verify total allocated equals income (fully allocated)
+	assert.True(t, testutil.DecimalEqual(targetBalances[investmentID], decimal.MustFromString("800")))
+	assert.True(t, testutil.DecimalEqual(targetBalances[cashID], decimal.MustFromString("200")))
 }
 
 func TestExecuteAllocationRules_MultipleIncomes(t *testing.T) {
@@ -301,10 +421,10 @@ func TestExecuteAllocationRules_MultipleIncomes(t *testing.T) {
 	// Income1: 50% of 5000 = 2500
 	// Income2: fixed 1000
 	// Total to investments = 3500
-	assert.True(t, decimalEqual(result.TotalToInvestments, decimal.MustFromString("3500")))
+	assert.True(t, testutil.DecimalEqual(result.TotalToInvestments, decimal.MustFromString("3500")))
 
 	// Verify balance was updated
-	assert.True(t, decimalEqual(targetBalances[investmentID], decimal.MustFromString("13500"))) // 10000 + 3500
+	assert.True(t, testutil.DecimalEqual(targetBalances[investmentID], decimal.MustFromString("13500"))) // 10000 + 3500
 }
 
 func TestExecuteAllocationRules_ApplyToBalancesFalse(t *testing.T) {
@@ -343,10 +463,10 @@ func TestExecuteAllocationRules_ApplyToBalancesFalse(t *testing.T) {
 	result := executeAllocationRules(rules, incomes, incomeMonthlyAmounts, targetBalances, currentDate, false)
 
 	// Should still calculate totals
-	assert.True(t, decimalEqual(result.TotalToInvestments, decimal.MustFromString("1500")))
+	assert.True(t, testutil.DecimalEqual(result.TotalToInvestments, decimal.MustFromString("1500")))
 
 	// But balance should NOT be mutated
-	assert.True(t, decimalEqual(targetBalances[investmentID], originalBalance))
+	assert.True(t, testutil.DecimalEqual(targetBalances[investmentID], originalBalance))
 }
 
 func TestComputeAllocationTotals(t *testing.T) {
@@ -387,13 +507,8 @@ func TestComputeAllocationTotals(t *testing.T) {
 	total := computeAllocationTotals(rules, incomes, state, currentDate, true)
 
 	// 25% of 8000 = 2000
-	assert.True(t, decimalEqual(total, decimal.MustFromString("2000")))
+	assert.True(t, testutil.DecimalEqual(total, decimal.MustFromString("2000")))
 
 	// Investment balance should be updated
-	assert.True(t, decimalEqual(state[investmentID], decimal.MustFromString("52000"))) // 50000 + 2000
-}
-
-// Helper function for creating pointers
-func ptr[T any](v T) *T {
-	return &v
+	assert.True(t, testutil.DecimalEqual(state[investmentID], decimal.MustFromString("52000"))) // 50000 + 2000
 }

@@ -9,6 +9,7 @@ import (
 	"financial-chat-system/backend/internal/financial/repository"
 	"financial-chat-system/backend/internal/financial/scenario"
 	"financial-chat-system/backend/internal/middleware"
+	"financial-chat-system/backend/internal/testutil"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -58,7 +59,7 @@ func TestProjection_NewItemPersistsForward(t *testing.T) {
 
 	_, err := svc.UpsertYear(ctx, 2, []EditRequest{
 		{
-			Name:       ptr("Side Hustle"),
+			Name:       testutil.Ptr("Side Hustle"),
 			ItemType:   ItemTypeIncome,
 			Category:   "income_other",
 			Amount:     500,
@@ -105,7 +106,7 @@ func TestProjection_OverrideLatestWinsAppliedForward(t *testing.T) {
 	// Apply two overrides for same item/year; latest wins.
 	_, err := svc.UpsertYear(ctx, 1, []EditRequest{
 		{
-			ItemID:     ptr(assetID),
+			ItemID:     testutil.Ptr(assetID),
 			ItemType:   ItemTypeAsset,
 			Category:   "asset_cash",
 			Amount:     500,
@@ -113,7 +114,7 @@ func TestProjection_OverrideLatestWinsAppliedForward(t *testing.T) {
 			SourceYear: 1,
 		},
 		{
-			ItemID:     ptr(assetID),
+			ItemID:     testutil.Ptr(assetID),
 			ItemType:   ItemTypeAsset,
 			Category:   "asset_cash",
 			Amount:     1000,
@@ -625,8 +626,6 @@ func (s *stubStore) GetUserSettings(ctx context.Context, userID string) (reposit
 func (s *stubStore) UpsertUserSettings(ctx context.Context, userID string, settings repository.UserSettings) (repository.UserSettings, error) {
 	return settings, nil
 }
-
-func ptr[T any](v T) *T { return &v }
 
 func countItems(items []TimelineItem) int {
 	return len(items)

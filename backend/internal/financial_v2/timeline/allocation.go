@@ -250,9 +250,8 @@ func calculateAllocationAmount(
 		}
 		return rule.AmountValue
 
-	case AmountTypePctSource, "percentage":
+	case AmountTypePctSource:
 		// Allocate percentage of source income amount
-		// Note: "percentage" is the legacy value from income_allocations
 		if rule.AmountValue == nil {
 			return decimal.Zero()
 		}
