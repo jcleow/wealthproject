@@ -43,7 +43,7 @@ func IsValidationError(err error) bool {
 // CreateInput contains the parameters for creating an expense.
 // Uses decimal.Decimal for financial values to avoid precision loss.
 type CreateInput struct {
-	Name             string
+	Name              string
 	Amount            decimal.Decimal
 	Frequency         string
 	Category          string
@@ -54,21 +54,24 @@ type CreateInput struct {
 	StartDate         *time.Time
 	EndDate           *time.Time
 	ParentID          *string
+	// FundSourceAccountId - if set, creates a fund flow expense rule to pay from this account
+	FundSourceAccountId *string
 }
 
 // CreateParams is the raw input (strings) used by HTTP handlers.
 type CreateParams struct {
-	Name             string
-	Amount            string
-	Frequency         string
-	Category          string
-	Notes             string
-	GrowthRate        *string
-	GrowthStrategy    string
-	SourceLiabilityID *string
-	StartDate         *string
-	EndDate           *string
-	ParentID          *string
+	Name                string
+	Amount              string
+	Frequency           string
+	Category            string
+	Notes               string
+	GrowthRate          *string
+	GrowthStrategy      string
+	SourceLiabilityID   *string
+	StartDate           *string
+	EndDate             *string
+	ParentID            *string
+	FundSourceAccountId *string
 }
 
 // UpdateInput contains the parameters for updating an expense.
@@ -155,6 +158,29 @@ func (s *Service) Create(ctx context.Context, userID string, input CreateInput) 
 	if err != nil {
 		return nil, err
 	}
+
+	// Create fund flow expense rule if a source account was specified
+	if input.FundSourceAccountId != nil && *input.FundSourceAccountId != "" {
+		ruleName := fmt.Sprintf("Pay %s", input.Name)
+		rule := repo.FundFlowRule{
+			Name:                ruleName,
+			RuleType:            "expense",
+			SourceCashAccountID: input.FundSourceAccountId,
+			TargetExpenseID:     &created.ID,
+			AmountType:          "target_required",
+			Priority:            100, // Default priority for auto-created rules
+			StartDate:           created.StartDate,
+		}
+		if created.EndDate != nil {
+			rule.EndDate = created.EndDate
+		}
+		if _, err := s.store.CreateFundFlowRule(ctx, userID, rule); err != nil {
+			// Log but don't fail the expense creation - rule can be added later
+			// In a production system, you might want to use a transaction here
+			fmt.Printf("Warning: failed to create fund flow rule for expense %s: %v\n", created.ID, err)
+		}
+	}
+
 	return &created, nil
 }
 
@@ -218,17 +244,18 @@ func buildCreateInput(params CreateParams) (CreateInput, error) {
 	}
 
 	return CreateInput{
-		Name:             params.Name,
-		Amount:            *amount,
-		Frequency:         params.Frequency,
-		Category:          params.Category,
-		Notes:             params.Notes,
-		GrowthRate:        growthRate,
-		GrowthStrategy:    params.GrowthStrategy,
-		SourceLiabilityID: params.SourceLiabilityID,
-		StartDate:         startDate,
-		EndDate:           endDate,
-		ParentID:          params.ParentID,
+		Name:                params.Name,
+		Amount:              *amount,
+		Frequency:           params.Frequency,
+		Category:            params.Category,
+		Notes:               params.Notes,
+		GrowthRate:          growthRate,
+		GrowthStrategy:      params.GrowthStrategy,
+		SourceLiabilityID:   params.SourceLiabilityID,
+		StartDate:           startDate,
+		EndDate:             endDate,
+		ParentID:            params.ParentID,
+		FundSourceAccountId: params.FundSourceAccountId,
 	}, nil
 }
 

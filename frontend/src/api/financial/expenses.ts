@@ -30,7 +30,7 @@ export async function listExpenses(params?: PaginationParams): Promise<Paginated
   }
 }
 
-export async function createExpense(payload: Omit<Expense, 'id' | 'updatedAt'> & { parentId?: string; sourceLiabilityId?: string }): Promise<Expense> {
+export async function createExpense(payload: Omit<Expense, 'id' | 'updatedAt'> & { parentId?: string; sourceLiabilityId?: string; fundSourceAccountId?: string }): Promise<Expense> {
   // Use string for decimal values to avoid float64 precision loss
   const body: ExpenseCreateInput = {
     name: payload.name,
@@ -43,6 +43,7 @@ export async function createExpense(payload: Omit<Expense, 'id' | 'updatedAt'> &
     endDate: payload.endDate ?? undefined,
     parentId: payload.parentId,
     sourceLiabilityId: payload.sourceLiabilityId,
+    fundSourceAccountId: payload.fundSourceAccountId,
   }
 
   // Use v2 API for full expense management

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { PersonSelector } from '@/components/ui/PersonSelector'
+import { FundSourceSelector } from './components/FundSourceSelector'
 import { type Frequency, type Asset } from '@/types/financial'
 import { formatCurrency } from '@/lib/format'
 
@@ -503,6 +504,15 @@ text-white`}
                       : 'Expected annual increase in expenses (e.g., inflation)'}
                   </p>
                 </div>
+              )}
+
+              {/* Fund source account for expenses */}
+              {normalizedCategory === 'expenses' && !form.isDebtRepayment && form.cashAccounts.length > 0 && (
+                <FundSourceSelector
+                  value={form.formData.fundSourceAccountId}
+                  onChange={(val) => form.updateFormField('fundSourceAccountId', val)}
+                  cashAccounts={form.cashAccounts}
+                />
               )}
 
               {/* Category selector */}

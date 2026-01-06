@@ -19,6 +19,8 @@ const baseFormSchema = z.object({
   terminalValue: z.string(),
   leaseStartYear: z.string(),
   usefulLifeYears: z.string(),
+  // Expense fund source
+  fundSourceAccountId: z.string(),
 })
 
 export type FinancialFormState = z.infer<typeof baseFormSchema>
@@ -49,6 +51,7 @@ export const defaultFinancialFormValues: FinancialFormState = {
   terminalValue: '',
   leaseStartYear: '',
   usefulLifeYears: '',
+  fundSourceAccountId: '',
 }
 
 export const defaultCpfFieldsValues: CpfFieldsFormData = {

@@ -42,6 +42,7 @@ type FundFlowRule struct {
 	TargetInvestmentID  *string `json:"targetInvestmentId,omitempty"`
 	TargetLiabilityID   *string `json:"targetLiabilityId,omitempty"`
 	TargetPropertyID    *string `json:"targetPropertyId,omitempty"`
+	TargetExpenseID     *string `json:"targetExpenseId,omitempty"` // For expense rules: external outflow
 
 	// Amount specification
 	AmountType  string           `json:"amountType"`            // 'fixed', 'percentage', 'remainder', 'target_required', 'max_available'
@@ -70,6 +71,9 @@ var (
 	ErrTransferRequiresOneAccountSource   = errors.New("transfer rules require exactly one account source OR property source")
 	ErrTransferRequiresOneAccountTarget   = errors.New("transfer rules require exactly one account target")
 	ErrTransferCannotMixSources           = errors.New("transfer rules cannot have both account and property sources")
+	ErrExpenseRequiresCashSource          = errors.New("expense rules require cash account source")
+	ErrExpenseCannotUseNonCashSource      = errors.New("expense rules can only use cash as source (transfer from CPF/investment to cash first)")
+	ErrExpenseRequiresExpenseTarget       = errors.New("expense rules require expense target")
 	ErrInvalidRuleType                    = errors.New("invalid rule type")
 	ErrAmountValueRequired                = errors.New("amount_value is required for fixed and percentage types")
 	ErrPercentageOutOfRange               = errors.New("percentage must be between 0 and 100")
@@ -120,6 +124,19 @@ func ValidateFundFlowRule(r FundFlowRule) error {
 
 		if countAccountTargets(r) != 1 {
 			return ErrTransferRequiresOneAccountTarget
+		}
+
+	case "expense":
+		// Expense rules pay external expenses from cash accounts
+		// Only cash accounts can be sources (CPF/investments must transfer to cash first)
+		if r.SourceCashAccountID == nil {
+			return ErrExpenseRequiresCashSource
+		}
+		if r.SourceCpfAccountID != nil || r.SourceInvestmentID != nil || r.SourceIncomeID != nil {
+			return ErrExpenseCannotUseNonCashSource
+		}
+		if r.TargetExpenseID == nil {
+			return ErrExpenseRequiresExpenseTarget
 		}
 
 	default:
@@ -239,6 +256,7 @@ func (s *Store) validateEntityOwnership(ctx context.Context, userID string, rule
 	addCheck("finance_investments", rule.TargetInvestmentID)
 	addCheck("finance_liabilities", rule.TargetLiabilityID)
 	addPropertyCheck(rule.TargetPropertyID)
+	addCheck("finance_expenses", rule.TargetExpenseID)
 
 	// No references to validate - rule has no entity links
 	if expectedCount == 0 {
@@ -284,14 +302,14 @@ func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule Fund
 		INSERT INTO fund_flow_rules (
 			user_id, name, rule_type,
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
-			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
+			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id, target_expense_id,
 			amount_type, amount_value, priority,
 			start_date, end_date
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		RETURNING id, user_id, name, rule_type,
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
-			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
+			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id, target_expense_id,
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at`
 
@@ -301,13 +319,13 @@ func (s *Store) CreateFundFlowRule(ctx context.Context, userID string, rule Fund
 	err := s.pool.QueryRow(ctx, query,
 		userID, rule.Name, rule.RuleType,
 		rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID, rule.SourcePropertyID,
-		rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID,
+		rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID, rule.TargetExpenseID,
 		rule.AmountType, rule.AmountValue, rule.Priority,
 		startDate, rule.EndDate,
 	).Scan(
 		&created.ID, &created.UserID, &created.Name, &created.RuleType,
 		&created.SourceIncomeID, &created.SourceCpfAccountID, &created.SourceCashAccountID, &created.SourceInvestmentID, &created.SourcePropertyID,
-		&created.TargetCpfAccountID, &created.TargetCashAccountID, &created.TargetInvestmentID, &created.TargetLiabilityID, &created.TargetPropertyID,
+		&created.TargetCpfAccountID, &created.TargetCashAccountID, &created.TargetInvestmentID, &created.TargetLiabilityID, &created.TargetPropertyID, &created.TargetExpenseID,
 		&created.AmountType, &created.AmountValue, &created.Priority,
 		&created.StartDate, &created.EndDate, &created.CreatedAt, &created.UpdatedAt,
 	)
@@ -323,7 +341,7 @@ func (s *Store) GetFundFlowRule(ctx context.Context, userID, ruleID string) (*Fu
 	query := `
 		SELECT id, user_id, name, rule_type,
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
-			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
+			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id, target_expense_id,
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at
 		FROM fund_flow_rules
@@ -333,7 +351,7 @@ func (s *Store) GetFundFlowRule(ctx context.Context, userID, ruleID string) (*Fu
 	err := s.pool.QueryRow(ctx, query, ruleID, userID).Scan(
 		&rule.ID, &rule.UserID, &rule.Name, &rule.RuleType,
 		&rule.SourceIncomeID, &rule.SourceCpfAccountID, &rule.SourceCashAccountID, &rule.SourceInvestmentID, &rule.SourcePropertyID,
-		&rule.TargetCpfAccountID, &rule.TargetCashAccountID, &rule.TargetInvestmentID, &rule.TargetLiabilityID, &rule.TargetPropertyID,
+		&rule.TargetCpfAccountID, &rule.TargetCashAccountID, &rule.TargetInvestmentID, &rule.TargetLiabilityID, &rule.TargetPropertyID, &rule.TargetExpenseID,
 		&rule.AmountType, &rule.AmountValue, &rule.Priority,
 		&rule.StartDate, &rule.EndDate, &rule.CreatedAt, &rule.UpdatedAt,
 	)
@@ -364,7 +382,7 @@ func (s *Store) ListFundFlowRules(ctx context.Context, q ListFundFlowRulesQuery)
 	query := `
 		SELECT id, user_id, name, rule_type,
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
-			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
+			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id, target_expense_id,
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at
 		FROM fund_flow_rules
@@ -430,7 +448,7 @@ func (s *Store) ListFundFlowRules(ctx context.Context, q ListFundFlowRulesQuery)
 		err := rows.Scan(
 			&rule.ID, &rule.UserID, &rule.Name, &rule.RuleType,
 			&rule.SourceIncomeID, &rule.SourceCpfAccountID, &rule.SourceCashAccountID, &rule.SourceInvestmentID, &rule.SourcePropertyID,
-			&rule.TargetCpfAccountID, &rule.TargetCashAccountID, &rule.TargetInvestmentID, &rule.TargetLiabilityID, &rule.TargetPropertyID,
+			&rule.TargetCpfAccountID, &rule.TargetCashAccountID, &rule.TargetInvestmentID, &rule.TargetLiabilityID, &rule.TargetPropertyID, &rule.TargetExpenseID,
 			&rule.AmountType, &rule.AmountValue, &rule.Priority,
 			&rule.StartDate, &rule.EndDate, &rule.CreatedAt, &rule.UpdatedAt,
 		)
@@ -460,13 +478,13 @@ func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule Fund
 		UPDATE fund_flow_rules
 		SET name = $3, rule_type = $4,
 			source_income_id = $5, source_cpf_account_id = $6, source_cash_account_id = $7, source_investment_id = $8, source_property_id = $9,
-			target_cpf_account_id = $10, target_cash_account_id = $11, target_investment_id = $12, target_liability_id = $13, target_property_id = $14,
-			amount_type = $15, amount_value = $16, priority = $17,
-			start_date = $18, end_date = $19, updated_at = NOW()
+			target_cpf_account_id = $10, target_cash_account_id = $11, target_investment_id = $12, target_liability_id = $13, target_property_id = $14, target_expense_id = $15,
+			amount_type = $16, amount_value = $17, priority = $18,
+			start_date = $19, end_date = $20, updated_at = NOW()
 		WHERE id = $1 AND user_id = $2
 		RETURNING id, user_id, name, rule_type,
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
-			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
+			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id, target_expense_id,
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at`
 
@@ -477,13 +495,13 @@ func (s *Store) UpdateFundFlowRule(ctx context.Context, userID string, rule Fund
 		rule.ID, userID,
 		rule.Name, rule.RuleType,
 		rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID, rule.SourcePropertyID,
-		rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID,
+		rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID, rule.TargetExpenseID,
 		rule.AmountType, rule.AmountValue, rule.Priority,
 		rule.StartDate, rule.EndDate,
 	).Scan(
 		&updated.ID, &updated.UserID, &updated.Name, &updated.RuleType,
 		&updated.SourceIncomeID, &updated.SourceCpfAccountID, &updated.SourceCashAccountID, &updated.SourceInvestmentID, &updated.SourcePropertyID,
-		&updated.TargetCpfAccountID, &updated.TargetCashAccountID, &updated.TargetInvestmentID, &updated.TargetLiabilityID, &updated.TargetPropertyID,
+		&updated.TargetCpfAccountID, &updated.TargetCashAccountID, &updated.TargetInvestmentID, &updated.TargetLiabilityID, &updated.TargetPropertyID, &updated.TargetExpenseID,
 		&updated.AmountType, &updated.AmountValue, &updated.Priority,
 		&updated.StartDate, &updated.EndDate, &updated.CreatedAt, &updated.UpdatedAt,
 	)
@@ -523,7 +541,7 @@ func (s *Store) SetFundFlowRuleEndDate(ctx context.Context, userID, ruleID strin
 		WHERE id = $1 AND user_id = $2
 		RETURNING id, user_id, name, rule_type,
 			source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
-			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
+			target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id, target_expense_id,
 			amount_type, amount_value, priority,
 			start_date, end_date, created_at, updated_at`
 
@@ -531,7 +549,7 @@ func (s *Store) SetFundFlowRuleEndDate(ctx context.Context, userID, ruleID strin
 	err := s.pool.QueryRow(ctx, query, ruleID, userID, endDate).Scan(
 		&updated.ID, &updated.UserID, &updated.Name, &updated.RuleType,
 		&updated.SourceIncomeID, &updated.SourceCpfAccountID, &updated.SourceCashAccountID, &updated.SourceInvestmentID, &updated.SourcePropertyID,
-		&updated.TargetCpfAccountID, &updated.TargetCashAccountID, &updated.TargetInvestmentID, &updated.TargetLiabilityID, &updated.TargetPropertyID,
+		&updated.TargetCpfAccountID, &updated.TargetCashAccountID, &updated.TargetInvestmentID, &updated.TargetLiabilityID, &updated.TargetPropertyID, &updated.TargetExpenseID,
 		&updated.AmountType, &updated.AmountValue, &updated.Priority,
 		&updated.StartDate, &updated.EndDate, &updated.CreatedAt, &updated.UpdatedAt,
 	)
@@ -639,14 +657,14 @@ func (s *Store) CreateBatchFundFlowRules(ctx context.Context, userID string, rul
 			INSERT INTO fund_flow_rules (
 				user_id, name, rule_type,
 				source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
-				target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
+				target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id, target_expense_id,
 				amount_type, amount_value, priority,
 				start_date, end_date
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 			RETURNING id, user_id, name, rule_type,
 				source_income_id, source_cpf_account_id, source_cash_account_id, source_investment_id, source_property_id,
-				target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id,
+				target_cpf_account_id, target_cash_account_id, target_investment_id, target_liability_id, target_property_id, target_expense_id,
 				amount_type, amount_value, priority,
 				start_date, end_date, created_at, updated_at`
 
@@ -654,13 +672,13 @@ func (s *Store) CreateBatchFundFlowRules(ctx context.Context, userID string, rul
 		err := tx.QueryRow(ctx, query,
 			userID, rule.Name, rule.RuleType,
 			rule.SourceIncomeID, rule.SourceCpfAccountID, rule.SourceCashAccountID, rule.SourceInvestmentID, rule.SourcePropertyID,
-			rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID,
+			rule.TargetCpfAccountID, rule.TargetCashAccountID, rule.TargetInvestmentID, rule.TargetLiabilityID, rule.TargetPropertyID, rule.TargetExpenseID,
 			rule.AmountType, rule.AmountValue, rule.Priority,
 			startDate, rule.EndDate,
 		).Scan(
 			&created.ID, &created.UserID, &created.Name, &created.RuleType,
 			&created.SourceIncomeID, &created.SourceCpfAccountID, &created.SourceCashAccountID, &created.SourceInvestmentID, &created.SourcePropertyID,
-			&created.TargetCpfAccountID, &created.TargetCashAccountID, &created.TargetInvestmentID, &created.TargetLiabilityID, &created.TargetPropertyID,
+			&created.TargetCpfAccountID, &created.TargetCashAccountID, &created.TargetInvestmentID, &created.TargetLiabilityID, &created.TargetPropertyID, &created.TargetExpenseID,
 			&created.AmountType, &created.AmountValue, &created.Priority,
 			&created.StartDate, &created.EndDate, &created.CreatedAt, &created.UpdatedAt,
 		)

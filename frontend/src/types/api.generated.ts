@@ -1101,6 +1101,7 @@ export interface ExpenseCreateInput {
   category?: string;
   endDate?: string;
   frequency?: string;
+  fundSourceAccountId?: string;
   growthRate?: string;
   growthStrategy?: string;
   name?: string;

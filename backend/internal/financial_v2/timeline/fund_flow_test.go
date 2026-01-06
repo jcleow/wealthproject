@@ -1503,3 +1503,548 @@ func TestFilterActiveTransferRules(t *testing.T) {
 		t.Errorf("expected 'active-transfer', got '%s'", active[0].ID)
 	}
 }
+
+// =============================================================================
+// Expense Rule Execution Tests (Phase 4)
+// =============================================================================
+
+func TestExecuteExpenseRules_SingleSourceCoversFullPayment(t *testing.T) {
+	// Scenario: Savings account has enough to cover full childcare expense
+	// Expected: Full payment from savings
+
+	rules := []repository.FundFlowRule{
+		{
+			ID:                  "rule-1",
+			Name:                "Childcare from Savings",
+			RuleType:            RuleTypeExpense,
+			SourceCashAccountID: strPtr("savings-123"),
+			TargetExpenseID:     strPtr("childcare-456"),
+			AmountType:          AmountTypeMaxAvailable,
+			Priority:            0,
+			StartDate:           dt(2025, 1, 1),
+		},
+	}
+
+	sourceBalances := SourceBalanceMap{
+		"savings-123": dec("50000"), // $50,000 in savings
+	}
+
+	requiredPayments := RequiredPaymentMap{
+		"childcare-456": dec("2000"), // $2,000 monthly childcare
+	}
+
+	currentDate := dt(2025, 6, 1)
+
+	result := executeExpenseRules(rules, sourceBalances, requiredPayments, currentDate)
+
+	// Verify payment was made
+	if len(result.ExecutionsByExpense) != 1 {
+		t.Fatalf("expected 1 expense with payments, got %d", len(result.ExecutionsByExpense))
+	}
+
+	payments := result.ExecutionsByExpense["childcare-456"]
+	if len(payments) != 1 {
+		t.Fatalf("expected 1 payment, got %d", len(payments))
+	}
+
+	payment := payments[0]
+	expectedAmount := dec("2000")
+	if payment.Amount.Cmp(expectedAmount) != 0 {
+		t.Errorf("expected payment amount %s, got %s", expectedAmount.String(), payment.Amount.String())
+	}
+
+	if payment.SourceType != SourceTypeCash {
+		t.Errorf("expected source type '%s', got '%s'", SourceTypeCash, payment.SourceType)
+	}
+
+	if payment.TargetType != TargetTypeExpense {
+		t.Errorf("expected target type '%s', got '%s'", TargetTypeExpense, payment.TargetType)
+	}
+
+	if payment.WasFallback {
+		t.Error("expected WasFallback to be false for primary payment")
+	}
+
+	// Verify savings balance was reduced
+	expectedSavings := dec("48000") // 50000 - 2000
+	if sourceBalances["savings-123"].Cmp(expectedSavings) != 0 {
+		t.Errorf("expected savings balance %s, got %s", expectedSavings.String(), sourceBalances["savings-123"].String())
+	}
+
+	// Verify total paid
+	if result.TotalPaid.Cmp(dec("2000")) != 0 {
+		t.Errorf("expected TotalPaid $2000, got %s", result.TotalPaid.String())
+	}
+}
+
+func TestExecuteExpenseRules_FallbackToSecondarySource(t *testing.T) {
+	// Scenario: Savings doesn't have enough, emergency fund covers remainder
+	// Expected: Partial from savings, remainder from emergency fund
+
+	rules := []repository.FundFlowRule{
+		{
+			ID:                  "rule-1",
+			Name:                "Childcare from Savings",
+			RuleType:            RuleTypeExpense,
+			SourceCashAccountID: strPtr("savings-123"),
+			TargetExpenseID:     strPtr("childcare-456"),
+			AmountType:          AmountTypeMaxAvailable,
+			Priority:            0,
+			StartDate:           dt(2025, 1, 1),
+		},
+		{
+			ID:                  "rule-2",
+			Name:                "Childcare from Emergency",
+			RuleType:            RuleTypeExpense,
+			SourceCashAccountID: strPtr("emergency-789"),
+			TargetExpenseID:     strPtr("childcare-456"),
+			AmountType:          AmountTypeRemainder,
+			Priority:            1, // Lower priority = fallback
+			StartDate:           dt(2025, 1, 1),
+		},
+	}
+
+	sourceBalances := SourceBalanceMap{
+		"savings-123":   dec("800"),  // Only $800 available
+		"emergency-789": dec("10000"), // $10,000 emergency fund
+	}
+
+	requiredPayments := RequiredPaymentMap{
+		"childcare-456": dec("2000"), // Needs $2,000
+	}
+
+	currentDate := dt(2025, 6, 1)
+
+	result := executeExpenseRules(rules, sourceBalances, requiredPayments, currentDate)
+
+	payments := result.ExecutionsByExpense["childcare-456"]
+	if len(payments) != 2 {
+		t.Fatalf("expected 2 payments, got %d", len(payments))
+	}
+
+	// First payment: $800 from savings
+	if payments[0].Amount.Cmp(dec("800")) != 0 {
+		t.Errorf("expected first payment $800, got %s", payments[0].Amount.String())
+	}
+	if payments[0].WasFallback {
+		t.Error("first payment should not be marked as fallback")
+	}
+
+	// Second payment: $1,200 from emergency fund (remainder)
+	if payments[1].Amount.Cmp(dec("1200")) != 0 {
+		t.Errorf("expected second payment $1200 (remainder), got %s", payments[1].Amount.String())
+	}
+	if !payments[1].WasFallback {
+		t.Error("second payment should be marked as fallback")
+	}
+
+	// Verify balances
+	if sourceBalances["savings-123"].Cmp(dec("0")) != 0 {
+		t.Errorf("expected savings depleted, got %s", sourceBalances["savings-123"].String())
+	}
+	if sourceBalances["emergency-789"].Cmp(dec("8800")) != 0 {
+		t.Errorf("expected emergency at $8800, got %s", sourceBalances["emergency-789"].String())
+	}
+
+	// Verify total
+	if result.TotalPaid.Cmp(dec("2000")) != 0 {
+		t.Errorf("expected total $2000, got %s", result.TotalPaid.String())
+	}
+}
+
+func TestExecuteExpenseRules_MultipleExpenses(t *testing.T) {
+	// Scenario: Payments to both childcare and utilities from same account
+	// Expected: Each expense gets its payments processed independently
+
+	rules := []repository.FundFlowRule{
+		{
+			ID:                  "rule-1",
+			Name:                "Childcare from Savings",
+			RuleType:            RuleTypeExpense,
+			SourceCashAccountID: strPtr("savings-123"),
+			TargetExpenseID:     strPtr("childcare-456"),
+			AmountType:          AmountTypeTargetRequired,
+			Priority:            0,
+			StartDate:           dt(2025, 1, 1),
+		},
+		{
+			ID:                  "rule-2",
+			Name:                "Utilities from Savings",
+			RuleType:            RuleTypeExpense,
+			SourceCashAccountID: strPtr("savings-123"),
+			TargetExpenseID:     strPtr("utilities-789"),
+			AmountType:          AmountTypeTargetRequired,
+			Priority:            0,
+			StartDate:           dt(2025, 1, 1),
+		},
+	}
+
+	sourceBalances := SourceBalanceMap{
+		"savings-123": dec("20000"),
+	}
+
+	requiredPayments := RequiredPaymentMap{
+		"childcare-456": dec("2000"),
+		"utilities-789": dec("500"),
+	}
+
+	result := executeExpenseRules(rules, sourceBalances, requiredPayments, dt(2025, 6, 1))
+
+	// Both expenses should have payments
+	if len(result.ExecutionsByExpense) != 2 {
+		t.Fatalf("expected 2 expenses with payments, got %d", len(result.ExecutionsByExpense))
+	}
+
+	// Savings should be reduced by total: $2,000 + $500 = $2,500
+	if sourceBalances["savings-123"].Cmp(dec("17500")) != 0 {
+		t.Errorf("expected savings at $17500, got %s", sourceBalances["savings-123"].String())
+	}
+
+	// Total paid should be $2,500
+	if result.TotalPaid.Cmp(dec("2500")) != 0 {
+		t.Errorf("expected total paid $2500, got %s", result.TotalPaid.String())
+	}
+}
+
+func TestExecuteExpenseRules_ZeroRequiredPayment(t *testing.T) {
+	// Scenario: Expense requires $0 payment
+	// Expected: No payments made
+
+	rules := []repository.FundFlowRule{
+		{
+			ID:                  "rule-1",
+			Name:                "Childcare from Savings",
+			RuleType:            RuleTypeExpense,
+			SourceCashAccountID: strPtr("savings-123"),
+			TargetExpenseID:     strPtr("childcare-456"),
+			AmountType:          AmountTypeMaxAvailable,
+			Priority:            0,
+			StartDate:           dt(2025, 1, 1),
+		},
+	}
+
+	sourceBalances := SourceBalanceMap{
+		"savings-123": dec("50000"),
+	}
+
+	requiredPayments := RequiredPaymentMap{
+		"childcare-456": dec("0"), // No payment required
+	}
+
+	result := executeExpenseRules(rules, sourceBalances, requiredPayments, dt(2025, 6, 1))
+
+	// No payments should be made
+	payments := result.ExecutionsByExpense["childcare-456"]
+	if len(payments) != 0 {
+		t.Errorf("expected no payments for zero required, got %d", len(payments))
+	}
+
+	// Savings should be unchanged
+	if sourceBalances["savings-123"].Cmp(dec("50000")) != 0 {
+		t.Errorf("expected savings unchanged, got %s", sourceBalances["savings-123"].String())
+	}
+
+	// Total paid should be zero
+	if result.TotalPaid.Cmp(dec("0")) != 0 {
+		t.Errorf("expected total paid $0, got %s", result.TotalPaid.String())
+	}
+}
+
+func TestExecuteExpenseRules_InactiveRuleSkipped(t *testing.T) {
+	// Scenario: Expense rule hasn't started yet
+	// Expected: No payment made
+
+	futureStart := dt(2026, 1, 1)
+	rules := []repository.FundFlowRule{
+		{
+			ID:                  "rule-1",
+			Name:                "Future Expense Rule",
+			RuleType:            RuleTypeExpense,
+			SourceCashAccountID: strPtr("savings-123"),
+			TargetExpenseID:     strPtr("childcare-456"),
+			AmountType:          AmountTypeMaxAvailable,
+			Priority:            0,
+			StartDate:           futureStart, // Starts in future
+		},
+	}
+
+	sourceBalances := SourceBalanceMap{
+		"savings-123": dec("50000"),
+	}
+
+	requiredPayments := RequiredPaymentMap{
+		"childcare-456": dec("2000"),
+	}
+
+	currentDate := dt(2025, 6, 1) // Before rule starts
+
+	result := executeExpenseRules(rules, sourceBalances, requiredPayments, currentDate)
+
+	// No payments should be made
+	if len(result.ExecutionsByExpense) != 0 {
+		t.Errorf("expected 0 expense payments for inactive rule, got %d", len(result.ExecutionsByExpense))
+	}
+
+	// Balance unchanged
+	if sourceBalances["savings-123"].Cmp(dec("50000")) != 0 {
+		t.Errorf("expected savings unchanged, got %s", sourceBalances["savings-123"].String())
+	}
+}
+
+func TestExecuteExpenseRules_EndedRuleSkipped(t *testing.T) {
+	// Scenario: Expense rule has ended
+	// Expected: No payment made
+
+	endDate := dt(2025, 3, 31)
+	rules := []repository.FundFlowRule{
+		{
+			ID:                  "rule-1",
+			Name:                "Ended Expense Rule",
+			RuleType:            RuleTypeExpense,
+			SourceCashAccountID: strPtr("savings-123"),
+			TargetExpenseID:     strPtr("childcare-456"),
+			AmountType:          AmountTypeMaxAvailable,
+			Priority:            0,
+			StartDate:           dt(2025, 1, 1),
+			EndDate:             &endDate, // Ended before current date
+		},
+	}
+
+	sourceBalances := SourceBalanceMap{
+		"savings-123": dec("50000"),
+	}
+
+	requiredPayments := RequiredPaymentMap{
+		"childcare-456": dec("2000"),
+	}
+
+	currentDate := dt(2025, 6, 1) // After rule ended
+
+	result := executeExpenseRules(rules, sourceBalances, requiredPayments, currentDate)
+
+	if len(result.ExecutionsByExpense) != 0 {
+		t.Errorf("expected 0 expense payments for ended rule, got %d", len(result.ExecutionsByExpense))
+	}
+}
+
+func TestExecuteExpenseRules_FixedAmount(t *testing.T) {
+	// Scenario: Pay fixed amount regardless of required
+	// Expected: Fixed amount paid, not full required
+
+	rules := []repository.FundFlowRule{
+		{
+			ID:                  "rule-1",
+			Name:                "Fixed Childcare Payment",
+			RuleType:            RuleTypeExpense,
+			SourceCashAccountID: strPtr("savings-123"),
+			TargetExpenseID:     strPtr("childcare-456"),
+			AmountType:          AmountTypeFixed,
+			AmountValue:         dec("1000"), // Fixed $1000
+			Priority:            0,
+			StartDate:           dt(2025, 1, 1),
+		},
+	}
+
+	sourceBalances := SourceBalanceMap{
+		"savings-123": dec("50000"),
+	}
+
+	requiredPayments := RequiredPaymentMap{
+		"childcare-456": dec("2000"), // Needs $2000 but rule only pays $1000
+	}
+
+	result := executeExpenseRules(rules, sourceBalances, requiredPayments, dt(2025, 6, 1))
+
+	payments := result.ExecutionsByExpense["childcare-456"]
+	if len(payments) != 1 {
+		t.Fatalf("expected 1 payment, got %d", len(payments))
+	}
+
+	// Should be fixed $1000, not the full $2000 required
+	if payments[0].Amount.Cmp(dec("1000")) != 0 {
+		t.Errorf("expected fixed amount $1000, got %s", payments[0].Amount.String())
+	}
+
+	// Savings should be reduced by $1000
+	if sourceBalances["savings-123"].Cmp(dec("49000")) != 0 {
+		t.Errorf("expected savings at $49000, got %s", sourceBalances["savings-123"].String())
+	}
+}
+
+func TestExecuteExpenseRules_PercentageOfTarget(t *testing.T) {
+	// Scenario: Pay 50% of required expense amount
+	// Expected: 50% of required paid
+
+	rules := []repository.FundFlowRule{
+		{
+			ID:                  "rule-1",
+			Name:                "50% Childcare from Savings",
+			RuleType:            RuleTypeExpense,
+			SourceCashAccountID: strPtr("savings-123"),
+			TargetExpenseID:     strPtr("childcare-456"),
+			AmountType:          AmountTypePctTarget,
+			AmountValue:         dec("50"), // 50%
+			Priority:            0,
+			StartDate:           dt(2025, 1, 1),
+		},
+	}
+
+	sourceBalances := SourceBalanceMap{
+		"savings-123": dec("50000"),
+	}
+
+	requiredPayments := RequiredPaymentMap{
+		"childcare-456": dec("2000"), // 50% = $1000
+	}
+
+	result := executeExpenseRules(rules, sourceBalances, requiredPayments, dt(2025, 6, 1))
+
+	payments := result.ExecutionsByExpense["childcare-456"]
+	if payments[0].Amount.Cmp(dec("1000")) != 0 {
+		t.Errorf("expected 50%% of $2000 = $1000, got %s", payments[0].Amount.String())
+	}
+}
+
+func TestFilterActiveExpenseRules(t *testing.T) {
+	endDate := dt(2024, 12, 31)
+	rules := []repository.FundFlowRule{
+		{
+			ID:        "active-expense",
+			RuleType:  RuleTypeExpense,
+			StartDate: dt(2025, 1, 1),
+			EndDate:   nil, // Active
+		},
+		{
+			ID:        "future-expense",
+			RuleType:  RuleTypeExpense,
+			StartDate: dt(2026, 1, 1), // Not started
+		},
+		{
+			ID:        "ended-expense",
+			RuleType:  RuleTypeExpense,
+			StartDate: dt(2025, 1, 1),
+			EndDate:   &endDate, // Ended
+		},
+		{
+			ID:        "transfer-rule",
+			RuleType:  RuleTypeTransfer, // Wrong type
+			StartDate: dt(2025, 1, 1),
+		},
+	}
+
+	currentDate := dt(2025, 6, 1)
+
+	active := filterActiveExpenseRules(rules, currentDate)
+
+	if len(active) != 1 {
+		t.Fatalf("expected 1 active expense rule, got %d", len(active))
+	}
+
+	if active[0].ID != "active-expense" {
+		t.Errorf("expected 'active-expense', got '%s'", active[0].ID)
+	}
+}
+
+func TestBuildRequiredExpensePaymentsMap_MonthlyExpenses(t *testing.T) {
+	expenses := []FinancialDataRow{
+		{
+			ID:        "childcare-456",
+			Name:      "Childcare",
+			ItemType:  FinExpense,
+			Amount:    *dec("2000"),
+			Frequency: "monthly",
+			StartDate: dt(2025, 1, 1),
+			EndDate:   nil,
+		},
+		{
+			ID:        "utilities-789",
+			Name:      "Utilities",
+			ItemType:  FinExpense,
+			Amount:    *dec("500"),
+			Frequency: "monthly",
+			StartDate: dt(2025, 1, 1),
+			EndDate:   nil,
+		},
+	}
+
+	state := map[string]*decimal.Decimal{
+		"childcare-456": dec("2000"),
+		"utilities-789": dec("500"),
+	}
+
+	currentDate := dt(2025, 6, 1)
+
+	required := buildRequiredExpensePaymentsMap(expenses, state, currentDate)
+
+	if len(required) != 2 {
+		t.Fatalf("expected 2 required expense payments, got %d", len(required))
+	}
+
+	if required["childcare-456"].Cmp(dec("2000")) != 0 {
+		t.Errorf("expected childcare $2000, got %s", required["childcare-456"].String())
+	}
+
+	if required["utilities-789"].Cmp(dec("500")) != 0 {
+		t.Errorf("expected utilities $500, got %s", required["utilities-789"].String())
+	}
+}
+
+func TestBuildRequiredExpensePaymentsMap_AnnualExpense(t *testing.T) {
+	expenses := []FinancialDataRow{
+		{
+			ID:        "insurance-123",
+			Name:      "Annual Insurance",
+			ItemType:  FinExpense,
+			Amount:    *dec("12000"), // $12,000 annually
+			Frequency: "annually",
+			StartDate: dt(2025, 1, 1),
+			EndDate:   nil,
+		},
+	}
+
+	state := map[string]*decimal.Decimal{
+		"insurance-123": dec("12000"),
+	}
+
+	currentDate := dt(2025, 6, 1)
+
+	required := buildRequiredExpensePaymentsMap(expenses, state, currentDate)
+
+	// $12,000 / 12 months = $1,000 monthly
+	if required["insurance-123"].Cmp(dec("1000")) != 0 {
+		t.Errorf("expected monthly insurance $1000, got %s", required["insurance-123"].String())
+	}
+}
+
+func TestBuildRequiredExpensePaymentsMap_ExcludesInactiveExpenses(t *testing.T) {
+	endDate := dt(2024, 12, 31)
+	expenses := []FinancialDataRow{
+		{
+			ID:        "ended-expense",
+			Name:      "Old Subscription",
+			ItemType:  FinExpense,
+			Amount:    *dec("100"),
+			Frequency: "monthly",
+			StartDate: dt(2020, 1, 1),
+			EndDate:   &endDate, // Ended before current date
+		},
+		{
+			ID:        "future-expense",
+			Name:      "Future Subscription",
+			ItemType:  FinExpense,
+			Amount:    *dec("200"),
+			Frequency: "monthly",
+			StartDate: dt(2026, 1, 1), // Starts in future
+			EndDate:   nil,
+		},
+	}
+
+	state := map[string]*decimal.Decimal{}
+	currentDate := dt(2025, 6, 1)
+
+	required := buildRequiredExpensePaymentsMap(expenses, state, currentDate)
+
+	if len(required) != 0 {
+		t.Errorf("expected 0 required payments for inactive expenses, got %d", len(required))
+	}
+}

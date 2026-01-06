@@ -12,6 +12,7 @@ import (
 const (
 	RuleTypePayment  = "payment"
 	RuleTypeTransfer = "transfer"
+	RuleTypeExpense  = "expense"
 )
 
 // Amount type constants for payment rules
@@ -43,6 +44,11 @@ const (
 	TargetTypeCPF        = "cpf"
 	TargetTypeCash       = "cash"
 	TargetTypeInvestment = "investment"
+)
+
+// Target type constant for expense rules
+const (
+	TargetTypeExpense = "expense"
 )
 
 // SourceBalanceMap maps account IDs to their current balances.
@@ -133,6 +139,37 @@ type TransferExecutionResult struct {
 	TotalToCash *decimal.Decimal
 	// TotalToInvestments is the net amount transferred TO investment accounts
 	TotalToInvestments *decimal.Decimal
+}
+
+// ExpenseExecution represents the result of executing a single expense rule.
+// Expense rules deduct from cash accounts to pay external expenses (outflows from the system).
+//
+// Unlike payment rules (to liabilities) or allocation rules (income routing),
+// expense rules model recurring costs like childcare, utilities, etc. that need
+// priority-based source selection ("pay from savings first, then emergency fund").
+type ExpenseExecution struct {
+	RuleID      string           `json:"ruleId"`
+	RuleName    string           `json:"ruleName"`
+	SourceType  string           `json:"sourceType"`  // Always "cash" for expense rules
+	SourceID    string           `json:"sourceId"`    // ID of the source cash account
+	SourceName  string           `json:"sourceName"`  // Source account name for display
+	TargetType  string           `json:"targetType"`  // Always "expense"
+	TargetID    string           `json:"targetId"`    // ID of the target expense
+	TargetName  string           `json:"targetName"`  // Expense name for display
+	Amount      *decimal.Decimal `json:"amount"`      // Amount actually paid
+	Priority    int              `json:"priority"`    // Rule priority (lower = higher priority)
+	AmountType  string           `json:"amountType"`  // One of the AmountType* constants
+	WasFallback bool             `json:"wasFallback"` // True if backup source was used
+}
+
+// ExpenseExecutionResult holds all expense executions for a month.
+// Expenses are grouped by target (expense entity) and processed by priority within each group.
+type ExpenseExecutionResult struct {
+	// ExecutionsByExpense maps expense ID to list of payments from different cash accounts
+	ExecutionsByExpense map[string][]ExpenseExecution
+
+	// TotalPaid is the total amount paid to all expenses this month
+	TotalPaid *decimal.Decimal
 }
 
 // executePaymentRules processes all payment-type fund flow rules for the current month.
@@ -448,6 +485,70 @@ func isLiabilityActiveForPayment(liability FinancialDataRow, date time.Time) boo
 	return true
 }
 
+// buildRequiredExpensePaymentsMap creates a map of expense ID to required monthly payment.
+// This is used by executeExpenseRules to know how much needs to be paid for each expense.
+// Uses the expense's grown amount (which includes inflation/growth) converted to monthly.
+func buildRequiredExpensePaymentsMap(
+	expenses []FinancialDataRow,
+	expenseAmountsWithGrowth map[string]*decimal.Decimal,
+	currentDate time.Time,
+) RequiredPaymentMap {
+	requiredPayments := make(RequiredPaymentMap)
+
+	for _, expense := range expenses {
+		// Skip inactive expenses
+		if !isActiveInMonth(expense, currentDate) {
+			continue
+		}
+
+		// Get the expense amount with growth applied, or fall back to base amount
+		amount := expenseAmountsWithGrowth[expense.ID]
+		if amount == nil {
+			amount = &expense.Amount
+		}
+
+		// Convert to monthly amount based on frequency
+		monthlyAmount := toMonthlyAmount(amount, string(expense.Frequency))
+		if monthlyAmount != nil && !monthlyAmount.IsZero() && !monthlyAmount.IsNegative() {
+			requiredPayments[expense.ID] = monthlyAmount
+		}
+	}
+
+	return requiredPayments
+}
+
+// toMonthlyAmount converts an amount to monthly based on its frequency.
+// This is a local helper that mirrors the common.ToMonthlyAmount logic.
+func toMonthlyAmount(amount *decimal.Decimal, frequency string) *decimal.Decimal {
+	if amount == nil {
+		return decimal.Zero()
+	}
+
+	switch frequency {
+	case "monthly":
+		return amount
+	case "annually", "yearly":
+		twelve := decimal.MustFromString("12")
+		return amount.Div(twelve)
+	case "quarterly":
+		three := decimal.MustFromString("3")
+		return amount.Div(three)
+	case "semi_annually":
+		six := decimal.MustFromString("6")
+		return amount.Div(six)
+	case "weekly":
+		// Roughly 4.33 weeks per month
+		weeksPerMonth := decimal.MustFromString("4.33")
+		return amount.Mul(weeksPerMonth)
+	case "bi_weekly":
+		// Roughly 2.17 bi-weeks per month
+		biWeeksPerMonth := decimal.MustFromString("2.17")
+		return amount.Mul(biWeeksPerMonth)
+	default:
+		return amount // Assume monthly if unknown
+	}
+}
+
 // =============================================================================
 // Transfer Rule Execution
 // =============================================================================
@@ -675,6 +776,243 @@ func calculateTransferAmount(
 	case AmountTypeRemainder:
 		// Transfer whatever is left in source
 		return sourceBalance
+
+	default:
+		return decimal.Zero()
+	}
+}
+
+// =============================================================================
+// Expense Rule Execution
+// =============================================================================
+
+// RulesByExpenseMap groups fund flow rules by their target expense.
+// Keys are expense IDs, values are slices of rules targeting that expense.
+type RulesByExpenseMap map[string][]repository.FundFlowRule
+
+// executeExpenseRules processes all expense-type fund flow rules for the current month.
+// Expense rules deduct from cash accounts to pay external expenses (outflows from the system).
+//
+// Expense rules work as follows:
+// 1. Rules are grouped by target expense (similar to payment rules)
+// 2. Within each group, rules are sorted by priority (lower number = higher priority)
+// 3. Each rule attempts to pay from its source cash account
+// 4. Only cash accounts can be sources (CPF/investments must transfer to cash first)
+//
+// IMPORTANT: sourceBalances is mutated - source balances are decreased by payment amounts.
+//
+// Parameters:
+//   - rules: All fund flow rules (will filter to expense type)
+//   - sourceBalances: Map of cash account ID to current balance (will be mutated)
+//   - requiredPayments: Map of expense ID to monthly amount required
+//   - currentDate: The current month being processed
+func executeExpenseRules(
+	rules []repository.FundFlowRule,
+	sourceBalances SourceBalanceMap,
+	requiredPayments RequiredPaymentMap,
+	currentDate time.Time,
+) ExpenseExecutionResult {
+	result := ExpenseExecutionResult{
+		ExecutionsByExpense: make(map[string][]ExpenseExecution),
+		TotalPaid:           decimal.Zero(),
+	}
+
+	// Filter to only expense rules active at current date
+	expenseRules := filterActiveExpenseRules(rules, currentDate)
+	if len(expenseRules) == 0 {
+		return result
+	}
+
+	// Group rules by target expense
+	byExpense := groupExpensesByTarget(expenseRules)
+
+	// Process each expense's rules
+	for expenseID, targetRules := range byExpense {
+		required, exists := requiredPayments[expenseID]
+		if !exists || required == nil || required.IsZero() || required.IsNegative() {
+			continue
+		}
+
+		executions := executeExpenseGroup(expenseID, targetRules, sourceBalances, required)
+		if len(executions) > 0 {
+			result.ExecutionsByExpense[expenseID] = executions
+			for _, exec := range executions {
+				result.TotalPaid = result.TotalPaid.Add(exec.Amount)
+			}
+		}
+	}
+
+	return result
+}
+
+// filterActiveExpenseRules returns only expense rules that are active on the given date
+func filterActiveExpenseRules(rules []repository.FundFlowRule, date time.Time) []repository.FundFlowRule {
+	var active []repository.FundFlowRule
+	for _, rule := range rules {
+		if rule.RuleType != RuleTypeExpense {
+			continue
+		}
+		// Check if rule is active (start_date <= date AND (end_date IS NULL OR end_date >= date))
+		if rule.StartDate.After(date) {
+			continue
+		}
+		if rule.EndDate != nil && rule.EndDate.Before(date) {
+			continue
+		}
+		active = append(active, rule)
+	}
+	return active
+}
+
+// groupExpensesByTarget groups expense rules by their target expense ID
+func groupExpensesByTarget(rules []repository.FundFlowRule) RulesByExpenseMap {
+	byExpense := make(RulesByExpenseMap)
+	for _, rule := range rules {
+		if rule.TargetExpenseID == nil {
+			continue // Invalid expense rule - no target
+		}
+		expenseID := *rule.TargetExpenseID
+		byExpense[expenseID] = append(byExpense[expenseID], rule)
+	}
+	return byExpense
+}
+
+// executeExpenseGroup executes all expense rules for a single expense in priority order
+func executeExpenseGroup(
+	expenseID string,
+	rules []repository.FundFlowRule,
+	sourceBalances SourceBalanceMap,
+	requiredAmount *decimal.Decimal,
+) []ExpenseExecution {
+	// Sort by priority (lower = higher priority)
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].Priority < rules[j].Priority
+	})
+
+	remainingAmount := requiredAmount
+	var executions []ExpenseExecution
+	isFirstExecution := true
+
+	for _, rule := range rules {
+		if remainingAmount.IsZero() || remainingAmount.IsNegative() {
+			break
+		}
+
+		// Expense rules can only use cash accounts as sources
+		sourceID := getExpenseSourceID(rule)
+		if sourceID == "" {
+			continue
+		}
+
+		sourceBalance := sourceBalances[sourceID]
+		if sourceBalance == nil || sourceBalance.IsZero() || sourceBalance.IsNegative() {
+			continue
+		}
+
+		// Calculate the intended amount based on amount type
+		intendedAmount := calculateExpenseAmount(rule, requiredAmount, remainingAmount, sourceBalance)
+		if intendedAmount.IsZero() || intendedAmount.IsNegative() {
+			continue
+		}
+
+		// Actual amount is minimum of: intended amount, source balance, remaining required
+		actualAmount := decimal.Min(intendedAmount, sourceBalance, remainingAmount)
+		if actualAmount.IsZero() || actualAmount.IsNegative() {
+			continue
+		}
+
+		// Deduct from source balance
+		newBalance := sourceBalance.Sub(actualAmount)
+		sourceBalances[sourceID] = newBalance
+
+		// Track the execution
+		execution := ExpenseExecution{
+			RuleID:      rule.ID,
+			RuleName:    rule.Name,
+			SourceType:  SourceTypeCash, // Expense rules only use cash sources
+			SourceID:    sourceID,
+			TargetType:  TargetTypeExpense,
+			TargetID:    expenseID,
+			Amount:      actualAmount,
+			Priority:    rule.Priority,
+			AmountType:  rule.AmountType,
+			WasFallback: !isFirstExecution,
+		}
+		executions = append(executions, execution)
+
+		// Reduce remaining
+		remainingAmount = remainingAmount.Sub(actualAmount)
+		isFirstExecution = false
+	}
+
+	return executions
+}
+
+// getExpenseSourceID returns the source cash account ID from an expense rule.
+// Expense rules can ONLY use cash accounts as sources.
+func getExpenseSourceID(rule repository.FundFlowRule) string {
+	if rule.SourceCashAccountID != nil {
+		return *rule.SourceCashAccountID
+	}
+	return ""
+}
+
+// calculateExpenseAmount determines the intended expense payment amount based on the rule's amount type
+func calculateExpenseAmount(
+	rule repository.FundFlowRule,
+	requiredAmount *decimal.Decimal,
+	remainingAmount *decimal.Decimal,
+	sourceBalance *decimal.Decimal,
+) *decimal.Decimal {
+	switch rule.AmountType {
+	case AmountTypeFixed:
+		// Pay exactly the specified amount
+		if rule.AmountValue == nil {
+			return decimal.Zero()
+		}
+		return rule.AmountValue
+
+	case AmountTypePctTarget:
+		// Pay percentage of target's required amount
+		if rule.AmountValue == nil {
+			return decimal.Zero()
+		}
+		hundred := decimal.MustFromString("100")
+		percentage := rule.AmountValue.Div(hundred)
+		return requiredAmount.Mul(percentage)
+
+	case AmountTypePctSource:
+		// Pay percentage of source balance
+		if rule.AmountValue == nil {
+			return decimal.Zero()
+		}
+		hundred := decimal.MustFromString("100")
+		percentage := rule.AmountValue.Div(hundred)
+		return sourceBalance.Mul(percentage)
+
+	case AmountTypeTargetRequired:
+		// Pay whatever target needs (optionally capped)
+		amount := remainingAmount
+		if rule.AmountValue != nil && rule.AmountValue.Cmp(amount) < 0 {
+			amount = rule.AmountValue
+		}
+		return amount
+
+	case AmountTypeMaxAvailable:
+		// Use up to source balance, capped by remaining required (and optional cap)
+		amount := sourceBalance
+		if amount.Cmp(remainingAmount) > 0 {
+			amount = remainingAmount
+		}
+		// Apply optional cap
+		if rule.AmountValue != nil && amount.Cmp(rule.AmountValue) > 0 {
+			amount = rule.AmountValue
+		}
+		return amount
+
+	case AmountTypeRemainder:
+		// Pay whatever is left after higher-priority rules
+		return remainingAmount
 
 	default:
 		return decimal.Zero()
