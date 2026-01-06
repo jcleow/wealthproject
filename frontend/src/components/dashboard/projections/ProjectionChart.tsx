@@ -113,6 +113,13 @@ export function ProjectionChart({
     setClickedPropertyMarker(null)
   }, [])
 
+  // Handle nested milestone click - open property modal
+  const handleNestedMilestoneClick = useCallback((milestone: NestedMilestoneData) => {
+    if (onPropertyScenarioEdit) {
+      onPropertyScenarioEdit(milestone.propertyScenarioId)
+    }
+  }, [onPropertyScenarioEdit])
+
   // Convert date string (YYYY-MM) to yearIndex based on baseCalendarYear
   const dateToYearIndex = useCallback((date: string): number => {
     const [yearStr, monthStr] = date.split('-')
@@ -488,6 +495,7 @@ export function ProjectionChart({
                 cx={cx}
                 cy={cy}
                 milestone={payload}
+                onClick={handleNestedMilestoneClick}
                 visible={markersReady}
                 animate={!prefersReducedMotion}
               />

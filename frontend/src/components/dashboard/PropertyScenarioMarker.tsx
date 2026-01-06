@@ -143,6 +143,8 @@ type NestedMilestoneMarkerProps = {
   cx?: number
   cy?: number
   milestone: NestedMilestoneData
+  /** Called when milestone is clicked - opens property modal */
+  onClick?: (milestone: NestedMilestoneData) => void
   visible?: boolean
   animate?: boolean
 }
@@ -155,6 +157,7 @@ export function NestedMilestoneMarker({
   cx = 0,
   cy = 0,
   milestone,
+  onClick,
   visible = true,
   animate = true,
 }: NestedMilestoneMarkerProps) {
@@ -164,16 +167,33 @@ export function NestedMilestoneMarker({
   // Stack offset: each additional milestone at same position shifts up by (radius * 2 + 4)
   const stackOffset = (milestone.stackOffset ?? 0) * (radius * 2 + 4)
 
+  const handleClick = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (onClick) {
+      onClick(milestone)
+    }
+  }
+
   const Icon = getIconByName(milestone.icon)
   const opacity = visible ? 1 : 0
   const transition = animate ? 'opacity 280ms ease-in-out 80ms' : 'none'
   const pointerEvents = visible ? 'auto' : 'none'
+  const isClickable = !!onClick
 
   return (
     <g
       transform={`translate(${cx}, ${cy - baseLift - stackOffset})`}
-      style={{ cursor: 'default', transition, pointerEvents, willChange: 'opacity' }}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      style={{ cursor: isClickable ? 'pointer' : 'default', transition, pointerEvents, willChange: 'opacity' }}
       opacity={opacity}
+      onClick={isClickable ? handleClick : undefined}
+      onKeyDown={isClickable ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          handleClick(event as unknown as React.MouseEvent)
+        }
+      } : undefined}
     >
       {/* Filled circle (no outer ring - matching Chart.js style) */}
       <circle
