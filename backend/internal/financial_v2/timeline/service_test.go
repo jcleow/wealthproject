@@ -325,7 +325,7 @@ func TestComputeFinancialSnapshot_AnchorMonthAllocationsReportedOnly(t *testing.
 				RuleType:           "allocation",
 				SourceIncomeID:     strPtr("income-1"),
 				TargetInvestmentID: strPtr("inv-1"),
-				AmountType:         "percentage",
+				AmountType:         "pct_source",
 				AmountValue:        decimal.MustFromString("10"), // 10% of income
 				StartDate:          startDate,
 			},

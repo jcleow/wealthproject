@@ -11,6 +11,10 @@ import (
 )
 
 // IncomeAllocationV2Handler serves v2 income allocation endpoints using pgx.
+//
+// NOTE: CPF allocations managed here are for VOLUNTARY transfers only (SRS, voluntary top-ups).
+// Mandatory CPF contributions are computed dynamically in the timeline engine based on
+// current CPF rates, age brackets, and wage ceilings - not stored as fund flow rules.
 type IncomeAllocationV2Handler struct {
 	store *repo.Store
 }
@@ -30,6 +34,7 @@ type incomeAllocationV2DTO struct {
 	EndDate             *string `json:"endDate,omitempty"`
 	TargetCashAccountID *string `json:"targetCashAccountId,omitempty"`
 	TargetInvestmentID  *string `json:"targetInvestmentId,omitempty"`
+	TargetCpfAccountID  *string `json:"targetCpfAccountId,omitempty"`
 	AllocationType      string  `json:"allocationType"`
 	AllocationValue     string  `json:"allocationValue"`
 	CreatedAt           string  `json:"createdAt"`
@@ -43,6 +48,7 @@ func toIncomeAllocationV2DTO(a repo.IncomeAllocation) incomeAllocationV2DTO {
 		StartDate:           a.StartDate.Format("2006-01-02T15:04:05Z07:00"),
 		TargetCashAccountID: a.TargetCashAccountID,
 		TargetInvestmentID:  a.TargetInvestmentID,
+		TargetCpfAccountID:  a.TargetCpfAccountID,
 		AllocationType:      a.AllocationType,
 		AllocationValue:     a.AllocationValue.String(),
 		CreatedAt:           a.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
@@ -57,12 +63,12 @@ func toIncomeAllocationV2DTO(a repo.IncomeAllocation) incomeAllocationV2DTO {
 // GET /api/v2/income-allocations
 // HandleListAll lists all income allocations for the user.
 // Query params:
-//   - targetType: "investment" or "cash_account" to filter by target type
+//   - targetType: "investment", "cash_account", or "cpf_account" to filter by target type
 // @Summary List all income allocations (v2)
 // @Description Returns all income allocations with optional target filtering
 // @Tags Income Allocations V2
 // @Produce json
-// @Param targetType query string false "Filter by target type (investment|cash_account)"
+// @Param targetType query string false "Filter by target type (investment|cash_account|cpf_account)"
 // @Success 200 {array} incomeAllocationV2DTO
 // @Failure 500 {object} map[string]interface{}
 // @Security SessionID
@@ -89,6 +95,9 @@ func (h *IncomeAllocationV2Handler) HandleListAll(w http.ResponseWriter, r *http
 			continue
 		}
 		if targetType == "cash_account" && a.TargetCashAccountID == nil {
+			continue
+		}
+		if targetType == "cpf_account" && a.TargetCpfAccountID == nil {
 			continue
 		}
 
@@ -150,6 +159,7 @@ func (h *IncomeAllocationV2Handler) HandleListByIncome(w http.ResponseWriter, r 
 type incomeAllocationCreateDTO struct {
 	TargetCashAccountID *string `json:"targetCashAccountId,omitempty"`
 	TargetInvestmentID  *string `json:"targetInvestmentId,omitempty"`
+	TargetCpfAccountID  *string `json:"targetCpfAccountId,omitempty"`
 	AllocationType      string  `json:"allocationType"`
 	AllocationValue     string  `json:"allocationValue"`
 }
@@ -184,8 +194,19 @@ func (h *IncomeAllocationV2Handler) HandleCreate(w http.ResponseWriter, r *http.
 	// Validate: exactly one target must be set
 	hasCashAccount := input.TargetCashAccountID != nil && *input.TargetCashAccountID != ""
 	hasInvestment := input.TargetInvestmentID != nil && *input.TargetInvestmentID != ""
-	if hasCashAccount == hasInvestment {
-		writeError(w, http.StatusBadRequest, "bad_request", "exactly one of targetCashAccountId or targetInvestmentId must be provided")
+	hasCpfAccount := input.TargetCpfAccountID != nil && *input.TargetCpfAccountID != ""
+	targetCount := 0
+	if hasCashAccount {
+		targetCount++
+	}
+	if hasInvestment {
+		targetCount++
+	}
+	if hasCpfAccount {
+		targetCount++
+	}
+	if targetCount != 1 {
+		writeError(w, http.StatusBadRequest, "bad_request", "exactly one of targetCashAccountId, targetInvestmentId, or targetCpfAccountId must be provided")
 		return
 	}
 
@@ -218,6 +239,7 @@ func (h *IncomeAllocationV2Handler) HandleCreate(w http.ResponseWriter, r *http.
 		IncomeID:            incomeID,
 		TargetCashAccountID: input.TargetCashAccountID,
 		TargetInvestmentID:  input.TargetInvestmentID,
+		TargetCpfAccountID:  input.TargetCpfAccountID,
 		AllocationType:      input.AllocationType,
 		AllocationValue:     *allocationValue,
 	}
@@ -264,8 +286,19 @@ func (h *IncomeAllocationV2Handler) HandleUpdate(w http.ResponseWriter, r *http.
 	// Validate: exactly one target must be set
 	hasCashAccount := input.TargetCashAccountID != nil && *input.TargetCashAccountID != ""
 	hasInvestment := input.TargetInvestmentID != nil && *input.TargetInvestmentID != ""
-	if hasCashAccount == hasInvestment {
-		writeError(w, http.StatusBadRequest, "bad_request", "exactly one of targetCashAccountId or targetInvestmentId must be provided")
+	hasCpfAccount := input.TargetCpfAccountID != nil && *input.TargetCpfAccountID != ""
+	targetCount := 0
+	if hasCashAccount {
+		targetCount++
+	}
+	if hasInvestment {
+		targetCount++
+	}
+	if hasCpfAccount {
+		targetCount++
+	}
+	if targetCount != 1 {
+		writeError(w, http.StatusBadRequest, "bad_request", "exactly one of targetCashAccountId, targetInvestmentId, or targetCpfAccountId must be provided")
 		return
 	}
 
@@ -296,6 +329,7 @@ func (h *IncomeAllocationV2Handler) HandleUpdate(w http.ResponseWriter, r *http.
 		IncomeID:            incomeID,
 		TargetCashAccountID: input.TargetCashAccountID,
 		TargetInvestmentID:  input.TargetInvestmentID,
+		TargetCpfAccountID:  input.TargetCpfAccountID,
 		AllocationType:      input.AllocationType,
 		AllocationValue:     *allocationValue,
 	}
