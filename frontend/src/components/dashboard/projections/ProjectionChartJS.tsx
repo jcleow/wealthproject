@@ -21,7 +21,7 @@ import { milestonePlugin, preloadIcons } from './chartjs/milestonePlugin'
 import { currentPositionLinePlugin } from './chartjs/currentPositionLinePlugin'
 import { ChartJSTooltip, useChartJSTooltip } from './chartjs/ChartJSTooltip'
 import { PropertyMarkerClickMenu } from './PropertyMarkerClickMenu'
-import type { ChartJSMarkerData, PropertyMarkerData } from './chartjs/types'
+import type { ChartJSMarkerData, PropertyMarkerData, PropertyMilestone } from './chartjs/types'
 import { chartColors, AREA_ANIMATION_MS, type AxisMode, type ProjectionPoint } from './types'
 import type { ScenarioMarkerData } from './useProjectionData'
 import type { ScenarioEvent } from '@/types/scenario'
@@ -198,6 +198,17 @@ export function ProjectionChartJS({
       return next
     })
   }, [])
+
+  // Handle nested milestone click (sale, fee icons) - open property modal
+  const handleNestedMilestoneClick = useCallback(
+    (_milestone: PropertyMilestone, parentMarker: PropertyMarkerData) => {
+      // Open the property scenario modal for editing
+      if (onPropertyScenarioEdit) {
+        onPropertyScenarioEdit(parentMarker.propertyScenarioId)
+      }
+    },
+    [onPropertyScenarioEdit]
+  )
 
   // Generate X-axis labels based on mode
   const getXAxisLabel = useCallback(
@@ -393,6 +404,7 @@ export function ProjectionChartJS({
           opacity: markerOpacity,
           onMarkerClick: handleMarkerClick,
           onPropertyMarkerClick: handlePropertyMarkerClick,
+          onNestedMilestoneClick: handleNestedMilestoneClick,
           expandedPropertyIds: expandedPropertyIds,
         },
         currentPositionLine: {
@@ -433,6 +445,7 @@ export function ProjectionChartJS({
     markerOpacity,
     handleMarkerClick,
     handlePropertyMarkerClick,
+    handleNestedMilestoneClick,
     expandedPropertyIds,
     displayData,
     onSelectMonth,
