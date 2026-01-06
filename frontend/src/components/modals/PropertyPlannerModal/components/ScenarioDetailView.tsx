@@ -21,7 +21,7 @@ import {
 
 import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
 import { useCashAccountsQuery } from '@/hooks/queries/useCashAccountsQuery'
-import { usePropertyFormInputs, usePropertyFormSaleInputs, useSyncExpectedSalePrice } from '../hooks'
+import { usePropertyFormInputs, usePropertyFormSaleInputs, useSyncExpectedSalePrice, useSyncCpfRefundAccounts } from '../hooks'
 
 import { propertyOptions } from '../constants'
 import { MortgageForm } from './MortgageForm'
@@ -72,6 +72,9 @@ export function ScenarioDetailView({
 
   // Auto-sync expectedSalePrice from appreciation projection
   useSyncExpectedSalePrice()
+
+  // Auto-link CPF refund accounts based on borrower income selections
+  useSyncCpfRefundAccounts()
 
   const selectedType = propertyType ?? 'hdb-resale'
   const selectedOption = propertyOptions.find(o => o.id === selectedType)
