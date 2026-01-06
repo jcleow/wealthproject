@@ -1984,6 +1984,8 @@ type MonthlyContext struct {
 	FundFlowRules []repo.FundFlowRule
 	// PaymentExecutions tracks payment attribution for the current month (for response building)
 	PaymentExecutions FundFlowExecutionResult
+	// TransferExecutions tracks transfer attribution for the current month (Phase 3: account ↔ account)
+	TransferExecutions TransferExecutionResult
 }
 
 // getCPFContext returns the CPF context for a given personID, or nil if not found
@@ -2103,6 +2105,16 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	// For anchor month, calculate contributions but don't add to balances (show base values)
 	applyContributions := !isAnchorMonth
 	employeeCPF, cpfContributions := mctx.processAllIncomes(mctx.Data.Incomes, stateForCalcs, currentDate, applyContributions)
+
+	// Execute transfer rules (fund flow Phase 3)
+	// Transfer rules move money between accounts (CPF ↔ Cash ↔ Investment).
+	// Run early so that:
+	//   - Voluntary CPF top-ups happen before allocations route remaining income
+	//   - Investment liquidations provide cash before payments need it
+	// Only execute after anchor month to match allocation behavior
+	if !isAnchorMonth && len(mctx.FundFlowRules) > 0 {
+		mctx.TransferExecutions = executeTransferRules(mctx.FundFlowRules, mctx.State, currentDate)
+	}
 
 	// Execute payment rules (fund flow Phase 1)
 	// Payment rules deduct from source accounts (CPF/cash) to pay liabilities/properties

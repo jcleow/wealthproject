@@ -10,7 +10,8 @@ import (
 
 // Fund flow rule type constants
 const (
-	RuleTypePayment = "payment"
+	RuleTypePayment  = "payment"
+	RuleTypeTransfer = "transfer"
 )
 
 // Amount type constants for payment rules
@@ -25,14 +26,23 @@ const (
 
 // Source type constants
 const (
-	SourceTypeCPF  = "cpf"
-	SourceTypeCash = "cash"
+	SourceTypeCPF        = "cpf"
+	SourceTypeCash       = "cash"
+	SourceTypeInvestment = "investment"
+	SourceTypeProperty   = "property"
 )
 
-// Target type constants
+// Target type constants for payment rules
 const (
 	TargetTypeLiability = "liability"
 	TargetTypeProperty  = "property"
+)
+
+// Target type constants for transfer rules
+const (
+	TargetTypeCPF        = "cpf"
+	TargetTypeCash       = "cash"
+	TargetTypeInvestment = "investment"
 )
 
 // SourceBalanceMap maps account IDs to their current balances.
@@ -77,6 +87,52 @@ type PaymentExecution struct {
 type FundFlowExecutionResult struct {
 	// PaymentsByTarget maps target ID (liability or property) to list of payments made
 	PaymentsByTarget map[string][]PaymentExecution
+}
+
+// TransferExecution represents the result of executing a single transfer rule.
+// Transfer rules move money between accounts (not income→account like allocations,
+// and not account→liability like payments).
+//
+// Supported transfer directions:
+//   - CPF → Cash (withdrawals at age 55+)
+//   - Cash → CPF (voluntary top-ups to SA/MA/RA)
+//   - Investment → Cash (liquidation/drawdown)
+//   - Cash → Investment (contributions beyond income allocation)
+//   - Property → Cash/CPF (sale proceeds - future phase)
+type TransferExecution struct {
+	RuleID     string           `json:"ruleId"`
+	RuleName   string           `json:"ruleName"`
+	SourceType string           `json:"sourceType"` // "cpf", "cash", "investment", "property"
+	SourceID   string           `json:"sourceId"`   // ID of the source account
+	SourceName string           `json:"sourceName"` // Source account name for display
+	TargetType string           `json:"targetType"` // "cpf", "cash", "investment"
+	TargetID   string           `json:"targetId"`   // ID of the target account
+	TargetName string           `json:"targetName"` // Target account name for display
+	Amount     *decimal.Decimal `json:"amount"`     // Amount actually transferred
+	Priority   int              `json:"priority"`   // Rule priority (lower = higher priority)
+	AmountType string           `json:"amountType"` // One of the AmountType* constants
+
+	// WasFallback is true if this was a lower-priority rule covering remainder.
+	// For transfers, this typically means a backup source was used after
+	// the primary source was exhausted.
+	WasFallback bool `json:"wasFallback"`
+}
+
+// TransferExecutionResult holds all transfer executions for a month.
+// Unlike payments (grouped by target) or allocations (grouped by income),
+// transfers are processed globally by priority since they can involve any accounts.
+type TransferExecutionResult struct {
+	// Executions is the ordered list of all transfer executions for the month
+	Executions []TransferExecution
+
+	// TotalToCPF is the net amount transferred TO CPF accounts (voluntary top-ups)
+	TotalToCPF *decimal.Decimal
+	// TotalFromCPF is the total amount transferred FROM CPF accounts (withdrawals)
+	TotalFromCPF *decimal.Decimal
+	// TotalToCash is the net amount transferred TO cash accounts
+	TotalToCash *decimal.Decimal
+	// TotalToInvestments is the net amount transferred TO investment accounts
+	TotalToInvestments *decimal.Decimal
 }
 
 // executePaymentRules processes all payment-type fund flow rules for the current month.
@@ -390,4 +446,237 @@ func isLiabilityActiveForPayment(liability FinancialDataRow, date time.Time) boo
 		return false
 	}
 	return true
+}
+
+// =============================================================================
+// Transfer Rule Execution
+// =============================================================================
+
+// executeTransferRules processes all transfer-type fund flow rules for the current month.
+// Transfer rules move money between accounts (CPF ↔ Cash ↔ Investment).
+//
+// Unlike payment rules (grouped by target) or allocation rules (grouped by income),
+// transfer rules are processed globally in priority order since they represent
+// arbitrary account-to-account movements.
+//
+// IMPORTANT: balances map is mutated - source balances are decreased and target
+// balances are increased by transfer amounts.
+//
+// Parameters:
+//   - rules: All fund flow rules (will filter to transfer type)
+//   - balances: Map of account ID to current balance (will be mutated for both source and target)
+//   - currentDate: The current month being processed
+func executeTransferRules(
+	rules []repository.FundFlowRule,
+	balances map[string]*decimal.Decimal,
+	currentDate time.Time,
+) TransferExecutionResult {
+	result := TransferExecutionResult{
+		Executions:         make([]TransferExecution, 0),
+		TotalToCPF:         decimal.Zero(),
+		TotalFromCPF:       decimal.Zero(),
+		TotalToCash:        decimal.Zero(),
+		TotalToInvestments: decimal.Zero(),
+	}
+
+	// Filter to only transfer rules active at current date
+	transferRules := filterActiveTransferRules(rules, currentDate)
+	if len(transferRules) == 0 {
+		return result
+	}
+
+	// Sort ALL transfer rules by priority (lower = higher priority)
+	// Unlike payments, transfers are not grouped - they run globally by priority
+	sort.Slice(transferRules, func(i, j int) bool {
+		return transferRules[i].Priority < transferRules[j].Priority
+	})
+
+	// Track which sources have been partially used (for WasFallback logic)
+	sourceUsageCount := make(map[string]int)
+
+	for _, rule := range transferRules {
+		sourceID := getTransferSourceID(rule)
+		targetID := getTransferTargetID(rule)
+		if sourceID == "" || targetID == "" {
+			continue
+		}
+
+		sourceBalance := balances[sourceID]
+		if sourceBalance == nil || sourceBalance.IsZero() || sourceBalance.IsNegative() {
+			continue
+		}
+
+		// Calculate the intended amount based on amount type
+		intendedAmount := calculateTransferAmount(rule, sourceBalance)
+		if intendedAmount.IsZero() || intendedAmount.IsNegative() {
+			continue
+		}
+
+		// Actual amount is capped by source balance
+		actualAmount := decimal.Min(intendedAmount, sourceBalance)
+		if actualAmount.IsZero() || actualAmount.IsNegative() {
+			continue
+		}
+
+		// Deduct from source balance
+		balances[sourceID] = sourceBalance.Sub(actualAmount)
+
+		// Add to target balance
+		targetBalance := balances[targetID]
+		if targetBalance == nil {
+			targetBalance = decimal.Zero()
+		}
+		balances[targetID] = targetBalance.Add(actualAmount)
+
+		// Determine if this is a fallback (not the first transfer from this source)
+		wasFallback := sourceUsageCount[sourceID] > 0
+		sourceUsageCount[sourceID]++
+
+		// Track the execution
+		execution := TransferExecution{
+			RuleID:      rule.ID,
+			RuleName:    rule.Name,
+			SourceType:  getTransferSourceType(rule),
+			SourceID:    sourceID,
+			TargetType:  getTransferTargetType(rule),
+			TargetID:    targetID,
+			Amount:      actualAmount,
+			Priority:    rule.Priority,
+			AmountType:  rule.AmountType,
+			WasFallback: wasFallback,
+		}
+		result.Executions = append(result.Executions, execution)
+
+		// Update totals based on target type
+		switch execution.TargetType {
+		case TargetTypeCPF:
+			result.TotalToCPF = result.TotalToCPF.Add(actualAmount)
+		case TargetTypeCash:
+			result.TotalToCash = result.TotalToCash.Add(actualAmount)
+		case TargetTypeInvestment:
+			result.TotalToInvestments = result.TotalToInvestments.Add(actualAmount)
+		}
+
+		// Track CPF outflows
+		if execution.SourceType == SourceTypeCPF {
+			result.TotalFromCPF = result.TotalFromCPF.Add(actualAmount)
+		}
+	}
+
+	return result
+}
+
+// filterActiveTransferRules returns only transfer rules that are active on the given date
+func filterActiveTransferRules(rules []repository.FundFlowRule, date time.Time) []repository.FundFlowRule {
+	var active []repository.FundFlowRule
+	for _, rule := range rules {
+		if rule.RuleType != RuleTypeTransfer {
+			continue
+		}
+		// Check if rule is active (start_date <= date AND (end_date IS NULL OR end_date >= date))
+		if rule.StartDate.After(date) {
+			continue
+		}
+		if rule.EndDate != nil && rule.EndDate.Before(date) {
+			continue
+		}
+		active = append(active, rule)
+	}
+	return active
+}
+
+// getTransferSourceID returns the source account ID from a transfer rule
+func getTransferSourceID(rule repository.FundFlowRule) string {
+	if rule.SourceCpfAccountID != nil {
+		return *rule.SourceCpfAccountID
+	}
+	if rule.SourceCashAccountID != nil {
+		return *rule.SourceCashAccountID
+	}
+	if rule.SourceInvestmentID != nil {
+		return *rule.SourceInvestmentID
+	}
+	// Note: SourcePropertyID is for sale proceeds - complex case handled separately
+	return ""
+}
+
+// getTransferSourceType returns the source type string for a transfer rule
+func getTransferSourceType(rule repository.FundFlowRule) string {
+	if rule.SourceCpfAccountID != nil {
+		return SourceTypeCPF
+	}
+	if rule.SourceCashAccountID != nil {
+		return SourceTypeCash
+	}
+	if rule.SourceInvestmentID != nil {
+		return SourceTypeInvestment
+	}
+	return ""
+}
+
+// getTransferTargetID returns the target account ID from a transfer rule
+func getTransferTargetID(rule repository.FundFlowRule) string {
+	if rule.TargetCpfAccountID != nil {
+		return *rule.TargetCpfAccountID
+	}
+	if rule.TargetCashAccountID != nil {
+		return *rule.TargetCashAccountID
+	}
+	if rule.TargetInvestmentID != nil {
+		return *rule.TargetInvestmentID
+	}
+	return ""
+}
+
+// getTransferTargetType returns the target type string for a transfer rule
+func getTransferTargetType(rule repository.FundFlowRule) string {
+	if rule.TargetCpfAccountID != nil {
+		return TargetTypeCPF
+	}
+	if rule.TargetCashAccountID != nil {
+		return TargetTypeCash
+	}
+	if rule.TargetInvestmentID != nil {
+		return TargetTypeInvestment
+	}
+	return ""
+}
+
+// calculateTransferAmount determines the intended transfer amount based on the rule's amount type
+func calculateTransferAmount(
+	rule repository.FundFlowRule,
+	sourceBalance *decimal.Decimal,
+) *decimal.Decimal {
+	switch rule.AmountType {
+	case AmountTypeFixed:
+		// Transfer exactly the specified amount
+		if rule.AmountValue == nil {
+			return decimal.Zero()
+		}
+		return rule.AmountValue
+
+	case AmountTypePctSource:
+		// Transfer percentage of source balance
+		if rule.AmountValue == nil {
+			return decimal.Zero()
+		}
+		hundred := decimal.MustFromString("100")
+		percentage := rule.AmountValue.Div(hundred)
+		return sourceBalance.Mul(percentage)
+
+	case AmountTypeMaxAvailable:
+		// Use up to source balance (optionally capped)
+		amount := sourceBalance
+		if rule.AmountValue != nil && amount.Cmp(rule.AmountValue) > 0 {
+			amount = rule.AmountValue
+		}
+		return amount
+
+	case AmountTypeRemainder:
+		// Transfer whatever is left in source
+		return sourceBalance
+
+	default:
+		return decimal.Zero()
+	}
 }
