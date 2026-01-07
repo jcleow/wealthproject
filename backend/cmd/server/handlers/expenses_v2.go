@@ -83,9 +83,8 @@ type expenseCreateInput struct {
 	SourceLiabilityID *string `json:"sourceLiabilityId"`
 	StartDate         *string `json:"startDate"`
 	EndDate           *string `json:"endDate"`
-	ParentID          *string `json:"parentId"`
-	// FundSourceAccountId creates a fund flow expense rule to pay from this account
-	FundSourceAccountId *string `json:"fundSourceAccountId"`
+	ParentID            *string `json:"parentId"`
+	FundSourceAccountId *string `json:"fundSourceAccountId"` // Creates a fund flow expense rule to pay from this account
 }
 
 // POST /api/v2/cashflow/expenses

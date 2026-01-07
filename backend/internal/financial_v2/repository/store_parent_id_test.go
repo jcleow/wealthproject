@@ -114,58 +114,6 @@ func TestCreateInvestment_VersionRecord_ParentIdPreserved(t *testing.T) {
 	require.NotEqual(t, created.ID, created.ParentID, "ID and ParentID should differ for versions")
 }
 
-// TestCreateIncomeAllocation_RootRecord_ParentIdEqualsId verifies that income allocations
-// also follow the same pattern: root records have parentId = id.
-func TestCreateIncomeAllocation_RootRecord_ParentIdEqualsId(t *testing.T) {
-	t.Parallel()
-
-	mockPool := testutil.NewMockPool(t)
-	store := NewStore(mockPool)
-	ctx := context.Background()
-	userID := "test-user"
-	incomeID := "income-1"
-	cashAccountID := "cash-account-1"
-	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) // Default start date
-	createdAt := time.Now()
-
-	newAllocID := "new-alloc-uuid"
-
-	// First call gets income name
-	mockPool.EnqueueRow("SELECT name FROM finance_incomes", []any{incomeID, userID}, testutil.NewStubRow(t, []any{"Salary"}, nil))
-
-	// INSERT into fund_flow_rules
-	// Column order: id, source_income_id, parent_id, start_date, end_date,
-	//               target_cash_account_id, target_investment_id, target_cpf_account_id,
-	//               amount_type, amount_value, created_at
-	mockPool.EnqueueRow(
-		"INSERT INTO fund_flow_rules",
-		nil,
-		testutil.NewStubRow(t, []any{
-			newAllocID,                    // id
-			incomeID,                      // source_income_id
-			newAllocID,                    // id (as parent_id)
-			startDate,                     // start_date
-			nil,                           // end_date
-			cashAccountID,                 // target_cash_account_id
-			nil,                           // target_investment_id
-			nil,                           // target_cpf_account_id
-			"percentage",                  // amount_type
-			*decimal.MustFromString("50"), // amount_value
-			createdAt,                     // created_at
-		}, nil),
-	)
-
-	allocation := IncomeAllocation{
-		IncomeID:            incomeID,
-		TargetCashAccountID: &cashAccountID,
-		AllocationType:      "percentage",
-		AllocationValue:     *decimal.MustFromString("50"),
-	}
-
-	created, err := store.CreateIncomeAllocation(ctx, userID, allocation)
-	require.NoError(t, err)
-
-	// Key assertion: for allocations, parentId equals id
-	require.Equal(t, newAllocID, created.ID, "ID should be the new UUID")
-	require.Equal(t, newAllocID, created.ParentID, "ParentID should equal ID for allocations")
-}
+// NOTE: TestCreateIncomeAllocation_RootRecord_ParentIdEqualsId has been removed
+// as part of the income_allocations → fund_flow_rules migration.
+// The allocation rules are now created via the fund_flow_rules API directly.
