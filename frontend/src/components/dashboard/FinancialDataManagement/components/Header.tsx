@@ -183,85 +183,90 @@ export function Header({
 
   return (
     <div className={compact ? 'px-4 py-3' : 'px-6 py-4'}>
-      <div className={compact ? 'flex flex-col gap-3' : 'flex items-start justify-between gap-3'}>
+      <div className="flex flex-col gap-3">
+        {/* Row 1: Title */}
         <div className="flex items-baseline gap-2">
           <h3 className={compact ? 'text-base font-semibold text-white' : 'text-lg font-semibold text-white'}>Financial Data</h3>
           <p className={compact ? 'text-xs text-gray-400' : 'text-sm text-gray-400'}>{`${absoluteYear} (Age ${displayAge})`}</p>
         </div>
-        {/* Unified timeline control bar */}
-        <div className={`relative z-[50] flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm ${compact ? 'w-full' : ''}`}>
-          <div className="flex items-center gap-1 p-1">
-            {resolution === 'monthly' && (
-              <>
-                <SelectField
-                  label="View"
-                  id="view-mode-selector"
-                  value={viewMode}
-                  disabled={isTimelineLoading}
-                  onChange={(val) => onViewModeChange(val as 'annualized' | 'monthly')}
-                  options={[
-                    { value: 'annualized', label: 'Yearly' },
-                    { value: 'monthly', label: 'Monthly' },
-                  ]}
-                />
-                <div className="w-px h-6 bg-white/[0.08]" />
-              </>
-            )}
 
-            <SelectField
-              label="Year"
-              id="year-selector"
-              value={Math.max(0, Math.min(30, relativeYearIndex))}
-              disabled={isTimelineLoading}
-              onChange={(val) => handleYearInput(String(val))}
-              options={Array.from({ length: 31 }, (_, idx) => ({
-                value: idx,
-                label: yearDisplayMode === 'calendar'
-                  ? String(resolvedAnchorYear + idx)
-                  : `+${idx}`
-              }))}
-              className="w-16"
-              onLabelClick={() => setYearDisplayMode(m => m === 'calendar' ? 'relative' : 'calendar')}
-              labelTitle="Click to toggle year format"
-            />
+        {/* Row 2: Timeline controls on left, Action buttons on right */}
+        <div className={compact ? 'flex flex-col gap-3' : 'flex items-center justify-between'}>
+          {/* Timeline navigation controls */}
+          <div className="relative z-[50] flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm">
+            <div className="flex items-center gap-1 p-1">
+              {resolution === 'monthly' && (
+                <>
+                  <SelectField
+                    label="View"
+                    id="view-mode-selector"
+                    value={viewMode}
+                    disabled={isTimelineLoading}
+                    onChange={(val) => onViewModeChange(val as 'annualized' | 'monthly')}
+                    options={[
+                      { value: 'annualized', label: 'Yearly' },
+                      { value: 'monthly', label: 'Monthly' },
+                    ]}
+                  />
+                  <div className="w-px h-6 bg-white/[0.08]" />
+                </>
+              )}
 
-            {resolution === 'monthly' && (
-              <>
-                <div className="w-px h-6 bg-white/[0.08]" />
-                <MonthSelector
-                  selectedCalendarMonth={displayCalendarMonth}
-                  absoluteYear={absoluteYear}
-                  anchorAbsoluteYear={anchorAbsoluteYear}
-                  anchorCalendarMonth={anchorCalendarMonth}
-                  onSelectMonth={onSelectMonth}
-                  isDisabled={isTimelineLoading || viewMode === 'annualized'}
-                />
-              </>
+              <SelectField
+                label="Year"
+                id="year-selector"
+                value={Math.max(0, Math.min(30, relativeYearIndex))}
+                disabled={isTimelineLoading}
+                onChange={(val) => handleYearInput(String(val))}
+                options={Array.from({ length: 31 }, (_, idx) => ({
+                  value: idx,
+                  label: yearDisplayMode === 'calendar'
+                    ? String(resolvedAnchorYear + idx)
+                    : `+${idx}`
+                }))}
+                className="w-16"
+                onLabelClick={() => setYearDisplayMode(m => m === 'calendar' ? 'relative' : 'calendar')}
+                labelTitle="Click to toggle year format"
+              />
+
+              {resolution === 'monthly' && (
+                <>
+                  <div className="w-px h-6 bg-white/[0.08]" />
+                  <MonthSelector
+                    selectedCalendarMonth={displayCalendarMonth}
+                    absoluteYear={absoluteYear}
+                    anchorAbsoluteYear={anchorAbsoluteYear}
+                    anchorCalendarMonth={anchorCalendarMonth}
+                    onSelectMonth={onSelectMonth}
+                    isDisabled={isTimelineLoading || viewMode === 'annualized'}
+                  />
+                </>
+              )}
+            </div>
+
+            {shouldShowSlider && (
+              <div className="border-t border-white/[0.08] px-3 py-2">
+                <Slider.Root
+                  className="relative flex items-center h-5 w-full select-none px-[7px]"
+                  min={0}
+                  max={sliderMax}
+                  step={1}
+                  value={[sliderValue]}
+                  onValueChange={handleSliderChange}
+                  disabled={isSliderDisabled}
+                  aria-label={viewMode === 'annualized' ? 'Timeline year slider' : 'Timeline month slider'}
+                >
+                  <Slider.Track className="relative h-1 w-full rounded-full bg-slate-700/60">
+                    <Slider.Range className="absolute h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400" />
+                  </Slider.Track>
+                  <Slider.Thumb className="block h-3.5 w-3.5 rounded-full bg-white border-2 border-blue-400 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/30 hover:scale-110 disabled:opacity-50 transition-transform cursor-grab active:cursor-grabbing" />
+                </Slider.Root>
+              </div>
             )}
           </div>
 
-          {shouldShowSlider && (
-            <div className="border-t border-white/[0.08] px-3 py-2">
-              <Slider.Root
-                className="relative flex items-center h-5 w-full select-none px-[7px]"
-                min={0}
-                max={sliderMax}
-                step={1}
-                value={[sliderValue]}
-                onValueChange={handleSliderChange}
-                disabled={isSliderDisabled}
-                aria-label={viewMode === 'annualized' ? 'Timeline year slider' : 'Timeline month slider'}
-              >
-                <Slider.Track className="relative h-1 w-full rounded-full bg-slate-700/60">
-                  <Slider.Range className="absolute h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400" />
-                </Slider.Track>
-                <Slider.Thumb className="block h-3.5 w-3.5 rounded-full bg-white border-2 border-blue-400 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/30 hover:scale-110 disabled:opacity-50 transition-transform cursor-grab active:cursor-grabbing" />
-              </Slider.Root>
-            </div>
-          )}
-
-          {/* Icon Toolbar */}
-          <div className="flex items-center justify-center gap-1 px-2 py-1.5 border-t border-white/[0.08]">
+          {/* Action buttons */}
+          <div className={`flex items-center justify-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm px-2 py-1.5 ${compact ? 'w-full' : 'self-center'}`}>
             {/* Tax Estimate Icon */}
             <button
               type="button"

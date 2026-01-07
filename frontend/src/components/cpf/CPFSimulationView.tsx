@@ -25,9 +25,8 @@ import {
   RetirementPayoutPlanner,
   CPFContributionCalculator,
   CPFHousingCalculator,
-  CPFLifeEstimator,
-  Age55RASimulator,
   CPFJourneyCalculator,
+  CPFLifeComparison,
 } from '@/components/cpf'
 import {
   mockCPFProfile,
@@ -98,14 +97,13 @@ interface CPFSimulationViewProps {
   onClose: () => void
 }
 
-type LearnCalculator = 'journey' | 'contribution' | 'housing' | 'age55' | 'cpflife'
+type LearnCalculator = 'journey' | 'contribution' | 'housing' | 'cpflife'
 
 const LEARN_CALCULATORS: { id: LearnCalculator; label: string; description: string }[] = [
   { id: 'journey', label: 'CPF Journey', description: 'Complete lifecycle overview' },
   { id: 'contribution', label: 'CPF Contributions', description: 'How salary flows to OA/SA/MA' },
   { id: 'housing', label: 'Housing Limits', description: 'Valuation & Withdrawal Limits' },
-  { id: 'age55', label: 'Age 55 (RA Creation)', description: 'SA/OA transfer to RA' },
-  { id: 'cpflife', label: 'CPF LIFE Payouts', description: 'Retirement income estimator' },
+  { id: 'cpflife', label: 'CPF LIFE', description: 'Compare payout plans' },
 ]
 
 export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
@@ -215,8 +213,7 @@ transition`}
             {activeCalculator === 'journey' && <CPFJourneyCalculator />}
             {activeCalculator === 'contribution' && <CPFContributionCalculator />}
             {activeCalculator === 'housing' && <CPFHousingCalculator />}
-            {activeCalculator === 'age55' && <Age55RASimulator />}
-            {activeCalculator === 'cpflife' && <CPFLifeEstimator />}
+            {activeCalculator === 'cpflife' && <CPFLifeComparison />}
           </div>
         )}
       </div>

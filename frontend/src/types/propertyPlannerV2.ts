@@ -83,6 +83,10 @@ export interface PropertySG {
   btoKeyCollectionDate?: string | null
   saleExpectedDate?: string | null
   saleExpectedPrice?: string | null
+  // Sale proceeds destination accounts
+  borrower1CpfRefundAccountId?: string | null
+  borrower2CpfRefundAccountId?: string | null
+  netCashProceedsAccountId?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -361,6 +365,10 @@ export interface CreatePropertySGInput {
   btoKeyCollectionDate?: string
   saleExpectedDate?: string
   saleExpectedPrice?: string
+  // Sale proceeds destination accounts
+  borrower1CpfRefundAccountId?: string | null
+  borrower2CpfRefundAccountId?: string | null
+  netCashProceedsAccountId?: string | null
 }
 
 export interface CreateFeeInput {

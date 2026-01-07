@@ -127,6 +127,7 @@ type MonthDetailResponse struct {
 	Liabilities      []LiabilityResponse       `json:"liabilities"`
 	Income            []IncomeResponse           `json:"income"`
 	CPFContributions  []CPFContributionResponse  `json:"cpfContributions"`
+	CPFRefunds        []CPFRefundResponse        `json:"cpfRefunds"`
 	Expenses          []ExpenseResponse          `json:"expenses"`
 	IncomeAllocations []IncomeAllocationResponse `json:"incomeAllocations"`
 	Properties        []property.PropertySnapshot         `json:"properties"`
@@ -280,6 +281,17 @@ type CPFContributionResponse struct {
 	AllocationSA         decimal.Decimal `json:"allocationSa"`
 	AllocationMA         decimal.Decimal `json:"allocationMa"`
 	AllocationRA         decimal.Decimal `json:"allocationRa"`
+}
+
+// CPFRefundResponse represents a CPF refund from property sale in the timeline response
+type CPFRefundResponse struct {
+	ID              string          `json:"id"`
+	Name            string          `json:"name"`
+	PropertyName    string          `json:"propertyName"`
+	TotalRefund     decimal.Decimal `json:"totalRefund"`
+	RefundDate      string          `json:"refundDate"`     // YYYY-MM format
+	TargetAccountID string          `json:"targetAccountId"`
+	ItemType        string          `json:"itemType"` // "cpf_refund"
 }
 
 // ExpenseResponse represents an expense in the timeline response

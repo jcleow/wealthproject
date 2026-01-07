@@ -2,7 +2,7 @@
  * Shared types for CategoryCard subcomponents
  */
 
-import type { TimelineItem, CPFContributionResponseV2 } from '@/types/timeline'
+import type { TimelineItem, CPFContributionResponseV2, CPFRefundResponseV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
@@ -81,6 +81,7 @@ export interface InvestmentsSectionProps {
 /** Props for CPF contributions section */
 export interface CPFContributionsSectionProps {
   cpfContributionsRaw: CPFContributionResponseV2[]
+  cpfRefundsRaw?: CPFRefundResponseV2[]
   groupItems?: boolean
 }
 

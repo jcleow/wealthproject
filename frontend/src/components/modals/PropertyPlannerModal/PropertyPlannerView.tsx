@@ -224,11 +224,10 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     expectedSaleDate: propertySG.saleExpectedDate || getDefaultSaleDate(ratePeriod?.startDate?.slice(0, 7) || new Date().toISOString().slice(0, 7)),
     expectedSalePrice: parseFloat(propertySG.saleExpectedPrice || String(parseFloat(propertySG.propertyPrice) * 1.3)),
     fees: saleFees.length > 0 ? saleFees : DEFAULT_SALE_FEES.map(f => ({ ...f })),
-    // Sale proceeds destination (may be null if not yet configured)
-    // Note: These fields are frontend-only for now until backend is updated
-    borrower1CpfRefundAccountId: (propertySG as any).saleBorrower1CpfRefundAccountId ?? null,
-    borrower2CpfRefundAccountId: (propertySG as any).saleBorrower2CpfRefundAccountId ?? null,
-    netCashProceedsAccountId: (propertySG as any).saleNetCashProceedsAccountId ?? null,
+    // Sale proceeds destination accounts
+    borrower1CpfRefundAccountId: propertySG.borrower1CpfRefundAccountId ?? null,
+    borrower2CpfRefundAccountId: propertySG.borrower2CpfRefundAccountId ?? null,
+    netCashProceedsAccountId: propertySG.netCashProceedsAccountId ?? null,
   }
 
   return {
@@ -318,6 +317,10 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
       propertyCount: 0,
       saleExpectedDate: scenario.saleInputs.expectedSaleDate,
       saleExpectedPrice: String(scenario.saleInputs.expectedSalePrice),
+      // Sale proceeds destination accounts
+      borrower1CpfRefundAccountId: scenario.saleInputs.borrower1CpfRefundAccountId,
+      borrower2CpfRefundAccountId: scenario.saleInputs.borrower2CpfRefundAccountId,
+      netCashProceedsAccountId: scenario.saleInputs.netCashProceedsAccountId,
     },
     // Transform grants array to API format
     grants: scenario.inputs.grants.map(g => ({
