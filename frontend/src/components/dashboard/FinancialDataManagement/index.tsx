@@ -224,6 +224,13 @@ export function FinancialDataManagement({
     return []
   }, [hasV2Data, timelineMonthV2])
 
+  const cpfRefundsRaw = useMemo(() => {
+    if (hasV2Data && timelineMonthV2) {
+      return timelineMonthV2.cpfRefunds ?? []
+    }
+    return []
+  }, [hasV2Data, timelineMonthV2])
+
   const monthlyInvestments = useMemo(() => {
     if (hasV2Data && timelineMonthV2) {
       return parseDecimal(timelineMonthV2.netInvestments)
@@ -966,6 +973,7 @@ export function FinancialDataManagement({
                     cpfAssets={key === 'asset' ? cpfAssets : undefined}
                     propertySnapshots={(key === 'asset' || key === 'liability') ? propertySnapshots : undefined}
                     cpfContributionsRaw={key === 'income' ? cpfContributionsRaw : undefined}
+                    cpfRefundsRaw={key === 'income' ? cpfRefundsRaw : undefined}
                     hasInvestmentsSection={key === 'income' ? hasInvestmentsSection : false}
                     monthlyInvestments={key === 'income' ? monthlyInvestments : 0}
                     onAddInvestment={key === 'asset' ? handleAddInvestment : undefined}

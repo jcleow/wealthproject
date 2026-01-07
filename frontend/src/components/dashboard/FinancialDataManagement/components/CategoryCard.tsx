@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import clsx from 'clsx'
-import type { TimelineItem, CPFContributionResponseV2, PropertySnapshotV2 } from '@/types/timeline'
+import type { TimelineItem, CPFContributionResponseV2, CPFRefundResponseV2, PropertySnapshotV2 } from '@/types/timeline'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
@@ -59,6 +59,7 @@ interface CategoryCardProps {
   // CPF specific (V2)
   cpfAssets?: TimelineItem[]
   cpfContributionsRaw?: CPFContributionResponseV2[]
+  cpfRefundsRaw?: CPFRefundResponseV2[]
   // Property snapshots (V2)
   propertySnapshots?: PropertySnapshotV2[]
   // Investments income (V2)
@@ -119,6 +120,7 @@ export function CategoryCard({
   investmentAssets = [],
   cpfAssets = [],
   cpfContributionsRaw = [],
+  cpfRefundsRaw = [],
   propertySnapshots = [],
   hasInvestmentsSection = false,
   monthlyInvestments = 0,
@@ -370,10 +372,11 @@ export function CategoryCard({
               />
             )}
 
-            {/* CPF contributions subsection */}
-            {category === 'income' && cpfContributionsRaw.length > 0 && (
+            {/* CPF contributions subsection (includes refunds from property sales) */}
+            {category === 'income' && (cpfContributionsRaw.length > 0 || cpfRefundsRaw.length > 0) && (
               <CPFContributionsSection
                 cpfContributionsRaw={cpfContributionsRaw}
+                cpfRefundsRaw={cpfRefundsRaw}
                 groupItems={groupItemsByCategory}
               />
             )}

@@ -1622,6 +1622,54 @@ func buildCPFContributionResponses(rows []FinancialDataRow, itemStates ItemState
 	return responses
 }
 
+// buildCPFRefundResponses builds CPF refund line items from property sale transfer rules
+func buildCPFRefundResponses(fundFlowRules []repo.FundFlowRule, properties []repo.PropertyScenarioFull, date time.Time) []CPFRefundResponse {
+	responses := make([]CPFRefundResponse, 0)
+	dateStr := date.Format("2006-01")
+
+	// Build property name lookup
+	propertyNames := make(map[string]string)
+	for _, prop := range properties {
+		if prop.PropertySG != nil {
+			propertyNames[prop.PropertySG.ID] = prop.PropertySG.Name
+		}
+	}
+
+	for _, rule := range fundFlowRules {
+		// Only transfer rules from property to CPF (CPF refunds)
+		if rule.RuleType != "transfer" || rule.SourcePropertyID == nil || rule.TargetCpfAccountID == nil {
+			continue
+		}
+
+		// Only include if active this month
+		if rule.StartDate.Format("2006-01") != dateStr {
+			continue
+		}
+
+		propertyName := propertyNames[*rule.SourcePropertyID]
+		if propertyName == "" {
+			propertyName = "Property"
+		}
+
+		refundAmount := decimal.Zero()
+		if rule.AmountValue != nil {
+			refundAmount = rule.AmountValue
+		}
+
+		responses = append(responses, CPFRefundResponse{
+			ID:              rule.ID,
+			Name:            rule.Name,
+			PropertyName:    propertyName,
+			TotalRefund:     *refundAmount.Round(0),
+			RefundDate:      dateStr,
+			TargetAccountID: *rule.TargetCpfAccountID,
+			ItemType:        "cpf_refund",
+		})
+	}
+
+	return responses
+}
+
 // buildAllCPFAssetResponses builds CPF asset responses for all persons
 func buildAllCPFAssetResponses(cpfContexts map[string]*CPFContext, yearIndex int, month int, date time.Time) []CPFAssetResponse {
 	responses := []CPFAssetResponse{}
@@ -1821,6 +1869,7 @@ func buildMonthDetailResponse(
 	incomes := buildIncomeResponses(data.Incomes, itemStates, eventAdjustedState, appliedImpacts, date, cpfContributions)
 	expenses := buildExpenseResponses(data.Expenses, itemStates, eventAdjustedState, appliedImpacts, date)
 	cpfContributionResponses := buildCPFContributionResponses(data.Incomes, itemStates, date, cpfContributions)
+	cpfRefundResponses := buildCPFRefundResponses(fundFlowRules, properties, date)
 	incomeAllocationResponses := buildIncomeAllocationResponsesFromRules(fundFlowRules, date)
 
 	// Build property snapshots
@@ -1897,6 +1946,7 @@ func buildMonthDetailResponse(
 		Liabilities:          liabilities,
 		Income:               incomes,
 		CPFContributions:     cpfContributionResponses,
+		CPFRefunds:           cpfRefundResponses,
 		Expenses:             expenses,
 		IncomeAllocations:    incomeAllocationResponses,
 		Properties:           propertySnapshots,

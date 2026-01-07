@@ -186,6 +186,7 @@ export interface MonthDetailResponseV2 {
   liabilities: LiabilityResponseV2[]
   income: IncomeResponseV2[]
   cpfContributions: CPFContributionResponseV2[]
+  cpfRefunds: CPFRefundResponseV2[]
   expenses: ExpenseResponseV2[]
   incomeAllocations: IncomeAllocationResponseV2[]
   properties: PropertySnapshotV2[]
@@ -334,6 +335,17 @@ export interface CPFContributionResponseV2 {
   allocationSa: string
   allocationMa: string
   allocationRa: string
+}
+
+/** CPF refund from property sale in V2 response */
+export interface CPFRefundResponseV2 {
+  id: string
+  name: string
+  propertyName: string
+  totalRefund: string
+  refundDate: string
+  targetAccountId: string
+  itemType: 'cpf_refund'
 }
 
 /** Expense in V2 response (decimal values come as strings from backend) */
