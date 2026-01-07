@@ -915,6 +915,14 @@ export function FinancialDataManagement({
           compact ? 'px-4 py-4' : 'px-6 py-6'
         )}>
             <div className={clsx('flex h-full flex-col', compact ? 'gap-4' : 'gap-6')}>
+              {/* Summary cards at top - side by side */}
+              <SummaryCards
+                netWorth={getNetWorthForYear()}
+                annualSavings={getAnnualSavingsForYear()}
+                hasV2Data={hasV2Data}
+                timelineMonthV2={timelineMonthV2}
+              />
+
               <div className={clsx(
                 'grid',
                 compact ? 'grid-cols-1 gap-3' : 'gap-4 lg:grid-cols-2'
@@ -981,14 +989,6 @@ export function FinancialDataManagement({
                   </ResizableCard>
                 ))}
               </div>
-
-              <SummaryCards
-                netWorth={getNetWorthForYear()}
-                annualSavings={getAnnualSavingsForYear()}
-                hasV2Data={hasV2Data}
-                timelineMonthV2={timelineMonthV2}
-                compact={compact}
-              />
             </div>
           </div>
       </div>
