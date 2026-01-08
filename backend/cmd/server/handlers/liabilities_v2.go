@@ -198,6 +198,7 @@ func (h *LiabilityV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request
 
 // DELETE /api/v2/liabilities/{id}
 // HandleDelete removes a liability.
+// @ID deleteLiability
 // @Summary Delete a liability (v2)
 // @Description Deletes a liability and all descendant versions
 // @Tags Liabilities V2

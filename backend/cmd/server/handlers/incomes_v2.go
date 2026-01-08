@@ -275,6 +275,7 @@ func (h *IncomeV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, i
 
 // DELETE /api/v2/cashflow/incomes/{id}
 // HandleDelete removes an income and its children.
+// @ID deleteIncome
 // @Summary Delete an income (v2)
 // @Description Deletes an income and all descendant versions
 // @Tags Incomes V2

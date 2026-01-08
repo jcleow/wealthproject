@@ -410,6 +410,7 @@ func (h *FundFlowRuleV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Requ
 
 // DELETE /api/v2/fund-flow-rules/{id}
 // HandleDelete deletes a fund flow rule.
+// @ID deleteFundFlowRule
 // @Summary Delete fund flow rule (v2)
 // @Description Deletes a fund flow rule
 // @Tags Fund Flow Rules V2

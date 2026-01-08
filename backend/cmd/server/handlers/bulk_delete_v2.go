@@ -19,6 +19,7 @@ func NewBulkDeleteV2Handler(store *repo.Store) *BulkDeleteV2Handler {
 
 // DELETE /api/v2/assets
 // HandleDeleteAllAssets deletes all assets (non-cash) for the authenticated user.
+// @ID deleteBulkAssets
 // @Summary Delete all assets (v2)
 // @Description Bulk deletes all non-cash assets for the authenticated user in a single query.
 // @Tags Bulk Delete V2
@@ -46,6 +47,7 @@ func (h *BulkDeleteV2Handler) HandleDeleteAllAssets(w http.ResponseWriter, r *ht
 
 // DELETE /api/v2/cash-accounts
 // HandleDeleteAllCashAccounts deletes all cash accounts for the authenticated user.
+// @ID deleteBulkCashAccounts
 // @Summary Delete all cash accounts (v2)
 // @Description Bulk deletes all cash accounts for the authenticated user in a single query.
 // @Tags Bulk Delete V2
@@ -73,6 +75,7 @@ func (h *BulkDeleteV2Handler) HandleDeleteAllCashAccounts(w http.ResponseWriter,
 
 // DELETE /api/v2/liabilities
 // HandleDeleteAllLiabilities deletes all liabilities for the authenticated user.
+// @ID deleteBulkLiabilities
 // @Summary Delete all liabilities (v2)
 // @Description Bulk deletes all liabilities for the authenticated user in a single query.
 // @Tags Bulk Delete V2
@@ -100,6 +103,7 @@ func (h *BulkDeleteV2Handler) HandleDeleteAllLiabilities(w http.ResponseWriter, 
 
 // DELETE /api/v2/cashflow/incomes
 // HandleDeleteAllIncomes deletes all incomes for the authenticated user.
+// @ID deleteBulkIncomes
 // @Summary Delete all incomes (v2)
 // @Description Bulk deletes all incomes for the authenticated user in a single query.
 // Also cascades to delete income allocations via FK constraint.
@@ -128,6 +132,7 @@ func (h *BulkDeleteV2Handler) HandleDeleteAllIncomes(w http.ResponseWriter, r *h
 
 // DELETE /api/v2/investments
 // HandleDeleteAllInvestments deletes all investments for the authenticated user.
+// @ID deleteBulkInvestments
 // @Summary Delete all investments (v2)
 // @Description Bulk deletes all investments for the authenticated user in a single query.
 // @Tags Bulk Delete V2
@@ -155,6 +160,7 @@ func (h *BulkDeleteV2Handler) HandleDeleteAllInvestments(w http.ResponseWriter, 
 
 // DELETE /api/v2/cpf/accounts
 // HandleDeleteAllCPFAccounts deletes all CPF accounts for the authenticated user.
+// @ID deleteBulkCPFAccounts
 // @Summary Delete all CPF accounts (v2)
 // @Description Bulk deletes all CPF accounts for the authenticated user in a single query.
 // @Tags Bulk Delete V2
@@ -182,6 +188,7 @@ func (h *BulkDeleteV2Handler) HandleDeleteAllCPFAccounts(w http.ResponseWriter, 
 
 // DELETE /api/v2/property-planner/scenarios
 // HandleDeleteAllPropertyScenarios deletes all property scenarios for the authenticated user.
+// @ID deleteBulkPropertyScenarios
 // @Summary Delete all property scenarios (v2)
 // @Description Bulk deletes all property scenarios for the authenticated user in a single query.
 // @Tags Bulk Delete V2
@@ -210,6 +217,7 @@ func (h *BulkDeleteV2Handler) HandleDeleteAllPropertyScenarios(w http.ResponseWr
 // DELETE /api/v2/reset-all-data
 // HandleResetAllData deletes all financial data for the authenticated user in a single transaction.
 // This is used when loading sample data to avoid deadlocks from parallel delete operations.
+// @ID resetAllUserData
 // @Summary Reset all user data (v2)
 // @Description Deletes all financial data (assets, liabilities, incomes, expenses, investments,
 // cash accounts, CPF accounts, scenario events, property scenarios, and persons) for the

@@ -336,6 +336,7 @@ func (h *AssetV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id
 
 // DELETE /api/v2/assets/{id}
 // HandleDelete removes an asset.
+// @ID deleteAsset
 // @Summary Delete an asset (v2)
 // @Description Deletes an asset and its descendant versions
 // @Tags Assets V2

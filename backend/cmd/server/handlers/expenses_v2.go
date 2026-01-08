@@ -224,6 +224,7 @@ func (h *ExpenseV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, 
 
 // DELETE /api/v2/cashflow/expenses/{id}
 // HandleDelete deletes an expense and descendants.
+// @ID deleteExpense
 // @Summary Delete an expense (v2)
 // @Description Deletes an expense and all its descendant versions
 // @Tags Expenses V2

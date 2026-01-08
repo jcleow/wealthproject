@@ -159,6 +159,7 @@ func (h *CashAccountV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Reque
 
 // DELETE /api/v2/cash-accounts/{id}
 // HandleDelete removes a cash account.
+// @ID deleteCashAccount
 // @Summary Delete a cash account (v2)
 // @Description Deletes a cash account and descendant versions
 // @Tags Cash Accounts V2

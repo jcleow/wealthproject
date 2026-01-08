@@ -348,6 +348,7 @@ func (h *PropertyPlannerV2Handler) HandleUpdate(w http.ResponseWriter, r *http.R
 
 // DELETE /api/v2/property-planner/scenarios/{id}
 // HandleDelete deletes a property scenario by ID.
+// @ID deletePropertyScenario
 // @Summary Delete a property scenario (v2)
 // @Description Deletes a property scenario by ID and all related data
 // @Tags Property Planner V2

@@ -46,7 +46,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.TokenResponse"
+                            "$ref": "#/definitions/handlers.TokenResponse"
                         }
                     },
                     "400": {
@@ -92,7 +92,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.ChatRequest"
+                            "$ref": "#/definitions/handlers.ChatRequest"
                         }
                     }
                 ],
@@ -100,7 +100,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.ChatResponse"
+                            "$ref": "#/definitions/handlers.ChatResponse"
                         }
                     },
                     "400": {
@@ -148,7 +148,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.DispatchRequest"
+                            "$ref": "#/definitions/handlers.DispatchRequest"
                         }
                     }
                 ],
@@ -156,7 +156,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.DispatchResponse"
+                            "$ref": "#/definitions/handlers.DispatchResponse"
                         }
                     },
                     "400": {
@@ -225,7 +225,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse"
+                            "$ref": "#/definitions/timeline.TimelineResponse"
                         }
                     },
                     "400": {
@@ -289,7 +289,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse"
+                            "$ref": "#/definitions/timeline.TimelineResponse"
                         }
                     },
                     "400": {
@@ -323,7 +323,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.HealthResponse"
+                            "$ref": "#/definitions/handlers.HealthResponse"
                         }
                     }
                 }
@@ -426,7 +426,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.assetCreateInput"
+                            "$ref": "#/definitions/handlers.assetCreateInput"
                         }
                     }
                 ],
@@ -434,7 +434,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.NonCashAsset"
+                            "$ref": "#/definitions/repository.NonCashAsset"
                         }
                     },
                     "400": {
@@ -467,6 +467,7 @@ const docTemplate = `{
                     "Bulk Delete V2"
                 ],
                 "summary": "Delete all assets (v2)",
+                "operationId": "deleteBulkAssets",
                 "responses": {
                     "204": {
                         "description": "No Content"
@@ -516,7 +517,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.assetInput"
+                            "$ref": "#/definitions/handlers.assetInput"
                         }
                     }
                 ],
@@ -524,7 +525,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.NonCashAsset"
+                            "$ref": "#/definitions/repository.NonCashAsset"
                         }
                     },
                     "400": {
@@ -564,6 +565,7 @@ const docTemplate = `{
                     "Assets V2"
                 ],
                 "summary": "Delete an asset (v2)",
+                "operationId": "deleteAsset",
                 "parameters": [
                     {
                         "type": "string",
@@ -629,7 +631,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.stopInput"
+                            "$ref": "#/definitions/handlers.stopInput"
                         }
                     }
                 ],
@@ -637,7 +639,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.NonCashAsset"
+                            "$ref": "#/definitions/repository.NonCashAsset"
                         }
                     },
                     "400": {
@@ -727,6 +729,7 @@ const docTemplate = `{
                     "Bulk Delete V2"
                 ],
                 "summary": "Delete all cash accounts (v2)",
+                "operationId": "deleteBulkCashAccounts",
                 "responses": {
                     "204": {
                         "description": "No Content"
@@ -776,7 +779,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.cashAccountV2Input"
+                            "$ref": "#/definitions/handlers.cashAccountV2Input"
                         }
                     }
                 ],
@@ -784,7 +787,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CashAsset"
+                            "$ref": "#/definitions/repository.CashAsset"
                         }
                     },
                     "400": {
@@ -824,6 +827,7 @@ const docTemplate = `{
                     "Cash Accounts V2"
                 ],
                 "summary": "Delete a cash account (v2)",
+                "operationId": "deleteCashAccount",
                 "parameters": [
                     {
                         "type": "string",
@@ -889,7 +893,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.stopInput"
+                            "$ref": "#/definitions/handlers.stopInput"
                         }
                     }
                 ],
@@ -897,7 +901,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CashAsset"
+                            "$ref": "#/definitions/repository.CashAsset"
                         }
                     },
                     "400": {
@@ -999,7 +1003,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.expenseCreateInput"
+                            "$ref": "#/definitions/handlers.expenseCreateInput"
                         }
                     }
                 ],
@@ -1089,7 +1093,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.expenseV2Input"
+                            "$ref": "#/definitions/handlers.expenseV2Input"
                         }
                     }
                 ],
@@ -1137,6 +1141,7 @@ const docTemplate = `{
                     "Expenses V2"
                 ],
                 "summary": "Delete an expense (v2)",
+                "operationId": "deleteExpense",
                 "parameters": [
                     {
                         "type": "string",
@@ -1202,7 +1207,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.stopInput"
+                            "$ref": "#/definitions/handlers.stopInput"
                         }
                     }
                 ],
@@ -1313,7 +1318,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.incomeV2CreateInput"
+                            "$ref": "#/definitions/handlers.incomeV2CreateInput"
                         }
                     }
                 ],
@@ -1354,6 +1359,7 @@ const docTemplate = `{
                     "Bulk Delete V2"
                 ],
                 "summary": "Delete all incomes (v2)",
+                "operationId": "deleteBulkIncomes",
                 "responses": {
                     "204": {
                         "description": "No Content"
@@ -1403,7 +1409,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.incomeV2Input"
+                            "$ref": "#/definitions/handlers.incomeV2Input"
                         }
                     }
                 ],
@@ -1451,6 +1457,7 @@ const docTemplate = `{
                     "Incomes V2"
                 ],
                 "summary": "Delete an income (v2)",
+                "operationId": "deleteIncome",
                 "parameters": [
                     {
                         "type": "string",
@@ -1516,7 +1523,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.stopInput"
+                            "$ref": "#/definitions/handlers.stopInput"
                         }
                     }
                 ],
@@ -1573,7 +1580,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CPFAccount"
+                            "$ref": "#/definitions/repository.CPFAccount"
                         }
                     },
                     "404": {
@@ -1619,7 +1626,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.cpfV2CreateInput"
+                            "$ref": "#/definitions/handlers.cpfV2CreateInput"
                         }
                     }
                 ],
@@ -1627,7 +1634,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CPFAccount"
+                            "$ref": "#/definitions/repository.CPFAccount"
                         }
                     },
                     "400": {
@@ -1682,7 +1689,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.cpfV2Input"
+                            "$ref": "#/definitions/handlers.cpfV2Input"
                         }
                     }
                 ],
@@ -1690,7 +1697,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CPFAccount"
+                            "$ref": "#/definitions/repository.CPFAccount"
                         }
                     },
                     "400": {
@@ -1795,7 +1802,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.stopInput"
+                            "$ref": "#/definitions/handlers.stopInput"
                         }
                     }
                 ],
@@ -1803,7 +1810,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CPFAccount"
+                            "$ref": "#/definitions/repository.CPFAccount"
                         }
                     },
                     "400": {
@@ -1854,7 +1861,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CPFAccount"
+                                "$ref": "#/definitions/repository.CPFAccount"
                             }
                         }
                     },
@@ -1881,6 +1888,7 @@ const docTemplate = `{
                     "Bulk Delete V2"
                 ],
                 "summary": "Delete all CPF accounts (v2)",
+                "operationId": "deleteBulkCPFAccounts",
                 "responses": {
                     "204": {
                         "description": "No Content"
@@ -1926,7 +1934,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse"
+                            "$ref": "#/definitions/timeline_v2.TimelineAnnualChartResponse"
                         }
                     },
                     "400": {
@@ -1989,7 +1997,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response"
+                            "$ref": "#/definitions/timeline_v2.TimelineV2Response"
                         }
                     },
                     "400": {
@@ -2065,7 +2073,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/cmd_server_handlers.fundFlowRuleDTO"
+                                "$ref": "#/definitions/handlers.fundFlowRuleDTO"
                             }
                         }
                     },
@@ -2105,7 +2113,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.fundFlowRuleCreateDTO"
+                            "$ref": "#/definitions/handlers.fundFlowRuleCreateDTO"
                         }
                     }
                 ],
@@ -2113,7 +2121,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.fundFlowRuleDTO"
+                            "$ref": "#/definitions/handlers.fundFlowRuleDTO"
                         }
                     },
                     "400": {
@@ -2191,7 +2199,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.fundFlowRuleDTO"
+                            "$ref": "#/definitions/handlers.fundFlowRuleDTO"
                         }
                     },
                     "404": {
@@ -2244,7 +2252,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.fundFlowRuleCreateDTO"
+                            "$ref": "#/definitions/handlers.fundFlowRuleCreateDTO"
                         }
                     }
                 ],
@@ -2252,7 +2260,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.fundFlowRuleDTO"
+                            "$ref": "#/definitions/handlers.fundFlowRuleDTO"
                         }
                     },
                     "400": {
@@ -2292,6 +2300,7 @@ const docTemplate = `{
                     "Fund Flow Rules V2"
                 ],
                 "summary": "Delete fund flow rule (v2)",
+                "operationId": "deleteFundFlowRule",
                 "parameters": [
                     {
                         "type": "string",
@@ -2357,7 +2366,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.stopFundFlowRuleDTO"
+                            "$ref": "#/definitions/handlers.stopFundFlowRuleDTO"
                         }
                     }
                 ],
@@ -2365,7 +2374,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.fundFlowRuleDTO"
+                            "$ref": "#/definitions/handlers.fundFlowRuleDTO"
                         }
                     },
                     "400": {
@@ -2468,7 +2477,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.investmentCreateInput"
+                            "$ref": "#/definitions/handlers.investmentCreateInput"
                         }
                     }
                 ],
@@ -2509,6 +2518,7 @@ const docTemplate = `{
                     "Bulk Delete V2"
                 ],
                 "summary": "Delete all investments (v2)",
+                "operationId": "deleteBulkInvestments",
                 "responses": {
                     "204": {
                         "description": "No Content"
@@ -2558,7 +2568,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.investmentV2Input"
+                            "$ref": "#/definitions/handlers.investmentV2Input"
                         }
                     }
                 ],
@@ -2606,6 +2616,7 @@ const docTemplate = `{
                     "Investments V2"
                 ],
                 "summary": "Delete an investment (v2)",
+                "operationId": "deleteInvestment",
                 "parameters": [
                     {
                         "type": "string",
@@ -2671,7 +2682,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.stopInput"
+                            "$ref": "#/definitions/handlers.stopInput"
                         }
                     }
                 ],
@@ -2782,7 +2793,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.liabilityCreateInput"
+                            "$ref": "#/definitions/handlers.liabilityCreateInput"
                         }
                     }
                 ],
@@ -2823,6 +2834,7 @@ const docTemplate = `{
                     "Bulk Delete V2"
                 ],
                 "summary": "Delete all liabilities (v2)",
+                "operationId": "deleteBulkLiabilities",
                 "responses": {
                     "204": {
                         "description": "No Content"
@@ -2872,7 +2884,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.liabilityInput"
+                            "$ref": "#/definitions/handlers.liabilityInput"
                         }
                     }
                 ],
@@ -2920,6 +2932,7 @@ const docTemplate = `{
                     "Liabilities V2"
                 ],
                 "summary": "Delete a liability (v2)",
+                "operationId": "deleteLiability",
                 "parameters": [
                     {
                         "type": "string",
@@ -2985,7 +2998,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.stopInput"
+                            "$ref": "#/definitions/handlers.stopInput"
                         }
                     }
                 ],
@@ -3044,7 +3057,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Person"
+                                "$ref": "#/definitions/repository.Person"
                             }
                         }
                     },
@@ -3084,7 +3097,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.personV2CreateInput"
+                            "$ref": "#/definitions/handlers.personV2CreateInput"
                         }
                     }
                 ],
@@ -3092,7 +3105,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Person"
+                            "$ref": "#/definitions/repository.Person"
                         }
                     },
                     "400": {
@@ -3143,7 +3156,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Person"
+                            "$ref": "#/definitions/repository.Person"
                         }
                     },
                     "404": {
@@ -3196,7 +3209,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.personV2UpdateInput"
+                            "$ref": "#/definitions/handlers.personV2UpdateInput"
                         }
                     }
                 ],
@@ -3204,7 +3217,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Person"
+                            "$ref": "#/definitions/repository.Person"
                         }
                     },
                     "400": {
@@ -3305,7 +3318,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Person"
+                            "$ref": "#/definitions/repository.Person"
                         }
                     },
                     "404": {
@@ -3349,7 +3362,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/cmd_server_handlers.scenarioResponse"
+                                "$ref": "#/definitions/handlers.scenarioResponse"
                             }
                         }
                     },
@@ -3389,7 +3402,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.createScenarioRequest"
+                            "$ref": "#/definitions/handlers.createScenarioRequest"
                         }
                     }
                 ],
@@ -3397,7 +3410,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.scenarioResponse"
+                            "$ref": "#/definitions/handlers.scenarioResponse"
                         }
                     },
                     "400": {
@@ -3430,6 +3443,7 @@ const docTemplate = `{
                     "Bulk Delete V2"
                 ],
                 "summary": "Delete all property scenarios (v2)",
+                "operationId": "deleteBulkPropertyScenarios",
                 "responses": {
                     "204": {
                         "description": "No Content"
@@ -3475,7 +3489,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.scenarioResponse"
+                            "$ref": "#/definitions/handlers.scenarioResponse"
                         }
                     },
                     "404": {
@@ -3528,7 +3542,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.createScenarioRequest"
+                            "$ref": "#/definitions/handlers.createScenarioRequest"
                         }
                     }
                 ],
@@ -3536,7 +3550,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.scenarioResponse"
+                            "$ref": "#/definitions/handlers.scenarioResponse"
                         }
                     },
                     "400": {
@@ -3576,6 +3590,7 @@ const docTemplate = `{
                     "Property Planner V2"
                 ],
                 "summary": "Delete a property scenario (v2)",
+                "operationId": "deletePropertyScenario",
                 "parameters": [
                     {
                         "type": "string",
@@ -3639,7 +3654,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertySGGrant"
+                                "$ref": "#/definitions/repository.PropertySGGrant"
                             }
                         }
                     },
@@ -3693,7 +3708,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.createGrantRequest"
+                            "$ref": "#/definitions/handlers.createGrantRequest"
                         }
                     }
                 ],
@@ -3701,7 +3716,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertySGGrant"
+                            "$ref": "#/definitions/repository.PropertySGGrant"
                         }
                     },
                     "400": {
@@ -3770,7 +3785,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.createGrantRequest"
+                            "$ref": "#/definitions/handlers.createGrantRequest"
                         }
                     }
                 ],
@@ -3778,7 +3793,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertySGGrant"
+                            "$ref": "#/definitions/repository.PropertySGGrant"
                         }
                     },
                     "400": {
@@ -3870,6 +3885,7 @@ const docTemplate = `{
                     "Bulk Delete V2"
                 ],
                 "summary": "Reset all user data (v2)",
+                "operationId": "resetAllUserData",
                 "responses": {
                     "204": {
                         "description": "No Content"
@@ -3986,7 +4002,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.scenarioEventV2DTO"
+                            "$ref": "#/definitions/handlers.scenarioEventV2DTO"
                         }
                     }
                 ],
@@ -3994,7 +4010,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.scenarioEventV2DTO"
+                            "$ref": "#/definitions/handlers.scenarioEventV2DTO"
                         }
                     },
                     "400": {
@@ -4045,7 +4061,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.scenarioEventV2DTO"
+                            "$ref": "#/definitions/handlers.scenarioEventV2DTO"
                         }
                     },
                     "404": {
@@ -4098,7 +4114,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.scenarioEventV2DTO"
+                            "$ref": "#/definitions/handlers.scenarioEventV2DTO"
                         }
                     }
                 ],
@@ -4106,7 +4122,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/cmd_server_handlers.scenarioEventV2DTO"
+                            "$ref": "#/definitions/handlers.scenarioEventV2DTO"
                         }
                     },
                     "400": {
@@ -4249,1356 +4265,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "cmd_server_handlers.ChatRequest": {
-            "type": "object",
-            "required": [
-                "chat_id",
-                "message",
-                "session_id"
-            ],
-            "properties": {
-                "chat_id": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "session_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.ChatResponse": {
-            "type": "object",
-            "properties": {
-                "actions_executed": {
-                    "type": "integer"
-                },
-                "api_version": {
-                    "type": "string"
-                },
-                "content": {
-                    "type": "string"
-                },
-                "conversation_flow": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_session.ConversationStep"
-                    }
-                },
-                "message_id": {
-                    "type": "string"
-                },
-                "proposed_actions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial.ProposedAction"
-                    }
-                },
-                "requires_approval": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "cmd_server_handlers.DispatchRequest": {
-            "type": "object",
-            "required": [
-                "selected_actions",
-                "session_id"
-            ],
-            "properties": {
-                "selected_actions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.SelectedAction"
-                    }
-                },
-                "session_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.DispatchResponse": {
-            "type": "object",
-            "properties": {
-                "api_version": {
-                    "type": "string"
-                },
-                "results": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.ExecutionResult"
-                    }
-                },
-                "summary": {
-                    "$ref": "#/definitions/cmd_server_handlers.ExecutionSummary"
-                },
-                "updated_session_state": {
-                    "$ref": "#/definitions/financial-chat-system_backend_internal_session.SessionState"
-                }
-            }
-        },
-        "cmd_server_handlers.ExecutionResult": {
-            "type": "object",
-            "properties": {
-                "call_id": {
-                    "type": "string"
-                },
-                "entity_id": {
-                    "type": "string"
-                },
-                "error": {
-                    "type": "string"
-                },
-                "execution_time_ms": {
-                    "type": "integer"
-                },
-                "rolled_back": {
-                    "type": "boolean"
-                },
-                "success": {
-                    "type": "boolean"
-                },
-                "tool_name": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.ExecutionSummary": {
-            "type": "object",
-            "properties": {
-                "failed": {
-                    "type": "integer"
-                },
-                "skipped": {
-                    "type": "integer"
-                },
-                "status": {
-                    "description": "\"success\", \"partial_success\", \"failed\"",
-                    "type": "string"
-                },
-                "successful": {
-                    "type": "integer"
-                },
-                "total_actions": {
-                    "type": "integer"
-                },
-                "total_execution_time_ms": {
-                    "type": "integer"
-                }
-            }
-        },
-        "cmd_server_handlers.HealthResponse": {
-            "type": "object",
-            "properties": {
-                "services": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "status": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                },
-                "uptime": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.SelectedAction": {
-            "type": "object",
-            "required": [
-                "call_id"
-            ],
-            "properties": {
-                "approved": {
-                    "type": "boolean"
-                },
-                "call_id": {
-                    "type": "string"
-                },
-                "modified_args": {
-                    "type": "object",
-                    "additionalProperties": true
-                }
-            }
-        },
-        "cmd_server_handlers.TokenResponse": {
-            "type": "object",
-            "properties": {
-                "expires": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "usage": {
-                    "type": "string"
-                },
-                "userId": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.assetCreateInput": {
-            "type": "object",
-            "properties": {
-                "annualGrowthRate": {
-                    "type": "string"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "currentValue": {
-                    "type": "string"
-                },
-                "endDate": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                },
-                "terminalValue": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.assetInput": {
-            "type": "object",
-            "properties": {
-                "annualGrowthRate": {
-                    "type": "string"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "currentValue": {
-                    "type": "string"
-                },
-                "endDate": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "parentId": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                },
-                "terminalValue": {
-                    "type": "string"
-                },
-                "updateMode": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.cashAccountV2Input": {
-            "type": "object",
-            "properties": {
-                "accountType": {
-                    "type": "string"
-                },
-                "balance": {
-                    "type": "string"
-                },
-                "bankName": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "interestRate": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                },
-                "updateMode": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.cpfV2CreateInput": {
-            "type": "object",
-            "properties": {
-                "housingStartDate": {
-                    "type": "string"
-                },
-                "maBalance": {
-                    "type": "string"
-                },
-                "oaBalance": {
-                    "type": "string"
-                },
-                "oaUsedForHousing": {
-                    "type": "string"
-                },
-                "personId": {
-                    "description": "Required FK to persons table",
-                    "type": "string"
-                },
-                "raBalance": {
-                    "type": "string"
-                },
-                "saBalance": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.cpfV2Input": {
-            "type": "object",
-            "properties": {
-                "housingStartDate": {
-                    "type": "string"
-                },
-                "maBalance": {
-                    "type": "string"
-                },
-                "oaBalance": {
-                    "type": "string"
-                },
-                "oaUsedForHousing": {
-                    "type": "string"
-                },
-                "personId": {
-                    "description": "Required FK to persons table",
-                    "type": "string"
-                },
-                "raBalance": {
-                    "type": "string"
-                },
-                "saBalance": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                },
-                "updateMode": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.createFeeRequest": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "string"
-                },
-                "currency": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "endDate": {
-                    "type": "string"
-                },
-                "feeContext": {
-                    "type": "string"
-                },
-                "feeType": {
-                    "type": "string"
-                },
-                "frequency": {
-                    "type": "string"
-                },
-                "icon": {
-                    "type": "string"
-                },
-                "iconColor": {
-                    "type": "string"
-                },
-                "isPercentage": {
-                    "type": "boolean"
-                },
-                "startDate": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.createGrantRequest": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.createGrowthPeriodRequest": {
-            "type": "object",
-            "properties": {
-                "endYear": {
-                    "type": "integer"
-                },
-                "growthRate": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "startYear": {
-                    "type": "integer"
-                }
-            }
-        },
-        "cmd_server_handlers.createPropertySGRequest": {
-            "type": "object",
-            "properties": {
-                "borrower1CpfAccountId": {
-                    "type": "string"
-                },
-                "borrower1CpfRefundAccountId": {
-                    "description": "Sale proceeds destination accounts",
-                    "type": "string"
-                },
-                "borrower1DownpaymentCashAccountId": {
-                    "description": "Per-borrower cash account configuration (downpayment)",
-                    "type": "string"
-                },
-                "borrower1DownpaymentCashAmount": {
-                    "type": "string"
-                },
-                "borrower1DownpaymentCpfOa": {
-                    "description": "Per-borrower CPF OA tracking",
-                    "type": "string"
-                },
-                "borrower1IncomeId": {
-                    "type": "string"
-                },
-                "borrower1MonthlyCashAccountId": {
-                    "description": "Per-borrower cash account configuration (monthly payment)",
-                    "type": "string"
-                },
-                "borrower1MonthlyCashAmount": {
-                    "type": "string"
-                },
-                "borrower1MonthlyCashAmountType": {
-                    "description": "'fixed', 'percentage', 'remainder'",
-                    "type": "string"
-                },
-                "borrower1MonthlyCpfOa": {
-                    "type": "string"
-                },
-                "borrower2CpfAccountId": {
-                    "type": "string"
-                },
-                "borrower2CpfRefundAccountId": {
-                    "type": "string"
-                },
-                "borrower2DownpaymentCashAccountId": {
-                    "type": "string"
-                },
-                "borrower2DownpaymentCashAmount": {
-                    "type": "string"
-                },
-                "borrower2DownpaymentCpfOa": {
-                    "type": "string"
-                },
-                "borrower2IncomeId": {
-                    "type": "string"
-                },
-                "borrower2MonthlyCashAccountId": {
-                    "type": "string"
-                },
-                "borrower2MonthlyCashAmount": {
-                    "type": "string"
-                },
-                "borrower2MonthlyCashAmountType": {
-                    "description": "'fixed', 'percentage', 'remainder'",
-                    "type": "string"
-                },
-                "borrower2MonthlyCpfOa": {
-                    "type": "string"
-                },
-                "borrowerType": {
-                    "type": "string"
-                },
-                "btoKeyCollectionDate": {
-                    "type": "string"
-                },
-                "btoLaunchDate": {
-                    "type": "string"
-                },
-                "downpaymentCash": {
-                    "type": "string"
-                },
-                "downpaymentCpfOa": {
-                    "type": "string"
-                },
-                "isIncluded": {
-                    "type": "boolean"
-                },
-                "leaseRemainingYears": {
-                    "description": "Lease tenure: nil = freehold, 1-999 = remaining years",
-                    "type": "integer"
-                },
-                "loanType": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "netCashProceedsAccountId": {
-                    "type": "string"
-                },
-                "otherDebt": {
-                    "type": "string"
-                },
-                "propertyCount": {
-                    "type": "integer"
-                },
-                "propertyPrice": {
-                    "type": "string"
-                },
-                "propertySubtype": {
-                    "type": "string"
-                },
-                "propertyType": {
-                    "type": "string"
-                },
-                "purchaseIcon": {
-                    "type": "string"
-                },
-                "purchaseIconColor": {
-                    "type": "string"
-                },
-                "saleExpectedDate": {
-                    "type": "string"
-                },
-                "saleExpectedPrice": {
-                    "type": "string"
-                },
-                "saleIcon": {
-                    "type": "string"
-                },
-                "saleIconColor": {
-                    "type": "string"
-                },
-                "valuationPrice": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.createRatePeriodRequest": {
-            "type": "object",
-            "properties": {
-                "rate": {
-                    "description": "Interest rate (percentage)",
-                    "type": "string"
-                },
-                "rateType": {
-                    "description": "\"fixed\" or \"floating\"",
-                    "type": "string"
-                },
-                "startMonth": {
-                    "description": "YYYY-MM format - for backwards compatibility",
-                    "type": "string"
-                },
-                "termYears": {
-                    "type": "integer"
-                }
-            }
-        },
-        "cmd_server_handlers.createScenarioRequest": {
-            "type": "object",
-            "properties": {
-                "country": {
-                    "description": "\"SG\" | \"MY\"",
-                    "type": "string"
-                },
-                "fees": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.createFeeRequest"
-                    }
-                },
-                "grants": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.createGrantRequest"
-                    }
-                },
-                "growthPeriods": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.createGrowthPeriodRequest"
-                    }
-                },
-                "propertySG": {
-                    "$ref": "#/definitions/cmd_server_handlers.createPropertySGRequest"
-                },
-                "ratePeriods": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.createRatePeriodRequest"
-                    }
-                }
-            }
-        },
-        "cmd_server_handlers.expenseCreateInput": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "string"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "endDate": {
-                    "type": "string"
-                },
-                "frequency": {
-                    "type": "string"
-                },
-                "fundSourceAccountId": {
-                    "description": "Creates a fund flow expense rule to pay from this account",
-                    "type": "string"
-                },
-                "growthRate": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "parentId": {
-                    "type": "string"
-                },
-                "sourceLiabilityId": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.expenseV2Input": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "string"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "frequency": {
-                    "type": "string"
-                },
-                "growthRate": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "parentId": {
-                    "type": "string"
-                },
-                "sourceLiabilityId": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                },
-                "updateMode": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.fundFlowRuleCreateDTO": {
-            "type": "object",
-            "properties": {
-                "amountType": {
-                    "description": "Amount",
-                    "type": "string"
-                },
-                "amountValue": {
-                    "type": "string"
-                },
-                "endDate": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "priority": {
-                    "description": "Priority for multiple rules on same target (lower = higher priority)",
-                    "type": "integer"
-                },
-                "ruleType": {
-                    "type": "string"
-                },
-                "sourceCashAccountId": {
-                    "type": "string"
-                },
-                "sourceCpfAccountId": {
-                    "type": "string"
-                },
-                "sourceIncomeId": {
-                    "description": "Source",
-                    "type": "string"
-                },
-                "sourceInvestmentId": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "description": "Timing",
-                    "type": "string"
-                },
-                "targetCashAccountId": {
-                    "type": "string"
-                },
-                "targetCpfAccountId": {
-                    "description": "Target",
-                    "type": "string"
-                },
-                "targetExpenseId": {
-                    "type": "string"
-                },
-                "targetInvestmentId": {
-                    "type": "string"
-                },
-                "targetLiabilityId": {
-                    "type": "string"
-                },
-                "targetPropertyId": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.fundFlowRuleDTO": {
-            "type": "object",
-            "properties": {
-                "amountType": {
-                    "description": "Amount",
-                    "type": "string"
-                },
-                "amountValue": {
-                    "type": "string"
-                },
-                "createdAt": {
-                    "description": "Metadata",
-                    "type": "string"
-                },
-                "endDate": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "priority": {
-                    "description": "Priority for multiple rules on same target (lower = higher priority)",
-                    "type": "integer"
-                },
-                "ruleType": {
-                    "type": "string"
-                },
-                "sourceCashAccountId": {
-                    "type": "string"
-                },
-                "sourceCpfAccountId": {
-                    "type": "string"
-                },
-                "sourceIncomeId": {
-                    "description": "Source",
-                    "type": "string"
-                },
-                "sourceInvestmentId": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "description": "Timing",
-                    "type": "string"
-                },
-                "targetCashAccountId": {
-                    "type": "string"
-                },
-                "targetCpfAccountId": {
-                    "description": "Target",
-                    "type": "string"
-                },
-                "targetExpenseId": {
-                    "type": "string"
-                },
-                "targetInvestmentId": {
-                    "type": "string"
-                },
-                "targetLiabilityId": {
-                    "type": "string"
-                },
-                "targetPropertyId": {
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "userId": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.growthPeriodResponse": {
-            "type": "object",
-            "properties": {
-                "assetId": {
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "endYear": {
-                    "type": "integer"
-                },
-                "growthRate": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "propertySgId": {
-                    "type": "string"
-                },
-                "startYear": {
-                    "type": "integer"
-                }
-            }
-        },
-        "cmd_server_handlers.incomeV2CreateInput": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "string"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "cpfWageType": {
-                    "type": "string"
-                },
-                "endDate": {
-                    "type": "string"
-                },
-                "frequency": {
-                    "type": "string"
-                },
-                "growthRate": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "personId": {
-                    "description": "Required FK to persons table",
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.incomeV2Input": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "string"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "frequency": {
-                    "type": "string"
-                },
-                "growthRate": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "parentId": {
-                    "type": "string"
-                },
-                "personId": {
-                    "description": "Required FK to persons table",
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                },
-                "updateMode": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.investmentCreateInput": {
-            "type": "object",
-            "properties": {
-                "annualGrowthRate": {
-                    "type": "string"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "currentValue": {
-                    "type": "string"
-                },
-                "endDate": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.investmentV2Input": {
-            "type": "object",
-            "properties": {
-                "category": {
-                    "type": "string"
-                },
-                "currentValue": {
-                    "type": "string"
-                },
-                "growthRate": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "parentId": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                },
-                "updateMode": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.liabilityCreateInput": {
-            "type": "object",
-            "properties": {
-                "category": {
-                    "type": "string"
-                },
-                "currentBalance": {
-                    "type": "string"
-                },
-                "endDate": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "interestRateApr": {
-                    "type": "string"
-                },
-                "minimumPayment": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "repaymentStrategy": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.liabilityInput": {
-            "type": "object",
-            "properties": {
-                "category": {
-                    "type": "string"
-                },
-                "currentBalance": {
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "interestRateApr": {
-                    "type": "string"
-                },
-                "minimumPayment": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "parentId": {
-                    "type": "string"
-                },
-                "repaymentStrategy": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                },
-                "updateMode": {
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.liabilityRatePeriodResponse": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "liabilityId": {
-                    "type": "string"
-                },
-                "periodOrder": {
-                    "type": "integer"
-                },
-                "propertySgId": {
-                    "type": "string"
-                },
-                "rate": {
-                    "type": "string"
-                },
-                "rateType": {
-                    "type": "string"
-                },
-                "startDate": {
-                    "type": "string"
-                },
-                "termYears": {
-                    "type": "integer"
-                }
-            }
-        },
-        "cmd_server_handlers.personV2CreateInput": {
-            "type": "object",
-            "properties": {
-                "dateOfBirth": {
-                    "description": "Required, format: \"2006-01-02\"",
-                    "type": "string"
-                },
-                "displayColor": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "prGrantDate": {
-                    "description": "Required if residencyStatus='pr', format: \"2006-01-02\"",
-                    "type": "string"
-                },
-                "residencyStatus": {
-                    "description": "'citizen' or 'pr' (PR year is computed from prGrantDate)",
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.personV2UpdateInput": {
-            "type": "object",
-            "properties": {
-                "dateOfBirth": {
-                    "description": "Optional for updates, format: \"2006-01-02\"",
-                    "type": "string"
-                },
-                "displayColor": {
-                    "type": "string"
-                },
-                "isIncluded": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "prGrantDate": {
-                    "description": "Required if residencyStatus='pr', format: \"2006-01-02\"",
-                    "type": "string"
-                },
-                "residencyStatus": {
-                    "description": "'citizen' or 'pr'",
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.scenarioEventV2DTO": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "displayColor": {
-                    "type": "string"
-                },
-                "displayIcon": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "impacts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.scenarioImpactV2DTO"
-                    }
-                },
-                "isIncluded": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "occursOn": {
-                    "type": "string"
-                },
-                "scenarioId": {
-                    "type": "string"
-                },
-                "tags": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "cmd_server_handlers.scenarioImpactV2DTO": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "description": "Amount as string (e.g., \"5000\"), converted to decimal internally",
-                    "type": "string"
-                },
-                "cadence": {
-                    "description": "Frequency for delta impacts (stored in DB)",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_common.Frequency"
-                        }
-                    ]
-                },
-                "category": {
-                    "description": "Advanced fields for start impacts - used to configure the created financial item",
-                    "type": "string"
-                },
-                "currency": {
-                    "description": "Currency (derived field for response)",
-                    "type": "string"
-                },
-                "endDate": {
-                    "description": "End date for the item",
-                    "type": "string"
-                },
-                "frequency": {
-                    "description": "Frequency for income/expense items",
-                    "type": "string"
-                },
-                "growthRate": {
-                    "description": "Growth rate (%) - applied based on growth strategy",
-                    "type": "number"
-                },
-                "growthStrategy": {
-                    "description": "How growth is applied (none, annual_step, compound)",
-                    "type": "string"
-                },
-                "id": {
-                    "description": "Impact ID (returned by server, sent back for updates)",
-                    "type": "string"
-                },
-                "impactKind": {
-                    "description": "Required: start, delta, override, stop",
-                    "type": "string"
-                },
-                "interestRate": {
-                    "description": "Liability-specific fields for start impacts",
-                    "type": "number"
-                },
-                "minimumPayment": {
-                    "description": "Min payment for liabilities",
-                    "type": "integer"
-                },
-                "name": {
-                    "description": "Name for start impacts (creates new item with this name)",
-                    "type": "string"
-                },
-                "notes": {
-                    "description": "Notes for the financial item",
-                    "type": "string"
-                },
-                "parentId": {
-                    "description": "Required for delta/override/stop (ID of existing item to modify)",
-                    "type": "string"
-                },
-                "personId": {
-                    "description": "Income-specific fields for start impacts",
-                    "type": "string"
-                },
-                "startDate": {
-                    "description": "Start date for the item",
-                    "type": "string"
-                },
-                "targetType": {
-                    "description": "Required: asset, liability, income, expense, cash, investment",
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.scenarioResponse": {
-            "type": "object",
-            "properties": {
-                "computed": {
-                    "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_property.ComputedValues"
-                },
-                "fees": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertyFee"
-                    }
-                },
-                "grants": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertySGGrant"
-                    }
-                },
-                "growthPeriods": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.growthPeriodResponse"
-                    }
-                },
-                "propertySG": {
-                    "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertySG"
-                },
-                "ratePeriods": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cmd_server_handlers.liabilityRatePeriodResponse"
-                    }
-                },
-                "scenario": {
-                    "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario"
-                }
-            }
-        },
-        "cmd_server_handlers.stopFundFlowRuleDTO": {
-            "type": "object",
-            "properties": {
-                "endDate": {
-                    "description": "ISO 8601 format (e.g., \"2031-03-31T23:59:59Z\")",
-                    "type": "string"
-                }
-            }
-        },
-        "cmd_server_handlers.stopInput": {
-            "type": "object",
-            "properties": {
-                "endDate": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_common.Frequency": {
+        "common.Frequency": {
             "type": "string",
             "enum": [
                 "one_time",
@@ -5633,694 +4300,6 @@ const docTemplate = `{
                 "FrequencyQuarterly",
                 "FrequencySemiannual"
             ]
-        },
-        "financial-chat-system_backend_internal_financial.ImpactEstimate": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "monthly_change": {
-                    "type": "number"
-                },
-                "net_worth_change": {
-                    "type": "number"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial.ProposedAction": {
-            "type": "object",
-            "properties": {
-                "call_id": {
-                    "type": "string"
-                },
-                "dependencies": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "estimated_impact": {
-                    "$ref": "#/definitions/financial-chat-system_backend_internal_financial.ImpactEstimate"
-                },
-                "friendly_description": {
-                    "type": "string"
-                },
-                "parameters": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "tool_name": {
-                    "type": "string"
-                },
-                "warnings": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial.Warning"
-                    }
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial.Warning": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string"
-                },
-                "severity": {
-                    "description": "\"low\", \"medium\", \"high\"",
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_timeline.EventImpactSummary": {
-            "type": "object",
-            "properties": {
-                "amountAnnual": {
-                    "description": "annualized",
-                    "type": "number"
-                },
-                "amountMonthly": {
-                    "type": "number"
-                },
-                "cadence": {
-                    "type": "string"
-                },
-                "eventId": {
-                    "type": "string"
-                },
-                "impactKind": {
-                    "description": "override|delta|start|stop",
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_timeline.GrowthApplied": {
-            "type": "object",
-            "properties": {
-                "annualRatePct": {
-                    "type": "number"
-                },
-                "category": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_timeline.ItemType": {
-            "type": "string",
-            "enum": [
-                "asset",
-                "liability",
-                "income",
-                "expense",
-                "cash_account"
-            ],
-            "x-enum-varnames": [
-                "ItemTypeAsset",
-                "ItemTypeLiability",
-                "ItemTypeIncome",
-                "ItemTypeExpense",
-                "ItemTypeCashAccount"
-            ]
-        },
-        "financial-chat-system_backend_internal_financial_timeline.TimelineItem": {
-            "type": "object",
-            "properties": {
-                "adjAnnualAmt": {
-                    "type": "number"
-                },
-                "adjMonthlyAmt": {
-                    "description": "Adjusted monthly amount",
-                    "type": "number"
-                },
-                "amountAnnual": {
-                    "type": "number"
-                },
-                "amountMonthly": {
-                    "description": "Monthly amount (when resolution is monthly)",
-                    "type": "number"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "eventImpacts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.EventImpactSummary"
-                    }
-                },
-                "growthRate": {
-                    "description": "GrowthRate is the per-item annual growth rate (percentage)",
-                    "type": "number"
-                },
-                "isAccumulator": {
-                    "description": "IsAccumulator indicates this is the designated cash account receiving net savings (cash accounts only)",
-                    "type": "boolean"
-                },
-                "itemId": {
-                    "description": "ItemID is the stable logical identifier used for scenario matching (parent_id if present, else row id).",
-                    "type": "string"
-                },
-                "itemType": {
-                    "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.ItemType"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "parentId": {
-                    "description": "ParentID is the original/base item id when this row is a child; else same as RowID.",
-                    "type": "string"
-                },
-                "rowId": {
-                    "description": "RowID is the concrete finance_* row id (for debugging/reference).",
-                    "type": "string"
-                },
-                "sourceAmount": {
-                    "type": "number"
-                },
-                "sourceFrequency": {
-                    "type": "string"
-                },
-                "startMonth": {
-                    "description": "Month when item started (1-12)",
-                    "type": "integer"
-                },
-                "startYear": {
-                    "type": "integer"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_timeline.TimelineMonth": {
-            "type": "object",
-            "properties": {
-                "accumulatedCashEnd": {
-                    "type": "number"
-                },
-                "accumulatedCashStart": {
-                    "type": "number"
-                },
-                "accumulatorAccountId": {
-                    "type": "string"
-                },
-                "assets": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
-                    }
-                },
-                "cashAccounts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
-                    }
-                },
-                "expenses": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
-                    }
-                },
-                "growthApplied": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied"
-                    }
-                },
-                "hasOverrides": {
-                    "type": "boolean"
-                },
-                "income": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
-                    }
-                },
-                "interestEarned": {
-                    "type": "number"
-                },
-                "liabilities": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
-                    }
-                },
-                "month": {
-                    "description": "Month number (1-12)",
-                    "type": "integer"
-                },
-                "monthIndex": {
-                    "description": "0-based global month index",
-                    "type": "integer"
-                },
-                "monthlyNetSavings": {
-                    "description": "Monthly cash accumulation tracking",
-                    "type": "number"
-                },
-                "netCash": {
-                    "description": "Monthly net savings",
-                    "type": "number"
-                },
-                "netWorth": {
-                    "type": "number"
-                },
-                "year": {
-                    "description": "Calendar year (e.g., 2025)",
-                    "type": "integer"
-                },
-                "yearIndex": {
-                    "description": "0-based year index",
-                    "type": "integer"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_timeline.TimelineResponse": {
-            "type": "object",
-            "properties": {
-                "months": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineMonth"
-                    }
-                },
-                "resolution": {
-                    "description": "\"yearly\" or \"monthly\"",
-                    "type": "string"
-                },
-                "scenariosApplied": {
-                    "description": "ScenariosApplied lists scenario IDs merged into this response (optional).",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "version": {
-                    "type": "string"
-                },
-                "years": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineYear"
-                    }
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_timeline.TimelineYear": {
-            "type": "object",
-            "properties": {
-                "accumulatedCashEnd": {
-                    "description": "Cash balance at end of year (after interest)",
-                    "type": "number"
-                },
-                "accumulatedCashStart": {
-                    "description": "Cash balance at start of year",
-                    "type": "number"
-                },
-                "accumulatorAccountId": {
-                    "description": "ID of the accumulator cash account",
-                    "type": "string"
-                },
-                "annualNetSavings": {
-                    "description": "Cash accumulation tracking",
-                    "type": "number"
-                },
-                "assets": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
-                    }
-                },
-                "cashAccounts": {
-                    "description": "Cash accounts from finance_cash_accounts table",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
-                    }
-                },
-                "expenses": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
-                    }
-                },
-                "growthApplied": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied"
-                    }
-                },
-                "hasOverrides": {
-                    "type": "boolean"
-                },
-                "income": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
-                    }
-                },
-                "interestEarned": {
-                    "description": "Interest earned this year on accumulator",
-                    "type": "number"
-                },
-                "liabilities": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem"
-                    }
-                },
-                "netCash": {
-                    "description": "Income - Expenses (annual net savings)",
-                    "type": "number"
-                },
-                "netWorth": {
-                    "description": "Assets + CashAccounts - Liabilities",
-                    "type": "number"
-                },
-                "year": {
-                    "type": "integer"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_v2_property.CPFOAAccountUsageInfo": {
-            "type": "object",
-            "properties": {
-                "accountId": {
-                    "type": "string"
-                },
-                "oaBalance": {
-                    "type": "string"
-                },
-                "personId": {
-                    "type": "string"
-                },
-                "remaining": {
-                    "type": "string"
-                },
-                "totalUsed": {
-                    "type": "string"
-                },
-                "usedElsewhere": {
-                    "type": "string"
-                },
-                "usedHere": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_v2_property.ComputedValues": {
-            "type": "object",
-            "properties": {
-                "absdAmount": {
-                    "type": "string"
-                },
-                "bsdAmount": {
-                    "type": "string"
-                },
-                "cpfOaUsageByAccount": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_property.CPFOAAccountUsageInfo"
-                    }
-                },
-                "effectiveTdsrRatio": {
-                    "type": "string"
-                },
-                "loanAmount": {
-                    "type": "string"
-                },
-                "monthlyPayment": {
-                    "type": "string"
-                },
-                "otherMortgageTotal": {
-                    "description": "Cross-property context (only populated when scenario is included)",
-                    "type": "string"
-                },
-                "projectedBorrower1OA": {
-                    "description": "Projected CPF OA balances at purchase date",
-                    "type": "string"
-                },
-                "projectedBorrower2OA": {
-                    "type": "string"
-                },
-                "tdsrLimit": {
-                    "type": "string"
-                },
-                "totalAmountPaid": {
-                    "type": "string"
-                },
-                "totalInterest": {
-                    "type": "string"
-                },
-                "totalStampDuty": {
-                    "type": "string"
-                },
-                "totalUpfrontCash": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_v2_property.MortgagePaymentSnapshot": {
-            "type": "object",
-            "properties": {
-                "currentRate": {
-                    "description": "Current interest rate (APR %)",
-                    "type": "number"
-                },
-                "interestPortion": {
-                    "description": "Interest paid this month",
-                    "type": "number"
-                },
-                "monthlyTotal": {
-                    "description": "Total monthly payment",
-                    "type": "number"
-                },
-                "principalPortion": {
-                    "description": "Principal paid this month",
-                    "type": "number"
-                },
-                "rateType": {
-                    "description": "\"fixed\" or \"floating\"",
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_v2_property.PropertyFeeSnapshot": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "description": "Computed amount",
-                    "type": "number"
-                },
-                "date": {
-                    "description": "When the fee is due",
-                    "type": "string"
-                },
-                "feeContext": {
-                    "description": "\"purchase\", \"recurring\", \"sale\"",
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_v2_property.PropertySnapshot": {
-            "type": "object",
-            "properties": {
-                "fees": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_property.PropertyFeeSnapshot"
-                    }
-                },
-                "icon": {
-                    "type": "string"
-                },
-                "iconColor": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "mortgageBalance": {
-                    "description": "Current/projected outstanding balance",
-                    "type": "number"
-                },
-                "mortgagePayment": {
-                    "description": "Monthly payment breakdown",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_property.MortgagePaymentSnapshot"
-                        }
-                    ]
-                },
-                "name": {
-                    "type": "string"
-                },
-                "netEquity": {
-                    "description": "PropertyValue - MortgageBalance",
-                    "type": "number"
-                },
-                "propertyValue": {
-                    "description": "Current/projected value at this point",
-                    "type": "number"
-                },
-                "purchaseDate": {
-                    "description": "First rate period start_month",
-                    "type": "string"
-                },
-                "saleDate": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_v2_repository.CPFAccount": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "dateOfBirth": {
-                    "description": "Person-related fields (read-only, populated via JOIN from persons table)",
-                    "type": "string"
-                },
-                "endDate": {
-                    "description": "When this version ends (NULL = ongoing)",
-                    "type": "string"
-                },
-                "housingStartDate": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "maBalance": {
-                    "description": "MediSave Account balance",
-                    "type": "number"
-                },
-                "oaBalance": {
-                    "description": "Ordinary Account balance",
-                    "type": "number"
-                },
-                "oaUsedForHousing": {
-                    "description": "OAUsedForHousing tracks OA withdrawals for housing purposes (for accrued interest calculation).\nTODO: For multiple property scenarios, consider a 1:M relationship (cpf_housing_usages table)\nwith fields: property_scenario_id, amount_used, withdrawal_date, property_link_id.\nThis would allow tracking different OA usage amounts per property scenario.",
-                    "type": "number"
-                },
-                "parentId": {
-                    "description": "Groups versions of same logical account",
-                    "type": "string"
-                },
-                "personId": {
-                    "description": "FK to persons table (required)",
-                    "type": "string"
-                },
-                "personName": {
-                    "description": "Display name from persons table (read-only, populated via JOIN)",
-                    "type": "string"
-                },
-                "prGrantDate": {
-                    "type": "string"
-                },
-                "raBalance": {
-                    "description": "Retirement Account balance (only after age 55)",
-                    "type": "number"
-                },
-                "residencyStatus": {
-                    "description": "'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'",
-                    "type": "string"
-                },
-                "saBalance": {
-                    "description": "Special Account balance",
-                    "type": "number"
-                },
-                "startDate": {
-                    "description": "When this version starts",
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "userId": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_financial_v2_repository.CashAsset": {
-            "type": "object",
-            "properties": {
-                "accountType": {
-                    "description": "'checking', 'savings', 'money_market'",
-                    "type": "string"
-                },
-                "balance": {
-                    "type": "number"
-                },
-                "bankName": {
-                    "type": "string"
-                },
-                "category": {
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "endDate": {
-                    "description": "NULL means ongoing",
-                    "type": "string"
-                },
-                "growthStrategy": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "impactFrequency": {
-                    "description": "How often delta adds (NULL for base/override)",
-                    "type": "string"
-                },
-                "impactKind": {
-                    "description": "NULL = base item, 'delta' = additive, 'override' = replaces",
-                    "type": "string"
-                },
-                "interestRate": {
-                    "type": "number"
-                },
-                "isAccumulator": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "parentId": {
-                    "description": "For versioning support",
-                    "type": "string"
-                },
-                "scenarioEventId": {
-                    "description": "Scenario impact fields",
-                    "type": "string"
-                },
-                "startDate": {
-                    "description": "Precise start date (day-level)",
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "userId": {
-                    "type": "string"
-                }
-            }
         },
         "financial-chat-system_backend_internal_financial_v2_repository.Expense": {
             "type": "object",
@@ -6588,7 +4567,1819 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_repository.NonCashAsset": {
+        "financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "myDetailsId": {
+                    "type": "string"
+                },
+                "propertySgId": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "financial.ImpactEstimate": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "monthly_change": {
+                    "type": "number"
+                },
+                "net_worth_change": {
+                    "type": "number"
+                }
+            }
+        },
+        "financial.ProposedAction": {
+            "type": "object",
+            "properties": {
+                "call_id": {
+                    "type": "string"
+                },
+                "dependencies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "estimated_impact": {
+                    "$ref": "#/definitions/financial.ImpactEstimate"
+                },
+                "friendly_description": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "tool_name": {
+                    "type": "string"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial.Warning"
+                    }
+                }
+            }
+        },
+        "financial.Warning": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "severity": {
+                    "description": "\"low\", \"medium\", \"high\"",
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ChatRequest": {
+            "type": "object",
+            "required": [
+                "chat_id",
+                "message",
+                "session_id"
+            ],
+            "properties": {
+                "chat_id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ChatResponse": {
+            "type": "object",
+            "properties": {
+                "actions_executed": {
+                    "type": "integer"
+                },
+                "api_version": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "conversation_flow": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/session.ConversationStep"
+                    }
+                },
+                "message_id": {
+                    "type": "string"
+                },
+                "proposed_actions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/financial.ProposedAction"
+                    }
+                },
+                "requires_approval": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "handlers.DispatchRequest": {
+            "type": "object",
+            "required": [
+                "selected_actions",
+                "session_id"
+            ],
+            "properties": {
+                "selected_actions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.SelectedAction"
+                    }
+                },
+                "session_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.DispatchResponse": {
+            "type": "object",
+            "properties": {
+                "api_version": {
+                    "type": "string"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.ExecutionResult"
+                    }
+                },
+                "summary": {
+                    "$ref": "#/definitions/handlers.ExecutionSummary"
+                },
+                "updated_session_state": {
+                    "$ref": "#/definitions/session.SessionState"
+                }
+            }
+        },
+        "handlers.ExecutionResult": {
+            "type": "object",
+            "properties": {
+                "call_id": {
+                    "type": "string"
+                },
+                "entity_id": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "execution_time_ms": {
+                    "type": "integer"
+                },
+                "rolled_back": {
+                    "type": "boolean"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "tool_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.ExecutionSummary": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "integer"
+                },
+                "skipped": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "\"success\", \"partial_success\", \"failed\"",
+                    "type": "string"
+                },
+                "successful": {
+                    "type": "integer"
+                },
+                "total_actions": {
+                    "type": "integer"
+                },
+                "total_execution_time_ms": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "services": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "uptime": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.SelectedAction": {
+            "type": "object",
+            "required": [
+                "call_id"
+            ],
+            "properties": {
+                "approved": {
+                    "type": "boolean"
+                },
+                "call_id": {
+                    "type": "string"
+                },
+                "modified_args": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "handlers.TokenResponse": {
+            "type": "object",
+            "properties": {
+                "expires": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "usage": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.assetCreateInput": {
+            "type": "object",
+            "properties": {
+                "annualGrowthRate": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "currentValue": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "terminalValue": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.assetInput": {
+            "type": "object",
+            "properties": {
+                "annualGrowthRate": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "currentValue": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "terminalValue": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.cashAccountV2Input": {
+            "type": "object",
+            "properties": {
+                "accountType": {
+                    "type": "string"
+                },
+                "balance": {
+                    "type": "string"
+                },
+                "bankName": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "interestRate": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.cpfV2CreateInput": {
+            "type": "object",
+            "properties": {
+                "housingStartDate": {
+                    "type": "string"
+                },
+                "maBalance": {
+                    "type": "string"
+                },
+                "oaBalance": {
+                    "type": "string"
+                },
+                "oaUsedForHousing": {
+                    "type": "string"
+                },
+                "personId": {
+                    "description": "Required FK to persons table",
+                    "type": "string"
+                },
+                "raBalance": {
+                    "type": "string"
+                },
+                "saBalance": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.cpfV2Input": {
+            "type": "object",
+            "properties": {
+                "housingStartDate": {
+                    "type": "string"
+                },
+                "maBalance": {
+                    "type": "string"
+                },
+                "oaBalance": {
+                    "type": "string"
+                },
+                "oaUsedForHousing": {
+                    "type": "string"
+                },
+                "personId": {
+                    "description": "Required FK to persons table",
+                    "type": "string"
+                },
+                "raBalance": {
+                    "type": "string"
+                },
+                "saBalance": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.createFeeRequest": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "feeContext": {
+                    "type": "string"
+                },
+                "feeType": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "iconColor": {
+                    "type": "string"
+                },
+                "isPercentage": {
+                    "type": "boolean"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.createGrantRequest": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.createGrowthPeriodRequest": {
+            "type": "object",
+            "properties": {
+                "endYear": {
+                    "type": "integer"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "startYear": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.createPropertySGRequest": {
+            "type": "object",
+            "properties": {
+                "borrower1CpfAccountId": {
+                    "type": "string"
+                },
+                "borrower1CpfRefundAccountId": {
+                    "description": "Sale proceeds destination accounts",
+                    "type": "string"
+                },
+                "borrower1DownpaymentCashAccountId": {
+                    "description": "Per-borrower cash account configuration (downpayment)",
+                    "type": "string"
+                },
+                "borrower1DownpaymentCashAmount": {
+                    "type": "string"
+                },
+                "borrower1DownpaymentCpfOa": {
+                    "description": "Per-borrower CPF OA tracking",
+                    "type": "string"
+                },
+                "borrower1IncomeId": {
+                    "type": "string"
+                },
+                "borrower1MonthlyCashAccountId": {
+                    "description": "Per-borrower cash account configuration (monthly payment)",
+                    "type": "string"
+                },
+                "borrower1MonthlyCashAmount": {
+                    "type": "string"
+                },
+                "borrower1MonthlyCashAmountType": {
+                    "description": "'fixed', 'percentage', 'remainder'",
+                    "type": "string"
+                },
+                "borrower1MonthlyCpfOa": {
+                    "type": "string"
+                },
+                "borrower2CpfAccountId": {
+                    "type": "string"
+                },
+                "borrower2CpfRefundAccountId": {
+                    "type": "string"
+                },
+                "borrower2DownpaymentCashAccountId": {
+                    "type": "string"
+                },
+                "borrower2DownpaymentCashAmount": {
+                    "type": "string"
+                },
+                "borrower2DownpaymentCpfOa": {
+                    "type": "string"
+                },
+                "borrower2IncomeId": {
+                    "type": "string"
+                },
+                "borrower2MonthlyCashAccountId": {
+                    "type": "string"
+                },
+                "borrower2MonthlyCashAmount": {
+                    "type": "string"
+                },
+                "borrower2MonthlyCashAmountType": {
+                    "description": "'fixed', 'percentage', 'remainder'",
+                    "type": "string"
+                },
+                "borrower2MonthlyCpfOa": {
+                    "type": "string"
+                },
+                "borrowerType": {
+                    "type": "string"
+                },
+                "btoKeyCollectionDate": {
+                    "type": "string"
+                },
+                "btoLaunchDate": {
+                    "type": "string"
+                },
+                "downpaymentCash": {
+                    "type": "string"
+                },
+                "downpaymentCpfOa": {
+                    "type": "string"
+                },
+                "isIncluded": {
+                    "type": "boolean"
+                },
+                "leaseRemainingYears": {
+                    "description": "Lease tenure: nil = freehold, 1-999 = remaining years",
+                    "type": "integer"
+                },
+                "loanType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "netCashProceedsAccountId": {
+                    "type": "string"
+                },
+                "otherDebt": {
+                    "type": "string"
+                },
+                "propertyCount": {
+                    "type": "integer"
+                },
+                "propertyPrice": {
+                    "type": "string"
+                },
+                "propertySubtype": {
+                    "type": "string"
+                },
+                "propertyType": {
+                    "type": "string"
+                },
+                "purchaseIcon": {
+                    "type": "string"
+                },
+                "purchaseIconColor": {
+                    "type": "string"
+                },
+                "saleExpectedDate": {
+                    "type": "string"
+                },
+                "saleExpectedPrice": {
+                    "type": "string"
+                },
+                "saleIcon": {
+                    "type": "string"
+                },
+                "saleIconColor": {
+                    "type": "string"
+                },
+                "valuationPrice": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.createRatePeriodRequest": {
+            "type": "object",
+            "properties": {
+                "rate": {
+                    "description": "Interest rate (percentage)",
+                    "type": "string"
+                },
+                "rateType": {
+                    "description": "\"fixed\" or \"floating\"",
+                    "type": "string"
+                },
+                "startMonth": {
+                    "description": "YYYY-MM format - for backwards compatibility",
+                    "type": "string"
+                },
+                "termYears": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.createScenarioRequest": {
+            "type": "object",
+            "properties": {
+                "country": {
+                    "description": "\"SG\" | \"MY\"",
+                    "type": "string"
+                },
+                "fees": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.createFeeRequest"
+                    }
+                },
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.createGrantRequest"
+                    }
+                },
+                "growthPeriods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.createGrowthPeriodRequest"
+                    }
+                },
+                "propertySG": {
+                    "$ref": "#/definitions/handlers.createPropertySGRequest"
+                },
+                "ratePeriods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.createRatePeriodRequest"
+                    }
+                }
+            }
+        },
+        "handlers.expenseCreateInput": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "fundSourceAccountId": {
+                    "description": "Creates a fund flow expense rule to pay from this account",
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "sourceLiabilityId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.expenseV2Input": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "sourceLiabilityId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.fundFlowRuleCreateDTO": {
+            "type": "object",
+            "properties": {
+                "amountType": {
+                    "description": "Amount",
+                    "type": "string"
+                },
+                "amountValue": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "priority": {
+                    "description": "Priority for multiple rules on same target (lower = higher priority)",
+                    "type": "integer"
+                },
+                "ruleType": {
+                    "type": "string"
+                },
+                "sourceCashAccountId": {
+                    "type": "string"
+                },
+                "sourceCpfAccountId": {
+                    "type": "string"
+                },
+                "sourceIncomeId": {
+                    "description": "Source",
+                    "type": "string"
+                },
+                "sourceInvestmentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "description": "Timing",
+                    "type": "string"
+                },
+                "targetCashAccountId": {
+                    "type": "string"
+                },
+                "targetCpfAccountId": {
+                    "description": "Target",
+                    "type": "string"
+                },
+                "targetExpenseId": {
+                    "type": "string"
+                },
+                "targetInvestmentId": {
+                    "type": "string"
+                },
+                "targetLiabilityId": {
+                    "type": "string"
+                },
+                "targetPropertyId": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.fundFlowRuleDTO": {
+            "type": "object",
+            "properties": {
+                "amountType": {
+                    "description": "Amount",
+                    "type": "string"
+                },
+                "amountValue": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "description": "Metadata",
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "priority": {
+                    "description": "Priority for multiple rules on same target (lower = higher priority)",
+                    "type": "integer"
+                },
+                "ruleType": {
+                    "type": "string"
+                },
+                "sourceCashAccountId": {
+                    "type": "string"
+                },
+                "sourceCpfAccountId": {
+                    "type": "string"
+                },
+                "sourceIncomeId": {
+                    "description": "Source",
+                    "type": "string"
+                },
+                "sourceInvestmentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "description": "Timing",
+                    "type": "string"
+                },
+                "targetCashAccountId": {
+                    "type": "string"
+                },
+                "targetCpfAccountId": {
+                    "description": "Target",
+                    "type": "string"
+                },
+                "targetExpenseId": {
+                    "type": "string"
+                },
+                "targetInvestmentId": {
+                    "type": "string"
+                },
+                "targetLiabilityId": {
+                    "type": "string"
+                },
+                "targetPropertyId": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.growthPeriodResponse": {
+            "type": "object",
+            "properties": {
+                "assetId": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "endYear": {
+                    "type": "integer"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "propertySgId": {
+                    "type": "string"
+                },
+                "startYear": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.incomeV2CreateInput": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "cpfWageType": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "personId": {
+                    "description": "Required FK to persons table",
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.incomeV2Input": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "frequency": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "personId": {
+                    "description": "Required FK to persons table",
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.investmentCreateInput": {
+            "type": "object",
+            "properties": {
+                "annualGrowthRate": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "currentValue": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.investmentV2Input": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "currentValue": {
+                    "type": "string"
+                },
+                "growthRate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.liabilityCreateInput": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "currentBalance": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "interestRateApr": {
+                    "type": "string"
+                },
+                "minimumPayment": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "repaymentStrategy": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.liabilityInput": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "currentBalance": {
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "interestRateApr": {
+                    "type": "string"
+                },
+                "minimumPayment": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "repaymentStrategy": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "updateMode": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.liabilityRatePeriodResponse": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "liabilityId": {
+                    "type": "string"
+                },
+                "periodOrder": {
+                    "type": "integer"
+                },
+                "propertySgId": {
+                    "type": "string"
+                },
+                "rate": {
+                    "type": "string"
+                },
+                "rateType": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "termYears": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.personV2CreateInput": {
+            "type": "object",
+            "properties": {
+                "dateOfBirth": {
+                    "description": "Required, format: \"2006-01-02\"",
+                    "type": "string"
+                },
+                "displayColor": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "prGrantDate": {
+                    "description": "Required if residencyStatus='pr', format: \"2006-01-02\"",
+                    "type": "string"
+                },
+                "residencyStatus": {
+                    "description": "'citizen' or 'pr' (PR year is computed from prGrantDate)",
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.personV2UpdateInput": {
+            "type": "object",
+            "properties": {
+                "dateOfBirth": {
+                    "description": "Optional for updates, format: \"2006-01-02\"",
+                    "type": "string"
+                },
+                "displayColor": {
+                    "type": "string"
+                },
+                "isIncluded": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "prGrantDate": {
+                    "description": "Required if residencyStatus='pr', format: \"2006-01-02\"",
+                    "type": "string"
+                },
+                "residencyStatus": {
+                    "description": "'citizen' or 'pr'",
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.scenarioEventV2DTO": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "displayColor": {
+                    "type": "string"
+                },
+                "displayIcon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "impacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.scenarioImpactV2DTO"
+                    }
+                },
+                "isIncluded": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "occursOn": {
+                    "type": "string"
+                },
+                "scenarioId": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "handlers.scenarioImpactV2DTO": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "Amount as string (e.g., \"5000\"), converted to decimal internally",
+                    "type": "string"
+                },
+                "cadence": {
+                    "description": "Frequency for delta impacts (stored in DB)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/common.Frequency"
+                        }
+                    ]
+                },
+                "category": {
+                    "description": "Advanced fields for start impacts - used to configure the created financial item",
+                    "type": "string"
+                },
+                "currency": {
+                    "description": "Currency (derived field for response)",
+                    "type": "string"
+                },
+                "endDate": {
+                    "description": "End date for the item",
+                    "type": "string"
+                },
+                "frequency": {
+                    "description": "Frequency for income/expense items",
+                    "type": "string"
+                },
+                "growthRate": {
+                    "description": "Growth rate (%) - applied based on growth strategy",
+                    "type": "number"
+                },
+                "growthStrategy": {
+                    "description": "How growth is applied (none, annual_step, compound)",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "Impact ID (returned by server, sent back for updates)",
+                    "type": "string"
+                },
+                "impactKind": {
+                    "description": "Required: start, delta, override, stop",
+                    "type": "string"
+                },
+                "interestRate": {
+                    "description": "Liability-specific fields for start impacts",
+                    "type": "number"
+                },
+                "minimumPayment": {
+                    "description": "Min payment for liabilities",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "Name for start impacts (creates new item with this name)",
+                    "type": "string"
+                },
+                "notes": {
+                    "description": "Notes for the financial item",
+                    "type": "string"
+                },
+                "parentId": {
+                    "description": "Required for delta/override/stop (ID of existing item to modify)",
+                    "type": "string"
+                },
+                "personId": {
+                    "description": "Income-specific fields for start impacts",
+                    "type": "string"
+                },
+                "startDate": {
+                    "description": "Start date for the item",
+                    "type": "string"
+                },
+                "targetType": {
+                    "description": "Required: asset, liability, income, expense, cash, investment",
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.scenarioResponse": {
+            "type": "object",
+            "properties": {
+                "computed": {
+                    "$ref": "#/definitions/property.ComputedValues"
+                },
+                "fees": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repository.PropertyFee"
+                    }
+                },
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/repository.PropertySGGrant"
+                    }
+                },
+                "growthPeriods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.growthPeriodResponse"
+                    }
+                },
+                "propertySG": {
+                    "$ref": "#/definitions/repository.PropertySG"
+                },
+                "ratePeriods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.liabilityRatePeriodResponse"
+                    }
+                },
+                "scenario": {
+                    "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario"
+                }
+            }
+        },
+        "handlers.stopFundFlowRuleDTO": {
+            "type": "object",
+            "properties": {
+                "endDate": {
+                    "description": "ISO 8601 format (e.g., \"2031-03-31T23:59:59Z\")",
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.stopInput": {
+            "type": "object",
+            "properties": {
+                "endDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "llm.ChatMessage": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Message content",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Optional name for tool messages",
+                    "type": "string"
+                },
+                "role": {
+                    "description": "\"user\", \"assistant\", \"system\", \"tool\"",
+                    "type": "string"
+                },
+                "tool_call_id": {
+                    "description": "ID of tool call this message responds to",
+                    "type": "string"
+                },
+                "tool_calls": {
+                    "description": "Tool calls in this message",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/llm.ToolCall"
+                    }
+                }
+            }
+        },
+        "llm.FunctionCall": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "description": "JSON string of function arguments",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Function name (e.g., \"create_asset\")",
+                    "type": "string"
+                }
+            }
+        },
+        "llm.ToolCall": {
+            "type": "object",
+            "properties": {
+                "function": {
+                    "description": "Function details",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/llm.FunctionCall"
+                        }
+                    ]
+                },
+                "id": {
+                    "description": "Unique identifier for this tool call",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Always \"function\" for function calls",
+                    "type": "string"
+                }
+            }
+        },
+        "property.CPFOAAccountUsageInfo": {
+            "type": "object",
+            "properties": {
+                "accountId": {
+                    "type": "string"
+                },
+                "oaBalance": {
+                    "type": "string"
+                },
+                "personId": {
+                    "type": "string"
+                },
+                "remaining": {
+                    "type": "string"
+                },
+                "totalUsed": {
+                    "type": "string"
+                },
+                "usedElsewhere": {
+                    "type": "string"
+                },
+                "usedHere": {
+                    "type": "string"
+                }
+            }
+        },
+        "property.ComputedValues": {
+            "type": "object",
+            "properties": {
+                "absdAmount": {
+                    "type": "string"
+                },
+                "bsdAmount": {
+                    "type": "string"
+                },
+                "cpfOaUsageByAccount": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/property.CPFOAAccountUsageInfo"
+                    }
+                },
+                "effectiveTdsrRatio": {
+                    "type": "string"
+                },
+                "loanAmount": {
+                    "type": "string"
+                },
+                "monthlyPayment": {
+                    "type": "string"
+                },
+                "otherMortgageTotal": {
+                    "description": "Cross-property context (only populated when scenario is included)",
+                    "type": "string"
+                },
+                "projectedBorrower1OA": {
+                    "description": "Projected CPF OA balances at purchase date",
+                    "type": "string"
+                },
+                "projectedBorrower2OA": {
+                    "type": "string"
+                },
+                "tdsrLimit": {
+                    "type": "string"
+                },
+                "totalAmountPaid": {
+                    "type": "string"
+                },
+                "totalInterest": {
+                    "type": "string"
+                },
+                "totalStampDuty": {
+                    "type": "string"
+                },
+                "totalUpfrontCash": {
+                    "type": "string"
+                }
+            }
+        },
+        "property.MortgagePaymentSnapshot": {
+            "type": "object",
+            "properties": {
+                "currentRate": {
+                    "description": "Current interest rate (APR %)",
+                    "type": "number"
+                },
+                "interestPortion": {
+                    "description": "Interest paid this month",
+                    "type": "number"
+                },
+                "monthlyTotal": {
+                    "description": "Total monthly payment",
+                    "type": "number"
+                },
+                "principalPortion": {
+                    "description": "Principal paid this month",
+                    "type": "number"
+                },
+                "rateType": {
+                    "description": "\"fixed\" or \"floating\"",
+                    "type": "string"
+                }
+            }
+        },
+        "property.PropertyFeeSnapshot": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "Computed amount",
+                    "type": "number"
+                },
+                "date": {
+                    "description": "When the fee is due",
+                    "type": "string"
+                },
+                "feeContext": {
+                    "description": "\"purchase\", \"recurring\", \"sale\"",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "property.PropertySnapshot": {
+            "type": "object",
+            "properties": {
+                "fees": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/property.PropertyFeeSnapshot"
+                    }
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "iconColor": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "mortgageBalance": {
+                    "description": "Current/projected outstanding balance",
+                    "type": "number"
+                },
+                "mortgagePayment": {
+                    "description": "Monthly payment breakdown",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/property.MortgagePaymentSnapshot"
+                        }
+                    ]
+                },
+                "name": {
+                    "type": "string"
+                },
+                "netEquity": {
+                    "description": "PropertyValue - MortgageBalance",
+                    "type": "number"
+                },
+                "propertyValue": {
+                    "description": "Current/projected value at this point",
+                    "type": "number"
+                },
+                "purchaseDate": {
+                    "description": "First rate period start_month",
+                    "type": "string"
+                },
+                "saleDate": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.CPFAccount": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "dateOfBirth": {
+                    "description": "Person-related fields (read-only, populated via JOIN from persons table)",
+                    "type": "string"
+                },
+                "endDate": {
+                    "description": "When this version ends (NULL = ongoing)",
+                    "type": "string"
+                },
+                "housingStartDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "maBalance": {
+                    "description": "MediSave Account balance",
+                    "type": "number"
+                },
+                "oaBalance": {
+                    "description": "Ordinary Account balance",
+                    "type": "number"
+                },
+                "oaUsedForHousing": {
+                    "description": "OAUsedForHousing tracks OA withdrawals for housing purposes (for accrued interest calculation).\nTODO: For multiple property scenarios, consider a 1:M relationship (cpf_housing_usages table)\nwith fields: property_scenario_id, amount_used, withdrawal_date, property_link_id.\nThis would allow tracking different OA usage amounts per property scenario.",
+                    "type": "number"
+                },
+                "parentId": {
+                    "description": "Groups versions of same logical account",
+                    "type": "string"
+                },
+                "personId": {
+                    "description": "FK to persons table (required)",
+                    "type": "string"
+                },
+                "personName": {
+                    "description": "Display name from persons table (read-only, populated via JOIN)",
+                    "type": "string"
+                },
+                "prGrantDate": {
+                    "type": "string"
+                },
+                "raBalance": {
+                    "description": "Retirement Account balance (only after age 55)",
+                    "type": "number"
+                },
+                "residencyStatus": {
+                    "description": "'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'",
+                    "type": "string"
+                },
+                "saBalance": {
+                    "description": "Special Account balance",
+                    "type": "number"
+                },
+                "startDate": {
+                    "description": "When this version starts",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.CashAsset": {
+            "type": "object",
+            "properties": {
+                "accountType": {
+                    "description": "'checking', 'savings', 'money_market'",
+                    "type": "string"
+                },
+                "balance": {
+                    "type": "number"
+                },
+                "bankName": {
+                    "type": "string"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "description": "NULL means ongoing",
+                    "type": "string"
+                },
+                "growthStrategy": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "impactFrequency": {
+                    "description": "How often delta adds (NULL for base/override)",
+                    "type": "string"
+                },
+                "impactKind": {
+                    "description": "NULL = base item, 'delta' = additive, 'override' = replaces",
+                    "type": "string"
+                },
+                "interestRate": {
+                    "type": "number"
+                },
+                "isAccumulator": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "description": "For versioning support",
+                    "type": "string"
+                },
+                "scenarioEventId": {
+                    "description": "Scenario impact fields",
+                    "type": "string"
+                },
+                "startDate": {
+                    "description": "Precise start date (day-level)",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "repository.NonCashAsset": {
             "type": "object",
             "properties": {
                 "annualGrowthRate": {
@@ -6644,7 +6435,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_repository.Person": {
+        "repository.Person": {
             "type": "object",
             "properties": {
                 "cpfCount": {
@@ -6687,7 +6478,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_repository.PropertyFee": {
+        "repository.PropertyFee": {
             "type": "object",
             "properties": {
                 "amount": {
@@ -6739,7 +6530,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_repository.PropertySG": {
+        "repository.PropertySG": {
             "type": "object",
             "properties": {
                 "borrower1CpfAccountId": {
@@ -6893,7 +6684,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_repository.PropertySGGrant": {
+        "repository.PropertySGGrant": {
             "type": "object",
             "properties": {
                 "amount": {
@@ -6913,30 +6704,431 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario": {
+        "session.ConversationStep": {
             "type": "object",
             "properties": {
-                "createdAt": {
+                "content": {
                     "type": "string"
                 },
-                "id": {
+                "result": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "step_id": {
                     "type": "string"
                 },
-                "myDetailsId": {
+                "timestamp": {
                     "type": "string"
                 },
-                "propertySgId": {
+                "tool_calls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tool_name": {
                     "type": "string"
                 },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "userId": {
+                "type": {
+                    "description": "\"user_message\", \"llm_response\", \"tool_execution\"",
                     "type": "string"
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact": {
+        "session.PendingToolCall": {
+            "type": "object",
+            "properties": {
+                "call_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "dependencies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "friendly_description": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "preview": {
+                    "type": "string"
+                },
+                "tool_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "session.SessionState": {
+            "type": "object",
+            "properties": {
+                "chat_id": {
+                    "type": "string"
+                },
+                "conversation_flow": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/session.ConversationStep"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "last_asset_id": {
+                    "type": "string"
+                },
+                "last_liability_id": {
+                    "type": "string"
+                },
+                "last_property_plan_id": {
+                    "type": "string"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/llm.ChatMessage"
+                    }
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "pending_actions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/session.PendingToolCall"
+                    }
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "timeline.EventImpactSummary": {
+            "type": "object",
+            "properties": {
+                "amountAnnual": {
+                    "description": "annualized",
+                    "type": "number"
+                },
+                "amountMonthly": {
+                    "type": "number"
+                },
+                "cadence": {
+                    "type": "string"
+                },
+                "eventId": {
+                    "type": "string"
+                },
+                "impactKind": {
+                    "description": "override|delta|start|stop",
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                }
+            }
+        },
+        "timeline.GrowthApplied": {
+            "type": "object",
+            "properties": {
+                "annualRatePct": {
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                }
+            }
+        },
+        "timeline.ItemType": {
+            "type": "string",
+            "enum": [
+                "asset",
+                "liability",
+                "income",
+                "expense",
+                "cash_account"
+            ],
+            "x-enum-varnames": [
+                "ItemTypeAsset",
+                "ItemTypeLiability",
+                "ItemTypeIncome",
+                "ItemTypeExpense",
+                "ItemTypeCashAccount"
+            ]
+        },
+        "timeline.TimelineItem": {
+            "type": "object",
+            "properties": {
+                "adjAnnualAmt": {
+                    "type": "number"
+                },
+                "adjMonthlyAmt": {
+                    "description": "Adjusted monthly amount",
+                    "type": "number"
+                },
+                "amountAnnual": {
+                    "type": "number"
+                },
+                "amountMonthly": {
+                    "description": "Monthly amount (when resolution is monthly)",
+                    "type": "number"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "eventImpacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.EventImpactSummary"
+                    }
+                },
+                "growthRate": {
+                    "description": "GrowthRate is the per-item annual growth rate (percentage)",
+                    "type": "number"
+                },
+                "isAccumulator": {
+                    "description": "IsAccumulator indicates this is the designated cash account receiving net savings (cash accounts only)",
+                    "type": "boolean"
+                },
+                "itemId": {
+                    "description": "ItemID is the stable logical identifier used for scenario matching (parent_id if present, else row id).",
+                    "type": "string"
+                },
+                "itemType": {
+                    "$ref": "#/definitions/timeline.ItemType"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "description": "ParentID is the original/base item id when this row is a child; else same as RowID.",
+                    "type": "string"
+                },
+                "rowId": {
+                    "description": "RowID is the concrete finance_* row id (for debugging/reference).",
+                    "type": "string"
+                },
+                "sourceAmount": {
+                    "type": "number"
+                },
+                "sourceFrequency": {
+                    "type": "string"
+                },
+                "startMonth": {
+                    "description": "Month when item started (1-12)",
+                    "type": "integer"
+                },
+                "startYear": {
+                    "type": "integer"
+                }
+            }
+        },
+        "timeline.TimelineMonth": {
+            "type": "object",
+            "properties": {
+                "accumulatedCashEnd": {
+                    "type": "number"
+                },
+                "accumulatedCashStart": {
+                    "type": "number"
+                },
+                "accumulatorAccountId": {
+                    "type": "string"
+                },
+                "assets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineItem"
+                    }
+                },
+                "cashAccounts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineItem"
+                    }
+                },
+                "expenses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineItem"
+                    }
+                },
+                "growthApplied": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.GrowthApplied"
+                    }
+                },
+                "hasOverrides": {
+                    "type": "boolean"
+                },
+                "income": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineItem"
+                    }
+                },
+                "interestEarned": {
+                    "type": "number"
+                },
+                "liabilities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineItem"
+                    }
+                },
+                "month": {
+                    "description": "Month number (1-12)",
+                    "type": "integer"
+                },
+                "monthIndex": {
+                    "description": "0-based global month index",
+                    "type": "integer"
+                },
+                "monthlyNetSavings": {
+                    "description": "Monthly cash accumulation tracking",
+                    "type": "number"
+                },
+                "netCash": {
+                    "description": "Monthly net savings",
+                    "type": "number"
+                },
+                "netWorth": {
+                    "type": "number"
+                },
+                "year": {
+                    "description": "Calendar year (e.g., 2025)",
+                    "type": "integer"
+                },
+                "yearIndex": {
+                    "description": "0-based year index",
+                    "type": "integer"
+                }
+            }
+        },
+        "timeline.TimelineResponse": {
+            "type": "object",
+            "properties": {
+                "months": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineMonth"
+                    }
+                },
+                "resolution": {
+                    "description": "\"yearly\" or \"monthly\"",
+                    "type": "string"
+                },
+                "scenariosApplied": {
+                    "description": "ScenariosApplied lists scenario IDs merged into this response (optional).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "version": {
+                    "type": "string"
+                },
+                "years": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineYear"
+                    }
+                }
+            }
+        },
+        "timeline.TimelineYear": {
+            "type": "object",
+            "properties": {
+                "accumulatedCashEnd": {
+                    "description": "Cash balance at end of year (after interest)",
+                    "type": "number"
+                },
+                "accumulatedCashStart": {
+                    "description": "Cash balance at start of year",
+                    "type": "number"
+                },
+                "accumulatorAccountId": {
+                    "description": "ID of the accumulator cash account",
+                    "type": "string"
+                },
+                "annualNetSavings": {
+                    "description": "Cash accumulation tracking",
+                    "type": "number"
+                },
+                "assets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineItem"
+                    }
+                },
+                "cashAccounts": {
+                    "description": "Cash accounts from finance_cash_accounts table",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineItem"
+                    }
+                },
+                "expenses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineItem"
+                    }
+                },
+                "growthApplied": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.GrowthApplied"
+                    }
+                },
+                "hasOverrides": {
+                    "type": "boolean"
+                },
+                "income": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineItem"
+                    }
+                },
+                "interestEarned": {
+                    "description": "Interest earned this year on accumulator",
+                    "type": "number"
+                },
+                "liabilities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline.TimelineItem"
+                    }
+                },
+                "netCash": {
+                    "description": "Income - Expenses (annual net savings)",
+                    "type": "number"
+                },
+                "netWorth": {
+                    "description": "Assets + CashAccounts - Liabilities",
+                    "type": "number"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "timeline_v2.AppliedImpact": {
             "type": "object",
             "properties": {
                 "amountAnnual": {
@@ -6961,7 +7153,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse": {
+        "timeline_v2.CPFAssetResponse": {
             "type": "object",
             "properties": {
                 "balance": {
@@ -7002,7 +7194,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse": {
+        "timeline_v2.CPFContributionResponse": {
             "type": "object",
             "properties": {
                 "allocationMa": {
@@ -7052,7 +7244,35 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse": {
+        "timeline_v2.CPFRefundResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "itemType": {
+                    "description": "\"cpf_refund\"",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "propertyName": {
+                    "type": "string"
+                },
+                "refundDate": {
+                    "description": "YYYY-MM format",
+                    "type": "string"
+                },
+                "targetAccountId": {
+                    "type": "string"
+                },
+                "totalRefund": {
+                    "type": "number"
+                }
+            }
+        },
+        "timeline_v2.CashAssetResponse": {
             "type": "object",
             "properties": {
                 "balance": {
@@ -7067,7 +7287,7 @@ const docTemplate = `{
                 "eventImpacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact"
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
                     }
                 },
                 "isAccumulator": {
@@ -7090,7 +7310,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse": {
+        "timeline_v2.ExpenseResponse": {
             "type": "object",
             "properties": {
                 "amount": {
@@ -7115,7 +7335,7 @@ const docTemplate = `{
                 "eventImpacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact"
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
                     }
                 },
                 "icon": {
@@ -7157,7 +7377,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.IncomeAllocationResponse": {
+        "timeline_v2.IncomeAllocationResponse": {
             "type": "object",
             "properties": {
                 "allocationType": {
@@ -7189,7 +7409,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse": {
+        "timeline_v2.IncomeResponse": {
             "type": "object",
             "properties": {
                 "allocationMa": {
@@ -7233,7 +7453,7 @@ const docTemplate = `{
                 "eventImpacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact"
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
                     }
                 },
                 "growthRate": {
@@ -7278,7 +7498,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.InvestmentResponse": {
+        "timeline_v2.InvestmentResponse": {
             "type": "object",
             "properties": {
                 "balance": {
@@ -7293,7 +7513,7 @@ const docTemplate = `{
                 "eventImpacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact"
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
                     }
                 },
                 "growthRate": {
@@ -7326,7 +7546,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse": {
+        "timeline_v2.LiabilityResponse": {
             "type": "object",
             "properties": {
                 "balance": {
@@ -7343,7 +7563,7 @@ const docTemplate = `{
                 "eventImpacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact"
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
                     }
                 },
                 "id": {
@@ -7362,7 +7582,7 @@ const docTemplate = `{
                     "description": "Fund flow payment attribution",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.PaymentSourceResponse"
+                        "$ref": "#/definitions/timeline_v2.PaymentSourceResponse"
                     }
                 },
                 "scenarioEventId": {
@@ -7380,7 +7600,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse": {
+        "timeline_v2.MonthDetailResponse": {
             "type": "object",
             "properties": {
                 "accumulatorAccountId": {
@@ -7395,49 +7615,55 @@ const docTemplate = `{
                 "cashAssets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse"
+                        "$ref": "#/definitions/timeline_v2.CashAssetResponse"
                     }
                 },
                 "cpfAssets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse"
+                        "$ref": "#/definitions/timeline_v2.CPFAssetResponse"
                     }
                 },
                 "cpfContributions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse"
+                        "$ref": "#/definitions/timeline_v2.CPFContributionResponse"
+                    }
+                },
+                "cpfRefunds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/timeline_v2.CPFRefundResponse"
                     }
                 },
                 "expenses": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse"
+                        "$ref": "#/definitions/timeline_v2.ExpenseResponse"
                     }
                 },
                 "income": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse"
+                        "$ref": "#/definitions/timeline_v2.IncomeResponse"
                     }
                 },
                 "incomeAllocations": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.IncomeAllocationResponse"
+                        "$ref": "#/definitions/timeline_v2.IncomeAllocationResponse"
                     }
                 },
                 "investments": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.InvestmentResponse"
+                        "$ref": "#/definitions/timeline_v2.InvestmentResponse"
                     }
                 },
                 "liabilities": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse"
+                        "$ref": "#/definitions/timeline_v2.LiabilityResponse"
                     }
                 },
                 "month": {
@@ -7461,13 +7687,13 @@ const docTemplate = `{
                 "nonCashAssets": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse"
+                        "$ref": "#/definitions/timeline_v2.NonCashAssetResponse"
                     }
                 },
                 "properties": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_property.PropertySnapshot"
+                        "$ref": "#/definitions/property.PropertySnapshot"
                     }
                 },
                 "totalAssets": {
@@ -7482,7 +7708,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse": {
+        "timeline_v2.NonCashAssetResponse": {
             "type": "object",
             "properties": {
                 "balance": {
@@ -7497,7 +7723,7 @@ const docTemplate = `{
                 "eventImpacts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact"
+                        "$ref": "#/definitions/timeline_v2.AppliedImpact"
                     }
                 },
                 "id": {
@@ -7527,7 +7753,7 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.PaymentSourceResponse": {
+        "timeline_v2.PaymentSourceResponse": {
             "type": "object",
             "properties": {
                 "amount": {
@@ -7555,13 +7781,13 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse": {
+        "timeline_v2.TimelineAnnualChartResponse": {
             "type": "object",
             "properties": {
                 "months": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary"
+                        "$ref": "#/definitions/timeline_v2.TimelineMonthlySummary"
                     }
                 },
                 "resolution": {
@@ -7576,12 +7802,12 @@ const docTemplate = `{
                 "years": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary"
+                        "$ref": "#/definitions/timeline_v2.TimelineYearlySummary"
                     }
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary": {
+        "timeline_v2.TimelineMonthlySummary": {
             "type": "object",
             "properties": {
                 "allMonthsIndex": {
@@ -7601,18 +7827,18 @@ const docTemplate = `{
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response": {
+        "timeline_v2.TimelineV2Response": {
             "type": "object",
             "properties": {
                 "months": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse"
+                        "$ref": "#/definitions/timeline_v2.MonthDetailResponse"
                     }
                 }
             }
         },
-        "financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary": {
+        "timeline_v2.TimelineYearlySummary": {
             "type": "object",
             "properties": {
                 "allYearsIndex": {
@@ -7629,182 +7855,6 @@ const docTemplate = `{
                 },
                 "year": {
                     "type": "integer"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_llm.ChatMessage": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "description": "Message content",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Optional name for tool messages",
-                    "type": "string"
-                },
-                "role": {
-                    "description": "\"user\", \"assistant\", \"system\", \"tool\"",
-                    "type": "string"
-                },
-                "tool_call_id": {
-                    "description": "ID of tool call this message responds to",
-                    "type": "string"
-                },
-                "tool_calls": {
-                    "description": "Tool calls in this message",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_llm.ToolCall"
-                    }
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_llm.FunctionCall": {
-            "type": "object",
-            "properties": {
-                "arguments": {
-                    "description": "JSON string of function arguments",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Function name (e.g., \"create_asset\")",
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_llm.ToolCall": {
-            "type": "object",
-            "properties": {
-                "function": {
-                    "description": "Function details",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/financial-chat-system_backend_internal_llm.FunctionCall"
-                        }
-                    ]
-                },
-                "id": {
-                    "description": "Unique identifier for this tool call",
-                    "type": "string"
-                },
-                "type": {
-                    "description": "Always \"function\" for function calls",
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_session.ConversationStep": {
-            "type": "object",
-            "properties": {
-                "content": {
-                    "type": "string"
-                },
-                "result": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "step_id": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                },
-                "tool_calls": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "tool_name": {
-                    "type": "string"
-                },
-                "type": {
-                    "description": "\"user_message\", \"llm_response\", \"tool_execution\"",
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_session.PendingToolCall": {
-            "type": "object",
-            "properties": {
-                "call_id": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "dependencies": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "friendly_description": {
-                    "type": "string"
-                },
-                "parameters": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "preview": {
-                    "type": "string"
-                },
-                "tool_name": {
-                    "type": "string"
-                }
-            }
-        },
-        "financial-chat-system_backend_internal_session.SessionState": {
-            "type": "object",
-            "properties": {
-                "chat_id": {
-                    "type": "string"
-                },
-                "conversation_flow": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_session.ConversationStep"
-                    }
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "last_asset_id": {
-                    "type": "string"
-                },
-                "last_liability_id": {
-                    "type": "string"
-                },
-                "last_property_plan_id": {
-                    "type": "string"
-                },
-                "messages": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_llm.ChatMessage"
-                    }
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "pending_actions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/financial-chat-system_backend_internal_session.PendingToolCall"
-                    }
-                },
-                "session_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
                 }
             }
         }

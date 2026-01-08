@@ -265,6 +265,7 @@ func (h *InvestmentV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Reques
 
 // DELETE /api/v2/investments/{id}
 // HandleDelete removes an investment.
+// @ID deleteInvestment
 // @Summary Delete an investment (v2)
 // @Description Deletes an investment and its descendant versions
 // @Tags Investments V2

@@ -1,911 +1,6 @@
 basePath: /api
 definitions:
-  cmd_server_handlers.ChatRequest:
-    properties:
-      chat_id:
-        type: string
-      message:
-        type: string
-      session_id:
-        type: string
-    required:
-    - chat_id
-    - message
-    - session_id
-    type: object
-  cmd_server_handlers.ChatResponse:
-    properties:
-      actions_executed:
-        type: integer
-      api_version:
-        type: string
-      content:
-        type: string
-      conversation_flow:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_session.ConversationStep'
-        type: array
-      message_id:
-        type: string
-      proposed_actions:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial.ProposedAction'
-        type: array
-      requires_approval:
-        type: boolean
-    type: object
-  cmd_server_handlers.DispatchRequest:
-    properties:
-      selected_actions:
-        items:
-          $ref: '#/definitions/cmd_server_handlers.SelectedAction'
-        type: array
-      session_id:
-        type: string
-    required:
-    - selected_actions
-    - session_id
-    type: object
-  cmd_server_handlers.DispatchResponse:
-    properties:
-      api_version:
-        type: string
-      results:
-        items:
-          $ref: '#/definitions/cmd_server_handlers.ExecutionResult'
-        type: array
-      summary:
-        $ref: '#/definitions/cmd_server_handlers.ExecutionSummary'
-      updated_session_state:
-        $ref: '#/definitions/financial-chat-system_backend_internal_session.SessionState'
-    type: object
-  cmd_server_handlers.ExecutionResult:
-    properties:
-      call_id:
-        type: string
-      entity_id:
-        type: string
-      error:
-        type: string
-      execution_time_ms:
-        type: integer
-      rolled_back:
-        type: boolean
-      success:
-        type: boolean
-      tool_name:
-        type: string
-    type: object
-  cmd_server_handlers.ExecutionSummary:
-    properties:
-      failed:
-        type: integer
-      skipped:
-        type: integer
-      status:
-        description: '"success", "partial_success", "failed"'
-        type: string
-      successful:
-        type: integer
-      total_actions:
-        type: integer
-      total_execution_time_ms:
-        type: integer
-    type: object
-  cmd_server_handlers.HealthResponse:
-    properties:
-      services:
-        additionalProperties: true
-        type: object
-      status:
-        type: string
-      timestamp:
-        type: string
-      uptime:
-        type: string
-      version:
-        type: string
-    type: object
-  cmd_server_handlers.SelectedAction:
-    properties:
-      approved:
-        type: boolean
-      call_id:
-        type: string
-      modified_args:
-        additionalProperties: true
-        type: object
-    required:
-    - call_id
-    type: object
-  cmd_server_handlers.TokenResponse:
-    properties:
-      expires:
-        type: string
-      token:
-        type: string
-      usage:
-        type: string
-      userId:
-        type: string
-    type: object
-  cmd_server_handlers.assetCreateInput:
-    properties:
-      annualGrowthRate:
-        type: string
-      category:
-        type: string
-      currentValue:
-        type: string
-      endDate:
-        type: string
-      growthStrategy:
-        type: string
-      name:
-        type: string
-      notes:
-        type: string
-      startDate:
-        type: string
-      terminalValue:
-        type: string
-    type: object
-  cmd_server_handlers.assetInput:
-    properties:
-      annualGrowthRate:
-        type: string
-      category:
-        type: string
-      currentValue:
-        type: string
-      endDate:
-        type: string
-      growthStrategy:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      notes:
-        type: string
-      parentId:
-        type: string
-      startDate:
-        type: string
-      terminalValue:
-        type: string
-      updateMode:
-        type: string
-    type: object
-  cmd_server_handlers.cashAccountV2Input:
-    properties:
-      accountType:
-        type: string
-      balance:
-        type: string
-      bankName:
-        type: string
-      growthStrategy:
-        type: string
-      id:
-        type: string
-      interestRate:
-        type: string
-      name:
-        type: string
-      notes:
-        type: string
-      startDate:
-        type: string
-      updateMode:
-        type: string
-    type: object
-  cmd_server_handlers.cpfV2CreateInput:
-    properties:
-      housingStartDate:
-        type: string
-      maBalance:
-        type: string
-      oaBalance:
-        type: string
-      oaUsedForHousing:
-        type: string
-      personId:
-        description: Required FK to persons table
-        type: string
-      raBalance:
-        type: string
-      saBalance:
-        type: string
-    type: object
-  cmd_server_handlers.cpfV2Input:
-    properties:
-      housingStartDate:
-        type: string
-      maBalance:
-        type: string
-      oaBalance:
-        type: string
-      oaUsedForHousing:
-        type: string
-      personId:
-        description: Required FK to persons table
-        type: string
-      raBalance:
-        type: string
-      saBalance:
-        type: string
-      startDate:
-        type: string
-      updateMode:
-        type: string
-    type: object
-  cmd_server_handlers.createFeeRequest:
-    properties:
-      amount:
-        type: string
-      currency:
-        type: string
-      description:
-        type: string
-      endDate:
-        type: string
-      feeContext:
-        type: string
-      feeType:
-        type: string
-      frequency:
-        type: string
-      icon:
-        type: string
-      iconColor:
-        type: string
-      isPercentage:
-        type: boolean
-      startDate:
-        type: string
-    type: object
-  cmd_server_handlers.createGrantRequest:
-    properties:
-      amount:
-        type: string
-      name:
-        type: string
-    type: object
-  cmd_server_handlers.createGrowthPeriodRequest:
-    properties:
-      endYear:
-        type: integer
-      growthRate:
-        type: string
-      growthStrategy:
-        type: string
-      startYear:
-        type: integer
-    type: object
-  cmd_server_handlers.createPropertySGRequest:
-    properties:
-      borrower1CpfAccountId:
-        type: string
-      borrower1CpfRefundAccountId:
-        description: Sale proceeds destination accounts
-        type: string
-      borrower1DownpaymentCashAccountId:
-        description: Per-borrower cash account configuration (downpayment)
-        type: string
-      borrower1DownpaymentCashAmount:
-        type: string
-      borrower1DownpaymentCpfOa:
-        description: Per-borrower CPF OA tracking
-        type: string
-      borrower1IncomeId:
-        type: string
-      borrower1MonthlyCashAccountId:
-        description: Per-borrower cash account configuration (monthly payment)
-        type: string
-      borrower1MonthlyCashAmount:
-        type: string
-      borrower1MonthlyCashAmountType:
-        description: '''fixed'', ''percentage'', ''remainder'''
-        type: string
-      borrower1MonthlyCpfOa:
-        type: string
-      borrower2CpfAccountId:
-        type: string
-      borrower2CpfRefundAccountId:
-        type: string
-      borrower2DownpaymentCashAccountId:
-        type: string
-      borrower2DownpaymentCashAmount:
-        type: string
-      borrower2DownpaymentCpfOa:
-        type: string
-      borrower2IncomeId:
-        type: string
-      borrower2MonthlyCashAccountId:
-        type: string
-      borrower2MonthlyCashAmount:
-        type: string
-      borrower2MonthlyCashAmountType:
-        description: '''fixed'', ''percentage'', ''remainder'''
-        type: string
-      borrower2MonthlyCpfOa:
-        type: string
-      borrowerType:
-        type: string
-      btoKeyCollectionDate:
-        type: string
-      btoLaunchDate:
-        type: string
-      downpaymentCash:
-        type: string
-      downpaymentCpfOa:
-        type: string
-      isIncluded:
-        type: boolean
-      leaseRemainingYears:
-        description: 'Lease tenure: nil = freehold, 1-999 = remaining years'
-        type: integer
-      loanType:
-        type: string
-      name:
-        type: string
-      netCashProceedsAccountId:
-        type: string
-      otherDebt:
-        type: string
-      propertyCount:
-        type: integer
-      propertyPrice:
-        type: string
-      propertySubtype:
-        type: string
-      propertyType:
-        type: string
-      purchaseIcon:
-        type: string
-      purchaseIconColor:
-        type: string
-      saleExpectedDate:
-        type: string
-      saleExpectedPrice:
-        type: string
-      saleIcon:
-        type: string
-      saleIconColor:
-        type: string
-      valuationPrice:
-        type: string
-    type: object
-  cmd_server_handlers.createRatePeriodRequest:
-    properties:
-      rate:
-        description: Interest rate (percentage)
-        type: string
-      rateType:
-        description: '"fixed" or "floating"'
-        type: string
-      startMonth:
-        description: YYYY-MM format - for backwards compatibility
-        type: string
-      termYears:
-        type: integer
-    type: object
-  cmd_server_handlers.createScenarioRequest:
-    properties:
-      country:
-        description: '"SG" | "MY"'
-        type: string
-      fees:
-        items:
-          $ref: '#/definitions/cmd_server_handlers.createFeeRequest'
-        type: array
-      grants:
-        items:
-          $ref: '#/definitions/cmd_server_handlers.createGrantRequest'
-        type: array
-      growthPeriods:
-        items:
-          $ref: '#/definitions/cmd_server_handlers.createGrowthPeriodRequest'
-        type: array
-      propertySG:
-        $ref: '#/definitions/cmd_server_handlers.createPropertySGRequest'
-      ratePeriods:
-        items:
-          $ref: '#/definitions/cmd_server_handlers.createRatePeriodRequest'
-        type: array
-    type: object
-  cmd_server_handlers.expenseCreateInput:
-    properties:
-      amount:
-        type: string
-      category:
-        type: string
-      endDate:
-        type: string
-      frequency:
-        type: string
-      fundSourceAccountId:
-        description: Creates a fund flow expense rule to pay from this account
-        type: string
-      growthRate:
-        type: string
-      growthStrategy:
-        type: string
-      name:
-        type: string
-      notes:
-        type: string
-      parentId:
-        type: string
-      sourceLiabilityId:
-        type: string
-      startDate:
-        type: string
-    type: object
-  cmd_server_handlers.expenseV2Input:
-    properties:
-      amount:
-        type: string
-      category:
-        type: string
-      frequency:
-        type: string
-      growthRate:
-        type: string
-      growthStrategy:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      notes:
-        type: string
-      parentId:
-        type: string
-      sourceLiabilityId:
-        type: string
-      startDate:
-        type: string
-      updateMode:
-        type: string
-    type: object
-  cmd_server_handlers.fundFlowRuleCreateDTO:
-    properties:
-      amountType:
-        description: Amount
-        type: string
-      amountValue:
-        type: string
-      endDate:
-        type: string
-      name:
-        type: string
-      priority:
-        description: Priority for multiple rules on same target (lower = higher priority)
-        type: integer
-      ruleType:
-        type: string
-      sourceCashAccountId:
-        type: string
-      sourceCpfAccountId:
-        type: string
-      sourceIncomeId:
-        description: Source
-        type: string
-      sourceInvestmentId:
-        type: string
-      startDate:
-        description: Timing
-        type: string
-      targetCashAccountId:
-        type: string
-      targetCpfAccountId:
-        description: Target
-        type: string
-      targetExpenseId:
-        type: string
-      targetInvestmentId:
-        type: string
-      targetLiabilityId:
-        type: string
-      targetPropertyId:
-        type: string
-    type: object
-  cmd_server_handlers.fundFlowRuleDTO:
-    properties:
-      amountType:
-        description: Amount
-        type: string
-      amountValue:
-        type: string
-      createdAt:
-        description: Metadata
-        type: string
-      endDate:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      priority:
-        description: Priority for multiple rules on same target (lower = higher priority)
-        type: integer
-      ruleType:
-        type: string
-      sourceCashAccountId:
-        type: string
-      sourceCpfAccountId:
-        type: string
-      sourceIncomeId:
-        description: Source
-        type: string
-      sourceInvestmentId:
-        type: string
-      startDate:
-        description: Timing
-        type: string
-      targetCashAccountId:
-        type: string
-      targetCpfAccountId:
-        description: Target
-        type: string
-      targetExpenseId:
-        type: string
-      targetInvestmentId:
-        type: string
-      targetLiabilityId:
-        type: string
-      targetPropertyId:
-        type: string
-      updatedAt:
-        type: string
-      userId:
-        type: string
-    type: object
-  cmd_server_handlers.growthPeriodResponse:
-    properties:
-      assetId:
-        type: string
-      createdAt:
-        type: string
-      endYear:
-        type: integer
-      growthRate:
-        type: string
-      growthStrategy:
-        type: string
-      id:
-        type: string
-      propertySgId:
-        type: string
-      startYear:
-        type: integer
-    type: object
-  cmd_server_handlers.incomeV2CreateInput:
-    properties:
-      amount:
-        type: string
-      category:
-        type: string
-      cpfWageType:
-        type: string
-      endDate:
-        type: string
-      frequency:
-        type: string
-      growthRate:
-        type: string
-      growthStrategy:
-        type: string
-      name:
-        type: string
-      notes:
-        type: string
-      personId:
-        description: Required FK to persons table
-        type: string
-      startDate:
-        type: string
-    type: object
-  cmd_server_handlers.incomeV2Input:
-    properties:
-      amount:
-        type: string
-      category:
-        type: string
-      frequency:
-        type: string
-      growthRate:
-        type: string
-      growthStrategy:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      notes:
-        type: string
-      parentId:
-        type: string
-      personId:
-        description: Required FK to persons table
-        type: string
-      startDate:
-        type: string
-      updateMode:
-        type: string
-    type: object
-  cmd_server_handlers.investmentCreateInput:
-    properties:
-      annualGrowthRate:
-        type: string
-      category:
-        type: string
-      currentValue:
-        type: string
-      endDate:
-        type: string
-      growthStrategy:
-        type: string
-      name:
-        type: string
-      notes:
-        type: string
-      startDate:
-        type: string
-    type: object
-  cmd_server_handlers.investmentV2Input:
-    properties:
-      category:
-        type: string
-      currentValue:
-        type: string
-      growthRate:
-        type: string
-      growthStrategy:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      notes:
-        type: string
-      parentId:
-        type: string
-      startDate:
-        type: string
-      updateMode:
-        type: string
-    type: object
-  cmd_server_handlers.liabilityCreateInput:
-    properties:
-      category:
-        type: string
-      currentBalance:
-        type: string
-      endDate:
-        type: string
-      growthStrategy:
-        type: string
-      interestRateApr:
-        type: string
-      minimumPayment:
-        type: string
-      name:
-        type: string
-      notes:
-        type: string
-      repaymentStrategy:
-        type: string
-      startDate:
-        type: string
-    type: object
-  cmd_server_handlers.liabilityInput:
-    properties:
-      category:
-        type: string
-      currentBalance:
-        type: string
-      growthStrategy:
-        type: string
-      id:
-        type: string
-      interestRateApr:
-        type: string
-      minimumPayment:
-        type: string
-      name:
-        type: string
-      notes:
-        type: string
-      parentId:
-        type: string
-      repaymentStrategy:
-        type: string
-      startDate:
-        type: string
-      updateMode:
-        type: string
-    type: object
-  cmd_server_handlers.liabilityRatePeriodResponse:
-    properties:
-      createdAt:
-        type: string
-      id:
-        type: string
-      liabilityId:
-        type: string
-      periodOrder:
-        type: integer
-      propertySgId:
-        type: string
-      rate:
-        type: string
-      rateType:
-        type: string
-      startDate:
-        type: string
-      termYears:
-        type: integer
-    type: object
-  cmd_server_handlers.personV2CreateInput:
-    properties:
-      dateOfBirth:
-        description: 'Required, format: "2006-01-02"'
-        type: string
-      displayColor:
-        type: string
-      name:
-        type: string
-      prGrantDate:
-        description: 'Required if residencyStatus=''pr'', format: "2006-01-02"'
-        type: string
-      residencyStatus:
-        description: '''citizen'' or ''pr'' (PR year is computed from prGrantDate)'
-        type: string
-    type: object
-  cmd_server_handlers.personV2UpdateInput:
-    properties:
-      dateOfBirth:
-        description: 'Optional for updates, format: "2006-01-02"'
-        type: string
-      displayColor:
-        type: string
-      isIncluded:
-        type: boolean
-      name:
-        type: string
-      prGrantDate:
-        description: 'Required if residencyStatus=''pr'', format: "2006-01-02"'
-        type: string
-      residencyStatus:
-        description: '''citizen'' or ''pr'''
-        type: string
-    type: object
-  cmd_server_handlers.scenarioEventV2DTO:
-    properties:
-      description:
-        type: string
-      displayColor:
-        type: string
-      displayIcon:
-        type: string
-      id:
-        type: string
-      impacts:
-        items:
-          $ref: '#/definitions/cmd_server_handlers.scenarioImpactV2DTO'
-        type: array
-      isIncluded:
-        type: boolean
-      name:
-        type: string
-      occursOn:
-        type: string
-      scenarioId:
-        type: string
-      tags:
-        items:
-          type: string
-        type: array
-    type: object
-  cmd_server_handlers.scenarioImpactV2DTO:
-    properties:
-      amount:
-        description: Amount as string (e.g., "5000"), converted to decimal internally
-        type: string
-      cadence:
-        allOf:
-        - $ref: '#/definitions/financial-chat-system_backend_internal_common.Frequency'
-        description: Frequency for delta impacts (stored in DB)
-      category:
-        description: Advanced fields for start impacts - used to configure the created
-          financial item
-        type: string
-      currency:
-        description: Currency (derived field for response)
-        type: string
-      endDate:
-        description: End date for the item
-        type: string
-      frequency:
-        description: Frequency for income/expense items
-        type: string
-      growthRate:
-        description: Growth rate (%) - applied based on growth strategy
-        type: number
-      growthStrategy:
-        description: How growth is applied (none, annual_step, compound)
-        type: string
-      id:
-        description: Impact ID (returned by server, sent back for updates)
-        type: string
-      impactKind:
-        description: 'Required: start, delta, override, stop'
-        type: string
-      interestRate:
-        description: Liability-specific fields for start impacts
-        type: number
-      minimumPayment:
-        description: Min payment for liabilities
-        type: integer
-      name:
-        description: Name for start impacts (creates new item with this name)
-        type: string
-      notes:
-        description: Notes for the financial item
-        type: string
-      parentId:
-        description: Required for delta/override/stop (ID of existing item to modify)
-        type: string
-      personId:
-        description: Income-specific fields for start impacts
-        type: string
-      startDate:
-        description: Start date for the item
-        type: string
-      targetType:
-        description: 'Required: asset, liability, income, expense, cash, investment'
-        type: string
-    type: object
-  cmd_server_handlers.scenarioResponse:
-    properties:
-      computed:
-        $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_property.ComputedValues'
-      fees:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertyFee'
-        type: array
-      grants:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertySGGrant'
-        type: array
-      growthPeriods:
-        items:
-          $ref: '#/definitions/cmd_server_handlers.growthPeriodResponse'
-        type: array
-      propertySG:
-        $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertySG'
-      ratePeriods:
-        items:
-          $ref: '#/definitions/cmd_server_handlers.liabilityRatePeriodResponse'
-        type: array
-      scenario:
-        $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario'
-    type: object
-  cmd_server_handlers.stopFundFlowRuleDTO:
-    properties:
-      endDate:
-        description: ISO 8601 format (e.g., "2031-03-31T23:59:59Z")
-        type: string
-    type: object
-  cmd_server_handlers.stopInput:
-    properties:
-      endDate:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_common.Frequency:
+  common.Frequency:
     enum:
     - one_time
     - monthly
@@ -936,490 +31,6 @@ definitions:
     - FrequencyBiweekly
     - FrequencyQuarterly
     - FrequencySemiannual
-  financial-chat-system_backend_internal_financial.ImpactEstimate:
-    properties:
-      description:
-        type: string
-      monthly_change:
-        type: number
-      net_worth_change:
-        type: number
-    type: object
-  financial-chat-system_backend_internal_financial.ProposedAction:
-    properties:
-      call_id:
-        type: string
-      dependencies:
-        items:
-          type: string
-        type: array
-      estimated_impact:
-        $ref: '#/definitions/financial-chat-system_backend_internal_financial.ImpactEstimate'
-      friendly_description:
-        type: string
-      parameters:
-        additionalProperties: true
-        type: object
-      tool_name:
-        type: string
-      warnings:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial.Warning'
-        type: array
-    type: object
-  financial-chat-system_backend_internal_financial.Warning:
-    properties:
-      message:
-        type: string
-      severity:
-        description: '"low", "medium", "high"'
-        type: string
-      type:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_financial_timeline.EventImpactSummary:
-    properties:
-      amountAnnual:
-        description: annualized
-        type: number
-      amountMonthly:
-        type: number
-      cadence:
-        type: string
-      eventId:
-        type: string
-      impactKind:
-        description: override|delta|start|stop
-        type: string
-      notes:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_financial_timeline.GrowthApplied:
-    properties:
-      annualRatePct:
-        type: number
-      category:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_financial_timeline.ItemType:
-    enum:
-    - asset
-    - liability
-    - income
-    - expense
-    - cash_account
-    type: string
-    x-enum-varnames:
-    - ItemTypeAsset
-    - ItemTypeLiability
-    - ItemTypeIncome
-    - ItemTypeExpense
-    - ItemTypeCashAccount
-  financial-chat-system_backend_internal_financial_timeline.TimelineItem:
-    properties:
-      adjAnnualAmt:
-        type: number
-      adjMonthlyAmt:
-        description: Adjusted monthly amount
-        type: number
-      amountAnnual:
-        type: number
-      amountMonthly:
-        description: Monthly amount (when resolution is monthly)
-        type: number
-      category:
-        type: string
-      eventImpacts:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.EventImpactSummary'
-        type: array
-      growthRate:
-        description: GrowthRate is the per-item annual growth rate (percentage)
-        type: number
-      isAccumulator:
-        description: IsAccumulator indicates this is the designated cash account receiving
-          net savings (cash accounts only)
-        type: boolean
-      itemId:
-        description: ItemID is the stable logical identifier used for scenario matching
-          (parent_id if present, else row id).
-        type: string
-      itemType:
-        $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.ItemType'
-      name:
-        type: string
-      parentId:
-        description: ParentID is the original/base item id when this row is a child;
-          else same as RowID.
-        type: string
-      rowId:
-        description: RowID is the concrete finance_* row id (for debugging/reference).
-        type: string
-      sourceAmount:
-        type: number
-      sourceFrequency:
-        type: string
-      startMonth:
-        description: Month when item started (1-12)
-        type: integer
-      startYear:
-        type: integer
-    type: object
-  financial-chat-system_backend_internal_financial_timeline.TimelineMonth:
-    properties:
-      accumulatedCashEnd:
-        type: number
-      accumulatedCashStart:
-        type: number
-      accumulatorAccountId:
-        type: string
-      assets:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
-        type: array
-      cashAccounts:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
-        type: array
-      expenses:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
-        type: array
-      growthApplied:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied'
-        type: array
-      hasOverrides:
-        type: boolean
-      income:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
-        type: array
-      interestEarned:
-        type: number
-      liabilities:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
-        type: array
-      month:
-        description: Month number (1-12)
-        type: integer
-      monthIndex:
-        description: 0-based global month index
-        type: integer
-      monthlyNetSavings:
-        description: Monthly cash accumulation tracking
-        type: number
-      netCash:
-        description: Monthly net savings
-        type: number
-      netWorth:
-        type: number
-      year:
-        description: Calendar year (e.g., 2025)
-        type: integer
-      yearIndex:
-        description: 0-based year index
-        type: integer
-    type: object
-  financial-chat-system_backend_internal_financial_timeline.TimelineResponse:
-    properties:
-      months:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineMonth'
-        type: array
-      resolution:
-        description: '"yearly" or "monthly"'
-        type: string
-      scenariosApplied:
-        description: ScenariosApplied lists scenario IDs merged into this response
-          (optional).
-        items:
-          type: string
-        type: array
-      version:
-        type: string
-      years:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineYear'
-        type: array
-    type: object
-  financial-chat-system_backend_internal_financial_timeline.TimelineYear:
-    properties:
-      accumulatedCashEnd:
-        description: Cash balance at end of year (after interest)
-        type: number
-      accumulatedCashStart:
-        description: Cash balance at start of year
-        type: number
-      accumulatorAccountId:
-        description: ID of the accumulator cash account
-        type: string
-      annualNetSavings:
-        description: Cash accumulation tracking
-        type: number
-      assets:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
-        type: array
-      cashAccounts:
-        description: Cash accounts from finance_cash_accounts table
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
-        type: array
-      expenses:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
-        type: array
-      growthApplied:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.GrowthApplied'
-        type: array
-      hasOverrides:
-        type: boolean
-      income:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
-        type: array
-      interestEarned:
-        description: Interest earned this year on accumulator
-        type: number
-      liabilities:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineItem'
-        type: array
-      netCash:
-        description: Income - Expenses (annual net savings)
-        type: number
-      netWorth:
-        description: Assets + CashAccounts - Liabilities
-        type: number
-      year:
-        type: integer
-    type: object
-  financial-chat-system_backend_internal_financial_v2_property.CPFOAAccountUsageInfo:
-    properties:
-      accountId:
-        type: string
-      oaBalance:
-        type: string
-      personId:
-        type: string
-      remaining:
-        type: string
-      totalUsed:
-        type: string
-      usedElsewhere:
-        type: string
-      usedHere:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_financial_v2_property.ComputedValues:
-    properties:
-      absdAmount:
-        type: string
-      bsdAmount:
-        type: string
-      cpfOaUsageByAccount:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_property.CPFOAAccountUsageInfo'
-        type: array
-      effectiveTdsrRatio:
-        type: string
-      loanAmount:
-        type: string
-      monthlyPayment:
-        type: string
-      otherMortgageTotal:
-        description: Cross-property context (only populated when scenario is included)
-        type: string
-      projectedBorrower1OA:
-        description: Projected CPF OA balances at purchase date
-        type: string
-      projectedBorrower2OA:
-        type: string
-      tdsrLimit:
-        type: string
-      totalAmountPaid:
-        type: string
-      totalInterest:
-        type: string
-      totalStampDuty:
-        type: string
-      totalUpfrontCash:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_financial_v2_property.MortgagePaymentSnapshot:
-    properties:
-      currentRate:
-        description: Current interest rate (APR %)
-        type: number
-      interestPortion:
-        description: Interest paid this month
-        type: number
-      monthlyTotal:
-        description: Total monthly payment
-        type: number
-      principalPortion:
-        description: Principal paid this month
-        type: number
-      rateType:
-        description: '"fixed" or "floating"'
-        type: string
-    type: object
-  financial-chat-system_backend_internal_financial_v2_property.PropertyFeeSnapshot:
-    properties:
-      amount:
-        description: Computed amount
-        type: number
-      date:
-        description: When the fee is due
-        type: string
-      feeContext:
-        description: '"purchase", "recurring", "sale"'
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_financial_v2_property.PropertySnapshot:
-    properties:
-      fees:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_property.PropertyFeeSnapshot'
-        type: array
-      icon:
-        type: string
-      iconColor:
-        type: string
-      id:
-        type: string
-      mortgageBalance:
-        description: Current/projected outstanding balance
-        type: number
-      mortgagePayment:
-        allOf:
-        - $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_property.MortgagePaymentSnapshot'
-        description: Monthly payment breakdown
-      name:
-        type: string
-      netEquity:
-        description: PropertyValue - MortgageBalance
-        type: number
-      propertyValue:
-        description: Current/projected value at this point
-        type: number
-      purchaseDate:
-        description: First rate period start_month
-        type: string
-      saleDate:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_financial_v2_repository.CPFAccount:
-    properties:
-      createdAt:
-        type: string
-      dateOfBirth:
-        description: Person-related fields (read-only, populated via JOIN from persons
-          table)
-        type: string
-      endDate:
-        description: When this version ends (NULL = ongoing)
-        type: string
-      housingStartDate:
-        type: string
-      id:
-        type: string
-      maBalance:
-        description: MediSave Account balance
-        type: number
-      oaBalance:
-        description: Ordinary Account balance
-        type: number
-      oaUsedForHousing:
-        description: |-
-          OAUsedForHousing tracks OA withdrawals for housing purposes (for accrued interest calculation).
-          TODO: For multiple property scenarios, consider a 1:M relationship (cpf_housing_usages table)
-          with fields: property_scenario_id, amount_used, withdrawal_date, property_link_id.
-          This would allow tracking different OA usage amounts per property scenario.
-        type: number
-      parentId:
-        description: Groups versions of same logical account
-        type: string
-      personId:
-        description: FK to persons table (required)
-        type: string
-      personName:
-        description: Display name from persons table (read-only, populated via JOIN)
-        type: string
-      prGrantDate:
-        type: string
-      raBalance:
-        description: Retirement Account balance (only after age 55)
-        type: number
-      residencyStatus:
-        description: '''citizen'', ''pr_year_1'', ''pr_year_2'', ''pr_year_3_plus'''
-        type: string
-      saBalance:
-        description: Special Account balance
-        type: number
-      startDate:
-        description: When this version starts
-        type: string
-      updatedAt:
-        type: string
-      userId:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_financial_v2_repository.CashAsset:
-    properties:
-      accountType:
-        description: '''checking'', ''savings'', ''money_market'''
-        type: string
-      balance:
-        type: number
-      bankName:
-        type: string
-      category:
-        type: string
-      createdAt:
-        type: string
-      endDate:
-        description: NULL means ongoing
-        type: string
-      growthStrategy:
-        type: string
-      id:
-        type: string
-      impactFrequency:
-        description: How often delta adds (NULL for base/override)
-        type: string
-      impactKind:
-        description: NULL = base item, 'delta' = additive, 'override' = replaces
-        type: string
-      interestRate:
-        type: number
-      isAccumulator:
-        type: boolean
-      name:
-        type: string
-      notes:
-        type: string
-      parentId:
-        description: For versioning support
-        type: string
-      scenarioEventId:
-        description: Scenario impact fields
-        type: string
-      startDate:
-        description: Precise start date (day-level)
-        type: string
-      updatedAt:
-        type: string
-      userId:
-        type: string
-    type: object
   financial-chat-system_backend_internal_financial_v2_repository.Expense:
     properties:
       amount:
@@ -1604,7 +215,1233 @@ definitions:
       updatedAt:
         type: string
     type: object
-  financial-chat-system_backend_internal_financial_v2_repository.NonCashAsset:
+  financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      myDetailsId:
+        type: string
+      propertySgId:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  financial.ImpactEstimate:
+    properties:
+      description:
+        type: string
+      monthly_change:
+        type: number
+      net_worth_change:
+        type: number
+    type: object
+  financial.ProposedAction:
+    properties:
+      call_id:
+        type: string
+      dependencies:
+        items:
+          type: string
+        type: array
+      estimated_impact:
+        $ref: '#/definitions/financial.ImpactEstimate'
+      friendly_description:
+        type: string
+      parameters:
+        additionalProperties: true
+        type: object
+      tool_name:
+        type: string
+      warnings:
+        items:
+          $ref: '#/definitions/financial.Warning'
+        type: array
+    type: object
+  financial.Warning:
+    properties:
+      message:
+        type: string
+      severity:
+        description: '"low", "medium", "high"'
+        type: string
+      type:
+        type: string
+    type: object
+  handlers.ChatRequest:
+    properties:
+      chat_id:
+        type: string
+      message:
+        type: string
+      session_id:
+        type: string
+    required:
+    - chat_id
+    - message
+    - session_id
+    type: object
+  handlers.ChatResponse:
+    properties:
+      actions_executed:
+        type: integer
+      api_version:
+        type: string
+      content:
+        type: string
+      conversation_flow:
+        items:
+          $ref: '#/definitions/session.ConversationStep'
+        type: array
+      message_id:
+        type: string
+      proposed_actions:
+        items:
+          $ref: '#/definitions/financial.ProposedAction'
+        type: array
+      requires_approval:
+        type: boolean
+    type: object
+  handlers.DispatchRequest:
+    properties:
+      selected_actions:
+        items:
+          $ref: '#/definitions/handlers.SelectedAction'
+        type: array
+      session_id:
+        type: string
+    required:
+    - selected_actions
+    - session_id
+    type: object
+  handlers.DispatchResponse:
+    properties:
+      api_version:
+        type: string
+      results:
+        items:
+          $ref: '#/definitions/handlers.ExecutionResult'
+        type: array
+      summary:
+        $ref: '#/definitions/handlers.ExecutionSummary'
+      updated_session_state:
+        $ref: '#/definitions/session.SessionState'
+    type: object
+  handlers.ExecutionResult:
+    properties:
+      call_id:
+        type: string
+      entity_id:
+        type: string
+      error:
+        type: string
+      execution_time_ms:
+        type: integer
+      rolled_back:
+        type: boolean
+      success:
+        type: boolean
+      tool_name:
+        type: string
+    type: object
+  handlers.ExecutionSummary:
+    properties:
+      failed:
+        type: integer
+      skipped:
+        type: integer
+      status:
+        description: '"success", "partial_success", "failed"'
+        type: string
+      successful:
+        type: integer
+      total_actions:
+        type: integer
+      total_execution_time_ms:
+        type: integer
+    type: object
+  handlers.HealthResponse:
+    properties:
+      services:
+        additionalProperties: true
+        type: object
+      status:
+        type: string
+      timestamp:
+        type: string
+      uptime:
+        type: string
+      version:
+        type: string
+    type: object
+  handlers.SelectedAction:
+    properties:
+      approved:
+        type: boolean
+      call_id:
+        type: string
+      modified_args:
+        additionalProperties: true
+        type: object
+    required:
+    - call_id
+    type: object
+  handlers.TokenResponse:
+    properties:
+      expires:
+        type: string
+      token:
+        type: string
+      usage:
+        type: string
+      userId:
+        type: string
+    type: object
+  handlers.assetCreateInput:
+    properties:
+      annualGrowthRate:
+        type: string
+      category:
+        type: string
+      currentValue:
+        type: string
+      endDate:
+        type: string
+      growthStrategy:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      startDate:
+        type: string
+      terminalValue:
+        type: string
+    type: object
+  handlers.assetInput:
+    properties:
+      annualGrowthRate:
+        type: string
+      category:
+        type: string
+      currentValue:
+        type: string
+      endDate:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      startDate:
+        type: string
+      terminalValue:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.cashAccountV2Input:
+    properties:
+      accountType:
+        type: string
+      balance:
+        type: string
+      bankName:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      interestRate:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.cpfV2CreateInput:
+    properties:
+      housingStartDate:
+        type: string
+      maBalance:
+        type: string
+      oaBalance:
+        type: string
+      oaUsedForHousing:
+        type: string
+      personId:
+        description: Required FK to persons table
+        type: string
+      raBalance:
+        type: string
+      saBalance:
+        type: string
+    type: object
+  handlers.cpfV2Input:
+    properties:
+      housingStartDate:
+        type: string
+      maBalance:
+        type: string
+      oaBalance:
+        type: string
+      oaUsedForHousing:
+        type: string
+      personId:
+        description: Required FK to persons table
+        type: string
+      raBalance:
+        type: string
+      saBalance:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.createFeeRequest:
+    properties:
+      amount:
+        type: string
+      currency:
+        type: string
+      description:
+        type: string
+      endDate:
+        type: string
+      feeContext:
+        type: string
+      feeType:
+        type: string
+      frequency:
+        type: string
+      icon:
+        type: string
+      iconColor:
+        type: string
+      isPercentage:
+        type: boolean
+      startDate:
+        type: string
+    type: object
+  handlers.createGrantRequest:
+    properties:
+      amount:
+        type: string
+      name:
+        type: string
+    type: object
+  handlers.createGrowthPeriodRequest:
+    properties:
+      endYear:
+        type: integer
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      startYear:
+        type: integer
+    type: object
+  handlers.createPropertySGRequest:
+    properties:
+      borrower1CpfAccountId:
+        type: string
+      borrower1CpfRefundAccountId:
+        description: Sale proceeds destination accounts
+        type: string
+      borrower1DownpaymentCashAccountId:
+        description: Per-borrower cash account configuration (downpayment)
+        type: string
+      borrower1DownpaymentCashAmount:
+        type: string
+      borrower1DownpaymentCpfOa:
+        description: Per-borrower CPF OA tracking
+        type: string
+      borrower1IncomeId:
+        type: string
+      borrower1MonthlyCashAccountId:
+        description: Per-borrower cash account configuration (monthly payment)
+        type: string
+      borrower1MonthlyCashAmount:
+        type: string
+      borrower1MonthlyCashAmountType:
+        description: '''fixed'', ''percentage'', ''remainder'''
+        type: string
+      borrower1MonthlyCpfOa:
+        type: string
+      borrower2CpfAccountId:
+        type: string
+      borrower2CpfRefundAccountId:
+        type: string
+      borrower2DownpaymentCashAccountId:
+        type: string
+      borrower2DownpaymentCashAmount:
+        type: string
+      borrower2DownpaymentCpfOa:
+        type: string
+      borrower2IncomeId:
+        type: string
+      borrower2MonthlyCashAccountId:
+        type: string
+      borrower2MonthlyCashAmount:
+        type: string
+      borrower2MonthlyCashAmountType:
+        description: '''fixed'', ''percentage'', ''remainder'''
+        type: string
+      borrower2MonthlyCpfOa:
+        type: string
+      borrowerType:
+        type: string
+      btoKeyCollectionDate:
+        type: string
+      btoLaunchDate:
+        type: string
+      downpaymentCash:
+        type: string
+      downpaymentCpfOa:
+        type: string
+      isIncluded:
+        type: boolean
+      leaseRemainingYears:
+        description: 'Lease tenure: nil = freehold, 1-999 = remaining years'
+        type: integer
+      loanType:
+        type: string
+      name:
+        type: string
+      netCashProceedsAccountId:
+        type: string
+      otherDebt:
+        type: string
+      propertyCount:
+        type: integer
+      propertyPrice:
+        type: string
+      propertySubtype:
+        type: string
+      propertyType:
+        type: string
+      purchaseIcon:
+        type: string
+      purchaseIconColor:
+        type: string
+      saleExpectedDate:
+        type: string
+      saleExpectedPrice:
+        type: string
+      saleIcon:
+        type: string
+      saleIconColor:
+        type: string
+      valuationPrice:
+        type: string
+    type: object
+  handlers.createRatePeriodRequest:
+    properties:
+      rate:
+        description: Interest rate (percentage)
+        type: string
+      rateType:
+        description: '"fixed" or "floating"'
+        type: string
+      startMonth:
+        description: YYYY-MM format - for backwards compatibility
+        type: string
+      termYears:
+        type: integer
+    type: object
+  handlers.createScenarioRequest:
+    properties:
+      country:
+        description: '"SG" | "MY"'
+        type: string
+      fees:
+        items:
+          $ref: '#/definitions/handlers.createFeeRequest'
+        type: array
+      grants:
+        items:
+          $ref: '#/definitions/handlers.createGrantRequest'
+        type: array
+      growthPeriods:
+        items:
+          $ref: '#/definitions/handlers.createGrowthPeriodRequest'
+        type: array
+      propertySG:
+        $ref: '#/definitions/handlers.createPropertySGRequest'
+      ratePeriods:
+        items:
+          $ref: '#/definitions/handlers.createRatePeriodRequest'
+        type: array
+    type: object
+  handlers.expenseCreateInput:
+    properties:
+      amount:
+        type: string
+      category:
+        type: string
+      endDate:
+        type: string
+      frequency:
+        type: string
+      fundSourceAccountId:
+        description: Creates a fund flow expense rule to pay from this account
+        type: string
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      sourceLiabilityId:
+        type: string
+      startDate:
+        type: string
+    type: object
+  handlers.expenseV2Input:
+    properties:
+      amount:
+        type: string
+      category:
+        type: string
+      frequency:
+        type: string
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      sourceLiabilityId:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.fundFlowRuleCreateDTO:
+    properties:
+      amountType:
+        description: Amount
+        type: string
+      amountValue:
+        type: string
+      endDate:
+        type: string
+      name:
+        type: string
+      priority:
+        description: Priority for multiple rules on same target (lower = higher priority)
+        type: integer
+      ruleType:
+        type: string
+      sourceCashAccountId:
+        type: string
+      sourceCpfAccountId:
+        type: string
+      sourceIncomeId:
+        description: Source
+        type: string
+      sourceInvestmentId:
+        type: string
+      startDate:
+        description: Timing
+        type: string
+      targetCashAccountId:
+        type: string
+      targetCpfAccountId:
+        description: Target
+        type: string
+      targetExpenseId:
+        type: string
+      targetInvestmentId:
+        type: string
+      targetLiabilityId:
+        type: string
+      targetPropertyId:
+        type: string
+    type: object
+  handlers.fundFlowRuleDTO:
+    properties:
+      amountType:
+        description: Amount
+        type: string
+      amountValue:
+        type: string
+      createdAt:
+        description: Metadata
+        type: string
+      endDate:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      priority:
+        description: Priority for multiple rules on same target (lower = higher priority)
+        type: integer
+      ruleType:
+        type: string
+      sourceCashAccountId:
+        type: string
+      sourceCpfAccountId:
+        type: string
+      sourceIncomeId:
+        description: Source
+        type: string
+      sourceInvestmentId:
+        type: string
+      startDate:
+        description: Timing
+        type: string
+      targetCashAccountId:
+        type: string
+      targetCpfAccountId:
+        description: Target
+        type: string
+      targetExpenseId:
+        type: string
+      targetInvestmentId:
+        type: string
+      targetLiabilityId:
+        type: string
+      targetPropertyId:
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  handlers.growthPeriodResponse:
+    properties:
+      assetId:
+        type: string
+      createdAt:
+        type: string
+      endYear:
+        type: integer
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      propertySgId:
+        type: string
+      startYear:
+        type: integer
+    type: object
+  handlers.incomeV2CreateInput:
+    properties:
+      amount:
+        type: string
+      category:
+        type: string
+      cpfWageType:
+        type: string
+      endDate:
+        type: string
+      frequency:
+        type: string
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      personId:
+        description: Required FK to persons table
+        type: string
+      startDate:
+        type: string
+    type: object
+  handlers.incomeV2Input:
+    properties:
+      amount:
+        type: string
+      category:
+        type: string
+      frequency:
+        type: string
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      personId:
+        description: Required FK to persons table
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.investmentCreateInput:
+    properties:
+      annualGrowthRate:
+        type: string
+      category:
+        type: string
+      currentValue:
+        type: string
+      endDate:
+        type: string
+      growthStrategy:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      startDate:
+        type: string
+    type: object
+  handlers.investmentV2Input:
+    properties:
+      category:
+        type: string
+      currentValue:
+        type: string
+      growthRate:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.liabilityCreateInput:
+    properties:
+      category:
+        type: string
+      currentBalance:
+        type: string
+      endDate:
+        type: string
+      growthStrategy:
+        type: string
+      interestRateApr:
+        type: string
+      minimumPayment:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      repaymentStrategy:
+        type: string
+      startDate:
+        type: string
+    type: object
+  handlers.liabilityInput:
+    properties:
+      category:
+        type: string
+      currentBalance:
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      interestRateApr:
+        type: string
+      minimumPayment:
+        type: string
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        type: string
+      repaymentStrategy:
+        type: string
+      startDate:
+        type: string
+      updateMode:
+        type: string
+    type: object
+  handlers.liabilityRatePeriodResponse:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      liabilityId:
+        type: string
+      periodOrder:
+        type: integer
+      propertySgId:
+        type: string
+      rate:
+        type: string
+      rateType:
+        type: string
+      startDate:
+        type: string
+      termYears:
+        type: integer
+    type: object
+  handlers.personV2CreateInput:
+    properties:
+      dateOfBirth:
+        description: 'Required, format: "2006-01-02"'
+        type: string
+      displayColor:
+        type: string
+      name:
+        type: string
+      prGrantDate:
+        description: 'Required if residencyStatus=''pr'', format: "2006-01-02"'
+        type: string
+      residencyStatus:
+        description: '''citizen'' or ''pr'' (PR year is computed from prGrantDate)'
+        type: string
+    type: object
+  handlers.personV2UpdateInput:
+    properties:
+      dateOfBirth:
+        description: 'Optional for updates, format: "2006-01-02"'
+        type: string
+      displayColor:
+        type: string
+      isIncluded:
+        type: boolean
+      name:
+        type: string
+      prGrantDate:
+        description: 'Required if residencyStatus=''pr'', format: "2006-01-02"'
+        type: string
+      residencyStatus:
+        description: '''citizen'' or ''pr'''
+        type: string
+    type: object
+  handlers.scenarioEventV2DTO:
+    properties:
+      description:
+        type: string
+      displayColor:
+        type: string
+      displayIcon:
+        type: string
+      id:
+        type: string
+      impacts:
+        items:
+          $ref: '#/definitions/handlers.scenarioImpactV2DTO'
+        type: array
+      isIncluded:
+        type: boolean
+      name:
+        type: string
+      occursOn:
+        type: string
+      scenarioId:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  handlers.scenarioImpactV2DTO:
+    properties:
+      amount:
+        description: Amount as string (e.g., "5000"), converted to decimal internally
+        type: string
+      cadence:
+        allOf:
+        - $ref: '#/definitions/common.Frequency'
+        description: Frequency for delta impacts (stored in DB)
+      category:
+        description: Advanced fields for start impacts - used to configure the created
+          financial item
+        type: string
+      currency:
+        description: Currency (derived field for response)
+        type: string
+      endDate:
+        description: End date for the item
+        type: string
+      frequency:
+        description: Frequency for income/expense items
+        type: string
+      growthRate:
+        description: Growth rate (%) - applied based on growth strategy
+        type: number
+      growthStrategy:
+        description: How growth is applied (none, annual_step, compound)
+        type: string
+      id:
+        description: Impact ID (returned by server, sent back for updates)
+        type: string
+      impactKind:
+        description: 'Required: start, delta, override, stop'
+        type: string
+      interestRate:
+        description: Liability-specific fields for start impacts
+        type: number
+      minimumPayment:
+        description: Min payment for liabilities
+        type: integer
+      name:
+        description: Name for start impacts (creates new item with this name)
+        type: string
+      notes:
+        description: Notes for the financial item
+        type: string
+      parentId:
+        description: Required for delta/override/stop (ID of existing item to modify)
+        type: string
+      personId:
+        description: Income-specific fields for start impacts
+        type: string
+      startDate:
+        description: Start date for the item
+        type: string
+      targetType:
+        description: 'Required: asset, liability, income, expense, cash, investment'
+        type: string
+    type: object
+  handlers.scenarioResponse:
+    properties:
+      computed:
+        $ref: '#/definitions/property.ComputedValues'
+      fees:
+        items:
+          $ref: '#/definitions/repository.PropertyFee'
+        type: array
+      grants:
+        items:
+          $ref: '#/definitions/repository.PropertySGGrant'
+        type: array
+      growthPeriods:
+        items:
+          $ref: '#/definitions/handlers.growthPeriodResponse'
+        type: array
+      propertySG:
+        $ref: '#/definitions/repository.PropertySG'
+      ratePeriods:
+        items:
+          $ref: '#/definitions/handlers.liabilityRatePeriodResponse'
+        type: array
+      scenario:
+        $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario'
+    type: object
+  handlers.stopFundFlowRuleDTO:
+    properties:
+      endDate:
+        description: ISO 8601 format (e.g., "2031-03-31T23:59:59Z")
+        type: string
+    type: object
+  handlers.stopInput:
+    properties:
+      endDate:
+        type: string
+    type: object
+  llm.ChatMessage:
+    properties:
+      content:
+        description: Message content
+        type: string
+      name:
+        description: Optional name for tool messages
+        type: string
+      role:
+        description: '"user", "assistant", "system", "tool"'
+        type: string
+      tool_call_id:
+        description: ID of tool call this message responds to
+        type: string
+      tool_calls:
+        description: Tool calls in this message
+        items:
+          $ref: '#/definitions/llm.ToolCall'
+        type: array
+    type: object
+  llm.FunctionCall:
+    properties:
+      arguments:
+        description: JSON string of function arguments
+        type: string
+      name:
+        description: Function name (e.g., "create_asset")
+        type: string
+    type: object
+  llm.ToolCall:
+    properties:
+      function:
+        allOf:
+        - $ref: '#/definitions/llm.FunctionCall'
+        description: Function details
+      id:
+        description: Unique identifier for this tool call
+        type: string
+      type:
+        description: Always "function" for function calls
+        type: string
+    type: object
+  property.CPFOAAccountUsageInfo:
+    properties:
+      accountId:
+        type: string
+      oaBalance:
+        type: string
+      personId:
+        type: string
+      remaining:
+        type: string
+      totalUsed:
+        type: string
+      usedElsewhere:
+        type: string
+      usedHere:
+        type: string
+    type: object
+  property.ComputedValues:
+    properties:
+      absdAmount:
+        type: string
+      bsdAmount:
+        type: string
+      cpfOaUsageByAccount:
+        items:
+          $ref: '#/definitions/property.CPFOAAccountUsageInfo'
+        type: array
+      effectiveTdsrRatio:
+        type: string
+      loanAmount:
+        type: string
+      monthlyPayment:
+        type: string
+      otherMortgageTotal:
+        description: Cross-property context (only populated when scenario is included)
+        type: string
+      projectedBorrower1OA:
+        description: Projected CPF OA balances at purchase date
+        type: string
+      projectedBorrower2OA:
+        type: string
+      tdsrLimit:
+        type: string
+      totalAmountPaid:
+        type: string
+      totalInterest:
+        type: string
+      totalStampDuty:
+        type: string
+      totalUpfrontCash:
+        type: string
+    type: object
+  property.MortgagePaymentSnapshot:
+    properties:
+      currentRate:
+        description: Current interest rate (APR %)
+        type: number
+      interestPortion:
+        description: Interest paid this month
+        type: number
+      monthlyTotal:
+        description: Total monthly payment
+        type: number
+      principalPortion:
+        description: Principal paid this month
+        type: number
+      rateType:
+        description: '"fixed" or "floating"'
+        type: string
+    type: object
+  property.PropertyFeeSnapshot:
+    properties:
+      amount:
+        description: Computed amount
+        type: number
+      date:
+        description: When the fee is due
+        type: string
+      feeContext:
+        description: '"purchase", "recurring", "sale"'
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  property.PropertySnapshot:
+    properties:
+      fees:
+        items:
+          $ref: '#/definitions/property.PropertyFeeSnapshot'
+        type: array
+      icon:
+        type: string
+      iconColor:
+        type: string
+      id:
+        type: string
+      mortgageBalance:
+        description: Current/projected outstanding balance
+        type: number
+      mortgagePayment:
+        allOf:
+        - $ref: '#/definitions/property.MortgagePaymentSnapshot'
+        description: Monthly payment breakdown
+      name:
+        type: string
+      netEquity:
+        description: PropertyValue - MortgageBalance
+        type: number
+      propertyValue:
+        description: Current/projected value at this point
+        type: number
+      purchaseDate:
+        description: First rate period start_month
+        type: string
+      saleDate:
+        type: string
+    type: object
+  repository.CPFAccount:
+    properties:
+      createdAt:
+        type: string
+      dateOfBirth:
+        description: Person-related fields (read-only, populated via JOIN from persons
+          table)
+        type: string
+      endDate:
+        description: When this version ends (NULL = ongoing)
+        type: string
+      housingStartDate:
+        type: string
+      id:
+        type: string
+      maBalance:
+        description: MediSave Account balance
+        type: number
+      oaBalance:
+        description: Ordinary Account balance
+        type: number
+      oaUsedForHousing:
+        description: |-
+          OAUsedForHousing tracks OA withdrawals for housing purposes (for accrued interest calculation).
+          TODO: For multiple property scenarios, consider a 1:M relationship (cpf_housing_usages table)
+          with fields: property_scenario_id, amount_used, withdrawal_date, property_link_id.
+          This would allow tracking different OA usage amounts per property scenario.
+        type: number
+      parentId:
+        description: Groups versions of same logical account
+        type: string
+      personId:
+        description: FK to persons table (required)
+        type: string
+      personName:
+        description: Display name from persons table (read-only, populated via JOIN)
+        type: string
+      prGrantDate:
+        type: string
+      raBalance:
+        description: Retirement Account balance (only after age 55)
+        type: number
+      residencyStatus:
+        description: '''citizen'', ''pr_year_1'', ''pr_year_2'', ''pr_year_3_plus'''
+        type: string
+      saBalance:
+        description: Special Account balance
+        type: number
+      startDate:
+        description: When this version starts
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  repository.CashAsset:
+    properties:
+      accountType:
+        description: '''checking'', ''savings'', ''money_market'''
+        type: string
+      balance:
+        type: number
+      bankName:
+        type: string
+      category:
+        type: string
+      createdAt:
+        type: string
+      endDate:
+        description: NULL means ongoing
+        type: string
+      growthStrategy:
+        type: string
+      id:
+        type: string
+      impactFrequency:
+        description: How often delta adds (NULL for base/override)
+        type: string
+      impactKind:
+        description: NULL = base item, 'delta' = additive, 'override' = replaces
+        type: string
+      interestRate:
+        type: number
+      isAccumulator:
+        type: boolean
+      name:
+        type: string
+      notes:
+        type: string
+      parentId:
+        description: For versioning support
+        type: string
+      scenarioEventId:
+        description: Scenario impact fields
+        type: string
+      startDate:
+        description: Precise start date (day-level)
+        type: string
+      updatedAt:
+        type: string
+      userId:
+        type: string
+    type: object
+  repository.NonCashAsset:
     properties:
       annualGrowthRate:
         type: number
@@ -1643,7 +1480,7 @@ definitions:
       updatedAt:
         type: string
     type: object
-  financial-chat-system_backend_internal_financial_v2_repository.Person:
+  repository.Person:
     properties:
       cpfCount:
         type: integer
@@ -1672,7 +1509,7 @@ definitions:
       userId:
         type: string
     type: object
-  financial-chat-system_backend_internal_financial_v2_repository.PropertyFee:
+  repository.PropertyFee:
     properties:
       amount:
         type: number
@@ -1707,7 +1544,7 @@ definitions:
       startDate:
         type: string
     type: object
-  financial-chat-system_backend_internal_financial_v2_repository.PropertySG:
+  repository.PropertySG:
     properties:
       borrower1CpfAccountId:
         type: string
@@ -1814,7 +1651,7 @@ definitions:
       valuationPrice:
         type: number
     type: object
-  financial-chat-system_backend_internal_financial_v2_repository.PropertySGGrant:
+  repository.PropertySGGrant:
     properties:
       amount:
         type: number
@@ -1827,22 +1664,303 @@ definitions:
       propertySgId:
         type: string
     type: object
-  financial-chat-system_backend_internal_financial_v2_repository.PropertyScenario:
+  session.ConversationStep:
     properties:
-      createdAt:
+      content:
         type: string
-      id:
+      result:
+        additionalProperties: true
+        type: object
+      step_id:
         type: string
-      myDetailsId:
+      timestamp:
         type: string
-      propertySgId:
+      tool_calls:
+        items:
+          type: string
+        type: array
+      tool_name:
         type: string
-      updatedAt:
-        type: string
-      userId:
+      type:
+        description: '"user_message", "llm_response", "tool_execution"'
         type: string
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact:
+  session.PendingToolCall:
+    properties:
+      call_id:
+        type: string
+      created_at:
+        type: string
+      dependencies:
+        items:
+          type: string
+        type: array
+      friendly_description:
+        type: string
+      parameters:
+        additionalProperties: true
+        type: object
+      preview:
+        type: string
+      tool_name:
+        type: string
+    type: object
+  session.SessionState:
+    properties:
+      chat_id:
+        type: string
+      conversation_flow:
+        items:
+          $ref: '#/definitions/session.ConversationStep'
+        type: array
+      created_at:
+        type: string
+      last_asset_id:
+        type: string
+      last_liability_id:
+        type: string
+      last_property_plan_id:
+        type: string
+      messages:
+        items:
+          $ref: '#/definitions/llm.ChatMessage'
+        type: array
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      pending_actions:
+        items:
+          $ref: '#/definitions/session.PendingToolCall'
+        type: array
+      session_id:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  timeline.EventImpactSummary:
+    properties:
+      amountAnnual:
+        description: annualized
+        type: number
+      amountMonthly:
+        type: number
+      cadence:
+        type: string
+      eventId:
+        type: string
+      impactKind:
+        description: override|delta|start|stop
+        type: string
+      notes:
+        type: string
+    type: object
+  timeline.GrowthApplied:
+    properties:
+      annualRatePct:
+        type: number
+      category:
+        type: string
+    type: object
+  timeline.ItemType:
+    enum:
+    - asset
+    - liability
+    - income
+    - expense
+    - cash_account
+    type: string
+    x-enum-varnames:
+    - ItemTypeAsset
+    - ItemTypeLiability
+    - ItemTypeIncome
+    - ItemTypeExpense
+    - ItemTypeCashAccount
+  timeline.TimelineItem:
+    properties:
+      adjAnnualAmt:
+        type: number
+      adjMonthlyAmt:
+        description: Adjusted monthly amount
+        type: number
+      amountAnnual:
+        type: number
+      amountMonthly:
+        description: Monthly amount (when resolution is monthly)
+        type: number
+      category:
+        type: string
+      eventImpacts:
+        items:
+          $ref: '#/definitions/timeline.EventImpactSummary'
+        type: array
+      growthRate:
+        description: GrowthRate is the per-item annual growth rate (percentage)
+        type: number
+      isAccumulator:
+        description: IsAccumulator indicates this is the designated cash account receiving
+          net savings (cash accounts only)
+        type: boolean
+      itemId:
+        description: ItemID is the stable logical identifier used for scenario matching
+          (parent_id if present, else row id).
+        type: string
+      itemType:
+        $ref: '#/definitions/timeline.ItemType'
+      name:
+        type: string
+      parentId:
+        description: ParentID is the original/base item id when this row is a child;
+          else same as RowID.
+        type: string
+      rowId:
+        description: RowID is the concrete finance_* row id (for debugging/reference).
+        type: string
+      sourceAmount:
+        type: number
+      sourceFrequency:
+        type: string
+      startMonth:
+        description: Month when item started (1-12)
+        type: integer
+      startYear:
+        type: integer
+    type: object
+  timeline.TimelineMonth:
+    properties:
+      accumulatedCashEnd:
+        type: number
+      accumulatedCashStart:
+        type: number
+      accumulatorAccountId:
+        type: string
+      assets:
+        items:
+          $ref: '#/definitions/timeline.TimelineItem'
+        type: array
+      cashAccounts:
+        items:
+          $ref: '#/definitions/timeline.TimelineItem'
+        type: array
+      expenses:
+        items:
+          $ref: '#/definitions/timeline.TimelineItem'
+        type: array
+      growthApplied:
+        items:
+          $ref: '#/definitions/timeline.GrowthApplied'
+        type: array
+      hasOverrides:
+        type: boolean
+      income:
+        items:
+          $ref: '#/definitions/timeline.TimelineItem'
+        type: array
+      interestEarned:
+        type: number
+      liabilities:
+        items:
+          $ref: '#/definitions/timeline.TimelineItem'
+        type: array
+      month:
+        description: Month number (1-12)
+        type: integer
+      monthIndex:
+        description: 0-based global month index
+        type: integer
+      monthlyNetSavings:
+        description: Monthly cash accumulation tracking
+        type: number
+      netCash:
+        description: Monthly net savings
+        type: number
+      netWorth:
+        type: number
+      year:
+        description: Calendar year (e.g., 2025)
+        type: integer
+      yearIndex:
+        description: 0-based year index
+        type: integer
+    type: object
+  timeline.TimelineResponse:
+    properties:
+      months:
+        items:
+          $ref: '#/definitions/timeline.TimelineMonth'
+        type: array
+      resolution:
+        description: '"yearly" or "monthly"'
+        type: string
+      scenariosApplied:
+        description: ScenariosApplied lists scenario IDs merged into this response
+          (optional).
+        items:
+          type: string
+        type: array
+      version:
+        type: string
+      years:
+        items:
+          $ref: '#/definitions/timeline.TimelineYear'
+        type: array
+    type: object
+  timeline.TimelineYear:
+    properties:
+      accumulatedCashEnd:
+        description: Cash balance at end of year (after interest)
+        type: number
+      accumulatedCashStart:
+        description: Cash balance at start of year
+        type: number
+      accumulatorAccountId:
+        description: ID of the accumulator cash account
+        type: string
+      annualNetSavings:
+        description: Cash accumulation tracking
+        type: number
+      assets:
+        items:
+          $ref: '#/definitions/timeline.TimelineItem'
+        type: array
+      cashAccounts:
+        description: Cash accounts from finance_cash_accounts table
+        items:
+          $ref: '#/definitions/timeline.TimelineItem'
+        type: array
+      expenses:
+        items:
+          $ref: '#/definitions/timeline.TimelineItem'
+        type: array
+      growthApplied:
+        items:
+          $ref: '#/definitions/timeline.GrowthApplied'
+        type: array
+      hasOverrides:
+        type: boolean
+      income:
+        items:
+          $ref: '#/definitions/timeline.TimelineItem'
+        type: array
+      interestEarned:
+        description: Interest earned this year on accumulator
+        type: number
+      liabilities:
+        items:
+          $ref: '#/definitions/timeline.TimelineItem'
+        type: array
+      netCash:
+        description: Income - Expenses (annual net savings)
+        type: number
+      netWorth:
+        description: Assets + CashAccounts - Liabilities
+        type: number
+      year:
+        type: integer
+    type: object
+  timeline_v2.AppliedImpact:
     properties:
       amountAnnual:
         type: number
@@ -1859,7 +1977,7 @@ definitions:
       notes:
         type: string
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse:
+  timeline_v2.CPFAssetResponse:
     properties:
       balance:
         type: number
@@ -1886,7 +2004,7 @@ definitions:
       startYear:
         type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse:
+  timeline_v2.CPFContributionResponse:
     properties:
       allocationMa:
         type: number
@@ -1919,7 +2037,26 @@ definitions:
       totalContribution:
         type: number
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse:
+  timeline_v2.CPFRefundResponse:
+    properties:
+      id:
+        type: string
+      itemType:
+        description: '"cpf_refund"'
+        type: string
+      name:
+        type: string
+      propertyName:
+        type: string
+      refundDate:
+        description: YYYY-MM format
+        type: string
+      targetAccountId:
+        type: string
+      totalRefund:
+        type: number
+    type: object
+  timeline_v2.CashAssetResponse:
     properties:
       balance:
         type: number
@@ -1929,7 +2066,7 @@ definitions:
         type: number
       eventImpacts:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact'
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
         type: array
       isAccumulator:
         type: boolean
@@ -1944,7 +2081,7 @@ definitions:
       startYear:
         type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse:
+  timeline_v2.ExpenseResponse:
     properties:
       amount:
         description: Monthly amount
@@ -1962,7 +2099,7 @@ definitions:
         type: number
       eventImpacts:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact'
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
         type: array
       icon:
         description: Property fee specific fields
@@ -1991,7 +2128,7 @@ definitions:
       startYear:
         type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.IncomeAllocationResponse:
+  timeline_v2.IncomeAllocationResponse:
     properties:
       allocationType:
         type: string
@@ -2012,7 +2149,7 @@ definitions:
       targetInvestmentId:
         type: string
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse:
+  timeline_v2.IncomeResponse:
     properties:
       allocationMa:
         type: number
@@ -2043,7 +2180,7 @@ definitions:
         type: number
       eventImpacts:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact'
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
         type: array
       growthRate:
         type: number
@@ -2073,7 +2210,7 @@ definitions:
       totalCpf:
         type: number
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.InvestmentResponse:
+  timeline_v2.InvestmentResponse:
     properties:
       balance:
         type: number
@@ -2083,7 +2220,7 @@ definitions:
         type: number
       eventImpacts:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact'
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
         type: array
       growthRate:
         type: number
@@ -2105,7 +2242,7 @@ definitions:
       startYear:
         type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse:
+  timeline_v2.LiabilityResponse:
     properties:
       balance:
         description: Point-in-time balance
@@ -2117,7 +2254,7 @@ definitions:
         type: number
       eventImpacts:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact'
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
         type: array
       id:
         type: string
@@ -2130,7 +2267,7 @@ definitions:
       paymentSources:
         description: Fund flow payment attribution
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.PaymentSourceResponse'
+          $ref: '#/definitions/timeline_v2.PaymentSourceResponse'
         type: array
       scenarioEventId:
         description: If set, this item was created by a start impact
@@ -2142,7 +2279,7 @@ definitions:
       startYear:
         type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse:
+  timeline_v2.MonthDetailResponse:
     properties:
       accumulatorAccountId:
         type: string
@@ -2152,35 +2289,39 @@ definitions:
         type: integer
       cashAssets:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CashAssetResponse'
+          $ref: '#/definitions/timeline_v2.CashAssetResponse'
         type: array
       cpfAssets:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFAssetResponse'
+          $ref: '#/definitions/timeline_v2.CPFAssetResponse'
         type: array
       cpfContributions:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.CPFContributionResponse'
+          $ref: '#/definitions/timeline_v2.CPFContributionResponse'
+        type: array
+      cpfRefunds:
+        items:
+          $ref: '#/definitions/timeline_v2.CPFRefundResponse'
         type: array
       expenses:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.ExpenseResponse'
+          $ref: '#/definitions/timeline_v2.ExpenseResponse'
         type: array
       income:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.IncomeResponse'
+          $ref: '#/definitions/timeline_v2.IncomeResponse'
         type: array
       incomeAllocations:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.IncomeAllocationResponse'
+          $ref: '#/definitions/timeline_v2.IncomeAllocationResponse'
         type: array
       investments:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.InvestmentResponse'
+          $ref: '#/definitions/timeline_v2.InvestmentResponse'
         type: array
       liabilities:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.LiabilityResponse'
+          $ref: '#/definitions/timeline_v2.LiabilityResponse'
         type: array
       month:
         type: integer
@@ -2197,11 +2338,11 @@ definitions:
         type: number
       nonCashAssets:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse'
+          $ref: '#/definitions/timeline_v2.NonCashAssetResponse'
         type: array
       properties:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_property.PropertySnapshot'
+          $ref: '#/definitions/property.PropertySnapshot'
         type: array
       totalAssets:
         description: Other totals
@@ -2211,7 +2352,7 @@ definitions:
       year:
         type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.NonCashAssetResponse:
+  timeline_v2.NonCashAssetResponse:
     properties:
       balance:
         type: number
@@ -2221,7 +2362,7 @@ definitions:
         type: number
       eventImpacts:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.AppliedImpact'
+          $ref: '#/definitions/timeline_v2.AppliedImpact'
         type: array
       id:
         type: string
@@ -2241,7 +2382,7 @@ definitions:
       startYear:
         type: integer
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.PaymentSourceResponse:
+  timeline_v2.PaymentSourceResponse:
     properties:
       amount:
         type: number
@@ -2260,11 +2401,11 @@ definitions:
         description: True if this was a lower-priority rule covering remainder
         type: boolean
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse:
+  timeline_v2.TimelineAnnualChartResponse:
     properties:
       months:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary'
+          $ref: '#/definitions/timeline_v2.TimelineMonthlySummary'
         type: array
       resolution:
         type: string
@@ -2274,10 +2415,10 @@ definitions:
         type: array
       years:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary'
+          $ref: '#/definitions/timeline_v2.TimelineYearlySummary'
         type: array
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.TimelineMonthlySummary:
+  timeline_v2.TimelineMonthlySummary:
     properties:
       allMonthsIndex:
         type: integer
@@ -2290,14 +2431,14 @@ definitions:
       totalLiabilities:
         type: number
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response:
+  timeline_v2.TimelineV2Response:
     properties:
       months:
         items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.MonthDetailResponse'
+          $ref: '#/definitions/timeline_v2.MonthDetailResponse'
         type: array
     type: object
-  financial-chat-system_backend_internal_financial_v2_timeline.TimelineYearlySummary:
+  timeline_v2.TimelineYearlySummary:
     properties:
       allYearsIndex:
         type: integer
@@ -2309,124 +2450,6 @@ definitions:
         type: number
       year:
         type: integer
-    type: object
-  financial-chat-system_backend_internal_llm.ChatMessage:
-    properties:
-      content:
-        description: Message content
-        type: string
-      name:
-        description: Optional name for tool messages
-        type: string
-      role:
-        description: '"user", "assistant", "system", "tool"'
-        type: string
-      tool_call_id:
-        description: ID of tool call this message responds to
-        type: string
-      tool_calls:
-        description: Tool calls in this message
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_llm.ToolCall'
-        type: array
-    type: object
-  financial-chat-system_backend_internal_llm.FunctionCall:
-    properties:
-      arguments:
-        description: JSON string of function arguments
-        type: string
-      name:
-        description: Function name (e.g., "create_asset")
-        type: string
-    type: object
-  financial-chat-system_backend_internal_llm.ToolCall:
-    properties:
-      function:
-        allOf:
-        - $ref: '#/definitions/financial-chat-system_backend_internal_llm.FunctionCall'
-        description: Function details
-      id:
-        description: Unique identifier for this tool call
-        type: string
-      type:
-        description: Always "function" for function calls
-        type: string
-    type: object
-  financial-chat-system_backend_internal_session.ConversationStep:
-    properties:
-      content:
-        type: string
-      result:
-        additionalProperties: true
-        type: object
-      step_id:
-        type: string
-      timestamp:
-        type: string
-      tool_calls:
-        items:
-          type: string
-        type: array
-      tool_name:
-        type: string
-      type:
-        description: '"user_message", "llm_response", "tool_execution"'
-        type: string
-    type: object
-  financial-chat-system_backend_internal_session.PendingToolCall:
-    properties:
-      call_id:
-        type: string
-      created_at:
-        type: string
-      dependencies:
-        items:
-          type: string
-        type: array
-      friendly_description:
-        type: string
-      parameters:
-        additionalProperties: true
-        type: object
-      preview:
-        type: string
-      tool_name:
-        type: string
-    type: object
-  financial-chat-system_backend_internal_session.SessionState:
-    properties:
-      chat_id:
-        type: string
-      conversation_flow:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_session.ConversationStep'
-        type: array
-      created_at:
-        type: string
-      last_asset_id:
-        type: string
-      last_liability_id:
-        type: string
-      last_property_plan_id:
-        type: string
-      messages:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_llm.ChatMessage'
-        type: array
-      metadata:
-        additionalProperties:
-          type: string
-        type: object
-      pending_actions:
-        items:
-          $ref: '#/definitions/financial-chat-system_backend_internal_session.PendingToolCall'
-        type: array
-      session_id:
-        type: string
-      updated_at:
-        type: string
-      user_id:
-        type: string
     type: object
 host: localhost:8080
 info:
@@ -2457,7 +2480,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.TokenResponse'
+            $ref: '#/definitions/handlers.TokenResponse'
         "400":
           description: Bad Request
           schema:
@@ -2481,14 +2504,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.ChatRequest'
+          $ref: '#/definitions/handlers.ChatRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.ChatResponse'
+            $ref: '#/definitions/handlers.ChatResponse'
         "400":
           description: Bad Request
           schema:
@@ -2516,14 +2539,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.DispatchRequest'
+          $ref: '#/definitions/handlers.DispatchRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.DispatchResponse'
+            $ref: '#/definitions/handlers.DispatchResponse'
         "400":
           description: Bad Request
           schema:
@@ -2568,7 +2591,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse'
+            $ref: '#/definitions/timeline.TimelineResponse'
         "400":
           description: Bad Request
           schema:
@@ -2609,7 +2632,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_timeline.TimelineResponse'
+            $ref: '#/definitions/timeline.TimelineResponse'
         "400":
           description: Bad Request
           schema:
@@ -2635,7 +2658,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.HealthResponse'
+            $ref: '#/definitions/handlers.HealthResponse'
       summary: Health check
       tags:
       - Health
@@ -2657,6 +2680,7 @@ paths:
     delete:
       description: Bulk deletes all non-cash assets for the authenticated user in
         a single query.
+      operationId: deleteBulkAssets
       responses:
         "204":
           description: No Content
@@ -2711,14 +2735,14 @@ paths:
         name: asset
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.assetCreateInput'
+          $ref: '#/definitions/handlers.assetCreateInput'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.NonCashAsset'
+            $ref: '#/definitions/repository.NonCashAsset'
         "400":
           description: Bad Request
           schema:
@@ -2738,6 +2762,7 @@ paths:
   /v2/assets/{id}:
     delete:
       description: Deletes an asset and its descendant versions
+      operationId: deleteAsset
       parameters:
       - description: Asset ID
         in: path
@@ -2778,14 +2803,14 @@ paths:
         name: asset
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.assetInput'
+          $ref: '#/definitions/handlers.assetInput'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.NonCashAsset'
+            $ref: '#/definitions/repository.NonCashAsset'
         "400":
           description: Bad Request
           schema:
@@ -2823,14 +2848,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.stopInput'
+          $ref: '#/definitions/handlers.stopInput'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.NonCashAsset'
+            $ref: '#/definitions/repository.NonCashAsset'
         "400":
           description: Bad Request
           schema:
@@ -2856,6 +2881,7 @@ paths:
     delete:
       description: Bulk deletes all cash accounts for the authenticated user in a
         single query.
+      operationId: deleteBulkCashAccounts
       responses:
         "204":
           description: No Content
@@ -2903,6 +2929,7 @@ paths:
   /v2/cash-accounts/{id}:
     delete:
       description: Deletes a cash account and descendant versions
+      operationId: deleteCashAccount
       parameters:
       - description: Cash account ID
         in: path
@@ -2943,14 +2970,14 @@ paths:
         name: cashAccount
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.cashAccountV2Input'
+          $ref: '#/definitions/handlers.cashAccountV2Input'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CashAsset'
+            $ref: '#/definitions/repository.CashAsset'
         "400":
           description: Bad Request
           schema:
@@ -2989,14 +3016,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.stopInput'
+          $ref: '#/definitions/handlers.stopInput'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CashAsset'
+            $ref: '#/definitions/repository.CashAsset'
         "400":
           description: Bad Request
           schema:
@@ -3075,7 +3102,7 @@ paths:
         name: expense
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.expenseCreateInput'
+          $ref: '#/definitions/handlers.expenseCreateInput'
       produces:
       - application/json
       responses:
@@ -3102,6 +3129,7 @@ paths:
   /v2/cashflow/expenses/{id}:
     delete:
       description: Deletes an expense and all its descendant versions
+      operationId: deleteExpense
       parameters:
       - description: Expense ID
         in: path
@@ -3142,7 +3170,7 @@ paths:
         name: expense
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.expenseV2Input'
+          $ref: '#/definitions/handlers.expenseV2Input'
       produces:
       - application/json
       responses:
@@ -3187,7 +3215,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.stopInput'
+          $ref: '#/definitions/handlers.stopInput'
       produces:
       - application/json
       responses:
@@ -3220,6 +3248,7 @@ paths:
     delete:
       description: Bulk deletes all incomes for the authenticated user in a single
         query.
+      operationId: deleteBulkIncomes
       responses:
         "204":
           description: No Content
@@ -3274,7 +3303,7 @@ paths:
         name: income
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.incomeV2CreateInput'
+          $ref: '#/definitions/handlers.incomeV2CreateInput'
       produces:
       - application/json
       responses:
@@ -3301,6 +3330,7 @@ paths:
   /v2/cashflow/incomes/{id}:
     delete:
       description: Deletes an income and all descendant versions
+      operationId: deleteIncome
       parameters:
       - description: Income ID
         in: path
@@ -3341,7 +3371,7 @@ paths:
         name: income
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.incomeV2Input'
+          $ref: '#/definitions/handlers.incomeV2Input'
       produces:
       - application/json
       responses:
@@ -3386,7 +3416,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.stopInput'
+          $ref: '#/definitions/handlers.stopInput'
       produces:
       - application/json
       responses:
@@ -3424,7 +3454,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CPFAccount'
+            $ref: '#/definitions/repository.CPFAccount'
         "404":
           description: Not Found
           schema:
@@ -3452,14 +3482,14 @@ paths:
         name: cpf
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.cpfV2CreateInput'
+          $ref: '#/definitions/handlers.cpfV2CreateInput'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CPFAccount'
+            $ref: '#/definitions/repository.CPFAccount'
         "400":
           description: Bad Request
           schema:
@@ -3520,14 +3550,14 @@ paths:
         name: cpf
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.cpfV2Input'
+          $ref: '#/definitions/handlers.cpfV2Input'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CPFAccount'
+            $ref: '#/definitions/repository.CPFAccount'
         "400":
           description: Bad Request
           schema:
@@ -3565,14 +3595,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.stopInput'
+          $ref: '#/definitions/handlers.stopInput'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CPFAccount'
+            $ref: '#/definitions/repository.CPFAccount'
         "400":
           description: Bad Request
           schema:
@@ -3598,6 +3628,7 @@ paths:
     delete:
       description: Bulk deletes all CPF accounts for the authenticated user in a single
         query.
+      operationId: deleteBulkCPFAccounts
       responses:
         "204":
           description: No Content
@@ -3621,7 +3652,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.CPFAccount'
+              $ref: '#/definitions/repository.CPFAccount'
             type: array
         "500":
           description: Internal Server Error
@@ -3650,7 +3681,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineAnnualChartResponse'
+            $ref: '#/definitions/timeline_v2.TimelineAnnualChartResponse'
         "400":
           description: Bad Request
           schema:
@@ -3692,7 +3723,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_timeline.TimelineV2Response'
+            $ref: '#/definitions/timeline_v2.TimelineV2Response'
         "400":
           description: Bad Request
           schema:
@@ -3756,7 +3787,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/cmd_server_handlers.fundFlowRuleDTO'
+              $ref: '#/definitions/handlers.fundFlowRuleDTO'
             type: array
         "500":
           description: Internal Server Error
@@ -3779,14 +3810,14 @@ paths:
         name: rule
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.fundFlowRuleCreateDTO'
+          $ref: '#/definitions/handlers.fundFlowRuleCreateDTO'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/cmd_server_handlers.fundFlowRuleDTO'
+            $ref: '#/definitions/handlers.fundFlowRuleDTO'
         "400":
           description: Bad Request
           schema:
@@ -3806,6 +3837,7 @@ paths:
   /v2/fund-flow-rules/{id}:
     delete:
       description: Deletes a fund flow rule
+      operationId: deleteFundFlowRule
       parameters:
       - description: Rule ID
         in: path
@@ -3845,7 +3877,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.fundFlowRuleDTO'
+            $ref: '#/definitions/handlers.fundFlowRuleDTO'
         "404":
           description: Not Found
           schema:
@@ -3877,14 +3909,14 @@ paths:
         name: rule
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.fundFlowRuleCreateDTO'
+          $ref: '#/definitions/handlers.fundFlowRuleCreateDTO'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.fundFlowRuleDTO'
+            $ref: '#/definitions/handlers.fundFlowRuleDTO'
         "400":
           description: Bad Request
           schema:
@@ -3922,14 +3954,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.stopFundFlowRuleDTO'
+          $ref: '#/definitions/handlers.stopFundFlowRuleDTO'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.fundFlowRuleDTO'
+            $ref: '#/definitions/handlers.fundFlowRuleDTO'
         "400":
           description: Bad Request
           schema:
@@ -3955,6 +3987,7 @@ paths:
     delete:
       description: Bulk deletes all investments for the authenticated user in a single
         query.
+      operationId: deleteBulkInvestments
       responses:
         "204":
           description: No Content
@@ -4009,7 +4042,7 @@ paths:
         name: investment
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.investmentCreateInput'
+          $ref: '#/definitions/handlers.investmentCreateInput'
       produces:
       - application/json
       responses:
@@ -4036,6 +4069,7 @@ paths:
   /v2/investments/{id}:
     delete:
       description: Deletes an investment and its descendant versions
+      operationId: deleteInvestment
       parameters:
       - description: Investment ID
         in: path
@@ -4076,7 +4110,7 @@ paths:
         name: investment
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.investmentV2Input'
+          $ref: '#/definitions/handlers.investmentV2Input'
       produces:
       - application/json
       responses:
@@ -4122,7 +4156,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.stopInput'
+          $ref: '#/definitions/handlers.stopInput'
       produces:
       - application/json
       responses:
@@ -4155,6 +4189,7 @@ paths:
     delete:
       description: Bulk deletes all liabilities for the authenticated user in a single
         query.
+      operationId: deleteBulkLiabilities
       responses:
         "204":
           description: No Content
@@ -4210,7 +4245,7 @@ paths:
         name: liability
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.liabilityCreateInput'
+          $ref: '#/definitions/handlers.liabilityCreateInput'
       produces:
       - application/json
       responses:
@@ -4237,6 +4272,7 @@ paths:
   /v2/liabilities/{id}:
     delete:
       description: Deletes a liability and all descendant versions
+      operationId: deleteLiability
       parameters:
       - description: Liability ID
         in: path
@@ -4277,7 +4313,7 @@ paths:
         name: liability
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.liabilityInput'
+          $ref: '#/definitions/handlers.liabilityInput'
       produces:
       - application/json
       responses:
@@ -4322,7 +4358,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.stopInput'
+          $ref: '#/definitions/handlers.stopInput'
       produces:
       - application/json
       responses:
@@ -4361,7 +4397,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Person'
+              $ref: '#/definitions/repository.Person'
             type: array
         "500":
           description: Internal Server Error
@@ -4384,14 +4420,14 @@ paths:
         name: person
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.personV2CreateInput'
+          $ref: '#/definitions/handlers.personV2CreateInput'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Person'
+            $ref: '#/definitions/repository.Person'
         "400":
           description: Bad Request
           schema:
@@ -4451,7 +4487,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Person'
+            $ref: '#/definitions/repository.Person'
         "404":
           description: Not Found
           schema:
@@ -4483,14 +4519,14 @@ paths:
         name: person
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.personV2UpdateInput'
+          $ref: '#/definitions/handlers.personV2UpdateInput'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Person'
+            $ref: '#/definitions/repository.Person'
         "400":
           description: Bad Request
           schema:
@@ -4527,7 +4563,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.Person'
+            $ref: '#/definitions/repository.Person'
         "404":
           description: Not Found
           schema:
@@ -4548,6 +4584,7 @@ paths:
     delete:
       description: Bulk deletes all property scenarios for the authenticated user
         in a single query.
+      operationId: deleteBulkPropertyScenarios
       responses:
         "204":
           description: No Content
@@ -4572,7 +4609,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/cmd_server_handlers.scenarioResponse'
+              $ref: '#/definitions/handlers.scenarioResponse'
             type: array
         "500":
           description: Internal Server Error
@@ -4596,14 +4633,14 @@ paths:
         name: scenario
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.createScenarioRequest'
+          $ref: '#/definitions/handlers.createScenarioRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/cmd_server_handlers.scenarioResponse'
+            $ref: '#/definitions/handlers.scenarioResponse'
         "400":
           description: Bad Request
           schema:
@@ -4623,6 +4660,7 @@ paths:
   /v2/property-planner/scenarios/{id}:
     delete:
       description: Deletes a property scenario by ID and all related data
+      operationId: deletePropertyScenario
       parameters:
       - description: Scenario ID
         in: path
@@ -4662,7 +4700,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.scenarioResponse'
+            $ref: '#/definitions/handlers.scenarioResponse'
         "404":
           description: Not Found
           schema:
@@ -4695,14 +4733,14 @@ paths:
         name: scenario
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.createScenarioRequest'
+          $ref: '#/definitions/handlers.createScenarioRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.scenarioResponse'
+            $ref: '#/definitions/handlers.scenarioResponse'
         "400":
           description: Bad Request
           schema:
@@ -4740,7 +4778,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertySGGrant'
+              $ref: '#/definitions/repository.PropertySGGrant'
             type: array
         "404":
           description: Not Found
@@ -4773,14 +4811,14 @@ paths:
         name: grant
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.createGrantRequest'
+          $ref: '#/definitions/handlers.createGrantRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertySGGrant'
+            $ref: '#/definitions/repository.PropertySGGrant'
         "400":
           description: Bad Request
           schema:
@@ -4855,14 +4893,14 @@ paths:
         name: grant
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.createGrantRequest'
+          $ref: '#/definitions/handlers.createGrantRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/financial-chat-system_backend_internal_financial_v2_repository.PropertySGGrant'
+            $ref: '#/definitions/repository.PropertySGGrant'
         "400":
           description: Bad Request
           schema:
@@ -4888,6 +4926,7 @@ paths:
     delete:
       description: Deletes all financial data (assets, liabilities, incomes, expenses,
         investments,
+      operationId: resetAllUserData
       responses:
         "204":
           description: No Content
@@ -4961,14 +5000,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.scenarioEventV2DTO'
+          $ref: '#/definitions/handlers.scenarioEventV2DTO'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/cmd_server_handlers.scenarioEventV2DTO'
+            $ref: '#/definitions/handlers.scenarioEventV2DTO'
         "400":
           description: Bad Request
           schema:
@@ -5030,7 +5069,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.scenarioEventV2DTO'
+            $ref: '#/definitions/handlers.scenarioEventV2DTO'
         "404":
           description: Not Found
           schema:
@@ -5062,14 +5101,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/cmd_server_handlers.scenarioEventV2DTO'
+          $ref: '#/definitions/handlers.scenarioEventV2DTO'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/cmd_server_handlers.scenarioEventV2DTO'
+            $ref: '#/definitions/handlers.scenarioEventV2DTO'
         "400":
           description: Bad Request
           schema:
