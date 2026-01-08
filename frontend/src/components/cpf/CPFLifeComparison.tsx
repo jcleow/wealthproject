@@ -225,7 +225,7 @@ export function CPFLifeComparison({ className }: CPFLifeComparisonProps) {
 
       {/* Link to CPF Calculator */}
       <a
-        href="https://www.cpf.gov.sg/member/tools-and-services/calculators/cpf-life-estimator"
+        href="https://www.cpf.gov.sg/member/retirement-income/monthly-payouts/cpf-life"
         target="_blank"
         rel="noopener noreferrer"
         className={cn(
@@ -236,7 +236,7 @@ export function CPFLifeComparison({ className }: CPFLifeComparisonProps) {
         <Calculator className="h-5 w-5 text-blue-400" />
         <div className="flex-1">
           <div className="text-sm font-medium text-white">Get your payout estimates</div>
-          <div className="text-xs text-slate-400">Use the official CPF LIFE Estimator to get accurate figures</div>
+          <div className="text-xs text-slate-400">Use the official CPF LIFE page to get accurate figures</div>
         </div>
         <ExternalLink className="h-4 w-4 text-blue-400" />
       </a>
