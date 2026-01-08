@@ -5,28 +5,25 @@ import {
   Wallet,
   TrendingUp,
   PiggyBank,
-  Shield,
   Home,
   LineChart,
-  GitBranch,
-  Banknote,
   GraduationCap,
   X,
+  Layers,
+  ChevronDown,
+  Sunset,
 } from 'lucide-react'
 
 import {
-  CPFBalanceOverview,
   CPFContributionFlow,
   CPFISInvestmentDashboard,
   TopUpTaxReliefCalculator,
-  SAShieldingPlanner,
   PropertyCPFUsage,
   CPFProjectionChart,
-  RetirementPayoutPlanner,
   CPFContributionCalculator,
   CPFHousingCalculator,
   CPFJourneyCalculator,
-  CPFLifeComparison,
+  Age55ConversionSimulator,
 } from '@/components/cpf'
 import {
   mockCPFProfile,
@@ -34,20 +31,14 @@ import {
   mockInvestibleBalance,
 } from '@/lib/cpf-mock-data'
 
-type TabId = 'overview' | 'flow' | 'projection' | 'retirement' | 'investments' | 'topup' | 'shielding' | 'property' | 'learn'
+type TabId = 'overview' | 'projection' | 'schemes' | 'property' | 'retirement' | 'learn'
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; description: string }[] = [
   {
     id: 'overview',
     label: 'Overview',
     icon: <Wallet className="h-4 w-4" />,
-    description: 'CPF account balances',
-  },
-  {
-    id: 'flow',
-    label: 'Contribution Flow',
-    icon: <GitBranch className="h-4 w-4" />,
-    description: 'How salary flows to CPF accounts',
+    description: 'Balances & contribution flow',
   },
   {
     id: 'projection',
@@ -56,34 +47,22 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
     description: '30-year forecast',
   },
   {
-    id: 'retirement',
-    label: 'Retirement Payout',
-    icon: <Banknote className="h-4 w-4" />,
-    description: 'CPF LIFE estimator',
-  },
-  {
-    id: 'investments',
-    label: 'CPFIS',
-    icon: <TrendingUp className="h-4 w-4" />,
-    description: 'Investment scheme',
-  },
-  {
-    id: 'topup',
-    label: 'Top-ups',
-    icon: <PiggyBank className="h-4 w-4" />,
-    description: 'Tax relief calculator',
-  },
-  {
-    id: 'shielding',
-    label: 'SA Shielding',
-    icon: <Shield className="h-4 w-4" />,
-    description: 'Pre-55 strategy',
+    id: 'schemes',
+    label: 'Schemes',
+    icon: <Layers className="h-4 w-4" />,
+    description: 'CPFIS & RSTU',
   },
   {
     id: 'property',
     label: 'Property',
     icon: <Home className="h-4 w-4" />,
     description: 'Housing & grants',
+  },
+  {
+    id: 'retirement',
+    label: 'Retirement',
+    icon: <Sunset className="h-4 w-4" />,
+    description: 'Age 55 & CPF LIFE',
   },
   {
     id: 'learn',
@@ -93,22 +72,39 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
   },
 ]
 
+type SchemeId = 'cpfis' | 'rstu'
+
+const SCHEMES: { id: SchemeId; label: string; icon: React.ReactNode; description: string }[] = [
+  {
+    id: 'cpfis',
+    label: 'CPFIS',
+    icon: <TrendingUp className="h-4 w-4" />,
+    description: 'CPF Investment Scheme',
+  },
+  {
+    id: 'rstu',
+    label: 'RSTU / Top-ups',
+    icon: <PiggyBank className="h-4 w-4" />,
+    description: 'Retirement Sum Topping-Up',
+  },
+]
+
 interface CPFSimulationViewProps {
   onClose: () => void
 }
 
-type LearnCalculator = 'journey' | 'contribution' | 'housing' | 'cpflife'
+type LearnCalculator = 'journey' | 'contribution' | 'housing'
 
 const LEARN_CALCULATORS: { id: LearnCalculator; label: string; description: string }[] = [
   { id: 'journey', label: 'CPF Journey', description: 'Complete lifecycle overview' },
   { id: 'contribution', label: 'CPF Contributions', description: 'How salary flows to OA/SA/MA' },
   { id: 'housing', label: 'Housing Limits', description: 'Valuation & Withdrawal Limits' },
-  { id: 'cpflife', label: 'CPF LIFE', description: 'Compare payout plans' },
 ]
 
 export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [activeCalculator, setActiveCalculator] = useState<LearnCalculator>('journey')
+  const [activeScheme, setActiveScheme] = useState<SchemeId>('cpfis')
 
   return (
     <div className="flex h-full flex-col">
@@ -166,28 +162,47 @@ transition`}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-5">
-        {activeTab === 'overview' && <CPFBalanceOverview profile={mockCPFProfile} />}
-
-        {activeTab === 'flow' && <CPFContributionFlow profile={mockCPFProfile} />}
+        {activeTab === 'overview' && <CPFContributionFlow profile={mockCPFProfile} />}
 
         {activeTab === 'projection' && <CPFProjectionChart profile={mockCPFProfile} />}
 
-        {activeTab === 'retirement' && <RetirementPayoutPlanner profile={mockCPFProfile} />}
+        {activeTab === 'schemes' && (
+          <div className="space-y-4">
+            {/* Scheme Selector Dropdown */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-slate-400">Select scheme:</span>
+              <div className="relative">
+                <select
+                  value={activeScheme}
+                  onChange={(e) => setActiveScheme(e.target.value as SchemeId)}
+                  className="appearance-none rounded-lg border border-white/[0.08] bg-white/[0.03] py-2 pl-3 pr-10 text-sm text-white focus:border-emerald-500/50 focus:outline-none"
+                >
+                  {SCHEMES.map((scheme) => (
+                    <option key={scheme.id} value={scheme.id} className="bg-[#0a0a0a]">
+                      {scheme.label} - {scheme.description}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              </div>
+            </div>
 
-        {activeTab === 'investments' && (
-          <CPFISInvestmentDashboard
-            investments={mockCPFISInvestments}
-            investibleBalance={mockInvestibleBalance}
-            oaBalance={mockCPFProfile.balances.oa}
-            saBalance={mockCPFProfile.balances.sa}
-          />
+            {/* Active Scheme Content */}
+            {activeScheme === 'cpfis' && (
+              <CPFISInvestmentDashboard
+                investments={mockCPFISInvestments}
+                investibleBalance={mockInvestibleBalance}
+                oaBalance={mockCPFProfile.balances.oa}
+                saBalance={mockCPFProfile.balances.sa}
+              />
+            )}
+            {activeScheme === 'rstu' && <TopUpTaxReliefCalculator profile={mockCPFProfile} />}
+          </div>
         )}
 
-        {activeTab === 'topup' && <TopUpTaxReliefCalculator profile={mockCPFProfile} />}
-
-        {activeTab === 'shielding' && <SAShieldingPlanner profile={mockCPFProfile} />}
-
         {activeTab === 'property' && <PropertyCPFUsage />}
+
+        {activeTab === 'retirement' && <Age55ConversionSimulator />}
 
         {activeTab === 'learn' && (
           <div className="space-y-4">
@@ -213,7 +228,6 @@ transition`}
             {activeCalculator === 'journey' && <CPFJourneyCalculator />}
             {activeCalculator === 'contribution' && <CPFContributionCalculator />}
             {activeCalculator === 'housing' && <CPFHousingCalculator />}
-            {activeCalculator === 'cpflife' && <CPFLifeComparison />}
           </div>
         )}
       </div>

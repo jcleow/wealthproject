@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import { Sankey, Tooltip, Layer, Rectangle, ResponsiveContainer } from 'recharts'
-import { Info, DollarSign, Percent } from 'lucide-react'
+import { Info, DollarSign, GitBranch, BarChart3 } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
+import { CPFContributionWaterfall, type WaterfallView } from './CPFContributionWaterfall'
 import type { CPFProfile } from '@/types/cpf'
 import { CPF_LIMITS } from '@/lib/cpf-mock-data'
 
@@ -48,27 +49,6 @@ function getAgeGroup(age: number): keyof typeof CPF_RATES {
   if (age <= 65) return '60_to_65'
   if (age <= 70) return '65_to_70'
   return 'above_70'
-}
-
-const ACCOUNT_INFO = {
-  oa: {
-    name: 'Ordinary Account (OA)',
-    color: '#3b82f6',
-    description: 'For housing, insurance, investment and education',
-    rate: '2.5% p.a.',
-  },
-  sa: {
-    name: 'Special Account (SA)',
-    color: '#10b981',
-    description: 'For retirement savings and approved investments',
-    rate: '4.0% p.a.',
-  },
-  ma: {
-    name: 'MediSave Account (MA)',
-    color: '#f59e0b',
-    description: 'For healthcare and medical insurance',
-    rate: '4.0% p.a.',
-  },
 }
 
 interface CPFContributionFlowProps {
@@ -119,8 +99,12 @@ function CustomNode({ x, y, width, height, payload }: any) {
   )
 }
 
+type VisualizationMode = 'sankey' | 'waterfall'
+
 export function CPFContributionFlow({ profile, className }: CPFContributionFlowProps) {
   const [selectedView, setSelectedView] = useState<'monthly' | 'annual'>('monthly')
+  const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('sankey')
+  const [waterfallView, setWaterfallView] = useState<WaterfallView>('salary')
 
   const { monthlyIncome, annualBonus, age } = profile
   const ageGroup = getAgeGroup(age)
@@ -218,228 +202,189 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Header with view toggle */}
-      <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between
-gap-4`}>
-        <div>
-          <h3 className="text-lg font-medium text-white">CPF Contribution Flow</h3>
-          <p className="text-sm text-slate-400">
-            How your salary flows into CPF accounts (Age group: {ageGroupLabel})
-          </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-medium text-white">CPF Contribution Flow</h3>
+            <p className="text-sm text-slate-400">
+              How your salary flows into CPF accounts (Age group: {ageGroupLabel})
+            </p>
+          </div>
+          <div className="flex rounded-lg border border-white/10 bg-white/5 p-1">
+            <button
+              onClick={() => setSelectedView('monthly')}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                selectedView === 'monthly'
+                  ? 'bg-white/10 text-white'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setSelectedView('annual')}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                selectedView === 'annual'
+                  ? 'bg-white/10 text-white'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Annual
+            </button>
+          </div>
         </div>
-        <div className="flex rounded-lg border border-white/10 bg-white/5 p-1">
-          <button
-            onClick={() => setSelectedView('monthly')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-              selectedView === 'monthly'
-                ? 'bg-white/10 text-white'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => setSelectedView('annual')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-              selectedView === 'annual'
-                ? 'bg-white/10 text-white'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Annual
-          </button>
+
+        {/* Visualization Mode Toggle */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Chart:</span>
+            <div className="flex rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5">
+              <button
+                onClick={() => setVisualizationMode('sankey')}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                  visualizationMode === 'sankey'
+                    ? 'bg-white/[0.1] text-white'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <GitBranch className="h-3.5 w-3.5" />
+                Sankey
+              </button>
+              <button
+                onClick={() => setVisualizationMode('waterfall')}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                  visualizationMode === 'waterfall'
+                    ? 'bg-white/[0.1] text-white'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                Waterfall
+              </button>
+            </div>
+          </div>
+
+          {/* Waterfall View Toggle - only show when waterfall mode is active */}
+          {visualizationMode === 'waterfall' && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">View:</span>
+              <div className="flex rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5">
+                <button
+                  onClick={() => setWaterfallView('salary')}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                    waterfallView === 'salary'
+                      ? 'bg-white/[0.1] text-white'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  Salary Flow
+                </button>
+                <button
+                  onClick={() => setWaterfallView('cpf')}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                    waterfallView === 'cpf'
+                      ? 'bg-white/[0.1] text-white'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  CPF Allocation
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Contribution Rates Card */}
-      <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Percent className="h-4 w-4 text-purple-400" />
-          <h4 className="text-sm font-medium text-white">Current Contribution Rates</h4>
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-lg bg-purple-500/10 p-3 text-center">
-            <p className="text-xs text-slate-400">Employee</p>
-            <p className="text-xl font-semibold text-purple-400">{(rates.employee * 100).toFixed(0)}%</p>
-          </div>
-          <div className="rounded-lg bg-pink-500/10 p-3 text-center">
-            <p className="text-xs text-slate-400">Employer</p>
-            <p className="text-xl font-semibold text-pink-400">{(rates.employer * 100).toFixed(0)}%</p>
-          </div>
-          <div className="rounded-lg bg-indigo-500/10 p-3 text-center">
-            <p className="text-xs text-slate-400">Total</p>
-            <p className="text-xl font-semibold text-indigo-400">{(rates.total * 100).toFixed(0)}%</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Sankey Chart */}
-      <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
+      {/* Chart Section */}
+      <div className="relative rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
         <div className="mb-4 flex items-center gap-2">
           <DollarSign className="h-4 w-4 text-green-400" />
           <h4 className="text-sm font-medium text-white">Money Flow Visualization</h4>
         </div>
 
-        <div className="h-[400px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <Sankey
-              data={sankeyData}
-              node={<CustomNode />}
-              nodePadding={50}
-              nodeWidth={12}
-              linkCurvature={0.5}
-              margin={{ top: 40, right: 180, bottom: 20, left: 100 }}
-              link={{
-                stroke: '#ffffff',
-                strokeOpacity: 0.2,
-              }}
-            >
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.[0]) return null
-                  const data = payload[0].payload
-                  if (data.source && data.target) {
+        {/* Compact Contribution Rates Overlay - only show for Sankey mode */}
+        {visualizationMode === 'sankey' && (
+          <div className="absolute right-5 top-5 z-10 rounded-lg border border-white/[0.08] bg-slate-900/95 px-3 py-2 backdrop-blur-sm">
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-500">
+              Rates (Age {ageGroupLabel})
+            </p>
+            <div className="space-y-0.5 text-xs">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-400">Employee</span>
+                <span className="font-mono font-medium text-purple-400">{(rates.employee * 100).toFixed(0)}%</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-400">Employer</span>
+                <span className="font-mono font-medium text-pink-400">{(rates.employer * 100).toFixed(0)}%</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-4 border-t border-white/[0.06] pt-1">
+                <span className="text-slate-300">Total</span>
+                <span className="font-mono font-semibold text-white">{(rates.total * 100).toFixed(0)}%</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sankey Chart */}
+        {visualizationMode === 'sankey' && (
+          <div className="h-[400px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <Sankey
+                data={sankeyData}
+                node={<CustomNode />}
+                nodePadding={50}
+                nodeWidth={12}
+                linkCurvature={0.5}
+                margin={{ top: 40, right: 180, bottom: 20, left: 100 }}
+                link={{
+                  stroke: '#ffffff',
+                  strokeOpacity: 0.2,
+                }}
+              >
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.[0]) return null
+                    const tooltipData = payload[0].payload
+                    if (tooltipData.source && tooltipData.target) {
+                      return (
+                        <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur">
+                          <p className="text-xs text-slate-400">
+                            {tooltipData.source.name} → {tooltipData.target.name}
+                          </p>
+                          <p className="text-lg font-semibold text-white">
+                            {formatCurrency(tooltipData.value)}
+                          </p>
+                        </div>
+                      )
+                    }
                     return (
-                      <div className={`px-3 py-2
-rounded-lg border border-white/10
-bg-[#0f1728]/95
-shadow-xl backdrop-blur`}>
-                        <p className="text-xs text-slate-400">
-                          {data.source.name} → {data.target.name}
-                        </p>
+                      <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur">
+                        <p className="text-xs text-slate-400">{tooltipData.name}</p>
                         <p className="text-lg font-semibold text-white">
-                          {formatCurrency(data.value)}
+                          {formatCurrency(tooltipData.value)}
                         </p>
                       </div>
                     )
-                  }
-                  return (
-                    <div className={`px-3 py-2
-rounded-lg border border-white/10
-bg-[#0f1728]/95
-shadow-xl backdrop-blur`}>
-                      <p className="text-xs text-slate-400">{data.name}</p>
-                      <p className="text-lg font-semibold text-white">
-                        {formatCurrency(data.value)}
-                      </p>
-                    </div>
-                  )
-                }}
-              />
-            </Sankey>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Breakdown Cards */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Left: Salary Breakdown */}
-        <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
-          <h4 className="mb-4 text-sm font-medium text-white">Salary Breakdown</h4>
-          <div className="space-y-3">
-            <div className={`flex items-center justify-between
-p-3
-rounded-lg
-bg-indigo-500/10`}>
-              <span className="text-sm text-slate-300">Gross Salary</span>
-              <span className="font-semibold text-indigo-400">{formatCurrency(data.grossSalary)}</span>
-            </div>
-            <div className={`flex items-center justify-between
-p-3
-rounded-lg
-bg-purple-500/10`}>
-              <span className="text-sm text-slate-300">Employee CPF (-)</span>
-              <span className="font-semibold text-purple-400">-{formatCurrency(data.employeeCPF)}</span>
-            </div>
-            <div className={`flex items-center justify-between
-p-3
-rounded-lg
-bg-green-500/10`}>
-              <span className="text-sm text-slate-300">Take-Home Pay</span>
-              <span className="font-semibold text-green-400">{formatCurrency(data.takeHome)}</span>
-            </div>
-            <div className="my-2 border-t border-white/5" />
-            <div className={`flex items-center justify-between
-p-3
-rounded-lg
-bg-pink-500/10`}>
-              <span className="text-sm text-slate-300">Employer CPF (+)</span>
-              <span className="font-semibold text-pink-400">+{formatCurrency(data.employerCPF)}</span>
-            </div>
-            <div className={`flex items-center justify-between
-p-3
-rounded-lg
-bg-amber-500/10`}>
-              <span className="text-sm text-slate-300">Total CPF Contribution</span>
-              <span className="font-semibold text-amber-400">{formatCurrency(data.totalCPF)}</span>
-            </div>
+                  }}
+                />
+              </Sankey>
+            </ResponsiveContainer>
           </div>
-        </div>
+        )}
 
-        {/* Right: Account Allocation */}
-        <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
-          <h4 className="mb-4 text-sm font-medium text-white">Account Allocation</h4>
-          <div className="space-y-3">
-            {Object.entries(ACCOUNT_INFO).map(([key, info]) => {
-              const amount = data[`${key}Contribution` as keyof typeof data] as number
-              const percentage = (amount / data.totalCPF) * 100
-
-              return (
-                <div key={key} className="group relative">
-                  <div
-                    className="flex items-center justify-between rounded-lg p-3"
-                    style={{ backgroundColor: `${info.color}15` }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: info.color }}
-                      />
-                      <span className="text-sm text-slate-300">{info.name}</span>
-                      <div className="relative">
-                        <Info className="h-3.5 w-3.5 cursor-help text-slate-500" />
-                        <div className={`absolute bottom-full left-1/2 z-50
-pointer-events-none mb-2
-opacity-0 group-hover:opacity-100
-transition-opacity
--translate-x-1/2`}>
-                          <div className={`w-48
-px-3 py-2
-rounded-lg border border-white/10
-bg-[#0f1728]/95
-text-xs
-shadow-xl backdrop-blur`}>
-                            <p className="font-medium text-white">{info.rate}</p>
-                            <p className="mt-0.5 text-slate-300">{info.description}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-semibold" style={{ color: info.color }}>
-                        {formatCurrency(amount)}
-                      </span>
-                      <span className="ml-2 text-xs text-slate-500">({percentage.toFixed(1)}%)</span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Ceiling Info */}
-          {data.excessWages > 0 && (
-            <div className={`flex items-start
-mt-4 gap-2 p-3
-rounded-lg
-bg-amber-500/10`}>
-              <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
-              <p className="text-xs text-amber-200">
-                {formatCurrency(data.excessWages)} of your {selectedView} income exceeds the CPF
-                wage ceiling and does not attract CPF contributions.
-              </p>
-            </div>
-          )}
-        </div>
+        {/* Waterfall Chart */}
+        {visualizationMode === 'waterfall' && (
+          <CPFContributionWaterfall
+            salary={data.grossSalary}
+            employeeContrib={data.employeeCPF}
+            employerContrib={data.employerCPF}
+            oaContrib={data.oaContribution}
+            saContrib={data.saContribution}
+            maContrib={data.maContribution}
+            activeView={waterfallView}
+            className="min-h-[400px]"
+          />
+        )}
       </div>
 
       {/* Info Footer */}

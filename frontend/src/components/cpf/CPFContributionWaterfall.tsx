@@ -13,9 +13,10 @@ import {
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import { formatCurrency } from '@/lib/format'
-import { ArrowRight } from 'lucide-react'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
+
+export type WaterfallView = 'salary' | 'cpf'
 
 interface CPFContributionWaterfallProps {
   salary: number
@@ -25,6 +26,7 @@ interface CPFContributionWaterfallProps {
   oaContrib: number
   saContrib: number
   maContrib: number
+  activeView: WaterfallView
   className?: string
 }
 
@@ -35,44 +37,71 @@ export function CPFContributionWaterfall({
   oaContrib,
   saContrib,
   maContrib,
+  activeView,
   className,
 }: CPFContributionWaterfallProps) {
+
   const takeHome = salary - employeeContrib
   const totalCpf = employeeContrib + employerContrib
 
-  // Waterfall data: shows step-by-step breakdown
-  const chartData = useMemo(() => {
+  // Salary waterfall: Gross → -Employee CPF → Take-Home
+  const salaryChartData = useMemo(() => {
     return {
-      labels: ['Gross\nSalary', 'Employee\nCPF', 'Take-Home\nPay', 'Employer\nCPF', 'Total\nCPF', 'OA', 'SA', 'MA'],
+      labels: ['Gross Salary', 'Employee CPF', 'Take-Home Pay'],
       datasets: [
-        // Invisible base for waterfall effect
+        // Invisible base for floating effect
         {
           label: 'Base',
-          data: [0, salary - employeeContrib, 0, 0, 0, totalCpf - oaContrib - saContrib - maContrib, totalCpf - saContrib - maContrib, totalCpf - maContrib],
+          data: [0, takeHome, 0],
           backgroundColor: 'transparent',
           borderWidth: 0,
           barPercentage: 0.6,
+          categoryPercentage: 0.7,
         },
-        // Actual values
+        // Visible bars
         {
           label: 'Amount',
-          data: [salary, employeeContrib, takeHome, employerContrib, totalCpf, oaContrib, saContrib, maContrib],
-          backgroundColor: [
-            '#6366f1', // Gross - indigo
-            '#ef4444', // Employee CPF - red (deduction)
-            '#22c55e', // Take-home - green
-            '#22c55e', // Employer CPF - green (benefit)
-            '#8b5cf6', // Total CPF - violet
-            '#3b82f6', // OA - blue
-            '#10b981', // SA - emerald
-            '#f59e0b', // MA - amber
-          ],
+          data: [salary, employeeContrib, takeHome],
+          backgroundColor: ['#3b82f6', '#ef4444', '#22c55e'],
           borderRadius: 6,
           barPercentage: 0.6,
+          categoryPercentage: 0.7,
         },
       ],
     }
-  }, [salary, employeeContrib, employerContrib, takeHome, totalCpf, oaContrib, saContrib, maContrib])
+  }, [salary, employeeContrib, takeHome])
+
+  // CPF allocation waterfall: Total CPF → OA → SA → MA
+  const cpfChartData = useMemo(() => {
+    const afterOa = totalCpf - oaContrib
+    const afterSa = afterOa - saContrib
+
+    return {
+      labels: ['Total CPF', 'OA', 'SA', 'MA'],
+      datasets: [
+        // Invisible base for floating effect
+        {
+          label: 'Base',
+          data: [0, afterOa, afterSa, 0],
+          backgroundColor: 'transparent',
+          borderWidth: 0,
+          barPercentage: 0.6,
+          categoryPercentage: 0.7,
+        },
+        // Visible bars
+        {
+          label: 'Amount',
+          data: [totalCpf, oaContrib, saContrib, maContrib],
+          backgroundColor: ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b'],
+          borderRadius: 6,
+          barPercentage: 0.6,
+          categoryPercentage: 0.7,
+        },
+      ],
+    }
+  }, [totalCpf, oaContrib, saContrib, maContrib])
+
+  const chartData = activeView === 'salary' ? salaryChartData : cpfChartData
 
   const options: ChartOptions<'bar'> = useMemo(() => ({
     responsive: true,
@@ -131,77 +160,75 @@ export function CPFContributionWaterfall({
 
   return (
     <div className={`flex flex-col ${className}`}>
-      {/* Flow Description */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] overflow-x-auto">
-        <div className="flex items-center gap-2 text-xs whitespace-nowrap">
-          <span className="px-2 py-1 rounded bg-indigo-500/20 text-indigo-300">Gross Salary</span>
-          <ArrowRight className="h-3 w-3 text-slate-500" />
-          <span className="px-2 py-1 rounded bg-red-500/20 text-red-300">− Employee CPF</span>
-          <ArrowRight className="h-3 w-3 text-slate-500" />
-          <span className="px-2 py-1 rounded bg-green-500/20 text-green-300">Take-Home</span>
-        </div>
-        <div className="w-px h-4 bg-white/10 mx-2" />
-        <div className="flex items-center gap-2 text-xs whitespace-nowrap">
-          <span className="px-2 py-1 rounded bg-violet-500/20 text-violet-300">Total CPF</span>
-          <ArrowRight className="h-3 w-3 text-slate-500" />
-          <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-300">OA</span>
-          <span className="text-slate-500">+</span>
-          <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300">SA</span>
-          <span className="text-slate-500">+</span>
-          <span className="px-2 py-1 rounded bg-amber-500/20 text-amber-300">MA</span>
-        </div>
-      </div>
-
       {/* Chart */}
-      <div className="flex-1 min-h-[350px] p-4">
+      <div className="flex-1 min-h-[300px]">
         <Bar data={chartData} options={options} />
       </div>
 
-      {/* Breakdown Cards */}
-      <div className="grid grid-cols-2 gap-3 px-4 pb-4">
-        {/* Salary Breakdown */}
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
-          <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Salary Breakdown</h4>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-300">Gross Salary</span>
-              <span className="font-mono text-white">{formatCurrency(salary)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-red-400">− Employee CPF</span>
-              <span className="font-mono text-red-400">({formatCurrency(employeeContrib)})</span>
-            </div>
-            <div className="border-t border-white/[0.08] pt-2 flex justify-between text-sm">
-              <span className="text-green-400 font-medium">Take-Home Pay</span>
-              <span className="font-mono text-green-400 font-medium">{formatCurrency(takeHome)}</span>
+      {/* Breakdown Card - changes based on view */}
+      <div className="px-4 pb-4">
+        {activeView === 'salary' ? (
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+            <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">Salary Breakdown</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded bg-blue-500" />
+                  <span className="text-slate-300">Gross Salary</span>
+                </div>
+                <span className="font-mono text-white">{formatCurrency(salary)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded bg-red-500" />
+                  <span className="text-red-400">Employee CPF</span>
+                </div>
+                <span className="font-mono text-red-400">({formatCurrency(employeeContrib)})</span>
+              </div>
+              <div className="border-t border-white/[0.08] pt-2 flex justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded bg-green-500" />
+                  <span className="text-green-400 font-medium">Take-Home Pay</span>
+                </div>
+                <span className="font-mono text-green-400 font-medium">{formatCurrency(takeHome)}</span>
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* CPF Allocation */}
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
-          <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">CPF Allocation</h4>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-violet-400">Total CPF</span>
-              <span className="font-mono text-violet-400">{formatCurrency(totalCpf)}</span>
-            </div>
-            <div className="pl-3 space-y-1 border-l-2 border-violet-500/30">
+        ) : (
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+            <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">CPF Allocation</h4>
+            <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-blue-400">OA</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded bg-violet-500" />
+                  <span className="text-violet-400">Total CPF</span>
+                </div>
+                <span className="font-mono text-violet-400">{formatCurrency(totalCpf)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded bg-blue-500" />
+                  <span className="text-blue-400">Ordinary Account (OA)</span>
+                </div>
                 <span className="font-mono text-blue-400">{formatCurrency(oaContrib)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-emerald-400">SA</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded bg-emerald-500" />
+                  <span className="text-emerald-400">Special Account (SA)</span>
+                </div>
                 <span className="font-mono text-emerald-400">{formatCurrency(saContrib)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-amber-400">MA</span>
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded bg-amber-500" />
+                  <span className="text-amber-400">MediSave Account (MA)</span>
+                </div>
                 <span className="font-mono text-amber-400">{formatCurrency(maContrib)}</span>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

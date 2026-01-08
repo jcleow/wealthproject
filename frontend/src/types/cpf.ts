@@ -216,36 +216,6 @@ export interface OAtoSATransferResult {
   warnings: string[]
 }
 
-// SA Shielding Types
-export interface ShieldingInstrument {
-  type: 'sgsBond' | 'tBill'
-  principal: number
-  yieldRate: number
-  termMonths: number
-}
-
-export interface RAFormationEstimate {
-  fromSA: number
-  fromOA: number
-  totalRA: number
-  excessSA: number
-  excessOA: number
-}
-
-export interface ShieldingStrategy {
-  shieldingAmount: number
-  instruments: ShieldingInstrument[]
-  purchaseDate: string
-  maturityDate: string
-  raFormationWithout: RAFormationEstimate
-  raFormationWith: RAFormationEstimate
-  benefitAnalysis: {
-    saPreserved: number
-    interestDifferential: number
-    netBenefit: number
-  }
-}
-
 // CPF Housing Types
 export interface CPFHousingUsage {
   propertyScenarioId: string

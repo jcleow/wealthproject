@@ -4,7 +4,6 @@ import type {
   CPFISInvestment,
   InvestibleBalance,
   RSTUResult,
-  ShieldingStrategy,
   CPFHousingUsage,
   PropertySaleAnalysis,
   CPFProjectionYear,
@@ -172,40 +171,6 @@ export function calculateMockOAtoSATransfer(
         ? ['This transfer is one-way and cannot be reversed']
         : [],
   }
-}
-
-// Mock SA Shielding Strategy
-export const mockShieldingStrategy: ShieldingStrategy = {
-  shieldingAmount: 45000,
-  instruments: [
-    {
-      type: 'tBill',
-      principal: 45000,
-      yieldRate: 0.036,
-      termMonths: 6,
-    },
-  ],
-  purchaseDate: '2045-05-14', // Day before 55th birthday
-  maturityDate: '2045-11-14',
-  raFormationWithout: {
-    fromSA: 180000,
-    fromOA: 25800,
-    totalRA: 205800,
-    excessSA: 0,
-    excessOA: 120000,
-  },
-  raFormationWith: {
-    fromSA: 135000, // 180000 - 45000 shielded
-    fromOA: 70800,
-    totalRA: 205800,
-    excessSA: 45000, // Returns to SA after maturity
-    excessOA: 75000,
-  },
-  benefitAnalysis: {
-    saPreserved: 45000,
-    interestDifferential: 6750, // 1.5% extra interest over 10 years
-    netBenefit: 6750,
-  },
 }
 
 // Mock CPF Housing Usage

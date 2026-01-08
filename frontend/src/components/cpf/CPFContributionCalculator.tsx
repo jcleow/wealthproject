@@ -625,6 +625,7 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
             oaContrib={calculations.oaContrib}
             saContrib={calculations.saContrib}
             maContrib={calculations.maContrib}
+            activeView="salary"
             className="h-full"
           />
         )}
