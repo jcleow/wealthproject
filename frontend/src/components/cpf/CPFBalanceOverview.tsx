@@ -43,11 +43,11 @@ function renderCustomLabel(props: {
   const sy = cy + outerRadius * sin
 
   // Point for the elbow
-  const mx = cx + (outerRadius + 20) * cos
-  const my = cy + (outerRadius + 20) * sin
+  const mx = cx + (outerRadius + 25) * cos
+  const my = cy + (outerRadius + 25) * sin
 
   // End point for the horizontal line
-  const ex = mx + (cos >= 0 ? 1 : -1) * 16
+  const ex = mx + (cos >= 0 ? 1 : -1) * 20
   const ey = my
 
   // Text anchor based on which side
@@ -70,21 +70,21 @@ function renderCustomLabel(props: {
       <circle cx={ex} cy={ey} r={2} fill={fill} />
       {/* Label text: Account name (SHORT) */}
       <text
-        x={ex + (cos >= 0 ? 6 : -6)}
+        x={ex + (cos >= 0 ? 8 : -8)}
         y={ey}
         textAnchor={textAnchor}
         dominantBaseline="central"
-        className="fill-slate-300 text-xs"
+        className="fill-slate-300 text-sm"
       >
         {fullName} ({name})
       </text>
       {/* Value and percentage */}
       <text
-        x={ex + (cos >= 0 ? 6 : -6)}
-        y={ey + 14}
+        x={ex + (cos >= 0 ? 8 : -8)}
+        y={ey + 18}
         textAnchor={textAnchor}
         dominantBaseline="central"
-        className="fill-white text-xs font-medium"
+        className="fill-white text-sm font-medium"
       >
         {formatCurrency(value)} · {percentage}%
       </text>
@@ -115,7 +115,7 @@ export function CPFBalanceOverview({ profile, className }: CPFBalanceOverviewPro
   }, [balances])
 
   return (
-    <div className={`flex flex-col rounded-xl border border-white/[0.08] bg-[#0a0a0a] ${className}`}>
+    <div className={`flex flex-col rounded-xl border border-white/[0.08] bg-[#0a0a0a] overflow-visible ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/[0.04] p-5">
         <p className="text-xs uppercase tracking-wide text-blue-300">CPF Balances</p>
@@ -125,17 +125,17 @@ export function CPFBalanceOverview({ profile, className }: CPFBalanceOverviewPro
       </div>
 
       {/* Pie Chart with Leader Line Labels */}
-      <div className="flex-1 p-5">
-        <div className="aspect-square w-full max-h-[400px]">
+      <div className="flex-1 p-5 overflow-visible">
+        <div className="w-full h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart margin={{ top: 40, right: 120, bottom: 40, left: 120 }}>
               <Pie
                 data={pieData}
                 cx="50%"
                 cy="50%"
-                innerRadius={50}
-                outerRadius={75}
-                paddingAngle={2}
+                innerRadius={60}
+                outerRadius={110}
+                paddingAngle={0}
                 dataKey="value"
                 stroke="none"
                 label={renderCustomLabel}
