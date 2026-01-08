@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 
 import {
+  CPFBalanceOverview,
   CPFContributionFlow,
   CPFISInvestmentDashboard,
   TopUpTaxReliefCalculator,
@@ -162,7 +163,14 @@ transition`}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-5">
-        {activeTab === 'overview' && <CPFContributionFlow profile={mockCPFProfile} />}
+        {activeTab === 'overview' && (
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Left: Balance Overview with Pie Chart */}
+            <CPFBalanceOverview profile={mockCPFProfile} />
+            {/* Right: Contribution Flow (Sankey/Waterfall) */}
+            <CPFContributionFlow profile={mockCPFProfile} />
+          </div>
+        )}
 
         {activeTab === 'projection' && <CPFProjectionChart profile={mockCPFProfile} />}
 

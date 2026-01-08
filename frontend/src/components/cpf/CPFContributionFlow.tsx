@@ -200,13 +200,13 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
     .replace('above', '>')
 
   return (
-    <div className={`space-y-6 ${className}`}>
+    <div className={`flex flex-col rounded-xl border border-white/[0.08] bg-[#0a0a0a] ${className}`}>
       {/* Header with view toggle */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 border-b border-white/[0.04] p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h3 className="text-lg font-medium text-white">CPF Contribution Flow</h3>
-            <p className="text-sm text-slate-400">
+            <p className="text-xs uppercase tracking-wide text-blue-300">CPF Contribution Flow</p>
+            <p className="mt-1 text-sm text-slate-400">
               How your salary flows into CPF accounts (Age group: {ageGroupLabel})
             </p>
           </div>
@@ -237,7 +237,6 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
         {/* Visualization Mode Toggle */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">Chart:</span>
             <div className="flex rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5">
               <button
                 onClick={() => setVisualizationMode('sankey')}
@@ -296,7 +295,7 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
       </div>
 
       {/* Chart Section */}
-      <div className="relative rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
+      <div className="relative flex-1 p-5">
         <div className="mb-4 flex items-center gap-2">
           <DollarSign className="h-4 w-4 text-green-400" />
           <h4 className="text-sm font-medium text-white">Money Flow Visualization</h4>
@@ -388,17 +387,16 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
       </div>
 
       {/* Info Footer */}
-      <div className={`flex items-start
-gap-3 p-4
-rounded-lg border border-white/[0.06]
-bg-white/[0.02]`}>
-        <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-400" />
-        <div className="text-xs text-slate-400">
-          <p>
-            CPF contribution rates vary by age group. Rates shown are for Singapore Citizens and
-            3rd year+ Permanent Residents. The OW ceiling is ${CPF_LIMITS.owCeiling.toLocaleString()}/month
-            and the annual ceiling is ${CPF_LIMITS.annualCeiling.toLocaleString()}.
-          </p>
+      <div className="border-t border-white/[0.04] px-5 py-4">
+        <div className="flex items-start gap-3 rounded-lg bg-blue-500/5 p-3">
+          <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-400" />
+          <div className="text-xs text-slate-300">
+            <p>
+              CPF contribution rates vary by age group. Rates shown are for Singapore Citizens and
+              3rd year+ Permanent Residents. The OW ceiling is ${CPF_LIMITS.owCeiling.toLocaleString()}/month
+              and the annual ceiling is ${CPF_LIMITS.annualCeiling.toLocaleString()}.
+            </p>
+          </div>
         </div>
       </div>
     </div>

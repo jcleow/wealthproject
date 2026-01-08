@@ -10,7 +10,9 @@ import type {
   RetirementProjection,
   EducationLoan,
   GrantCalculationResult,
+  CPFAssumptions,
 } from '@/types/cpf'
+import { DEFAULT_CPF_ASSUMPTIONS } from '@/types/cpf'
 
 // Current year constants
 const CURRENT_YEAR = new Date().getFullYear()
@@ -230,21 +232,38 @@ export const mockPropertySaleAnalysis: PropertySaleAnalysis = {
 }
 
 // Mock CPF Projection (30 years)
-export function generateMockProjection(profile: CPFProfile): CPFProjectionYear[] {
+// Now accepts optional assumptions parameter for user-adjustable projections
+export function generateMockProjection(
+  profile: CPFProfile,
+  assumptions: CPFAssumptions = DEFAULT_CPF_ASSUMPTIONS
+): CPFProjectionYear[] {
   const years: CPFProjectionYear[] = []
   let { oa, sa, ma } = profile.balances
   let ra = 0
 
-  const monthlyContribution = profile.monthlyIncome * 0.37 // Total CPF contribution ~37%
-  const annualContribution = monthlyContribution * 12 + profile.annualBonus * 0.37
+  // Use assumptions for growth rates
+  const { interestRates, frsGrowthRate, salaryGrowthRate, retirementAge, assumeContinuousEmployment } = assumptions
+
+  // Initial salary (will grow each year)
+  let currentMonthlyIncome = profile.monthlyIncome
+  let currentAnnualBonus = profile.annualBonus
 
   for (let i = 0; i <= 30; i++) {
     const age = profile.age + i
     const year = CURRENT_YEAR + i
 
+    // Apply salary growth at year end (except first year)
+    if (i > 0) {
+      currentMonthlyIncome *= (1 + salaryGrowthRate)
+      currentAnnualBonus *= (1 + salaryGrowthRate)
+    }
+
+    const monthlyContribution = currentMonthlyIncome * 0.37 // Total CPF contribution ~37%
+    const annualContribution = monthlyContribution * 12 + currentAnnualBonus * 0.37
+
     // Age 55: RA formation
     if (age === 55 && ra === 0) {
-      const frs = FRS_2024 * Math.pow(1.03, i) // FRS grows ~3% per year
+      const frs = FRS_2024 * Math.pow(1 + frsGrowthRate, i) // FRS grows per assumption
       const saTransfer = Math.min(sa, frs)
       const oaTransfer = Math.min(oa, Math.max(0, frs - saTransfer))
       ra = saTransfer + oaTransfer
@@ -262,26 +281,39 @@ export function generateMockProjection(profile: CPFProfile): CPFProjectionYear[]
       oaRate = 0.05; saRate = 0.01; maRate = 0.0825
     }
 
-    const contributions = age <= 65 ? annualContribution : 0
+    // Contributions stop at retirement age (or if not continuous employment)
+    const isEmployed = assumeContinuousEmployment && age <= retirementAge
+    const contributions = isEmployed ? annualContribution : 0
     const oaContrib = contributions * (oaRate / 0.37)
     const saContrib = age < 55 ? contributions * (saRate / 0.37) : 0
     const maContrib = contributions * (maRate / 0.37)
     const raContrib = age >= 55 ? contributions * (saRate / 0.37) : 0
 
-    // Interest
-    const oaInterest = oa * 0.025
-    const saInterest = sa * 0.04
-    const maInterest = ma * 0.04
-    const raInterest = ra * 0.04
+    // Interest using assumptions
+    const oaInterest = oa * interestRates.oa
+    const saInterest = sa * interestRates.sa
+    const maInterest = ma * interestRates.ma
+    const raInterest = ra * interestRates.ra
 
-    // Extra interest (simplified)
-    const combinedFirst60k = Math.min(oa, 20000) + sa + ma
-    const extraInterest = Math.min(combinedFirst60k, 60000) * 0.01
+    // Extra interest calculation
+    // First $60k of combined balances (OA capped at $20k for this calculation)
+    const oaForExtra = Math.min(oa, 20000)
+    const combinedForExtra = oaForExtra + sa + ma + ra
+    const extraFirst60k = Math.min(combinedForExtra, 60000) * interestRates.extraFirst60k
+
+    // Additional extra for 55+ on first $30k
+    let extraAbove55 = 0
+    if (age >= 55) {
+      const combinedFirst30k = Math.min(combinedForExtra, 30000)
+      extraAbove55 = combinedFirst30k * interestRates.extraFirst30kAbove55
+    }
+
+    const totalExtraInterest = extraFirst60k + extraAbove55
 
     oa = oa + oaContrib + oaInterest
-    sa = sa + saContrib + saInterest + (age < 55 ? extraInterest : 0)
-    ma = Math.min(ma + maContrib + maInterest, BHS_2024 * Math.pow(1.03, i))
-    ra = ra + raContrib + raInterest + (age >= 55 ? extraInterest : 0)
+    sa = sa + saContrib + saInterest + (age < 55 ? totalExtraInterest : 0)
+    ma = Math.min(ma + maContrib + maInterest, BHS_2024 * Math.pow(1 + frsGrowthRate, i))
+    ra = ra + raContrib + raInterest + (age >= 55 ? totalExtraInterest : 0)
 
     years.push({
       year,
@@ -292,7 +324,7 @@ export function generateMockProjection(profile: CPFProfile): CPFProjectionYear[]
       ra: Math.round(ra),
       total: Math.round(oa + sa + ma + ra),
       contributions: Math.round(contributions),
-      interest: Math.round(oaInterest + saInterest + maInterest + raInterest + extraInterest),
+      interest: Math.round(oaInterest + saInterest + maInterest + raInterest + totalExtraInterest),
     })
   }
 

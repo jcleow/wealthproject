@@ -327,3 +327,111 @@ export interface GrantCalculationResult {
   totalGrants: number
   warnings: string[]
 }
+
+// ============================================================================
+// CPF Projection Assumptions (User-Adjustable)
+// ============================================================================
+
+/**
+ * Assumptions used for CPF projections.
+ * Based on CPF's official methodology:
+ * @see https://www.cpf.gov.sg/member/tnc/detailed-notes-for-cpf-planner-retirement-income
+ */
+export interface CPFAssumptions {
+  // Interest Rates
+  interestRates: {
+    oa: number // OA base rate (default: 2.5%)
+    sa: number // SA base rate (default: 4.0%)
+    ma: number // MA base rate (default: 4.0%)
+    ra: number // RA base rate (default: 4.0%)
+    extraFirst60k: number // Extra interest on first $60k (default: 1.0%)
+    extraFirst30kAbove55: number // Additional extra on first $30k for 55+ (default: 1.0%)
+  }
+
+  // Growth Rates
+  inflationRate: number // Inflation rate for income goals (default: 2.0%)
+  frsGrowthRate: number // FRS/BRS/ERS annual growth (default: 3.5%)
+  salaryGrowthRate: number // Annual salary increment (default: 3.0%)
+
+  // Employment
+  assumeContinuousEmployment: boolean // Assume employed until 65 (default: true)
+  retirementAge: number // Age to stop contributions (default: 65)
+
+  // CPF LIFE
+  cpfLifePlan: 'standard' | 'basic' | 'escalating'
+  payoutStartAge: 65 | 66 | 67 | 68 | 69 | 70
+  escalatingPlanGrowth: number // Annual growth for escalating plan (default: 2.0%)
+}
+
+/**
+ * Default assumptions matching CPF's official methodology
+ */
+export const DEFAULT_CPF_ASSUMPTIONS: CPFAssumptions = {
+  interestRates: {
+    oa: 0.025, // 2.5%
+    sa: 0.04, // 4.0%
+    ma: 0.04, // 4.0%
+    ra: 0.04, // 4.0%
+    extraFirst60k: 0.01, // 1.0%
+    extraFirst30kAbove55: 0.01, // 1.0%
+  },
+  inflationRate: 0.02, // 2.0%
+  frsGrowthRate: 0.035, // 3.5%
+  salaryGrowthRate: 0.03, // 3.0%
+  assumeContinuousEmployment: true,
+  retirementAge: 65,
+  cpfLifePlan: 'standard',
+  payoutStartAge: 65,
+  escalatingPlanGrowth: 0.02, // 2.0%
+}
+
+/**
+ * Preset scenarios for quick selection
+ */
+export type AssumptionPreset = 'official' | 'conservative' | 'optimistic' | 'custom'
+
+export const ASSUMPTION_PRESETS: Record<Exclude<AssumptionPreset, 'custom'>, {
+  label: string
+  description: string
+  assumptions: Partial<CPFAssumptions>
+}> = {
+  official: {
+    label: 'CPF Official',
+    description: 'Based on CPF planner methodology',
+    assumptions: DEFAULT_CPF_ASSUMPTIONS,
+  },
+  conservative: {
+    label: 'Conservative',
+    description: 'Lower growth, prepare for uncertainty',
+    assumptions: {
+      interestRates: {
+        oa: 0.025,
+        sa: 0.035, // Lower SA/RA rates
+        ma: 0.035,
+        ra: 0.035,
+        extraFirst60k: 0.01,
+        extraFirst30kAbove55: 0.01,
+      },
+      inflationRate: 0.03, // Higher inflation
+      frsGrowthRate: 0.04, // Higher FRS growth = harder to meet
+      salaryGrowthRate: 0.02, // Lower salary growth
+    },
+  },
+  optimistic: {
+    label: 'Optimistic',
+    description: 'Higher returns, favorable conditions',
+    assumptions: {
+      interestRates: {
+        oa: 0.03, // Higher OA
+        sa: 0.045, // Higher SA/RA
+        ma: 0.045,
+        ra: 0.045,
+        extraFirst60k: 0.01,
+        extraFirst30kAbove55: 0.01,
+      },
+      inflationRate: 0.015, // Lower inflation
+      frsGrowthRate: 0.03, // Lower FRS growth = easier to meet
+      salaryGrowthRate: 0.04, // Higher salary growth
+    },
+  },
+}

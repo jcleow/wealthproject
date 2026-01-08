@@ -17,22 +17,17 @@ import {
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 import { Age55DecisionFlowchart } from './Age55DecisionFlowchart'
+import { CPFAssumptionsPanel } from './CPFAssumptionsPanel'
+import type { CPFAssumptions } from '@/types/cpf'
+import { DEFAULT_CPF_ASSUMPTIONS } from '@/types/cpf'
 
-// CPF 2025 Constants
+// CPF 2025 Constants (fixed policy values, not user-adjustable)
 const CPF_CONSTANTS = {
   BRS: 106500, // Basic Retirement Sum
   FRS: 213000, // Full Retirement Sum
   ERS: 426000, // Enhanced Retirement Sum (2x FRS)
   BHS: 75500, // Basic Healthcare Sum
   MRS: 60000, // Minimum for CPF LIFE eligibility
-}
-
-// Interest rates for projection
-const INTEREST_RATES = {
-  oa: 0.025, // 2.5% p.a.
-  sa: 0.04, // 4.0% p.a.
-  ma: 0.04, // 4.0% p.a.
-  ra: 0.04, // 4.0% p.a. (base, can be higher with extra interest)
 }
 
 // Color scheme matching the infographic
@@ -76,8 +71,9 @@ function calculateRAConversion(inputs: {
   targetSum: TargetSum
   hasPropertyPledge: boolean
   cashBalance: number
+  assumptions: CPFAssumptions
 }): ConversionResult {
-  const { oaBalance, saBalance, maBalance, targetSum, cashBalance } = inputs
+  const { oaBalance, saBalance, maBalance, targetSum, cashBalance, assumptions } = inputs
 
   // Determine target amount based on selection
   const target = CPF_CONSTANTS[targetSum]
@@ -116,8 +112,8 @@ function calculateRAConversion(inputs: {
   // Step 6: Calculate withdrawable amount
   const withdrawable = oaRemaining + saRemaining
 
-  // Step 7: Project to age 65 (~4% p.a. for 10 years)
-  const raAt65 = raTotal * Math.pow(1.04, 10)
+  // Step 7: Project to age 65 (using RA interest rate from assumptions for 10 years)
+  const raAt65 = raTotal * Math.pow(1 + assumptions.interestRates.ra, 10)
   const qualifiesForCPFLife = raAt65 >= CPF_CONSTANTS.MRS
 
   // Step 8: Calculate RSS payout details (for those below MRS)
@@ -166,14 +162,16 @@ function projectBalancesToAge55(
   currentAge: number,
   oaBalance: number,
   saBalance: number,
-  maBalance: number
+  maBalance: number,
+  assumptions: CPFAssumptions
 ): { oa: number; sa: number; ma: number } {
   const yearsToAge55 = Math.max(0, 55 - currentAge)
+  const { interestRates } = assumptions
 
   return {
-    oa: oaBalance * Math.pow(1 + INTEREST_RATES.oa, yearsToAge55),
-    sa: saBalance * Math.pow(1 + INTEREST_RATES.sa, yearsToAge55),
-    ma: maBalance * Math.pow(1 + INTEREST_RATES.ma, yearsToAge55),
+    oa: oaBalance * Math.pow(1 + interestRates.oa, yearsToAge55),
+    sa: saBalance * Math.pow(1 + interestRates.sa, yearsToAge55),
+    ma: maBalance * Math.pow(1 + interestRates.ma, yearsToAge55),
   }
 }
 
@@ -225,6 +223,9 @@ interface Age55ConversionSimulatorProps {
 }
 
 export function Age55ConversionSimulator({ className }: Age55ConversionSimulatorProps) {
+  // Assumptions state (user-adjustable)
+  const [assumptions, setAssumptions] = useState<CPFAssumptions>(DEFAULT_CPF_ASSUMPTIONS)
+
   // Input mode state
   const [inputMode, setInputMode] = useState<InputMode>('manual')
 
@@ -247,10 +248,10 @@ export function Age55ConversionSimulator({ className }: Age55ConversionSimulator
   // Calculate projected or manual balances
   const balancesAt55 = useMemo(() => {
     if (inputMode === 'current') {
-      return projectBalancesToAge55(currentAge, currentOA, currentSA, currentMA)
+      return projectBalancesToAge55(currentAge, currentOA, currentSA, currentMA, assumptions)
     }
     return { oa: manualOA, sa: manualSA, ma: manualMA }
-  }, [inputMode, currentAge, currentOA, currentSA, currentMA, manualOA, manualSA, manualMA])
+  }, [inputMode, currentAge, currentOA, currentSA, currentMA, manualOA, manualSA, manualMA, assumptions])
 
   // Calculate conversion results
   const result = useMemo(() => {
@@ -261,8 +262,9 @@ export function Age55ConversionSimulator({ className }: Age55ConversionSimulator
       targetSum,
       hasPropertyPledge,
       cashBalance: targetSum === 'ERS' ? cashBalance : 0,
+      assumptions,
     })
-  }, [balancesAt55, targetSum, hasPropertyPledge, cashBalance])
+  }, [balancesAt55, targetSum, hasPropertyPledge, cashBalance, assumptions])
 
   // Build Sankey data
   const sankeyData = useMemo(() => {
@@ -345,6 +347,14 @@ export function Age55ConversionSimulator({ className }: Age55ConversionSimulator
 
   return (
     <div className={`space-y-6 ${className}`}>
+      {/* Assumptions Panel */}
+      <CPFAssumptionsPanel
+        assumptions={assumptions}
+        onChange={setAssumptions}
+        collapsible={true}
+        defaultExpanded={false}
+      />
+
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
