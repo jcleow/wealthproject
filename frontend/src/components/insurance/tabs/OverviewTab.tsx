@@ -143,7 +143,7 @@ export function OverviewTab() {
           </div>
 
           {/* 4 Square Blocks - 2x2 grid */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-3 justify-items-center">
             {mockCategories.map((category) => (
               <CategoryBlock
                 key={category.id}
@@ -338,18 +338,18 @@ function CategoryBlock({
       type="button"
       onClick={onClick}
       className={cn(
-        'relative flex flex-col items-center justify-center rounded-xl border p-3 transition-all aspect-square',
+        'relative flex flex-col items-center justify-center rounded-lg border p-2 transition-all h-[72px] w-[72px]',
         colors.bg,
         isSelected ? 'border-white/30 ring-2 ring-white/20' : colors.border
       )}
     >
-      <Icon className={cn('h-10 w-10 mb-1.5', colors.icon)} />
-      <span className="text-[10px] font-medium text-white text-center leading-tight">
+      <Icon className={cn('h-6 w-6 mb-1', colors.icon)} />
+      <span className="text-[8px] font-medium text-white text-center leading-tight">
         {category.shortLabel}
       </span>
       <StatusIcon
         className={cn(
-          'absolute top-2 right-2 h-3.5 w-3.5',
+          'absolute top-1.5 right-1.5 h-3 w-3',
           category.status === 'covered' && 'text-emerald-400',
           category.status === 'partial' && 'text-amber-400',
           category.status === 'exposed' && 'text-slate-400'
