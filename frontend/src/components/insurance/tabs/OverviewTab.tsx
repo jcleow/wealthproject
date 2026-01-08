@@ -45,7 +45,6 @@ interface InsuranceCategoryStatus {
   status: CoverageStatus
   summary: string
   details: string[]
-  isOptional?: boolean
 }
 
 // Mock data using SG standard categories
@@ -77,11 +76,10 @@ const mockCategories: InsuranceCategoryStatus[] = [
   {
     id: 'personal_accident',
     label: 'Personal Accident',
-    shortLabel: 'PA',
+    shortLabel: 'Personal Accident',
     status: 'exposed',
     summary: 'No coverage',
     details: ['No PA plan', 'Consider if active lifestyle'],
-    isOptional: true,
   },
 ]
 
@@ -119,10 +117,10 @@ export function OverviewTab() {
     ? stressTestMatrix.results[selectedCell.event][selectedCell.timeframe]
     : null
 
-  // Count statuses (excluding optional categories from "covered" count)
-  const coveredCount = mockCategories.filter((c) => c.status === 'covered' && !c.isOptional).length
+  // Count statuses
+  const coveredCount = mockCategories.filter((c) => c.status === 'covered').length
   const partialCount = mockCategories.filter((c) => c.status === 'partial').length
-  const coreCategories = mockCategories.filter((c) => !c.isOptional).length
+  const totalCategories = mockCategories.length
 
   return (
     <div className="space-y-6">
@@ -135,7 +133,7 @@ export function OverviewTab() {
               <h2 className="text-lg font-semibold text-white">Insurance Coverage</h2>
               <p className="text-sm text-slate-400">
                 <span className="text-white font-medium">{coveredCount}</span> of{' '}
-                {coreCategories} core areas covered
+                {totalCategories} areas covered
               </p>
             </div>
             <div className="flex gap-1.5">
@@ -161,14 +159,9 @@ export function OverviewTab() {
           {/* Selected category detail */}
           {selectedCategoryData && (
             <div className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium text-white">
-                  {selectedCategoryData.label}
-                </h4>
-                {selectedCategoryData.isOptional && (
-                  <span className="text-xs text-slate-500">Optional</span>
-                )}
-              </div>
+              <h4 className="text-sm font-medium text-white">
+                {selectedCategoryData.label}
+              </h4>
               <p className="mt-1 text-xs text-slate-400">{selectedCategoryData.summary}</p>
               <ul className="mt-2 space-y-1">
                 {selectedCategoryData.details.map((d, i) => (
@@ -345,22 +338,18 @@ function CategoryBlock({
       type="button"
       onClick={onClick}
       className={cn(
-        'relative flex flex-col items-center justify-center rounded-xl border p-3 transition-all h-20 w-full',
+        'relative flex flex-col items-center justify-center rounded-xl border p-3 transition-all aspect-square',
         colors.bg,
-        isSelected ? 'border-white/30 ring-2 ring-white/20' : colors.border,
-        category.isOptional && 'opacity-60'
+        isSelected ? 'border-white/30 ring-2 ring-white/20' : colors.border
       )}
     >
-      <Icon className={cn('h-8 w-8 mb-1', colors.icon)} />
-      <span className="text-[11px] font-medium text-white text-center leading-tight">
+      <Icon className={cn('h-10 w-10 mb-1.5', colors.icon)} />
+      <span className="text-[10px] font-medium text-white text-center leading-tight">
         {category.shortLabel}
       </span>
-      {category.isOptional && (
-        <span className="absolute bottom-1 text-[9px] text-slate-500">Optional</span>
-      )}
       <StatusIcon
         className={cn(
-          'absolute top-1.5 right-1.5 h-3.5 w-3.5',
+          'absolute top-2 right-2 h-3.5 w-3.5',
           category.status === 'covered' && 'text-emerald-400',
           category.status === 'partial' && 'text-amber-400',
           category.status === 'exposed' && 'text-slate-400'
