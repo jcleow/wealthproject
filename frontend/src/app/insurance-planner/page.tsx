@@ -9,8 +9,8 @@ import {
 } from '@/components/insurance/InsuranceTabs'
 import { OverviewTab } from '@/components/insurance/tabs/OverviewTab'
 import { PoliciesTab } from '@/components/insurance/tabs/PoliciesTab'
-import { GapAnalysisTab } from '@/components/insurance/tabs/GapAnalysisTab'
-import { RecommendationsTab } from '@/components/insurance/tabs/RecommendationsTab'
+import { ScenarioAnalysisTab } from '@/components/insurance/tabs/ScenarioAnalysisTab'
+import { OptionsTab } from '@/components/insurance/tabs/OptionsTab'
 
 // Embedded view component for use within Dashboard
 export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
@@ -31,7 +31,7 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
                   Insurance Planner
                 </h1>
                 <p className="text-sm text-slate-400">
-                  Analyze coverage gaps and plan your protection
+                  Analyze scenarios and explore coverage options
                 </p>
               </div>
             </div>
@@ -55,8 +55,8 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
       <main className="flex-1 overflow-y-auto px-6 py-6">
         {activeTab === 'overview' && <OverviewTab />}
         {activeTab === 'policies' && <PoliciesTab />}
-        {activeTab === 'gap-analysis' && <GapAnalysisTab />}
-        {activeTab === 'recommendations' && <RecommendationsTab />}
+        {activeTab === 'scenarios' && <ScenarioAnalysisTab />}
+        {activeTab === 'options' && <OptionsTab />}
       </main>
     </div>
   )
@@ -91,7 +91,7 @@ export default function InsurancePlannerPage() {
                   Insurance Planner
                 </h1>
                 <p className="text-sm text-slate-400">
-                  Analyze coverage gaps and plan your protection
+                  Analyze scenarios and explore coverage options
                 </p>
               </div>
             </div>
@@ -106,8 +106,8 @@ export default function InsurancePlannerPage() {
       <main className="mx-auto max-w-7xl px-6 py-6">
         {activeTab === 'overview' && <OverviewTab />}
         {activeTab === 'policies' && <PoliciesTab />}
-        {activeTab === 'gap-analysis' && <GapAnalysisTab />}
-        {activeTab === 'recommendations' && <RecommendationsTab />}
+        {activeTab === 'scenarios' && <ScenarioAnalysisTab />}
+        {activeTab === 'options' && <OptionsTab />}
       </main>
     </div>
   )
