@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Wallet,
   TrendingUp,
@@ -31,6 +31,12 @@ import {
   mockCPFISInvestments,
   mockInvestibleBalance,
 } from '@/lib/cpf-mock-data'
+import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
+import {
+  cpfAccountToProfile,
+  computeAgeFromDob,
+  formatAccountLabel,
+} from '@/lib/cpf-utils'
 
 type TabId = 'overview' | 'projection' | 'schemes' | 'property' | 'retirement' | 'learn'
 
@@ -107,38 +113,77 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
   const [activeCalculator, setActiveCalculator] = useState<LearnCalculator>('journey')
   const [activeScheme, setActiveScheme] = useState<SchemeId>('cpfis')
 
+  // CPF Account selection state
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
+  const [simulatedAge, setSimulatedAge] = useState<number>(34)
+
+  // Fetch real CPF accounts
+  const { data: cpfAccounts, isLoading: isLoadingAccounts } = useCpfAccountsQuery()
+
+  // Auto-select first account when data loads
+  useEffect(() => {
+    if (cpfAccounts && cpfAccounts.length > 0 && !selectedAccountId) {
+      const firstAccount = cpfAccounts[0]
+      setSelectedAccountId(firstAccount.id)
+      setSimulatedAge(computeAgeFromDob(firstAccount.dateOfBirth))
+    }
+  }, [cpfAccounts, selectedAccountId])
+
+  // Handle account selection change
+  const handleAccountChange = (accountId: string) => {
+    setSelectedAccountId(accountId)
+    const account = cpfAccounts?.find((a) => a.id === accountId)
+    if (account) {
+      setSimulatedAge(computeAgeFromDob(account.dateOfBirth))
+    }
+  }
+
+  // Derive CPFProfile from selected account or fall back to mock
+  const selectedAccount = cpfAccounts?.find((a) => a.id === selectedAccountId)
+  const profile = useMemo(() => {
+    if (selectedAccount) {
+      return cpfAccountToProfile(selectedAccount, simulatedAge)
+    }
+    return { ...mockCPFProfile, age: simulatedAge }
+  }, [selectedAccount, simulatedAge])
+
+  // Check if we're using mock data
+  const usingMockData = !selectedAccount
+
+  // Age group boundaries for visual indicators
+  const getAgeGroupLabel = (age: number) => {
+    if (age <= 55) return '≤55'
+    if (age <= 60) return '55-60'
+    if (age <= 65) return '60-65'
+    if (age <= 70) return '65-70'
+    return '>70'
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className={`flex items-center justify-between
-px-5 py-4
-border-b border-white/[0.06]`}>
-        <div className="flex items-center gap-4">
-          <div className={`flex items-center justify-center
-h-9 w-9
-rounded-lg
-bg-emerald-500/20`}>
-            <Wallet className="h-5 w-5 text-emerald-400" />
+      <div className="border-b border-white/[0.06] px-5 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/20">
+              <Wallet className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold text-white">CPF Simulation</h1>
+              <p className="text-xs text-slate-400">
+                Age {simulatedAge} · {profile.residencyStatus.replace(/_/g, ' ')}
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold text-white">CPF Simulation</h1>
-            <p className="text-xs text-slate-400">
-              Age {mockCPFProfile.age} · {mockCPFProfile.residencyStatus.replace(/_/g, ' ')}
-            </p>
-          </div>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
+            title="Close CPF Simulation"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          className={`flex items-center justify-center
-h-8 w-8
-rounded-lg
-hover:bg-white/5
-text-slate-400 hover:text-white
-transition`}
-          title="Close CPF Simulation"
-        >
-          <X className="h-4 w-4" />
-        </button>
+
       </div>
 
       {/* Tab Navigation */}
@@ -164,15 +209,76 @@ transition`}
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-5">
         {activeTab === 'overview' && (
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Left: Balance Overview with Pie Chart */}
-            <CPFBalanceOverview profile={mockCPFProfile} />
-            {/* Right: Contribution Flow (Sankey/Waterfall) */}
-            <CPFContributionFlow profile={mockCPFProfile} />
+          <div className="space-y-4">
+            {/* Controls - compact, aligned right, fixed width to match main page */}
+            <div className="flex justify-end">
+              <div className="w-[280px] flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02]">
+                {/* Top row: Person + Age dropdowns */}
+                <div className="flex items-center gap-1 p-1">
+                  {/* Person Selector */}
+                  <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white/[0.04] transition-colors">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Person</span>
+                    {isLoadingAccounts ? (
+                      <div className="h-5 w-16 animate-pulse rounded bg-white/[0.05]" />
+                    ) : cpfAccounts && cpfAccounts.length > 0 ? (
+                      <div className="relative">
+                        <select
+                          value={selectedAccountId || ''}
+                          onChange={(e) => handleAccountChange(e.target.value)}
+                          className="appearance-none bg-transparent pr-5 text-sm font-medium text-white focus:outline-none cursor-pointer"
+                        >
+                          {cpfAccounts.map((account) => (
+                            <option key={account.id} value={account.id} className="bg-[#0a0a0a]">
+                              {formatAccountLabel(account)}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                      </div>
+                    ) : (
+                      <span className="text-sm font-medium text-amber-300">Demo</span>
+                    )}
+                  </div>
+
+                  {/* Divider */}
+                  <div className="h-6 w-px bg-white/[0.08]" />
+
+                  {/* Age Selector */}
+                  <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white/[0.04] transition-colors">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Age</span>
+                    <span className="text-sm font-medium text-white">{simulatedAge}</span>
+                    <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-500">
+                      {getAgeGroupLabel(simulatedAge)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bottom row: Slider */}
+                <div className="border-t border-white/[0.08] px-3 py-2">
+                  <input
+                    type="range"
+                    min={18}
+                    max={70}
+                    step={1}
+                    value={simulatedAge}
+                    onChange={(e) => setSimulatedAge(parseInt(e.target.value))}
+                    className="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-700/60 accent-blue-500 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-400 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Charts Grid */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Left: Balance Overview with Pie Chart */}
+              <CPFBalanceOverview profile={profile} />
+              {/* Right: Contribution Flow (Sankey/Waterfall) */}
+              <CPFContributionFlow profile={profile} />
+            </div>
           </div>
         )}
 
-        {activeTab === 'projection' && <CPFProjectionChart profile={mockCPFProfile} />}
+        {activeTab === 'projection' && <CPFProjectionChart profile={profile} />}
 
         {activeTab === 'schemes' && (
           <div className="space-y-4">
@@ -200,11 +306,11 @@ transition`}
               <CPFISInvestmentDashboard
                 investments={mockCPFISInvestments}
                 investibleBalance={mockInvestibleBalance}
-                oaBalance={mockCPFProfile.balances.oa}
-                saBalance={mockCPFProfile.balances.sa}
+                oaBalance={profile.balances.oa}
+                saBalance={profile.balances.sa}
               />
             )}
-            {activeScheme === 'rstu' && <TopUpTaxReliefCalculator profile={mockCPFProfile} />}
+            {activeScheme === 'rstu' && <TopUpTaxReliefCalculator profile={profile} />}
           </div>
         )}
 
@@ -243,15 +349,31 @@ transition`}
       {/* Footer */}
       <div className="border-t border-white/[0.06] px-5 py-3">
         <p className="text-center text-xs text-slate-500">
-          Mock data for demonstration. Verify with{' '}
-          <a
-            href="https://www.cpf.gov.sg"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:underline"
-          >
-            cpf.gov.sg
-          </a>
+          {usingMockData ? (
+            <>
+              Demo data for illustration. Verify calculations with{' '}
+              <a
+                href="https://www.cpf.gov.sg"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:underline"
+              >
+                cpf.gov.sg
+              </a>
+            </>
+          ) : (
+            <>
+              Using your CPF data. Simulated age: {simulatedAge}. Verify with{' '}
+              <a
+                href="https://www.cpf.gov.sg"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:underline"
+              >
+                cpf.gov.sg
+              </a>
+            </>
+          )}
         </p>
       </div>
     </div>
