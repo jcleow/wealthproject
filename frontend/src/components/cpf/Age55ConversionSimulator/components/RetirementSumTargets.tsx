@@ -3,6 +3,7 @@
 import { CheckCircle2, Home, Wallet } from 'lucide-react'
 import { CPF_CONSTANTS, type TargetSum } from '@/lib/cpf-constants'
 import { formatCurrency } from '@/lib/format'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 
 const TARGET_LABELS: Record<TargetSum, string> = {
   BRS: `Basic (${formatCurrency(CPF_CONSTANTS.BRS)})`,
@@ -95,18 +96,12 @@ export function RetirementSumTargets({
             <Wallet className="h-3.5 w-3.5" />
             Cash for RSTU Top-up (Optional)
           </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-              $
-            </span>
-            <input
-              type="number"
-              value={cashBalance}
-              onChange={(e) => setCashBalance(Math.max(0, Number(e.target.value)))}
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 pl-7 pr-3 text-sm text-white focus:border-white/20 focus:outline-none"
-              placeholder="0"
-            />
-          </div>
+          <CurrencyInput
+            value={cashBalance}
+            onChange={(val) => setCashBalance(Math.max(0, val))}
+            placeholder="0"
+            size="sm"
+          />
           <p className="mt-1 text-xs text-slate-500">
             Auto-transfer caps at FRS ({formatCurrency(CPF_CONSTANTS.FRS)}).
             Cash top-up needed for the remaining{' '}

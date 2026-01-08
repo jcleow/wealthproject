@@ -2,6 +2,7 @@
 
 import { CPF_COLORS } from '@/lib/cpf-constants'
 import { formatCurrency } from '@/lib/format'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 
 type InputMode = 'current' | 'manual'
 
@@ -81,21 +82,11 @@ export function BalanceInputSection({
             />
             Ordinary Account (OA)
           </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-              $
-            </span>
-            <input
-              type="number"
-              value={inputMode === 'current' ? currentOA : manualOA}
-              onChange={(e) =>
-                inputMode === 'current'
-                  ? setCurrentOA(Number(e.target.value))
-                  : setManualOA(Number(e.target.value))
-              }
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 pl-7 pr-3 text-sm text-white focus:border-white/20 focus:outline-none"
-            />
-          </div>
+          <CurrencyInput
+            value={inputMode === 'current' ? currentOA : manualOA}
+            onChange={inputMode === 'current' ? setCurrentOA : setManualOA}
+            size="sm"
+          />
         </div>
 
         {/* SA Input */}
@@ -107,21 +98,11 @@ export function BalanceInputSection({
             />
             Special Account (SA)
           </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-              $
-            </span>
-            <input
-              type="number"
-              value={inputMode === 'current' ? currentSA : manualSA}
-              onChange={(e) =>
-                inputMode === 'current'
-                  ? setCurrentSA(Number(e.target.value))
-                  : setManualSA(Number(e.target.value))
-              }
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 pl-7 pr-3 text-sm text-white focus:border-white/20 focus:outline-none"
-            />
-          </div>
+          <CurrencyInput
+            value={inputMode === 'current' ? currentSA : manualSA}
+            onChange={inputMode === 'current' ? setCurrentSA : setManualSA}
+            size="sm"
+          />
         </div>
 
         {/* MA Input */}
@@ -133,21 +114,11 @@ export function BalanceInputSection({
             />
             MediSave Account (MA)
           </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-              $
-            </span>
-            <input
-              type="number"
-              value={inputMode === 'current' ? currentMA : manualMA}
-              onChange={(e) =>
-                inputMode === 'current'
-                  ? setCurrentMA(Number(e.target.value))
-                  : setManualMA(Number(e.target.value))
-              }
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] py-2 pl-7 pr-3 text-sm text-white focus:border-white/20 focus:outline-none"
-            />
-          </div>
+          <CurrencyInput
+            value={inputMode === 'current' ? currentMA : manualMA}
+            onChange={inputMode === 'current' ? setCurrentMA : setManualMA}
+            size="sm"
+          />
         </div>
       </div>
 
