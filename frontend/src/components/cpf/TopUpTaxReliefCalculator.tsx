@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { Calculator, ArrowRight, Info, AlertCircle } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { calculateMockRSTU, calculateMockOAtoSATransfer, CPF_LIMITS } from '@/lib/cpf-mock-data'
 import type { CPFProfile } from '@/types/cpf'
 
@@ -51,15 +52,13 @@ export function TopUpTaxReliefCalculator({ profile, className }: TopUpTaxReliefC
 }
 
 function RSTUCalculator({ profile }: { profile: CPFProfile }) {
-  const [selfTopUp, setSelfTopUp] = useState('')
-  const [familyTopUp, setFamilyTopUp] = useState('')
+  const [selfTopUp, setSelfTopUp] = useState(0)
+  const [familyTopUp, setFamilyTopUp] = useState(0)
 
   const annualIncome = profile.monthlyIncome * 12 + profile.annualBonus
 
   const result = useMemo(() => {
-    const self = parseFloat(selfTopUp) || 0
-    const family = parseFloat(familyTopUp) || 0
-    return calculateMockRSTU(self, family, annualIncome)
+    return calculateMockRSTU(selfTopUp, familyTopUp, annualIncome)
   }, [selfTopUp, familyTopUp, annualIncome])
 
   return (
@@ -89,20 +88,12 @@ bg-emerald-500/5`}>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <label className="text-xs text-slate-400">Self Top-up Amount</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-              <input
-                type="number"
-                value={selfTopUp}
-                onChange={(e) => setSelfTopUp(e.target.value)}
-                placeholder="0"
-                className={`w-full
-py-2.5 pl-8 pr-4
-rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
-bg-white/[0.02]
-text-sm text-white placeholder:text-slate-600`}
-              />
-            </div>
+            <CurrencyInput
+              value={selfTopUp}
+              onChange={setSelfTopUp}
+              placeholder="0"
+              size="sm"
+            />
             <p className="text-xs text-slate-500">
               Max relief: ${CPF_LIMITS.rstuSelfCap.toLocaleString()}
             </p>
@@ -110,20 +101,12 @@ text-sm text-white placeholder:text-slate-600`}
 
           <div className="space-y-2">
             <label className="text-xs text-slate-400">Family Top-up Amount</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-              <input
-                type="number"
-                value={familyTopUp}
-                onChange={(e) => setFamilyTopUp(e.target.value)}
-                placeholder="0"
-                className={`w-full
-py-2.5 pl-8 pr-4
-rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
-bg-white/[0.02]
-text-sm text-white placeholder:text-slate-600`}
-              />
-            </div>
+            <CurrencyInput
+              value={familyTopUp}
+              onChange={setFamilyTopUp}
+              placeholder="0"
+              size="sm"
+            />
             <p className="text-xs text-slate-500">
               Max relief: ${CPF_LIMITS.rstuFamilyCap.toLocaleString()}
             </p>
@@ -198,15 +181,14 @@ bg-blue-500/5`}>
 }
 
 function OAtoSATransfer({ profile }: { profile: CPFProfile }) {
-  const [transferAmount, setTransferAmount] = useState('')
+  const [transferAmount, setTransferAmount] = useState(0)
 
   const result = useMemo(() => {
-    const amount = parseFloat(transferAmount) || 0
     return calculateMockOAtoSATransfer(
       profile.balances.oa,
       profile.balances.sa,
       profile.age,
-      amount
+      transferAmount
     )
   }, [transferAmount, profile])
 
@@ -269,21 +251,13 @@ function OAtoSATransfer({ profile }: { profile: CPFProfile }) {
                   Max: {formatCurrency(result.maxTransferable)}
                 </span>
               </div>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-                <input
-                  type="number"
-                  value={transferAmount}
-                  onChange={(e) => setTransferAmount(e.target.value)}
-                  placeholder="0"
-                  max={result.maxTransferable}
-                  className={`w-full
-py-2.5 pl-8 pr-4
-rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
-bg-white/[0.02]
-text-sm text-white placeholder:text-slate-600`}
-                />
-              </div>
+              <CurrencyInput
+                value={transferAmount}
+                onChange={setTransferAmount}
+                placeholder="0"
+                maxValue={result.maxTransferable}
+                size="sm"
+              />
               <p className="text-xs text-slate-500">
                 FRS limit: {formatCurrency(CPF_LIMITS.frs2024)} − Your SA:{' '}
                 {formatCurrency(profile.balances.sa)} = {formatCurrency(result.maxTransferable)}{' '}

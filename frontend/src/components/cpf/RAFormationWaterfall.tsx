@@ -6,6 +6,7 @@ import { ArrowRight, Info, Landmark, AlertTriangle, CheckCircle } from 'lucide-r
 
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 
 // 2025 retirement sums
 const FRS_2025 = 213000
@@ -200,15 +201,11 @@ export function RAFormationWaterfall({ className }: RAFormationWaterfallProps) {
           <label className="block text-xs font-medium text-blue-400 mb-1.5">
             OA Balance (Before 55)
           </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-            <input
-              type="number"
-              value={oaBalance}
-              onChange={(e) => setOaBalance(Math.max(0, Number(e.target.value)))}
-              className="w-full py-2 pl-7 pr-3 rounded-lg border border-white/[0.08] bg-white/[0.02] text-white focus:border-blue-500/50 focus:outline-none"
-            />
-          </div>
+          <CurrencyInput
+            value={oaBalance}
+            onChange={(val) => setOaBalance(Math.max(0, val))}
+            size="sm"
+          />
           <input
             type="range"
             min={0}
@@ -224,15 +221,11 @@ export function RAFormationWaterfall({ className }: RAFormationWaterfallProps) {
           <label className="block text-xs font-medium text-emerald-400 mb-1.5">
             SA Balance (Before 55)
           </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-            <input
-              type="number"
-              value={saBalance}
-              onChange={(e) => setSaBalance(Math.max(0, Number(e.target.value)))}
-              className="w-full py-2 pl-7 pr-3 rounded-lg border border-white/[0.08] bg-white/[0.02] text-white focus:border-emerald-500/50 focus:outline-none"
-            />
-          </div>
+          <CurrencyInput
+            value={saBalance}
+            onChange={(val) => setSaBalance(Math.max(0, val))}
+            size="sm"
+          />
           <input
             type="range"
             min={0}
@@ -248,15 +241,11 @@ export function RAFormationWaterfall({ className }: RAFormationWaterfallProps) {
           <label className="block text-xs font-medium text-amber-400 mb-1.5">
             MA Balance (Unchanged)
           </label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-            <input
-              type="number"
-              value={maBalance}
-              onChange={(e) => setMaBalance(Math.max(0, Number(e.target.value)))}
-              className="w-full py-2 pl-7 pr-3 rounded-lg border border-white/[0.08] bg-white/[0.02] text-white focus:border-amber-500/50 focus:outline-none"
-            />
-          </div>
+          <CurrencyInput
+            value={maBalance}
+            onChange={(val) => setMaBalance(Math.max(0, val))}
+            size="sm"
+          />
           <div className="mt-2 flex items-center gap-2">
             <input
               type="checkbox"

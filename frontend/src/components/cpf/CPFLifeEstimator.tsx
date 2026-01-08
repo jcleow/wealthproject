@@ -14,6 +14,7 @@ import '@xyflow/react/dist/style.css'
 import { ChevronDown, Check } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 
 // CPF LIFE payout factors (per $1,000 of RA balance)
 const PAYOUT_FACTORS = {
@@ -140,20 +141,11 @@ uppercase`}>
       <div className="space-y-3">
         <div>
           <label className="mb-1 block text-xs text-slate-400">RA Balance at 65</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-            <input
-              type="number"
-              value={data.raBalance}
-              onChange={(e) => data.onChange('raBalance', Number(e.target.value))}
-              className={`w-full
-py-2 pl-7 pr-3
-rounded-lg border border-white/[0.08] focus:border-purple-500/50 focus:outline-none
-bg-white/[0.02]
-text-lg font-semibold text-white
-transition`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.raBalance}
+            onChange={(val) => data.onChange('raBalance', val)}
+            size="sm"
+          />
         </div>
 
         <div>

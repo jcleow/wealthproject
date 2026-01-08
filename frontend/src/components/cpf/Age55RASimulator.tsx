@@ -13,6 +13,7 @@ import {
 import '@xyflow/react/dist/style.css'
 
 import { formatCurrency } from '@/lib/format'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 
 // 2025 retirement sums
 const FRS_2025 = 213000
@@ -43,56 +44,29 @@ uppercase`}>
       <div className="space-y-3">
         <div>
           <label className="mb-1 block text-xs text-slate-400">OA Balance</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-            <input
-              type="number"
-              value={data.oaBalance}
-              onChange={(e) => data.onChange('oaBalance', Number(e.target.value))}
-              className={`w-full
-py-2 pl-7 pr-3
-rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
-bg-white/[0.02]
-text-white
-transition`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.oaBalance}
+            onChange={(val) => data.onChange('oaBalance', val)}
+            size="sm"
+          />
         </div>
 
         <div>
           <label className="mb-1 block text-xs text-slate-400">SA Balance</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-            <input
-              type="number"
-              value={data.saBalance}
-              onChange={(e) => data.onChange('saBalance', Number(e.target.value))}
-              className={`w-full
-py-2 pl-7 pr-3
-rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
-bg-white/[0.02]
-text-white
-transition`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.saBalance}
+            onChange={(val) => data.onChange('saBalance', val)}
+            size="sm"
+          />
         </div>
 
         <div>
           <label className="mb-1 block text-xs text-slate-400">MA Balance</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-            <input
-              type="number"
-              value={data.maBalance}
-              onChange={(e) => data.onChange('maBalance', Number(e.target.value))}
-              className={`w-full
-py-2 pl-7 pr-3
-rounded-lg border border-white/[0.08] focus:border-amber-500/50 focus:outline-none
-bg-white/[0.02]
-text-white
-transition`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.maBalance}
+            onChange={(val) => data.onChange('maBalance', val)}
+            size="sm"
+          />
         </div>
 
         <div className="pt-2 border-t border-white/10">
