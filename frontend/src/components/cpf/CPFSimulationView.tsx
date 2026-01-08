@@ -150,40 +150,75 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
   // Check if we're using mock data
   const usingMockData = !selectedAccount
 
-  // Age group boundaries for visual indicators
-  const getAgeGroupLabel = (age: number) => {
-    if (age <= 55) return '≤55'
-    if (age <= 60) return '55-60'
-    if (age <= 65) return '60-65'
-    if (age <= 70) return '65-70'
-    return '>70'
-  }
-
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-white/[0.06] px-5 py-4">
+      <div className="border-b border-white/[0.06] px-5 py-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/20">
-              <Wallet className="h-5 w-5 text-emerald-400" />
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20">
+              <Wallet className="h-4 w-4 text-emerald-400" />
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-white">CPF Simulation</h1>
-              <p className="text-xs text-slate-400">
-                Age {simulatedAge} · {profile.residencyStatus.replace(/_/g, ' ')}
-              </p>
-            </div>
+            <h1 className="text-base font-semibold text-white">CPF Simulation</h1>
           </div>
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
             title="Close CPF Simulation"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
+      </div>
 
+      {/* Controls Bar */}
+      <div className="border-b border-white/[0.06] px-5 py-2">
+        <div className="flex items-center gap-4">
+          {/* Person Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">👤</span>
+            {isLoadingAccounts ? (
+              <div className="h-5 w-16 animate-pulse rounded bg-white/[0.05]" />
+            ) : cpfAccounts && cpfAccounts.length > 0 ? (
+              <div className="relative">
+                <select
+                  value={selectedAccountId || ''}
+                  onChange={(e) => handleAccountChange(e.target.value)}
+                  className="appearance-none bg-transparent pr-5 text-sm font-medium text-white focus:outline-none cursor-pointer"
+                >
+                  {cpfAccounts.map((account) => (
+                    <option key={account.id} value={account.id} className="bg-[#0a0a0a]">
+                      {formatAccountLabel(account)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
+              </div>
+            ) : (
+              <span className="text-sm font-medium text-amber-300">Demo</span>
+            )}
+          </div>
+
+          {/* Age Slider */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-white">{simulatedAge} y/o</span>
+            <input
+              type="range"
+              min={18}
+              max={70}
+              step={1}
+              value={simulatedAge}
+              onChange={(e) => setSimulatedAge(parseInt(e.target.value))}
+              className="h-1 w-24 cursor-pointer appearance-none rounded-full bg-slate-700/60 accent-blue-500 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-400 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
+            />
+          </div>
+
+          {/* Residency Status */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">🇸🇬</span>
+            <span className="text-sm text-slate-300">{profile.residencyStatus.replace(/_/g, ' ')}</span>
+          </div>
+        </div>
       </div>
 
       {/* Tab Navigation */}
@@ -209,72 +244,11 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-5">
         {activeTab === 'overview' && (
-          <div className="space-y-4">
-            {/* Controls - compact, aligned right, fixed width to match main page */}
-            <div className="flex justify-end">
-              <div className="w-[280px] flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02]">
-                {/* Top row: Person + Age dropdowns */}
-                <div className="flex items-center gap-1 p-1">
-                  {/* Person Selector */}
-                  <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white/[0.04] transition-colors">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Person</span>
-                    {isLoadingAccounts ? (
-                      <div className="h-5 w-16 animate-pulse rounded bg-white/[0.05]" />
-                    ) : cpfAccounts && cpfAccounts.length > 0 ? (
-                      <div className="relative">
-                        <select
-                          value={selectedAccountId || ''}
-                          onChange={(e) => handleAccountChange(e.target.value)}
-                          className="appearance-none bg-transparent pr-5 text-sm font-medium text-white focus:outline-none cursor-pointer"
-                        >
-                          {cpfAccounts.map((account) => (
-                            <option key={account.id} value={account.id} className="bg-[#0a0a0a]">
-                              {formatAccountLabel(account)}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                      </div>
-                    ) : (
-                      <span className="text-sm font-medium text-amber-300">Demo</span>
-                    )}
-                  </div>
-
-                  {/* Divider */}
-                  <div className="h-6 w-px bg-white/[0.08]" />
-
-                  {/* Age Selector */}
-                  <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white/[0.04] transition-colors">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Age</span>
-                    <span className="text-sm font-medium text-white">{simulatedAge}</span>
-                    <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-500">
-                      {getAgeGroupLabel(simulatedAge)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Bottom row: Slider */}
-                <div className="border-t border-white/[0.08] px-3 py-2">
-                  <input
-                    type="range"
-                    min={18}
-                    max={70}
-                    step={1}
-                    value={simulatedAge}
-                    onChange={(e) => setSimulatedAge(parseInt(e.target.value))}
-                    className="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-700/60 accent-blue-500 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-400 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Charts Grid */}
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Left: Balance Overview with Pie Chart */}
-              <CPFBalanceOverview profile={profile} />
-              {/* Right: Contribution Flow (Sankey/Waterfall) */}
-              <CPFContributionFlow profile={profile} />
-            </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Left: Balance Overview with Pie Chart */}
+            <CPFBalanceOverview profile={profile} />
+            {/* Right: Contribution Flow (Sankey/Waterfall) */}
+            <CPFContributionFlow profile={profile} />
           </div>
         )}
 

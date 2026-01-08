@@ -117,21 +117,16 @@ export function CPFBalanceOverview({ profile, className }: CPFBalanceOverviewPro
   return (
     <div className={`flex flex-col rounded-xl border border-white/[0.08] bg-[#0a0a0a] ${className}`}>
       {/* Header */}
-      <div className="border-b border-white/[0.04] p-5">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-blue-300">CPF Balances</p>
-          <h2 className="mt-1 text-2xl font-semibold text-white">
-            {formatCurrency(totalBalance)}
-          </h2>
-        </div>
-        <p className="mt-1 text-sm text-slate-400">
-          Age {age} · {profile.residencyStatus.replace('_', ' ')}
-        </p>
+      <div className="flex items-center justify-between border-b border-white/[0.04] p-5">
+        <p className="text-xs uppercase tracking-wide text-blue-300">CPF Balances</p>
+        <h2 className="text-2xl font-semibold text-white">
+          {formatCurrency(totalBalance)}
+        </h2>
       </div>
 
       {/* Pie Chart with Leader Line Labels */}
       <div className="flex-1 p-5">
-        <div className="h-[280px] w-full">
+        <div className="aspect-square w-full max-h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie

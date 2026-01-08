@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Sankey, Tooltip, Layer, Rectangle, ResponsiveContainer } from 'recharts'
-import { Info, DollarSign, GitBranch, BarChart3 } from 'lucide-react'
+import { Info, DollarSign, GitBranch, BarChart3, ChevronDown } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
 import { CPFContributionWaterfall, type WaterfallView } from './CPFContributionWaterfall'
@@ -10,7 +10,9 @@ import type { CPFProfile } from '@/types/cpf'
 import { CPF_LIMITS } from '@/lib/cpf-mock-data'
 
 // CPF contribution rates by age group (as of 2024)
-const CPF_RATES = {
+type AgeGroup = '55_and_below' | '55_to_60' | '60_to_65' | '65_to_70' | 'above_70'
+
+const CPF_RATES: Record<AgeGroup, { employee: number; employer: number; total: number; allocation: { oa: number; sa: number; ma: number } }> = {
   '55_and_below': {
     employee: 0.20,
     employer: 0.17,
@@ -41,6 +43,14 @@ const CPF_RATES = {
     total: 0.125,
     allocation: { oa: 0.2000, sa: 0.0800, ma: 0.7200 },
   },
+}
+
+const AGE_GROUP_LABELS: Record<AgeGroup, string> = {
+  '55_and_below': '55 & below',
+  '55_to_60': '55-60',
+  '60_to_65': '60-65',
+  '65_to_70': '65-70',
+  'above_70': '>70',
 }
 
 function getAgeGroup(age: number): keyof typeof CPF_RATES {
@@ -105,10 +115,18 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
   const [selectedView, setSelectedView] = useState<'monthly' | 'annual'>('monthly')
   const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('sankey')
   const [waterfallView, setWaterfallView] = useState<WaterfallView>('salary')
+  const [selectedRateGroup, setSelectedRateGroup] = useState<AgeGroup>(() => getAgeGroup(profile.age))
+  const [isRatesDropdownOpen, setIsRatesDropdownOpen] = useState(false)
 
   const { monthlyIncome, annualBonus, age } = profile
-  const ageGroup = getAgeGroup(age)
-  const rates = CPF_RATES[ageGroup]
+  const derivedAgeGroup = getAgeGroup(age)
+
+  // Sync rate group when age changes
+  useEffect(() => {
+    setSelectedRateGroup(derivedAgeGroup)
+  }, [derivedAgeGroup])
+
+  const rates = CPF_RATES[selectedRateGroup]
 
   const calculations = useMemo(() => {
     // Apply OW ceiling
@@ -193,22 +211,13 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
     }
   }, [data])
 
-  const ageGroupLabel = ageGroup
-    .replace(/_/g, ' ')
-    .replace('and below', '& below')
-    .replace('to', '-')
-    .replace('above', '>')
-
   return (
     <div className={`flex flex-col rounded-xl border border-white/[0.08] bg-[#0a0a0a] ${className}`}>
       {/* Header with view toggle */}
       <div className="flex flex-col gap-4 border-b border-white/[0.04] p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-4">
           <div>
             <p className="text-xs uppercase tracking-wide text-blue-300">CPF Contribution Flow</p>
-            <p className="mt-1 text-sm text-slate-400">
-              How your salary flows into CPF accounts (Age group: {ageGroupLabel})
-            </p>
           </div>
           <div className="flex rounded-lg border border-white/10 bg-white/5 p-1">
             <button
@@ -301,28 +310,43 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
           <h4 className="text-sm font-medium text-white">Money Flow Visualization</h4>
         </div>
 
-        {/* Compact Contribution Rates Overlay - only show for Sankey mode */}
-        {visualizationMode === 'sankey' && (
-          <div className="absolute right-5 top-5 z-10 rounded-lg border border-white/[0.08] bg-slate-900/95 px-3 py-2 backdrop-blur-sm">
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-500">
-              Rates (Age {ageGroupLabel})
-            </p>
-            <div className="space-y-0.5 text-xs">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-slate-400">Employee</span>
-                <span className="font-mono font-medium text-purple-400">{(rates.employee * 100).toFixed(0)}%</span>
+        {/* Compact Contribution Rates Overlay */}
+        <div className="absolute right-5 top-5 z-10 rounded-lg border border-white/[0.08] bg-slate-900/95 backdrop-blur-sm">
+          {/* Header - click to toggle */}
+          <button
+            onClick={() => setIsRatesDropdownOpen(!isRatesDropdownOpen)}
+            className="flex w-full items-center justify-between gap-4 px-3 py-2 hover:bg-white/[0.02] transition-colors"
+          >
+            <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Rates</span>
+            <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${isRatesDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Rates display - collapsible */}
+          {isRatesDropdownOpen && (
+            <div className="border-t border-white/[0.06] px-3 py-2 space-y-1">
+              {/* Age group display */}
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-xs text-slate-400">Age group</span>
+                <span className="text-xs font-medium text-blue-400">{AGE_GROUP_LABELS[selectedRateGroup]}</span>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-slate-400">Employer</span>
-                <span className="font-mono font-medium text-pink-400">{(rates.employer * 100).toFixed(0)}%</span>
-              </div>
-              <div className="mt-1 flex items-center justify-between gap-4 border-t border-white/[0.06] pt-1">
-                <span className="text-slate-300">Total</span>
-                <span className="font-mono font-semibold text-white">{(rates.total * 100).toFixed(0)}%</span>
+              {/* Rates */}
+              <div className="space-y-0.5 text-xs">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-slate-400">Employee</span>
+                  <span className="font-mono font-medium text-purple-400">{(rates.employee * 100).toFixed(0)}%</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-slate-400">Employer</span>
+                  <span className="font-mono font-medium text-pink-400">{(rates.employer * 100).toFixed(0)}%</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-4 border-t border-white/[0.06] pt-1">
+                  <span className="text-slate-300">Total</span>
+                  <span className="font-mono font-semibold text-white">{(rates.total * 100).toFixed(0)}%</span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Sankey Chart */}
         {visualizationMode === 'sankey' && (
