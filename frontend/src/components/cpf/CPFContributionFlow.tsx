@@ -244,7 +244,7 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
         </div>
 
         {/* Visualization Mode Toggle */}
-        <div className="flex items-center gap-4">
+        <div className="flex w-full items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="flex rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5">
               <button
@@ -274,8 +274,7 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
 
           {/* Waterfall View Toggle - only show when waterfall mode is active */}
           {visualizationMode === 'waterfall' && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">View:</span>
+            <div className="flex items-center gap-2">              
               <div className="flex rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5">
                 <button
                   onClick={() => setWaterfallView('salary')}
