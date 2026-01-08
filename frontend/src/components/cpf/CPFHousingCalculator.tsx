@@ -14,6 +14,7 @@ import '@xyflow/react/dist/style.css'
 import { ChevronDown, Check } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 
 // 2025 BRS
 const BRS_2025 = 106500
@@ -150,38 +151,20 @@ uppercase`}>
 
         <div>
           <label className="mb-1 block text-xs text-slate-400">Purchase Price</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-            <input
-              type="number"
-              value={data.purchasePrice}
-              onChange={(e) => data.onChange('purchasePrice', Number(e.target.value))}
-              className={`w-full
-py-2 pl-7 pr-3
-rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
-bg-white/[0.02]
-text-white
-transition`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.purchasePrice}
+            onChange={(val) => data.onChange('purchasePrice', val)}
+            size="sm"
+          />
         </div>
 
         <div>
           <label className="mb-1 block text-xs text-slate-400">Market Valuation</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-            <input
-              type="number"
-              value={data.valuation}
-              onChange={(e) => data.onChange('valuation', Number(e.target.value))}
-              className={`w-full
-py-2 pl-7 pr-3
-rounded-lg border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
-bg-white/[0.02]
-text-white
-transition`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.valuation}
+            onChange={(val) => data.onChange('valuation', val)}
+            size="sm"
+          />
         </div>
 
         {data.propertyType !== 'bto' && (
@@ -231,38 +214,20 @@ uppercase`}>
       <div className="space-y-3">
         <div>
           <label className="mb-1 block text-xs text-slate-400">OA Balance</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-            <input
-              type="number"
-              value={data.oaBalance}
-              onChange={(e) => data.onChange('oaBalance', Number(e.target.value))}
-              className={`w-full
-py-2 pl-7 pr-3
-rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
-bg-white/[0.02]
-text-white
-transition`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.oaBalance}
+            onChange={(val) => data.onChange('oaBalance', val)}
+            size="sm"
+          />
         </div>
 
         <div>
           <label className="mb-1 block text-xs text-slate-400">Total CPF (OA+SA+MA)</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-            <input
-              type="number"
-              value={data.totalCpf}
-              onChange={(e) => data.onChange('totalCpf', Number(e.target.value))}
-              className={`w-full
-py-2 pl-7 pr-3
-rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
-bg-white/[0.02]
-text-white
-transition`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.totalCpf}
+            onChange={(val) => data.onChange('totalCpf', val)}
+            size="sm"
+          />
         </div>
 
         <div className="pt-2 border-t border-white/10">

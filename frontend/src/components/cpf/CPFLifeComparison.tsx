@@ -18,6 +18,7 @@ import { TrendingUp, Info, ExternalLink, Calculator } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 
 ChartJS.register(
   CategoryScale,
@@ -254,16 +255,12 @@ export function CPFLifeComparison({ className }: CPFLifeComparisonProps) {
               <div className="w-2 h-2 rounded-full bg-blue-500" />
               Standard Plan
             </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-              <input
-                type="number"
-                value={standardPayout || ''}
-                onChange={(e) => setStandardPayout(Math.max(0, Number(e.target.value)))}
-                placeholder="e.g. 1,420"
-                className="w-full py-2.5 pl-7 pr-3 rounded-lg border border-white/[0.08] bg-white/[0.02] text-white placeholder:text-slate-600 focus:border-blue-500/50 focus:outline-none"
-              />
-            </div>
+            <CurrencyInput
+              value={standardPayout}
+              onChange={(val) => setStandardPayout(Math.max(0, val))}
+              placeholder="e.g. 1,420"
+              size="sm"
+            />
             <p className="mt-1 text-xs text-slate-500">Highest initial payout</p>
           </div>
 
@@ -273,16 +270,12 @@ export function CPFLifeComparison({ className }: CPFLifeComparisonProps) {
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
               Basic Plan
             </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-              <input
-                type="number"
-                value={basicPayout || ''}
-                onChange={(e) => setBasicPayout(Math.max(0, Number(e.target.value)))}
-                placeholder="e.g. 1,070"
-                className="w-full py-2.5 pl-7 pr-3 rounded-lg border border-white/[0.08] bg-white/[0.02] text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:outline-none"
-              />
-            </div>
+            <CurrencyInput
+              value={basicPayout}
+              onChange={(val) => setBasicPayout(Math.max(0, val))}
+              placeholder="e.g. 1,070"
+              size="sm"
+            />
             <p className="mt-1 text-xs text-slate-500">Higher bequest to family</p>
           </div>
 
@@ -292,16 +285,12 @@ export function CPFLifeComparison({ className }: CPFLifeComparisonProps) {
               <div className="w-2 h-2 rounded-full bg-amber-500" />
               Escalating Plan
             </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-              <input
-                type="number"
-                value={escalatingPayout || ''}
-                onChange={(e) => setEscalatingPayout(Math.max(0, Number(e.target.value)))}
-                placeholder="e.g. 1,190"
-                className="w-full py-2.5 pl-7 pr-3 rounded-lg border border-white/[0.08] bg-white/[0.02] text-white placeholder:text-slate-600 focus:border-amber-500/50 focus:outline-none"
-              />
-            </div>
+            <CurrencyInput
+              value={escalatingPayout}
+              onChange={(val) => setEscalatingPayout(Math.max(0, val))}
+              placeholder="e.g. 1,190"
+              size="sm"
+            />
             <p className="mt-1 text-xs text-slate-500">+2% increase yearly</p>
           </div>
         </div>

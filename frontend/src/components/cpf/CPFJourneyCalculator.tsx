@@ -18,6 +18,7 @@ import {
 import '@xyflow/react/dist/style.css'
 
 import { formatCurrency } from '@/lib/format'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 
 // ============================================================================
 // CONSTANTS
@@ -133,20 +134,11 @@ uppercase`}>
       <div className="space-y-3">
         <div>
           <label className="mb-1 block text-xs text-slate-400">Monthly Salary</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-            <input
-              type="number"
-              value={data.salary}
-              onChange={(e) => data.onChange('salary', Number(e.target.value))}
-              className={`w-full
-py-2 pl-7 pr-3
-rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
-bg-white/[0.02]
-text-lg font-semibold text-white
-transition`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.salary}
+            onChange={(val) => data.onChange('salary', val)}
+            size="sm"
+          />
         </div>
 
         <div>
@@ -269,57 +261,24 @@ drag-handle`}>
       <div className="p-4 pt-3 space-y-2">
         <div>
           <label className="text-xs text-slate-500">OA Balance</label>
-          <div className="relative">
-            <span className={`absolute left-2 top-1/2
-text-slate-400 text-xs
--translate-y-1/2`}>$</span>
-            <input
-              type="number"
-              value={data.oaBalance}
-              onChange={(e) => data.onChange('oaBalance', Number(e.target.value))}
-              className={`w-full
-py-1 pl-5 pr-2
-rounded border border-white/[0.08] focus:border-blue-500/50 focus:outline-none
-bg-white/[0.02]
-text-sm text-blue-300`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.oaBalance}
+            onChange={(val) => data.onChange('oaBalance', val)}
+          />
         </div>
         <div>
           <label className="text-xs text-slate-500">SA Balance</label>
-          <div className="relative">
-            <span className={`absolute left-2 top-1/2
-text-slate-400 text-xs
--translate-y-1/2`}>$</span>
-            <input
-              type="number"
-              value={data.saBalance}
-              onChange={(e) => data.onChange('saBalance', Number(e.target.value))}
-              className={`w-full
-py-1 pl-5 pr-2
-rounded border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
-bg-white/[0.02]
-text-sm text-emerald-300`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.saBalance}
+            onChange={(val) => data.onChange('saBalance', val)}
+          />
         </div>
         <div>
           <label className="text-xs text-slate-500">MA Balance</label>
-          <div className="relative">
-            <span className={`absolute left-2 top-1/2
-text-slate-400 text-xs
--translate-y-1/2`}>$</span>
-            <input
-              type="number"
-              value={data.maBalance}
-              onChange={(e) => data.onChange('maBalance', Number(e.target.value))}
-              className={`w-full
-py-1 pl-5 pr-2
-rounded border border-white/[0.08] focus:border-amber-500/50 focus:outline-none
-bg-white/[0.02]
-text-sm text-amber-300`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.maBalance}
+            onChange={(val) => data.onChange('maBalance', val)}
+          />
         </div>
         <div className="pt-2 border-t border-white/10 flex justify-between text-sm">
           <span className="text-slate-400">Total:</span>
@@ -363,21 +322,10 @@ drag-handle`}>
       <div className="p-4 pt-3 space-y-2">
         <div>
           <label className="text-xs text-slate-500">CPF Used for Property</label>
-          <div className="relative">
-            <span className={`absolute left-2 top-1/2
-text-slate-400 text-xs
--translate-y-1/2`}>$</span>
-            <input
-              type="number"
-              value={data.cpfUsedForHousing}
-              onChange={(e) => data.onChange('cpfUsedForHousing', Number(e.target.value))}
-              className={`w-full
-py-1 pl-5 pr-2
-rounded border border-white/[0.08] focus:border-violet-500/50 focus:outline-none
-bg-white/[0.02]
-text-sm text-violet-300`}
-            />
-          </div>
+          <CurrencyInput
+            value={data.cpfUsedForHousing}
+            onChange={(val) => data.onChange('cpfUsedForHousing', val)}
+          />
         </div>
         <div className="pt-2 border-t border-white/10 text-xs">
           <div className="flex justify-between text-slate-400">

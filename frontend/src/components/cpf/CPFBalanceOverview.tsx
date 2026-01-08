@@ -1,14 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-} from 'recharts'
-import { TrendingUp, Info } from 'lucide-react'
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import { Info } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
 import type { CPFProfile } from '@/types/cpf'
@@ -20,31 +14,82 @@ const COLORS = {
   ra: '#8b5cf6', // violet
 }
 
-const ACCOUNT_INFO = {
-  oa: {
-    name: 'Ordinary Account',
-    short: 'OA',
-    rate: '2.5%',
-    description: 'For housing, insurance, investment and education expenses',
-  },
-  sa: {
-    name: 'Special Account',
-    short: 'SA',
-    rate: '4.0%',
-    description: 'For retirement savings and approved investments',
-  },
-  ma: {
-    name: 'MediSave Account',
-    short: 'MA',
-    rate: '4.0%',
-    description: 'For healthcare expenses and approved medical insurance',
-  },
-  ra: {
-    name: 'Retirement Account',
-    short: 'RA',
-    rate: '4.0%',
-    description: 'Created at age 55 to receive CPF LIFE payouts',
-  },
+const ACCOUNT_NAMES: Record<string, string> = {
+  OA: 'Ordinary Account',
+  SA: 'Special Account',
+  MA: 'MediSave Account',
+  RA: 'Retirement Account',
+}
+
+// Custom label with leader line
+function renderCustomLabel(props: {
+  cx?: number
+  cy?: number
+  midAngle?: number
+  outerRadius?: number
+  name?: string
+  value?: number
+  fill?: string
+  percent?: number
+}) {
+  const { cx = 0, cy = 0, midAngle = 0, outerRadius = 0, name = '', value = 0, fill = '#fff', percent = 0 } = props
+
+  const RADIAN = Math.PI / 180
+  const sin = Math.sin(-RADIAN * midAngle)
+  const cos = Math.cos(-RADIAN * midAngle)
+
+  // Point on the pie edge
+  const sx = cx + outerRadius * cos
+  const sy = cy + outerRadius * sin
+
+  // Point for the elbow
+  const mx = cx + (outerRadius + 25) * cos
+  const my = cy + (outerRadius + 25) * sin
+
+  // End point for the horizontal line
+  const ex = mx + (cos >= 0 ? 1 : -1) * 20
+  const ey = my
+
+  // Text anchor based on which side
+  const textAnchor = cos >= 0 ? 'start' : 'end'
+
+  const fullName = ACCOUNT_NAMES[name] || name
+  const percentage = (percent * 100).toFixed(0)
+
+  return (
+    <g>
+      {/* Leader line */}
+      <path
+        d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`}
+        stroke={fill}
+        strokeWidth={1.5}
+        fill="none"
+        strokeOpacity={0.6}
+      />
+      {/* Dot at the end */}
+      <circle cx={ex} cy={ey} r={2} fill={fill} />
+      {/* Label text: Account name (SHORT) */}
+      <text
+        x={ex + (cos >= 0 ? 8 : -8)}
+        y={ey}
+        textAnchor={textAnchor}
+        dominantBaseline="central"
+        className="fill-slate-300 text-sm"
+      >
+        {fullName} ({name})
+      </text>
+      {/* Value and percentage */}
+      <text
+        x={ex + (cos >= 0 ? 8 : -8)}
+        y={ey + 18}
+        textAnchor={textAnchor}
+        dominantBaseline="central"
+        className="fill-white text-sm font-medium"
+      >
+        {formatCurrency(value)} · {percentage}%
+      </text>
+    </g>
+  )
 }
 
 interface CPFBalanceOverviewProps {
@@ -69,151 +114,40 @@ export function CPFBalanceOverview({ profile, className }: CPFBalanceOverviewPro
     return data
   }, [balances])
 
-  // Calculate extra interest earned
-  const extraInterest = useMemo(() => {
-    const combinedFirst60k = Math.min(balances.oa, 20000) + balances.sa + balances.ma
-    const eligible60k = Math.min(combinedFirst60k, 60000)
-    const extra1Percent = eligible60k * 0.01
-
-    if (age >= 55) {
-      const next30k = Math.min(Math.max(0, combinedFirst60k - 60000), 30000)
-      return extra1Percent + next30k * 0.01
-    }
-    return extra1Percent
-  }, [balances, age])
-
   return (
-    <div className={`rounded-xl border border-white/[0.08] bg-[#0a0a0a] ${className}`}>
+    <div className={`flex flex-col rounded-xl border border-white/[0.08] bg-[#0a0a0a] overflow-visible ${className}`}>
       {/* Header */}
-      <div className="border-b border-white/[0.04] p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-blue-300">CPF Balances</p>
-            <h2 className="mt-1 text-2xl font-semibold text-white">
-              {formatCurrency(totalBalance)}
-            </h2>
-          </div>
-          <div className={`flex items-center
-gap-2 px-3 py-1.5
-rounded-lg
-bg-emerald-500/10`}>
-            <TrendingUp className="h-4 w-4 text-emerald-400" />
-            <span className="text-sm font-medium text-emerald-400">
-              +{formatCurrency(extraInterest)}/yr extra
-            </span>
-          </div>
-        </div>
-        <p className="mt-1 text-sm text-slate-400">
-          Age {age} · {profile.residencyStatus.replace('_', ' ')}
-        </p>
+      <div className="flex items-center justify-between border-b border-white/[0.04] p-5">
+        <p className="text-xs uppercase tracking-wide text-blue-300">CPF Balances</p>
+        <h2 className="text-2xl font-semibold text-white">
+          {formatCurrency(totalBalance)}
+        </h2>
       </div>
 
-      {/* Chart and Breakdown */}
-      <div className="grid grid-cols-1 gap-6 p-5 md:grid-cols-2">
-        {/* Pie Chart */}
-        <div className="flex items-center justify-center">
-          <div className="relative h-48 w-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={80}
-                  paddingAngle={2}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.[0]) return null
-                    const data = payload[0].payload
-                    return (
-                      <div className={`px-3 py-2
-rounded-lg border border-white/10
-bg-[#0f1728]/95
-shadow-xl backdrop-blur`}>
-                        <p className="text-xs font-medium text-slate-300">{data.name}</p>
-                        <p className="text-lg font-semibold text-white">
-                          {formatCurrency(data.value)}
-                        </p>
-                      </div>
-                    )
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            {/* Center Label */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <p className="text-xs text-slate-400">Total</p>
-              <p className="text-lg font-semibold text-white">{formatCurrency(totalBalance)}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Account Breakdown */}
-        <div className="space-y-3">
-          {(['oa', 'sa', 'ma', 'ra'] as const).map((account) => {
-            const info = ACCOUNT_INFO[account]
-            const value = balances[account]
-            const percentage = totalBalance > 0 ? (value / totalBalance) * 100 : 0
-
-            return (
-              <div
-                key={account}
-                className={`p-3
-rounded-lg border border-white/[0.06] hover:border-white/[0.1]
-bg-white/[0.02] hover:bg-white/[0.04]
-transition
-group`}
+      {/* Pie Chart with Leader Line Labels */}
+      <div className="flex-1 p-5 overflow-visible">
+        <div className="w-full h-[400px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart margin={{ top: 40, right: 120, bottom: 40, left: 120 }}>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={110}
+                paddingAngle={0}
+                dataKey="value"
+                stroke="none"
+                label={renderCustomLabel}
+                labelLine={false}
+                isAnimationActive={false}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: COLORS[account] }}
-                    />
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-medium text-white">
-                        {info.name} ({info.short})
-                      </p>
-                      <div className="relative">
-                        <Info className="h-3.5 w-3.5 cursor-help text-slate-500 hover:text-slate-400" />
-                        {/* Tooltip */}
-                        <div className={`absolute bottom-full left-1/2 z-50
-pointer-events-none mb-2 group-hover:pointer-events-auto
-opacity-0 group-hover:opacity-100
-transition-opacity
--translate-x-1/2`}>
-                          <div className={`px-3 py-2
-rounded-lg border border-white/10
-bg-[#0f1728]/95
-whitespace-nowrap text-xs text-slate-300
-shadow-xl backdrop-blur`}>
-                            <p className="font-medium text-white">{info.rate} p.a.</p>
-                            <p className="mt-0.5">{info.description}</p>
-                          </div>
-                          {/* Arrow */}
-                          <div className={`absolute left-1/2 top-full
-border-4 border-transparent border-t-[#0f1728]/95
--translate-x-1/2`} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-white">{formatCurrency(value)}</p>
-                    <p className="text-xs text-slate-500">{percentage.toFixed(1)}% of total</p>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+                {pieData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

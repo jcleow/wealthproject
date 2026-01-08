@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   AreaChart,
   Area,
@@ -10,25 +10,103 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { Home, TrendingUp, Calculator, AlertTriangle, ArrowRight, DollarSign } from 'lucide-react'
+import { Home, TrendingUp, Calculator, AlertTriangle, ArrowRight, DollarSign, Plus, X } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
-import type { CPFHousingUsage, PropertySaleAnalysis, GrantCalculationResult } from '@/types/cpf'
+import { generateUUID } from '@/lib/utils'
+import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
+import type { CPFHousingUsage, PropertySaleAnalysis } from '@/types/cpf'
 import {
   mockCPFHousingUsage,
   mockPropertySaleAnalysis,
-  mockGrantCalculation,
 } from '@/lib/cpf-mock-data'
 
+// Types for property scenarios and grants
+export interface PropertyScenario {
+  id: string
+  name: string
+  propertyType: string
+  // Add other fields as needed from actual scenario type
+}
+
+export interface HousingGrant {
+  id: string
+  name: string
+  amount: number
+}
+
 interface PropertyCPFUsageProps {
+  /** Property scenarios to select from */
+  propertyScenarios?: PropertyScenario[]
+  /** Currently selected scenario ID */
+  selectedScenarioId?: string | null
+  /** Callback when scenario selection changes */
+  onScenarioSelect?: (id: string) => void
+  /** User-configured housing grants */
+  grants?: HousingGrant[]
+  /** Callback when grants change */
+  onGrantsChange?: (grants: HousingGrant[]) => void
   className?: string
 }
 
-export function PropertyCPFUsage({ className }: PropertyCPFUsageProps) {
+export function PropertyCPFUsage({
+  propertyScenarios = [],
+  selectedScenarioId,
+  onScenarioSelect,
+  grants: externalGrants,
+  onGrantsChange,
+  className,
+}: PropertyCPFUsageProps) {
   const [activeTab, setActiveTab] = useState<'usage' | 'sale' | 'grants'>('usage')
+
+  // Internal grants state for when no external control is provided
+  const [internalGrants, setInternalGrants] = useState<HousingGrant[]>([])
+  const grants = externalGrants ?? internalGrants
+  const handleGrantsChange = onGrantsChange ?? setInternalGrants
+
+  // Build scenario dropdown options
+  const scenarioOptions = useMemo(() => [
+    { value: '', label: 'Select a property scenario...' },
+    ...propertyScenarios.map(s => ({
+      value: s.id,
+      label: s.name || `Property (${s.propertyType})`,
+    }))
+  ], [propertyScenarios])
+
+  // Calculate total grants
+  const totalGrants = useMemo(() =>
+    grants.reduce((sum, g) => sum + g.amount, 0),
+    [grants]
+  )
+
+  // TODO: Map selectedScenarioId to actual usage/sale data
+  // For now, still using mock data until integration is complete
 
   return (
     <div className={`space-y-6 ${className}`}>
+      {/* Scenario Selector */}
+      {propertyScenarios.length > 0 && (
+        <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
+          <div className="flex items-center gap-3">
+            <Home className="h-4 w-4 text-blue-400" />
+            <span className="text-sm font-medium text-slate-300">Property Scenario</span>
+          </div>
+          <div className="mt-3">
+            <CustomDropdown
+              value={selectedScenarioId ?? ''}
+              onChange={(value) => onScenarioSelect?.(value)}
+              options={scenarioOptions}
+              minWidth="100%"
+            />
+          </div>
+          {!selectedScenarioId && (
+            <p className="mt-2 text-xs text-slate-500">
+              Select a property scenario to view CPF usage details
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Tab Selector */}
       <div className="flex rounded-lg border border-white/[0.08] bg-[#0a0a0a] p-1">
         <button
@@ -67,12 +145,21 @@ export function PropertyCPFUsage({ className }: PropertyCPFUsageProps) {
       {activeTab === 'sale' && (
         <SaleSimulatorTab usage={mockCPFHousingUsage} sale={mockPropertySaleAnalysis} />
       )}
-      {activeTab === 'grants' && <HousingGrantsTab grants={mockGrantCalculation} />}
+      {activeTab === 'grants' && (
+        <HousingGrantsTab
+          grants={grants}
+          totalGrants={totalGrants}
+          onGrantsChange={handleGrantsChange}
+        />
+      )}
     </div>
   )
 }
 
 function CPFUsageTab({ usage }: { usage: CPFHousingUsage }) {
+  const downPaymentTotal = usage.downPayment.oaUsed + usage.downPayment.cashUsed
+  const monthlyOaCash = usage.totals.totalCashUsed - usage.downPayment.cashUsed
+
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
@@ -110,50 +197,47 @@ function CPFUsageTab({ usage }: { usage: CPFHousingUsage }) {
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Down Payment */}
           <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-            <p className="text-xs text-slate-400">Down Payment</p>
-            <div className="mt-3 space-y-2">
-              <BreakdownRow
-                label="OA Used"
-                value={usage.downPayment.oaUsed}
-                total={usage.downPayment.oaUsed + usage.downPayment.cashUsed}
-                color="bg-blue-500"
-              />
-              <BreakdownRow
-                label="Cash Used"
-                value={usage.downPayment.cashUsed}
-                total={usage.downPayment.oaUsed + usage.downPayment.cashUsed}
-                color="bg-slate-500"
-              />
+            <p className="text-xs font-medium text-slate-500 mb-3">Down Payment</p>
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">CPF OA Used</span>
+                <span className="text-white font-mono tabular-nums">{formatCurrency(usage.downPayment.oaUsed)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">Cash Used</span>
+                <span className="text-white font-mono tabular-nums">{formatCurrency(usage.downPayment.cashUsed)}</span>
+              </div>
               {usage.downPayment.grantReceived > 0 && (
-                <BreakdownRow
-                  label={`${usage.downPayment.grantType} Grant`}
-                  value={usage.downPayment.grantReceived}
-                  total={usage.downPayment.oaUsed + usage.downPayment.cashUsed}
-                  color="bg-emerald-500"
-                  isBonus
-                />
+                <div className="flex justify-between text-xs">
+                  <span className="text-emerald-400">{usage.downPayment.grantType} Grant</span>
+                  <span className="text-emerald-400 font-mono tabular-nums">+{formatCurrency(usage.downPayment.grantReceived)}</span>
+                </div>
               )}
+              <div className="flex justify-between text-xs pt-1.5 border-t border-white/[0.04]">
+                <span className="text-slate-300">Total</span>
+                <span className="text-white font-medium font-mono tabular-nums">{formatCurrency(downPaymentTotal)}</span>
+              </div>
             </div>
           </div>
 
           {/* Monthly Payments */}
           <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-            <p className="text-xs text-slate-400">Monthly Payments (Total)</p>
-            <div className="mt-3 space-y-2">
-              <BreakdownRow
-                label="OA for Monthly"
-                value={usage.totals.oaForMonthlyPayments}
-                total={usage.totals.oaForMonthlyPayments + usage.totals.totalCashUsed - usage.downPayment.cashUsed}
-                color="bg-blue-500"
-              />
-              <BreakdownRow
-                label="Cash for Monthly"
-                value={usage.totals.totalCashUsed - usage.downPayment.cashUsed}
-                total={usage.totals.oaForMonthlyPayments + usage.totals.totalCashUsed - usage.downPayment.cashUsed}
-                color="bg-slate-500"
-              />
+            <p className="text-xs font-medium text-slate-500 mb-3">Monthly Payments (Total)</p>
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">CPF OA for Monthly</span>
+                <span className="text-white font-mono tabular-nums">{formatCurrency(usage.totals.oaForMonthlyPayments)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">Cash for Monthly</span>
+                <span className="text-white font-mono tabular-nums">{formatCurrency(monthlyOaCash)}</span>
+              </div>
+              <div className="flex justify-between text-xs pt-1.5 border-t border-white/[0.04]">
+                <span className="text-slate-300">Total Monthly</span>
+                <span className="text-white font-medium font-mono tabular-nums">{formatCurrency(usage.totals.oaForMonthlyPayments + monthlyOaCash)}</span>
+              </div>
             </div>
-            <p className="mt-3 text-xs text-slate-500">
+            <p className="mt-3 text-[10px] text-slate-600">
               {usage.monthlyPayments.length} months of payments tracked
             </p>
           </div>
@@ -431,117 +515,117 @@ bg-rose-500/10`}>
   )
 }
 
-function HousingGrantsTab({ grants }: { grants: GrantCalculationResult }) {
-  const grantList = [
-    {
-      key: 'ehg',
-      name: 'Enhanced CPF Housing Grant (EHG)',
-      ...grants.ehg,
-      maxAmount: 80000,
-    },
-    {
-      key: 'fhg',
-      name: 'Family Grant (FHG)',
-      ...grants.fhg,
-      maxAmount: 50000,
-    },
-    {
-      key: 'phg',
-      name: 'Proximity Housing Grant (PHG)',
-      ...grants.phg,
-      maxAmount: 30000,
-    },
-    {
-      key: 'stepUp',
-      name: 'Step-Up CPF Housing Grant',
-      ...grants.stepUp,
-      maxAmount: 15000,
-    },
-  ]
+interface HousingGrantsTabProps {
+  grants: HousingGrant[]
+  totalGrants: number
+  onGrantsChange: (grants: HousingGrant[]) => void
+}
+
+function HousingGrantsTab({ grants, totalGrants, onGrantsChange }: HousingGrantsTabProps) {
+  const addGrant = useCallback(() => {
+    onGrantsChange([
+      ...grants,
+      { id: generateUUID(), name: '', amount: 0 }
+    ])
+  }, [grants, onGrantsChange])
+
+  const updateGrant = useCallback((id: string, field: 'name' | 'amount', value: string | number) => {
+    onGrantsChange(
+      grants.map(g => g.id === id ? { ...g, [field]: value } : g)
+    )
+  }, [grants, onGrantsChange])
+
+  const removeGrant = useCallback((id: string) => {
+    onGrantsChange(grants.filter(g => g.id !== id))
+  }, [grants, onGrantsChange])
 
   return (
     <div className="space-y-6">
       {/* Total Grants */}
-      <div className={`p-5
-rounded-xl border border-emerald-500/30
-bg-emerald-500/10
-text-center`}>
-        <p className="text-xs text-emerald-300">Total Grants You May Be Eligible For</p>
-        <p className="mt-2 text-4xl font-bold text-emerald-400">
-          {formatCurrency(grants.totalGrants)}
+      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-center">
+        <p className="text-xs text-emerald-300">Total Housing Grants</p>
+        <p className="mt-2 text-4xl font-bold text-emerald-400 font-mono tabular-nums">
+          {formatCurrency(totalGrants)}
         </p>
       </div>
 
-      {/* Grant Breakdown */}
-      <div className="space-y-4">
-        {grantList.map((grant) => (
-          <div
-            key={grant.key}
-            className={`rounded-xl border p-4 ${
-              grant.eligible
-                ? 'border-emerald-500/30 bg-emerald-500/5'
-                : 'border-white/[0.08] bg-[#0a0a0a]'
-            }`}
+      {/* Editable Grant List */}
+      <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-sm font-medium text-slate-300">Your Housing Grants</h4>
+          <button
+            type="button"
+            onClick={addGrant}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-400 hover:bg-emerald-500/10 transition"
           >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-medium text-white">{grant.name}</p>
-                <p className="mt-1 text-xs text-slate-400">{grant.reason}</p>
-              </div>
-              <div className="text-right">
-                {grant.eligible ? (
-                  <>
-                    <p className="text-lg font-semibold text-emerald-400">
-                      {formatCurrency(grant.amount)}
-                    </p>
-                    <p className="text-xs text-emerald-300">Eligible</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-lg font-semibold text-slate-500">$0</p>
-                    <p className="text-xs text-slate-500">Not eligible</p>
-                  </>
-                )}
-              </div>
-            </div>
+            <Plus className="h-3.5 w-3.5" />
+            Add Grant
+          </button>
+        </div>
 
-            {/* Progress bar */}
-            <div className="mt-3">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    grant.eligible ? 'bg-emerald-500' : 'bg-slate-600'
-                  }`}
-                  style={{ width: `${(grant.amount / grant.maxAmount) * 100}%` }}
-                />
-              </div>
-              <p className="mt-1 text-xs text-slate-500">
-                Max: {formatCurrency(grant.maxAmount)}
-              </p>
-            </div>
+        {grants.length === 0 ? (
+          <div className="py-8 text-center">
+            <p className="text-sm text-slate-500">No grants added yet</p>
+            <p className="mt-1 text-xs text-slate-600">
+              Click &quot;Add Grant&quot; to add housing grants you&apos;ve received or expect to receive
+            </p>
           </div>
-        ))}
+        ) : (
+          <div className="space-y-3">
+            {grants.map((grant) => (
+              <div
+                key={grant.id}
+                className="flex items-center gap-3 p-3 rounded-lg border border-white/[0.06] bg-white/[0.02]"
+              >
+                <input
+                  type="text"
+                  value={grant.name}
+                  onChange={(e) => updateGrant(grant.id, 'name', e.target.value)}
+                  placeholder="Grant name (e.g., EHG, FHG)"
+                  className="flex-1 bg-transparent border-none text-sm text-white placeholder:text-slate-600 focus:outline-none"
+                />
+                <div className="relative w-32">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">$</span>
+                  <input
+                    type="number"
+                    value={grant.amount || ''}
+                    onChange={(e) => updateGrant(grant.id, 'amount', Number(e.target.value) || 0)}
+                    placeholder="0"
+                    className="w-full pl-6 pr-2 py-1.5 rounded-md bg-white/[0.03] border border-white/[0.08] text-sm text-white font-mono tabular-nums text-right focus:outline-none focus:border-emerald-500/50"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeGrant(grant.id)}
+                  className="p-1.5 rounded-md text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Info */}
       <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
-        <h4 className="text-sm font-medium text-slate-300">Grant Eligibility Factors</h4>
+        <h4 className="text-sm font-medium text-slate-300">Common Housing Grants</h4>
         <ul className="mt-3 space-y-2 text-xs text-slate-400">
           <li className="flex items-start gap-2">
-            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-400" />
-            <span>EHG is based on household income (up to $9,000/month for max grant)</span>
+            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400" />
+            <span><strong className="text-slate-300">EHG</strong> – Enhanced CPF Housing Grant (up to $80,000)</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-400" />
-            <span>FHG requires a family nucleus and first-timer status</span>
+            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400" />
+            <span><strong className="text-slate-300">FHG</strong> – Family Grant (up to $50,000)</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-400" />
-            <span>PHG requires living within 4km of parents/children</span>
+            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400" />
+            <span><strong className="text-slate-300">PHG</strong> – Proximity Housing Grant (up to $30,000)</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-400" />
-            <span>Step-Up Grant is for upgrading from 2-room flat to 3-room or larger</span>
+            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400" />
+            <span><strong className="text-slate-300">Step-Up</strong> – Step-Up CPF Housing Grant (up to $15,000)</span>
           </li>
         </ul>
       </div>
@@ -574,44 +658,6 @@ function SummaryCard({
       <div className={`inline-flex rounded-lg p-2 ${colorClasses[color]}`}>{icon}</div>
       <p className="mt-3 text-xs text-slate-400">{label}</p>
       <p className="mt-1 text-xl font-semibold text-white">{formatCurrency(value)}</p>
-    </div>
-  )
-}
-
-function BreakdownRow({
-  label,
-  value,
-  total,
-  color,
-  isBonus,
-}: {
-  label: string
-  value: number
-  total: number
-  color: string
-  isBonus?: boolean
-}) {
-  const percentage = total > 0 ? (value / total) * 100 : 0
-
-  return (
-    <div>
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-slate-400">{label}</span>
-        <span className={isBonus ? 'text-emerald-400' : 'text-white'}>
-          {isBonus && '+'}
-          {formatCurrency(value)}
-        </span>
-      </div>
-      <div className={`overflow-hidden
-h-1.5 w-full
-mt-1
-rounded-full
-bg-white/[0.06]`}>
-        <div
-          className={`h-full rounded-full ${color}`}
-          style={{ width: `${Math.min(100, percentage)}%` }}
-        />
-      </div>
     </div>
   )
 }

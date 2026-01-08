@@ -165,10 +165,10 @@ export function CPFContributionWaterfall({
         <Bar data={chartData} options={options} />
       </div>
 
-      {/* Breakdown Card - changes based on view */}
-      <div className="px-4 pb-4">
+      {/* Breakdown - changes based on view */}
+      <div className="mt-6 px-4 pb-4">
         {activeView === 'salary' ? (
-          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+          <div>
             <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">Salary Breakdown</h4>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
@@ -195,7 +195,7 @@ export function CPFContributionWaterfall({
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+          <div>
             <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">CPF Allocation</h4>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">

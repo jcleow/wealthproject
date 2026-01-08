@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   AreaChart,
   Area,
@@ -13,8 +13,10 @@ import {
 } from 'recharts'
 
 import { formatCurrency } from '@/lib/format'
-import type { CPFProfile } from '@/types/cpf'
+import type { CPFProfile, CPFAssumptions } from '@/types/cpf'
+import { DEFAULT_CPF_ASSUMPTIONS } from '@/types/cpf'
 import { generateMockProjection, generateMockRetirementProjection } from '@/lib/cpf-mock-data'
+import { CPFAssumptionsPanel } from './CPFAssumptionsPanel'
 
 interface CPFProjectionChartProps {
   profile: CPFProfile
@@ -22,7 +24,12 @@ interface CPFProjectionChartProps {
 }
 
 export function CPFProjectionChart({ profile, className }: CPFProjectionChartProps) {
-  const projection = useMemo(() => generateMockProjection(profile), [profile])
+  const [assumptions, setAssumptions] = useState<CPFAssumptions>(DEFAULT_CPF_ASSUMPTIONS)
+
+  const projection = useMemo(
+    () => generateMockProjection(profile, assumptions),
+    [profile, assumptions]
+  )
   const retirement = useMemo(
     () => generateMockRetirementProjection(projection),
     [projection]
@@ -35,6 +42,14 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 
   return (
     <div className={`space-y-6 ${className}`}>
+      {/* Assumptions Panel */}
+      <CPFAssumptionsPanel
+        assumptions={assumptions}
+        onChange={setAssumptions}
+        collapsible={true}
+        defaultExpanded={false}
+      />
+
       {/* Retirement Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <RetirementCard
