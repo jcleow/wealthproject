@@ -302,3 +302,693 @@ export function formatCoverageAmount(amount: number): string {
   }
   return `$${amount.toFixed(0)}`
 }
+
+// ============================================================================
+// RISK LAYER MODEL
+// Replaces single "protection score" with 5 independent risk layers
+// ============================================================================
+
+export type RiskLayer =
+  | 'medical_costs' // Hospitalization, surgery
+  | 'income_interruption' // CI, temporary disability
+  | 'permanent_disability' // TPD, LTC
+  | 'death_dependency' // Life insurance for dependents
+  | 'old_age_care' // CareShield, ElderShield
+
+export type CoverageStatus = 'covered' | 'partial' | 'exposed'
+
+export interface RiskLayerStatus {
+  layer: RiskLayer
+  status: CoverageStatus
+  summary: string // e.g., "Ward B1 with ISP + rider"
+  details: string[]
+  governmentCoverage?: { scheme: GovernmentScheme; contribution: string }[]
+  privateCoverage?: { policyName: string; contribution: string }[]
+  exposureNotes?: string[]
+}
+
+export interface RiskCoverageSummary {
+  coveredCount: number
+  partialCount: number
+  exposedCount: number
+  totalLayers: number
+  layers: RiskLayerStatus[]
+  lastCalculated?: string
+}
+
+export const riskLayerConfig: Record<
+  RiskLayer,
+  {
+    label: string
+    shortLabel: string
+    icon: string
+    color: string
+    description: string
+    governmentSchemes: GovernmentScheme[]
+    privateCategories: InsuranceCategory[]
+  }
+> = {
+  medical_costs: {
+    label: 'Medical Costs',
+    shortLabel: 'Medical',
+    icon: 'Stethoscope',
+    color: 'emerald',
+    description: 'Hospital bills, surgeries, treatments',
+    governmentSchemes: ['medishield_life'],
+    privateCategories: ['hospitalization'],
+  },
+  income_interruption: {
+    label: 'Income Interruption',
+    shortLabel: 'Income',
+    icon: 'TrendingDown',
+    color: 'blue',
+    description: 'Income replacement during illness/recovery',
+    governmentSchemes: [],
+    privateCategories: ['critical_illness', 'disability'],
+  },
+  permanent_disability: {
+    label: 'Permanent Disability',
+    shortLabel: 'Disability',
+    icon: 'Accessibility',
+    color: 'amber',
+    description: 'Coverage if unable to work permanently',
+    governmentSchemes: ['dps'],
+    privateCategories: ['disability', 'life'],
+  },
+  death_dependency: {
+    label: 'Death / Dependents',
+    shortLabel: 'Life',
+    icon: 'Shield',
+    color: 'purple',
+    description: 'Financial protection for dependents',
+    governmentSchemes: ['dps'],
+    privateCategories: ['life'],
+  },
+  old_age_care: {
+    label: 'Old Age Care',
+    shortLabel: 'LTC',
+    icon: 'HeartHandshake',
+    color: 'rose',
+    description: 'Long-term care support in old age',
+    governmentSchemes: ['careshield_life', 'eldershield'],
+    privateCategories: ['disability'],
+  },
+}
+
+// ============================================================================
+// SINGAPORE HOSPITALIZATION MODEL
+// Ward class, ISP tier, rider type - not dollar amounts
+// ============================================================================
+
+export type WardClass = 'A' | 'B1' | 'B2_plus' | 'C'
+
+export const wardClassConfig: Record<
+  WardClass,
+  {
+    label: string
+    description: string
+    averageDailyCost: { min: number; max: number }
+    medishieldCovers: boolean
+  }
+> = {
+  A: {
+    label: 'Class A',
+    description: 'Single room, choice of doctor',
+    averageDailyCost: { min: 500, max: 1500 },
+    medishieldCovers: false,
+  },
+  B1: {
+    label: 'Class B1',
+    description: '4-bed room, choice of doctor',
+    averageDailyCost: { min: 300, max: 800 },
+    medishieldCovers: false,
+  },
+  B2_plus: {
+    label: 'Class B2/C',
+    description: 'Subsidised multi-bed wards',
+    averageDailyCost: { min: 50, max: 200 },
+    medishieldCovers: true,
+  },
+  C: {
+    label: 'Class C',
+    description: 'Open ward, highest subsidy',
+    averageDailyCost: { min: 30, max: 100 },
+    medishieldCovers: true,
+  },
+}
+
+export type IspTier =
+  | 'medishield_only'
+  | 'basic'
+  | 'standard'
+  | 'enhanced'
+  | 'premium'
+
+export const ispTierConfig: Record<
+  IspTier,
+  {
+    label: string
+    wardClassCovered: WardClass
+    annualLimitType: 'unlimited' | 'capped'
+    typicalAnnualLimit?: number
+  }
+> = {
+  medishield_only: {
+    label: 'MediShield Life Only',
+    wardClassCovered: 'B2_plus',
+    annualLimitType: 'capped',
+    typicalAnnualLimit: 150000,
+  },
+  basic: {
+    label: 'Basic Shield',
+    wardClassCovered: 'B2_plus',
+    annualLimitType: 'capped',
+    typicalAnnualLimit: 200000,
+  },
+  standard: {
+    label: 'Standard Shield',
+    wardClassCovered: 'B1',
+    annualLimitType: 'capped',
+    typicalAnnualLimit: 500000,
+  },
+  enhanced: {
+    label: 'Enhanced Shield',
+    wardClassCovered: 'A',
+    annualLimitType: 'capped',
+    typicalAnnualLimit: 1000000,
+  },
+  premium: {
+    label: 'Private Shield',
+    wardClassCovered: 'A',
+    annualLimitType: 'unlimited',
+  },
+}
+
+export type RiderType = 'none' | 'co_pay_5' | 'co_pay_10' | 'full'
+
+export const riderTypeConfig: Record<
+  RiderType,
+  {
+    label: string
+    description: string
+    outOfPocketRatio: number
+  }
+> = {
+  none: {
+    label: 'No Rider',
+    description: 'MediShield/ISP pays first, then co-insurance applies',
+    outOfPocketRatio: 0.1,
+  },
+  co_pay_5: {
+    label: '5% Co-pay Rider',
+    description: 'Reduces co-insurance to 5%',
+    outOfPocketRatio: 0.05,
+  },
+  co_pay_10: {
+    label: '10% Co-pay Rider',
+    description: 'Reduces co-insurance to 10%',
+    outOfPocketRatio: 0.1,
+  },
+  full: {
+    label: 'Full Rider',
+    description: 'Covers all co-insurance, deductible may still apply',
+    outOfPocketRatio: 0,
+  },
+}
+
+export interface HospitalizationCoverage {
+  ispProvider?: string
+  ispTier: IspTier
+  ispPlanName?: string
+  riderType: RiderType
+  annualDeductible: number
+  coInsurancePercentage: number
+  annualLimit: number | null
+  hasPanelRestrictions: boolean
+  panelDescription?: string
+  preferredWardClass: WardClass
+  isAdequateForPreferredWard: boolean
+  outOfPocketEstimate: {
+    typicalClaim: { amount: number; scenario: string }
+    majorClaim: { amount: number; scenario: string }
+  }
+}
+
+// ============================================================================
+// DISABILITY INCOME MODEL
+// Monthly benefit, not lump sum
+// ============================================================================
+
+export type WaitingPeriod = 30 | 60 | 90 | 180
+
+export interface DisabilityIncomePolicy {
+  id: string
+  policyName: string
+  insurerName?: string
+  monthlyBenefit: number
+  maxReplacementRatio: number // Usually 65-75% of income
+  waitingPeriodDays: WaitingPeriod
+  benefitPeriod: {
+    type: 'years' | 'to_age'
+    value: number // Years or age
+  }
+  disabilityDefinition: 'own_occupation' | 'any_occupation' | 'hybrid'
+  annualPremium: number
+  isActive: boolean
+}
+
+export interface DisabilityCoverageNeeds {
+  currentMonthlyIncome: number
+  targetReplacementRatio: number
+  targetMonthlyBenefit: number
+  currentPolicies: DisabilityIncomePolicy[]
+  totalMonthlyBenefitCurrent: number
+  monthlyBenefitGap: number
+  yearsToRetirement: number
+  recommendedCoverageToAge: number
+  isAdequate: boolean
+  // Government coverage (context only - not income replacement)
+  dpsTPDAmount: number
+  careShieldMonthly: number
+}
+
+// ============================================================================
+// LIFE INSURANCE WITH DEPENDENCIES
+// Based on actual dependents, not just income multiplier
+// ============================================================================
+
+export interface Dependent {
+  id: string
+  name: string
+  relationship: 'spouse' | 'child' | 'parent' | 'sibling' | 'other'
+  dateOfBirth?: string
+  hasOwnIncome: boolean
+  monthlyIncome?: number
+  incomeReplacementYears?: number
+  educationFundNeeded?: number
+  independenceAge?: number
+  hasSpecialNeeds: boolean
+  specialNeedsNotes?: string
+}
+
+export interface LifeInsuranceNeeds {
+  dependents: Dependent[]
+  totalDependentsCount: number
+  dependentChildrenCount: number
+  yearsUntilYoungestIndependent: number
+
+  // Breakdown
+  incomeReplacement: {
+    primaryMonthlyIncome: number
+    yearsOfSupport: number
+    total: number
+  }
+  spouseDependency: {
+    spouseMonthlyIncome: number
+    incomeGap: number
+    yearsOfSupport: number
+    total: number
+  }
+  childrenEducation: {
+    numberOfChildren: number
+    perChildEstimate: number
+    total: number
+  }
+  debtSettlement: {
+    mortgage: number
+    otherDebts: number
+    total: number
+  }
+  finalExpenses: number
+
+  // Totals
+  totalNeeded: number
+  currentCoverage: number
+  dpsContribution: number
+  gap: number
+  yearsOfCoverageIfDeath: number
+  isAdequate: boolean
+}
+
+// ============================================================================
+// GOVERNMENT SCHEME LIMITATIONS
+// Explicit about what they DON'T cover
+// ============================================================================
+
+export interface GovernmentSchemeLimitations {
+  scheme: GovernmentScheme
+  triggerCondition: {
+    description: string
+    severity: 'any' | 'moderate' | 'severe'
+    adlCount?: number
+    examples: string[]
+  }
+  doesNotCover: string[]
+  keyLimitations: string[]
+  warningMessage: string
+}
+
+export const governmentSchemeLimitations: Record<
+  GovernmentScheme,
+  GovernmentSchemeLimitations
+> = {
+  medishield_life: {
+    scheme: 'medishield_life',
+    triggerCondition: {
+      description: 'Hospitalisation in B2/C ward',
+      severity: 'any',
+      examples: ['Hospital stays', 'Day surgeries', 'Chemotherapy'],
+    },
+    doesNotCover: [
+      'Private hospital stays',
+      'Class A or B1 wards',
+      'Most outpatient treatments',
+      'Dental and optical',
+    ],
+    keyLimitations: [
+      'Only covers B2/C ward',
+      'Deductibles of $1,500-$3,000 apply',
+      'Co-insurance of 3-10% after deductible',
+    ],
+    warningMessage:
+      'High out-of-pocket costs for private/A/B1 wards without ISP',
+  },
+  careshield_life: {
+    scheme: 'careshield_life',
+    triggerCondition: {
+      description: 'Severe disability - cannot perform 3+ ADLs',
+      severity: 'severe',
+      adlCount: 3,
+      examples: [
+        'Washing/bathing',
+        'Dressing',
+        'Feeding',
+        'Toileting',
+        'Walking/mobility',
+        'Transferring',
+      ],
+    },
+    doesNotCover: [
+      'Temporary disability',
+      'Partial disability',
+      'Medical treatment costs',
+      'Income during illness/recovery',
+      'Cancer/stroke unless causing 3+ ADL loss',
+    ],
+    keyLimitations: [
+      'Only pays for SEVERE disability (3+ ADLs)',
+      'Does NOT replace income during illness',
+      'Does NOT cover medical bills',
+    ],
+    warningMessage: 'Only triggers at severe disability - not income protection',
+  },
+  eldershield: {
+    scheme: 'eldershield',
+    triggerCondition: {
+      description: 'Severe disability - cannot perform 3+ ADLs',
+      severity: 'severe',
+      adlCount: 3,
+      examples: [
+        'Washing',
+        'Dressing',
+        'Feeding',
+        'Toileting',
+        'Mobility',
+        'Transferring',
+      ],
+    },
+    doesNotCover: ['Same as CareShield Life'],
+    keyLimitations: [
+      'Legacy scheme - lower payouts',
+      'Benefits capped at 72 months',
+    ],
+    warningMessage: 'Legacy scheme with lower benefits than CareShield Life',
+  },
+  dps: {
+    scheme: 'dps',
+    triggerCondition: {
+      description: 'Death OR Total Permanent Disability',
+      severity: 'severe',
+      examples: [
+        'Death from any cause',
+        'Total loss of 2 limbs',
+        'Total loss of sight',
+        'Total inability to work',
+      ],
+    },
+    doesNotCover: [
+      'Temporary disability',
+      'Critical illness (cancer, heart attack, stroke)',
+      'Income during recovery',
+      'Partial disability',
+    ],
+    keyLimitations: [
+      'Only $70k - often insufficient for dependents',
+      'Only pays on DEATH or TOTAL PERMANENT disability',
+      'Does NOT pay for critical illness',
+      'Coverage decreases after age 60',
+    ],
+    warningMessage: 'Only $70k for death/TPD - not income protection',
+  },
+}
+
+// ============================================================================
+// EVENT-BASED STRESS TEST
+// How Singaporeans think about risk
+// ============================================================================
+
+export type StressEvent =
+  | 'cancer'
+  | 'accident'
+  | 'stroke'
+  | 'death'
+  | 'severe_disability'
+
+export type StressTimeframe = '6_months' | '2_years' | '5_years' | 'lifetime'
+
+export const stressEventConfig: Record<
+  StressEvent,
+  {
+    label: string
+    shortLabel: string
+    description: string
+    icon: string
+    color: string
+    sgStatistic: string
+  }
+> = {
+  cancer: {
+    label: 'Cancer Diagnosis',
+    shortLabel: 'Cancer',
+    description: 'Critical illness requiring extended treatment',
+    icon: 'Heart',
+    color: 'rose',
+    sgStatistic: '1 in 4 Singaporeans will develop cancer by age 75',
+  },
+  accident: {
+    label: 'Major Accident',
+    shortLabel: 'Accident',
+    description: 'Unexpected injury causing income loss',
+    icon: 'AlertTriangle',
+    color: 'amber',
+    sgStatistic: 'Road accidents cause 100+ deaths yearly in SG',
+  },
+  stroke: {
+    label: 'Stroke',
+    shortLabel: 'Stroke',
+    description: 'Brain injury requiring rehabilitation',
+    icon: 'Brain',
+    color: 'purple',
+    sgStatistic: 'Stroke is the 4th leading cause of death in Singapore',
+  },
+  death: {
+    label: 'Death',
+    shortLabel: 'Death',
+    description: 'Income loss for dependents',
+    icon: 'Shield',
+    color: 'slate',
+    sgStatistic: 'Average family needs 10x annual income replacement',
+  },
+  severe_disability: {
+    label: 'Severe Disability',
+    shortLabel: 'Disability',
+    description: 'Cannot perform 3+ activities of daily living',
+    icon: 'Accessibility',
+    color: 'blue',
+    sgStatistic: 'CareShield Life payouts start at $662/month (2025)',
+  },
+}
+
+export const stressTimeframeConfig: Record<
+  StressTimeframe,
+  {
+    label: string
+    shortLabel: string
+    months: number
+    description: string
+  }
+> = {
+  '6_months': {
+    label: '6 Months',
+    shortLabel: '6M',
+    months: 6,
+    description: 'Acute phase - can deplete savings',
+  },
+  '2_years': {
+    label: '2 Years',
+    shortLabel: '2Y',
+    months: 24,
+    description: 'Extended illness period',
+  },
+  '5_years': {
+    label: '5 Years',
+    shortLabel: '5Y',
+    months: 60,
+    description: 'Long-term impact assessment',
+  },
+  lifetime: {
+    label: 'Lifetime',
+    shortLabel: 'Life',
+    months: 360, // 30 years proxy
+    description: 'Permanent conditions',
+  },
+}
+
+export interface FinancialImpact {
+  medicalCosts: number
+  careCosts: number
+  otherCosts: number
+  incomeLoss: number
+  debtSettlement: number
+  totalNeed: number
+}
+
+export interface ResourcesAvailable {
+  insurancePayout: number
+  insuranceBreakdown: {
+    life: number
+    criticalIllness: number
+    disability: number
+    hospitalisation: number
+    accident: number
+  }
+  governmentPayouts: number
+  governmentBreakdown: {
+    dps: number
+    careshield: number
+    medishield: number
+  }
+  savingsAvailable: number
+  cpfWithdrawable: number
+  totalResources: number
+}
+
+export interface StressTestCell {
+  event: StressEvent
+  timeframe: StressTimeframe
+  impact: FinancialImpact
+  resources: ResourcesAvailable
+  coveragePercentage: number
+  status: CoverageStatus
+  shortfall: number
+  riskStatement: string // "Family at risk if illness > 6 months"
+  keyInsight: string
+}
+
+export interface StressTestMatrix {
+  results: Record<StressEvent, Record<StressTimeframe, StressTestCell>>
+  summary: {
+    coveredCount: number
+    partialCount: number
+    exposedCount: number
+    worstExposure: StressTestCell | null
+    mostUrgentGap?: string
+  }
+  calculatedAt: string
+}
+
+// ============================================================================
+// SINGAPORE MEDICAL COST ASSUMPTIONS (2025)
+// ============================================================================
+
+export interface SGMedicalCostAssumptions {
+  cancer: {
+    earlyStage: { min: number; max: number }
+    midStage: { min: number; max: number }
+    lateStage: { min: number; max: number }
+    ongoingMonthly: number
+    incomeLossMonths: { acute: number; recovery: number }
+  }
+  accident: {
+    minor: { medical: number; incomeLossMonths: number }
+    moderate: { medical: number; incomeLossMonths: number }
+    severe: { medical: number; incomeLossMonths: number; disabilityChance: number }
+  }
+  stroke: {
+    mild: { medical: number; rehabMonthly: number; incomeLossMonths: number }
+    moderate: { medical: number; rehabMonthly: number; incomeLossMonths: number }
+    severe: {
+      medical: number
+      rehabMonthly: number
+      incomeLossMonths: number
+      disabilityChance: number
+    }
+  }
+  severeDisability: {
+    caregivingMonthly: { min: number; max: number }
+    medicalMonthly: number
+    homeModification: number
+  }
+  death: {
+    funeral: number
+    estateSettlement: number
+  }
+}
+
+export const defaultSGAssumptions: SGMedicalCostAssumptions = {
+  cancer: {
+    earlyStage: { min: 50000, max: 100000 },
+    midStage: { min: 100000, max: 200000 },
+    lateStage: { min: 150000, max: 300000 },
+    ongoingMonthly: 2000,
+    incomeLossMonths: { acute: 12, recovery: 12 },
+  },
+  accident: {
+    minor: { medical: 10000, incomeLossMonths: 1 },
+    moderate: { medical: 50000, incomeLossMonths: 6 },
+    severe: { medical: 100000, incomeLossMonths: 12, disabilityChance: 0.2 },
+  },
+  stroke: {
+    mild: { medical: 30000, rehabMonthly: 1500, incomeLossMonths: 6 },
+    moderate: { medical: 80000, rehabMonthly: 3000, incomeLossMonths: 18 },
+    severe: {
+      medical: 150000,
+      rehabMonthly: 5000,
+      incomeLossMonths: 36,
+      disabilityChance: 0.6,
+    },
+  },
+  severeDisability: {
+    caregivingMonthly: { min: 3000, max: 8000 },
+    medicalMonthly: 1500,
+    homeModification: 20000,
+  },
+  death: {
+    funeral: 15000,
+    estateSettlement: 5000,
+  },
+}
+
+// ============================================================================
+// DEPRECATION NOTICE
+// ============================================================================
+
+/**
+ * @deprecated Use RiskCoverageSummary instead.
+ * Single protection scores are actuarially meaningless as insurance
+ * categories cannot be combined into one number.
+ */
+export interface ProtectionScoreDeprecated extends ProtectionScore {
+  /** @deprecated */
+  overall: number
+}

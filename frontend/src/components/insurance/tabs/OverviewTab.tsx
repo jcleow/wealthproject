@@ -1,54 +1,130 @@
 'use client'
 
-import { ArrowRight, Plus, TrendingUp, AlertTriangle } from 'lucide-react'
-import { ProtectionScoreCard } from '../cards/ProtectionScoreCard'
-import { CoverageBreakdownCard } from '../cards/CoverageBreakdownCard'
+import { useState, useMemo } from 'react'
+import { ArrowRight, Plus, TrendingUp, FileSearch } from 'lucide-react'
+import { RiskCoverageSummaryCard } from '../cards/RiskCoverageSummaryCard'
 import { GovernmentSchemeCard } from '../cards/GovernmentSchemeCard'
-import type { CoverageGap, GovernmentCoverageStatus } from '@/types/insurance'
+import {
+  StressTestMatrix,
+  StressTestPreview,
+} from '../stress-test/StressTestMatrix'
+import type {
+  RiskCoverageSummary,
+  RiskLayerStatus,
+  GovernmentCoverageStatus,
+} from '@/types/insurance'
+import { createMockStressTestMatrix } from '@/lib/stress-test-calculator'
 
-// Mock data for visualization
-const mockGaps: CoverageGap[] = [
+/**
+ * OverviewTab - Restructured for Singapore insurance planning
+ *
+ * Key changes from original:
+ * 1. REMOVED: "47% Protected" score - actuarially meaningless
+ * 2. REMOVED: Coverage breakdown with red gap bars - emotionally hostile
+ * 3. REMOVED: "Critical Gaps Detected" alert - sales manipulation energy
+ * 4. ADDED: Risk Layers view - "3 of 5 risk areas covered"
+ * 5. ADDED: Event Stress Test - how Singaporeans think about risk
+ * 6. UPDATED: Government schemes with limitation warnings
+ */
+
+// Mock data for risk layers (replace with real data from hook)
+const mockRiskLayers: RiskLayerStatus[] = [
   {
-    category: 'life',
-    categoryLabel: 'Life Insurance',
-    needed: 900000,
-    current: 350000,
-    gap: 550000,
-    coveragePercentage: 39,
-    priority: 'high',
-    recommendation: 'Consider adding $550K term life coverage',
+    layer: 'medical_costs',
+    status: 'covered',
+    summary: 'Ward B1 with ISP + 5% co-pay rider',
+    details: [
+      'Integrated Shield Plan (PRUShield Plus)',
+      'Annual deductible: $3,000',
+      'Co-insurance: 5% (capped at $3,000)',
+    ],
+    governmentCoverage: [
+      { scheme: 'medishield_life', contribution: 'Base coverage for B2/C ward' },
+    ],
+    privateCoverage: [
+      { policyName: 'PRUShield Plus', contribution: 'Covers A/B1 ward' },
+    ],
   },
   {
-    category: 'critical_illness',
-    categoryLabel: 'Critical Illness',
-    needed: 340000,
-    current: 100000,
-    gap: 240000,
-    coveragePercentage: 29,
-    priority: 'critical',
-    recommendation: 'Urgent: Add CI coverage to protect against income loss',
+    layer: 'income_interruption',
+    status: 'partial',
+    summary: 'CI covers ~18 months of income',
+    details: [
+      'Critical Illness coverage: $100,000',
+      'No income protection for non-CI illness',
+      'No disability income insurance',
+    ],
+    privateCoverage: [
+      { policyName: 'AIA CI Plus', contribution: '$100K lump sum' },
+    ],
+    exposureNotes: [
+      'Income not protected if illness lasts beyond CI payout period',
+      'No coverage for temporary disability or non-critical conditions',
+    ],
   },
   {
-    category: 'hospitalization',
-    categoryLabel: 'Hospitalization',
-    needed: 100,
-    current: 95,
-    gap: 5,
-    coveragePercentage: 95,
-    priority: 'low',
-    recommendation: 'Coverage is adequate with ISP + MediShield Life',
+    layer: 'permanent_disability',
+    status: 'partial',
+    summary: 'DPS ($70K) + partial private coverage',
+    details: [
+      'DPS provides $70,000 for TPD',
+      'Some life policies include TPD rider',
+    ],
+    governmentCoverage: [
+      { scheme: 'dps', contribution: '$70,000 lump sum (death/TPD only)' },
+    ],
+    exposureNotes: [
+      'May not cover lifestyle maintenance long-term',
+      'No income replacement beyond lump sum',
+    ],
   },
   {
-    category: 'disability',
-    categoryLabel: 'Disability',
-    needed: 200000,
-    current: 70000,
-    gap: 130000,
-    coveragePercentage: 35,
-    priority: 'high',
-    recommendation: 'Consider income protection insurance',
+    layer: 'death_dependency',
+    status: 'exposed',
+    summary: 'Coverage for ~4 years of family expenses',
+    details: [
+      'Total life coverage: $350,000',
+      'DPS: $70,000',
+      '2 dependents (spouse + child)',
+      'Outstanding mortgage: $350,000',
+    ],
+    governmentCoverage: [
+      { scheme: 'dps', contribution: '$70,000' },
+    ],
+    privateCoverage: [
+      { policyName: 'Term Life', contribution: '$350,000 death benefit' },
+    ],
+    exposureNotes: [
+      'Coverage insufficient to clear mortgage + support family',
+      'Family would need alternative income after ~4 years',
+    ],
+  },
+  {
+    layer: 'old_age_care',
+    status: 'covered',
+    summary: 'CareShield Life ($662/mo for severe disability)',
+    details: [
+      'CareShield Life enrolled (born after 1980)',
+      'Payout: $662/month, increasing to ~$1,000 by age 67',
+      'Triggers only for severe disability (3+ ADLs)',
+    ],
+    governmentCoverage: [
+      {
+        scheme: 'careshield_life',
+        contribution: '$662/mo (severe disability only)',
+      },
+    ],
   },
 ]
+
+const mockRiskSummary: RiskCoverageSummary = {
+  coveredCount: 2,
+  partialCount: 2,
+  exposedCount: 1,
+  totalLayers: 5,
+  layers: mockRiskLayers,
+  lastCalculated: new Date().toISOString(),
+}
 
 const mockGovernmentSchemes: GovernmentCoverageStatus[] = [
   {
@@ -75,92 +151,60 @@ const mockGovernmentSchemes: GovernmentCoverageStatus[] = [
   },
 ]
 
-// Calculate overall protection score (weighted average)
-const calculateOverallScore = (gaps: CoverageGap[]): number => {
-  const weights: Record<string, number> = {
-    life: 0.35,
-    critical_illness: 0.25,
-    hospitalization: 0.2,
-    disability: 0.2,
-  }
-
-  let weightedSum = 0
-  let totalWeight = 0
-
-  for (const gap of gaps) {
-    const weight = weights[gap.category] || 0.1
-    weightedSum += gap.coveragePercentage * weight
-    totalWeight += weight
-  }
-
-  return Math.round(weightedSum / totalWeight)
-}
-
-const overallScore = calculateOverallScore(mockGaps)
-const totalGap = mockGaps.reduce((sum, g) => sum + Math.max(0, g.gap), 0)
-const criticalGaps = mockGaps.filter((g) => g.priority === 'critical')
-
 export function OverviewTab() {
+  const [showFullStressTest, setShowFullStressTest] = useState(false)
+
+  // Generate stress test matrix (in production, this would come from a hook)
+  const stressTestMatrix = useMemo(() => createMockStressTestMatrix(), [])
+
   return (
     <div className="space-y-6">
-      {/* Alert for critical gaps */}
-      {criticalGaps.length > 0 && (
-        <div className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
-          <div>
-            <h3 className="font-medium text-rose-400">
-              {criticalGaps.length} Critical Gap{criticalGaps.length > 1 ? 's' : ''} Detected
-            </h3>
-            <p className="mt-1 text-sm text-rose-300/80">
-              Your {criticalGaps.map((g) => g.categoryLabel).join(' and ')} coverage
-              is below 30%. This leaves you vulnerable to significant financial risk.
-            </p>
-            <button className="mt-3 flex items-center gap-1.5 text-sm font-medium text-rose-400 transition-colors hover:text-rose-300">
-              View Recommendations
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
+      {/* Risk Coverage Summary - replaces misleading "47% Protected" */}
+      <RiskCoverageSummaryCard summary={mockRiskSummary} />
+
+      {/* Event Stress Test - how Singaporeans think about risk */}
+      {showFullStressTest ? (
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
+          <StressTestMatrix matrix={stressTestMatrix} />
+          <button
+            type="button"
+            onClick={() => setShowFullStressTest(false)}
+            className="mt-4 text-sm text-slate-400 hover:text-white"
+          >
+            Collapse stress test
+          </button>
         </div>
+      ) : (
+        <StressTestPreview
+          matrix={stressTestMatrix}
+          onExpand={() => setShowFullStressTest(true)}
+        />
       )}
 
-      {/* Main Grid */}
-      <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
-        {/* Protection Score */}
-        <ProtectionScoreCard
-          score={overallScore}
-          totalGap={totalGap}
-          trend="stable"
-          lastUpdated="Today"
-        />
-
-        {/* Coverage Breakdown */}
-        <CoverageBreakdownCard gaps={mockGaps} />
-      </div>
-
-      {/* Government Schemes */}
+      {/* Government Schemes - with limitation warnings */}
       <GovernmentSchemeCard schemes={mockGovernmentSchemes} />
 
-      {/* Quick Actions */}
+      {/* Quick Actions - removed "Close Gaps" (too aggressive) */}
       <div className="grid gap-4 sm:grid-cols-3">
         <QuickActionCard
           icon={Plus}
           title="Add Policy"
           description="Track a new insurance policy"
-          href="#"
+          href="#policies"
           color="emerald"
         />
         <QuickActionCard
-          icon={TrendingUp}
-          title="View Gap Analysis"
-          description="Detailed coverage comparison"
-          href="#"
+          icon={FileSearch}
+          title="Scenario Analysis"
+          description="Test coverage against events"
+          href="#scenarios"
           color="blue"
         />
         <QuickActionCard
-          icon={AlertTriangle}
-          title="Close Gaps"
-          description="Get personalized recommendations"
-          href="#"
+          icon={TrendingUp}
+          title="View Options"
+          description="Explore coverage options"
+          href="#options"
           color="amber"
         />
       </div>
