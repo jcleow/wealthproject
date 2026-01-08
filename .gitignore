@@ -83,3 +83,7 @@ frontend/test-results/
 
 # Playwright MCP screenshots
 .playwright-mcp/
+
+# Temporary output files
+output.json
+output.txt
