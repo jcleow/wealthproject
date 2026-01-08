@@ -11,9 +11,12 @@ import {
   Position,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ChevronDown, Check } from 'lucide-react'
+import { ChevronDown, Check, GitBranch, BarChart3, Workflow } from 'lucide-react'
+import clsx from 'clsx'
 
 import { formatCurrency } from '@/lib/format'
+import { CPFContributionSankey } from './CPFContributionSankey'
+import { CPFContributionWaterfall } from './CPFContributionWaterfall'
 
 // CPF contribution rates by age (2025)
 const CPF_RATES = {
@@ -27,6 +30,7 @@ const CPF_RATES = {
 } as const
 
 type AgeGroup = keyof typeof CPF_RATES
+type VisualizationMode = 'flow' | 'sankey' | 'waterfall'
 
 function getAgeGroup(age: number): AgeGroup {
   if (age <= 35) return '35'
@@ -40,6 +44,13 @@ function getAgeGroup(age: number): AgeGroup {
 
 // OW ceiling for 2025
 const OW_CEILING = 7400
+
+// Visualization mode options
+const VISUALIZATION_MODES: { id: VisualizationMode; label: string; icon: typeof Workflow; description: string }[] = [
+  { id: 'flow', label: 'Flow', icon: Workflow, description: 'Interactive node diagram' },
+  { id: 'sankey', label: 'Sankey', icon: GitBranch, description: 'Proportional flow widths' },
+  { id: 'waterfall', label: 'Waterfall', icon: BarChart3, description: 'Step-by-step breakdown' },
+]
 
 // Custom dropdown for CPF Contribution selects
 function ContributionDropdown({
@@ -135,7 +146,81 @@ function ContributionDropdown({
   )
 }
 
-// Custom Node: Salary Input
+// Standalone input panel (used for Sankey and Waterfall modes)
+function InputPanel({
+  salary,
+  age,
+  rates,
+  cappedWage,
+  onSalaryChange,
+  onAgeChange,
+}: {
+  salary: number
+  age: number
+  rates: { total: number; employee: number; employer: number; oa: number; sa: number; ma: number }
+  cappedWage: number
+  onSalaryChange: (value: number) => void
+  onAgeChange: (value: number) => void
+}) {
+  return (
+    <div className="flex items-start gap-6 px-4 py-3 border-b border-white/[0.06]">
+      {/* Salary Input */}
+      <div className="flex-1 max-w-[200px]">
+        <label className="mb-1 block text-xs text-slate-400">Gross Salary</label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+          <input
+            type="number"
+            value={salary}
+            onChange={(e) => onSalaryChange(Number(e.target.value))}
+            className={`w-full
+              py-2 pl-7 pr-3
+              rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
+              bg-white/[0.02]
+              text-lg font-semibold text-white
+              transition`}
+          />
+        </div>
+      </div>
+
+      {/* Age Dropdown */}
+      <div className="flex-1 max-w-[160px]">
+        <label className="mb-1 block text-xs text-slate-400">Your Age</label>
+        <ContributionDropdown
+          value={age}
+          onChange={onAgeChange}
+          options={[
+            { value: 30, label: '35 or below' },
+            { value: 40, label: '36-45' },
+            { value: 48, label: '46-50' },
+            { value: 52, label: '51-55' },
+            { value: 58, label: '56-60' },
+            { value: 62, label: '61-65' },
+            { value: 68, label: '66-70' },
+            { value: 72, label: 'Above 70' },
+          ]}
+        />
+      </div>
+
+      {/* Rates Display */}
+      <div className="flex gap-4 items-center text-sm">
+        <div className="px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/20">
+          <span className="text-slate-400 text-xs">Total Rate</span>
+          <p className="font-medium text-violet-400">{(rates.total * 100).toFixed(1)}%</p>
+        </div>
+        <div className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+          <span className="text-slate-400 text-xs">Capped Wage</span>
+          <p className="font-medium text-white">{formatCurrency(cappedWage)}</p>
+          {cappedWage >= OW_CEILING && (
+            <span className="text-xs text-amber-400">At ceiling</span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Custom Node: Salary Input (for Flow mode)
 function SalaryInputNode({ data }: { data: { salary: number; age: number; onChange: (salary: number, age: number) => void } }) {
   return (
     <div className={`min-w-[200px]
@@ -322,6 +407,7 @@ interface CPFContributionCalculatorProps {
 export function CPFContributionCalculator({ className }: CPFContributionCalculatorProps) {
   const [salary, setSalary] = useState(5000)
   const [age, setAge] = useState(30)
+  const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('flow')
 
   const handleChange = useCallback((newSalary: number, newAge: number) => {
     setSalary(newSalary)
@@ -448,52 +534,127 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
       animated: true,
       style: { stroke: '#22c55e', strokeWidth: 2 },
     },
-  ], [calculations])
+  ], [])
 
   return (
-    <div className={`h-[700px] rounded-xl border border-white/[0.08] bg-[#0a0a0a] ${className}`}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        proOptions={{ hideAttribution: true }}
-        minZoom={0.5}
-        maxZoom={1.5}
-        defaultEdgeOptions={{
-          type: 'smoothstep',
-        }}
-      >
-        <Background color="#1e293b" gap={20} size={1} />
-        <Controls
-          className={`!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white`}
-        />
-      </ReactFlow>
+    <div className={`flex flex-col h-[700px] rounded-xl border border-white/[0.08] bg-[#0a0a0a] ${className}`}>
+      {/* Mode Toggle Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+        <h3 className="text-sm font-medium text-white">CPF Contribution Flow</h3>
 
-      {/* Summary Footer */}
-      <div className={`flex items-center justify-between
+        {/* Visualization Mode Toggle */}
+        <div className="inline-flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.08]">
+          {VISUALIZATION_MODES.map((mode) => {
+            const Icon = mode.icon
+            const isActive = visualizationMode === mode.id
+            return (
+              <button
+                key={mode.id}
+                type="button"
+                onClick={() => setVisualizationMode(mode.id)}
+                title={mode.description}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
+                  isActive
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-300'
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {mode.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Input Panel for non-flow modes */}
+      {visualizationMode !== 'flow' && (
+        <InputPanel
+          salary={salary}
+          age={age}
+          rates={calculations.rates}
+          cappedWage={calculations.cappedWage}
+          onSalaryChange={(val) => setSalary(val)}
+          onAgeChange={(val) => setAge(val)}
+        />
+      )}
+
+      {/* Visualization Content */}
+      <div className="flex-1 min-h-0">
+        {visualizationMode === 'flow' && (
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            proOptions={{ hideAttribution: true }}
+            minZoom={0.5}
+            maxZoom={1.5}
+            defaultEdgeOptions={{
+              type: 'smoothstep',
+            }}
+          >
+            <Background color="#1e293b" gap={20} size={1} />
+            <Controls
+              className={`!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white`}
+            />
+          </ReactFlow>
+        )}
+
+        {visualizationMode === 'sankey' && (
+          <CPFContributionSankey
+            salary={salary}
+            cappedWage={calculations.cappedWage}
+            employeeContrib={calculations.employeeContrib}
+            employerContrib={calculations.employerContrib}
+            oaContrib={calculations.oaContrib}
+            saContrib={calculations.saContrib}
+            maContrib={calculations.maContrib}
+            className="h-full"
+          />
+        )}
+
+        {visualizationMode === 'waterfall' && (
+          <CPFContributionWaterfall
+            salary={salary}
+            cappedWage={calculations.cappedWage}
+            employeeContrib={calculations.employeeContrib}
+            employerContrib={calculations.employerContrib}
+            oaContrib={calculations.oaContrib}
+            saContrib={calculations.saContrib}
+            maContrib={calculations.maContrib}
+            className="h-full"
+          />
+        )}
+      </div>
+
+      {/* Summary Footer (only for flow mode, others have their own) */}
+      {visualizationMode === 'flow' && (
+        <div className={`flex items-center justify-between
 px-4 py-3
 border-t border-white/[0.06]
 text-sm`}>
-        <div className="flex gap-6">
-          <div>
-            <span className="text-slate-400">Total CPF: </span>
-            <span className="font-medium text-violet-400">{formatCurrency(calculations.totalContrib)}</span>
+          <div className="flex gap-6">
+            <div>
+              <span className="text-slate-400">Total CPF: </span>
+              <span className="font-medium text-violet-400">{formatCurrency(calculations.totalContrib)}</span>
+            </div>
+            <div>
+              <span className="text-slate-400">Your Contribution: </span>
+              <span className="font-medium text-red-400">{formatCurrency(calculations.employeeContrib)}</span>
+            </div>
+            <div>
+              <span className="text-slate-400">Employer Contribution: </span>
+              <span className="font-medium text-emerald-400">{formatCurrency(calculations.employerContrib)}</span>
+            </div>
           </div>
-          <div>
-            <span className="text-slate-400">Your Contribution: </span>
-            <span className="font-medium text-red-400">{formatCurrency(calculations.employeeContrib)}</span>
-          </div>
-          <div>
-            <span className="text-slate-400">Employer Contribution: </span>
-            <span className="font-medium text-emerald-400">{formatCurrency(calculations.employerContrib)}</span>
+          <div className="text-xs text-slate-500">
+            Rates for age {age} (2025)
           </div>
         </div>
-        <div className="text-xs text-slate-500">
-          Rates for age {age} (2025)
-        </div>
-      </div>
+      )}
     </div>
   )
 }
