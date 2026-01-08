@@ -3,16 +3,15 @@
 import { useState, useMemo, useEffect } from 'react'
 import {
   Wallet,
-  TrendingUp,
-  PiggyBank,
   Home,
   LineChart,
   GraduationCap,
   X,
   Layers,
-  ChevronDown,
   Sunset,
+  User,
 } from 'lucide-react'
+import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 
 import {
   CPFBalanceOverview,
@@ -38,7 +37,7 @@ import {
   formatAccountLabel,
 } from '@/lib/cpf-utils'
 
-type TabId = 'overview' | 'projection' | 'schemes' | 'property' | 'retirement' | 'learn'
+type TabId = 'overview' | 'projection' | 'strategies' | 'property' | 'retirement' | 'learn'
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; description: string }[] = [
   {
@@ -54,12 +53,6 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
     description: '30-year forecast',
   },
   {
-    id: 'schemes',
-    label: 'Schemes',
-    icon: <Layers className="h-4 w-4" />,
-    description: 'CPFIS & RSTU',
-  },
-  {
     id: 'property',
     label: 'Property',
     icon: <Home className="h-4 w-4" />,
@@ -72,32 +65,64 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
     description: 'Age 55 & CPF LIFE',
   },
   {
-    id: 'learn',
-    label: 'Learn',
-    icon: <GraduationCap className="h-4 w-4" />,
-    description: 'Interactive CPF calculator',
+    id: 'strategies',
+    label: 'Strategies',
+    icon: <Layers className="h-4 w-4" />,
+    description: 'CPF growth strategies',
   },
 ]
 
-type SchemeId = 'cpfis' | 'rstu'
+const LEARN_TAB = {
+  id: 'learn' as TabId,
+  label: 'Learn',
+  icon: <GraduationCap className="h-4 w-4" />,
+  description: 'Interactive CPF calculator',
+}
 
-const SCHEMES: { id: SchemeId; label: string; icon: React.ReactNode; description: string }[] = [
-  {
-    id: 'cpfis',
-    label: 'CPFIS',
-    icon: <TrendingUp className="h-4 w-4" />,
-    description: 'CPF Investment Scheme',
-  },
-  {
-    id: 'rstu',
-    label: 'RSTU / Top-ups',
-    icon: <PiggyBank className="h-4 w-4" />,
-    description: 'Retirement Sum Topping-Up',
-  },
+type StrategyId = 'contributions' | 'self-employed' | 'vc3a' | 'medisave-topup' | 'rstu' | 'transfers' | 'housing-refund' | 'cpfis'
+
+const STRATEGIES: { id: StrategyId; label: string; description: string }[] = [
+  { id: 'contributions', label: 'Regular Contributions', description: 'Building CPF through work' },
+  { id: 'self-employed', label: 'Self-Employed', description: 'Contributing as self-employed' },
+  { id: 'vc3a', label: 'VC3A', description: 'Voluntary contributions to all accounts' },
+  { id: 'medisave-topup', label: 'MediSave Top-Up', description: 'Top-up MediSave only' },
+  { id: 'rstu', label: 'RSTU', description: 'Retirement Sum Topping-Up' },
+  { id: 'transfers', label: 'CPF Transfers', description: 'Transfer between accounts/members' },
+  { id: 'housing-refund', label: 'Housing Refund', description: 'Voluntary housing refund' },
+  { id: 'cpfis', label: 'CPFIS', description: 'CPF Investment Scheme' },
 ]
 
 interface CPFSimulationViewProps {
   onClose: () => void
+}
+
+// Placeholder component for strategies that don't have dedicated implementations yet
+interface StrategyPlaceholderProps {
+  title: string
+  description: string
+  points: string[]
+}
+
+function StrategyPlaceholder({ title, description, points }: StrategyPlaceholderProps) {
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
+      <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
+      <p className="text-sm text-slate-400 mb-4">{description}</p>
+      <div className="space-y-2">
+        {points.map((point, index) => (
+          <div key={index} className="flex items-start gap-2">
+            <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+            <span className="text-sm text-slate-300">{point}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-6 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+        <p className="text-xs text-blue-300">
+          <strong>Coming soon:</strong> Interactive calculator for this strategy will be available in a future update.
+        </p>
+      </div>
+    </div>
+  )
 }
 
 type LearnCalculator = 'journey' | 'contribution' | 'housing'
@@ -111,7 +136,7 @@ const LEARN_CALCULATORS: { id: LearnCalculator; label: string; description: stri
 export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [activeCalculator, setActiveCalculator] = useState<LearnCalculator>('journey')
-  const [activeScheme, setActiveScheme] = useState<SchemeId>('cpfis')
+  const [activeStrategy, setActiveStrategy] = useState<StrategyId>('contributions')
 
   // CPF Account selection state
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
@@ -175,37 +200,45 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
       <div className="border-b border-white/[0.06] px-5 py-2">
         <div className="flex items-center gap-4">
           {/* Person Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">👤</span>
-            {isLoadingAccounts ? (
-              <div className="h-5 w-16 animate-pulse rounded bg-white/[0.05]" />
-            ) : cpfAccounts && cpfAccounts.length > 0 ? (
-              <div className="relative">
-                <select
-                  value={selectedAccountId || ''}
-                  onChange={(e) => handleAccountChange(e.target.value)}
-                  className="appearance-none bg-transparent pr-5 text-sm font-medium text-white focus:outline-none cursor-pointer"
-                >
-                  {cpfAccounts.map((account) => (
-                    <option key={account.id} value={account.id} className="bg-[#0a0a0a]">
-                      {formatAccountLabel(account)}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
-              </div>
-            ) : (
-              <span className="text-sm font-medium text-amber-300">Demo</span>
-            )}
-          </div>
+          {isLoadingAccounts ? (
+            <div className="h-9 w-32 animate-pulse rounded-lg bg-white/[0.05]" />
+          ) : cpfAccounts && cpfAccounts.length > 0 ? (
+            <CustomDropdown
+              value={selectedAccountId || ''}
+              onChange={handleAccountChange}
+              options={cpfAccounts.map((account) => ({
+                value: account.id,
+                label: formatAccountLabel(account),
+              }))}
+              showIcon
+              icon={<User className="h-4 w-4" />}
+              iconColor="text-slate-400"
+              minWidth="120px"
+            />
+          ) : (
+            <span className="text-sm font-medium text-amber-300">Demo Mode</span>
+          )}
 
-          {/* Age Slider */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-white">{simulatedAge} y/o</span>
+          {/* Age Input + Slider */}
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={18}
+              max={100}
+              value={simulatedAge}
+              onChange={(e) => {
+                const val = parseInt(e.target.value)
+                if (!isNaN(val) && val >= 18 && val <= 100) {
+                  setSimulatedAge(val)
+                }
+              }}
+              className="w-12 bg-transparent text-sm font-medium text-white text-center focus:outline-none border-b border-white/20 focus:border-blue-400"
+            />
+            <span className="text-sm text-slate-400">y/o</span>
             <input
               type="range"
               min={18}
-              max={70}
+              max={100}
               step={1}
               value={simulatedAge}
               onChange={(e) => setSimulatedAge(parseInt(e.target.value))}
@@ -223,7 +256,8 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
 
       {/* Tab Navigation */}
       <div className="border-b border-white/[0.06] px-5">
-        <div className="scrollbar-hide flex gap-1 overflow-x-auto py-2">
+        <div className="scrollbar-hide flex items-center gap-1 overflow-x-auto py-2">
+          {/* Main tabs */}
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -238,6 +272,20 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
               <span>{tab.label}</span>
             </button>
           ))}
+          {/* Spacer */}
+          <div className="flex-1" />
+          {/* Learn tab on right */}
+          <button
+            onClick={() => setActiveTab(LEARN_TAB.id)}
+            className={`flex flex-shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+              activeTab === LEARN_TAB.id
+                ? 'bg-white/[0.08] text-white'
+                : 'text-slate-400 hover:bg-white/[0.04] hover:text-white'
+            }`}
+          >
+            {LEARN_TAB.icon}
+            <span>{LEARN_TAB.label}</span>
+          </button>
         </div>
       </div>
 
@@ -254,29 +302,97 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
 
         {activeTab === 'projection' && <CPFProjectionChart profile={profile} />}
 
-        {activeTab === 'schemes' && (
+        {activeTab === 'strategies' && (
           <div className="space-y-4">
-            {/* Scheme Selector Dropdown */}
+            {/* Strategy Selector Dropdown */}
             <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-400">Select scheme:</span>
-              <div className="relative">
-                <select
-                  value={activeScheme}
-                  onChange={(e) => setActiveScheme(e.target.value as SchemeId)}
-                  className="appearance-none rounded-lg border border-white/[0.08] bg-white/[0.03] py-2 pl-3 pr-10 text-sm text-white focus:border-emerald-500/50 focus:outline-none"
-                >
-                  {SCHEMES.map((scheme) => (
-                    <option key={scheme.id} value={scheme.id} className="bg-[#0a0a0a]">
-                      {scheme.label} - {scheme.description}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              </div>
+              <span className="text-sm text-slate-400">Select strategy:</span>
+              <CustomDropdown
+                value={activeStrategy}
+                onChange={(val) => setActiveStrategy(val as StrategyId)}
+                options={STRATEGIES.map((strategy) => ({
+                  value: strategy.id,
+                  label: `${strategy.label} - ${strategy.description}`,
+                }))}
+                minWidth="280px"
+              />
             </div>
 
-            {/* Active Scheme Content */}
-            {activeScheme === 'cpfis' && (
+            {/* Active Strategy Content */}
+            {activeStrategy === 'contributions' && (
+              <StrategyPlaceholder
+                title="Regular Work Contributions"
+                description="Building your CPF through employment contributions from you and your employer."
+                points={[
+                  'Employee contributes up to 20% of monthly wages',
+                  'Employer contributes up to 17% of monthly wages',
+                  'Contributions allocated to OA, SA, and MA based on age',
+                  'Subject to CPF contribution caps (OW ceiling: $6,800/month)',
+                ]}
+              />
+            )}
+            {activeStrategy === 'self-employed' && (
+              <StrategyPlaceholder
+                title="Self-Employed Contributions"
+                description="Contributing to your CPF as a self-employed person (SEP)."
+                points={[
+                  'Mandatory MediSave contributions based on net trade income',
+                  'Optional voluntary contributions to OA and SA',
+                  'Enjoy tax relief on contributions',
+                  'Build retirement savings while self-employed',
+                ]}
+              />
+            )}
+            {activeStrategy === 'vc3a' && (
+              <StrategyPlaceholder
+                title="Voluntary Contributions (VC3A)"
+                description="Make voluntary contributions to all three CPF accounts."
+                points={[
+                  'Contribute to OA, SA, and MA in standard allocation ratios',
+                  'Enjoy tax relief up to CPF Annual Limit',
+                  'Top up anytime through CPF website or app',
+                  'Good for those with irregular income',
+                ]}
+              />
+            )}
+            {activeStrategy === 'medisave-topup' && (
+              <StrategyPlaceholder
+                title="MediSave Top-Up"
+                description="Top up your MediSave Account only for healthcare needs."
+                points={[
+                  'Contribute directly to MediSave only',
+                  'Enjoy tax relief on contributions',
+                  'Useful for healthcare coverage and MediShield Life premiums',
+                  'Subject to Basic Healthcare Sum (BHS) cap',
+                ]}
+              />
+            )}
+            {activeStrategy === 'rstu' && <TopUpTaxReliefCalculator profile={profile} />}
+            {activeStrategy === 'transfers' && (
+              <StrategyPlaceholder
+                title="CPF Transfers"
+                description="Transfer CPF savings between accounts or to family members."
+                points={[
+                  'Transfer from OA to SA for higher interest (up to FRS)',
+                  'Top up family members\' SA or RA',
+                  'Receive tax relief for topping up family members',
+                  'Help parents/grandparents with retirement adequacy',
+                ]}
+              />
+            )}
+            {activeStrategy === 'housing-refund' && (
+              <StrategyPlaceholder
+                title="Voluntary Housing Refund"
+                description="Voluntarily refund CPF used for housing back to your OA."
+                points={[
+                  'Refund principal + accrued interest to OA',
+                  'Restore CPF savings for retirement',
+                  'Useful when you have excess cash',
+                  'Reduces future accrued interest obligations',
+                ]}
+              />
+            )}
+            {activeStrategy === 'cpfis' && (
               <CPFISInvestmentDashboard
                 investments={mockCPFISInvestments}
                 investibleBalance={mockInvestibleBalance}
@@ -284,7 +400,6 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
                 saBalance={profile.balances.sa}
               />
             )}
-            {activeScheme === 'rstu' && <TopUpTaxReliefCalculator profile={profile} />}
           </div>
         )}
 
