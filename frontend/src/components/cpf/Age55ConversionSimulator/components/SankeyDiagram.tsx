@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Sankey,
   Tooltip,
@@ -13,8 +13,10 @@ import { CPF_COLORS } from '@/lib/cpf-constants'
 import { formatCurrency } from '@/lib/format'
 import type { ConversionResult } from '../hooks'
 
-// Custom Sankey node component
+// Custom Sankey node component with hover tooltip
 function CustomNode({ x, y, width, height, payload }: any) {
+  const [isHovered, setIsHovered] = useState(false)
+
   const nodeColors: Record<string, string> = {
     SA: CPF_COLORS.sa,
     OA: CPF_COLORS.oa,
@@ -33,6 +35,9 @@ function CustomNode({ x, y, width, height, payload }: any) {
   const textY = y + height / 2
   const textAnchor: 'start' | 'end' = isLeftNode ? 'end' : 'start'
 
+  // Get the value for this node (total flow through it)
+  const nodeValue = payload.value
+
   return (
     <Layer>
       <Rectangle
@@ -41,9 +46,12 @@ function CustomNode({ x, y, width, height, payload }: any) {
         width={width}
         height={height}
         fill={nodeColors[payload.name] || '#64748b'}
-        fillOpacity={0.9}
+        fillOpacity={isHovered ? 1 : 0.9}
         rx={4}
         ry={4}
+        style={{ cursor: 'pointer', transition: 'fill-opacity 0.15s' }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       />
       <text
         x={textX}
@@ -51,9 +59,23 @@ function CustomNode({ x, y, width, height, payload }: any) {
         textAnchor={textAnchor}
         dominantBaseline="middle"
         className="fill-white text-xs font-medium"
+        style={{ pointerEvents: 'none' }}
       >
         {payload.name}
       </text>
+      {/* Show value below name on hover */}
+      {isHovered && nodeValue > 0 && (
+        <text
+          x={textX}
+          y={textY + 14}
+          textAnchor={textAnchor}
+          dominantBaseline="middle"
+          className="fill-slate-300 text-[10px] font-mono"
+          style={{ pointerEvents: 'none' }}
+        >
+          {formatCurrency(nodeValue)}
+        </text>
+      )}
     </Layer>
   )
 }

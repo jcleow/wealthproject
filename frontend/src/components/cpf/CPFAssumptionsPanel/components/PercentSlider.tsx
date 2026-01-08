@@ -1,6 +1,7 @@
 'use client'
 
-import { Info } from 'lucide-react'
+import { useState } from 'react'
+import { Info, Lock, Unlock } from 'lucide-react'
 
 export type SliderColor = 'emerald' | 'blue' | 'amber' | 'purple'
 
@@ -19,6 +20,10 @@ interface PercentSliderProps {
   unit?: string
   /** If true, shows the slider. Default: false (input only) */
   showSlider?: boolean
+  /** If true, shows as locked (policy rate) with toggle to unlock. Default: false */
+  policyLocked?: boolean
+  /** Label to show when locked (e.g., "CPF Policy") */
+  policyLabel?: string
 }
 
 const colorClasses: Record<SliderColor, string> = {
@@ -54,7 +59,11 @@ export function PercentSlider({
   isPercent = true,
   unit,
   showSlider = false,
+  policyLocked = false,
+  policyLabel = 'CPF Policy',
 }: PercentSliderProps) {
+  const [isLocked, setIsLocked] = useState(policyLocked)
+
   // Determine the display unit
   const displayUnit = unit !== undefined ? unit : (isPercent ? '%' : '')
 
@@ -87,23 +96,54 @@ export function PercentSlider({
               </div>
             </div>
           )}
+          {policyLocked && isLocked && (
+            <span className="rounded bg-slate-700/50 px-1.5 py-0.5 text-[9px] font-medium text-slate-500">
+              {policyLabel}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
-          <input
-            type="number"
-            value={displayValue}
-            onChange={(e) => handleInputChange(e.target.value)}
-            step={isPercent ? step * 100 : step}
-            min={displayMin}
-            max={displayMax}
-            className={`w-16 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 text-right font-mono text-sm font-medium ${textColors[color]} ${borderColors[color]} transition focus:bg-white/[0.05] focus:outline-none`}
-          />
+          {policyLocked && (
+            <button
+              type="button"
+              onClick={() => setIsLocked(!isLocked)}
+              className={`rounded p-1 transition ${
+                isLocked
+                  ? 'text-slate-600 hover:bg-white/[0.05] hover:text-slate-400'
+                  : 'text-amber-500/70 hover:bg-amber-500/10 hover:text-amber-400'
+              }`}
+              title={isLocked ? 'Click to customize' : 'Click to reset to policy rate'}
+            >
+              {isLocked ? (
+                <Lock className="h-3 w-3" />
+              ) : (
+                <Unlock className="h-3 w-3" />
+              )}
+            </button>
+          )}
+          {isLocked ? (
+            <span className={`w-16 px-2 py-0.5 text-right font-mono text-sm font-medium text-slate-500`}>
+              {displayValue}
+            </span>
+          ) : (
+            <input
+              type="number"
+              value={displayValue}
+              onChange={(e) => handleInputChange(e.target.value)}
+              step={isPercent ? step * 100 : step}
+              min={displayMin}
+              max={displayMax}
+              className={`w-16 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 text-right font-mono text-sm font-medium ${textColors[color]} ${borderColors[color]} transition focus:bg-white/[0.05] focus:outline-none`}
+            />
+          )}
           {displayUnit && (
-            <span className={`text-xs ${textColors[color]}`}>{displayUnit}</span>
+            <span className={`text-xs ${isLocked ? 'text-slate-500' : textColors[color]}`}>
+              {displayUnit}
+            </span>
           )}
         </div>
       </div>
-      {showSlider && (
+      {showSlider && !isLocked && (
         <>
           <input
             type="range"

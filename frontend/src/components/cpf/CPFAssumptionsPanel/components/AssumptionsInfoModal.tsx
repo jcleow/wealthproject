@@ -2,6 +2,7 @@
 
 import { HelpCircle, X } from 'lucide-react'
 import { ASSUMPTION_DOCS } from '@/lib/cpf-assumptions-docs'
+import { EXTERNAL_LINKS } from '@/lib/external-links'
 
 interface AssumptionsInfoModalProps {
   onClose: () => void
@@ -99,14 +100,23 @@ export function AssumptionsInfoModal({ onClose }: AssumptionsInfoModalProps) {
         {/* Footer */}
         <div className="border-t border-white/[0.06] px-5 py-3">
           <p className="text-[11px] text-slate-500">
-            Source:{' '}
+            Sources:{' '}
             <a
-              href="https://www.cpf.gov.sg/member/tnc/detailed-notes-for-cpf-planner-retirement-income"
+              href={EXTERNAL_LINKS.cpf.detailedNotes.url}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-400 hover:underline"
             >
-              CPF Detailed Notes for Retirement Income Planner
+              {EXTERNAL_LINKS.cpf.detailedNotes.title}
+            </a>
+            {' · '}
+            <a
+              href={EXTERNAL_LINKS.cpf.extraInterest.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:underline"
+            >
+              {EXTERNAL_LINKS.cpf.extraInterest.title}
             </a>
           </p>
         </div>

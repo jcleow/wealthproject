@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import type { CPFAssumptions, AssumptionPreset } from '@/types/cpf'
 import { DEFAULT_CPF_ASSUMPTIONS, ASSUMPTION_PRESETS } from '@/types/cpf'
+import { EXTERNAL_LINKS } from '@/lib/external-links'
 import { PercentSlider, PresetButton, AssumptionsInfoModal } from './components'
 
 interface CPFAssumptionsPanelProps {
@@ -203,7 +204,8 @@ export function CPFAssumptionsPanel({
               min={0.01}
               max={0.05}
               color="blue"
-              tooltip="Ordinary Account base rate"
+              tooltip="Ordinary Account floor rate (2.5% p.a.)"
+              policyLocked
             />
             <PercentSlider
               label="SA Rate"
@@ -214,8 +216,9 @@ export function CPFAssumptionsPanel({
               }}
               min={0.02}
               max={0.06}
-              color="emerald"
-              tooltip="Special & MediSave Account rate"
+              color="blue"
+              tooltip="Special & MediSave Account floor rate (4% p.a.)"
+              policyLocked
             />
             <PercentSlider
               label="RA Rate"
@@ -223,8 +226,9 @@ export function CPFAssumptionsPanel({
               onChange={(v) => handleValueChange('interestRates.ra', v)}
               min={0.02}
               max={0.06}
-              color="emerald"
-              tooltip="Retirement Account rate"
+              color="blue"
+              tooltip="Retirement Account floor rate (4% p.a.)"
+              policyLocked
             />
             <PercentSlider
               label="Extra Interest (First $60k)"
@@ -234,19 +238,21 @@ export function CPFAssumptionsPanel({
               }
               min={0}
               max={0.02}
-              color="purple"
-              tooltip="Additional interest on first $60,000 of combined balances"
+              color="blue"
+              tooltip="Extra 1% on first $60k combined (OA capped at $20k)"
+              policyLocked
             />
             <PercentSlider
-              label="Extra Interest (55+, First $30k)"
+              label="Extra Interest (55+)"
               value={assumptions.interestRates.extraFirst30kAbove55}
               onChange={(v) =>
                 handleValueChange('interestRates.extraFirst30kAbove55', v)
               }
               min={0}
               max={0.02}
-              color="purple"
-              tooltip="Additional extra interest for members aged 55+"
+              color="blue"
+              tooltip="Additional 1% on first $30k for 55+ (total 2%)"
+              policyLocked
             />
           </div>
         </div>
@@ -267,7 +273,7 @@ export function CPFAssumptionsPanel({
               onChange={(v) => handleValueChange('inflationRate', v)}
               min={0}
               max={0.05}
-              color="amber"
+              color="blue"
               tooltip="Applied to income goals for future value"
             />
             <PercentSlider
@@ -276,7 +282,7 @@ export function CPFAssumptionsPanel({
               onChange={(v) => handleValueChange('frsGrowthRate', v)}
               min={0.02}
               max={0.05}
-              color="amber"
+              color="blue"
               tooltip="Annual growth of retirement sum targets"
             />
             <PercentSlider
@@ -294,7 +300,7 @@ export function CPFAssumptionsPanel({
               onChange={(v) => handleValueChange('escalatingPlanGrowth', v)}
               min={0.01}
               max={0.03}
-              color="purple"
+              color="blue"
               tooltip="Annual payout increase for Escalating Plan"
             />
           </div>
@@ -318,13 +324,13 @@ export function CPFAssumptionsPanel({
                 min={65}
                 max={70}
                 step={1}
-                color="purple"
+                color="blue"
                 isPercent={false}
                 tooltip="Age to start CPF LIFE payouts (65-70)"
                 showSlider
               />
               {assumptions.payoutStartAge > 65 && (
-                <div className="text-[10px] text-emerald-400">
+                <div className="text-[10px] text-blue-400">
                   +{(assumptions.payoutStartAge - 65) * 7}% bonus for deferring to age {assumptions.payoutStartAge}
                 </div>
               )}
@@ -339,15 +345,25 @@ export function CPFAssumptionsPanel({
             <p className="text-[11px] leading-relaxed text-slate-500">
               These assumptions are based on{' '}
               <a
-                href="https://www.cpf.gov.sg/member/tnc/detailed-notes-for-cpf-planner-retirement-income"
+                href={EXTERNAL_LINKS.cpf.detailedNotes.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:underline"
+                title={EXTERNAL_LINKS.cpf.detailedNotes.description}
               >
                 CPF&apos;s official methodology
               </a>
-              . Actual results may vary based on policy changes, market
-              conditions, and individual circumstances.{' '}
+              . Extra interest rules per{' '}
+              <a
+                href={EXTERNAL_LINKS.cpf.extraInterest.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:underline"
+                title={EXTERNAL_LINKS.cpf.extraInterest.description}
+              >
+                CPF guidelines
+              </a>
+              .{' '}
               <button
                 type="button"
                 onClick={() => setShowInfoModal(true)}

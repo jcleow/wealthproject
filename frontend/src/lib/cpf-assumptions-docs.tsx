@@ -29,13 +29,13 @@ export const ASSUMPTION_DOCS: {
         factor: 'Extra Interest (First $60k)',
         defaultValue: '+1.0%',
         description:
-          'Additional interest on first $60,000 of combined balances (OA capped at $20k for this calculation).',
+          'Extra 1% p.a. on first $60,000 of combined balances (OA capped at $20k). Applies to all members.',
       },
       {
-        factor: 'Extra Interest (55+, First $30k)',
+        factor: 'Extra Interest (55+)',
         defaultValue: '+1.0%',
         description:
-          "Members aged 55+ earn an additional 1% on their first $30,000 of combined balances.",
+          'Additional 1% p.a. on first $30,000 for members 55+, making total extra interest 2% on first $30k.',
       },
     ],
   },
