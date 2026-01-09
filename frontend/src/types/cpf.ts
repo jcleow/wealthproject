@@ -390,6 +390,66 @@ export const DEFAULT_CPF_ASSUMPTIONS: CPFAssumptions = {
  */
 export type AssumptionPreset = 'official' | 'conservative' | 'optimistic' | 'custom'
 
+/**
+ * CPF Assumptions as returned from API (includes id and cpfAccountId)
+ */
+export interface CPFAssumptionsResponse {
+  id: string
+  cpfAccountId: string
+  interestRates: {
+    oa: string
+    sa: string
+    ma: string
+    ra: string
+    extraFirst60K: string
+    extraFirst30KAbove55: string
+  }
+  growthRates: {
+    inflation: string
+    frs: string
+    salary: string
+  }
+  employment: {
+    assumeContinuous: boolean
+    retirementAge: number
+  }
+  cpfLife: {
+    plan: 'standard' | 'basic' | 'escalating'
+    payoutStartAge: number
+    escalatingGrowth: string
+  }
+  presetName: AssumptionPreset
+}
+
+/**
+ * Input payload for updating CPF assumptions
+ */
+export interface CPFAssumptionsUpdateInput {
+  interestRates?: {
+    oa?: string
+    sa?: string
+    ma?: string
+    ra?: string
+    extraFirst60K?: string
+    extraFirst30KAbove55?: string
+  }
+  growthRates?: {
+    inflation?: string
+    frs?: string
+    salary?: string
+  }
+  employment?: {
+    assumeContinuous?: boolean
+    retirementAge?: number
+  }
+  cpfLife?: {
+    plan?: 'standard' | 'basic' | 'escalating'
+    payoutStartAge?: number
+    escalatingGrowth?: string
+  }
+  presetName?: AssumptionPreset
+}
+
 export const ASSUMPTION_PRESETS: Record<Exclude<AssumptionPreset, 'custom'>, {
   label: string
   description: string

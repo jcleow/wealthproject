@@ -4,6 +4,8 @@ import type {
   CPFAccount,
   CPFAccountCreatePayload,
   CPFAccountUpdatePayload,
+  CPFAssumptionsResponse,
+  CPFAssumptionsUpdateInput,
   CPFConfiguration,
   CPFContributionPreview,
   ResidencyStatus,
@@ -123,6 +125,44 @@ export async function getCPFContributionPreview(params: {
   return toCPFContributionPreview(data)
 }
 
+// ============================================================================
+// CPF Assumptions API
+// ============================================================================
+
+/**
+ * Get CPF assumptions for a specific account.
+ * Creates default assumptions if none exist.
+ */
+export async function getCPFAssumptions(cpfAccountId: string): Promise<CPFAssumptionsResponse> {
+  return apiClient.get<CPFAssumptionsResponse>(
+    `/cpf/account/${cpfAccountId}/assumptions`,
+    undefined,
+    { baseUrl: '/api/v2' }
+  )
+}
+
+/**
+ * Update CPF assumptions for a specific account.
+ * Only provided fields are updated (partial update).
+ */
+export async function updateCPFAssumptions(
+  cpfAccountId: string,
+  updates: CPFAssumptionsUpdateInput
+): Promise<CPFAssumptionsResponse> {
+  return apiClient.put<CPFAssumptionsResponse>(
+    `/cpf/account/${cpfAccountId}/assumptions`,
+    updates,
+    { baseUrl: '/api/v2' }
+  )
+}
+
+/**
+ * Delete CPF assumptions for a specific account (resets to defaults).
+ */
+export async function deleteCPFAssumptions(cpfAccountId: string): Promise<void> {
+  await apiClient.delete(`/cpf/account/${cpfAccountId}/assumptions`, { baseUrl: '/api/v2' })
+}
+
 export const cpfApi = {
   getCPFAccount,
   listCPFAccounts,
@@ -134,4 +174,8 @@ export const cpfApi = {
   getCPFConfig,
   listCPFConfigYears,
   getCPFContributionPreview,
+  // Assumptions API
+  getCPFAssumptions,
+  updateCPFAssumptions,
+  deleteCPFAssumptions,
 }

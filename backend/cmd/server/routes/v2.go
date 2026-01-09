@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"financial-chat-system/backend/cmd/server/handlers"
+	"financial-chat-system/backend/internal/cpf/assumptions"
 	"financial-chat-system/backend/internal/middleware"
 	finRepoV2 "financial-chat-system/backend/internal/financial_v2/repository"
 	timeline_v2 "financial-chat-system/backend/internal/financial_v2/timeline"
@@ -13,8 +14,9 @@ import (
 
 // V2Dependencies holds all dependencies needed to create v2 handlers
 type V2Dependencies struct {
-	FinStore        *finRepoV2.Store
-	TimelineService *timeline_v2.Service
+	FinStore           *finRepoV2.Store
+	TimelineService    *timeline_v2.Service
+	CPFAssumptionsRepo *assumptions.Repository
 	// Add more v2 dependencies as needed
 }
 
@@ -207,7 +209,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	}).Methods("POST")
 
 	// CPF account v2 endpoints (versioned update/delete/stop)
-	cpfHandler := handlers.NewCPFV2Handler(deps.FinStore)
+	cpfHandler := handlers.NewCPFV2Handler(deps.FinStore, deps.CPFAssumptionsRepo)
 	router.HandleFunc("/cpf/accounts", cpfHandler.HandleList).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleGet).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleCreate).Methods("POST")
@@ -226,6 +228,20 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		id := vars["id"]
 		cpfHandler.HandleStop(w, r, id)
 	}).Methods("POST")
+
+	// CPF assumptions endpoints
+	router.HandleFunc("/cpf/account/{id}/assumptions", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "GET":
+			cpfHandler.HandleGetAssumptions(w, r, id)
+		case "PUT":
+			cpfHandler.HandleUpdateAssumptions(w, r, id)
+		case "DELETE":
+			cpfHandler.HandleDeleteAssumptions(w, r, id)
+		}
+	}).Methods("GET", "PUT", "DELETE")
 
 	// Person v2 endpoints (for multi-person household support)
 	personHandler := handlers.NewPersonV2Handler(deps.FinStore)

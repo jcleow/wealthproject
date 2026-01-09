@@ -72,11 +72,18 @@ export {
 // CPF account queries and mutations
 export {
   useCpfAccountQuery,
+  useCpfAccountsQuery,
   useCreateCpfAccountMutation,
   useUpdateCpfAccountMutation,
   useStopCpfAccountMutation,
   useDeleteCpfAccountMutation,
   CPF_QUERY_KEY,
+  CPF_ACCOUNTS_QUERY_KEY,
+  // CPF Assumptions
+  useCpfAssumptionsQuery,
+  useUpdateCpfAssumptionsMutation,
+  useResetCpfAssumptionsMutation,
+  CPF_ASSUMPTIONS_QUERY_KEY,
 } from './useCpfQuery'
 
 // Bulk operations

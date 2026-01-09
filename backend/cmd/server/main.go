@@ -10,6 +10,7 @@ import (
 	"financial-chat-system/backend/cmd/server/routes"
 	"financial-chat-system/backend/cmd/server/setup"
 	"financial-chat-system/backend/internal/config"
+	"financial-chat-system/backend/internal/cpf/assumptions"
 	"financial-chat-system/backend/internal/database"
 	"financial-chat-system/backend/internal/financial"
 	finRepo "financial-chat-system/backend/internal/financial/repository"
@@ -141,9 +142,11 @@ func main() {
 	})
 
 	// Setup v2 API routes
+	cpfAssumptionsRepo := assumptions.NewRepository(pool)
 	routes.SetupV2Router(router, routes.V2Dependencies{
-		FinStore:        finStoreV2,
-		TimelineService: timelineV2Service,
+		FinStore:           finStoreV2,
+		TimelineService:    timelineV2Service,
+		CPFAssumptionsRepo: cpfAssumptionsRepo,
 	})
 
 	// Swagger UI endpoint
