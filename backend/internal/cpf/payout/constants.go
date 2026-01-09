@@ -77,3 +77,10 @@ var (
 	FRS2025 = decimal.MustFromString("213000")
 	ERS2025 = decimal.MustFromString("426000")
 )
+
+// 2026 Retirement Sums (for reference/testing)
+var (
+	BRS2026 = decimal.MustFromString("110200")
+	FRS2026 = decimal.MustFromString("220400")
+	ERS2026 = decimal.MustFromString("440800")
+)

@@ -58,8 +58,8 @@ func TestConfig2025(t *testing.T) {
 	if cfg.EffectiveFrom != time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC) {
 		t.Errorf("Expected effective from 2025-01-01, got %v", cfg.EffectiveFrom)
 	}
-	if cfg.EffectiveTo != nil {
-		t.Errorf("Expected effective to nil for current config, got %v", cfg.EffectiveTo)
+	if cfg.EffectiveTo == nil || *cfg.EffectiveTo != time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) {
+		t.Errorf("Expected effective to 2026-01-01, got %v", cfg.EffectiveTo)
 	}
 
 	// Verify 2025 OW ceiling (increased to $7,400)
@@ -86,6 +86,94 @@ func TestConfig2025(t *testing.T) {
 	// Verify 2025 BHS
 	if cfg.Config.BHS != 71500 {
 		t.Errorf("Expected 2025 BHS $71,500, got $%d", cfg.Config.BHS)
+	}
+}
+
+func TestConfig2026(t *testing.T) {
+	cfg := Config2026()
+
+	// Verify year and dates
+	if cfg.Year != 2026 {
+		t.Errorf("Expected year 2026, got %d", cfg.Year)
+	}
+	if cfg.EffectiveFrom != time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) {
+		t.Errorf("Expected effective from 2026-01-01, got %v", cfg.EffectiveFrom)
+	}
+	if cfg.EffectiveTo != nil {
+		t.Errorf("Expected effective to nil for current config, got %v", cfg.EffectiveTo)
+	}
+
+	// Verify 2026 OW ceiling (increased to $8,000)
+	if cfg.Config.OWCeiling != 8000 {
+		t.Errorf("Expected 2026 OW ceiling $8,000, got $%d", cfg.Config.OWCeiling)
+	}
+
+	// Verify annual ceiling
+	if cfg.Config.AnnualCeiling != 102000 {
+		t.Errorf("Expected annual ceiling $102,000, got $%d", cfg.Config.AnnualCeiling)
+	}
+
+	// Verify 2026 retirement sums
+	if cfg.Config.RetirementSums.BRS != 110200 {
+		t.Errorf("Expected 2026 BRS $110,200, got $%d", cfg.Config.RetirementSums.BRS)
+	}
+	if cfg.Config.RetirementSums.FRS != 220400 {
+		t.Errorf("Expected 2026 FRS $220,400, got $%d", cfg.Config.RetirementSums.FRS)
+	}
+	if cfg.Config.RetirementSums.ERS != 440800 {
+		t.Errorf("Expected 2026 ERS $440,800, got $%d", cfg.Config.RetirementSums.ERS)
+	}
+
+	// Verify 2026 BHS
+	if cfg.Config.BHS != 75500 {
+		t.Errorf("Expected 2026 BHS $75,500, got $%d", cfg.Config.BHS)
+	}
+}
+
+func TestOWCeilingChange2025To2026(t *testing.T) {
+	cfg2025 := Config2025()
+	cfg2026 := Config2026()
+
+	// Verify OW ceiling increased from 2025 to 2026
+	if cfg2026.Config.OWCeiling <= cfg2025.Config.OWCeiling {
+		t.Errorf("Expected 2026 OW ceiling ($%d) > 2025 OW ceiling ($%d)",
+			cfg2026.Config.OWCeiling, cfg2025.Config.OWCeiling)
+	}
+
+	// Verify exact values
+	if cfg2025.Config.OWCeiling != 7400 {
+		t.Errorf("Expected 2025 OW ceiling $7,400, got $%d", cfg2025.Config.OWCeiling)
+	}
+	if cfg2026.Config.OWCeiling != 8000 {
+		t.Errorf("Expected 2026 OW ceiling $8,000, got $%d", cfg2026.Config.OWCeiling)
+	}
+}
+
+func TestRetirementSumsIncrease2025To2026(t *testing.T) {
+	cfg2025 := Config2025()
+	cfg2026 := Config2026()
+
+	// BRS should increase year over year
+	if cfg2026.Config.RetirementSums.BRS <= cfg2025.Config.RetirementSums.BRS {
+		t.Errorf("Expected 2026 BRS > 2025 BRS")
+	}
+
+	// FRS should be 2x BRS
+	expectedFRS := cfg2026.Config.RetirementSums.BRS * 2
+	if cfg2026.Config.RetirementSums.FRS != expectedFRS {
+		t.Errorf("Expected FRS ($%d) to be 2x BRS ($%d), got $%d",
+			cfg2026.Config.RetirementSums.FRS,
+			cfg2026.Config.RetirementSums.BRS,
+			expectedFRS)
+	}
+
+	// ERS should be 4x BRS
+	expectedERS := cfg2026.Config.RetirementSums.BRS * 4
+	if cfg2026.Config.RetirementSums.ERS != expectedERS {
+		t.Errorf("Expected ERS ($%d) to be 4x BRS ($%d), got $%d",
+			cfg2026.Config.RetirementSums.ERS,
+			cfg2026.Config.RetirementSums.BRS,
+			expectedERS)
 	}
 }
 
