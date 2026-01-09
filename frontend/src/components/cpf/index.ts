@@ -1,3 +1,4 @@
+export { CPFAssumptionsPanel } from './CPFAssumptionsPanel'
 export { CPFBalanceOverview } from './CPFBalanceOverview'
 export { CPFContributionFlow } from './CPFContributionFlow'
 export { CPFISInvestmentDashboard } from './CPFISInvestmentDashboard'

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 
 import {
+  CPFAssumptionsPanel,
   CPFBalanceOverview,
   CPFContributionFlow,
   CPFISInvestmentDashboard,
@@ -162,7 +163,12 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
 
         {activeTab === 'flow' && <CPFContributionFlow profile={mockCPFProfile} />}
 
-        {activeTab === 'projection' && <CPFProjectionChart profile={mockCPFProfile} />}
+        {activeTab === 'projection' && (
+          <div className="space-y-6">
+            <CPFAssumptionsPanel />
+            <CPFProjectionChart profile={mockCPFProfile} />
+          </div>
+        )}
 
         {activeTab === 'retirement' && <RetirementPayoutPlanner profile={mockCPFProfile} />}
 

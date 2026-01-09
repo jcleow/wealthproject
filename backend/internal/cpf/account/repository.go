@@ -16,20 +16,27 @@ import (
 var ErrNotFound = errors.New("cpf account not found")
 
 // CPFAccount represents a user's CPF account with balances and profile data.
+// Personal data (DOB, residency) is stored in the linked persons table.
 type CPFAccount struct {
 	ID               string                 `json:"id"`
 	UserID           string                 `json:"userId"`
+	PersonID         string                 `json:"personId"`
+	PersonName       string                 `json:"personName"`
+	ParentID         *string                `json:"parentId,omitempty"`
 	OABalance        float64                `json:"oaBalance"`
 	SABalance        float64                `json:"saBalance"`
 	MABalance        float64                `json:"maBalance"`
 	RABalance        float64                `json:"raBalance"`
 	OAUsedForHousing float64                `json:"oaUsedForHousing"`
 	HousingStartDate *time.Time             `json:"housingStartDate"`
-	DateOfBirth      time.Time              `json:"dateOfBirth"`
-	ResidencyStatus  config.ResidencyStatus `json:"residencyStatus"`
-	PRGrantDate      *time.Time             `json:"prGrantDate"`
-	CreatedAt        time.Time              `json:"createdAt"`
-	UpdatedAt        time.Time              `json:"updatedAt"`
+	StartDate        time.Time              `json:"startDate"`
+	EndDate          *time.Time             `json:"endDate,omitempty"`
+	// Person data (from joined persons table)
+	DateOfBirth     time.Time              `json:"dateOfBirth"`
+	ResidencyStatus config.ResidencyStatus `json:"residencyStatus"`
+	PRGrantDate     *time.Time             `json:"prGrantDate"`
+	CreatedAt       time.Time              `json:"createdAt"`
+	UpdatedAt       time.Time              `json:"updatedAt"`
 }
 
 // TotalBalance returns the total CPF balance.
@@ -73,23 +80,30 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// Get retrieves the CPF account for a user.
-func (r *Repository) Get(ctx context.Context, userID string) (*CPFAccount, error) {
-	row := r.db.QueryRowContext(ctx, `
-		SELECT id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
-		       oa_used_for_housing, housing_start_date, date_of_birth,
-		       residency_status, pr_grant_date, created_at, updated_at
-		FROM cpf_accounts
-		WHERE user_id = $1`, userID)
+// selectColumns defines the columns selected from cpf_accounts JOIN persons.
+const selectColumns = `
+	c.id, c.user_id, c.person_id, c.parent_id,
+	c.oa_balance, c.sa_balance, c.ma_balance, c.ra_balance,
+	c.oa_used_for_housing, c.housing_start_date,
+	c.start_date, c.end_date,
+	c.created_at, c.updated_at,
+	p.name, p.date_of_birth, p.residency_status, p.pr_grant_date
+`
 
+// scanAccount scans a row into a CPFAccount struct.
+func scanAccount(row interface{ Scan(...any) error }) (*CPFAccount, error) {
 	var acc CPFAccount
-	var housingStartDate, prGrantDate sql.NullTime
+	var parentID sql.NullString
+	var housingStartDate, endDate, prGrantDate sql.NullTime
 	var residencyStatus string
 
 	err := row.Scan(
-		&acc.ID, &acc.UserID, &acc.OABalance, &acc.SABalance, &acc.MABalance, &acc.RABalance,
-		&acc.OAUsedForHousing, &housingStartDate, &acc.DateOfBirth,
-		&residencyStatus, &prGrantDate, &acc.CreatedAt, &acc.UpdatedAt,
+		&acc.ID, &acc.UserID, &acc.PersonID, &parentID,
+		&acc.OABalance, &acc.SABalance, &acc.MABalance, &acc.RABalance,
+		&acc.OAUsedForHousing, &housingStartDate,
+		&acc.StartDate, &endDate,
+		&acc.CreatedAt, &acc.UpdatedAt,
+		&acc.PersonName, &acc.DateOfBirth, &residencyStatus, &prGrantDate,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -98,8 +112,14 @@ func (r *Repository) Get(ctx context.Context, userID string) (*CPFAccount, error
 		return nil, err
 	}
 
+	if parentID.Valid {
+		acc.ParentID = &parentID.String
+	}
 	if housingStartDate.Valid {
 		acc.HousingStartDate = &housingStartDate.Time
+	}
+	if endDate.Valid {
+		acc.EndDate = &endDate.Time
 	}
 	if prGrantDate.Valid {
 		acc.PRGrantDate = &prGrantDate.Time
@@ -109,241 +129,184 @@ func (r *Repository) Get(ctx context.Context, userID string) (*CPFAccount, error
 	return &acc, nil
 }
 
-// Create creates a new CPF account for a user.
-func (r *Repository) Create(ctx context.Context, acc *CPFAccount) (*CPFAccount, error) {
+// Get retrieves the current CPF account for a user (where end_date is null).
+func (r *Repository) Get(ctx context.Context, userID string) (*CPFAccount, error) {
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO cpf_accounts (
-			user_id, oa_balance, sa_balance, ma_balance, ra_balance,
-			oa_used_for_housing, housing_start_date, date_of_birth,
-			residency_status, pr_grant_date
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		RETURNING id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
-		          oa_used_for_housing, housing_start_date, date_of_birth,
-		          residency_status, pr_grant_date, created_at, updated_at`,
-		acc.UserID, acc.OABalance, acc.SABalance, acc.MABalance, acc.RABalance,
-		acc.OAUsedForHousing, acc.HousingStartDate, acc.DateOfBirth,
-		string(acc.ResidencyStatus), acc.PRGrantDate,
-	)
+		SELECT `+selectColumns+`
+		FROM cpf_accounts c
+		JOIN persons p ON c.person_id = p.id
+		WHERE c.user_id = $1 AND c.end_date IS NULL
+		ORDER BY c.start_date DESC
+		LIMIT 1`, userID)
 
-	var created CPFAccount
-	var housingStartDate, prGrantDate sql.NullTime
-	var residencyStatus string
+	return scanAccount(row)
+}
 
-	err := row.Scan(
-		&created.ID, &created.UserID, &created.OABalance, &created.SABalance,
-		&created.MABalance, &created.RABalance, &created.OAUsedForHousing,
-		&housingStartDate, &created.DateOfBirth, &residencyStatus,
-		&prGrantDate, &created.CreatedAt, &created.UpdatedAt,
-	)
+// GetByID retrieves a CPF account by its ID.
+func (r *Repository) GetByID(ctx context.Context, id string) (*CPFAccount, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT `+selectColumns+`
+		FROM cpf_accounts c
+		JOIN persons p ON c.person_id = p.id
+		WHERE c.id = $1`, id)
+
+	return scanAccount(row)
+}
+
+// GetByPersonID retrieves the current CPF account for a specific person.
+func (r *Repository) GetByPersonID(ctx context.Context, userID, personID string) (*CPFAccount, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT `+selectColumns+`
+		FROM cpf_accounts c
+		JOIN persons p ON c.person_id = p.id
+		WHERE c.user_id = $1 AND c.person_id = $2 AND c.end_date IS NULL
+		ORDER BY c.start_date DESC
+		LIMIT 1`, userID, personID)
+
+	return scanAccount(row)
+}
+
+// ListByUser retrieves all current CPF accounts for a user (one per person).
+func (r *Repository) ListByUser(ctx context.Context, userID string) ([]*CPFAccount, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT `+selectColumns+`
+		FROM cpf_accounts c
+		JOIN persons p ON c.person_id = p.id
+		WHERE c.user_id = $1 AND c.end_date IS NULL
+		ORDER BY p.name`, userID)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
-	if housingStartDate.Valid {
-		created.HousingStartDate = &housingStartDate.Time
-	}
-	if prGrantDate.Valid {
-		created.PRGrantDate = &prGrantDate.Time
-	}
-	created.ResidencyStatus = config.ResidencyStatus(residencyStatus)
-
-	return &created, nil
-}
-
-// Update updates an existing CPF account.
-func (r *Repository) Update(ctx context.Context, userID string, acc *CPFAccount) (*CPFAccount, error) {
-	row := r.db.QueryRowContext(ctx, `
-		UPDATE cpf_accounts
-		SET oa_balance = $2,
-		    sa_balance = $3,
-		    ma_balance = $4,
-		    ra_balance = $5,
-		    oa_used_for_housing = $6,
-		    housing_start_date = $7,
-		    date_of_birth = $8,
-		    residency_status = $9,
-		    pr_grant_date = $10,
-		    updated_at = NOW()
-		WHERE user_id = $1
-		RETURNING id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
-		          oa_used_for_housing, housing_start_date, date_of_birth,
-		          residency_status, pr_grant_date, created_at, updated_at`,
-		userID, acc.OABalance, acc.SABalance, acc.MABalance, acc.RABalance,
-		acc.OAUsedForHousing, acc.HousingStartDate, acc.DateOfBirth,
-		string(acc.ResidencyStatus), acc.PRGrantDate,
-	)
-
-	var updated CPFAccount
-	var housingStartDate, prGrantDate sql.NullTime
-	var residencyStatus string
-
-	err := row.Scan(
-		&updated.ID, &updated.UserID, &updated.OABalance, &updated.SABalance,
-		&updated.MABalance, &updated.RABalance, &updated.OAUsedForHousing,
-		&housingStartDate, &updated.DateOfBirth, &residencyStatus,
-		&prGrantDate, &updated.CreatedAt, &updated.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+	var accounts []*CPFAccount
+	for rows.Next() {
+		acc, err := scanAccount(rows)
+		if err != nil {
+			return nil, err
 		}
+		accounts = append(accounts, acc)
+	}
+
+	return accounts, rows.Err()
+}
+
+// CreateAccountInput contains the data needed to create a CPF account.
+type CreateAccountInput struct {
+	UserID           string
+	PersonID         string
+	OABalance        float64
+	SABalance        float64
+	MABalance        float64
+	RABalance        float64
+	OAUsedForHousing float64
+	HousingStartDate *time.Time
+}
+
+// Create creates a new CPF account for an existing person.
+func (r *Repository) Create(ctx context.Context, input CreateAccountInput) (*CPFAccount, error) {
+	row := r.db.QueryRowContext(ctx, `
+		INSERT INTO cpf_accounts (
+			user_id, person_id, oa_balance, sa_balance, ma_balance, ra_balance,
+			oa_used_for_housing, housing_start_date
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id`,
+		input.UserID, input.PersonID,
+		input.OABalance, input.SABalance, input.MABalance, input.RABalance,
+		input.OAUsedForHousing, input.HousingStartDate,
+	)
+
+	var id string
+	if err := row.Scan(&id); err != nil {
 		return nil, err
 	}
 
-	if housingStartDate.Valid {
-		updated.HousingStartDate = &housingStartDate.Time
-	}
-	if prGrantDate.Valid {
-		updated.PRGrantDate = &prGrantDate.Time
-	}
-	updated.ResidencyStatus = config.ResidencyStatus(residencyStatus)
-
-	return &updated, nil
+	return r.GetByID(ctx, id)
 }
 
-// Upsert creates or updates a CPF account for a user.
-func (r *Repository) Upsert(ctx context.Context, acc *CPFAccount) (*CPFAccount, error) {
-	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO cpf_accounts (
-			user_id, oa_balance, sa_balance, ma_balance, ra_balance,
-			oa_used_for_housing, housing_start_date, date_of_birth,
-			residency_status, pr_grant_date
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		ON CONFLICT (user_id) DO UPDATE
-		SET oa_balance = EXCLUDED.oa_balance,
-		    sa_balance = EXCLUDED.sa_balance,
-		    ma_balance = EXCLUDED.ma_balance,
-		    ra_balance = EXCLUDED.ra_balance,
-		    oa_used_for_housing = EXCLUDED.oa_used_for_housing,
-		    housing_start_date = EXCLUDED.housing_start_date,
-		    date_of_birth = EXCLUDED.date_of_birth,
-		    residency_status = EXCLUDED.residency_status,
-		    pr_grant_date = EXCLUDED.pr_grant_date,
+// UpdateBalancesInput contains balance updates.
+type UpdateBalancesInput struct {
+	OABalance        *float64
+	SABalance        *float64
+	MABalance        *float64
+	RABalance        *float64
+	OAUsedForHousing *float64
+	HousingStartDate *time.Time
+}
+
+// UpdateBalances updates the balances of a CPF account.
+func (r *Repository) UpdateBalances(ctx context.Context, id string, input UpdateBalancesInput) (*CPFAccount, error) {
+	// Use a simpler approach: always update all balance fields
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE cpf_accounts
+		SET oa_balance = COALESCE($2, oa_balance),
+		    sa_balance = COALESCE($3, sa_balance),
+		    ma_balance = COALESCE($4, ma_balance),
+		    ra_balance = COALESCE($5, ra_balance),
+		    oa_used_for_housing = COALESCE($6, oa_used_for_housing),
+		    housing_start_date = COALESCE($7, housing_start_date),
 		    updated_at = NOW()
-		RETURNING id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
-		          oa_used_for_housing, housing_start_date, date_of_birth,
-		          residency_status, pr_grant_date, created_at, updated_at`,
-		acc.UserID, acc.OABalance, acc.SABalance, acc.MABalance, acc.RABalance,
-		acc.OAUsedForHousing, acc.HousingStartDate, acc.DateOfBirth,
-		string(acc.ResidencyStatus), acc.PRGrantDate,
-	)
-
-	var result CPFAccount
-	var housingStartDate, prGrantDate sql.NullTime
-	var residencyStatus string
-
-	err := row.Scan(
-		&result.ID, &result.UserID, &result.OABalance, &result.SABalance,
-		&result.MABalance, &result.RABalance, &result.OAUsedForHousing,
-		&housingStartDate, &result.DateOfBirth, &residencyStatus,
-		&prGrantDate, &result.CreatedAt, &result.UpdatedAt,
+		WHERE id = $1`,
+		id,
+		input.OABalance, input.SABalance, input.MABalance, input.RABalance,
+		input.OAUsedForHousing, input.HousingStartDate,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	if housingStartDate.Valid {
-		result.HousingStartDate = &housingStartDate.Time
-	}
-	if prGrantDate.Valid {
-		result.PRGrantDate = &prGrantDate.Time
-	}
-	result.ResidencyStatus = config.ResidencyStatus(residencyStatus)
-
-	return &result, nil
+	return r.GetByID(ctx, id)
 }
 
 // AddContribution adds contribution amounts to the respective accounts.
-func (r *Repository) AddContribution(ctx context.Context, userID string, oaAmount, saAmount, maAmount, raAmount float64) (*CPFAccount, error) {
-	row := r.db.QueryRowContext(ctx, `
+func (r *Repository) AddContribution(ctx context.Context, id string, oaAmount, saAmount, maAmount, raAmount float64) (*CPFAccount, error) {
+	_, err := r.db.ExecContext(ctx, `
 		UPDATE cpf_accounts
 		SET oa_balance = oa_balance + $2,
 		    sa_balance = sa_balance + $3,
 		    ma_balance = ma_balance + $4,
 		    ra_balance = ra_balance + $5,
 		    updated_at = NOW()
-		WHERE user_id = $1
-		RETURNING id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
-		          oa_used_for_housing, housing_start_date, date_of_birth,
-		          residency_status, pr_grant_date, created_at, updated_at`,
-		userID, oaAmount, saAmount, maAmount, raAmount,
-	)
-
-	var acc CPFAccount
-	var housingStartDate, prGrantDate sql.NullTime
-	var residencyStatus string
-
-	err := row.Scan(
-		&acc.ID, &acc.UserID, &acc.OABalance, &acc.SABalance,
-		&acc.MABalance, &acc.RABalance, &acc.OAUsedForHousing,
-		&housingStartDate, &acc.DateOfBirth, &residencyStatus,
-		&prGrantDate, &acc.CreatedAt, &acc.UpdatedAt,
+		WHERE id = $1`,
+		id, oaAmount, saAmount, maAmount, raAmount,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
 		return nil, err
 	}
 
-	if housingStartDate.Valid {
-		acc.HousingStartDate = &housingStartDate.Time
-	}
-	if prGrantDate.Valid {
-		acc.PRGrantDate = &prGrantDate.Time
-	}
-	acc.ResidencyStatus = config.ResidencyStatus(residencyStatus)
-
-	return &acc, nil
+	return r.GetByID(ctx, id)
 }
 
 // WithdrawFromOA withdraws from OA for housing purposes.
 // Records the withdrawal and updates the housing usage tracker.
-func (r *Repository) WithdrawFromOA(ctx context.Context, userID string, amount float64) (*CPFAccount, error) {
-	row := r.db.QueryRowContext(ctx, `
+func (r *Repository) WithdrawFromOA(ctx context.Context, id string, amount float64) (*CPFAccount, error) {
+	result, err := r.db.ExecContext(ctx, `
 		UPDATE cpf_accounts
 		SET oa_balance = oa_balance - $2,
 		    oa_used_for_housing = oa_used_for_housing + $2,
 		    housing_start_date = COALESCE(housing_start_date, NOW()),
 		    updated_at = NOW()
-		WHERE user_id = $1 AND oa_balance >= $2
-		RETURNING id, user_id, oa_balance, sa_balance, ma_balance, ra_balance,
-		          oa_used_for_housing, housing_start_date, date_of_birth,
-		          residency_status, pr_grant_date, created_at, updated_at`,
-		userID, amount,
-	)
-
-	var acc CPFAccount
-	var housingStartDate, prGrantDate sql.NullTime
-	var residencyStatus string
-
-	err := row.Scan(
-		&acc.ID, &acc.UserID, &acc.OABalance, &acc.SABalance,
-		&acc.MABalance, &acc.RABalance, &acc.OAUsedForHousing,
-		&housingStartDate, &acc.DateOfBirth, &residencyStatus,
-		&prGrantDate, &acc.CreatedAt, &acc.UpdatedAt,
+		WHERE id = $1 AND oa_balance >= $2`,
+		id, amount,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("insufficient OA balance")
-		}
 		return nil, err
 	}
 
-	if housingStartDate.Valid {
-		acc.HousingStartDate = &housingStartDate.Time
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return nil, err
 	}
-	if prGrantDate.Valid {
-		acc.PRGrantDate = &prGrantDate.Time
+	if affected == 0 {
+		return nil, errors.New("insufficient OA balance or account not found")
 	}
-	acc.ResidencyStatus = config.ResidencyStatus(residencyStatus)
 
-	return &acc, nil
+	return r.GetByID(ctx, id)
 }
 
-// Delete removes a CPF account for a user.
-func (r *Repository) Delete(ctx context.Context, userID string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM cpf_accounts WHERE user_id = $1`, userID)
+// Delete removes a CPF account by ID.
+func (r *Repository) Delete(ctx context.Context, id string) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM cpf_accounts WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
@@ -352,4 +315,35 @@ func (r *Repository) Delete(ctx context.Context, userID string) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// Upsert creates or updates a CPF account for a person.
+// If an active account exists for the person, it updates balances.
+// Otherwise, it creates a new account.
+func (r *Repository) Upsert(ctx context.Context, input CreateAccountInput) (*CPFAccount, error) {
+	// Try to get existing account for this person
+	existing, err := r.GetByPersonID(ctx, input.UserID, input.PersonID)
+	if err == nil {
+		// Update existing account
+		oaBalance := input.OABalance
+		saBalance := input.SABalance
+		maBalance := input.MABalance
+		raBalance := input.RABalance
+		oaUsedForHousing := input.OAUsedForHousing
+
+		return r.UpdateBalances(ctx, existing.ID, UpdateBalancesInput{
+			OABalance:        &oaBalance,
+			SABalance:        &saBalance,
+			MABalance:        &maBalance,
+			RABalance:        &raBalance,
+			OAUsedForHousing: &oaUsedForHousing,
+			HousingStartDate: input.HousingStartDate,
+		})
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+
+	// Create new account
+	return r.Create(ctx, input)
 }
