@@ -242,7 +242,8 @@ export function generateMockProjection(
   let ra = 0
 
   // Use assumptions for growth rates
-  const { interestRates, frsGrowthRate, salaryGrowthRate, retirementAge, assumeContinuousEmployment } = assumptions
+  // Note: In production, employment status is derived from income entries in the timeline
+  const { interestRates, frsGrowthRate, salaryGrowthRate, retirementAge } = assumptions
 
   // Initial salary (will grow each year)
   let currentMonthlyIncome = profile.monthlyIncome
@@ -281,8 +282,9 @@ export function generateMockProjection(
       oaRate = 0.05; saRate = 0.01; maRate = 0.0825
     }
 
-    // Contributions stop at retirement age (or if not continuous employment)
-    const isEmployed = assumeContinuousEmployment && age <= retirementAge
+    // Contributions stop at retirement age
+    // Note: In production, this is derived from income entries in the timeline
+    const isEmployed = age <= retirementAge
     const contributions = isEmployed ? annualContribution : 0
     const oaContrib = contributions * (oaRate / 0.37)
     const saContrib = age < 55 ? contributions * (saRate / 0.37) : 0

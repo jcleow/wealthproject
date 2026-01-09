@@ -354,7 +354,7 @@ export interface CPFAssumptions {
   salaryGrowthRate: number // Annual salary increment (default: 3.0%)
 
   // Employment
-  assumeContinuousEmployment: boolean // Assume employed until 65 (default: true)
+  // Note: Employment status is derived from income entries in the timeline
   retirementAge: number // Age to stop contributions (default: 65)
 
   // CPF LIFE
@@ -378,7 +378,6 @@ export const DEFAULT_CPF_ASSUMPTIONS: CPFAssumptions = {
   inflationRate: 0.02, // 2.0%
   frsGrowthRate: 0.035, // 3.5%
   salaryGrowthRate: 0.03, // 3.0%
-  assumeContinuousEmployment: true,
   retirementAge: 65,
   cpfLifePlan: 'standard',
   payoutStartAge: 65,

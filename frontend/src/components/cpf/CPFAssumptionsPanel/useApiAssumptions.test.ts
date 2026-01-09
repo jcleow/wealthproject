@@ -105,10 +105,9 @@ describe('useApiAssumptions', () => {
       // Check growth rates
       expect(result.current.assumptions.frsGrowthRate).toBe(0.035)
 
-      // Check global assumptions (hardcoded)
+      // Check global assumptions (hardcoded placeholders)
       expect(result.current.assumptions.inflationRate).toBe(0.02)
       expect(result.current.assumptions.salaryGrowthRate).toBe(0.03)
-      expect(result.current.assumptions.assumeContinuousEmployment).toBe(true)
 
       // Check employment
       expect(result.current.assumptions.retirementAge).toBe(65)
@@ -256,7 +255,6 @@ describe('useApiAssumptions', () => {
       // These are global assumptions, not stored in CPF assumptions
       expect(result.current.assumptions.inflationRate).toBe(0.02)
       expect(result.current.assumptions.salaryGrowthRate).toBe(0.03)
-      expect(result.current.assumptions.assumeContinuousEmployment).toBe(true)
     })
   })
 })

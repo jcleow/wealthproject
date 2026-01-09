@@ -28,7 +28,7 @@ function apiToLocal(response: CPFAssumptionsResponse): CPFAssumptions {
     frsGrowthRate: parseFloat(response.growthRates.frs),
     // salaryGrowthRate is not used for CPF projections (contributions come from income entries)
     salaryGrowthRate: 0.03, // Placeholder - kept for type compatibility
-    assumeContinuousEmployment: true, // Placeholder - not user-configurable for CPF projections
+    // Note: Employment status is derived from income entries in the timeline
     retirementAge: response.employment.retirementAge,
     cpfLifePlan: response.cpfLife.plan,
     payoutStartAge: response.cpfLife.payoutStartAge as 65 | 66 | 67 | 68 | 69 | 70,
@@ -56,7 +56,7 @@ function localToApi(local: CPFAssumptions, presetName: AssumptionPreset): CPFAss
       frs: local.frsGrowthRate.toString(),
     },
     employment: {
-      // Note: assumeContinuousEmployment is not stored in CPF assumptions
+      // Note: Employment status is derived from income entries in the timeline
       retirementAge: local.retirementAge,
     },
     cpfLife: {
