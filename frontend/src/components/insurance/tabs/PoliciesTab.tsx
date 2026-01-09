@@ -1,8 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { FileText, Plus } from 'lucide-react'
+import { AddPolicyModal } from '../modals/AddPolicyModal'
 
 export function PoliciesTab() {
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -13,7 +17,11 @@ export function PoliciesTab() {
             Manage all your insurance policies in one place
           </p>
         </div>
-        <button className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-emerald-500/20 transition-all hover:shadow-emerald-500/30">
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-emerald-500/20 transition-all hover:shadow-emerald-500/30"
+        >
           <Plus className="h-4 w-4" />
           Add Policy
         </button>
@@ -28,11 +36,25 @@ export function PoliciesTab() {
         <p className="mt-1 text-sm text-slate-400">
           Add your insurance policies to track coverage and analyze gaps
         </p>
-        <button className="mt-6 flex items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-white/[0.05]">
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="mt-6 flex items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-white/[0.05]"
+        >
           <Plus className="h-4 w-4" />
           Add Your First Policy
         </button>
       </div>
+
+      {/* Add Policy Modal */}
+      <AddPolicyModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={(policy) => {
+          console.log('Policy saved:', policy)
+          // TODO: Save to backend
+        }}
+      />
     </div>
   )
 }

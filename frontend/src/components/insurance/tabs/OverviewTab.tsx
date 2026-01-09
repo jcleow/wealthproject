@@ -1,312 +1,444 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import {
   Shield,
   Stethoscope,
-  Accessibility,
   HeartHandshake,
+  Heart,
   CheckCircle2,
   AlertCircle,
   Circle,
-  Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { GovernmentSchemeCard } from '../cards/GovernmentSchemeCard'
-import type {
-  GovernmentCoverageStatus,
-  CoverageStatus,
-  StressEvent,
-  StressTimeframe,
-} from '@/types/insurance'
-import { stressEventConfig, stressTimeframeConfig } from '@/types/insurance'
-import { createMockStressTestMatrix } from '@/lib/stress-test-calculator'
+import type { CoverageStatus } from '@/types/insurance'
 
 /**
- * OverviewTab - Redesigned with side-by-side layout
+ * OverviewTab - Insurance coverage display with view toggle on right panel
  *
- * Left: 4 square insurance category blocks (SG standard categories)
- * Right: GitHub-style stress test heatmap
- *
- * Categories follow Singapore insurance industry standard:
- * 1. Hospitalisation (MediShield Life + ISP + riders)
- * 2. Life/TPD/Death (term life, whole life, DPS)
- * 3. Critical Illness (early CI, multi-pay CI)
- * 4. Personal Accident (optional)
+ * Left: Always 4 risk categories (Life, CI, Hospitalisation, LTC)
+ * Right: Toggle between:
+ *   - "By Life Events": Products matrix within each category
+ *   - "By Product": User's policies and their coverage
  */
 
-// Singapore standard insurance categories
-type InsuranceCategoryId = 'hospitalisation' | 'life_tpd' | 'critical_illness' | 'personal_accident'
+type ViewMode = 'life_events' | 'by_product'
+type RiskCategoryId = 'life' | 'critical_illness' | 'hospitalisation' | 'long_term_care'
 
-interface InsuranceCategoryStatus {
-  id: InsuranceCategoryId
+// ============================================================================
+// RISK CATEGORIES (Left Panel - Always shown)
+// ============================================================================
+
+interface RiskCategory {
+  id: RiskCategoryId
+  label: string
+  shortLabel: string
+  icon: typeof Shield
+  products: ProductType[]
+}
+
+interface ProductType {
+  id: string
   label: string
   shortLabel: string
   status: CoverageStatus
-  summary: string
-  details: string[]
 }
 
-// Mock data using SG standard categories
-const mockCategories: InsuranceCategoryStatus[] = [
+const riskCategories: RiskCategory[] = [
   {
-    id: 'hospitalisation',
-    label: 'Hospitalisation',
-    shortLabel: 'Hospital',
-    status: 'covered',
-    summary: 'Ward B1 with ISP + rider',
-    details: ['MediShield Life (base)', 'PRUShield Plus (ISP)', '$3K deductible', '5% co-pay rider'],
-  },
-  {
-    id: 'life_tpd',
-    label: 'Life / TPD / Death',
-    shortLabel: 'Life/TPD',
-    status: 'partial',
-    summary: '$420K coverage (DPS + term)',
-    details: ['DPS: $70K (auto-enrolled)', 'Term Life: $350K', '2 dependents', '$350K mortgage outstanding'],
+    id: 'life',
+    label: 'Life Protection',
+    shortLabel: 'Life Protection',
+    icon: Shield,
+    products: [
+      { id: 'term', label: 'Term Life', shortLabel: 'Term Life', status: 'covered' },
+      { id: 'whole', label: 'Whole Life', shortLabel: 'Whole Life', status: 'covered' },
+      { id: 'dps', label: 'Dependants\' Protection Scheme', shortLabel: 'DPS', status: 'covered' },
+    ],
   },
   {
     id: 'critical_illness',
     label: 'Critical Illness',
-    shortLabel: 'CI',
-    status: 'partial',
-    summary: '$100K early CI',
-    details: ['AIA Early CI: $100K', 'No late-stage CI', 'No multi-pay coverage'],
+    shortLabel: 'Critical Illness',
+    icon: HeartHandshake,
+    products: [
+      { id: 'early_ci', label: 'Early Critical Illness', shortLabel: 'Early CI', status: 'covered' },
+      { id: 'late_ci', label: 'Late-stage Critical Illness', shortLabel: 'Late CI', status: 'exposed' },
+      { id: 'multi_ci', label: 'Multi-pay Critical Illness', shortLabel: 'Multi-pay', status: 'exposed' },
+    ],
   },
   {
-    id: 'personal_accident',
-    label: 'Personal Accident',
-    shortLabel: 'Personal Accident',
-    status: 'exposed',
-    summary: 'No coverage',
-    details: ['No PA plan', 'Consider if active lifestyle'],
+    id: 'hospitalisation',
+    label: 'Hospitalisation',
+    shortLabel: 'Hospitalisation',
+    icon: Stethoscope,
+    products: [
+      { id: 'medishield', label: 'MediShield Life', shortLabel: 'MediShield Life', status: 'covered' },
+      { id: 'isp', label: 'Integrated Shield Plan', shortLabel: 'ISP', status: 'covered' },
+    ],
+  },
+  {
+    id: 'long_term_care',
+    label: 'Long-Term Care',
+    shortLabel: 'Long-Term Care',
+    icon: Heart,
+    products: [
+      { id: 'careshield', label: 'CareShield Life', shortLabel: 'CareShield Life', status: 'covered' },
+      { id: 'supplement', label: 'Private Supplement', shortLabel: 'Supplement', status: 'exposed' },
+    ],
   },
 ]
 
-const mockGovernmentSchemes: GovernmentCoverageStatus[] = [
-  { scheme: 'medishield_life', isActive: true, notes: 'Active since 2016' },
-  { scheme: 'careshield_life', isActive: true, monthlyPayout: 662, notes: 'Born after 1980' },
-  { scheme: 'dps', isActive: true, coverageAmount: 70000, notes: 'Auto-enrolled' },
-  { scheme: 'eldershield', isActive: false, notes: 'Replaced by CareShield' },
-]
+// ============================================================================
+// PRODUCT TYPE COVERAGE (For "By Product" view)
+// ============================================================================
 
-const categoryIcons: Record<InsuranceCategoryId, typeof Stethoscope> = {
-  hospitalisation: Stethoscope,
-  life_tpd: Shield,
-  critical_illness: HeartHandshake,
-  personal_accident: Accessibility,
+interface CoverageItem {
+  id: string
+  label: string
+  shortLabel: string
 }
 
-const events: StressEvent[] = ['cancer', 'accident', 'stroke', 'death', 'severe_disability']
-const timeframes: StressTimeframe[] = ['6_months', '2_years', '5_years', 'lifetime']
+// Coverage items that each product type can provide
+const coverageItemsByCategory: Record<RiskCategoryId, CoverageItem[]> = {
+  life: [
+    { id: 'death', label: 'Death', shortLabel: 'Death' },
+    { id: 'tpd', label: 'Total Permanent Disability', shortLabel: 'TPD' },
+    { id: 'terminal', label: 'Terminal Illness', shortLabel: 'Terminal' },
+  ],
+  critical_illness: [
+    { id: 'early_stage', label: 'Early Stage', shortLabel: 'Early' },
+    { id: 'late_stage', label: 'Late Stage', shortLabel: 'Late' },
+    { id: 'multi_claim', label: 'Multi-claim', shortLabel: 'Multi' },
+  ],
+  hospitalisation: [
+    { id: 'inpatient', label: 'Inpatient', shortLabel: 'Inpatient' },
+    { id: 'outpatient', label: 'Outpatient', shortLabel: 'Outpatient' },
+    { id: 'surgical', label: 'Surgical', shortLabel: 'Surgical' },
+  ],
+  long_term_care: [
+    { id: 'severe_disability', label: 'Severe Disability', shortLabel: 'Severe' },
+    { id: 'monthly_payout', label: 'Monthly Payout', shortLabel: 'Payout' },
+  ],
+}
+
+// What each product type typically covers
+const productTypeCoverage: Record<string, Record<string, CoverageStatus>> = {
+  // Life Protection products
+  term: { death: 'covered', tpd: 'covered', terminal: 'covered' },
+  whole: { death: 'covered', tpd: 'covered', terminal: 'partial' },
+  dps: { death: 'covered', tpd: 'covered', terminal: 'exposed' },
+  // Critical Illness products
+  early_ci: { early_stage: 'covered', late_stage: 'exposed', multi_claim: 'exposed' },
+  late_ci: { early_stage: 'exposed', late_stage: 'covered', multi_claim: 'exposed' },
+  multi_ci: { early_stage: 'covered', late_stage: 'covered', multi_claim: 'covered' },
+  // Hospitalisation products
+  medishield: { inpatient: 'covered', outpatient: 'partial', surgical: 'covered' },
+  isp: { inpatient: 'covered', outpatient: 'covered', surgical: 'covered' },
+  // Long-Term Care products
+  careshield: { severe_disability: 'covered', monthly_payout: 'covered' },
+  supplement: { severe_disability: 'covered', monthly_payout: 'covered' },
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 
 export function OverviewTab() {
-  const [selectedCategory, setSelectedCategory] = useState<InsuranceCategoryId | null>(null)
-  const [selectedCell, setSelectedCell] = useState<{
-    event: StressEvent
-    timeframe: StressTimeframe
-  } | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('life_events')
+  const [selectedCategory, setSelectedCategory] = useState<RiskCategoryId | null>(null)
 
-  const stressTestMatrix = useMemo(() => createMockStressTestMatrix(), [])
+  // Calculate status for each risk category
+  const getCategoryOverallStatus = (category: RiskCategory): CoverageStatus => {
+    const exposedCount = category.products.filter((p) => p.status === 'exposed').length
+    const coveredCount = category.products.filter((p) => p.status === 'covered').length
+    if (exposedCount === category.products.length) return 'exposed'
+    if (coveredCount === category.products.length) return 'covered'
+    return 'partial'
+  }
 
-  const selectedCategoryData = selectedCategory
-    ? mockCategories.find((c) => c.id === selectedCategory)
-    : null
-
-  const selectedCellData = selectedCell
-    ? stressTestMatrix.results[selectedCell.event][selectedCell.timeframe]
-    : null
-
-  // Count statuses
-  const coveredCount = mockCategories.filter((c) => c.status === 'covered').length
-  const partialCount = mockCategories.filter((c) => c.status === 'partial').length
-  const totalCategories = mockCategories.length
+  const statusCounts = riskCategories.reduce(
+    (acc, cat) => {
+      const status = getCategoryOverallStatus(cat)
+      acc[status]++
+      return acc
+    },
+    { covered: 0, partial: 0, exposed: 0 }
+  )
 
   return (
     <div className="space-y-6">
       {/* Main Dashboard - Side by Side */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* LEFT: Insurance Categories as Square Blocks */}
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+      <div className="grid gap-6 lg:grid-cols-[1fr_1px_1fr]">
+        {/* LEFT: Risk Categories (Always shown) */}
+        <div>
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-white">Insurance Coverage</h2>
+              <h2 className="text-lg font-semibold text-white">Risk Categories</h2>
               <p className="text-sm text-slate-400">
-                <span className="text-white font-medium">{coveredCount}</span> of{' '}
-                {totalCategories} areas covered
+                <span className="text-white font-medium">{statusCounts.covered}</span> of{' '}
+                {riskCategories.length} fully covered
               </p>
             </div>
             <div className="flex gap-1.5">
-              <StatusDot status="covered" count={coveredCount} />
-              <StatusDot status="partial" count={partialCount} />
+              <StatusDot status="covered" count={statusCounts.covered} />
+              <StatusDot status="partial" count={statusCounts.partial} />
+              <StatusDot status="exposed" count={statusCounts.exposed} />
             </div>
           </div>
 
-          {/* 4 Square Blocks - 2x2 grid */}
-          <div className="grid grid-cols-2 gap-3 justify-items-center">
-            {mockCategories.map((category) => (
+          {/* Categories Grid */}
+          <div className="grid grid-cols-2 gap-4 justify-items-center">
+            {riskCategories.map((category) => (
               <CategoryBlock
                 key={category.id}
-                category={category}
+                icon={category.icon}
+                label={category.shortLabel}
+                status={getCategoryOverallStatus(category)}
                 isSelected={selectedCategory === category.id}
-                onClick={() =>
-                  setSelectedCategory(selectedCategory === category.id ? null : category.id)
-                }
+                onClick={() => setSelectedCategory(selectedCategory === category.id ? null : category.id)}
               />
             ))}
           </div>
-
-          {/* Selected category detail */}
-          {selectedCategoryData && (
-            <div className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
-              <h4 className="text-sm font-medium text-white">
-                {selectedCategoryData.label}
-              </h4>
-              <p className="mt-1 text-xs text-slate-400">{selectedCategoryData.summary}</p>
-              <ul className="mt-2 space-y-1">
-                {selectedCategoryData.details.map((d, i) => (
-                  <li key={i} className="flex items-center gap-2 text-xs text-slate-500">
-                    <span className="h-1 w-1 rounded-full bg-slate-600" />
-                    {d}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
 
-        {/* RIGHT: GitHub-style Stress Test Heatmap */}
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold text-white">What happens if...</h2>
-            <p className="text-sm text-slate-400">Coverage response to life events</p>
-          </div>
+        {/* Center Divider */}
+        <div className="hidden lg:block bg-white/[0.06]" />
 
-          {/* GitHub-style grid */}
-          <div className="space-y-2">
-            {/* Timeframe labels */}
-            <div className="grid grid-cols-[100px_repeat(4,1fr)] gap-1.5 text-xs text-slate-500">
-              <div />
-              {timeframes.map((tf) => (
-                <div key={tf} className="text-center">
-                  {stressTimeframeConfig[tf].shortLabel}
-                </div>
-              ))}
+        {/* RIGHT: View Toggle + Matrix */}
+        <div>
+          {/* View Toggle */}
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-white">
+                {viewMode === 'life_events' ? 'Coverage by Products' : 'Your Policies'}
+              </h2>
+              <p className="text-sm text-slate-400">
+                {viewMode === 'life_events' ? 'Products within each risk category' : 'What each policy covers'}
+              </p>
             </div>
-
-            {/* Event rows with squares */}
-            {events.map((event) => {
-              const config = stressEventConfig[event]
-              return (
-                <div key={event} className="grid grid-cols-[100px_repeat(4,1fr)] gap-1.5 items-center">
-                  <div className="text-xs text-slate-400 truncate">{config.shortLabel}</div>
-                  {timeframes.map((tf) => {
-                    const cell = stressTestMatrix.results[event][tf]
-                    const isSelected =
-                      selectedCell?.event === event && selectedCell?.timeframe === tf
-                    return (
-                      <button
-                        key={`${event}-${tf}`}
-                        type="button"
-                        onClick={() =>
-                          setSelectedCell(isSelected ? null : { event, timeframe: tf })
-                        }
-                        className={cn(
-                          'aspect-square w-full max-w-[40px] mx-auto rounded-md transition-all',
-                          cell.status === 'covered' && 'bg-emerald-500 hover:bg-emerald-400',
-                          cell.status === 'partial' && 'bg-amber-500 hover:bg-amber-400',
-                          cell.status === 'exposed' && 'bg-slate-600 hover:bg-slate-500',
-                          isSelected && 'ring-2 ring-white ring-offset-2 ring-offset-slate-900'
-                        )}
-                        title={`${config.label} - ${stressTimeframeConfig[tf].label}`}
-                      />
-                    )
-                  })}
-                </div>
-              )
-            })}
+            <div className="flex items-center gap-1 p-0.5 bg-white/[0.02] border border-white/[0.06] rounded-lg">
+              <button
+                type="button"
+                onClick={() => setViewMode('life_events')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200',
+                  viewMode === 'life_events'
+                    ? 'bg-white/[0.1] text-white'
+                    : 'text-slate-500 hover:text-slate-300'
+                )}
+              >
+                By Life Events
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('by_product')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200',
+                  viewMode === 'by_product'
+                    ? 'bg-white/[0.1] text-white'
+                    : 'text-slate-500 hover:text-slate-300'
+                )}
+              >
+                By Product
+              </button>
+            </div>
           </div>
+
+          {/* Matrix Content */}
+          {viewMode === 'life_events' ? (
+            <LifeEventsMatrix selectedCategory={selectedCategory} />
+          ) : (
+            <ByProductMatrix selectedCategory={selectedCategory} />
+          )}
 
           {/* Legend */}
-          <div className="mt-4 flex items-center justify-center gap-4 border-t border-white/[0.06] pt-3">
+          <div className="mt-6 flex items-center justify-center gap-4 border-t border-white/[0.06] pt-3">
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
               <span className="h-3 w-3 rounded bg-emerald-500" />
-              Protected
+              Covered
             </div>
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
               <span className="h-3 w-3 rounded bg-amber-500" />
-              At Risk
+              Partial
             </div>
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
               <span className="h-3 w-3 rounded bg-slate-600" />
-              Exposed
+              Not covered
             </div>
           </div>
-
-          {/* Selected cell detail */}
-          {selectedCellData && selectedCell && (
-            <div className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium text-white">
-                  {stressEventConfig[selectedCell.event].label} -{' '}
-                  {stressTimeframeConfig[selectedCell.timeframe].label}
-                </h4>
-                <StatusBadge status={selectedCellData.status} />
-              </div>
-              <p className="mt-1 text-xs text-slate-400">{selectedCellData.riskStatement}</p>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-slate-500">Total need:</span>
-                  <span className="ml-1 font-mono text-slate-300">
-                    ${selectedCellData.impact.totalNeed.toLocaleString()}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Resources:</span>
-                  <span className="ml-1 font-mono text-emerald-400">
-                    ${selectedCellData.resources.totalResources.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-              {selectedCellData.shortfall > 0 && (
-                <div className="mt-2 text-xs text-slate-500">
-                  Shortfall:{' '}
-                  <span className="font-mono text-amber-400">
-                    ${selectedCellData.shortfall.toLocaleString()}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Hint */}
-          {!selectedCell && (
-            <div className="mt-4 flex items-center gap-2 rounded-lg bg-blue-500/5 border border-blue-500/10 px-3 py-2">
-              <Info className="h-3.5 w-3.5 text-blue-400" />
-              <span className="text-xs text-slate-400">Click any square for details</span>
-            </div>
-          )}
         </div>
       </div>
-
-      {/* Government Schemes - Full Width Below */}
-      <GovernmentSchemeCard schemes={mockGovernmentSchemes} />
     </div>
   )
 }
 
-// Square block for insurance category
+// ============================================================================
+// LIFE EVENTS MATRIX (Products within categories)
+// ============================================================================
+
+function LifeEventsMatrix({ selectedCategory }: { selectedCategory: RiskCategoryId | null }) {
+  return (
+    <div className="space-y-3">
+      {riskCategories.map((category) => (
+        <div
+          key={category.id}
+          className={cn(
+            'transition-all duration-200',
+            selectedCategory === category.id && 'scale-[1.02]'
+          )}
+        >
+          <div className="text-xs font-medium text-slate-300 mb-2">{category.label}</div>
+          <div className="flex gap-3">
+            {category.products.map((product) => (
+              <ProductSquare
+                key={product.id}
+                label={product.shortLabel}
+                status={product.status}
+                title={product.label}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ============================================================================
+// BY PRODUCT MATRIX (Product types × Coverage items matrix)
+// ============================================================================
+
+// Map CI product ownership to coverage status
+const ciProductToCoverageItem: Record<string, string> = {
+  early_ci: 'early_stage',
+  late_ci: 'late_stage',
+  multi_ci: 'multi_claim',
+}
+
+function ByProductMatrix({ selectedCategory }: { selectedCategory: RiskCategoryId | null }) {
+  return (
+    <div className="space-y-5">
+      {riskCategories.map((category) => {
+        const coverageItems = coverageItemsByCategory[category.id]
+
+        // Special case: Critical Illness consolidates to single row
+        const isCriticalIllness = category.id === 'critical_illness'
+
+        return (
+          <div
+            key={category.id}
+            className={cn(
+              'transition-all duration-200',
+              selectedCategory === category.id && 'scale-[1.01]'
+            )}
+          >
+            <div className="text-xs font-medium text-slate-300 mb-3">{category.label}</div>
+
+            {/* Matrix table */}
+            <div className="overflow-x-auto">
+              <table>
+                {/* Column headers (coverage items) */}
+                <thead>
+                  <tr>
+                    <th className="text-left pb-3 pr-6 w-32" />
+                    {coverageItems.map((item) => (
+                      <th
+                        key={item.id}
+                        className="text-center pb-3 px-2 text-xs font-medium text-slate-400 w-16"
+                      >
+                        {item.shortLabel}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                {/* Rows */}
+                <tbody>
+                  {isCriticalIllness ? (
+                    // Single consolidated row for CI
+                    <tr>
+                      <td className="text-sm font-medium text-slate-300 pr-6 py-2 whitespace-nowrap">
+                        CI
+                      </td>
+                      {coverageItems.map((item) => {
+                        // Find if user has a product that covers this item
+                        const coveringProduct = category.products.find(
+                          (p) => ciProductToCoverageItem[p.id] === item.id
+                        )
+                        const status = coveringProduct?.status || 'exposed'
+                        return (
+                          <td key={item.id} className="text-center px-2 py-2">
+                            <StatusCell status={status} title={`Critical Illness - ${item.label}`} />
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ) : (
+                    // Standard rows for other categories
+                    category.products.map((product) => {
+                      const coverage = productTypeCoverage[product.id] || {}
+                      return (
+                        <tr key={product.id}>
+                          <td className="text-sm font-medium text-slate-300 pr-6 py-2 whitespace-nowrap">
+                            {product.shortLabel}
+                          </td>
+                          {coverageItems.map((item) => (
+                            <td key={item.id} className="text-center px-2 py-2">
+                              <StatusCell
+                                status={coverage[item.id] || 'exposed'}
+                                title={`${product.label} - ${item.label}`}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function StatusCell({ status, title }: { status: CoverageStatus; title?: string }) {
+  const statusColors = {
+    covered: 'bg-emerald-500',
+    partial: 'bg-amber-500',
+    exposed: 'bg-slate-600',
+  }
+
+  return (
+    <div
+      className={cn(
+        'h-8 w-8 mx-auto rounded-md transition-all cursor-default',
+        statusColors[status]
+      )}
+      title={title}
+    />
+  )
+}
+
+// ============================================================================
+// SHARED COMPONENTS
+// ============================================================================
+
 function CategoryBlock({
-  category,
+  icon: Icon,
+  label,
+  status,
   isSelected,
   onClick,
 }: {
-  category: InsuranceCategoryStatus
+  icon: typeof Shield
+  label: string
+  status: CoverageStatus
   isSelected: boolean
   onClick: () => void
 }) {
-  const Icon = categoryIcons[category.id]
-
   const statusColors = {
     covered: {
       bg: 'bg-emerald-500/15 hover:bg-emerald-500/25',
@@ -325,11 +457,11 @@ function CategoryBlock({
     },
   }
 
-  const colors = statusColors[category.status]
+  const colors = statusColors[status]
   const StatusIcon =
-    category.status === 'covered'
+    status === 'covered'
       ? CheckCircle2
-      : category.status === 'partial'
+      : status === 'partial'
         ? AlertCircle
         : Circle
 
@@ -338,28 +470,58 @@ function CategoryBlock({
       type="button"
       onClick={onClick}
       className={cn(
-        'relative flex flex-col items-center justify-center rounded-lg border p-2 transition-all h-[72px] w-[72px]',
+        'relative flex flex-col items-center justify-center rounded-2xl border p-4 transition-all h-[180px] w-[180px]',
         colors.bg,
         isSelected ? 'border-white/30 ring-2 ring-white/20' : colors.border
       )}
     >
-      <Icon className={cn('h-6 w-6 mb-1', colors.icon)} />
-      <span className="text-[8px] font-medium text-white text-center leading-tight">
-        {category.shortLabel}
+      <Icon className={cn('h-16 w-16 mb-3', colors.icon)} />
+      <span className="text-base font-medium text-white text-center leading-tight">
+        {label}
       </span>
       <StatusIcon
         className={cn(
-          'absolute top-1.5 right-1.5 h-3 w-3',
-          category.status === 'covered' && 'text-emerald-400',
-          category.status === 'partial' && 'text-amber-400',
-          category.status === 'exposed' && 'text-slate-400'
+          'absolute top-3 right-3 h-6 w-6',
+          status === 'covered' && 'text-emerald-400',
+          status === 'partial' && 'text-amber-400',
+          status === 'exposed' && 'text-slate-400'
         )}
       />
     </button>
   )
 }
 
-// Status dot for header
+function ProductSquare({
+  label,
+  status,
+  title,
+  size = 'md',
+}: {
+  label: string
+  status: CoverageStatus
+  title?: string
+  size?: 'sm' | 'md'
+}) {
+  const statusColors = {
+    covered: 'bg-emerald-500/80 hover:bg-emerald-500',
+    partial: 'bg-amber-500/80 hover:bg-amber-500',
+    exposed: 'bg-slate-600/80 hover:bg-slate-600',
+  }
+
+  return (
+    <div
+      className={cn(
+        'flex items-center justify-center rounded-lg font-medium transition-all cursor-default text-center',
+        statusColors[status],
+        size === 'sm' ? 'h-[56px] w-[56px] text-[11px] leading-tight' : 'h-[80px] w-[80px] text-xs leading-tight'
+      )}
+      title={title}
+    >
+      <span className="text-white px-1">{label}</span>
+    </div>
+  )
+}
+
 function StatusDot({ status, count }: { status: CoverageStatus; count: number }) {
   if (count === 0) return null
 
@@ -374,22 +536,5 @@ function StatusDot({ status, count }: { status: CoverageStatus; count: number })
       <span className={cn('h-2 w-2 rounded-full', colors[status])} />
       <span className="text-xs text-slate-500">{count}</span>
     </div>
-  )
-}
-
-// Status badge
-function StatusBadge({ status }: { status: CoverageStatus }) {
-  const config = {
-    covered: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', label: 'Protected' },
-    partial: { bg: 'bg-amber-500/15', text: 'text-amber-400', label: 'At Risk' },
-    exposed: { bg: 'bg-slate-500/15', text: 'text-slate-400', label: 'Exposed' },
-  }
-
-  const c = config[status]
-
-  return (
-    <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', c.bg, c.text)}>
-      {c.label}
-    </span>
   )
 }

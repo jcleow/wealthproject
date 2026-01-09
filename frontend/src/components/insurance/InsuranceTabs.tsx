@@ -4,15 +4,11 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
   FileText,
-  FlaskConical,
-  Layers,
 } from 'lucide-react'
 
 export type InsuranceTabId =
   | 'overview'
   | 'policies'
-  | 'scenarios'
-  | 'options'
 
 interface InsuranceTabsProps {
   activeTab: InsuranceTabId
@@ -22,8 +18,6 @@ interface InsuranceTabsProps {
 const tabs: { id: InsuranceTabId; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'policies', label: 'Policies', icon: FileText },
-  { id: 'scenarios', label: 'Scenarios', icon: FlaskConical },
-  { id: 'options', label: 'Options', icon: Layers },
 ]
 
 export function InsuranceTabs({ activeTab, onTabChange }: InsuranceTabsProps) {

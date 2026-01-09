@@ -9,8 +9,6 @@ import {
 } from '@/components/insurance/InsuranceTabs'
 import { OverviewTab } from '@/components/insurance/tabs/OverviewTab'
 import { PoliciesTab } from '@/components/insurance/tabs/PoliciesTab'
-import { ScenarioAnalysisTab } from '@/components/insurance/tabs/ScenarioAnalysisTab'
-import { OptionsTab } from '@/components/insurance/tabs/OptionsTab'
 
 // Embedded view component for use within Dashboard
 export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
@@ -55,8 +53,6 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
       <main className="flex-1 overflow-y-auto px-6 py-6">
         {activeTab === 'overview' && <OverviewTab />}
         {activeTab === 'policies' && <PoliciesTab />}
-        {activeTab === 'scenarios' && <ScenarioAnalysisTab />}
-        {activeTab === 'options' && <OptionsTab />}
       </main>
     </div>
   )
@@ -106,8 +102,6 @@ export default function InsurancePlannerPage() {
       <main className="mx-auto max-w-7xl px-6 py-6">
         {activeTab === 'overview' && <OverviewTab />}
         {activeTab === 'policies' && <PoliciesTab />}
-        {activeTab === 'scenarios' && <ScenarioAnalysisTab />}
-        {activeTab === 'options' && <OptionsTab />}
       </main>
     </div>
   )
