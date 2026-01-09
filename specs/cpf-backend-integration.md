@@ -656,32 +656,63 @@ CPF LIFE provides lifelong monthly payouts starting from the chosen payout age (
 ### Payout Calculation
 
 CPF LIFE payouts are determined by:
-1. **RA balance at payout start age** (after premium deduction)
-2. **Payout start age** (65-70, later = higher payout)
-3. **Plan type** (Standard/Basic/Escalating)
+1. **RA balance at age 55** (grows with 4% interest until payout starts)
+2. **Gender** (females live longer → lower monthly payout for same balance)
+3. **Payout start age** (65-70, +7% per year deferment)
+4. **Plan type** (Standard/Basic/Escalating)
 
-#### Payout Factors (per $1,000 RA Balance)
+#### Quick Payout Calculation (from CPF Playbook)
 
-These are approximate monthly payout factors. Actual rates are published by CPF Board annually.
-
-| Payout Start Age | Standard | Basic | Escalating (Year 1) |
-|------------------|----------|-------|---------------------|
-| 65 | $5.50 | $5.00 | $4.40 |
-| 66 | $5.90 | $5.40 | $4.70 |
-| 67 | $6.30 | $5.80 | $5.00 |
-| 68 | $6.80 | $6.20 | $5.40 |
-| 69 | $7.30 | $6.70 | $5.80 |
-| 70 | $7.90 | $7.20 | $6.30 |
-
-**Payout Formula:**
+**Standard Plan Formula:**
 ```
-monthly_payout = (ra_balance / 1000) × payout_factor
+monthly_payout_at_65 = RA_balance_at_55 ÷ divisor
 
-Example: $300,000 RA at age 65 on Standard Plan
-  = ($300,000 / 1000) × $5.50
-  = 300 × $5.50
-  = $1,650/month
+| Gender | Divisor |
+|--------|---------|
+| Male   | 120     |
+| Female | 132     |
 ```
+
+**Plan Adjustments (relative to Standard):**
+| Plan | Adjustment |
+|------|------------|
+| **Basic** | ~90% of Standard |
+| **Escalating** | ~80% of Standard initially (then +2%/year) |
+
+**Deferment Bonus:**
+- +7% per year for each year payout is delayed (ages 65-70)
+- Max +40% at age 70
+
+#### Payout by Retirement Sum (2025, Standard Plan at 65)
+
+| Retirement Sum | Amount | Male Payout | Female Payout |
+|----------------|--------|-------------|---------------|
+| **BRS** | $106,500 | $890/month | $810/month |
+| **FRS** | $213,000 | $1,775/month | $1,614/month |
+| **ERS** | $426,000 | $3,550/month | $3,230/month |
+
+*Source: CPF Playbook quick calculation (RA ÷ divisor)*
+
+#### Payout Comparison by Plan (FRS at 65)
+
+| Plan | Male | Female | Notes |
+|------|------|--------|-------|
+| **Standard** | $1,775 | $1,614 | Highest initial payout |
+| **Basic** | $1,598 | $1,453 | ~90% of Standard |
+| **Escalating** | $1,420 | $1,291 | ~80% initially, +2%/year |
+
+#### Deferment Impact (FRS, Standard, Male)
+
+| Start Age | Monthly Payout | vs Age 65 |
+|-----------|---------------|-----------|
+| 65 | $1,730 | - |
+| 66 | $1,850 | +7% |
+| 67 | $1,980 | +14% |
+| 68 | $2,120 | +23% |
+| 69 | $2,270 | +31% |
+| 70 | $2,430 | +40% |
+
+*Note: Payouts auto-start at 70 if not initiated.*
 
 ---
 
@@ -692,21 +723,31 @@ The Escalating plan starts with lower payouts but increases by **2% annually**:
 ```
 payout(year_n) = payout(year_1) × (1.02)^(n-1)
 
-Example: Starting payout $1,320/month at age 65
-  Age 65 (Year 1):  $1,320/month
-  Age 66 (Year 2):  $1,320 × 1.02 = $1,346/month
-  Age 70 (Year 6):  $1,320 × 1.02^5 = $1,457/month
-  Age 75 (Year 11): $1,320 × 1.02^10 = $1,609/month
-  Age 85 (Year 21): $1,320 × 1.02^20 = $1,961/month
+Example: FRS Male, Starting payout $1,420/month at age 65
+  Age 65 (Year 1):  $1,420/month
+  Age 70 (Year 6):  $1,420 × 1.02^5 = $1,568/month
+  Age 75 (Year 11): $1,420 × 1.02^10 = $1,731/month
+  Age 85 (Year 21): $1,420 × 1.02^20 = $2,110/month
+  Age 95 (Year 31): $1,420 × 1.02^30 = $2,572/month
 ```
+
+#### Break-even Points (from CPF Playbook)
+
+**Monthly Payout Break-even** (when Escalating exceeds others):
+- vs Basic Plan: **Age 73** (~8 years)
+- vs Standard Plan: **Age 77** (~12 years)
+
+**Cumulative Payout Break-even** (total received):
+- vs Basic Plan: **Age 80** (~15 years)
+- vs Standard Plan: **Age 88** (~23 years)
 
 ```mermaid
 flowchart LR
-    subgraph EscalatingGrowth["Escalating Plan Payout Over Time"]
-        Y1["Age 65<br/>$1,320"]
-        Y5["Age 70<br/>$1,457"]
-        Y10["Age 75<br/>$1,609"]
-        Y20["Age 85<br/>$1,961"]
+    subgraph EscalatingGrowth["Escalating Plan Payout Over Time (FRS Male)"]
+        Y1["Age 65<br/>$1,420"]
+        Y5["Age 75<br/>$1,731"]
+        Y10["Age 85<br/>$2,110"]
+        Y20["Age 95<br/>$2,572"]
     end
     Y1 -->|"+2%/yr"| Y5 -->|"+2%/yr"| Y10 -->|"+2%/yr"| Y20
 ```
@@ -751,77 +792,73 @@ bequest = max(0, premium_paid - total_payouts_received)
 
 ---
 
-### Bequest Comparison Example
+### Bequest Over Time (from CPF Playbook)
 
-**Scenario:** $300,000 RA at age 65, member passes away at age 80 (15 years of payouts)
+**Scenario:** FRS ($213,000) at age 55, grows to ~$315,000 by age 65 (at 4% interest)
 
-| Plan | Monthly Payout | Total Received (15 yrs) | Bequest at Death |
-|------|---------------|------------------------|------------------|
-| **Standard** | $1,650 | $297,000 | ~$3,000 |
-| **Basic** | $1,500 | $270,000 | ~$30,000 + interest |
-| **Escalating** | $1,320 → $1,776 | ~$276,000 | ~$24,000 |
+| Age at Death | Standard Plan | Basic Plan | Escalating Plan |
+|--------------|---------------|------------|-----------------|
+| **65** (payout starts) | $315,000 | $315,000 | $315,000 |
+| **75** (10 years) | $111k-124k | $228k-232k | $139k-155k |
+| **80** (15 years) | ~$4,500 | $135k | ~$102k |
+| **85** (20 years) | **$0** | $108k-119k | **$0** |
+| **90** (25 years) | $0 | $45k | $0 |
+| **95** (30 years) | $0 | **$0** | $0 |
+
+**Key Insights:**
+- **Standard**: Bequest depletes by ~age 85 (highest payouts consume premium fastest)
+- **Basic**: Bequest remains substantial until ~age 95 (only 10-20% used as premium)
+- **Escalating**: Bequest depletes by ~age 85 (lower early payouts extend slightly vs Standard)
 
 ```mermaid
 flowchart TB
-    subgraph Premium["Initial RA Premium: $300,000"]
-        direction LR
-        PREM[Premium Paid]
+    subgraph Premium["FRS at 55: $213,000 → $315,000 at 65"]
+        PREM[Premium Paid to CPF LIFE]
     end
 
-    subgraph Plans["Plan Comparison at Age 80 (15 years)"]
-        subgraph Standard["Standard Plan"]
-            S_PAY["Payouts: $297,000"]
-            S_BEQ["Bequest: ~$3,000"]
-        end
-
-        subgraph Basic["Basic Plan"]
-            B_PAY["Payouts: $270,000"]
-            B_BEQ["Bequest: ~$30,000+"]
-        end
-
-        subgraph Escalating["Escalating Plan"]
-            E_PAY["Payouts: ~$276,000"]
-            E_BEQ["Bequest: ~$24,000"]
-        end
+    subgraph Age75["Bequest at Age 75 (10 years)"]
+        S75["Standard: $111k-124k"]
+        B75["Basic: $228k-232k"]
+        E75["Escalating: $139k-155k"]
     end
 
-    PREM --> Standard
-    PREM --> Basic
-    PREM --> Escalating
+    subgraph Age85["Bequest at Age 85 (20 years)"]
+        S85["Standard: $0"]
+        B85["Basic: $108k-119k"]
+        E85["Escalating: $0"]
+    end
 
-    style S_PAY fill:#10B981,color:#fff
-    style B_BEQ fill:#3B82F6,color:#fff
+    PREM --> Age75
+    Age75 --> Age85
+
+    style B75 fill:#3B82F6,color:#fff
+    style B85 fill:#3B82F6,color:#fff
+    style S85 fill:#ef4444,color:#fff
+    style E85 fill:#ef4444,color:#fff
 ```
 
 ---
 
-### Bequest Over Time Graph
-
-The bequest amount decreases over time as more payouts are received:
+### Bequest Depletion Timeline
 
 ```
 Bequest Remaining ($)
-│
-│ Basic ────────────────────────────────────
-│   ╲
-│    ╲  Escalating
-│     ╲   ╲
-│      ╲   ╲
-│       ╲   ╲
-│ Standard ╲  ╲
-│           ╲  ╲
-│            ╲  ╲
-│             ╲  ╲
-│              ╲──────────────────────────
-│               ╲
-│                ╲
-└─────────────────────────────────────────► Years
-  65   70   75   80   85   90   95   100
+$315k │
+      │ ●━━━━━━●━━━━━━━━━━━━━━━━━━━━━━━━━━━━●  Basic (depletes ~95)
+      │  ╲      ╲
+$200k │   ╲      ●━━━━━━●━━━━━━━━━●
+      │    ╲             Escalating (depletes ~85)
+      │     ╲
+$100k │      ●━━━━━●
+      │            Standard (depletes ~85)
+      │             ╲
+   $0 │──────────────●────────────────────────────►
+      65    70    75    80    85    90    95   Age
 
 Legend:
-- Basic: Bequest remains substantial (unused premium + interest)
-- Escalating: Bequest decreases slowly (lower early payouts)
-- Standard: Bequest depletes fastest (highest payouts)
+━━━  Basic Plan (highest bequest, lowest payout)
+━━━  Standard Plan (lowest bequest, highest payout)
+━━━  Escalating Plan (moderate bequest, growing payout)
 ```
 
 ---
