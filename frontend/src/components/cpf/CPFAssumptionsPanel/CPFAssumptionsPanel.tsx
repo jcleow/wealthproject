@@ -268,15 +268,6 @@ export function CPFAssumptionsPanel({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <PercentSlider
-              label="Inflation Rate"
-              value={assumptions.inflationRate}
-              onChange={(v) => handleValueChange('inflationRate', v)}
-              min={0}
-              max={0.05}
-              color="blue"
-              tooltip="Applied to income goals for future value"
-            />
-            <PercentSlider
               label="FRS Growth Rate"
               value={assumptions.frsGrowthRate}
               onChange={(v) => handleValueChange('frsGrowthRate', v)}
@@ -284,15 +275,6 @@ export function CPFAssumptionsPanel({
               max={0.05}
               color="blue"
               tooltip="Annual growth of retirement sum targets"
-            />
-            <PercentSlider
-              label="Salary Growth Rate"
-              value={assumptions.salaryGrowthRate}
-              onChange={(v) => handleValueChange('salaryGrowthRate', v)}
-              min={0}
-              max={0.08}
-              color="blue"
-              tooltip="Annual salary increment assumption"
             />
             <PercentSlider
               label="Escalating Plan Growth"

@@ -207,28 +207,29 @@ func (r *Repository) GetOrCreateDefault(ctx context.Context, cpfAccountID string
 }
 
 // DefaultAssumptions returns a CPFAssumptions struct with official CPF default values.
+// All values reference constants from constants.go
 func DefaultAssumptions(cpfAccountID string) *CPFAssumptions {
 	return &CPFAssumptions{
 		CPFAccountID: cpfAccountID,
 
-		// Official CPF interest rates
-		InterestRateOA:               *decimal.MustFromString("0.025"), // 2.5%
-		InterestRateSA:               *decimal.MustFromString("0.04"),  // 4.0%
-		InterestRateMA:               *decimal.MustFromString("0.04"),  // 4.0%
-		InterestRateRA:               *decimal.MustFromString("0.04"),  // 4.0%
-		ExtraInterestFirst60K:        *decimal.MustFromString("0.01"),  // +1%
-		ExtraInterestFirst30KAbove55: *decimal.MustFromString("0.01"),  // +1%
+		// Official CPF interest rates (from constants.go)
+		InterestRateOA:               *OAInterestRate,
+		InterestRateSA:               *SAInterestRate,
+		InterestRateMA:               *MAInterestRate,
+		InterestRateRA:               *RAInterestRate,
+		ExtraInterestFirst60K:        *ExtraInterestFirst60K,
+		ExtraInterestFirst30KAbove55: *ExtraInterestFirst30KAbove55,
 
-		// Growth rate assumptions (inflation_rate and salary_growth_rate are global)
-		FRSGrowthRate: *decimal.MustFromString("0.035"), // 3.5%
+		// Growth rate assumptions (from constants.go)
+		FRSGrowthRate: *FRSGrowthRate,
 
-		// Employment assumptions (assume_continuous_employment is global)
-		RetirementAge: 65,
+		// Employment assumptions (from constants.go)
+		RetirementAge: DefaultRetirementAge,
 
-		// CPF LIFE assumptions
+		// CPF LIFE assumptions (from constants.go)
 		CPFLifePlan:          CPFLifePlanStandard,
-		PayoutStartAge:       65,
-		EscalatingPlanGrowth: *decimal.MustFromString("0.02"), // 2%
+		PayoutStartAge:       DefaultPayoutStartAge,
+		EscalatingPlanGrowth: *EscalatingPlanGrowth,
 
 		// Preset tracking
 		PresetName: PresetOfficial,

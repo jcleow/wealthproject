@@ -30,7 +30,7 @@ CREATE TABLE cpf_assumptions (
     preset_name character varying(20) DEFAULT 'official' NOT NULL
         CHECK (preset_name IN ('official', 'conservative', 'optimistic', 'custom')),
 
-    -- Metadata
+    -- Metadata (updated_at is set manually in UPDATE operations)
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
 
@@ -38,17 +38,3 @@ CREATE TABLE cpf_assumptions (
 );
 
 CREATE INDEX idx_cpf_assumptions_account ON cpf_assumptions(cpf_account_id);
-
--- Trigger to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_cpf_assumptions_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER cpf_assumptions_updated_at
-    BEFORE UPDATE ON cpf_assumptions
-    FOR EACH ROW
-    EXECUTE FUNCTION update_cpf_assumptions_updated_at();
