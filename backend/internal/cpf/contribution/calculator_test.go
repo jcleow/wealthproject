@@ -68,7 +68,8 @@ func testConfig2025() *config.ConfigData {
 			Above50To55: config.AllocationRates{OA: d("0.4054"), SA: d("0.3108"), MA: d("0.2838"), RA: d("0")},
 			Above55To60: config.AllocationRates{OA: d("0.4068"), SA: d("0.1186"), MA: d("0.3559"), RA: d("0.1186")},
 			Above60To65: config.AllocationRates{OA: d("0.1707"), SA: d("0.1220"), MA: d("0.5122"), RA: d("0.1951")},
-			Above65:     config.AllocationRates{OA: d("0.0800"), SA: d("0.0800"), MA: d("0.5200"), RA: d("0.3200")},
+			Above65To70: config.AllocationRates{OA: d("0.0800"), SA: d("0.0800"), MA: d("0.5200"), RA: d("0.3200")},
+			Above70:     config.AllocationRates{OA: d("0.0800"), SA: d("0.0800"), MA: d("0.5200"), RA: d("0.3200")},
 		},
 	}
 }

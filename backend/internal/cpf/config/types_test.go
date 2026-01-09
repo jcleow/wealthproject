@@ -75,8 +75,10 @@ func TestGetAllocationAgeBand(t *testing.T) {
 		{60, AgeBandAbove55To60},
 		{61, AgeBandAbove60To65},
 		{65, AgeBandAbove60To65},
-		{66, AgeBandAbove65},
-		{75, AgeBandAbove65},
+		{66, AgeBandAbove65To70},
+		{70, AgeBandAbove65To70},
+		{71, AgeBandAbove70},
+		{75, AgeBandAbove70},
 	}
 
 	for _, tt := range tests {
@@ -164,7 +166,8 @@ func TestConfigData_GetAllocationRates(t *testing.T) {
 			Above50To55: AllocationRates{OA: dec("0.4054"), SA: dec("0.3108"), MA: dec("0.2838"), RA: dec("0")},
 			Above55To60: AllocationRates{OA: dec("0.4068"), SA: dec("0.1186"), MA: dec("0.3559"), RA: dec("0.1186")},
 			Above60To65: AllocationRates{OA: dec("0.1707"), SA: dec("0.1220"), MA: dec("0.5122"), RA: dec("0.1951")},
-			Above65:     AllocationRates{OA: dec("0.0800"), SA: dec("0.0800"), MA: dec("0.5200"), RA: dec("0.3200")},
+			Above65To70: AllocationRates{OA: dec("0.0800"), SA: dec("0.0800"), MA: dec("0.5200"), RA: dec("0.3200")},
+			Above70:     AllocationRates{OA: dec("0.0800"), SA: dec("0.0800"), MA: dec("0.5200"), RA: dec("0.3200")},
 		},
 	}
 
@@ -179,7 +182,8 @@ func TestConfigData_GetAllocationRates(t *testing.T) {
 		{52, decimal.MustFromString("0.4054"), decimal.MustFromString("0")},       // 50-55
 		{58, decimal.MustFromString("0.4068"), decimal.MustFromString("0.1186")},  // 55-60 (RA starts)
 		{62, decimal.MustFromString("0.1707"), decimal.MustFromString("0.1951")},  // 60-65
-		{70, decimal.MustFromString("0.0800"), decimal.MustFromString("0.3200")},  // >65
+		{68, decimal.MustFromString("0.0800"), decimal.MustFromString("0.3200")},  // 65-70
+		{75, decimal.MustFromString("0.0800"), decimal.MustFromString("0.3200")},  // >70
 	}
 
 	for _, tt := range tests {
@@ -205,11 +209,12 @@ func TestAllocationRates_SumToOne(t *testing.T) {
 			Above50To55: AllocationRates{OA: dec("0.4054"), SA: dec("0.3108"), MA: dec("0.2838"), RA: dec("0")},
 			Above55To60: AllocationRates{OA: dec("0.4068"), SA: dec("0.1186"), MA: dec("0.3559"), RA: dec("0.1186")},
 			Above60To65: AllocationRates{OA: dec("0.1707"), SA: dec("0.1220"), MA: dec("0.5122"), RA: dec("0.1951")},
-			Above65:     AllocationRates{OA: dec("0.0800"), SA: dec("0.0800"), MA: dec("0.5200"), RA: dec("0.3200")},
+			Above65To70: AllocationRates{OA: dec("0.0800"), SA: dec("0.0800"), MA: dec("0.5200"), RA: dec("0.3200")},
+			Above70:     AllocationRates{OA: dec("0.0800"), SA: dec("0.0800"), MA: dec("0.5200"), RA: dec("0.3200")},
 		},
 	}
 
-	ages := []int{30, 40, 48, 52, 58, 62, 70}
+	ages := []int{30, 40, 48, 52, 58, 62, 68, 75}
 	one := decimal.MustFromString("1")
 	tolerance := decimal.MustFromString("0.001")
 

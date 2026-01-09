@@ -177,6 +177,71 @@ func TestRetirementSumsIncrease2025To2026(t *testing.T) {
 	}
 }
 
+func TestContributionRateIncrease2026(t *testing.T) {
+	cfg2025 := Config2025()
+	cfg2026 := Config2026()
+
+	// Ages 55-60: Total should increase from 32.5% to 34%
+	rates2025_55 := cfg2025.Config.ContributionRates.CitizenAndPR3Plus.Above55To60
+	rates2026_55 := cfg2026.Config.ContributionRates.CitizenAndPR3Plus.Above55To60
+
+	expected2025Total := decimal.MustFromString("0.325")
+	expected2026Total := decimal.MustFromString("0.34")
+
+	if rates2025_55.Total().Cmp(expected2025Total) != 0 {
+		t.Errorf("Expected 2025 55-60 total rate 32.5%%, got %s", rates2025_55.Total().String())
+	}
+	if rates2026_55.Total().Cmp(expected2026Total) != 0 {
+		t.Errorf("Expected 2026 55-60 total rate 34%%, got %s", rates2026_55.Total().String())
+	}
+
+	// Ages 60-65: Total should increase from 23.5% to 25%
+	rates2025_60 := cfg2025.Config.ContributionRates.CitizenAndPR3Plus.Above60To65
+	rates2026_60 := cfg2026.Config.ContributionRates.CitizenAndPR3Plus.Above60To65
+
+	expected2025Total60 := decimal.MustFromString("0.235")
+	expected2026Total60 := decimal.MustFromString("0.25")
+
+	if rates2025_60.Total().Cmp(expected2025Total60) != 0 {
+		t.Errorf("Expected 2025 60-65 total rate 23.5%%, got %s", rates2025_60.Total().String())
+	}
+	if rates2026_60.Total().Cmp(expected2026Total60) != 0 {
+		t.Errorf("Expected 2026 60-65 total rate 25%%, got %s", rates2026_60.Total().String())
+	}
+}
+
+func TestAllocationRates2026_SAClosed(t *testing.T) {
+	cfg2026 := Config2026()
+
+	// Verify SA is 0 for ages 55+ in 2026 (SA closed at 55)
+	zero := decimal.MustFromString("0")
+
+	alloc55 := cfg2026.Config.AllocationRates.Above55To60
+	if alloc55.SA.Cmp(zero) != 0 {
+		t.Errorf("Expected SA allocation 0 for 55-60 in 2026, got %s", alloc55.SA.String())
+	}
+
+	alloc60 := cfg2026.Config.AllocationRates.Above60To65
+	if alloc60.SA.Cmp(zero) != 0 {
+		t.Errorf("Expected SA allocation 0 for 60-65 in 2026, got %s", alloc60.SA.String())
+	}
+
+	alloc65 := cfg2026.Config.AllocationRates.Above65To70
+	if alloc65.SA.Cmp(zero) != 0 {
+		t.Errorf("Expected SA allocation 0 for 65-70 in 2026, got %s", alloc65.SA.String())
+	}
+
+	alloc70 := cfg2026.Config.AllocationRates.Above70
+	if alloc70.SA.Cmp(zero) != 0 {
+		t.Errorf("Expected SA allocation 0 for 70+ in 2026, got %s", alloc70.SA.String())
+	}
+
+	// Verify RA is non-zero for ages 55+ (contributions go to RA now)
+	if alloc55.RA.Cmp(zero) == 0 {
+		t.Errorf("Expected non-zero RA allocation for 55-60 in 2026")
+	}
+}
+
 func TestConfigInterestRates(t *testing.T) {
 	cfg := Config2025()
 
@@ -289,10 +354,10 @@ func TestConfigAllocationRates(t *testing.T) {
 	}
 
 	// Verify MA increases with age (healthcare needs)
-	alloc65 := cfg.Config.AllocationRates.Above65
-	if alloc65.MA.Cmp(&alloc.MA) <= 0 {
-		t.Errorf("Expected MA to increase with age, got MA(≤35)=%s, MA(>65)=%s",
-			alloc.MA.String(), alloc65.MA.String())
+	alloc70 := cfg.Config.AllocationRates.Above70
+	if alloc70.MA.Cmp(&alloc.MA) <= 0 {
+		t.Errorf("Expected MA to increase with age, got MA(≤35)=%s, MA(>70)=%s",
+			alloc.MA.String(), alloc70.MA.String())
 	}
 }
 

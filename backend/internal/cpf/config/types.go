@@ -148,7 +148,8 @@ type AllocationRateTable struct {
 	Above50To55 AllocationRates `json:"above50To55"`
 	Above55To60 AllocationRates `json:"above55To60"`
 	Above60To65 AllocationRates `json:"above60To65"`
-	Above65     AllocationRates `json:"above65"`
+	Above65To70 AllocationRates `json:"above65To70"` // Added for 2026+ granular rates
+	Above70     AllocationRates `json:"above70"`     // Added for 2026+ granular rates
 }
 
 // AllocationRates contains the allocation percentages to each account
@@ -205,8 +206,10 @@ func GetAllocationAgeBand(age int) AgeBand {
 		return AgeBandAbove55To60
 	case age <= 65:
 		return AgeBandAbove60To65
+	case age <= 70:
+		return AgeBandAbove65To70
 	default:
-		return AgeBandAbove65
+		return AgeBandAbove70
 	}
 }
 
@@ -254,7 +257,9 @@ func (c *ConfigData) GetAllocationRates(age int) AllocationRates {
 		return c.AllocationRates.Above55To60
 	case age <= 65:
 		return c.AllocationRates.Above60To65
+	case age <= 70:
+		return c.AllocationRates.Above65To70
 	default:
-		return c.AllocationRates.Above65
+		return c.AllocationRates.Above70
 	}
 }
