@@ -641,6 +641,16 @@ flowchart TB
 
 ## CPF LIFE Payout & Bequest Calculation
 
+> ⚠️ **IMPORTANT DISCLAIMER**
+>
+> The calculations in this section are **approximations for planning purposes only**. CPF LIFE is a complex annuity product and CPF Board does not publicly disclose the exact actuarial formulas used. Actual payouts may differ from these estimates due to:
+> - **Cohort-specific factors**: CPF Board adjusts rates based on each birth cohort's life expectancy
+> - **Interest rate changes**: Payout rates are reviewed periodically and may change
+> - **Policy updates**: CPF rules and rates are subject to government policy changes
+> - **Individual circumstances**: Health status, citizenship, and other factors may apply
+>
+> **Always verify with CPF Board's official estimator** at [cpf.gov.sg](https://www.cpf.gov.sg) for accurate, personalized projections. The figures here are derived from the CPF Playbook (2025) and should be treated as rough estimates only.
+
 CPF LIFE provides lifelong monthly payouts starting from the chosen payout age (65-70). The three plans differ in payout amounts and bequest (money left to beneficiaries upon death).
 
 ### CPF LIFE Plans Overview
