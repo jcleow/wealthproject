@@ -13,7 +13,7 @@ import type {
   CpfV2CreateInput,
   CpfV2Input,
   StopInput,
-} from '@/types/api.generated'
+} from '@/types/api.aliases'
 
 export async function getCPFAccount(): Promise<CPFAccount | null> {
   try {

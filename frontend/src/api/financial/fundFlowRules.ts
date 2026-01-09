@@ -2,7 +2,7 @@ import { ApiError, apiClient } from '../client'
 import type {
   FundFlowRuleDTO,
   StopFundFlowRuleDTO,
-} from '@/types/api.generated'
+} from '@/types/api.aliases'
 import type {
   FundFlowRule,
   FundFlowRuleCreatePayload,

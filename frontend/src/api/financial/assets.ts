@@ -8,7 +8,7 @@ import type {
   AssetCreateInput,
   AssetInput,
   StopInput,
-} from '@/types/api.generated'
+} from '@/types/api.aliases'
 
 export async function listAssets(params?: PaginationParams): Promise<PaginatedResponse<Asset>> {
   const path = buildPaginatedPath('/assets', params)

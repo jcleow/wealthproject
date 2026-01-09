@@ -1,6 +1,6 @@
 import { apiClient } from '../client'
 import type { TimelineEditRequest, TimelineResponse } from '@/types/timeline'
-import type { TimelineResponse as ApiTimelineResponse } from '@/types/api.generated'
+import type { TimelineResponse as ApiTimelineResponse } from '@/types/api.aliases'
 
 export async function getTimeline(options: { includeScenarios?: boolean } = {}): Promise<TimelineResponse> {
   const params = new URLSearchParams()

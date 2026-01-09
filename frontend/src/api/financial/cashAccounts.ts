@@ -5,7 +5,7 @@ import type {
   CashAsset as ApiCashAccount,
   CashAccountV2Input,
   StopInput,
-} from '@/types/api.generated'
+} from '@/types/api.aliases'
 
 export async function listCashAccounts(): Promise<CashAccount[]> {
   const data = await apiClient.get<{ data: ApiCashAccount[] }>('/cash-accounts', undefined, { baseUrl: '/api/v2' })

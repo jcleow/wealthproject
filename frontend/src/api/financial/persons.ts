@@ -5,7 +5,7 @@ import type {
   Person as ApiPerson,
   PersonV2CreateInput,
   PersonV2UpdateInput,
-} from '@/types/api.generated'
+} from '@/types/api.aliases'
 
 /**
  * Transform API response to Person type

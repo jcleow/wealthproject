@@ -8,7 +8,7 @@ import type {
   LiabilityCreateInput,
   LiabilityInput,
   StopInput,
-} from '@/types/api.generated'
+} from '@/types/api.aliases'
 
 export async function listLiabilities(params?: PaginationParams): Promise<PaginatedResponse<Liability>> {
   const path = buildPaginatedPath('/liabilities', params)
