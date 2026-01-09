@@ -138,6 +138,73 @@ func Config2025() CPFConfiguration {
 	}
 }
 
+// Config2026 returns the CPF configuration for 2026
+// Using estimated values based on 2025 with typical ~3.5% FRS growth
+func Config2026() CPFConfiguration {
+	return CPFConfiguration{
+		Year:          2026,
+		EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		EffectiveTo:   nil, // Current/latest
+		Config: ConfigData{
+			OWCeiling:      7400, // Projected same as 2025 for now
+			AnnualCeiling:  102000,
+			CPFAnnualLimit: 37740,
+
+			RetirementSums: RetirementSums{
+				BRS: 110300, // ~3.5% increase from 2025
+				FRS: 220500,
+				ERS: 441000,
+			},
+
+			BHS: 74100, // ~3.5% increase from 2025
+
+			InterestRates: InterestRates{
+				OA:                        0.025,
+				SA:                        0.04,
+				MA:                        0.04,
+				RA:                        0.04,
+				Extra1PctFirst60k:         0.01,
+				Extra2PctFirst30kAbove55:  0.02,
+				Extra1PctNext30kAbove55:   0.01,
+			},
+
+			ContributionRates: ContributionRateTable{
+				CitizenAndPR3Plus: AgeBasedContributionRates{
+					UpTo55:      RatePair{Employee: 0.20, Employer: 0.17},
+					Above55To60: RatePair{Employee: 0.15, Employer: 0.145},
+					Above60To65: RatePair{Employee: 0.095, Employer: 0.11},
+					Above65To70: RatePair{Employee: 0.075, Employer: 0.09},
+					Above70:     RatePair{Employee: 0.05, Employer: 0.075},
+				},
+				PRYear1: AgeBasedContributionRates{
+					UpTo55:      RatePair{Employee: 0.05, Employer: 0.04},
+					Above55To60: RatePair{Employee: 0.05, Employer: 0.04},
+					Above60To65: RatePair{Employee: 0.05, Employer: 0.04},
+					Above65To70: RatePair{Employee: 0.05, Employer: 0.04},
+					Above70:     RatePair{Employee: 0.05, Employer: 0.04},
+				},
+				PRYear2: AgeBasedContributionRates{
+					UpTo55:      RatePair{Employee: 0.15, Employer: 0.09},
+					Above55To60: RatePair{Employee: 0.125, Employer: 0.09},
+					Above60To65: RatePair{Employee: 0.075, Employer: 0.085},
+					Above65To70: RatePair{Employee: 0.05, Employer: 0.065},
+					Above70:     RatePair{Employee: 0.05, Employer: 0.065},
+				},
+			},
+
+			AllocationRates: AllocationRateTable{
+				UpTo35:      AllocationRates{OA: 0.6217, SA: 0.1621, MA: 0.2162},
+				Above35To45: AllocationRates{OA: 0.5676, SA: 0.1892, MA: 0.2432},
+				Above45To50: AllocationRates{OA: 0.5135, SA: 0.2162, MA: 0.2703},
+				Above50To55: AllocationRates{OA: 0.4054, SA: 0.3108, MA: 0.2838},
+				Above55To60: AllocationRates{OA: 0.4068, SA: 0.1186, MA: 0.3559, RA: 0.1186},
+				Above60To65: AllocationRates{OA: 0.1707, SA: 0.1220, MA: 0.5122, RA: 0.1951},
+				Above65:     AllocationRates{OA: 0.0800, SA: 0.0800, MA: 0.5200, RA: 0.3200},
+			},
+		},
+	}
+}
+
 func ptr(t time.Time) *time.Time {
 	return &t
 }

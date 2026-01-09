@@ -11,9 +11,11 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts'
+import { Loader2 } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
-import type { CPFProfile } from '@/types/cpf'
+import type { CPFProfile, CPFProjectionYear } from '@/types/cpf'
+import { useCPFProjection } from '@/hooks/queries/useCPFProjectionQuery'
 import { generateMockProjection, generateMockRetirementProjection } from '@/lib/cpf-mock-data'
 
 interface CPFProjectionChartProps {
@@ -22,35 +24,95 @@ interface CPFProjectionChartProps {
 }
 
 export function CPFProjectionChart({ profile, className }: CPFProjectionChartProps) {
-  const projection = useMemo(() => generateMockProjection(profile), [profile])
-  const retirement = useMemo(
-    () => generateMockRetirementProjection(projection),
-    [projection]
+  // Try to fetch real projection data from API
+  const {
+    projections: apiProjections,
+    retirement: apiRetirement,
+    isLoading,
+    isError,
+  } = useCPFProjection({
+    monthlySalary: profile.monthlyIncome,
+    annualBonus: profile.annualBonus,
+  })
+
+  // Fall back to mock data if API data not available
+  const mockProjection = useMemo(() => generateMockProjection(profile), [profile])
+  const mockRetirement = useMemo(
+    () => generateMockRetirementProjection(mockProjection),
+    [mockProjection]
   )
+
+  // Use real data if available, otherwise fall back to mock
+  const hasRealData = apiProjections.length > 0 && !isError
+  const projection: CPFProjectionYear[] = hasRealData ? apiProjections : mockProjection
+  const retirement = hasRealData && apiRetirement
+    ? {
+        age55Balances: apiRetirement.frsTarget > 0
+          ? { oa: 0, sa: 0, ma: 0, ra: apiRetirement.frsTarget }
+          : mockRetirement.age55Balances,
+        age65Balances: { oa: 0, sa: 0, ma: 0, ra: projection.find(p => p.age === 65)?.ra ?? 0 },
+        frsTarget: apiRetirement.frsTarget || mockRetirement.frsTarget,
+        brsTarget: apiRetirement.brsTarget || mockRetirement.brsTarget,
+        ersTarget: apiRetirement.ersTarget || mockRetirement.ersTarget,
+        cpfLifeEstimates: {
+          standard: apiRetirement.cpfLifeEstimates.standard || mockRetirement.cpfLifeEstimates.standard,
+          basic: apiRetirement.cpfLifeEstimates.basic || mockRetirement.cpfLifeEstimates.basic,
+          escalating: apiRetirement.cpfLifeEstimates.escalating || mockRetirement.cpfLifeEstimates.escalating,
+        },
+      }
+    : mockRetirement
+
+  // Calculate age 55/65 balances from projection data
+  const age55Data = projection.find(p => p.age === 55)
+  const age65Data = projection.find(p => p.age === 65)
+  const age55Balances = age55Data
+    ? { oa: age55Data.oa, sa: age55Data.sa, ma: age55Data.ma, ra: age55Data.ra }
+    : retirement.age55Balances
+  const age65Balances = age65Data
+    ? { oa: age65Data.oa, sa: age65Data.sa, ma: age65Data.ma, ra: age65Data.ra }
+    : retirement.age65Balances
 
   const milestones = [
     { age: 55, label: 'RA Formation', color: '#f59e0b' },
     { age: 65, label: 'CPF LIFE Start', color: '#10b981' },
   ]
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className={`flex items-center justify-center py-12 ${className}`}>
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+        <span className="ml-3 text-slate-400">Loading projection...</span>
+      </div>
+    )
+  }
+
   return (
     <div className={`space-y-6 ${className}`}>
+      {/* Data source indicator */}
+      {hasRealData && (
+        <div className="flex items-center gap-2 text-xs text-emerald-500">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          Using your CPF account data
+        </div>
+      )}
+
       {/* Retirement Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <RetirementCard
           label="Projected at Age 55"
           value={
-            retirement.age55Balances.oa +
-            retirement.age55Balances.sa +
-            retirement.age55Balances.ma +
-            retirement.age55Balances.ra
+            age55Balances.oa +
+            age55Balances.sa +
+            age55Balances.ma +
+            age55Balances.ra
           }
           target={retirement.frsTarget}
           targetLabel="FRS Target"
         />
         <RetirementCard
           label="Projected RA at 65"
-          value={retirement.age65Balances.ra}
+          value={age65Balances.ra}
           target={retirement.ersTarget}
           targetLabel="ERS Target"
         />
@@ -234,7 +296,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
           />
         </div>
         <p className="mt-4 text-xs text-slate-500">
-          * Estimates based on projected RA balance of {formatCurrency(retirement.age65Balances.ra)} at age 65.
+          * Estimates based on projected RA balance of {formatCurrency(age65Balances.ra)} at age 65.
           Actual payouts depend on CPF LIFE cohort rates.
         </p>
       </div>

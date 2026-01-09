@@ -11,9 +11,11 @@ var configs map[int]*CPFConfiguration
 func init() {
 	cfg2024 := Config2024()
 	cfg2025 := Config2025()
+	cfg2026 := Config2026()
 	configs = map[int]*CPFConfiguration{
 		2024: &cfg2024,
 		2025: &cfg2025,
+		2026: &cfg2026,
 	}
 }
 

@@ -72,12 +72,16 @@ export interface CPFBalances {
 export interface CPFAccount {
   id: string
   userId: string
+  personId: string
+  personName: string
   oaBalance: number // in cents
   saBalance: number // in cents
   maBalance: number // in cents
   raBalance: number // in cents
   oaUsedForHousing: number // in cents
   housingStartDate?: string
+  startDate: string
+  endDate?: string
   dateOfBirth: string
   residencyStatus: ResidencyStatus
   prGrantDate?: string
@@ -86,6 +90,7 @@ export interface CPFAccount {
 }
 
 export interface CPFAccountCreatePayload {
+  personName?: string
   oaBalance?: number
   saBalance?: number
   maBalance?: number
@@ -403,4 +408,29 @@ export interface GrantCalculationResult {
   stepUp: { eligible: boolean; amount: number; reason: string }
   totalGrants: number
   warnings: string[]
+}
+
+// CPF Projection Range API Response
+export interface CPFProjectionRangeResponse {
+  projections: CPFProjectionYear[]
+  milestones: {
+    age55?: {
+      year: number
+      balances: CPFBalances
+    }
+    age65?: {
+      year: number
+      balances: CPFBalances
+    }
+  }
+  retirement: {
+    frsTarget: number
+    brsTarget: number
+    ersTarget: number
+    cpfLifeEstimates: {
+      standard: number
+      basic: number
+      escalating: number
+    }
+  }
 }

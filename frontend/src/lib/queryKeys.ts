@@ -36,6 +36,7 @@ export const QUERY_KEYS = {
     all: ['cpf'] as const,
     account: ['cpf', 'account'] as const,
     assumptions: ['cpf', 'assumptions'] as const,
+    projectionRange: ['cpf', 'projection', 'range'] as const,
     config: ['cpf', 'config'] as const,
   },
 } as const

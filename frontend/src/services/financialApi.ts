@@ -1,5 +1,5 @@
 import type { Asset, Liability, Income, Expense, CashAccount, GrowthConfig, UserSettings, PaginatedResponse, PaginationParams } from '@/types/financial'
-import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload, CPFConfiguration, CPFContributionPreview, ResidencyStatus, CPFAssumptions, CPFAssumptionsUpdatePayload } from '@/types/cpf'
+import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload, CPFConfiguration, CPFContributionPreview, ResidencyStatus, CPFAssumptions, CPFAssumptionsUpdatePayload, CPFProjectionRangeResponse, CPFProjectionYear } from '@/types/cpf'
 import type { PropertyLinkRecord, PropertyScenarioRecord } from '@/types/property'
 import {
   type ScenarioEvent,
@@ -757,6 +757,7 @@ export const financialApi = {
 
   async createCPFAccount(payload: CPFAccountCreatePayload): Promise<CPFAccount> {
     const body = {
+      person_name: payload.personName,
       oa_balance: payload.oaBalance ?? 0,
       sa_balance: payload.saBalance ?? 0,
       ma_balance: payload.maBalance ?? 0,
@@ -852,18 +853,49 @@ export const financialApi = {
     })
     return toCPFAssumptions(data)
   },
+
+  // ============================
+  // CPF Projection APIs
+  // ============================
+
+  async getCPFProjectionRange(params?: {
+    years?: number
+    monthlySalary?: number
+    annualBonus?: number
+  }): Promise<CPFProjectionRangeResponse | null> {
+    try {
+      const searchParams = new URLSearchParams()
+      if (params?.years) searchParams.set('years', params.years.toString())
+      if (params?.monthlySalary) searchParams.set('monthlySalary', params.monthlySalary.toString())
+      if (params?.annualBonus !== undefined) searchParams.set('annualBonus', params.annualBonus.toString())
+
+      const query = searchParams.toString()
+      const url = query
+        ? `${API_BASE}/cpf/account/projection/range?${query}`
+        : `${API_BASE}/cpf/account/projection/range`
+
+      const data = await jsonRequest<any>(url)
+      return toCPFProjectionRange(data)
+    } catch {
+      return null
+    }
+  },
 }
 
 // CPF type mappers
 const toCPFAccount = (item: any): CPFAccount => ({
   id: item.id ?? item.ID,
   userId: item.user_id ?? item.userId ?? item.UserID,
+  personId: item.person_id ?? item.personId ?? item.PersonID,
+  personName: item.person_name ?? item.personName ?? item.PersonName ?? 'Self',
   oaBalance: item.oa_balance ?? item.oaBalance ?? item.OABalance ?? 0,
   saBalance: item.sa_balance ?? item.saBalance ?? item.SABalance ?? 0,
   maBalance: item.ma_balance ?? item.maBalance ?? item.MABalance ?? 0,
   raBalance: item.ra_balance ?? item.raBalance ?? item.RABalance ?? 0,
   oaUsedForHousing: item.oa_used_for_housing ?? item.oaUsedForHousing ?? item.OAUsedForHousing ?? 0,
   housingStartDate: item.housing_start_date ?? item.housingStartDate ?? item.HousingStartDate,
+  startDate: item.start_date ?? item.startDate ?? item.StartDate,
+  endDate: item.end_date ?? item.endDate ?? item.EndDate,
   dateOfBirth: item.date_of_birth ?? item.dateOfBirth ?? item.DateOfBirth,
   residencyStatus: item.residency_status ?? item.residencyStatus ?? item.ResidencyStatus ?? 'citizen',
   prGrantDate: item.pr_grant_date ?? item.prGrantDate ?? item.PRGrantDate,
@@ -930,4 +962,50 @@ const toCPFAssumptions = (item: any): CPFAssumptions => ({
   presetName: item.presetName ?? item.preset_name ?? 'official',
   createdAt: item.createdAt ?? item.created_at ?? new Date().toISOString(),
   updatedAt: item.updatedAt ?? item.updated_at ?? new Date().toISOString(),
+})
+
+const toCPFProjectionYear = (item: any): CPFProjectionYear => ({
+  year: item.year ?? item.Year,
+  age: item.age ?? item.Age,
+  oa: item.oa ?? item.OA ?? 0,
+  sa: item.sa ?? item.SA ?? 0,
+  ma: item.ma ?? item.MA ?? 0,
+  ra: item.ra ?? item.RA ?? 0,
+  total: item.total ?? item.Total ?? 0,
+  contributions: item.contributions ?? item.Contributions ?? 0,
+  interest: item.interest ?? item.Interest ?? 0,
+})
+
+const toCPFProjectionRange = (data: any): CPFProjectionRangeResponse => ({
+  projections: (data.projections ?? data.Projections ?? []).map(toCPFProjectionYear),
+  milestones: {
+    age55: data.milestones?.age55 ? {
+      year: data.milestones.age55.year ?? data.milestones.age55.Year,
+      balances: {
+        oa: data.milestones.age55.balances?.oa ?? 0,
+        sa: data.milestones.age55.balances?.sa ?? 0,
+        ma: data.milestones.age55.balances?.ma ?? 0,
+        ra: data.milestones.age55.balances?.ra ?? 0,
+      },
+    } : undefined,
+    age65: data.milestones?.age65 ? {
+      year: data.milestones.age65.year ?? data.milestones.age65.Year,
+      balances: {
+        oa: data.milestones.age65.balances?.oa ?? 0,
+        sa: data.milestones.age65.balances?.sa ?? 0,
+        ma: data.milestones.age65.balances?.ma ?? 0,
+        ra: data.milestones.age65.balances?.ra ?? 0,
+      },
+    } : undefined,
+  },
+  retirement: {
+    frsTarget: data.retirement?.frsTarget ?? data.retirement?.frs_target ?? 0,
+    brsTarget: data.retirement?.brsTarget ?? data.retirement?.brs_target ?? 0,
+    ersTarget: data.retirement?.ersTarget ?? data.retirement?.ers_target ?? 0,
+    cpfLifeEstimates: {
+      standard: data.retirement?.cpfLifeEstimates?.standard ?? 0,
+      basic: data.retirement?.cpfLifeEstimates?.basic ?? 0,
+      escalating: data.retirement?.cpfLifeEstimates?.escalating ?? 0,
+    },
+  },
 })

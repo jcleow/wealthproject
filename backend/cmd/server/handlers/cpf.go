@@ -12,24 +12,29 @@ import (
 	"financial-chat-system/backend/internal/cpf/assumptions"
 	"financial-chat-system/backend/internal/cpf/config"
 	"financial-chat-system/backend/internal/cpf/contribution"
+	"financial-chat-system/backend/internal/cpf/projector"
+	"financial-chat-system/backend/internal/persons"
 )
 
 // CPFHandler serves CPF-related endpoints.
 type CPFHandler struct {
 	accountRepo     *account.Repository
 	assumptionsRepo *assumptions.Repository
+	personsRepo     *persons.Repository
 }
 
-func NewCPFHandler(accountRepo *account.Repository, assumptionsRepo *assumptions.Repository) *CPFHandler {
+func NewCPFHandler(accountRepo *account.Repository, assumptionsRepo *assumptions.Repository, personsRepo *persons.Repository) *CPFHandler {
 	return &CPFHandler{
 		accountRepo:     accountRepo,
 		assumptionsRepo: assumptionsRepo,
+		personsRepo:     personsRepo,
 	}
 }
 
 func (h *CPFHandler) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("/cpf/account", h.handleAccount)
 	router.HandleFunc("/cpf/account/assumptions", h.handleAssumptions)
+	router.HandleFunc("/cpf/account/projection/range", h.handleProjectionRange)
 	router.HandleFunc("/cpf/config", h.handleConfig)
 	router.HandleFunc("/cpf/config/years", h.handleConfigYears)
 	router.HandleFunc("/cpf/contribution-preview", h.handleContributionPreview)
@@ -55,12 +60,16 @@ func (h *CPFHandler) handleAccount(w http.ResponseWriter, r *http.Request) {
 type cpfAccountResponse struct {
 	ID               string  `json:"id"`
 	UserID           string  `json:"user_id"`
+	PersonID         string  `json:"person_id"`
+	PersonName       string  `json:"person_name"`
 	OABalance        float64 `json:"oa_balance"`
 	SABalance        float64 `json:"sa_balance"`
 	MABalance        float64 `json:"ma_balance"`
 	RABalance        float64 `json:"ra_balance"`
 	OAUsedForHousing float64 `json:"oa_used_for_housing"`
 	HousingStartDate *string `json:"housing_start_date,omitempty"`
+	StartDate        string  `json:"start_date"`
+	EndDate          *string `json:"end_date,omitempty"`
 	DateOfBirth      string  `json:"date_of_birth"`
 	ResidencyStatus  string  `json:"residency_status"`
 	PRGrantDate      *string `json:"pr_grant_date,omitempty"`
@@ -72,11 +81,14 @@ func accountToResponse(acc *account.CPFAccount) cpfAccountResponse {
 	resp := cpfAccountResponse{
 		ID:               acc.ID,
 		UserID:           acc.UserID,
+		PersonID:         acc.PersonID,
+		PersonName:       acc.PersonName,
 		OABalance:        acc.OABalance,
 		SABalance:        acc.SABalance,
 		MABalance:        acc.MABalance,
 		RABalance:        acc.RABalance,
 		OAUsedForHousing: acc.OAUsedForHousing,
+		StartDate:        acc.StartDate.Format(time.RFC3339),
 		DateOfBirth:      acc.DateOfBirth.Format("2006-01-02"),
 		ResidencyStatus:  string(acc.ResidencyStatus),
 		CreatedAt:        acc.CreatedAt.Format(time.RFC3339),
@@ -85,6 +97,10 @@ func accountToResponse(acc *account.CPFAccount) cpfAccountResponse {
 	if acc.HousingStartDate != nil {
 		s := acc.HousingStartDate.Format(time.RFC3339)
 		resp.HousingStartDate = &s
+	}
+	if acc.EndDate != nil {
+		s := acc.EndDate.Format(time.RFC3339)
+		resp.EndDate = &s
 	}
 	if acc.PRGrantDate != nil {
 		s := acc.PRGrantDate.Format("2006-01-02")
@@ -113,6 +129,7 @@ func (h *CPFHandler) getAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 type createAccountRequest struct {
+	PersonName       string   `json:"person_name"`
 	OABalance        *float64 `json:"oa_balance"`
 	SABalance        *float64 `json:"sa_balance"`
 	MABalance        *float64 `json:"ma_balance"`
@@ -147,31 +164,57 @@ func (h *CPFHandler) createAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	residency := config.ResidencyCitizen
+	residency := "citizen"
 	if req.ResidencyStatus != "" {
-		residency = config.ResidencyStatus(req.ResidencyStatus)
+		residency = req.ResidencyStatus
 	}
 
-	acc := &account.CPFAccount{
-		UserID:          userID,
+	// Parse PR grant date if provided
+	var prGrantDate *time.Time
+	if req.PRGrantDate != nil && *req.PRGrantDate != "" {
+		t, err := time.Parse("2006-01-02", *req.PRGrantDate)
+		if err == nil {
+			prGrantDate = &t
+		}
+	}
+
+	// Person name defaults to "Self" if not provided
+	personName := req.PersonName
+	if personName == "" {
+		personName = "Self"
+	}
+
+	// Get or create the person
+	person, err := h.personsRepo.GetOrCreate(r.Context(), userID, personName, persons.CreateInput{
 		DateOfBirth:     dob,
 		ResidencyStatus: residency,
+		PRGrantDate:     prGrantDate,
+		IsIncluded:      true,
+	})
+	if err != nil {
+		internalError(w)
+		return
 	}
 
+	// Build account input
+	accountInput := account.CreateAccountInput{
+		UserID:   userID,
+		PersonID: person.ID,
+	}
 	if req.OABalance != nil {
-		acc.OABalance = *req.OABalance
+		accountInput.OABalance = *req.OABalance
 	}
 	if req.SABalance != nil {
-		acc.SABalance = *req.SABalance
+		accountInput.SABalance = *req.SABalance
 	}
 	if req.MABalance != nil {
-		acc.MABalance = *req.MABalance
+		accountInput.MABalance = *req.MABalance
 	}
 	if req.RABalance != nil {
-		acc.RABalance = *req.RABalance
+		accountInput.RABalance = *req.RABalance
 	}
 	if req.OAUsedForHousing != nil {
-		acc.OAUsedForHousing = *req.OAUsedForHousing
+		accountInput.OAUsedForHousing = *req.OAUsedForHousing
 	}
 	if req.HousingStartDate != nil && *req.HousingStartDate != "" {
 		t, err := time.Parse(time.RFC3339, *req.HousingStartDate)
@@ -179,17 +222,11 @@ func (h *CPFHandler) createAccount(w http.ResponseWriter, r *http.Request) {
 			t, err = time.Parse("2006-01-02", *req.HousingStartDate)
 		}
 		if err == nil {
-			acc.HousingStartDate = &t
-		}
-	}
-	if req.PRGrantDate != nil && *req.PRGrantDate != "" {
-		t, err := time.Parse("2006-01-02", *req.PRGrantDate)
-		if err == nil {
-			acc.PRGrantDate = &t
+			accountInput.HousingStartDate = &t
 		}
 	}
 
-	created, err := h.accountRepo.Upsert(r.Context(), acc)
+	created, err := h.accountRepo.Upsert(r.Context(), accountInput)
 	if err != nil {
 		internalError(w)
 		return
@@ -234,59 +271,94 @@ func (h *CPFHandler) updateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Apply updates
+	// Update person data if provided (DOB, residency, PR grant date are on persons table)
+	personUpdate := persons.UpdateInput{}
+	hasPersonUpdate := false
+
+	if req.DateOfBirth != nil {
+		dob, err := time.Parse("2006-01-02", *req.DateOfBirth)
+		if err == nil {
+			personUpdate.DateOfBirth = &dob
+			hasPersonUpdate = true
+		}
+	}
+	if req.ResidencyStatus != nil {
+		personUpdate.ResidencyStatus = req.ResidencyStatus
+		hasPersonUpdate = true
+	}
+	if req.PRGrantDate != nil {
+		if *req.PRGrantDate == "" {
+			// Clear PR grant date - set to zero time (will be treated as null)
+			// Note: The repo uses COALESCE, so we need a different approach for clearing
+			hasPersonUpdate = true
+		} else {
+			t, err := time.Parse("2006-01-02", *req.PRGrantDate)
+			if err == nil {
+				personUpdate.PRGrantDate = &t
+				hasPersonUpdate = true
+			}
+		}
+	}
+
+	if hasPersonUpdate {
+		_, err := h.personsRepo.Update(r.Context(), existing.PersonID, personUpdate)
+		if err != nil {
+			internalError(w)
+			return
+		}
+	}
+
+	// Build balance update input
+	balanceUpdate := account.UpdateBalancesInput{}
+	hasBalanceUpdate := false
+
 	if req.OABalance != nil {
-		existing.OABalance = *req.OABalance
+		balanceUpdate.OABalance = req.OABalance
+		hasBalanceUpdate = true
 	}
 	if req.SABalance != nil {
-		existing.SABalance = *req.SABalance
+		balanceUpdate.SABalance = req.SABalance
+		hasBalanceUpdate = true
 	}
 	if req.MABalance != nil {
-		existing.MABalance = *req.MABalance
+		balanceUpdate.MABalance = req.MABalance
+		hasBalanceUpdate = true
 	}
 	if req.RABalance != nil {
-		existing.RABalance = *req.RABalance
+		balanceUpdate.RABalance = req.RABalance
+		hasBalanceUpdate = true
 	}
 	if req.OAUsedForHousing != nil {
-		existing.OAUsedForHousing = *req.OAUsedForHousing
+		balanceUpdate.OAUsedForHousing = req.OAUsedForHousing
+		hasBalanceUpdate = true
 	}
 	if req.HousingStartDate != nil {
-		if *req.HousingStartDate == "" {
-			existing.HousingStartDate = nil
-		} else {
+		if *req.HousingStartDate != "" {
 			t, err := time.Parse(time.RFC3339, *req.HousingStartDate)
 			if err != nil {
 				t, err = time.Parse("2006-01-02", *req.HousingStartDate)
 			}
 			if err == nil {
-				existing.HousingStartDate = &t
-			}
-		}
-	}
-	if req.DateOfBirth != nil {
-		dob, err := time.Parse("2006-01-02", *req.DateOfBirth)
-		if err == nil {
-			existing.DateOfBirth = dob
-		}
-	}
-	if req.ResidencyStatus != nil {
-		existing.ResidencyStatus = config.ResidencyStatus(*req.ResidencyStatus)
-	}
-	if req.PRGrantDate != nil {
-		if *req.PRGrantDate == "" {
-			existing.PRGrantDate = nil
-		} else {
-			t, err := time.Parse("2006-01-02", *req.PRGrantDate)
-			if err == nil {
-				existing.PRGrantDate = &t
+				balanceUpdate.HousingStartDate = &t
+				hasBalanceUpdate = true
 			}
 		}
 	}
 
-	updated, err := h.accountRepo.Update(r.Context(), userID, existing)
-	if err != nil {
-		internalError(w)
-		return
+	var updated *account.CPFAccount
+	if hasBalanceUpdate {
+		updated, err = h.accountRepo.UpdateBalances(r.Context(), existing.ID, balanceUpdate)
+		if err != nil {
+			internalError(w)
+			return
+		}
+	} else {
+		// Re-fetch to get updated person data
+		updated, err = h.accountRepo.GetByID(r.Context(), existing.ID)
+		if err != nil {
+			internalError(w)
+			return
+		}
 	}
 
 	writeJSON(w, accountToResponse(updated))
@@ -725,4 +797,204 @@ func (h *CPFHandler) updateAssumptions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, assumptionsToResponse(updated))
+}
+
+// ===============================
+// Projection Endpoints
+// ===============================
+
+func (h *CPFHandler) handleProjectionRange(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	// Get CPF account
+	cpfAccount, err := h.accountRepo.Get(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, account.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "CPF account not found. Create a CPF account first.")
+			return
+		}
+		internalError(w)
+		return
+	}
+
+	// Get assumptions
+	assumptionsData, err := h.assumptionsRepo.GetOrCreateDefault(r.Context(), cpfAccount.ID)
+	if err != nil {
+		internalError(w)
+		return
+	}
+
+	// Get CPF config for current year
+	cfg, err := config.GetCurrentYear()
+	if err != nil {
+		internalError(w)
+		return
+	}
+
+	// Parse years parameter (default 30)
+	yearsStr := r.URL.Query().Get("years")
+	years := 30
+	if yearsStr != "" {
+		if parsed, err := strconv.Atoi(yearsStr); err == nil && parsed > 0 && parsed <= 50 {
+			years = parsed
+		}
+	}
+
+	// Parse monthly salary and bonus (optional - allows override)
+	monthlySalary := 8500.0 // Default
+	annualBonus := 25500.0  // Default (3 months)
+	if salaryStr := r.URL.Query().Get("monthlySalary"); salaryStr != "" {
+		if parsed, err := strconv.ParseFloat(salaryStr, 64); err == nil && parsed > 0 {
+			monthlySalary = parsed
+		}
+	}
+	if bonusStr := r.URL.Query().Get("annualBonus"); bonusStr != "" {
+		if parsed, err := strconv.ParseFloat(bonusStr, 64); err == nil && parsed >= 0 {
+			annualBonus = parsed
+		}
+	}
+
+	// Build projection input
+	input := projector.ProjectionInput{
+		OABalance:                    cpfAccount.OABalance,
+		SABalance:                    cpfAccount.SABalance,
+		MABalance:                    cpfAccount.MABalance,
+		RABalance:                    cpfAccount.RABalance,
+		DateOfBirth:                  cpfAccount.DateOfBirth,
+		CurrentDate:                  time.Now(),
+		MonthlySalary:                monthlySalary,
+		AnnualBonus:                  annualBonus,
+		InterestRateOA:               assumptionsData.InterestRateOA,
+		InterestRateSA:               assumptionsData.InterestRateSA,
+		InterestRateMA:               assumptionsData.InterestRateMA,
+		InterestRateRA:               assumptionsData.InterestRateRA,
+		ExtraInterestFirst60k:        assumptionsData.ExtraInterestFirst60k,
+		ExtraInterestFirst30kAbove55: assumptionsData.ExtraInterestFirst30kAbove55,
+		FRSGrowthRate:                assumptionsData.FRSGrowthRate,
+		SalaryGrowthRate:             assumptionsData.SalaryGrowthRate,
+		RetirementAge:                assumptionsData.RetirementAge,
+		AssumeContinuousEmployment:   assumptionsData.AssumeContinuousEmployment,
+		PayoutStartAge:               assumptionsData.PayoutStartAge,
+		FRS:                          cfg.Config.RetirementSums.FRS,
+		BRS:                          cfg.Config.RetirementSums.BRS,
+		ERS:                          cfg.Config.RetirementSums.ERS,
+		BHS:                          cfg.Config.BHS,
+	}
+
+	result := projector.ProjectRange(input, years)
+	writeJSON(w, projectionRangeToResponse(result))
+}
+
+type projectionRangeResponse struct {
+	Projections []projectionYearResponse `json:"projections"`
+	Milestones  milestonesResponse       `json:"milestones"`
+	Retirement  retirementResponse       `json:"retirement"`
+}
+
+type projectionYearResponse struct {
+	Year          int     `json:"year"`
+	Age           int     `json:"age"`
+	OA            float64 `json:"oa"`
+	SA            float64 `json:"sa"`
+	MA            float64 `json:"ma"`
+	RA            float64 `json:"ra"`
+	Total         float64 `json:"total"`
+	Contributions float64 `json:"contributions"`
+	Interest      float64 `json:"interest"`
+}
+
+type milestonesResponse struct {
+	Age55 *milestoneResponse `json:"age55,omitempty"`
+	Age65 *milestoneResponse `json:"age65,omitempty"`
+}
+
+type milestoneResponse struct {
+	Year     int                     `json:"year"`
+	Balances accountBalancesResponse `json:"balances"`
+}
+
+type accountBalancesResponse struct {
+	OA float64 `json:"oa"`
+	SA float64 `json:"sa"`
+	MA float64 `json:"ma"`
+	RA float64 `json:"ra"`
+}
+
+type retirementResponse struct {
+	FRSTarget        float64               `json:"frsTarget"`
+	BRSTarget        float64               `json:"brsTarget"`
+	ERSTarget        float64               `json:"ersTarget"`
+	CPFLifeEstimates cpfLifeEstimatesResp  `json:"cpfLifeEstimates"`
+}
+
+type cpfLifeEstimatesResp struct {
+	Standard   float64 `json:"standard"`
+	Basic      float64 `json:"basic"`
+	Escalating float64 `json:"escalating"`
+}
+
+func projectionRangeToResponse(result *projector.ProjectionRangeResult) projectionRangeResponse {
+	projections := make([]projectionYearResponse, len(result.Projections))
+	for i, p := range result.Projections {
+		projections[i] = projectionYearResponse{
+			Year:          p.Year,
+			Age:           p.Age,
+			OA:            p.OA,
+			SA:            p.SA,
+			MA:            p.MA,
+			RA:            p.RA,
+			Total:         p.Total,
+			Contributions: p.Contributions,
+			Interest:      p.Interest,
+		}
+	}
+
+	resp := projectionRangeResponse{
+		Projections: projections,
+		Milestones:  milestonesResponse{},
+		Retirement: retirementResponse{
+			FRSTarget: result.Retirement.FRSTarget,
+			BRSTarget: result.Retirement.BRSTarget,
+			ERSTarget: result.Retirement.ERSTarget,
+			CPFLifeEstimates: cpfLifeEstimatesResp{
+				Standard:   result.Retirement.CPFLifeEstimates.Standard,
+				Basic:      result.Retirement.CPFLifeEstimates.Basic,
+				Escalating: result.Retirement.CPFLifeEstimates.Escalating,
+			},
+		},
+	}
+
+	if result.Milestones.Age55 != nil {
+		resp.Milestones.Age55 = &milestoneResponse{
+			Year: result.Milestones.Age55.Year,
+			Balances: accountBalancesResponse{
+				OA: result.Milestones.Age55.Balances.OA,
+				SA: result.Milestones.Age55.Balances.SA,
+				MA: result.Milestones.Age55.Balances.MA,
+				RA: result.Milestones.Age55.Balances.RA,
+			},
+		}
+	}
+
+	if result.Milestones.Age65 != nil {
+		resp.Milestones.Age65 = &milestoneResponse{
+			Year: result.Milestones.Age65.Year,
+			Balances: accountBalancesResponse{
+				OA: result.Milestones.Age65.Balances.OA,
+				SA: result.Milestones.Age65.Balances.SA,
+				MA: result.Milestones.Age65.Balances.MA,
+				RA: result.Milestones.Age65.Balances.RA,
+			},
+		}
+	}
+
+	return resp
 }
