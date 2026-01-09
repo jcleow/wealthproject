@@ -23,7 +23,7 @@ function apiToLocal(response: CPFAssumptionsResponse): CPFAssumptions {
       extraFirst60k: parseFloat(response.interestRates.extraFirst60K),
       extraFirst30kAbove55: parseFloat(response.interestRates.extraFirst30KAbove55),
     },
-    inflationRate: parseFloat(response.growthRates.inflation),
+    inflationRate: 0.02, // Global assumption - not stored in CPF assumptions
     frsGrowthRate: parseFloat(response.growthRates.frs),
     salaryGrowthRate: parseFloat(response.growthRates.salary),
     assumeContinuousEmployment: response.employment.assumeContinuous,
@@ -48,7 +48,7 @@ function localToApi(local: CPFAssumptions, presetName: AssumptionPreset): CPFAss
       extraFirst30KAbove55: local.interestRates.extraFirst30kAbove55.toString(),
     },
     growthRates: {
-      inflation: local.inflationRate.toString(),
+      // inflation is a global assumption, not stored in CPF assumptions
       frs: local.frsGrowthRate.toString(),
       salary: local.salaryGrowthRate.toString(),
     },

@@ -55,8 +55,7 @@ type CPFAssumptions struct {
 	ExtraInterestFirst60K        decimal.Decimal `json:"extraInterestFirst60K"`
 	ExtraInterestFirst30KAbove55 decimal.Decimal `json:"extraInterestFirst30KAbove55"`
 
-	// Growth rate assumptions
-	InflationRate    decimal.Decimal `json:"inflationRate"`
+	// Growth rate assumptions (inflation_rate is global, not CPF-specific)
 	FRSGrowthRate    decimal.Decimal `json:"frsGrowthRate"`
 	SalaryGrowthRate decimal.Decimal `json:"salaryGrowthRate"`
 
@@ -89,7 +88,7 @@ func (r *Repository) GetByCPFAccountID(ctx context.Context, cpfAccountID string)
 		SELECT id, cpf_account_id,
 		       interest_rate_oa, interest_rate_sa, interest_rate_ma, interest_rate_ra,
 		       extra_interest_first_60k, extra_interest_first_30k_above_55,
-		       inflation_rate, frs_growth_rate, salary_growth_rate,
+		       frs_growth_rate, salary_growth_rate,
 		       assume_continuous_employment, retirement_age,
 		       cpf_life_plan, payout_start_age, escalating_plan_growth,
 		       preset_name
@@ -103,7 +102,7 @@ func (r *Repository) GetByCPFAccountID(ctx context.Context, cpfAccountID string)
 		&a.ID, &a.CPFAccountID,
 		&a.InterestRateOA, &a.InterestRateSA, &a.InterestRateMA, &a.InterestRateRA,
 		&a.ExtraInterestFirst60K, &a.ExtraInterestFirst30KAbove55,
-		&a.InflationRate, &a.FRSGrowthRate, &a.SalaryGrowthRate,
+		&a.FRSGrowthRate, &a.SalaryGrowthRate,
 		&a.AssumeContinuousEmployment, &a.RetirementAge,
 		&cpfLifePlan, &a.PayoutStartAge, &a.EscalatingPlanGrowth,
 		&presetName,
@@ -129,11 +128,11 @@ func (r *Repository) Upsert(ctx context.Context, a *CPFAssumptions) (*CPFAssumpt
 			cpf_account_id,
 			interest_rate_oa, interest_rate_sa, interest_rate_ma, interest_rate_ra,
 			extra_interest_first_60k, extra_interest_first_30k_above_55,
-			inflation_rate, frs_growth_rate, salary_growth_rate,
+			frs_growth_rate, salary_growth_rate,
 			assume_continuous_employment, retirement_age,
 			cpf_life_plan, payout_start_age, escalating_plan_growth,
 			preset_name
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		ON CONFLICT (cpf_account_id) DO UPDATE
 		SET interest_rate_oa = EXCLUDED.interest_rate_oa,
 		    interest_rate_sa = EXCLUDED.interest_rate_sa,
@@ -141,7 +140,6 @@ func (r *Repository) Upsert(ctx context.Context, a *CPFAssumptions) (*CPFAssumpt
 		    interest_rate_ra = EXCLUDED.interest_rate_ra,
 		    extra_interest_first_60k = EXCLUDED.extra_interest_first_60k,
 		    extra_interest_first_30k_above_55 = EXCLUDED.extra_interest_first_30k_above_55,
-		    inflation_rate = EXCLUDED.inflation_rate,
 		    frs_growth_rate = EXCLUDED.frs_growth_rate,
 		    salary_growth_rate = EXCLUDED.salary_growth_rate,
 		    assume_continuous_employment = EXCLUDED.assume_continuous_employment,
@@ -154,14 +152,14 @@ func (r *Repository) Upsert(ctx context.Context, a *CPFAssumptions) (*CPFAssumpt
 		RETURNING id, cpf_account_id,
 		          interest_rate_oa, interest_rate_sa, interest_rate_ma, interest_rate_ra,
 		          extra_interest_first_60k, extra_interest_first_30k_above_55,
-		          inflation_rate, frs_growth_rate, salary_growth_rate,
+		          frs_growth_rate, salary_growth_rate,
 		          assume_continuous_employment, retirement_age,
 		          cpf_life_plan, payout_start_age, escalating_plan_growth,
 		          preset_name`,
 		a.CPFAccountID,
 		a.InterestRateOA, a.InterestRateSA, a.InterestRateMA, a.InterestRateRA,
 		a.ExtraInterestFirst60K, a.ExtraInterestFirst30KAbove55,
-		a.InflationRate, a.FRSGrowthRate, a.SalaryGrowthRate,
+		a.FRSGrowthRate, a.SalaryGrowthRate,
 		a.AssumeContinuousEmployment, a.RetirementAge,
 		string(a.CPFLifePlan), a.PayoutStartAge, a.EscalatingPlanGrowth,
 		string(a.PresetName),
@@ -174,7 +172,7 @@ func (r *Repository) Upsert(ctx context.Context, a *CPFAssumptions) (*CPFAssumpt
 		&result.ID, &result.CPFAccountID,
 		&result.InterestRateOA, &result.InterestRateSA, &result.InterestRateMA, &result.InterestRateRA,
 		&result.ExtraInterestFirst60K, &result.ExtraInterestFirst30KAbove55,
-		&result.InflationRate, &result.FRSGrowthRate, &result.SalaryGrowthRate,
+		&result.FRSGrowthRate, &result.SalaryGrowthRate,
 		&result.AssumeContinuousEmployment, &result.RetirementAge,
 		&cpfLifePlan, &result.PayoutStartAge, &result.EscalatingPlanGrowth,
 		&presetName,
@@ -231,8 +229,7 @@ func DefaultAssumptions(cpfAccountID string) *CPFAssumptions {
 		ExtraInterestFirst60K:        *decimal.MustFromString("0.01"),  // +1%
 		ExtraInterestFirst30KAbove55: *decimal.MustFromString("0.01"),  // +1%
 
-		// Growth rate assumptions
-		InflationRate:    *decimal.MustFromString("0.02"),  // 2%
+		// Growth rate assumptions (inflation_rate is global, not CPF-specific)
 		FRSGrowthRate:    *decimal.MustFromString("0.035"), // 3.5%
 		SalaryGrowthRate: *decimal.MustFromString("0.03"),  // 3%
 

@@ -405,7 +405,6 @@ export interface CPFAssumptionsResponse {
     extraFirst30KAbove55: string
   }
   growthRates: {
-    inflation: string
     frs: string
     salary: string
   }
@@ -434,7 +433,6 @@ export interface CPFAssumptionsUpdateInput {
     extraFirst30KAbove55?: string
   }
   growthRates?: {
-    inflation?: string
     frs?: string
     salary?: string
   }

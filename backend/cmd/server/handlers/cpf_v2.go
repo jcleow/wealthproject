@@ -407,9 +407,8 @@ type cpfAssumptionsResponse struct {
 		ExtraFirst30KAbove55 string `json:"extraFirst30KAbove55"`
 	} `json:"interestRates"`
 	GrowthRates struct {
-		Inflation string `json:"inflation"`
-		FRS       string `json:"frs"`
-		Salary    string `json:"salary"`
+		FRS    string `json:"frs"`
+		Salary string `json:"salary"`
 	} `json:"growthRates"`
 	Employment struct {
 		AssumeContinuous bool `json:"assumeContinuous"`
@@ -436,7 +435,6 @@ func mapAssumptionsToResponse(a *assumptions.CPFAssumptions) *cpfAssumptionsResp
 	resp.InterestRates.RA = a.InterestRateRA.String()
 	resp.InterestRates.ExtraFirst60K = a.ExtraInterestFirst60K.String()
 	resp.InterestRates.ExtraFirst30KAbove55 = a.ExtraInterestFirst30KAbove55.String()
-	resp.GrowthRates.Inflation = a.InflationRate.String()
 	resp.GrowthRates.FRS = a.FRSGrowthRate.String()
 	resp.GrowthRates.Salary = a.SalaryGrowthRate.String()
 	resp.Employment.AssumeContinuous = a.AssumeContinuousEmployment
@@ -458,9 +456,8 @@ type cpfAssumptionsInput struct {
 		ExtraFirst30KAbove55 *string `json:"extraFirst30KAbove55"`
 	} `json:"interestRates"`
 	GrowthRates *struct {
-		Inflation *string `json:"inflation"`
-		FRS       *string `json:"frs"`
-		Salary    *string `json:"salary"`
+		FRS    *string `json:"frs"`
+		Salary *string `json:"salary"`
 	} `json:"growthRates"`
 	Employment *struct {
 		AssumeContinuous *bool `json:"assumeContinuous"`
@@ -607,11 +604,6 @@ func (h *CPFV2Handler) HandleUpdateAssumptions(w http.ResponseWriter, r *http.Re
 	}
 
 	if input.GrowthRates != nil {
-		if input.GrowthRates.Inflation != nil {
-			if d, err := decimal.NewFromString(*input.GrowthRates.Inflation); err == nil {
-				existing.InflationRate = *d
-			}
-		}
 		if input.GrowthRates.FRS != nil {
 			if d, err := decimal.NewFromString(*input.GrowthRates.FRS); err == nil {
 				existing.FRSGrowthRate = *d

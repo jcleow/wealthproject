@@ -11,8 +11,7 @@ CREATE TABLE cpf_assumptions (
     extra_interest_first_60k numeric(6,4) DEFAULT 0.01 NOT NULL,
     extra_interest_first_30k_above_55 numeric(6,4) DEFAULT 0.01 NOT NULL,
 
-    -- Growth rate assumptions
-    inflation_rate numeric(6,4) DEFAULT 0.02 NOT NULL,
+    -- Growth rate assumptions (inflation_rate is global, not CPF-specific)
     frs_growth_rate numeric(6,4) DEFAULT 0.035 NOT NULL,
     salary_growth_rate numeric(6,4) DEFAULT 0.03 NOT NULL,
 
