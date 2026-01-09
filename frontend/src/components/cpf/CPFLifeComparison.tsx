@@ -18,6 +18,7 @@ import { TrendingUp, Info, ExternalLink, Calculator } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { EXTERNAL_LINKS } from '@/lib/external-links'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 
 ChartJS.register(
@@ -226,7 +227,7 @@ export function CPFLifeComparison({ className }: CPFLifeComparisonProps) {
 
       {/* Link to CPF Calculator */}
       <a
-        href="https://www.cpf.gov.sg/member/retirement-income/monthly-payouts/cpf-life"
+        href={EXTERNAL_LINKS.cpf.cpfLife.url}
         target="_blank"
         rel="noopener noreferrer"
         className={cn(
@@ -454,7 +455,7 @@ export function CPFLifeComparison({ className }: CPFLifeComparisonProps) {
             The escalating plan assumes a 2% annual increase as per CPF LIFE terms.
             Actual payouts may vary. Always verify with{' '}
             <a
-              href="https://www.cpf.gov.sg"
+              href={EXTERNAL_LINKS.cpf.home.url}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-400 hover:underline"

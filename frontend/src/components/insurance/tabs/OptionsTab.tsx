@@ -13,6 +13,7 @@ import {
   Accessibility,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EXTERNAL_LINKS } from '@/lib/external-links'
 import type { RiskLayer } from '@/types/insurance'
 import { riskLayerConfig } from '@/types/insurance'
 
@@ -66,7 +67,7 @@ const mockOptions: CoverageOption[] = [
         'Some plans have waiting periods after policy starts',
       ],
     },
-    learnMoreUrl: 'https://www.moneysense.gov.sg/articles/2018/10/critical-illness-insurance',
+    learnMoreUrl: EXTERNAL_LINKS.insurance.moneySenseCriticalIllness.url,
   },
   {
     id: '2',
@@ -92,7 +93,7 @@ const mockOptions: CoverageOption[] = [
         'Premiums increase at renewal (for renewable term)',
       ],
     },
-    learnMoreUrl: 'https://www.moneysense.gov.sg/articles/2018/10/term-life-insurance',
+    learnMoreUrl: EXTERNAL_LINKS.insurance.moneySenseTermLife.url,
   },
   {
     id: '3',
@@ -118,7 +119,7 @@ const mockOptions: CoverageOption[] = [
         'Premiums can be higher for certain occupations',
       ],
     },
-    learnMoreUrl: 'https://www.moneysense.gov.sg/articles/2018/10/disability-income-insurance',
+    learnMoreUrl: EXTERNAL_LINKS.insurance.moneySenseDisabilityIncome.url,
   },
   {
     id: '4',
@@ -144,7 +145,7 @@ const mockOptions: CoverageOption[] = [
         'Some plans have panel restrictions',
       ],
     },
-    learnMoreUrl: 'https://www.moh.gov.sg/healthcare-schemes-subsidies/medishield-life/about-integrated-shield-plans',
+    learnMoreUrl: EXTERNAL_LINKS.government.mohIntegratedShieldPlans.url,
   },
 ]
 
@@ -215,7 +216,7 @@ export function OptionsTab() {
             <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-slate-500" />
             Compare multiple insurers before purchasing. Use{' '}
             <a
-              href="https://www.comparefirst.sg"
+              href={EXTERNAL_LINKS.insurance.compareFirst.url}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-400 hover:text-blue-300"

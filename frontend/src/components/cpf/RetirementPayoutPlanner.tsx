@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { Info, TrendingUp, Shield, ArrowUpRight, Banknote } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
+import { EXTERNAL_LINKS } from '@/lib/external-links'
 import type { CPFProfile } from '@/types/cpf'
 
 // CPF LIFE payout factors (approximate, per $1000 of RA balance)
@@ -371,7 +372,7 @@ text-center`}>
             on cohort-specific rates at time of enrollment, prevailing interest rates, and CPF
             Board policies. For accurate figures, use the{' '}
             <a
-              href="https://www.cpf.gov.sg/member/tools-and-services/calculators/cpf-life-estimator"
+              href={EXTERNAL_LINKS.cpf.cpfLifeEstimator.url}
               target="_blank"
               rel="noopener noreferrer"
               className="text-amber-400 underline hover:no-underline"

@@ -11,6 +11,7 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { EXTERNAL_LINKS } from '@/lib/external-links'
 import type { GovernmentCoverageStatus, GovernmentScheme } from '@/types/insurance'
 import {
   governmentSchemeInfo,
@@ -99,15 +100,12 @@ function SchemeItemExpanded({ status }: { status: GovernmentCoverageStatus }) {
   const info = governmentSchemeInfo[status.scheme]
   const limitations = governmentSchemeLimitations[status.scheme]
 
-  // URLs for each scheme
+  // URLs for each scheme - centralized in external-links.ts
   const schemeUrls: Record<GovernmentScheme, string> = {
-    medishield_life:
-      'https://www.cpf.gov.sg/member/healthcare-financing/medishield-life',
-    careshield_life:
-      'https://www.cpf.gov.sg/member/healthcare-financing/careshield-life',
-    eldershield:
-      'https://www.cpf.gov.sg/member/healthcare-financing/eldershield',
-    dps: 'https://www.cpf.gov.sg/member/account-services/providing-for-loved-ones/dps',
+    medishield_life: EXTERNAL_LINKS.cpf.medishieldLife.url,
+    careshield_life: EXTERNAL_LINKS.cpf.careshieldLife.url,
+    eldershield: EXTERNAL_LINKS.cpf.eldershield.url,
+    dps: EXTERNAL_LINKS.cpf.dps.url,
   }
 
   return (

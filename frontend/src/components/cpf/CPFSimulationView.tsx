@@ -30,6 +30,7 @@ import {
   mockCPFISInvestments,
   mockInvestibleBalance,
 } from '@/lib/cpf-mock-data'
+import { EXTERNAL_LINKS } from '@/lib/external-links'
 import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
 import {
   cpfAccountToProfile,
@@ -442,7 +443,7 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
             <>
               Demo data for illustration. Verify calculations with{' '}
               <a
-                href="https://www.cpf.gov.sg"
+                href={EXTERNAL_LINKS.cpf.home.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:underline"
@@ -454,7 +455,7 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
             <>
               Using your CPF data. Simulated age: {simulatedAge}. Verify with{' '}
               <a
-                href="https://www.cpf.gov.sg"
+                href={EXTERNAL_LINKS.cpf.home.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:underline"
