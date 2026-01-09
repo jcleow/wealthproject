@@ -2,7 +2,7 @@ import { apiClient } from '../client'
 import { normalizeScenarioEvent, normalizeScenarioEventList } from './transformers'
 import type { ScenarioEvent } from '@/types/scenario'
 import { scenarioEventToDto } from '@/types/scenario'
-import type { ScenarioEventV2DTO } from '@/types/api.generated'
+import type { ScenarioEventV2DTO } from '@/types/api.aliases'
 
 export async function listScenarioEvents(): Promise<ScenarioEvent[]> {
   const data = await apiClient.get<ScenarioEventV2DTO[]>('/scenario-events', undefined, { baseUrl: '/api/v2' })

@@ -10,7 +10,7 @@
  * ---------------------------------------------------------------
  */
 
-export enum ItemType {
+export enum TimelineItemType {
   ItemTypeAsset = "asset",
   ItemTypeLiability = "liability",
   ItemTypeIncome = "income",
@@ -18,7 +18,7 @@ export enum ItemType {
   ItemTypeCashAccount = "cash_account",
 }
 
-export enum Frequency {
+export enum CommonFrequency {
   FrequencyOneTime = "one_time",
   FrequencyMonthly = "monthly",
   FrequencyAnnual = "annual",
@@ -32,18 +32,767 @@ export enum Frequency {
   FrequencySemiannual = "semi_annual",
 }
 
-export interface AppliedImpact {
-  amountAnnual?: number;
-  amountMonthly?: number;
-  eventId?: string;
-  /** Percentage delta (e.g., 5 for +5%) */
+export interface FinancialChatSystemBackendInternalFinancialV2RepositoryExpense {
+  amount?: number;
+  category?: string;
+  /** NULL means ongoing */
+  endDate?: string;
+  frequency?: string;
   growthRate?: number;
-  /** delta, override, start, stop */
+  growthStrategy?: string;
+  id?: string;
+  /** How often delta adds (NULL for base/override) */
+  impactFrequency?: string;
+  /** NULL = base item, 'delta' = additive, 'override' = replaces */
   impactKind?: string;
+  name?: string;
   notes?: string;
+  parentId?: string;
+  /** Scenario impact fields */
+  scenarioEventId?: string;
+  /** Link to liability this expense pays down */
+  sourceLiabilityId?: string;
+  /** Precise start date (day-level) */
+  startDate?: string;
+  updatedAt?: string;
 }
 
-export interface CPFAccount {
+export interface FinancialChatSystemBackendInternalFinancialV2RepositoryGroupedExpenses {
+  count?: number;
+  debtRepayments?: FinancialChatSystemBackendInternalFinancialV2RepositoryExpense[];
+  limit?: number;
+  offset?: number;
+  regularExpenses?: FinancialChatSystemBackendInternalFinancialV2RepositoryExpense[];
+}
+
+export interface FinancialChatSystemBackendInternalFinancialV2RepositoryIncome {
+  amount?: number;
+  category?: string;
+  /** 'ow' (Ordinary Wages) or 'aw' (Additional Wages) */
+  cpfWageType?: string;
+  /** NULL means ongoing */
+  endDate?: string;
+  frequency?: string;
+  growthRate?: number;
+  growthStrategy?: string;
+  id?: string;
+  /** How often delta adds (NULL for base/override) */
+  impactFrequency?: string;
+  /** NULL = base item, 'delta' = additive, 'override' = replaces */
+  impactKind?: string;
+  /** CPF-related fields */
+  incomeType?: string;
+  name?: string;
+  notes?: string;
+  parentId?: string;
+  /** FK to persons table (required) */
+  personId?: string;
+  /** Display name from persons table (read-only, populated via JOIN) */
+  personName?: string;
+  /** Scenario impact fields */
+  scenarioEventId?: string;
+  /** Precise start date (day-level) - now required */
+  startDate?: string;
+  updatedAt?: string;
+}
+
+export interface FinancialChatSystemBackendInternalFinancialV2RepositoryInvestment {
+  category?: string;
+  currentValue?: number;
+  /** NULL means ongoing */
+  endDate?: string;
+  growthRate?: number;
+  growthStrategy?: string;
+  id?: string;
+  /** How often delta adds (NULL for base/override) */
+  impactFrequency?: string;
+  /** NULL = base item, 'delta' = additive, 'override' = replaces */
+  impactKind?: string;
+  name?: string;
+  notes?: string;
+  parentId?: string;
+  /** Scenario impact fields */
+  scenarioEventId?: string;
+  /** Precise start date (day-level) */
+  startDate?: string;
+  updatedAt?: string;
+}
+
+export interface FinancialChatSystemBackendInternalFinancialV2RepositoryLiability {
+  category?: string;
+  currentBalance?: number;
+  /** NULL means ongoing */
+  endDate?: string;
+  growthStrategy?: string;
+  id?: string;
+  /** How often delta adds (NULL for base/override) */
+  impactFrequency?: string;
+  /** NULL = base item, 'delta' = additive, 'override' = replaces */
+  impactKind?: string;
+  interestRateApr?: number;
+  minimumPayment?: number;
+  name?: string;
+  notes?: string;
+  parentId?: string;
+  repaymentStrategy?: string;
+  /** Scenario impact fields */
+  scenarioEventId?: string;
+  /** Precise start date (day-level) */
+  startDate?: string;
+  updatedAt?: string;
+}
+
+export interface FinancialChatSystemBackendInternalFinancialV2RepositoryPropertyScenario {
+  createdAt?: string;
+  id?: string;
+  myDetailsId?: string;
+  propertySgId?: string;
+  updatedAt?: string;
+  userId?: string;
+}
+
+export interface FinancialImpactEstimate {
+  description?: string;
+  monthly_change?: number;
+  net_worth_change?: number;
+}
+
+export interface FinancialProposedAction {
+  call_id?: string;
+  dependencies?: string[];
+  estimated_impact?: FinancialImpactEstimate;
+  friendly_description?: string;
+  parameters?: Record<string, any>;
+  tool_name?: string;
+  warnings?: FinancialWarning[];
+}
+
+export interface FinancialWarning {
+  message?: string;
+  /** "low", "medium", "high" */
+  severity?: string;
+  type?: string;
+}
+
+export interface HandlersChatRequest {
+  chat_id: string;
+  message: string;
+  session_id: string;
+}
+
+export interface HandlersChatResponse {
+  actions_executed?: number;
+  api_version?: string;
+  content?: string;
+  conversation_flow?: SessionConversationStep[];
+  message_id?: string;
+  proposed_actions?: FinancialProposedAction[];
+  requires_approval?: boolean;
+}
+
+export interface HandlersDispatchRequest {
+  selected_actions: HandlersSelectedAction[];
+  session_id: string;
+}
+
+export interface HandlersDispatchResponse {
+  api_version?: string;
+  results?: HandlersExecutionResult[];
+  summary?: HandlersExecutionSummary;
+  updated_session_state?: SessionSessionState;
+}
+
+export interface HandlersExecutionResult {
+  call_id?: string;
+  entity_id?: string;
+  error?: string;
+  execution_time_ms?: number;
+  rolled_back?: boolean;
+  success?: boolean;
+  tool_name?: string;
+}
+
+export interface HandlersExecutionSummary {
+  failed?: number;
+  skipped?: number;
+  /** "success", "partial_success", "failed" */
+  status?: string;
+  successful?: number;
+  total_actions?: number;
+  total_execution_time_ms?: number;
+}
+
+export interface HandlersHealthResponse {
+  services?: Record<string, any>;
+  status?: string;
+  timestamp?: string;
+  uptime?: string;
+  version?: string;
+}
+
+export interface HandlersSelectedAction {
+  approved?: boolean;
+  call_id: string;
+  modified_args?: Record<string, any>;
+}
+
+export interface HandlersTokenResponse {
+  expires?: string;
+  token?: string;
+  usage?: string;
+  userId?: string;
+}
+
+export interface HandlersAssetCreateInput {
+  annualGrowthRate?: string;
+  category?: string;
+  currentValue?: string;
+  endDate?: string;
+  growthStrategy?: string;
+  name?: string;
+  notes?: string;
+  startDate?: string;
+  terminalValue?: string;
+}
+
+export interface HandlersAssetInput {
+  annualGrowthRate?: string;
+  category?: string;
+  currentValue?: string;
+  endDate?: string;
+  growthStrategy?: string;
+  id?: string;
+  name?: string;
+  notes?: string;
+  parentId?: string;
+  startDate?: string;
+  terminalValue?: string;
+  updateMode?: string;
+}
+
+export interface HandlersCashAccountV2Input {
+  accountType?: string;
+  balance?: string;
+  bankName?: string;
+  growthStrategy?: string;
+  id?: string;
+  interestRate?: string;
+  name?: string;
+  notes?: string;
+  startDate?: string;
+  updateMode?: string;
+}
+
+export interface HandlersCpfV2CreateInput {
+  housingStartDate?: string;
+  maBalance?: string;
+  oaBalance?: string;
+  oaUsedForHousing?: string;
+  /** Required FK to persons table */
+  personId?: string;
+  raBalance?: string;
+  saBalance?: string;
+}
+
+export interface HandlersCpfV2Input {
+  housingStartDate?: string;
+  maBalance?: string;
+  oaBalance?: string;
+  oaUsedForHousing?: string;
+  /** Required FK to persons table */
+  personId?: string;
+  raBalance?: string;
+  saBalance?: string;
+  startDate?: string;
+  updateMode?: string;
+}
+
+export interface HandlersCreateFeeRequest {
+  amount?: string;
+  currency?: string;
+  description?: string;
+  endDate?: string;
+  feeContext?: string;
+  feeType?: string;
+  frequency?: string;
+  icon?: string;
+  iconColor?: string;
+  isPercentage?: boolean;
+  startDate?: string;
+}
+
+export interface HandlersCreateGrantRequest {
+  amount?: string;
+  name?: string;
+}
+
+export interface HandlersCreateGrowthPeriodRequest {
+  endYear?: number;
+  growthRate?: string;
+  growthStrategy?: string;
+  startYear?: number;
+}
+
+export interface HandlersCreatePropertySGRequest {
+  borrower1CpfAccountId?: string;
+  /** Sale proceeds destination accounts */
+  borrower1CpfRefundAccountId?: string;
+  /** Per-borrower cash account configuration (downpayment) */
+  borrower1DownpaymentCashAccountId?: string;
+  borrower1DownpaymentCashAmount?: string;
+  /** Per-borrower CPF OA tracking */
+  borrower1DownpaymentCpfOa?: string;
+  borrower1IncomeId?: string;
+  /** Per-borrower cash account configuration (monthly payment) */
+  borrower1MonthlyCashAccountId?: string;
+  borrower1MonthlyCashAmount?: string;
+  /** 'fixed', 'percentage', 'remainder' */
+  borrower1MonthlyCashAmountType?: string;
+  borrower1MonthlyCpfOa?: string;
+  borrower2CpfAccountId?: string;
+  borrower2CpfRefundAccountId?: string;
+  borrower2DownpaymentCashAccountId?: string;
+  borrower2DownpaymentCashAmount?: string;
+  borrower2DownpaymentCpfOa?: string;
+  borrower2IncomeId?: string;
+  borrower2MonthlyCashAccountId?: string;
+  borrower2MonthlyCashAmount?: string;
+  /** 'fixed', 'percentage', 'remainder' */
+  borrower2MonthlyCashAmountType?: string;
+  borrower2MonthlyCpfOa?: string;
+  borrowerType?: string;
+  btoKeyCollectionDate?: string;
+  btoLaunchDate?: string;
+  downpaymentCash?: string;
+  downpaymentCpfOa?: string;
+  isIncluded?: boolean;
+  /** Lease tenure: nil = freehold, 1-999 = remaining years */
+  leaseRemainingYears?: number;
+  loanType?: string;
+  name?: string;
+  netCashProceedsAccountId?: string;
+  otherDebt?: string;
+  propertyCount?: number;
+  propertyPrice?: string;
+  propertySubtype?: string;
+  propertyType?: string;
+  purchaseIcon?: string;
+  purchaseIconColor?: string;
+  saleExpectedDate?: string;
+  saleExpectedPrice?: string;
+  saleIcon?: string;
+  saleIconColor?: string;
+  valuationPrice?: string;
+}
+
+export interface HandlersCreateRatePeriodRequest {
+  /** Interest rate (percentage) */
+  rate?: string;
+  /** "fixed" or "floating" */
+  rateType?: string;
+  /** YYYY-MM format - for backwards compatibility */
+  startMonth?: string;
+  termYears?: number;
+}
+
+export interface HandlersCreateScenarioRequest {
+  /** "SG" | "MY" */
+  country?: string;
+  fees?: HandlersCreateFeeRequest[];
+  grants?: HandlersCreateGrantRequest[];
+  growthPeriods?: HandlersCreateGrowthPeriodRequest[];
+  propertySG?: HandlersCreatePropertySGRequest;
+  ratePeriods?: HandlersCreateRatePeriodRequest[];
+}
+
+export interface HandlersExpenseCreateInput {
+  amount?: string;
+  category?: string;
+  endDate?: string;
+  frequency?: string;
+  /** Creates a fund flow expense rule to pay from this account */
+  fundSourceAccountId?: string;
+  growthRate?: string;
+  growthStrategy?: string;
+  name?: string;
+  notes?: string;
+  parentId?: string;
+  sourceLiabilityId?: string;
+  startDate?: string;
+}
+
+export interface HandlersExpenseV2Input {
+  amount?: string;
+  category?: string;
+  frequency?: string;
+  growthRate?: string;
+  growthStrategy?: string;
+  id?: string;
+  name?: string;
+  notes?: string;
+  parentId?: string;
+  sourceLiabilityId?: string;
+  startDate?: string;
+  updateMode?: string;
+}
+
+export interface HandlersFundFlowRuleCreateDTO {
+  /** Amount */
+  amountType?: string;
+  amountValue?: string;
+  endDate?: string;
+  name?: string;
+  /** Priority for multiple rules on same target (lower = higher priority) */
+  priority?: number;
+  ruleType?: string;
+  sourceCashAccountId?: string;
+  sourceCpfAccountId?: string;
+  /** Source */
+  sourceIncomeId?: string;
+  sourceInvestmentId?: string;
+  /** Timing */
+  startDate?: string;
+  targetCashAccountId?: string;
+  /** Target */
+  targetCpfAccountId?: string;
+  targetExpenseId?: string;
+  targetInvestmentId?: string;
+  targetLiabilityId?: string;
+  targetPropertyId?: string;
+}
+
+export interface HandlersFundFlowRuleDTO {
+  /** Amount */
+  amountType?: string;
+  amountValue?: string;
+  /** Metadata */
+  createdAt?: string;
+  endDate?: string;
+  id?: string;
+  name?: string;
+  /** Priority for multiple rules on same target (lower = higher priority) */
+  priority?: number;
+  ruleType?: string;
+  sourceCashAccountId?: string;
+  sourceCpfAccountId?: string;
+  /** Source */
+  sourceIncomeId?: string;
+  sourceInvestmentId?: string;
+  /** Timing */
+  startDate?: string;
+  targetCashAccountId?: string;
+  /** Target */
+  targetCpfAccountId?: string;
+  targetExpenseId?: string;
+  targetInvestmentId?: string;
+  targetLiabilityId?: string;
+  targetPropertyId?: string;
+  updatedAt?: string;
+  userId?: string;
+}
+
+export interface HandlersGrowthPeriodResponse {
+  assetId?: string;
+  createdAt?: string;
+  endYear?: number;
+  growthRate?: string;
+  growthStrategy?: string;
+  id?: string;
+  propertySgId?: string;
+  startYear?: number;
+}
+
+export interface HandlersIncomeV2CreateInput {
+  amount?: string;
+  category?: string;
+  cpfWageType?: string;
+  endDate?: string;
+  frequency?: string;
+  growthRate?: string;
+  growthStrategy?: string;
+  name?: string;
+  notes?: string;
+  /** Required FK to persons table */
+  personId?: string;
+  startDate?: string;
+}
+
+export interface HandlersIncomeV2Input {
+  amount?: string;
+  category?: string;
+  frequency?: string;
+  growthRate?: string;
+  growthStrategy?: string;
+  id?: string;
+  name?: string;
+  notes?: string;
+  parentId?: string;
+  /** Required FK to persons table */
+  personId?: string;
+  startDate?: string;
+  updateMode?: string;
+}
+
+export interface HandlersInvestmentCreateInput {
+  annualGrowthRate?: string;
+  category?: string;
+  currentValue?: string;
+  endDate?: string;
+  growthStrategy?: string;
+  name?: string;
+  notes?: string;
+  startDate?: string;
+}
+
+export interface HandlersInvestmentV2Input {
+  category?: string;
+  currentValue?: string;
+  growthRate?: string;
+  growthStrategy?: string;
+  id?: string;
+  name?: string;
+  notes?: string;
+  parentId?: string;
+  startDate?: string;
+  updateMode?: string;
+}
+
+export interface HandlersLiabilityCreateInput {
+  category?: string;
+  currentBalance?: string;
+  endDate?: string;
+  growthStrategy?: string;
+  interestRateApr?: string;
+  minimumPayment?: string;
+  name?: string;
+  notes?: string;
+  repaymentStrategy?: string;
+  startDate?: string;
+}
+
+export interface HandlersLiabilityInput {
+  category?: string;
+  currentBalance?: string;
+  growthStrategy?: string;
+  id?: string;
+  interestRateApr?: string;
+  minimumPayment?: string;
+  name?: string;
+  notes?: string;
+  parentId?: string;
+  repaymentStrategy?: string;
+  startDate?: string;
+  updateMode?: string;
+}
+
+export interface HandlersLiabilityRatePeriodResponse {
+  createdAt?: string;
+  id?: string;
+  liabilityId?: string;
+  periodOrder?: number;
+  propertySgId?: string;
+  rate?: string;
+  rateType?: string;
+  startDate?: string;
+  termYears?: number;
+}
+
+export interface HandlersPersonV2CreateInput {
+  /** Required, format: "2006-01-02" */
+  dateOfBirth?: string;
+  displayColor?: string;
+  name?: string;
+  /** Required if residencyStatus='pr', format: "2006-01-02" */
+  prGrantDate?: string;
+  /** 'citizen' or 'pr' (PR year is computed from prGrantDate) */
+  residencyStatus?: string;
+}
+
+export interface HandlersPersonV2UpdateInput {
+  /** Optional for updates, format: "2006-01-02" */
+  dateOfBirth?: string;
+  displayColor?: string;
+  isIncluded?: boolean;
+  name?: string;
+  /** Required if residencyStatus='pr', format: "2006-01-02" */
+  prGrantDate?: string;
+  /** 'citizen' or 'pr' */
+  residencyStatus?: string;
+}
+
+export interface HandlersScenarioEventV2DTO {
+  description?: string;
+  displayColor?: string;
+  displayIcon?: string;
+  id?: string;
+  impacts?: HandlersScenarioImpactV2DTO[];
+  isIncluded?: boolean;
+  name?: string;
+  occursOn?: string;
+  scenarioId?: string;
+  tags?: string[];
+}
+
+export interface HandlersScenarioImpactV2DTO {
+  /** Amount as string (e.g., "5000"), converted to decimal internally */
+  amount?: string;
+  /** Frequency for delta impacts (stored in DB) */
+  cadence?: CommonFrequency;
+  /** Advanced fields for start impacts - used to configure the created financial item */
+  category?: string;
+  /** Currency (derived field for response) */
+  currency?: string;
+  /** End date for the item */
+  endDate?: string;
+  /** Frequency for income/expense items */
+  frequency?: string;
+  /** Growth rate (%) - applied based on growth strategy */
+  growthRate?: number;
+  /** How growth is applied (none, annual_step, compound) */
+  growthStrategy?: string;
+  /** Impact ID (returned by server, sent back for updates) */
+  id?: string;
+  /** Required: start, delta, override, stop */
+  impactKind?: string;
+  /** Liability-specific fields for start impacts */
+  interestRate?: number;
+  /** Min payment for liabilities */
+  minimumPayment?: number;
+  /** Name for start impacts (creates new item with this name) */
+  name?: string;
+  /** Notes for the financial item */
+  notes?: string;
+  /** Required for delta/override/stop (ID of existing item to modify) */
+  parentId?: string;
+  /** Income-specific fields for start impacts */
+  personId?: string;
+  /** Start date for the item */
+  startDate?: string;
+  /** Required: asset, liability, income, expense, cash, investment */
+  targetType?: string;
+}
+
+export interface HandlersScenarioResponse {
+  computed?: PropertyComputedValues;
+  fees?: RepositoryPropertyFee[];
+  grants?: RepositoryPropertySGGrant[];
+  growthPeriods?: HandlersGrowthPeriodResponse[];
+  propertySG?: RepositoryPropertySG;
+  ratePeriods?: HandlersLiabilityRatePeriodResponse[];
+  scenario?: FinancialChatSystemBackendInternalFinancialV2RepositoryPropertyScenario;
+}
+
+export interface HandlersStopFundFlowRuleDTO {
+  /** ISO 8601 format (e.g., "2031-03-31T23:59:59Z") */
+  endDate?: string;
+}
+
+export interface HandlersStopInput {
+  endDate?: string;
+}
+
+export interface LlmChatMessage {
+  /** Message content */
+  content?: string;
+  /** Optional name for tool messages */
+  name?: string;
+  /** "user", "assistant", "system", "tool" */
+  role?: string;
+  /** ID of tool call this message responds to */
+  tool_call_id?: string;
+  /** Tool calls in this message */
+  tool_calls?: LlmToolCall[];
+}
+
+export interface LlmFunctionCall {
+  /** JSON string of function arguments */
+  arguments?: string;
+  /** Function name (e.g., "create_asset") */
+  name?: string;
+}
+
+export interface LlmToolCall {
+  /** Function details */
+  function?: LlmFunctionCall;
+  /** Unique identifier for this tool call */
+  id?: string;
+  /** Always "function" for function calls */
+  type?: string;
+}
+
+export interface PropertyCPFOAAccountUsageInfo {
+  accountId?: string;
+  oaBalance?: string;
+  personId?: string;
+  remaining?: string;
+  totalUsed?: string;
+  usedElsewhere?: string;
+  usedHere?: string;
+}
+
+export interface PropertyComputedValues {
+  absdAmount?: string;
+  bsdAmount?: string;
+  cpfOaUsageByAccount?: PropertyCPFOAAccountUsageInfo[];
+  effectiveTdsrRatio?: string;
+  loanAmount?: string;
+  monthlyPayment?: string;
+  /** Cross-property context (only populated when scenario is included) */
+  otherMortgageTotal?: string;
+  /** Projected CPF OA balances at purchase date */
+  projectedBorrower1OA?: string;
+  projectedBorrower2OA?: string;
+  tdsrLimit?: string;
+  totalAmountPaid?: string;
+  totalInterest?: string;
+  totalStampDuty?: string;
+  totalUpfrontCash?: string;
+}
+
+export interface PropertyMortgagePaymentSnapshot {
+  /** Current interest rate (APR %) */
+  currentRate?: number;
+  /** Interest paid this month */
+  interestPortion?: number;
+  /** Total monthly payment */
+  monthlyTotal?: number;
+  /** Principal paid this month */
+  principalPortion?: number;
+  /** "fixed" or "floating" */
+  rateType?: string;
+}
+
+export interface PropertyPropertyFeeSnapshot {
+  /** Computed amount */
+  amount?: number;
+  /** When the fee is due */
+  date?: string;
+  /** "purchase", "recurring", "sale" */
+  feeContext?: string;
+  id?: string;
+  name?: string;
+}
+
+export interface PropertyPropertySnapshot {
+  fees?: PropertyPropertyFeeSnapshot[];
+  icon?: string;
+  iconColor?: string;
+  id?: string;
+  /** Current/projected outstanding balance */
+  mortgageBalance?: number;
+  /** Monthly payment breakdown */
+  mortgagePayment?: PropertyMortgagePaymentSnapshot;
+  name?: string;
+  /** PropertyValue - MortgageBalance */
+  netEquity?: number;
+  /** Current/projected value at this point */
+  propertyValue?: number;
+  /** First rate period start_month */
+  purchaseDate?: string;
+  saleDate?: string;
+}
+
+export interface RepositoryCPFAccount {
   createdAt?: string;
   /** Person-related fields (read-only, populated via JOIN from persons table) */
   dateOfBirth?: string;
@@ -81,50 +830,7 @@ export interface CPFAccount {
   userId?: string;
 }
 
-export interface CPFAssetResponse {
-  balance?: number;
-  category?: string;
-  eventAdjBalance?: number;
-  id?: string;
-  itemType?: string;
-  name?: string;
-  parentId?: string;
-  personId?: string;
-  personName?: string;
-  startDate?: string;
-  startMonth?: number;
-  startYear?: number;
-}
-
-export interface CPFContributionResponse {
-  allocationMa?: number;
-  allocationOa?: number;
-  allocationRa?: number;
-  allocationSa?: number;
-  category?: string;
-  employeeContribution?: number;
-  employerContribution?: number;
-  id?: string;
-  itemType?: string;
-  name?: string;
-  parentId?: string;
-  sourceFrequency?: string;
-  startMonth?: number;
-  startYear?: number;
-  totalContribution?: number;
-}
-
-export interface CPFOAAccountUsageInfo {
-  accountId?: string;
-  oaBalance?: string;
-  personId?: string;
-  remaining?: string;
-  totalUsed?: string;
-  usedElsewhere?: string;
-  usedHere?: string;
-}
-
-export interface CashAsset {
+export interface RepositoryCashAsset {
   /** 'checking', 'savings', 'money_market' */
   accountType?: string;
   balance?: number;
@@ -153,410 +859,7 @@ export interface CashAsset {
   userId?: string;
 }
 
-export interface CashAssetResponse {
-  balance?: number;
-  category?: string;
-  eventAdjBalance?: number;
-  eventImpacts?: AppliedImpact[];
-  isAccumulator?: boolean;
-  itemId?: string;
-  itemType?: string;
-  name?: string;
-  startMonth?: number;
-  startYear?: number;
-}
-
-export interface ChatMessage {
-  /** Message content */
-  content?: string;
-  /** Optional name for tool messages */
-  name?: string;
-  /** "user", "assistant", "system", "tool" */
-  role?: string;
-  /** ID of tool call this message responds to */
-  tool_call_id?: string;
-  /** Tool calls in this message */
-  tool_calls?: ToolCall[];
-}
-
-export interface ChatRequest {
-  chat_id: string;
-  message: string;
-  session_id: string;
-}
-
-export interface ChatResponse {
-  actions_executed?: number;
-  api_version?: string;
-  content?: string;
-  conversation_flow?: ConversationStep[];
-  message_id?: string;
-  proposed_actions?: ProposedAction[];
-  requires_approval?: boolean;
-}
-
-export interface ComputedValues {
-  absdAmount?: string;
-  bsdAmount?: string;
-  cpfOaUsageByAccount?: CPFOAAccountUsageInfo[];
-  effectiveTdsrRatio?: string;
-  loanAmount?: string;
-  monthlyPayment?: string;
-  /** Cross-property context (only populated when scenario is included) */
-  otherMortgageTotal?: string;
-  /** Projected CPF OA balances at purchase date */
-  projectedBorrower1OA?: string;
-  projectedBorrower2OA?: string;
-  tdsrLimit?: string;
-  totalAmountPaid?: string;
-  totalInterest?: string;
-  totalStampDuty?: string;
-  totalUpfrontCash?: string;
-}
-
-export interface ConversationStep {
-  content?: string;
-  result?: Record<string, any>;
-  step_id?: string;
-  timestamp?: string;
-  tool_calls?: string[];
-  tool_name?: string;
-  /** "user_message", "llm_response", "tool_execution" */
-  type?: string;
-}
-
-export interface DispatchRequest {
-  selected_actions: SelectedAction[];
-  session_id: string;
-}
-
-export interface DispatchResponse {
-  api_version?: string;
-  results?: ExecutionResult[];
-  summary?: ExecutionSummary;
-  updated_session_state?: SessionState;
-}
-
-export interface EventImpactSummary {
-  /** annualized */
-  amountAnnual?: number;
-  amountMonthly?: number;
-  cadence?: string;
-  eventId?: string;
-  /** override|delta|start|stop */
-  impactKind?: string;
-  notes?: string;
-}
-
-export interface ExecutionResult {
-  call_id?: string;
-  entity_id?: string;
-  error?: string;
-  execution_time_ms?: number;
-  rolled_back?: boolean;
-  success?: boolean;
-  tool_name?: string;
-}
-
-export interface ExecutionSummary {
-  failed?: number;
-  skipped?: number;
-  /** "success", "partial_success", "failed" */
-  status?: string;
-  successful?: number;
-  total_actions?: number;
-  total_execution_time_ms?: number;
-}
-
-export interface Expense {
-  amount?: number;
-  category?: string;
-  /** NULL means ongoing */
-  endDate?: string;
-  frequency?: string;
-  growthRate?: number;
-  growthStrategy?: string;
-  id?: string;
-  /** How often delta adds (NULL for base/override) */
-  impactFrequency?: string;
-  /** NULL = base item, 'delta' = additive, 'override' = replaces */
-  impactKind?: string;
-  name?: string;
-  notes?: string;
-  parentId?: string;
-  /** Scenario impact fields */
-  scenarioEventId?: string;
-  /** Link to liability this expense pays down */
-  sourceLiabilityId?: string;
-  /** Precise start date (day-level) */
-  startDate?: string;
-  updatedAt?: string;
-}
-
-export interface ExpenseResponse {
-  /** Monthly amount */
-  amount?: number;
-  /** Sum of 12 monthly amounts (accounts for growth) */
-  annualAmount?: number;
-  category?: string;
-  /** Monthly amount with scenario impacts */
-  eventAdjAmount?: number;
-  /** Sum of 12 monthly amounts with scenario impacts */
-  eventAdjAnnualAmount?: number;
-  eventImpacts?: AppliedImpact[];
-  /** Property fee specific fields */
-  icon?: string;
-  /** Icon color for property fees */
-  iconColor?: string;
-  id?: string;
-  itemType?: string;
-  name?: string;
-  parentId?: string;
-  /** If set, this item was created by a start impact */
-  scenarioEventId?: string;
-  sourceFrequency?: string;
-  /** Link to liability this expense pays down */
-  sourceLiabilityId?: string;
-  startMonth?: number;
-  startYear?: number;
-}
-
-export interface FunctionCall {
-  /** JSON string of function arguments */
-  arguments?: string;
-  /** Function name (e.g., "create_asset") */
-  name?: string;
-}
-
-export interface GroupedExpenses {
-  count?: number;
-  debtRepayments?: Expense[];
-  limit?: number;
-  offset?: number;
-  regularExpenses?: Expense[];
-}
-
-export interface GrowthApplied {
-  annualRatePct?: number;
-  category?: string;
-}
-
-export interface HealthResponse {
-  services?: Record<string, any>;
-  status?: string;
-  timestamp?: string;
-  uptime?: string;
-  version?: string;
-}
-
-export interface ImpactEstimate {
-  description?: string;
-  monthly_change?: number;
-  net_worth_change?: number;
-}
-
-export interface Income {
-  amount?: number;
-  category?: string;
-  /** 'ow' (Ordinary Wages) or 'aw' (Additional Wages) */
-  cpfWageType?: string;
-  /** NULL means ongoing */
-  endDate?: string;
-  frequency?: string;
-  growthRate?: number;
-  growthStrategy?: string;
-  id?: string;
-  /** How often delta adds (NULL for base/override) */
-  impactFrequency?: string;
-  /** NULL = base item, 'delta' = additive, 'override' = replaces */
-  impactKind?: string;
-  /** CPF-related fields */
-  incomeType?: string;
-  name?: string;
-  notes?: string;
-  parentId?: string;
-  /** FK to persons table (required) */
-  personId?: string;
-  /** Display name from persons table (read-only, populated via JOIN) */
-  personName?: string;
-  /** Scenario impact fields */
-  scenarioEventId?: string;
-  /** Precise start date (day-level) - now required */
-  startDate?: string;
-  updatedAt?: string;
-}
-
-export interface IncomeAllocationResponse {
-  allocationType?: string;
-  allocationValue?: number;
-  endDate?: string;
-  id?: string;
-  incomeId?: string;
-  parentId?: string;
-  startDate?: string;
-  targetCashAccountId?: string;
-  targetInvestmentId?: string;
-}
-
-export interface IncomeResponse {
-  allocationMa?: number;
-  /** CPF allocation breakdown */
-  allocationOa?: number;
-  allocationRa?: number;
-  allocationSa?: number;
-  /** Monthly amount */
-  amount?: number;
-  /** Sum of 12 monthly amounts (accounts for growth) */
-  annualAmount?: number;
-  category?: string;
-  employeeCpf?: number;
-  employerCpf?: number;
-  /** Monthly amount with scenario impacts */
-  eventAdjAmount?: number;
-  /** Sum of 12 monthly amounts with scenario impacts */
-  eventAdjAnnualAmount?: number;
-  eventImpacts?: AppliedImpact[];
-  growthRate?: number;
-  id?: string;
-  itemType?: string;
-  name?: string;
-  netTakeHomePay?: number;
-  parentId?: string;
-  personId?: string;
-  personName?: string;
-  /** If set, this item was created by a start impact */
-  scenarioEventId?: string;
-  sourceFrequency?: string;
-  startMonth?: number;
-  startYear?: number;
-  totalCpf?: number;
-}
-
-export interface Investment {
-  category?: string;
-  currentValue?: number;
-  /** NULL means ongoing */
-  endDate?: string;
-  growthRate?: number;
-  growthStrategy?: string;
-  id?: string;
-  /** How often delta adds (NULL for base/override) */
-  impactFrequency?: string;
-  /** NULL = base item, 'delta' = additive, 'override' = replaces */
-  impactKind?: string;
-  name?: string;
-  notes?: string;
-  parentId?: string;
-  /** Scenario impact fields */
-  scenarioEventId?: string;
-  /** Precise start date (day-level) */
-  startDate?: string;
-  updatedAt?: string;
-}
-
-export interface InvestmentResponse {
-  balance?: number;
-  category?: string;
-  eventAdjBalance?: number;
-  eventImpacts?: AppliedImpact[];
-  growthRate?: number;
-  id?: string;
-  itemType?: string;
-  name?: string;
-  parentId?: string;
-  /** If set, this item was created by a start impact */
-  scenarioEventId?: string;
-  startDate?: string;
-  startMonth?: number;
-  startYear?: number;
-}
-
-export interface Liability {
-  category?: string;
-  currentBalance?: number;
-  /** NULL means ongoing */
-  endDate?: string;
-  growthStrategy?: string;
-  id?: string;
-  /** How often delta adds (NULL for base/override) */
-  impactFrequency?: string;
-  /** NULL = base item, 'delta' = additive, 'override' = replaces */
-  impactKind?: string;
-  interestRateApr?: number;
-  minimumPayment?: number;
-  name?: string;
-  notes?: string;
-  parentId?: string;
-  repaymentStrategy?: string;
-  /** Scenario impact fields */
-  scenarioEventId?: string;
-  /** Precise start date (day-level) */
-  startDate?: string;
-  updatedAt?: string;
-}
-
-export interface LiabilityResponse {
-  /** Point-in-time balance */
-  balance?: number;
-  category?: string;
-  /** Adjusted balance with scenario events */
-  eventAdjBalance?: number;
-  eventImpacts?: AppliedImpact[];
-  id?: string;
-  itemType?: string;
-  name?: string;
-  parentId?: string;
-  /** Fund flow payment attribution */
-  paymentSources?: PaymentSourceResponse[];
-  /** If set, this item was created by a start impact */
-  scenarioEventId?: string;
-  sourceAmount?: number;
-  startMonth?: number;
-  startYear?: number;
-}
-
-export interface MonthDetailResponse {
-  accumulatorAccountId?: string;
-  allMonthsIndex?: number;
-  allYearsIndex?: number;
-  cashAssets?: CashAssetResponse[];
-  cpfAssets?: CPFAssetResponse[];
-  cpfContributions?: CPFContributionResponse[];
-  expenses?: ExpenseResponse[];
-  income?: IncomeResponse[];
-  incomeAllocations?: IncomeAllocationResponse[];
-  investments?: InvestmentResponse[];
-  liabilities?: LiabilityResponse[];
-  month?: number;
-  /** income - employee CPF - expenses - investments (monthly) */
-  netCash?: number;
-  /** employee CPF contribution (monthly) */
-  netInvestments?: number;
-  /** Savings breakdown */
-  netSavings?: number;
-  netWorth?: number;
-  nonCashAssets?: NonCashAssetResponse[];
-  properties?: PropertySnapshot[];
-  /** Other totals */
-  totalAssets?: number;
-  totalLiabilities?: number;
-  year?: number;
-}
-
-export interface MortgagePaymentSnapshot {
-  /** Current interest rate (APR %) */
-  currentRate?: number;
-  /** Interest paid this month */
-  interestPortion?: number;
-  /** Total monthly payment */
-  monthlyTotal?: number;
-  /** Principal paid this month */
-  principalPortion?: number;
-  /** "fixed" or "floating" */
-  rateType?: string;
-}
-
-export interface NonCashAsset {
+export interface RepositoryNonCashAsset {
   annualGrowthRate?: number;
   category?: string;
   currentValue?: number;
@@ -580,45 +883,7 @@ export interface NonCashAsset {
   updatedAt?: string;
 }
 
-export interface NonCashAssetResponse {
-  balance?: number;
-  category?: string;
-  eventAdjBalance?: number;
-  eventImpacts?: AppliedImpact[];
-  id?: string;
-  itemType?: string;
-  name?: string;
-  parentId?: string;
-  /** If set, this item was created by a start impact */
-  scenarioEventId?: string;
-  startDate?: string;
-  startMonth?: number;
-  startYear?: number;
-}
-
-export interface PaymentSourceResponse {
-  amount?: number;
-  ruleId?: string;
-  ruleName?: string;
-  sourceId?: string;
-  sourceName?: string;
-  /** "cpf" or "cash" */
-  sourceType?: string;
-  /** True if this was a lower-priority rule covering remainder */
-  usedFallback?: boolean;
-}
-
-export interface PendingToolCall {
-  call_id?: string;
-  created_at?: string;
-  dependencies?: string[];
-  friendly_description?: string;
-  parameters?: Record<string, any>;
-  preview?: string;
-  tool_name?: string;
-}
-
-export interface Person {
+export interface RepositoryPerson {
   cpfCount?: number;
   createdAt?: string;
   dateOfBirth?: string;
@@ -635,7 +900,7 @@ export interface Person {
   userId?: string;
 }
 
-export interface PropertyFee {
+export interface RepositoryPropertyFee {
   amount?: number;
   createdAt?: string;
   currency?: string;
@@ -655,18 +920,7 @@ export interface PropertyFee {
   startDate?: string;
 }
 
-export interface PropertyFeeSnapshot {
-  /** Computed amount */
-  amount?: number;
-  /** When the fee is due */
-  date?: string;
-  /** "purchase", "recurring", "sale" */
-  feeContext?: string;
-  id?: string;
-  name?: string;
-}
-
-export interface PropertySG {
+export interface RepositoryPropertySG {
   borrower1CpfAccountId?: string;
   /** Sale proceeds destination accounts */
   borrower1CpfRefundAccountId?: string;
@@ -726,7 +980,7 @@ export interface PropertySG {
   valuationPrice?: number;
 }
 
-export interface PropertySGGrant {
+export interface RepositoryPropertySGGrant {
   amount?: number;
   createdAt?: string;
   id?: string;
@@ -734,73 +988,59 @@ export interface PropertySGGrant {
   propertySgId?: string;
 }
 
-export interface PropertyScenario {
-  createdAt?: string;
-  id?: string;
-  myDetailsId?: string;
-  propertySgId?: string;
-  updatedAt?: string;
-  userId?: string;
+export interface SessionConversationStep {
+  content?: string;
+  result?: Record<string, any>;
+  step_id?: string;
+  timestamp?: string;
+  tool_calls?: string[];
+  tool_name?: string;
+  /** "user_message", "llm_response", "tool_execution" */
+  type?: string;
 }
 
-export interface PropertySnapshot {
-  fees?: PropertyFeeSnapshot[];
-  icon?: string;
-  iconColor?: string;
-  id?: string;
-  /** Current/projected outstanding balance */
-  mortgageBalance?: number;
-  /** Monthly payment breakdown */
-  mortgagePayment?: MortgagePaymentSnapshot;
-  name?: string;
-  /** PropertyValue - MortgageBalance */
-  netEquity?: number;
-  /** Current/projected value at this point */
-  propertyValue?: number;
-  /** First rate period start_month */
-  purchaseDate?: string;
-  saleDate?: string;
-}
-
-export interface ProposedAction {
+export interface SessionPendingToolCall {
   call_id?: string;
+  created_at?: string;
   dependencies?: string[];
-  estimated_impact?: ImpactEstimate;
   friendly_description?: string;
   parameters?: Record<string, any>;
+  preview?: string;
   tool_name?: string;
-  warnings?: Warning[];
 }
 
-export interface SelectedAction {
-  approved?: boolean;
-  call_id: string;
-  modified_args?: Record<string, any>;
-}
-
-export interface SessionState {
+export interface SessionSessionState {
   chat_id?: string;
-  conversation_flow?: ConversationStep[];
+  conversation_flow?: SessionConversationStep[];
   created_at?: string;
   last_asset_id?: string;
   last_liability_id?: string;
   last_property_plan_id?: string;
-  messages?: ChatMessage[];
+  messages?: LlmChatMessage[];
   metadata?: Record<string, string>;
-  pending_actions?: PendingToolCall[];
+  pending_actions?: SessionPendingToolCall[];
   session_id?: string;
   updated_at?: string;
   user_id?: string;
 }
 
-export interface TimelineAnnualChartResponse {
-  months?: TimelineMonthlySummary[];
-  resolution?: string;
-  scenarioIds?: string[];
-  years?: TimelineYearlySummary[];
+export interface TimelineEventImpactSummary {
+  /** annualized */
+  amountAnnual?: number;
+  amountMonthly?: number;
+  cadence?: string;
+  eventId?: string;
+  /** override|delta|start|stop */
+  impactKind?: string;
+  notes?: string;
 }
 
-export interface TimelineItem {
+export interface TimelineGrowthApplied {
+  annualRatePct?: number;
+  category?: string;
+}
+
+export interface TimelineTimelineItem {
   adjAnnualAmt?: number;
   /** Adjusted monthly amount */
   adjMonthlyAmt?: number;
@@ -808,14 +1048,14 @@ export interface TimelineItem {
   /** Monthly amount (when resolution is monthly) */
   amountMonthly?: number;
   category?: string;
-  eventImpacts?: EventImpactSummary[];
+  eventImpacts?: TimelineEventImpactSummary[];
   /** GrowthRate is the per-item annual growth rate (percentage) */
   growthRate?: number;
   /** IsAccumulator indicates this is the designated cash account receiving net savings (cash accounts only) */
   isAccumulator?: boolean;
   /** ItemID is the stable logical identifier used for scenario matching (parent_id if present, else row id). */
   itemId?: string;
-  itemType?: ItemType;
+  itemType?: TimelineItemType;
   name?: string;
   /** ParentID is the original/base item id when this row is a child; else same as RowID. */
   parentId?: string;
@@ -828,18 +1068,18 @@ export interface TimelineItem {
   startYear?: number;
 }
 
-export interface TimelineMonth {
+export interface TimelineTimelineMonth {
   accumulatedCashEnd?: number;
   accumulatedCashStart?: number;
   accumulatorAccountId?: string;
-  assets?: TimelineItem[];
-  cashAccounts?: TimelineItem[];
-  expenses?: TimelineItem[];
-  growthApplied?: GrowthApplied[];
+  assets?: TimelineTimelineItem[];
+  cashAccounts?: TimelineTimelineItem[];
+  expenses?: TimelineTimelineItem[];
+  growthApplied?: TimelineGrowthApplied[];
   hasOverrides?: boolean;
-  income?: TimelineItem[];
+  income?: TimelineTimelineItem[];
   interestEarned?: number;
-  liabilities?: TimelineItem[];
+  liabilities?: TimelineTimelineItem[];
   /** Month number (1-12) */
   month?: number;
   /** 0-based global month index */
@@ -855,29 +1095,17 @@ export interface TimelineMonth {
   yearIndex?: number;
 }
 
-export interface TimelineMonthlySummary {
-  allMonthsIndex?: number;
-  month?: number;
-  netWorth?: number;
-  totalAssets?: number;
-  totalLiabilities?: number;
-}
-
-export interface TimelineResponse {
-  months?: TimelineMonth[];
+export interface TimelineTimelineResponse {
+  months?: TimelineTimelineMonth[];
   /** "yearly" or "monthly" */
   resolution?: string;
   /** ScenariosApplied lists scenario IDs merged into this response (optional). */
   scenariosApplied?: string[];
   version?: string;
-  years?: TimelineYear[];
+  years?: TimelineTimelineYear[];
 }
 
-export interface TimelineV2Response {
-  months?: MonthDetailResponse[];
-}
-
-export interface TimelineYear {
+export interface TimelineTimelineYear {
   /** Cash balance at end of year (after interest) */
   accumulatedCashEnd?: number;
   /** Cash balance at start of year */
@@ -886,16 +1114,16 @@ export interface TimelineYear {
   accumulatorAccountId?: string;
   /** Cash accumulation tracking */
   annualNetSavings?: number;
-  assets?: TimelineItem[];
+  assets?: TimelineTimelineItem[];
   /** Cash accounts from finance_cash_accounts table */
-  cashAccounts?: TimelineItem[];
-  expenses?: TimelineItem[];
-  growthApplied?: GrowthApplied[];
+  cashAccounts?: TimelineTimelineItem[];
+  expenses?: TimelineTimelineItem[];
+  growthApplied?: TimelineGrowthApplied[];
   hasOverrides?: boolean;
-  income?: TimelineItem[];
+  income?: TimelineTimelineItem[];
   /** Interest earned this year on accumulator */
   interestEarned?: number;
-  liabilities?: TimelineItem[];
+  liabilities?: TimelineTimelineItem[];
   /** Income - Expenses (annual net savings) */
   netCash?: number;
   /** Assets + CashAccounts - Liabilities */
@@ -903,304 +1131,106 @@ export interface TimelineYear {
   year?: number;
 }
 
-export interface TimelineYearlySummary {
-  allYearsIndex?: number;
-  netWorth?: number;
-  totalAssets?: number;
-  totalLiabilities?: number;
-  year?: number;
-}
-
-export interface TokenResponse {
-  expires?: string;
-  token?: string;
-  usage?: string;
-  userId?: string;
-}
-
-export interface ToolCall {
-  /** Function details */
-  function?: FunctionCall;
-  /** Unique identifier for this tool call */
-  id?: string;
-  /** Always "function" for function calls */
-  type?: string;
-}
-
-export interface Warning {
-  message?: string;
-  /** "low", "medium", "high" */
-  severity?: string;
-  type?: string;
-}
-
-export interface AssetCreateInput {
-  annualGrowthRate?: string;
-  category?: string;
-  currentValue?: string;
-  endDate?: string;
-  growthStrategy?: string;
-  name?: string;
+export interface TimelineV2AppliedImpact {
+  amountAnnual?: number;
+  amountMonthly?: number;
+  eventId?: string;
+  /** Percentage delta (e.g., 5 for +5%) */
+  growthRate?: number;
+  /** delta, override, start, stop */
+  impactKind?: string;
   notes?: string;
-  startDate?: string;
-  terminalValue?: string;
 }
 
-export interface AssetInput {
-  annualGrowthRate?: string;
+export interface TimelineV2CPFAssetResponse {
+  balance?: number;
   category?: string;
-  currentValue?: string;
-  endDate?: string;
-  growthStrategy?: string;
+  eventAdjBalance?: number;
   id?: string;
+  itemType?: string;
   name?: string;
-  notes?: string;
   parentId?: string;
+  personId?: string;
+  personName?: string;
   startDate?: string;
-  terminalValue?: string;
-  updateMode?: string;
+  startMonth?: number;
+  startYear?: number;
 }
 
-export interface CashAccountV2Input {
-  accountType?: string;
-  balance?: string;
-  bankName?: string;
-  growthStrategy?: string;
+export interface TimelineV2CPFContributionResponse {
+  allocationMa?: number;
+  allocationOa?: number;
+  allocationRa?: number;
+  allocationSa?: number;
+  category?: string;
+  employeeContribution?: number;
+  employerContribution?: number;
   id?: string;
-  interestRate?: string;
+  itemType?: string;
   name?: string;
-  notes?: string;
-  startDate?: string;
-  updateMode?: string;
+  parentId?: string;
+  sourceFrequency?: string;
+  startMonth?: number;
+  startYear?: number;
+  totalContribution?: number;
 }
 
-export interface CpfV2CreateInput {
-  housingStartDate?: string;
-  maBalance?: string;
-  oaBalance?: string;
-  oaUsedForHousing?: string;
-  /** Required FK to persons table */
-  personId?: string;
-  raBalance?: string;
-  saBalance?: string;
+export interface TimelineV2CPFRefundResponse {
+  id?: string;
+  /** "cpf_refund" */
+  itemType?: string;
+  name?: string;
+  propertyName?: string;
+  /** YYYY-MM format */
+  refundDate?: string;
+  targetAccountId?: string;
+  totalRefund?: number;
 }
 
-export interface CpfV2Input {
-  housingStartDate?: string;
-  maBalance?: string;
-  oaBalance?: string;
-  oaUsedForHousing?: string;
-  /** Required FK to persons table */
-  personId?: string;
-  raBalance?: string;
-  saBalance?: string;
-  startDate?: string;
-  updateMode?: string;
+export interface TimelineV2CashAssetResponse {
+  balance?: number;
+  category?: string;
+  eventAdjBalance?: number;
+  eventImpacts?: TimelineV2AppliedImpact[];
+  isAccumulator?: boolean;
+  itemId?: string;
+  itemType?: string;
+  name?: string;
+  startMonth?: number;
+  startYear?: number;
 }
 
-export interface CreateFeeRequest {
-  amount?: string;
-  currency?: string;
-  description?: string;
-  endDate?: string;
-  feeContext?: string;
-  feeType?: string;
-  frequency?: string;
+export interface TimelineV2ExpenseResponse {
+  /** Monthly amount */
+  amount?: number;
+  /** Sum of 12 monthly amounts (accounts for growth) */
+  annualAmount?: number;
+  category?: string;
+  /** Monthly amount with scenario impacts */
+  eventAdjAmount?: number;
+  /** Sum of 12 monthly amounts with scenario impacts */
+  eventAdjAnnualAmount?: number;
+  eventImpacts?: TimelineV2AppliedImpact[];
+  /** Property fee specific fields */
   icon?: string;
+  /** Icon color for property fees */
   iconColor?: string;
-  isPercentage?: boolean;
-  startDate?: string;
-}
-
-export interface CreateGrantRequest {
-  amount?: string;
+  id?: string;
+  itemType?: string;
   name?: string;
-}
-
-export interface CreateGrowthPeriodRequest {
-  endYear?: number;
-  growthRate?: string;
-  growthStrategy?: string;
+  parentId?: string;
+  /** If set, this item was created by a start impact */
+  scenarioEventId?: string;
+  sourceFrequency?: string;
+  /** Link to liability this expense pays down */
+  sourceLiabilityId?: string;
+  startMonth?: number;
   startYear?: number;
 }
 
-export interface CreatePropertySGRequest {
-  borrower1CpfAccountId?: string;
-  /** Sale proceeds destination accounts */
-  borrower1CpfRefundAccountId?: string;
-  /** Per-borrower cash account configuration (downpayment) */
-  borrower1DownpaymentCashAccountId?: string;
-  borrower1DownpaymentCashAmount?: string;
-  /** Per-borrower CPF OA tracking */
-  borrower1DownpaymentCpfOa?: string;
-  borrower1IncomeId?: string;
-  /** Per-borrower cash account configuration (monthly payment) */
-  borrower1MonthlyCashAccountId?: string;
-  borrower1MonthlyCashAmount?: string;
-  /** 'fixed', 'percentage', 'remainder' */
-  borrower1MonthlyCashAmountType?: string;
-  borrower1MonthlyCpfOa?: string;
-  borrower2CpfAccountId?: string;
-  borrower2CpfRefundAccountId?: string;
-  borrower2DownpaymentCashAccountId?: string;
-  borrower2DownpaymentCashAmount?: string;
-  borrower2DownpaymentCpfOa?: string;
-  borrower2IncomeId?: string;
-  borrower2MonthlyCashAccountId?: string;
-  borrower2MonthlyCashAmount?: string;
-  /** 'fixed', 'percentage', 'remainder' */
-  borrower2MonthlyCashAmountType?: string;
-  borrower2MonthlyCpfOa?: string;
-  borrowerType?: string;
-  btoKeyCollectionDate?: string;
-  btoLaunchDate?: string;
-  downpaymentCash?: string;
-  downpaymentCpfOa?: string;
-  isIncluded?: boolean;
-  /** Lease tenure: nil = freehold, 1-999 = remaining years */
-  leaseRemainingYears?: number;
-  loanType?: string;
-  name?: string;
-  netCashProceedsAccountId?: string;
-  otherDebt?: string;
-  propertyCount?: number;
-  propertyPrice?: string;
-  propertySubtype?: string;
-  propertyType?: string;
-  purchaseIcon?: string;
-  purchaseIconColor?: string;
-  saleExpectedDate?: string;
-  saleExpectedPrice?: string;
-  saleIcon?: string;
-  saleIconColor?: string;
-  valuationPrice?: string;
-}
-
-export interface CreateRatePeriodRequest {
-  /** Interest rate (percentage) */
-  rate?: string;
-  /** "fixed" or "floating" */
-  rateType?: string;
-  /** YYYY-MM format - for backwards compatibility */
-  startMonth?: string;
-  termYears?: number;
-}
-
-export interface CreateScenarioRequest {
-  /** "SG" | "MY" */
-  country?: string;
-  fees?: CreateFeeRequest[];
-  grants?: CreateGrantRequest[];
-  growthPeriods?: CreateGrowthPeriodRequest[];
-  propertySG?: CreatePropertySGRequest;
-  ratePeriods?: CreateRatePeriodRequest[];
-}
-
-export interface ExpenseCreateInput {
-  amount?: string;
-  category?: string;
-  endDate?: string;
-  frequency?: string;
-  fundSourceAccountId?: string;
-  growthRate?: string;
-  growthStrategy?: string;
-  name?: string;
-  notes?: string;
-  parentId?: string;
-  sourceLiabilityId?: string;
-  startDate?: string;
-}
-
-export interface ExpenseV2Input {
-  amount?: string;
-  category?: string;
-  frequency?: string;
-  growthRate?: string;
-  growthStrategy?: string;
-  id?: string;
-  name?: string;
-  notes?: string;
-  parentId?: string;
-  sourceLiabilityId?: string;
-  startDate?: string;
-  updateMode?: string;
-}
-
-export interface FundFlowRuleCreateDTO {
-  /** Amount */
-  amountType?: string;
-  amountValue?: string;
-  endDate?: string;
-  name?: string;
-  /** Priority for multiple rules on same target (lower = higher priority) */
-  priority?: number;
-  ruleType?: string;
-  sourceCashAccountId?: string;
-  sourceCpfAccountId?: string;
-  /** Source */
-  sourceIncomeId?: string;
-  sourceInvestmentId?: string;
-  /** Timing */
-  startDate?: string;
-  targetCashAccountId?: string;
-  /** Target */
-  targetCpfAccountId?: string;
-  targetInvestmentId?: string;
-  targetLiabilityId?: string;
-  targetPropertyId?: string;
-}
-
-export interface FundFlowRuleDTO {
-  /** Amount */
-  amountType?: string;
-  amountValue?: string;
-  /** Metadata */
-  createdAt?: string;
-  endDate?: string;
-  id?: string;
-  name?: string;
-  /** Priority for multiple rules on same target (lower = higher priority) */
-  priority?: number;
-  ruleType?: string;
-  sourceCashAccountId?: string;
-  sourceCpfAccountId?: string;
-  /** Source */
-  sourceIncomeId?: string;
-  sourceInvestmentId?: string;
-  /** Timing */
-  startDate?: string;
-  targetCashAccountId?: string;
-  /** Target */
-  targetCpfAccountId?: string;
-  targetInvestmentId?: string;
-  targetLiabilityId?: string;
-  targetPropertyId?: string;
-  updatedAt?: string;
-  userId?: string;
-}
-
-export interface GrowthPeriodResponse {
-  assetId?: string;
-  createdAt?: string;
-  endYear?: number;
-  growthRate?: string;
-  growthStrategy?: string;
-  id?: string;
-  propertySgId?: string;
-  startYear?: number;
-}
-
-export interface IncomeAllocationCreateDTO {
+export interface TimelineV2IncomeAllocationResponse {
   allocationType?: string;
-  allocationValue?: string;
-  targetCashAccountId?: string;
-  targetInvestmentId?: string;
-}
-
-export interface IncomeAllocationV2DTO {
-  allocationType?: string;
-  allocationValue?: string;
-  createdAt?: string;
+  allocationValue?: number;
   endDate?: string;
   id?: string;
   incomeId?: string;
@@ -1210,196 +1240,157 @@ export interface IncomeAllocationV2DTO {
   targetInvestmentId?: string;
 }
 
-export interface IncomeV2CreateInput {
-  amount?: string;
+export interface TimelineV2IncomeResponse {
+  allocationMa?: number;
+  /** CPF allocation breakdown */
+  allocationOa?: number;
+  allocationRa?: number;
+  allocationSa?: number;
+  /** Monthly amount */
+  amount?: number;
+  /** Sum of 12 monthly amounts (accounts for growth) */
+  annualAmount?: number;
   category?: string;
-  cpfWageType?: string;
-  endDate?: string;
-  frequency?: string;
-  growthRate?: string;
-  growthStrategy?: string;
-  name?: string;
-  notes?: string;
-  /** Required FK to persons table */
-  personId?: string;
-  startDate?: string;
-}
-
-export interface IncomeV2Input {
-  amount?: string;
-  category?: string;
-  frequency?: string;
-  growthRate?: string;
-  growthStrategy?: string;
-  id?: string;
-  name?: string;
-  notes?: string;
-  parentId?: string;
-  /** Required FK to persons table */
-  personId?: string;
-  startDate?: string;
-  updateMode?: string;
-}
-
-export interface InvestmentCreateInput {
-  annualGrowthRate?: string;
-  category?: string;
-  currentValue?: string;
-  endDate?: string;
-  growthStrategy?: string;
-  name?: string;
-  notes?: string;
-  startDate?: string;
-}
-
-export interface InvestmentV2Input {
-  category?: string;
-  currentValue?: string;
-  growthRate?: string;
-  growthStrategy?: string;
-  id?: string;
-  name?: string;
-  notes?: string;
-  parentId?: string;
-  startDate?: string;
-  updateMode?: string;
-}
-
-export interface LiabilityCreateInput {
-  category?: string;
-  currentBalance?: string;
-  endDate?: string;
-  growthStrategy?: string;
-  interestRateApr?: string;
-  minimumPayment?: string;
-  name?: string;
-  notes?: string;
-  repaymentStrategy?: string;
-  startDate?: string;
-}
-
-export interface LiabilityInput {
-  category?: string;
-  currentBalance?: string;
-  growthStrategy?: string;
-  id?: string;
-  interestRateApr?: string;
-  minimumPayment?: string;
-  name?: string;
-  notes?: string;
-  parentId?: string;
-  repaymentStrategy?: string;
-  startDate?: string;
-  updateMode?: string;
-}
-
-export interface LiabilityRatePeriodResponse {
-  createdAt?: string;
-  id?: string;
-  liabilityId?: string;
-  periodOrder?: number;
-  propertySgId?: string;
-  rate?: string;
-  rateType?: string;
-  startDate?: string;
-  termYears?: number;
-}
-
-export interface PersonV2CreateInput {
-  /** Required, format: "2006-01-02" */
-  dateOfBirth?: string;
-  displayColor?: string;
-  name?: string;
-  /** Required if residencyStatus='pr', format: "2006-01-02" */
-  prGrantDate?: string;
-  /** 'citizen' or 'pr' (PR year is computed from prGrantDate) */
-  residencyStatus?: string;
-}
-
-export interface PersonV2UpdateInput {
-  /** Optional for updates, format: "2006-01-02" */
-  dateOfBirth?: string;
-  displayColor?: string;
-  isIncluded?: boolean;
-  name?: string;
-  /** Required if residencyStatus='pr', format: "2006-01-02" */
-  prGrantDate?: string;
-  /** 'citizen' or 'pr' */
-  residencyStatus?: string;
-}
-
-export interface ScenarioEventV2DTO {
-  description?: string;
-  displayColor?: string;
-  displayIcon?: string;
-  id?: string;
-  impacts?: ScenarioImpactV2DTO[];
-  isIncluded?: boolean;
-  name?: string;
-  occursOn?: string;
-  scenarioId?: string;
-  tags?: string[];
-}
-
-export interface ScenarioImpactV2DTO {
-  /** Amount as string (e.g., "5000"), converted to decimal internally */
-  amount?: string;
-  /** Frequency for delta impacts (stored in DB) */
-  cadence?: Frequency;
-  /** Advanced fields for start impacts - used to configure the created financial item */
-  category?: string;
-  /** Currency (derived field for response) */
-  currency?: string;
-  /** End date for the item */
-  endDate?: string;
-  /** Frequency for income/expense items */
-  frequency?: string;
-  /** Growth rate (%) - applied based on growth strategy */
+  employeeCpf?: number;
+  employerCpf?: number;
+  /** Monthly amount with scenario impacts */
+  eventAdjAmount?: number;
+  /** Sum of 12 monthly amounts with scenario impacts */
+  eventAdjAnnualAmount?: number;
+  eventImpacts?: TimelineV2AppliedImpact[];
   growthRate?: number;
-  /** How growth is applied (none, annual_step, compound) */
-  growthStrategy?: string;
-  /** Impact ID (returned by server, sent back for updates) */
   id?: string;
-  /** Required: start, delta, override, stop */
-  impactKind?: string;
-  /** Liability-specific fields for start impacts */
-  interestRate?: number;
-  /** Min payment for liabilities */
-  minimumPayment?: number;
-  /** Name for start impacts (creates new item with this name) */
+  itemType?: string;
   name?: string;
-  /** Notes for the financial item */
-  notes?: string;
-  /** Required for delta/override/stop (ID of existing item to modify) */
+  netTakeHomePay?: number;
   parentId?: string;
-  /** Income-specific fields for start impacts */
   personId?: string;
-  /** Start date for the item */
+  personName?: string;
+  /** If set, this item was created by a start impact */
+  scenarioEventId?: string;
+  sourceFrequency?: string;
+  startMonth?: number;
+  startYear?: number;
+  totalCpf?: number;
+}
+
+export interface TimelineV2InvestmentResponse {
+  balance?: number;
+  category?: string;
+  eventAdjBalance?: number;
+  eventImpacts?: TimelineV2AppliedImpact[];
+  growthRate?: number;
+  id?: string;
+  itemType?: string;
+  name?: string;
+  parentId?: string;
+  /** If set, this item was created by a start impact */
+  scenarioEventId?: string;
   startDate?: string;
-  /** Required: asset, liability, income, expense, cash, investment */
-  targetType?: string;
+  startMonth?: number;
+  startYear?: number;
 }
 
-export interface ScenarioResponse {
-  computed?: ComputedValues;
-  fees?: PropertyFee[];
-  grants?: PropertySGGrant[];
-  growthPeriods?: GrowthPeriodResponse[];
-  propertySG?: PropertySG;
-  ratePeriods?: LiabilityRatePeriodResponse[];
-  scenario?: PropertyScenario;
+export interface TimelineV2LiabilityResponse {
+  /** Point-in-time balance */
+  balance?: number;
+  category?: string;
+  /** Adjusted balance with scenario events */
+  eventAdjBalance?: number;
+  eventImpacts?: TimelineV2AppliedImpact[];
+  id?: string;
+  itemType?: string;
+  name?: string;
+  parentId?: string;
+  /** Fund flow payment attribution */
+  paymentSources?: TimelineV2PaymentSourceResponse[];
+  /** If set, this item was created by a start impact */
+  scenarioEventId?: string;
+  sourceAmount?: number;
+  startMonth?: number;
+  startYear?: number;
 }
 
-export interface StopAllocationDTO {
-  /** ISO 8601 format (e.g., "2031-03-31T23:59:59Z") */
-  endDate?: string;
+export interface TimelineV2MonthDetailResponse {
+  accumulatorAccountId?: string;
+  allMonthsIndex?: number;
+  allYearsIndex?: number;
+  cashAssets?: TimelineV2CashAssetResponse[];
+  cpfAssets?: TimelineV2CPFAssetResponse[];
+  cpfContributions?: TimelineV2CPFContributionResponse[];
+  cpfRefunds?: TimelineV2CPFRefundResponse[];
+  expenses?: TimelineV2ExpenseResponse[];
+  income?: TimelineV2IncomeResponse[];
+  incomeAllocations?: TimelineV2IncomeAllocationResponse[];
+  investments?: TimelineV2InvestmentResponse[];
+  liabilities?: TimelineV2LiabilityResponse[];
+  month?: number;
+  /** income - employee CPF - expenses - investments (monthly) */
+  netCash?: number;
+  /** employee CPF contribution (monthly) */
+  netInvestments?: number;
+  /** Savings breakdown */
+  netSavings?: number;
+  netWorth?: number;
+  nonCashAssets?: TimelineV2NonCashAssetResponse[];
+  properties?: PropertyPropertySnapshot[];
+  /** Other totals */
+  totalAssets?: number;
+  totalLiabilities?: number;
+  year?: number;
 }
 
-export interface StopFundFlowRuleDTO {
-  /** ISO 8601 format (e.g., "2031-03-31T23:59:59Z") */
-  endDate?: string;
+export interface TimelineV2NonCashAssetResponse {
+  balance?: number;
+  category?: string;
+  eventAdjBalance?: number;
+  eventImpacts?: TimelineV2AppliedImpact[];
+  id?: string;
+  itemType?: string;
+  name?: string;
+  parentId?: string;
+  /** If set, this item was created by a start impact */
+  scenarioEventId?: string;
+  startDate?: string;
+  startMonth?: number;
+  startYear?: number;
 }
 
-export interface StopInput {
-  endDate?: string;
+export interface TimelineV2PaymentSourceResponse {
+  amount?: number;
+  ruleId?: string;
+  ruleName?: string;
+  sourceId?: string;
+  sourceName?: string;
+  /** "cpf" or "cash" */
+  sourceType?: string;
+  /** True if this was a lower-priority rule covering remainder */
+  usedFallback?: boolean;
+}
+
+export interface TimelineV2TimelineAnnualChartResponse {
+  months?: TimelineV2TimelineMonthlySummary[];
+  resolution?: string;
+  scenarioIds?: string[];
+  years?: TimelineV2TimelineYearlySummary[];
+}
+
+export interface TimelineV2TimelineMonthlySummary {
+  allMonthsIndex?: number;
+  month?: number;
+  netWorth?: number;
+  totalAssets?: number;
+  totalLiabilities?: number;
+}
+
+export interface TimelineV2TimelineV2Response {
+  months?: TimelineV2MonthDetailResponse[];
+}
+
+export interface TimelineV2TimelineYearlySummary {
+  allYearsIndex?: number;
+  netWorth?: number;
+  totalAssets?: number;
+  totalLiabilities?: number;
+  year?: number;
 }

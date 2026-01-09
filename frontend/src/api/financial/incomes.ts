@@ -11,7 +11,7 @@ import type {
   IncomeAllocationCreateDTO,
   StopInput,
   StopAllocationDTO,
-} from '@/types/api.generated'
+} from '@/types/api.aliases'
 
 // Income Allocation Types - re-export from generated for convenience
 export type IncomeAllocation = IncomeAllocationV2DTO & {

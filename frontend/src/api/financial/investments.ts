@@ -8,7 +8,7 @@ import type {
   InvestmentCreateInput,
   InvestmentV2Input,
   StopInput,
-} from '@/types/api.generated'
+} from '@/types/api.aliases'
 
 // Investment shares the same shape as Asset but uses finance_investments table
 export type Investment = Asset
