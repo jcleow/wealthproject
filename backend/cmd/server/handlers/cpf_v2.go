@@ -407,12 +407,10 @@ type cpfAssumptionsResponse struct {
 		ExtraFirst30KAbove55 string `json:"extraFirst30KAbove55"`
 	} `json:"interestRates"`
 	GrowthRates struct {
-		FRS    string `json:"frs"`
-		Salary string `json:"salary"`
+		FRS string `json:"frs"`
 	} `json:"growthRates"`
 	Employment struct {
-		AssumeContinuous bool `json:"assumeContinuous"`
-		RetirementAge    int  `json:"retirementAge"`
+		RetirementAge int `json:"retirementAge"`
 	} `json:"employment"`
 	CPFLife struct {
 		Plan             string `json:"plan"`
@@ -436,8 +434,6 @@ func mapAssumptionsToResponse(a *assumptions.CPFAssumptions) *cpfAssumptionsResp
 	resp.InterestRates.ExtraFirst60K = a.ExtraInterestFirst60K.String()
 	resp.InterestRates.ExtraFirst30KAbove55 = a.ExtraInterestFirst30KAbove55.String()
 	resp.GrowthRates.FRS = a.FRSGrowthRate.String()
-	resp.GrowthRates.Salary = a.SalaryGrowthRate.String()
-	resp.Employment.AssumeContinuous = a.AssumeContinuousEmployment
 	resp.Employment.RetirementAge = a.RetirementAge
 	resp.CPFLife.Plan = string(a.CPFLifePlan)
 	resp.CPFLife.PayoutStartAge = a.PayoutStartAge
@@ -456,12 +452,10 @@ type cpfAssumptionsInput struct {
 		ExtraFirst30KAbove55 *string `json:"extraFirst30KAbove55"`
 	} `json:"interestRates"`
 	GrowthRates *struct {
-		FRS    *string `json:"frs"`
-		Salary *string `json:"salary"`
+		FRS *string `json:"frs"`
 	} `json:"growthRates"`
 	Employment *struct {
-		AssumeContinuous *bool `json:"assumeContinuous"`
-		RetirementAge    *int  `json:"retirementAge"`
+		RetirementAge *int `json:"retirementAge"`
 	} `json:"employment"`
 	CPFLife *struct {
 		Plan             *string `json:"plan"`
@@ -609,17 +603,9 @@ func (h *CPFV2Handler) HandleUpdateAssumptions(w http.ResponseWriter, r *http.Re
 				existing.FRSGrowthRate = *d
 			}
 		}
-		if input.GrowthRates.Salary != nil {
-			if d, err := decimal.NewFromString(*input.GrowthRates.Salary); err == nil {
-				existing.SalaryGrowthRate = *d
-			}
-		}
 	}
 
 	if input.Employment != nil {
-		if input.Employment.AssumeContinuous != nil {
-			existing.AssumeContinuousEmployment = *input.Employment.AssumeContinuous
-		}
 		if input.Employment.RetirementAge != nil {
 			existing.RetirementAge = *input.Employment.RetirementAge
 		}

@@ -406,10 +406,8 @@ export interface CPFAssumptionsResponse {
   }
   growthRates: {
     frs: string
-    salary: string
   }
   employment: {
-    assumeContinuous: boolean
     retirementAge: number
   }
   cpfLife: {
@@ -434,10 +432,8 @@ export interface CPFAssumptionsUpdateInput {
   }
   growthRates?: {
     frs?: string
-    salary?: string
   }
   employment?: {
-    assumeContinuous?: boolean
     retirementAge?: number
   }
   cpfLife?: {
