@@ -87,4 +87,3 @@ frontend/test-results/
 # Temporary output files
 output.json
 output.txt
-specs/cpf-backend-integration.md
