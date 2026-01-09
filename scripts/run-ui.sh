@@ -507,29 +507,11 @@ if [[ "${START_BACKEND}" == "true" ]]; then
   fi
   wait_for_postgres "$POSTGRES_CONTAINER" "$DB_USER" "$DB_NAME"
 
-  # Run migrations from backend/migrations folder
-  MIGRATIONS_DIR="${REPO_ROOT}/backend/migrations"
-  if [[ -d "$MIGRATIONS_DIR" ]]; then
-    echo "Running migrations from ${MIGRATIONS_DIR}..."
-    for migration in "$MIGRATIONS_DIR"/*.up.sql; do
-      if [[ -f "$migration" ]]; then
-        echo "  Applying: $(basename "$migration")"
-        docker exec -i "$POSTGRES_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" < "$migration" 2>&1 | grep -v "already exists\|NOTICE" || true
-      fi
-    done
-    echo "Migrations complete."
-  fi
+  # Migrations are handled by the Go backend via golang-migrate on startup.
+  # Do NOT run migrations here with raw psql as it bypasses version tracking.
 fi
 
-echo "Starting frontend on ${FRONTEND_PORT} (API http://localhost:${BACKEND_PORT}/api/v1)"
-(
-  ensure_frontend_install "$FRONTEND_DIR"
-  generate_api_types "$FRONTEND_DIR"
-  cd "$FRONTEND_DIR"
-  PORT="${FRONTEND_PORT}" HOSTNAME="0.0.0.0" NEXT_CACHE_DIR="${FRONTEND_DIR}/.next/cache" GO_BACKEND_URL="http://localhost:${BACKEND_PORT}" pnpm run dev
-) &
-pids+=($!)
-
+# Start backend first and wait for it to be healthy before starting frontend
 if [[ "${START_BACKEND}" == "true" ]]; then
   echo "Starting backend on ${BACKEND_PORT}"
   echo "Postgres container: ${POSTGRES_CONTAINER} (volume ${POSTGRES_VOLUME}) db=${DB_NAME} port=${POSTGRES_PORT}"
@@ -569,6 +551,16 @@ if [[ "${START_BACKEND}" == "true" ]]; then
 else
   echo "Skipping backend (no-backend flag). Ensure your API is reachable at http://localhost:${BACKEND_PORT}/api/v1"
 fi
+
+# Start frontend AFTER backend is healthy to avoid 502 errors
+echo "Starting frontend on ${FRONTEND_PORT} (API http://localhost:${BACKEND_PORT}/api/v1)"
+(
+  ensure_frontend_install "$FRONTEND_DIR"
+  generate_api_types "$FRONTEND_DIR"
+  cd "$FRONTEND_DIR"
+  PORT="${FRONTEND_PORT}" HOSTNAME="0.0.0.0" NEXT_CACHE_DIR="${FRONTEND_DIR}/.next/cache" GO_BACKEND_URL="http://localhost:${BACKEND_PORT}" pnpm run dev
+) &
+pids+=($!)
 
 echo "Services are running for worktree ${WORKTREE_NAME}."
 echo "Frontend: http://localhost:${FRONTEND_PORT}"

@@ -659,7 +659,7 @@ CREATE INDEX idx_liability_rate_periods_liability ON liability_rate_periods(liab
 -- ============================================================================
 -- HEALTH CHECK (for development/Docker)
 -- ============================================================================
-CREATE TABLE health_check (
+CREATE TABLE IF NOT EXISTS health_check (
     id serial PRIMARY KEY,
     status text DEFAULT 'healthy',
     checked_at timestamp DEFAULT CURRENT_TIMESTAMP
