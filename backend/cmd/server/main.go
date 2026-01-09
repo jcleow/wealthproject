@@ -11,6 +11,7 @@ import (
 	"financial-chat-system/backend/cmd/server/handlers"
 	"financial-chat-system/backend/internal/config"
 	"financial-chat-system/backend/internal/cpf/account"
+	"financial-chat-system/backend/internal/cpf/assumptions"
 	"financial-chat-system/backend/internal/database"
 	"financial-chat-system/backend/internal/financial"
 	finRepo "financial-chat-system/backend/internal/financial/repository"
@@ -66,6 +67,7 @@ func main() {
 
 	// Initialize CPF services
 	cpfAccountRepo := account.NewRepository(db)
+	cpfAssumptionsRepo := assumptions.NewRepository(db)
 
 	// Inject timeline service into financial client for analysis methods
 	financialClient.SetTimelineService(timelineService)
@@ -252,7 +254,7 @@ func main() {
 	propertyLinkHandler := handlers.NewPropertyLinkHandler(finStore)
 	scenarioHandler := handlers.NewScenarioEventHandler(finStore)
 	cashAccountHandler := handlers.NewCashAccountHandler(finStore)
-	cpfHandler := handlers.NewCPFHandler(cpfAccountRepo)
+	cpfHandler := handlers.NewCPFHandler(cpfAccountRepo, cpfAssumptionsRepo)
 	v1Router.PathPrefix("/assets").Handler(handlerToHTTPMux("/api/v1", assetHandler.RegisterRoutes))
 	v1Router.PathPrefix("/liabilities").Handler(handlerToHTTPMux("/api/v1", liabilityHandler.RegisterRoutes))
 	v1Router.PathPrefix("/cashflow/incomes").Handler(handlerToHTTPMux("/api/v1", incomeHandler.RegisterRoutes))

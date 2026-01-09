@@ -1,6 +1,65 @@
 // CPF Account Types and Interfaces
 
 export type ResidencyStatus = 'citizen' | 'pr_year_1' | 'pr_year_2' | 'pr_year_3_plus'
+export type CPFLifePlan = 'standard' | 'basic' | 'escalating'
+export type AssumptionPreset = 'official' | 'conservative' | 'optimistic' | 'custom'
+
+// CPF Assumptions (user-specific calculation parameters)
+export interface CPFAssumptions {
+  id: string
+  cpfAccountId: string
+  interestRates: {
+    oa: number
+    sa: number
+    ma: number
+    ra: number
+    extraFirst60k: number
+    extraFirst30kAbove55: number
+  }
+  growthRates: {
+    inflation: number
+    frs: number
+    salary: number
+  }
+  employment: {
+    assumeContinuous: boolean
+    retirementAge: number
+  }
+  cpfLife: {
+    plan: CPFLifePlan
+    payoutStartAge: number
+    escalatingGrowth: number
+  }
+  presetName: AssumptionPreset
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CPFAssumptionsUpdatePayload {
+  interestRates?: {
+    oa?: number
+    sa?: number
+    ma?: number
+    ra?: number
+    extraFirst60k?: number
+    extraFirst30kAbove55?: number
+  }
+  growthRates?: {
+    inflation?: number
+    frs?: number
+    salary?: number
+  }
+  employment?: {
+    assumeContinuous?: boolean
+    retirementAge?: number
+  }
+  cpfLife?: {
+    plan?: CPFLifePlan
+    payoutStartAge?: number
+    escalatingGrowth?: number
+  }
+  presetName?: AssumptionPreset
+}
 
 export interface CPFBalances {
   oa: number

@@ -9,23 +9,27 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/cpf/account"
+	"financial-chat-system/backend/internal/cpf/assumptions"
 	"financial-chat-system/backend/internal/cpf/config"
 	"financial-chat-system/backend/internal/cpf/contribution"
 )
 
 // CPFHandler serves CPF-related endpoints.
 type CPFHandler struct {
-	accountRepo *account.Repository
+	accountRepo     *account.Repository
+	assumptionsRepo *assumptions.Repository
 }
 
-func NewCPFHandler(accountRepo *account.Repository) *CPFHandler {
+func NewCPFHandler(accountRepo *account.Repository, assumptionsRepo *assumptions.Repository) *CPFHandler {
 	return &CPFHandler{
-		accountRepo: accountRepo,
+		accountRepo:     accountRepo,
+		assumptionsRepo: assumptionsRepo,
 	}
 }
 
 func (h *CPFHandler) RegisterRoutes(router *http.ServeMux) {
 	router.HandleFunc("/cpf/account", h.handleAccount)
+	router.HandleFunc("/cpf/account/assumptions", h.handleAssumptions)
 	router.HandleFunc("/cpf/config", h.handleConfig)
 	router.HandleFunc("/cpf/config/years", h.handleConfigYears)
 	router.HandleFunc("/cpf/contribution-preview", h.handleContributionPreview)
@@ -476,4 +480,249 @@ func contributionToResponse(result contribution.ContributionResult) contribution
 			ResidencyStatus: string(result.RatesApplied.ResidencyStatus),
 		},
 	}
+}
+
+// ===============================
+// Assumptions Endpoints
+// ===============================
+
+func (h *CPFHandler) handleAssumptions(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.getAssumptions(w, r)
+	case http.MethodPut:
+		h.updateAssumptions(w, r)
+	default:
+		methodNotAllowed(w)
+	}
+}
+
+type assumptionsResponse struct {
+	ID           string                   `json:"id"`
+	CPFAccountID string                   `json:"cpfAccountId"`
+	InterestRates interestRatesResponse   `json:"interestRates"`
+	GrowthRates   growthRatesResponse     `json:"growthRates"`
+	Employment    employmentResponse      `json:"employment"`
+	CPFLife       cpfLifeResponse         `json:"cpfLife"`
+	PresetName    string                  `json:"presetName"`
+	CreatedAt     string                  `json:"createdAt"`
+	UpdatedAt     string                  `json:"updatedAt"`
+}
+
+type interestRatesResponse struct {
+	OA                    float64 `json:"oa"`
+	SA                    float64 `json:"sa"`
+	MA                    float64 `json:"ma"`
+	RA                    float64 `json:"ra"`
+	ExtraFirst60k         float64 `json:"extraFirst60k"`
+	ExtraFirst30kAbove55  float64 `json:"extraFirst30kAbove55"`
+}
+
+type growthRatesResponse struct {
+	Inflation float64 `json:"inflation"`
+	FRS       float64 `json:"frs"`
+	Salary    float64 `json:"salary"`
+}
+
+type employmentResponse struct {
+	AssumeContinuous bool `json:"assumeContinuous"`
+	RetirementAge    int  `json:"retirementAge"`
+}
+
+type cpfLifeResponse struct {
+	Plan             string  `json:"plan"`
+	PayoutStartAge   int     `json:"payoutStartAge"`
+	EscalatingGrowth float64 `json:"escalatingGrowth"`
+}
+
+func assumptionsToResponse(a *assumptions.CPFAssumptions) assumptionsResponse {
+	return assumptionsResponse{
+		ID:           a.ID,
+		CPFAccountID: a.CPFAccountID,
+		InterestRates: interestRatesResponse{
+			OA:                   a.InterestRateOA,
+			SA:                   a.InterestRateSA,
+			MA:                   a.InterestRateMA,
+			RA:                   a.InterestRateRA,
+			ExtraFirst60k:        a.ExtraInterestFirst60k,
+			ExtraFirst30kAbove55: a.ExtraInterestFirst30kAbove55,
+		},
+		GrowthRates: growthRatesResponse{
+			Inflation: a.InflationRate,
+			FRS:       a.FRSGrowthRate,
+			Salary:    a.SalaryGrowthRate,
+		},
+		Employment: employmentResponse{
+			AssumeContinuous: a.AssumeContinuousEmployment,
+			RetirementAge:    a.RetirementAge,
+		},
+		CPFLife: cpfLifeResponse{
+			Plan:             string(a.CPFLifePlan),
+			PayoutStartAge:   a.PayoutStartAge,
+			EscalatingGrowth: a.EscalatingPlanGrowth,
+		},
+		PresetName: string(a.PresetName),
+		CreatedAt:  a.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  a.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func (h *CPFHandler) getAssumptions(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	// First get the CPF account to get the account ID
+	cpfAccount, err := h.accountRepo.Get(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, account.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "CPF account not found. Create a CPF account first.")
+			return
+		}
+		internalError(w)
+		return
+	}
+
+	// Get or create default assumptions
+	a, err := h.assumptionsRepo.GetOrCreateDefault(r.Context(), cpfAccount.ID)
+	if err != nil {
+		internalError(w)
+		return
+	}
+
+	writeJSON(w, assumptionsToResponse(a))
+}
+
+type updateAssumptionsRequest struct {
+	InterestRates *updateInterestRatesRequest `json:"interestRates"`
+	GrowthRates   *updateGrowthRatesRequest   `json:"growthRates"`
+	Employment    *updateEmploymentRequest    `json:"employment"`
+	CPFLife       *updateCPFLifeRequest       `json:"cpfLife"`
+	PresetName    *string                     `json:"presetName"`
+}
+
+type updateInterestRatesRequest struct {
+	OA                   *float64 `json:"oa"`
+	SA                   *float64 `json:"sa"`
+	MA                   *float64 `json:"ma"`
+	RA                   *float64 `json:"ra"`
+	ExtraFirst60k        *float64 `json:"extraFirst60k"`
+	ExtraFirst30kAbove55 *float64 `json:"extraFirst30kAbove55"`
+}
+
+type updateGrowthRatesRequest struct {
+	Inflation *float64 `json:"inflation"`
+	FRS       *float64 `json:"frs"`
+	Salary    *float64 `json:"salary"`
+}
+
+type updateEmploymentRequest struct {
+	AssumeContinuous *bool `json:"assumeContinuous"`
+	RetirementAge    *int  `json:"retirementAge"`
+}
+
+type updateCPFLifeRequest struct {
+	Plan             *string  `json:"plan"`
+	PayoutStartAge   *int     `json:"payoutStartAge"`
+	EscalatingGrowth *float64 `json:"escalatingGrowth"`
+}
+
+func (h *CPFHandler) updateAssumptions(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	// First get the CPF account
+	cpfAccount, err := h.accountRepo.Get(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, account.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "CPF account not found. Create a CPF account first.")
+			return
+		}
+		internalError(w)
+		return
+	}
+
+	// Get existing assumptions or create defaults
+	existing, err := h.assumptionsRepo.GetOrCreateDefault(r.Context(), cpfAccount.ID)
+	if err != nil {
+		internalError(w)
+		return
+	}
+
+	var req updateAssumptionsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	// Apply updates
+	if req.InterestRates != nil {
+		if req.InterestRates.OA != nil {
+			existing.InterestRateOA = *req.InterestRates.OA
+		}
+		if req.InterestRates.SA != nil {
+			existing.InterestRateSA = *req.InterestRates.SA
+		}
+		if req.InterestRates.MA != nil {
+			existing.InterestRateMA = *req.InterestRates.MA
+		}
+		if req.InterestRates.RA != nil {
+			existing.InterestRateRA = *req.InterestRates.RA
+		}
+		if req.InterestRates.ExtraFirst60k != nil {
+			existing.ExtraInterestFirst60k = *req.InterestRates.ExtraFirst60k
+		}
+		if req.InterestRates.ExtraFirst30kAbove55 != nil {
+			existing.ExtraInterestFirst30kAbove55 = *req.InterestRates.ExtraFirst30kAbove55
+		}
+	}
+
+	if req.GrowthRates != nil {
+		if req.GrowthRates.Inflation != nil {
+			existing.InflationRate = *req.GrowthRates.Inflation
+		}
+		if req.GrowthRates.FRS != nil {
+			existing.FRSGrowthRate = *req.GrowthRates.FRS
+		}
+		if req.GrowthRates.Salary != nil {
+			existing.SalaryGrowthRate = *req.GrowthRates.Salary
+		}
+	}
+
+	if req.Employment != nil {
+		if req.Employment.AssumeContinuous != nil {
+			existing.AssumeContinuousEmployment = *req.Employment.AssumeContinuous
+		}
+		if req.Employment.RetirementAge != nil {
+			existing.RetirementAge = *req.Employment.RetirementAge
+		}
+	}
+
+	if req.CPFLife != nil {
+		if req.CPFLife.Plan != nil {
+			existing.CPFLifePlan = assumptions.CPFLifePlan(*req.CPFLife.Plan)
+		}
+		if req.CPFLife.PayoutStartAge != nil {
+			existing.PayoutStartAge = *req.CPFLife.PayoutStartAge
+		}
+		if req.CPFLife.EscalatingGrowth != nil {
+			existing.EscalatingPlanGrowth = *req.CPFLife.EscalatingGrowth
+		}
+	}
+
+	if req.PresetName != nil {
+		existing.PresetName = assumptions.PresetName(*req.PresetName)
+	}
+
+	// Save updates
+	updated, err := h.assumptionsRepo.Upsert(r.Context(), existing)
+	if err != nil {
+		internalError(w)
+		return
+	}
+
+	writeJSON(w, assumptionsToResponse(updated))
 }

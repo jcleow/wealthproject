@@ -30,6 +30,14 @@ export const QUERY_KEYS = {
     all: ['settings'] as const,
     user: ['settings', 'user'] as const,
   },
+
+  // CPF namespace
+  cpf: {
+    all: ['cpf'] as const,
+    account: ['cpf', 'account'] as const,
+    assumptions: ['cpf', 'assumptions'] as const,
+    config: ['cpf', 'config'] as const,
+  },
 } as const
 
 // Type helpers for query keys

@@ -1,5 +1,5 @@
 import type { Asset, Liability, Income, Expense, CashAccount, GrowthConfig, UserSettings, PaginatedResponse, PaginationParams } from '@/types/financial'
-import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload, CPFConfiguration, CPFContributionPreview, ResidencyStatus } from '@/types/cpf'
+import type { CPFAccount, CPFAccountCreatePayload, CPFAccountUpdatePayload, CPFConfiguration, CPFContributionPreview, ResidencyStatus, CPFAssumptions, CPFAssumptionsUpdatePayload } from '@/types/cpf'
 import type { PropertyLinkRecord, PropertyScenarioRecord } from '@/types/property'
 import {
   type ScenarioEvent,
@@ -830,6 +830,28 @@ export const financialApi = {
     const data = await jsonRequest<any>(`${API_BASE}/cpf/contribution-preview?${searchParams}`)
     return toCPFContributionPreview(data)
   },
+
+  // ============================
+  // CPF Assumptions APIs
+  // ============================
+
+  async getCPFAssumptions(): Promise<CPFAssumptions | null> {
+    try {
+      const data = await jsonRequest<any>(`${API_BASE}/cpf/account/assumptions`)
+      return toCPFAssumptions(data)
+    } catch {
+      // Return null if assumptions don't exist yet (no CPF account)
+      return null
+    }
+  },
+
+  async updateCPFAssumptions(payload: CPFAssumptionsUpdatePayload): Promise<CPFAssumptions> {
+    const data = await jsonRequest<any>(`${API_BASE}/cpf/account/assumptions`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+    return toCPFAssumptions(data)
+  },
 }
 
 // CPF type mappers
@@ -878,4 +900,34 @@ const toCPFContributionPreview = (item: any): CPFContributionPreview => ({
     ageGroup: item.rates_applied?.age_group ?? item.ratesApplied?.ageGroup ?? '',
     residencyStatus: item.rates_applied?.residency_status ?? item.ratesApplied?.residencyStatus ?? 'citizen',
   },
+})
+
+const toCPFAssumptions = (item: any): CPFAssumptions => ({
+  id: item.id ?? item.ID,
+  cpfAccountId: item.cpfAccountId ?? item.cpf_account_id ?? item.CPFAccountID,
+  interestRates: {
+    oa: item.interestRates?.oa ?? item.interest_rates?.oa ?? 0.025,
+    sa: item.interestRates?.sa ?? item.interest_rates?.sa ?? 0.04,
+    ma: item.interestRates?.ma ?? item.interest_rates?.ma ?? 0.04,
+    ra: item.interestRates?.ra ?? item.interest_rates?.ra ?? 0.04,
+    extraFirst60k: item.interestRates?.extraFirst60k ?? item.interest_rates?.extra_first_60k ?? 0.01,
+    extraFirst30kAbove55: item.interestRates?.extraFirst30kAbove55 ?? item.interest_rates?.extra_first_30k_above_55 ?? 0.01,
+  },
+  growthRates: {
+    inflation: item.growthRates?.inflation ?? item.growth_rates?.inflation ?? 0.02,
+    frs: item.growthRates?.frs ?? item.growth_rates?.frs ?? 0.035,
+    salary: item.growthRates?.salary ?? item.growth_rates?.salary ?? 0.03,
+  },
+  employment: {
+    assumeContinuous: item.employment?.assumeContinuous ?? item.employment?.assume_continuous ?? true,
+    retirementAge: item.employment?.retirementAge ?? item.employment?.retirement_age ?? 65,
+  },
+  cpfLife: {
+    plan: item.cpfLife?.plan ?? item.cpf_life?.plan ?? 'standard',
+    payoutStartAge: item.cpfLife?.payoutStartAge ?? item.cpf_life?.payout_start_age ?? 65,
+    escalatingGrowth: item.cpfLife?.escalatingGrowth ?? item.cpf_life?.escalating_growth ?? 0.02,
+  },
+  presetName: item.presetName ?? item.preset_name ?? 'official',
+  createdAt: item.createdAt ?? item.created_at ?? new Date().toISOString(),
+  updatedAt: item.updatedAt ?? item.updated_at ?? new Date().toISOString(),
 })
