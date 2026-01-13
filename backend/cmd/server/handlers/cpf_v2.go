@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/cpf/assumptions"
-	"financial-chat-system/backend/internal/cpf/payout"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/cpf"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
@@ -460,115 +459,56 @@ func (h *CPFV2Handler) HandleCPFLifeEstimate(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Validate payout start age
-	if input.PayoutStartAge < 65 || input.PayoutStartAge > 70 {
-		badRequest(w, fmt.Errorf("payoutStartAge must be between 65 and 70"))
-		return
-	}
-
-	// Validate RA balance is provided
-	if input.RABalanceAt65 == "" {
-		badRequest(w, errMissingFields("raBalanceAt65"))
-		return
-	}
-
-	var birthYear int
-	var gender payout.Gender
-	var raBalance *decimal.Decimal
-	var err error
-
 	// Parse RA balance
-	raBalance, err = decimal.NewFromString(input.RABalanceAt65)
+	raBalance, err := decimal.NewFromString(input.RABalanceAt65)
 	if err != nil {
 		badRequest(w, fmt.Errorf("raBalanceAt65: invalid decimal value"))
 		return
 	}
 
-	// Two modes: with CPF account or standalone
-	if input.CPFAccountID != "" {
-		// Mode 1: Fetch birth year and gender from CPF account's person
-		cpfAccount, err := h.store.GetCPFAccountByID(r.Context(), userID, input.CPFAccountID)
-		if err != nil {
-			if err == repo.ErrNotFound {
-				notFound(w)
-				return
-			}
-			log.Printf("cpf.GetCPFAccountByID error: %v", err)
-			internalError(w, err)
-			return
-		}
-
-		person, err := h.store.GetPerson(r.Context(), userID, cpfAccount.PersonID)
-		if err != nil {
-			if err == repo.ErrNotFound {
-				notFound(w)
-				return
-			}
-			log.Printf("cpf.GetPerson error: %v", err)
-			internalError(w, err)
-			return
-		}
-
-		birthYear = person.DateOfBirth.Year()
-		if person.Gender == "female" {
-			gender = payout.GenderFemale
-		} else {
-			gender = payout.GenderMale
-		}
-	} else {
-		// Mode 2: Standalone - use provided birth year and gender
-		if input.BirthYear == 0 {
-			badRequest(w, errMissingFields("birthYear (required when cpfAccountId not provided)"))
-			return
-		}
-		if input.Gender == "" {
-			badRequest(w, errMissingFields("gender (required when cpfAccountId not provided)"))
-			return
-		}
-		if input.Gender != "male" && input.Gender != "female" {
-			badRequest(w, fmt.Errorf("gender must be 'male' or 'female'"))
-			return
-		}
-
-		birthYear = input.BirthYear
-		if input.Gender == "female" {
-			gender = payout.GenderFemale
-		} else {
-			gender = payout.GenderMale
-		}
+	// Delegate to service layer
+	serviceInput := cpf.CPFLifeEstimateInput{
+		CPFAccountID:   input.CPFAccountID,
+		BirthYear:      input.BirthYear,
+		Gender:         input.Gender,
+		RABalanceAt65:  raBalance,
+		PayoutStartAge: input.PayoutStartAge,
 	}
 
-	// Calculate CPF LIFE estimates for all plans
-	estimates, err := payout.CalculateAllPlans(birthYear, gender, raBalance, input.PayoutStartAge)
+	result, err := h.service.CalculateCPFLifeEstimates(r.Context(), userID, serviceInput)
 	if err != nil {
-		log.Printf("cpf.CalculateAllPlans error: %v", err)
+		if err == repo.ErrNotFound {
+			notFound(w)
+			return
+		}
+		log.Printf("cpf.CalculateCPFLifeEstimates error: %v", err)
 		badRequest(w, err)
 		return
 	}
 
 	// Build response
 	response := cpfLifeEstimateResponse{
-		RABalanceAt65:   raBalance.String(),
-		PayoutStartAge:  input.PayoutStartAge,
-		BirthYear:       birthYear,
-		Gender:          string(gender),
-		ConfidenceLevel: string(estimates.ConfidenceLevel),
-		Disclaimer:      estimates.Disclaimer,
+		RABalanceAt65:   result.RABalanceAt65.String(),
+		PayoutStartAge:  result.PayoutStartAge,
+		BirthYear:       result.BirthYear,
+		Gender:          result.Gender,
+		ConfidenceLevel: result.ConfidenceLevel,
+		Disclaimer:      result.Disclaimer,
 	}
 
-	response.Estimates.Standard.MonthlyPayout = estimates.Standard.MonthlyPayout.String()
-	response.Estimates.Standard.AnnualPayout = estimates.Standard.AnnualPayout.String()
-	response.Estimates.Standard.PayoutRate = estimates.Standard.PayoutRate.String()
+	response.Estimates.Standard.MonthlyPayout = result.Standard.MonthlyPayout.String()
+	response.Estimates.Standard.AnnualPayout = result.Standard.AnnualPayout.String()
+	response.Estimates.Standard.PayoutRate = result.Standard.PayoutRate.String()
 
-	response.Estimates.Basic.MonthlyPayout = estimates.Basic.MonthlyPayout.String()
-	response.Estimates.Basic.AnnualPayout = estimates.Basic.AnnualPayout.String()
-	response.Estimates.Basic.PayoutRate = estimates.Basic.PayoutRate.String()
+	response.Estimates.Basic.MonthlyPayout = result.Basic.MonthlyPayout.String()
+	response.Estimates.Basic.AnnualPayout = result.Basic.AnnualPayout.String()
+	response.Estimates.Basic.PayoutRate = result.Basic.PayoutRate.String()
 
-	response.Estimates.Escalating.MonthlyPayout = estimates.Escalating.MonthlyPayout.String()
-	response.Estimates.Escalating.AnnualPayout = estimates.Escalating.AnnualPayout.String()
-	response.Estimates.Escalating.PayoutRate = estimates.Escalating.PayoutRate.String()
-	response.Estimates.Escalating.PayoutAt75 = estimates.Escalating.PayoutAt75.String()
-	response.Estimates.Escalating.PayoutAt85 = estimates.Escalating.PayoutAt85.String()
+	response.Estimates.Escalating.MonthlyPayout = result.Escalating.MonthlyPayout.String()
+	response.Estimates.Escalating.AnnualPayout = result.Escalating.AnnualPayout.String()
+	response.Estimates.Escalating.PayoutRate = result.Escalating.PayoutRate.String()
+	response.Estimates.Escalating.PayoutAt75 = result.Escalating.PayoutAt75.String()
+	response.Estimates.Escalating.PayoutAt85 = result.Escalating.PayoutAt85.String()
 
 	writeJSON(w, response)
 }
@@ -637,134 +577,69 @@ func (h *CPFV2Handler) HandleCPFProjection(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Validate payout start age
-	if input.PayoutStartAge < 65 || input.PayoutStartAge > 70 {
-		badRequest(w, fmt.Errorf("payoutStartAge must be between 65 and 70"))
-		return
-	}
-
-	// Get CPF account
-	cpfAccount, err := h.store.GetCPFAccountByID(r.Context(), userID, cpfAccountID)
+	// Delegate to service layer
+	result, err := h.service.ProjectCPFWithLifeEstimates(r.Context(), userID, cpfAccountID, input.PayoutStartAge)
 	if err != nil {
 		if err == repo.ErrNotFound {
 			notFound(w)
 			return
 		}
-		log.Printf("cpf.GetCPFAccountByID error: %v", err)
-		internalError(w, err)
+		log.Printf("cpf.ProjectCPFWithLifeEstimates error: %v", err)
+		badRequest(w, err)
 		return
 	}
 
-	// Get person for birth year, gender, and residency
-	person, err := h.store.GetPerson(r.Context(), userID, cpfAccount.PersonID)
-	if err != nil {
-		if err == repo.ErrNotFound {
-			notFound(w)
-			return
-		}
-		log.Printf("cpf.GetPerson error: %v", err)
-		internalError(w, err)
-		return
-	}
-
-	// Calculate the date when person turns 65
-	birthYear := person.DateOfBirth.Year()
-	age65Date := time.Date(birthYear+65, person.DateOfBirth.Month(), person.DateOfBirth.Day(), 0, 0, 0, 0, time.UTC)
-
-	// Map gender for payout calculation
-	var gender payout.Gender
-	if person.Gender == "female" {
-		gender = payout.GenderFemale
-	} else {
-		gender = payout.GenderMale
-	}
-
-	// Build response with current balances
+	// Build response
 	response := cpfProjectionResponse{
-		BirthYear: birthYear,
-		Gender:    string(gender),
-		Age65Date: age65Date.Format("2006-01-02"),
+		BirthYear: result.BirthYear,
+		Gender:    result.Gender,
+		Age65Date: result.Age65Date.Format("2006-01-02"),
 	}
 
-	response.CurrentBalances.OA = cpfAccount.OABalance.String()
-	response.CurrentBalances.SA = cpfAccount.SABalance.String()
-	response.CurrentBalances.MA = cpfAccount.MABalance.String()
-	response.CurrentBalances.RA = cpfAccount.RABalance.String()
-	response.CurrentBalances.AsOfDate = cpfAccount.StartDate.Format("2006-01-02")
+	response.ProjectedBalances.OA = result.ProjectedBalances.OA.String()
+	response.ProjectedBalances.SA = result.ProjectedBalances.SA.String()
+	response.ProjectedBalances.MA = result.ProjectedBalances.MA.String()
+	response.ProjectedBalances.RA = result.ProjectedBalances.RA.String()
+	response.ProjectedBalances.AsOfDate = result.ProjectedBalances.AsOfDate.Format("2006-01-02")
 
-	// Check if person is already 65 or older
-	now := time.Now()
-	if age65Date.Before(now) || age65Date.Equal(now) {
-		// Person is already 65+, use current RA balance
-		response.ProjectedBalances.OA = cpfAccount.OABalance.String()
-		response.ProjectedBalances.SA = cpfAccount.SABalance.String()
-		response.ProjectedBalances.MA = cpfAccount.MABalance.String()
-		response.ProjectedBalances.RA = cpfAccount.RABalance.String()
-		response.ProjectedBalances.AsOfDate = now.Format("2006-01-02")
+	response.CurrentBalances.OA = result.CurrentBalances.OA.String()
+	response.CurrentBalances.SA = result.CurrentBalances.SA.String()
+	response.CurrentBalances.MA = result.CurrentBalances.MA.String()
+	response.CurrentBalances.RA = result.CurrentBalances.RA.String()
+	response.CurrentBalances.AsOfDate = result.CurrentBalances.AsOfDate.Format("2006-01-02")
 
-		// Calculate CPF LIFE estimates with current RA balance
-		raBalance := &cpfAccount.RABalance
-		estimates, err := payout.CalculateAllPlans(birthYear, gender, raBalance, input.PayoutStartAge)
-		if err != nil {
-			log.Printf("cpf.CalculateAllPlans error: %v", err)
-			// Don't fail the request, just omit LIFE estimates
-		} else {
-			response.CpfLifeEstimates = buildCpfLifeEstimateResponse(raBalance, input.PayoutStartAge, birthYear, gender, estimates)
-		}
-
-		writeJSON(w, response)
-		return
-	}
-
-	// For future projections, we need to use the projector
-	// For now, just use current balances as a simple projection
-	// (The full projector integration requires fetching incomes, which adds complexity)
-	// This is a simplified implementation - the full projector can be integrated later
-
-	// Use current balances as projected (simplified)
-	response.ProjectedBalances.OA = cpfAccount.OABalance.String()
-	response.ProjectedBalances.SA = cpfAccount.SABalance.String()
-	response.ProjectedBalances.MA = cpfAccount.MABalance.String()
-	response.ProjectedBalances.RA = cpfAccount.RABalance.String()
-	response.ProjectedBalances.AsOfDate = age65Date.Format("2006-01-02")
-
-	// Calculate CPF LIFE estimates with projected RA balance
-	raBalance := &cpfAccount.RABalance
-	estimates, err := payout.CalculateAllPlans(birthYear, gender, raBalance, input.PayoutStartAge)
-	if err != nil {
-		log.Printf("cpf.CalculateAllPlans error: %v", err)
-		// Don't fail the request, just omit LIFE estimates
-	} else {
-		response.CpfLifeEstimates = buildCpfLifeEstimateResponse(raBalance, input.PayoutStartAge, birthYear, gender, estimates)
+	// Add CPF LIFE estimates if available
+	if result.CPFLifeEstimates != nil {
+		response.CpfLifeEstimates = buildCpfLifeEstimateResponse(result.CPFLifeEstimates)
 	}
 
 	writeJSON(w, response)
 }
 
-// buildCpfLifeEstimateResponse builds a CPF LIFE estimate response from calculation results.
-func buildCpfLifeEstimateResponse(raBalance *decimal.Decimal, payoutStartAge, birthYear int, gender payout.Gender, estimates *payout.AllPlanEstimates) *cpfLifeEstimateResponse {
+// buildCpfLifeEstimateResponse builds a CPF LIFE estimate response from service result.
+func buildCpfLifeEstimateResponse(result *cpf.CPFLifeEstimateResult) *cpfLifeEstimateResponse {
 	response := &cpfLifeEstimateResponse{
-		RABalanceAt65:   raBalance.String(),
-		PayoutStartAge:  payoutStartAge,
-		BirthYear:       birthYear,
-		Gender:          string(gender),
-		ConfidenceLevel: string(estimates.ConfidenceLevel),
-		Disclaimer:      estimates.Disclaimer,
+		RABalanceAt65:   result.RABalanceAt65.String(),
+		PayoutStartAge:  result.PayoutStartAge,
+		BirthYear:       result.BirthYear,
+		Gender:          result.Gender,
+		ConfidenceLevel: result.ConfidenceLevel,
+		Disclaimer:      result.Disclaimer,
 	}
 
-	response.Estimates.Standard.MonthlyPayout = estimates.Standard.MonthlyPayout.String()
-	response.Estimates.Standard.AnnualPayout = estimates.Standard.AnnualPayout.String()
-	response.Estimates.Standard.PayoutRate = estimates.Standard.PayoutRate.String()
+	response.Estimates.Standard.MonthlyPayout = result.Standard.MonthlyPayout.String()
+	response.Estimates.Standard.AnnualPayout = result.Standard.AnnualPayout.String()
+	response.Estimates.Standard.PayoutRate = result.Standard.PayoutRate.String()
 
-	response.Estimates.Basic.MonthlyPayout = estimates.Basic.MonthlyPayout.String()
-	response.Estimates.Basic.AnnualPayout = estimates.Basic.AnnualPayout.String()
-	response.Estimates.Basic.PayoutRate = estimates.Basic.PayoutRate.String()
+	response.Estimates.Basic.MonthlyPayout = result.Basic.MonthlyPayout.String()
+	response.Estimates.Basic.AnnualPayout = result.Basic.AnnualPayout.String()
+	response.Estimates.Basic.PayoutRate = result.Basic.PayoutRate.String()
 
-	response.Estimates.Escalating.MonthlyPayout = estimates.Escalating.MonthlyPayout.String()
-	response.Estimates.Escalating.AnnualPayout = estimates.Escalating.AnnualPayout.String()
-	response.Estimates.Escalating.PayoutRate = estimates.Escalating.PayoutRate.String()
-	response.Estimates.Escalating.PayoutAt75 = estimates.Escalating.PayoutAt75.String()
-	response.Estimates.Escalating.PayoutAt85 = estimates.Escalating.PayoutAt85.String()
+	response.Estimates.Escalating.MonthlyPayout = result.Escalating.MonthlyPayout.String()
+	response.Estimates.Escalating.AnnualPayout = result.Escalating.AnnualPayout.String()
+	response.Estimates.Escalating.PayoutRate = result.Escalating.PayoutRate.String()
+	response.Estimates.Escalating.PayoutAt75 = result.Escalating.PayoutAt75.String()
+	response.Estimates.Escalating.PayoutAt85 = result.Escalating.PayoutAt85.String()
 
 	return response
 }
