@@ -1,15 +1,15 @@
 package payout
 
 import (
-	"math"
 	"testing"
 
 	"financial-chat-system/backend/internal/decimal"
 )
 
-// floatEquals compares two float64 values with a tolerance of 0.01 (1 cent)
-func floatEquals(a, b float64) bool {
-	return math.Abs(a-b) < 0.01
+// decimalEquals compares a decimal result against an expected string value
+func decimalEquals(got *decimal.Decimal, wantStr string) bool {
+	want := decimal.MustFromString(wantStr)
+	return got.Cmp(want) == 0
 }
 
 func TestCalculatePayout_MaleStandard_CohortBased(t *testing.T) {
@@ -22,7 +22,7 @@ func TestCalculatePayout_MaleStandard_CohortBased(t *testing.T) {
 		birthYear      int
 		balance        string
 		payoutStartAge int
-		want           float64 // Exact expected monthly payout from regression model
+		want           string // Exact expected monthly payout from regression model (as decimal string)
 	}{
 		{
 			// 1985 male: ~40 years old in 2025, payouts start 2050
@@ -32,7 +32,7 @@ func TestCalculatePayout_MaleStandard_CohortBased(t *testing.T) {
 			birthYear:      1985,
 			balance:        "500000",
 			payoutStartAge: 65,
-			want:           5334.03,
+			want:           "5334.03",
 		},
 		{
 			// 1970 male: ~55 years old in 2025, payouts start 2035
@@ -42,7 +42,7 @@ func TestCalculatePayout_MaleStandard_CohortBased(t *testing.T) {
 			birthYear:      1970,
 			balance:        "400000",
 			payoutStartAge: 65,
-			want:           2831.17,
+			want:           "2831.17",
 		},
 		{
 			// 1990 male: ~35 years old in 2025, payouts start 2055
@@ -52,7 +52,7 @@ func TestCalculatePayout_MaleStandard_CohortBased(t *testing.T) {
 			birthYear:      1990,
 			balance:        "600000",
 			payoutStartAge: 65,
-			want:           7082.65,
+			want:           "7082.65",
 		},
 	}
 
@@ -75,9 +75,8 @@ func TestCalculatePayout_MaleStandard_CohortBased(t *testing.T) {
 			if err != nil {
 				t.Fatalf("CalculatePayout error: %v", err)
 			}
-			monthly, _ := result.MonthlyPayout.Float64()
-			if !floatEquals(monthly, tt.want) {
-				t.Errorf("MonthlyPayout = %.2f, want %.2f", monthly, tt.want)
+			if !decimalEquals(result.MonthlyPayout, tt.want) {
+				t.Errorf("MonthlyPayout = %s, want %s", result.MonthlyPayout.String(), tt.want)
 			}
 		})
 	}
@@ -92,7 +91,7 @@ func TestCalculatePayout_FemaleStandard_CohortBased(t *testing.T) {
 		birthYear      int
 		balance        string
 		payoutStartAge int
-		want           float64 // Exact expected monthly payout from regression model
+		want           string // Exact expected monthly payout from regression model (as decimal string)
 	}{
 		{
 			// 1990 female: same parameters as male comparison
@@ -103,7 +102,7 @@ func TestCalculatePayout_FemaleStandard_CohortBased(t *testing.T) {
 			birthYear:      1990,
 			balance:        "600000",
 			payoutStartAge: 65,
-			want:           7411.68,
+			want:           "7411.68",
 		},
 	}
 
@@ -126,9 +125,8 @@ func TestCalculatePayout_FemaleStandard_CohortBased(t *testing.T) {
 			if err != nil {
 				t.Fatalf("CalculatePayout error: %v", err)
 			}
-			monthly, _ := result.MonthlyPayout.Float64()
-			if !floatEquals(monthly, tt.want) {
-				t.Errorf("MonthlyPayout = %.2f, want %.2f", monthly, tt.want)
+			if !decimalEquals(result.MonthlyPayout, tt.want) {
+				t.Errorf("MonthlyPayout = %s, want %s", result.MonthlyPayout.String(), tt.want)
 			}
 		})
 	}
@@ -157,8 +155,8 @@ func TestCalculatePayout_Deferment_CohortBased(t *testing.T) {
 	// Age 65 payout: $5,334.03/month
 	// Age 70 payout: $7,200.94/month
 	// Increase ratio: 7200.94 / 5334.03 = 1.35 (35% increase)
-	wantAge65 := 5334.03
-	wantAge70 := 7200.94
+	wantAge65 := "5334.03"
+	wantAge70 := "7200.94"
 
 	// Act
 	resultAge65, err := CalculatePayout(inputAge65)
@@ -171,19 +169,17 @@ func TestCalculatePayout_Deferment_CohortBased(t *testing.T) {
 	}
 
 	// Assert - Verify exact payout values
-	monthly65, _ := resultAge65.MonthlyPayout.Float64()
-	monthly70, _ := resultAge70.MonthlyPayout.Float64()
-
-	if !floatEquals(monthly65, wantAge65) {
-		t.Errorf("Age 65 payout = %.2f, want %.2f", monthly65, wantAge65)
+	if !decimalEquals(resultAge65.MonthlyPayout, wantAge65) {
+		t.Errorf("Age 65 payout = %s, want %s", resultAge65.MonthlyPayout.String(), wantAge65)
 	}
-	if !floatEquals(monthly70, wantAge70) {
-		t.Errorf("Age 70 payout = %.2f, want %.2f", monthly70, wantAge70)
+	if !decimalEquals(resultAge70.MonthlyPayout, wantAge70) {
+		t.Errorf("Age 70 payout = %s, want %s", resultAge70.MonthlyPayout.String(), wantAge70)
 	}
 
 	// Assert - Verify deferment increases payout (sanity check)
-	if monthly70 <= monthly65 {
-		t.Errorf("Age 70 payout (%.2f) should be greater than age 65 payout (%.2f)", monthly70, monthly65)
+	if resultAge70.MonthlyPayout.Cmp(resultAge65.MonthlyPayout) <= 0 {
+		t.Errorf("Age 70 payout (%s) should be greater than age 65 payout (%s)",
+			resultAge70.MonthlyPayout.String(), resultAge65.MonthlyPayout.String())
 	}
 }
 
@@ -196,11 +192,11 @@ func TestCalculateAllPlans_CohortBased(t *testing.T) {
 	balance, _ := decimal.NewFromString("500000")
 
 	// Expected exact values from regression model (1985 male, $500k, age 65):
-	wantStandard := 5334.03
-	wantBasic := 5245.45
-	wantEscalating := 4646.34
-	wantAt75 := 5663.86 // Escalating at age 75 (10 years of 2% growth)
-	wantAt85 := 6904.22 // Escalating at age 85 (20 years of 2% growth)
+	wantStandard := "5334.03"
+	wantBasic := "5245.45"
+	wantEscalating := "4646.34"
+	wantAt75 := "5663.86" // Escalating at age 75 (10 years of 2% growth)
+	wantAt85 := "6904.22" // Escalating at age 85 (20 years of 2% growth)
 
 	// Act
 	result, err := CalculateAllPlans(1985, GenderMale, balance, 65)
@@ -211,32 +207,27 @@ func TestCalculateAllPlans_CohortBased(t *testing.T) {
 	}
 
 	// Assert - Verify exact payout values for each plan
-	standardMonthly, _ := result.Standard.MonthlyPayout.Float64()
-	basicMonthly, _ := result.Basic.MonthlyPayout.Float64()
-	escalatingMonthly, _ := result.Escalating.MonthlyPayout.Float64()
-	at75, _ := result.Escalating.PayoutAt75.Float64()
-	at85, _ := result.Escalating.PayoutAt85.Float64()
-
-	if !floatEquals(standardMonthly, wantStandard) {
-		t.Errorf("Standard payout = %.2f, want %.2f", standardMonthly, wantStandard)
+	if !decimalEquals(result.Standard.MonthlyPayout, wantStandard) {
+		t.Errorf("Standard payout = %s, want %s", result.Standard.MonthlyPayout.String(), wantStandard)
 	}
-	if !floatEquals(basicMonthly, wantBasic) {
-		t.Errorf("Basic payout = %.2f, want %.2f", basicMonthly, wantBasic)
+	if !decimalEquals(result.Basic.MonthlyPayout, wantBasic) {
+		t.Errorf("Basic payout = %s, want %s", result.Basic.MonthlyPayout.String(), wantBasic)
 	}
-	if !floatEquals(escalatingMonthly, wantEscalating) {
-		t.Errorf("Escalating payout = %.2f, want %.2f", escalatingMonthly, wantEscalating)
+	if !decimalEquals(result.Escalating.MonthlyPayout, wantEscalating) {
+		t.Errorf("Escalating payout = %s, want %s", result.Escalating.MonthlyPayout.String(), wantEscalating)
 	}
-	if !floatEquals(at75, wantAt75) {
-		t.Errorf("Escalating at 75 = %.2f, want %.2f", at75, wantAt75)
+	if !decimalEquals(result.Escalating.PayoutAt75, wantAt75) {
+		t.Errorf("Escalating at 75 = %s, want %s", result.Escalating.PayoutAt75.String(), wantAt75)
 	}
-	if !floatEquals(at85, wantAt85) {
-		t.Errorf("Escalating at 85 = %.2f, want %.2f", at85, wantAt85)
+	if !decimalEquals(result.Escalating.PayoutAt85, wantAt85) {
+		t.Errorf("Escalating at 85 = %s, want %s", result.Escalating.PayoutAt85.String(), wantAt85)
 	}
 
 	// Assert - Verify ordering: Standard > Basic > Escalating (sanity check)
-	if standardMonthly <= basicMonthly || basicMonthly <= escalatingMonthly {
-		t.Errorf("Expected Standard > Basic > Escalating, got: standard=%.2f, basic=%.2f, escalating=%.2f",
-			standardMonthly, basicMonthly, escalatingMonthly)
+	if result.Standard.MonthlyPayout.Cmp(result.Basic.MonthlyPayout) <= 0 ||
+		result.Basic.MonthlyPayout.Cmp(result.Escalating.MonthlyPayout) <= 0 {
+		t.Errorf("Expected Standard > Basic > Escalating, got: standard=%s, basic=%s, escalating=%s",
+			result.Standard.MonthlyPayout.String(), result.Basic.MonthlyPayout.String(), result.Escalating.MonthlyPayout.String())
 	}
 }
 
