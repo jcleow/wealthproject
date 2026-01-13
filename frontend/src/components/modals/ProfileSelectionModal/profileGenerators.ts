@@ -38,6 +38,7 @@ export interface PersonCreateConfig {
   name: string
   displayColor: string
   dateOfBirth: string
+  gender: 'male' | 'female'
   residencyStatus: 'citizen' | 'pr'
 }
 
@@ -116,6 +117,7 @@ export function generateSingleEarlyCareerProfile(): ProfileData {
         name: 'You',
         displayColor: PERSON_COLORS[0],
         dateOfBirth: getDateOfBirth(25),
+        gender: 'male',
         residencyStatus: 'citizen',
       },
     ],
@@ -295,12 +297,14 @@ export function generateDinkProfile(): ProfileData {
         name: 'Partner 1',
         displayColor: PERSON_COLORS[0],
         dateOfBirth: getDateOfBirth(30),
+        gender: 'male',
         residencyStatus: 'citizen',
       },
       {
         name: 'Partner 2',
         displayColor: PERSON_COLORS[1],
         dateOfBirth: getDateOfBirth(28),
+        gender: 'female',
         residencyStatus: 'citizen',
       },
     ],
@@ -625,12 +629,14 @@ export function generateDinkKidsPlannedProfile(): ProfileData {
         name: 'Alex',
         displayColor: PERSON_COLORS[0],
         dateOfBirth: '1993-01-01',
+        gender: 'male',
         residencyStatus: 'citizen',
       },
       {
         name: 'Sarah',
         displayColor: PERSON_COLORS[1],
         dateOfBirth: '1994-06-15',
+        gender: 'female',
         residencyStatus: 'citizen',
       },
     ],
@@ -1135,12 +1141,14 @@ export function generateSingleIncomeFamilyProfile(): ProfileData {
         name: 'Working Parent',
         displayColor: PERSON_COLORS[0],
         dateOfBirth: getDateOfBirth(35),
+        gender: 'male',
         residencyStatus: 'citizen',
       },
       {
         name: 'Stay-home Parent',
         displayColor: PERSON_COLORS[1],
         dateOfBirth: getDateOfBirth(33),
+        gender: 'female',
         residencyStatus: 'citizen',
       },
     ],
@@ -1405,6 +1413,7 @@ export function generateFireFocusedProfile(): ProfileData {
         name: 'You',
         displayColor: PERSON_COLORS[0],
         dateOfBirth: getDateOfBirth(35),
+        gender: 'male',
         residencyStatus: 'citizen',
       },
     ],

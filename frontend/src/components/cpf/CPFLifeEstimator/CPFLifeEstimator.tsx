@@ -27,9 +27,18 @@ const nodeTypes = {
 interface CPFLifeEstimatorProps {
   className?: string
   cpfAccountId?: string
+  initialRaBalance?: number
+  initialBirthYear?: number
+  initialGender?: 'male' | 'female'
 }
 
-export function CPFLifeEstimator({ className, cpfAccountId }: CPFLifeEstimatorProps) {
+export function CPFLifeEstimator({
+  className,
+  cpfAccountId,
+  initialRaBalance,
+  initialBirthYear,
+  initialGender,
+}: CPFLifeEstimatorProps) {
   const {
     raBalance,
     startAge,
@@ -41,7 +50,12 @@ export function CPFLifeEstimator({ className, cpfAccountId }: CPFLifeEstimatorPr
     payouts,
     isLoading,
     handleChange,
-  } = useCPFLifeEstimates({ cpfAccountId })
+  } = useCPFLifeEstimates({
+    cpfAccountId,
+    initialRaBalance,
+    initialBirthYear,
+    initialGender,
+  })
 
   const nodes: Node[] = useMemo(() => [
     {

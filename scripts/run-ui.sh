@@ -9,6 +9,34 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Find the main git repository (for worktrees, this is different from REPO_ROOT)
+find_main_repo() {
+  local git_dir
+  git_dir="$(git -C "$REPO_ROOT" rev-parse --git-dir 2>/dev/null)"
+  if [[ -z "$git_dir" ]]; then
+    echo ""
+    return
+  fi
+  # If this is a worktree, .git is a file pointing to the main repo's .git/worktrees/<name>
+  if [[ -f "$REPO_ROOT/.git" ]]; then
+    # Read the gitdir path from the .git file
+    local gitdir_path
+    gitdir_path="$(cat "$REPO_ROOT/.git" | sed 's/^gitdir: //')"
+    # gitdir_path is like /path/to/main-repo/.git/worktrees/branch-name
+    # We want /path/to/main-repo
+    local main_git_dir="${gitdir_path%/worktrees/*}"
+    echo "${main_git_dir%.git}"
+  else
+    # This is the main repo itself
+    echo "$REPO_ROOT"
+  fi
+}
+
+MAIN_REPO="$(find_main_repo)"
+if [[ -n "$MAIN_REPO" && "$MAIN_REPO" != "$REPO_ROOT" ]]; then
+  echo "Detected git worktree. Main repo: $MAIN_REPO"
+fi
+
 # If this is run from a worktree nested under a parent repo, prefer that root for Next.js/Turbopack.
 if [[ -f "$REPO_ROOT/package.json" && -d "$REPO_ROOT/frontend" ]]; then
   ROOT_FOR_NEXT="$REPO_ROOT/frontend"
@@ -128,31 +156,31 @@ find_env_source() {
     return
   fi
 
-  # Prefer explicit dev/prod envs if present
-  if [[ -f "$REPO_ROOT/.env.dev" ]]; then
+  # Prefer explicit dev/prod envs if present (must be non-empty)
+  if [[ -s "$REPO_ROOT/.env.dev" ]]; then
     echo "$REPO_ROOT/.env.dev"
     return
   fi
-  if [[ -f "$REPO_ROOT/.env.prod" ]]; then
+  if [[ -s "$REPO_ROOT/.env.prod" ]]; then
     echo "$REPO_ROOT/.env.prod"
     return
   fi
 
-  # Prefer this worktree's .env
-  if [[ -f "$REPO_ROOT/.env" ]]; then
+  # Always prefer main repo's .env for worktrees (most common use case)
+  if [[ -n "$MAIN_REPO" && "$MAIN_REPO" != "$REPO_ROOT" && -s "$MAIN_REPO/.env" ]]; then
+    echo "$MAIN_REPO/.env"
+    return
+  fi
+
+  # Fall back to worktree's own .env if non-empty
+  if [[ -s "$REPO_ROOT/.env" ]]; then
     echo "$REPO_ROOT/.env"
     return
   fi
 
-  # Prefer this worktree's .env.example
+  # Fall back to .env.example
   if [[ -f "$REPO_ROOT/.env.example" ]]; then
     echo "$REPO_ROOT/.env.example"
-    return
-  fi
-
-  # Prefer parent .env if this worktree is nested
-  if [[ -f "$REPO_ROOT/../.env" ]]; then
-    echo "$REPO_ROOT/../.env"
     return
   fi
 
@@ -161,14 +189,19 @@ find_env_source() {
 
 maybe_seed_env() {
   local target_env="$1"
-  if [[ -f "$target_env" ]]; then
+  local source
+  source="$(find_env_source)"
+
+  # Skip if source is the target itself (would be a no-op)
+  if [[ "$source" == "$target_env" ]]; then
     return
   fi
 
-  local source
-  source="$(find_env_source)"
+  # Skip if no source found
   if [[ -z "$source" ]]; then
-    echo "Warning: $target_env missing and no env source found; backend may fail to start."
+    if [[ ! -s "$target_env" ]]; then
+      echo "Warning: $target_env missing and no env source found; backend may fail to start."
+    fi
     return
   fi
 

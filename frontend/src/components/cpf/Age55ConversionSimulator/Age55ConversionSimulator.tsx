@@ -7,6 +7,7 @@ import { DEFAULT_CPF_ASSUMPTIONS } from '@/types/cpf'
 import { type TargetSum } from '@/lib/cpf-constants'
 import { Age55DecisionFlowchart } from '../Age55DecisionFlowchart'
 import { CPFAssumptionsPanel } from '../CPFAssumptionsPanel'
+import { CPFLifeEstimator } from '../CPFLifeEstimator'
 import { useRAConversion } from './hooks'
 import {
   BalanceInputSection,
@@ -158,6 +159,14 @@ export function Age55ConversionSimulator({
 
       {/* Age 65: RSS vs CPF LIFE Section */}
       <Age65Comparison result={result} />
+
+      {/* CPF LIFE Payout Estimator - shown when eligible */}
+      {result.qualifiesForCPFLife && (
+        <CPFLifeEstimator
+          initialRaBalance={Math.round(result.raAt65)}
+          initialBirthYear={inputMode === 'current' ? new Date().getFullYear() - currentAge : undefined}
+        />
+      )}
 
       {/* Transfer Breakdown & Educational Footer */}
       <TransferBreakdown result={result} />
