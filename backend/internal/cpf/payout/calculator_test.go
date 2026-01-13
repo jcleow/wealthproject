@@ -1,56 +1,58 @@
 package payout
 
 import (
+	"math"
 	"testing"
 
 	"financial-chat-system/backend/internal/decimal"
 )
 
+// floatEquals compares two float64 values with a tolerance of 0.01 (1 cent)
+func floatEquals(a, b float64) bool {
+	return math.Abs(a-b) < 0.01
+}
+
 func TestCalculatePayout_MaleStandard_CohortBased(t *testing.T) {
 	// Arrange - test cases
 	// CPF LIFE Standard Plan payouts estimated using regression model
 	// Model coefficients vary by birth year cohort (affects life expectancy assumptions)
-	// Formula approximation: Monthly payout ≈ f(balance, birth_year, gender, plan, start_age)
+	// Regression formula: payout = intercept + (balance × balanceCoef) + (defermentYears × defermentCoef)
 	tests := []struct {
 		name           string
 		birthYear      int
 		balance        string
 		payoutStartAge int
-		wantMin        float64 // Minimum expected monthly payout
-		wantMax        float64 // Maximum expected monthly payout (for tolerance)
+		want           float64 // Exact expected monthly payout from regression model
 	}{
 		{
 			// 1985 male: ~40 years old in 2025, payouts start 2050
 			// $500k balance, Standard plan at 65
-			// Payout rate ≈ 1.07%/month → $500,000 × 0.0107 ≈ $5,334/month
+			// Regression output: $5,334.03/month
 			name:           "1985 male $500k standard age 65",
 			birthYear:      1985,
 			balance:        "500000",
 			payoutStartAge: 65,
-			wantMin:        5200,
-			wantMax:        5500,
+			want:           5334.03,
 		},
 		{
 			// 1970 male: ~55 years old in 2025, payouts start 2035
-			// $400k balance, older cohort has lower payout rate due to longer life expectancy
-			// Payout rate ≈ 0.71%/month → $400,000 × 0.0071 ≈ $2,831/month
+			// $400k balance, older cohort has different coefficients
+			// Regression output: $2,831.17/month
 			name:           "1970 male $400k standard age 65",
 			birthYear:      1970,
 			balance:        "400000",
 			payoutStartAge: 65,
-			wantMin:        2600,
-			wantMax:        3000,
+			want:           2831.17,
 		},
 		{
 			// 1990 male: ~35 years old in 2025, payouts start 2055
 			// $600k balance, younger cohort
-			// Payout rate ≈ 1.15%/month → $600,000 × 0.0115 ≈ $6,872/month
+			// Regression output: $7,082.65/month
 			name:           "1990 male $600k standard age 65",
 			birthYear:      1990,
 			balance:        "600000",
 			payoutStartAge: 65,
-			wantMin:        6700,
-			wantMax:        7100,
+			want:           7082.65,
 		},
 	}
 
@@ -74,8 +76,8 @@ func TestCalculatePayout_MaleStandard_CohortBased(t *testing.T) {
 				t.Fatalf("CalculatePayout error: %v", err)
 			}
 			monthly, _ := result.MonthlyPayout.Float64()
-			if monthly < tt.wantMin || monthly > tt.wantMax {
-				t.Errorf("MonthlyPayout = %v, want between %v and %v", monthly, tt.wantMin, tt.wantMax)
+			if !floatEquals(monthly, tt.want) {
+				t.Errorf("MonthlyPayout = %.2f, want %.2f", monthly, tt.want)
 			}
 		})
 	}
@@ -90,20 +92,18 @@ func TestCalculatePayout_FemaleStandard_CohortBased(t *testing.T) {
 		birthYear      int
 		balance        string
 		payoutStartAge int
-		wantMin        float64
-		wantMax        float64
+		want           float64 // Exact expected monthly payout from regression model
 	}{
 		{
 			// 1990 female: same parameters as male comparison
 			// $600k balance, Standard plan at 65
-			// Female payout rate ≈ 1.24%/month (higher than male 1.15%)
-			// → $600,000 × 0.0124 ≈ $7,440/month
+			// Female has higher payout than male ($7,082.65) due to different coefficients
+			// Regression output: $7,411.68/month
 			name:           "1990 female $600k standard age 65",
 			birthYear:      1990,
 			balance:        "600000",
 			payoutStartAge: 65,
-			wantMin:        7200,
-			wantMax:        7600,
+			want:           7411.68,
 		},
 	}
 
@@ -127,8 +127,8 @@ func TestCalculatePayout_FemaleStandard_CohortBased(t *testing.T) {
 				t.Fatalf("CalculatePayout error: %v", err)
 			}
 			monthly, _ := result.MonthlyPayout.Float64()
-			if monthly < tt.wantMin || monthly > tt.wantMax {
-				t.Errorf("MonthlyPayout = %v, want between %v and %v", monthly, tt.wantMin, tt.wantMax)
+			if !floatEquals(monthly, tt.want) {
+				t.Errorf("MonthlyPayout = %.2f, want %.2f", monthly, tt.want)
 			}
 		})
 	}
@@ -137,8 +137,7 @@ func TestCalculatePayout_FemaleStandard_CohortBased(t *testing.T) {
 func TestCalculatePayout_Deferment_CohortBased(t *testing.T) {
 	// Arrange
 	// Testing the CPF LIFE deferment bonus: delaying payout increases monthly amount
-	// Each year of deferment (age 65→70) adds ~7% (non-compounded)
-	// Total 5-year deferment: +35% increase (not compounded)
+	// Regression model applies deferment coefficient for each year of delay (age 65→70)
 	balance, _ := decimal.NewFromString("500000")
 	inputAge65 := PayoutInput{
 		BirthYear:      1985,
@@ -154,11 +153,12 @@ func TestCalculatePayout_Deferment_CohortBased(t *testing.T) {
 		RABalanceAt65:  balance,
 		PayoutStartAge: 70,
 	}
-	// Computation: Expected increase ratio after 5 years deferment
-	// Age 65 payout ≈ $5,334/month
-	// Age 70 payout ≈ $5,334 × 1.35 ≈ $7,201/month (+35% non-compounded)
-	// Minimum expected ratio = 1.30 (30% increase for some tolerance)
-	expectedMinIncrease := 1.30
+	// Expected exact values from regression model:
+	// Age 65 payout: $5,334.03/month
+	// Age 70 payout: $7,200.94/month
+	// Increase ratio: 7200.94 / 5334.03 = 1.35 (35% increase)
+	wantAge65 := 5334.03
+	wantAge70 := 7200.94
 
 	// Act
 	resultAge65, err := CalculatePayout(inputAge65)
@@ -170,14 +170,20 @@ func TestCalculatePayout_Deferment_CohortBased(t *testing.T) {
 		t.Fatalf("CalculatePayout age 70 error: %v", err)
 	}
 
-	// Assert - Deferring payout should increase monthly amount
+	// Assert - Verify exact payout values
 	monthly65, _ := resultAge65.MonthlyPayout.Float64()
 	monthly70, _ := resultAge70.MonthlyPayout.Float64()
-	actualIncrease := monthly70 / monthly65
 
-	if actualIncrease < expectedMinIncrease {
-		t.Errorf("Age 70 payout (%v) should be at least %.0f%% higher than age 65 (%v), actual increase: %.2fx",
-			monthly70, (expectedMinIncrease-1)*100, monthly65, actualIncrease)
+	if !floatEquals(monthly65, wantAge65) {
+		t.Errorf("Age 65 payout = %.2f, want %.2f", monthly65, wantAge65)
+	}
+	if !floatEquals(monthly70, wantAge70) {
+		t.Errorf("Age 70 payout = %.2f, want %.2f", monthly70, wantAge70)
+	}
+
+	// Assert - Verify deferment increases payout (sanity check)
+	if monthly70 <= monthly65 {
+		t.Errorf("Age 70 payout (%.2f) should be greater than age 65 payout (%.2f)", monthly70, monthly65)
 	}
 }
 
@@ -189,6 +195,13 @@ func TestCalculateAllPlans_CohortBased(t *testing.T) {
 	// - Escalating: Lowest initial payout, increases 2% yearly
 	balance, _ := decimal.NewFromString("500000")
 
+	// Expected exact values from regression model (1985 male, $500k, age 65):
+	wantStandard := 5334.03
+	wantBasic := 5245.45
+	wantEscalating := 4646.34
+	wantAt75 := 5663.86 // Escalating at age 75 (10 years of 2% growth)
+	wantAt85 := 6904.22 // Escalating at age 85 (20 years of 2% growth)
+
 	// Act
 	result, err := CalculateAllPlans(1985, GenderMale, balance, 65)
 
@@ -197,37 +210,33 @@ func TestCalculateAllPlans_CohortBased(t *testing.T) {
 		t.Fatalf("CalculateAllPlans error: %v", err)
 	}
 
-	// Assert - Verify all plans are calculated
+	// Assert - Verify exact payout values for each plan
 	standardMonthly, _ := result.Standard.MonthlyPayout.Float64()
 	basicMonthly, _ := result.Basic.MonthlyPayout.Float64()
 	escalatingMonthly, _ := result.Escalating.MonthlyPayout.Float64()
-
-	// Computation: Expected ordering of initial payouts
-	// Standard > Basic > Escalating (at start)
-	// Standard ≈ $5,334, Basic ≈ $4,800, Escalating ≈ $4,200
-	if standardMonthly <= basicMonthly || standardMonthly <= escalatingMonthly {
-		t.Errorf("Standard plan should have highest initial payout: standard=%v, basic=%v, escalating=%v",
-			standardMonthly, basicMonthly, escalatingMonthly)
-	}
-
-	// Assert - Escalating should have lowest initial payout
-	if escalatingMonthly >= basicMonthly {
-		t.Errorf("Escalating plan should have lowest initial payout: escalating=%v, basic=%v",
-			escalatingMonthly, basicMonthly)
-	}
-
-	// Assert - Escalating should have payoutAt75 and payoutAt85 > initial
-	// Escalating increases 2% per year:
-	// At 75 (10 years): initial × (1.02)^10 ≈ initial × 1.22
-	// At 85 (20 years): initial × (1.02)^20 ≈ initial × 1.49
 	at75, _ := result.Escalating.PayoutAt75.Float64()
 	at85, _ := result.Escalating.PayoutAt85.Float64()
 
-	if at75 <= escalatingMonthly {
-		t.Errorf("Escalating payoutAt75 (%v) should be > initial (%v)", at75, escalatingMonthly)
+	if !floatEquals(standardMonthly, wantStandard) {
+		t.Errorf("Standard payout = %.2f, want %.2f", standardMonthly, wantStandard)
 	}
-	if at85 <= at75 {
-		t.Errorf("Escalating payoutAt85 (%v) should be > payoutAt75 (%v)", at85, at75)
+	if !floatEquals(basicMonthly, wantBasic) {
+		t.Errorf("Basic payout = %.2f, want %.2f", basicMonthly, wantBasic)
+	}
+	if !floatEquals(escalatingMonthly, wantEscalating) {
+		t.Errorf("Escalating payout = %.2f, want %.2f", escalatingMonthly, wantEscalating)
+	}
+	if !floatEquals(at75, wantAt75) {
+		t.Errorf("Escalating at 75 = %.2f, want %.2f", at75, wantAt75)
+	}
+	if !floatEquals(at85, wantAt85) {
+		t.Errorf("Escalating at 85 = %.2f, want %.2f", at85, wantAt85)
+	}
+
+	// Assert - Verify ordering: Standard > Basic > Escalating (sanity check)
+	if standardMonthly <= basicMonthly || basicMonthly <= escalatingMonthly {
+		t.Errorf("Expected Standard > Basic > Escalating, got: standard=%.2f, basic=%.2f, escalating=%.2f",
+			standardMonthly, basicMonthly, escalatingMonthly)
 	}
 }
 
