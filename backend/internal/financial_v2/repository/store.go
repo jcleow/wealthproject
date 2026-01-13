@@ -257,6 +257,7 @@ type Person struct {
 	DisplayColor    *string    `json:"displayColor,omitempty"`
 	IsIncluded      bool       `json:"isIncluded"`
 	DateOfBirth     time.Time  `json:"dateOfBirth"`
+	Gender          string     `json:"gender"`          // 'male' or 'female' - required for CPF LIFE calculations
 	ResidencyStatus string     `json:"residencyStatus"` // 'citizen' or 'pr' (PR year computed from prGrantDate)
 	PRGrantDate     *time.Time `json:"prGrantDate,omitempty"`
 	CreatedAt       time.Time  `json:"createdAt"`

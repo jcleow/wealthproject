@@ -33,3 +33,15 @@ export {
   usePersonsModalActions,
   type PersonFilterState,
 } from './personFilterStore'
+
+export {
+  useCpfLifeEstimateStore,
+  useCpfLifeEstimateMode,
+  useCpfLifeEstimateInputs,
+  useCpfLifeEstimateResult,
+  useCpfLifeEstimateActions,
+  useCpfLifeEstimateIsValid,
+  type CPFLifeEstimateMode,
+  type CPFLifeEstimateInputs,
+  type CPFLifeEstimateState,
+} from './cpfLifeEstimateStore'

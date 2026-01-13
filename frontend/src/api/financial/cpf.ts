@@ -163,6 +163,118 @@ export async function deleteCPFAssumptions(cpfAccountId: string): Promise<void> 
   await apiClient.delete(`/cpf/account/${cpfAccountId}/assumptions`, { baseUrl: '/api/v2' })
 }
 
+// ============================================================================
+// CPF LIFE Estimate API
+// ============================================================================
+
+/**
+ * Input for CPF LIFE payout estimate calculation.
+ * Supports two modes:
+ * 1. With cpfAccountId: fetches birth year and gender from linked Person
+ * 2. Standalone: provide birthYear and gender directly
+ */
+export interface CPFLifeEstimateInput {
+  cpfAccountId?: string // Optional: CPF account to get person's birth year and gender
+  birthYear?: number // Optional: birth year for standalone mode
+  gender?: 'male' | 'female' // Optional: gender for standalone mode
+  raBalanceAt65: string // Required: RA balance at age 65
+  payoutStartAge: number // Required: 65-70
+}
+
+/**
+ * Response from CPF LIFE payout estimate calculation.
+ */
+export interface CPFLifeEstimateResponse {
+  raBalanceAt65: string
+  payoutStartAge: number
+  birthYear: number
+  gender: string
+  estimates: {
+    standard: {
+      monthlyPayout: string
+      annualPayout: string
+      payoutRate: string
+    }
+    basic: {
+      monthlyPayout: string
+      annualPayout: string
+      payoutRate: string
+    }
+    escalating: {
+      monthlyPayout: string
+      annualPayout: string
+      payoutRate: string
+      payoutAt75: string
+      payoutAt85: string
+    }
+  }
+  disclaimer: string
+}
+
+/**
+ * Calculate CPF LIFE payout estimates for all three plans.
+ * Uses a regression model based on official CPF calculator data.
+ */
+export async function calculateCPFLifeEstimate(
+  input: CPFLifeEstimateInput
+): Promise<CPFLifeEstimateResponse> {
+  return apiClient.post<CPFLifeEstimateResponse>(
+    '/cpf/calculators/cpflife-estimate',
+    input,
+    { baseUrl: '/api/v2' }
+  )
+}
+
+// ============================================================================
+// CPF Projection API
+// ============================================================================
+
+/**
+ * Input for CPF projection with LIFE estimates.
+ */
+export interface CPFProjectionInput {
+  payoutStartAge: number // 65-70
+  includeIncomes?: boolean // Include linked incomes in projection (default true)
+}
+
+/**
+ * Response from CPF projection with LIFE estimates.
+ */
+export interface CPFProjectionResponse {
+  projectedBalances: {
+    oa: string
+    sa: string
+    ma: string
+    ra: string
+    asOfDate: string // The date when person turns 65
+  }
+  currentBalances: {
+    oa: string
+    sa: string
+    ma: string
+    ra: string
+    asOfDate: string
+  }
+  birthYear: number
+  gender: string
+  age65Date: string // When the person turns 65
+  cpfLifeEstimates?: CPFLifeEstimateResponse
+}
+
+/**
+ * Project CPF balances to age 65 and calculate CPF LIFE estimates.
+ */
+export async function getCPFProjection(
+  cpfAccountId: string,
+  input: CPFProjectionInput
+): Promise<CPFProjectionResponse> {
+  return apiClient.post<CPFProjectionResponse>(
+    `/cpf/account/${cpfAccountId}/projection`,
+    input,
+    { baseUrl: '/api/v2' }
+  )
+}
+
 export const cpfApi = {
   getCPFAccount,
   listCPFAccounts,
@@ -178,4 +290,8 @@ export const cpfApi = {
   getCPFAssumptions,
   updateCPFAssumptions,
   deleteCPFAssumptions,
+  // CPF LIFE Estimate API
+  calculateCPFLifeEstimate,
+  // CPF Projection API
+  getCPFProjection,
 }

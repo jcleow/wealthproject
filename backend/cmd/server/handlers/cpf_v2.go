@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -386,4 +387,256 @@ func (h *CPFV2Handler) HandleStop(w http.ResponseWriter, r *http.Request, id str
 		return
 	}
 	writeJSON(w, updated)
+}
+
+// cpfLifeEstimateInput is the JSON input struct for CPF LIFE estimate calculation.
+// Supports two modes:
+// 1. With cpfAccountId: fetches birth year and gender from the linked Person
+// 2. Standalone: provide birthYear and gender directly
+type cpfLifeEstimateInput struct {
+	CPFAccountID   string `json:"cpfAccountId,omitempty"`  // Optional: CPF account to get person's birth year and gender
+	BirthYear      int    `json:"birthYear,omitempty"`     // Optional: birth year for standalone mode
+	Gender         string `json:"gender,omitempty"`        // Optional: 'male' or 'female' for standalone mode
+	RABalanceAt65  string `json:"raBalanceAt65,omitempty"` // Required: RA balance at age 65
+	PayoutStartAge int    `json:"payoutStartAge"`          // Required: payout start age (65-70)
+}
+
+// cpfLifeEstimateResponse is the JSON response for CPF LIFE estimates.
+type cpfLifeEstimateResponse struct {
+	RABalanceAt65  string `json:"raBalanceAt65"`
+	PayoutStartAge int    `json:"payoutStartAge"`
+	BirthYear      int    `json:"birthYear"`
+	Gender         string `json:"gender"`
+
+	Estimates struct {
+		Standard struct {
+			MonthlyPayout string `json:"monthlyPayout"`
+			AnnualPayout  string `json:"annualPayout"`
+			PayoutRate    string `json:"payoutRate"`
+		} `json:"standard"`
+		Basic struct {
+			MonthlyPayout string `json:"monthlyPayout"`
+			AnnualPayout  string `json:"annualPayout"`
+			PayoutRate    string `json:"payoutRate"`
+		} `json:"basic"`
+		Escalating struct {
+			MonthlyPayout string `json:"monthlyPayout"`
+			AnnualPayout  string `json:"annualPayout"`
+			PayoutRate    string `json:"payoutRate"`
+			PayoutAt75    string `json:"payoutAt75"`
+			PayoutAt85    string `json:"payoutAt85"`
+		} `json:"escalating"`
+	} `json:"estimates"`
+
+	Disclaimer string `json:"disclaimer"`
+}
+
+// POST /api/v2/cpf/calculators/cpflife-estimate
+// HandleCPFLifeEstimate calculates CPF LIFE payout estimates.
+// @Summary Calculate CPF LIFE payout estimates
+// @Description Calculates estimated CPF LIFE monthly payouts for all three plans (Standard, Basic, Escalating) based on birth year, gender, RA balance, and payout start age.
+// @Tags CPF V2
+// @Accept json
+// @Produce json
+// @Param body body cpfLifeEstimateInput true "CPF LIFE estimate input"
+// @Success 200 {object} cpfLifeEstimateResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/calculators/cpflife-estimate [post]
+func (h *CPFV2Handler) HandleCPFLifeEstimate(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var input cpfLifeEstimateInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	// Parse RA balance
+	raBalance, err := decimal.NewFromString(input.RABalanceAt65)
+	if err != nil {
+		badRequest(w, fmt.Errorf("raBalanceAt65: invalid decimal value"))
+		return
+	}
+
+	// Delegate to service layer
+	serviceInput := cpf.CPFLifeEstimateInput{
+		CPFAccountID:   input.CPFAccountID,
+		BirthYear:      input.BirthYear,
+		Gender:         input.Gender,
+		RABalanceAt65:  raBalance,
+		PayoutStartAge: input.PayoutStartAge,
+	}
+
+	result, err := h.service.CalculateCPFLifeEstimates(r.Context(), userID, serviceInput)
+	if err != nil {
+		if err == repo.ErrNotFound {
+			notFound(w)
+			return
+		}
+		log.Printf("cpf.CalculateCPFLifeEstimates error: %v", err)
+		badRequest(w, err)
+		return
+	}
+
+	// Build response
+	response := cpfLifeEstimateResponse{
+		RABalanceAt65:  result.RABalanceAt65.String(),
+		PayoutStartAge: result.PayoutStartAge,
+		BirthYear:      result.BirthYear,
+		Gender:         result.Gender,
+		Disclaimer:     result.Disclaimer,
+	}
+
+	response.Estimates.Standard.MonthlyPayout = result.Standard.MonthlyPayout.String()
+	response.Estimates.Standard.AnnualPayout = result.Standard.AnnualPayout.String()
+	response.Estimates.Standard.PayoutRate = result.Standard.PayoutRate.String()
+
+	response.Estimates.Basic.MonthlyPayout = result.Basic.MonthlyPayout.String()
+	response.Estimates.Basic.AnnualPayout = result.Basic.AnnualPayout.String()
+	response.Estimates.Basic.PayoutRate = result.Basic.PayoutRate.String()
+
+	response.Estimates.Escalating.MonthlyPayout = result.Escalating.MonthlyPayout.String()
+	response.Estimates.Escalating.AnnualPayout = result.Escalating.AnnualPayout.String()
+	response.Estimates.Escalating.PayoutRate = result.Escalating.PayoutRate.String()
+	response.Estimates.Escalating.PayoutAt75 = result.Escalating.PayoutAt75.String()
+	response.Estimates.Escalating.PayoutAt85 = result.Escalating.PayoutAt85.String()
+
+	writeJSON(w, response)
+}
+
+// cpfProjectionInput is the JSON input struct for CPF projection with LIFE estimates.
+type cpfProjectionInput struct {
+	CPFAccountID   string `json:"cpfAccountId"`           // Required: CPF account to project
+	PayoutStartAge int    `json:"payoutStartAge"`         // Required: payout start age (65-70)
+	IncludeIncomes bool   `json:"includeIncomes"`         // Include linked incomes in projection (default true)
+}
+
+// cpfProjectionResponse is the JSON response for CPF projection with LIFE estimates.
+type cpfProjectionResponse struct {
+	// Projected balances at age 65
+	ProjectedBalances struct {
+		OA       string `json:"oa"`
+		SA       string `json:"sa"`
+		MA       string `json:"ma"`
+		RA       string `json:"ra"`
+		AsOfDate string `json:"asOfDate"` // The date when person turns 65
+	} `json:"projectedBalances"`
+
+	// Current account info
+	CurrentBalances struct {
+		OA       string `json:"oa"`
+		SA       string `json:"sa"`
+		MA       string `json:"ma"`
+		RA       string `json:"ra"`
+		AsOfDate string `json:"asOfDate"`
+	} `json:"currentBalances"`
+
+	// Person info
+	BirthYear int    `json:"birthYear"`
+	Gender    string `json:"gender"`
+	Age65Date string `json:"age65Date"` // When the person turns 65
+
+	// CPF LIFE estimates using projected RA balance
+	CpfLifeEstimates *cpfLifeEstimateResponse `json:"cpfLifeEstimates,omitempty"`
+}
+
+// POST /api/v2/cpf/account/{id}/projection
+// HandleCPFProjection projects CPF balances to age 65 and calculates CPF LIFE estimates.
+// @Summary Project CPF balances to age 65 with CPF LIFE estimates
+// @Description Projects CPF account balances to age 65 using the projector module, then calculates CPF LIFE payout estimates using the projected RA balance.
+// @Tags CPF V2
+// @Accept json
+// @Produce json
+// @Param id path string true "CPF account ID"
+// @Param body body cpfProjectionInput true "Projection input"
+// @Success 200 {object} cpfProjectionResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/account/{id}/projection [post]
+func (h *CPFV2Handler) HandleCPFProjection(w http.ResponseWriter, r *http.Request, cpfAccountID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var input cpfProjectionInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	// Delegate to service layer
+	result, err := h.service.ProjectCPFWithLifeEstimates(r.Context(), userID, cpfAccountID, input.PayoutStartAge)
+	if err != nil {
+		if err == repo.ErrNotFound {
+			notFound(w)
+			return
+		}
+		log.Printf("cpf.ProjectCPFWithLifeEstimates error: %v", err)
+		badRequest(w, err)
+		return
+	}
+
+	// Build response
+	response := cpfProjectionResponse{
+		BirthYear: result.BirthYear,
+		Gender:    result.Gender,
+		Age65Date: result.Age65Date.Format("2006-01-02"),
+	}
+
+	response.ProjectedBalances.OA = result.ProjectedBalances.OA.String()
+	response.ProjectedBalances.SA = result.ProjectedBalances.SA.String()
+	response.ProjectedBalances.MA = result.ProjectedBalances.MA.String()
+	response.ProjectedBalances.RA = result.ProjectedBalances.RA.String()
+	response.ProjectedBalances.AsOfDate = result.ProjectedBalances.AsOfDate.Format("2006-01-02")
+
+	response.CurrentBalances.OA = result.CurrentBalances.OA.String()
+	response.CurrentBalances.SA = result.CurrentBalances.SA.String()
+	response.CurrentBalances.MA = result.CurrentBalances.MA.String()
+	response.CurrentBalances.RA = result.CurrentBalances.RA.String()
+	response.CurrentBalances.AsOfDate = result.CurrentBalances.AsOfDate.Format("2006-01-02")
+
+	// Add CPF LIFE estimates if available
+	if result.CPFLifeEstimates != nil {
+		response.CpfLifeEstimates = buildCpfLifeEstimateResponse(result.CPFLifeEstimates)
+	}
+
+	writeJSON(w, response)
+}
+
+// buildCpfLifeEstimateResponse builds a CPF LIFE estimate response from service result.
+func buildCpfLifeEstimateResponse(result *cpf.CPFLifeEstimateResult) *cpfLifeEstimateResponse {
+	response := &cpfLifeEstimateResponse{
+		RABalanceAt65:  result.RABalanceAt65.String(),
+		PayoutStartAge: result.PayoutStartAge,
+		BirthYear:      result.BirthYear,
+		Gender:         result.Gender,
+		Disclaimer:     result.Disclaimer,
+	}
+
+	response.Estimates.Standard.MonthlyPayout = result.Standard.MonthlyPayout.String()
+	response.Estimates.Standard.AnnualPayout = result.Standard.AnnualPayout.String()
+	response.Estimates.Standard.PayoutRate = result.Standard.PayoutRate.String()
+
+	response.Estimates.Basic.MonthlyPayout = result.Basic.MonthlyPayout.String()
+	response.Estimates.Basic.AnnualPayout = result.Basic.AnnualPayout.String()
+	response.Estimates.Basic.PayoutRate = result.Basic.PayoutRate.String()
+
+	response.Estimates.Escalating.MonthlyPayout = result.Escalating.MonthlyPayout.String()
+	response.Estimates.Escalating.AnnualPayout = result.Escalating.AnnualPayout.String()
+	response.Estimates.Escalating.PayoutRate = result.Escalating.PayoutRate.String()
+	response.Estimates.Escalating.PayoutAt75 = result.Escalating.PayoutAt75.String()
+	response.Estimates.Escalating.PayoutAt85 = result.Escalating.PayoutAt85.String()
+
+	return response
 }

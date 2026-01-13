@@ -1,105 +1,58 @@
-// Package payout provides CPF LIFE payout and bequest calculations.
-//
-// IMPORTANT DISCLAIMER: These calculations are approximations for planning purposes only.
-// CPF LIFE is a complex annuity product and CPF Board does not publicly disclose
-// the exact actuarial formulas used. Actual payouts may differ from these estimates.
-// Always verify with CPF Board's official estimator at cpf.gov.sg.
+// Package payout provides CPF LIFE payout estimation calculations.
+// It uses a regression model derived from official CPF calculator data
+// to predict monthly payouts based on birth year, gender, plan type, and RA balance.
 package payout
 
 import "financial-chat-system/backend/internal/decimal"
 
-// Gender represents biological sex for CPF LIFE payout calculations.
-// CPF uses gender-specific divisors due to different life expectancies.
+// Gender represents the gender of a person for CPF LIFE calculations.
 type Gender string
 
 const (
-	Male   Gender = "male"
-	Female Gender = "female"
+	GenderMale   Gender = "male"
+	GenderFemale Gender = "female"
 )
 
-// CPFLifePlan represents the three CPF LIFE plan types.
-type CPFLifePlan string
+// Plan represents a CPF LIFE plan type.
+type Plan string
 
 const (
-	Standard   CPFLifePlan = "standard"
-	Basic      CPFLifePlan = "basic"
-	Escalating CPFLifePlan = "escalating"
+	PlanStandard   Plan = "standard"
+	PlanBasic      Plan = "basic"
+	PlanEscalating Plan = "escalating"
 )
 
-// PayoutInput contains all inputs needed to calculate CPF LIFE payouts.
+// PayoutInput contains the inputs required for CPF LIFE payout calculation.
 type PayoutInput struct {
-	// RAAt55 is the Retirement Account balance at age 55.
-	// This is the key input that determines payout amounts.
-	RAAt55 *decimal.Decimal
-
-	// Gender affects the divisor used (males: 120, females: 132).
-	// Females have lower payouts for the same balance due to longer life expectancy.
-	Gender Gender
-
-	// Plan determines payout characteristics (Standard/Basic/Escalating).
-	Plan CPFLifePlan
-
-	// PayoutStartAge is when payouts begin (65-70).
-	// Deferring increases payout by ~7% per year.
-	PayoutStartAge int
+	BirthYear      int              // Birth year of the person (e.g., 1985)
+	Gender         Gender           // Gender of the person
+	Plan           Plan             // CPF LIFE plan type
+	RABalanceAt65  *decimal.Decimal // Projected RA balance at age 65
+	PayoutStartAge int              // Payout start age (65-70)
 }
 
-// PayoutResult contains the calculated CPF LIFE payout details.
+// PayoutResult contains the calculated payout for a single plan.
 type PayoutResult struct {
-	// MonthlyPayout is the initial monthly payout amount at payout start age.
-	MonthlyPayout *decimal.Decimal
-
-	// RAAtPayoutAge is the projected RA balance when payouts begin
-	// (after compounding at 4% from age 55).
-	RAAtPayoutAge *decimal.Decimal
-
-	// BasePayout is the payout before plan and deferment adjustments.
-	// Calculated as: RAAt55 / divisor
-	BasePayout *decimal.Decimal
-
-	// PlanAdjustment is the multiplier applied for plan type.
-	// Standard: 1.0, Basic: 0.90, Escalating: 0.80
-	PlanAdjustment *decimal.Decimal
-
-	// DefermentBonus is the multiplier for delayed payout start.
-	// +7% per year deferred (age 65-70), max +40%.
-	DefermentBonus *decimal.Decimal
+	MonthlyPayout *decimal.Decimal // Monthly payout amount
+	AnnualPayout  *decimal.Decimal // Annual payout amount (monthly * 12)
+	PayoutRate    *decimal.Decimal // Payout rate (monthly payout / RA balance * 12)
 }
 
-// BequestInput contains inputs for bequest (inheritance) calculations.
-type BequestInput struct {
-	// Premium is the amount transferred to CPF LIFE at payout start.
-	Premium *decimal.Decimal
-
-	// Plan determines bequest characteristics.
-	// Basic plan preserves more for beneficiaries.
-	Plan CPFLifePlan
-
-	// MonthlyPayout is the payout amount being received.
-	MonthlyPayout *decimal.Decimal
-
-	// YearsReceived is how many years of payouts have been received
-	// before death.
-	YearsReceived int
+// EscalatingPayoutResult extends PayoutResult with escalating plan projections.
+type EscalatingPayoutResult struct {
+	PayoutResult
+	PayoutAt75 *decimal.Decimal // Monthly payout at age 75 (after 10 years of 2% growth)
+	PayoutAt85 *decimal.Decimal // Monthly payout at age 85 (after 20 years of 2% growth)
 }
 
-// BequestResult contains calculated bequest amounts.
-type BequestResult struct {
-	// Bequest is the amount left to beneficiaries upon death.
-	Bequest *decimal.Decimal
-
-	// TotalPayoutsReceived is the cumulative payouts received before death.
-	TotalPayoutsReceived *decimal.Decimal
-
-	// IsDepleted indicates if bequest has reached zero.
-	IsDepleted bool
-}
-
-// EscalatingPayoutInput contains inputs for escalating plan payout at a specific year.
-type EscalatingPayoutInput struct {
-	// InitialPayout is the Year 1 payout amount.
-	InitialPayout *decimal.Decimal
-
-	// YearNumber is the payout year (1 = first year, 2 = second year, etc.)
-	YearNumber int
+// AllPlanEstimates contains payout estimates for all three CPF LIFE plans.
+type AllPlanEstimates struct {
+	RABalanceAt65  *decimal.Decimal       // The RA balance used for calculations
+	PayoutStartAge int                    // The payout start age used
+	BirthYear      int                    // The birth year used
+	Gender         Gender                 // The gender used
+	Standard       PayoutResult           // Standard plan estimate
+	Basic          PayoutResult           // Basic plan estimate
+	Escalating     EscalatingPayoutResult // Escalating plan estimate
+	Disclaimer     string                 // Disclaimer message reminding users to verify with official CPF calculator
 }

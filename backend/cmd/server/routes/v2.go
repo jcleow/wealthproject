@@ -243,6 +243,16 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		}
 	}).Methods("GET", "PUT", "DELETE")
 
+	// CPF LIFE estimate calculator endpoint
+	router.HandleFunc("/cpf/calculators/cpflife-estimate", cpfHandler.HandleCPFLifeEstimate).Methods("POST")
+
+	// CPF projection with LIFE estimates endpoint
+	router.HandleFunc("/cpf/account/{id}/projection", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		cpfHandler.HandleCPFProjection(w, r, id)
+	}).Methods("POST")
+
 	// Person v2 endpoints (for multi-person household support)
 	personHandler := handlers.NewPersonV2Handler(deps.FinStore)
 	router.HandleFunc("/persons", personHandler.HandleList).Methods("GET")

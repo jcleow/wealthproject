@@ -84,6 +84,7 @@ export function PersonSelector({
       name: newName.trim(),
       displayColor: suggestedColor,
       dateOfBirth: newDateOfBirth,
+      gender: 'male', // Default for quick create
       residencyStatus: 'citizen', // Default for quick create
     })
     onChange(created.id)

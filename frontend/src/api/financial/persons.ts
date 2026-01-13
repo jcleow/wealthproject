@@ -18,6 +18,7 @@ function toPerson(data: ApiPerson): Person {
     displayColor: data.displayColor ?? null,
     isIncluded: data.isIncluded ?? true,
     dateOfBirth: data.dateOfBirth ?? '',
+    gender: ((data as { gender?: string }).gender ?? 'male') as 'male' | 'female',
     residencyStatus: (data.residencyStatus ?? 'citizen') as ResidencyStatus,
     prGrantDate: data.prGrantDate ?? null,
     createdAt: data.createdAt ?? '',

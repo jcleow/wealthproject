@@ -4,9 +4,16 @@ import { z } from 'zod'
 import type { ResidencyStatus } from './cpf'
 
 /**
+ * Gender type for CPF LIFE payout calculations.
+ * Gender affects life expectancy and therefore CPF LIFE payout divisors.
+ */
+export type Gender = 'male' | 'female'
+
+/**
  * Person represents a household member for income/CPF ownership and filtering.
  * Now includes personal attributes previously stored on CPF accounts:
  * - dateOfBirth: Required for CPF contribution calculations
+ * - gender: Required for CPF LIFE payout calculations
  * - residencyStatus: 'citizen' or 'pr' (PR year is computed from prGrantDate)
  * - prGrantDate: Used to compute PR year (1, 2, or 3+) for CPF rate calculations
  */
@@ -17,6 +24,7 @@ export const personSchema = z.object({
   displayColor: z.string().optional().nullable(),
   isIncluded: z.boolean(),
   dateOfBirth: z.string(), // ISO date format (YYYY-MM-DD)
+  gender: z.enum(['male', 'female']) as z.ZodType<Gender>, // Required for CPF LIFE calculations
   residencyStatus: z.enum(['citizen', 'pr']) as z.ZodType<ResidencyStatus>,
   prGrantDate: z.string().optional().nullable(), // ISO date format, required if residencyStatus='pr'
   createdAt: z.string(),
@@ -32,6 +40,7 @@ export interface PersonCreatePayload {
   name: string
   displayColor?: string
   dateOfBirth: string // Required, format: YYYY-MM-DD
+  gender: Gender // Required for CPF LIFE calculations
   residencyStatus?: ResidencyStatus // Defaults to 'citizen'
   prGrantDate?: string // Optional, format: YYYY-MM-DD
 }
@@ -41,6 +50,7 @@ export interface PersonUpdatePayload {
   displayColor?: string
   isIncluded?: boolean
   dateOfBirth?: string
+  gender?: Gender
   residencyStatus?: ResidencyStatus
   prGrantDate?: string | null // Can be cleared by passing null
 }

@@ -21,31 +21,50 @@ import type {
 
 describe('parseDecimal', () => {
   it('parses valid decimal strings', () => {
-    expect(parseDecimal('100.50')).toBe(100.5)
-    expect(parseDecimal('1000')).toBe(1000)
-    expect(parseDecimal('0.0001')).toBe(0.0001)
+    // Arrange
+    const inputs = ['100.50', '1000', '0.0001']
+    const expected = [100.5, 1000, 0.0001]
+
+    // Act & Assert
+    inputs.forEach((input, i) => {
+      expect(parseDecimal(input)).toBe(expected[i])
+    })
   })
 
   it('returns 0 for undefined', () => {
-    expect(parseDecimal(undefined)).toBe(0)
+    // Act
+    const result = parseDecimal(undefined)
+
+    // Assert
+    expect(result).toBe(0)
   })
 
   it('returns 0 for empty string', () => {
-    expect(parseDecimal('')).toBe(0)
+    // Act
+    const result = parseDecimal('')
+
+    // Assert
+    expect(result).toBe(0)
   })
 
   it('returns 0 for non-numeric strings', () => {
+    // Act & Assert
     expect(parseDecimal('abc')).toBe(0)
     expect(parseDecimal('NaN')).toBe(0)
   })
 
   it('handles negative numbers', () => {
-    expect(parseDecimal('-500.25')).toBe(-500.25)
+    // Act
+    const result = parseDecimal('-500.25')
+
+    // Assert
+    expect(result).toBe(-500.25)
   })
 })
 
 describe('investmentV2ToTimelineItem', () => {
   it('converts investment response to timeline item', () => {
+    // Arrange
     const investment: InvestmentResponseV2 = {
       id: 'inv-1',
       parentId: 'inv-parent-1',
@@ -60,8 +79,10 @@ describe('investmentV2ToTimelineItem', () => {
       startMonth: 1,
     }
 
+    // Act
     const result = investmentV2ToTimelineItem(investment)
 
+    // Assert
     expect(result.itemId).toBe('inv-1')
     expect(result.parentId).toBe('inv-parent-1')
     expect(result.name).toBe('Stock Portfolio')
@@ -77,6 +98,7 @@ describe('investmentV2ToTimelineItem', () => {
   })
 
   it('handles zero balance investment', () => {
+    // Arrange
     const investment: InvestmentResponseV2 = {
       id: 'inv-2',
       parentId: 'inv-2',
@@ -91,8 +113,10 @@ describe('investmentV2ToTimelineItem', () => {
       startMonth: 6,
     }
 
+    // Act
     const result = investmentV2ToTimelineItem(investment)
 
+    // Assert
     expect(result.amountAnnual).toBe(0)
     expect(result.adjAnnualAmt).toBe(0)
   })
@@ -100,6 +124,7 @@ describe('investmentV2ToTimelineItem', () => {
 
 describe('nonCashAssetV2ToTimelineItem', () => {
   it('converts non-cash asset response to timeline item', () => {
+    // Arrange
     const asset: NonCashAssetResponseV2 = {
       id: 'asset-1',
       parentId: 'asset-parent-1',
@@ -113,8 +138,10 @@ describe('nonCashAssetV2ToTimelineItem', () => {
       startMonth: 1,
     }
 
+    // Act
     const result = nonCashAssetV2ToTimelineItem(asset)
 
+    // Assert
     expect(result.itemId).toBe('asset-1')
     expect(result.parentId).toBe('asset-parent-1')
     expect(result.name).toBe('Property')
@@ -127,6 +154,7 @@ describe('nonCashAssetV2ToTimelineItem', () => {
 
 describe('cashAssetV2ToTimelineItem', () => {
   it('converts cash asset response to timeline item', () => {
+    // Arrange
     const cashAsset: CashAssetResponseV2 = {
       itemId: 'cash-1',
       name: 'Savings Account',
@@ -139,8 +167,10 @@ describe('cashAssetV2ToTimelineItem', () => {
       isAccumulator: true,
     }
 
+    // Act
     const result = cashAssetV2ToTimelineItem(cashAsset)
 
+    // Assert
     expect(result.itemId).toBe('cash-1')
     expect(result.name).toBe('Savings Account')
     expect(result.category).toBe('savings')
@@ -153,6 +183,7 @@ describe('cashAssetV2ToTimelineItem', () => {
 
 describe('cpfAssetV2ToTimelineItem', () => {
   it('converts CPF asset response to timeline item', () => {
+    // Arrange
     const cpfAsset: CPFAssetResponseV2 = {
       id: 'cpf-1',
       parentId: 'cpf-parent-1',
@@ -168,8 +199,10 @@ describe('cpfAssetV2ToTimelineItem', () => {
       startMonth: 1,
     }
 
+    // Act
     const result = cpfAssetV2ToTimelineItem(cpfAsset)
 
+    // Assert
     expect(result.itemId).toBe('cpf-1')
     expect(result.parentId).toBe('cpf-parent-1')
     expect(result.name).toBe('CPF OA')
@@ -184,6 +217,7 @@ describe('cpfAssetV2ToTimelineItem', () => {
 
 describe('liabilityV2ToTimelineItem', () => {
   it('converts liability response to timeline item', () => {
+    // Arrange
     const liability: LiabilityResponseV2 = {
       id: 'liability-1',
       parentId: 'liability-parent-1',
@@ -197,8 +231,10 @@ describe('liabilityV2ToTimelineItem', () => {
       startMonth: 6,
     }
 
+    // Act
     const result = liabilityV2ToTimelineItem(liability)
 
+    // Assert
     expect(result.itemId).toBe('liability-1')
     expect(result.parentId).toBe('liability-parent-1')
     expect(result.name).toBe('Mortgage')
@@ -212,6 +248,7 @@ describe('liabilityV2ToTimelineItem', () => {
 
 describe('incomeV2ToTimelineItem', () => {
   it('converts income response to timeline item', () => {
+    // Arrange
     const income: IncomeResponseV2 = {
       id: 'income-1',
       parentId: 'income-parent-1',
@@ -228,8 +265,10 @@ describe('incomeV2ToTimelineItem', () => {
       growthRate: '3.0000',
     }
 
+    // Act
     const result = incomeV2ToTimelineItem(income)
 
+    // Assert
     expect(result.itemId).toBe('income-1')
     expect(result.parentId).toBe('income-parent-1')
     expect(result.name).toBe('Salary')
@@ -246,6 +285,7 @@ describe('incomeV2ToTimelineItem', () => {
 
 describe('expenseV2ToTimelineItem', () => {
   it('converts expense response to timeline item', () => {
+    // Arrange
     const expense: ExpenseResponseV2 = {
       id: 'expense-1',
       parentId: 'expense-parent-1',
@@ -261,8 +301,10 @@ describe('expenseV2ToTimelineItem', () => {
       startMonth: 1,
     }
 
+    // Act
     const result = expenseV2ToTimelineItem(expense)
 
+    // Assert
     expect(result.itemId).toBe('expense-1')
     expect(result.parentId).toBe('expense-parent-1')
     expect(result.name).toBe('Rent')
