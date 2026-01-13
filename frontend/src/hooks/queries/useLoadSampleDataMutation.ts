@@ -55,6 +55,7 @@ export function useLoadSampleDataMutation() {
             name: personConfig.name,
             displayColor: personConfig.displayColor,
             dateOfBirth: personConfig.dateOfBirth,
+            gender: (personConfig as { gender?: 'male' | 'female' }).gender ?? 'male',
             residencyStatus: personConfig.residencyStatus,
           })
           createdPersons.push(person)

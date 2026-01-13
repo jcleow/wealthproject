@@ -231,57 +231,6 @@ func TestCalculateAllPlans_CohortBased(t *testing.T) {
 	}
 }
 
-func TestConfidenceLevel_CohortBased(t *testing.T) {
-	// Arrange - common setup and test cases
-	// Confidence level indicates how reliable the payout estimate is:
-	// - High: Birth year ≤ 1970 (close to or past retirement, better data)
-	// - Moderate: Birth year 1970-1990 (medium-term projection)
-	// - Low: Birth year > 1990 (30+ years to retirement, high uncertainty)
-	balance, _ := decimal.NewFromString("500000")
-	tests := []struct {
-		name               string
-		birthYear          int
-		expectedConfidence ConfidenceLevel
-	}{
-		{
-			// 1965: ~60 years old in 2025, near retirement
-			// High confidence due to shorter projection period
-			name:               "1965 should be high confidence",
-			birthYear:          1965,
-			expectedConfidence: ConfidenceHigh,
-		},
-		{
-			// 1980: ~45 years old in 2025, 20 years to retirement
-			// Moderate confidence due to medium-term projection
-			name:               "1980 should be moderate confidence",
-			birthYear:          1980,
-			expectedConfidence: ConfidenceModerate,
-		},
-		{
-			// 1995: ~30 years old in 2025, 35 years to retirement
-			// Low confidence due to long-term projection uncertainty
-			name:               "1995 should be low confidence",
-			birthYear:          1995,
-			expectedConfidence: ConfidenceLow,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Act
-			result, err := CalculateAllPlans(tt.birthYear, GenderMale, balance, 65)
-
-			// Assert
-			if err != nil {
-				t.Fatalf("CalculateAllPlans error: %v", err)
-			}
-			if result.ConfidenceLevel != tt.expectedConfidence {
-				t.Errorf("ConfidenceLevel = %v, want %v", result.ConfidenceLevel, tt.expectedConfidence)
-			}
-		})
-	}
-}
-
 func TestValidation(t *testing.T) {
 	// Arrange
 	// CPF LIFE validation rules:

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -13,6 +14,7 @@ type personV2CreateInput struct {
 	Name            string  `json:"name"`
 	DisplayColor    string  `json:"displayColor"`
 	DateOfBirth     string  `json:"dateOfBirth"`     // Required, format: "2006-01-02"
+	Gender          string  `json:"gender"`          // Required: 'male' or 'female' for CPF LIFE calculations
 	ResidencyStatus string  `json:"residencyStatus"` // 'citizen' or 'pr' (PR year is computed from prGrantDate)
 	PRGrantDate     *string `json:"prGrantDate"`     // Required if residencyStatus='pr', format: "2006-01-02"
 }
@@ -23,6 +25,7 @@ type personV2UpdateInput struct {
 	DisplayColor    string  `json:"displayColor"`
 	IsIncluded      *bool   `json:"isIncluded"`
 	DateOfBirth     *string `json:"dateOfBirth"`     // Optional for updates, format: "2006-01-02"
+	Gender          string  `json:"gender"`          // Optional: 'male' or 'female'
 	ResidencyStatus string  `json:"residencyStatus"` // 'citizen' or 'pr'
 	PRGrantDate     *string `json:"prGrantDate"`     // Required if residencyStatus='pr', format: "2006-01-02"
 }
@@ -121,6 +124,16 @@ func (h *PersonV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Validate gender (required)
+	if input.Gender == "" {
+		badRequest(w, errMissingFields("gender"))
+		return
+	}
+	if input.Gender != "male" && input.Gender != "female" {
+		badRequest(w, errors.New("invalid gender: must be 'male' or 'female'"))
+		return
+	}
+
 	// Default residency status to 'citizen' if not provided
 	residencyStatus := input.ResidencyStatus
 	if residencyStatus == "" {
@@ -130,6 +143,7 @@ func (h *PersonV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	person := repo.Person{
 		Name:            input.Name,
 		DateOfBirth:     dob,
+		Gender:          input.Gender,
 		ResidencyStatus: residencyStatus,
 		PRGrantDate:     prGrantDate,
 	}
@@ -242,11 +256,22 @@ func (h *PersonV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, i
 		prGrantDate = current.PRGrantDate
 	}
 
+	// Validate gender if provided
+	gender := current.Gender
+	if input.Gender != "" {
+		if input.Gender != "male" && input.Gender != "female" {
+			badRequest(w, errors.New("invalid gender: must be 'male' or 'female'"))
+			return
+		}
+		gender = input.Gender
+	}
+
 	// Build updated person
 	person := repo.Person{
 		Name:            input.Name,
 		IsIncluded:      current.IsIncluded,
 		DateOfBirth:     dob,
+		Gender:          gender,
 		ResidencyStatus: input.ResidencyStatus,
 		PRGrantDate:     prGrantDate,
 	}

@@ -157,11 +157,11 @@ export function AppreciationChart({
               const point = dataPoints.find((d) => d.year === value)
               return point?.yearLabel || `Year ${value}`
             }}
-            formatter={(value: number, _name: string, props: { payload?: AppreciationDataPoint }) => {
-              const rate = props.payload?.rate
+            formatter={(value, _name, props) => {
+              const rate = (props as { payload?: AppreciationDataPoint }).payload?.rate
               return [
                 <span key="value">
-                  {formatCurrency(value)}
+                  {formatCurrency(Number(value) || 0)}
                   {rate !== undefined && rate > 0 && (
                     <span className="text-emerald-400 ml-2 text-xs">
                       +{rate}%/yr

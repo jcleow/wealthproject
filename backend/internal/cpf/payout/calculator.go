@@ -77,16 +77,10 @@ func CalculatePayout(input PayoutInput) (*PayoutResult, error) {
 		payoutRate = decimal.Zero()
 	}
 
-	// Determine confidence level and disclaimer
-	confidence := getConfidenceLevel(input.BirthYear)
-	disclaimer := getDisclaimer(input.BirthYear, confidence)
-
 	return &PayoutResult{
-		MonthlyPayout:   monthlyPayout,
-		AnnualPayout:    annualPayout,
-		PayoutRate:      payoutRate,
-		ConfidenceLevel: confidence,
-		Disclaimer:      disclaimer,
+		MonthlyPayout: monthlyPayout,
+		AnnualPayout:  annualPayout,
+		PayoutRate:    payoutRate,
 	}, nil
 }
 
@@ -150,20 +144,15 @@ func CalculateAllPlans(birthYear int, gender Gender, raBalanceAt65 *decimal.Deci
 		PayoutAt85:   payoutAt85,
 	}
 
-	// Determine overall confidence level
-	confidence := getConfidenceLevel(birthYear)
-	disclaimer := getDisclaimer(birthYear, confidence)
-
 	return &AllPlanEstimates{
-		RABalanceAt65:   raBalanceAt65,
-		PayoutStartAge:  payoutStartAge,
-		BirthYear:       birthYear,
-		Gender:          gender,
-		Standard:        *standard,
-		Basic:           *basic,
-		Escalating:      escalatingResult,
-		ConfidenceLevel: confidence,
-		Disclaimer:      disclaimer,
+		RABalanceAt65:  raBalanceAt65,
+		PayoutStartAge: payoutStartAge,
+		BirthYear:      birthYear,
+		Gender:         gender,
+		Standard:       *standard,
+		Basic:          *basic,
+		Escalating:     escalatingResult,
+		Disclaimer:     Disclaimer,
 	}, nil
 }
 

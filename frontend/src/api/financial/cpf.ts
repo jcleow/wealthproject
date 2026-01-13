@@ -208,7 +208,6 @@ export interface CPFLifeEstimateResponse {
       payoutAt85: string
     }
   }
-  confidenceLevel: 'high' | 'moderate' | 'low'
   disclaimer: string
 }
 

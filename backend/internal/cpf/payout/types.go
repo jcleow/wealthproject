@@ -22,18 +22,6 @@ const (
 	PlanEscalating Plan = "escalating"
 )
 
-// ConfidenceLevel indicates the reliability of the payout estimate.
-type ConfidenceLevel string
-
-const (
-	// ConfidenceHigh means birth year is within the training data range (1960-1975)
-	ConfidenceHigh ConfidenceLevel = "high"
-	// ConfidenceModerate means birth year is slightly outside training data (1975-1985)
-	ConfidenceModerate ConfidenceLevel = "moderate"
-	// ConfidenceLow means birth year is significantly outside training data (after 1985)
-	ConfidenceLow ConfidenceLevel = "low"
-)
-
 // PayoutInput contains the inputs required for CPF LIFE payout calculation.
 type PayoutInput struct {
 	BirthYear      int              // Birth year of the person (e.g., 1985)
@@ -45,11 +33,9 @@ type PayoutInput struct {
 
 // PayoutResult contains the calculated payout for a single plan.
 type PayoutResult struct {
-	MonthlyPayout   *decimal.Decimal // Monthly payout amount
-	AnnualPayout    *decimal.Decimal // Annual payout amount (monthly * 12)
-	PayoutRate      *decimal.Decimal // Payout rate (monthly payout / RA balance * 12)
-	ConfidenceLevel ConfidenceLevel  // Confidence level of the estimate
-	Disclaimer      string           // Warning message for extrapolated estimates
+	MonthlyPayout *decimal.Decimal // Monthly payout amount
+	AnnualPayout  *decimal.Decimal // Annual payout amount (monthly * 12)
+	PayoutRate    *decimal.Decimal // Payout rate (monthly payout / RA balance * 12)
 }
 
 // EscalatingPayoutResult extends PayoutResult with escalating plan projections.
@@ -61,13 +47,12 @@ type EscalatingPayoutResult struct {
 
 // AllPlanEstimates contains payout estimates for all three CPF LIFE plans.
 type AllPlanEstimates struct {
-	RABalanceAt65   *decimal.Decimal       // The RA balance used for calculations
-	PayoutStartAge  int                    // The payout start age used
-	BirthYear       int                    // The birth year used
-	Gender          Gender                 // The gender used
-	Standard        PayoutResult           // Standard plan estimate
-	Basic           PayoutResult           // Basic plan estimate
-	Escalating      EscalatingPayoutResult // Escalating plan estimate
-	ConfidenceLevel ConfidenceLevel        // Overall confidence level
-	Disclaimer      string                 // Overall disclaimer message
+	RABalanceAt65  *decimal.Decimal       // The RA balance used for calculations
+	PayoutStartAge int                    // The payout start age used
+	BirthYear      int                    // The birth year used
+	Gender         Gender                 // The gender used
+	Standard       PayoutResult           // Standard plan estimate
+	Basic          PayoutResult           // Basic plan estimate
+	Escalating     EscalatingPayoutResult // Escalating plan estimate
+	Disclaimer     string                 // Disclaimer message reminding users to verify with official CPF calculator
 }

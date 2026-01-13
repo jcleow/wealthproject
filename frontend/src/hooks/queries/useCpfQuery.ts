@@ -168,6 +168,76 @@ export function useCpfLifeEstimateMutation() {
   })
 }
 
+/**
+ * Combined hook that integrates the CPF LIFE estimate mutation with Zustand store.
+ * Provides a convenient API for managing inputs and calculating estimates.
+ *
+ * Usage:
+ * ```tsx
+ * const {
+ *   inputs,        // Current input values from store
+ *   actions,       // Actions to update inputs
+ *   isValid,       // Whether current inputs are valid
+ *   result,        // Last successful result (cached in store)
+ *   mutation,      // The underlying mutation for loading/error states
+ *   calculate,     // Convenient function to trigger calculation
+ * } = useCpfLifeEstimate()
+ * ```
+ */
+export function useCpfLifeEstimate() {
+  const {
+    useCpfLifeEstimateInputs,
+    useCpfLifeEstimateActions,
+    useCpfLifeEstimateIsValid,
+    useCpfLifeEstimateResult,
+  } = require('@/stores/cpfLifeEstimateStore')
+
+  const inputs = useCpfLifeEstimateInputs()
+  const actions = useCpfLifeEstimateActions()
+  const isValid = useCpfLifeEstimateIsValid()
+  const result = useCpfLifeEstimateResult()
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      // Build the API payload based on mode
+      const payload =
+        inputs.mode === 'account'
+          ? {
+              cpfAccountId: inputs.cpfAccountId!,
+              raBalanceAt65: inputs.raBalanceAt65,
+              payoutStartAge: inputs.payoutStartAge,
+            }
+          : {
+              birthYear: inputs.birthYear!,
+              gender: inputs.gender!,
+              raBalanceAt65: inputs.raBalanceAt65,
+              payoutStartAge: inputs.payoutStartAge,
+            }
+
+      return cpfApi.calculateCPFLifeEstimate(payload)
+    },
+    onSuccess: (data) => {
+      // Cache the result in the store
+      actions.setLastResult(data)
+    },
+  })
+
+  const calculate = () => {
+    if (isValid) {
+      mutation.mutate()
+    }
+  }
+
+  return {
+    inputs,
+    actions,
+    isValid,
+    result,
+    mutation,
+    calculate,
+  }
+}
+
 // ============================================================================
 // CPF Projection Hooks
 // ============================================================================

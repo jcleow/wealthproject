@@ -1,10 +1,6 @@
 package payout
 
-import (
-	"strconv"
-
-	"financial-chat-system/backend/internal/decimal"
-)
+import "financial-chat-system/backend/internal/decimal"
 
 // Coefficient contains the regression coefficients for a gender+plan combination.
 // The payout formula is: payout = a*year*balance + b*balance + c*year + d
@@ -98,48 +94,6 @@ func getDefermentBonus(payoutStartAge int) *decimal.Decimal {
 // Escalating plan annual growth rate (2% per year).
 var escalatingGrowthRate = decimal.MustFromFloat64(1.02)
 
-// Model confidence boundaries based on training data (birth years 1961-1971).
-const (
-	// Training data range
-	trainingDataMinYear = 1961
-	trainingDataMaxYear = 1971
-
-	// High confidence range (close to training data)
-	highConfidenceMinYear = 1960
-	highConfidenceMaxYear = 1975
-
-	// Moderate confidence range (reasonable extrapolation)
-	moderateConfidenceMinYear = 1950
-	moderateConfidenceMaxYear = 1985
-
-	// Outside these ranges is low confidence
-)
-
-// getConfidenceLevel determines the confidence level based on birth year.
-func getConfidenceLevel(birthYear int) ConfidenceLevel {
-	if birthYear >= highConfidenceMinYear && birthYear <= highConfidenceMaxYear {
-		return ConfidenceHigh
-	}
-	if birthYear >= moderateConfidenceMinYear && birthYear <= moderateConfidenceMaxYear {
-		return ConfidenceModerate
-	}
-	return ConfidenceLow
-}
-
-// getDisclaimer returns a disclaimer message reminding users to verify with CPF LIFE's official calculator.
-// Always returns a disclaimer regardless of confidence level.
-func getDisclaimer(birthYear int, confidence ConfidenceLevel) string {
-	baseDisclaimer := "These estimates are based on our own regression model and may differ from CPF LIFE's official calculations. " +
-		"Please verify with CPF's official calculator at cpf.gov.sg for accurate figures."
-
-	switch confidence {
-	case ConfidenceModerate:
-		return "Birth year " + strconv.Itoa(birthYear) + " is outside the primary data range (1961-1971). " +
-			"Estimates are extrapolated and may vary from actual CPF LIFE payouts. " + baseDisclaimer
-	case ConfidenceLow:
-		return "WARNING: Birth year " + strconv.Itoa(birthYear) + " is significantly outside the training data range. " +
-			"These estimates may not be accurate. " + baseDisclaimer
-	default:
-		return baseDisclaimer
-	}
-}
+// Disclaimer is the standard disclaimer message for all payout estimates.
+const Disclaimer = "These estimates are based on our own calculations and may differ from CPF LIFE's official figures. " +
+	"Please verify with CPF's official calculator at cpf.gov.sg for accurate payout amounts."

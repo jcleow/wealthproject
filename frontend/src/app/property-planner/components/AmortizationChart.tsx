@@ -142,7 +142,7 @@ export function AmortizationChart({
                       backdropFilter: 'blur(12px)',
                     }}
                     labelFormatter={(value) => `Year ${value}`}
-                    formatter={(value: number) => [formatCurrency(value), 'Balance']}
+                    formatter={(value) => [formatCurrency(Number(value) || 0), 'Balance']}
                   />
                   <Area
                     dataKey="balance"
@@ -193,8 +193,8 @@ export function AmortizationChart({
                       backdropFilter: 'blur(12px)',
                     }}
                     labelFormatter={(value) => `Year ${value}`}
-                    formatter={(value: number, name) => [
-                      formatCurrency(value),
+                    formatter={(value, name) => [
+                      formatCurrency(Number(value) || 0),
                       name === 'interest' ? 'Interest' : 'Principal',
                     ]}
                   />

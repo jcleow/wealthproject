@@ -114,15 +114,14 @@ type CPFLifeEstimateInput struct {
 
 // CPFLifeEstimateResult contains the CPF LIFE payout estimates.
 type CPFLifeEstimateResult struct {
-	RABalanceAt65   *decimal.Decimal
-	PayoutStartAge  int
-	BirthYear       int
-	Gender          string
-	Standard        PlanEstimate
-	Basic           PlanEstimate
-	Escalating      EscalatingPlanEstimate
-	ConfidenceLevel string
-	Disclaimer      string
+	RABalanceAt65  *decimal.Decimal
+	PayoutStartAge int
+	BirthYear      int
+	Gender         string
+	Standard       PlanEstimate
+	Basic          PlanEstimate
+	Escalating     EscalatingPlanEstimate
+	Disclaimer     string
 }
 
 // PlanEstimate contains estimate details for a standard or basic plan.
@@ -242,8 +241,7 @@ func (s *Service) CalculateCPFLifeEstimates(ctx context.Context, userID string, 
 			PayoutAt75:    estimates.Escalating.PayoutAt75,
 			PayoutAt85:    estimates.Escalating.PayoutAt85,
 		},
-		ConfidenceLevel: string(estimates.ConfidenceLevel),
-		Disclaimer:      estimates.Disclaimer,
+		Disclaimer: estimates.Disclaimer,
 	}, nil
 }
 
@@ -345,8 +343,7 @@ func (s *Service) ProjectCPFWithLifeEstimates(ctx context.Context, userID, cpfAc
 			PayoutAt75:    estimates.Escalating.PayoutAt75,
 			PayoutAt85:    estimates.Escalating.PayoutAt85,
 		},
-		ConfidenceLevel: string(estimates.ConfidenceLevel),
-		Disclaimer:      estimates.Disclaimer,
+		Disclaimer: estimates.Disclaimer,
 	}
 
 	return result, nil

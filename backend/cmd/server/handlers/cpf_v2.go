@@ -428,8 +428,7 @@ type cpfLifeEstimateResponse struct {
 		} `json:"escalating"`
 	} `json:"estimates"`
 
-	ConfidenceLevel string `json:"confidenceLevel"` // "high", "moderate", "low"
-	Disclaimer      string `json:"disclaimer"`
+	Disclaimer string `json:"disclaimer"`
 }
 
 // POST /api/v2/cpf/calculators/cpflife-estimate
@@ -488,12 +487,11 @@ func (h *CPFV2Handler) HandleCPFLifeEstimate(w http.ResponseWriter, r *http.Requ
 
 	// Build response
 	response := cpfLifeEstimateResponse{
-		RABalanceAt65:   result.RABalanceAt65.String(),
-		PayoutStartAge:  result.PayoutStartAge,
-		BirthYear:       result.BirthYear,
-		Gender:          result.Gender,
-		ConfidenceLevel: result.ConfidenceLevel,
-		Disclaimer:      result.Disclaimer,
+		RABalanceAt65:  result.RABalanceAt65.String(),
+		PayoutStartAge: result.PayoutStartAge,
+		BirthYear:      result.BirthYear,
+		Gender:         result.Gender,
+		Disclaimer:     result.Disclaimer,
 	}
 
 	response.Estimates.Standard.MonthlyPayout = result.Standard.MonthlyPayout.String()
@@ -619,12 +617,11 @@ func (h *CPFV2Handler) HandleCPFProjection(w http.ResponseWriter, r *http.Reques
 // buildCpfLifeEstimateResponse builds a CPF LIFE estimate response from service result.
 func buildCpfLifeEstimateResponse(result *cpf.CPFLifeEstimateResult) *cpfLifeEstimateResponse {
 	response := &cpfLifeEstimateResponse{
-		RABalanceAt65:   result.RABalanceAt65.String(),
-		PayoutStartAge:  result.PayoutStartAge,
-		BirthYear:       result.BirthYear,
-		Gender:          result.Gender,
-		ConfidenceLevel: result.ConfidenceLevel,
-		Disclaimer:      result.Disclaimer,
+		RABalanceAt65:  result.RABalanceAt65.String(),
+		PayoutStartAge: result.PayoutStartAge,
+		BirthYear:      result.BirthYear,
+		Gender:         result.Gender,
+		Disclaimer:     result.Disclaimer,
 	}
 
 	response.Estimates.Standard.MonthlyPayout = result.Standard.MonthlyPayout.String()

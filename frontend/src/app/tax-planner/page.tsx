@@ -675,7 +675,10 @@ function TaxVisualization({ calculation }: { calculation: TaxCalculationResult }
                       borderRadius: '12px',
                       backdropFilter: 'blur(12px)',
                     }}
-                    formatter={(value: number) => [formatCurrency(Math.abs(value)), value < 0 ? 'Deduction' : 'Amount']}
+                    formatter={(value) => {
+                      const num = Number(value) || 0
+                      return [formatCurrency(Math.abs(num)), num < 0 ? 'Deduction' : 'Amount']
+                    }}
                     labelFormatter={(label) => label.replace('\n', ' ')}
                   />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]} />
@@ -720,10 +723,13 @@ function TaxVisualization({ calculation }: { calculation: TaxCalculationResult }
                       borderRadius: '12px',
                       backdropFilter: 'blur(12px)',
                     }}
-                    formatter={(value: number, name: string) => [
-                      name === 'tax' ? formatCurrency(value) : `${value.toFixed(1)}%`,
-                      name === 'tax' ? 'Tax' : 'Rate'
-                    ]}
+                    formatter={(value, name) => {
+                      const num = Number(value) || 0
+                      return [
+                        name === 'tax' ? formatCurrency(num) : `${num.toFixed(1)}%`,
+                        name === 'tax' ? 'Tax' : 'Rate'
+                      ]
+                    }}
                     labelFormatter={(label) => label.replace('\n', ' to ')}
                   />
                   <Area
@@ -1484,7 +1490,7 @@ export function TaxPlannerV2View({ onClose }: { onClose?: () => void }) {
                             backdropFilter: 'blur(12px)',
                           }}
                           labelStyle={{ color: '#fff' }}
-                          formatter={(value: number) => [formatCurrency(value), 'Tax Payable']}
+                          formatter={(value) => [formatCurrency(Number(value) || 0), 'Tax Payable']}
                         />
                         <Bar dataKey="tax" name="Tax Payable" fill="#f43f5e" radius={[4, 4, 0, 0]} />
                       </BarChart>
