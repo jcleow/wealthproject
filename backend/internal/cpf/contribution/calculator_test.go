@@ -74,7 +74,7 @@ func testConfig2025() *config.ConfigData {
 	}
 }
 
-func TestCalculateOW_CitizenUnder55(t *testing.T) {
+func TestCalculateOW_CitizenUnder55_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	wage := decimal.MustFromString("7000")
@@ -110,7 +110,7 @@ func TestCalculateOW_CitizenUnder55(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_WageCeiling(t *testing.T) {
+func TestCalculateOW_WageCeiling_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	wage := decimal.MustFromString("10000") // Above $7400 OW ceiling
@@ -145,7 +145,7 @@ func TestCalculateOW_WageCeiling(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_AgeBasedRates(t *testing.T) {
+func TestCalculateOW_AgeBasedRates_2025Rates(t *testing.T) {
 	// Arrange - Common setup
 	calc := NewCalculator(testConfig2025())
 	wage := decimal.MustFromString("5000")
@@ -199,7 +199,7 @@ func TestCalculateOW_AgeBasedRates(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_PRYear1Rates(t *testing.T) {
+func TestCalculateOW_PRYear1_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	wage := decimal.MustFromString("5000")
@@ -225,7 +225,7 @@ func TestCalculateOW_PRYear1Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_PRYear2Rates(t *testing.T) {
+func TestCalculateOW_PRYear2_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	wage := decimal.MustFromString("5000")
@@ -248,7 +248,7 @@ func TestCalculateOW_PRYear2Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_Allocation(t *testing.T) {
+func TestCalculateOW_Allocation_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	wage := decimal.MustFromString("5000")
@@ -286,7 +286,7 @@ func TestCalculateOW_Allocation(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_AllocationAbove55(t *testing.T) {
+func TestCalculateOW_AllocationAbove55_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	wage := decimal.MustFromString("5000")
@@ -305,7 +305,7 @@ func TestCalculateOW_AllocationAbove55(t *testing.T) {
 	}
 }
 
-func TestCalculateAW_BasicBonus(t *testing.T) {
+func TestCalculateAW_BasicBonus_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	bonus := decimal.MustFromString("5000")
@@ -330,7 +330,7 @@ func TestCalculateAW_BasicBonus(t *testing.T) {
 	}
 }
 
-func TestCalculateAW_WithYTDWages(t *testing.T) {
+func TestCalculateAW_WithYTDWages_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	bonus := decimal.MustFromString("10000")
@@ -350,7 +350,7 @@ func TestCalculateAW_WithYTDWages(t *testing.T) {
 	}
 }
 
-func TestCalculateAW_ExceedingCeiling(t *testing.T) {
+func TestCalculateAW_ExceedingCeiling_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	bonus := decimal.MustFromString("20000")
@@ -379,7 +379,7 @@ func TestCalculateAW_ExceedingCeiling(t *testing.T) {
 	}
 }
 
-func TestCalculateAW_ZeroCeiling(t *testing.T) {
+func TestCalculateAW_ZeroCeiling_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	bonus := decimal.MustFromString("10000")
@@ -405,7 +405,7 @@ func TestCalculateAW_ZeroCeiling(t *testing.T) {
 	}
 }
 
-func TestCalculateAnnualFromMonthly(t *testing.T) {
+func TestCalculateAnnualFromMonthly_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	wage := decimal.MustFromString("6000")
@@ -434,7 +434,7 @@ func TestCalculateAnnualFromMonthly(t *testing.T) {
 	}
 }
 
-func TestCalculateAnnualFromMonthly_PartialYear(t *testing.T) {
+func TestCalculateAnnualFromMonthly_PartialYear_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	wage := decimal.MustFromString("6000")
@@ -457,7 +457,7 @@ func TestCalculateAnnualFromMonthly_PartialYear(t *testing.T) {
 	}
 }
 
-func TestCalculateAnnualWithBonus(t *testing.T) {
+func TestCalculateAnnualWithBonus_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	salary := decimal.MustFromString("6000")
@@ -484,7 +484,7 @@ func TestCalculateAnnualWithBonus(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_ZeroWage(t *testing.T) {
+func TestCalculateOW_ZeroWage_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	wage := decimal.Zero()
@@ -507,7 +507,7 @@ func TestCalculateOW_ZeroWage(t *testing.T) {
 	}
 }
 
-func TestRatesApplied(t *testing.T) {
+func TestRatesApplied_2025Rates(t *testing.T) {
 	// Arrange
 	calc := NewCalculator(testConfig2025())
 	wage := decimal.MustFromString("5000")

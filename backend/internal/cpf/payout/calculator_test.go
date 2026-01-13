@@ -6,7 +6,7 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 )
 
-func TestCalculatePayout_MaleStandard(t *testing.T) {
+func TestCalculatePayout_MaleStandard_CohortBased(t *testing.T) {
 	// Arrange - test cases
 	// CPF LIFE Standard Plan payouts estimated using regression model
 	// Model coefficients vary by birth year cohort (affects life expectancy assumptions)
@@ -81,7 +81,7 @@ func TestCalculatePayout_MaleStandard(t *testing.T) {
 	}
 }
 
-func TestCalculatePayout_FemaleStandard(t *testing.T) {
+func TestCalculatePayout_FemaleStandard_CohortBased(t *testing.T) {
 	// Arrange - test cases
 	// Females typically have higher monthly payouts than males for the same balance
 	// because of different life expectancy assumptions in CPF LIFE calculations
@@ -97,7 +97,7 @@ func TestCalculatePayout_FemaleStandard(t *testing.T) {
 			// 1990 female: same parameters as male comparison
 			// $600k balance, Standard plan at 65
 			// Female payout rate ≈ 1.24%/month (higher than male 1.15%)
-			// → $600,000 × 0.0124 ≈ $7,411/month
+			// → $600,000 × 0.0124 ≈ $7,440/month
 			name:           "1990 female $600k standard age 65",
 			birthYear:      1990,
 			balance:        "600000",
@@ -134,7 +134,7 @@ func TestCalculatePayout_FemaleStandard(t *testing.T) {
 	}
 }
 
-func TestCalculatePayout_Deferment(t *testing.T) {
+func TestCalculatePayout_Deferment_CohortBased(t *testing.T) {
 	// Arrange
 	// Testing the CPF LIFE deferment bonus: delaying payout increases monthly amount
 	// Each year of deferment (age 65→70) adds ~7% (non-compounded)
@@ -181,7 +181,7 @@ func TestCalculatePayout_Deferment(t *testing.T) {
 	}
 }
 
-func TestCalculateAllPlans(t *testing.T) {
+func TestCalculateAllPlans_CohortBased(t *testing.T) {
 	// Arrange
 	// CPF LIFE offers 3 plans with different payout structures:
 	// - Standard: Highest initial payout, lower bequest
@@ -231,7 +231,7 @@ func TestCalculateAllPlans(t *testing.T) {
 	}
 }
 
-func TestConfidenceLevel(t *testing.T) {
+func TestConfidenceLevel_CohortBased(t *testing.T) {
 	// Arrange - common setup and test cases
 	// Confidence level indicates how reliable the payout estimate is:
 	// - High: Birth year ≤ 1970 (close to or past retirement, better data)

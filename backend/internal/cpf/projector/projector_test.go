@@ -8,7 +8,7 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 )
 
-func TestProjectToDate(t *testing.T) {
+func TestProjectToDate_2025Rates(t *testing.T) {
 	// Arrange - Common test setup
 	ctx := context.Background()
 	proj := New()
