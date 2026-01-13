@@ -11,9 +11,14 @@ import {
   useBulkUpdatePersonsMutation,
 } from '@/hooks/queries/usePersonsQuery'
 import { PERSON_COLORS, getSuggestedColor } from '@/types/person'
-import type { Person } from '@/types/person'
+import type { Person, Gender } from '@/types/person'
 import type { ResidencyStatus } from '@/types/cpf'
 import { residencyStatusOptions } from '@/lib/validations/cpfAccount'
+
+const genderOptions: Array<{ value: Gender; label: string }> = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+]
 
 interface PersonsModalProps {
   isOpen: boolean
@@ -25,6 +30,7 @@ interface PersonEditData {
   name: string
   displayColor: string | null
   dateOfBirth: string
+  gender: Gender
   residencyStatus: ResidencyStatus
   prGrantDate: string | null
 }
@@ -40,12 +46,14 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState<string>('')
   const [editDateOfBirth, setEditDateOfBirth] = useState('')
+  const [editGender, setEditGender] = useState<Gender>('male')
   const [editResidencyStatus, setEditResidencyStatus] = useState<ResidencyStatus>('citizen')
   const [editPrGrantDate, setEditPrGrantDate] = useState<string>('')
   const [isAdding, setIsAdding] = useState(false)
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState('')
   const [newDateOfBirth, setNewDateOfBirth] = useState('')
+  const [newGender, setNewGender] = useState<Gender>('male')
   const [newResidencyStatus, setNewResidencyStatus] = useState<ResidencyStatus>('citizen')
   const [newPrGrantDate, setNewPrGrantDate] = useState<string>('')
 
@@ -89,6 +97,7 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
         name: pendingEdit.name,
         displayColor: pendingEdit.displayColor,
         dateOfBirth: pendingEdit.dateOfBirth,
+        gender: pendingEdit.gender,
         residencyStatus: pendingEdit.residencyStatus,
         prGrantDate: pendingEdit.prGrantDate,
       }
@@ -101,6 +110,7 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
     setNewName('')
     setNewColor(getSuggestedColor(persons))
     setNewDateOfBirth('')
+    setNewGender('male')
     setNewResidencyStatus('citizen')
     setNewPrGrantDate('')
   }
@@ -110,6 +120,7 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
     setNewName('')
     setNewColor('')
     setNewDateOfBirth('')
+    setNewGender('male')
     setNewResidencyStatus('citizen')
     setNewPrGrantDate('')
   }
@@ -121,6 +132,7 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
       name: newName.trim(),
       displayColor: newColor || undefined,
       dateOfBirth: newDateOfBirth,
+      gender: newGender,
       residencyStatus: newResidencyStatus,
       prGrantDate: newPrGrantDate || undefined,
     })
@@ -141,6 +153,7 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
     setEditName(effective.name)
     setEditColor(effective.displayColor || '')
     setEditDateOfBirth(formatDateForInput(effective.dateOfBirth))
+    setEditGender(effective.gender)
     setEditResidencyStatus(effective.residencyStatus)
     setEditPrGrantDate(formatDateForInput(effective.prGrantDate))
   }
@@ -150,6 +163,7 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
     setEditName('')
     setEditColor('')
     setEditDateOfBirth('')
+    setEditGender('male')
     setEditResidencyStatus('citizen')
     setEditPrGrantDate('')
   }
@@ -164,6 +178,7 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
         name: editName.trim(),
         displayColor: editColor || null,
         dateOfBirth: editDateOfBirth,
+        gender: editGender,
         residencyStatus: editResidencyStatus,
         prGrantDate: editPrGrantDate || null,
       })
@@ -217,6 +232,7 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
       name?: string
       displayColor?: string
       dateOfBirth?: string
+      gender?: Gender
       residencyStatus?: ResidencyStatus
       prGrantDate?: string | null
     }> = []
@@ -238,6 +254,7 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
         existing.name = edit.name
         existing.displayColor = edit.displayColor || undefined
         existing.dateOfBirth = edit.dateOfBirth
+        existing.gender = edit.gender
         existing.residencyStatus = edit.residencyStatus
         existing.prGrantDate = edit.prGrantDate
       } else {
@@ -246,6 +263,7 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
           name: edit.name,
           displayColor: edit.displayColor || undefined,
           dateOfBirth: edit.dateOfBirth,
+          gender: edit.gender,
           residencyStatus: edit.residencyStatus,
           prGrantDate: edit.prGrantDate,
         })
@@ -372,8 +390,8 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                         />
                       </div>
 
-                      {/* Row 2: Date of Birth and Residency Status */}
-                      <div className="grid grid-cols-2 gap-3">
+                      {/* Row 2: Date of Birth, Gender, Residency Status */}
+                      <div className="grid grid-cols-3 gap-3">
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">Date of Birth</label>
                           <div className="relative">
@@ -387,7 +405,21 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">Residency Status</label>
+                          <label className="block text-xs text-slate-500 mb-1">Gender</label>
+                          <select
+                            value={editGender}
+                            onChange={(e) => setEditGender(e.target.value as Gender)}
+                            className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 appearance-none cursor-pointer"
+                          >
+                            {genderOptions.map(option => (
+                              <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Residency</label>
                           <div className="relative">
                             <Flag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
                             <select
@@ -511,8 +543,8 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                   />
                 </div>
 
-                {/* Row 2: Date of Birth and Residency Status */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* Row 2: Date of Birth, Gender, Residency Status */}
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs text-slate-500 mb-1">Date of Birth *</label>
                     <div className="relative">
@@ -526,7 +558,21 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Residency Status</label>
+                    <label className="block text-xs text-slate-500 mb-1">Gender *</label>
+                    <select
+                      value={newGender}
+                      onChange={(e) => setNewGender(e.target.value as Gender)}
+                      className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 appearance-none cursor-pointer"
+                    >
+                      {genderOptions.map(option => (
+                        <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Residency</label>
                     <div className="relative">
                       <Flag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
                       <select

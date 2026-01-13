@@ -2,293 +2,197 @@ package payout
 
 import (
 	"errors"
-	"strconv"
 
 	"financial-chat-system/backend/internal/decimal"
 )
 
-// Errors returned by payout calculations.
 var (
-	ErrInvalidGender     = errors.New("invalid gender: must be 'male' or 'female'")
-	ErrInvalidPlan       = errors.New("invalid CPF LIFE plan: must be 'standard', 'basic', or 'escalating'")
-	ErrInvalidPayoutAge  = errors.New("payout age must be between 65 and 70")
-	ErrInvalidYearNumber = errors.New("year number must be >= 1")
-	ErrNegativeBalance   = errors.New("RA balance cannot be negative")
+	// ErrInvalidGender is returned when the gender is not valid.
+	ErrInvalidGender = errors.New("invalid gender: must be 'male' or 'female'")
+	// ErrInvalidPlan is returned when the plan is not valid.
+	ErrInvalidPlan = errors.New("invalid plan: must be 'standard', 'basic', or 'escalating'")
+	// ErrInvalidPayoutAge is returned when the payout start age is not in the valid range.
+	ErrInvalidPayoutAge = errors.New("invalid payout start age: must be between 65 and 70")
+	// ErrInvalidBalance is returned when the RA balance is invalid.
+	ErrInvalidBalance = errors.New("invalid RA balance: must be positive")
+	// ErrInvalidBirthYear is returned when the birth year is invalid.
+	ErrInvalidBirthYear = errors.New("invalid birth year: must be between 1930 and 2050")
 )
 
-// CalculateBasePayout computes the base monthly payout using the divisor method.
-// Formula: monthly_payout = RA_at_55 / divisor
-// Male divisor: 120, Female divisor: 132
-func CalculateBasePayout(raBalance *decimal.Decimal, gender Gender) (*decimal.Decimal, error) {
-	zero := decimal.Zero()
-
+// CalculatePayout calculates the CPF LIFE payout for a single plan using the regression model.
+// Formula: payout = a*year*balance + b*balance + c*year + d
+func CalculatePayout(input PayoutInput) (*PayoutResult, error) {
 	// Validate inputs
-	if raBalance.IsNegative() {
-		return zero, ErrNegativeBalance
-	}
-	if raBalance.IsZero() {
-		return zero, nil
+	if err := validateInput(input); err != nil {
+		return nil, err
 	}
 
-	var divisor *decimal.Decimal
-	switch gender {
-	case Male:
-		divisor = MaleDivisor
-	case Female:
-		divisor = FemaleDivisor
-	default:
-		return zero, ErrInvalidGender
+	// Get coefficients for gender + plan
+	coeff := getCoefficient(input.Gender, input.Plan)
+	if coeff == nil {
+		return nil, ErrInvalidPlan
 	}
 
-	return raBalance.Div(divisor), nil
-}
+	// Convert birth year to decimal
+	year := decimal.NewFromInt64(int64(input.BirthYear), 0)
 
-// ApplyPlanAdjustment adjusts the base payout based on plan type.
-// Standard: 100%, Basic: 90%, Escalating: 80%
-func ApplyPlanAdjustment(basePayout *decimal.Decimal, plan CPFLifePlan) (*decimal.Decimal, error) {
-	zero := decimal.Zero()
+	// Calculate payout using regression formula:
+	// payout = a*year*balance + b*balance + c*year + d
 
-	var adjustment *decimal.Decimal
-	switch plan {
-	case Standard:
-		adjustment = StandardAdjustment
-	case Basic:
-		adjustment = BasicAdjustment
-	case Escalating:
-		adjustment = EscalatingAdjustment
-	default:
-		return zero, ErrInvalidPlan
+	// a * year * balance
+	term1 := coeff.A.Mul(year).Mul(input.RABalanceAt65)
+
+	// b * balance
+	term2 := coeff.B.Mul(input.RABalanceAt65)
+
+	// c * year
+	term3 := coeff.C.Mul(year)
+
+	// Sum all terms: a*year*balance + b*balance + c*year + d
+	monthlyPayout := term1.Add(term2).Add(term3).Add(coeff.D)
+
+	// Apply deferment bonus if payout starts after age 65
+	if input.PayoutStartAge > 65 {
+		bonus := getDefermentBonus(input.PayoutStartAge)
+		monthlyPayout = monthlyPayout.Mul(bonus)
 	}
 
-	return basePayout.Mul(adjustment), nil
-}
-
-// ApplyDefermentBonus increases payout for delayed start age.
-// +7% per year deferred from age 65, max +40% at age 70.
-func ApplyDefermentBonus(basePayout *decimal.Decimal, payoutStartAge int) (*decimal.Decimal, error) {
-	zero := decimal.Zero()
-
-	if payoutStartAge < MinPayoutAge || payoutStartAge > MaxPayoutAge {
-		return zero, ErrInvalidPayoutAge
+	// Ensure payout is not negative
+	if monthlyPayout.IsNegative() {
+		monthlyPayout = decimal.Zero()
 	}
 
-	yearsDeferred := payoutStartAge - MinPayoutAge // 0 at 65, 5 at 70
+	// Round to 2 decimal places
+	monthlyPayout = monthlyPayout.Round(2)
 
-	// Calculate bonus multiplier: 1 + (years × 0.07), capped at 1.40
-	yearsDecimal := decimal.MustFromString(strconv.Itoa(yearsDeferred))
-	bonus := DefermentBonusPerYear.Mul(yearsDecimal)
-	if bonus.Cmp(MaxDefermentBonus) > 0 {
-		bonus = MaxDefermentBonus
-	}
+	// Calculate annual payout
+	twelve := decimal.NewFromInt64(12, 0)
+	annualPayout := monthlyPayout.Mul(twelve).Round(2)
 
-	one := decimal.One()
-	multiplier := one.Add(bonus)
-
-	return basePayout.Mul(multiplier), nil
-}
-
-// CalculateEscalatingPayout computes the payout for a specific year in the Escalating plan.
-// Formula: payout(year_n) = initial_payout × (1.02)^(n-1)
-func CalculateEscalatingPayout(initialPayout *decimal.Decimal, yearNumber int) (*decimal.Decimal, error) {
-	zero := decimal.Zero()
-
-	if yearNumber < 1 {
-		return zero, ErrInvalidYearNumber
-	}
-
-	if yearNumber == 1 {
-		return initialPayout, nil
-	}
-
-	// Calculate 1.02^(yearNumber-1)
-	result := initialPayout
-	for i := 1; i < yearNumber; i++ {
-		result = result.Mul(EscalatingGrowthMultiplier)
-	}
-
-	return result, nil
-}
-
-// ProjectRAToPayoutAge projects RA balance from age 55 to payout start age.
-// Formula: RA_at_payout = RA_at_55 × (1.04)^years
-func ProjectRAToPayoutAge(raAt55 *decimal.Decimal, payoutAge int, interestRate *decimal.Decimal) (*decimal.Decimal, error) {
-	zero := decimal.Zero()
-
-	if payoutAge < MinPayoutAge || payoutAge > MaxPayoutAge {
-		return zero, ErrInvalidPayoutAge
-	}
-
-	years := payoutAge - RACreationAge // years from 55 to payout age
-
-	one := decimal.One()
-	growthMultiplier := one.Add(interestRate)
-
-	result := raAt55
-	for i := 0; i < years; i++ {
-		result = result.Mul(growthMultiplier)
-	}
-
-	return result, nil
-}
-
-// CalculateBequest computes the bequest (inheritance) amount at time of death.
-// Standard/Escalating: bequest = max(0, premium - total_payouts)
-// Basic: preserves more through different pooling mechanics
-func CalculateBequest(input BequestInput) (BequestResult, error) {
-	zero := decimal.Zero()
-
-	// Calculate total payouts received
-	months := input.YearsReceived * 12
-
-	var totalPayouts *decimal.Decimal
-	if input.Plan == Escalating {
-		// Escalating plan: sum of increasing payouts
-		totalPayouts = calculateEscalatingCumulativePayouts(input.MonthlyPayout, input.YearsReceived)
+	// Calculate payout rate (annual payout / RA balance)
+	var payoutRate *decimal.Decimal
+	if !input.RABalanceAt65.IsZero() {
+		payoutRate = annualPayout.Div(input.RABalanceAt65).Round(6)
 	} else {
-		// Standard/Basic: fixed payout × months
-		monthsDecimal := decimal.MustFromString(strconv.Itoa(months))
-		totalPayouts = input.MonthlyPayout.Mul(monthsDecimal)
+		payoutRate = decimal.Zero()
 	}
 
-	var bequest *decimal.Decimal
-	switch input.Plan {
-	case Standard, Escalating:
-		// Simple: premium minus what was paid out
-		bequest = input.Premium.Sub(totalPayouts)
-		if bequest.IsNegative() {
-			bequest = zero
-		}
-	case Basic:
-		// Basic plan preserves more - only 10-20% of premium goes to pooled fund
-		// The rest stays in RA earning interest
-		// Simplified model: bequest depletes slower
-		basicPooledFraction := decimal.MustFromString("0.15") // ~15% pooled
-		pooledAmount := input.Premium.Mul(basicPooledFraction)
-		unpooledAmount := input.Premium.Sub(pooledAmount)
+	// Determine confidence level and disclaimer
+	confidence := getConfidenceLevel(input.BirthYear)
+	disclaimer := getDisclaimer(input.BirthYear, confidence)
 
-		// Unpooled portion earns interest but no payouts come from it
-		// Bequest = unpooled amount + (pooled - payouts)
-		pooledRemaining := pooledAmount.Sub(totalPayouts)
-		if pooledRemaining.IsNegative() {
-			pooledRemaining = zero
-		}
-		bequest = unpooledAmount.Add(pooledRemaining)
-
-		// But once total payouts exceed premium, bequest goes to zero
-		if totalPayouts.Cmp(input.Premium) > 0 {
-			bequest = zero
-		}
-	default:
-		return BequestResult{}, ErrInvalidPlan
-	}
-
-	return BequestResult{
-		Bequest:              bequest,
-		TotalPayoutsReceived: totalPayouts,
-		IsDepleted:           bequest.IsZero(),
+	return &PayoutResult{
+		MonthlyPayout:   monthlyPayout,
+		AnnualPayout:    annualPayout,
+		PayoutRate:      payoutRate,
+		ConfidenceLevel: confidence,
+		Disclaimer:      disclaimer,
 	}, nil
 }
 
-// CalculateFullPayout performs the complete payout calculation.
-func CalculateFullPayout(input PayoutInput) (PayoutResult, error) {
-	zero := decimal.Zero()
-
-	// Step 1: Calculate base payout using divisor method
-	basePayout, err := CalculateBasePayout(input.RAAt55, input.Gender)
+// CalculateAllPlans calculates CPF LIFE payouts for all three plans.
+func CalculateAllPlans(birthYear int, gender Gender, raBalanceAt65 *decimal.Decimal, payoutStartAge int) (*AllPlanEstimates, error) {
+	// Calculate standard plan
+	standardInput := PayoutInput{
+		BirthYear:      birthYear,
+		Gender:         gender,
+		Plan:           PlanStandard,
+		RABalanceAt65:  raBalanceAt65,
+		PayoutStartAge: payoutStartAge,
+	}
+	standard, err := CalculatePayout(standardInput)
 	if err != nil {
-		return PayoutResult{}, err
+		return nil, err
 	}
 
-	// Step 2: Apply plan adjustment
-	adjustedPayout, err := ApplyPlanAdjustment(basePayout, input.Plan)
+	// Calculate basic plan
+	basicInput := PayoutInput{
+		BirthYear:      birthYear,
+		Gender:         gender,
+		Plan:           PlanBasic,
+		RABalanceAt65:  raBalanceAt65,
+		PayoutStartAge: payoutStartAge,
+	}
+	basic, err := CalculatePayout(basicInput)
 	if err != nil {
-		return PayoutResult{}, err
+		return nil, err
 	}
 
-	// Step 3: Get plan adjustment factor
-	var planAdj *decimal.Decimal
-	switch input.Plan {
-	case Standard:
-		planAdj = StandardAdjustment
-	case Basic:
-		planAdj = BasicAdjustment
-	case Escalating:
-		planAdj = EscalatingAdjustment
+	// Calculate escalating plan
+	escalatingInput := PayoutInput{
+		BirthYear:      birthYear,
+		Gender:         gender,
+		Plan:           PlanEscalating,
+		RABalanceAt65:  raBalanceAt65,
+		PayoutStartAge: payoutStartAge,
 	}
-
-	// Step 4: Apply deferment bonus
-	finalPayout, err := ApplyDefermentBonus(adjustedPayout, input.PayoutStartAge)
+	escalating, err := CalculatePayout(escalatingInput)
 	if err != nil {
-		return PayoutResult{}, err
+		return nil, err
 	}
 
-	// Step 5: Calculate deferment bonus factor
-	yearsDeferred := input.PayoutStartAge - MinPayoutAge
-	yearsDecimal := decimal.MustFromString(strconv.Itoa(yearsDeferred))
-	bonus := DefermentBonusPerYear.Mul(yearsDecimal)
-	if bonus.Cmp(MaxDefermentBonus) > 0 {
-		bonus = MaxDefermentBonus
-	}
-	one := decimal.One()
-	defermentMultiplier := one.Add(bonus)
+	// Calculate escalating plan projections at age 75 and 85
+	// Escalating plan grows at 2% per year
+	ten := decimal.NewFromInt64(10, 0)
+	twenty := decimal.NewFromInt64(20, 0)
 
-	// Step 6: Project RA to payout age
-	raAtPayout, err := ProjectRAToPayoutAge(input.RAAt55, input.PayoutStartAge, RAInterestRate)
-	if err != nil {
-		raAtPayout = zero
+	// Payout at 75 = initial * (1.02^10)
+	growthFactor10, _ := escalatingGrowthRate.Pow(ten)
+	payoutAt75 := escalating.MonthlyPayout.Mul(growthFactor10).Round(2)
+
+	// Payout at 85 = initial * (1.02^20)
+	growthFactor20, _ := escalatingGrowthRate.Pow(twenty)
+	payoutAt85 := escalating.MonthlyPayout.Mul(growthFactor20).Round(2)
+
+	escalatingResult := EscalatingPayoutResult{
+		PayoutResult: *escalating,
+		PayoutAt75:   payoutAt75,
+		PayoutAt85:   payoutAt85,
 	}
 
-	return PayoutResult{
-		MonthlyPayout:  finalPayout,
-		RAAtPayoutAge:  raAtPayout,
-		BasePayout:     basePayout,
-		PlanAdjustment: planAdj,
-		DefermentBonus: defermentMultiplier,
+	// Determine overall confidence level
+	confidence := getConfidenceLevel(birthYear)
+	disclaimer := getDisclaimer(birthYear, confidence)
+
+	return &AllPlanEstimates{
+		RABalanceAt65:   raBalanceAt65,
+		PayoutStartAge:  payoutStartAge,
+		BirthYear:       birthYear,
+		Gender:          gender,
+		Standard:        *standard,
+		Basic:           *basic,
+		Escalating:      escalatingResult,
+		ConfidenceLevel: confidence,
+		Disclaimer:      disclaimer,
 	}, nil
 }
 
-// FindMonthlyBreakevenAge finds when Escalating plan monthly payout exceeds a fixed payout.
-// Returns the age when escalating payout >= fixed payout.
-func FindMonthlyBreakevenAge(escalatingInitial, fixedPayout *decimal.Decimal) int {
-	for year := 1; year <= 50; year++ {
-		escalating, _ := CalculateEscalatingPayout(escalatingInitial, year)
-		if escalating.Cmp(fixedPayout) >= 0 {
-			return MinPayoutAge + year - 1
-		}
-	}
-	return 0 // Never breaks even within 50 years
-}
-
-// FindCumulativeBreakevenAge finds when cumulative Escalating payouts exceed cumulative fixed payouts.
-func FindCumulativeBreakevenAge(escalatingInitial, fixedPayout *decimal.Decimal) int {
-	escalatingTotal := decimal.Zero()
-	fixedTotal := decimal.Zero()
-	twelve := decimal.MustFromString("12")
-
-	for year := 1; year <= 50; year++ {
-		// Add escalating year's payouts (monthly × 12)
-		escalating, _ := CalculateEscalatingPayout(escalatingInitial, year)
-		escalatingTotal = escalatingTotal.Add(escalating.Mul(twelve))
-
-		// Add fixed year's payouts
-		fixedTotal = fixedTotal.Add(fixedPayout.Mul(twelve))
-
-		if escalatingTotal.Cmp(fixedTotal) >= 0 {
-			return MinPayoutAge + year - 1
-		}
-	}
-	return 0 // Never breaks even within 50 years
-}
-
-// Helper: calculate cumulative payouts for escalating plan over N years
-func calculateEscalatingCumulativePayouts(initialMonthly *decimal.Decimal, years int) *decimal.Decimal {
-	total := decimal.Zero()
-	twelve := decimal.MustFromString("12")
-
-	for year := 1; year <= years; year++ {
-		yearlyPayout, _ := CalculateEscalatingPayout(initialMonthly, year)
-		total = total.Add(yearlyPayout.Mul(twelve))
+// validateInput validates the payout calculation inputs.
+func validateInput(input PayoutInput) error {
+	// Validate gender
+	if input.Gender != GenderMale && input.Gender != GenderFemale {
+		return ErrInvalidGender
 	}
 
-	return total
+	// Validate plan
+	if input.Plan != PlanStandard && input.Plan != PlanBasic && input.Plan != PlanEscalating {
+		return ErrInvalidPlan
+	}
+
+	// Validate payout start age (65-70)
+	if input.PayoutStartAge < 65 || input.PayoutStartAge > 70 {
+		return ErrInvalidPayoutAge
+	}
+
+	// Validate RA balance
+	if input.RABalanceAt65 == nil || input.RABalanceAt65.IsNegative() {
+		return ErrInvalidBalance
+	}
+
+	// Validate birth year (reasonable range)
+	if input.BirthYear < 1930 || input.BirthYear > 2050 {
+		return ErrInvalidBirthYear
+	}
+
+	return nil
 }

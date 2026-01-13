@@ -130,3 +130,65 @@ export function useResetCpfAssumptionsMutation() {
     },
   })
 }
+
+// ============================================================================
+// CPF LIFE Estimate Hooks
+// ============================================================================
+
+/**
+ * Mutation hook for calculating CPF LIFE payout estimates.
+ * Returns estimates for all three plans (Standard, Basic, Escalating).
+ *
+ * Supports two modes:
+ * 1. With cpfAccountId: fetches birth year and gender from linked Person
+ * 2. Standalone: provide birthYear and gender directly
+ */
+export function useCpfLifeEstimateMutation() {
+  return useMutation({
+    mutationFn: ({
+      cpfAccountId,
+      birthYear,
+      gender,
+      raBalanceAt65,
+      payoutStartAge,
+    }: {
+      cpfAccountId?: string
+      birthYear?: number
+      gender?: 'male' | 'female'
+      raBalanceAt65: string
+      payoutStartAge: number
+    }) =>
+      cpfApi.calculateCPFLifeEstimate({
+        cpfAccountId,
+        birthYear,
+        gender,
+        raBalanceAt65,
+        payoutStartAge,
+      }),
+  })
+}
+
+// ============================================================================
+// CPF Projection Hooks
+// ============================================================================
+
+/**
+ * Mutation hook for projecting CPF balances to age 65 with LIFE estimates.
+ */
+export function useCpfProjectionMutation() {
+  return useMutation({
+    mutationFn: ({
+      cpfAccountId,
+      payoutStartAge,
+      includeIncomes,
+    }: {
+      cpfAccountId: string
+      payoutStartAge: number
+      includeIncomes?: boolean
+    }) =>
+      cpfApi.getCPFProjection(cpfAccountId, {
+        payoutStartAge,
+        includeIncomes,
+      }),
+  })
+}
