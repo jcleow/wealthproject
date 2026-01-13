@@ -8,12 +8,12 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 )
 
-func TestProjectToDate_2025Rates(t *testing.T) {
+func TestProjectToDate_2026Rates(t *testing.T) {
 	// Arrange - Common test setup
 	ctx := context.Background()
 	proj := New()
-	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
-	dob := time.Date(1990, 6, 15, 0, 0, 0, 0, time.UTC) // Age 34-35 in 2025
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	dob := time.Date(1991, 6, 15, 0, 0, 0, 0, time.UTC) // Age 34-35 in 2026
 
 	tests := []struct {
 		name        string
@@ -36,7 +36,7 @@ func TestProjectToDate_2025Rates(t *testing.T) {
 				AsOfDate:        startDate,
 			},
 			incomes:    []IncomeStream{},
-			targetDate: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			targetDate: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
 			// Computation: OA interest rate = 2.5% p.a.
 			// Monthly interest = $50,000 * 0.025 / 12 = $104.17/month
 			// After 12 months: $50,000 + ($104.17 * 12) = $50,000 + $1,250 = $51,250
@@ -63,10 +63,10 @@ func TestProjectToDate_2025Rates(t *testing.T) {
 					EndDate:       nil,
 				},
 			},
-			targetDate: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			targetDate: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
 			// Computation: Age 34 citizen, $5000/month salary
 			// Total CPF = 37% of $5000 = $1,850/month
-			// OA allocation (age <=35) = 62.16% of total = $1,850 * 0.6216 = $1,150/month
+			// OA allocation (age <=35) = 62.17% of total = $1,850 * 0.6217 = $1,150/month
 			// 12 months OA contributions = $1,150 * 12 = $13,800
 			// Starting OA + contributions = $50,000 + $13,800 = $63,800
 			// Plus ~$1,500 interest on growing balance ≈ $65,300
@@ -86,8 +86,8 @@ func TestProjectToDate_2025Rates(t *testing.T) {
 				AsOfDate:        startDate,
 			},
 			incomes:    []IncomeStream{},
-			targetDate: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), // Before start
-			// Computation: Target date (2024-01-01) is before snapshot date (2025-01-01)
+			targetDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), // Before start
+			// Computation: Target date (2025-01-01) is before snapshot date (2026-01-01)
 			// No projection needed - return original balance unchanged
 			wantOAMin:   50000,
 			wantOAMax:   50000,
@@ -109,13 +109,13 @@ func TestProjectToDate_2025Rates(t *testing.T) {
 					MonthlyAmount: decimal.MustFromFloat64(6000),
 					WageType:      "ow",
 					StartDate:     startDate,
-					EndDate:       timePtr(time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC)), // Ends June
+					EndDate:       timePtr(time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)), // Ends June
 				},
 			},
-			targetDate: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-			// Computation: Age 34 citizen, $6000/month salary for 6 months (Jan-Jun 2025)
+			targetDate: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+			// Computation: Age 34 citizen, $6000/month salary for 6 months (Jan-Jun 2026)
 			// Total CPF = 37% of $6000 = $2,220/month
-			// OA allocation = 62.16% of total = $2,220 * 0.6216 = $1,380/month
+			// OA allocation = 62.17% of total = $2,220 * 0.6217 = $1,380/month
 			// 6 months OA contributions = $1,380 * 6 = $8,280
 			// Starting OA + contributions = $30,000 + $8,280 = $38,280
 			// Interest continues for full 12 months on varying balance ≈ $800
@@ -136,21 +136,21 @@ func TestProjectToDate_2025Rates(t *testing.T) {
 			},
 			incomes: []IncomeStream{
 				{
-					MonthlyAmount: decimal.MustFromFloat64(10000), // Above $7400 OW ceiling
+					MonthlyAmount: decimal.MustFromFloat64(10000), // Above $8,000 OW ceiling (2026)
 					WageType:      "ow",
 					StartDate:     startDate,
 					EndDate:       nil,
 				},
 			},
-			targetDate: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-			// Computation: Age 34 citizen, $10,000/month salary (capped at OW ceiling $7,400)
-			// Total CPF = 37% of $7,400 = $2,738/month (capped)
-			// OA allocation = 62.16% of total = $2,738 * 0.6216 = $1,702/month
-			// 12 months OA contributions = $1,702 * 12 = $20,424
-			// Starting OA + contributions = $100,000 + $20,424 = $120,424
-			// Plus ~$2,800 interest on growing balance ≈ $123,000
-			wantOAMin:   118000,
-			wantOAMax:   125000,
+			targetDate: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+			// Computation: Age 34 citizen, $10,000/month salary (capped at OW ceiling $8,000 in 2026)
+			// Total CPF = 37% of $8,000 = $2,960/month (capped)
+			// OA allocation = 62.17% of total = $2,960 * 0.6217 = $1,840/month
+			// 12 months OA contributions = $1,840 * 12 = $22,080
+			// Starting OA + contributions = $100,000 + $22,080 = $122,080
+			// Plus ~$2,900 interest on growing balance ≈ $125,000
+			wantOAMin:   120000,
+			wantOAMax:   128000,
 			description: "income above ceiling is capped",
 		},
 	}
@@ -237,18 +237,18 @@ func TestCalculateMonthlyInterest(t *testing.T) {
 
 func TestAgeAt(t *testing.T) {
 	// Arrange
-	// DOB: June 15, 1990
-	dob := time.Date(1990, 6, 15, 0, 0, 0, 0, time.UTC)
+	// DOB: June 15, 1991
+	dob := time.Date(1991, 6, 15, 0, 0, 0, 0, time.UTC)
 	tests := []struct {
 		date    time.Time
 		wantAge int
 	}{
-		// Computation: 2025 - 1990 = 35, but Jan 1 is before birthday (Jun 15), so age = 34
-		{time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 34},
-		// Computation: 2025 - 1990 = 35, Jun 15 is on birthday, so age = 35
-		{time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC), 35},
-		// Computation: 2025 - 1990 = 35, Dec 1 is after birthday (Jun 15), so age = 35
-		{time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC), 35},
+		// Computation: 2026 - 1991 = 35, but Jan 1 is before birthday (Jun 15), so age = 34
+		{time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), 34},
+		// Computation: 2026 - 1991 = 35, Jun 15 is on birthday, so age = 35
+		{time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC), 35},
+		// Computation: 2026 - 1991 = 35, Dec 1 is after birthday (Jun 15), so age = 35
+		{time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC), 35},
 	}
 
 	for _, tt := range tests {
@@ -264,9 +264,9 @@ func TestAgeAt(t *testing.T) {
 
 func TestIsActiveAt(t *testing.T) {
 	// Arrange
-	// Income stream active from March 1, 2025 to September 30, 2025 (inclusive)
-	startDate := time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC)
-	endDate := time.Date(2025, 9, 30, 0, 0, 0, 0, time.UTC)
+	// Income stream active from March 1, 2026 to September 30, 2026 (inclusive)
+	startDate := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
 	income := IncomeStream{
 		MonthlyAmount: decimal.MustFromFloat64(5000),
 		WageType:      "ow",
@@ -278,15 +278,15 @@ func TestIsActiveAt(t *testing.T) {
 		want bool
 	}{
 		// Feb 1 < Mar 1 (start), so inactive
-		{time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC), false},
+		{time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC), false},
 		// Mar 1 == Mar 1 (start), so active (inclusive)
-		{time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC), true},
+		{time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC), true},
 		// Mar 1 <= Jun 15 <= Sep 30, so active
-		{time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC), true},
+		{time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC), true},
 		// Sep 30 == Sep 30 (end), so active (inclusive)
-		{time.Date(2025, 9, 30, 0, 0, 0, 0, time.UTC), true},
+		{time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC), true},
 		// Oct 1 > Sep 30 (end), so inactive
-		{time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC), false},
+		{time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), false},
 	}
 
 	for _, tt := range tests {

@@ -12,20 +12,24 @@ func d(s string) decimal.Decimal {
 	return *decimal.MustFromString(s)
 }
 
-// testConfig2025 returns a test config matching 2025 CPF rates
-func testConfig2025() *config.ConfigData {
+// testConfig2026 returns a test config matching 2026 CPF rates
+// Key 2026 changes:
+// - OW ceiling increases from $7,400 to $8,000/month
+// - Contribution rates increase for ages 55-65 (+1.5% total)
+// - SA closed at 55+, all retirement contributions go to RA
+func testConfig2026() *config.ConfigData {
 	return &config.ConfigData{
-		OWCeiling:      7400,
+		OWCeiling:      8000,  // Increased from $7,400 in 2025
 		AnnualCeiling:  102000,
 		CPFAnnualLimit: 37740,
 
 		RetirementSums: config.RetirementSums{
-			BRS: 106500,
-			FRS: 213000,
-			ERS: 426000,
+			BRS: 110200, // Updated for 2026
+			FRS: 220400,
+			ERS: 440800,
 		},
 
-		BHS: 71500,
+		BHS: 75500, // Updated for 2026
 
 		InterestRates: config.InterestRates{
 			OA:                       d("0.025"),
@@ -39,11 +43,11 @@ func testConfig2025() *config.ConfigData {
 
 		ContributionRates: config.ContributionRateTable{
 			CitizenAndPR3Plus: config.AgeBasedContributionRates{
-				UpTo55:      config.RatePair{Employee: d("0.20"), Employer: d("0.17")},
-				Above55To60: config.RatePair{Employee: d("0.15"), Employer: d("0.145")},
-				Above60To65: config.RatePair{Employee: d("0.095"), Employer: d("0.11")},
-				Above65To70: config.RatePair{Employee: d("0.075"), Employer: d("0.09")},
-				Above70:     config.RatePair{Employee: d("0.05"), Employer: d("0.075")},
+				UpTo55:      config.RatePair{Employee: d("0.20"), Employer: d("0.17")},    // 37% total (unchanged)
+				Above55To60: config.RatePair{Employee: d("0.18"), Employer: d("0.16")},    // 34% total (+1.5% from 2025)
+				Above60To65: config.RatePair{Employee: d("0.125"), Employer: d("0.125")},  // 25% total (+1.5% from 2025)
+				Above65To70: config.RatePair{Employee: d("0.075"), Employer: d("0.09")},   // 16.5% total (unchanged)
+				Above70:     config.RatePair{Employee: d("0.05"), Employer: d("0.075")},   // 12.5% total (unchanged)
 			},
 			PRYear1: config.AgeBasedContributionRates{
 				UpTo55:      config.RatePair{Employee: d("0.05"), Employer: d("0.04")},
@@ -61,22 +65,23 @@ func testConfig2025() *config.ConfigData {
 			},
 		},
 
+		// 2026 allocation rates - SA closed at 55+, all retirement contributions go to RA
 		AllocationRates: config.AllocationRateTable{
 			UpTo35:      config.AllocationRates{OA: d("0.6217"), SA: d("0.1621"), MA: d("0.2162"), RA: d("0")},
-			Above35To45: config.AllocationRates{OA: d("0.5676"), SA: d("0.1892"), MA: d("0.2432"), RA: d("0")},
-			Above45To50: config.AllocationRates{OA: d("0.5135"), SA: d("0.2162"), MA: d("0.2703"), RA: d("0")},
-			Above50To55: config.AllocationRates{OA: d("0.4054"), SA: d("0.3108"), MA: d("0.2838"), RA: d("0")},
-			Above55To60: config.AllocationRates{OA: d("0.4068"), SA: d("0.1186"), MA: d("0.3559"), RA: d("0.1186")},
-			Above60To65: config.AllocationRates{OA: d("0.1707"), SA: d("0.1220"), MA: d("0.5122"), RA: d("0.1951")},
-			Above65To70: config.AllocationRates{OA: d("0.0800"), SA: d("0.0800"), MA: d("0.5200"), RA: d("0.3200")},
-			Above70:     config.AllocationRates{OA: d("0.0800"), SA: d("0.0800"), MA: d("0.5200"), RA: d("0.3200")},
+			Above35To45: config.AllocationRates{OA: d("0.5677"), SA: d("0.1891"), MA: d("0.2432"), RA: d("0")},
+			Above45To50: config.AllocationRates{OA: d("0.5136"), SA: d("0.2162"), MA: d("0.2702"), RA: d("0")},
+			Above50To55: config.AllocationRates{OA: d("0.4055"), SA: d("0.3108"), MA: d("0.2837"), RA: d("0")},
+			Above55To60: config.AllocationRates{OA: d("0.353"), SA: d("0"), MA: d("0.3088"), RA: d("0.3382")},
+			Above60To65: config.AllocationRates{OA: d("0.14"), SA: d("0"), MA: d("0.42"), RA: d("0.44")},
+			Above65To70: config.AllocationRates{OA: d("0.0607"), SA: d("0"), MA: d("0.6363"), RA: d("0.303")},
+			Above70:     config.AllocationRates{OA: d("0.08"), SA: d("0"), MA: d("0.84"), RA: d("0.08")},
 		},
 	}
 }
 
-func TestCalculateOW_CitizenUnder55_2025Rates(t *testing.T) {
+func TestCalculateOW_CitizenUnder55_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	wage := decimal.MustFromString("7000")
 	// Computation for citizen age ≤55:
 	// Employee rate = 20%, Employer rate = 17%
@@ -110,46 +115,46 @@ func TestCalculateOW_CitizenUnder55_2025Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_WageCeiling_2025Rates(t *testing.T) {
+func TestCalculateOW_WageCeiling_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
-	wage := decimal.MustFromString("10000") // Above $7400 OW ceiling
-	// Computation: Wage capped at OW ceiling of $7,400
-	// Employee contribution = $7,400 × 0.20 = $1,480
-	// Employer contribution = $7,400 × 0.17 = $1,258
-	// Take-home pay = $10,000 (gross) - $1,480 (employee CPF) = $8,520
-	expected7400 := decimal.MustFromString("7400")
+	calc := NewCalculator(testConfig2026())
+	wage := decimal.MustFromString("10000") // Above $8,000 OW ceiling
+	// Computation: Wage capped at OW ceiling of $8,000 (increased from $7,400 in 2025)
+	// Employee contribution = $8,000 × 0.20 = $1,600
+	// Employer contribution = $8,000 × 0.17 = $1,360
+	// Take-home pay = $10,000 (gross) - $1,600 (employee CPF) = $8,400
+	expected8000 := decimal.MustFromString("8000")
 	expected10000 := decimal.MustFromString("10000")
-	expected1480 := decimal.MustFromString("1480")
-	expected1258 := decimal.MustFromString("1258")
-	expected8520 := decimal.MustFromString("8520")
+	expected1600 := decimal.MustFromString("1600")
+	expected1360 := decimal.MustFromString("1360")
+	expected8400 := decimal.MustFromString("8400")
 
 	// Act
 	result := calc.CalculateOW(wage, 30, config.ResidencyCitizen)
 
 	// Assert
-	if result.CappedWage.Cmp(expected7400) != 0 {
-		t.Errorf("Expected capped wage $7400, got %s", result.CappedWage.String())
+	if result.CappedWage.Cmp(expected8000) != 0 {
+		t.Errorf("Expected capped wage $8000, got %s", result.CappedWage.String())
 	}
 	if result.GrossWage.Cmp(expected10000) != 0 {
 		t.Errorf("Expected gross wage $10000, got %s", result.GrossWage.String())
 	}
-	if result.EmployeeContribution.Cmp(expected1480) != 0 {
-		t.Errorf("Expected employee contribution $1480, got %s", result.EmployeeContribution.String())
+	if result.EmployeeContribution.Cmp(expected1600) != 0 {
+		t.Errorf("Expected employee contribution $1600, got %s", result.EmployeeContribution.String())
 	}
-	if result.EmployerContribution.Cmp(expected1258) != 0 {
-		t.Errorf("Expected employer contribution $1258, got %s", result.EmployerContribution.String())
+	if result.EmployerContribution.Cmp(expected1360) != 0 {
+		t.Errorf("Expected employer contribution $1360, got %s", result.EmployerContribution.String())
 	}
-	if result.TakeHomePay.Cmp(expected8520) != 0 {
-		t.Errorf("Expected take-home pay $8520, got %s", result.TakeHomePay.String())
+	if result.TakeHomePay.Cmp(expected8400) != 0 {
+		t.Errorf("Expected take-home pay $8400, got %s", result.TakeHomePay.String())
 	}
 }
 
-func TestCalculateOW_AgeBasedRates_2025Rates(t *testing.T) {
+func TestCalculateOW_AgeBasedRates_2026Rates(t *testing.T) {
 	// Arrange - Common setup
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	wage := decimal.MustFromString("5000")
-	// Computation: CPF contribution rates by age bracket for citizens
+	// Computation: CPF contribution rates by age bracket for citizens (2026 rates)
 	// All calculations based on $5,000 wage
 	tests := []struct {
 		name             string
@@ -157,23 +162,23 @@ func TestCalculateOW_AgeBasedRates_2025Rates(t *testing.T) {
 		expectedEmployee string
 		expectedEmployer string
 	}{
-		// Age ≤55: Employee 20%, Employer 17%
+		// Age ≤55: Employee 20%, Employer 17% (unchanged from 2025)
 		// $5,000 × 0.20 = $1,000 (employee), $5,000 × 0.17 = $850 (employer)
 		{"Age 30 (≤55)", 30, "1000", "850"},
 		{"Age 55 (≤55)", 55, "1000", "850"},
-		// Age 55-60: Employee 15%, Employer 14.5%
-		// $5,000 × 0.15 = $750 (employee), $5,000 × 0.145 = $725 (employer)
-		{"Age 56 (55-60)", 56, "750", "725"},
-		{"Age 60 (55-60)", 60, "750", "725"},
-		// Age 60-65: Employee 9.5%, Employer 11%
-		// $5,000 × 0.095 = $475 (employee), $5,000 × 0.11 = $550 (employer)
-		{"Age 61 (60-65)", 61, "475", "550"},
-		{"Age 65 (60-65)", 65, "475", "550"},
-		// Age 65-70: Employee 7.5%, Employer 9%
+		// Age 55-60: Employee 18%, Employer 16% (34% total, +1.5% from 2025)
+		// $5,000 × 0.18 = $900 (employee), $5,000 × 0.16 = $800 (employer)
+		{"Age 56 (55-60)", 56, "900", "800"},
+		{"Age 60 (55-60)", 60, "900", "800"},
+		// Age 60-65: Employee 12.5%, Employer 12.5% (25% total, +1.5% from 2025)
+		// $5,000 × 0.125 = $625 (employee), $5,000 × 0.125 = $625 (employer)
+		{"Age 61 (60-65)", 61, "625", "625"},
+		{"Age 65 (60-65)", 65, "625", "625"},
+		// Age 65-70: Employee 7.5%, Employer 9% (unchanged from 2025)
 		// $5,000 × 0.075 = $375 (employee), $5,000 × 0.09 = $450 (employer)
 		{"Age 66 (65-70)", 66, "375", "450"},
 		{"Age 70 (65-70)", 70, "375", "450"},
-		// Age >70: Employee 5%, Employer 7.5%
+		// Age >70: Employee 5%, Employer 7.5% (unchanged from 2025)
 		// $5,000 × 0.05 = $250 (employee), $5,000 × 0.075 = $375 (employer)
 		{"Age 71 (>70)", 71, "250", "375"},
 		{"Age 80 (>70)", 80, "250", "375"},
@@ -199,9 +204,9 @@ func TestCalculateOW_AgeBasedRates_2025Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_PRYear1_2025Rates(t *testing.T) {
+func TestCalculateOW_PRYear1_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	wage := decimal.MustFromString("5000")
 	// Computation for PR Year 1 (all age groups have same rate):
 	// Employee rate = 5%, Employer rate = 4%
@@ -225,9 +230,9 @@ func TestCalculateOW_PRYear1_2025Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_PRYear2_2025Rates(t *testing.T) {
+func TestCalculateOW_PRYear2_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	wage := decimal.MustFromString("5000")
 	// Computation for PR Year 2 age ≤55:
 	// Employee rate = 15%, Employer rate = 9%
@@ -248,9 +253,9 @@ func TestCalculateOW_PRYear2_2025Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_Allocation_2025Rates(t *testing.T) {
+func TestCalculateOW_Allocation_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	wage := decimal.MustFromString("5000")
 	tolerance := decimal.MustFromString("0.01")
 	zero := decimal.Zero()
@@ -286,28 +291,33 @@ func TestCalculateOW_Allocation_2025Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_AllocationAbove55_2025Rates(t *testing.T) {
+func TestCalculateOW_AllocationAbove55_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	wage := decimal.MustFromString("5000")
 	zero := decimal.Zero()
 
 	// Act
 	result := calc.CalculateOW(wage, 57, config.ResidencyCitizen)
 
-	// Computation for age 55-60 allocation:
-	// Total contribution = $750 (15%) + $725 (14.5%) = $1,475
-	// Allocation rates (age 55-60): OA=40.68%, SA=11.86%, MA=35.59%, RA=11.86%
-	// RA = $1,475 × 0.1186 = $174.94 (non-zero)
+	// Computation for age 55-60 allocation (2026 rates):
+	// Total contribution = $900 (18%) + $800 (16%) = $1,700
+	// Allocation rates (age 55-60, 2026): OA=35.3%, SA=0%, MA=30.88%, RA=33.82%
+	// RA = $1,700 × 0.3382 = $574.94 (non-zero)
+	// Note: SA is closed at 55+ in 2026, all retirement contributions go to RA
 	// Assert - RA should be non-zero for age > 55 (55-60 bracket)
 	if result.Allocation.RA.Cmp(zero) == 0 {
 		t.Errorf("Expected non-zero RA allocation for age 57, got %s", result.Allocation.RA.String())
 	}
+	// Assert - SA should be zero for age > 55 (SA closed in 2026)
+	if result.Allocation.SA.Cmp(zero) != 0 {
+		t.Errorf("Expected SA allocation $0 for age 57 (SA closed at 55+ in 2026), got %s", result.Allocation.SA.String())
+	}
 }
 
-func TestCalculateAW_BasicBonus_2025Rates(t *testing.T) {
+func TestCalculateAW_BasicBonus_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	bonus := decimal.MustFromString("5000")
 	ytdOW := decimal.Zero()
 	ytdAW := decimal.Zero()
@@ -330,63 +340,63 @@ func TestCalculateAW_BasicBonus_2025Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateAW_WithYTDWages_2025Rates(t *testing.T) {
+func TestCalculateAW_WithYTDWages_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	bonus := decimal.MustFromString("10000")
-	ytdOW := decimal.MustFromString("88800") // 12 months × $7,400 OW ceiling
+	ytdOW := decimal.MustFromString("96000") // 12 months × $8,000 OW ceiling (2026)
 	ytdAW := decimal.Zero()
 	// Computation: AW ceiling = Annual ceiling - YTD OW - YTD AW
-	// AW ceiling = $102,000 - $88,800 - $0 = $13,200
-	// Bonus ($10,000) < AW ceiling ($13,200), so fully within ceiling
-	expected10000 := decimal.MustFromString("10000")
+	// AW ceiling = $102,000 - $96,000 - $0 = $6,000
+	// Bonus ($10,000) > AW ceiling ($6,000), so capped at $6,000
+	expected6000 := decimal.MustFromString("6000")
 
 	// Act
 	result := calc.CalculateAW(bonus, 30, config.ResidencyCitizen, ytdOW, ytdAW)
 
 	// Assert
-	if result.CappedWage.Cmp(expected10000) != 0 {
-		t.Errorf("Expected capped wage $10000, got %s", result.CappedWage.String())
+	if result.CappedWage.Cmp(expected6000) != 0 {
+		t.Errorf("Expected capped wage $6000, got %s", result.CappedWage.String())
 	}
 }
 
-func TestCalculateAW_ExceedingCeiling_2025Rates(t *testing.T) {
+func TestCalculateAW_ExceedingCeiling_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	bonus := decimal.MustFromString("20000")
-	ytdOW := decimal.MustFromString("88800") // 12 months × $7,400
+	ytdOW := decimal.MustFromString("96000") // 12 months × $8,000 (2026)
 	ytdAW := decimal.MustFromString("5000")  // Prior bonus this year
 	// Computation: AW ceiling = Annual ceiling - YTD OW - YTD AW
-	// AW ceiling = $102,000 - $88,800 - $5,000 = $8,200
-	// Bonus ($20,000) > AW ceiling ($8,200), so capped at $8,200
-	// Employee contribution = $8,200 × 0.20 = $1,640
-	expected8200 := decimal.MustFromString("8200")
+	// AW ceiling = $102,000 - $96,000 - $5,000 = $1,000
+	// Bonus ($20,000) > AW ceiling ($1,000), so capped at $1,000
+	// Employee contribution = $1,000 × 0.20 = $200
+	expected1000 := decimal.MustFromString("1000")
 	expected20000 := decimal.MustFromString("20000")
-	expected1640 := decimal.MustFromString("1640")
+	expected200 := decimal.MustFromString("200")
 
 	// Act
 	result := calc.CalculateAW(bonus, 30, config.ResidencyCitizen, ytdOW, ytdAW)
 
 	// Assert
-	if result.CappedWage.Cmp(expected8200) != 0 {
-		t.Errorf("Expected capped wage $8200, got %s", result.CappedWage.String())
+	if result.CappedWage.Cmp(expected1000) != 0 {
+		t.Errorf("Expected capped wage $1000, got %s", result.CappedWage.String())
 	}
 	if result.GrossWage.Cmp(expected20000) != 0 {
 		t.Errorf("Expected gross wage $20000, got %s", result.GrossWage.String())
 	}
-	if result.EmployeeContribution.Cmp(expected1640) != 0 {
-		t.Errorf("Expected employee contribution $1640, got %s", result.EmployeeContribution.String())
+	if result.EmployeeContribution.Cmp(expected200) != 0 {
+		t.Errorf("Expected employee contribution $200, got %s", result.EmployeeContribution.String())
 	}
 }
 
-func TestCalculateAW_ZeroCeiling_2025Rates(t *testing.T) {
+func TestCalculateAW_ZeroCeiling_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	bonus := decimal.MustFromString("10000")
-	ytdOW := decimal.MustFromString("88800")  // 12 months × $7,400
-	ytdAW := decimal.MustFromString("13200")  // Prior AW this year
+	ytdOW := decimal.MustFromString("96000")  // 12 months × $8,000 (2026)
+	ytdAW := decimal.MustFromString("6000")   // Prior AW this year
 	// Computation: AW ceiling = Annual ceiling - YTD OW - YTD AW
-	// AW ceiling = $102,000 - $88,800 - $13,200 = $0
+	// AW ceiling = $102,000 - $96,000 - $6,000 = $0
 	// Already at annual ceiling, so no CPF contributions on this bonus
 	zero := decimal.Zero()
 
@@ -405,9 +415,9 @@ func TestCalculateAW_ZeroCeiling_2025Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateAnnualFromMonthly_2025Rates(t *testing.T) {
+func TestCalculateAnnualFromMonthly_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	wage := decimal.MustFromString("6000")
 	// Computation for 12 months × $6,000/month:
 	// Monthly employee contribution = $6,000 × 0.20 = $1,200
@@ -434,9 +444,9 @@ func TestCalculateAnnualFromMonthly_2025Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateAnnualFromMonthly_PartialYear_2025Rates(t *testing.T) {
+func TestCalculateAnnualFromMonthly_PartialYear_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	wage := decimal.MustFromString("6000")
 	// Computation for 6 months × $6,000/month:
 	// Monthly employee contribution = $6,000 × 0.20 = $1,200
@@ -457,9 +467,9 @@ func TestCalculateAnnualFromMonthly_PartialYear_2025Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateAnnualWithBonus_2025Rates(t *testing.T) {
+func TestCalculateAnnualWithBonus_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	salary := decimal.MustFromString("6000")
 	bonus := decimal.MustFromString("12000")
 	// Computation:
@@ -484,9 +494,9 @@ func TestCalculateAnnualWithBonus_2025Rates(t *testing.T) {
 	}
 }
 
-func TestCalculateOW_ZeroWage_2025Rates(t *testing.T) {
+func TestCalculateOW_ZeroWage_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	wage := decimal.Zero()
 	// Computation: $0 wage × any rate = $0
 	// All contributions and take-home pay should be $0
@@ -507,9 +517,9 @@ func TestCalculateOW_ZeroWage_2025Rates(t *testing.T) {
 	}
 }
 
-func TestRatesApplied_2025Rates(t *testing.T) {
+func TestRatesApplied_2026Rates(t *testing.T) {
 	// Arrange
-	calc := NewCalculator(testConfig2025())
+	calc := NewCalculator(testConfig2026())
 	wage := decimal.MustFromString("5000")
 	// RatesApplied tracks the rates used in the calculation:
 	// Citizen age 30 (≤55 bracket): Employee = 20%, Employer = 17%
