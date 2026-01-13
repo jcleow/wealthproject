@@ -1,6 +1,10 @@
 package payout
 
-import "financial-chat-system/backend/internal/decimal"
+import (
+	"strconv"
+
+	"financial-chat-system/backend/internal/decimal"
+)
 
 // Coefficient contains the regression coefficients for a gender+plan combination.
 // The payout formula is: payout = a*year*balance + b*balance + c*year + d
@@ -72,14 +76,14 @@ func getCoefficient(gender Gender, plan Plan) *Coefficient {
 }
 
 // Deferment bonus rates per year of delay (ages 65-70).
-// Each year of delay from age 65 increases the payout by approximately 7%.
+// Each year of delay from age 65 increases the payout by approximately 7% (non-compounded).
 var defermentBonusRates = map[int]*decimal.Decimal{
-	65: decimal.MustFromFloat64(1.0),    // No bonus
-	66: decimal.MustFromFloat64(1.07),   // +7%
-	67: decimal.MustFromFloat64(1.14),   // +14%
-	68: decimal.MustFromFloat64(1.22),   // +22% (compounded)
-	69: decimal.MustFromFloat64(1.31),   // +31%
-	70: decimal.MustFromFloat64(1.40),   // +40%
+	65: decimal.MustFromFloat64(1.0),  // No bonus
+	66: decimal.MustFromFloat64(1.07), // +7%
+	67: decimal.MustFromFloat64(1.14), // +14%
+	68: decimal.MustFromFloat64(1.21), // +21%
+	69: decimal.MustFromFloat64(1.28), // +28%
+	70: decimal.MustFromFloat64(1.35), // +35%
 }
 
 // getDefermentBonus returns the deferment bonus multiplier for the given payout start age.
@@ -122,41 +126,20 @@ func getConfidenceLevel(birthYear int) ConfidenceLevel {
 	return ConfidenceLow
 }
 
-// getDisclaimer returns an appropriate disclaimer message based on confidence level.
+// getDisclaimer returns a disclaimer message reminding users to verify with CPF LIFE's official calculator.
+// Always returns a disclaimer regardless of confidence level.
 func getDisclaimer(birthYear int, confidence ConfidenceLevel) string {
-	switch confidence {
-	case ConfidenceHigh:
-		return ""
-	case ConfidenceModerate:
-		return "Birth year " + itoa(birthYear) + " is outside the primary data range (1961-1971). " +
-			"Estimates are extrapolated and may vary from actual CPF LIFE payouts."
-	case ConfidenceLow:
-		return "WARNING: Birth year " + itoa(birthYear) + " is significantly outside the training data range. " +
-			"These estimates may not be accurate. Always verify with cpf.gov.sg for the latest figures."
-	default:
-		return ""
-	}
-}
+	baseDisclaimer := "These estimates are based on our own regression model and may differ from CPF LIFE's official calculations. " +
+		"Please verify with CPF's official calculator at cpf.gov.sg for accurate figures."
 
-// itoa converts an int to string without importing strconv.
-func itoa(i int) string {
-	if i == 0 {
-		return "0"
+	switch confidence {
+	case ConfidenceModerate:
+		return "Birth year " + strconv.Itoa(birthYear) + " is outside the primary data range (1961-1971). " +
+			"Estimates are extrapolated and may vary from actual CPF LIFE payouts. " + baseDisclaimer
+	case ConfidenceLow:
+		return "WARNING: Birth year " + strconv.Itoa(birthYear) + " is significantly outside the training data range. " +
+			"These estimates may not be accurate. " + baseDisclaimer
+	default:
+		return baseDisclaimer
 	}
-	negative := i < 0
-	if negative {
-		i = -i
-	}
-	var buf [20]byte
-	pos := len(buf)
-	for i > 0 {
-		pos--
-		buf[pos] = byte('0' + i%10)
-		i /= 10
-	}
-	if negative {
-		pos--
-		buf[pos] = '-'
-	}
-	return string(buf[pos:])
 }
