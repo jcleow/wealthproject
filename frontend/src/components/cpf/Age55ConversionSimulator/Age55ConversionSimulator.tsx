@@ -5,7 +5,6 @@ import { Calculator } from 'lucide-react'
 import type { CPFAssumptions } from '@/types/cpf'
 import { DEFAULT_CPF_ASSUMPTIONS } from '@/types/cpf'
 import { type TargetSum } from '@/lib/cpf-constants'
-import { Age55DecisionFlowchart } from '../Age55DecisionFlowchart'
 import { CPFAssumptionsPanel } from '../CPFAssumptionsPanel'
 import { useRAConversion } from './hooks'
 import {
@@ -143,12 +142,6 @@ export function Age55ConversionSimulator({
           setCashBalance={setCashBalance}
         />
       </div>
-
-      {/* Decision Flowchart */}
-      <Age55DecisionFlowchart
-        saBalance={balancesAt55.sa}
-        oaBalance={balancesAt55.oa}
-      />
 
       {/* Sankey Flow Chart */}
       <SankeyDiagram result={result} />
