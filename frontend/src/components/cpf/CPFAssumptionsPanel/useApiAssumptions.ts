@@ -33,6 +33,8 @@ function apiToLocal(response: CPFAssumptionsResponse): CPFAssumptions {
     cpfLifePlan: response.cpfLife.plan,
     payoutStartAge: response.cpfLife.payoutStartAge as 65 | 66 | 67 | 68 | 69 | 70,
     escalatingPlanGrowth: parseFloat(response.cpfLife.escalatingGrowth),
+    // Basic plan premium percent is a local-only setting (not stored in API)
+    basicPlanPremiumPercent: DEFAULT_CPF_ASSUMPTIONS.basicPlanPremiumPercent,
   }
 }
 

@@ -231,7 +231,7 @@ export const mockPropertySaleAnalysis: PropertySaleAnalysis = {
   warnings: [],
 }
 
-// Mock CPF Projection (30 years)
+// Mock CPF Projection
 // Now accepts optional assumptions parameter for user-adjustable projections
 export function generateMockProjection(
   profile: CPFProfile,
@@ -249,7 +249,11 @@ export function generateMockProjection(
   let currentMonthlyIncome = profile.monthlyIncome
   let currentAnnualBonus = profile.annualBonus
 
-  for (let i = 0; i <= 30; i++) {
+  // Calculate years to project - ensure we reach at least age 65 for CPF LIFE estimates
+  const minEndAge = 65
+  const yearsToProject = Math.max(30, minEndAge - profile.age)
+
+  for (let i = 0; i <= yearsToProject; i++) {
     const age = profile.age + i
     const year = CURRENT_YEAR + i
 
@@ -356,6 +360,7 @@ export function generateMockRetirementProjection(
     frsTarget: FRS_2024 * Math.pow(1.03, 21), // FRS at age 55 (21 years from now)
     brsTarget: BRS_2024 * Math.pow(1.03, 21),
     ersTarget: ERS_2024 * Math.pow(1.03, 21),
+    bhsTarget: BHS_2024 * Math.pow(1.04, 21), // BHS grows at ~4% per year
     cpfLifeEstimates: {
       standard: Math.round((age65?.ra ?? 0) / 200), // Rough estimate
       basic: Math.round((age65?.ra ?? 0) / 230),
