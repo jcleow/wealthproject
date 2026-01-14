@@ -317,6 +317,22 @@ export function CPFAssumptionsPanel({
                 </div>
               )}
             </div>
+            <div className="space-y-1.5">
+              <PercentSlider
+                label="Basic Plan Premium"
+                value={assumptions.basicPlanPremiumPercent}
+                onChange={(v) => handleValueChange('basicPlanPremiumPercent', v)}
+                min={0.10}
+                max={0.20}
+                step={0.01}
+                color="blue"
+                tooltip="Portion of RA set aside as CPF LIFE premium for Basic plan (10-20%)"
+                showSlider
+              />
+              <div className="text-[10px] text-slate-500">
+                {(assumptions.basicPlanPremiumPercent * 100).toFixed(0)}% of RA reserved as premium
+              </div>
+            </div>
           </div>
         </div>
 
