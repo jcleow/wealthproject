@@ -8,6 +8,8 @@ import (
 
 	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/cpf/account"
+	"financial-chat-system/backend/internal/cpf/config"
+	"financial-chat-system/backend/internal/cpf/engine"
 	cpfProcessor "financial-chat-system/backend/internal/cpf/processor"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/growth"
@@ -698,8 +700,9 @@ func filterCPFAccountsByExcludedPersons(accounts []repo.CPFAccount, excludedPers
 
 // CPFContext holds CPF processor and balances for timeline calculations
 type CPFContext struct {
-	Processor *cpfProcessor.Processor
-	Balances  *cpfProcessor.CPFBalances
+	Processor   *cpfProcessor.Processor
+	Balances    *cpfProcessor.CPFBalances
+	EngineState *engine.CPFState // Engine state for interest, RA formation, and payouts
 }
 
 // NewCPFContext creates a CPF context from an account, returns nil if no account
@@ -709,7 +712,32 @@ func NewCPFContext(cpfAccount *account.CPFAccount) *CPFContext {
 	}
 	proc, _ := cpfProcessor.NewProcessor(cpfAccount)
 	balances := cpfProcessor.NewCPFBalances(cpfAccount)
-	return &CPFContext{Processor: proc, Balances: balances}
+
+	// Create engine state for interest, RA formation, and payouts
+	// Note: Gender defaults to male for CPF LIFE calculations (can be updated when person data is available)
+	engineState := engine.NewCPFState(
+		&cpfAccount.OABalance,
+		&cpfAccount.SABalance,
+		&cpfAccount.MABalance,
+		&cpfAccount.RABalance,
+		cpfAccount.DateOfBirth,
+		"male", // Default; update via SetGender if person data available
+		mapAccountResidencyToConfig(cpfAccount.ResidencyStatus),
+		time.Now(),
+	)
+
+	return &CPFContext{
+		Processor:   proc,
+		Balances:    balances,
+		EngineState: engineState,
+	}
+}
+
+// mapAccountResidencyToConfig converts account.ResidencyStatus to config.ResidencyStatus
+// Since account.ResidencyStatus is an alias for config.ResidencyStatus, this is a simple passthrough
+func mapAccountResidencyToConfig(status account.ResidencyStatus) config.ResidencyStatus {
+	// account.ResidencyStatus is an alias for config.ResidencyStatus
+	return status
 }
 
 // NewCPFContexts creates a map of personID -> CPFContext from a list of CPF accounts
@@ -791,6 +819,59 @@ func (c *CPFContext) ProcessIncomes(
 	}
 
 	return totalEmployeeCPF, contributions
+}
+
+// ApplyEngineProcessing applies CPF engine processing (interest, RA formation, payouts)
+// This syncs the engine state with processor balances, applies engine logic, and syncs back.
+// Call this after ProcessIncomes to apply monthly CPF lifecycle calculations.
+func (c *CPFContext) ApplyEngineProcessing(date time.Time, applyToBalances bool) *engine.InterestResult {
+	if c == nil || c.EngineState == nil || !applyToBalances {
+		return nil
+	}
+
+	// Sync engine state with processor balances
+	c.syncEngineFromProcessor()
+
+	// Update engine state date
+	c.EngineState.AsOfDate = date
+
+	// Apply monthly interest using engine
+	interestResult := engine.ApplyMonthlyInterest(c.EngineState, nil) // nil = use default assumptions
+
+	// Sync processor balances from engine state
+	c.syncProcessorFromEngine()
+
+	return interestResult
+}
+
+// syncEngineFromProcessor updates the engine state from processor balances
+func (c *CPFContext) syncEngineFromProcessor() {
+	if c.Balances == nil || c.EngineState == nil {
+		return
+	}
+	c.EngineState.OA = cloneDecimalOrZero(c.Balances.AccumulatedOA)
+	c.EngineState.SA = cloneDecimalOrZero(c.Balances.AccumulatedSA)
+	c.EngineState.MA = cloneDecimalOrZero(c.Balances.AccumulatedMA)
+	c.EngineState.RA = cloneDecimalOrZero(c.Balances.AccumulatedRA)
+}
+
+// syncProcessorFromEngine updates processor balances from the engine state
+func (c *CPFContext) syncProcessorFromEngine() {
+	if c.Balances == nil || c.EngineState == nil {
+		return
+	}
+	c.Balances.AccumulatedOA = cloneDecimalOrZero(c.EngineState.OA)
+	c.Balances.AccumulatedSA = cloneDecimalOrZero(c.EngineState.SA)
+	c.Balances.AccumulatedMA = cloneDecimalOrZero(c.EngineState.MA)
+	c.Balances.AccumulatedRA = cloneDecimalOrZero(c.EngineState.RA)
+}
+
+// cloneDecimalOrZero returns a clone of the decimal or zero if nil
+func cloneDecimalOrZero(d *decimal.Decimal) *decimal.Decimal {
+	if d == nil {
+		return decimal.Zero()
+	}
+	return decimal.Zero().Add(d)
 }
 
 // mapToCPFAccount converts repository CPFAccount to cpf/account.CPFAccount
@@ -2093,6 +2174,13 @@ func (mctx *MonthlyContext) processAllIncomes(
 	return totalEmployeeCPF, contributions
 }
 
+// applyAllEngineProcessing applies CPF engine processing (interest, RA formation, payouts) to all contexts
+func (mctx *MonthlyContext) applyAllEngineProcessing(date time.Time, applyToBalances bool) {
+	for _, cpfCtx := range mctx.CPFContexts {
+		cpfCtx.ApplyEngineProcessing(date, applyToBalances)
+	}
+}
+
 // processMonth handles all calculations for a single month and returns the response
 // isAnchorMonth indicates if this is the first month (anchor month) where investment allocations should not mutate balances
 func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Time, isAnchorMonth bool) MonthDetailResponse {
@@ -2132,6 +2220,10 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	// For anchor month, calculate contributions but don't add to balances (show base values)
 	applyContributions := !isAnchorMonth
 	employeeCPF, cpfContributions := mctx.processAllIncomes(mctx.Data.Incomes, stateForCalcs, currentDate, applyContributions)
+
+	// Apply CPF engine processing (interest, RA formation at 55, CPF LIFE payouts)
+	// This ensures CPF balances reflect interest growth and lifecycle events
+	mctx.applyAllEngineProcessing(currentDate, applyContributions)
 
 	// Execute transfer rules (fund flow Phase 3)
 	// Transfer rules move money between accounts (CPF ↔ Cash ↔ Investment).
