@@ -262,3 +262,26 @@ export function useCpfProjectionMutation() {
       }),
   })
 }
+
+/**
+ * Query hook for year-by-year CPF projection (for charts).
+ * Includes real income data, RA formation at 55, and CPF LIFE estimates.
+ */
+export function useCpfYearByYearProjectionQuery(
+  cpfAccountId: string | undefined,
+  options?: {
+    retirementAge?: number
+    payoutStartAge?: number
+  }
+) {
+  return useQuery({
+    queryKey: ['cpf', 'projection', 'year-by-year', cpfAccountId, options],
+    queryFn: () =>
+      cpfApi.getCPFProjectionYearByYear(cpfAccountId!, {
+        retirementAge: options?.retirementAge,
+        payoutStartAge: options?.payoutStartAge,
+      }),
+    enabled: !!cpfAccountId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
