@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/cpf/assumptions"
+	"financial-chat-system/backend/internal/cpf/projector"
+	"financial-chat-system/backend/internal/cpf/retirement"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/cpf"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
@@ -200,6 +202,23 @@ func NewCPFV2Handler(store *repo.Store, assumptionsRepo *assumptions.Repository)
 		store:           store,
 		service:         cpf.NewService(store),
 		assumptionsRepo: assumptionsRepo,
+	}
+}
+
+// convertToProjectorAssumptions converts CPF assumptions from the database format
+// to the projector format. Returns nil if input is nil.
+func convertToProjectorAssumptions(a *assumptions.CPFAssumptions) *projector.ProjectionAssumptions {
+	if a == nil {
+		return nil
+	}
+	return &projector.ProjectionAssumptions{
+		InterestRateOA:               &a.InterestRateOA,
+		InterestRateSA:               &a.InterestRateSA,
+		InterestRateMA:               &a.InterestRateMA,
+		InterestRateRA:               &a.InterestRateRA,
+		ExtraInterestFirst60K:        &a.ExtraInterestFirst60K,
+		ExtraInterestFirst30KAbove55: &a.ExtraInterestFirst30KAbove55,
+		FRSGrowthRate:                &a.FRSGrowthRate,
 	}
 }
 
@@ -410,21 +429,30 @@ type cpfLifeEstimateResponse struct {
 
 	Estimates struct {
 		Standard struct {
-			MonthlyPayout string `json:"monthlyPayout"`
-			AnnualPayout  string `json:"annualPayout"`
-			PayoutRate    string `json:"payoutRate"`
+			MonthlyPayout  string `json:"monthlyPayout"`
+			AnnualPayout   string `json:"annualPayout"`
+			PayoutRate     string `json:"payoutRate"`
+			BequestAtAge75 string `json:"bequestAtAge75,omitempty"`
+			BequestAtAge85 string `json:"bequestAtAge85,omitempty"`
+			BequestAtAge95 string `json:"bequestAtAge95,omitempty"`
 		} `json:"standard"`
 		Basic struct {
-			MonthlyPayout string `json:"monthlyPayout"`
-			AnnualPayout  string `json:"annualPayout"`
-			PayoutRate    string `json:"payoutRate"`
+			MonthlyPayout  string `json:"monthlyPayout"`
+			AnnualPayout   string `json:"annualPayout"`
+			PayoutRate     string `json:"payoutRate"`
+			BequestAtAge75 string `json:"bequestAtAge75,omitempty"`
+			BequestAtAge85 string `json:"bequestAtAge85,omitempty"`
+			BequestAtAge95 string `json:"bequestAtAge95,omitempty"`
 		} `json:"basic"`
 		Escalating struct {
-			MonthlyPayout string `json:"monthlyPayout"`
-			AnnualPayout  string `json:"annualPayout"`
-			PayoutRate    string `json:"payoutRate"`
-			PayoutAt75    string `json:"payoutAt75"`
-			PayoutAt85    string `json:"payoutAt85"`
+			MonthlyPayout  string `json:"monthlyPayout"`
+			AnnualPayout   string `json:"annualPayout"`
+			PayoutRate     string `json:"payoutRate"`
+			PayoutAt75     string `json:"payoutAt75"`
+			PayoutAt85     string `json:"payoutAt85"`
+			BequestAtAge75 string `json:"bequestAtAge75,omitempty"`
+			BequestAtAge85 string `json:"bequestAtAge85,omitempty"`
+			BequestAtAge95 string `json:"bequestAtAge95,omitempty"`
 		} `json:"escalating"`
 	} `json:"estimates"`
 
@@ -614,28 +642,31 @@ func (h *CPFV2Handler) HandleCPFProjection(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, response)
 }
 
-// cpfYearByYearProjectionInput is the JSON input struct for year-by-year CPF projection.
-type cpfYearByYearProjectionInput struct {
+// cpfBalanceProjectionProjectionInput is the JSON input struct for balance-projection CPF projection.
+type cpfBalanceProjectionProjectionInput struct {
 	RetirementAge  int `json:"retirementAge"`  // Age at which contributions stop (default 62)
 	PayoutStartAge int `json:"payoutStartAge"` // CPF LIFE payout start age (65-70)
 }
 
-// cpfYearByYearSnapshotResponse represents a single year's CPF balances.
-type cpfYearByYearSnapshotResponse struct {
-	Year          int    `json:"year"`
-	Age           int    `json:"age"`
-	OA            string `json:"oa"`
-	SA            string `json:"sa"`
-	MA            string `json:"ma"`
-	RA            string `json:"ra"`
-	Total         string `json:"total"`
-	Contributions string `json:"contributions"`
-	Interest      string `json:"interest"`
+// cpfBalanceProjectionSnapshotResponse represents a single year's CPF balances.
+type cpfBalanceProjectionSnapshotResponse struct {
+	Year              int    `json:"year"`
+	Age               int    `json:"age"`
+	OA                string `json:"oa"`
+	SA                string `json:"sa"`
+	MA                string `json:"ma"`
+	RA                string `json:"ra"`
+	Total             string `json:"total"`
+	Contributions     string `json:"contributions"`
+	Interest          string `json:"interest"`
+	MonthlyPayout     string `json:"monthlyPayout,omitempty"`     // CPF LIFE monthly payout (after age 65)
+	YearlyPayout      string `json:"yearlyPayout,omitempty"`      // Total CPF LIFE payouts this year
+	CumulativePayouts string `json:"cumulativePayouts,omitempty"` // Total CPF LIFE payouts to date
 }
 
-// cpfYearByYearProjectionResponse is the JSON response for year-by-year projection.
-type cpfYearByYearProjectionResponse struct {
-	Snapshots []cpfYearByYearSnapshotResponse `json:"snapshots"`
+// cpfBalanceProjectionProjectionResponse is the JSON response for balance-projection projection.
+type cpfBalanceProjectionProjectionResponse struct {
+	Snapshots []cpfBalanceProjectionSnapshotResponse `json:"snapshots"`
 
 	Age55Balances *struct {
 		OA string `json:"oa"`
@@ -662,29 +693,29 @@ type cpfYearByYearProjectionResponse struct {
 	CpfLifeEstimates *cpfLifeEstimateResponse `json:"cpfLifeEstimates,omitempty"`
 }
 
-// POST /api/v2/cpf/account/{id}/projection/year-by-year
-// HandleCPFProjectionYearByYear projects CPF balances year by year and calculates CPF LIFE estimates.
+// POST /api/v2/cpf/account/{id}/projection/balance-projection
+// HandleCPFBalanceProjection projects CPF balances year by year and calculates CPF LIFE estimates.
 // @Summary Project CPF balances year by year
 // @Description Projects CPF account balances year by year using linked incomes, handles RA formation at 55, and calculates CPF LIFE payout estimates using projected RA at 65.
 // @Tags CPF V2
 // @Accept json
 // @Produce json
 // @Param id path string true "CPF account ID"
-// @Param body body cpfYearByYearProjectionInput true "Projection input"
-// @Success 200 {object} cpfYearByYearProjectionResponse
+// @Param body body cpfBalanceProjectionProjectionInput true "Projection input"
+// @Success 200 {object} cpfBalanceProjectionProjectionResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 404 {object} map[string]interface{}
 // @Failure 500 {object} map[string]interface{}
 // @Security SessionID
 // @Security AuthToken
-// @Router /v2/cpf/account/{id}/projection/year-by-year [post]
-func (h *CPFV2Handler) HandleCPFProjectionYearByYear(w http.ResponseWriter, r *http.Request, cpfAccountID string) {
+// @Router /v2/cpf/account/{id}/projection/balance-projection [post]
+func (h *CPFV2Handler) HandleCPFBalanceProjection(w http.ResponseWriter, r *http.Request, cpfAccountID string) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
 		return
 	}
 
-	var input cpfYearByYearProjectionInput
+	var input cpfBalanceProjectionProjectionInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		badRequest(w, err)
 		return
@@ -708,10 +739,19 @@ func (h *CPFV2Handler) HandleCPFProjectionYearByYear(w http.ResponseWriter, r *h
 		return
 	}
 
-	// Delegate to service layer
-	result, err := h.service.ProjectCPFYearByYear(r.Context(), userID, cpfAccountID, retirementAge, payoutStartAge)
+	// Fetch user assumptions for this CPF account (or use defaults)
+	cpfAssumptions, err := h.assumptionsRepo.GetOrCreateDefault(r.Context(), cpfAccountID)
 	if err != nil {
-		log.Printf("cpf.ProjectCPFYearByYear error: %v", err)
+		log.Printf("cpf.GetOrCreateDefault error: %v", err)
+		// Continue with nil assumptions (will use official rates)
+		cpfAssumptions = nil
+	}
+	projectorAssumptions := convertToProjectorAssumptions(cpfAssumptions)
+
+	// Delegate to service layer
+	result, err := h.service.ProjectCPFBalanceProjection(r.Context(), userID, cpfAccountID, retirementAge, payoutStartAge, projectorAssumptions)
+	if err != nil {
+		log.Printf("cpf.ProjectCPFBalanceProjection error: %v", err)
 		badRequest(w, err)
 		return
 	}
@@ -721,8 +761,8 @@ func (h *CPFV2Handler) HandleCPFProjectionYearByYear(w http.ResponseWriter, r *h
 	if result.BHS != nil {
 		bhsStr = result.BHS.String()
 	}
-	response := cpfYearByYearProjectionResponse{
-		Snapshots:  make([]cpfYearByYearSnapshotResponse, len(result.Snapshots)),
+	response := cpfBalanceProjectionProjectionResponse{
+		Snapshots:  make([]cpfBalanceProjectionSnapshotResponse, len(result.Snapshots)),
 		FRSAtAge55: result.FRSAtAge55.String(),
 		BRSAtAge55: result.BRSAtAge55.String(),
 		ERSAtAge55: result.ERSAtAge55.String(),
@@ -733,7 +773,7 @@ func (h *CPFV2Handler) HandleCPFProjectionYearByYear(w http.ResponseWriter, r *h
 
 	// Map snapshots
 	for i, snap := range result.Snapshots {
-		response.Snapshots[i] = cpfYearByYearSnapshotResponse{
+		snapshotResponse := cpfBalanceProjectionSnapshotResponse{
 			Year:          snap.Year,
 			Age:           snap.Age,
 			OA:            snap.OA.String(),
@@ -744,6 +784,19 @@ func (h *CPFV2Handler) HandleCPFProjectionYearByYear(w http.ResponseWriter, r *h
 			Contributions: snap.Contributions.String(),
 			Interest:      snap.Interest.String(),
 		}
+
+		// Include payout fields if available
+		if snap.MonthlyPayout != nil {
+			snapshotResponse.MonthlyPayout = snap.MonthlyPayout.String()
+		}
+		if snap.YearlyPayout != nil {
+			snapshotResponse.YearlyPayout = snap.YearlyPayout.String()
+		}
+		if snap.CumulativePayouts != nil {
+			snapshotResponse.CumulativePayouts = snap.CumulativePayouts.String()
+		}
+
+		response.Snapshots[i] = snapshotResponse
 	}
 
 	// Map age 55 balances
@@ -794,19 +847,200 @@ func buildCpfLifeEstimateResponse(result *cpf.CPFLifeEstimateResult) *cpfLifeEst
 		Disclaimer:     result.Disclaimer,
 	}
 
+	// Standard plan
 	response.Estimates.Standard.MonthlyPayout = result.Standard.MonthlyPayout.String()
 	response.Estimates.Standard.AnnualPayout = result.Standard.AnnualPayout.String()
 	response.Estimates.Standard.PayoutRate = result.Standard.PayoutRate.String()
+	if result.Standard.BequestAtAge75 != nil {
+		response.Estimates.Standard.BequestAtAge75 = result.Standard.BequestAtAge75.String()
+	}
+	if result.Standard.BequestAtAge85 != nil {
+		response.Estimates.Standard.BequestAtAge85 = result.Standard.BequestAtAge85.String()
+	}
+	if result.Standard.BequestAtAge95 != nil {
+		response.Estimates.Standard.BequestAtAge95 = result.Standard.BequestAtAge95.String()
+	}
 
+	// Basic plan
 	response.Estimates.Basic.MonthlyPayout = result.Basic.MonthlyPayout.String()
 	response.Estimates.Basic.AnnualPayout = result.Basic.AnnualPayout.String()
 	response.Estimates.Basic.PayoutRate = result.Basic.PayoutRate.String()
+	if result.Basic.BequestAtAge75 != nil {
+		response.Estimates.Basic.BequestAtAge75 = result.Basic.BequestAtAge75.String()
+	}
+	if result.Basic.BequestAtAge85 != nil {
+		response.Estimates.Basic.BequestAtAge85 = result.Basic.BequestAtAge85.String()
+	}
+	if result.Basic.BequestAtAge95 != nil {
+		response.Estimates.Basic.BequestAtAge95 = result.Basic.BequestAtAge95.String()
+	}
 
+	// Escalating plan
 	response.Estimates.Escalating.MonthlyPayout = result.Escalating.MonthlyPayout.String()
 	response.Estimates.Escalating.AnnualPayout = result.Escalating.AnnualPayout.String()
 	response.Estimates.Escalating.PayoutRate = result.Escalating.PayoutRate.String()
 	response.Estimates.Escalating.PayoutAt75 = result.Escalating.PayoutAt75.String()
 	response.Estimates.Escalating.PayoutAt85 = result.Escalating.PayoutAt85.String()
+	if result.Escalating.BequestAtAge75 != nil {
+		response.Estimates.Escalating.BequestAtAge75 = result.Escalating.BequestAtAge75.String()
+	}
+	if result.Escalating.BequestAtAge85 != nil {
+		response.Estimates.Escalating.BequestAtAge85 = result.Escalating.BequestAtAge85.String()
+	}
+	if result.Escalating.BequestAtAge95 != nil {
+		response.Estimates.Escalating.BequestAtAge95 = result.Escalating.BequestAtAge95.String()
+	}
 
 	return response
+}
+
+// age55ConversionInput is the JSON input struct for Age 55 conversion calculation.
+type age55ConversionInput struct {
+	OABalance            string `json:"oaBalance"`            // Ordinary Account balance
+	SABalance            string `json:"saBalance"`            // Special Account balance
+	MABalance            string `json:"maBalance"`            // MediSave Account balance
+	TargetScheme         string `json:"targetScheme"`         // "brs", "frs", or "ers"
+	BRS                  string `json:"brs"`                  // Basic Retirement Sum
+	FRS                  string `json:"frs"`                  // Full Retirement Sum
+	ERS                  string `json:"ers"`                  // Enhanced Retirement Sum
+	BHS                  string `json:"bhs"`                  // Basic Healthcare Sum
+	PropertyPledgeAmount string `json:"propertyPledgeAmount"` // Optional: property pledge amount
+}
+
+// age55ConversionResponse is the JSON response for Age 55 conversion calculation.
+type age55ConversionResponse struct {
+	// Transfer breakdown
+	SAToRA         string `json:"saToRa"`
+	OAToRA         string `json:"oaToRa"`
+	MAOverflowToRA string `json:"maOverflowToRa"`
+
+	// Final balances after conversion
+	FinalOA string `json:"finalOa"`
+	FinalSA string `json:"finalSa"`
+	FinalMA string `json:"finalMa"`
+	FinalRA string `json:"finalRa"`
+
+	// Status
+	MeetsTarget     bool `json:"meetsTarget"`
+	CPFLifeEligible bool `json:"cpfLifeEligible"`
+
+	// Withdrawable
+	WithdrawableOA string `json:"withdrawableOa"`
+
+	// Target details
+	TargetScheme string `json:"targetScheme"`
+	TargetAmount string `json:"targetAmount"`
+}
+
+// POST /api/v2/cpf/calculators/age55-conversion
+// HandleAge55Conversion calculates the Age 55 RA conversion.
+// @Summary Calculate Age 55 RA conversion
+// @Description Calculates how CPF balances will be transferred to RA at age 55 based on target scheme.
+// @Tags CPF V2
+// @Accept json
+// @Produce json
+// @Param body body age55ConversionInput true "Conversion input"
+// @Success 200 {object} age55ConversionResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/calculators/age55-conversion [post]
+func (h *CPFV2Handler) HandleAge55Conversion(w http.ResponseWriter, r *http.Request) {
+	_, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var input age55ConversionInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	// Parse decimal values
+	oaBalance, err := decimal.NewFromString(input.OABalance)
+	if err != nil {
+		badRequest(w, fmt.Errorf("invalid oaBalance: %w", err))
+		return
+	}
+	saBalance, err := decimal.NewFromString(input.SABalance)
+	if err != nil {
+		badRequest(w, fmt.Errorf("invalid saBalance: %w", err))
+		return
+	}
+	maBalance, err := decimal.NewFromString(input.MABalance)
+	if err != nil {
+		badRequest(w, fmt.Errorf("invalid maBalance: %w", err))
+		return
+	}
+	brs, err := decimal.NewFromString(input.BRS)
+	if err != nil {
+		badRequest(w, fmt.Errorf("invalid brs: %w", err))
+		return
+	}
+	frs, err := decimal.NewFromString(input.FRS)
+	if err != nil {
+		badRequest(w, fmt.Errorf("invalid frs: %w", err))
+		return
+	}
+	ers, err := decimal.NewFromString(input.ERS)
+	if err != nil {
+		badRequest(w, fmt.Errorf("invalid ers: %w", err))
+		return
+	}
+	bhs, err := decimal.NewFromString(input.BHS)
+	if err != nil {
+		badRequest(w, fmt.Errorf("invalid bhs: %w", err))
+		return
+	}
+
+	// Optional property pledge
+	var propertyPledge *decimal.Decimal
+	if input.PropertyPledgeAmount != "" {
+		pp, err := decimal.NewFromString(input.PropertyPledgeAmount)
+		if err != nil {
+			badRequest(w, fmt.Errorf("invalid propertyPledgeAmount: %w", err))
+			return
+		}
+		propertyPledge = pp
+	}
+
+	// Build conversion input
+	convInput := retirement.ConversionInput{
+		OABalance:            oaBalance,
+		SABalance:            saBalance,
+		MABalance:            maBalance,
+		TargetScheme:         retirement.TargetScheme(input.TargetScheme),
+		BRS:                  brs,
+		FRS:                  frs,
+		ERS:                  ers,
+		BHS:                  bhs,
+		PropertyPledgeAmount: propertyPledge,
+	}
+
+	// Calculate conversion
+	result, err := retirement.CalculateConversion(convInput)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	// Build response
+	response := age55ConversionResponse{
+		SAToRA:          result.SAToRA.String(),
+		OAToRA:          result.OAToRA.String(),
+		MAOverflowToRA:  result.MAOverflowToRA.String(),
+		FinalOA:         result.FinalOA.String(),
+		FinalSA:         result.FinalSA.String(),
+		FinalMA:         result.FinalMA.String(),
+		FinalRA:         result.FinalRA.String(),
+		MeetsTarget:     result.MeetsTarget,
+		CPFLifeEligible: result.CPFLifeEligible,
+		WithdrawableOA:  result.WithdrawableOA.String(),
+		TargetScheme:    string(result.TargetScheme),
+		TargetAmount:    result.TargetAmount.String(),
+	}
+
+	writeJSON(w, response)
 }

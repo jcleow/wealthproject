@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import {
   Wallet,
   Home,
@@ -95,6 +96,7 @@ const STRATEGIES: { id: StrategyId; label: string; description: string }[] = [
 
 interface CPFSimulationViewProps {
   onClose: () => void
+  initialTab?: TabId
 }
 
 // Placeholder component for strategies that don't have dedicated implementations yet
@@ -134,10 +136,33 @@ const LEARN_CALCULATORS: { id: LearnCalculator; label: string; description: stri
   { id: 'housing', label: 'Housing Limits', description: 'Valuation & Withdrawal Limits' },
 ]
 
-export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('overview')
+export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimulationViewProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab)
   const [activeCalculator, setActiveCalculator] = useState<LearnCalculator>('journey')
   const [activeStrategy, setActiveStrategy] = useState<StrategyId>('contributions')
+
+  // Check if we're in routed mode (URL-based navigation)
+  const isRoutedMode = pathname?.startsWith('/dashboard/cpf')
+
+  // Handle tab change - use URL navigation if in routed mode
+  const handleTabChange = (tabId: TabId) => {
+    if (isRoutedMode) {
+      // Navigate to the appropriate route
+      if (tabId === 'overview') {
+        router.push('/dashboard/cpf')
+      } else if (tabId === 'learn') {
+        // Learn tab stays in the current page (no dedicated route)
+        setActiveTab(tabId)
+      } else {
+        router.push(`/dashboard/cpf/${tabId}`)
+      }
+    } else {
+      // Not in routed mode, just update state
+      setActiveTab(tabId)
+    }
+  }
 
   // CPF Account selection state
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
@@ -262,7 +287,7 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
           {TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`flex flex-shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
                 activeTab === tab.id
                   ? 'bg-white/[0.08] text-white'
@@ -277,7 +302,7 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
           <div className="flex-1" />
           {/* Learn tab on right */}
           <button
-            onClick={() => setActiveTab(LEARN_TAB.id)}
+            onClick={() => handleTabChange(LEARN_TAB.id)}
             className={`flex flex-shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
               activeTab === LEARN_TAB.id
                 ? 'bg-white/[0.08] text-white'

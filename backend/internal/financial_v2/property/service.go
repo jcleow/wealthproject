@@ -789,8 +789,8 @@ func (s *Service) getProjectedBorrowerBalances(
 			}
 		}
 
-		// Project to purchase date
-		projected, err := s.cpfProjector.ProjectToDate(ctx, snapshot, incomes, purchaseDate)
+		// Project to purchase date (using default CPF rates)
+		projected, err := s.cpfProjector.ProjectToDate(ctx, snapshot, incomes, purchaseDate, nil)
 		if err != nil {
 			return nil, fmt.Errorf("project CPF: %w", err)
 		}

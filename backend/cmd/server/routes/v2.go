@@ -246,6 +246,9 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	// CPF LIFE estimate calculator endpoint
 	router.HandleFunc("/cpf/calculators/cpflife-estimate", cpfHandler.HandleCPFLifeEstimate).Methods("POST")
 
+	// Age 55 RA conversion calculator endpoint
+	router.HandleFunc("/cpf/calculators/age55-conversion", cpfHandler.HandleAge55Conversion).Methods("POST")
+
 	// CPF projection with LIFE estimates endpoint
 	router.HandleFunc("/cpf/account/{id}/projection", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -253,11 +256,11 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		cpfHandler.HandleCPFProjection(w, r, id)
 	}).Methods("POST")
 
-	// CPF year-by-year projection endpoint (for charting)
-	router.HandleFunc("/cpf/account/{id}/projection/year-by-year", func(w http.ResponseWriter, r *http.Request) {
+	// CPF balance projection endpoint (for charting)
+	router.HandleFunc("/cpf/account/{id}/balance-projection", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
-		cpfHandler.HandleCPFProjectionYearByYear(w, r, id)
+		cpfHandler.HandleCPFBalanceProjection(w, r, id)
 	}).Methods("POST")
 
 	// Person v2 endpoints (for multi-person household support)

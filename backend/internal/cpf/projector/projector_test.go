@@ -160,7 +160,7 @@ func TestProjectToDate_2026Rates(t *testing.T) {
 			// Arrange - test case is already defined in table
 
 			// Act
-			result, err := proj.ProjectToDate(ctx, tt.account, tt.incomes, tt.targetDate)
+			result, err := proj.ProjectToDate(ctx, tt.account, tt.incomes, tt.targetDate, nil)
 
 			// Assert
 			if err != nil {
@@ -302,4 +302,160 @@ func TestIsActiveAt(t *testing.T) {
 
 func timePtr(t time.Time) *time.Time {
 	return &t
+}
+
+func TestProjectBalances_RADeclineAfterPayout(t *testing.T) {
+	// Arrange - Person who is 64, about to turn 65
+	// This tests that RA declines after CPF LIFE payouts start
+	ctx := context.Background()
+	proj := New()
+
+	// Person born June 1960, currently Dec 2024 (age 64)
+	dob := time.Date(1960, 6, 15, 0, 0, 0, 0, time.UTC)
+	startDate := time.Date(2024, 12, 1, 0, 0, 0, 0, time.UTC)
+
+	account := AccountSnapshot{
+		OABalance:       decimal.MustFromFloat64(100000),  // $100k OA
+		SABalance:       decimal.MustFromFloat64(0),       // $0 SA (already moved to RA)
+		MABalance:       decimal.MustFromFloat64(50000),   // $50k MA
+		RABalance:       decimal.MustFromFloat64(300000),  // $300k RA at age 55
+		DateOfBirth:     dob,
+		Gender:          "male",
+		ResidencyStatus: "citizen",
+		AsOfDate:        startDate,
+	}
+
+	// No income (retired)
+	incomes := []IncomeStream{}
+
+	// Project with payout starting at 65
+	retirementAge := 55     // Already retired
+	payoutStartAge := 65    // Start CPF LIFE at 65
+
+	// Act
+	result, err := proj.ProjectBalances(ctx, account, incomes, retirementAge, payoutStartAge, nil)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("ProjectBalances() error = %v", err)
+	}
+
+	// Find snapshots at age 65 and age 70
+	var raAt65, raAt70 *decimal.Decimal
+	var payoutAt70 *decimal.Decimal
+
+	for _, snap := range result.Snapshots {
+		if snap.Age == 65 && raAt65 == nil {
+			raAt65 = snap.RA
+			t.Logf("Age 65: RA=%s, MonthlyPayout=%v", snap.RA.String(), snap.MonthlyPayout)
+		}
+		if snap.Age == 70 && raAt70 == nil {
+			raAt70 = snap.RA
+			payoutAt70 = snap.MonthlyPayout
+			t.Logf("Age 70: RA=%s, MonthlyPayout=%v, YearlyPayout=%v, CumulativePayouts=%v",
+				snap.RA.String(), snap.MonthlyPayout, snap.YearlyPayout, snap.CumulativePayouts)
+		}
+	}
+
+	// Log monthly payout from result
+	t.Logf("CPFLifeMonthlyPayout: %v", result.CPFLifeMonthlyPayout)
+
+	// Verify RA has declined from 65 to 70
+	if raAt65 == nil || raAt70 == nil {
+		t.Fatalf("Could not find RA at age 65 or 70. Snapshots: %d", len(result.Snapshots))
+	}
+
+	// RA should have declined (or at least not grown significantly)
+	// With ~$300k RA at 65:
+	// - Interest: ~4% = $12k/year
+	// - Payout: ~6% = $18k/year
+	// - Net decline: ~$6k/year
+	// Over 5 years: ~$30k decline
+
+	if raAt70.Cmp(raAt65) > 0 {
+		// RA grew instead of declining - this is the bug!
+		growth := raAt70.Sub(raAt65)
+		t.Errorf("RA grew from age 65 to 70! At65=%s, At70=%s, Growth=%s. Payout=%v",
+			raAt65.String(), raAt70.String(), growth.String(), payoutAt70)
+	}
+}
+
+func TestProjectBalances_YoungPerson_RADeclineAfterPayout(t *testing.T) {
+	// Test with a younger person (born 1994, age 32) to verify payout model
+	// works correctly for birth years outside the training data range
+	ctx := context.Background()
+	proj := New()
+
+	// Person born June 1994, currently Jan 2026 (age 31)
+	dob := time.Date(1994, 6, 15, 0, 0, 0, 0, time.UTC)
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	account := AccountSnapshot{
+		OABalance:       decimal.MustFromFloat64(50000),   // $50k OA
+		SABalance:       decimal.MustFromFloat64(80000),   // $80k SA
+		MABalance:       decimal.MustFromFloat64(30000),   // $30k MA
+		RABalance:       decimal.Zero(),                   // No RA yet (under 55)
+		DateOfBirth:     dob,
+		Gender:          "male",
+		ResidencyStatus: "citizen",
+		AsOfDate:        startDate,
+	}
+
+	// High income to build up RA
+	incomes := []IncomeStream{
+		{
+			MonthlyAmount: decimal.MustFromFloat64(15000), // $15k/month salary
+			WageType:      "ow",
+			StartDate:     startDate,
+			EndDate:       nil,
+		},
+	}
+
+	retirementAge := 62
+	payoutStartAge := 65
+
+	// Act
+	result, err := proj.ProjectBalances(ctx, account, incomes, retirementAge, payoutStartAge, nil)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("ProjectBalances() error = %v", err)
+	}
+
+	// Find snapshots at age 65, 70, and 80
+	var raAt65, raAt70, raAt80 *decimal.Decimal
+	var payoutAt65 *decimal.Decimal
+
+	for _, snap := range result.Snapshots {
+		t.Logf("Year %d (Age %d): RA=%s, MonthlyPayout=%v, YearlyPayout=%v",
+			snap.Year, snap.Age, snap.RA.String(), snap.MonthlyPayout, snap.YearlyPayout)
+
+		if snap.Age == 65 && raAt65 == nil {
+			raAt65 = snap.RA
+			payoutAt65 = snap.MonthlyPayout
+		}
+		if snap.Age == 70 && raAt70 == nil {
+			raAt70 = snap.RA
+		}
+		if snap.Age == 80 && raAt80 == nil {
+			raAt80 = snap.RA
+		}
+	}
+
+	t.Logf("\nSummary:")
+	t.Logf("CPFLifeMonthlyPayout: %v", result.CPFLifeMonthlyPayout)
+	t.Logf("RA at 65: %v, Payout: %v", raAt65, payoutAt65)
+	t.Logf("RA at 70: %v", raAt70)
+	t.Logf("RA at 80: %v", raAt80)
+
+	if raAt65 == nil || raAt70 == nil {
+		t.Fatalf("Could not find RA at age 65 or 70")
+	}
+
+	// RA should decline after age 65
+	if raAt70.Cmp(raAt65) > 0 {
+		growth := raAt70.Sub(raAt65)
+		t.Errorf("RA grew from age 65 to 70! At65=%s, At70=%s, Growth=%s",
+			raAt65.String(), raAt70.String(), growth.String())
+	}
 }

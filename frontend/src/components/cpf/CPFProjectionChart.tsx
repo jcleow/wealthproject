@@ -19,8 +19,8 @@ import { formatCurrency } from '@/lib/format'
 import type { CPFProfile, CPFAssumptions, CPFProjectionYear, RetirementProjection } from '@/types/cpf'
 import { DEFAULT_CPF_ASSUMPTIONS } from '@/types/cpf'
 import { CPFAssumptionsPanel } from './CPFAssumptionsPanel'
-import { useCpfBalanceProjectionProjectionQuery } from '@/hooks/queries/useCpfQuery'
-import type { CPFBalanceProjectionProjectionResponse } from '@/api/financial/cpf'
+import { useCpfBalanceProjectionQuery } from '@/hooks/queries/useCpfQuery'
+import type { CPFBalanceProjectionResponse } from '@/api/financial/cpf'
 
 interface CPFProjectionChartProps {
   profile: CPFProfile
@@ -31,7 +31,7 @@ interface CPFProjectionChartProps {
  * Transforms API response (string decimals) to chart-compatible format (numbers)
  */
 function transformProjectionData(
-  response: CPFBalanceProjectionProjectionResponse
+  response: CPFBalanceProjectionResponse
 ): { projection: CPFProjectionYear[]; retirement: RetirementProjection } {
   // Transform snapshots from string decimals to numbers
   const projection: CPFProjectionYear[] = response.snapshots.map((snapshot) => ({
@@ -204,7 +204,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     data: apiResponse,
     isLoading,
     error,
-  } = useCpfBalanceProjectionProjectionQuery(profile.id, {
+  } = useCpfBalanceProjectionQuery(profile.id, {
     retirementAge: assumptions.retirementAge,
     payoutStartAge: assumptions.payoutStartAge,
   })
@@ -216,6 +216,10 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     }
     return transformProjectionData(apiResponse)
   }, [apiResponse])
+
+  // Chart data is the same as projection (keeping 0 values to show vertical drop to 0)
+  // Convert null to undefined for Recharts compatibility
+  const chartData = projection ?? undefined
 
   // Generate payout projection for the selected CPF LIFE plan
   const payoutProjection = useMemo(() => {
@@ -501,7 +505,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             {chartView === 'balance' ? (
-              <AreaChart data={projection} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="oaChartGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -656,7 +660,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                 )}
                 {visibleAccounts.sa && (
                   <Area
-                    type="monotone"
+                    type="stepAfter"
                     dataKey="sa"
                     stackId="1"
                     stroke="#10b981"

@@ -127,18 +127,24 @@ type CPFLifeEstimateResult struct {
 
 // PlanEstimate contains estimate details for a standard or basic plan.
 type PlanEstimate struct {
-	MonthlyPayout *decimal.Decimal
-	AnnualPayout  *decimal.Decimal
-	PayoutRate    *decimal.Decimal
+	MonthlyPayout  *decimal.Decimal
+	AnnualPayout   *decimal.Decimal
+	PayoutRate     *decimal.Decimal
+	BequestAtAge75 *decimal.Decimal // Bequest if death at age 75
+	BequestAtAge85 *decimal.Decimal // Bequest if death at age 85
+	BequestAtAge95 *decimal.Decimal // Bequest if death at age 95
 }
 
 // EscalatingPlanEstimate contains estimate details for the escalating plan.
 type EscalatingPlanEstimate struct {
-	MonthlyPayout *decimal.Decimal
-	AnnualPayout  *decimal.Decimal
-	PayoutRate    *decimal.Decimal
-	PayoutAt75    *decimal.Decimal
-	PayoutAt85    *decimal.Decimal
+	MonthlyPayout  *decimal.Decimal
+	AnnualPayout   *decimal.Decimal
+	PayoutRate     *decimal.Decimal
+	PayoutAt75     *decimal.Decimal
+	PayoutAt85     *decimal.Decimal
+	BequestAtAge75 *decimal.Decimal // Bequest if death at age 75
+	BequestAtAge85 *decimal.Decimal // Bequest if death at age 85
+	BequestAtAge95 *decimal.Decimal // Bequest if death at age 95
 }
 
 // CPFProjectionResult contains the CPF projection with LIFE estimates.
@@ -226,21 +232,30 @@ func (s *Service) CalculateCPFLifeEstimates(ctx context.Context, userID string, 
 		BirthYear:      birthYear,
 		Gender:         string(gender),
 		Standard: PlanEstimate{
-			MonthlyPayout: estimates.Standard.MonthlyPayout,
-			AnnualPayout:  estimates.Standard.AnnualPayout,
-			PayoutRate:    estimates.Standard.PayoutRate,
+			MonthlyPayout:  estimates.Standard.MonthlyPayout,
+			AnnualPayout:   estimates.Standard.AnnualPayout,
+			PayoutRate:     estimates.Standard.PayoutRate,
+			BequestAtAge75: estimates.Standard.BequestAtAge75,
+			BequestAtAge85: estimates.Standard.BequestAtAge85,
+			BequestAtAge95: estimates.Standard.BequestAtAge95,
 		},
 		Basic: PlanEstimate{
-			MonthlyPayout: estimates.Basic.MonthlyPayout,
-			AnnualPayout:  estimates.Basic.AnnualPayout,
-			PayoutRate:    estimates.Basic.PayoutRate,
+			MonthlyPayout:  estimates.Basic.MonthlyPayout,
+			AnnualPayout:   estimates.Basic.AnnualPayout,
+			PayoutRate:     estimates.Basic.PayoutRate,
+			BequestAtAge75: estimates.Basic.BequestAtAge75,
+			BequestAtAge85: estimates.Basic.BequestAtAge85,
+			BequestAtAge95: estimates.Basic.BequestAtAge95,
 		},
 		Escalating: EscalatingPlanEstimate{
-			MonthlyPayout: estimates.Escalating.MonthlyPayout,
-			AnnualPayout:  estimates.Escalating.AnnualPayout,
-			PayoutRate:    estimates.Escalating.PayoutRate,
-			PayoutAt75:    estimates.Escalating.PayoutAt75,
-			PayoutAt85:    estimates.Escalating.PayoutAt85,
+			MonthlyPayout:  estimates.Escalating.MonthlyPayout,
+			AnnualPayout:   estimates.Escalating.AnnualPayout,
+			PayoutRate:     estimates.Escalating.PayoutRate,
+			PayoutAt75:     estimates.Escalating.PayoutAt75,
+			PayoutAt85:     estimates.Escalating.PayoutAt85,
+			BequestAtAge75: estimates.Escalating.BequestAtAge75,
+			BequestAtAge85: estimates.Escalating.BequestAtAge85,
+			BequestAtAge95: estimates.Escalating.BequestAtAge95,
 		},
 		Disclaimer: estimates.Disclaimer,
 	}, nil
@@ -328,21 +343,30 @@ func (s *Service) ProjectCPFWithLifeEstimates(ctx context.Context, userID, cpfAc
 		BirthYear:      birthYear,
 		Gender:         string(gender),
 		Standard: PlanEstimate{
-			MonthlyPayout: estimates.Standard.MonthlyPayout,
-			AnnualPayout:  estimates.Standard.AnnualPayout,
-			PayoutRate:    estimates.Standard.PayoutRate,
+			MonthlyPayout:  estimates.Standard.MonthlyPayout,
+			AnnualPayout:   estimates.Standard.AnnualPayout,
+			PayoutRate:     estimates.Standard.PayoutRate,
+			BequestAtAge75: estimates.Standard.BequestAtAge75,
+			BequestAtAge85: estimates.Standard.BequestAtAge85,
+			BequestAtAge95: estimates.Standard.BequestAtAge95,
 		},
 		Basic: PlanEstimate{
-			MonthlyPayout: estimates.Basic.MonthlyPayout,
-			AnnualPayout:  estimates.Basic.AnnualPayout,
-			PayoutRate:    estimates.Basic.PayoutRate,
+			MonthlyPayout:  estimates.Basic.MonthlyPayout,
+			AnnualPayout:   estimates.Basic.AnnualPayout,
+			PayoutRate:     estimates.Basic.PayoutRate,
+			BequestAtAge75: estimates.Basic.BequestAtAge75,
+			BequestAtAge85: estimates.Basic.BequestAtAge85,
+			BequestAtAge95: estimates.Basic.BequestAtAge95,
 		},
 		Escalating: EscalatingPlanEstimate{
-			MonthlyPayout: estimates.Escalating.MonthlyPayout,
-			AnnualPayout:  estimates.Escalating.AnnualPayout,
-			PayoutRate:    estimates.Escalating.PayoutRate,
-			PayoutAt75:    estimates.Escalating.PayoutAt75,
-			PayoutAt85:    estimates.Escalating.PayoutAt85,
+			MonthlyPayout:  estimates.Escalating.MonthlyPayout,
+			AnnualPayout:   estimates.Escalating.AnnualPayout,
+			PayoutRate:     estimates.Escalating.PayoutRate,
+			PayoutAt75:     estimates.Escalating.PayoutAt75,
+			PayoutAt85:     estimates.Escalating.PayoutAt85,
+			BequestAtAge75: estimates.Escalating.BequestAtAge75,
+			BequestAtAge85: estimates.Escalating.BequestAtAge85,
+			BequestAtAge95: estimates.Escalating.BequestAtAge95,
 		},
 		Disclaimer: estimates.Disclaimer,
 	}
@@ -350,22 +374,24 @@ func (s *Service) ProjectCPFWithLifeEstimates(ctx context.Context, userID, cpfAc
 	return result, nil
 }
 
-// YearByYearProjectionResult contains the year-by-year CPF projection with CPF LIFE estimates.
-type YearByYearProjectionResult struct {
-	Snapshots        []projector.YearlySnapshot  `json:"snapshots"`
-	Age55Balances    *BalanceSnapshot            `json:"age55Balances,omitempty"`
-	Age65Balances    *BalanceSnapshot            `json:"age65Balances,omitempty"`
-	FRSAtAge55       *decimal.Decimal            `json:"frsAt55"`
-	BRSAtAge55       *decimal.Decimal            `json:"brsAt55"`
-	ERSAtAge55       *decimal.Decimal            `json:"ersAt55"`
-	BHS              *decimal.Decimal            `json:"bhs"`
-	BirthYear        int                         `json:"birthYear"`
-	Gender           string                      `json:"gender"`
-	CPFLifeEstimates *CPFLifeEstimateResult      `json:"cpfLifeEstimates,omitempty"`
+// BalanceProjectionResult contains the year-by-year CPF projection with CPF LIFE estimates.
+type BalanceProjectionResult struct {
+	Snapshots            []projector.YearlySnapshot `json:"snapshots"`
+	Age55Balances        *BalanceSnapshot           `json:"age55Balances,omitempty"`
+	Age65Balances        *BalanceSnapshot           `json:"age65Balances,omitempty"`
+	FRSAtAge55           *decimal.Decimal           `json:"frsAt55"`
+	BRSAtAge55           *decimal.Decimal           `json:"brsAt55"`
+	ERSAtAge55           *decimal.Decimal           `json:"ersAt55"`
+	BHS                  *decimal.Decimal           `json:"bhs"`
+	BirthYear            int                        `json:"birthYear"`
+	Gender               string                     `json:"gender"`
+	CPFLifeEstimates     *CPFLifeEstimateResult     `json:"cpfLifeEstimates,omitempty"`
+	CPFLifeMonthlyPayout *decimal.Decimal           `json:"cpfLifeMonthlyPayout,omitempty"` // Monthly payout used for RA drawdown
 }
 
-// ProjectCPFYearByYear projects CPF balances year by year and calculates CPF LIFE estimates.
-func (s *Service) ProjectCPFYearByYear(ctx context.Context, userID, cpfAccountID string, retirementAge, payoutStartAge int) (*YearByYearProjectionResult, error) {
+// ProjectCPFBalanceProjection projects CPF balances year by year and calculates CPF LIFE estimates.
+// If assumptions is nil, official CPF rates are used.
+func (s *Service) ProjectCPFBalanceProjection(ctx context.Context, userID, cpfAccountID string, retirementAge, payoutStartAge int, assumptions *projector.ProjectionAssumptions) (*BalanceProjectionResult, error) {
 	// Get CPF account
 	cpfAccount, err := s.store.GetCPFAccountByID(ctx, userID, cpfAccountID)
 	if err != nil {
@@ -409,13 +435,14 @@ func (s *Service) ProjectCPFYearByYear(ctx context.Context, userID, cpfAccountID
 		MABalance:       &cpfAccount.MABalance,
 		RABalance:       &cpfAccount.RABalance,
 		DateOfBirth:     person.DateOfBirth,
+		Gender:          person.Gender, // Pass gender for CPF LIFE calculation
 		ResidencyStatus: person.ResidencyStatus,
 		AsOfDate:        cpfAccount.StartDate,
 	}
 
 	// Run year-by-year projection
 	proj := projector.New()
-	projection, err := proj.ProjectYearByYear(ctx, snapshot, personIncomes, retirementAge)
+	projection, err := proj.ProjectBalances(ctx, snapshot, personIncomes, retirementAge, payoutStartAge, assumptions)
 	if err != nil {
 		return nil, fmt.Errorf("projection failed: %w", err)
 	}
@@ -429,14 +456,15 @@ func (s *Service) ProjectCPFYearByYear(ctx context.Context, userID, cpfAccountID
 	}
 
 	// Build result
-	result := &YearByYearProjectionResult{
-		Snapshots:  projection.Snapshots,
-		FRSAtAge55: projection.FRSAtAge55,
-		BRSAtAge55: projection.BRSAtAge55,
-		ERSAtAge55: projection.ERSAtAge55,
-		BHS:        projection.BHS,
-		BirthYear:  person.DateOfBirth.Year(),
-		Gender:     string(gender),
+	result := &BalanceProjectionResult{
+		Snapshots:            projection.Snapshots,
+		FRSAtAge55:           projection.FRSAtAge55,
+		BRSAtAge55:           projection.BRSAtAge55,
+		ERSAtAge55:           projection.ERSAtAge55,
+		BHS:                  projection.BHS,
+		BirthYear:            person.DateOfBirth.Year(),
+		Gender:               string(gender),
+		CPFLifeMonthlyPayout: projection.CPFLifeMonthlyPayout,
 	}
 
 	// Map age 55 balances

@@ -280,9 +280,9 @@ export async function getCPFProjection(
 // ============================================================================
 
 /**
- * Input for year-by-year CPF projection.
+ * Input for CPF balance projection.
  */
-export interface CPFYearByYearProjectionInput {
+export interface CPFBalanceProjectionInput {
   retirementAge?: number // Age at which contributions stop (default 62)
   payoutStartAge?: number // CPF LIFE payout start age (65-70, default 65)
 }
@@ -303,9 +303,9 @@ export interface CPFYearlySnapshot {
 }
 
 /**
- * Response from year-by-year CPF projection.
+ * Response from CPF balance projection.
  */
-export interface CPFYearByYearProjectionResponse {
+export interface CPFBalanceProjectionResponse {
   snapshots: CPFYearlySnapshot[]
   age55Balances?: {
     oa: string
@@ -329,15 +329,15 @@ export interface CPFYearByYearProjectionResponse {
 }
 
 /**
- * Get year-by-year CPF projection for charting.
+ * Get CPF balance projection for charting.
  * Includes RA formation at 55, real income data, and CPF LIFE estimates.
  */
-export async function getCPFProjectionYearByYear(
+export async function getCPFBalanceProjection(
   cpfAccountId: string,
-  input: CPFYearByYearProjectionInput = {}
-): Promise<CPFYearByYearProjectionResponse> {
-  return apiClient.post<CPFYearByYearProjectionResponse>(
-    `/cpf/account/${cpfAccountId}/projection/year-by-year`,
+  input: CPFBalanceProjectionInput = {}
+): Promise<CPFBalanceProjectionResponse> {
+  return apiClient.post<CPFBalanceProjectionResponse>(
+    `/cpf/account/${cpfAccountId}/balance-projection`,
     input,
     { baseUrl: '/api/v2' }
   )
@@ -362,5 +362,5 @@ export const cpfApi = {
   calculateCPFLifeEstimate,
   // CPF Projection API
   getCPFProjection,
-  getCPFProjectionYearByYear,
+  getCPFBalanceProjection,
 }
