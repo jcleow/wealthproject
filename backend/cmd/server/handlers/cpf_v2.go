@@ -614,6 +614,176 @@ func (h *CPFV2Handler) HandleCPFProjection(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, response)
 }
 
+// cpfYearByYearProjectionInput is the JSON input struct for year-by-year CPF projection.
+type cpfYearByYearProjectionInput struct {
+	RetirementAge  int `json:"retirementAge"`  // Age at which contributions stop (default 62)
+	PayoutStartAge int `json:"payoutStartAge"` // CPF LIFE payout start age (65-70)
+}
+
+// cpfYearByYearSnapshotResponse represents a single year's CPF balances.
+type cpfYearByYearSnapshotResponse struct {
+	Year          int    `json:"year"`
+	Age           int    `json:"age"`
+	OA            string `json:"oa"`
+	SA            string `json:"sa"`
+	MA            string `json:"ma"`
+	RA            string `json:"ra"`
+	Total         string `json:"total"`
+	Contributions string `json:"contributions"`
+	Interest      string `json:"interest"`
+}
+
+// cpfYearByYearProjectionResponse is the JSON response for year-by-year projection.
+type cpfYearByYearProjectionResponse struct {
+	Snapshots []cpfYearByYearSnapshotResponse `json:"snapshots"`
+
+	Age55Balances *struct {
+		OA string `json:"oa"`
+		SA string `json:"sa"`
+		MA string `json:"ma"`
+		RA string `json:"ra"`
+	} `json:"age55Balances,omitempty"`
+
+	Age65Balances *struct {
+		OA string `json:"oa"`
+		SA string `json:"sa"`
+		MA string `json:"ma"`
+		RA string `json:"ra"`
+	} `json:"age65Balances,omitempty"`
+
+	FRSAtAge55 string `json:"frsAt55"`
+	BRSAtAge55 string `json:"brsAt55"`
+	ERSAtAge55 string `json:"ersAt55"`
+	BHS        string `json:"bhs"`
+
+	BirthYear int    `json:"birthYear"`
+	Gender    string `json:"gender"`
+
+	CpfLifeEstimates *cpfLifeEstimateResponse `json:"cpfLifeEstimates,omitempty"`
+}
+
+// POST /api/v2/cpf/account/{id}/projection/year-by-year
+// HandleCPFProjectionYearByYear projects CPF balances year by year and calculates CPF LIFE estimates.
+// @Summary Project CPF balances year by year
+// @Description Projects CPF account balances year by year using linked incomes, handles RA formation at 55, and calculates CPF LIFE payout estimates using projected RA at 65.
+// @Tags CPF V2
+// @Accept json
+// @Produce json
+// @Param id path string true "CPF account ID"
+// @Param body body cpfYearByYearProjectionInput true "Projection input"
+// @Success 200 {object} cpfYearByYearProjectionResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/account/{id}/projection/year-by-year [post]
+func (h *CPFV2Handler) HandleCPFProjectionYearByYear(w http.ResponseWriter, r *http.Request, cpfAccountID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var input cpfYearByYearProjectionInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	// Default retirement age to 62 if not provided
+	retirementAge := input.RetirementAge
+	if retirementAge == 0 {
+		retirementAge = 62
+	}
+
+	// Default payout start age to 65 if not provided
+	payoutStartAge := input.PayoutStartAge
+	if payoutStartAge == 0 {
+		payoutStartAge = 65
+	}
+
+	// Validate payout start age
+	if payoutStartAge < 65 || payoutStartAge > 70 {
+		badRequest(w, fmt.Errorf("payoutStartAge must be between 65 and 70"))
+		return
+	}
+
+	// Delegate to service layer
+	result, err := h.service.ProjectCPFYearByYear(r.Context(), userID, cpfAccountID, retirementAge, payoutStartAge)
+	if err != nil {
+		log.Printf("cpf.ProjectCPFYearByYear error: %v", err)
+		badRequest(w, err)
+		return
+	}
+
+	// Build response
+	bhsStr := "0"
+	if result.BHS != nil {
+		bhsStr = result.BHS.String()
+	}
+	response := cpfYearByYearProjectionResponse{
+		Snapshots:  make([]cpfYearByYearSnapshotResponse, len(result.Snapshots)),
+		FRSAtAge55: result.FRSAtAge55.String(),
+		BRSAtAge55: result.BRSAtAge55.String(),
+		ERSAtAge55: result.ERSAtAge55.String(),
+		BHS:        bhsStr,
+		BirthYear:  result.BirthYear,
+		Gender:     result.Gender,
+	}
+
+	// Map snapshots
+	for i, snap := range result.Snapshots {
+		response.Snapshots[i] = cpfYearByYearSnapshotResponse{
+			Year:          snap.Year,
+			Age:           snap.Age,
+			OA:            snap.OA.String(),
+			SA:            snap.SA.String(),
+			MA:            snap.MA.String(),
+			RA:            snap.RA.String(),
+			Total:         snap.Total.String(),
+			Contributions: snap.Contributions.String(),
+			Interest:      snap.Interest.String(),
+		}
+	}
+
+	// Map age 55 balances
+	if result.Age55Balances != nil {
+		response.Age55Balances = &struct {
+			OA string `json:"oa"`
+			SA string `json:"sa"`
+			MA string `json:"ma"`
+			RA string `json:"ra"`
+		}{
+			OA: result.Age55Balances.OA.String(),
+			SA: result.Age55Balances.SA.String(),
+			MA: result.Age55Balances.MA.String(),
+			RA: result.Age55Balances.RA.String(),
+		}
+	}
+
+	// Map age 65 balances
+	if result.Age65Balances != nil {
+		response.Age65Balances = &struct {
+			OA string `json:"oa"`
+			SA string `json:"sa"`
+			MA string `json:"ma"`
+			RA string `json:"ra"`
+		}{
+			OA: result.Age65Balances.OA.String(),
+			SA: result.Age65Balances.SA.String(),
+			MA: result.Age65Balances.MA.String(),
+			RA: result.Age65Balances.RA.String(),
+		}
+	}
+
+	// Add CPF LIFE estimates if available
+	if result.CPFLifeEstimates != nil {
+		response.CpfLifeEstimates = buildCpfLifeEstimateResponse(result.CPFLifeEstimates)
+	}
+
+	writeJSON(w, response)
+}
+
 // buildCpfLifeEstimateResponse builds a CPF LIFE estimate response from service result.
 func buildCpfLifeEstimateResponse(result *cpf.CPFLifeEstimateResult) *cpfLifeEstimateResponse {
 	response := &cpfLifeEstimateResponse{

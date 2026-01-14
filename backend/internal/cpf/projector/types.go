@@ -43,3 +43,27 @@ type ProjectedBalances struct {
 	ContributionsOA *decimal.Decimal // Total OA contributions added
 	InterestOA      *decimal.Decimal // Total OA interest earned
 }
+
+// YearlySnapshot represents CPF balances at a specific year
+type YearlySnapshot struct {
+	Year          int              `json:"year"`          // Calendar year
+	Age           int              `json:"age"`           // Age at end of year
+	OA            *decimal.Decimal `json:"oa"`            // Ordinary Account balance
+	SA            *decimal.Decimal `json:"sa"`            // Special Account balance
+	MA            *decimal.Decimal `json:"ma"`            // MediSave Account balance
+	RA            *decimal.Decimal `json:"ra"`            // Retirement Account balance
+	Total         *decimal.Decimal `json:"total"`         // Total CPF balance
+	Contributions *decimal.Decimal `json:"contributions"` // Total contributions this year
+	Interest      *decimal.Decimal `json:"interest"`      // Total interest this year
+}
+
+// YearByYearProjection contains year-by-year CPF projection data
+type YearByYearProjection struct {
+	Snapshots        []YearlySnapshot  `json:"snapshots"`        // Year-by-year balances
+	Age55Balances    *ProjectedBalances `json:"age55Balances"`    // Balances at age 55
+	Age65Balances    *ProjectedBalances `json:"age65Balances"`    // Balances at age 65
+	FRSAtAge55       *decimal.Decimal   `json:"frsAt55"`          // Full Retirement Sum at age 55
+	BRSAtAge55       *decimal.Decimal   `json:"brsAt55"`          // Basic Retirement Sum at age 55
+	ERSAtAge55       *decimal.Decimal   `json:"ersAt55"`          // Enhanced Retirement Sum at age 55
+	BHS              *decimal.Decimal   `json:"bhs"`              // Basic Healthcare Sum (MediSave cap)
+}

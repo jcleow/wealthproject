@@ -253,6 +253,13 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		cpfHandler.HandleCPFProjection(w, r, id)
 	}).Methods("POST")
 
+	// CPF year-by-year projection endpoint (for charting)
+	router.HandleFunc("/cpf/account/{id}/projection/year-by-year", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		cpfHandler.HandleCPFProjectionYearByYear(w, r, id)
+	}).Methods("POST")
+
 	// Person v2 endpoints (for multi-person household support)
 	personHandler := handlers.NewPersonV2Handler(deps.FinStore)
 	router.HandleFunc("/persons", personHandler.HandleList).Methods("GET")
