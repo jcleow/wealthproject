@@ -167,6 +167,20 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
   // CPF Account selection state
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [simulatedAge, setSimulatedAge] = useState<number>(34)
+  const [baseAge, setBaseAge] = useState<number>(34) // User's actual current age
+  const [displayMode, setDisplayMode] = useState<'age' | 'year'>('age')
+
+  // Current year for age/year conversion
+  const currentYear = new Date().getFullYear()
+
+  // Convert between age and year
+  const ageToYear = (age: number) => currentYear + (age - baseAge)
+  const yearToAge = (year: number) => baseAge + (year - currentYear)
+
+  // Current display value (age or year)
+  const displayValue = displayMode === 'age' ? simulatedAge : ageToYear(simulatedAge)
+  const minValue = displayMode === 'age' ? baseAge : currentYear
+  const maxValue = displayMode === 'age' ? 100 : ageToYear(100)
 
   // Fetch real CPF accounts
   const { data: cpfAccounts, isLoading: isLoadingAccounts } = useCpfAccountsQuery()
@@ -176,7 +190,9 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
     if (cpfAccounts && cpfAccounts.length > 0 && !selectedAccountId) {
       const firstAccount = cpfAccounts[0]
       setSelectedAccountId(firstAccount.id)
-      setSimulatedAge(computeAgeFromDob(firstAccount.dateOfBirth))
+      const age = computeAgeFromDob(firstAccount.dateOfBirth)
+      setSimulatedAge(age)
+      setBaseAge(age)
     }
   }, [cpfAccounts, selectedAccountId])
 
@@ -185,7 +201,9 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
     setSelectedAccountId(accountId)
     const account = cpfAccounts?.find((a) => a.id === accountId)
     if (account) {
-      setSimulatedAge(computeAgeFromDob(account.dateOfBirth))
+      const age = computeAgeFromDob(account.dateOfBirth)
+      setSimulatedAge(age)
+      setBaseAge(age)
     }
   }
 
@@ -245,29 +263,59 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
             <span className="text-sm font-medium text-amber-300">Demo Mode</span>
           )}
 
-          {/* Age Input + Slider */}
+          {/* Age/Year Toggle + Input + Slider */}
           <div className="flex items-center gap-2">
+            {/* Age/Year Toggle */}
+            <div className="inline-flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => setDisplayMode('age')}
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
+                  displayMode === 'age'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                Age
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayMode('year')}
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
+                  displayMode === 'year'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                Year
+              </button>
+            </div>
             <input
               type="number"
-              min={18}
-              max={100}
-              value={simulatedAge}
+              min={minValue}
+              max={maxValue}
+              value={displayValue}
               onChange={(e) => {
                 const val = parseInt(e.target.value)
-                if (!isNaN(val) && val >= 18 && val <= 100) {
-                  setSimulatedAge(val)
+                if (!isNaN(val) && val >= minValue && val <= maxValue) {
+                  const newAge = displayMode === 'age' ? val : yearToAge(val)
+                  setSimulatedAge(newAge)
                 }
               }}
-              className="w-12 bg-transparent text-sm font-medium text-white text-center focus:outline-none border-b border-white/20 focus:border-blue-400"
+              className="w-14 bg-transparent text-sm font-medium text-white text-center focus:outline-none border-b border-white/20 focus:border-blue-400"
             />
-            <span className="text-sm text-slate-400">y/o</span>
+            <span className="text-sm text-slate-400">{displayMode === 'age' ? 'y/o' : ''}</span>
             <input
               type="range"
-              min={18}
-              max={100}
+              min={minValue}
+              max={maxValue}
               step={1}
-              value={simulatedAge}
-              onChange={(e) => setSimulatedAge(parseInt(e.target.value))}
+              value={displayValue}
+              onChange={(e) => {
+                const val = parseInt(e.target.value)
+                const newAge = displayMode === 'age' ? val : yearToAge(val)
+                setSimulatedAge(newAge)
+              }}
               className="h-1 w-24 cursor-pointer appearance-none rounded-full bg-slate-700/60 accent-blue-500 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-400 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
             />
           </div>
