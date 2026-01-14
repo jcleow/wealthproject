@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react'
 import {
   AreaChart,
   Area,
-  LineChart,
+  ComposedChart,
+  Bar,
   Line,
   XAxis,
   YAxis,
@@ -692,11 +693,15 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 
               </AreaChart>
             ) : (
-              <LineChart data={payoutProjection} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+              <ComposedChart data={payoutProjection} margin={{ top: 20, right: 60, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="payoutGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.5} />
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -714,18 +719,29 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                     : undefined
                   }
                 />
+                {/* Left Y-axis for monthly payout */}
                 <YAxis
+                  yAxisId="left"
                   tick={{ fill: '#94a3b8', fontSize: 11 }}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value) => `$${(value / 1000).toFixed(1)}K`}
+                />
+                {/* Right Y-axis for remaining balance */}
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fill: '#94a3b8', fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `$${(value / 1000).toFixed(0)}K`}
                 />
                 <Tooltip
                   content={({ active, payload }) => {
                     if (!active || !payload?.[0]) return null
                     const data = payload[0].payload as PayoutProjectionYear
                     return (
-                      <div className="min-w-[200px] px-3 py-2 rounded-lg border border-white/10 bg-[#0f1728]/95 shadow-xl backdrop-blur">
+                      <div className="min-w-[220px] px-3 py-2 rounded-lg border border-white/10 bg-[#0f1728]/95 shadow-xl backdrop-blur">
                         <p className="text-xs font-bold text-slate-400">
                           Age {data.age} ({data.year})
                         </p>
@@ -733,7 +749,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                           <div className="flex items-center justify-between gap-4 text-xs">
                             <span className="flex items-center gap-1.5 text-emerald-400">
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                              Monthly
+                              Monthly Payout
                             </span>
                             <span className="font-mono font-semibold text-white">
                               {formatCurrency(data.monthlyPayout)}
@@ -747,23 +763,26 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                           </div>
                         </div>
 
-                        {/* Premium and Bequest Info */}
+                        {/* Balance and Bequest Info */}
                         <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
+                          <div className="flex items-center justify-between gap-4 text-xs">
+                            <span className="flex items-center gap-1.5 text-violet-400">
+                              <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
+                              Remaining Balance
+                            </span>
+                            <span className="font-mono font-semibold text-violet-300">
+                              {formatCurrency(data.remainingPremium + (selectedPayoutPlan === 'basic' ? data.remainingRA : 0))}
+                            </span>
+                          </div>
                           <div className="flex items-center justify-between gap-4 text-xs">
                             <span className="text-slate-500">Total Received</span>
                             <span className="font-mono text-slate-400">
                               {formatCurrency(data.cumulativePayouts)}
                             </span>
                           </div>
-                          <div className="flex items-center justify-between gap-4 text-xs">
-                            <span className="text-slate-500">Remaining Premium</span>
-                            <span className="font-mono text-slate-400">
-                              {formatCurrency(data.remainingPremium)}
-                            </span>
-                          </div>
                           {selectedPayoutPlan === 'basic' && data.remainingRA > 0 && (
                             <div className="flex items-center justify-between gap-4 text-xs">
-                              <span className="text-slate-500">Remaining RA</span>
+                              <span className="text-slate-500 pl-3">└ RA Balance</span>
                               <span className="font-mono text-slate-400">
                                 {formatCurrency(data.remainingRA)}
                               </span>
@@ -792,6 +811,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 
                 {/* Reference line for payout start age */}
                 <ReferenceLine
+                  yAxisId="left"
                   x={assumptions.payoutStartAge}
                   stroke="#10b981"
                   strokeDasharray="5 5"
@@ -804,7 +824,20 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                   }}
                 />
 
+                {/* Bars showing remaining balance (premium + RA for basic plan) */}
+                <Bar
+                  yAxisId="right"
+                  dataKey="remainingPremium"
+                  fill="url(#balanceGradient)"
+                  stroke="#8b5cf6"
+                  strokeWidth={1}
+                  radius={[2, 2, 0, 0]}
+                  name="Remaining Balance"
+                />
+
+                {/* Line showing monthly payout */}
                 <Line
+                  yAxisId="left"
                   type="monotone"
                   dataKey="monthlyPayout"
                   stroke="#10b981"
@@ -813,7 +846,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                   activeDot={{ r: 4, fill: '#10b981' }}
                 />
 
-              </LineChart>
+              </ComposedChart>
             )}
           </ResponsiveContainer>
         </div>
