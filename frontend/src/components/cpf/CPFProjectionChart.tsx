@@ -217,8 +217,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     return transformProjectionData(apiResponse)
   }, [apiResponse])
 
-  // Chart data is the same as projection (keeping 0 values to show vertical drop to 0)
-  // Convert null to undefined for Recharts compatibility
+  // Use projection directly - 0 values will show as dropping to baseline with separate stackIds
   const chartData = projection ?? undefined
 
   // Generate payout projection for the selected CPF LIFE plan
@@ -652,7 +651,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                   <Area
                     type="monotone"
                     dataKey="oa"
-                    stackId="1"
+                    stackId="0"
                     stroke="#3b82f6"
                     fill="url(#oaChartGradient)"
                     strokeWidth={2}
@@ -660,19 +659,20 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                 )}
                 {visibleAccounts.sa && (
                   <Area
-                    type="stepAfter"
+                    type="monotone"
                     dataKey="sa"
                     stackId="1"
                     stroke="#10b981"
                     fill="url(#saChartGradient)"
                     strokeWidth={2}
+                    connectNulls={false}
                   />
                 )}
                 {visibleAccounts.ma && (
                   <Area
                     type="monotone"
                     dataKey="ma"
-                    stackId="1"
+                    stackId="2"
                     stroke="#f59e0b"
                     fill="url(#maChartGradient)"
                     strokeWidth={2}
@@ -680,12 +680,13 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                 )}
                 {visibleAccounts.ra && (
                   <Area
-                    type="stepAfter"
+                    type="monotone"
                     dataKey="ra"
-                    stackId="1"
+                    stackId="3"
                     stroke="#8b5cf6"
                     fill="url(#raChartGradient)"
                     strokeWidth={2}
+                    connectNulls={false}
                   />
                 )}
 
