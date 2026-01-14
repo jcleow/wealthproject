@@ -917,6 +917,9 @@ function CPFLifePayoutCard({
 }
 
 function RetirementTargetsCard({
+  brs,
+  frs,
+  ers,
   bhs,
 }: {
   brs: number
@@ -924,11 +927,10 @@ function RetirementTargetsCard({
   ers: number
   bhs: number
 }) {
-  // Use official 2026 policy values
   const targets = [
-    { label: 'BRS', value: 110200, color: '#facc15' },
-    { label: 'FRS', value: 220400, color: '#38bdf8' },
-    { label: 'ERS', value: 440800, color: '#a78bfa' },
+    { label: 'BRS', value: brs, color: '#facc15' },
+    { label: 'FRS', value: frs, color: '#38bdf8' },
+    { label: 'ERS', value: ers, color: '#a78bfa' },
     { label: 'BHS', value: bhs, color: '#f472b6' },
   ]
 
