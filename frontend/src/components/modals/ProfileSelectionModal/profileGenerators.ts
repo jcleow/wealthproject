@@ -39,6 +39,7 @@ export interface PersonCreateConfig {
   displayColor: string
   dateOfBirth: string
   residencyStatus: 'citizen' | 'pr'
+  gender: 'male' | 'female'
 }
 
 /**
@@ -117,6 +118,7 @@ export function generateSingleEarlyCareerProfile(): ProfileData {
         displayColor: PERSON_COLORS[0],
         dateOfBirth: getDateOfBirth(25),
         residencyStatus: 'citizen',
+        gender: 'male',
       },
     ],
     cpfAccounts: [
@@ -296,12 +298,14 @@ export function generateDinkProfile(): ProfileData {
         displayColor: PERSON_COLORS[0],
         dateOfBirth: getDateOfBirth(30),
         residencyStatus: 'citizen',
+        gender: 'male',
       },
       {
         name: 'Partner 2',
         displayColor: PERSON_COLORS[1],
         dateOfBirth: getDateOfBirth(28),
         residencyStatus: 'citizen',
+        gender: 'female',
       },
     ],
     cpfAccounts: [
@@ -626,12 +630,14 @@ export function generateDinkKidsPlannedProfile(): ProfileData {
         displayColor: PERSON_COLORS[0],
         dateOfBirth: '1993-01-01',
         residencyStatus: 'citizen',
+        gender: 'male',
       },
       {
         name: 'Sarah',
         displayColor: PERSON_COLORS[1],
         dateOfBirth: '1994-06-15',
         residencyStatus: 'citizen',
+        gender: 'female',
       },
     ],
     cpfAccounts: [
@@ -1136,12 +1142,14 @@ export function generateSingleIncomeFamilyProfile(): ProfileData {
         displayColor: PERSON_COLORS[0],
         dateOfBirth: getDateOfBirth(35),
         residencyStatus: 'citizen',
+        gender: 'male',
       },
       {
         name: 'Stay-home Parent',
         displayColor: PERSON_COLORS[1],
         dateOfBirth: getDateOfBirth(33),
         residencyStatus: 'citizen',
+        gender: 'female',
       },
     ],
     cpfAccounts: [
@@ -1406,6 +1414,7 @@ export function generateFireFocusedProfile(): ProfileData {
         displayColor: PERSON_COLORS[0],
         dateOfBirth: getDateOfBirth(35),
         residencyStatus: 'citizen',
+        gender: 'male',
       },
     ],
     cpfAccounts: [
