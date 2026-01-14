@@ -18,10 +18,9 @@ import {
 import { formatCurrency } from '@/lib/format'
 import type { CPFProfile, CPFAssumptions, CPFProjectionYear, RetirementProjection } from '@/types/cpf'
 import { DEFAULT_CPF_ASSUMPTIONS } from '@/types/cpf'
-import { generateMockProjection, generateMockRetirementProjection } from '@/lib/cpf-mock-data'
 import { CPFAssumptionsPanel } from './CPFAssumptionsPanel'
-import { useCpfYearByYearProjectionQuery } from '@/hooks/queries/useCpfQuery'
-import type { CPFYearByYearProjectionResponse } from '@/api/financial/cpf'
+import { useCpfBalanceProjectionProjectionQuery } from '@/hooks/queries/useCpfQuery'
+import type { CPFBalanceProjectionProjectionResponse } from '@/api/financial/cpf'
 
 interface CPFProjectionChartProps {
   profile: CPFProfile
@@ -32,7 +31,7 @@ interface CPFProjectionChartProps {
  * Transforms API response (string decimals) to chart-compatible format (numbers)
  */
 function transformProjectionData(
-  response: CPFYearByYearProjectionResponse
+  response: CPFBalanceProjectionProjectionResponse
 ): { projection: CPFProjectionYear[]; retirement: RetirementProjection } {
   // Transform snapshots from string decimals to numbers
   const projection: CPFProjectionYear[] = response.snapshots.map((snapshot) => ({
@@ -205,24 +204,23 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     data: apiResponse,
     isLoading,
     error,
-  } = useCpfYearByYearProjectionQuery(profile.id, {
+  } = useCpfBalanceProjectionProjectionQuery(profile.id, {
     retirementAge: assumptions.retirementAge,
     payoutStartAge: assumptions.payoutStartAge,
   })
 
-  // Transform API response or fall back to mock data
+  // Transform API response - no mock data fallback
   const { projection, retirement } = useMemo(() => {
-    if (apiResponse) {
-      return transformProjectionData(apiResponse)
+    if (!apiResponse) {
+      return { projection: null, retirement: null }
     }
-    // Fall back to mock data while loading or on error
-    const mockProjection = generateMockProjection(profile, assumptions)
-    const mockRetirement = generateMockRetirementProjection(mockProjection)
-    return { projection: mockProjection, retirement: mockRetirement }
-  }, [apiResponse, profile, assumptions])
+    return transformProjectionData(apiResponse)
+  }, [apiResponse])
 
   // Generate payout projection for the selected CPF LIFE plan
   const payoutProjection = useMemo(() => {
+    if (!retirement) return []
+
     const monthlyPayout = retirement.cpfLifeEstimates[selectedPayoutPlan]
     if (!monthlyPayout || monthlyPayout <= 0) return []
 
@@ -242,7 +240,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
       assumptions.basicPlanPremiumPercent,
       assumptions.escalatingPlanGrowth
     )
-  }, [retirement.cpfLifeEstimates, retirement.age65Balances.ra, selectedPayoutPlan, profile.age, assumptions.payoutStartAge, assumptions.basicPlanPremiumPercent, assumptions.escalatingPlanGrowth])
+  }, [retirement, selectedPayoutPlan, profile.age, assumptions.payoutStartAge, assumptions.basicPlanPremiumPercent, assumptions.escalatingPlanGrowth])
 
   const milestones = [
     { age: 55, label: 'RA Formation', color: '#f59e0b' },
@@ -251,6 +249,8 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 
   // Find when each retirement sum threshold is reached
   const thresholdMarkers = useMemo(() => {
+    if (!projection || !retirement) return []
+
     const markers: Array<{
       label: string
       color: string
@@ -321,7 +321,33 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     }
 
     return markers
-  }, [projection, retirement.brsTarget, retirement.frsTarget, retirement.ersTarget, retirement.bhsTarget])
+  }, [projection, retirement])
+
+  // Show loading or no-data state
+  if (isLoading) {
+    return (
+      <div className={`space-y-6 ${className}`}>
+        <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
+          <div className="flex items-center justify-center h-80">
+            <span className="text-slate-400 animate-pulse">Loading projection...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!projection || !retirement) {
+    return (
+      <div className={`space-y-6 ${className}`}>
+        <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
+          <div className="flex flex-col items-center justify-center h-80 gap-2">
+            <span className="text-slate-400">No CPF account found</span>
+            <span className="text-xs text-slate-500">Create a CPF account to see projections</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -650,7 +676,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                 )}
                 {visibleAccounts.ra && (
                   <Area
-                    type="monotone"
+                    type="stepAfter"
                     dataKey="ra"
                     stackId="1"
                     stroke="#8b5cf6"
